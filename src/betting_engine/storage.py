@@ -36,6 +36,8 @@ class Store:
             columns={r['name'] for r in c.execute('PRAGMA table_info(bets)')}
             if 'request_id' not in columns:c.execute('ALTER TABLE bets ADD COLUMN request_id TEXT')
             c.execute('CREATE UNIQUE INDEX IF NOT EXISTS bets_request_id ON bets(request_id) WHERE request_id IS NOT NULL')
+            from .instruction_refill import initialize
+            initialize(c)
     @contextmanager
     def db(self):
         c=sqlite3.connect(self.path,timeout=30);c.row_factory=sqlite3.Row;c.execute('PRAGMA journal_mode=WAL')
@@ -330,17 +332,31 @@ class Store:
         with self.db() as c:rows=c.execute('SELECT tip_id,placed_at FROM placement_checklist').fetchall()
         return {r['tip_id']:r['placed_at'] for r in rows}
     def mark_placed(self,tip_id,placed):
-        # Personal checklist only. Never insert a bet, change risk allocation,
-        # or gate automatic settlement on this independent UI state.
+        from .instruction_refill import mark_placed
         with self.db() as c:
             c.execute('BEGIN IMMEDIATE')
-            known=c.execute('SELECT 1 FROM tips WHERE id=? UNION ALL SELECT 1 FROM bets WHERE tip_id=? LIMIT 1',(tip_id,tip_id)).fetchone()
-            if not known:raise ValueError('Pick not found')
-            if placed:
-                c.execute('INSERT OR IGNORE INTO placement_checklist VALUES (?,?)',(tip_id,utcnow().isoformat()))
-            else:c.execute('DELETE FROM placement_checklist WHERE tip_id=?',(tip_id,))
-            row=c.execute('SELECT placed_at FROM placement_checklist WHERE tip_id=?',(tip_id,)).fetchone()
-        return {'tip_id':tip_id,'placed':bool(row),'placed_at':row['placed_at'] if row else None}
+            return mark_placed(c,tip_id,placed)
+    def pending_instruction_refill(self):
+        from .instruction_refill import pending
+        with self.db() as c:return pending(c)
+    def claim_instruction_refill(self):
+        from .instruction_refill import claim
+        with self.db() as c:
+            c.execute('BEGIN IMMEDIATE')
+            return claim(c)
+    def complete_instruction_refill(self,receipt,error=None):
+        from .instruction_refill import complete
+        with self.db() as c:
+            c.execute('BEGIN IMMEDIATE')
+            return complete(c,receipt,error=error)
+    def recover_instruction_refill(self):
+        from .instruction_refill import recover_interrupted
+        with self.db() as c:
+            c.execute('BEGIN IMMEDIATE')
+            return recover_interrupted(c)
+    def instruction_refill_status(self,request_id=None):
+        from .instruction_refill import status
+        with self.db() as c:return status(c,request_id)
     def add_bet(self,tip_id,stake,odds,platform,request_id=None,settlement_mode="manual"):
         tip=self.get_tip(tip_id)
         if not tip:raise ValueError('Unknown recommendation')

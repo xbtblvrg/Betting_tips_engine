@@ -25,11 +25,18 @@ statistics_renderer=StatisticsRenderer()
 @asynccontextmanager
 async def lifespan(app):
     thread=threading.Thread(target=engine.loop,daemon=True,name='quant-engine');thread.start()
-    yield
-    engine.stop.set()
-    await dashboard_renderer.close()
-    await development_renderer.close()
-    await statistics_renderer.close()
+    try:
+        yield
+    finally:
+        try:
+            engine.stop.set()
+            wake=getattr(engine,'priority_refresh',None)
+            if wake is not None:wake.set()
+        finally:
+            results=await asyncio.gather(dashboard_renderer.close(),development_renderer.close(),
+                statistics_renderer.close(),return_exceptions=True)
+            for result in results:
+                if isinstance(result,BaseException):raise result
 
 app=FastAPI(title='Betting Tips — Quant Engine',lifespan=lifespan)
 app.add_middleware(GZipMiddleware,minimum_size=1024,compresslevel=5)
@@ -185,10 +192,15 @@ class PlacementMark(BaseModel):
     model_config=ConfigDict(extra='forbid')
     placed:bool=Field(strict=True)
 
+@app.get('/api/instruction-refill')
+def instruction_refill_status():
+    return engine.store.instruction_refill_status()
+
 @app.put('/api/tips/{tip_id}/checklist')
 def mark_placement(tip_id:str,mark:PlacementMark):
     try:
         result=engine.store.mark_placed(tip_id,mark.placed)
+        if mark.placed and engine.store.pending_instruction_refill():engine.priority_refresh.set()
         dashboard_renderer.invalidate()
         return result
     except ValueError as e:raise HTTPException(404,str(e))

@@ -1,0 +1,62 @@
+[
+  {
+    "name": "gamma-event-1097834",
+    "url": "https://gamma-api.polymarket.com/events/1097834",
+    "method": "GET",
+    "authentication": "none",
+    "started_at": "2026-10-01T10:59:10.399326+00:00",
+    "finished_at": "2026-10-01T10:59:11.088844+00:00",
+    "elapsed_seconds": 0.6893988329684362,
+    "timeout_seconds": 12,
+    "status": 200,
+    "bytes_retained": 114089,
+    "body_complete": true,
+    "sha256": "a24f801c6249f432615a20cebac41b819e44365778335eeafab4add194aa3a0a",
+    "error_type": null
+  },
+  {
+    "name": "book-0",
+    "url": "https://clob.polymarket.com/book?token_id=67690976604231350231537233530354942785262628581415975219270089374965903597309",
+    "method": "GET",
+    "authentication": "none",
+    "started_at": "2026-10-01T10:59:11.089366+00:00",
+    "finished_at": "2026-10-01T10:59:11.622771+00:00",
+    "elapsed_seconds": 0.5334061670000665,
+    "timeout_seconds": 12,
+    "status": 200,
+    "bytes_retained": 2284,
+    "body_complete": true,
+    "sha256": "47ba37ac093504428849e33cd77f51c257ef78fb49adf90f10f857cb5f2ef741",
+    "error_type": null
+  },
+  {
+    "name": "book-1",
+    "url": "https://clob.polymarket.com/book?token_id=38483503806063795439135524943230451704108442716387421367040526416619456752509",
+    "method": "GET",
+    "authentication": "none",
+    "started_at": "2026-10-01T10:59:11.622938+00:00",
+    "finished_at": "2026-10-01T10:59:12.055176+00:00",
+    "elapsed_seconds": 0.4322383749531582,
+    "timeout_seconds": 12,
+    "status": 200,
+    "bytes_retained": 2284,
+    "body_complete": true,
+    "sha256": "82bb2926c9582f6080e95b3a00d5bbc9325c7a6c1833a8dd4c76d9c0c979b437",
+    "error_type": null
+  },
+  {
+    "name": "mlb-game-849844",
+    "url": "https://statsapi.mlb.com/api/v1/schedule?sportId=1&gamePk=849844&hydrate=probablePitcher",
+    "method": "GET",
+    "authentication": "none",
+    "started_at": "2026-10-01T10:59:12.055321+00:00",
+    "finished_at": "2026-10-01T10:59:12.989144+00:00",
+    "elapsed_seconds": 0.9338224169914611,
+    "timeout_seconds": 12,
+    "status": 200,
+    "bytes_retained": 1655,
+    "body_complete": true,
+    "sha256": "ecd63aacff2786fe097370f37ec0d4c78fb6a9c611834c1d11fa24253d328ce5",
+    "error_type": null
+  }
+]

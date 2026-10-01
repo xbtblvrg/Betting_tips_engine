@@ -316,6 +316,13 @@ def _collect(root, payload, operations, components, plan, state, now, release_re
         add(_observation('SYSTEM:component_evidence', 'component_evidence', 'SYSTEM',
             'Fresh component-level evidence is unavailable; a running process alone is insufficient.',
             now.isoformat(), {'checked_at': components.get('checked_at')}, bucket='component', priority=0))
+    from .instruction_refill import shortage_observation
+    refill_report = _read(Path(root) / 'data/instruction_refill.json')
+    try:
+        observation = shortage_observation(refill_report)
+        if observation: add(observation)
+    except (KeyError, TypeError, ValueError):
+        diagnostics.append('Instruction refill evidence is malformed; no completion inferred.')
     learning = _read(Path(root) / 'data/learning_review.json')
     if _fresh(learning.get('reviewed_at'), now, 7200):
         for task in learning.get('tasks', []):

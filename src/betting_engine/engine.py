@@ -18,7 +18,7 @@ from .contracts import contract_value,settlement_scores,split_market,SEGMENT_SCO
 log=logging.getLogger(__name__)
 class Engine:
     def __init__(self,store=None):
-        self.store=store or Store();self.lock=threading.Lock();self.status={'running':False,'stage':'Készenlét','error':None};self.stop=threading.Event();self.models={};self.games=[];self.last_data=0;self.last_train=0;self.last_maintenance=0
+        self.store=store or Store();self.lock=threading.Lock();self.status={'running':False,'stage':'Készenlét','error':None};self.stop=threading.Event();self.priority_refresh=threading.Event();self.models={};self.games=[];self.last_data=0;self.last_train=0;self.last_maintenance=0
     def health(self):return dict(self.status)
     def load_models(self):
         previous=self.models;self.models={};self.model_load_errors={}
@@ -107,8 +107,23 @@ class Engine:
                 'rows':[{'game_id':gid,'state':'recovery_failed'} for gid in unresolved]}
     def refresh(self,force_data=False):
         if not self.lock.acquire(False):return False
+        priority=None;completed=False
         self.status={'running':True,'stage':'Sportadatok ellenőrzése','error':None,'started_at':utcnow().isoformat()}
         try:
+            unfinished=getattr(self,'_unrecorded_refill',None)
+            if unfinished:
+                try:
+                    report=self.store.complete_instruction_refill(unfinished['receipt'],error=unfinished['error'])
+                    if report is None:
+                        report=self.store.instruction_refill_status(unfinished['receipt']['request_id'])
+                        if any(report.get(key)!=unfinished['receipt'].get(key) for key in ('request_id','attempt_number','started_at')):
+                            raise ValueError('Retained refill attempt identity changed')
+                    atomic_json(DATA/'instruction_refill.json',report)
+                    self._unrecorded_refill=None
+                except Exception:log.exception('Retained refill outcome still awaits durable recording; normal scan continues')
+            try:priority=self.store.claim_instruction_refill()
+            except Exception:log.exception('Priority refill request could not be claimed; normal scan continues')
+            force_data=force_data or bool(priority and priority.get('force_data'))
             knowledge=KnowledgeAgent();guard=EvidenceGuard(knowledge)
             recovery=self.store.pending_source_refresh()
             force_data=force_data or bool(recovery)
@@ -252,11 +267,30 @@ class Engine:
                 from .maintenance import maintain
                 maintain();self.last_maintenance=time.time()
             self.status={'running':False,'stage':'Frissítve' if feed_health['state']=='healthy' else 'Árforrás-kiesés' if feed_health['state']=='unavailable' else 'Részleges piaci frissítés','error':feed_health['message'],'market_feed':feed_health,'finished_at':utcnow().isoformat()}
+            completed=True
             return True
         except Exception as e:
             log.exception('Refresh failed');self.status={'running':False,'stage':'Frissítési hiba','error':str(e),'finished_at':utcnow().isoformat()};return False
-        finally:self.lock.release()
+        finally:
+            if priority:
+                try:
+                    report=self.store.complete_instruction_refill(priority,error=None if completed else self.status.get('error') or 'Refresh did not complete')
+                    if report:atomic_json(DATA/'instruction_refill.json',report)
+                except Exception:
+                    self._unrecorded_refill={'receipt':priority,'error':None if completed else self.status.get('error') or 'Refresh did not complete'}
+                    log.exception('Priority refill outcome receipt failed; exact attempt retained for the next refresh owner')
+            self.lock.release()
     def loop(self):
+        with self.lock:
+            try:
+                interrupted=self.store.recover_instruction_refill()
+                if interrupted:atomic_json(DATA/'instruction_refill.json',interrupted[-1])
+            except Exception:log.exception('Interrupted refill receipt could not be recorded; normal scans continue')
         while not self.stop.is_set():
+            self.priority_refresh.clear()
             started=time.monotonic();self.refresh()
-            self.stop.wait(max(10,self.store.settings()['refresh_seconds']-(time.monotonic()-started)))
+            delay=max(10,self.store.settings()['refresh_seconds']-(time.monotonic()-started))
+            try:
+                if self.store.pending_instruction_refill():delay=min(delay,1)
+            except Exception:log.exception('Priority refill queue could not be read')
+            self.priority_refresh.wait(delay)

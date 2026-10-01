@@ -1,5 +1,5 @@
 {
-  "version": "2026-09-30.19",
+  "version": "2026-10-01.profit-learning-v1",
   "created_at": "2026-09-29T14:15:39.029647+00:00",
   "timezone": "Europe/Budapest",
   "checkpoint_semantics": "Review deadlines, not promised completion dates",
@@ -124,6 +124,28 @@
         "R28",
         "R29",
         "R30"
+      ]
+    },
+    {
+      "id": "M09",
+      "title": "Profit-learning cycle, free references and continuous distinct-game delivery",
+      "checkpoint_at": "2026-10-02T11:30:00+00:00",
+      "acceptance": "Tested/reviewed concrete implementation and root integration evidence per increment; original decisions preserved. Candidate readiness or retrospective score improvement never means live activation, sustained CLV or profitable outcomes. Report every unmet acceptance at its original checkpoint.",
+      "requirements": [
+        "R01",
+        "R05",
+        "R06",
+        "R11",
+        "R14",
+        "R20",
+        "R23",
+        "R28",
+        "R29",
+        "R31",
+        "R38",
+        "R39",
+        "R40",
+        "R41"
       ]
     }
   ],
@@ -401,6 +423,143 @@
       "depends_on": [],
       "objective": "Repair pending NHL bet/system-decision outcomes after game IDs leave the rolling schedule. Current reproduction: 27 prior-game open tickets across five NHL IDs are absent from games.json despite official final evidence.",
       "acceptance": "Exact official final identity/start/team and scoring scope; correct regulation, periods, OT and shootout accounting. Idempotently settle pending bets and original decisions while original payload/odds/stakes stay hash-identical. Fail incomplete/conflicting/stale source evidence with persistent retry state. Tests, independent review, fresh runtime local/Tailscale proof; remaining future open tickets must not be force-settled."
+    },
+    {
+      "id": "D25",
+      "milestone": "M09",
+      "priority": 2,
+      "title": "Free exact-contract reference ingestion",
+      "owner": "Codex isolated developer; root controlled integration",
+      "created_at": "2026-10-01T11:26:53.657532+00:00",
+      "due_at": "2026-10-02T11:30:00+00:00",
+      "directive_requirements": [
+        "A1"
+      ],
+      "objective": "Reuse reference_polymarket.py and its source-pinned public fixtures. Integrate a bounded separate read-only reference observation flow, full raw archives, event/contract mapping, executable bid/ask, fees, depth and observed time. No paid provider or fabricated Pinnacle quote. Keep unknown/different settlement or schedule evidence explicit, and distinguish informational conditional references from verified full payout equivalence.",
+      "acceptance": "Actual anonymous source replay plus fault cases, exact provenance, no credential/order access, deduplicated bounded observations, scheduling/integration proof; failed reference fetch never stops Stake publication.",
+      "depends_on": []
+    },
+    {
+      "id": "D26",
+      "milestone": "M09",
+      "priority": 2,
+      "title": "Starter and season-context feature improvement",
+      "owner": "Codex isolated developer; root controlled integration",
+      "created_at": "2026-10-01T11:26:53.657532+00:00",
+      "due_at": "2026-10-02T11:30:00+00:00",
+      "directive_requirements": [
+        "A2",
+        "A3"
+      ],
+      "objective": "Audit actual deployed features first; reuse MLB starter/history features that already exist. Repair targeted confirmed-starter availability and implement source-timed NHL goalies, NBA/WNBA injury and NFL QB features plus early-season shrinkage/playoff context as validated increments. Missing official starters stay missing; quotes do not substitute for sports inputs.",
+      "acceptance": "Exact source identity/availability, archived training input, chronological game-grouped comparison, honest missingness and source refresh recovery. No model activation from fixtures alone; existing guard/settlement behavior preserved.",
+      "depends_on": []
+    },
+    {
+      "id": "D27",
+      "milestone": "M09",
+      "priority": 1,
+      "title": "Learned market blending and own-decision calibration",
+      "owner": "Codex isolated developer; root controlled integration",
+      "created_at": "2026-10-01T11:26:53.657532+00:00",
+      "due_at": "2026-10-02T11:30:00+00:00",
+      "directive_requirements": [
+        "B4",
+        "B5",
+        "C7"
+      ],
+      "objective": "Build replayable league/family probability blending from independently retained sports probabilities and contemporaneous complete no-vig exact-market evidence. Learn weights/calibration on admissible earlier original/shadow observations; held-out final outcomes and future closing prices cannot enter issue-time features. Develop near-breakeven calibrated Probability Pick selection without fabricating positive EV or padding.",
+      "acceptance": "Separated fit/selection/calibration/test, game grouping, source hashes and as_of, complementary/push/line coherence, sparse-data fallback explicitly labeled, proper model/market comparator. Default no implicit production replacement. Checked integration must reproduce probability and funding receipts before activation.",
+      "depends_on": [
+        "D25"
+      ]
+    },
+    {
+      "id": "D28",
+      "milestone": "M09",
+      "priority": 1,
+      "title": "All-candidate shadow and closing capture completeness",
+      "owner": "Codex isolated developer; root controlled integration",
+      "created_at": "2026-10-01T11:26:53.657532+00:00",
+      "due_at": "2026-10-02T11:30:00+00:00",
+      "directive_requirements": [
+        "DE9",
+        "DE10",
+        "C8"
+      ],
+      "objective": "Extend existing prospective_shadow/shadow_runtime/closing_capture rather than duplicating them. Preserve every evaluated candidate status, immutable first issue and distinct observation histories; collect exact close attempts for funded/unfunded contracts, learn CLV by issue lead-time. Rejected/unsupported candidates retain why they cannot be modeled or settled.",
+      "acceptance": "Durable bounded tasks and restart recovery; exact same line/scope settlement; source-timestamp integrity; missing closes remain missing; every candidate and close coverage gap counted; no repeated quote as independent sample; distinct prospective and retrospective studies.",
+      "depends_on": [
+        "D02"
+      ]
+    },
+    {
+      "id": "D29",
+      "milestone": "M09",
+      "priority": 1,
+      "title": "Segment scoreboard and evidence-weighted allocation",
+      "owner": "Codex isolated developer; root controlled integration",
+      "created_at": "2026-10-01T11:26:53.657532+00:00",
+      "due_at": "2026-10-02T11:30:00+00:00",
+      "directive_requirements": [
+        "F11",
+        "C6",
+        "GH14"
+      ],
+      "objective": "Combine original decision outcomes and separate shadow studies by league/scope/family with game-cluster samples. Report model/market Brier, calibration, CLV coverage/values, realized stake P&L/ROI and timing. Route weak segments into stable development tasks. Implement a reproducible bounded evidence-following USD1–5 allocation experiment with low exploratory stakes, stronger CLV evidence earning larger stake weights, preserving no fixed daily cap.",
+      "acceptance": "Explicit evidence thresholds and uncertainty, no invented bankroll, original stakes immutable, candidate versus active policy distinct, no blanket sparse-CLV funding veto, reproducible posterior/random seed if sampling is used, same-event exposure analysis, no claims of profit from model estimate.",
+      "depends_on": [
+        "D28"
+      ]
+    },
+    {
+      "id": "D30",
+      "milestone": "M09",
+      "priority": 2,
+      "title": "Market-relative model promotion and live challenger trials",
+      "owner": "Codex isolated developer; root controlled integration",
+      "created_at": "2026-10-01T11:26:53.657532+00:00",
+      "due_at": "2026-10-02T11:30:00+00:00",
+      "directive_requirements": [
+        "GH12",
+        "GH13"
+      ],
+      "objective": "Audit every training entry point; default to checked mode. Extend existing promotion to compare a candidate with the contemporaneous relevant market and nonregressing CLV, using prospective live shadow challenger evidence before replacement. Preserve the incumbent and continuous live publication while a challenger collects evidence.",
+      "acceptance": "Archive exact code/input/model/source versions before fit; untouched final test not used for recipe selection; minimum evidence/stability and market/CLV tests; interrupted promotion rollback and stale candidate rejection; no champion change from a queue or unvalidated utility.",
+      "depends_on": [
+        "D27",
+        "D28"
+      ]
+    },
+    {
+      "id": "D31",
+      "milestone": "M09",
+      "priority": 3,
+      "title": "Publication retention and lifecycle import integrity",
+      "owner": "Codex isolated developer; root controlled integration",
+      "created_at": "2026-10-01T11:26:53.657532+00:00",
+      "due_at": "2026-10-02T11:30:00+00:00",
+      "directive_requirements": [
+        "O15"
+      ],
+      "objective": "Git baseline is already created. Audit safe publication retention and the still-open receipt import/manual settlement defects. Build archive-before-prune of old unreferenced publications, preserving all original decisions, source/review/closing/outcome links and genuine separate tickets. Reproduce actual import/manual-settlement defects before repairs.",
+      "acceptance": "Idempotent receipt imports; exact accepted amounts/odds separated from originals; audit trail for manual overrides; transactional archive checks, retained hash/index and restore drill; no live deletion or ledger edits from the isolated worker. Root-reviewed activation required.",
+      "depends_on": []
+    },
+    {
+      "id": "D32",
+      "milestone": "M09",
+      "priority": 2,
+      "title": "Continuous depleted-list recovery acceptance",
+      "owner": "Codex isolated developer; root controlled integration",
+      "created_at": "2026-10-01T11:26:53.657532+00:00",
+      "due_at": "2026-10-02T11:30:00+00:00",
+      "directive_requirements": [
+        "C16"
+      ],
+      "objective": "Verify and improve the root-integrated instruction_refill flow. A last currently executable instruction marked placed must produce a durable coalesced priority 48-hour scan, retain interrupted/failed attempts and recover with bounded backoff. Broaden distinct-game coverage without duplicate or inferior-line padding.",
+      "acceptance": "Actual server/readiness/engine integration, concurrent/repeated marks, stale/history marks, process restart, failed scan then fresh recovery; immutable ledger and guards, separate daily first-issue accounting and unchanged deadlines. A shortage creates actionable work and never claims fulfillment.",
+      "depends_on": []
     }
   ],
   "deferred": [

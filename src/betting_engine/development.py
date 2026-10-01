@@ -33,7 +33,7 @@ PROTECTED = ('config/validation_sources.json', 'AGENTS.md', 'pyproject.toml', 'p
     'src/betting_engine/__init__.py',
     'src/betting_engine/development.py', 'src/betting_engine/delivery.py',
     'src/betting_engine/ai_delegation.py', 'src/betting_engine/native_boundary.py', 'src/betting_engine/parallel_development.py',
-    'src/betting_engine/runtime_errors.py', 'src/betting_engine/engineering_loop.py', 'src/betting_engine/release_coordinator.py', 'src/betting_engine/resource_capacity.py',
+    'src/betting_engine/runtime_errors.py', 'src/betting_engine/workspace_boundary.py', 'src/betting_engine/engineering_loop.py', 'src/betting_engine/release_coordinator.py', 'src/betting_engine/resource_capacity.py',
     'src/betting_engine/statistics.py', 'src/betting_engine/statistics_worker.py', 'src/betting_engine/outcome_feedback.py',
     'src/betting_engine/player_runtime.py', 'src/betting_engine/development_inputs.py', 'src/betting_engine/development_sports_evidence.py', 'src/betting_engine/training_evidence.py',
     'src/betting_engine/governance.py', 'src/betting_engine/decisions.py',
@@ -893,7 +893,7 @@ class DevelopmentWorker:
         self.workspace.mkdir()
         if accepted.exists():
             shutil.copytree(accepted, self.workspace, dirs_exist_ok=True,
-                ignore=shutil.ignore_patterns('__pycache__', '.pytest_cache', 'node_modules', 'data', 'candidate_fixture_repairs'))
+                ignore=shutil.ignore_patterns('__pycache__', '.pytest_cache', '.git', 'node_modules', 'data', 'candidate_fixture_repairs'))
             staged=tree_manifest(self.workspace)
             changes=changed_files(old_base,current_base)
             conflicts=[p for p in changes if not p.startswith('knowledge/') and staged.get(p) not in (old_base.get(p),current_base.get(p))]
@@ -1021,6 +1021,8 @@ class DevelopmentWorker:
         return result
 
     def command(self, schema, output, sandbox='workspace-write'):
+        from .workspace_boundary import ensure_workspace_git_boundary
+        ensure_workspace_git_boundary(self.root, self.workspace)
         return [self.config['codex_binary'], 'exec', '--ignore-user-config', '--ephemeral',
             '--skip-git-repo-check', *self.permission_args(sandbox=='read-only'), '-c', 'approval_policy="never"',
             '-c', 'web_search="disabled"',
@@ -1040,6 +1042,7 @@ class DevelopmentWorker:
                      Path(self.config['codex_binary']).parent,Path.home()/'.codex/packages',
                      Path(self.config['codex_binary']),Path(self.config['codex_binary']).resolve())):
             fs.append(json.dumps(str(path))+'="read"')
+        fs.append(json.dumps(str(self.workspace / '.git'))+'="read"')
         fs.append(json.dumps(str(self.workspace / 'data/validation_sources'))+'="read"')
         from .development_inputs import validation_workspace_document_paths
         for relative in validation_workspace_document_paths(self.root, self.workspace):
