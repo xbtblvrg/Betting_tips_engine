@@ -1,0 +1,37 @@
+{
+  "acceptance_sha256": "16f94639753f4b05ac37da530f75fed818430871f998cce22949948710ec008d",
+  "cohort": {
+    "decision_records": 179,
+    "manifest_exported_at": "2026-10-01T14:02:01.316354+00:00",
+    "publication_created_at": "2026-10-01T14:01:17.958564+00:00",
+    "publication_version": 4615
+  },
+  "files": [
+    {
+      "bytes": 250189,
+      "path": "manifest.json",
+      "sha256": "aaa21a98f618532cf2be8af87209ea51b48855db2f7025dd70f99b2d244245e1"
+    },
+    {
+      "bytes": 20338520,
+      "path": "publication.json",
+      "sha256": "26e8dd33a758cc31f8913e1d9a577a6ba8d0e5e37c0ddf82483bc1c8b8d97f56"
+    },
+    {
+      "bytes": 2927456,
+      "path": "system_decisions.json",
+      "sha256": "509ec5bd64a4bda24a0f00111448cd785742870ede3fd2f9c3ed77172bba5287"
+    }
+  ],
+  "owner": "D31",
+  "source_run": "20261001T135440807911-D31",
+  "test": {
+    "nodeids": [
+      "tests/test_d31_publication_retention.py::test_actual_frozen_publication_restore_does_not_rewrite_source_times",
+      "tests/test_d31_publication_retention.py::test_exported_original_decisions_and_outcomes_survive_restore_drill"
+    ],
+    "path": "tests/test_d31_publication_retention.py",
+    "sha256": "059ee7d00b5ea226133665c90d9791e1dd6293833e4bd5db6b6c1da7327e43a9"
+  },
+  "version": "release-fixture-inputs-v1"
+}

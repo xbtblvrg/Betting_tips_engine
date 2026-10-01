@@ -33,9 +33,9 @@ COPY_FILES = ('AGENTS.md', 'pyproject.toml', 'package.json', 'package-lock.json'
 PROTECTED = ('config/validation_sources.json', 'AGENTS.md', 'pyproject.toml', 'package.json', 'package-lock.json',
     'src/betting_engine/__init__.py',
     'src/betting_engine/development.py', 'src/betting_engine/delivery.py',
-    'src/betting_engine/ai_delegation.py', 'src/betting_engine/native_boundary.py', 'src/betting_engine/parallel_development.py',
+    'src/betting_engine/ai_delegation.py', 'src/betting_engine/native_boundary.py', 'src/betting_engine/native_test_protocol.py', 'src/betting_engine/parallel_development.py',
     'src/betting_engine/provider_runtime.py', 'src/betting_engine/provider_recovery.py', 'src/betting_engine/codex_control.py', 'src/betting_engine/claude_development.py',
-    'src/betting_engine/runtime_errors.py', 'src/betting_engine/workspace_copy.py', 'src/betting_engine/workspace_boundary.py', 'src/betting_engine/engineering_loop.py', 'src/betting_engine/release_coordinator.py', 'src/betting_engine/resource_capacity.py',
+    'src/betting_engine/runtime_errors.py', 'src/betting_engine/workspace_copy.py', 'src/betting_engine/release_fixture_inputs.py', 'src/betting_engine/workspace_boundary.py', 'src/betting_engine/engineering_loop.py', 'src/betting_engine/release_coordinator.py', 'src/betting_engine/resource_capacity.py',
     'src/betting_engine/statistics.py', 'src/betting_engine/statistics_worker.py', 'src/betting_engine/outcome_feedback.py',
     'src/betting_engine/player_runtime.py', 'src/betting_engine/development_inputs.py', 'src/betting_engine/development_sports_evidence.py', 'src/betting_engine/training_evidence.py',
     'src/betting_engine/governance.py', 'src/betting_engine/decisions.py',
@@ -1318,8 +1318,8 @@ class DevelopmentWorker:
         verify_task_diagnostics(self.root, self.workspace, task)
         python = str(self.root / '.venv/bin/python')
         self._failure_phase = prefix + 'python-tests'
-        self.run_process(self.test_command([python, '-m', 'pytest', '-q', 'tests']),
-            run / (prefix + 'python-tests'), timeout=600)
+        from .native_test_protocol import validate_python
+        validate_python(self, run / (prefix + 'python-tests'), python)
         verify_validation_sources(self.root, self.workspace)
         verify_task_diagnostics(self.root, self.workspace, task)
         self._failure_phase = prefix + 'dom-tests'

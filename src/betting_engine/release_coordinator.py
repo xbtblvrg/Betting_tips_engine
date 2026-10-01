@@ -918,6 +918,11 @@ def obsolete_extra_task_evidence(root, task_id, development=None, now=None):
 
 class ReleaseSandbox(DevelopmentWorker):
     """Reuse restricted execution, without changing coding-worker state/heartbeat."""
+    def readonly_input_paths(self):
+        # Release-only frozen inputs must remain immutable inside candidate tests
+        # and review, not merely be rechecked between those steps.
+        return (*super().readonly_input_paths(), 'data/development_inputs')
+
     def heartbeat(self, state='running', **extra):
         atomic_json(self.root / 'data/releases/validation-worker.json', {
             'checked_at': utcnow().isoformat(), 'state': state,
@@ -927,21 +932,25 @@ class ReleaseSandbox(DevelopmentWorker):
 class LiveBackend:
     def validate(self, root, workspace, run, policy, request):
         from .development_inputs import verify_validation_sources
+        from .release_fixture_inputs import verify_release_fixture_inputs
         verify_validation_sources(root, workspace)
-        worker = ReleaseSandbox(root); worker.workspace = workspace
+        verify_release_fixture_inputs(root, workspace)
+        worker = ReleaseSandbox(root); worker.root = Path(root).resolve(); worker.workspace = workspace
         worker.run_started_at = utcnow().isoformat()
         config = policy.get('validation', {})
         worker.config.update({k: config[k] for k in ('codex_binary', 'node_binary', 'model') if k in config})
         # Codex remains the independent release reviewer. No helper fallback.
         if not worker.config.get('codex_binary') or not worker.config.get('model'):
             raise ReleaseBlocked('review_unavailable', 'Codex release reviewer is not configured')
-        worker.run_process(worker.test_command([str((root / '.venv').resolve() / 'bin/python'), '-m', 'pytest', '-q', 'tests']),
-            run / 'release-python', timeout=600)
+        from .native_test_protocol import validate_python
+        validate_python(worker, run / 'release-python', str((root / '.venv').resolve() / 'bin/python'))
         verify_validation_sources(root, workspace)
+        verify_release_fixture_inputs(root, workspace)
         extra_dom = ['tests/web_model_pick_allocation_cases.mjs'] if (workspace / 'tests/web_model_pick_allocation_cases.mjs').is_file() else []
         worker.run_process(worker.test_command([worker.config['node_binary'], '--test', 'tests/web.test.mjs', *extra_dom]),
             run / 'release-dom', timeout=180)
         verify_validation_sources(root, workspace)
+        verify_release_fixture_inputs(root, workspace)
         schema = run / 'release-review-schema.json'; output = run / 'release-review.json'
         atomic_json(schema, REVIEW_SCHEMA)
         prompt = ('Independently review this exact root-owned utility release. Read the changed files and tests. '
@@ -959,6 +968,7 @@ class LiveBackend:
         else:
             worker.run_process(worker.command(schema, output, 'read-only'), run / 'release-review', prompt, timeout=600)
         verify_validation_sources(root, workspace)
+        verify_release_fixture_inputs(root, workspace)
         return {'python': 'passed', 'dom': 'passed', 'review': read_json(output)}
 
     def observe(self, root):
@@ -1209,6 +1219,11 @@ class ReleaseCoordinator:
         validation_sources = export_validation_sources(self.root, workspace)
         if validation_sources['state'] == 'rejected':
             raise ReleaseBlocked('validation_sources_required', 'Declared frozen validation sources unavailable; inspect data/validation_sources/export.json')
+        from .release_fixture_inputs import export_release_fixture_inputs
+        try:
+            export_release_fixture_inputs(self.root, workspace)
+        except (OSError, ValueError) as exc:
+            raise ReleaseBlocked('release_fixture_required', str(exc)) from exc
         return workspace, records
 
     def write_journal(self, journal):

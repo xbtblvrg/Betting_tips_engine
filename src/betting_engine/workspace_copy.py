@@ -24,8 +24,24 @@ _RESTRICTIVE_FLAGS = sum(getattr(stat, name, 0) for name in
 
 
 def _directory(path):
-    """Open every ancestor without following links, including the final parent."""
+    """Pin a directory, rejecting links in every component of its path.
+
+    Darwin's O_NOFOLLOW_ANY performs the component check in the kernel while
+    opening only the requested directory. Opening each ancestor for reading
+    would wrongly require sandbox listing access to /private and /Users even
+    when the caller is authorized to access the requested subtree. The returned
+    descriptor retains the same relative-child and identity-check semantics.
+    """
+    path = Path(path)
+    if '..' in path.parts:
+        raise ValueError('Workspace copy path contains parent traversal')
     path = Path(os.path.abspath(os.fspath(path)))
+    if sys.platform == 'darwin':
+        # Darwin sys/fcntl.h, O_NOFOLLOW_ANY. Python does not always expose it.
+        # Do NOT combine with O_NOFOLLOW: Darwin rejects that pair with EINVAL.
+        # An unsupported kernel/error fails closed; never retry a weaker open.
+        return os.open(path, os.O_RDONLY | os.O_DIRECTORY
+                       | getattr(os, 'O_NOFOLLOW_ANY', 0x20000000))
     fd = os.open(path.anchor, os.O_RDONLY | os.O_DIRECTORY)
     try:
         for part in path.parts[1:]:
