@@ -19,6 +19,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from .io_utils import atomic_bytes
+from .workspace_copy import copy_verified
 
 VERSION = "public-development-sports-evidence-v1"
 MAX_BYTES = 256 * 1024 * 1024
@@ -229,7 +230,7 @@ def export_development_sports_evidence(data_dir, destination, *, now=None,
                 raise ValueError("byte_budget_exhausted")
             for name, content in paths.items():
                 if name not in files:
-                    atomic_bytes(target / name, content)
+                    copy_verified(raw / Path(name).name, target / name, content)
                     files[name] = {"sha256": _sha(content), "bytes": len(content)}
                     spent += len(content)
             copied += 1

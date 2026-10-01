@@ -17,6 +17,7 @@ import joblib
 from .development_evidence import _read_evidence
 from .domain import parse_time, utcnow
 from .io_utils import atomic_bytes
+from .workspace_copy import copy_verified
 from .snapshots import PREFIX
 
 MAX_FILE = 64 * 1024 * 1024
@@ -273,7 +274,7 @@ def export_development_inputs(root, workspace):
     def error(kind, identity, exc):
         manifest['errors'].append({'kind': kind, 'identity': str(identity)[:250], 'reason': str(exc)[:300]})
 
-    def write(relative, body):
+    def write(relative, body, *, source=None):
         if len(body) > MAX_FILE:
             raise ValueError('Export file exceeds byte bound')
         path = workspace / 'data' / relative
@@ -292,7 +293,10 @@ def export_development_inputs(root, workspace):
         if manifest['bytes'] + len(body) > MAX_TOTAL:
             raise ValueError('Total development export byte bound exceeded')
         path.parent.mkdir(parents=True, exist_ok=True)
-        atomic_bytes(path, body)
+        if source is None:
+            atomic_bytes(path, body)
+        else:
+            copy_verified(source, path, body)
         copied[relative] = digest
         manifest['bytes'] += len(body)
         manifest['files'].append({'path': 'data/' + relative, 'sha256': digest, 'bytes': len(body)})
@@ -302,7 +306,7 @@ def export_development_inputs(root, workspace):
     try:
         files, endpoints = _catalog(root)
         for relative, body in files.items():
-            write(relative, body)
+            write(relative, body, source=root / 'data' / relative)
         references.extend(_refs(endpoints))
     except Exception as exc:
         error('stake_catalog', 'current', exc)
@@ -352,7 +356,7 @@ def export_development_inputs(root, workspace):
             if digest != meta.get('sha256') or relative != 'stake_api_archive/' + digest + '.json.gz' or len(body) != meta.get('bytes'):
                 raise ValueError('Stake raw source hash/length mismatch')
             _metadata_safe(json.loads(body))
-            write(relative, raw)
+            write(relative, raw, source=root / 'data' / relative)
             manifest['sources'].append(dict(meta))
         except Exception as exc:
             error('stake_raw_source', relative, exc)
@@ -368,7 +372,7 @@ def export_development_inputs(root, workspace):
             if len(seen_nhl_refs) > MAX_BLOBS:
                 raise ValueError('NHL outcome source count bound exceeded')
             raw = _nhl_source(root, meta)
-            write(relative, raw)
+            write(relative, raw, source=root / 'data' / relative)
             manifest['sources'].append(dict(meta))
         except Exception as exc:
             error('nhl_outcome_source', relative, exc)
@@ -691,7 +695,7 @@ def export_validation_sources(root, workspace):
                     temporary = Path(tempfile.mkdtemp(prefix='.validation-', dir=target_root))
                     for name, body in contents.items():
                         destination = temporary/name; destination.parent.mkdir(parents=True, exist_ok=True)
-                        atomic_bytes(destination, body)
+                        copy_verified(root/'data/validation_source_archives'/(_sha(body)+'.bin'), destination, body)
                     os.rename(temporary, target); temporary = None
                 for name, destination in destinations.items():
                     if not destination.exists():

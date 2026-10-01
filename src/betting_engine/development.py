@@ -23,6 +23,7 @@ from datetime import timedelta
 from .delivery import read_json, READY_TASK_STATES, apply_task_releases
 from .domain import utcnow, parse_time
 from .io_utils import atomic_bytes, atomic_json
+from .workspace_copy import copy2 as workspace_copy2
 from .ai_delegation import collect as collect_advice, validate_reviews, REVIEW_PROPERTY
 
 COPY_DIRS = ('src', 'tests', 'docs', 'knowledge/cards')
@@ -33,7 +34,7 @@ PROTECTED = ('config/validation_sources.json', 'AGENTS.md', 'pyproject.toml', 'p
     'src/betting_engine/__init__.py',
     'src/betting_engine/development.py', 'src/betting_engine/delivery.py',
     'src/betting_engine/ai_delegation.py', 'src/betting_engine/native_boundary.py', 'src/betting_engine/parallel_development.py',
-    'src/betting_engine/runtime_errors.py', 'src/betting_engine/workspace_boundary.py', 'src/betting_engine/engineering_loop.py', 'src/betting_engine/release_coordinator.py', 'src/betting_engine/resource_capacity.py',
+    'src/betting_engine/runtime_errors.py', 'src/betting_engine/workspace_copy.py', 'src/betting_engine/workspace_boundary.py', 'src/betting_engine/engineering_loop.py', 'src/betting_engine/release_coordinator.py', 'src/betting_engine/resource_capacity.py',
     'src/betting_engine/statistics.py', 'src/betting_engine/statistics_worker.py', 'src/betting_engine/outcome_feedback.py',
     'src/betting_engine/player_runtime.py', 'src/betting_engine/development_inputs.py', 'src/betting_engine/development_sports_evidence.py', 'src/betting_engine/training_evidence.py',
     'src/betting_engine/governance.py', 'src/betting_engine/decisions.py',
@@ -892,7 +893,7 @@ class DevelopmentWorker:
             shutil.rmtree(self.workspace)
         self.workspace.mkdir()
         if accepted.exists():
-            shutil.copytree(accepted, self.workspace, dirs_exist_ok=True,
+            shutil.copytree(accepted, self.workspace, dirs_exist_ok=True, copy_function=workspace_copy2,
                 ignore=shutil.ignore_patterns('__pycache__', '.pytest_cache', '.git', 'node_modules', 'data', 'candidate_fixture_repairs'))
             staged=tree_manifest(self.workspace)
             changes=changed_files(old_base,current_base)
@@ -921,7 +922,7 @@ class DevelopmentWorker:
             for relative in COPY_DIRS:
                 source = self.root / relative
                 if source.exists():
-                    shutil.copytree(source, self.workspace / relative,
+                    shutil.copytree(source, self.workspace / relative, copy_function=workspace_copy2,
                         ignore=shutil.ignore_patterns('__pycache__', '.pytest_cache', 'candidate_fixture_repairs'))
             for relative in COPY_FILES:
                 source = self.root / relative
@@ -958,13 +959,13 @@ class DevelopmentWorker:
         for relative in ('players',):
             source = self.root / 'data' / relative
             if source.exists():
-                shutil.copytree(source, self.workspace / 'data' / relative, dirs_exist_ok=True,
+                shutil.copytree(source, self.workspace / 'data' / relative, dirs_exist_ok=True, copy_function=workspace_copy2,
                     ignore=shutil.ignore_patterns('verified_history','source_evidence'))
         for relative in ('games.json', 'periods/scores.json', 'segments/mlb_scores.json'):
             source = self.root / 'data' / relative
             if source.exists():
                 target = self.workspace / 'data' / relative; target.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(source, target)
+                workspace_copy2(source, target)
         for relative in ('research/catalog.json',):
             source = self.root / 'data' / relative
             if source.exists():
