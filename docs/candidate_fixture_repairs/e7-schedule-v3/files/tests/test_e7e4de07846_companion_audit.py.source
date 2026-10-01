@@ -1,0 +1,103 @@
+"""Exhaustive companion diagnostics; synthetic cases never approve execution."""
+from copy import deepcopy
+import hashlib
+import json
+from pathlib import Path
+from _frozen_candidate_exports import frozen_root
+
+import pytest
+
+from betting_engine.ncaa_volleyball_replay import replay_bound_export
+from test_e7e4de07846_export_replay import CONTRACTS, raw_json, repin_files
+from test_e7e4de07846_fixture_binding import run
+from test_e7e4de07846_schedule_binding import schedule_export
+
+
+@pytest.mark.parametrize('reverse', [False, True])
+@pytest.mark.parametrize('failure', ['missing_observation', 'http', 'missing_archive'])
+def test_every_companion_failure_retains_exact_reference(failure, reverse):
+    manifest, files = schedule_export()
+    catalog = json.loads(files[CONTRACTS])
+    refs = catalog['rows'][0]['fixture_evidence']['schedule_fixture']['schedule_sources']
+    if reverse:
+        refs.reverse()
+    for ref in refs:
+        meta = next(s for s in manifest['sources'] if s == ref)
+        if failure == 'missing_observation':
+            meta['fetched_at'] = '2026-09-29T20:01:00+00:00'
+        elif failure == 'http':
+            meta['http_status'] = ref['http_status'] = 503
+        else:
+            files.pop('data/' + ref['archive'])
+    files[CONTRACTS] = raw_json(catalog)
+    if failure != 'missing_archive':
+        repin_files(manifest, files)
+    else:
+        entry = next(e for e in manifest['files'] if e['path'] == CONTRACTS)
+        entry.update(sha256=hashlib.sha256(files[CONTRACTS]).hexdigest(), bytes=len(files[CONTRACTS]))
+    before = deepcopy((manifest, files))
+    report = run(manifest, files)
+    assessment = report['volleyball_assessments'][0]
+    checks = assessment['provider_fixture_binding']['source_checks']
+    expected = {'missing_observation': 'source_observation_not_in_manifest',
+                'http': 'source_http_failure', 'missing_archive': 'file_missing'}[failure]
+    assert [c['source'] for c in checks] == refs
+    assert all(c['state'] == 'unresolved' and c['reason'] == expected for c in checks)
+    assert all(any(i.get('source') == ref and i['reason'] == expected
+                   and i.get('role') == 'fixture_companion' for i in report['source_issues'])
+               for ref in refs)
+    assert not assessment['contracts'] and not assessment['execution_eligible']
+    assert (manifest, files) == before
+
+
+def test_verified_companions_are_not_sports_or_execution_approval():
+    manifest, files = schedule_export()
+    assessment = run(manifest, files)['volleyball_assessments'][0]
+    checks = assessment['provider_fixture_binding']['source_checks']
+    assert len(checks) == 2
+    assert all(c['state'] == 'observation_bytes_verified' for c in checks)
+    assert len(assessment['contracts']) == 2
+    assert not assessment['execution_eligible']
+    assert not assessment['settlement_validated']
+
+
+def test_failed_fixture_does_not_hide_malformed_schedule_reference():
+    manifest, files = schedule_export()
+    catalog = json.loads(files[CONTRACTS])
+    refs = catalog['rows'][0]['fixture_evidence']['schedule_fixture']['schedule_sources']
+    meta = next(s for s in manifest['sources'] if s == refs[0])
+    meta['fetched_at'] = '2026-09-29T20:01:00+00:00'
+    refs[1] = None
+    files[CONTRACTS] = raw_json(catalog)
+    repin_files(manifest, files)
+    checks = run(manifest, files)['volleyball_assessments'][0]['provider_fixture_binding']['source_checks']
+    assert [c['reason'] for c in checks] == ['source_observation_not_in_manifest', 'invalid_source_reference']
+
+
+def test_supplied_inventory_and_all_missing_observations_are_retained():
+    root = frozen_root('e7e4-volleyball-v1')
+    raw = (root / 'data/development_inputs/manifest.json').read_bytes()
+    manifest = json.loads(raw)
+    files = {e['path']: (root / e['path']).read_bytes() for e in manifest['files']}
+    summary = json.loads(files['data/market_catalog/latest.json'])
+    rows = [r for r in json.loads(files['data/' + summary['contracts_archive']])['rows']
+            if r['league'] == 'NCAA_VOLLEYBALL_WOMEN']
+    report = replay_bound_export(raw, manifest_sha256=hashlib.sha256(raw).hexdigest(),
+                                 files=files, as_of=summary['checked_at'])
+    assert rows and report['observed_volleyball_rows'] == len(rows)
+    assert [a['row'] for a in report['volleyball_assessments']] == rows
+    for row, assessment in zip(rows, report['volleyball_assessments']):
+        refs = row['fixture_evidence']['schedule_fixture']['schedule_sources']
+        checks = assessment['provider_fixture_binding']['source_checks']
+        assert [c['source'] for c in checks] == refs
+        for ref, check in zip(refs, checks):
+            if not any(all(s.get(k) == ref.get(k) for k in ('url', 'sha256', 'fetched_at', 'archive'))
+                       for s in manifest['sources']):
+                assert check['reason'] == 'source_observation_not_in_manifest'
+                assert check['state'] == 'unresolved'
+        assert not assessment['execution_eligible']
+        if row['start'] <= summary['checked_at']:
+            assert 'event_started' in assessment['reasons']
+            assert not assessment['contracts']
+    assert all(o['state'] == 'blocked_on_validation'
+               for o in report['obligations']['obligations'].values())

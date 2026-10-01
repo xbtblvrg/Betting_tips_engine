@@ -1,0 +1,81 @@
+{
+  "league": "NBA",
+  "fixture_id": "d9611a6c-1b58-4dbc-a534-8d54d0a479fe",
+  "fixture": "Detroit Pistons - Boston Celtics",
+  "fixture_slug": "46805509-detroit-pistons-boston-celtics",
+  "start": "2026-10-20T19:00:00+00:00",
+  "market_id": "1269c745-f173-4a66-8f2d-9d040f80d5f8",
+  "market": "Winner (Incl. Overtime)",
+  "specifiers": "",
+  "provider_section": "standard",
+  "tabs": [
+    {
+      "id": "da6d72e7-1226-43d0-b411-10e370329a4e",
+      "name": "main"
+    },
+    {
+      "id": "2c6a96a3-5929-494c-bae4-afc7c5c49b1f",
+      "name": "threeway"
+    },
+    {
+      "id": "94f20548-314a-4d68-8b64-821fdad994e2",
+      "name": "winner"
+    }
+  ],
+  "outcomes": [
+    {
+      "odds": 1.78,
+      "active": true,
+      "voidFactor": 0,
+      "id": "47c3892c-d3be-4aa2-a061-385c92b2a99a",
+      "name": "Detroit Pistons"
+    },
+    {
+      "odds": 2.01,
+      "active": true,
+      "voidFactor": 0,
+      "id": "a935c1ff-5ca7-4409-bad4-0a6290b03e15",
+      "name": "Boston Celtics"
+    }
+  ],
+  "status": "active",
+  "raw_contract": {
+    "id": "1269c745-f173-4a66-8f2d-9d040f80d5f8",
+    "status": "active",
+    "specifiers": "",
+    "extendedSpecifiers": "",
+    "updatedAt": 1790554890497,
+    "name": "Winner (Incl. Overtime)",
+    "outcomes": [
+      {
+        "odds": 1.78,
+        "active": true,
+        "voidFactor": 0,
+        "id": "47c3892c-d3be-4aa2-a061-385c92b2a99a",
+        "name": "Detroit Pistons"
+      },
+      {
+        "odds": 2.01,
+        "active": true,
+        "voidFactor": 0,
+        "id": "a935c1ff-5ca7-4409-bad4-0a6290b03e15",
+        "name": "Boston Celtics"
+      }
+    ]
+  },
+  "source": {
+    "url": "https://odds-data.stake.com/odds/46805509-detroit-pistons-boston-celtics",
+    "fetched_at": "2026-09-29T16:23:45.590377+00:00",
+    "sha256": "fc6024bc7eee5dc8d630f48e64542a9ad1fcf036be8955aa56a9d13f8a0743bd",
+    "archive": "stake_api_archive/fc6024bc7eee5dc8d630f48e64542a9ad1fcf036be8955aa56a9d13f8a0743bd.json.gz"
+  },
+  "family": "score_contract",
+  "scope": "full_game",
+  "scope_basis": "title_explicit",
+  "dependencies": [
+    "scope_score_targets",
+    "scope_probability_model",
+    "exact_payoff_rule"
+  ],
+  "recognition_is_model_support": false
+}

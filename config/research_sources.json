@@ -1,0 +1,63 @@
+{
+  "enabled": true,
+  "cadence_hours": 24,
+  "sources": [
+    {
+      "id": "league-nba",
+      "league": "NBA",
+      "query": "(all:NBA OR ti:basketball) AND (all:prediction OR all:player OR all:lineup OR all:calibration)"
+    },
+    {
+      "id": "league-mlb",
+      "league": "MLB",
+      "query": "(all:MLB OR ti:baseball) AND (all:prediction OR all:pitcher OR all:runs OR all:forecasting)"
+    },
+    {
+      "id": "league-nhl",
+      "league": "NHL",
+      "query": "(all:NHL OR ti:hockey) AND (all:prediction OR all:goalie OR all:goals OR all:forecasting)"
+    },
+    {
+      "id": "league-nfl",
+      "league": "NFL",
+      "query": "(all:NFL OR ti:\"American football\") AND (all:prediction OR all:touchdown OR all:player OR all:forecasting)"
+    },
+    {
+      "id": "league-wnba",
+      "league": "WNBA",
+      "query": "(all:WNBA OR ti:\"women basketball\" OR ti:basketball) AND (all:prediction OR all:player OR all:lineup OR all:calibration)"
+    },
+    {
+      "id": "league-mls",
+      "league": "MLS",
+      "query": "(all:\"Major League Soccer\" OR ti:soccer) AND (all:prediction OR all:goals OR all:forecasting)"
+    },
+    {
+      "id": "sports-models",
+      "query": "(ti:sports OR ti:basketball OR ti:baseball OR ti:hockey OR ti:football) AND (all:prediction OR all:forecasting OR all:betting)"
+    },
+    {
+      "id": "calibration-and-drift",
+      "query": "(ti:calibration OR ti:forecasting) AND (all:probabilistic OR all:drift OR all:ensemble)"
+    },
+    {
+      "id": "learning-agents",
+      "query": "(ti:\"self-improving\" OR ti:\"self improvement\" OR ti:\"automated machine learning\") AND (all:evaluation OR all:optimization)"
+    },
+    {
+      "id": "league-ncaaf",
+      "league": "NCAAF",
+      "query": "(all:NCAA OR ti:\"college football\") AND (all:prediction OR all:forecasting OR all:ratings)"
+    },
+    {
+      "id": "league-ncaam",
+      "league": "NCAAM",
+      "query": "(all:NCAA OR ti:\"college basketball\") AND (all:prediction OR all:forecasting OR all:calibration)"
+    },
+    {
+      "id": "league-ncaaw",
+      "league": "NCAAW",
+      "query": "(all:NCAA OR ti:\"women basketball\") AND (all:prediction OR all:forecasting OR all:ratings)"
+    }
+  ]
+}

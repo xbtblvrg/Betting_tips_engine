@@ -1,0 +1,36 @@
+         2496117 function calls (2483274 primitive calls) in 0.585 seconds
+
+   Ordered by: cumulative time
+   List reduced from 985 to 28 due to restriction <28>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    0.585    0.585 /Users/belavarga/Betting_tips_engine/src/betting_engine/delivery.py:43(delivery_status)
+        1    0.000    0.000    0.537    0.537 /Users/belavarga/Betting_tips_engine/src/betting_engine/delivery.py:141(development_progress)
+        1    0.000    0.000    0.536    0.536 /Users/belavarga/Betting_tips_engine/src/betting_engine/release_coordinator.py:358(release_recovery_status)
+       22    0.003    0.000    0.466    0.021 /Users/belavarga/Betting_tips_engine/src/betting_engine/release_coordinator.py:322(recovery_context)
+       22    0.031    0.001    0.310    0.014 /Users/belavarga/Betting_tips_engine/src/betting_engine/release_coordinator.py:199(utility_prerequisites)
+   122958    0.026    0.000    0.153    0.000 /opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/ast.py:386(walk)
+   122904    0.019    0.000    0.122    0.000 {method 'extend' of 'collections.deque' objects}
+   245754    0.051    0.000    0.103    0.000 /opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/ast.py:280(iter_child_nodes)
+       29    0.001    0.000    0.078    0.003 /Users/belavarga/Betting_tips_engine/src/betting_engine/parallel_development.py:39(_read_acceptance)
+        1    0.000    0.000    0.069    0.069 /Users/belavarga/Betting_tips_engine/src/betting_engine/release_coordinator.py:119(production_manifest)
+        1    0.004    0.004    0.069    0.069 /Users/belavarga/Betting_tips_engine/src/betting_engine/development.py:526(production_manifest)
+      834    0.001    0.000    0.064    0.000 /opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/pathlib/__init__.py:773(read_bytes)
+      716    0.003    0.000    0.057    0.000 /Users/belavarga/Betting_tips_engine/src/betting_engine/release_coordinator.py:67(confined)
+       54    0.000    0.000    0.051    0.001 /opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/ast.py:26(parse)
+       54    0.051    0.001    0.051    0.001 {built-in method builtins.compile}
+      834    0.051    0.000    0.051    0.000 {method 'read' of '_io.FileIO' objects}
+      459    0.001    0.000    0.050    0.000 /Users/belavarga/Betting_tips_engine/src/betting_engine/release_coordinator.py:55(file_hash)
+     73/2    0.000    0.000    0.041    0.020 <frozen importlib._bootstrap>:1360(_find_and_load)
+     73/2    0.000    0.000    0.041    0.020 <frozen importlib._bootstrap>:1308(_find_and_load_unlocked)
+     72/2    0.000    0.000    0.041    0.020 <frozen importlib._bootstrap>:914(_load_unlocked)
+     55/2    0.000    0.000    0.041    0.020 <frozen importlib._bootstrap_external>:753(exec_module)
+    167/4    0.000    0.000    0.038    0.009 <frozen importlib._bootstrap>:483(_call_with_frames_removed)
+     60/2    0.002    0.000    0.038    0.019 {built-in method builtins.exec}
+   323811    0.027    0.000    0.037    0.000 /opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/ast.py:268(iter_fields)
+      878    0.034    0.000    0.034    0.000 {built-in method _hashlib.openssl_sha256}
+     2028    0.001    0.000    0.032    0.000 /opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/pathlib/__init__.py:932(resolve)
+   676892    0.031    0.000    0.031    0.000 {built-in method builtins.isinstance}
+    23655    0.025    0.000    0.029    0.000 {built-in method posix.lstat}
+
+

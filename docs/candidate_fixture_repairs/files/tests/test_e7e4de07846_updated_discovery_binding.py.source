@@ -1,0 +1,191 @@
+"""Discovery/body attacks use synthetic data; the final case replays local bytes."""
+
+from copy import deepcopy
+import gzip
+import json
+from pathlib import Path
+
+import pytest
+
+from _frozen_candidate_exports import frozen_root
+
+from betting_engine.ncaa_volleyball import LEAGUE
+from betting_engine.ncaa_volleyball_replay import replay_export
+from test_e7e4de07846_export_replay import (
+    CONTRACTS, ENDPOINTS, LATEST, digest, make_export, raw_json, replay, repin_files,
+)
+
+BASE = 'https://odds-data.stake.com/sports/volleyball'
+
+
+def replace_discovery(manifest, files, body):
+    source = manifest['sources'][1]
+    old_archive = source['archive']
+    raw = raw_json(body)
+    source.update(sha256=digest(raw), bytes=len(raw),
+                  archive=f'stake_api_archive/{digest(raw)}.json.gz')
+    files.pop('data/' + old_archive)
+    files['data/' + source['archive']] = gzip.compress(raw, mtime=0)
+    endpoints = json.loads(files[ENDPOINTS])
+    endpoints['tournament_sources'] = [deepcopy(source)]
+    files[ENDPOINTS] = raw_json(endpoints)
+    repin_files(manifest, files)
+
+
+@pytest.mark.parametrize('body', [
+    {'tournaments': []},
+    {'tournaments': [{'slug': 'ncaa-men', 'enabled': True}]},
+    {'tournaments': [{'slug': 'ncaa-women', 'enabled': False}]},
+    {'tournaments': [{'slug': 'ncaa-women', 'enabled': 1}]},
+    {'tournaments': [{'slug': 'ncaa-women'}]},
+    {'tournaments': [None]},
+    {'tournaments': 'missing'},
+    {'tournaments': [{'slug': 'ncaa-women', 'enabled': True}] * 2},
+    {'tournaments': [{'slug': 'ncaa-women', 'enabled': True}], 'sport': 'Basketball'},
+    {'tournaments': [{'slug': 'ncaa-women', 'enabled': True}], 'category': 'Russia'},
+])
+def test_hashed_body_must_actually_establish_tournament(body):
+    manifest, files = make_export()
+    original = json.loads(files[CONTRACTS])['rows'][0]
+    replace_discovery(manifest, files, body)
+    report = replay(manifest, files)
+    assessment = report['volleyball_assessments'][0]
+    assert assessment['row'] == original
+    assert not assessment['contracts']
+    assert 'volleyball_tournament_not_bound_to_body' in assessment['reasons']
+    assert report['observation_state'] == 'source_evidence_incomplete'
+    assert not report['volleyball_discovery']['bound_tournament_paths']
+    assert not report['production_supported']
+    assert all(o['state'] == 'blocked_on_validation'
+               for o in report['obligations']['obligations'].values())
+
+
+@pytest.mark.parametrize('mutation', ['missing_registry', 'other_path', 'ambiguous_path'])
+def test_exact_offer_cannot_borrow_an_unbound_discovery(mutation):
+    manifest, files = make_export()
+    if mutation == 'missing_registry':
+        summary = json.loads(files[LATEST])
+        summary['tournaments'] = {}
+        files[LATEST] = raw_json(summary)
+    elif mutation == 'other_path':
+        contracts = json.loads(files[CONTRACTS])
+        contracts['rows'][0]['league_path'] = 'volleyball/usa/other'
+        files[CONTRACTS] = raw_json(contracts)
+    else:
+        replace_discovery(manifest, files, {'tournaments': [
+            {'slug': 'ncaa-women', 'enabled': True},
+            {'slug': 'ncaa-women-division-2', 'enabled': True}]})
+        summary = json.loads(files[LATEST])
+        summary['tournaments'][LEAGUE].append('ncaa-women-division-2')
+        files[LATEST] = raw_json(summary)
+    repin_files(manifest, files)
+    report = replay(manifest, files)
+    assert not report['volleyball_assessments'][0]['contracts']
+    assert any(i['reason'] == 'volleyball_row_discovery_unbound' for i in report['source_issues'])
+
+
+@pytest.mark.parametrize('failure', ['disabled', 'missing_bytes', 'http', 'invalid_json'])
+def test_second_conflicting_discovery_cannot_choose_favorable_response(failure):
+    manifest, files = make_export()
+    source = deepcopy(manifest['sources'][1])
+    raw = (b'{invalid' if failure == 'invalid_json' else raw_json(
+        {'tournaments': [{'slug': 'ncaa-women', 'enabled': False}]}))
+    source.update(sha256=digest(raw), bytes=len(raw),
+                  archive=f'stake_api_archive/{digest(raw)}.json.gz')
+    if failure == 'http':
+        source['http_status'] = 503
+    if failure != 'missing_bytes':
+        files['data/' + source['archive']] = gzip.compress(raw, mtime=0)
+    manifest['sources'].append(source)
+    endpoints = json.loads(files[ENDPOINTS])
+    endpoints['tournament_sources'].append(source)
+    files[ENDPOINTS] = raw_json(endpoints)
+    repin_files(manifest, files)
+    report = replay(manifest, files)
+    assert not report['volleyball_assessments'][0]['contracts']
+    assert not report['volleyball_discovery']['bound_tournament_paths']
+
+
+def test_observed_tournament_keeps_exact_offer_and_never_grants_approval():
+    manifest, files = make_export()
+    replace_discovery(manifest, files, {'sport': 'Volleyball', 'category': 'USA',
+        'tournaments': [{'slug': 'ncaa-women', 'name': 'NCAA, Women', 'enabled': True}]})
+    before = deepcopy((manifest, files))
+    report = replay(manifest, files)
+    assert len(report['volleyball_assessments'][0]['contracts']) == 2
+    discovery = report['volleyball_discovery']
+    assert discovery['category_state'] == 'unknown'
+    assert discovery['bound_tournament_paths'] == ['volleyball/usa/ncaa-women']
+    assert not discovery['absence_resolves_gap']
+    assert not report['volleyball_assessments'][0]['execution_eligible']
+    assert (manifest, files) == before
+
+
+@pytest.mark.parametrize('categories,state', [
+    ([], 'usa_not_returned'),
+    ([{'slug': 'usa', 'enabled': False}], 'usa_disabled_observed'),
+    ([{'slug': 'usa', 'enabled': True}], 'usa_enabled_observed'),
+    ([{'slug': 'usa', 'enabled': 1}], 'unknown'),
+])
+def test_category_observation_does_not_close_prior_obligations(categories, state):
+    manifest, files = make_export()
+    prior = replay(manifest, files)['obligations']
+    raw = raw_json({'sport': 'Volleyball', 'categories': categories})
+    source = {**manifest['sources'][1], 'url': BASE + '/categories',
+              'sha256': digest(raw), 'bytes': len(raw),
+              'archive': f'stake_api_archive/{digest(raw)}.json.gz'}
+    manifest['sources'].append(source)
+    files['data/' + source['archive']] = gzip.compress(raw, mtime=0)
+    endpoints = json.loads(files[ENDPOINTS])
+    endpoints['tournament_sources'] = [source]
+    files[ENDPOINTS] = raw_json(endpoints)
+    summary = json.loads(files[LATEST])
+    summary['tournaments'] = {}
+    files[LATEST] = raw_json(summary)
+    files[CONTRACTS] = raw_json({'checked_at': summary['checked_at'], 'rows': []})
+    repin_files(manifest, files)
+    report = replay(manifest, files, previous=prior)
+    assert report['volleyball_discovery']['category_state'] == state
+    assert not report['volleyball_discovery']['absence_resolves_gap']
+    for key, obligation in prior['obligations'].items():
+        assert report['obligations']['obligations'][key] == obligation
+    if state == 'unknown':
+        assert report['observation_state'] == 'source_evidence_incomplete'
+
+
+def test_supplied_category_observation_is_bound_without_inventing_usa_or_offers():
+    root = frozen_root("e7e4-volleyball-v1")
+    raw = (root / 'data/development_inputs/manifest.json').read_bytes()
+    manifest = json.loads(raw)
+    files = {f['path']: (root / f['path']).read_bytes() for f in manifest['files']}
+    summary = json.loads(files[LATEST])
+    report = replay_export(raw, manifest_sha256=digest(raw), files=files,
+                           as_of=summary['checked_at'])
+    discovery = report['volleyball_discovery']
+    assert discovery['category_state'] == 'usa_enabled_observed'
+    # This new workspace ports the prior candidate test to the current export.
+    # Bind to original archived bytes, not a previous recovery's category list.
+    observation = discovery['category_observations'][0]
+    source = observation['source']
+    archived = gzip.decompress(files['data/' + source['archive']])
+    assert digest(archived) == source['sha256']
+    assert source in manifest['sources']
+    assert observation['rows'] == json.loads(archived)['categories']
+    assert any(row['slug'] == 'usa' and row['enabled'] is True for row in observation['rows'])
+    assert discovery['bound_tournament_paths'] == ['volleyball/usa/ncaa-women-regular-season']
+    assert report['observed_volleyball_rows'] == 7
+    assert not report['historical_availability_authenticated']
+    assert not report['production_supported']
+
+
+def test_missing_first_tournament_does_not_crash_or_contaminate_second_binding():
+    manifest, files = make_export()
+    summary = json.loads(files[LATEST])
+    summary['tournaments'][LEAGUE].insert(0, 'ncaa-women-missing')
+    files[LATEST] = raw_json(summary)
+    repin_files(manifest, files)
+    report = replay(manifest, files)
+    assert report['volleyball_discovery']['bound_tournament_paths'] == ['volleyball/usa/ncaa-women']
+    assert any(i.get('slug') == 'ncaa-women-missing' for i in report['source_issues'])
+    assert report['observation_state'] == 'source_evidence_incomplete'
+    assert not report['production_supported']

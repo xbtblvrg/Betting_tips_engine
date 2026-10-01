@@ -1,0 +1,202 @@
+{
+  "archive_replay_cutoff": "2026-09-30T05:00:00Z",
+  "helper_reviews": [],
+  "history_inspection": {
+    "authenticated_historical_availability": false,
+    "namespace": "nhl",
+    "nhl_rows": 167659,
+    "pin": {
+      "manifest_sha256": "37d168526d11216ed4b59d4614ba9aade02ef713e26efc4c0a5aeeeedbf34e51",
+      "run_id": "20260929T192751138800Z-d0ccf522fb5d"
+    },
+    "rows_matching_five_pbp_games": 0,
+    "source_published_at": null,
+    "stat_scope": "full_game_including_overtime_excluding_shootout",
+    "verified_rows": 550729
+  },
+  "implementation_sha256": "30b20512b4eb6d352da4fe2d4e59331c1fe9647847f4bb7e34ed25721e2f3c74",
+  "independent_controller_review": "pending",
+  "issued_instructions": 0,
+  "knowledge_cards": {
+    "knowledge/cards/K01-valoszinuseg-ar-ev.md": "c3f0541824ecda19d7889d13aa9bd226c715cd91e8d4ec2e1919e8c8074d06db",
+    "knowledge/cards/K03-adat-ido-forras.md": "a71af120097072161a042f04257cb6f4ebc617e34ff43c19588ca313148b1d9a",
+    "knowledge/cards/K08-validacio.md": "951ffe80c87fd491bfeece567c31a86a78371087fcf8b16297422ecadd624bd3"
+  },
+  "knowledge_scope": "Read card text as methodology, not operational instructions or sports observations.",
+  "live_source_verified": false,
+  "matching_real_boxscore_verified": false,
+  "native_observations": [
+    {
+      "assessment_sha256": "55af24935338e47c2ab163f59aeea43804035d47e04a83f297725e24ea168544",
+      "before_capture_reasons": [
+        "not_observed_as_of"
+      ],
+      "contributing_shots": 66,
+      "excluded_shootout_event_ids": [],
+      "game_id": "NHL:2022030145",
+      "metadata_sha256": "6b135c70e862145c9f6b588fc2b394287adbca68e23ede6f45f2a111c915ffca",
+      "observed_at": "2026-09-29T13:39:19.850242+00:00",
+      "players": 40,
+      "players_with_observed_shots": 31,
+      "reasons": [
+        "missing_independent_player_boxscore"
+      ],
+      "source_published_at": null,
+      "source_sha256": "1fa6a0c601c22f3d4171a0fc40ef7f0576ceccca8d881c3a94aee379be52aed4",
+      "state": "team_totals_reconciled",
+      "team_shots": {
+        "NJD": 43,
+        "NYR": 23
+      },
+      "url": "https://api-web.nhle.com/v1/gamecenter/2022030145/play-by-play"
+    },
+    {
+      "assessment_sha256": "c24cb2a17831348256cd593c31ce8826ab450311fbe80e54ca2e23d708c09f5e",
+      "before_capture_reasons": [
+        "not_observed_as_of"
+      ],
+      "contributing_shots": 62,
+      "excluded_shootout_event_ids": [],
+      "game_id": "NHL:2022020939",
+      "metadata_sha256": "8947401c4aa084f12e26a8137d5174ad5db56f08f893c6926d15593b9fc00269",
+      "observed_at": "2026-09-29T13:39:19.489021+00:00",
+      "players": 40,
+      "players_with_observed_shots": 28,
+      "reasons": [
+        "missing_independent_player_boxscore"
+      ],
+      "source_published_at": null,
+      "source_sha256": "f8da543e62075b6767d478df012b6d61e4452facd835a2a903a1950c6f466d55",
+      "state": "team_totals_reconciled",
+      "team_shots": {
+        "BOS": 35,
+        "VAN": 27
+      },
+      "url": "https://api-web.nhle.com/v1/gamecenter/2022020939/play-by-play"
+    },
+    {
+      "assessment_sha256": "65ffb30d2e93bbfcc512fe8b3de758302453dc656258db1b751064899e55ac3a",
+      "before_capture_reasons": [
+        "not_observed_as_of"
+      ],
+      "contributing_shots": 66,
+      "excluded_shootout_event_ids": [],
+      "game_id": "NHL:2022020583",
+      "metadata_sha256": "6c73e866d9dcfed406bc8bffe870511c64c8f1ceddd2bdcf319ff279c820faa4",
+      "observed_at": "2026-09-29T13:39:19.161093+00:00",
+      "players": 40,
+      "players_with_observed_shots": 32,
+      "reasons": [
+        "missing_independent_player_boxscore"
+      ],
+      "source_published_at": null,
+      "source_sha256": "5c34b20a2bebdf19ed6d3c1b702e7669b06f8ea4551e1118b71dbbb40b2b33f9",
+      "state": "team_totals_reconciled",
+      "team_shots": {
+        "CBJ": 38,
+        "CHI": 28
+      },
+      "url": "https://api-web.nhle.com/v1/gamecenter/2022020583/play-by-play"
+    },
+    {
+      "assessment_sha256": "5747c53be40c003ad13831d463c15cbdeff2eb1d3a28b7bd807f7cb6130081a4",
+      "before_capture_reasons": [
+        "not_observed_as_of"
+      ],
+      "contributing_shots": 51,
+      "excluded_shootout_event_ids": [
+        932,
+        933,
+        934,
+        935,
+        936,
+        938,
+        939,
+        940,
+        941,
+        945
+      ],
+      "game_id": "NHL:2022020543",
+      "metadata_sha256": "75d2ae360627422d730838d1f7f36b4cbff56db351f4ee00e943cc2088cb73b8",
+      "observed_at": "2026-09-29T13:39:18.729663+00:00",
+      "players": 40,
+      "players_with_observed_shots": 23,
+      "reasons": [
+        "missing_independent_player_boxscore"
+      ],
+      "source_published_at": null,
+      "source_sha256": "2966d88fe2bdd2adad2953889593e102949b9f44b9b8ca25b31bc1ed4f6a2647",
+      "state": "team_totals_reconciled",
+      "team_shots": {
+        "ARI": 24,
+        "LAK": 27
+      },
+      "url": "https://api-web.nhle.com/v1/gamecenter/2022020543/play-by-play"
+    },
+    {
+      "assessment_sha256": "32317deca56c9969b3c83e0f3662ac25aa9854e68b0d36954455013c0e9f3852",
+      "before_capture_reasons": [
+        "not_observed_as_of"
+      ],
+      "contributing_shots": 53,
+      "excluded_shootout_event_ids": [],
+      "game_id": "NHL:2022020222",
+      "metadata_sha256": "d64683d205bb128575ced109fb70f78f32e3c45e92c537b14316b0ebe98c43b2",
+      "observed_at": "2026-09-29T13:39:18.153527+00:00",
+      "players": 40,
+      "players_with_observed_shots": 30,
+      "reasons": [
+        "missing_independent_player_boxscore"
+      ],
+      "source_published_at": null,
+      "source_sha256": "f7ed4ef5ca51f2a4630a3e9b7d5fe2de384bb07213caa27fbe99e3546131e6f1",
+      "state": "team_totals_reconciled",
+      "team_shots": {
+        "TBL": 29,
+        "WSH": 24
+      },
+      "url": "https://api-web.nhle.com/v1/gamecenter/2022020222/play-by-play"
+    }
+  ],
+  "new_fits": 0,
+  "original_file_preservation": {
+    "changed": [],
+    "files_checked": 296,
+    "new_files": [
+      "docs/F0025_PLAYER_SHOT_EVIDENCE.json",
+      "docs/F0025_PLAYER_SHOT_RECONCILIATION.md",
+      "src/betting_engine/player_shot_reconciliation.py",
+      "tests/test_f0025_player_shot_reconciliation.py"
+    ]
+  },
+  "production_supported": false,
+  "profit_measured": false,
+  "public_bundle_declared_files_verified": 24,
+  "public_bundle_manifest_sha256": "5ec906ea8b61b79d010f1cdecc851e3ba29c1a3df6f102643d120dce9ce27fd3",
+  "public_bundle_sources": 12,
+  "scope": "Offline NHL player shots-on-goal outcome reconciliation; not production prop activation",
+  "settlement_eligible": false,
+  "source_publication_times_inferred": false,
+  "task_id": "F0025",
+  "test_file_sha256": "9a8a93476d46b6dc1743b3cdcb57ce506b717b144dc9c085abb31c0563492309",
+  "validation": {
+    "controller_full_suites": "pending",
+    "existing_python_api": {
+      "passed": 393,
+      "seconds": 125.3,
+      "warnings": [
+        "Existing Starlette/httpx deprecation"
+      ]
+    },
+    "frontend_dom": {
+      "passed": 40,
+      "seconds": 13.876
+    },
+    "independent_read_only_review": "pending",
+    "live_publication": "not_accessed",
+    "new_tests": {
+      "passed": 53,
+      "seconds": 7.35
+    }
+  }
+}

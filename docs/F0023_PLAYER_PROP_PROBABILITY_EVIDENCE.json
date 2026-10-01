@@ -1,0 +1,120 @@
+{
+  "task": "F0023",
+  "scope": "Offline selected count-distribution payoff evaluator; no production integration",
+  "source_snapshot": {
+    "run": "20260929T192751138800Z-d0ccf522fb5d",
+    "manifest_sha256": "37d168526d11216ed4b59d4614ba9aade02ef713e26efc4c0a5aeeeedbf34e51",
+    "observations_sha256": "d5624e9e4ab27f3050a7c80435cf9aa955d3c9334e043190b89232c33b9c2b5a",
+    "rows": 550729,
+    "all_four_declared_input_files_hash_and_size_verified": true
+  },
+  "public_bundle_manifest_sha256": "9b2603b282ea031322230b0f8de0c9be3facaf9e1a1a6982da53a0d46b2ff0da",
+  "study_artifact_index_sha256": "02c1ac891e4f53a4f4273bd9c2d9ac97acbd3a39e81fb37cba3601bd6d10c907",
+  "study_report_sha256": "3e1f856f4197e9aae57069439b11ecafe88d1c5c2d0ff984cd76bf2aae252963",
+  "model_adapter_checks": [
+    {
+      "metric": "NBA/player/points",
+      "model_sha256": "70badcd8c792077f492532d9c0628a5c1db25b3a2af9e06a2115d4079a6d0bdf",
+      "namespace": "espn",
+      "stat_scope": "full_game_including_overtime",
+      "selected_recipe": "player_nb",
+      "adapter_read_verified": true,
+      "production_supported": false
+    },
+    {
+      "metric": "WNBA/player/points",
+      "model_sha256": "5efe77591553b396a40f6684d17f1963c62697836cbd0d329c1eea2a69f15b34",
+      "namespace": "espn",
+      "stat_scope": "full_game_including_overtime",
+      "selected_recipe": "player_nb",
+      "adapter_read_verified": true,
+      "production_supported": false
+    },
+    {
+      "metric": "NHL/player/shots_on_goal",
+      "model_sha256": "41f2801b2505ef497416f3d0196339ed522d706407e73621b8922340e94da4a2",
+      "namespace": "nhl",
+      "stat_scope": "full_game_including_overtime_excluding_shootout",
+      "selected_recipe": "player_nb",
+      "adapter_read_verified": true,
+      "production_supported": false
+    },
+    {
+      "metric": "MLB/hitting/hits",
+      "model_sha256": "dd496261e95ef74c86db57b4b3a70ae7e65260195609528cbe6746dca1b01ecb",
+      "namespace": "mlbam",
+      "stat_scope": "full_game_including_extra_innings",
+      "selected_recipe": "player_poisson",
+      "adapter_read_verified": true,
+      "production_supported": false
+    },
+    {
+      "metric": "MLB/pitching/strikeOuts",
+      "model_sha256": "4984ff83462400a5c572034b0d8328744fa4920dcc4d7b23bf5c5c88cbe2d5fd",
+      "namespace": "mlbam",
+      "stat_scope": "full_game_including_extra_innings",
+      "selected_recipe": "player_nb",
+      "adapter_read_verified": true,
+      "production_supported": false
+    }
+  ],
+  "knowledge_cards": {
+    "K01-valoszinuseg-ar-ev.md": "c3f0541824ecda19d7889d13aa9bd226c715cd91e8d4ec2e1919e8c8074d06db",
+    "K02-fuggetlen-modell.md": "5e6e27e58cbf466a05b733cbc5ac2aacf73552a789149c1f29fde1f9f35979f6",
+    "K03-adat-ido-forras.md": "a71af120097072161a042f04257cb6f4ebc617e34ff43c19588ca313148b1d9a",
+    "K08-validacio.md": "951ffe80c87fd491bfeece567c31a86a78371087fcf8b16297422ecadd624bd3"
+  },
+  "offered_contracts_priced": 0,
+  "instructions_issued": 0,
+  "measured_profit": null,
+  "historical_availability_authenticated": false,
+  "current_participation_verified": false,
+  "production_props_enabled": false,
+  "source_time_claim": "No new observation/publication/availability timestamp asserted; input receipt and study times retained only.",
+  "helper_reviews": [
+    {
+      "id": "acceptance_checklist:grok",
+      "sha256": "6f34f862f4db8692457395a1e59528ac2a56f0c6be666f68f59bbf48f4fd2dd2",
+      "disposition": "partly_used",
+      "reason": "Used independent forecast/price separation, preserved tests, push/void distinctions and explicit activation blockers. Inspected local artifacts rather than accepting the dossier's uninspected missing-source suggestions; its date window is not authorization to issue bets. No helper test or completion claim accepted."
+    }
+  ],
+  "new_real_data_fits": 0,
+  "new_real_data_holdout_evaluations": 0,
+  "validation": {
+    "new_regressions": {
+      "passed": 74,
+      "seconds": 13.7
+    },
+    "related_python_api_regressions": {
+      "passed": 261,
+      "seconds": 83.44,
+      "warnings": [
+        "Existing Starlette/httpx deprecation warning"
+      ]
+    },
+    "frontend_dom": {
+      "passed": 40,
+      "seconds": 38.838
+    },
+    "independent_controller_review": "pending",
+    "full_controller_suites": "pending",
+    "live_publication": "not_accessed_not_verified"
+  },
+  "preservation": {
+    "original_files_checked": 287,
+    "original_tests_checked": 96,
+    "changed_original_files": [],
+    "new_files": [
+      "docs/F0023_PLAYER_PROP_PROBABILITY.md",
+      "docs/F0023_PLAYER_PROP_PROBABILITY_EVIDENCE.json",
+      "src/betting_engine/player_prop_probability.py",
+      "tests/test_f0023_player_prop_probability.py"
+    ],
+    "project_contract_sha256": "d20b8cbec14462ea1bab68c5e2bfdb71fe37a91ba6c89d1790320f29c6bf9564",
+    "agent_instructions_sha256": "a783bbe1e6c2a04b066ca158c3039557dc713705c5f36d9058541c88bfca3772",
+    "production_or_live_ledger_accessed": false
+  },
+  "candidate_source_sha256": "54c7cf23939f1612aa4304763ee6c66073507dd0666ea7462d40d1de22cbe36b",
+  "new_tests_sha256": "109e210ecc4fba34c6d0c756d5a58cd7a2ddecf7d49aaae74da2362547cd12fa"
+}

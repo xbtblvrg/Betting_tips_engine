@@ -1,0 +1,233 @@
+# Legutóbbi ellenőrzött kiadás: 2026-09-30.18
+
+A Stake szakaszhandicapek mezősorrend-függő kihagyása javítva: befagyasztott valós replay-ben +74 pontos kimenetel értékelhető. Ismert professzionális Winner-regresszió kötelező kiadási ellenőrzést kapott, a családhibák tartós D18-munkák. Három fejlesztési/release SQLite-olvasó kapcsolatlezárása javítva. 1796 Python + 5 alteszt és 64 DOM-teszt, kihagyás nélkül; független review, friss local/Tailscale publikáció és minden eredeti fogadási rekord megőrzése ellenőrizve. A teljes engine és a tartós profit továbbra sem igazolt. [Teljes követelményaudit](DEVELOPER_AUDIT_2026-09-30_18.hu.md).
+
+## Korábbi kiadás: 2026-09-29.15
+
+Részletes teljes követelmény- és fejlesztői audit: [DEVELOPER_AUDIT_2026-09-29_15.hu.md](DEVELOPER_AUDIT_2026-09-29_15.hu.md).
+A friss kiadás éles, a teljes engine még nem teljes piaclefedettségű és tartós nyeresége nem igazolt. 1126 Python teszt + 5 alteszt, 40 DOM teszt és valódi izolált Codex-review. Pontos tanítási inputarchívum, ötligás player-forrás workflow, teljes player-market audit és külön felügyelt utility release controller beépítve. Az alábbi régebbi állapotbejegyzések történeti bizonyítékok.
+
+## 2026-09-29 — kiadás 14, párhuzamos fejlesztés és teljes követelményaudit
+
+Codex marad az elsődleges agy, fejlesztő és felügyelő. Három izolált fejlesztési sáv, soros ellenőrzött integráció, másodlagos Claude Opus5.5 és harmadlagos agy/Grok tanácsadók, perces tartós hiányfeltárás került a kiadásba. A Winner/Handicap/Total családok elsőbbséget kapnak a méretezésnél, külön lefedettségi audit mutatja a hiány okát. Minden új pénzes publikáció reprodukálható tétbizonyítékot követel; a korábbi tétek változatlanok.
+
+A teljes követelményenkénti minősítés, fejlesztői hibák, tesztek, élő mérés és hátralévő feladatok: [DEVELOPER_AUDIT_2026-09-29_14.hu.md](DEVELOPER_AUDIT_2026-09-29_14.hu.md). A teljes engine továbbra sem kész, tartós profit nem igazolt. A lentebbi bejegyzések történeti pillanatfelvételek.
+
+## 2026-09-29 19:43 CEST — záróár-értékelés élesben, modellvizsgálat elindítva
+
+Kiadás `2026-09-29.13`, frontend `closing-evidence-2`. [Kiadási jegyzőkönyv](RELEASE_2026-09-29_13.hu.md). A learning worker a meccskezdés után külön, befagyasztott árösszevetést készít, a saját döntéseket és forrásokat megőrizve. A hiányzó történeti árak nem válnak becsléssé; a régi öt NFL-döntés feldolgozása élesben befejeződött, öt hiányzó záróárral. Az új panel a Model Performance → Observed Closing Prices alatt látható.
+
+A reviewer által talált két blokkmegkerülési hiba, a legacy full-game scope és a valós double-chance megnevezések kompatibilitása javítva. Az első telepítési próbán észlelt dashboard-sémaütközés is javítva, majd a teljes root Python/API-tesztcsomag és az élő felület újra ellenőrizve. Kifizetésazonos teljes meccses Winner/Handicap aliasok többé nem kérhetnek ismételt kiosztást; az NFL-döntetlen kivétel külön marad. Az eredeti fogadások nem változnak.
+
+512 Python/API-teszt + 5 alteszt, 38 DOM-teszt sikeres; 69 éles kártya és link ellenőrizve. 75 szelvény, 74 saját döntés, 67 kiadás és 69 checklist eredeti mezői változatlanok. A napi kiadás 45/15, a publikáció 962/962 guard-ellenőrzése sikeres; helyi és Tailscale dashboard működik.
+
+D02/D17 külön, root által ellenőrzött éles kiadásként igazolva; az eredeti elutasított próbák megmaradtak. Ez nem egy későbbi független AI-review elfogadásának állítása. A fejlesztő újra fut: D18 piaccsaládonkénti modellvizsgálat `gpt-6-astra` modellel, a nyolc telepített modell/riport ellenőrzött másolatán. A teljes engine továbbra sem kész és tartós profit nem igazolt. A lentebbi állapotok történeti pillanatfelvételek.
+
+## 2026-09-29 19:10 CEST — teljes folyamat-audit és éles javítások
+
+Kiadás `2026-09-29.12`, frontend `system-audit-1`. A részletes, ellenőrizhető eredmény: [AUDIT_2026-09-29.hu.md](AUDIT_2026-09-29.hu.md). Nyers modellvalószínűség-ellenőrzés és hibás piac elkülönítése, valódi hibaállapotot figyelő supervisor, eseményenként csoportosított fogadási eredmények, új elszámolásra azonnal sorba kerülő értékelés, veszteségmentes publikációtömörítés és olcsó SSE-verzióolvasás, releváns sportkutatási szűrés, tartós meccskezdés előtti árforrás-gyűjtés került élesbe. A fejlesztő strukturált eredmény után 60 másodpercen belül keres következő munkát; infrastruktúra-hibánál és az adott feladatnál a backoff megmarad.
+
+320 Python/API-teszt + 5 alteszt, 37 DOM-teszt és 954 valódi szerződés numerikus visszajátszása sikeres. A friss élő felület 68 kártyája, 68 pontos Stake-eseménylinkje és minden részlete ellenőrizve. A korábbi 72 szelvény, 71 saját döntés és 64 kiadási rekord eredeti mezői változatlanok; közben két új MLB-ajánlás keletkezett. SQLite quick_check rendben; a tömörítés 7,28 GB payload-területet szabadított fel újrahasználatra, nem csökkentette automatikusan a fizikai fájlméretet.
+
+19:07 CEST-kor napi 44/15 külön pénzes ajánlás (MLB 19, NFL 1, NHL 19, WNBA 5), 11 meccs 24 órán belül, 17 meccs 48 órán belül. Öt lezárt saját döntés +6,08 USD tétek utáni eredménye mind egyetlen NFL-meccsből származik; nem öt független siker és nem igazolt tartós profit. Az AI/adat/tárhely költségkeretéről a felhasználó dönt; hiánya nem blokkolja a modellfejlesztést.
+
+D02 javított jelöltje külön AI-review-val elfogadva; D03 automatikusan elindult. 8 mérföldkő és 18 feladat, köztük D17 árértékelési integráció és D18 professzionális modellek piaccsaládonkénti validációja. A teljes prop/special/SGM/live támogatás és automatikus éles szoftverkiadás még nyitott, `fully_ready=false`. A lentebb szereplő korábbi kiadási bejegyzések történeti állapotfelvételek.
+
+## 2026-09-29 18:38 CEST — üzemi ellenőrzés és fejlesztési elakadás javítása
+
+Az éles motor friss publikációt ad, a helyi és Tailscale HTTPS health-végpont ellenőrzött tanúsítvánnyal elérhető. 105 forrásjelentés, nyolc ligamodell, két inningmodell és 31 szakaszmodell; nincs jelzett előrejelzési vagy betöltési hiba. A napi külön pénzes kiadás 42/15 (MLB 17, NFL 1, NHL 19, WNBA 5), ami kibocsátási darabszám, nem az éppen fogadható tételek vagy nyertes fogadások száma. A 48 órás leltár 17 meccsből 16-ot párosít, 954 kimenetelt modellez; az MLS továbbra is csak leltár.
+
+A D02 első jelöltjét a külön AI-review két tényleges jogosultságkezelési hiba miatt elutasította. A következő kör javításokat készített, de a későbbi éles integráció hiánya miatt a munkás nem kérte a teljes elfogadási ellenőrzést. Pontosítottuk, hogy a `task_complete` kizárólag az adott, korlátozott jelöltfeladat elfogadási feltételeire vonatkozik. A feladat által megkövetelt valós bizonyíték hiánya továbbra is kizárja a teljesítést; a teljes tesztcsomag és a külön review kötelező marad. Három új teszteset igazolja, hogy a fennmaradó éles munka semmilyen ellenőrzést nem kerülhet meg, és elfogadott jelölt sem jelenti az engine készültségét.
+
+Validáció: 294 Python/API-teszt + 5 alteszt, 36 DOM-teszt sikeres. A fejlesztő munkás auditált, előrehozott D02 újrapróbálkozása 18:37:40-kor elindult (`gpt-6-astra`); az ellenőrzés időpontjában még implementál, nincs új elfogadás vagy éles aktiválás. A korábbi hibák és kísérletek megmaradtak. Bizonyíték: `data/development/status-repair-live-check.json`, `status-repair-retry.json`, `status-repair-python.log`, `status-repair-dom.log`. A teljes engine továbbra sem kész: `fully_ready=false`.
+
+## 2026-09-29 16:46 CEST — felügyelt fejlesztés, határidős ellenőrzések és valódi AI-implementáció
+
+Kiadás: `2026-09-29.11`, frontend `supervised-delivery-1`. Nyolc mérföldkő, 16 induló implementációs feladat és kötelező ellenőrzési időpont került a tartós tervbe. Az aktuális készültségi feltételeket a [READINESS.hu.md](READINESS.hu.md) rögzíti; a korábbi napi tízes menetrend történetinek jelölt. A szerződés R05 követelménye napi minimum 15 külön pénzes kiadás, R25 a felügyelt fejlesztési folyamat. A hiányt nem lehet átárazással vagy kutatási sorral teljesítettnek nevezni.
+
+Külön launchd-fejlesztési munkás fut `gpt-6-astra` modellel, az előző kísérlet után egyórás célütemben. Másolt forrás és nyilvános sportadatok, korlátozott olvasási/írási és hálózati jogosultságok, teljes Python/DOM teszt, külön csak olvasó AI-kódreview, tartós hibák és újrapróbálkozások. A felügyelő az új munkást is figyeli. A lejárt mérföldkövek láthatók és előrébb sorolódnak; az induló feladatok után a nyitott mérföldkövek új fejlesztési lépéseket kapnak. Kódfrissítésnél a nem ütköző változások átkerülnek a munkapéldányba; ütközéskor mindkét változat megmarad az izolált javításhoz. Éles fogadási naplóhoz és publikáláshoz a fejlesztő nem fér hozzá.
+
+Az első tényleges kör lezárult: D01 `player_history.py`, pontos ismertségi idővel kezelt játékoselőzmények, 54 új viselkedési teszt, 342 sikeres teljes Python-teszt és 36 DOM-teszt, elfogadó külön AI-review. Fontos megállapítás: a 20 játékosadat-partíció sémájából hiányzik az explicit `available_at`; az öt ligából vett mintasorokat a modul bizonyíték hiányában kizárja. A letöltési idő nem válik automatikusan történeti publikálási idővé. A jelölt `candidate_ready`, nem éles prop-modell. Két kezdeti CLI-sandbox indítási hiba megmaradt a naplóban; az elérési beállítás javítása után a teljes kör valóban lefutott.
+
+A végleges felügyeleti kód ellenőrzése: 291 Python/API-teszt + 5 alteszt, 36 DOM-teszt; a forrásfrissítéssel összevezetett D01 munkapéldány 345 Python-tesztje és 36 DOM-tesztje sikeres. A Tailscale-felületen nyolc mérföldkő és tizenhat feladat jelenik meg JavaScript-hiba és fogadási művelet nélkül. Az eredeti 65 szelvény, 64 saját döntés és 39 checklist-bejegyzés eredeti mezői változatlanok. A napi kiadás 16:45 CEST-kor 38/15; három új, változatlan modellezési szabályok szerint kiválasztott döntés született az ellenőrzés közben. Az összes szelvény ekkor 68, a saját döntések száma 67, az eredeti 65/64 rekord megmaradt. A következő önálló feladat D02, pontos szerződéshez kötött záróár/CLV értékelő.
+
+**A teljes engine készültsége továbbra is hamis (`fully_ready=false`).** Új szoftver automatikus éles aktiválása még nincs bekötve; a candidate-ready kód nem zárja le a produkciós követelményt. Validált teljes player-prop-, speciális-, SGM- és in-play támogatás, a hiányzó szerep-/lineup-hatások, teljes üzemi átvétel és költségek utáni profitigazolás továbbra is nyitott mérföldkövek. A helyi gép/munkamenet/hálózat és a Codex-kvóta működési függőség. Telegram későbbi felhasználói szakasz.
+
+Bizonyítékok: `data/development-release-check.json`, `data/development-live-dom-check.json`, `data/development/state.json`, `data/development/runs/20260929T143035412663-D01/`, `data/development/rebased-candidate-python.stdout.log`. Web: **Model Performance → Supervised Development and Delivery**, API: `/api/development`.
+
+## 2026-09-29 15:45 CEST — teljes API-válaszok, dinamikus NCAA, meccsenkénti diagnózis
+
+Kiadás: `2026-09-29.10`, frontend `stake-ncaa-1`. A hivatalos Stake API sportág- és tornalistájából követjük az aktuálisan elérhető NCAA-kínálatot. Mindkét menetrendi/listázó forrás és meccsenként mindkét fixture/odds-válasz bekerült; a teljes eredeti válaszokat külön, hash-ellenőrizhető tömörített archívum őrzi. Katalógus: 99 meccs, 198 teljes fixture/odds-válasz, 607 pontos ligánkénti/szekciónkénti piacímtípus, 15 perces célütem. A jelenlegi NCAA-kínálat 14 amerikaifutball-meccs; mind párosítható független sportadattal. Kosárlabda és más NCAA-torna most nem szerepelt a feedben. A 14 meccs a 48 órás ablakon túl van; 78 támogatott kimenetel árazását külön, publikálás nélkül ellenőriztük.
+
+Három külön college meccsmodell készült saját adatokkal, családszintű időrendi kapukkal. Összesen nyolc ligamodell, két MLB inningmodell és 31 szakaszmodell töltődik be. Az NHL 2023-as, meccsazonosító nélküli csapatstatisztikai exportját 1400 hivatalosan azonosított boxscore pótolja. Öt kapuslövés/gól miatti eltérést a hivatalos play-by-play és góllista eseményeivel oldottunk fel. A friss kiadás 105 forrásjelentésében nincs hiba.
+
+Ellenőrzött éles publikáció: 1799, 15:44 CEST. A következő 24 órában 11 Stake-meccs és 730 modellezett kimenetel; 48 órában 17 meccs és 947 modellezett kimenetel. A 17-ből egy MLS-meccs csak leltár, továbbra sincs MLS-modell. Minden meccs külön döntési okot kap a Research nézetben. A napi kiadás 32/15; a kiadás során egy új, 1 USD-s NHL-szakaszfogadás jelent meg. Ez a kiadásszám, nem nyerési vagy profitmutató, és nem garancia minden jövőbeli nap darabszámára.
+
+Éles helyi/Tailscale API: HTTP 200, friss publikáció, 947/947 evidence-ellenőrzés sikeres, modellbetöltési hiba nincs. A felügyelő, piaci motor és tanuló munkás működik; külön komponensállapot jelzi az adat-, guard-, modell-, katalógus- és kutatási munkát. A futó munkás friss kódra újraindult; a migráció közbeni régi modulok miatti hibát megszüntettük. A visszatérő forráshibák javítási sorba kerülnek; egy elkészült kutatási dosszié nem minősíti implementáltnak a hiányzó piacmodellt.
+
+Validáció: 269 Python/API-teszt + 5 alteszt, 35 DOM-teszt; az utolsó komponens- és NHL-javítás további hét célzott ellenőrzése sikeres. Friss Tailscale-válasszal futtatott DOM: 56 instrukció/nyilvántartott kártya, nyolc meccsmodell, 31 szakaszmodell, 17 meccsdiagnózis, 607 katalógussor és 11 komponensállapot; nincs JavaScript-hiba. A 34 aktuális és a 198 teljes katalógusválasz gzip-tartalmának SHA-256 ellenőrzése sikeres. Az eredeti 61 szelvény, 60 saját döntés és 39 jelölés mezői változatlanok. Automatikus fogadásküldés nem történt.
+
+**A teljes, minden piactípust támogató önfejlesztő rendszer követelménye még nincs teljesítve.** Validált player-prop, eseménysorrendi, összetett/SGM, live és további NCAA-sport modellek továbbra is hiányoznak; önálló forráskódírás és telepítés nincs bekötve. A nyitott követelmények megmaradtak a projekt szerződésében. Részletek és források: [STAKE_API_NCAA.hu.md](STAKE_API_NCAA.hu.md). Ellenőrzési adatok: `data/stake-ncaa-release-check.json`, `data/stake-ncaa-live-dom-check.json`.
+
+## 2026-09-29 14:58 CEST — 31 szakaszmodell, teljesebb piackatalógus és játékos-adattár
+
+Kiadás: `2026-09-29.9`, frontend `scope-models-1`. Az öt meglévő meccsmodell és két MLB inningmodell mellett 31 külön NBA/WNBA/NFL/NHL szakaszmodell fut: negyedek, félidők, NHL-periódusok és rendes játékidő. A 13 765 történeti meccsből vett célváltozók tényleges szakaszeredmények, külön hosszabbítás/szétlövés-kezeléssel. Családonként külön időrendi validáció engedélyezi a piacot; egy modell megléte nem jelenti minden család jóváhagyását.
+
+Az ellenőrzött 1752-es éles publikáció 941 pontos Stake-kimenetelt értékelt: MLB 248, NHL 589, WNBA 104. NBA/NFL meccs nincs a jelenlegi 48 órás ablakban. A bővítés után 18 új döntés jelent meg (NHL 17, MLB 1), 1,00–1,44 USD téttel a megengedett 1–5 USD tartományban. A mai kibocsátás 31/15 külön ajánlás. Ez nem napi profitigazolás, és nem jelenti a jövőbeli napok mennyiségi céljának garantált teljesülését.
+
+A szélesebb kutatási katalógus 80 meccs 549 pontosan elnevezett piacímet tartalmaz, legfeljebb 60 napra; az egyedi játékosnevek és scope-ok külön neveket eredményeznek. Ez nem 549 kész modell és nem az aznapi fogadások száma. A játékos-adattár 706 273, meccs- és játékosazonosítóval összekötött megfigyelést tartalmaz mind az öt ligából. A játékosnapló-frissítés, szakaszmodell-tanítás és katalógusgyűjtés külön napi, tartós munkafolyamatot kapott. Sikertelen tanítási adatfrissítés megtartja a korábbi modellt és újrapróbálkozást indít.
+
+Validáció: 253 Python/API-teszt + 5 alteszt, 34 DOM-teszt sikeres. A friss publikáció 941/941 bizonyítékellenőrzése sikeres, modellbetöltési hiba nincs. A helyi/Tailscale API HTTP 200, 31 betöltött szakaszmodell. A friss Tailscale-adatokkal futtatott DOM-ban 55 kártya, 31 modellsor, öt játékosadat-sor és 549 katalógussor; JavaScript-hiba és fogadásküldés nincs. A korábbi 43 szelvény, 42 saját döntés és 39 jelölés eredeti mezői változatlanok.
+
+Teljesítményjavítás: a szolgáltatás egyszálas OpenMP-beállítást használ a kis modellhívásokhoz. A változatlan szövegek angol fordítása korlátozott méretű gyorsítótárba kerül; a kész JSON-adat nem fut át újra a FastAPI általános konvertálóján. A tömörítés nem fogja vissza az eseményfolyamot. Az időérzékeny ajánlásjogosultság minden GET-nél újraértékelődik. A legutóbbi ciklusok publikálása kb. 60 másodperces.
+
+**A minden fogadástípust lefedő kérés még nincs teljesítve.** Player props: az adatgyűjtés kész, a validált modell, aktuális szerep/részvétel, pontos adapter és elszámolás még hiányzik. Eseménysorrendi, Leaders, összetett/SGM, live és MLS modellek szintén nincsenek teljesen implementálva. Az SGM-hez a konkrét kombináció valós Stake-ára is szükséges; ilyen forrás jelenleg nincs bekötve. A háttérmunkások adatot frissítenek és implementált modelleket tanítanak, nem írnak önállóan új modellekhez forráskódot. A teljes lista és a konkrét függőségek: [ALL_MARKETS.hu.md](ALL_MARKETS.hu.md).
+
+Bizonyíték: `data/all-market-expansion-release-check.json`, `data/all-market-expansion-dom-check.json`; előző adatbázis: `data/backups/before-all-market-expansion.sqlite3`.
+
+## 2026-09-29 01:55 CEST — teljes folyamat auditja és hibajavítás
+
+## 2026-09-29 — pontos Stake-fül a fogadási útmutatóban
+
+A Padres–Cubs `Innings 1 to 5 - Total / Over 4.5` az adatforrás `innings 1 to 5` csoportjában szerepel, a bemásolt Main-listában nincs. A nyilvános eseménylap külön `Innings 1 to 5` fület mutat. A korábbi útmutatóból ez a navigációs lépés hiányzott; nem kell és nem szabad a teljes meccses Totalra átvinni a tippet.
+
+Kiadás: `2026-09-29.8`, frontend `stake-market-tabs-1`. Minden pontos piachoz megőrizzük az API csoportazonosítóit és neveit; az EvidenceGuard ellenőrzi és lezárja őket a bizonyítékban. A kártya kiírja a `Stake tab` mezőt, a Bet on Stake gomb mellett és a részletekben fül → piac → választás útvonal látszik. A régi naplóbejegyzések aktuális, pontosan azonos választásának fülét is megjeleníti, az eredeti adatok átírása nélkül.
+
+234 Python-teszt + 5 alteszt és 31 DOM-teszt sikeres. Az élő API-adatokkal futtatott DOM-ban a konkrét Padres–Cubs kártyán és részleteiben ellenőrizve az útvonal, JavaScript-hiba nincs. A 40 korábbi szelvény és 39 saját döntés eredeti adatai megmaradtak. Bizonyítékok: `data/stake-navigation-release-check.json`, `data/stake-navigation-dom-check.json`, `data/stake-navigation-ledger-check.json`.
+
+
+## 2026-09-29 — Mark as placed frissítési ütközés javítva
+
+Reprodukált hiba: a sikeres checklist-mentés után egy korábban indult dashboard-lekérés visszaírta a régi pipaállapotot. További ütközés: folyamatban levő mentés közbeni újrarajzolás újra engedélyezte a jelölő másolatait. A kliens most megtartja a függő mentési állapotot, minden azonos jelölőt letilt `Saving…` felirattal, védi a mentett állapotot az azt megelőző lekérésektől és eldobja a későn beérkező régebbi dashboard-válaszokat. Az újabb másik eszközön végzett jelölés/törlés továbbra is szinkronizálódik. Hibás mentés után az aktuális vezérlők visszaállnak és újrapróbálhatók.
+
+A hiba az új tesztek közül hárommal javítás előtt reprodukálható volt; javítás után mind a 29 DOM- és 14 API-teszt sikeres. Statikus kiadás: `app.js?v=checklist-sync-2`, szolgáltatás-újraindítás és éles jelölések tesztcélú módosítása nélkül. A már nyitott oldalt egyszer újra kell tölteni az új JavaScript betöltéséhez. A könyveléshez, modellekhez és eredeti fogadási adatokhoz ez a javítás nem nyúl.
+
+
+## 2026-09-29 13:04 CEST — külön MLB inningmodellek kiadva
+
+Projektverzió: `2026-09-29.7`. Elkészült és fut az MLB első inning és első öt inning külön count modellje, 9 832 hivatalos, inningenként egyeztetett mérkőzésből. Mindkét modellben 5 832 tanító, 1 841 kiválasztási és 2 159 időben későbbi tesztmeccs. A teszt joint log loss 1,9366 / 4,1103, a befagyasztott ligaátlagé 1,9423 / 4,1267. Ez prediktív ellenőrzés, nem profitigazolás.
+
+A Stake első ellenőrzött pillanatképében 120 további inning-kimenetel vált pontosan illeszthetővé. Támogatás: név szerinti Winner, 1x2, Total, Handicap és csapatösszeg az engedélyezett scope-ban és tényleges kínálat szerint. Azonos kifizetésű Winner/0 handicap és 1x2 csapat/−0,5 handicap nem duplázhatja az új kiadást. Külön időszakazonosítók, Draw/push logika, scope-szerinti elszámolás, első élő forecast befagyasztása, napi `segment_retrain` és archívumból történő jóváhagyott helyreállítás.
+
+Validáció: 231 Python-teszt + 5 alteszt, 25 frontend DOM-teszt. A telepített helyi és Tailscale API HTTP 200, friss publikációban mindkét modell, 8+8 prospektív előrejelzés; a live API-adatokkal futtatott DOM-ban két modellsor és nulla JavaScript-hiba. A korábbi 36 szelvény, 35 saját döntés, 35 jelölés és 28 kiadási rekord minden mezője változatlan.
+
+**Aktuális külső akadály:** a Stake odds-data API minden liga végpontjára HTTP 502 `Maintenance` választ adott. A frissítés percenként folytatódik; a felület ezt adatforrás-kiesésként mutatja. Régi oddsot nem adtunk ki új ajánlásként. A napi számláló a kiadás ellenőrzésekor 6/15, az új modellekből még nincs érvényes friss oddsszal kiadott fogadás. A korábbi lekérés numerikus visszajátszása nem friss ajánlás és nem számít bele.
+
+Részletes adat-, modell-, settlement- és fennmaradó fejlesztési leírás: [MLB_INNINGS.hu.md](MLB_INNINGS.hu.md). Megmaradó hiány: játékospiacok, más sportágak periódusai, kombinált/live és különleges MLB-piacok, MLS-modell, teljes lineup/perc/kapus-hatás, executable-price profitvizsgálat és önálló kódfejlesztés. Nem minden hiányzó modellt oldott meg ez a kiadás.
+
+Ellenőrzési állományok: `data/inning-models-release-check.json`, `data/inning-models-dom-check.json`, `data/imports/inning-parser-shadow.json`; előző állapot: `data/backups/before-inning-models.sqlite3`.
+
+
+Az auditban azonosított elavult végrehajtási utasítás, frissítési idővel megnyújtható árérvényesség, eltérő modellcsere-kapu, ellenőrzés utáni módosítás, Today nézetben megjelenő elkezdődött pregame és félreérthető árpróba javítva. Új `freshness.py`, `instructions.py`, tranzakción belüli bizonyítéklenyomat-ellenőrzés és egységes pontszám-romlási kapu. A modellcsere védett a közben változó történeti adatok és modell ellen. Az ellenőrzés kifejezetten determinisztikus; nincs külön LLM-jóváhagyás.
+
+Éles helyi/Tailscale ellenőrzés: 226/226 guard-siker, 34 eredeti jegy változatlan, 33 kártya saját Stake-linkkel. A konkrét, küszöb alatti New York Liberty +3.5 nem kap Bet $1 utasítást. 201 Python-teszt +5 alteszt és 21 DOM-teszt sikeres. Napi új kibocsátás 4/15; nettó nyereség nem igazolt. Részletes megállapítások és nyitott képességhiányok: `docs/FLOW_AUDIT.hu.md`; bizonyíték: `data/flow-audit-release-check.json`, `data/flow-numeric-audit.json`.
+
+## 2026-09-29 01:03 CEST — tartós felügyelet, szakirodalom-figyelés, Stake gombok
+
+Telepítve és ellenőrizve: külön perces supervisor, leállt/elakadt folyamatok feltételes újraindítása, meglévő worker-hibák tartós újrapróbálása, napi arXiv cím/absztrakt-figyelés három témában. Az utolsó ellenőrzéskor 36 cikk a katalógusban, 3 téma lekérése tárolva. A fő szolgáltatás életéhez kötött `caffeinate -s` assertion működik hálózati tápon. A két felügyelt szolgáltatás egészséges állapotú.
+
+Mind a 30 aktív kártyán Bet on Stake gomb, a rögzített Stake-meccs pontos URL-jével. A link meccsoldalra mutat; nem előre kitöltött szelvényre. Konkrét kiválasztást előre betöltő Stake-link nem igazolt, ezt a felület is közli. A gomb mellett a pontos piac és választás szerepel. Megnyitása nem módosítja a pipát, fogadási naplót és nem küld fogadást.
+
+Ellenőrzések: 195 Python-teszt +5 alteszt, 19 DOM-teszt; élő Tailscale API és DOM; 30/30 kártya helyes rögzített href-fel, nulla írási művelet; 206/206 guard-siker az ellenőrzött publikációban. Korábbi 31 fogadási rekord változatlan. Bizonyíték: `data/automation-buttons-release-check.json`.
+
+Határ: a szakirodalom-figyelés nem teljes tanulmányfeldolgozás, új modellek leprogramozása vagy önálló kódtelepítés. A már implementált újratanítás/modellkeresés működik automatikusan; teljes nyílt végű önfejlesztés nincs. A napi 15 új ajánlás és a nettó nyereség még nem igazolt teljesítés.
+
+## 2026-09-29 00:49 CEST — gördülő 24/48 órás lefedettség
+
+Telepítve: `Next 24 Hours` szűrő, főoldali rövid lefedettség, Research ligabontás. A számlálás az ajánlásokkal azonos, atomikusan publikált készletből történik. Külön érték az összes megfigyelt kimenetel, az aktív/friss standard ajánlat, az ellenőrizetlen Swish-ár, a modellel értékelt kimenetel, az értékküszöböt teljesítő legjobb piac, a különböző rögzített szerződés és a pipálás. A napi kibocsátást továbbra is a budapesti kiadási dátum határozza meg.
+
+Élő Tailscale-ellenőrzés: 24 órán belül 5 meccs (MLB 2, NHL 1, NFL 1, WNBA 1), 1547 megfigyelt kimenetel, 930 friss aktív standard ajánlat, 118 modellezett kimenetel, 11 megfelelő legjobb piac; 17 korábban kiadott/rögzített különböző szerződés, ebből 9 nincs pipálva. 48 órára 12 meccs, 3541 megfigyelt kimenetel, 1940 aktív standard ajánlat, 196 modellezett kimenetel, 18 megfelelő legjobb piac, 30 rögzített szerződés, 12 nincs pipálva. Ezek pillanatfelvétel-számok, nem teljes weboldali lefedettség. A teljes korábbi 31 jegy és 18 pipajelölés változatlan maradt. A duplán jelentett jegy nem két különböző ajánlás.
+
+Mai kibocsátás az ellenőrzéskor: 1/15, 14 hiányzik. A mennyiségi cél és az igazolt nettó profit továbbra sincs teljesítve. Ez a módosítás mérési és megjelenítési javítás, nem új sportmodell vagy a hiányzó prop/részidős piacok megoldása.
+
+Ellenőrzés: 183 Python-teszt + 5 alteszt; 17 DOM-teszt; a végső aggregálási optimalizálás után 39 célzott Python-teszt. Friss élő publikáció: 196/196 EvidenceGuard-ellenőrzés sikeres, helyi és Tailscale elérés, élő DOM 24 órás nézetében 17 kártya. Bizonyíték: `data/rolling-coverage-release-check.json`. Frissítő hibamentes, külön tanulási worker monitoring állapotban.
+
+# Projektállapot — működő kutatási engine, 2026-09-28
+
+Az új felhasználói követelmény alapján a megvalósítás elkészült helyi kutatási kiadásként. Nem állítjuk, hogy a teljes, éles nyereséget igazolt rendszer kész.
+
+## Elkészült és fut
+
+- 2026-09-29 00:23: elutasított újratanítás után automatikus, hatreceptes modellkeresés. Mind az öt ligán lefutott; NBA regularized és WNBA elo_anchor előléptetve. Páros, azonos meccseken mért Brier: NBA 0.200314 → 0.198951 (720 meccs), WNBA 0.200933 → 0.193321 (195 meccs); a pontszám-MAE kapu is teljesült. Ez retrospektív fejlesztési javulás, nem igazolt profit. Javítva a közös games.json átmeneti, statisztikákkal még ki nem egészített felülírása; szemantikailag azonos letöltés nem indít új keresést. Elavult adatú munkák külön superseded státusszal megmaradnak. 179 Python/API + 5 alteszt és 16 DOM-teszt sikeres, Tailscale és az új éles modellverziók ellenőrizve; 30 korábbi szelvény változatlan. A szeptember 29-i kiadásszámláló az ellenőrzéskor 0/15: nem lett teljesítettnek feltüntetve a korábban kiadott fogadások ismételt számolásával. Audit: `data/hypotheses-release-check.json`.
+
+- 2026-09-29 00:08: telepítve a külön learning launchd worker. Tartós feladat- és próbálkozásnapló, összeomlás utáni helyreállítás, növekvő várakozású újrapróbálás, napi kontrollált tanítás és óránkénti eredményértékelés. Az első eredményáttekintés és egy valódi NBA-kísérlet lefutott; a 720 meccs / 22 hét összehasonlítás nem mutatott javulást, ezért nem történt modellcsere. A tippszolgáltatás közben külön fut. K11 kiegészítve az agent-szakirodalom ellenőrzött részeivel; ez nem teljes Reflexion-implementáció és nem önálló LLM-kódíró. 171 Python/API-teszt + 5 alteszt és 15 DOM-teszt sikeres. Állapot: Model Performance → Learning Execution és `/api/learning`.
+
+- 2026-09-28 23:51: kiadva a külön fogadási utasításnézet és a Research oldal. Engedélyezett az új, külön értékelt szerződés ugyanarra a meccsre; nincs meccsenkénti két ajánlás korlát. Pontos csapattotal támogatás (NFL/NBA/WNBA: Overtime; MLB: Extra Innings), teljes meccs score-eloszlásból. MLS naptár és Swish-kínálati leltár hozzáadva. A friss ciklus 86 naptári meccsből 12-t talált 48 órán belül, 188 kimenetelt modellezett, mind átment az EvidenceGuardon. 11 új, 1 USD-os kiadás: napi 22/15, összesen 30 nyitott szelvény, 29 külön választás. A korábbi 19 szelvény, 18 döntés és a migrációkor meglévő 18 jelölés változatlan. 162 Python/API-teszt + 5 alteszt, 14 DOM-teszt sikeres. Teljes prop/részidő/MLS-modellezés és igazolt profit továbbra sincs. Részletes kiadási audit: `data/instructions-release-check.json`.
+
+- 2026-09-28 23:27: javítva az MLB seed-neves naptárbejegyzések párosítása a tényleges, aktív Winner-kimenetel csapatneveiből, szigorú idő- és azonosságellenőrzéssel. Az első éles ciklus 144 kimenetelt modellezett (korábban 88), 12 meccsen; 2 új, egyenként 1 USD-os MLB-ajánlás jelent meg. A napi pozitív tétű kiadás 11/15; a korábbi 17 szelvény változatlan, 2 új feltételezett kézi fogadással 19 nyitott tétel. A web 18 különálló választást mutat: elöl a 2 jelöletlen, majd a 16 korábbi. Eredeti odds/esély megőrzése, konkrét Watchlist-blokkolási ok, teljes modellezett kimenetellista; archívum és egyedi szelvénytábla alapból zárt. 148 Python/API-teszt, 5 alteszt és 12 frontend DOM-teszt sikeres; élő Tailscale-nézet ellenőrizve.
+
+- 2026-09-28: tartós projektkövetelmény-szerződés, futás közbeni EvidenceGuard, verziózott tudáskártya-hivatkozások, immutable saját döntésnapló és piaci leltár. A rendszer felelősségi körébe került mind a 16 korábbi, megjátszottnak jelentett választás, a 17 szelvény és az eredeti 9 pozitív tétű kiadás számának változtatása nélkül. A web Model Performance oldalán „Engine Accountability and Coverage” rész mutatja a döntéseredményeket, a lefedettséget és a kutatási sort. 144 Python/API-teszt, 5 alteszt és 10 frontend DOM-teszt sikeres. [Működés és tényleges korlátok](GOVERNANCE.hu.md).
+
+- 2026-09-28 23:00 Budapest: felhasználói utasítás alapján eltávolítva a korábbi 10 USD összesített napi limit. Napi keret: nincs fix plafon; fogadásonként továbbra is 1–5 USD, jelenleg bankroll nélkül 1 USD alapegység. Nincs automatikus felsőlimit-emelés. Napi cél 15 különálló, téttel kiadott ajánlás, nem felső darabszámkorlát; 60 másodperces piaci ciklus mind az öt ligára. Az eredeti pillanatképekből rekonstruált kiadásszám 9, nem 17; a 17 bejelentett szelvény és 16 jelölés változatlanul megmaradt. Részletek: [kiválasztási audit](SELECTION_AUDIT_2026-09-28.hu.md).
+
+- Személyes „Mark as placed” jelölő minden aktuális tipphez és alternatívához, szerveroldali mentéssel. Alaprendezés: előbb a jelöletlen, majd a megfogadottnak jelölt tippek, mindkét csoporton belül kezdési idő szerint. A jelölés visszavonható, frissítés és eszközváltás után megmarad, és független az automatikus fogadásnaplótól.
+
+- Bet lifecycle: a felhasználó állandó utasítása alapján a pozitív téttel publikált, friss Stake-ajánlás automatikusan „assumed placed” naplótétellé válik. Nem kér megerősítést; a rögzített tét, odds és modellbecslés változatlan. Az azonos szerződés újraárazása nem új fogadás; új legjobb vonal vagy piac külön kiadható. A megfigyelési és nulla tétű alternatívák nem kerülnek pénzes fogadásként naplózásra.
+- Végeredmény alapján automatikus won/lost/push és számított P&L, forrásbizonyítékkal. Ligánként/piaconként/modellverziónként Brier és log loss diagnosztika az eredeti előmeccses valószínűségből. Az automatikus tételek eredménye a javasolt ár alapján becsült, nem Stake-számlával egyeztetett profit. A manuális tételek kimutatása külön marad.
+
+- Öt külön sportmodell, történeti eredményekből, sportstatisztikákból és MLB dobóelőzményekből; odds nélküli bemenet.
+- Időrendi tanítás, külön modellkeverék-választás és kalibráció; konstans és Elo-benchmark, score-diagnosztika, verziózott modellek.
+- Stake Sports Data API, külön NBA/WNBA/MLB/NHL/NFL tournament-lekérdezéssel; aktív kimenetelek, pontos teljes meccses piac, vonal és odds ellenőrzése. Polymarket nem az aktuális Stake-ajánlások forrása.
+- Minden rangsorolt tipp és kiválasztott alternatíva látható a weben és tartósan naplózott. A korábbi jelölések archív kontextusban maradnak meg; a megkötött fogadások nem íródnak át.
+- 48 órás és mai/holnapi webes rangsor, konkrét választásokkal, küszöboddsszal és téttel; automatikus frissítés és lejárat.
+- Másik platformon talált odds számítása, napi keret és rész-Kelly, 1–5 USD korlát.
+- SQLite publikációs/auditnapló, tényleges manuális fogadásnapló, rendszerköltség utáni egyenleg és előre rögzített jövőbeli becslések visszamérése.
+- Tartós launchd-szolgáltatás ezen a Macen; újraindulás bejelentkezéskor és folyamatleállás után. Telegram-eseménynapló előkészítve, küldés nincs.
+- Python/API és frontend DOM-funkciótesztek. A telepített modellek tényleges riportja a `data/models/{liga}.joblib` objektumokban található; a `summary.json` újabb, még nem előléptetett jelölteket is tartalmazhat. A mostani ellenőrzés: 125 Python/API-teszt és 5 alteszt, 9 frontend DOM-teszt sikeres.
+
+Web: **http://127.0.0.1:8765**. Tailscale: **https://bela-macbook-pro-m4-pro.tail8a282e.ts.net:8443/**; HTTPS, API és automatikus eseményfrissítés ellenőrizve. Részletes működés, téthatárok és indítóparancsok: [IMPLEMENTATION](IMPLEMENTATION.hu.md).
+
+## Még hiányzik
+
+A folyamatos adat- és oddsfrissítés, valamint az ellenőrzött modell-újratanítás automatikus. A forráskód fejlesztése és kiadása külön munka; a háttérszolgáltatás nem programozza át önállóan saját magát. A további fejlesztés kötelező Stake-konzisztencia-szabályait a gyökérben levő `AGENTS.md` rögzíti.
+
+Teljes játékos-, lineup-, QB-, kapus- és időjárási korrekció; több bookmaker hiteles árkapcsolata; végrehajtható történeti árakon végzett ROI/CLV; független jövőbeli profitbizonyíték; in-play modell; Telegram-bekötés; távoli 24/7 üzemeltetés. A retrospektív fejlesztési teszt nem érintetlen új bizonyíték az ismételt fejlesztői vizsgálatok után. Erre az indulás óta előre rögzített becslések szolgálnak.
+
+A számítógépes hozzáférés engedélyei miatt vizuális böngészős ellenőrzés nem történt. Az API és a DOM-ban lefuttatott felhasználói funkciók teszteltek; ez nem helyettesíti a képi ellenőrzést.
+
+## Tudástár
+
+A könyvi olvasás és szintézis megmaradt. A [kártya–kód megfeleltetés](../knowledge/IMPLEMENTACIOS_KAPCSOLATOK.hu.md) mutatja, mely tanulság hol került be a rendszerbe. Az R04 teljes feldolgozása mellett az R02 teljes szövege elolvasott, vizuális/képletauditja még függőben. A többi külső kutatás nincs lezárva.
+
+## Elérhető források
+
+A `/Users/belavarga/Betting_tips_books` mappában 28 fájl van: 26 könyv-/tanulmányfájl és két új, azonos online forráslistát tartalmazó Markdown-/JSON-katalógus (B27/B28). A Downloads közvetlen olvasása továbbra is macOS-hozzáférési hibát ad, de az elérhető másolat miatt ez nem akadályozza az olvasást.
+
+A legutóbbi két új forrás B25 Handbook of Sports and Lottery Markets (561 PDF-oldal, 231133 kinyert szó) és B26 Sports Trading on Betfair (29 EPUB-egység, 67778 kinyert szó). Mindkettő indexelve; B26 teljes szövege és 55 képe már feldolgozva, B25 teljes szövege és 268 kijelölt oldala is feldolgozva.
+
+A korábban hozzáadott fájlok: Sharp Sports Betting két változatban; Sharper; Smart Sports Betting második példány; Statistical Sports Models in Excel; The Complete Guide to Sports Betting (Kevin Dolan); The Everything Guide to Sports Betting; Weighing the Odds in Sports Betting. Az új Smart Sports Betting bájtszinten azonos a korábban elolvasott B12-vel. A két Sharp-változat szövegét és ábráit összevetettem: B18 teljes feldolgozása B17 tartalmát is lefedi.
+
+A két új katalógus teljes helyi szövege elolvasva. A benne felsorolt 18 külső forrás ellenőrzése megkezdődött. A hat tanulmányból R04 (Noel: Skill-Adjusted Expected Goals, v2) teljes 17 oldala és a 6–13. oldal ábrái/képletei feldolgozva, kritikai jegyzettel. Az eredmények empirikus reprodukciója még nincs meg. A többi külső forrás feldolgozása nincs lezárva; a letöltött anyag nem automatikusan elolvasott anyag.
+
+## Tényleges olvasás
+
+- Teljes könyv és forráskritikai jegyzet: B04 Fixed Odds Sports Betting, B12 Smart Sports Betting, B15 The Logic of Sports Betting; B21 Statistical Sports Models in Excel; B19 Sharper; B22 The Complete Guide to Sports Betting; B24 Weighing the Odds in Sports Betting; B18 Sharp Sports Betting (B17 tartalmi duplikátum); B23 The Everything Guide to Sports Betting (262 oldal, 17 fejezet, vizuális ellenőrzés és számszaki forráskritika).
+- Teljes mellékelt korai kiadás és jegyzet: B06 Football Analytics with Python & R, hat fejezet. Ez nem a későbbi teljes kiadás.
+- Teljes mellékelt ábra- és kódgyűjtemény: B11 Prompt Engineering for Generative AI, 311 oldal és 128 ábrás oldal. A magyarázó könyvszöveg nincs ebben a PDF-ben.
+- Teljes rendelkezésre álló részlet és jegyzet: B07 Gambler 22. fejezete; B10 The Complete Book of Sports Betting töredékes PDF-je. Ezek nem jelentik a teljes eredeti művek elolvasását.
+- Teljes tanulmány és jegyzet: B16 Wigner’s Puzzle.
+- B05 és B20 bájtszinten azonos duplikátum, rendre B04 és B12 lefedi.
+- Teljes könyv és 55 kép: B26 Sports Trading on Betfair, forráskritikai és számítási jegyzetekkel.
+- Teljes könyv: B03 Analyzing Baseball Data with R, 418 oldal, 15 fejezet, 3 függelék, 88 oldal vizuális ellenőrzésével és részletes forráskritikával.
+- Összesen 26 fájl rendelkezésre álló tartalma feldolgozott vagy ellenőrzött duplikátummal lefedett. Ez nem 26 teljes, különálló könyv.
+- Teljes B08 Mathletics: mind a60 fejezet, bibliográfia és index elolvasva (1195992 karakter,609 PDF-oldal),180 különböző oldal vizuálisan ellenőrizve, kritikai jegyzettel és korrigált példaszámításokkal.
+- B09 Monte Carlo or Bust: a teljes778539karakter/451PDF-oldal szövege elolvasva,250különböző oldal vizuálisan ellenőrizve; kritikai jegyzet és reprodukálható futamhossz-számítás mentve.
+- B02 Gambler: mind a 28 fejezet és utóanyag, 661712 karakter, 30 kép feldolgozva. B01 AZW3 teljes szöveges összevetéssel és 30 kép külön vizsgálatával ellenőrzött tartalmi duplikátum.
+- Teljes B13 Soccermatics: mind a 30 egység, 594495 karakter, 141 kép feldolgozva; részletes jegyzet és reprodukálható számszaki audit mentve.
+- Teljes B14 Sports Betting For Dummies: 36 egység, 851882 karakter, 46 képfájl, részletes kritikai jegyzet és reprodukálható számszaki audit.
+- Teljes B25 Handbook of Sports and Lottery Markets: 2292928 karakter, 561 oldal, 24 fejezet, bibliográfiák és indexek; 268 oldal vizuális ellenőrzésével és reprodukálható számszaki audittal. A hivatkozott eredeti cikkek olvasása és empirikus reprodukciója külön feladat.
+
+Részletes, tartós olvasási bizonyítékok: `knowledge/reading_v2/reading_ledger.jsonl` és a `Bxx-notes.hu.md` jegyzetek. A `delivery_cursor.json` csak a kiadott szöveg helyét jelzi, nem minőségi készültséget.
+
+
+## 2026-09-29 — Ligánkénti működési audit és differenciált tétek
+
+Kiadva: projekt szerződés `2026-09-29.6`. A teljes leírás: [LEAGUE_OPERATIONS.hu.md](LEAGUE_OPERATIONS.hu.md). Mind az öt modellezett liga és az MLS-leltár folyamatos működési auditot kapott, a tényleges Stake-piacnevek katalógusa ugyanazzal a publikációval készül. Ligánkénti napi szakirodalmi lekérések, tartós helyreállítási feladatok, sérült modell izolálása és pontos korábbi archívumból történő visszaállítása. Nem implementált piacmodellt egy kész kutatási dosszié nem jelöl megoldottnak.
+
+Új fogadásokra stresszelt valószínűségből, oddsokból és kapcsolódó meccskitettségből 1–5 USD tét. Bankroll nélkül kifejezetten heurisztikus alapegység-szorzó, nem személyre szabott Kelly. Minden régi jegy eredeti tét/odds/valószínűség adata megmaradt.
+
+Éles ellenőrzés 12:25 CEST: helyi és Tailscale egészséges, 328/328 guard-ellenőrzés sikeres; 339 liga/forrás/piac név szerinti katalógussor, 6 ligasor, 30 fogadási kártya és 30 exact eseménylink. Mind a kilenc kutatási témalekérés sikeres, köztük a hat ligakeresés. A 36 korábbi jegy és minden checklist jelölés változatlan. A napi cél továbbra is 6/15 új ajánlás. A 15 aktuálisan kvalifikáló választás már korábban kiadott szerződés, ezért nem új utasítás.
+
+Teljes játékos-, periódus-, kombinált, élő és MLS-modell, teljes sérülés/kezdőhatás, automatikus új forráskód implementálás és igazolt nettó profit továbbra sem teljesített képesség.
+
+Validáció: 213 Python-teszt és 5 alteszt, valamint 23 frontend DOM-teszt sikeres. Az élő API adataival külön DOM-ellenőrzés is sikeres, JavaScript-hiba nélkül.

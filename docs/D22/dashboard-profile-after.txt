@@ -1,0 +1,47 @@
+elapsed=1.770057416986674
+         6928907 function calls (6178521 primitive calls) in 1.764 seconds
+
+   Ordered by: cumulative time
+   List reduced from 494 to 38 due to restriction <38>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.021    0.021    1.764    1.764 /Users/belavarga/Betting_tips_engine/src/betting_engine/server.py:110(dashboard)
+        1    0.000    0.000    0.500    0.500 /Users/belavarga/Betting_tips_engine/src/betting_engine/server.py:78(automation_status)
+        1    0.000    0.000    0.497    0.497 /Users/belavarga/Betting_tips_engine/src/betting_engine/server.py:94(development_status)
+        1    0.000    0.000    0.497    0.497 /Users/belavarga/Betting_tips_engine/src/betting_engine/delivery.py:43(delivery_status)
+ 738522/2    0.254    0.000    0.495    0.248 /Users/belavarga/Betting_tips_engine/src/betting_engine/presentation.py:168(english_payload)
+        1    0.000    0.000    0.492    0.492 /Users/belavarga/Betting_tips_engine/src/betting_engine/delivery.py:141(development_progress)
+        1    0.000    0.000    0.491    0.491 /Users/belavarga/Betting_tips_engine/src/betting_engine/release_coordinator.py:358(release_recovery_status)
+       22    0.003    0.000    0.424    0.019 /Users/belavarga/Betting_tips_engine/src/betting_engine/release_coordinator.py:322(recovery_context)
+       22    0.035    0.002    0.311    0.014 /Users/belavarga/Betting_tips_engine/src/betting_engine/release_coordinator.py:199(utility_prerequisites)
+        1    0.002    0.002    0.244    0.244 /Users/belavarga/Betting_tips_engine/src/betting_engine/storage.py:85(archived_candidates)
+     2353    0.002    0.000    0.227    0.000 /opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/__init__.py:185(dumps)
+     2353    0.001    0.000    0.225    0.000 /opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/encoder.py:185(encode)
+       39    0.225    0.006    0.225    0.006 {method 'execute' of 'sqlite3.Connection' objects}
+     2353    0.223    0.000    0.223    0.000 /opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/encoder.py:207(iterencode)
+     2206    0.018    0.000    0.176    0.000 /Users/belavarga/Betting_tips_engine/src/betting_engine/instructions.py:28(current_execution_review)
+     1322    0.001    0.000    0.158    0.000 /opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/__init__.py:304(loads)
+   122958    0.026    0.000    0.154    0.000 /opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/ast.py:386(walk)
+     1322    0.001    0.000    0.152    0.000 /opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/decoder.py:340(decode)
+     1322    0.150    0.000    0.150    0.000 /opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/decoder.py:351(raw_decode)
+    14985    0.063    0.000    0.148    0.000 /Users/belavarga/Betting_tips_engine/src/betting_engine/presentation.py:74(english_text)
+        1    0.000    0.000    0.134    0.134 /Users/belavarga/Betting_tips_engine/.venv/lib/python3.14/site-packages/starlette/responses.py:186(__init__)
+        1    0.000    0.000    0.134    0.134 /Users/belavarga/Betting_tips_engine/.venv/lib/python3.14/site-packages/starlette/responses.py:33(__init__)
+        1    0.000    0.000    0.134    0.134 /Users/belavarga/Betting_tips_engine/.venv/lib/python3.14/site-packages/starlette/responses.py:196(render)
+     2203    0.006    0.000    0.127    0.000 /Users/belavarga/Betting_tips_engine/src/betting_engine/governance.py:26(verify_publication)
+   122904    0.019    0.000    0.122    0.000 {method 'extend' of 'collections.deque' objects}
+     2223    0.006    0.000    0.113    0.000 /Users/belavarga/Betting_tips_engine/src/betting_engine/governance.py:22(evidence_digest)
+        1    0.000    0.000    0.104    0.104 /Users/belavarga/Betting_tips_engine/src/betting_engine/storage.py:62(latest)
+   245754    0.051    0.000    0.104    0.000 /opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/ast.py:280(iter_child_nodes)
+        1    0.000    0.000    0.102    0.102 /Users/belavarga/Betting_tips_engine/src/betting_engine/snapshots.py:13(decode_publication)
+  2179402    0.092    0.000    0.092    0.000 {built-in method builtins.isinstance}
+        1    0.000    0.000    0.067    0.067 /Users/belavarga/Betting_tips_engine/src/betting_engine/release_coordinator.py:119(production_manifest)
+        1    0.004    0.004    0.067    0.067 /Users/belavarga/Betting_tips_engine/src/betting_engine/development.py:526(production_manifest)
+      716    0.002    0.000    0.058    0.000 /Users/belavarga/Betting_tips_engine/src/betting_engine/release_coordinator.py:67(confined)
+   116120    0.020    0.000    0.058    0.000 /opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/re/__init__.py:169(fullmatch)
+       29    0.001    0.000    0.055    0.002 /Users/belavarga/Betting_tips_engine/src/betting_engine/parallel_development.py:39(_read_acceptance)
+       54    0.000    0.000    0.052    0.001 /opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/ast.py:26(parse)
+       54    0.052    0.001    0.052    0.001 {built-in method builtins.compile}
+     3308    0.041    0.000    0.041    0.000 {built-in method _hashlib.openssl_sha256}
+
+

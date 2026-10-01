@@ -1,0 +1,9 @@
+# Exact root-authorized shared diagnostics
+
+The root development plan may declare `task_diagnostic_bindings`, an object keyed by exact safe task IDs (including explicitly named extra tasks). Each value has exactly `version: root-shared-task-diagnostics-v1`, `scope: already_inspected_model_outcome_diagnostics`, and `files`, a nonempty array of exact `{path, sha256, bytes}` records. Paths must be ordinary `docs/audits/<safe-basename>.md` or `.json`; SHA-256 and positive integer byte length pin historical identity. No task text, prefix inheritance, worker file list, or directory discovery grants access.
+
+The intended owners D18, E514CB13F60 and E5E9AD751B5 receive the two 20261001-0726 model-outcome diagnostics already named in root AGENTS. These are already-inspected context, not untouched holdout data, new model validation, historical source availability, or evidence that their development tasks are complete.
+
+Existing task-owned `evidence_refs` remain supported. Shared records add their scope to the receipt; ownership hashes include only the selected exact shared binding. With no shared binding for D22 its original receipt and ownership hash remain byte-compatible, even if other tasks have bindings. Duplicate/double declarations fail closed. Removed shared bindings reject surviving shared receipts.
+
+All source pins, UTF-8/strict JSON, one-MiB file/four-MiB total/16-file limits, symlink guards, isolated destination boundaries, preflight conflicts, exact byte copying and receipt-last publication use the existing exporter boundaries. Existing controller hooks protect exactly the copied files and reverify them before and after providers and trusted validation. Missing or changed declared input stops preparation before provider activity. Active workspaces and production state are never repaired in place by this change.

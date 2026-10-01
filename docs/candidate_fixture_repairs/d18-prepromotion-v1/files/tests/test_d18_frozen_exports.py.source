@@ -1,0 +1,104 @@
+"""Bounded, pinned D18 regression sources; no current model or source approval."""
+import atexit
+import hashlib
+from io import BytesIO
+from pathlib import Path, PurePosixPath
+import re
+import tarfile
+import tempfile
+
+BUNDLES = {'d18-prepromotion-v1': {'parts': [{'name': 'd18-prepromotion-a-v1.tar.gz', 'sha256': 'ff99c0b7a197e4334e72903d1ff4fcf49a72dad518fdb18357775cfbccf121be', 'bytes': 28592643, 'files': 476, 'unpacked_bytes': 97464726}, {'name': 'd18-prepromotion-b-v1.tar.gz', 'sha256': '55653c0e3f3c1af77da15b7788ba67f0945053edf9e062efc6f464495821d526', 'bytes': 22088155, 'files': 476, 'unpacked_bytes': 27843522}], 'files': 952, 'unpacked_bytes': 125308248}}
+MAX_PART = 32 * 1024 * 1024
+MAX_PACKED = 64 * 1024 * 1024
+MAX_UNPACKED = 128 * 1024 * 1024
+MAX_FILE = 72 * 1024 * 1024
+MAX_FILES = 1024
+KNOWLEDGE = {'knowledge/cards/' + name for name in (
+    'K02-fuggetlen-modell.md', 'K03-adat-ido-forras.md', 'K08-validacio.md')}
+_CACHE = {}
+
+
+def _checked_parts(source, spec):
+    if source.is_symlink() or not source.is_dir():
+        raise ValueError('Missing or linked frozen source directory')
+    parts = spec['parts']
+    if not 1 <= len(parts) <= 2:
+        raise ValueError('Invalid frozen archive parts')
+    checked = []
+    names = set()
+    total = 0
+    for part in parts:
+        name = part['name']
+        if not re.fullmatch(r'd18-prepromotion-[ab]-v1\.tar\.gz', name) or name in names:
+            raise ValueError('Unsafe or duplicate frozen archive part')
+        names.add(name)
+        path = source / name
+        if path.is_symlink() or not path.is_file() or path.stat().st_size > MAX_PART:
+            raise ValueError('Missing, linked or oversized frozen archive part')
+        with path.open('rb') as handle:
+            body = handle.read(MAX_PART + 1)
+        total += len(body)
+        if (len(body) != part['bytes'] or len(body) > MAX_PART or total > MAX_PACKED
+                or hashlib.sha256(body).hexdigest() != part['sha256']):
+            raise ValueError('Frozen archive part hash/size differs')
+        checked.append(body)
+    return checked
+
+
+def _extract(source, target, spec):
+    checked = _checked_parts(source, spec)
+    if target.is_symlink() or not target.is_dir() or any(target.iterdir()):
+        raise ValueError('Frozen extraction needs a new empty directory')
+    total = 0
+    seen = set()
+    for packed in checked:
+        with tarfile.open(fileobj=BytesIO(packed), mode='r|gz') as archive:
+            for member in archive:
+                name = member.name
+                relative = PurePosixPath(name)
+                if (not member.isfile() or relative.is_absolute() or '..' in relative.parts
+                        or str(relative) != name or not relative.parts or name in seen
+                        or not (relative.parts[0] == 'data' or name in KNOWLEDGE)
+                        or member.size < 0 or member.size > MAX_FILE):
+                    raise ValueError('Unsafe frozen regression member')
+                seen.add(name)
+                total += member.size
+                if total > MAX_UNPACKED or len(seen) > MAX_FILES:
+                    raise ValueError('Frozen extraction bound exceeded')
+                dest = target / name
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                with archive.extractfile(member) as inp, dest.open('xb') as out:
+                    left = member.size
+                    while left:
+                        body = inp.read(min(left, 1024 * 1024))
+                        if not body:
+                            raise ValueError('Truncated frozen regression member')
+                        out.write(body)
+                        left -= len(body)
+    if total != spec['unpacked_bytes'] or len(seen) != spec['files']:
+        raise ValueError('Frozen regression member inventory differs')
+    return target
+
+
+def frozen_root(identity):
+    if identity not in BUNDLES:
+        raise ValueError('Unknown frozen regression identity')
+    source = Path(__file__).resolve().parent / 'fixtures'
+    spec = BUNDLES[identity]
+    _checked_parts(source, spec)
+    if identity not in _CACHE:
+        temporary = tempfile.TemporaryDirectory(prefix='d18-frozen-regression-')
+        try:
+            root = _extract(source, Path(temporary.name), spec)
+        except BaseException:
+            temporary.cleanup()
+            raise
+        _CACHE[identity] = (root, temporary)
+    return _CACHE[identity][0]
+
+
+@atexit.register
+def _cleanup():
+    for root, temporary in _CACHE.values():
+        temporary.cleanup()
+    _CACHE.clear()

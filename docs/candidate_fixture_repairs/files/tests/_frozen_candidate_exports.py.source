@@ -1,0 +1,62 @@
+"""Hash-pinned whole regression exports; never current research or model approval."""
+import atexit
+import hashlib
+from io import BytesIO
+from pathlib import Path, PurePosixPath
+import tarfile
+import tempfile
+
+BUNDLES = {
+ 'e5e9-gap-v1': {'sha256': '966ce0372627001b0a800a38f60255589de8496096c95588d2a5b933a4666241', 'files': 312, 'unpacked_bytes': 68672158},
+ 'e7e4-volleyball-v1': {'sha256': 'f4412c7677f196a0a65c8a28dc1db7a8ea5392f65eefafd0e8eac759ecc072e5', 'files': 294, 'unpacked_bytes': 68252218},
+}
+MAX_PACKED=32*1024*1024
+MAX_UNPACKED=80*1024*1024
+MAX_FILE=48*1024*1024
+MAX_FILES=400
+_CACHE={}
+
+
+def _check_archive(path,spec):
+ if path.is_symlink() or not path.is_file() or path.stat().st_size>MAX_PACKED:raise ValueError('Missing, linked or oversized frozen regression archive')
+ with path.open('rb') as handle:body=handle.read(MAX_PACKED+1)
+ if len(body)>MAX_PACKED or hashlib.sha256(body).hexdigest()!=spec['sha256']:raise ValueError('Frozen regression archive hash differs')
+ return body
+
+
+def _extract(path,target,spec):
+ checked=_check_archive(path,spec)
+ if target.is_symlink() or not target.is_dir() or any(target.iterdir()):raise ValueError('Frozen regression extraction needs a new empty directory')
+ total=0;seen=set()
+ with tarfile.open(fileobj=BytesIO(checked),mode='r|gz') as archive:
+  for member in archive:
+   name=member.name;relative=PurePosixPath(name)
+   if (not member.isfile() or relative.is_absolute() or '..' in relative.parts or str(relative)!=name or not relative.parts or relative.parts[0]!='data' or name in seen or member.size<0 or member.size>MAX_FILE):raise ValueError('Unsafe frozen regression member')
+   total+=member.size;seen.add(name)
+   if total>MAX_UNPACKED or len(seen)>MAX_FILES:raise ValueError('Frozen regression extraction bound exceeded')
+   dest=target/name;dest.parent.mkdir(parents=True,exist_ok=True)
+   with archive.extractfile(member) as source,dest.open('xb') as handle:
+    left=member.size
+    while left:
+     body=source.read(min(left,1024*1024))
+     if not body:raise ValueError('Truncated frozen regression member')
+     handle.write(body);left-=len(body)
+ if total!=spec['unpacked_bytes'] or len(seen)!=spec['files']:raise ValueError('Frozen regression member inventory differs')
+ return target
+
+
+def frozen_root(identity):
+ if identity not in BUNDLES:raise ValueError('Unknown frozen regression identity')
+ source=Path(__file__).resolve().parent/'fixtures'/(identity+'.tar.gz');spec=BUNDLES[identity];_check_archive(source,spec)
+ if identity not in _CACHE:
+  temporary=tempfile.TemporaryDirectory(prefix='betting-frozen-regression-')
+  try:root=_extract(source,Path(temporary.name),spec)
+  except BaseException:temporary.cleanup();raise
+  _CACHE[identity]=(root,temporary)
+ return _CACHE[identity][0]
+
+
+@atexit.register
+def _cleanup():
+ for root,temporary in _CACHE.values():temporary.cleanup()
+ _CACHE.clear()

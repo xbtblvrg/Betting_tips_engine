@@ -1,0 +1,23 @@
+{
+  "enabled": true,
+  "cadence_seconds": 3600,
+  "max_run_seconds": 1500,
+  "model": "gpt-6-astra",
+  "codex_binary": "/Users/belavarga/.local/bin/codex",
+  "node_binary": "/opt/homebrew/bin/node",
+  "automatic_production_deployment": false,
+  "enabled_at": "2026-09-29T14:26:10.023908+00:00",
+  "queue_poll_seconds": 60,
+  "max_parallel": 6,
+  "scheduler_poll_seconds": 2,
+  "engineering_poll_seconds": 60,
+  "resource_capacity": {
+    "enabled": true,
+    "max_workers": 6,
+    "cpu_soft_target": 75,
+    "cpu_high_water": 80,
+    "memory_reserve_gib": 4,
+    "disk_reserve_gib": 20,
+    "swap_growth_mib_per_min": 64
+  }
+}

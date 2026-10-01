@@ -1,0 +1,178 @@
+{
+  "artifacts": [
+    {
+      "bytes": 6552,
+      "path": "src/betting_engine/release_acceptance_rehearsal.py",
+      "sha256": "6ac4a2544507c8e0c3792cc81eae01b51f3e7a57a8aa6973622d019540811224"
+    },
+    {
+      "bytes": 10736,
+      "path": "tests/test_d13_acceptance_handoff.py",
+      "sha256": "32b134d006efddc1c7a407334aa9260c3a4cb131df3507ca28aa97fcfb74811c"
+    },
+    {
+      "bytes": 6799,
+      "path": "docs/D13_ACCEPTANCE_HANDOFF.md",
+      "sha256": "9e6bda725a52da3e1b713fbab1437efc4116986cc9b402a515f70e709805f01d"
+    }
+  ],
+  "due_at": "2026-09-30T03:51:42.135060+00:00",
+  "hash_scope": "Raw bytes; this inventory excludes itself to avoid circular hashing. Hashes prove identity, not authority.",
+  "helper_reviews": [],
+  "inspected_inputs": [
+    {
+      "bytes": 17319,
+      "path": "AGENTS.md",
+      "sha256": "a783bbe1e6c2a04b066ca158c3039557dc713705c5f36d9058541c88bfca3772"
+    },
+    {
+      "bytes": 15819,
+      "path": "config/project_contract.json",
+      "sha256": "d20b8cbec14462ea1bab68c5e2bfdb71fe37a91ba6c89d1790320f29c6bf9564"
+    },
+    {
+      "bytes": 26761,
+      "path": "src/betting_engine/release_rehearsal.py",
+      "sha256": "a20811dcffdd7f45548b4a16b0916f024e7e31b6e7cd193a620d77268efd25c4"
+    },
+    {
+      "bytes": 12717,
+      "path": "src/betting_engine/parallel_development.py",
+      "sha256": "ea8a4e3e914e509cea3b4662b7bcec934b23433230ba7822f7317c9a7f00dc51"
+    },
+    {
+      "bytes": 50780,
+      "path": "src/betting_engine/release_coordinator.py",
+      "sha256": "389e5a747312ccb5b16e00fc5dba840adaa5f11b92d9567372e79d35af64d808"
+    },
+    {
+      "bytes": 2638,
+      "path": "knowledge/cards/K03-adat-ido-forras.md",
+      "sha256": "a71af120097072161a042f04257cb6f4ebc617e34ff43c19588ca313148b1d9a"
+    },
+    {
+      "bytes": 3730,
+      "path": "knowledge/cards/K08-validacio.md",
+      "sha256": "951ffe80c87fd491bfeece567c31a86a78371087fcf8b16297422ecadd624bd3"
+    },
+    {
+      "bytes": 18605,
+      "path": "data/sports_source_evidence/manifest.json",
+      "sha256": "cfb4516857e9b4e5ad4f98b68fcf276a9869863760eb17215011aa53b3f6d96b"
+    },
+    {
+      "bytes": 3088,
+      "path": "data/players/verified_history/runs/20260929T192751138800Z-d0ccf522fb5d/manifest.json",
+      "sha256": "37d168526d11216ed4b59d4614ba9aade02ef713e26efc4c0a5aeeeedbf34e51"
+    },
+    {
+      "bytes": 9494814,
+      "path": "data/players/verified_history/runs/20260929T192751138800Z-d0ccf522fb5d/observations.parquet",
+      "sha256": "d5624e9e4ab27f3050a7c80435cf9aa955d3c9334e043190b89232c33b9c2b5a"
+    },
+    {
+      "bytes": 3088,
+      "path": "tests/fixtures/d13_history_manifest.json",
+      "sha256": "37d168526d11216ed4b59d4614ba9aade02ef713e26efc4c0a5aeeeedbf34e51"
+    },
+    {
+      "bytes": 407,
+      "path": "tests/fixtures/d13_component_gap.json",
+      "sha256": "d4ff085d8899bcef946cc7f50ddaa68df9cf5ab06e660027a8abdbe6a8564802"
+    }
+  ],
+  "is_acceptance_or_release_receipt": false,
+  "model_activation_authorized": false,
+  "preservation": {
+    "before_manifest_sha256": "5d65c3859c99b8eebae47c46d006e7fd7ce8fc1545a08c651542edc290770a9e",
+    "changed_or_deleted": [],
+    "existing_tests_checked": 84,
+    "preexisting_files_checked": 260
+  },
+  "production_verified": false,
+  "profile": "no_automatic_profile",
+  "real_acceptance_gap": "pending controller tests, independent review and committed candidate acceptance",
+  "scope": "isolated read-only acceptance evaluator and candidate integration rehearsal",
+  "task": "D13",
+  "unchanged_regression_sources": [
+    {
+      "bytes": 23302,
+      "path": "tests/test_d13_release_rehearsal.py",
+      "sha256": "5be2e8f43efeb373aa55c32255f7458d36222c85f4184571830e0eabfc63bbb0"
+    },
+    {
+      "bytes": 8144,
+      "path": "tests/test_d13_release_recovery.py",
+      "sha256": "799451b4b06ee95c4fb66e8ac7392fe94b82f57884cadd1f554889843c22f718"
+    },
+    {
+      "bytes": 25148,
+      "path": "tests/test_parallel_development.py",
+      "sha256": "06e7afefaa562af10deeb0053bb23e9154090137f4c82b5e6ce4740e933dada8"
+    },
+    {
+      "bytes": 26982,
+      "path": "tests/test_release_coordinator.py",
+      "sha256": "a6e16b0deb2a1c2c00b746979d0d108ac14ea5df76c86ac4521cc99206ece017"
+    },
+    {
+      "bytes": 1830,
+      "path": "tests/test_task_release_handoff.py",
+      "sha256": "8dd8b553388cc79f1b72899c33928025f15805391a705d152d999d2adf72f4d4"
+    },
+    {
+      "bytes": 1100,
+      "path": "tests/test_release_supervision.py",
+      "sha256": "e5b19f43326b15390e8ff01c50a69266928c02edc56cdd43b61c8d219abd1f77"
+    },
+    {
+      "bytes": 11270,
+      "path": "tests/test_release_superseded_tasks.py",
+      "sha256": "3823dabd83d08947c2718cef34d77b04ee61c58f197542b6d663ca5500162d6f"
+    },
+    {
+      "bytes": 8433,
+      "path": "tests/test_api.py",
+      "sha256": "88f7ab33752b4993d408ba5f0f9d94bd9a9240d4a0ad8515585fb00b68f41e60"
+    },
+    {
+      "bytes": 7892,
+      "path": "tests/test_governance.py",
+      "sha256": "efa51851f20791b17c2a2901b14b6e26e6b7e67332d3bdc76568f3d84dd1dcb5"
+    },
+    {
+      "bytes": 3769,
+      "path": "tests/test_decisions.py",
+      "sha256": "2f0b0e761fe13e871c75d2af4bafb857dbd39565fed12a76f40a67ee347fa8dc"
+    },
+    {
+      "bytes": 38215,
+      "path": "tests/web.test.mjs",
+      "sha256": "a53ba75cd525cc433e96ba460ca042cf88758636a0f98249b23ef6439fdc648b"
+    }
+  ],
+  "validation": {
+    "api_governance_decisions": {
+      "failed": 0,
+      "passed": 46,
+      "warnings": [
+        "Starlette/httpx deprecation"
+      ]
+    },
+    "controller_full_suite": "pending",
+    "existing_rehearsal_and_controller_regressions": {
+      "failed": 0,
+      "passed": 190
+    },
+    "final_new_regressions": {
+      "failed": 0,
+      "passed": 46
+    },
+    "frontend_dom": {
+      "failed": 0,
+      "passed": 40
+    },
+    "independent_controller_review": "pending",
+    "live_verification": "not performed"
+  }
+}

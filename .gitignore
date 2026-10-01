@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.egg-info/
+.env
+knowledge/library.sqlite*
+knowledge/extracted/
+knowledge/manifest.json
+reports/*.json
+node_modules/
+data/
+.pytest_cache/
+knowledge/reading_v2/rendered/

@@ -1,0 +1,64 @@
+{
+  "advisory_dossier_sha256": "79dfda43eef4a0b8ad2c7308b71af74f0a0b2bee750a734c29db2e0bb3d4c4db",
+  "due_at": "2026-10-01T18:47:03.458974+00:00",
+  "helper_reviews": [
+    {
+      "disposition": "partly_used",
+      "id": "acceptance_checklist:grok",
+      "reason": "Used candidate-first, source-integrity and gate-preservation checks. Rejected absent-evidence claims after local inspection and rejected conflating Budapest daily 15 minimum with rolling 48h coverage.",
+      "sha256": "effb2fbf979cf5b5a2c84c8be3034c2eeb6c4a6ad646b6022f0693c82dbbc933"
+    }
+  ],
+  "independent_controller_review": "pending",
+  "inspected_sources": {
+    "AGENTS.md": "a783bbe1e6c2a04b066ca158c3039557dc713705c5f36d9058541c88bfca3772",
+    "config/project_contract.json": "d20b8cbec14462ea1bab68c5e2bfdb71fe37a91ba6c89d1790320f29c6bf9564",
+    "data/engineering-evidence/281faf6d98d57ee0fde6d26196e1037e2f86f8dd58d2783fe302671ce5afc2fc.json": "e91507ae394efb9c7d21d158ebae4d6dad4270f42b3dac17a6d250a8b7986a5c",
+    "data/players/verified_history/runs/20260929T192751138800Z-d0ccf522fb5d/manifest.json": "37d168526d11216ed4b59d4614ba9aade02ef713e26efc4c0a5aeeeedbf34e51",
+    "data/players/verified_history/runs/20260929T192751138800Z-d0ccf522fb5d/observations.parquet": "d5624e9e4ab27f3050a7c80435cf9aa955d3c9334e043190b89232c33b9c2b5a",
+    "data/sports_source_evidence/manifest.json": "50ab7076437afc51e0879f9034709555c8b385933d5033d04e64a181c4cdf3ee",
+    "docs/D13_ACCEPTANCE_HANDOFF.md": "9e6bda725a52da3e1b713fbab1437efc4116986cc9b402a515f70e709805f01d",
+    "docs/STAKE_MARKETS.md": "b90119bbfad65cf4bc3c57201daab7c56d2186d83cbb67541eee84f36c6c44a9",
+    "docs/STATUS.hu.md": "5f53d84e40b1e660204a449b8d1fc992953429a08f3ff5b5fefe69b457246921",
+    "knowledge/cards/K03-adat-ido-forras.md": "a71af120097072161a042f04257cb6f4ebc617e34ff43c19588ca313148b1d9a",
+    "knowledge/cards/K08-validacio.md": "951ffe80c87fd491bfeece567c31a86a78371087fcf8b16297422ecadd624bd3",
+    "src/betting_engine/development.py": "2e2ca8c475db1f69f99795a35a5987e8660c7630cf2925d3c2fb1907b482d8dc",
+    "src/betting_engine/parallel_development.py": "ea8a4e3e914e509cea3b4662b7bcec934b23433230ba7822f7317c9a7f00dc51",
+    "src/betting_engine/release_acceptance_rehearsal.py": "6ac4a2544507c8e0c3792cc81eae01b51f3e7a57a8aa6973622d019540811224",
+    "src/betting_engine/release_rehearsal.py": "a20811dcffdd7f45548b4a16b0916f024e7e31b6e7cd193a620d77268efd25c4"
+  },
+  "live_publication_verification": "not performed",
+  "model_training_or_activation": "not performed",
+  "outputs": {
+    "docs/EB71DF62487_D13_DELTA_AUDIT.md": "83bfc375ac279c1296889ab38a21343228be94394e328b8dbbbf9638325979d3",
+    "src/betting_engine/release_acceptance_delta.py": "7ed42de85e9756943133ea54ed640a0f36ba94c0c2621a7e9e03a38404a26ae3",
+    "tests/test_eb71df62487_acceptance_delta.py": "334063963e42ee8398257aa0da3d07f133c0ba3bed703636ff982de8a17c5636"
+  },
+  "preexisting_file_preservation": {
+    "baseline_manifest_sha256": "0a594905e7b1acd3cfd70d5783adac09b469aa2f31ee7b3f82dd868c549a7bc2",
+    "changed_or_removed": [],
+    "files_checked": 260
+  },
+  "production_release": "not performed",
+  "schema": "isolated-d13-delta-evidence-v1",
+  "scope": "experimental candidate delta evaluator; no production or model authority",
+  "task_id": "EB71DF62487",
+  "tests": {
+    "candidate_and_handoff_parallel_api_guard_decisions": {
+      "new_cases": 27,
+      "overlap_with_baseline": 46,
+      "passed": 144,
+      "warnings": 1
+    },
+    "dom_direct_node_command": {
+      "passed": 40
+    },
+    "npm_test_initial_attempt": {
+      "diagnostic": "No error diagnostic; direct package.json test command subsequently passed.",
+      "exit_code": 255
+    },
+    "unchanged_d13_baseline": {
+      "passed": 149
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "summary": "Implemented and tested an offline service-input preparation checker. Targeted recovery remains blocked by three missing controller-owned files.",
+  "task_complete": false,
+  "tests_added": [
+    "tests/test_f0022_service_preparation.py",
+    "tests/test_f0022_preparation_reopen.py"
+  ],
+  "remaining": [
+    "Supply scripts/development_service.py, scripts/release_service.py and config/development_runner.json with trusted hashes, then rerun validation.",
+    "Controller independent review and separately authorized live recovery/release verification."
+  ],
+  "evidence": [
+    "221 focused tests and 216 frontend tests passed.",
+    "Full Python suite: 3958 passed; two existing missing-file failures remain.",
+    "All 431 original files remain byte-for-byte unchanged.",
+    "docs/F0022_SERVICE_PREPARATION_RECOVERY.md",
+    "docs/f0022_preparation_recovery/verification.json"
+  ],
+  "helper_reviews": []
+}

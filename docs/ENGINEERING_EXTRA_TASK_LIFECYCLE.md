@@ -1,0 +1,11 @@
+# Evidence-bound extra-task retirement
+
+A resolved engineering gap previously left its generated extra task in the active scheduling list. The registry kept the definition, the coordinator only appended definitions, and `expand_work` continued selecting the old obligation.
+
+Generated engineering tasks now retain `engineering_gap_ids`. Legacy definitions are backfilled only from exact persisted `gap.task_id` assignments, not names or bucket guesses. A retirement directive requires every linked gap to be resolved and to have a currently checked positive proof with no current failure observation. A missing publication, vanished market, stale resolved row, or partial resolution is insufficient. The current exact-market proof must cover every original contract variant; a narrower later inventory cannot substitute. The current proof is hash-archived alongside the original resolution.
+
+The coordinator marks such an extra task `superseded`, preserving its definition, original deadline, attempts, error, run ID and result history. It is excluded from scheduling, but is not a completed implementation or verified betting capability. Seed tasks and generic milestone follow-ups are not retired. Existing follow-ups may treat an evidence-retired repair as an obsolete prerequisite, without changing production-ready states. A renewed observed gap clears pending retirement and reopens the same retired task without resetting its attempt history or deadline.
+
+Running or integrating attempts retain their exclusive claim. The coordinator records pending retirement, lets the existing attempt retain its patch/run evidence, and applies retirement after the attempt reaches a terminal state on a subsequent engineering synchronization. This patch does not terminate an already running CLI or interrupt candidate integration.
+
+Implementation: `engineering_loop.py` produces and applies lifecycle directives; `development.py` invokes the state reconciliation under its existing lock and excludes retired extras. New regressions are in `tests/test_engineering_extra_lifecycle.py`. No production source, betting database, task state, release receipt, or model gate was modified during this staging task.

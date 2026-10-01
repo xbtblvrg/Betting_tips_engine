@@ -1,0 +1,6 @@
+{
+  "initial_pending_dashboard_requests": 1,
+  "pending_after_two_poll_ticks_and_two_SSE_updates": 5,
+  "first_request_resolved": false,
+  "scope": "existing frontend executed with controlled never-resolving fetch; no live HTTP request"
+}

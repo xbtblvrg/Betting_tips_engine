@@ -1,0 +1,94 @@
+{
+  "catalogue": "market_catalog/versions/20260929T184257055207Z/contracts.json",
+  "catalogue_sha256": "1dae2fcd71c4fe4783438fd887866e03fd7e80829c8721741020205669dd37cf",
+  "collected_at": "2026-09-29T18:43:13.486346+00:00",
+  "fixtures": [
+    {
+      "name": "wnba-standard",
+      "league": "WNBA",
+      "fixture_id": "ebf0ef76-112f-476a-9fce-c95feb572865",
+      "fixture_slug": "46937537-indiana-fever-las-vegas-aces",
+      "fixture_start": "2026-09-29T22:30:00+00:00",
+      "body_file": "wnba-standard.json.gz",
+      "url": "https://odds-data.stake.com/odds/46937537-indiana-fever-las-vegas-aces",
+      "fetched_at": "2026-09-29T18:43:03.636440+00:00",
+      "sha256": "a681d2b52555decefe1236ed5b447ad4953f80ad710e14ec153729944972a508",
+      "archive": "stake_api_archive/a681d2b52555decefe1236ed5b447ad4953f80ad710e14ec153729944972a508.json.gz"
+    },
+    {
+      "name": "nfl-swish",
+      "league": "NFL",
+      "fixture_id": "14cf8173-a1d9-4ddb-9d5d-eedf07954aac",
+      "fixture_slug": "46712868-cleveland-browns-pittsburgh-steelers",
+      "fixture_start": "2026-10-02T00:15:00+00:00",
+      "body_file": "nfl-swish.json.gz",
+      "url": "https://odds-data.stake.com/odds/46712868-cleveland-browns-pittsburgh-steelers",
+      "fetched_at": "2026-09-29T18:43:06.092109+00:00",
+      "sha256": "733dcaa57abdeb62ef5729444be324eac58bedd8f1e070ccce6cb33310bf8132",
+      "archive": "stake_api_archive/733dcaa57abdeb62ef5729444be324eac58bedd8f1e070ccce6cb33310bf8132.json.gz"
+    },
+    {
+      "name": "nhl-skater",
+      "league": "NHL",
+      "fixture_id": "4eb1f210-9d3d-41e5-96f7-39f4d0c0c1e1",
+      "fixture_slug": "46728042-carolina-hurricanes-florida-panthers",
+      "fixture_start": "2026-09-29T21:00:00+00:00",
+      "body_file": "nhl-skater.json.gz",
+      "url": "https://odds-data.stake.com/odds/46728042-carolina-hurricanes-florida-panthers",
+      "fetched_at": "2026-09-29T18:43:04.192958+00:00",
+      "sha256": "f86d1a400fbf66b7be912b6ab875637b45ae737035fa14bb74778426d718ab3c",
+      "archive": "stake_api_archive/f86d1a400fbf66b7be912b6ab875637b45ae737035fa14bb74778426d718ab3c.json.gz"
+    },
+    {
+      "name": "nhl-goalie",
+      "league": "NHL",
+      "fixture_id": "e94d45c2-c15f-4071-b663-676d4508af4a",
+      "fixture_slug": "46728043-toronto-maple-leafs-montreal-canadiens",
+      "fixture_start": "2026-09-29T23:00:00+00:00",
+      "body_file": "nhl-goalie.json.gz",
+      "url": "https://odds-data.stake.com/odds/46728043-toronto-maple-leafs-montreal-canadiens",
+      "fetched_at": "2026-09-29T18:43:04.162412+00:00",
+      "sha256": "902a38bdddcb43a666d4527e9e2f5bccd5dbae0b361acd2e5e399d253f7dc3ee",
+      "archive": "stake_api_archive/902a38bdddcb43a666d4527e9e2f5bccd5dbae0b361acd2e5e399d253f7dc3ee.json.gz"
+    },
+    {
+      "name": "nba-no-props",
+      "league": "NBA",
+      "fixture_id": "d9611a6c-1b58-4dbc-a534-8d54d0a479fe",
+      "fixture_slug": "46805509-detroit-pistons-boston-celtics",
+      "fixture_start": "2026-10-20T19:00:00+00:00",
+      "body_file": "nba-no-props.json.gz",
+      "url": "https://odds-data.stake.com/odds/46805509-detroit-pistons-boston-celtics",
+      "fetched_at": "2026-09-29T18:43:01.621244+00:00",
+      "sha256": "4d63f13ca4ffebe48fa663f4f1148516900e092a1203d4e0a07df7682b678e12",
+      "archive": "stake_api_archive/4d63f13ca4ffebe48fa663f4f1148516900e092a1203d4e0a07df7682b678e12.json.gz"
+    },
+    {
+      "name": "ncaa-no-props",
+      "league": "NCAAF",
+      "fixture_id": "3d4e4caa-9d0c-49e1-94d6-e7e4f35caead",
+      "fixture_slug": "46924839-houston-cougars-ucf-knights",
+      "fixture_start": "2026-10-03T16:00:00+00:00",
+      "body_file": "ncaa-no-props.json.gz",
+      "url": "https://odds-data.stake.com/odds/46924839-houston-cougars-ucf-knights",
+      "fetched_at": "2026-09-29T18:43:10.571175+00:00",
+      "sha256": "a888ac8ae275af418c93680fc2f238726769d69024124f5e858abbf1c38f42c4",
+      "archive": "stake_api_archive/a888ac8ae275af418c93680fc2f238726769d69024124f5e858abbf1c38f42c4.json.gz"
+    },
+    {
+      "name": "wnba-fixtures-endpoint",
+      "league": "WNBA",
+      "fixture_id": "ebf0ef76-112f-476a-9fce-c95feb572865",
+      "fixture_slug": "46937537-indiana-fever-las-vegas-aces",
+      "fixture_start": "2026-09-29T22:30:00+00:00",
+      "body_file": "wnba-fixtures-endpoint.json.gz",
+      "url": "https://odds-data.stake.com/fixtures/46937537-indiana-fever-las-vegas-aces",
+      "fetched_at": "2026-09-29T18:43:03.372973+00:00",
+      "sha256": "a681d2b52555decefe1236ed5b447ad4953f80ad710e14ec153729944972a508",
+      "archive": "stake_api_archive/a681d2b52555decefe1236ed5b447ad4953f80ad710e14ec153729944972a508.json.gz",
+      "blob": "a681d2b52555decefe1236ed5b447ad4953f80ad710e14ec153729944972a508.data",
+      "bytes": 91287,
+      "http_status": 200
+    }
+  ]
+}

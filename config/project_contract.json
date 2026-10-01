@@ -1,0 +1,315 @@
+{
+  "version": "2026-10-01.27",
+  "objective": "Maximize measured betting profit after stakes from every immutable issued decision, including losses. External AI/data/hosting budget is decided by the user and does not block model work; unknown operating costs remain disclosed.",
+  "profit_guaranteed": false,
+  "requirements": [
+    {
+      "id": "R01",
+      "rule": "Forecast from independent sports data before comparing market prices.",
+      "implementation": "models.py; governance.py"
+    },
+    {
+      "id": "R02",
+      "rule": "Use the local literature knowledge base with traceable references; retrieved prose cannot invent inputs or probabilities.",
+      "implementation": "KnowledgeAgent; knowledge/cards"
+    },
+    {
+      "id": "R03",
+      "rule": "Scan NBA, MLB, NHL, NFL, WNBA and every NCAA sport currently available through Stake USA tournaments. Refresh upcoming 48-hour offers every 60 seconds and the complete returned fixture catalogue every 15 minutes where feeds and service are available. Discover NCAA availability dynamically; never treat absent validated models as supported.",
+      "implementation": "engine.py; markets.py"
+    },
+    {
+      "id": "R04",
+      "rule": "Use exact active Stake event, outcome, line, odds and settlement scope. Publish new qualified decisions immediately.",
+      "implementation": "EvidenceGuard; publication; SSE"
+    },
+    {
+      "id": "R05",
+      "rule": "Deliver at least 20 distinct funded first issuances per Budapest calendar day, with no upper count cap, across as many different games as valid opportunities permit. The latest user clarification rejects a blanket funding shutdown solely for insufficient historical CLV. Keep exact fresh quotes, independent models, model/input quality and the explicitly active funding-policy/sizing gates. The authorized fallback tiers in R34 change return preference only; the daily target is not guaranteed and does not authorize padding. Report shortfalls and create concrete development work; never count shadow observations, repricing, old decisions or duplicate tickets. On the explicitly requested reset day, count first funded issuances only since the audited release checkpoint. Preserve the full calendar-day history separately; never count a revalidated old instruction as a new ticket. The next local midnight restores normal daily counting.",
+      "implementation": "recommendation_issuance; daily_target_checkpoints; Store.daily_progress"
+    },
+    {
+      "id": "R06",
+      "rule": "Active all_tiers_weighted_v3 sizing has one configured/hard USD5 ceiling across stress_value, model_pick and probability_pick. Funded amounts must be USD1\u20135. No tier-specific USD1 maximum. Preserve v1/v2 historical receipt reproduction. Positive-EV sizing retains the established stressed/nominal formula; nonpositive-EV preference uses explicitly non-Kelly configured base units with related-exposure and optional bankroll-fraction limits. Unit1 may yield USD1 because of the calculation, not a USD1 cap. No invented bankroll or automatic limit escalation; daily_risk_limit=null.",
+      "implementation": "decisions.py; EvidenceGuard"
+    },
+    {
+      "id": "R07",
+      "rule": "Every issued funded recommendation is an immutable engine decision, including losers, whether or not its personal checklist is marked.",
+      "implementation": "system_decisions; OutcomeAgent"
+    },
+    {
+      "id": "R08",
+      "rule": "Assume manual execution under the standing user instruction; no per-bet approval, no automated order submission. Preserve accepted user-reported odds and duplicate tickets.",
+      "implementation": "storage.py"
+    },
+    {
+      "id": "R09",
+      "rule": "English UI with exact Stake terminology. Main page contains only currently executable checked betting instructions with a concrete USD1\u20135 stake, in chronological order. Marking a bet moves it to Bet Tracker; the persistent checklist remains reversible and separate from outcome tracking. Label Model Pick and Probability Pick distinctly; disclose zero/negative nominal model returns and stressed returns without calling them positive value or guaranteed winners.",
+      "implementation": "web; presentation.py"
+    },
+    {
+      "id": "R10",
+      "rule": "Local web and Tailscale access; Telegram integration remains pending, no sending enabled.",
+      "implementation": "server.py; config/network.json"
+    },
+    {
+      "id": "R11",
+      "rule": "Autonomous evaluation and controlled model experiments; retain versioned evidence, time-separated validation and rejected candidates. Do not describe retraining as autonomous code development.",
+      "implementation": "LearningAgent; train.py"
+    },
+    {
+      "id": "R12",
+      "rule": "Inventory standard and Swish feed sections across NBA, WNBA, MLB, NHL, NFL and every dynamically discovered NCAA sport; retain MLS inventory as additional observed scope. Report horizon limits, missing models and unsupported settlement scopes explicitly.",
+      "implementation": "markets.py inventory; governance report"
+    },
+    {
+      "id": "R13",
+      "rule": "Main page remains a clear execution list of current checked USD1\u20135 funded instructions. Preserve original issued records and stakes in Bet Tracker. Qualified distinct same-game contracts remain eligible; never reissue an identical contract or rotate down weaker family alternatives to inflate counts. Research candidates are not funded instructions.",
+      "implementation": "contract identity; lifecycle; Research view"
+    },
+    {
+      "id": "R14",
+      "rule": "Execute supported learning tasks in a separate persistent worker. Preserve attempts, recover interruptions, retry errors with backoff, evaluate frozen outcomes and retain rejected candidates. Unimplemented research must have an explicit status, not a fabricated success.",
+      "implementation": "learning.py; learning_service.py; /api/learning"
+    },
+    {
+      "id": "R15",
+      "rule": "A rejected controlled retrain triggers a distinct model-hypothesis search. Select among predefined recipes on earlier chronological data, compare one selected candidate with the deployed model, retain results and avoid re-searching unchanged historical evidence. Keep daily volume and $1\u2013$5 stakes as objectives without inventing prices or model performance.",
+      "implementation": "experiments.py canonical sports-input identity; LearningWorker model_search; frozen-input studies"
+    },
+    {
+      "id": "R16",
+      "rule": "Show rolling 24-hour and 48-hour per-league opportunity counts from the same publication as recommendations. Distinguish observed feed outcomes, fresh active standard offers, unverified Swish prices, model-evaluated outcomes, qualifying market families, recorded selections and checklist state. Report missing source coverage as unavailable; never count duplicate tickets or old selections as new daily issuance.",
+      "implementation": "opportunities.py; dashboard opportunities; Next 24 Hours view"
+    },
+    {
+      "id": "R17",
+      "rule": "Operate independent restartable market and learning services plus a per-minute health supervisor. Recover stopped or stalled workflows after repeated failed checks, with restart cooldown and recorded errors. Discover primary-source research daily, retain provenance and reading scope, and never label abstract discovery as implemented model improvement.",
+      "implementation": "supervisor.py; research.py; research_watch jobs; launchd services"
+    },
+    {
+      "id": "R18",
+      "rule": "Every Stake-backed instruction card has a direct Bet on Stake event link from its recorded source. Preserve exact market and selection beside the button. Never fabricate a prefilled bet-slip or selection URL; disclose event-only scope. Opening a link must not mark placement, create a ticket or submit a wager.",
+      "implementation": "presentation.stake_market event_url; stakeBetButton"
+    },
+    {
+      "id": "R19",
+      "rule": "Revalidate current execution separately from immutable issued instructions. Maximum quote age is 300 seconds regardless of polling interval. Preserve held bets when prices expire or lose qualification, but do not display them as currently executable. Seal reviewed contract and numerical fields and verify freshness, stake and seal inside the publication transaction. All automatic model promotion paths must check score regression and retain the deployed model if data or champion changes while fitting. State explicitly that the review is deterministic and not separate LLM approval. Execution eligibility must verify the actual sealed decision and required model inputs, not just a passed flag. Missing model-critical inputs are resolved by the engine before publication; distinguish model/input change from price movement and never delegate a failed readiness check to the user as a bet recommendation. Current professional full-game Winner instructions and payoff-equivalent handicap aliases also require a content-bound check of frozen test predictions and the reported Elo comparator. A known worse Brier result or invalid evidence blocks current execution, without rewriting original decisions; it is not automatically a Total/Handicap verdict. Keep missing exact-line family validation visible as durable development work.",
+      "implementation": "freshness.py; instructions.py; evidence seal; publication transaction; unified promotion gate; professional_quality.py; model-family engineering intake"
+    },
+    {
+      "id": "R20",
+      "rule": "Continuously audit every modeled league and MLS inventory for source failures, missing artifacts, matching failures and unmodeled market types. Run durable source recovery and exact approved-model restoration; retain unresolved implementation gaps after research jobs complete. Discover primary-source research separately for each league daily. Price stress_value instructions within $1\u2013$5 using stressed probability, exact odds and related-game exposure, and apply the active versioned sizing policy to fallback tiers without a tier-specific USD1 maximum under all_tiers_weighted_v3; retain original issued stakes. Without a bankroll, disclose bounded unit sizing as a heuristic, never personalized Kelly. Daily volume remains 20 distinct funded first issuances without fabricating edge or new contracts.",
+      "implementation": "operations.py; LearningWorker operating_gaps; stake_assessment; per-league research sources; English coverage UI"
+    },
+    {
+      "id": "R21",
+      "rule": "Model MLB 1st Inning and Innings 1 to 5 independently from actual official inning results. Preserve separate chronological selection and final tests, exact named Stake contracts, draw versus push semantics, $1\u2013$5 issuance, original records and scope-specific outcome tracking. Run daily controlled segment retraining; retain the champion unless validation and paired improvement gates pass. Missing or incomplete inning settlement evidence cannot be replaced with final game scores.",
+      "implementation": "segment_data.py; segments.py; scoped contracts; segment_prospective; segment_retrain"
+    },
+    {
+      "id": "R22",
+      "rule": "Show the observed Stake market tab beside each instruction and in its navigation steps. Preserve exact feed group IDs/names in quote evidence, verify them against the same contract, and never infer a tab or replace an inning total with a full-game total. Older immutable bet records may display navigation from a fresh exact-selection assessment without rewriting their original price, stake or model. Event buttons remain event navigation, not prefilled bet slips. API group identity alone does not establish a website tab. Do not display internal or unknown groups as tabs. Current exact-selection navigation, including an unknown tab, supersedes old metadata; event link and route must share one source. A navigation-only refresh invalidates an open instruction. An observed exact-event website/feed availability conflict blocks new publication and current execution until a verified recovery; missing navigation alone does not block unrelated contracts.",
+      "implementation": "presentation.py; web/app.js; stake_website_availability.py; EvidenceGuard; current_execution_review"
+    },
+    {
+      "id": "R23",
+      "rule": "Develop complete league-specific market support across Winner, Total, Handicap, periods, player props, team/match, leaders, specials and combinations. Catalogue exact available contracts and tabs; recognition and source collection never count as validated model support. Use separate observed period/player/event targets, chronological validation and matching settlement. Same Game Multi requires an actual combined quote and dependence model. Retain unsupported requirements until implementation and validation are complete.",
+      "implementation": "market_catalog.py; period_data.py; period_models.py; scope_markets.py; player_data.py; durable expansion workflows; docs/ALL_MARKETS.hu.md"
+    },
+    {
+      "id": "R24",
+      "rule": "Use the documented official Stake Sports Data API, retain complete responses with timestamps and hashes, cross-check tournament schedule and fixture lists, and fetch fixture detail plus odds per event. Preserve all standard/Swish contracts and unknown schema fields. Use one validated response per executable quote. Diagnose every upcoming fixture lacking a recommendation, retain recovery evidence, and supervise process and component health. NCAA scope is every sport available on Stake; train and validate college models separately from professional leagues. The 20/day target is a minimum objective, not a pick cap or permission to fabricate edge.",
+      "implementation": "stake_api.py; college.py; market_catalog.py; fixture operating audit; component_health.py; supervisor.py"
+    },
+    {
+      "id": "R25",
+      "rule": "Run supervised development with persistent milestones, checkpoint dates, acceptance criteria, isolated implementation attempts, fixed regression tests, independent AI review, durable errors/retries and honest production readiness. A candidate or research report cannot close an unimplemented capability. Keep live recommendations and immutable records independent of development. Missing checkpoints remain visible; model-validation and profit cannot be declared from a completion message. Supervise actual work eligibility and release blockers as well as heartbeats; preserve original deadlines and failed attempts. Repair code findings promptly with source-bound targeted retries and re-evaluate relevant input failures when new verified evidence becomes available.",
+      "implementation": "development.py; development_inputs.py; protected config/validation_sources.json; engineering_loop.py; delivery.py; supervisor.py; release_coordinator.py"
+    },
+    {
+      "id": "R26",
+      "rule": "Codex remains the primary quant-engine brain, developer and final supervisor. Claude CLI may perform secondary advisory work. Google via Antigravity agy and Grok CLI may perform tertiary advisory work. The controller delegates bounded test-case and acceptance-checklist tasks, archives their outputs and requires explicit Codex dispositions. Helpers cannot approve bets, alter stakes or immutable ledgers, waive validation, deploy production or replace Codex. Helper failures remain visible and do not stop primary development.",
+      "implementation": "ai_delegation.py; DevelopmentWorker; config/ai_delegation.json; /api/development ai_roles"
+    },
+    {
+      "id": "R27",
+      "rule": "Run independent Codex implementation tasks concurrently in isolated workspaces with exclusive durable claims, dependency ordering and bounded provider concurrency. Merge candidate changes only with conflict checks, complete regression validation and independent Codex review; do not overwrite another accepted candidate. Claude helper must use Opus 5.5; Google helper uses agy. Codex remains primary even when helpers fail or exhaust quota.",
+      "implementation": "parallel development coordinator; provider locks; claude-opus-5-5"
+    },
+    {
+      "id": "R28",
+      "rule": "Every subsystem shares the objective of finding well-supported profitable betting instructions from independent probabilities and exact executable prices. Periodically reassess operational gaps, incomplete tasks, daily issuance shortfalls and measured outcome evidence; turn diagnosed defects and missing capabilities into durable actionable development with fixed due dates and acceptance evidence. Do not silently postpone dates, equate a queued job with a fix, invent a winning guarantee, or bypass model/source/contract validation to fill daily counts. An explicitly authorized return-preference policy is not evidence that its selections have a positive expected return or established edge. Ready passive utilities proceed through a separately trusted root release controller with current-base tests, independent Codex review and exact source pins. Identical structural blockers do not cause repeated release attempts; their owner, required evidence and next action remain visible.",
+      "implementation": "engineering_loop.py; supervised task queue; immutable performance audit"
+    },
+    {
+      "id": "R29",
+      "rule": "Evaluate full-game Winner, Handicap and Total for every supported game and prioritize them among qualifying family winners. Allocate across less-exposed distinct games first without a hard one-bet-per-game ceiling. Other qualified same-game family winners remain eligible under the active funding policy and related-exposure rules. The fallback limits in R34 are separate from stress-qualified same-game additions. Hedging is allowed only with exact joint-payout, cost and risk evidence; an opposite selection is not automatically a hedge. Reproduce USD1\u20135 sizing without inventing bankroll or resizing original decisions.",
+      "implementation": "core_market_audit; allocation order; versioned auditable stake sizing"
+    },
+    {
+      "id": "R30",
+      "rule": "At the end of the current development work, re-audit all prior user instructions against actual code, tests and live evidence. Publish an honest developer audit with fulfilled, partial and unresolved items and concrete next work; service liveness is not full engine readiness or demonstrated profitability.",
+      "implementation": "docs/DEVELOPER_AUDIT_2026-09-30_19_2_1.hu.md; data/release-receipt-followup-20260930/live-verification.json"
+    },
+    {
+      "id": "R31",
+      "rule": "Measure exact-contract closing-price value and model versus market accuracy by league, scope, family and model version, with game-cluster samples and temporal coverage. Distinguish model-estimated value, insufficient measurement, adverse observations and sustained verified evidence. Sparse CLV alone does not veto funded recommendations under the latest user clarification. Shadow observations collect evidence without daily funded credit or assumed execution.",
+      "implementation": "prospective_shadow.py; closing_runtime.py; Model Performance",
+      "task_ids": [
+        "D23"
+      ]
+    },
+    {
+      "id": "R32",
+      "rule": "Recover final results for unresolved issued games even after they leave the rolling sports schedule. Verify exact official game/team/start identity and regulation/period/overtime/shootout semantics. Keep original decision inputs untouched, make settlements idempotent, and expose failures with durable retry evidence.",
+      "implementation": "nhl_results.py; Engine settlement; original decision outcomes",
+      "task_ids": [
+        "D24"
+      ]
+    },
+    {
+      "id": "R33",
+      "rule": "A protected-root repair may wake the specifically affected interrupted/blocked developer once from a hash-verified archived failure and its changed protected source baseline. Retain failures, due dates and full acceptance; irrelevant changes and identical failures cannot cause infinite retries.",
+      "implementation": "development.py; protected source recovery evidence",
+      "task_ids": [
+        "D08",
+        "D06"
+      ]
+    },
+    {
+      "id": "R34",
+      "rule": "Historical v1/v2 policy description; R36 supersedes its USD1 sizing ceilings. Apply the explicit BOTH authorization through continuous_best_available_v1: stress_value uses the existing stress-return gate and USD1\u20135 sizing; model_pick requires nominal model EV > 1e-9 and uses nominal-probability sizing with related-event discount and optional fractional Kelly, capped at USD1 by default or calculated up to USD5 under explicitly enabled model_weighted_v2 when the stress threshold fails; probability_pick requires win probability >=0.5 and nominal EV <=1e-9, uses an explicit non-Kelly fixed unit capped at USD1 with available/bankroll-fraction limits and no claimed exposure discount, and openly discloses nonpositive model return. strict remains the default, and continuous_model_v1 allows only the positive-EV fallback. Seal policy/tier/eligibility/effective minimum/maximum stake and require current server/browser agreement. Positive-EV-qualified candidates in ANY family, including held contracts, suppress a probability pick for that entire game. Keep the best candidate per family including held; permit at most one new fallback per event/cycle and one first issuance per game/tier over its lifetime. A later new-contract model-tier upgrade is permitted, exact-contract reissuance is not. Preserve source/model/quote/settlement/site-availability guards, immutable stakes and the existing daily checkpoint. No guaranteed count/profit and no automated orders. Both fallback tiers fund only when the permitted amount reaches USD1; otherwise allocate zero.",
+      "implementation": "funding_policy.py; decisions.py; EvidenceGuard sealed funding_basis; instructions.py; publication transaction; web/app.js"
+    },
+    {
+      "id": "R35",
+      "rule": "Historical release21 policy, superseded for active sizing by R36. Apply the latest explicit user authorization for calculated Model Pick USD1\u20135 using model_pick_sizing_policy=model_weighted_v2; preserve unit_cap_v1 as the default. Retain nominal-probability stake assessment, related-event discount, optional supplied-bankroll fractional Kelly and all current limits. Do not invent bankroll or round an unfundable amount up to USD1. Bind settings, funding-policy-v2 basis, guard and current execution/instruction review to the same mode. Keep legacy funding-policy-v1 receipts unchanged. Preserve original ticket amounts, including USD1 under a fresh weighted assessment; never top up, reissue or increment daily delivery for that old contract. Probability Pick stays at most USD1; strict/stress sizing, all evidence gates, allocation/lifetime limits and the current daily checkpoint remain unchanged. Show the actual recommended amount and disclose that nominal value does not pass the stress threshold or establish realized profit.",
+      "implementation": "funding_policy.py; governance.py; instructions.py; settings; web/app.js"
+    },
+    {
+      "id": "R36",
+      "rule": "Latest explicit correction: all current recommendations have a USD1\u20135 range, maximum USD5, with no tier-specific USD1 limit. Activate all_tiers_weighted_v3 (funding-policy-v3, model-pick-unit-v3, probability-pick-unit-v3). Preserve all legacy receipts exactly. Recalculate existing open exact contracts from fresh currently guarded models/quotes, excluding only their own contract from related exposure, without the old issue-time USD1 ceiling. A read-only Stake Sizing assessment shows recorded amount, current total target and signed difference; it is not a new funded instruction, additional ticket or daily first issuance. Original decisions/odds/stakes and the daily checkpoint stay unchanged. The execution amount cannot be retroactively rewritten: whether each current bet was actually placed is still unresolved; applying an unplaced replacement or already-placed supplement requires correct append-only lifecycle semantics, fresh transaction checks and current execution-state information. No fabricated execution or automatic sportsbook orders.",
+      "implementation": "funding_policy.py; instructions.py; stake_reassessment.py; dashboard_payload.py; server.py; web/app.js; tests/test_all_tier_sizing.py; tests/test_existing_stake_reassessment.py; tests/web_all_tier_sizing_cases.mjs"
+    },
+    {
+      "id": "R37",
+      "rule": "Use measured Mac resources for useful development with a soft 70\u201380% CPU target and responsive live services. Explicit adaptive maximum six isolated jobs; native CPU/memory/swap/thermal/disk admission protection and gradual recovery. Standard+Nice5 development/release scheduling. No cancellation of running jobs or weakening of isolation, review, tests, publication or ledger rules. Preserve legacy maximum three without opt-in.",
+      "implementation": "resource_capacity.py; development.py; delivery.py; development_service.py; release_service.py",
+      "evidence": "data/resource-capacity-20260930/verification-index.json"
+    },
+    {
+      "id": "R38",
+      "rule": "Maintain an English Statistics view with all recorded tickets, decisive win rate, pushes/voids/manual separately, total settled stakes, returned cash, net P&L, ROI, open exposure, league/scope/market breakdowns and explicitly distinguished assumed, reported and account-verified execution. Original decisions and calibrated immutable probabilities must use unique contracts and game counts, not duplicate receipts. Reconcile saved final targets in their exact settlement scope; unresolved NHL results cannot score prospective forecasts. Metrics reads never write ledgers or jobs. Feed evaluated original outcomes into hash-bound durable diagnoses, fixed-deadline engineering tasks and actual run/review/release evidence; diagnosis or a completed utility is not a validated model improvement. Preserve old records, current funding policy and daily checkpoint.",
+      "implementation": "statistics.py; statistics_worker.py; server.py; web; outcome_feedback.py; learning.py; engineering_loop.py; storage.py",
+      "evidence": "data/statistics-lifecycle-20260930/verification-index.json"
+    },
+    {
+      "id": "R39",
+      "rule": "Latest user directive (2026-10-01): minimum20 distinct funded first issuances per Budapest day is the active delivery target, with no upper count cap. Activate it in durable settings without resetting the existing daily checkpoint or rewriting any prior decisions. Preserve all exact-contract, model/input, freshness, publication and USD1\u20135 checks. Persist timeout/error evidence and fixed deadlines; identify deterministic failures by actual retained logs and relevant input hashes, avoid repeated expensive unchanged attempts, and wake recovery on verified input changes. New declared model protocols/recipes must enqueue fresh isolated experiments without treating identical polls as new work; deploy only candidates that pass separated chronological promotion validation. Development activity and unvalidated hypotheses are not proof of accuracy or profit improvement.",
+      "implementation": "config/project_contract.json; durable settings.daily_pick_target=20; development.py; runtime_errors.py; engineering_loop.py; learning.py; experiments.py; tests/test_daily_target_twenty.py; release27 evidence"
+    }
+  ],
+  "unfulfilled_capabilities": [
+    "Complete coverage of every Stake website market and tab",
+    "Validated production player-prop models and participation/role-aware settlement",
+    "Event-order, timing, first/last scorer and all special-market models",
+    "Joint combination and Same Game Multi pricing with executable combined quotes",
+    "Quarter Asian split-stake settlement",
+    "All period market families passing independent validation",
+    "MLS independent models",
+    "In-play state-conditioned models and live execution validation",
+    "Quantified complete injury, lineup, goalie and expected exposure effects",
+    "Prospectively established betting profit net of system costs",
+    "Automatic validated production deployment of newly developed software",
+    "Telegram integration",
+    "Validated independent models and settlement for newly discovered NCAA sports beyond football and basketball"
+  ],
+  "instruction_precedence": {
+    "latest_correction": "2026-09-30 explicit latest: no tier-specific USD1 limit; common USD1\u20135 range, maximum USD5. Recalculate existing stakes too. v3 is active; old records remain immutable. Existing target calculations and actual execution amendments are separate until placement state is known.",
+    "funding": "The existing BOTH eligibility/selection rules remain. Under active all_tiers_weighted_v3 every eligible tier has a configured/hard ceiling USD5. Stress and positive nominal model sizing retain their formulas. Probability preference has nonpositive nominal model return and uses non-Kelly base units with related-event discount and optional bankroll cap; never call it positive edge. Amount below USD1 is unfunded. Unit1 can correctly calculate USD1. Every exact-contract/model/source/freshness/settlement/website guard remains mandatory.",
+    "diversification": "Soft least-exposed-game priority. Keep best candidates per family including held, avoid inferior rotation, suppress probability picks where any positive-EV-qualified candidate exists, and apply one new fallback/event/cycle plus one lifetime issuance per game/tier. Stress-qualified same-game additions remain eligible. Hedge labels require joint-payout evidence; original tickets remain untouched.",
+    "measurement": "Daily counts are distinct funded first issuances; game counts separately disclose concentration. Shadow observations never count as money decisions.",
+    "unchanged": "No automatic bet submission; daily_risk_limit=null; max_bet=5; Codex primary; independently reviewed and tested releases only."
+  },
+  "recommendation_policy": {
+    "default": "strict",
+    "intended_explicit_activation": "continuous_best_available_v1",
+    "authorized_modes": [
+      "strict",
+      "continuous_model_v1",
+      "continuous_best_available_v1"
+    ],
+    "tiers": {
+      "stress_value": {
+        "minimum_stake": 1,
+        "maximum_stake": 5,
+        "basis": "Existing stress-return threshold and reproducible stressed sizing."
+      },
+      "model_pick": {
+        "minimum_stake": 1,
+        "maximum_stake": 5,
+        "basis": "Nominal model EV > 1e-9, stress threshold not passed; positive model estimate is not established edge.",
+        "minimum_odds": "(1 - push_probability) / win_probability; executable quote strictly above this break-even.",
+        "sizing": "Nominal-probability sizing with related-event discount and optional bankroll fractional Kelly. Active all_tiers_weighted_v3 and legacy model_weighted_v2 permit USD1\u20135 subject to configured max_bet and available/bankroll bounds. Historical unit_cap_v1 capped at USD1. An amount below USD1 is unfunded. Original issued stakes are immutable; current read-only targets are separate.",
+        "legacy_default_maximum_stake": 1
+      },
+      "probability_pick": {
+        "minimum_stake": 1,
+        "maximum_stake": 5,
+        "required_mode": "continuous_best_available_v1",
+        "minimum_win_probability": 0.5,
+        "maximum_nominal_roi": 1e-09,
+        "minimum_odds": 1.0,
+        "basis": "Explicit win-probability preference with nonpositive model return, never a positive-value claim.",
+        "sizing": "Active all_tiers_weighted_v3: configured non-Kelly base unit / sqrt(1 + related contracts), with documented affordable minimum ticket floor and USD5/configured/available/optional bankroll-fraction bounds. No positive edge or Kelly claim. Historical unit_cap_v1/model_weighted_v2 use fixed USD1 with no exposure discount.",
+        "historical_maximum_stake": 1
+      }
+    },
+    "fallback_limits": {
+      "new_per_event_per_cycle": 1,
+      "lifetime_first_issuances_per_game_and_tier": 1,
+      "positive_candidate_any_family_including_held_suppresses_probability_pick": true,
+      "exact_contract_reissuance": false
+    },
+    "daily_checkpoint": "Unchanged; release22 does not reset the existing audited daily progress."
+  },
+  "model_pick_sizing_policy": {
+    "default": "unit_cap_v1",
+    "intended_explicit_activation": "all_tiers_weighted_v3",
+    "authorized_modes": [
+      "unit_cap_v1",
+      "model_weighted_v2",
+      "all_tiers_weighted_v3"
+    ],
+    "active_basis_version": "funding-policy-v3",
+    "historical_basis_versions": [
+      "funding-policy-v1",
+      "funding-policy-v2"
+    ],
+    "mode_field_on_all_active_tiers": true,
+    "probability_pick_maximum_stake": 5,
+    "original_ticket_topups": "No automatic top-ups; current read-only targets do not create tickets."
+  },
+  "engineering_resource_policy": {
+    "version": "mac-admission-v1",
+    "authorized_at": "2026-09-30",
+    "cpu_target_percent": 75,
+    "cpu_pause_admission_percent": 80,
+    "maximum_development_jobs": 6,
+    "scheduling": "Standard with Nice 5",
+    "scope": "Soft new-job admission; not a hard CPU cap. Remote AI and network waits may leave CPU below target.",
+    "betting_policy_changed": false
+  },
+  "statistics_policy": {
+    "version": "statistics-v1",
+    "engineering_release": "2026-10-01.26",
+    "betting_policy_changed": false,
+    "hit_rate": "Won / (won + lost); pushes, voids, manual and open excluded.",
+    "cash_basis": "Individual recorded tickets; retained accepted stake and odds, account verification explicitly separate.",
+    "decision_basis": "Unique immutable original decisions and exact-scope final targets; game clustering disclosed.",
+    "date_basis": "Budapest match-start calendar dates.",
+    "improvement_basis": "Hash-archived settled inputs and diagnostic findings feed existing supervised development. Promotion requires separate validation and controlled release."
+  }
+}

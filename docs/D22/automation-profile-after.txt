@@ -1,0 +1,23 @@
+         2549271 function calls (2534920 primitive calls) in 0.639 seconds
+
+   Ordered by: cumulative time
+   List reduced from 1335 to 15 due to restriction <15>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    0.639    0.639 read-only-automation-profile:79(automation_status)
+        1    0.000    0.000    0.583    0.583 <stdin>:7(<lambda>)
+        1    0.000    0.000    0.583    0.583 /Users/belavarga/Betting_tips_engine/src/betting_engine/delivery.py:43(delivery_status)
+        1    0.000    0.000    0.568    0.568 /Users/belavarga/Betting_tips_engine/src/betting_engine/delivery.py:141(development_progress)
+        1    0.000    0.000    0.567    0.567 /Users/belavarga/Betting_tips_engine/src/betting_engine/release_coordinator.py:358(release_recovery_status)
+       22    0.003    0.000    0.492    0.022 /Users/belavarga/Betting_tips_engine/src/betting_engine/release_coordinator.py:322(recovery_context)
+       22    0.032    0.001    0.327    0.015 /Users/belavarga/Betting_tips_engine/src/betting_engine/release_coordinator.py:199(utility_prerequisites)
+   122958    0.027    0.000    0.160    0.000 /opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/ast.py:386(walk)
+   122904    0.019    0.000    0.127    0.000 {method 'extend' of 'collections.deque' objects}
+   245754    0.053    0.000    0.108    0.000 /opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/ast.py:280(iter_child_nodes)
+       29    0.001    0.000    0.084    0.003 /Users/belavarga/Betting_tips_engine/src/betting_engine/parallel_development.py:39(_read_acceptance)
+        1    0.000    0.000    0.074    0.074 /Users/belavarga/Betting_tips_engine/src/betting_engine/release_coordinator.py:119(production_manifest)
+        1    0.004    0.004    0.074    0.074 /Users/belavarga/Betting_tips_engine/src/betting_engine/development.py:526(production_manifest)
+      834    0.001    0.000    0.067    0.000 /opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/pathlib/__init__.py:773(read_bytes)
+      716    0.003    0.000    0.062    0.000 /Users/belavarga/Betting_tips_engine/src/betting_engine/release_coordinator.py:67(confined)
+
+

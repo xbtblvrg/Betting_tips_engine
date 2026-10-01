@@ -1,0 +1,17 @@
+# NHL outstanding-ticket settlement recovery
+
+The September 30, 2026 audit found 37 open NHL tickets and 37 open system decisions. Twenty-seven tickets referred to five completed games (`NHL:2026020001` through `NHL:2026020005`) that were absent from the current sports snapshot. Ten tickets referred to future games and correctly remained open.
+
+The NHL current schedule endpoint returns a forward week by hockey date. Querying only today's date discarded yesterday's games at rollover. The annual NHL load also stopped at season-ending year 2026, although the active 2026–27 games have `season=2027`.
+
+The source repair adds the previous schedule week and the active season-ending year. An official final takes precedence over a newly downloaded scheduled CSV row. Exact pending ticket and system-decision game identities also trigger bounded official `/v1/gamecenter/<id>/landing` recovery, independently of the current calendar. No event is inferred from teams alone or substituted with another game.
+
+Recovery verifies the original league, game ID, both teams, scheduled time, final status, nonnegative integer scores, source URL, fetch time and response SHA-256. The full raw response is retained under `data/nhl_settlement/sources/<sha256>.json`; individual attempts and metadata are retained separately. Four concurrent reads and at most twelve games per pass are allowed. Failures and unfinished results have a five-minute retry delay, without blocking other eligible games. An existing schedule final remains available to sports-form features, but an explicit pending-result flag prevents ticket and decision settlement until exact official evidence is recovered. A verified archived final can recover a restart before ledger settlement without another network request.
+
+Period and regulation scores require explicit completed regulation-period sections and a consistent goal sequence matching the final score. Missing periods are never presumed scoreless. Overtime goals are excluded from regulation and third-period contracts. For shootouts, the official extra winning goal remains in full-game markets that include overtime and penalties, but is excluded from regulation and period scores. These semantics follow [Stake's ice-hockey rules](https://stake.com/policies/sportsbook#ice-hockey). Actual sportsbook account settlement remains unverified.
+
+The isolated live-data replay settled 27 copied tickets and the corresponding original decisions: 9 wins, 16 losses and 2 pushes, net **−$7.7084** at the recorded stakes and odds. All ten future tickets stayed open. Original payloads, identities, stakes and odds were unchanged; a second settlement pass added no outcome and changed no result. Production records were read through SQLite `mode=ro` and were not modified by the replay.
+
+`contracts.settlement_scores` passes the hash-bound official result and scope source metadata into ticket and system-decision outcome evidence. Engine integration belongs to the root release: recovery runs after period evidence attachment, before feature-history construction, and persists recovered sports records. This does not change funding, model quality, quotation, CLV or stake policy. Training archives and previous decisions remain immutable.
+
+Evidence and tests: `validation/replay.json`, `validation/originals.json`, `tests/test_nhl_result_recovery.py`, and hash-pinned official response fixtures under `tests/fixtures/nhl_results/`. The validation artifacts describe an isolated replay; they are not proof of production deployment.

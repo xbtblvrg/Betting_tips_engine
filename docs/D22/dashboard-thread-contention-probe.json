@@ -1,0 +1,37 @@
+[
+  {
+    "concurrency": 1,
+    "samples": [
+      {
+        "worker": 0,
+        "seconds": 0.9959336249739863,
+        "response_bytes": 31530010
+      }
+    ]
+  },
+  {
+    "concurrency": 4,
+    "samples": [
+      {
+        "worker": 0,
+        "seconds": 2.9080557079869322,
+        "response_bytes": 31530010
+      },
+      {
+        "worker": 1,
+        "seconds": 3.382218084007036,
+        "response_bytes": 31530011
+      },
+      {
+        "worker": 2,
+        "seconds": 3.6891391669632867,
+        "response_bytes": 31530010
+      },
+      {
+        "worker": 3,
+        "seconds": 3.665692750015296,
+        "response_bytes": 31530010
+      }
+    ]
+  }
+]

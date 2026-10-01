@@ -1,0 +1,59 @@
+"""Bounded retained-source extraction, independent of candidate runtime modules."""
+import hashlib
+import io
+from pathlib import Path
+import tarfile
+import pytest
+from _frozen_candidate_exports import _extract,BUNDLES,frozen_root
+
+def sha(raw):return hashlib.sha256(raw).hexdigest()
+
+def pack(tmp_path,member,body=b'x'):
+ path=tmp_path/'test.tar.gz'
+ with tarfile.open(path,'w:gz') as tar:
+  member.size=len(body) if member.isfile() else 0;tar.addfile(member,io.BytesIO(body) if member.isfile() else None)
+ spec={'sha256':sha(path.read_bytes()),'files':1,'unpacked_bytes':len(body)};target=tmp_path/'extract';target.mkdir()
+ return path,target,spec
+
+
+@pytest.mark.parametrize('name',['../escape','/tmp/escape','data/../../escape','other/file','data/./file'])
+def test_unpack_rejects_unconfined_names(tmp_path,name):
+ path,target,spec=pack(tmp_path,tarfile.TarInfo(name))
+ with pytest.raises(ValueError,match='Unsafe'):_extract(path,target,spec)
+ assert not list(target.rglob('*'))
+
+
+def test_unpack_rejects_symlink_and_hash_drift(tmp_path):
+ member=tarfile.TarInfo('data/link');member.type=tarfile.SYMTYPE;member.linkname='/tmp/escape';path,target,spec=pack(tmp_path,member)
+ with pytest.raises(ValueError,match='Unsafe'):_extract(path,target,spec)
+ path.write_bytes(path.read_bytes()+b'changed')
+ with pytest.raises(ValueError,match='hash differs'):_extract(path,target,spec)
+
+
+def test_unpack_rejects_wrong_size_inventory(tmp_path):
+ path,target,spec=pack(tmp_path,tarfile.TarInfo('data/a'))
+ with pytest.raises(ValueError,match='inventory differs'):_extract(path,target,{**spec,'files':2})
+
+
+def test_frozen_sources_are_isolated_from_current_data():
+ current=Path(__file__).resolve().parents[1]/'data/development_inputs/manifest.json';before=sha(current.read_bytes())
+ for identity in BUNDLES:
+  root=frozen_root(identity)
+  assert not root.is_relative_to(current.parents[1])
+  assert sha((root/'data/development_inputs/manifest.json').read_bytes())!=before
+ assert sha(current.read_bytes())==before
+
+
+def test_extraction_uses_the_exact_checked_bytes_after_path_replacement(tmp_path,monkeypatch):
+ import _frozen_candidate_exports as helper
+ path,target,spec=pack(tmp_path,tarfile.TarInfo('data/a'),b'original')
+ checked=helper._check_archive
+ def replace_after_check(source,expected):
+  raw=checked(source,expected)
+  with tarfile.open(source,'w:gz') as archive:
+   member=tarfile.TarInfo('data/a');member.size=len(b'replaced');archive.addfile(member,io.BytesIO(b'replaced'))
+  return raw
+ monkeypatch.setattr(helper,'_check_archive',replace_after_check)
+ helper._extract(path,target,spec)
+ assert (target/'data/a').read_bytes()==b'original'
+ assert sha(path.read_bytes())!=spec['sha256']

@@ -1,0 +1,432 @@
+{
+  "before_capture_rejections": [
+    {
+      "as_of": "2026-09-29T12:19:50.136893+00:00",
+      "reasons": [
+        "source_not_observed_as_of"
+      ],
+      "season": 2024
+    },
+    {
+      "as_of": "2026-09-29T12:19:49.975953+00:00",
+      "reasons": [
+        "source_not_observed_as_of"
+      ],
+      "season": 2025
+    },
+    {
+      "as_of": "2026-09-30T06:54:17.706377+00:00",
+      "reasons": [
+        "source_not_observed_as_of"
+      ],
+      "season": 2026
+    }
+  ],
+  "helper_reviews": [
+    {
+      "disposition": "used",
+      "id": "acceptance_checklist:grok",
+      "reason": "Used scope, preserved-test and non-activation checks after inspecting existing payoff/contract modules and actual archived NFL schemas. Current participation, chronological validation and verified sportsbook settlement remain required before activation. No helper source, test or performance claim was treated as evidence.",
+      "sha256": "1773ed800e086dff8e2ed03f7be7d94c8c31019a582af4a1f7a8857c0f3c697b"
+    }
+  ],
+  "history_files_hash_and_size_verified": 4,
+  "history_manifest_sha256": "37d168526d11216ed4b59d4614ba9aade02ef713e26efc4c0a5aeeeedbf34e51",
+  "history_nfl_rows": 41697,
+  "history_rows": 550729,
+  "implementation_sha256": "21bedb162a24bb29cda759361b3f01d8ce7e21fbb3de4fa2faa79d320ec0584a",
+  "independent_controller_review": "pending",
+  "issued_instructions": 0,
+  "knowledge_cards": {
+    "knowledge/cards/K03-adat-ido-forras.md": "a71af120097072161a042f04257cb6f4ebc617e34ff43c19588ca313148b1d9a",
+    "knowledge/cards/K06-nfl.md": "fc4be2367d0c598825dcfd7e73205e1da06ba55611ef87df9a7835f42eddd111",
+    "knowledge/cards/K08-validacio.md": "951ffe80c87fd491bfeece567c31a86a78371087fcf8b16297422ecadd624bd3"
+  },
+  "knowledge_reading_scope": "Complete card text; methodological data only.",
+  "live_source_verification": false,
+  "measured_profit": null,
+  "mode": "offline_experimental_candidate",
+  "model_fits": 0,
+  "original_files_preservation": {
+    "changed": [],
+    "checked": 312,
+    "new_files": [
+      "docs/F0027_PLAYER_RUSH_EVIDENCE.json",
+      "docs/F0027_PLAYER_RUSH_RECONCILIATION.md",
+      "src/betting_engine/player_rush_reconciliation.py",
+      "tests/test_f0027_player_rush_reconciliation.py",
+      "tests/test_f0027_rush_reproducibility.py"
+    ],
+    "tests_checked": 103
+  },
+  "probe_summary": {
+    "observed_rushers": 47,
+    "reconciled_games": 6,
+    "rejected_games": 3,
+    "unknown_rushing_participation_rows": 354
+  },
+  "probes": [
+    {
+      "assessed_as_of": "2026-09-29T12:28:51.215537+00:00",
+      "assessment_sha256": "28cfd497d2698075935d7faee9a78d4b9b9d4d127d44587aa0d502cd4ff1046b",
+      "available_at": "2026-09-29T12:28:51.215537+00:00",
+      "case": "first_game",
+      "game_id": "2024_01_ARI_BUF",
+      "play_count": 163,
+      "player_counts": {
+        "no_rush_evidence": 52,
+        "observed_rusher": 8
+      },
+      "publishable": false,
+      "reasons": [],
+      "source_published_at": null,
+      "sources": {
+        "plays": {
+          "archive_reference": "raw/3fd2896bc0b911b615142d2f1fabae54a4bbba5ab7b73b28187b118ef8af6a3b.data",
+          "archive_timestamp_independently_authenticated": false,
+          "evidence_kind": "archived_observation",
+          "observed_at": "2026-09-29T12:19:50.136894+00:00",
+          "sha256": "3fd2896bc0b911b615142d2f1fabae54a4bbba5ab7b73b28187b118ef8af6a3b",
+          "source_published_at": null,
+          "url": "https://github.com/nflverse/nflverse-data/releases/download/pbp/play_by_play_2024.parquet"
+        },
+        "weekly": {
+          "archive_reference": "raw/847569d194ca3d96b5efcf91e6eac5e18780fc47568a713fd545a82d29d155c1.data",
+          "archive_timestamp_independently_authenticated": false,
+          "evidence_kind": "archived_observation",
+          "observed_at": "2026-09-29T12:28:51.215537+00:00",
+          "sha256": "847569d194ca3d96b5efcf91e6eac5e18780fc47568a713fd545a82d29d155c1",
+          "source_published_at": null,
+          "url": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2024.parquet"
+        }
+      },
+      "state": "historical_totals_reconciled"
+    },
+    {
+      "assessed_as_of": "2026-09-29T12:28:51.215537+00:00",
+      "assessment_sha256": "54089ac22da3d86d24cb3dbf41381679fd274eb5f52b4be3444a48ea0d8e729c",
+      "available_at": "2026-09-29T12:28:51.215537+00:00",
+      "case": "first_overtime",
+      "game_id": "2024_01_LA_DET",
+      "play_count": 181,
+      "player_counts": {
+        "no_rush_evidence": 54,
+        "observed_rusher": 9
+      },
+      "publishable": false,
+      "reasons": [],
+      "source_published_at": null,
+      "sources": {
+        "plays": {
+          "archive_reference": "raw/3fd2896bc0b911b615142d2f1fabae54a4bbba5ab7b73b28187b118ef8af6a3b.data",
+          "archive_timestamp_independently_authenticated": false,
+          "evidence_kind": "archived_observation",
+          "observed_at": "2026-09-29T12:19:50.136894+00:00",
+          "sha256": "3fd2896bc0b911b615142d2f1fabae54a4bbba5ab7b73b28187b118ef8af6a3b",
+          "source_published_at": null,
+          "url": "https://github.com/nflverse/nflverse-data/releases/download/pbp/play_by_play_2024.parquet"
+        },
+        "weekly": {
+          "archive_reference": "raw/847569d194ca3d96b5efcf91e6eac5e18780fc47568a713fd545a82d29d155c1.data",
+          "archive_timestamp_independently_authenticated": false,
+          "evidence_kind": "archived_observation",
+          "observed_at": "2026-09-29T12:28:51.215537+00:00",
+          "sha256": "847569d194ca3d96b5efcf91e6eac5e18780fc47568a713fd545a82d29d155c1",
+          "source_published_at": null,
+          "url": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2024.parquet"
+        }
+      },
+      "state": "historical_totals_reconciled"
+    },
+    {
+      "assessed_as_of": "2026-09-29T12:28:51.215537+00:00",
+      "assessment_sha256": "0feee53e173bdfadec04648704e121c0b19763a9b5a7590f6786bd20cf4aa12d",
+      "available_at": null,
+      "case": "first_lateral_rush",
+      "game_id": "2024_02_LV_BAL",
+      "play_count": null,
+      "player_counts": {},
+      "publishable": false,
+      "reasons": [
+        "lateral_rushing_requires_review"
+      ],
+      "source_published_at": null,
+      "sources": {
+        "plays": {
+          "archive_reference": "raw/3fd2896bc0b911b615142d2f1fabae54a4bbba5ab7b73b28187b118ef8af6a3b.data",
+          "archive_timestamp_independently_authenticated": false,
+          "evidence_kind": "archived_observation",
+          "observed_at": "2026-09-29T12:19:50.136894+00:00",
+          "sha256": "3fd2896bc0b911b615142d2f1fabae54a4bbba5ab7b73b28187b118ef8af6a3b",
+          "source_published_at": null,
+          "url": "https://github.com/nflverse/nflverse-data/releases/download/pbp/play_by_play_2024.parquet"
+        }
+      },
+      "state": "rejected"
+    },
+    {
+      "assessed_as_of": "2026-09-29T12:28:51.215537+00:00",
+      "assessment_sha256": "cd6340821c455f24630e925d2ddd8ee209fc047f0fdb8bcb6a3c9a80e51afe69",
+      "available_at": null,
+      "case": "first_no_play_credit_conflict",
+      "game_id": "2024_15_MIA_HOU",
+      "play_count": null,
+      "player_counts": {},
+      "publishable": false,
+      "reasons": [
+        "no_play_with_rushing_credit"
+      ],
+      "source_published_at": null,
+      "sources": {
+        "plays": {
+          "archive_reference": "raw/3fd2896bc0b911b615142d2f1fabae54a4bbba5ab7b73b28187b118ef8af6a3b.data",
+          "archive_timestamp_independently_authenticated": false,
+          "evidence_kind": "archived_observation",
+          "observed_at": "2026-09-29T12:19:50.136894+00:00",
+          "sha256": "3fd2896bc0b911b615142d2f1fabae54a4bbba5ab7b73b28187b118ef8af6a3b",
+          "source_published_at": null,
+          "url": "https://github.com/nflverse/nflverse-data/releases/download/pbp/play_by_play_2024.parquet"
+        }
+      },
+      "state": "rejected"
+    },
+    {
+      "assessed_as_of": "2026-09-29T12:19:49.975954+00:00",
+      "assessment_sha256": "f3ff82961f1bdb5543d01be18a3a05b6eb31c848faee8c84c5158cc9108de67c",
+      "available_at": "2026-09-29T12:19:49.975954+00:00",
+      "case": "first_game",
+      "game_id": "2025_01_ARI_NO",
+      "play_count": 182,
+      "player_counts": {
+        "no_rush_evidence": 60,
+        "observed_rusher": 7
+      },
+      "publishable": false,
+      "reasons": [],
+      "source_published_at": null,
+      "sources": {
+        "plays": {
+          "archive_reference": "raw/c6ecedd6d678cc37ed316b23ef84ee1ec6abb69c514bb11868a7ebd5a367df29.data",
+          "archive_timestamp_independently_authenticated": false,
+          "evidence_kind": "archived_observation",
+          "observed_at": "2026-09-29T12:19:49.975954+00:00",
+          "sha256": "c6ecedd6d678cc37ed316b23ef84ee1ec6abb69c514bb11868a7ebd5a367df29",
+          "source_published_at": null,
+          "url": "https://github.com/nflverse/nflverse-data/releases/download/pbp/play_by_play_2025.parquet"
+        },
+        "weekly": {
+          "archive_reference": "raw/2a461becaa9adb3c93a3074a3a31f1e960162a50163371a2d34e28393b5fff10.data",
+          "archive_timestamp_independently_authenticated": false,
+          "evidence_kind": "archived_observation",
+          "observed_at": "2026-09-29T12:17:19.088323+00:00",
+          "sha256": "2a461becaa9adb3c93a3074a3a31f1e960162a50163371a2d34e28393b5fff10",
+          "source_published_at": null,
+          "url": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2025.parquet"
+        }
+      },
+      "state": "historical_totals_reconciled"
+    },
+    {
+      "assessed_as_of": "2026-09-29T12:19:49.975954+00:00",
+      "assessment_sha256": "c62f6dfa0f3a17407643f5fb2df8e807335ff9ace6ee628bae07d6c3c7d64e33",
+      "available_at": "2026-09-29T12:19:49.975954+00:00",
+      "case": "first_overtime",
+      "game_id": "2025_02_NYG_DAL",
+      "play_count": 221,
+      "player_counts": {
+        "no_rush_evidence": 63,
+        "observed_rusher": 9
+      },
+      "publishable": false,
+      "reasons": [],
+      "source_published_at": null,
+      "sources": {
+        "plays": {
+          "archive_reference": "raw/c6ecedd6d678cc37ed316b23ef84ee1ec6abb69c514bb11868a7ebd5a367df29.data",
+          "archive_timestamp_independently_authenticated": false,
+          "evidence_kind": "archived_observation",
+          "observed_at": "2026-09-29T12:19:49.975954+00:00",
+          "sha256": "c6ecedd6d678cc37ed316b23ef84ee1ec6abb69c514bb11868a7ebd5a367df29",
+          "source_published_at": null,
+          "url": "https://github.com/nflverse/nflverse-data/releases/download/pbp/play_by_play_2025.parquet"
+        },
+        "weekly": {
+          "archive_reference": "raw/2a461becaa9adb3c93a3074a3a31f1e960162a50163371a2d34e28393b5fff10.data",
+          "archive_timestamp_independently_authenticated": false,
+          "evidence_kind": "archived_observation",
+          "observed_at": "2026-09-29T12:17:19.088323+00:00",
+          "sha256": "2a461becaa9adb3c93a3074a3a31f1e960162a50163371a2d34e28393b5fff10",
+          "source_published_at": null,
+          "url": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2025.parquet"
+        }
+      },
+      "state": "historical_totals_reconciled"
+    },
+    {
+      "assessed_as_of": "2026-09-29T12:19:49.975954+00:00",
+      "assessment_sha256": "f1caabb02fbe12e68ddef66558d0c546252bb5c42ef422534547fb84da7a3999",
+      "available_at": null,
+      "case": "first_lateral_rush",
+      "game_id": "2025_07_IND_LAC",
+      "play_count": null,
+      "player_counts": {},
+      "publishable": false,
+      "reasons": [
+        "lateral_rushing_requires_review"
+      ],
+      "source_published_at": null,
+      "sources": {
+        "plays": {
+          "archive_reference": "raw/c6ecedd6d678cc37ed316b23ef84ee1ec6abb69c514bb11868a7ebd5a367df29.data",
+          "archive_timestamp_independently_authenticated": false,
+          "evidence_kind": "archived_observation",
+          "observed_at": "2026-09-29T12:19:49.975954+00:00",
+          "sha256": "c6ecedd6d678cc37ed316b23ef84ee1ec6abb69c514bb11868a7ebd5a367df29",
+          "source_published_at": null,
+          "url": "https://github.com/nflverse/nflverse-data/releases/download/pbp/play_by_play_2025.parquet"
+        }
+      },
+      "state": "rejected"
+    },
+    {
+      "assessed_as_of": "2026-09-30T06:54:17.706378+00:00",
+      "assessment_sha256": "6fb0f9ab94397d75f3d9b77dd68abebbb6b741fab22fc2b2fa4377bd3d6f3a7f",
+      "available_at": "2026-09-30T06:54:17.706378+00:00",
+      "case": "first_game",
+      "game_id": "2026_01_ARI_LAC",
+      "play_count": 173,
+      "player_counts": {
+        "no_rush_evidence": 62,
+        "observed_rusher": 6
+      },
+      "publishable": false,
+      "reasons": [],
+      "source_published_at": null,
+      "sources": {
+        "plays": {
+          "archive_reference": "raw/54876e2239cbd90787616329bd47ef1e738e246f104f2813ec0b4e110def1a91.data",
+          "archive_timestamp_independently_authenticated": false,
+          "evidence_kind": "archived_observation",
+          "observed_at": "2026-09-30T06:54:17.706378+00:00",
+          "sha256": "54876e2239cbd90787616329bd47ef1e738e246f104f2813ec0b4e110def1a91",
+          "source_published_at": null,
+          "url": "https://github.com/nflverse/nflverse-data/releases/download/pbp/play_by_play_2026.parquet"
+        },
+        "weekly": {
+          "archive_reference": "raw/d2eb2f5e83691fc8225b98c98530bb82eb1fb5cd62d3c79bd8ce4ff9dcb8e265.data",
+          "archive_timestamp_independently_authenticated": false,
+          "evidence_kind": "archived_observation",
+          "observed_at": "2026-09-29T12:28:51.495657+00:00",
+          "sha256": "d2eb2f5e83691fc8225b98c98530bb82eb1fb5cd62d3c79bd8ce4ff9dcb8e265",
+          "source_published_at": null,
+          "url": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.parquet"
+        }
+      },
+      "state": "historical_totals_reconciled"
+    },
+    {
+      "assessed_as_of": "2026-09-30T06:54:17.706378+00:00",
+      "assessment_sha256": "da2863b519c7d698b721366daa397befb47b92681257755045231605e34299f7",
+      "available_at": "2026-09-30T06:54:17.706378+00:00",
+      "case": "first_overtime",
+      "game_id": "2026_01_NO_DET",
+      "play_count": 218,
+      "player_counts": {
+        "no_rush_evidence": 63,
+        "observed_rusher": 8
+      },
+      "publishable": false,
+      "reasons": [],
+      "source_published_at": null,
+      "sources": {
+        "plays": {
+          "archive_reference": "raw/54876e2239cbd90787616329bd47ef1e738e246f104f2813ec0b4e110def1a91.data",
+          "archive_timestamp_independently_authenticated": false,
+          "evidence_kind": "archived_observation",
+          "observed_at": "2026-09-30T06:54:17.706378+00:00",
+          "sha256": "54876e2239cbd90787616329bd47ef1e738e246f104f2813ec0b4e110def1a91",
+          "source_published_at": null,
+          "url": "https://github.com/nflverse/nflverse-data/releases/download/pbp/play_by_play_2026.parquet"
+        },
+        "weekly": {
+          "archive_reference": "raw/d2eb2f5e83691fc8225b98c98530bb82eb1fb5cd62d3c79bd8ce4ff9dcb8e265.data",
+          "archive_timestamp_independently_authenticated": false,
+          "evidence_kind": "archived_observation",
+          "observed_at": "2026-09-29T12:28:51.495657+00:00",
+          "sha256": "d2eb2f5e83691fc8225b98c98530bb82eb1fb5cd62d3c79bd8ce4ff9dcb8e265",
+          "source_published_at": null,
+          "url": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.parquet"
+        }
+      },
+      "state": "historical_totals_reconciled"
+    }
+  ],
+  "production_integration": false,
+  "public_bundle_combined_byte_lengths_verified": true,
+  "public_bundle_files_hash_verified": 24,
+  "source_manifest_sha256": "a2a27f6f53fb2ec189c082b61560ddbe79cd1e12ddf1dc730cdba8555fd8b6cd",
+  "source_schemas": [
+    {
+      "plays_columns": 372,
+      "plays_observed_at": "2026-09-29T12:19:50.136894+00:00",
+      "plays_rows": 49492,
+      "plays_sha256": "3fd2896bc0b911b615142d2f1fabae54a4bbba5ab7b73b28187b118ef8af6a3b",
+      "season": 2024,
+      "weekly_columns": 150,
+      "weekly_observed_at": "2026-09-29T12:28:51.215537+00:00",
+      "weekly_rows": 18983,
+      "weekly_sha256": "847569d194ca3d96b5efcf91e6eac5e18780fc47568a713fd545a82d29d155c1"
+    },
+    {
+      "plays_columns": 372,
+      "plays_observed_at": "2026-09-29T12:19:49.975954+00:00",
+      "plays_rows": 48771,
+      "plays_sha256": "c6ecedd6d678cc37ed316b23ef84ee1ec6abb69c514bb11868a7ebd5a367df29",
+      "season": 2025,
+      "weekly_columns": 150,
+      "weekly_observed_at": "2026-09-29T12:17:19.088323+00:00",
+      "weekly_rows": 19422,
+      "weekly_sha256": "2a461becaa9adb3c93a3074a3a31f1e960162a50163371a2d34e28393b5fff10"
+    },
+    {
+      "plays_columns": 372,
+      "plays_observed_at": "2026-09-30T06:54:17.706378+00:00",
+      "plays_rows": 8311,
+      "plays_sha256": "54876e2239cbd90787616329bd47ef1e738e246f104f2813ec0b4e110def1a91",
+      "season": 2026,
+      "weekly_columns": 150,
+      "weekly_observed_at": "2026-09-29T12:28:51.495657+00:00",
+      "weekly_rows": 3339,
+      "weekly_sha256": "d2eb2f5e83691fc8225b98c98530bb82eb1fb5cd62d3c79bd8ce4ff9dcb8e265"
+    }
+  ],
+  "task": "F0027",
+  "tests": {
+    "existing_python_api": {
+      "passed": 487,
+      "seconds": 58.97,
+      "warnings": [
+        "Existing Starlette/httpx deprecation"
+      ]
+    },
+    "f0027": {
+      "passed": 69,
+      "seconds": 15.94
+    },
+    "frontend_dom": {
+      "passed": 40,
+      "seconds": 8.53
+    },
+    "hash_seeds": [
+      "1",
+      "2",
+      "3",
+      "99"
+    ],
+    "pre_fix_reproducibility": {
+      "distinct_outputs_for_each_failed_case": 3,
+      "failed": 2,
+      "passed": 2
+    }
+  }
+}

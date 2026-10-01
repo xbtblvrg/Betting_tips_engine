@@ -1,0 +1,364 @@
+{
+  "NHL": {
+    "source": {
+      "url": "https://odds-data.stake.com/odds/46728055-philadelphia-flyers-pittsburgh-penguins",
+      "fetched_at": "2026-09-30T11:55:58.990013+00:00",
+      "sha256": "5c2fd164782a838a736f81326fb49ed9bad09765278fc5f897c351cc3a55a5a9",
+      "blob": "5c2fd164782a838a736f81326fb49ed9bad09765278fc5f897c351cc3a55a5a9.data",
+      "archive": "stake_api_archive/5c2fd164782a838a736f81326fb49ed9bad09765278fc5f897c351cc3a55a5a9.json.gz",
+      "bytes": 63570,
+      "http_status": 200
+    },
+    "body_file": "nhl.json.gz",
+    "game": {
+      "id": "NHL:2026020006",
+      "league": "NHL",
+      "start": "2026-09-30T23:30:00Z",
+      "home": "Philadelphia Flyers",
+      "away": "Pittsburgh Penguins",
+      "home_id": "PHI",
+      "away_id": "PIT",
+      "home_abbr": "PHI",
+      "away_abbr": "PIT",
+      "state": "scheduled",
+      "season": 2027,
+      "home_score": null,
+      "away_score": null,
+      "neutral": false,
+      "game_type": "regular",
+      "source": "https://api-web.nhle.com/v1/schedule/2026-09-30",
+      "fetched_at": "2026-09-30T11:48:48.082577+00:00",
+      "context": {
+        "injuries": {
+          "home": [
+            {
+              "athlete_id": "4697440",
+              "athlete_display_name": "Helge Grans",
+              "athlete_position": "D",
+              "status": "Injured Reserve",
+              "injury_date": "2026-09-28T20:52Z",
+              "short_comment": "Grans (lower body) was put on the injured non-roster list Monday.",
+              "detail_return_date": "2026-10-05",
+              "snapshot_date": "2026-09-29",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nhl_injuries/injuries_2027.parquet",
+              "fetched_at": "2026-09-30T11:49:02.198135+00:00"
+            },
+            {
+              "athlete_id": "5173105",
+              "athlete_display_name": "Denver Barkey",
+              "athlete_position": "C",
+              "status": "Injured Reserve",
+              "injury_date": "2026-09-28T20:46Z",
+              "short_comment": "Barkey (lower body) was placed on injured reserve Monday.",
+              "detail_return_date": "2026-10-03",
+              "snapshot_date": "2026-09-29",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nhl_injuries/injuries_2027.parquet",
+              "fetched_at": "2026-09-30T11:49:02.198135+00:00"
+            },
+            {
+              "athlete_id": "5188490",
+              "athlete_display_name": "Nikita Grebenkin",
+              "athlete_position": "RW",
+              "status": "Day-To-Day",
+              "injury_date": "2026-09-29T15:58Z",
+              "short_comment": "Grebenkin (undisclosed) did not practice Tuesday and was deemed day-to-day, per Jordan Hall of NBC Sports Philadelphia.",
+              "detail_return_date": "2026-09-30",
+              "snapshot_date": "2026-09-29",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nhl_injuries/injuries_2027.parquet",
+              "fetched_at": "2026-09-30T11:49:02.198135+00:00"
+            }
+          ],
+          "away": [
+            {
+              "athlete_id": "2591155",
+              "athlete_display_name": "Bryan Rust",
+              "athlete_position": "RW",
+              "status": "Injured Reserve",
+              "injury_date": "2026-09-28T18:20Z",
+              "short_comment": "ir",
+              "detail_return_date": "2026-10-05",
+              "snapshot_date": "2026-09-29",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nhl_injuries/injuries_2027.parquet",
+              "fetched_at": "2026-09-30T11:49:02.198135+00:00"
+            },
+            {
+              "athlete_id": "3042122",
+              "athlete_display_name": "Ryan Graves",
+              "athlete_position": "D",
+              "status": "Injured Reserve",
+              "injury_date": "2026-09-27T15:21Z",
+              "short_comment": "Graves (lower body) is out indefinitely and was placed on injured reserve Sunday.",
+              "detail_return_date": "2026-10-24",
+              "snapshot_date": "2026-09-29",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nhl_injuries/injuries_2027.parquet",
+              "fetched_at": "2026-09-30T11:49:02.198135+00:00"
+            },
+            {
+              "athlete_id": "4063605",
+              "athlete_display_name": "Justin Brazeau",
+              "athlete_position": "RW",
+              "status": "Injured Reserve",
+              "injury_date": "2026-09-27T15:26Z",
+              "short_comment": "Brazeau (lower body) was placed on injured reserve by the Penguins on Sunday.",
+              "detail_return_date": "2026-10-07",
+              "snapshot_date": "2026-09-29",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nhl_injuries/injuries_2027.parquet",
+              "fetched_at": "2026-09-30T11:49:02.198135+00:00"
+            },
+            {
+              "athlete_id": "4316983",
+              "athlete_display_name": "Blake Lizotte",
+              "athlete_position": "C",
+              "status": "Injured Reserve",
+              "injury_date": "2026-09-28T18:41Z",
+              "short_comment": "Lizotte (upper body) was labeled day-to-day ahead of Opening Night against the Flyers on Wednesday, Michelle Crechiolo of the Penguins' official site reports.",
+              "detail_return_date": "2026-09-30",
+              "snapshot_date": "2026-09-29",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nhl_injuries/injuries_2027.parquet",
+              "fetched_at": "2026-09-30T11:49:02.198135+00:00"
+            },
+            {
+              "athlete_id": "4874921",
+              "athlete_display_name": "Tristan Broz",
+              "athlete_position": "C",
+              "status": "Injured Reserve",
+              "injury_date": "2026-09-28T18:28Z",
+              "short_comment": "Broz (lower body) was designated for non-roster, injured reserve Monday.",
+              "detail_return_date": "2026-10-03",
+              "snapshot_date": "2026-09-29",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nhl_injuries/injuries_2027.parquet",
+              "fetched_at": "2026-09-30T11:49:02.198135+00:00"
+            },
+            {
+              "athlete_id": "5077308",
+              "athlete_display_name": "Andrei Kuzmenko",
+              "athlete_position": "LW",
+              "status": "Injured Reserve",
+              "injury_date": "2026-09-28T18:25Z",
+              "short_comment": "ir-nr",
+              "detail_return_date": "2026-10-03",
+              "snapshot_date": "2026-09-29",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nhl_injuries/injuries_2027.parquet",
+              "fetched_at": "2026-09-30T11:49:02.198135+00:00"
+            },
+            {
+              "athlete_id": "5209662",
+              "athlete_display_name": "Oliver Okuliar",
+              "athlete_position": "LW",
+              "status": "Injured Reserve",
+              "injury_date": "2026-09-25T16:11Z",
+              "short_comment": "Okuliar (lower body) was placed on non-roster injured reserve Friday.",
+              "detail_return_date": "2026-10-13",
+              "snapshot_date": "2026-09-29",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nhl_injuries/injuries_2027.parquet",
+              "fetched_at": "2026-09-30T11:49:02.198135+00:00"
+            },
+            {
+              "athlete_id": "5290880",
+              "athlete_display_name": "Melvin Fernstr\u00f6m",
+              "athlete_position": "RW",
+              "status": "Injured Reserve",
+              "injury_date": "2026-09-24T18:16Z",
+              "short_comment": "ir-nr",
+              "detail_return_date": "2026-10-13",
+              "snapshot_date": "2026-09-29",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nhl_injuries/injuries_2027.parquet",
+              "fetched_at": "2026-09-30T11:49:02.198135+00:00"
+            },
+            {
+              "athlete_id": "5291947",
+              "athlete_display_name": "Ben Kindel",
+              "athlete_position": "C",
+              "status": "Injured Reserve",
+              "injury_date": "2026-09-27T15:34Z",
+              "short_comment": "Kindel (lower body) was placed on injured reserve by the Penguins on Sunday.",
+              "detail_return_date": "2026-10-07",
+              "snapshot_date": "2026-09-29",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nhl_injuries/injuries_2027.parquet",
+              "fetched_at": "2026-09-30T11:49:02.198135+00:00"
+            },
+            {
+              "athlete_id": "5453133",
+              "athlete_display_name": "Gabriel D'Aigle",
+              "athlete_position": "G",
+              "status": "Injured Reserve",
+              "injury_date": "2026-09-24T18:25Z",
+              "short_comment": "ir-nr",
+              "detail_return_date": "2026-10-29",
+              "snapshot_date": "2026-09-29",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nhl_injuries/injuries_2027.parquet",
+              "fetched_at": "2026-09-30T11:49:02.198135+00:00"
+            }
+          ],
+          "snapshot_date": "2026-09-29",
+          "stale": false,
+          "quantitative_model_input": false
+        }
+      }
+    },
+    "publication_version": 3037
+  },
+  "NFL": {
+    "source": {
+      "url": "https://odds-data.stake.com/odds/46712868-cleveland-browns-pittsburgh-steelers",
+      "fetched_at": "2026-09-30T11:55:59.910031+00:00",
+      "sha256": "42eeae2684f67c3470db9412703ed4a5485b0593b143bc725afc26b45ecb1384",
+      "blob": "42eeae2684f67c3470db9412703ed4a5485b0593b143bc725afc26b45ecb1384.data",
+      "archive": "stake_api_archive/42eeae2684f67c3470db9412703ed4a5485b0593b143bc725afc26b45ecb1384.json.gz",
+      "bytes": 66835,
+      "http_status": 200
+    },
+    "body_file": "nfl.json.gz",
+    "game": {
+      "id": "NFL:2026_04_PIT_CLE",
+      "league": "NFL",
+      "start": "2026-10-02T00:15:00+00:00",
+      "home": "Cleveland Browns",
+      "away": "Pittsburgh Steelers",
+      "home_id": "CLE",
+      "away_id": "PIT",
+      "home_abbr": "CLE",
+      "away_abbr": "PIT",
+      "state": "scheduled",
+      "season": 2026,
+      "home_score": null,
+      "away_score": null,
+      "neutral": false,
+      "game_type": "regular",
+      "source": "https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv",
+      "fetched_at": "2026-09-30T11:48:41.223735+00:00",
+      "context": {
+        "injuries": {
+          "home": [
+            {
+              "athlete_id": "3115485",
+              "athlete_display_name": "Elgton Jenkins",
+              "athlete_position": "C",
+              "status": "Questionable",
+              "injury_date": "2026-09-28T22:19Z",
+              "short_comment": "questionable",
+              "detail_return_date": "2026-10-01",
+              "snapshot_date": "2026-09-29",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nfl_injuries/injuries_2026.parquet",
+              "fetched_at": "2026-09-30T11:49:01.704877+00:00"
+            },
+            {
+              "athlete_id": "3131498",
+              "athlete_display_name": "Tytus Howard",
+              "athlete_position": "OT",
+              "status": "Questionable",
+              "injury_date": "2026-09-28T22:20Z",
+              "short_comment": "questionable",
+              "detail_return_date": "2026-10-01",
+              "snapshot_date": "2026-09-29",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nfl_injuries/injuries_2026.parquet",
+              "fetched_at": "2026-09-30T11:49:01.704877+00:00"
+            },
+            {
+              "athlete_id": "4038457",
+              "athlete_display_name": "Teven Jenkins",
+              "athlete_position": "G",
+              "status": "Questionable",
+              "injury_date": "2026-09-29T16:45Z",
+              "short_comment": "questionable",
+              "detail_return_date": "2026-10-01",
+              "snapshot_date": "2026-09-29",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nfl_injuries/injuries_2026.parquet",
+              "fetched_at": "2026-09-30T11:49:01.704877+00:00"
+            },
+            {
+              "athlete_id": "4241424",
+              "athlete_display_name": "Tylan Wallace",
+              "athlete_position": "WR",
+              "status": "Questionable",
+              "injury_date": "2026-09-28T23:55Z",
+              "short_comment": "Wallace (knee) did not participate in the Browns' estimated practice Monday, Adam Caplan of SiriusXM NFL Radio reports.",
+              "detail_return_date": "2026-10-01",
+              "snapshot_date": "2026-09-29",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nfl_injuries/injuries_2026.parquet",
+              "fetched_at": "2026-09-30T11:49:01.704877+00:00"
+            },
+            {
+              "athlete_id": "4242208",
+              "athlete_display_name": "Grant Delpit",
+              "athlete_position": "S",
+              "status": "Questionable",
+              "injury_date": "2026-09-29T00:02Z",
+              "short_comment": "Delpit (shoulder) was estimated as a limited participant in Monday's practice, Adam Caplan of SiriusXM NFL Radio reports.",
+              "detail_return_date": "2026-10-01",
+              "snapshot_date": "2026-09-29",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nfl_injuries/injuries_2026.parquet",
+              "fetched_at": "2026-09-30T11:49:01.704877+00:00"
+            },
+            {
+              "athlete_id": "4379397",
+              "athlete_display_name": "Tyson Campbell",
+              "athlete_position": "CB",
+              "status": "Questionable",
+              "injury_date": "2026-09-29T00:11Z",
+              "short_comment": "Campbell (knee) was estimated as a limited participant in Monday's practice, Adam Caplan of SiriusXM NFL Radio reports.",
+              "detail_return_date": "2026-10-01",
+              "snapshot_date": "2026-09-29",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nfl_injuries/injuries_2026.parquet",
+              "fetched_at": "2026-09-30T11:49:01.704877+00:00"
+            }
+          ],
+          "away": [
+            {
+              "athlete_id": "3045373",
+              "athlete_display_name": "Jalen Ramsey",
+              "athlete_position": "CB",
+              "status": "Questionable",
+              "injury_date": "2026-09-28T23:45Z",
+              "short_comment": "Ramsey was estimated as a limited participant on Monday's practice report due to a wrist injury.",
+              "detail_return_date": "2026-10-01",
+              "snapshot_date": "2026-09-29",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nfl_injuries/injuries_2026.parquet",
+              "fetched_at": "2026-09-30T11:49:01.704877+00:00"
+            },
+            {
+              "athlete_id": "4038815",
+              "athlete_display_name": "Rico Dowdle",
+              "athlete_position": "RB",
+              "status": "Questionable",
+              "injury_date": "2026-09-28T20:45Z",
+              "short_comment": "Dowdle (toe) wasn't present for Monday's walkthrough practice, Brooke Pryor of ESPN.com reports.",
+              "detail_return_date": "2026-10-01",
+              "snapshot_date": "2026-09-29",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nfl_injuries/injuries_2026.parquet",
+              "fetched_at": "2026-09-30T11:49:01.704877+00:00"
+            },
+            {
+              "athlete_id": "4431258",
+              "athlete_display_name": "Gennings Dunker",
+              "athlete_position": "G",
+              "status": "Injured Reserve",
+              "injury_date": "2026-09-26T21:23Z",
+              "short_comment": "The Steelers placed Dunker (knee) on injured reserve Saturday, Tom Pelissero of Netflix reports.",
+              "detail_return_date": "2026-10-25",
+              "snapshot_date": "2026-09-29",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nfl_injuries/injuries_2026.parquet",
+              "fetched_at": "2026-09-30T11:49:01.704877+00:00"
+            },
+            {
+              "athlete_id": "4567979",
+              "athlete_display_name": "Brandin Echols",
+              "athlete_position": "CB",
+              "status": "Questionable",
+              "injury_date": "2026-09-29T14:28Z",
+              "short_comment": "Echols (concussion) was listed as a limited participant in Monday's practice estimate.",
+              "detail_return_date": "2026-10-04",
+              "snapshot_date": "2026-09-29",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nfl_injuries/injuries_2026.parquet",
+              "fetched_at": "2026-09-30T11:49:01.704877+00:00"
+            }
+          ],
+          "snapshot_date": "2026-09-29",
+          "stale": false,
+          "quantitative_model_input": false
+        }
+      }
+    },
+    "publication_version": 3037
+  }
+}

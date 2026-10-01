@@ -1,0 +1,228 @@
+{
+  "version": "f0016-injury-context-v1",
+  "manifest_sha256": "eb9221c29918e8592132f27cafea9400bae0d847bddea1ac22579b8184519952",
+  "sources": [
+    {
+      "league": "WNBA",
+      "season": 2026,
+      "source_sha256": "7c4d865dbc2d7670af4b4ac2ab1c0ba43be4168ec9e1a933511442164bd36cc6",
+      "metadata_sha256": "223eb3eef094e236b4b54854931d7215f4e5c59f2bee73ef865bdfa2df3bcd9e",
+      "observed_at": "2026-09-30T02:46:15.030236+00:00",
+      "rows": 968,
+      "valid_rows": 968,
+      "row_reasons": {},
+      "statuses": {
+        "out": 934,
+        "day_to_day": 34
+      }
+    },
+    {
+      "league": "NHL",
+      "season": 2027,
+      "source_sha256": "ff6a6e54a5d9a92dab8fc12e96413ca13c60f1d3c5bec5de6eda61d17c1223a2",
+      "metadata_sha256": "1843763f3f07ab98b7efd99b81c9505c98a2059d1eb8332a0dd657fe2744b547",
+      "observed_at": "2026-09-30T02:46:14.190941+00:00",
+      "rows": 1012,
+      "valid_rows": 1012,
+      "row_reasons": {},
+      "statuses": {
+        "day_to_day": 216,
+        "out": 559,
+        "injured_reserve": 215,
+        "suspension": 22
+      }
+    },
+    {
+      "league": "NFL",
+      "season": 2026,
+      "source_sha256": "bbdc0338aa5491304abf149349d4594379b8ad43eb245f3afadb31e1ed3b236a",
+      "metadata_sha256": "5a78c7e9b5a6216321a26dce1cac032adb1d2cee256b9e3254dc864aebc62db5",
+      "observed_at": "2026-09-30T02:46:12.120972+00:00",
+      "rows": 17600,
+      "valid_rows": 17600,
+      "row_reasons": {},
+      "statuses": {
+        "active": 12913,
+        "injured_reserve": 1446,
+        "out": 1353,
+        "questionable": 1763,
+        "suspension": 19,
+        "doubtful": 106
+      }
+    },
+    {
+      "league": "MLB",
+      "season": 2026,
+      "source_sha256": "abec3d20d793b7aa8d86d8289605da32caa43dd78acab344c51a9766bfc1ea47",
+      "metadata_sha256": "392bbe5c7332deefc2c176a6736de0e84a2a8bc788bdf71c681734bfb3f4dad3",
+      "observed_at": "2026-09-30T02:46:09.417656+00:00",
+      "rows": 6208,
+      "valid_rows": 6208,
+      "row_reasons": {},
+      "statuses": {
+        "60_day_il": 3802,
+        "10_day_il": 843,
+        "15_day_il": 1149,
+        "day_to_day": 272,
+        "bereavement": 28,
+        "7_day_il": 48,
+        "suspension": 22,
+        "out": 25,
+        "paternity": 19
+      }
+    }
+  ],
+  "source_issues": [],
+  "production_supported": false,
+  "current_participation_verified": false,
+  "probe_kind": "Offline replay with synthetic target event IDs/start; source rows are supplied archived observations.",
+  "knowledge_cards": {
+    "knowledge/cards/K03-adat-ido-forras.md": "a71af120097072161a042f04257cb6f4ebc617e34ff43c19588ca313148b1d9a",
+    "knowledge/cards/K05-nba-wnba.md": "9e50069551b925158926637dd399fa6c34e0aca62dcbd1720397fcaaee617b77",
+    "knowledge/cards/K08-validacio.md": "951ffe80c87fd491bfeece567c31a86a78371087fcf8b16297422ecadd624bd3"
+  },
+  "as_of": "2026-09-30T02:47:00+00:00",
+  "probes": [
+    {
+      "identity": {
+        "league": "WNBA",
+        "game_id": "WNBA:synthetic-f0016-audit",
+        "player_id": "4433790",
+        "team_id": "3",
+        "stat_group": "player",
+        "identity_namespace": "espn",
+        "start": "2026-09-30T20:00:00+00:00"
+      },
+      "reported_status": "out",
+      "latest_report_date": "2026-09-29",
+      "state": "context_only",
+      "reasons": [],
+      "source_published_at": null,
+      "valid_until": null,
+      "current_participation": null,
+      "role": null,
+      "production_supported": false,
+      "activation_blockers": [
+        "event_specific_participation_missing",
+        "role_evidence_missing",
+        "source_publication_and_validity_unknown",
+        "live_adapter_unverified"
+      ],
+      "assessment_sha256": "2d4f3e59e2a833e204262029dc82579d5af8bcfed5cf1570a8f6153abe421dd4",
+      "reviewed_rows": 22,
+      "before_collection_status": null,
+      "before_collection_reasons": [
+        "no_eligible_player_report"
+      ],
+      "before_collection_row_exclusions": [
+        "not_observed_as_of"
+      ]
+    },
+    {
+      "identity": {
+        "league": "NHL",
+        "game_id": "NHL:synthetic-f0016-audit",
+        "player_id": "5188490",
+        "team_id": "15",
+        "stat_group": "player",
+        "identity_namespace": "espn",
+        "start": "2026-09-30T20:00:00+00:00"
+      },
+      "reported_status": "day_to_day",
+      "latest_report_date": "2026-09-29",
+      "state": "context_only",
+      "reasons": [],
+      "source_published_at": null,
+      "valid_until": null,
+      "current_participation": null,
+      "role": null,
+      "production_supported": false,
+      "activation_blockers": [
+        "event_specific_participation_missing",
+        "role_evidence_missing",
+        "source_publication_and_validity_unknown",
+        "live_adapter_unverified"
+      ],
+      "assessment_sha256": "4631cd95cb7e07451e14569914dbbdfca52288a186a2d1a612237b1628e4e264",
+      "reviewed_rows": 8,
+      "before_collection_status": null,
+      "before_collection_reasons": [
+        "no_eligible_player_report"
+      ],
+      "before_collection_row_exclusions": [
+        "not_observed_as_of"
+      ]
+    },
+    {
+      "identity": {
+        "league": "NFL",
+        "game_id": "NFL:synthetic-f0016-audit",
+        "player_id": "10621",
+        "team_id": "1",
+        "stat_group": "player",
+        "identity_namespace": "espn",
+        "start": "2026-09-30T20:00:00+00:00"
+      },
+      "reported_status": "active",
+      "latest_report_date": "2026-09-29",
+      "state": "context_only",
+      "reasons": [],
+      "source_published_at": null,
+      "valid_until": null,
+      "current_participation": null,
+      "role": null,
+      "production_supported": false,
+      "activation_blockers": [
+        "event_specific_participation_missing",
+        "role_evidence_missing",
+        "source_publication_and_validity_unknown",
+        "live_adapter_unverified"
+      ],
+      "assessment_sha256": "773fbb7c34efc6b7bf8d9e2fbc111d2d6bc12a44059d024b9a2a214b31a4e8df",
+      "reviewed_rows": 20,
+      "before_collection_status": null,
+      "before_collection_reasons": [
+        "no_eligible_player_report"
+      ],
+      "before_collection_row_exclusions": [
+        "not_observed_as_of"
+      ]
+    },
+    {
+      "identity": {
+        "league": "MLB",
+        "game_id": "MLB:synthetic-f0016-audit",
+        "player_id": "32804",
+        "team_id": "1",
+        "stat_group": "hitting",
+        "identity_namespace": "espn",
+        "start": "2026-09-30T20:00:00+00:00"
+      },
+      "reported_status": "60_day_il",
+      "latest_report_date": "2026-09-08",
+      "state": "context_only",
+      "reasons": [],
+      "source_published_at": null,
+      "valid_until": null,
+      "current_participation": null,
+      "role": null,
+      "production_supported": false,
+      "activation_blockers": [
+        "event_specific_participation_missing",
+        "role_evidence_missing",
+        "source_publication_and_validity_unknown",
+        "live_adapter_unverified"
+      ],
+      "assessment_sha256": "b070191089453eca17227ab67aa25742a4e8ab552511d6e937c722f865573708",
+      "reviewed_rows": 1,
+      "before_collection_status": null,
+      "before_collection_reasons": [
+        "no_eligible_player_report"
+      ],
+      "before_collection_row_exclusions": [
+        "not_observed_as_of"
+      ]
+    }
+  ],
+  "code_sha256": "b2ccfc4b47facc8674bc96b2c27b2736139726529c962c8e2bffba1d2b479821"
+}

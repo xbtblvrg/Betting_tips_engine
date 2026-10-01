@@ -1,0 +1,169 @@
+"""Independent failure cases for archived source and recipe comparison evidence."""
+import copy
+import json
+from pathlib import Path
+from test_d18_frozen_exports import frozen_root
+
+import pytest
+
+from betting_engine.professional_provenance import (
+    audit_studies, chronology_findings, inspect_study, sha256,
+    verified_files, verify_replay_source,
+)
+
+
+def study_fixture():
+    models, context = b'# fixture only: never executed', b'# context'
+    code_hash = sha256(models + context)
+    manifest = {'league': 'NBA', 'comparison_model': 'old', 'training_digest': 'history',
+                'recipes': {'simple': {}, 'complex': {}}, 'selection_cutoff': '2024-04-01'}
+    rows = [{'recipe': 'simple', 'n': 20, 'brier': .20, 'log_loss': .60, 'last_game': '2024-03-30'},
+            {'recipe': 'complex', 'n': 20, 'brier': .22, 'log_loss': .61, 'last_game': '2024-03-30'}]
+    result = {'league': 'NBA', 'study_id': 'study', 'comparison_model': 'old',
+              'model_version': 'candidate', 'training_digest': 'history',
+              'selected_recipe': 'simple', 'development': rows, 'promotion_gate': {'promote': False}}
+    report = {'league': 'NBA', 'version': 'candidate', 'code_sha256': code_hash,
+              'recipe': 'simple', 'test_from': '2024-04-01', 'test': {'brier': .9},
+              'test_predictions': [{'game_id': 'one'}]}
+    entry = {k: result[k] for k in ('league', 'study_id', 'comparison_model', 'model_version', 'training_digest')}
+    entry['training_code_sha256'] = code_hash
+    bodies = {name: json.dumps(value).encode() for name, value in (
+        ('manifest.json', manifest), ('development.json', rows), ('result.json', result),
+        ('challenger_report.json', report))}
+    bodies.update({'models.py': models, 'context.py': context})
+    return bodies, entry
+
+
+def replace_json(bodies, name, change):
+    value = json.loads(bodies[name])
+    change(value)
+    bodies[name] = json.dumps(value).encode()
+
+
+def test_verified_files_reject_corruption_duplicate_and_path_escape(tmp_path):
+    folder = tmp_path / 'studies'
+    folder.mkdir()
+    file = folder / 'report.json'
+    body = b'{"test": 1}'
+    file.write_bytes(body)
+    entry = {'path': 'studies/report.json', 'sha256': sha256(body), 'bytes': len(body)}
+    inputs = {}
+    assert verified_files(tmp_path, [entry], 'studies', inputs) == {'report.json': body}
+    with pytest.raises(ValueError, match='duplicate_archive'):
+        verified_files(tmp_path, [entry, entry], 'studies', {})
+    with pytest.raises(ValueError, match='path_escape'):
+        verified_files(tmp_path, [{**entry, 'path': '../elsewhere'}], 'studies', {})
+    file.write_bytes(b'corrupt')
+    with pytest.raises(ValueError, match='hash_or_size'):
+        verified_files(tmp_path, [entry], 'studies', {})
+
+
+def test_missing_archive_is_retained_as_failure_without_aborting_other_studies(tmp_path):
+    _, entry = study_fixture()
+    entry['files'] = [{'path': 'experiments/NBA/study/result.json', 'sha256': 'missing', 'bytes': 1}]
+    result = audit_studies(tmp_path, {'experiments': [entry]}, {})
+    assert result['studies'][0]['status'] == 'insufficient_evidence'
+    assert 'FileNotFoundError' in result['studies'][0]['error']
+
+
+def test_selection_uses_earlier_scores_even_when_final_score_is_worse():
+    bodies, entry = study_fixture()
+    first = inspect_study(bodies, entry)
+    replace_json(bodies, 'challenger_report.json', lambda r: r.update(test={'brier': .01}))
+    second = inspect_study(bodies, entry)
+    assert first['selected_recipe_reproduced'] == second['selected_recipe_reproduced'] == 'simple'
+    assert not second['new_untouched_holdout']
+    assert not second['outer_scores_used_for_selection_by_audit']
+    assert second['result_as_recorded']['promotion_gate'] == {'promote': False}
+
+
+@pytest.mark.parametrize('change,reason', [
+    (lambda r: r[0].update(n=19), 'comparator_sample_mismatch'),
+    (lambda r: r[0].update(last_game='2024-04-01'), 'crosses_final_test'),
+    (lambda r: r[0].update(last_game='2024-03-31T23:00:00+00:00'), 'crosses_final_test'),
+    (lambda r: r[0].update(brier=float('nan')), 'invalid_recipe'),
+    (lambda r: r.pop(), 'incomplete_or_duplicate'),
+])
+def test_invalid_recipe_evidence_rejected_even_with_matching_copies(change, reason):
+    bodies, entry = study_fixture()
+    rows = json.loads(bodies['development.json'])
+    change(rows)
+    bodies['development.json'] = json.dumps(rows).encode()
+    replace_json(bodies, 'result.json', lambda r: r.update(development=rows))
+    with pytest.raises(ValueError, match=reason):
+        inspect_study(bodies, entry)
+
+
+def test_report_and_trial_history_cannot_disagree_or_select_inferior_recipe():
+    bodies, entry = study_fixture()
+    replace_json(bodies, 'result.json', lambda r: r.update(selected_recipe='complex'))
+    with pytest.raises(ValueError, match='selected_recipe_not_reproduced'):
+        inspect_study(bodies, entry)
+    bodies, entry = study_fixture()
+    replace_json(bodies, 'development.json', lambda r: r[0].update(brier=.19))
+    with pytest.raises(ValueError, match='trial_history_mismatch'):
+        inspect_study(bodies, entry)
+
+
+def test_recipe_selection_overlapping_calibration_is_not_four_stage_validation():
+    bodies, entry = study_fixture()
+    verified = {**inspect_study(bodies, entry), 'league': 'NBA', 'study_id': 'study'}
+    report = {'league': 'NBA', 'version': 'candidate', 'experiment': {'study_id': 'study'}}
+    partitions = {'calibration': {'first_date': '2024-03-01'}, 'test': {'first_date': '2024-04-01'}}
+    result = chronology_findings(partitions, report, [verified])
+    assert result['fit_partition_dates_disjoint']
+    assert not result['strict_four_stage_recipe_protocol_verified']
+    assert result['issues'] == ['recipe_selection_not_separated_from_final_fit_calibration']
+    assert result['deployed_recipe_studies'][0]['ends_before_final_test']
+    assert chronology_findings(partitions, report, [])['issues'] == ['deployed_recipe_study_not_verified']
+
+
+def test_supplied_archives_match_replay_symbols_and_include_rejected_studies():
+    root = frozen_root('d18-prepromotion-v1') / 'data/model_evidence'
+    manifest = json.loads((root / 'manifest.json').read_bytes())
+    inputs = {}
+    for entry in manifest['models']:
+        if entry['league'] not in ('NBA', 'WNBA', 'NHL', 'MLB', 'NFL'):
+            continue
+        report = json.loads((root / entry['report']).read_bytes())
+        result = verify_replay_source(root, entry, report, inputs)
+        assert all(result['checks'].values())
+        assert result['training_snapshot_as_supplied']['status'] == ('verified' if entry['league'] == 'MLB' else 'not_supplied')
+        damaged = copy.deepcopy(report)
+        damaged['code_sha256'] = '0' * 64
+        with pytest.raises(ValueError, match='training_code_hash_mismatch'):
+            verify_replay_source(root, entry, damaged, {})
+    studies = audit_studies(root, manifest, inputs)['studies']
+    assert len(studies) == len(manifest['experiments'])
+    assert {(s['league'], s['study_id']) for s in studies} == {
+        (s['league'], s['study_id']) for s in manifest['experiments']}
+    assert all(s['status'] == 'verified_supplied_study' for s in studies)
+    assert sum(not s['result_as_recorded']['promotion_gate']['promote'] for s in studies) >= 11
+    assert len(inputs) > 50
+
+
+@pytest.mark.parametrize('change', [
+    lambda body: body.replace(b'-.125*(1-x[:,11])', b'-.126*(1-x[:,11])'),
+    lambda body: body.replace(b"'NHL':3.", b"'NHL':4."),
+])
+def test_matching_hashes_do_not_hide_changed_replay_math(tmp_path, change):
+    root = frozen_root('d18-prepromotion-v1') / 'data/model_evidence'
+    manifest = json.loads((root / 'manifest.json').read_bytes())
+    entry = copy.deepcopy(next(e for e in manifest['models'] if e['league'] == 'NHL'))
+    report = json.loads((root / entry['report']).read_bytes())
+    source = entry['training_source']
+    for file in source['files']:
+        body = (root / file['path']).read_bytes()
+        if Path(file['path']).name == 'models.py':
+            altered = change(body)
+            assert altered != body
+            body = altered
+        destination = tmp_path / file['path']
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(body)
+        file.update(sha256=sha256(body), bytes=len(body))
+    folder = tmp_path / source['path']
+    code_hash = sha256((folder / 'models.py').read_bytes() + (folder / 'context.py').read_bytes())
+    source['training_code_sha256'] = report['code_sha256'] = code_hash
+    with pytest.raises(ValueError, match='replay_semantics_differ'):
+        verify_replay_source(tmp_path, entry, report, {})

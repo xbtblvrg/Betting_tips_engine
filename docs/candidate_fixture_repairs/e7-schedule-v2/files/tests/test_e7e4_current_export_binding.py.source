@@ -1,0 +1,29 @@
+"""Fresh volleyball inventory is never clipped to an earlier snapshot size."""
+from collections import Counter
+import hashlib
+import json
+from pathlib import Path
+from betting_engine.ncaa_volleyball_replay import replay_bound_export
+
+def sha(raw):return hashlib.sha256(raw).hexdigest()
+
+def current_bundle():
+ root=Path(__file__).resolve().parents[1];raw=(root/'data/development_inputs/manifest.json').read_bytes();manifest=json.loads(raw)
+ files={r['path']:(root/r['path']).read_bytes() for r in manifest['files']}
+ for r in manifest['files']:assert sha(files[r['path']])==r['sha256'] and len(files[r['path']])==r['bytes']
+ return raw,manifest,files
+
+
+def test_current_volleyball_preserves_every_exact_row_and_outcome():
+ raw,manifest,files=current_bundle();catalog=next(r['path'] for r in manifest['files'] if r['path'].endswith('/contracts.json'))
+ rows=[r for r in json.loads(files[catalog])['rows'] if r['league']=='NCAA_VOLLEYBALL_WOMEN'];latest=json.loads(files['data/market_catalog/latest.json'])
+ before={p:sha(b) for p,b in files.items()};report=replay_bound_export(raw,manifest_sha256=sha(raw),files=files,as_of=latest['checked_at'])
+ assert report['observed_volleyball_rows']==len(rows)
+ original=lambda r:json.dumps(r,sort_keys=True,separators=(',',':'))
+ assert Counter(original(a['row']) for a in report['volleyball_assessments'])==Counter(map(original,rows))
+ assert sum(len(a['row']['outcomes']) for a in report['volleyball_assessments'])==sum(len(r['outcomes']) for r in rows)
+ assert not report['production_supported'] and not report['historical_availability_authenticated']
+ assert all(not a['execution_eligible'] for a in report['volleyball_assessments'])
+ assert {p:sha(b) for p,b in files.items()}==before
+
+

@@ -1,0 +1,71 @@
+{
+  "scope": "Isolated candidate validation; no independent review or live release claim",
+  "python": {
+    "command": "PYTHONPATH=src OMP_NUM_THREADS=1 /Users/belavarga/Betting_tips_engine/.venv/bin/python -m pytest -q",
+    "exit_code": 0,
+    "passed": 4036,
+    "subtests_passed": 5,
+    "warnings": 1
+  },
+  "frontend": {
+    "command": "node --test tests/*.test.mjs",
+    "exit_code": 0,
+    "passed": 224
+  },
+  "focused": {
+    "command": "PYTHONPATH=src OMP_NUM_THREADS=1 /Users/belavarga/Betting_tips_engine/.venv/bin/python -m pytest -q tests/test_f0022_service_preparation.py tests/test_f0022_preparation_reopen.py tests/test_f0022_controller_preparation.py tests/test_resource_service_profile.py",
+    "exit_code": 0,
+    "passed": 60
+  },
+  "original_workspace_preservation": {
+    "checked_files": 436,
+    "changed_files": [],
+    "existing_test_files": 186
+  },
+  "recovered_test_bytes": {
+    "tests/test_f0022_service_preparation.py": "2e4703c3c1f7c6546e2741e2c481dc0863743596c15f91a8f7ac40aea583ad7f",
+    "tests/test_f0022_preparation_reopen.py": "239211046ebda37f29bdf1d38667230be9bf0107936536107798f443039abb26"
+  },
+  "evidence_files": {
+    "docs/f0022_controller_preparation/input-verification.json": {
+      "sha256": "3f0a82101fcd99c69a68dbe9d98970e78690a4b9a3fe0eca86da0ad56be8cdaf",
+      "bytes": 1491
+    },
+    "docs/f0022_controller_preparation/dom.log": {
+      "sha256": "11dbfae92788d796990bed229f4ac7935bba031c5630d9df2b4d0949c922b97a",
+      "bytes": 45763
+    },
+    "docs/f0022_controller_preparation/assessment.json": {
+      "sha256": "c261894b8b69e0601042233f3093edb64903f850d90bcd0599c7ab06f38fe69a",
+      "bytes": 2625
+    },
+    "docs/f0022_controller_preparation/source-result.json": {
+      "sha256": "1f5ae5e5b61399e737b9a69e95f229d7e3a95613bb43c0d4600f69ac2d86d28c",
+      "bytes": 927
+    },
+    "docs/f0022_controller_preparation/failed-test.log": {
+      "sha256": "008c12bc5ac118f64da7acc02db1bb2a9280e89d5608c2aeb81d6d031ae7f42e",
+      "bytes": 9259
+    },
+    "docs/f0022_controller_preparation/failed-test-run.json": {
+      "sha256": "433e1ecc2047abad97a48413db68ff3183e86fac2351d3769805fb51d99016e4",
+      "bytes": 2556
+    },
+    "docs/f0022_controller_preparation/source-run.json": {
+      "sha256": "e8312558fd011584bb675268669bae7d9d40a2ce696d075407145a40274297da",
+      "bytes": 1889
+    },
+    "docs/f0022_controller_preparation/python.log": {
+      "sha256": "8ecae630665f32cce5f05a4d5a66fd30c5fdf02b83b1d1bddcc67b7b423cd889",
+      "bytes": 5123
+    }
+  },
+  "candidate_code_sha256": "795e6589f74de59bdf0a06f435f5ca74341279c229c7cc46d5431f32b84707ed",
+  "new_tests_sha256": "8220b769220a0fbf433de4c1ee62e4eeecdd678baef4b56d010dfc6f474a5e33",
+  "helper_reviews": [],
+  "remaining": [
+    "Controller fixed suites and independent read-only Codex review.",
+    "Separately authorized root integration; no exact passive profile.",
+    "Authorized real service recovery drill and fresh local/Tailscale publication verification; M01 remains open."
+  ]
+}

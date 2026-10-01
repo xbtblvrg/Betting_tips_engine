@@ -1,0 +1,161 @@
+"""Schedule companion observations cannot hide behind valid fixture bytes.
+
+Synthetic schema matches the supplied Stake schedule response. These tests do
+not establish official sports results, historical availability or approval.
+"""
+from copy import deepcopy
+import json
+
+import pytest
+
+from test_e7e4de07846_fixture_binding import fixture_export, run, source
+from test_e7e4de07846_export_replay import CONTRACTS, raw_json, repin_files
+
+
+def schedule_export(mutate=lambda body: None, mutate_ref=lambda ref: None):
+    manifest, files = fixture_export()
+    catalog = json.loads(files[CONTRACTS])
+    fixture = catalog['rows'][0]['fixture_evidence']['schedule_fixture']
+    scheduled = {k: v for k, v in fixture.items()
+                 if k not in ('schedule_sources', 'competitors', 'league_path', 'startTime')}
+    scheduled['date'] = fixture['startTime']
+    body = {'sport': {'slug': 'volleyball', 'enabled': True},
+            'schedule': [{'id': 'ncaa-id', 'date': scheduled['date'], 'fixtures': [scheduled]}]}
+    mutate(body)
+    ref = source(manifest, files,
+        'https://odds-data.stake.com/schedule/sport/volleyball/usa/tournament/ncaa-women', body)
+    fixture['schedule_sources'].append(deepcopy(ref))
+    mutate_ref(ref)
+    files[CONTRACTS] = raw_json(catalog)
+    repin_files(manifest, files)
+    return manifest, files
+
+
+def test_failed_schedule_observation_blocks_otherwise_valid_fixture():
+    manifest, files = schedule_export(mutate_ref=lambda r: r.update(http_status=503))
+    a = run(manifest, files)['volleyball_assessments'][0]
+    assert a['provider_fixture_binding']['state'] == 'unresolved'
+    assert not a['contracts']
+
+
+def test_verified_schedule_retains_raw_identity_and_never_substitutes_date():
+    def change_date(body):
+        body['schedule'][0]['fixtures'][0]['date'] += 60000
+    manifest, files = schedule_export(change_date)
+    before = deepcopy((manifest, files))
+    a = run(manifest, files)['volleyball_assessments'][0]
+    binding = a['provider_fixture_binding']
+    assert binding['state'] == 'provider_fixture_bound'
+    schedule = binding['schedule_observations'][0]
+    exact = binding['observations'][0]['fixture']['startTime']
+    assert schedule['fixture']['date'] == exact + 60000
+    assert binding['schedule_discrepancies'] == [{
+        'source': schedule['source'], 'schedule_date': exact + 60000,
+        'fixture_startTime': exact, 'reason': 'schedule_date_differs_from_fixture_startTime'}]
+    assert len(a['contracts']) == 2
+    assert not a['execution_eligible']
+    assert (manifest, files) == before
+
+
+@pytest.mark.parametrize('field,value', [
+    ('id', 'wrong'), ('slug', 'wrong'), ('tournamentId', 'professional'),
+    ('extId', 'wrong'), ('stakeFixtureId', 'wrong'), ('name', 'Other - Teams'),
+    ('date', True), ('date', None), ('date', '1790809200000'),
+    ('enabled', False), ('preMatchEnabled', 1), ('blacklisted', True), ('status', 'live'),
+])
+def test_conflicting_schedule_fixture_is_rejected(field, value):
+    manifest, files = schedule_export(
+        lambda b: b['schedule'][0]['fixtures'][0].update({field: value}))
+    a = run(manifest, files)['volleyball_assessments'][0]
+    assert a['provider_fixture_binding']['state'] == 'unresolved'
+    assert not a['contracts']
+
+
+@pytest.mark.parametrize('kind', ['sport', 'enabled', 'missing', 'duplicate', 'group', 'schema'])
+def test_schedule_membership_must_be_unique_and_tournament_bound(kind):
+    def mutate(body):
+        if kind == 'sport': body['sport']['slug'] = 'basketball'
+        elif kind == 'enabled': body['sport']['enabled'] = 1
+        elif kind == 'missing': body['schedule'][0]['fixtures'] = []
+        elif kind == 'duplicate': body['schedule'] *= 2
+        elif kind == 'group': body['schedule'][0]['id'] = 'another-tournament'
+        else: body['schedule'] = [None]
+    manifest, files = schedule_export(mutate)
+    a = run(manifest, files)['volleyball_assessments'][0]
+    assert a['provider_fixture_binding']['state'] == 'unresolved'
+    assert not a['contracts']
+
+
+@pytest.mark.parametrize('reference', [None, {}, {'url': 'https://other.invalid/schedule'}])
+def test_unrecognized_companion_reference_cannot_be_silently_dropped(reference):
+    manifest, files = fixture_export()
+    catalog = json.loads(files[CONTRACTS])
+    catalog['rows'][0]['fixture_evidence']['schedule_fixture']['schedule_sources'].append(reference)
+    files[CONTRACTS] = raw_json(catalog)
+    repin_files(manifest, files)
+    a = run(manifest, files)['volleyball_assessments'][0]
+    assert a['provider_fixture_binding']['state'] == 'unresolved'
+    assert not a['contracts']
+
+
+@pytest.mark.parametrize('kind', ['later_same_bytes', 'corrupt_bytes', 'second_failure',
+                                  'conflicting_observation', 'startTime'])
+def test_schedule_evidence_cannot_be_reused_to_cover_failure(kind):
+    manifest, files = schedule_export()
+    catalog = json.loads(files[CONTRACTS])
+    refs = catalog['rows'][0]['fixture_evidence']['schedule_fixture']['schedule_sources']
+    ref = refs[-1]
+    meta = next(s for s in manifest['sources'] if s == ref)
+    if kind == 'later_same_bytes':
+        meta['fetched_at'] = '2026-09-30T18:00:00+00:00'
+    elif kind == 'corrupt_bytes':
+        files['data/' + ref['archive']] += b'corrupt'
+    elif kind == 'second_failure':
+        refs.append({**ref, 'fetched_at': '2026-09-29T19:59:00+00:00'})
+    else:
+        import gzip
+        body = json.loads(gzip.decompress(files['data/' + ref['archive']]))
+        fixture = body['schedule'][0]['fixtures'][0]
+        if kind == 'startTime': fixture['startTime'] = fixture['date'] + 1
+        else: fixture['date'] += 60000
+        new = source(manifest, files, ref['url'], body)
+        refs.append(new)
+    files[CONTRACTS] = raw_json(catalog)
+    # Repin the catalogue only; altered archive bytes must still fail integrity.
+    from test_e7e4de07846_export_replay import digest
+    entry = next(f for f in manifest['files'] if f['path'] == CONTRACTS)
+    entry.update(sha256=digest(files[CONTRACTS]), bytes=len(files[CONTRACTS]))
+    if kind in ('conflicting_observation', 'startTime'): repin_files(manifest, files)
+    a = run(manifest, files)['volleyball_assessments'][0]
+    assert a['provider_fixture_binding']['state'] == 'unresolved'
+    assert not a['contracts']
+
+
+def test_actual_supplied_schedule_schema_preserves_exact_date_and_ids():
+    import gzip
+    import hashlib
+    from pathlib import Path
+    from betting_engine.ncaa_volleyball_replay import _bind_schedule
+
+    from _frozen_candidate_exports import frozen_root
+    root = frozen_root("e7e4-volleyball-v1")
+    manifest = json.loads((root / 'data/development_inputs/manifest.json').read_bytes())
+    prefix = 'https://odds-data.stake.com/'
+    path = 'volleyball/usa/ncaa-women-regular-season'
+    schedule = next(s for s in manifest['sources'] if s['url'] ==
+                    prefix + 'schedule/sport/volleyball/usa/tournament/ncaa-women-regular-season')
+    fixture_ref = next(s for s in manifest['sources'] if s['url'] == prefix + 'sports/' + path + '/fixtures')
+
+    def read(ref):
+        raw = gzip.decompress((root / 'data' / ref['archive']).read_bytes())
+        assert hashlib.sha256(raw).hexdigest() == ref['sha256']
+        assert len(raw) == ref['bytes']
+        return raw
+
+    fixture = json.loads(read(fixture_ref))['fixtures'][0]
+    observation = _bind_schedule(schedule, fixture, fixture['tournamentId'], read)
+    assert observation['fixture']['id'] == fixture['id']
+    assert observation['fixture']['date'] == fixture['startTime'] == 1790809200000
+    assert observation['source'] == schedule
+    # Testing this parser with a later observation never repairs the missing
+    # earlier reference in the strict catalogue replay.

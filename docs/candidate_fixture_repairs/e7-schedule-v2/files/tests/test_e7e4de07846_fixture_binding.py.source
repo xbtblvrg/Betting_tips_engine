@@ -1,0 +1,196 @@
+"""Strict source integration: synthetic attacks and the unchanged supplied export."""
+from copy import deepcopy
+import gzip
+import json
+from pathlib import Path
+
+import pytest
+
+from _frozen_candidate_exports import frozen_root
+
+from betting_engine.ncaa_volleyball_replay import replay_bound_export
+from test_e7e4de07846_export_replay import (
+    CONTRACTS, ENDPOINTS, LATEST, STAMP, digest, make_export, raw_json, repin_files,
+)
+
+
+def source(manifest, files, url, body):
+    raw = raw_json(body)
+    ref = dict(url=url, sha256=digest(raw), bytes=len(raw), fetched_at=STAMP,
+               http_status=200, archive=f'stake_api_archive/{digest(raw)}.json.gz')
+    manifest['sources'].append(ref)
+    files['data/' + ref['archive']] = gzip.compress(raw, mtime=0)
+    return ref
+
+
+def fixture_export(mutate=lambda f: None):
+    manifest, files = make_export()
+    catalog = json.loads(files[CONTRACTS])
+    row = catalog['rows'][0]
+    offer = json.loads(gzip.decompress(files['data/' + row['source']['archive']]))
+    fixture = offer['fixture']
+    fixture.update(tournamentId='ncaa-id', extId='sr:match:test', stakeFixtureId='stake-id',
+                   enabled=True, preMatchEnabled=True, blacklisted=False, status='active')
+    row['source'] = source(manifest, files, row['source']['url'], offer)
+    # The title, IDs and startTime are deliberately shared exactly; no fuzzy join.
+    observed = {**fixture, 'competitors': ['College A', 'College B']}
+    mutate(observed)
+    ref = source(manifest, files,
+                 'https://odds-data.stake.com/sports/volleyball/usa/ncaa-women/fixtures',
+                 dict(sport='Volleyball', category='USA', tournament='NCAA Women', fixtures=[observed]))
+    row['fixture_evidence'] = {'schedule_fixture': {**fixture,
+        'competitors': ['College A', 'College B'], 'league_path': 'volleyball/usa/ncaa-women',
+        'schedule_sources': [ref]}}
+    discovery = source(manifest, files,
+        'https://odds-data.stake.com/sports/volleyball/usa/tournaments',
+        {'tournaments': [{'slug': 'ncaa-women', 'id': 'ncaa-id', 'name': 'NCAA Women', 'enabled': True}]})
+    endpoints = json.loads(files[ENDPOINTS]); endpoints['tournament_sources'] = [discovery]
+    files[ENDPOINTS] = raw_json(endpoints); files[CONTRACTS] = raw_json(catalog)
+    repin_files(manifest, files)
+    return manifest, files
+
+
+def run(manifest, files, as_of=STAMP):
+    raw = raw_json(manifest)
+    return replay_bound_export(raw, manifest_sha256=digest(raw), files=files, as_of=as_of)
+
+
+def test_strict_integration_retains_exact_contracts_and_unresolved_d10_obligations():
+    manifest, files = fixture_export()
+    before = deepcopy((manifest, files))
+    report = run(manifest, files)
+    assessment = report['volleyball_assessments'][0]
+    assert report['fixture_binding_required']
+    assert assessment['provider_fixture_binding']['state'] == 'provider_fixture_bound'
+    assert len(assessment['contracts']) == 2
+    assert {c['line'] for c in assessment['contracts']} == {'180.5'}
+    assert {c['decimal_odds'] for c in assessment['contracts']} == {'1.9'}
+    assert not assessment['execution_eligible']
+    assert not assessment['settlement_validated']
+    assert not assessment['provider_fixture_binding']['independent_sports_identity_verified']
+    assert 'independent_model_missing' in assessment['reasons']
+    assert all(o['state'] == 'blocked_on_validation' for o in report['obligations']['obligations'].values())
+    assert (manifest, files) == before
+
+
+@pytest.mark.parametrize('field,value', [
+    ('id', 'other'), ('slug', 'another-game'), ('name', 'Other - Teams'),
+    ('startTime', 1790798400001), ('startTime', True), ('startTime', None),
+    ('tournamentId', 'professional'), ('extId', 'other-match'), ('stakeFixtureId', 'other-stake'),
+    ('enabled', False), ('preMatchEnabled', 1), ('blacklisted', True), ('status', 'suspended'),
+    ('competitors', ['College C', 'College B']), ('competitors', ['College A', 'College A']),
+    ('competitors', None),
+])
+def test_exact_fixture_fields_cannot_be_borrowed_or_coerced(field, value):
+    manifest, files = fixture_export(lambda f: f.update({field: value}))
+    report = run(manifest, files)
+    a = report['volleyball_assessments'][0]
+    assert not a['contracts']
+    assert a['provider_fixture_binding']['state'] == 'unresolved'
+    assert report['observation_state'] == 'source_evidence_incomplete'
+    assert a['row'] == json.loads(files[CONTRACTS])['rows'][0]
+
+
+def replace_fixture_body(manifest, files, mutate):
+    catalog = json.loads(files[CONTRACTS])
+    fixture = catalog['rows'][0]['fixture_evidence']['schedule_fixture']
+    ref = fixture['schedule_sources'][0]
+    body = json.loads(gzip.decompress(files['data/' + ref['archive']]))
+    mutate(body)
+    fixture['schedule_sources'] = [source(manifest, files, ref['url'], body)]
+    files[CONTRACTS] = raw_json(catalog); repin_files(manifest, files)
+
+
+@pytest.mark.parametrize('kind', ['empty', 'duplicate', 'slug_collision', 'sport', 'category', 'tournament', 'schema'])
+def test_fixture_membership_requires_one_exact_ncaa_entry(kind):
+    manifest, files = fixture_export()
+    def mutate(body):
+        if kind == 'empty': body['fixtures'] = []
+        elif kind == 'duplicate': body['fixtures'] *= 2
+        elif kind == 'slug_collision': body['fixtures'].append({**body['fixtures'][0], 'id': 'other'})
+        elif kind == 'schema': body['fixtures'] = [None]
+        else: body[kind] = 'other'
+    replace_fixture_body(manifest, files, mutate)
+    report = run(manifest, files)
+    assert not report['volleyball_assessments'][0]['contracts']
+    assert report['source_issues']
+
+
+@pytest.mark.parametrize('kind', ['missing', 'later_same_bytes', 'http', 'changed_bytes', 'future'])
+def test_fixture_source_failure_cannot_borrow_other_observation(kind):
+    manifest, files = fixture_export()
+    catalog = json.loads(files[CONTRACTS])
+    ref = catalog['rows'][0]['fixture_evidence']['schedule_fixture']['schedule_sources'][0]
+    meta = next(s for s in manifest['sources'] if s == ref)
+    if kind == 'missing': files.pop('data/' + ref['archive'])
+    elif kind == 'later_same_bytes': meta['fetched_at'] = '2026-09-30T18:00:00+00:00'
+    elif kind == 'http': meta['http_status'] = 503; ref['http_status'] = 503
+    elif kind == 'changed_bytes': files['data/' + ref['archive']] += b'changed'
+    elif kind == 'future':
+        meta['fetched_at'] = '2026-09-30T18:00:00+00:00'; ref['fetched_at'] = meta['fetched_at']
+    files[CONTRACTS] = raw_json(catalog)
+    # Pin the changed catalogue, but do not re-pin altered source bytes.
+    entry = next(e for e in manifest['files'] if e['path'] == CONTRACTS)
+    entry.update(sha256=digest(files[CONTRACTS]), bytes=len(files[CONTRACTS]))
+    report = run(manifest, files)
+    assert not report['volleyball_assessments'][0]['contracts']
+    assert report['volleyball_assessments'][0]['provider_fixture_binding']['state'] == 'unresolved'
+
+
+def test_legacy_diagnostics_do_not_imply_strict_fixture_binding():
+    manifest, files = make_export()
+    report = run(manifest, files)
+    assert report['volleyball_assessments'][0]['provider_fixture_binding']['reason'] == 'missing_fixture_source_references'
+    assert not report['volleyball_assessments'][0]['contracts']
+
+
+@pytest.mark.parametrize('as_of,expected', [('2026-09-29T20:05:00+00:00', 2),
+                                         ('2026-09-29T20:05:01+00:00', 0)])
+def test_fixture_binding_never_extends_quote_lifetime(as_of, expected):
+    manifest, files = fixture_export()
+    report = run(manifest, files, as_of)
+    assert len(report['volleyball_assessments'][0]['contracts']) == expected
+
+
+def test_real_source_delta_retains_missing_original_observation_instead_of_backdating():
+    root = frozen_root("e7e4-volleyball-v1")
+    raw = (root / 'data/development_inputs/manifest.json').read_bytes()
+    manifest = json.loads(raw)
+    files = {f['path']: (root / f['path']).read_bytes() for f in manifest['files']}
+    as_of = json.loads(files[LATEST])['checked_at']
+    before = digest(raw_json({p: digest(b) for p, b in files.items()}))
+    report = replay_bound_export(raw, manifest_sha256=digest(raw), files=files, as_of=as_of)
+    assert report['observed_volleyball_rows'] == 7
+    assert sum(len(a['row']['outcomes']) for a in report['volleyball_assessments']) == 14
+    assert all(a['provider_fixture_binding']['reason'] == 'source_observation_not_in_manifest'
+               for a in report['volleyball_assessments'])
+    assert all(not a['contracts'] and not a['execution_eligible'] for a in report['volleyball_assessments'])
+    assert not report['historical_availability_authenticated']
+    assert digest(raw_json({p: digest(b) for p, b in files.items()})) == before
+
+
+@pytest.mark.parametrize('field,value', [('id', None), ('id', []), ('name', None), ('name', {})])
+def test_malformed_discovery_identity_is_reported_without_crashing(field, value):
+    manifest, files = fixture_export()
+    endpoints = json.loads(files[ENDPOINTS])
+    old = endpoints['tournament_sources'][0]
+    body = json.loads(gzip.decompress(files['data/' + old['archive']]))
+    body['tournaments'][0][field] = value
+    endpoints['tournament_sources'] = [source(manifest, files, old['url'], body)]
+    files[ENDPOINTS] = raw_json(endpoints); repin_files(manifest, files)
+    report = run(manifest, files)
+    assert report['source_issues']
+    assert not report['volleyball_assessments'][0]['contracts']
+
+
+def test_second_failed_fixture_reference_cannot_hide_behind_first_success():
+    manifest, files = fixture_export()
+    catalog = json.loads(files[CONTRACTS])
+    refs = catalog['rows'][0]['fixture_evidence']['schedule_fixture']['schedule_sources']
+    bad = {**refs[0], 'fetched_at': '2026-09-29T19:59:00+00:00', 'http_status': 503}
+    manifest['sources'].append(bad); refs.append(bad)
+    files[CONTRACTS] = raw_json(catalog); repin_files(manifest, files)
+    report = run(manifest, files)
+    a = report['volleyball_assessments'][0]
+    assert a['provider_fixture_binding']['reason'] == 'source_http_failure'
+    assert not a['contracts']

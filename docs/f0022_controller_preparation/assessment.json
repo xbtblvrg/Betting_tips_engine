@@ -1,0 +1,64 @@
+{
+  "version": "service-profile-preparation-v1",
+  "state": "inputs_consistent",
+  "reason": null,
+  "inputs_consistent": true,
+  "sources": [
+    {
+      "path": "tests/test_resource_service_profile.py",
+      "expected_sha256": "befe6f624eb582f52f70a6218032701ac6a1b7473edc87b006e65c3f577683b9",
+      "sha256": "befe6f624eb582f52f70a6218032701ac6a1b7473edc87b006e65c3f577683b9",
+      "bytes": 1941,
+      "state": "matched"
+    },
+    {
+      "path": "scripts/development_service.py",
+      "expected_sha256": "7ff1e66b35e9e7bd325ccfbfe3ec091ae27c03f6a461dfd8d8a4e70496e46a6f",
+      "sha256": "7ff1e66b35e9e7bd325ccfbfe3ec091ae27c03f6a461dfd8d8a4e70496e46a6f",
+      "bytes": 1820,
+      "state": "matched",
+      "expected_bytes": 1820
+    },
+    {
+      "path": "scripts/release_service.py",
+      "expected_sha256": "5733a67be2d16d13e7e2d0fdebd98fb4030cec237373d3e82e702bc841f2f8d4",
+      "sha256": "5733a67be2d16d13e7e2d0fdebd98fb4030cec237373d3e82e702bc841f2f8d4",
+      "bytes": 2478,
+      "state": "matched",
+      "expected_bytes": 2478
+    },
+    {
+      "path": "config/development_runner.json",
+      "expected_sha256": "86385d85cc8bb3d1de4e87b3504170d881463b6cdef81336b6df82ae4067ddb7",
+      "sha256": "86385d85cc8bb3d1de4e87b3504170d881463b6cdef81336b6df82ae4067ddb7",
+      "bytes": 627,
+      "state": "matched",
+      "expected_bytes": 627
+    },
+    {
+      "path": "config/project_contract.json",
+      "expected_sha256": "7f8659f86cfd6dbe1f2eb978d06f3b31179c0a35603e9e06bd409e1b5fffb41f",
+      "sha256": "7f8659f86cfd6dbe1f2eb978d06f3b31179c0a35603e9e06bd409e1b5fffb41f",
+      "bytes": 34021,
+      "state": "matched"
+    }
+  ],
+  "checkpoint_at": "2026-09-30T14:15:39.029647+00:00",
+  "checkpoint_missed": true,
+  "retry_authorized": false,
+  "test_failure_resolved": false,
+  "independent_review_verified": false,
+  "production_ready": false,
+  "production_recovery_verified": false,
+  "scope": "Offline required-input consistency only; full unchanged tests and controller review remain required.",
+  "run_id": "20260930T221303911779-F0022",
+  "task_id": "F0022",
+  "run_sha256": "433e1ecc2047abad97a48413db68ff3183e86fac2351d3769805fb51d99016e4",
+  "test_log_sha256": "008c12bc5ac118f64da7acc02db1bb2a9280e89d5608c2aeb81d6d031ae7f42e",
+  "as_of": "2026-09-30T23:23:49.481210+00:00",
+  "original_failure_class": "test_failure",
+  "original_failure_phase": "python-tests",
+  "preparation_fingerprint": "60ef9d22f5087adb05f3b690961c64cc5fb50d5676d5686958c95e23b131e992",
+  "blocking_paths": [],
+  "controller_manifest_sha256": "2552dcbd27539835c4f779ac5acefc4ab35afea985ed27d05ce1b6892fd3e246"
+}

@@ -1,0 +1,168 @@
+"""Frozen engineering findings joined to immutable decisions; no live services."""
+from copy import deepcopy
+import hashlib
+import json
+from pathlib import Path
+
+import pytest
+
+from _frozen_candidate_exports import frozen_root
+
+from betting_engine.economics_gap_replay import evaluate_engineering_economics
+from betting_engine.economics_decision_export import EXPORT_PATH
+from betting_engine.statistics import build_statistics
+from test_e5e9ad_decision_export import AS_OF, bundle, issued, repin
+
+
+def encode(value):
+    return json.dumps(value).encode()
+
+
+def pin_engineering(gap):
+    path = "data/engineering-evidence/synthetic.json"
+    body = encode({"kind": "gap_observed", "observed_at": AS_OF, "gap": gap})
+    return encode({"task_id": "synthetic", "rejected": [], "files": [{
+        "path": path, "bytes": len(body), "sha256": hashlib.sha256(body).hexdigest()}]}), {path: body}
+
+
+def inputs():
+    rows = [issued("loss-a"), issued("loss-b"), issued("win", status="won")]
+    for row in rows:
+        row["payload"]["push_probability"] = 0
+    m, files = bundle(rows)
+    originals = json.loads(files[EXPORT_PATH])["records"]
+    stats = build_statistics([], originals, [], as_of=AS_OF)
+    gap = {"id": "outcome:synthetic", "observed_at": AS_OF,
+        "first_seen": "2026-09-29T01:00:00Z", "due_at": "2026-09-30T01:00:00Z",
+        "reason": "Observed loss", "evidence": {"proposal": {
+        "id": "outcome:synthetic", "engineering_gap_id": "outcome:synthetic",
+        "league": "NBA", "scope": "full_game", "market_family": "totals",
+        "evidence": {"original_decisions": originals,
+            "original_decision_ids": [r["family"] for r in originals],
+            "game_ids": [originals[0]["payload"]["game_id"]],
+            "statistics": stats["system_decisions"]["by_league_market"][0]}}}}
+    return m, files, gap
+
+
+def evaluate(m, files, gap):
+    em, ef = pin_engineering(gap)
+    return evaluate_engineering_economics(m, files, em, ef, as_of=AS_OF)
+
+
+def test_integrates_complete_loss_cohort_and_equal_game_diagnostics_without_mutation():
+    m, files, gap = inputs()
+    before = deepcopy((m, files, gap))
+    r = evaluate(m, files, gap)
+    c = r["gaps"][0]["cohort"]
+    assert c["state"] == "reproduced"
+    assert c["statistics"]["pnl"] == pytest.approx(-2.7)
+    assert c["statistics"]["calibration"]["observations"] == 3
+    assert len(c["games"]) == 1
+    assert len(c["rows"]) == 3
+    assert r["gaps"][0]["due_at"] == gap["due_at"]
+    assert not r["gaps"][0]["resolved"]
+    assert not r["model_or_holdout_changed"] and not r["profit_established"]
+    assert before == (m, files, gap)
+    assert r == evaluate(m, files, gap)
+
+
+def test_missing_quote_keeps_losses_and_does_not_select_calibration_cohort():
+    m, files, gap = inputs()
+    before = evaluate(m, files, gap)["gaps"][0]["cohort"]
+    del files[next(p for p in files if p != EXPORT_PATH)]
+    r = evaluate(m, files, gap)
+    c = r["gaps"][0]["cohort"]
+    assert c["state"] == "reproduced_with_evidence_gaps"
+    assert c["quote_states"] == {"unavailable": 3}
+    assert c["statistics"] == before["statistics"]
+    assert len(c["rows"]) == 3
+    assert r["decision_replay"]["reported_snapshot"]["original_pnl_after_stakes"] == pytest.approx(-2.7)
+
+
+@pytest.mark.parametrize("mutation,reason", [
+    ("stake", "cohort_original_changed"), ("outcome", "cohort_original_changed"),
+    ("duplicate", "empty_or_duplicate_cohort"), ("identities", "cohort_identity_mismatch"),
+    ("games", "cohort_game_identity_mismatch"), ("family", "cohort_market_identity_mismatch"),
+    ("statistic", "attached_statistics_not_reproduced"), ("proposal", "proposal_identity_mismatch"),
+])
+def test_untrusted_advisory_cannot_change_original_cohort_or_claim_reproduction(mutation, reason):
+    m, files, gap = inputs()
+    p = gap["evidence"]["proposal"]
+    e = p["evidence"]
+    if mutation == "stake": e["original_decisions"][0]["payload"]["stake"] = 5
+    if mutation == "outcome": e["original_decisions"][0]["pnl"] = 99
+    if mutation == "duplicate": e["original_decisions"].append(e["original_decisions"][0])
+    if mutation == "identities": e["original_decision_ids"].pop()
+    if mutation == "games": e["game_ids"] = ["other-game"]
+    if mutation == "family": p["scope"] = "quarter_1"
+    if mutation == "statistic": e["statistics"]["calibration"]["game_equal_weight_brier"] = 0
+    if mutation == "proposal": p["id"] = "other"
+    r = evaluate(m, files, gap)
+    assert r["gaps"][0]["cohort"]["state"] == "blocked"
+    assert r["gaps"][0]["cohort"]["reason"].startswith(reason)
+    assert r["decision_replay"]["reported_snapshot"]["original_pnl_after_stakes"] == pytest.approx(-2.7)
+
+
+def test_missing_original_and_truncated_exports_cannot_reproduce_a_cohort():
+    m, files, gap = inputs()
+    export = json.loads(files[EXPORT_PATH])
+    export["records"].pop()
+    export["exported_records"] = export["total_records"] = 2
+    files[EXPORT_PATH] = encode(export)
+    m = repin(m, files)
+    assert evaluate(m, files, gap)["gaps"][0]["cohort"]["reason"].startswith("cohort_decision_missing")
+    export["truncated"] = True
+    files[EXPORT_PATH] = encode(export)
+    m = repin(m, files)
+    assert evaluate(m, files, gap)["gaps"][0]["cohort"]["reason"] == "incomplete_decision_export"
+
+
+@pytest.mark.parametrize("mutation,reason", [
+    ("hash", "manifest_file_hash_mismatch"), ("missing", "missing_supplied_file"),
+    ("duplicate", "missing_or_ambiguous_manifest_reference"),
+    ("rejected", "engineering_export_rejected_inputs"),
+    ("future", "engineering_observation_after_cutoff"),
+])
+def test_engineering_manifest_integrity_and_observation_cutoff(mutation, reason):
+    m, files, gap = inputs()
+    if mutation == "future": gap["observed_at"] = "2027-01-01T00:00:00Z"
+    em, ef = pin_engineering(gap)
+    metadata = json.loads(em)
+    if mutation == "hash": ef[next(iter(ef))] += b" "
+    if mutation == "missing": ef.clear()
+    if mutation == "duplicate": metadata["files"] *= 2
+    if mutation == "rejected": metadata["rejected"] = [{"reason": "missing evidence"}]
+    with pytest.raises(ValueError, match=reason):
+        evaluate_engineering_economics(m, files, encode(metadata), ef, as_of=AS_OF)
+
+
+def test_actual_task_cohorts_and_current_export_are_reproduced():
+    root = frozen_root("e5e9-gap-v1")
+    path = root / "data/development_inputs/manifest.json"
+    if not path.exists():
+        pytest.skip("controller-supplied observations are not distributed with source")
+    m = path.read_bytes()
+    manifest = json.loads(m)
+    files = {e["path"]: (root / e["path"]).read_bytes() for e in manifest["files"]}
+    for e in manifest["files"]:
+        assert hashlib.sha256(files[e["path"]]).hexdigest() == e["sha256"]
+        assert len(files[e["path"]]) == e["bytes"]
+    em = (root / "data/engineering-evidence-manifest.json").read_bytes()
+    ef = {e["path"]: (root / e["path"]).read_bytes() for e in json.loads(em)["files"]}
+    r = evaluate_engineering_economics(m, files, em, ef, as_of=manifest["exported_at"])
+    cohorts = {g["id"]: g["cohort"] for g in r["gaps"] if "cohort" in g}
+    wnba = cohorts["outcome:41f430d6ec912cfe154ef90c"]
+    mlb = cohorts["outcome:5b68e0cd530ea0847fe647e0"]
+    assert wnba["statistics"]["pnl"] == -5.08
+    assert mlb["statistics"]["pnl"] == -2
+    assert len(wnba["games"]) == len(mlb["games"]) == 2
+    assert len(wnba["rows"]) == 5 and len(mlb["rows"]) == 2
+    assert wnba["statistics"]["calibration"]["game_equal_weight_brier"] == pytest.approx(.36876175552618967)
+    assert mlb["statistics"]["calibration"]["game_equal_weight_brier"] == pytest.approx(.27564631849828003)
+    replay = r["decision_replay"]
+    assert replay["reported_snapshot"]["decisions"] == 155
+    assert replay["reported_snapshot"]["original_pnl_after_stakes"] == pytest.approx(-9.3478)
+    assert replay["quote_reasons"] == {"original_quote_source_reference_missing": 60,
+                                       "fixture_evidence_start_mismatch": 5}
+    assert replay["settlement_states"] == {"consistent": 81, "unavailable": 5, "open": 69}
+    assert all(not g["resolved"] for g in r["gaps"])

@@ -1,0 +1,138 @@
+{
+  "version": "root-utility-release-v1",
+  "enabled": true,
+  "retry_seconds": 300,
+  "live_timeout_seconds": 180,
+  "validation": {
+    "codex_binary": "/Users/belavarga/.local/bin/codex",
+    "node_binary": "/opt/homebrew/bin/node",
+    "model": "gpt-6-astra"
+  },
+  "claim": "Root-owned exact passive utility release after full tests, independent Codex review, immutable-ledger and fresh-live verification. New utility proposals are pinned to accepted bytes and current production; no automatic betting model activation.",
+  "profiles": {
+    "D01": {
+      "kind": "passive_utility",
+      "files": [
+        "src/betting_engine/player_history.py",
+        "tests/test_player_history.py",
+        "docs/PLAYER_HISTORY.md"
+      ]
+    },
+    "D03": {
+      "kind": "passive_utility",
+      "files": [
+        "src/betting_engine/participation.py",
+        "tests/test_participation.py",
+        "docs/PARTICIPATION.md"
+      ]
+    },
+    "D04": {
+      "kind": "passive_utility",
+      "files": [
+        "src/betting_engine/player_prop_contracts.py",
+        "tests/test_player_prop_contracts.py",
+        "docs/PLAYER_PROP_CONTRACTS.md"
+      ]
+    },
+    "D05": {
+      "kind": "passive_utility",
+      "files": [
+        "src/betting_engine/player_prop_settlement.py",
+        "tests/test_player_prop_settlement.py",
+        "docs/PLAYER_PROP_CONTRACTS.md"
+      ]
+    },
+    "D07": {
+      "kind": "passive_utility",
+      "files": [
+        "src/betting_engine/shadow_economics.py",
+        "tests/test_shadow_economics.py",
+        "tests/test_shadow_economics_audit.py",
+        "docs/SHADOW_ECONOMICS_D07.md"
+      ]
+    },
+    "D08": {
+      "kind": "passive_utility",
+      "files": [
+        "src/betting_engine/asian_payoff.py",
+        "tests/test_asian_payoff.py",
+        "docs/ASIAN_PAYOFF.md",
+        "docs/D08_DEVELOPER_AUDIT.md"
+      ]
+    },
+    "D09": {
+      "kind": "passive_utility",
+      "files": [
+        "src/betting_engine/event_sequence.py",
+        "tests/test_event_sequence.py",
+        "tests/test_event_sequence_audit.py",
+        "docs/EVENT_SEQUENCE.md",
+        "docs/D09_DEVELOPER_AUDIT.md"
+      ]
+    },
+    "D10": {
+      "kind": "passive_utility",
+      "files": [
+        "src/betting_engine/ncaa_obligations.py",
+        "tests/test_ncaa_obligations.py",
+        "docs/NCAA_OBLIGATIONS.md",
+        "docs/D10_DEVELOPER_AUDIT.md"
+      ]
+    },
+    "D11": {
+      "kind": "passive_utility",
+      "files": [
+        "src/betting_engine/sgm_contract.py",
+        "tests/test_sgm_contract.py",
+        "docs/SGM_CONTRACT.md",
+        "docs/D11_DEVELOPER_AUDIT.md"
+      ]
+    },
+    "D12": {
+      "kind": "passive_utility",
+      "files": [
+        "src/betting_engine/live_state.py",
+        "tests/test_live_state.py",
+        "docs/LIVE_STATE.md",
+        "docs/D12_DEVELOPER_AUDIT.md"
+      ]
+    },
+    "D13": {
+      "kind": "passive_utility",
+      "files": [
+        "src/betting_engine/release_rehearsal.py",
+        "tests/test_release_rehearsal.py",
+        "docs/RELEASE_REHEARSAL.md",
+        "docs/D13_DEVELOPER_AUDIT.md"
+      ]
+    },
+    "D14": {
+      "kind": "passive_utility",
+      "files": [
+        "src/betting_engine/development_acceptance.py",
+        "tests/test_development_acceptance.py",
+        "docs/DEVELOPMENT_ACCEPTANCE.md",
+        "docs/D14_DEVELOPER_AUDIT.md"
+      ]
+    },
+    "D15": {
+      "kind": "passive_utility",
+      "files": [
+        "src/betting_engine/requirement_acceptance.py",
+        "tests/test_requirement_acceptance.py",
+        "docs/REQUIREMENT_ACCEPTANCE.md",
+        "docs/D15_DEVELOPER_AUDIT.md"
+      ]
+    },
+    "D16": {
+      "kind": "passive_utility",
+      "files": [
+        "src/betting_engine/joint_exposure.py",
+        "tests/test_joint_exposure.py",
+        "docs/JOINT_EXPOSURE.md",
+        "docs/D16_DEVELOPER_AUDIT.md"
+      ]
+    }
+  },
+  "review_new_passive_utilities": true
+}

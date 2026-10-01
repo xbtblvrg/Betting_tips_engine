@@ -1,0 +1,144 @@
+{
+  "version": "root-candidate-fixture-repair-v1",
+  "scope": "Root versioned schedule regression source correction; preserves original assertions and untouched current research exports. No model activation or task completion.",
+  "original_acceptance": "None exists for the three restored candidate tests. Original failed run archives remain unchanged.",
+  "files": [
+    {
+      "source": "docs/candidate_fixture_repairs/e7-schedule-v2/files/tests/_frozen_candidate_exports.py.source",
+      "target": "tests/_frozen_candidate_exports.py",
+      "sha256": "e1a8867b4ca4c0befff5845e5edf776317fad0ad34efbe31eaef56f5761da496",
+      "bytes": 2882,
+      "tasks": [
+        "E7E4DE07846"
+      ]
+    },
+    {
+      "source": "docs/candidate_fixture_repairs/e7-schedule-v2/files/tests/test_frozen_candidate_archive.py.source",
+      "target": "tests/test_frozen_candidate_archive.py",
+      "sha256": "cc082cb2f5170001ede418c77f105ac3ec860d4ee4ca0674eea83dc9f02ff483",
+      "bytes": 2693,
+      "tasks": [
+        "E7E4DE07846"
+      ]
+    },
+    {
+      "source": "docs/candidate_fixture_repairs/e7-schedule-v2/files/tests/fixtures/e5e9-gap-v1.tar.gz",
+      "target": "tests/fixtures/e5e9-gap-v1.tar.gz",
+      "sha256": "966ce0372627001b0a800a38f60255589de8496096c95588d2a5b933a4666241",
+      "bytes": 25569677,
+      "tasks": [
+        "E7E4DE07846"
+      ]
+    },
+    {
+      "source": "docs/candidate_fixture_repairs/e7-schedule-v2/files/tests/fixtures/e7e4-volleyball-v1.tar.gz",
+      "target": "tests/fixtures/e7e4-volleyball-v1.tar.gz",
+      "sha256": "f4412c7677f196a0a65c8a28dc1db7a8ea5392f65eefafd0e8eac759ecc072e5",
+      "bytes": 25427389,
+      "tasks": [
+        "E7E4DE07846"
+      ]
+    },
+    {
+      "source": "docs/candidate_fixture_repairs/e7-schedule-v2/files/tests/test_e7e4de07846_fixture_binding.py.source",
+      "target": "tests/test_e7e4de07846_fixture_binding.py",
+      "sha256": "3db6ea742459f72367f08eebe4761797902d6585e1ec7ffe077a41ef1ec778a7",
+      "bytes": 10098,
+      "tasks": [
+        "E7E4DE07846"
+      ]
+    },
+    {
+      "source": "docs/candidate_fixture_repairs/e7-schedule-v2/files/tests/test_e7e4de07846_updated_discovery_binding.py.source",
+      "target": "tests/test_e7e4de07846_updated_discovery_binding.py",
+      "sha256": "488316c985c5f831d5db90338c44d07bf4da4ce0fbd3a2283086deec803f243f",
+      "bytes": 9083,
+      "tasks": [
+        "E7E4DE07846"
+      ]
+    },
+    {
+      "source": "docs/candidate_fixture_repairs/e7-schedule-v2/files/tests/test_e7e4_current_export_binding.py.source",
+      "target": "tests/test_e7e4_current_export_binding.py",
+      "sha256": "429445ba46a4a3904b9d1af84e84f0cd4ae401aa3a7e27433e0e0d761b36273b",
+      "bytes": 1731,
+      "tasks": [
+        "E7E4DE07846"
+      ]
+    },
+    {
+      "source": "docs/candidate_fixture_repairs/e7-schedule-v2/files/tests/test_e7e4de07846_schedule_binding.py.source",
+      "target": "tests/test_e7e4de07846_schedule_binding.py",
+      "sha256": "e3f36e67dadc0f41f1f2039cb614710410c5689327f9327973b7534c39acc6b6",
+      "bytes": 7755,
+      "tasks": [
+        "E7E4DE07846"
+      ]
+    }
+  ],
+  "bundles": {
+    "e5e9-gap-v1": {
+      "sha256": "966ce0372627001b0a800a38f60255589de8496096c95588d2a5b933a4666241",
+      "files": 312,
+      "unpacked_bytes": 68672158,
+      "compressed_bytes": 25569677,
+      "original_run": "20260930T221657850594-E5E9AD751B5"
+    },
+    "e7e4-volleyball-v1": {
+      "sha256": "f4412c7677f196a0a65c8a28dc1db7a8ea5392f65eefafd0e8eac759ecc072e5",
+      "files": 294,
+      "unpacked_bytes": 68252218,
+      "compressed_bytes": 25427389,
+      "original_run": "20260930T213356231682-E7E4DE07846"
+    }
+  },
+  "path_only_test_changes": [
+    {
+      "path": "tests/test_e5e9ad_gap_integration.py",
+      "before_sha256": "6bb39a11adbb22c28e4b81fa398ff18da91fd942469cc7e9841893b650b1a74a",
+      "after_sha256": "cba5a3dab5b2abedf69aa243971e7095fbb169674b05c9746ad0472828580d3b",
+      "preserved_assertions": 33
+    },
+    {
+      "path": "tests/test_e7e4de07846_fixture_binding.py",
+      "before_sha256": "9c5cb050170a5d8ee5a53cbc1a4a61fc11ad82230dcaea6d0894045f9862fb23",
+      "after_sha256": "3db6ea742459f72367f08eebe4761797902d6585e1ec7ffe077a41ef1ec778a7",
+      "preserved_assertions": 32
+    },
+    {
+      "path": "tests/test_e7e4de07846_updated_discovery_binding.py",
+      "before_sha256": "36c6a108263d25fdb5e47127bb79706abd7528da04050ec78694ffbd2186003d",
+      "after_sha256": "488316c985c5f831d5db90338c44d07bf4da4ce0fbd3a2283086deec803f243f",
+      "preserved_assertions": 34
+    },
+    {
+      "path": "tests/test_e7e4de07846_schedule_binding.py",
+      "before_sha256": "80a096b1d6d50d12bb557ed12437dcb7491b9b860a435c8bbfef235a908ed845",
+      "after_sha256": "e3f36e67dadc0f41f1f2039cb614710410c5689327f9327973b7534c39acc6b6",
+      "preserved_assertions": 21
+    }
+  ],
+  "task_targets": {
+    "E7E4DE07846": [
+      "tests/_frozen_candidate_exports.py",
+      "tests/test_frozen_candidate_archive.py",
+      "tests/fixtures/e5e9-gap-v1.tar.gz",
+      "tests/fixtures/e7e4-volleyball-v1.tar.gz",
+      "tests/test_e7e4de07846_fixture_binding.py",
+      "tests/test_e7e4de07846_updated_discovery_binding.py",
+      "tests/test_e7e4_current_export_binding.py",
+      "tests/test_e7e4de07846_schedule_binding.py"
+    ]
+  },
+  "apply_contract": {
+    "owner": "root-controlled task recovery",
+    "fresh_workspace_required": true,
+    "baseline_rule": "Each target must be absent from the accepted+production baseline or already match this exact pin. A pre-existing different baseline file is not worker-edit authority; request root review.",
+    "copy_rule": "Restore the same task previous candidate modules/tests, then use the exact pinned payloads at these NEW candidate paths. Check every SHA and byte count before any copy. Do not edit existing production tests.",
+    "preservation": "All 99 original assertion AST nodes in the three prior test files are identical. Fresh full exports stay at data/development_inputs; no truncation or replacement.",
+    "acceptance": "Run complete required suites and independent review for the task. Original real-input/model/full acceptance stays unmet until proven; a fixture correction alone does not complete either task."
+  },
+  "test_commands": {
+    "retained_and_new": "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src .venv/bin/python -m pytest -p no:cacheprovider tests/test_e5e9ad_gap_integration.py tests/test_e7e4de07846_fixture_binding.py tests/test_e7e4de07846_updated_discovery_binding.py tests/test_e5e9ad_current_export_binding.py tests/test_e7e4_current_export_binding.py tests/test_frozen_candidate_archive.py -q"
+  }
+}

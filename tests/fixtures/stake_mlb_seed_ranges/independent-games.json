@@ -1,0 +1,407 @@
+{
+  "source_file": "data/games.json",
+  "source_file_sha256": "ff617e5ed5d9bf7922c3eded00e151a8943d400a2edf448ce311a3d3adcd5284",
+  "claim": "Read-only extraction of two existing independently sourced game records. No model predictions or execution approval.",
+  "games": [
+    {
+      "id": "MLB:849829",
+      "league": "MLB",
+      "start": "2026-10-03T17:00:00Z",
+      "home": "Cleveland Guardians",
+      "away": "Chicago White Sox",
+      "home_id": "114",
+      "away_id": "145",
+      "home_abbr": "",
+      "away_abbr": "",
+      "state": "scheduled",
+      "season": 2026,
+      "home_score": null,
+      "away_score": null,
+      "neutral": false,
+      "game_type": "playoff",
+      "source": "https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=2026-01-01&endDate=2026-12-31&hydrate=probablePitcher",
+      "fetched_at": "2026-10-01T07:24:08.365138+00:00",
+      "context": {
+        "home_pitcher": null,
+        "away_pitcher": null,
+        "venue": "Progressive Field",
+        "scheduled_innings": 9,
+        "resumed_game": false,
+        "injuries": {
+          "home": [
+            {
+              "athlete_id": "35291",
+              "athlete_display_name": "Rhys Hoskins",
+              "athlete_position": "1B",
+              "status": "10-Day-IL",
+              "injury_date": "2026-09-12T12:07Z",
+              "short_comment": "Guardians manager Stephen Vogt said Friday that Hoskins (back) has begun a swing progression program, MLB.com reports.",
+              "detail_return_date": "2026-10-03",
+              "snapshot_date": "2026-09-30",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+              "fetched_at": "2026-10-01T07:24:26.505787+00:00"
+            },
+            {
+              "athlete_id": "4917897",
+              "athlete_display_name": "Colin Holderman",
+              "athlete_position": "RP",
+              "status": "15-Day-IL",
+              "injury_date": "2026-09-23T20:08Z",
+              "short_comment": "Holderman received an injection in his right wrist Saturday, Tim Stebbins of MLB.com reports.",
+              "detail_return_date": "2026-10-03",
+              "snapshot_date": "2026-09-30",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+              "fetched_at": "2026-10-01T07:24:26.505787+00:00"
+            },
+            {
+              "athlete_id": "5236382",
+              "athlete_display_name": "Andrew Walters",
+              "athlete_position": "RP",
+              "status": "Out",
+              "injury_date": "2026-09-10T17:03Z",
+              "short_comment": "Walters underwent a right elbow UCL repair with an internal brace Wednesday, Tim Stebbins of MLB.com reports.",
+              "detail_return_date": "2028-02-01",
+              "snapshot_date": "2026-09-30",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+              "fetched_at": "2026-10-01T07:24:26.505787+00:00"
+            }
+          ],
+          "away": [
+            {
+              "athlete_id": "35124",
+              "athlete_display_name": "Luis Castillo",
+              "athlete_position": "SP",
+              "status": "15-Day-IL",
+              "injury_date": "2026-09-24T18:14Z",
+              "short_comment": "The White Sox placed Castillo on the 15-day injured list Thursday with a right shoulder impingement.",
+              "detail_return_date": "2027-02-01",
+              "snapshot_date": "2026-09-30",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+              "fetched_at": "2026-10-01T07:24:26.505787+00:00"
+            },
+            {
+              "athlete_id": "39900",
+              "athlete_display_name": "Jake Rogers",
+              "athlete_position": "C",
+              "status": "paternity",
+              "injury_date": "2026-09-26T17:15Z",
+              "short_comment": "The White Sox placed Rogers on the paternity list Saturday.",
+              "detail_return_date": "2026-09-30",
+              "snapshot_date": "2026-09-30",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+              "fetched_at": "2026-10-01T07:24:26.505787+00:00"
+            },
+            {
+              "athlete_id": "41168",
+              "athlete_display_name": "Joey Bart",
+              "athlete_position": "C",
+              "status": "10-Day-IL",
+              "injury_date": "2026-08-07T21:58Z",
+              "short_comment": "White Sox general manager Chris Getz said Friday that Bart is expected to be sidelined for \"over a month\" due to a left hand fracture, James Fegan of SoxMachine.com reports.",
+              "detail_return_date": "2026-09-30",
+              "snapshot_date": "2026-09-30",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+              "fetched_at": "2026-10-01T07:24:26.505787+00:00"
+            },
+            {
+              "athlete_id": "42241",
+              "athlete_display_name": "Prelander Berroa",
+              "athlete_position": "RP",
+              "status": "60-Day-IL",
+              "injury_date": "2026-09-03T00:10Z",
+              "short_comment": "Berroa (elbow) is scheduled to begin throwing off a mound next week, Scott Merkin of MLB.com reports.",
+              "detail_return_date": "2026-09-30",
+              "snapshot_date": "2026-09-30",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+              "fetched_at": "2026-10-01T07:24:26.505787+00:00"
+            },
+            {
+              "athlete_id": "4414551",
+              "athlete_display_name": "Mike Vasil",
+              "athlete_position": "RP",
+              "status": "60-Day-IL",
+              "injury_date": "2026-05-08T11:02Z",
+              "short_comment": "The White Sox transferred Vasil (elbow) from the 15-day injured list to the 60-day IL on Tuesday.",
+              "detail_return_date": "2027-07-01",
+              "snapshot_date": "2026-09-30",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+              "fetched_at": "2026-10-01T07:24:26.505787+00:00"
+            },
+            {
+              "athlete_id": "4424742",
+              "athlete_display_name": "Brooks Baldwin",
+              "athlete_position": "LF",
+              "status": "60-Day-IL",
+              "injury_date": "2026-05-08T11:02Z",
+              "short_comment": "The White Sox transferred Baldwin (elbow) from the 10-day injured list to the 60-day IL on Wednesday.",
+              "detail_return_date": "2027-02-01",
+              "snapshot_date": "2026-09-30",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+              "fetched_at": "2026-10-01T07:24:26.505787+00:00"
+            },
+            {
+              "athlete_id": "4917816",
+              "athlete_display_name": "Ky Bush",
+              "athlete_position": "SP",
+              "status": "60-Day-IL",
+              "injury_date": "2026-09-03T00:03Z",
+              "short_comment": "Bush (elbow) has been shut down for the 2026 season due to a strained left lat, Scott Merkin of MLB.com reports.",
+              "detail_return_date": "2027-02-01",
+              "snapshot_date": "2026-09-30",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+              "fetched_at": "2026-10-01T07:24:26.505787+00:00"
+            },
+            {
+              "athlete_id": "5012115",
+              "athlete_display_name": "Tanner Murray",
+              "athlete_position": "LF",
+              "status": "60-Day-IL",
+              "injury_date": "2026-05-08T11:02Z",
+              "short_comment": "The White Sox transferred Murray (shoulder) to the 60-day injured list Monday.",
+              "detail_return_date": "2026-09-30",
+              "snapshot_date": "2026-09-30",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+              "fetched_at": "2026-10-01T07:24:26.505787+00:00"
+            },
+            {
+              "athlete_id": "5132121",
+              "athlete_display_name": "Jordan Leasure",
+              "athlete_position": "RP",
+              "status": "60-Day-IL",
+              "injury_date": "2026-08-31T23:05Z",
+              "short_comment": "Leasure underwent surgery to repair a torn UCL in August, James Fegan of the Chicago Sun-Times reports.",
+              "detail_return_date": "2028-02-01",
+              "snapshot_date": "2026-09-30",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+              "fetched_at": "2026-10-01T07:24:26.505787+00:00"
+            }
+          ],
+          "snapshot_date": "2026-09-30",
+          "stale": false,
+          "quantitative_model_input": false
+        },
+        "pitching_observations": []
+      }
+    },
+    {
+      "id": "MLB:849830",
+      "league": "MLB",
+      "start": "2026-10-04T00:30:00Z",
+      "home": "Milwaukee Brewers",
+      "away": "San Diego Padres",
+      "home_id": "158",
+      "away_id": "135",
+      "home_abbr": "",
+      "away_abbr": "",
+      "state": "scheduled",
+      "season": 2026,
+      "home_score": null,
+      "away_score": null,
+      "neutral": false,
+      "game_type": "playoff",
+      "source": "https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=2026-01-01&endDate=2026-12-31&hydrate=probablePitcher",
+      "fetched_at": "2026-10-01T07:24:08.365138+00:00",
+      "context": {
+        "home_pitcher": {
+          "id": 694819,
+          "fullName": "Jacob Misiorowski",
+          "link": "/api/v1/people/694819"
+        },
+        "away_pitcher": null,
+        "venue": "American Family Field",
+        "scheduled_innings": 9,
+        "resumed_game": false,
+        "injuries": {
+          "home": [
+            {
+              "athlete_id": "37515",
+              "athlete_display_name": "Brandon Woodruff",
+              "athlete_position": "SP",
+              "status": "60-Day-IL",
+              "injury_date": "2026-09-29T19:54Z",
+              "short_comment": "Woodruff (shoulder) completed the flat-ground portion of his throwing program Sunday and is awaiting to receive clearance to throw off the mound, Adam McCalvy of MLB.com reports.",
+              "detail_return_date": "2026-10-11",
+              "snapshot_date": "2026-09-30",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+              "fetched_at": "2026-10-01T07:24:26.505787+00:00"
+            },
+            {
+              "athlete_id": "42161",
+              "athlete_display_name": "Grant Anderson",
+              "athlete_position": "RP",
+              "status": "15-Day-IL",
+              "injury_date": "2026-09-15T16:04Z",
+              "short_comment": "Anderson (biceps) will begin a rehab assignment Wednesday, Adam McCalvy of MLB.com reports.",
+              "detail_return_date": "2026-10-03",
+              "snapshot_date": "2026-09-30",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+              "fetched_at": "2026-10-01T07:24:26.505787+00:00"
+            },
+            {
+              "athlete_id": "42394",
+              "athlete_display_name": "Andrew Vaughn",
+              "athlete_position": "1B",
+              "status": "10-Day-IL",
+              "injury_date": "2026-09-29T20:19Z",
+              "short_comment": "Vaughn (illness) has been cleared to go through a full team workout with the Brewers on Tuesday, Curt Hogg of the Milwaukee Journal Sentinel reports.",
+              "detail_return_date": "2026-10-02",
+              "snapshot_date": "2026-09-30",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+              "fetched_at": "2026-10-01T07:24:26.505787+00:00"
+            },
+            {
+              "athlete_id": "42449",
+              "athlete_display_name": "Quinn Priester",
+              "athlete_position": "SP",
+              "status": "60-Day-IL",
+              "injury_date": "2026-06-18T15:25Z",
+              "short_comment": "Priester will undergo thoracic outlet compression surgery on Monday and is expected to be sidelined 8-to-10 months, Curt Hogg of the Milwaukee Journal Sentinel reports.",
+              "detail_return_date": "2027-02-01",
+              "snapshot_date": "2026-09-30",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+              "fetched_at": "2026-10-01T07:24:26.505787+00:00"
+            },
+            {
+              "athlete_id": "42958",
+              "athlete_display_name": "Joey Ortiz",
+              "athlete_position": "SS",
+              "status": "Day-To-Day",
+              "injury_date": "2026-09-27T16:25Z",
+              "short_comment": "Ortiz (knee) is not in the lineup for Sunday's game against the Cardinals.",
+              "detail_return_date": "2026-10-03",
+              "snapshot_date": "2026-09-30",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+              "fetched_at": "2026-10-01T07:24:26.505787+00:00"
+            },
+            {
+              "athlete_id": "4621433",
+              "athlete_display_name": "Brian Fitzpatrick",
+              "athlete_position": "RP",
+              "status": "60-Day-IL",
+              "injury_date": "2026-07-05T00:09Z",
+              "short_comment": "Fitzpatrick (elbow) underwent Tommy John surgery over the past week, Curt Hogg of the Milwaukee Journal Sentinel reports.",
+              "detail_return_date": "2027-08-01",
+              "snapshot_date": "2026-09-30",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+              "fetched_at": "2026-10-01T07:24:26.505787+00:00"
+            },
+            {
+              "athlete_id": "4705673",
+              "athlete_display_name": "Angel Zerpa",
+              "athlete_position": "RP",
+              "status": "60-Day-IL",
+              "injury_date": "2026-05-31T17:56Z",
+              "short_comment": "The Brewers transferred Zerpa (elbow) to the 60-day injured list Sunday.",
+              "detail_return_date": "2027-07-01",
+              "snapshot_date": "2026-09-30",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+              "fetched_at": "2026-10-01T07:24:26.505787+00:00"
+            }
+          ],
+          "away": [
+            {
+              "athlete_id": "32697",
+              "athlete_display_name": "Lucas Giolito",
+              "athlete_position": "SP",
+              "status": "60-Day-IL",
+              "injury_date": "2026-08-24T23:01Z",
+              "short_comment": "Giolito (elbow) has been throwing at the Padres' team complex in Arizona, but his timeline to return is unclear, MLB.com reports.",
+              "detail_return_date": "2026-10-01",
+              "snapshot_date": "2026-09-30",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+              "fetched_at": "2026-10-01T07:24:26.505787+00:00"
+            },
+            {
+              "athlete_id": "33743",
+              "athlete_display_name": "Miguel Andujar",
+              "athlete_position": "DH",
+              "status": "10-Day-IL",
+              "injury_date": "2026-09-24T05:45Z",
+              "short_comment": "Andujar (wrist) took live at-bats at Petco Park on Monday, MLB.com reports.",
+              "detail_return_date": "2026-09-30",
+              "snapshot_date": "2026-09-30",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+              "fetched_at": "2026-10-01T07:24:26.505787+00:00"
+            },
+            {
+              "athlete_id": "35142",
+              "athlete_display_name": "Ramon Laureano",
+              "athlete_position": "LF",
+              "status": "60-Day-IL",
+              "injury_date": "2026-09-12T19:52Z",
+              "short_comment": "Laureano (hip) has progressed to swinging off a tee and playing catch, but he isn't close to playing in games, MLB.com reports.",
+              "detail_return_date": "2027-02-01",
+              "snapshot_date": "2026-09-30",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+              "fetched_at": "2026-10-01T07:24:26.505787+00:00"
+            },
+            {
+              "athlete_id": "37237",
+              "athlete_display_name": "Luis Rengifo",
+              "athlete_position": "LF",
+              "status": "60-Day-IL",
+              "injury_date": "2026-09-01T16:29Z",
+              "short_comment": "The Padres placed Rengifo (knee) on the 60-day injured list Tuesday.",
+              "detail_return_date": "2027-05-01",
+              "snapshot_date": "2026-09-30",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+              "fetched_at": "2026-10-01T07:24:26.505787+00:00"
+            },
+            {
+              "athlete_id": "40577",
+              "athlete_display_name": "Rodolfo Duran",
+              "athlete_position": "C",
+              "status": "60-Day-IL",
+              "injury_date": "2026-09-29T20:52Z",
+              "short_comment": "The Padres recalled Duran from Triple-A El Paso on Tuesday and placed him on the 60-day injured list with a right forearm strain.",
+              "detail_return_date": "2027-02-01",
+              "snapshot_date": "2026-09-30",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+              "fetched_at": "2026-10-01T07:24:26.505787+00:00"
+            },
+            {
+              "athlete_id": "41014",
+              "athlete_display_name": "Jeremiah Estrada",
+              "athlete_position": "RP",
+              "status": "15-Day-IL",
+              "injury_date": "2026-09-12T20:06Z",
+              "short_comment": "Estrada (shoulder) hadn't resumed throwing as of Sept. 8, and he may not be able to return from the injured list before the end of the campaign, MLB.com reports.",
+              "detail_return_date": "2026-09-30",
+              "snapshot_date": "2026-09-30",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+              "fetched_at": "2026-10-01T07:24:26.505787+00:00"
+            },
+            {
+              "athlete_id": "41167",
+              "athlete_display_name": "Casey Mize",
+              "athlete_position": "SP",
+              "status": "15-Day-IL",
+              "injury_date": "2026-09-26T21:47Z",
+              "short_comment": "Mize (6-10) allowed seven runs on seven hits, two walks and a hit batsman while striking out one over four innings to take the loss versus the Diamondbacks on Friday.",
+              "detail_return_date": "2026-10-11",
+              "snapshot_date": "2026-09-30",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+              "fetched_at": "2026-10-01T07:24:26.505787+00:00"
+            },
+            {
+              "athlete_id": "42200",
+              "athlete_display_name": "Bryan Hoeing",
+              "athlete_position": "RP",
+              "status": "60-Day-IL",
+              "injury_date": "2026-05-08T11:02Z",
+              "short_comment": "The Padres transferred Hoeing (elbow) from the 15-day injured list to the 60-day IL on Wednesday.",
+              "detail_return_date": "2027-02-01",
+              "snapshot_date": "2026-09-30",
+              "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+              "fetched_at": "2026-10-01T07:24:26.505787+00:00"
+            }
+          ],
+          "snapshot_date": "2026-09-30",
+          "stale": false,
+          "quantitative_model_input": false
+        },
+        "pitching_observations": []
+      }
+    }
+  ]
+}

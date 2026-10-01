@@ -1,0 +1,43 @@
+{
+  "task_id": "E8B9BF9FBBA",
+  "deadline": "2026-10-01T20:31:59.228466+00:00",
+  "snapshot": {
+    "run_id": "20260929T192751138800Z-d0ccf522fb5d",
+    "manifest_sha256": "37d168526d11216ed4b59d4614ba9aade02ef713e26efc4c0a5aeeeedbf34e51"
+  },
+  "observation_sha256": "d5624e9e4ab27f3050a7c80435cf9aa955d3c9334e043190b89232c33b9c2b5a",
+  "source_sha256": "f9d29f5d9a2f88dc7aafac65cbe957e5e50205386fb4477fdc5ce376ec67ed2c",
+  "schema": "league: string\ngame_id: string\nseason: int64\nstart: string\nplayer_id: string\nplayer_name: string\nteam_id: string\nopponent_id: string\nhome: bool\nidentity_namespace: string\nstat_group: string\nscope: string\nstat_scope: string\nminutes: double\nstarter: bool\nplayed: bool\nstats: string\nsource_url: string\nsource_sha256: string\nsource_fetched_at: string\nsource_published_at: string\navailable_at: string\navailability_basis: string\navailability_reference: string\ngame_identity_sha256: string\ngame_identity_fetched_at: string\ntarget_participation: bool",
+  "input_rows": 550729,
+  "row_dispositions": {
+    "train": 291624,
+    "selection": 111067,
+    "test": 108214,
+    "excluded": 39824
+  },
+  "exclusion_counts": {
+    "recorded_dnp": 23058,
+    "missing_target": 16766
+  },
+  "identity_conflict_counts": {},
+  "changed_row_membership_or_limitations": 0,
+  "changed_row_indices": [],
+  "retained_rows": 510905,
+  "new_fits": 0,
+  "new_test_evaluations": 0,
+  "production_props_enabled": false,
+  "current_participation_verified": false,
+  "historical_point_in_time_backtest_ready": false,
+  "archive_timestamps_independently_authenticated": false,
+  "public_source_bundle": {
+    "copied_sources": 12,
+    "current_participation_verified": false,
+    "historical_point_in_time_backtest_ready": false
+  },
+  "prior_report_sha256": "3e1f856f4197e9aae57069439b11ecafe88d1c5c2d0ff984cd76bf2aae252963",
+  "methodology_cards": {
+    "K02-fuggetlen-modell.md": "5e6e27e58cbf466a05b733cbc5ac2aacf73552a789149c1f29fde1f9f35979f6",
+    "K03-adat-ido-forras.md": "a71af120097072161a042f04257cb6f4ebc617e34ff43c19588ca313148b1d9a",
+    "K08-validacio.md": "951ffe80c87fd491bfeece567c31a86a78371087fcf8b16297422ecadd624bd3"
+  }
+}

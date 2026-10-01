@@ -1,0 +1,37 @@
+[
+  {
+    "url": "https://api-web.nhle.com/v1/gamecenter/2026020001/landing",
+    "sha256": "93d78f237556773d3b11d839f779a90597c1dcc7c77656442e5b4978c3be4a80",
+    "bytes": 8488,
+    "fetched_at": "2026-09-30T12:47:48.645051+00:00",
+    "path": "2026020001.json.gz"
+  },
+  {
+    "url": "https://api-web.nhle.com/v1/gamecenter/2026020002/landing",
+    "sha256": "2efbf0b01b3c03c123ef8125dd305dbe6bc519e8c6001e3c14619d28de78b407",
+    "bytes": 11000,
+    "fetched_at": "2026-09-30T12:47:48.630734+00:00",
+    "path": "2026020002.json.gz"
+  },
+  {
+    "url": "https://api-web.nhle.com/v1/gamecenter/2026020003/landing",
+    "sha256": "7130a7aa78ce9fb5f48420aa509689c17b8f3a710fa8dfc35b8e8b048efd3cef",
+    "bytes": 6809,
+    "fetched_at": "2026-09-30T12:47:48.544850+00:00",
+    "path": "2026020003.json.gz"
+  },
+  {
+    "url": "https://api-web.nhle.com/v1/gamecenter/2026020004/landing",
+    "sha256": "e096e864b60af3bd354cedb4ffe864115606a201ae57d69e317a5bb6f5d0b837",
+    "bytes": 17233,
+    "fetched_at": "2026-09-30T12:47:48.658327+00:00",
+    "path": "2026020004.json.gz"
+  },
+  {
+    "url": "https://api-web.nhle.com/v1/gamecenter/2026020005/landing",
+    "sha256": "7f7e94b305d7f15bb0bd57e04374c0774954b13fcfcc5dfe37f6228d43b0a83b",
+    "bytes": 12469,
+    "fetched_at": "2026-09-30T12:47:48.651344+00:00",
+    "path": "2026020005.json.gz"
+  }
+]

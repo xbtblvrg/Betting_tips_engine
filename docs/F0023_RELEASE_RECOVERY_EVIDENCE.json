@@ -1,0 +1,137 @@
+{
+  "bundle": {
+    "artifact_index_sha256": "02c1ac891e4f53a4f4273bd9c2d9ac97acbd3a39e81fb37cba3601bd6d10c907",
+    "bytes": 347753,
+    "files": {
+      "MLB_hitting_hits/player_poisson-test-model.json": {
+        "bytes": 52849,
+        "sha256": "dd496261e95ef74c86db57b4b3a70ae7e65260195609528cbe6746dca1b01ecb"
+      },
+      "MLB_hitting_hits/selection-lock.json": {
+        "bytes": 692,
+        "sha256": "48cf7489b52ec5db02979fa6063aea474981da2c90b81836b0303b710a41e3da"
+      },
+      "MLB_pitching_strikeOuts/player_nb-test-model.json": {
+        "bytes": 64913,
+        "sha256": "4984ff83462400a5c572034b0d8328744fa4920dcc4d7b23bf5c5c88cbe2d5fd"
+      },
+      "MLB_pitching_strikeOuts/selection-lock.json": {
+        "bytes": 689,
+        "sha256": "6aee1ac35d72ac2f20434e26184b2da9ff5a3c426ee0e85cc25df9efbb2163b5"
+      },
+      "NBA_player_points/player_nb-test-model.json": {
+        "bytes": 51994,
+        "sha256": "70badcd8c792077f492532d9c0628a5c1db25b3a2af9e06a2115d4079a6d0bdf"
+      },
+      "NBA_player_points/selection-lock.json": {
+        "bytes": 680,
+        "sha256": "169b35ef65eaf1e2228420040b6c64eefab475bec17fad096558560922654a43"
+      },
+      "NHL_player_shots_on_goal/player_nb-test-model.json": {
+        "bytes": 73187,
+        "sha256": "41f2801b2505ef497416f3d0196339ed522d706407e73621b8922340e94da4a2"
+      },
+      "NHL_player_shots_on_goal/selection-lock.json": {
+        "bytes": 685,
+        "sha256": "a6c3bec9530dbe4eaa489f59ae7d64893298cacbf5524b2b3806e32a58a8d159"
+      },
+      "WNBA_player_points/player_nb-test-model.json": {
+        "bytes": 14986,
+        "sha256": "5efe77591553b396a40f6684d17f1963c62697836cbd0d329c1eea2a69f15b34"
+      },
+      "WNBA_player_points/selection-lock.json": {
+        "bytes": 675,
+        "sha256": "f525689d29cca4922771425a81671e4c4204e59e797f534e3c788a4e8c3d884d"
+      },
+      "artifacts.json": {
+        "bytes": 7098,
+        "sha256": "02c1ac891e4f53a4f4273bd9c2d9ac97acbd3a39e81fb37cba3601bd6d10c907"
+      },
+      "plan.json": {
+        "bytes": 2442,
+        "sha256": "0fdf48ddd3b9557ec86b515b6e79c5362e56cb514fc81a4ddfe6bbae430c7c6b"
+      },
+      "report.json": {
+        "bytes": 12709,
+        "sha256": "3e1f856f4197e9aae57069439b11ecafe88d1c5c2d0ff984cd76bf2aae252963"
+      }
+    },
+    "path": "docs/F0023_COUNT_EVIDENCE_BUNDLE.json",
+    "sha256": "bc132016e57c5c1b66a392da6d2681f888b33f11b7ea07e6d6bc1796e0eae9cc",
+    "training_corpus_included": false
+  },
+  "claims": {
+    "helper_reviews": [],
+    "measured_profit_claim": false,
+    "new_instructions": 0,
+    "new_model_fits": 0,
+    "production_props_enabled": false,
+    "production_release_performed": false
+  },
+  "implementation": {
+    "src/betting_engine/player_prop_evidence_bundle.py": "68b01acd181f5f45e49642c95f28d306659106e40c98a61085c181b93e764aab",
+    "tests/test_f0023_evidence_bundle.py": "ada3e50654b14962b2fcc2250c416c037c80a426db826c47dcbe9672e724694a"
+  },
+  "input_audit": {
+    "current_participation_verified": false,
+    "export_file_hash_and_size_checks": 264,
+    "export_file_mismatches": [],
+    "historical_availability_authenticated": false,
+    "history_manifest_files_verified": 4,
+    "history_observations": 550729,
+    "manifest_errors": [],
+    "original_d06_indexed_artifacts_verified": 61,
+    "public_bundle_files_verified": 24,
+    "public_bundle_state": "partial",
+    "public_sources": 12,
+    "rebase_conflicts_present": false,
+    "stake_decompressed_source_hash_checks": 329,
+    "stake_source_mismatches": []
+  },
+  "inspected_evidence": {
+    "AGENTS.md": "fd00834862bccfcbf96bf917c89ec4eac0ce5116bda2803ed97c942062984f7a",
+    "config/project_contract.json": "bc0ccb8cb63fe405ae38ef4efbb20cc908c6e5db0b0fe9b81584fee6f88e8103",
+    "data/development_inputs/manifest.json": "7d38c977cb3da0964ccc93b2e5b4ad9cf169c4538d42a2cac3b955e2595d59d9",
+    "data/development_inputs/publication.json": "96b888730673e5d820fedd756bc9d2e7d8a54a6b54aadfc94314b6b241eb1030",
+    "data/development_inputs/system_decisions.json": "d779dd2c6bb0e9c201a1e9bc5f6ebba66dc27947b87e9e0b909b7a8517ca0919",
+    "data/engineering-evidence-manifest.json": "e9137c4d07742f721e38d6b6cb11879f5eea7c6e64c9cd4e2beb6f0bfbda6fe4",
+    "data/players/verified_history/runs/20260929T192751138800Z-d0ccf522fb5d/manifest.json": "37d168526d11216ed4b59d4614ba9aade02ef713e26efc4c0a5aeeeedbf34e51",
+    "data/sports_source_evidence/manifest.json": "fcb72d084794ef700d5310ff6d517cfcc257913048530e5593a1e3bc9f1d9e1b",
+    "knowledge/cards/K02-fuggetlen-modell.md": "5e6e27e58cbf466a05b733cbc5ac2aacf73552a789149c1f29fde1f9f35979f6",
+    "knowledge/cards/K03-adat-ido-forras.md": "a71af120097072161a042f04257cb6f4ebc617e34ff43c19588ca313148b1d9a",
+    "knowledge/cards/K08-validacio.md": "951ffe80c87fd491bfeece567c31a86a78371087fcf8b16297422ecadd624bd3"
+  },
+  "preservation": {
+    "baseline_map_sha256": "499ade9095c5c46809292f105d535b102f6154aaaf8b5eb438678b54c45963f6",
+    "changed_preexisting_files": [],
+    "preexisting_files_checked": 331,
+    "preexisting_tests_checked": 116
+  },
+  "remaining": [
+    "Controller full fixed-suite verification and independent review",
+    "Separate root authorization/integration for exact bundled paths; passive discovery disabled and no exact profile",
+    "Separately verified release and local/Tailscale live checks",
+    "Authenticated historical availability, current participation, per-league model validation, exact contracts and source-verified DNP/void/push settlement before activation"
+  ],
+  "retained_failure": {
+    "cause": "Missing docs/d06_player_model_study_evidence/artifacts.json in stage; all six failures share this path",
+    "failed": 6,
+    "passed": 1529,
+    "run": "release-20260930T102109727968-13a085cb",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stdout_sha256": "24a028abbf9898a441343d37a3b38b0c84ff7280e0ea6adce77742fe710dca17"
+  },
+  "scope": "Candidate packaging recovery only; not release authorization or model approval",
+  "task": "F0023",
+  "validation": {
+    "dom_log_sha256": "6fbaed85b585f3bb5f20794fe6f76328c8bb6dd1f83127ad05f39c10249e21bf",
+    "dom_tests": 54,
+    "focused_tests": 254,
+    "python_api_tests": 2806,
+    "python_duration_seconds": 188.58,
+    "python_log_sha256": "4f86f240ad8c5c8c6f017d9c2cc34f8aaf2649fdfe1878f39d7e6ac95adaae45",
+    "python_subtests": 5,
+    "python_warnings": 1,
+    "unchanged_original_f0023_tests_in_temporary_stage": 74
+  }
+}

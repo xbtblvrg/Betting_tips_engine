@@ -1,0 +1,97 @@
+"""Attack cases and exact archived NBA provenance for the source-only repair."""
+import hashlib
+import io
+import json
+from pathlib import Path
+import tarfile
+import pytest
+import test_d18_frozen_exports as helper
+
+
+def pack(tmp_path, entries, suffix='a'):
+    path = tmp_path / f'd18-prepromotion-{suffix}-v1.tar.gz'
+    total = 0
+    with tarfile.open(path, 'w:gz') as archive:
+        for member, body in entries:
+            member.size = len(body) if member.isfile() else 0
+            total += member.size
+            archive.addfile(member, io.BytesIO(body) if member.isfile() else None)
+    part = {'name': path.name, 'bytes': path.stat().st_size,
+            'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
+    return part, total
+
+
+def spec(parts, count, size):
+    return {'parts': parts, 'files': count, 'unpacked_bytes': size}
+
+
+@pytest.mark.parametrize('name', ['../escape', '/tmp/escape', 'data/../../escape', 'data/./file', 'other/file', 'knowledge/unapproved.md'])
+def test_unconfined_member_rejected(tmp_path, name):
+    part, size = pack(tmp_path, [(tarfile.TarInfo(name), b'bad')])
+    target = tmp_path / 'out'; target.mkdir()
+    with pytest.raises(ValueError, match='Unsafe'):
+        helper._extract(tmp_path, target, spec([part], 1, size))
+    assert not list(target.rglob('*'))
+
+
+@pytest.mark.parametrize('kind', [tarfile.SYMTYPE, tarfile.LNKTYPE])
+def test_links_rejected(tmp_path, kind):
+    member = tarfile.TarInfo('data/link'); member.type = kind; member.linkname = '/tmp/escape'
+    part, size = pack(tmp_path, [(member, b'')])
+    target = tmp_path / 'out'; target.mkdir()
+    with pytest.raises(ValueError, match='Unsafe'):
+        helper._extract(tmp_path, target, spec([part], 1, size))
+
+
+def test_duplicate_members_across_parts_rejected(tmp_path):
+    first, n = pack(tmp_path, [(tarfile.TarInfo('data/a'), b'first')])
+    second, m = pack(tmp_path, [(tarfile.TarInfo('data/a'), b'second')], 'b')
+    target = tmp_path / 'out'; target.mkdir()
+    with pytest.raises(ValueError, match='Unsafe'):
+        helper._extract(tmp_path, target, spec([first, second], 2, n + m))
+    assert (target / 'data/a').read_bytes() == b'first'
+
+
+def test_all_parts_verified_before_any_extraction(tmp_path):
+    first, n = pack(tmp_path, [(tarfile.TarInfo('data/a'), b'first')])
+    second, m = pack(tmp_path, [(tarfile.TarInfo('data/b'), b'second')], 'b')
+    (tmp_path / second['name']).write_bytes(b'changed')
+    target = tmp_path / 'out'; target.mkdir()
+    with pytest.raises(ValueError, match='hash/size'):
+        helper._extract(tmp_path, target, spec([first, second], 2, n + m))
+    assert not list(target.iterdir())
+
+
+def test_verified_bytes_survive_later_archive_path_change(tmp_path, monkeypatch):
+    part, n = pack(tmp_path, [(tarfile.TarInfo('data/a'), b'original')])
+    checked = helper._checked_parts
+    def replace_after_check(source, expected):
+        bodies = checked(source, expected)
+        (source / part['name']).write_bytes(b'replaced')
+        return bodies
+    monkeypatch.setattr(helper, '_checked_parts', replace_after_check)
+    target = tmp_path / 'out'; target.mkdir()
+    helper._extract(tmp_path, target, spec([part], 1, n))
+    assert (target / 'data/a').read_bytes() == b'original'
+
+
+def test_unpacked_inventory_and_bounds_enforced(tmp_path, monkeypatch):
+    part, n = pack(tmp_path, [(tarfile.TarInfo('data/a'), b'original')])
+    target = tmp_path / 'out'; target.mkdir()
+    monkeypatch.setattr(helper, 'MAX_UNPACKED', n - 1)
+    with pytest.raises(ValueError, match='bound'):
+        helper._extract(tmp_path, target, spec([part], 1, n))
+    assert not list(target.iterdir())
+
+
+def test_original_pre_promotion_model_bytes_and_missing_snapshot_are_preserved():
+    root = helper.frozen_root('d18-prepromotion-v1')
+    evidence = root / 'data/model_evidence'
+    assert hashlib.sha256((evidence / 'NBA.joblib').read_bytes()).hexdigest() == '916429edd9ebf033ba871416e3a1b6301aa62c5c006db9bec60ecdd00ecdc997'
+    assert hashlib.sha256((evidence / 'NBA.json').read_bytes()).hexdigest() == '3b9c79cf81b0834eff4602dd05e6e994de9721aa9e1587057d6572ea2bf37a3e'
+    manifest = json.loads((evidence / 'manifest.json').read_bytes())
+    nba = next(row for row in manifest['models'] if row['league'] == 'NBA')
+    assert nba['training_snapshot']['status'] == 'not_supplied'
+    assert root != Path(__file__).resolve().parents[1]
+    report = json.loads((evidence / 'NBA.json').read_bytes())
+    assert report['test']['brier'] > report['elo_baseline']['brier']

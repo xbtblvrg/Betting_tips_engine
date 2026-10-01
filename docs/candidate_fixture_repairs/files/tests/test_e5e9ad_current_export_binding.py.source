@@ -1,0 +1,30 @@
+"""Full fresh economics export stays independent of retained snapshot fixtures."""
+import hashlib
+import json
+from pathlib import Path
+import pytest
+from betting_engine.economics_decision_export import evaluate_decision_export,EXPORT_PATH
+
+def sha(raw):return hashlib.sha256(raw).hexdigest()
+
+def current_bundle():
+ root=Path(__file__).resolve().parents[1];raw=(root/'data/development_inputs/manifest.json').read_bytes();manifest=json.loads(raw)
+ files={r['path']:(root/r['path']).read_bytes() for r in manifest['files']}
+ for r in manifest['files']:assert sha(files[r['path']])==r['sha256'] and len(files[r['path']])==r['bytes']
+ return raw,manifest,files
+
+
+def test_current_complete_decisions_never_inherit_old_count_or_drop_new_rows():
+ raw,manifest,files=current_bundle();export=json.loads(files[EXPORT_PATH]);records=export['records']
+ assert export['truncated'] is False
+ assert export['total_records']==export['exported_records']==len(records)
+ before={p:sha(b) for p,b in files.items()};report=evaluate_decision_export(raw,files,as_of=manifest['exported_at'])
+ assert report['reported_snapshot']['decisions']==len(records)
+ assert len(report['rows'])==len(records)
+ assert sorted(r['decision_id'] for r in report['rows'])==sorted(r['tip_id'] for r in records)
+ assert report['reported_snapshot']['original_pnl_after_stakes']==pytest.approx(sum(r['pnl'] for r in records if r['pnl'] is not None))
+ assert sum(report['settlement_states'].values())==len(records)
+ assert {p:sha(b) for p,b in files.items()}==before
+ assert not report['profit_established']
+
+

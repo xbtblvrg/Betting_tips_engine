@@ -1,0 +1,110 @@
+{
+  "version": "dashboard-latency-evidence-v1",
+  "checked_at": "2026-09-30T10:31:50.409461+00:00",
+  "state": "unresolved",
+  "production_code_or_ledger_mutated": false,
+  "latest_live_observation": {
+    "local_dashboard": {
+      "connect_seconds": 0.000211,
+      "first_byte_received": false,
+      "timeout_seconds": 65.005008
+    },
+    "concurrent_local_health": {
+      "connect_seconds": 0.000117,
+      "first_byte_received": false,
+      "timeout_seconds": 12.004509
+    }
+  },
+  "isolated_readonly_results": {
+    "dashboard_seconds_single": 0.9959336249739863,
+    "dashboard_seconds_four_threads": [
+      2.9080557079869322,
+      3.382218084007036,
+      3.6891391669632867,
+      3.665692750015296
+    ],
+    "response_bytes_approximately": 31530010,
+    "sqlite_WAL_read_during_IMMEDIATE_or_EXCLUSIVE_seconds": [
+      0.00017670902889221907,
+      0.00010379200102761388
+    ],
+    "limits": "Temporary SQLite reproduction does not exclude every possible checkpoint or filesystem wait. Four-thread function replay does not reproduce the complete live process workload."
+  },
+  "native_sample": {
+    "path": "data/flow-recovery-20260930/server-sample-17.1.txt",
+    "sha256": "39dffac2c680b4062c5141c0d4190c8ee3a311ff307b85c570e8d06e592cea0b",
+    "seconds": 2,
+    "main_GIL_wait_samples": 1021,
+    "total_samples": 1341,
+    "quant_engine_GIL_wait_samples": 1287,
+    "multiple_AnyIO_threads_wait_for_GIL": true,
+    "one_worker_dictionary_list_deallocation_samples": 532,
+    "claim": "Observed GIL contention and large-object churn, not a traced SQLite busy wait; exact complete latency cause remains unproven."
+  },
+  "reproduced_frontend_defect": {
+    "file": "src/betting_engine/web/app.js",
+    "function": "load",
+    "initial_pending_fetches": 1,
+    "pending_after_two_15second_poll_ticks_and_two_SSE_updates": 5,
+    "first_request_resolved": false,
+    "test_method": "Exact current JS executed in HappyDOM with a controlled held fetch; no live requests sent.",
+    "implication": "Slow requests permit overlapping dashboard rebuilds and response-body allocations. This can amplify load; it is not alone proof of the whole 65-second delay."
+  },
+  "minimal_candidate_repair": {
+    "owner": "D22 / Codex",
+    "action": "Coalesce load() calls: at most one dashboard request in flight and one trailing refresh when a newer trigger arrived. Preserve original request-order and placementEpoch reconciliation. Coalesce repeated timer/SSE events without unbounded queueing. A transport error must release the flight slot.",
+    "must_preserve": [
+      "One-second local quote expiry and hiding expired instructions",
+      "Current server EvidenceGuard, readiness and numerical seal checks",
+      "A fresh follow-up request after checklist changes or new publication while a request is pending",
+      "No rewriting prior odds, stakes, losses or placement history"
+    ],
+    "acceptance": "Prove with a controlled held response that repeated poll/SSE triggers never create parallel dashboard fetches, one follow-up obtains the newest state, errors permit retry, and existing stale-response/checklist/expiry DOM tests still pass. Then rerun the original D22 loaded HTTP acceptance; do not close D22 from this client-only fix."
+  },
+  "source_files": [
+    {
+      "path": "src/betting_engine/server.py",
+      "sha256": "3609fece5a87d5e6115cdb1d31549173bdeec7251dd6d6218e461cb8b9b02d32"
+    },
+    {
+      "path": "src/betting_engine/web/app.js",
+      "sha256": "7b0dd9e81916660bf332d4e765c4f6079339385a67a9ce63037c54407e056962"
+    },
+    {
+      "path": "src/betting_engine/storage.py",
+      "sha256": "e751a8ccc8a453981643746d08fb0bf46b0cb10ed71f196af4ab03bebf4dcc41"
+    }
+  ],
+  "bounded_diagnostic_files": [
+    {
+      "path": "data/flow-recovery-20260930/dashboard-profile-after.txt",
+      "sha256": "703e4ce43c9fdcfd4e89722df83c6ab03931f6fa08748efda9eb067d98ef3bca",
+      "bytes": 5684
+    },
+    {
+      "path": "data/flow-recovery-20260930/delivery-profile-after.txt",
+      "sha256": "b4bc706f69375aba6b3873c7f1b4a4cf5599c6ea89f102629322dec135e1262d",
+      "bytes": 3802
+    },
+    {
+      "path": "data/flow-recovery-20260930/automation-profile-after.txt",
+      "sha256": "76bc2cc5c99f89e7873d4fff80e05e8b9dea7cc591ebdac55987d571463a7f26",
+      "bytes": 2317
+    },
+    {
+      "path": "data/flow-recovery-20260930/sqlite-read-contention-probe.json",
+      "sha256": "62a3275c76ba2d48333d5c1ee0ed258d3fb7b051cdfb0b8218c98eb966386ce9",
+      "bytes": 379
+    },
+    {
+      "path": "data/flow-recovery-20260930/dashboard-thread-contention-probe.json",
+      "sha256": "b8ec18dbcebf0ce2f8ab9f078c288e098468ac9c43d97e6f3a08a942111339aa",
+      "bytes": 666
+    },
+    {
+      "path": "data/flow-recovery-20260930/dashboard-overlap-repro.json",
+      "sha256": "fcb6fcf97d972ac44632ed462c6419504d489b441010f9a55f03b22e4350b549",
+      "bytes": 238
+    }
+  ]
+}

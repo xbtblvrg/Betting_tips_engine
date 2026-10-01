@@ -1,0 +1,35 @@
+{
+  "checks": [
+    {
+      "manifest": "data/development_inputs/manifest.json",
+      "sha256": "19268bd17560ac17d69a1aa18a9a44db71738cb34ea3095f496ae24b4520efc8",
+      "checked_files": 301,
+      "mismatches": [],
+      "declared_errors": [],
+      "truncation_fields": {}
+    },
+    {
+      "manifest": "data/validation_sources/export.json",
+      "sha256": "040d291911c8eaa34a67f6d58e2448f820b3e04b35f0da28ac3d89bcbcfee69b",
+      "checked_files": 22,
+      "mismatches": [],
+      "declared_errors": [],
+      "truncation_fields": {}
+    },
+    {
+      "manifest": "data/controller_validation/manifest.json",
+      "sha256": "2552dcbd27539835c4f779ac5acefc4ab35afea985ed27d05ce1b6892fd3e246",
+      "checked_files": 3,
+      "mismatches": [],
+      "declared_errors": null,
+      "truncation_fields": {}
+    }
+  ],
+  "base_source_pins": {
+    "tests/test_resource_service_profile.py": "befe6f624eb582f52f70a6218032701ac6a1b7473edc87b006e65c3f577683b9",
+    "config/project_contract.json": "7f8659f86cfd6dbe1f2eb978d06f3b31179c0a35603e9e06bd409e1b5fffb41f"
+  },
+  "base_pin_scope": "Local unchanged candidate bytes, not independent controller approval. Three service hashes separately match explicit recovery authorization.",
+  "controller_manifest_sha256_scope": "Locally retained manifest digest; each service hash independently compared to explicit recovery pins.",
+  "test_log_sha256_scope": "Locally computed retained diagnostic hash, not proof of authenticated test execution."
+}

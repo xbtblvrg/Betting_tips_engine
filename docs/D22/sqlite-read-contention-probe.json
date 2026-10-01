@@ -1,0 +1,14 @@
+[
+  {
+    "write_tx": "IMMEDIATE",
+    "pragma_and_connection_seconds": 0.00014933402417227626,
+    "total_read_seconds": 0.00017670902889221907,
+    "observed_committed_bytes": 2000000
+  },
+  {
+    "write_tx": "EXCLUSIVE",
+    "pragma_and_connection_seconds": 8.941697888076305e-05,
+    "total_read_seconds": 0.00010379200102761388,
+    "observed_committed_bytes": 5000000
+  }
+]

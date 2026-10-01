@@ -1,0 +1,86 @@
+{
+  "captured_at": "2026-10-01T07:24:37+00:00",
+  "claim": "Complete raw public Stake source responses, not independently confirmed team assignments or execution approval.",
+  "sources": [
+    {
+      "url": "https://odds-data.stake.com/schedule/sport/baseball/usa/tournament/mlb",
+      "fetched_at": "2026-10-01T07:24:37.014560+00:00",
+      "sha256": "575c62b2a6f52cd8b1d1a3f1c0a788c0af4e12fa5bdbd83e013b14787a8d0c4d",
+      "http_status": 200,
+      "bytes": 2846,
+      "file": "575c62b2a6f52cd8b1d1a3f1c0a788c0af4e12fa5bdbd83e013b14787a8d0c4d.json.gz"
+    },
+    {
+      "url": "https://odds-data.stake.com/sports/baseball/usa/mlb/fixtures",
+      "fetched_at": "2026-10-01T07:24:37.265448+00:00",
+      "sha256": "6918a4628978aaa9d4463708ee8a96b1874860dfdcb5121dc3ce2a8059d54552",
+      "http_status": 200,
+      "bytes": 2635,
+      "file": "6918a4628978aaa9d4463708ee8a96b1874860dfdcb5121dc3ce2a8059d54552.json.gz"
+    },
+    {
+      "url": "https://odds-data.stake.com/fixtures/46942267-cleveland-guardians-al-3-6",
+      "fetched_at": "2026-10-01T07:27:27.708330+00:00",
+      "sha256": "626572989abfd0151dbfc1acd97b81a9228d0d26451fec588e8f2fc21bbd1799",
+      "http_status": 200,
+      "bytes": 15630,
+      "file": "626572989abfd0151dbfc1acd97b81a9228d0d26451fec588e8f2fc21bbd1799.json.gz"
+    },
+    {
+      "url": "https://odds-data.stake.com/odds/46942267-cleveland-guardians-al-3-6",
+      "fetched_at": "2026-10-01T07:27:27.857957+00:00",
+      "sha256": "626572989abfd0151dbfc1acd97b81a9228d0d26451fec588e8f2fc21bbd1799",
+      "http_status": 200,
+      "bytes": 15630,
+      "file": "626572989abfd0151dbfc1acd97b81a9228d0d26451fec588e8f2fc21bbd1799.json.gz"
+    },
+    {
+      "url": "https://odds-data.stake.com/fixtures/46942269-milwaukee-brewers-nl-4-5",
+      "fetched_at": "2026-10-01T07:27:28.428476+00:00",
+      "sha256": "62d01fd9e9b8de2fd7cccef61f8126a2c29b0bca7c77b05ff6d2d55d8db940d5",
+      "http_status": 200,
+      "bytes": 18038,
+      "file": "62d01fd9e9b8de2fd7cccef61f8126a2c29b0bca7c77b05ff6d2d55d8db940d5.json.gz"
+    },
+    {
+      "url": "https://odds-data.stake.com/odds/46942269-milwaukee-brewers-nl-4-5",
+      "fetched_at": "2026-10-01T07:27:28.574314+00:00",
+      "sha256": "62d01fd9e9b8de2fd7cccef61f8126a2c29b0bca7c77b05ff6d2d55d8db940d5",
+      "http_status": 200,
+      "bytes": 18038,
+      "file": "62d01fd9e9b8de2fd7cccef61f8126a2c29b0bca7c77b05ff6d2d55d8db940d5.json.gz"
+    },
+    {
+      "url": "https://odds-data.stake.com/fixtures/46939419-nl-seed-3-nl-seed-6",
+      "fetched_at": "2026-10-01T07:31:06.245602+00:00",
+      "sha256": "3d252b03332046c8b4f21dce0466e87c3d04e5b6a8ba981705e9aa2485f2416e",
+      "http_status": 200,
+      "bytes": 41918,
+      "file": "3d252b03332046c8b4f21dce0466e87c3d04e5b6a8ba981705e9aa2485f2416e.json.gz"
+    },
+    {
+      "url": "https://odds-data.stake.com/odds/46939419-nl-seed-3-nl-seed-6",
+      "fetched_at": "2026-10-01T07:31:06.444410+00:00",
+      "sha256": "3d252b03332046c8b4f21dce0466e87c3d04e5b6a8ba981705e9aa2485f2416e",
+      "http_status": 200,
+      "bytes": 41918,
+      "file": "3d252b03332046c8b4f21dce0466e87c3d04e5b6a8ba981705e9aa2485f2416e.json.gz"
+    },
+    {
+      "url": "https://odds-data.stake.com/fixtures/46942266-tampa-bay-rays-al-4-5",
+      "fetched_at": "2026-10-01T07:31:07.134758+00:00",
+      "sha256": "29339c0bc286ab054c2b28709514b2a2b916c725026be20fbfdd39c9336a4903",
+      "http_status": 200,
+      "bytes": 15329,
+      "file": "29339c0bc286ab054c2b28709514b2a2b916c725026be20fbfdd39c9336a4903.json.gz"
+    },
+    {
+      "url": "https://odds-data.stake.com/odds/46942266-tampa-bay-rays-al-4-5",
+      "fetched_at": "2026-10-01T07:31:07.287362+00:00",
+      "sha256": "29339c0bc286ab054c2b28709514b2a2b916c725026be20fbfdd39c9336a4903",
+      "http_status": 200,
+      "bytes": 15329,
+      "file": "29339c0bc286ab054c2b28709514b2a2b916c725026be20fbfdd39c9336a4903.json.gz"
+    }
+  ]
+}

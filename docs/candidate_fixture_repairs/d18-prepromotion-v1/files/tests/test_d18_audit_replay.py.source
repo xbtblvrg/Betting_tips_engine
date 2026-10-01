@@ -1,0 +1,195 @@
+"""Behavioral checks for the offline D18 audit; no training or production I/O."""
+from datetime import datetime, timedelta, timezone
+import json
+from pathlib import Path
+from test_d18_frozen_exports import frozen_root
+from types import SimpleNamespace
+
+import numpy as np
+import pytest
+
+from betting_engine.domain import Game
+from betting_engine.professional_audit import (
+    EvidenceError, archive_audit, audit_league, chronological_partitions,
+    frozen_report_audit, paired_comparison, probability_metrics, run_audit,
+)
+
+
+def game(i, score=(110, 100)):
+    start = datetime(2024, 1, 1, tzinfo=timezone.utc)+timedelta(days=i//2, hours=i % 2)
+    return Game(str(i), 'NBA', start.isoformat(), 'Home', 'Away', 'h', 'a', 'H', 'A',
+                'final', 2024, *score, source='fixture://sports-observation')
+
+
+def report_for(events, p=.6):
+    labels = [int(g.home_score > g.away_score) for g in events]
+    return {'league': 'NBA', 'version': 'fixture-only', 'odds_used': False,
+            'test': probability_metrics(labels, [p]*len(events)),
+            'elo_baseline': probability_metrics(labels, [.5]*len(events)),
+            'test_predictions': [{'game_id': g.id, 'date': g.start, 'p': p, 'result': y}
+                                 for g, y in zip(events, labels)],
+            'trained_at': '2025-01-01T00:00:00+00:00', 'last_game': events[-1].start,
+            'training_games': 400, 'partitions': {'train': 240, 'selection': 60,
+                                                'calibration': 40, 'test': 60},
+            'test_from': '2024-06-19', 'training_data_fingerprint': 'fixture-only'}
+
+
+def test_proper_scores_calibration_and_direction_have_independent_known_answers():
+    scored = probability_metrics([1, 0, 1, 0], [.8, .2, .6, .4])
+    assert scored['brier'] == pytest.approx(.1)
+    assert scored['log_loss'] == pytest.approx(-np.log(.8*.8*.6*.6)/4)
+    assert sum(b['n'] for b in scored['calibration']) == 4
+    assert scored['proper_scores_direction'] == 'lower_is_better'
+    assert probability_metrics([1, 0], [.3, .3])['calibration'] == [
+        {'low': .3, 'n': 2, 'predicted': .3, 'observed': .5}]
+
+
+@pytest.mark.parametrize('p', [[float('nan')], [float('inf')], [-.1], [1.1], []])
+def test_invalid_comparator_probabilities_are_not_clipped_into_valid_evidence(p):
+    with pytest.raises(EvidenceError):
+        probability_metrics([1], p)
+
+
+def test_exact_event_pairing_rejects_missing_extra_and_duplicate_events():
+    events = [game(1), game(2)]
+    with pytest.raises(EvidenceError, match='event_set_mismatch'):
+        paired_comparison(events, {'1': .8, '2': .8}, {'1': .7, 'else': .7})
+    with pytest.raises(EvidenceError, match='duplicate'):
+        paired_comparison([events[0], events[0]], {'1': .8}, {'1': .7})
+
+
+def test_comparison_uses_identical_events_and_reports_lower_score_winner():
+    events = [game(i, (100, 110) if i % 2 else (110, 100)) for i in range(60)]
+    poor = {g.id: .5 for g in events}
+    good = {g.id: .8 if g.home_score > g.away_score else .2 for g in events}
+    result = paired_comparison(events, poor, good)
+    assert result['benchmark_better_brier']
+    assert result['candidate_minus_benchmark_brier'] == pytest.approx(.21)
+    assert result['brier_delta_weekly_ci95'] == pytest.approx([.21, .21])
+    assert result['weeks'] < result['n_events']
+
+
+def test_four_partitions_keep_all_events_on_each_utc_day_together():
+    rows = [(game(i), None) for i in range(400)]
+    report = report_for([g for g, _ in rows])
+    groups, evidence = chronological_partitions(rows, report)
+    day_sets = [{rows[i][0].start[:10] for i in indices} for indices in groups.values()]
+    for i in range(4):
+        for j in range(i+1, 4):
+            assert day_sets[i].isdisjoint(day_sets[j])
+    assert [v['n'] for v in evidence.values()] == [240, 60, 40, 60]
+    assert evidence['test']['first_date'] == '2024-06-19'
+    assert max(day_sets[2]) < min(day_sets[3])
+
+
+def test_missing_dates_changed_partitions_and_duplicate_event_fail_closed():
+    rows = [(game(i), None) for i in range(400)]
+    report = report_for([g for g, _ in rows])
+    with pytest.raises(EvidenceError, match='insufficient_history'):
+        chronological_partitions(rows[:10], report)
+    with pytest.raises(EvidenceError, match='duplicate_history_event'):
+        chronological_partitions(rows+[rows[-1]], report)
+    report['partitions']['test'] = 59
+    with pytest.raises(EvidenceError, match='partition_counts'):
+        chronological_partitions(rows, report)
+
+
+def test_frozen_report_rejects_metric_or_comparator_count_tampering():
+    r = report_for([game(1), game(2, (90, 100))])
+    r['test']['brier'] = .1
+    with pytest.raises(EvidenceError, match='metrics_mismatch'):
+        frozen_report_audit(r)
+    r = report_for([game(1)])
+    r['elo_baseline']['n'] = 2
+    with pytest.raises(EvidenceError, match='sample_mismatch'):
+        frozen_report_audit(r)
+
+
+def test_insufficient_evidence_preserves_archived_metrics_without_approval():
+    r = report_for([game(1)])
+    result = audit_league([], SimpleNamespace(), r)
+    assert result['frozen_report']['historical_test_status'] == 'already_inspected_retrospective_test'
+    assert not result['frozen_report']['new_untouched_holdout']
+    assert result['replay']['status'] == 'insufficient_evidence'
+    assert all(not v['eligible'] for v in result['family_eligibility'].values())
+    assert result['profit_backtest'] is None and not result['production_activation']
+
+
+def test_comparator_exception_is_preserved_and_never_becomes_a_pass(monkeypatch):
+    def broken(*args, **kwargs):
+        raise RuntimeError('comparator unavailable')
+    monkeypatch.setattr('betting_engine.professional_audit.replay', broken)
+    result = audit_league([], None, report_for([game(1)]))
+    assert result['replay']['blockers'] == ['comparator unavailable']
+    assert all(not v['eligible'] for v in result['family_eligibility'].values())
+
+
+def test_archive_retains_trials_is_idempotent_and_rejects_corruption(tmp_path):
+    failure = {'status': 'insufficient_evidence', 'sources': {'history': 'first-hash'}}
+    first = archive_audit(failure, tmp_path)
+    assert archive_audit(failure, tmp_path) == first
+    second = archive_audit({**failure, 'sources': {'history': 'second-hash'}}, tmp_path)
+    assert first != second and len(list(tmp_path.glob('*.json'))) == 2
+    first.write_text('{}')
+    with pytest.raises(EvidenceError, match='corruption'):
+        archive_audit(failure, tmp_path)
+
+
+@pytest.fixture(scope='module')
+def real_audit():
+    root = frozen_root('d18-prepromotion-v1')
+    from betting_engine.models import LeagueModel
+    def forbidden(*args, **kwargs):
+        pytest.fail('shadow replay must not fit or use the current-state forecast')
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(LeagueModel, 'fit', forbidden)
+        patch.setattr(LeagueModel, 'forecast', forbidden)
+        return run_audit(root)
+
+
+def test_real_supplied_history_reproduces_frozen_basketball_without_claiming_holdout(real_audit):
+    for league, expected in [('NBA', 720), ('WNBA', 199)]:
+        result = real_audit['leagues'][league]
+        assert result['replay']['status'] == 'reproduced'
+        assert result['replay']['winner_max_probability_difference'] == 0
+        assert result['replay']['winner']['n_events'] == expected
+        assert len(result['replay']['score_families']) == 4
+        assert all(not f['eligible'] for f in result['family_eligibility'].values())
+    assert not real_audit['new_untouched_holdout']
+    assert real_audit['source_availability']['historical_publication_times'] is None
+    assert real_audit['profit_backtest'] is None
+
+
+def test_real_frozen_reports_surface_elo_advantage_and_reproduction_failures(real_audit):
+    for league in ('NBA', 'NFL'):
+        assert real_audit['leagues'][league]['frozen_report']['Winner']['elo_better_brier']
+    assert real_audit['leagues']['MLB']['replay']['status'] == 'reproduced'
+    assert real_audit['leagues']['MLB']['training_snapshot']['status'] == 'verified_exact_fit_inputs'
+    for league in ('NHL', 'NFL'):
+        replay = real_audit['leagues'][league]['replay']
+        assert replay['status'] == 'diagnostic_only_reproduction_mismatch'
+        assert 'training_fingerprint_not_reproduced' in replay['blockers']
+        assert len(replay['score_families']) == 4
+    assert 'frozen_winner_predictions_not_reproduced' in real_audit['leagues']['NHL']['replay']['blockers']
+
+
+def test_artifact_hash_mismatch_is_isolated_before_deserialization(tmp_path, monkeypatch):
+    # Supply only explicit inputs to a fake workspace, with a damaged NBA artifact.
+    root = Path(__file__).resolve().parents[1]
+    evidence = tmp_path/'data/model_evidence'
+    evidence.mkdir(parents=True)
+    (tmp_path/'data/games.json').write_text('[]')
+    (evidence/'manifest.json').write_text(json.dumps({'models': [{
+        'league': 'NBA', 'artifact': 'NBA.joblib', 'report': 'NBA.json',
+        'artifact_sha256': 'incorrect', 'report_sha256': 'also-incorrect'}]}))
+    (evidence/'NBA.joblib').write_bytes(b'not a pickle')
+    knowledge = tmp_path/'knowledge/cards'
+    knowledge.mkdir(parents=True)
+    for file in (root/'knowledge/cards').glob('*.md'):
+        (knowledge/file.name).write_bytes(file.read_bytes())
+    def must_not_load(*args):
+        pytest.fail('unverified artifact was deserialized')
+    monkeypatch.setattr('betting_engine.professional_audit.joblib.load', must_not_load)
+    result = run_audit(tmp_path)
+    assert 'artifact_hash_mismatch' in result['leagues']['NBA']['replay']['blockers'][0]
+    assert len(result['leagues']) == 5

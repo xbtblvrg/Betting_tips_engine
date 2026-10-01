@@ -1,0 +1,131 @@
+{
+  "version": "root-candidate-fixture-repair-v1",
+  "source_run_id": "20261001T082329892886-D18",
+  "scope": "Frozen exact pre-promotion D18 regression source only; no active model/research/availability replacement or task completion.",
+  "original_acceptance": "All D18 acceptance, diagnostics and original deadlines remain mandatory.",
+  "files": [
+    {
+      "source": "docs/candidate_fixture_repairs/d18-prepromotion-v1/files/tests/test_d18_audit_provenance.py.source",
+      "target": "tests/test_d18_audit_provenance.py",
+      "sha256": "35e325dc532b6f35282362efc878254746803c9c95561e21401646836eec3945",
+      "bytes": 8671,
+      "tasks": [
+        "D18"
+      ]
+    },
+    {
+      "source": "docs/candidate_fixture_repairs/d18-prepromotion-v1/files/tests/test_d18_audit_replay.py.source",
+      "target": "tests/test_d18_audit_replay.py",
+      "sha256": "0de2654b27555bd6cbc1fc1404f8ce7fae278d560b599137ba8f16541154c8b4",
+      "bytes": 9621,
+      "tasks": [
+        "D18"
+      ]
+    },
+    {
+      "source": "docs/candidate_fixture_repairs/d18-prepromotion-v1/files/tests/test_d18_frozen_exports.py.source",
+      "target": "tests/test_d18_frozen_exports.py",
+      "sha256": "f929e13da961bd26d28919556f7e126468987f63d3c5d0d796399e553d91ad64",
+      "bytes": 4575,
+      "tasks": [
+        "D18"
+      ]
+    },
+    {
+      "source": "docs/candidate_fixture_repairs/d18-prepromotion-v1/files/tests/test_d18_frozen_archive.py.source",
+      "target": "tests/test_d18_frozen_archive.py",
+      "sha256": "d7229aec8dad525d3c55980d40b052ceb806f6438a167e6e463450b42b369fb0",
+      "bytes": 4517,
+      "tasks": [
+        "D18"
+      ]
+    },
+    {
+      "source": "docs/candidate_fixture_repairs/d18-prepromotion-v1/files/tests/fixtures/d18-prepromotion-a-v1.tar.gz",
+      "target": "tests/fixtures/d18-prepromotion-a-v1.tar.gz",
+      "sha256": "ff99c0b7a197e4334e72903d1ff4fcf49a72dad518fdb18357775cfbccf121be",
+      "bytes": 28592643,
+      "tasks": [
+        "D18"
+      ]
+    },
+    {
+      "source": "docs/candidate_fixture_repairs/d18-prepromotion-v1/files/tests/fixtures/d18-prepromotion-b-v1.tar.gz",
+      "target": "tests/fixtures/d18-prepromotion-b-v1.tar.gz",
+      "sha256": "55653c0e3f3c1af77da15b7788ba67f0945053edf9e062efc6f464495821d526",
+      "bytes": 22088155,
+      "tasks": [
+        "D18"
+      ]
+    }
+  ],
+  "task_targets": {
+    "D18": [
+      "tests/test_d18_audit_provenance.py",
+      "tests/test_d18_audit_replay.py",
+      "tests/test_d18_frozen_exports.py",
+      "tests/test_d18_frozen_archive.py",
+      "tests/fixtures/d18-prepromotion-a-v1.tar.gz",
+      "tests/fixtures/d18-prepromotion-b-v1.tar.gz"
+    ]
+  },
+  "failed_evidence": [
+    {
+      "path": "runs/20261001T082329892886-D18/run.json",
+      "sha256": "da9e5057a92e08b4efce0e52ef3124892a46f06c1b2616015a8a4a0bc3cb1d38"
+    },
+    {
+      "path": "runs/20261001T082329892886-D18/result.json",
+      "sha256": "5296aacfced39234a8990988f73a6848c52b8adca32f1c5dc8891296ee72cf79"
+    },
+    {
+      "path": "runs/20261001T082329892886-D18/candidate-manifest.json",
+      "sha256": "b2b63ee23be41950f6b0174cc2d31e129e33c747b9f1e325239f7e7245cba265"
+    }
+  ],
+  "path_only_test_changes": [
+    {
+      "path": "tests/test_d18_audit_provenance.py",
+      "original_sha256": "dfdaed0511db4ff57f80abb4e2564d77b3df5a4077d4231c6f475516c04f3703",
+      "corrected_sha256": "35e325dc532b6f35282362efc878254746803c9c95561e21401646836eec3945",
+      "assertions_preserved": 20,
+      "all_other_bytes_preserved_except_exact_import_and_root_assignment": true
+    },
+    {
+      "path": "tests/test_d18_audit_replay.py",
+      "original_sha256": "2b43012fd02f1f3244b237a0d94791bf0c6b64c10577d4a8c480e694a6748508",
+      "corrected_sha256": "0de2654b27555bd6cbc1fc1404f8ce7fae278d560b599137ba8f16541154c8b4",
+      "assertions_preserved": 39,
+      "all_other_bytes_preserved_except_exact_import_and_root_assignment": true
+    }
+  ],
+  "bundles": {
+    "d18-prepromotion-v1": {
+      "parts": [
+        {
+          "name": "d18-prepromotion-a-v1.tar.gz",
+          "sha256": "ff99c0b7a197e4334e72903d1ff4fcf49a72dad518fdb18357775cfbccf121be",
+          "bytes": 28592643,
+          "files": 476,
+          "unpacked_bytes": 97464726
+        },
+        {
+          "name": "d18-prepromotion-b-v1.tar.gz",
+          "sha256": "55653c0e3f3c1af77da15b7788ba67f0945053edf9e062efc6f464495821d526",
+          "bytes": 22088155,
+          "files": 476,
+          "unpacked_bytes": 27843522
+        }
+      ],
+      "files": 952,
+      "unpacked_bytes": 125308248
+    }
+  },
+  "source_cohort": "data/development/workspaces/20260930T223201881674-D18",
+  "source_claim": "All952original source files preserved byte-for-byte; missing original NBA fit snapshot remains missing. NBA artifact/report also match root release27 prepromotion archive. Export/archive time does not prove historical availability.",
+  "apply_contract": "Copy exactly six D18 targets after root verifies retained test hashes and terminal failure evidence. Preserve every assertion and all other test bytes except specified import/root assignments. Never alter current data/model_evidence, data/games.json, approved models or failure receipts.",
+  "test_commands": [
+    "PYTHONPATH=src python -m pytest tests/test_d18_audit_provenance.py tests/test_d18_audit_replay.py tests/test_d18_frozen_archive.py",
+    "Complete Python/API and DOM suites plus independent review remain required."
+  ]
+}

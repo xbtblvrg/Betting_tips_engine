@@ -1,0 +1,373 @@
+{
+  "task": "F0024",
+  "scope": "Offline candidate only; real archive rejection probes and synthetic success fixtures",
+  "model_artifact_index_sha256": "02c1ac891e4f53a4f4273bd9c2d9ac97acbd3a39e81fb37cba3601bd6d10c907",
+  "history": {
+    "manifest_sha256": "37d168526d11216ed4b59d4614ba9aade02ef713e26efc4c0a5aeeeedbf34e51",
+    "observations_sha256": "d5624e9e4ab27f3050a7c80435cf9aa955d3c9334e043190b89232c33b9c2b5a",
+    "rows": 550729,
+    "schema": "league: string\ngame_id: string\nseason: int64\nstart: string\nplayer_id: string\nplayer_name: string\nteam_id: string\nopponent_id: string\nhome: bool\nidentity_namespace: string\nstat_group: string\nscope: string\nstat_scope: string\nminutes: double\nstarter: bool\nplayed: bool\nstats: string\nsource_url: string\nsource_sha256: string\nsource_fetched_at: string\nsource_published_at: string\navailable_at: string\navailability_basis: string\navailability_reference: string\ngame_identity_sha256: string\ngame_identity_fetched_at: string\ntarget_participation: bool",
+    "rows_by_league_group": {
+      "MLB/hitting": 153339,
+      "MLB/pitching": 62327,
+      "NBA/player": 104489,
+      "NFL/player": 41697,
+      "NHL/player": 167659,
+      "WNBA/player": 21218
+    },
+    "current_participation_inferred": false
+  },
+  "public_bundle": {
+    "manifest_sha256": "3d264011a2b30ce8b6e1f7c13a731c9ed67f214ebb1b510439946a48b2d2b004",
+    "copied_sources": 12,
+    "declared_files_checked": 24,
+    "all_bytes_and_hashes_match": true,
+    "inspected_native_schema": {
+      "NFL/events": {
+        "columns": 372,
+        "sample_fields": [
+          "play_id",
+          "game_id",
+          "old_game_id",
+          "home_team",
+          "away_team",
+          "season_type",
+          "week",
+          "posteam"
+        ]
+      },
+      "NHL/events": {
+        "top_level_fields": [
+          "id",
+          "season",
+          "gameType",
+          "limitedScoring",
+          "gameDate",
+          "venue",
+          "venueLocation",
+          "startTimeUTC",
+          "easternUTCOffset",
+          "venueUTCOffset",
+          "tvBroadcasts",
+          "gameState",
+          "gameScheduleState",
+          "periodDescriptor",
+          "awayTeam",
+          "homeTeam",
+          "shootoutInUse",
+          "otInUse",
+          "clock",
+          "displayPeriod",
+          "maxPeriods",
+          "gameOutcome",
+          "plays",
+          "rosterSpots",
+          "regPeriods",
+          "summary"
+        ],
+        "first_play_fields": [
+          "eventId",
+          "periodDescriptor",
+          "timeInPeriod",
+          "timeRemaining",
+          "situationCode",
+          "homeTeamDefendingSide",
+          "typeCode",
+          "typeDescKey",
+          "sortOrder"
+        ]
+      },
+      "WNBA/injuries": {
+        "columns": 27,
+        "sample_fields": [
+          "as_of_date",
+          "league",
+          "season",
+          "team_id",
+          "team_display_name",
+          "injury_id",
+          "athlete_id",
+          "athlete_display_name"
+        ]
+      },
+      "NHL/injuries": {
+        "columns": 27,
+        "sample_fields": [
+          "as_of_date",
+          "league",
+          "season",
+          "team_id",
+          "team_display_name",
+          "injury_id",
+          "athlete_id",
+          "athlete_display_name"
+        ]
+      },
+      "NFL/injuries": {
+        "columns": 27,
+        "sample_fields": [
+          "as_of_date",
+          "league",
+          "season",
+          "team_id",
+          "team_display_name",
+          "injury_id",
+          "athlete_id",
+          "athlete_display_name"
+        ]
+      },
+      "MLB/injuries": {
+        "columns": 27,
+        "sample_fields": [
+          "as_of_date",
+          "league",
+          "season",
+          "team_id",
+          "team_display_name",
+          "injury_id",
+          "athlete_id",
+          "athlete_display_name"
+        ]
+      }
+    },
+    "source_publication_times_invented": false
+  },
+  "knowledge_card_sha256": {
+    "K02-fuggetlen-modell.md": "5e6e27e58cbf466a05b733cbc5ac2aacf73552a789149c1f29fde1f9f35979f6",
+    "K01-valoszinuseg-ar-ev.md": "c3f0541824ecda19d7889d13aa9bd226c715cd91e8d4ec2e1919e8c8074d06db",
+    "K03-adat-ido-forras.md": "a71af120097072161a042f04257cb6f4ebc617e34ff43c19588ca313148b1d9a",
+    "K08-validacio.md": "951ffe80c87fd491bfeece567c31a86a78371087fcf8b16297422ecadd624bd3"
+  },
+  "actual_archive_probes": [
+    {
+      "fixture": "wnba-standard",
+      "source_sha256": "a681d2b52555decefe1236ed5b447ad4953f80ad710e14ec153729944972a508",
+      "normalized_contract_count": 330,
+      "as_of": "2026-09-29T18:43:03.636440+00:00",
+      "reasons": [
+        "study_as_of_after_evaluation",
+        "missing_source_bound_identity_resolution"
+      ],
+      "payoff": null,
+      "publishable": false
+    },
+    {
+      "fixture": "wnba-standard",
+      "source_sha256": "a681d2b52555decefe1236ed5b447ad4953f80ad710e14ec153729944972a508",
+      "normalized_contract_count": 330,
+      "as_of": "2026-09-30T04:34:27.518971+00:00",
+      "reasons": [
+        "quote_expired_at_as_of",
+        "event_started_at_as_of",
+        "missing_source_bound_identity_resolution"
+      ],
+      "payoff": null,
+      "publishable": false
+    },
+    {
+      "fixture": "nfl-swish",
+      "source_sha256": "733dcaa57abdeb62ef5729444be324eac58bedd8f1e070ccce6cb33310bf8132",
+      "normalized_contract_count": 130,
+      "as_of": "2026-09-29T18:43:06.092109+00:00",
+      "reasons": [
+        "invalid_forecast_or_cutoff"
+      ],
+      "payoff": null,
+      "publishable": false
+    },
+    {
+      "fixture": "nfl-swish",
+      "source_sha256": "733dcaa57abdeb62ef5729444be324eac58bedd8f1e070ccce6cb33310bf8132",
+      "normalized_contract_count": 130,
+      "as_of": "2026-09-30T04:34:27.518971+00:00",
+      "reasons": [
+        "invalid_forecast_or_cutoff"
+      ],
+      "payoff": null,
+      "publishable": false
+    },
+    {
+      "fixture": "nhl-skater",
+      "source_sha256": "f86d1a400fbf66b7be912b6ab875637b45ae737035fa14bb74778426d718ab3c",
+      "normalized_contract_count": 184,
+      "as_of": "2026-09-29T18:43:04.192958+00:00",
+      "reasons": [
+        "study_as_of_after_evaluation",
+        "no_exact_model_to_feed_metric_mapping",
+        "unverified_nonstandard_offer",
+        "offer_not_active",
+        "contract_not_normalized",
+        "model_contract_scope_or_metric_mismatch",
+        "missing_source_bound_identity_resolution"
+      ],
+      "payoff": null,
+      "publishable": false
+    },
+    {
+      "fixture": "nhl-skater",
+      "source_sha256": "f86d1a400fbf66b7be912b6ab875637b45ae737035fa14bb74778426d718ab3c",
+      "normalized_contract_count": 184,
+      "as_of": "2026-09-30T04:34:27.518971+00:00",
+      "reasons": [
+        "no_exact_model_to_feed_metric_mapping",
+        "quote_expired_at_as_of",
+        "event_started_at_as_of",
+        "unverified_nonstandard_offer",
+        "offer_not_active",
+        "contract_not_normalized",
+        "model_contract_scope_or_metric_mismatch",
+        "missing_source_bound_identity_resolution"
+      ],
+      "payoff": null,
+      "publishable": false
+    },
+    {
+      "fixture": "nhl-goalie",
+      "source_sha256": "902a38bdddcb43a666d4527e9e2f5bccd5dbae0b361acd2e5e399d253f7dc3ee",
+      "normalized_contract_count": 252,
+      "as_of": "2026-09-29T18:43:04.162412+00:00",
+      "reasons": [
+        "study_as_of_after_evaluation",
+        "no_exact_model_to_feed_metric_mapping",
+        "unverified_nonstandard_offer",
+        "offer_not_active",
+        "contract_not_normalized",
+        "model_contract_scope_or_metric_mismatch",
+        "missing_source_bound_identity_resolution"
+      ],
+      "payoff": null,
+      "publishable": false
+    },
+    {
+      "fixture": "nhl-goalie",
+      "source_sha256": "902a38bdddcb43a666d4527e9e2f5bccd5dbae0b361acd2e5e399d253f7dc3ee",
+      "normalized_contract_count": 252,
+      "as_of": "2026-09-30T04:34:27.518971+00:00",
+      "reasons": [
+        "no_exact_model_to_feed_metric_mapping",
+        "quote_expired_at_as_of",
+        "event_started_at_as_of",
+        "unverified_nonstandard_offer",
+        "offer_not_active",
+        "contract_not_normalized",
+        "model_contract_scope_or_metric_mismatch",
+        "missing_source_bound_identity_resolution"
+      ],
+      "payoff": null,
+      "publishable": false
+    },
+    {
+      "fixture": "nba-no-props",
+      "source_sha256": "4d63f13ca4ffebe48fa663f4f1148516900e092a1203d4e0a07df7682b678e12",
+      "normalized_contract_count": 0,
+      "as_of": "2026-09-29T18:43:01.621244+00:00",
+      "reasons": [
+        "study_as_of_after_evaluation",
+        "invalid_feed_or_exact_contract"
+      ],
+      "payoff": null,
+      "publishable": false
+    },
+    {
+      "fixture": "nba-no-props",
+      "source_sha256": "4d63f13ca4ffebe48fa663f4f1148516900e092a1203d4e0a07df7682b678e12",
+      "normalized_contract_count": 0,
+      "as_of": "2026-09-30T04:34:27.518971+00:00",
+      "reasons": [
+        "invalid_feed_or_exact_contract"
+      ],
+      "payoff": null,
+      "publishable": false
+    },
+    {
+      "fixture": "ncaa-no-props",
+      "source_sha256": "a888ac8ae275af418c93680fc2f238726769d69024124f5e858abbf1c38f42c4",
+      "normalized_contract_count": 0,
+      "as_of": "2026-09-29T18:43:10.571175+00:00",
+      "reasons": [
+        "invalid_forecast_or_cutoff"
+      ],
+      "payoff": null,
+      "publishable": false
+    },
+    {
+      "fixture": "ncaa-no-props",
+      "source_sha256": "a888ac8ae275af418c93680fc2f238726769d69024124f5e858abbf1c38f42c4",
+      "normalized_contract_count": 0,
+      "as_of": "2026-09-30T04:34:27.518971+00:00",
+      "reasons": [
+        "invalid_forecast_or_cutoff"
+      ],
+      "payoff": null,
+      "publishable": false
+    },
+    {
+      "fixture": "wnba-fixtures-endpoint",
+      "source_sha256": "a681d2b52555decefe1236ed5b447ad4953f80ad710e14ec153729944972a508",
+      "normalized_contract_count": 330,
+      "as_of": "2026-09-29T18:43:03.372973+00:00",
+      "reasons": [
+        "study_as_of_after_evaluation",
+        "missing_source_bound_identity_resolution"
+      ],
+      "payoff": null,
+      "publishable": false
+    },
+    {
+      "fixture": "wnba-fixtures-endpoint",
+      "source_sha256": "a681d2b52555decefe1236ed5b447ad4953f80ad710e14ec153729944972a508",
+      "normalized_contract_count": 330,
+      "as_of": "2026-09-30T04:34:27.518971+00:00",
+      "reasons": [
+        "quote_expired_at_as_of",
+        "event_started_at_as_of",
+        "missing_source_bound_identity_resolution"
+      ],
+      "payoff": null,
+      "publishable": false
+    }
+  ],
+  "real_successful_offer_evaluations": 0,
+  "synthetic_identity_interchange_live_verified": false,
+  "new_fits": 0,
+  "new_measured_validation_metrics": null,
+  "issued_instructions": 0,
+  "profit_claim": null,
+  "helper_reviews": [],
+  "validation": {
+    "new_regressions": {
+      "passed": 60,
+      "seconds": 13.31
+    },
+    "existing_related_python_api": {
+      "passed": 329,
+      "seconds": 49.2,
+      "warnings": [
+        "existing Starlette/httpx deprecation"
+      ]
+    },
+    "frontend_dom": {
+      "passed": 40,
+      "seconds": 7.37
+    },
+    "controller_full_suites": "pending",
+    "independent_controller_review": "pending",
+    "live_publication": "not accessed; separate release required"
+  },
+  "preservation": {
+    "original_files_checked": 291,
+    "original_test_files_checked": 97,
+    "changed_original_files": [],
+    "added_files": [
+      "docs/F0024_PLAYER_PROP_OFFER_EVALUATION.md",
+      "docs/F0024_PLAYER_PROP_OFFER_EVIDENCE.json",
+      "src/betting_engine/player_prop_offer_evaluation.py",
+      "tests/test_f0024_player_prop_offer_evaluation.py"
+    ]
+  },
+  "implementation_sha256": {
+    "docs/F0024_PLAYER_PROP_OFFER_EVALUATION.md": "349b34b3ff1c7e14fe1d9e3a8acfedc956253f02d06633243cd7cefb000d73a3",
+    "src/betting_engine/player_prop_offer_evaluation.py": "c2ff403a9672bd0f24a2dafb0c6f3785465ad71a0cbc8aa1898dd38fe136ad54",
+    "tests/test_f0024_player_prop_offer_evaluation.py": "9130df5f277d3cf8ff06e7638679cff784d34a1e3b1423d9085f201a71063768"
+  }
+}

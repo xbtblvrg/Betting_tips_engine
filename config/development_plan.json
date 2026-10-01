@@ -1,0 +1,462 @@
+{
+  "version": "2026-09-30.19",
+  "created_at": "2026-09-29T14:15:39.029647+00:00",
+  "timezone": "Europe/Budapest",
+  "checkpoint_semantics": "Review deadlines, not promised completion dates",
+  "milestones": [
+    {
+      "id": "M01",
+      "title": "Supervision and delivery evidence",
+      "checkpoint_at": "2026-09-30T14:15:39.029647+00:00",
+      "acceptance": "Restartable services, durable implementation attempts, independent tests/review, visible checkpoint misses and a verified recovery drill.",
+      "requirements": [
+        "R11",
+        "R14",
+        "R17",
+        "R25"
+      ]
+    },
+    {
+      "id": "M02",
+      "title": "Point-in-time sports inputs",
+      "checkpoint_at": "2026-10-01T14:15:39.029647+00:00",
+      "acceptance": "Availability timestamps, reliable player identities, current participation/role, injury/lineup/QB/goalie/pitcher evidence and source fallback validated by league.",
+      "requirements": [
+        "R01",
+        "R02",
+        "R03"
+      ]
+    },
+    {
+      "id": "M03",
+      "title": "Player props from independent models",
+      "checkpoint_at": "2026-10-02T14:15:39.029647+00:00",
+      "acceptance": "Per-league player forecasts, separate chronological validation, current participation, exact offered prop contracts and DNP/void/push settlement verified before activation.",
+      "requirements": [
+        "R04",
+        "R21",
+        "R23"
+      ]
+    },
+    {
+      "id": "M04",
+      "title": "Remaining period and special markets",
+      "checkpoint_at": "2026-10-03T14:15:39.029647+00:00",
+      "acceptance": "Independently observed targets and validated pricing/settlement for every offered period/event-order/leader/special family; dynamically discovered NCAA sports remain in scope.",
+      "requirements": [
+        "R03",
+        "R12",
+        "R23",
+        "R24"
+      ]
+    },
+    {
+      "id": "M05",
+      "title": "Executable-price and economic validation",
+      "checkpoint_at": "2026-10-01T14:15:39.029647+00:00",
+      "acceptance": "Frozen forecasts and odds, closing-price comparisons, accepted versus assumed execution, game-clustered betting P&L after stakes, and prospective challenger evidence. External operating budget is user-controlled; unknown costs are disclosed separately and never block model work.",
+      "requirements": [
+        "R05",
+        "R06",
+        "R07",
+        "R08",
+        "R15",
+        "R19"
+      ]
+    },
+    {
+      "id": "M06",
+      "title": "Joint combinations and in-play",
+      "checkpoint_at": "2026-10-06T14:15:39.029647+00:00",
+      "acceptance": "Actual combined Stake quotes and dependent outcomes for SGM; live state-conditioned models with measured price latency and correct settlement.",
+      "requirements": [
+        "R04",
+        "R23"
+      ]
+    },
+    {
+      "id": "M07",
+      "title": "Reliable operation and releases",
+      "checkpoint_at": "2026-10-02T14:15:39.029647+00:00",
+      "acceptance": "Isolated releases, complete regression tests, shadow validation, original-record preservation, rollback/restore drills, always-on host requirements and alert evidence.",
+      "requirements": [
+        "R09",
+        "R10",
+        "R17",
+        "R18",
+        "R19",
+        "R25"
+      ]
+    },
+    {
+      "id": "M08",
+      "title": "Full requirement acceptance",
+      "checkpoint_at": "2026-10-13T14:15:39.029647+00:00",
+      "acceptance": "Every requirement mapped to tested code and live evidence; all discovered in-scope contracts truly supported; daily 15+ compliance measured and shortfalls retained; economic outcomes reported without guaranteed-profit claims.",
+      "requirements": [
+        "R01",
+        "R02",
+        "R03",
+        "R04",
+        "R05",
+        "R06",
+        "R07",
+        "R08",
+        "R09",
+        "R10",
+        "R11",
+        "R12",
+        "R13",
+        "R14",
+        "R15",
+        "R16",
+        "R17",
+        "R18",
+        "R19",
+        "R20",
+        "R21",
+        "R22",
+        "R23",
+        "R24",
+        "R25",
+        "R26",
+        "R27",
+        "R28",
+        "R29",
+        "R30"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "D01",
+      "milestone": "M02",
+      "priority": 1,
+      "title": "Point-in-time player feature contract",
+      "objective": "Implement an experimental point-in-time player-history feature builder using explicit as_of and availability timestamps. Preserve unknown participation, avoid current/future game leakage, and filter league/player/team identities. Existing historical source_fetched_at is not proof of historical availability.",
+      "acceptance": "Pure tested API; reject future/unavailable rows; do not silently assume a scheduled start is the result availability time; null statistics never become zero. Document exact input contract and integration still required.",
+      "depends_on": []
+    },
+    {
+      "id": "D02",
+      "milestone": "M05",
+      "priority": 2,
+      "title": "Frozen closing-price comparison",
+      "objective": "Implement an experimental exact-contract closing-price evaluator over timestamped quote snapshots and immutable issued decisions.",
+      "acceptance": "Reject mismatched event/scope/side/line, suspended or post-start prices; separately report missing closing prices; compute price CLV on eligible comparable contracts with tests. No production ledger changes.",
+      "depends_on": [],
+      "repair_focus": "Latest read-only review reproduced same-event/same-market-ID scope conflicts bypassing blockers. Preserve an exact-market identity-conflict blocker before rejecting title/scope differences, including simultaneous copies and later suspended captures. A later unambiguous eligible capture may supersede it. Retain existing tests and add these regressions. Do not weaken any lifecycle/eligibility requirement."
+    },
+    {
+      "id": "D03",
+      "milestone": "M02",
+      "priority": 3,
+      "title": "Participation and role evidence",
+      "objective": "Implement a typed current-participation evidence validator for each pro league and NCAA model family, with source hash, observed_at, valid_until, identity and uncertainty.",
+      "acceptance": "Unknown or stale role remains unknown; DNP is distinct from no data; multiple-source conflicts visible; no fabricated current availability. Tests cover identity and timestamp conflicts.",
+      "depends_on": [
+        "D01"
+      ]
+    },
+    {
+      "id": "D04",
+      "milestone": "M03",
+      "priority": 4,
+      "title": "Exact player-prop contract adapter",
+      "objective": "Implement a separate experimental player contract normalizer from locally archived Stake catalogue shapes, covering points/rebounds/assists/3-pointers, hockey and NFL prop metrics with explicit scope and unresolved status.",
+      "acceptance": "No guessing player IDs, scopes or participation. Supported versus recognized states separate. Mapping tests use real observed schema if available; fixture examples labelled synthetic when needed.",
+      "depends_on": []
+    },
+    {
+      "id": "D05",
+      "milestone": "M03",
+      "priority": 5,
+      "title": "Player prop settlement contract",
+      "objective": "Implement pure player-prop payout functions with explicit play eligibility, void, integer push, and stat correction states.",
+      "acceptance": "Missing DNP/start rules or stats return pending review; full-game scores never settle props; league/player/game/metric identity checked. Tests cover all payout branches.",
+      "depends_on": [
+        "D04"
+      ]
+    },
+    {
+      "id": "D06",
+      "milestone": "M03",
+      "priority": 6,
+      "title": "Independent player model experiment",
+      "objective": "Build a shadow-only player-stat model study using supplied identified player logs. Compare simple count/continuous baselines appropriate to each metric and temporal splits.",
+      "acceptance": "Preserve chronological selection and untouched test; report every excluded row and timestamp limitation; no market odds features. Gate reports must reject insufficient evidence; do not enable production props.",
+      "depends_on": [
+        "D01",
+        "D03",
+        "D04",
+        "D05"
+      ]
+    },
+    {
+      "id": "D07",
+      "milestone": "M05",
+      "priority": 7,
+      "title": "Economic evaluation with related games",
+      "objective": "Implement a shadow economic evaluator for frozen decision/payout/fee rows, grouped by game and time.",
+      "acceptance": "Include losing/push/void decisions; separate betting P&L after stakes from optional operating costs. Unknown costs must not block betting evaluation. Distinguish assumed/accepted execution, cluster by game and date, report intervals and drawdown without equating Brier gains with profit. Extend existing economics.py evidence rather than creating contradictory definitions.",
+      "depends_on": [
+        "D02"
+      ]
+    },
+    {
+      "id": "D08",
+      "milestone": "M04",
+      "priority": 8,
+      "title": "Asian quarter-line payout",
+      "objective": "Implement a pure split-contract Asian quarter-line payoff adapter and probability aggregation.",
+      "acceptance": "Decompose adjacent half/integer lines, preserve full/half win/loss/push semantics and correlated split legs. Independent tests cover positive/negative handicap and totals. Do not activate production contracts.",
+      "depends_on": []
+    },
+    {
+      "id": "D09",
+      "milestone": "M04",
+      "priority": 9,
+      "title": "Event-sequence target contract",
+      "objective": "Implement independent event-sequence target extraction interfaces for first/last scorer, timing and touchdowns/field-goals using timestamped event rows.",
+      "acceptance": "Correct regulation/OT scope, verified complete event list required, no zero inference from missing event history. Tests cover ties, no-event matches, corrections and incomplete sequences.",
+      "depends_on": []
+    },
+    {
+      "id": "D10",
+      "milestone": "M04",
+      "priority": 10,
+      "title": "Dynamic NCAA market obligations",
+      "objective": "Build experimental per-sport NCAA coverage obligations from actual discovered tournaments and catalogue families.",
+      "acceptance": "Unknown sports receive independent data/model/settlement requirements; no use of pro or unrelated college model. No fixture disappearance or completed research dossier may close an implementation obligation.",
+      "depends_on": []
+    },
+    {
+      "id": "D11",
+      "milestone": "M06",
+      "priority": 11,
+      "title": "SGM joint-quote contract",
+      "objective": "Implement the data contract and validator for actual combined SGM quotes, dependent leg identities and quote lifetimes.",
+      "acceptance": "Reject multiplied single-leg odds as combined quotes, incompatible scope and duplicate/equivalent legs; no invented endpoint or availability; tests cover combined quote failure modes.",
+      "depends_on": []
+    },
+    {
+      "id": "D12",
+      "milestone": "M06",
+      "priority": 12,
+      "title": "Live-state and latency contract",
+      "objective": "Implement shadow-only in-play state/score/clock/possession validation and execution-latency eligibility.",
+      "acceptance": "Reject pregame forecasts used as live models, stale clock/score, suspended or changed contract and missing state. No production live betting until independent state-conditioned training passes.",
+      "depends_on": []
+    },
+    {
+      "id": "D13",
+      "milestone": "M07",
+      "priority": 13,
+      "title": "Release and recovery rehearsal",
+      "objective": "Implement a candidate release-manifest/rollback rehearsal against temporary stores and file trees.",
+      "acceptance": "All changes bound to source hashes; tests/model/settlement evidence required; concurrent live source change prevents promotion; existing issued odds/stakes unchanged; rollback restores code without replacing newer bets. Do not modify real launchd or production.",
+      "depends_on": []
+    },
+    {
+      "id": "D14",
+      "milestone": "M01",
+      "priority": 14,
+      "title": "Development acceptance evidence",
+      "objective": "Add independent behavior tests and release evidence tooling for development-run failure, resume, source conflict and candidate-versus-production state.",
+      "acceptance": "Tests prove failed code, failed review and interrupted work cannot become production-ready; candidate status never closes full engine readiness; use new tests/modules, do not modify protected worker. Actual restore drill remains required.",
+      "depends_on": []
+    },
+    {
+      "id": "D15",
+      "milestone": "M08",
+      "priority": 15,
+      "title": "Requirement acceptance matrix",
+      "objective": "Implement a read-only acceptance evaluator that maps every persistent requirement to code/test/live evidence and calendar-day delivery observations.",
+      "acceptance": "Every requirement in the current project_contract.json present, including R01-R30; no hard-coded last requirement ID; no fake percentage from file existence; 15/day shortfalls remain failures, no duplicate/reprice inflation; no matches or unsupported contracts remain explicit limits, never fabricated bets.",
+      "depends_on": []
+    },
+    {
+      "id": "D16",
+      "milestone": "M05",
+      "priority": 16,
+      "title": "Related-position sizing experiment",
+      "objective": "Implement a shadow joint exposure evaluation comparing current bounded sizing to correlation-aware alternatives on replayed outcomes.",
+      "acceptance": "Preserve $1-$5 and no fixed daily cap. No inferred bankroll or cap increase. Use held and proposed exact contracts, report assumptions and stress scenarios; no production sizing change. Audit payoff-equivalent full-game Winner/Handicap 0/half-lines by actual tie/OT rules before aggregating exposure; do not count identical payoff aliases as independent opportunities. Preserve immutable original IDs.",
+      "depends_on": [
+        "D07"
+      ]
+    },
+    {
+      "id": "D17",
+      "milestone": "M05",
+      "priority": 3,
+      "title": "Captured-price evaluation integration",
+      "objective": "Connect the accepted exact-contract CLV evaluator to hash-verified closing_price_captures and immutable decision exports in a temporary isolated store. Implement durable frozen per-decision reports and coverage, retaining missing/invalid closing prices. Inspect the production closing_capture.py source contract; do not fetch or write live data.",
+      "acceptance": "Preserve suspended/empty/conflicting same-market captures as blockers, reject post-start/backdated prices and hash mismatch. Reports are idempotent, source-bound and retain issued odds and losing bets. Existing ledger fields remain immutable. Include independent regressions, never claim CLV is realized ROI or profit.",
+      "depends_on": [
+        "D02"
+      ]
+    },
+    {
+      "id": "D18",
+      "milestone": "M05",
+      "priority": 3,
+      "title": "Professional model family validation",
+      "objective": "Implement a shadow audit and reproducible chronological comparison of deployed professional league models, the existing odds-independent Elo benchmark, and score-market probabilities. Use real supplied sports history and frozen reports; evaluate full-game Winner, Handicap, Total and team totals by family. Inspect where the deployed report lacks a family-specific gate and where Elo beats the deployed ensemble.",
+      "acceptance": "Separate training, recipe selection, calibration and final test with event/date grouping. An already inspected retrospective test is not a new untouched holdout; preserve source hashes and trial history. Report sample sizes, calibration and score diagnostics, lower-is-better proper scores, benchmark comparison and family eligibility. Actual offered lines require actual source evidence; synthetic thresholds are diagnostics only. No invented executable-price ROI, no production activation and no retuning on the final test. Add independent behavioral tests for insufficient evidence and comparator failures.",
+      "depends_on": [],
+      "root_recovery_package": {
+        "version": "root-fixture-recovery-v1",
+        "manifest_path": "docs/candidate_fixture_repairs/d18-prepromotion-v1/manifest.json",
+        "manifest_sha256": "dea44824ff1985369121d49cffba49c5cc7b6d758e45c44928f93d2dc9682e2b",
+        "source_run_id": "20261001T082329892886-D18",
+        "targets": [
+          "tests/test_d18_audit_provenance.py",
+          "tests/test_d18_audit_replay.py",
+          "tests/test_d18_frozen_exports.py",
+          "tests/test_d18_frozen_archive.py",
+          "tests/fixtures/d18-prepromotion-a-v1.tar.gz",
+          "tests/fixtures/d18-prepromotion-b-v1.tar.gz"
+        ],
+        "instructions": "Copy exactly six D18 targets after root verifies retained test hashes and terminal failure evidence. Preserve every assertion and all other test bytes except specified import/root assignments. Never alter current data/model_evidence, data/games.json, approved models or failure receipts."
+      }
+    },
+    {
+      "id": "D19",
+      "milestone": "M05",
+      "priority": 2,
+      "title": "Immutable training-input provenance and replay",
+      "objective": "Implement a content-addressed training-input snapshot and replay contract for future league, period and inning training. Bind exact enriched input rows, feature code, recipe, cutoffs, data/source hashes and approved report to each version. Inspect existing versions and experiment archives; preserve explicit missing_original_input for legacy versions. Current enriched historical games are not the original training snapshot.",
+      "acceptance": "Use actual supplied archived sources and read-only model exports. Independent tests prove post-training enrichment cannot change the frozen input; altered hashes, changed recipes and missing rows block exact replay claims. Never reconstruct a supposed original snapshot by deleting current enrichment. Integrate snapshot generation in candidate-only train paths where allowed and report any production integration separately. No ledger write, model promotion or probability/odds fabrication.",
+      "depends_on": []
+    },
+    {
+      "id": "D20",
+      "milestone": "M04",
+      "priority": 5,
+      "title": "Native event-sequence source adapters",
+      "objective": "Build source-bound adapters for actual supplied nflverse play-by-play and official NHL gamecenter play-by-play archives into the event_sequence contract. Inspect data/sports_source_evidence and its raw hash manifest before declaring data missing. Use actual terminal event/score/correction identities, explicit regulation/OT/shootout rules and observed availability; a synthetic completeness attestation is not native source validation.",
+      "acceptance": "Read-only exact-body provenance; game/team/player identity checks, terminal completeness and final-score reconciliation on supplied real games including NHL shootout. Negative tests for missing/corrected/duplicate events and exceptional games. No invented finished_at or model support. Report unsupported source scopes explicitly; independent chronology/model validation still required for new bets.",
+      "depends_on": [
+        "D09"
+      ]
+    },
+    {
+      "id": "D21",
+      "milestone": "M02",
+      "priority": 5,
+      "title": "Current player identity and participation source adapters",
+      "objective": "Build actual source adapters connecting independently observed player identity, current availability/role and exact Stake player contracts. Use supplied verified_history, players/source_evidence, sports_source_evidence, games.json context and full Stake endpoint evidence. Retain explicit unknowns; injury-list absence is not healthy/starting status. Separate sr:player, ESPN, MLBAM, NHL and nflverse identities.",
+      "acceptance": "At least one actual supplied league source produces hash-bound exact current-player evidence; conflicting/missing/stale sources fail closed with retained reasons. No name-only fuzzy-ID equivalence, fabricated official crosswalk, historical timestamp backdating or probability changes. Keep remaining league source integrations visible and implementable, with per-source tests and documented future refresh path.",
+      "depends_on": [
+        "D01",
+        "D03",
+        "D04"
+      ]
+    },
+    {
+      "id": "D22",
+      "milestone": "M07",
+      "priority": 0,
+      "title": "Dashboard and API responsiveness under concurrent engine load",
+      "owner": "Codex development coordinator",
+      "release_owner": "Root Codex runtime integration",
+      "created_at": "2026-09-30T10:26:23.062149+00:00",
+      "due_at": "2026-09-30T14:26:23.062149+00:00",
+      "depends_on": [],
+      "objective": "Diagnose and repair the remaining intermittent HTTP latency after the deployed SSE to_thread fix. Preserve the deployed SSE fix; it does not establish that dashboard latency is solved. Reproduce the actual concurrency of market refresh/publication, three isolated development lanes, a separately validated utility release and multiple SSE clients. Compare /api/dashboard, /api/development and /api/health end-to-end latency with standalone function timings; isolate event-loop, executor, SQLite, serialization and CPU contention using bounded profiling. Implement the smallest justified fix in the isolated candidate, with a deterministic regression of the discovered cause. Root Codex owns separately tested integration of any runtime change. Start from the bounded reproduced diagnostics in docs/D22/; those files are copied into isolated workspaces. Do not confuse already-fixed SSE/database or frontend amplification with measured completion of all HTTP latency criteria.",
+      "acceptance": "Provide timestamped latency samples, workload/state evidence, source hashes and a before/after reproduction. In two independent 120-second local concurrent-load runs, including a real refresh/publication in each run, at least three SSE clients, three active development lanes and at least 20 samples per endpoint, require dashboard p95 <= 3.0 seconds and maximum <= 5.0 seconds, development p95 <= 2.0 seconds and maximum <= 5.0 seconds, health p95 <= 0.5 seconds and maximum <= 2.0 seconds, and zero request timeouts/5xx. Validate Tailscale separately with observed RTT disclosed, without conflating network delay with server work. Cancellation/disconnect must not leak repeated polls. Existing EvidenceGuard, sealed input/model/quote/sizing checks, 300-second quote expiry and $1-$5 bounds remain unchanged; expired/unreviewed instructions stay hidden even during slow refresh. Compare immutable ledger fingerprints before/after; no original odds/stakes/outcomes rewritten. Full Python and DOM suites plus independent Codex review and separately verified root runtime release are required. A profiler, queued task, standalone fast call, SSE-only fix or passive utility receipt is not completed acceptance. Preserve the fixed deadline and report unresolved criteria; do not weaken thresholds or skip guards to pass.",
+      "evidence_refs": [
+        "docs/D22/dashboard-profile-after.txt",
+        "docs/D22/delivery-profile-after.txt",
+        "docs/D22/automation-profile-after.txt",
+        "docs/D22/sqlite-read-contention-probe.json",
+        "docs/D22/dashboard-thread-contention-probe.json",
+        "docs/D22/dashboard-overlap-repro.json",
+        "docs/D22/http-latency-followup-evidence.json"
+      ]
+    },
+    {
+      "id": "D23",
+      "milestone": "M05",
+      "priority": 1,
+      "title": "Exact-market prospective evidence and per-segment advantage development",
+      "owner": "Codex quant and runtime integration",
+      "release_owner": "Root Codex",
+      "created_at": "2026-09-30T12:52:52.645544+00:00",
+      "due_at": "2026-10-01T12:52:52.645544+00:00",
+      "depends_on": [],
+      "objective": "Complete immutable exact supported market shadow observations and verified closing captures independent of funded publication. Report league/scope/family/model CLV, independent game count, fixed observation period and model-vs-market scores. Diagnose candidate/coverage gaps and test one predeclared feature/recipe at a time on chronologically separated evidence. Minimum15 funded first issuances remains a delivery objective; lack of CLV history alone must not shut down qualified funded publication.",
+      "acceptance": "Hash-bound exact first-observation contract/odds/model/probability; no repricing inflation, historical backdating or betting-ledger writes. Fresh live capture and later exact-scope outcomes verified, missing prices retained, negative tests pass. Shadow rows excluded from funded daily count. Full tests, independent review and local/Tailscale verification; a passive module alone is not runtime completion. Report measured results honestly; edge proof is not invented to close this task."
+    },
+    {
+      "id": "D24",
+      "milestone": "M07",
+      "priority": 0,
+      "title": "NHL unresolved issued-game final-result recovery",
+      "owner": "Codex settlement development",
+      "release_owner": "Root Codex",
+      "created_at": "2026-09-30T12:52:52.645544+00:00",
+      "due_at": "2026-09-30T16:52:52.645544+00:00",
+      "depends_on": [],
+      "objective": "Repair pending NHL bet/system-decision outcomes after game IDs leave the rolling schedule. Current reproduction: 27 prior-game open tickets across five NHL IDs are absent from games.json despite official final evidence.",
+      "acceptance": "Exact official final identity/start/team and scoring scope; correct regulation, periods, OT and shootout accounting. Idempotently settle pending bets and original decisions while original payload/odds/stakes stay hash-identical. Fail incomplete/conflicting/stale source evidence with persistent retry state. Tests, independent review, fresh runtime local/Tailscale proof; remaining future open tickets must not be force-settled."
+    }
+  ],
+  "deferred": [
+    {
+      "id": "TELEGRAM",
+      "reason": "User requested later; delivery channel setup needs destination and credentials."
+    }
+  ],
+  "task_diagnostic_bindings": {
+    "D18": {
+      "version": "root-shared-task-diagnostics-v1",
+      "scope": "already_inspected_model_outcome_diagnostics",
+      "files": [
+        {
+          "path": "docs/audits/20261001-0726-model-outcomes.md",
+          "sha256": "46260adb9721293f861b6322eb0cc5000ecba6d25a3ca751d31f4e2551f85554",
+          "bytes": 10763
+        },
+        {
+          "path": "docs/audits/20261001-0726-model-work.json",
+          "sha256": "75135e385cfb9db0205a9b119eabb35044c9194f45f3b3cc723e27924a851a76",
+          "bytes": 19881
+        }
+      ]
+    },
+    "E514CB13F60": {
+      "version": "root-shared-task-diagnostics-v1",
+      "scope": "already_inspected_model_outcome_diagnostics",
+      "files": [
+        {
+          "path": "docs/audits/20261001-0726-model-outcomes.md",
+          "sha256": "46260adb9721293f861b6322eb0cc5000ecba6d25a3ca751d31f4e2551f85554",
+          "bytes": 10763
+        },
+        {
+          "path": "docs/audits/20261001-0726-model-work.json",
+          "sha256": "75135e385cfb9db0205a9b119eabb35044c9194f45f3b3cc723e27924a851a76",
+          "bytes": 19881
+        }
+      ]
+    },
+    "E5E9AD751B5": {
+      "version": "root-shared-task-diagnostics-v1",
+      "scope": "already_inspected_model_outcome_diagnostics",
+      "files": [
+        {
+          "path": "docs/audits/20261001-0726-model-outcomes.md",
+          "sha256": "46260adb9721293f861b6322eb0cc5000ecba6d25a3ca751d31f4e2551f85554",
+          "bytes": 10763
+        },
+        {
+          "path": "docs/audits/20261001-0726-model-work.json",
+          "sha256": "75135e385cfb9db0205a9b119eabb35044c9194f45f3b3cc723e27924a851a76",
+          "bytes": 19881
+        }
+      ]
+    }
+  }
+}

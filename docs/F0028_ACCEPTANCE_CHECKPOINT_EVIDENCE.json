@@ -1,0 +1,51 @@
+{
+  "candidate_only": true,
+  "controller_acceptance_committed": false,
+  "helper_reviews": [
+    {
+      "disposition": "partly_used",
+      "id": "acceptance_checklist:grok",
+      "reason": "Used pinned source/deadline and recovery evidence checks. Rejected conflation of Budapest daily issuance with rolling windows and claims that receipt schema/timezone were unspecified; existing controller and contract define them. Retained precise original timestamps. No advisory test, review or source claims accepted.",
+      "sha256": "9c0b3d95739033661dca05f823ce6dd9655d929293ca4202bdcf3cc28e6322fd"
+    }
+  ],
+  "independent_review_performed": false,
+  "kind": "developer-audit-only",
+  "limitations": [
+    "Gap remains controller-owned and open; no real acceptance receipt created.",
+    "Synthetic candidate handoff recovery only; no actual service recovery drill.",
+    "Full fixed suites, independent review, runtime integration and authorized local/Tailscale publication remain pending.",
+    "Hashes attest byte consistency only, not independent provenance or review truth."
+  ],
+  "preservation": {
+    "baseline_file_count": 387,
+    "baseline_manifest_sha256": "b2080a2dbaab1fca20cf5d56c3a3d9eada1621de6cf826e6c30edb481333686f",
+    "changed_or_missing_baseline_files": [],
+    "existing_tests_and_fixtures_count": 104,
+    "existing_tests_manifest_sha256": "64ea6e2aaaac1a3e4e1f9619ba0f0b918e5523a9144499e57f3ece05bb62fa22"
+  },
+  "production_release_performed": false,
+  "source_hashes": {
+    "docs/F0028_ACCEPTANCE_CHECKPOINT.md": "6384354d9a77a80d742115ccd982da1842d11bdf2daf94e407a45bbdc446c177",
+    "src/betting_engine/development_acceptance_checkpoint.py": "2dd6f5395d9b45d315d178797479bc50aa913cd92a28ae6d871d985ab0e79b90",
+    "tests/test_f0028_acceptance_checkpoint.py": "68be93186fc9af14456a444c0d708763f28d79392191afe99643c4a75137e993"
+  },
+  "task_id": "F0028",
+  "validation": [
+    {
+      "command": "PYTHONPATH=src OMP_NUM_THREADS=1 /Users/belavarga/Betting_tips_engine/.venv/bin/python -m pytest -q tests/test_f0028_acceptance_checkpoint.py",
+      "passed": 44
+    },
+    {
+      "command": "PYTHONPATH=src OMP_NUM_THREADS=1 /Users/belavarga/Betting_tips_engine/.venv/bin/python -m pytest -q tests/test_f0028_restart_journal.py tests/test_supervisor.py tests/test_f0022_recovery_drill.py tests/test_f0022_traversal_errors.py tests/test_f0022_commit_durability.py tests/test_d14_development_acceptance.py tests/test_d14_nonfinite_evidence.py tests/test_e393159_candidate_audit.py tests/test_d13_acceptance_handoff.py tests/test_eb71df62487_acceptance_delta.py tests/test_parallel_development.py tests/test_release_coordinator.py tests/test_task_release_handoff.py tests/test_release_supervision.py tests/test_release_superseded_tasks.py tests/test_api.py",
+      "passed": 405,
+      "warnings": [
+        "Existing Starlette/httpx deprecation warning"
+      ]
+    },
+    {
+      "command": "node --test tests/web.test.mjs",
+      "passed": 40
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "claim": "Exact retained archived contract observations; all injected faults in tests are synthetic. No assertion of live availability or observed malformed quote.",
+  "files": [
+    {
+      "source": "/Users/belavarga/Betting_tips_engine/data/development/runs/20261001T002738345498-E514CB13F60/accepted-files/tests/fixtures/e514cb13f60_scope_identity.json",
+      "destination": "tests/fixtures/root_contract_identity/scope_identity.json",
+      "sha256": "f3483972421c22e13e5826653842e2925137a40b0727ec825aedf18c9caac093"
+    },
+    {
+      "source": "/Users/belavarga/Betting_tips_engine/data/development/runs/20261001T002738345498-E514CB13F60/accepted-files/tests/fixtures/e514cb13f60_categorical_identity.json",
+      "destination": "tests/fixtures/root_contract_identity/categorical_identity.json",
+      "sha256": "0c6c810d9c9f013dfcd89b88efe49f6a82ad567d8dc270b33bdc73ca2bc1ddfe"
+    }
+  ]
+}
