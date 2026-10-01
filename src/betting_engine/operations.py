@@ -9,10 +9,43 @@ import hashlib,io,json
 from pathlib import Path
 import joblib
 from .domain import LEAGUES,utcnow,parse_time
-from .freshness import fresh_quote
+from .freshness import fresh_quote,MAX_QUOTE_AGE_SECONDS
 from .io_utils import atomic_bytes,atomic_json
 
 ALL_LEAGUES=(*LEAGUES,'MLS')
+
+def allocation_summary(payload,now=None):
+    """Observe this publication's allocations, not all inventory or engine health."""
+    now=now or utcnow()
+    generated=payload.get('generated_at')
+    try:current=isinstance(generated,str) and -5<=(now-parse_time(generated)).total_seconds()<=MAX_QUOTE_AGE_SECONDS
+    except (KeyError,TypeError,ValueError):current=False
+    evaluated=[t for t in payload.get('evaluated_candidates',[]) if current and fresh_quote(t,now)]
+    selected=[t for t in [*payload.get('recommendations',[]),*payload.get('alternatives',[])] if current and fresh_quote(t,now)]
+    funded=[t for t in selected if t.get('stake',0)>0]
+    counts=Counter(t.get('allocation_code','unreported') for t in selected if t.get('stake',0)<=0)
+    games={t['game_id'] for t in evaluated}
+    issued_games={t.get('game_id') for t in payload.get('issued_contracts',[])}
+    if not current:
+        state,message='publication_unavailable','A current publication is unavailable; allocation counts cannot establish that the engine is searching or healthy.'
+    elif not evaluated:
+        state,message='no_current_guarded_candidates','This publication has no current guarded candidates; inspect source, model and contract diagnostics.'
+    elif funded:
+        state,message='new_allocations',f'This publication allocated stakes to {len(funded)} selections. Allocation is separate from confirmed first issuance and checklist placement.'
+    else:
+        state='no_new_allocations'
+        message=(f'No new stake was allocated in this publication. {counts["already_held"]} selected allocations were already covered by recorded contracts; '
+            f'{counts["model_pick_event_covered"]} game preference allocations were already covered; '
+            f'{counts["probability_pick_suppressed"]} probability-only selections were suppressed by preference precedence; '
+            f'{counts["price_below_threshold"]} selections did not meet the active price/policy threshold. '
+            f'Current guarded candidates cover {len(games)} games, {len(games-issued_games)} without a prior issued contract. '
+            'Other allocation reasons remain in the counts; this snapshot alone does not prove process health or future issuance.')
+    return {'version':'publication-allocation-summary-v1','publication_at':payload.get('generated_at'),
+        'observed_at':now.isoformat(),'state':state,'message':message,
+        'current_evaluated_outcomes':len(evaluated),'current_evaluated_games':len(games),
+        'selected_family_winners':len(selected),'new_allocations':len(funded),
+        'candidate_games_without_issued_contracts':len(games-issued_games),
+        'nonallocation_counts':dict(counts),'scope':'Fresh guarded candidates and selected families from this publication only; not complete feed coverage, daily first issuance, checklist readiness or a health check.'}
 
 def market_types(inventory,candidates=()):
     groups={}
@@ -101,6 +134,7 @@ def operating_audit(payload,progress,now=None):
             'research_source':f'league-{league.lower()}','unresolved_gaps':sum(g['league']==league for g in gaps)})
     return {'checked_at':now.isoformat(),'publication_at':payload.get('generated_at'),
         'scan_seconds':payload.get('settings',{}).get('refresh_seconds',60),'daily_progress':progress,
+        'allocation':allocation_summary(payload,now),
         'leagues':rows,'fixtures':fixture_rows,'gaps':gaps,'full_market_coverage':False,'code_self_modification':False,
         'target_action':'Continue fresh-market evaluation and prioritize league research; never issue a duplicate or bypass the evidence/value gates.' if progress.get('shortfall',0)>0 else 'Target reached; continue publishing qualified new contracts.'}
 

@@ -203,6 +203,7 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
     bases={c['id']:funding_basis(c,settings) for c in candidates} if continuous else {}
     preference_allocations=set(held_preference_allocations);new_preference_events=set()
     probability_ids=probability_preference_ids(candidates,settings,bases,held_preference_allocations)
+    positive_events={c['game_id'] for c in candidates if continuous and bases[c['id']]['tier'] in ('stress_value','model_pick')}
     def tier(c):
         if not continuous:return 3 if c['stress_roi']>=settings['minimum_roi'] else 0
         if bases[c['id']]['tier']=='probability_pick' and c['id'] not in probability_ids:return 0
@@ -279,6 +280,15 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
             if amount:funded_counts[c['game_id']]+=1
             c['reference_stake_executable']=amount>=c.get('reference_minimum_notional',0) and amount>0
             if amount and not c['reference_stake_executable']:c['stake_note']+=' A referencia-platform minimuma nagyobb ennél; ez a tét csak megfelelő minimumú másik platformon alkalmazható.'
+        elif continuous and bases[c['id']]['tier']=='probability_pick' and c['id'] not in probability_ids:
+            c['allocation_code']='probability_pick_suppressed'
+            if c['game_id'] in positive_events:
+                c['allocation_reason']='A current positive-EV-qualified contract in this game takes precedence over probability-only picks, including when that contract is already held.'
+            elif (c['game_id'],'model_pick') in preference_allocations:
+                c['allocation_reason']='A Model Pick has already been issued for this game; the policy does not rotate back to a probability-only pick.'
+            else:
+                c['allocation_reason']='Another current probability-only selection has higher preference in this game; lower-ranked alternatives receive no new stake.'
+            c['stake_note']=c['allocation_reason']
         else:
             c['allocation_code']='price_below_threshold';c['allocation_reason']='Current odds do not meet the model threshold after the stress allowance.'
             c['stake_note']=f'Feltételes jelölt: csak legalább {c["minimum_odds"]:.2f} sportsbook oddson, azonos szabályok mellett.'

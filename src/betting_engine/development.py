@@ -383,7 +383,7 @@ def _enrich_runtime_diagnostic(folder, previous, diagnostic):
     old = previous.get('diagnostic') or {}
     if not isinstance(old, dict): return None
     if (not diagnostic or old.get('parser_version') == DIAGNOSTIC_PARSER
-            or old.get('logs') and old['logs'] != diagnostic['logs']):
+            or old.get('logs') and any(row not in diagnostic['logs'] for row in old['logs'])):
         return None
     raw = json.dumps(previous, sort_keys=True).encode()
     sha = hashlib.sha256(raw).hexdigest()

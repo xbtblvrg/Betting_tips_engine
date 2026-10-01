@@ -11,11 +11,14 @@ import re
 from .io_utils import atomic_json
 
 VERSION = 'runtime-error-evidence-v1'
-DIAGNOSTIC_PARSER = 'pytest-failure-diagnostic-v2'
+DIAGNOSTIC_PARSER = 'pytest-failure-diagnostic-v3'
 CONTROLLER_INPUTS = ('scripts/development_service.py', 'scripts/release_service.py',
                      'config/development_runner.json')
 PROFILE_TEST = 'tests/test_resource_service_profile.py'
 MAX_LOG_BYTES = 4 * 1024 * 1024
+# Test logs can contain voluminous warning summaries. Keep an explicit finite
+# bound while retaining their exact failure tail and full content hash.
+MAX_DIAGNOSTIC_LOG_BYTES = 32 * 1024 * 1024
 
 
 def digest(value):
@@ -219,14 +222,17 @@ def failure_diagnostic(folder, run_id, result):
     if phase not in phases:
         phase = next((p for p in phases if error.startswith(p + ' exited ')), None)
     if phase is None: return None
-    logs=[]; text=''
+    logs=[]; text=''; unavailable_logs=[]
     for suffix in ('.stdout.log', '.stderr.log'):
         name = 'runs/' + run_id + '/' + phase + suffix
-        try: body = bounded_bytes(folder, name)
-        except (OSError, ValueError): continue
+        try: body = bounded_bytes(folder, name, MAX_DIAGNOSTIC_LOG_BYTES)
+        except (OSError, ValueError) as exc:
+            unavailable_logs.append({'path': name, 'error_type': type(exc).__name__,
+                                     'reason': str(exc)[:240]})
+            continue
         logs.append({'path': name, 'sha256': hashlib.sha256(body).hexdigest(), 'bytes': len(body)})
         text += '\n' + body.decode('utf-8', errors='replace')
-    if not logs: return None
+    if not logs and not unavailable_logs: return None
     all_failed = sorted(set(re.findall(r'^(?:FAILED|ERROR) (tests/[^\s]+)', text, flags=re.M)))
     failed = all_failed[:100]
     signatures = sorted(set(re.sub(r'/(?:Users|private|tmp)/[^\s\"\']+', '<local-path>', line)
@@ -274,9 +280,11 @@ def failure_diagnostic(folder, run_id, result):
     return {'version': VERSION, 'parser_version': DIAGNOSTIC_PARSER,
         'source_run_id': run_id, 'task_id': result.get('task_id'), 'validation_documents': documents,
         'phase': phase, 'logs': logs, 'failed_tests': failed, 'failed_test_count': len(all_failed),
-        'failure_signatures': signatures[:100], 'truncated': len(all_failed)>100, 'missing_controller_inputs': missing,
+        'failure_signatures': signatures[:100], 'truncated': len(all_failed)>100 or bool(unavailable_logs),
+        'unavailable_logs': unavailable_logs, 'missing_controller_inputs': missing,
         'failure_fingerprint': digest({'phase': phase, 'failed_tests': all_failed, 'signatures': signatures, 'missing': missing,
-            'error': error if not failed else None}),
+            'error': error if not failed else None,
+            **({'unavailable_logs': unavailable_logs} if unavailable_logs else {})}),
         'input_files': files, 'input_fingerprint': digest(files),
         'claim': 'Retained controller failure diagnostics; no approval or evidence of repaired behavior.'}
 
@@ -284,7 +292,7 @@ def failure_diagnostic(folder, run_id, result):
 def diagnostic_archive_valid(folder, diagnostic):
     if not isinstance(diagnostic, dict) or not diagnostic.get('logs'): return False
     for row in diagnostic.get('logs', []):
-        try: body = bounded_bytes(folder, row['path'])
+        try: body = bounded_bytes(folder, row['path'], MAX_DIAGNOSTIC_LOG_BYTES)
         except (OSError, ValueError, KeyError): return False
         if len(body) != row.get('bytes') or hashlib.sha256(body).hexdigest() != row.get('sha256'): return False
     return True
@@ -440,7 +448,7 @@ def export_failure_diagnostics(folder, workspace, recovery):
         if len(diagnostic['logs'])>2 or any(row['path'] not in allowed for row in diagnostic['logs']):
             raise ValueError('Runtime diagnostic path does not belong to this failed attempt')
         for row in diagnostic['logs']:
-            body=bounded_bytes(folder,row['path'])
+            body=bounded_bytes(folder,row['path'],MAX_DIAGNOSTIC_LOG_BYTES)
             if len(body)!=row.get('bytes') or hashlib.sha256(body).hexdigest()!=row.get('sha256'):
                 raise ValueError('Runtime diagnostic bytes changed during export')
             relative='data/runtime-failure-evidence/'+Path(row['path']).name
@@ -449,7 +457,12 @@ def export_failure_diagnostics(folder, workspace, recovery):
                 raise ValueError('Unsafe runtime diagnostic export path')
             target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(body)
             manifest['files'].append({'path':relative,'source_path':row['path'],'sha256':row['sha256'],'bytes':len(body)})
-        manifest.update(state='verified',source_run_id=run_id,failed_tests=diagnostic['failed_tests'],failure_fingerprint=diagnostic['failure_fingerprint'])
+        manifest.update(state='verified',source_run_id=run_id,failed_tests=diagnostic['failed_tests'],
+            failure_fingerprint=diagnostic['failure_fingerprint'],
+            truncated=bool(diagnostic.get('truncated')),
+            unavailable_logs=diagnostic.get('unavailable_logs', []),
+            completeness='incomplete' if diagnostic.get('truncated') or diagnostic.get('unavailable_logs') else 'complete',
+            claim='Exported bytes are verified; completeness is separate. Missing or oversized logs are not evidence of an empty failure set.')
     target=workspace/'data/runtime-failure-evidence/manifest.json'
     if any(p.is_symlink() for p in (target,*target.parents) if p.is_relative_to(workspace)):
         raise ValueError('Unsafe runtime diagnostic manifest path')
