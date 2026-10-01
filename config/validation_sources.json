@@ -249,6 +249,23 @@
           "bytes": 1854
         }
       ]
+    },
+    {
+      "id": "utility-evidence-replay-v1",
+      "delivery": "workspace-documents",
+      "tests": [
+        {
+          "path": "tests/test_passive_evidence_release.py",
+          "sha256": "392c2c20bbbb0d31b881f28f7dec40fd865344fcbb2904445fc9fb4c815eeffc"
+        }
+      ],
+      "files": [
+        {
+          "path": "docs/UTILITY_EVIDENCE_REPLAY.json",
+          "sha256": "6b215c132e829a6b3cd308f9327890373fc0096895e1d26fe2de01b26e4d2606",
+          "bytes": 1562667
+        }
+      ]
     }
   ]
 }

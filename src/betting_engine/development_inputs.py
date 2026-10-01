@@ -248,7 +248,12 @@ def input_generation(root):
     validation = validation_source_generation(root)
     components['validation_sources'] = validation['sha256']
     available['validation_sources'] = validation['available']
-    return {'sha256': _sha(_json({'components': components, 'available': available})), 'components': components, 'available': available}
+    try:
+        documents = {name: validation_document_generation(root, name) for name in validation_document_paths(root)}
+    except (OSError, ValueError, KeyError, TypeError):
+        documents = {}
+    result = {'components': components, 'available': available, 'validation_documents': documents}
+    return {'sha256': _sha(_json(result)), **result}
 
 
 def export_development_inputs(root, workspace):
@@ -406,6 +411,7 @@ VALIDATION_CATALOG = 'config/validation_sources.json'
 VALIDATION_VERSION = 'validation-sources-v1'
 VALIDATION_MAX_FILES = 256
 VALIDATION_MAX_BYTES = 128 * 1024 * 1024
+VALIDATION_DOCUMENT_MAX_BYTES = 2 * 1024 * 1024
 
 
 def _validation_json(body):
@@ -440,19 +446,26 @@ def _validation_catalog(root):
     value = _validation_json(body)
     if not isinstance(value, dict) or value.get('version') != VALIDATION_VERSION or not isinstance(value.get('bundles'), list) or len(value['bundles']) > 16:
         raise ValueError('Invalid validation source catalogue')
-    bundles = []; seen = set(); total = count = 0
+    bundles = []; seen = set(); document_names = set(); total = count = 0
     for bundle in value['bundles']:
         if not isinstance(bundle, dict):raise ValueError('Invalid validation bundle')
         identity = bundle.get('id')
         if not isinstance(identity, str) or not re.fullmatch(r'[a-z0-9][a-z0-9-]{0,63}', identity) or identity in seen:
             raise ValueError('Invalid or duplicate validation bundle identity')
         seen.add(identity)
+        delivery = bundle.get('delivery', 'bundle')
+        if delivery not in ('bundle', 'workspace-documents'):
+            raise ValueError('Invalid validation delivery mode')
+        if delivery == 'workspace-documents' and set(bundle) != {'id', 'delivery', 'tests', 'files'}:
+            raise ValueError('Invalid workspace document bundle fields')
         tests, files = bundle.get('tests'), bundle.get('files')
         if not isinstance(tests, list) or not 1 <= len(tests) <= 32 or not isinstance(files, list) or not files:
             raise ValueError('Validation bundle needs exact tests and source files')
         seen_paths = set()
         for row in tests + files:
             if not isinstance(row, dict):raise ValueError('Invalid validation source record')
+            if delivery == 'workspace-documents' and set(row) != ({'path', 'sha256'} if row in tests else {'path', 'sha256', 'bytes'}):
+                raise ValueError('Invalid workspace document source fields')
             name = row.get('path'); sha = row.get('sha256')
             if (not isinstance(name, str) or Path(name).is_absolute() or '..' in Path(name).parts
                     or str(Path(name)) != name or name in seen_paths
@@ -463,7 +476,18 @@ def _validation_catalog(root):
                 if not re.fullmatch(r'tests/test_[a-zA-Z0-9_]+\.py', name):
                     raise ValueError('Validation binding must name an ordinary exact test')
             else:
-                if not (re.fullmatch(r'data/sports_source_evidence/(manifest\.json|raw/[0-9a-f]{64}\.(data|json))', name)
+                if delivery == 'workspace-documents':
+                    parts = Path(name).parts
+                    if (not 2 <= len(parts) <= 6 or parts[0] != 'docs'
+                            or any(not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,127}', part) for part in parts[1:-1])
+                            or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,127}\.json', parts[-1])
+                            or 'models' in [part.casefold() for part in parts[1:-1]]
+                            or name.casefold() in document_names):
+                        raise ValueError('Unsafe or duplicate workspace document destination')
+                    document_names.add(name.casefold())
+                    if type(row.get('bytes')) is not int or not 0 < row['bytes'] <= VALIDATION_DOCUMENT_MAX_BYTES:
+                        raise ValueError('Invalid workspace document byte bound')
+                elif not (re.fullmatch(r'data/sports_source_evidence/(manifest\.json|raw/[0-9a-f]{64}\.(data|json))', name)
                         or re.fullmatch(r'data/players/source_evidence/raw/[0-9a-f]{64}\.data', name)
                         or re.fullmatch(r'data/players/verified_history/runs/[A-Za-z0-9-]+/sources\.json', name)
                         or (identity == 'lifecycle-outcomes-v1' and (
@@ -488,18 +512,102 @@ def validation_source_generation(root):
         cache = {}
         for bundle in bundles:
             for row in bundle['files']:
-                sha = row['sha256']
-                if sha not in cache:
+                sha = row['sha256']; key = (sha, bundle.get('delivery') == 'workspace-documents')
+                if key not in cache:
                     try:
-                        raw = _read_evidence(root, root/'data/validation_source_archives'/(sha+'.bin'), MAX_FILE)
-                        cache[sha] = (_sha(raw), len(raw))
+                        raw = (_validation_document_body(root, row) if bundle.get('delivery') == 'workspace-documents'
+                               else _read_evidence(root, root/'data/validation_source_archives'/(sha+'.bin'), MAX_FILE))
+                        cache[key] = (_sha(raw), len(raw))
                     except (OSError, ValueError):
-                        cache[sha] = (None, None)
-                rows.append((bundle['id'], row['path'], row['sha256'], row['bytes'], *cache[sha]))
+                        cache[key] = (None, None)
+                rows.append((bundle['id'], row['path'], row['sha256'], row['bytes'], *cache[key]))
         valid = bool(bundles) and all(r[2:4] == r[4:6] for r in rows)
     except (OSError, ValueError, KeyError, TypeError) as exc:
         digest = None; valid = False; errors.append(type(exc).__name__)
     return {'sha256': _sha(_json({'catalogue': digest, 'sources': rows, 'errors': errors})), 'available': valid}
+
+
+
+def validation_document_paths(root):
+    """Exact root-declared documents only; task prose supplies no path authority."""
+    _, bundles = _validation_catalog(Path(root).resolve())
+    return sorted(entry['path'] for bundle in bundles if bundle.get('delivery') == 'workspace-documents'
+                  for entry in bundle['files'])
+
+
+
+def validation_document_test_paths(root, name):
+    """Collecting-test authority comes from the selected root declaration only."""
+    _, bundles = _validation_catalog(Path(root).resolve())
+    return sorted({test['path'] for bundle in bundles if bundle.get('delivery') == 'workspace-documents'
+                   and any(entry['path'] == name for entry in bundle['files']) for test in bundle['tests']})
+
+
+def validation_workspace_document_paths(root, workspace):
+    """Pure exact-file permissions for relevant, hash-bound tests, before export."""
+    root, workspace = Path(root).resolve(), Path(workspace).absolute()
+    _, bundles = _validation_catalog(root)
+    names = []
+    for bundle in bundles:
+        if bundle.get('delivery') != 'workspace-documents':continue
+        required = [test for test in bundle['tests'] if (workspace/test['path']).exists() or (workspace/test['path']).is_symlink()]
+        for test in required:
+            if _sha(_read_evidence(workspace, workspace/test['path'], MAX_FILE)) != test['sha256']:
+                raise ValueError('Validation test source binding mismatch: '+test['path'])
+        if required:names.extend(entry['path'] for entry in bundle['files'])
+    return sorted(names)
+
+
+def _validation_document_body(root, entry):
+    body = _read_evidence(root, root/'data/validation_source_archives'/(entry['sha256']+'.bin'), VALIDATION_DOCUMENT_MAX_BYTES)
+    if len(body) != entry['bytes'] or _sha(body) != entry['sha256']:
+        raise ValueError('Validation source hash/size mismatch: '+entry['path'])
+    value = _validation_json(body)
+    if not isinstance(value, (dict, list)):
+        raise ValueError('Validation document must contain a JSON object or array')
+    _json(value)  # Reject nonfinite float values as well as JSON constant tokens.
+    _metadata_safe(value)
+    return body
+
+
+def validation_document_generation(root, name):
+    """Per-document source and exporter identity, never unrelated input churn."""
+    root = Path(root).resolve(); records = []; errors = []; exporter = None
+    try:
+        _, bundles = _validation_catalog(root)
+        for bundle in bundles:
+            if bundle.get('delivery') != 'workspace-documents':continue
+            for entry in bundle['files']:
+                if entry['path'] != name:continue
+                tests = [(test['path'], test['sha256'], _sha(_read_evidence(root, root/test['path'], MAX_FILE)))
+                         for test in bundle['tests']]
+                body = _validation_document_body(root, entry)
+                records.append({'bundle':bundle['id'], 'entry':entry, 'tests':tests, 'actual_sha256':_sha(body), 'actual_bytes':len(body)})
+        exporter = _sha(_read_evidence(root, root/'src/betting_engine/development_inputs.py', MAX_FILE))
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        errors.append(type(exc).__name__)
+    available = bool(records) and not errors and all(expected == actual for row in records for _, expected, actual in row['tests'])
+    return {'sha256':_sha(_json({'path':name, 'records':records, 'exporter':exporter, 'errors':errors})), 'available':available}
+
+
+def _validation_document_destination(root, workspace, name):
+    """Copies may only enter isolated workspaces, never a production subtree."""
+    resolved = workspace.resolve()
+    if root.is_relative_to(resolved):
+        raise ValueError('Validation document destination is production or its ancestor')
+    if resolved.is_relative_to(root):
+        parts = resolved.relative_to(root).parts
+        if (parts != ('data', 'development', 'workspace')
+                and (len(parts) != 4 or parts[:3] not in (('data','development','workspaces'), ('data','releases','staging'))
+                     or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,119}', parts[3]))):
+            raise ValueError('Validation document destination is outside isolated workspaces')
+    target = workspace/name
+    for parent in (target, *target.parents):
+        if parent.is_relative_to(workspace) and (parent.is_symlink()
+                or (parent != target and parent.exists() and not parent.is_dir())):
+            raise ValueError('Unsafe validation document destination')
+    if target.exists() and not target.is_file():raise ValueError('Nonregular validation document destination')
+    return target
 
 
 def export_validation_sources(root, workspace):
@@ -519,6 +627,17 @@ def export_validation_sources(root, workspace):
     for parent in (workspace, *workspace.parents):
         if parent.is_symlink():
             raise ValueError('Validation workspace uses a symlink')
+    # Resolve document authority and destination confinement before any mkdir or
+    # receipt write. Preserve malformed-catalogue diagnostics for safe workspaces.
+    catalogue_error = None
+    try:
+        catalog_sha, bundles = _validation_catalog(root)
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        catalog_sha, bundles, catalogue_error = None, [], exc
+    for bundle in bundles:
+        if bundle.get('delivery') == 'workspace-documents':
+            for entry in bundle['files']:
+                _validation_document_destination(root, workspace, entry['path'])
     result = {'version': VALIDATION_VERSION, 'state': 'exported', 'bundles': [], 'errors': [],
               'exported_at': utcnow().isoformat(), 'claim': 'Exact frozen validation-only sources; no active research/model/ledger replacement.'}
     target_root = workspace/'data/validation_sources'
@@ -527,13 +646,13 @@ def export_validation_sources(root, workspace):
             raise ValueError('Unsafe validation namespace')
     target_root.mkdir(parents=True, exist_ok=True)
     try:
-        catalog_sha, bundles = _validation_catalog(root)
+        if catalogue_error is not None:raise catalogue_error
         result['catalogue_sha256'] = catalog_sha
         if catalog_sha is None:
             result['state'] = 'not_configured'
         for bundle in bundles:
             row = {'id': bundle['id'], 'state': 'not_needed', 'files': []}; result['bundles'].append(row)
-            required = [test for test in bundle['tests'] if (workspace/test['path']).exists()]
+            required = [test for test in bundle['tests'] if (workspace/test['path']).exists() or (workspace/test['path']).is_symlink()]
             if not required:
                 continue
             temporary = None
@@ -546,14 +665,21 @@ def export_validation_sources(root, workspace):
                     raise ValueError('Unsafe validation bundle destination')
                 # Read and hash every required source before any advertised bundle
                 # exists. Existing exact bytes can be reused, never repaired over.
-                contents = {}
+                contents = {}; documents = bundle.get('delivery') == 'workspace-documents'
                 for entry in bundle['files']:
-                    body = _read_evidence(root, root/'data/validation_source_archives'/(entry['sha256']+'.bin'), MAX_FILE)
+                    body = _validation_document_body(root, entry) if documents else _read_evidence(root, root/'data/validation_source_archives'/(entry['sha256']+'.bin'), MAX_FILE)
                     if len(body) != entry['bytes'] or _sha(body) != entry['sha256']:
                         raise ValueError('Validation source hash/size mismatch: '+entry['path'])
                     if entry['path'].endswith('.json'):
                         _metadata_safe(json.loads(body))
                     contents[entry['path']] = body
+                destinations = {}
+                if documents:
+                    for name, body in contents.items():
+                        destination = _validation_document_destination(root, workspace, name)
+                        if destination.exists() and _read_evidence(workspace, destination, VALIDATION_DOCUMENT_MAX_BYTES) != body:
+                            raise ValueError('Existing workspace document conflict: '+name)
+                        destinations[name] = destination
                 if target.exists():
                     for name, body in contents.items():
                         if _read_evidence(workspace, target/name, MAX_FILE) != body:
@@ -567,6 +693,18 @@ def export_validation_sources(root, workspace):
                         destination = temporary/name; destination.parent.mkdir(parents=True, exist_ok=True)
                         atomic_bytes(destination, body)
                     os.rename(temporary, target); temporary = None
+                for name, destination in destinations.items():
+                    if not destination.exists():
+                        destination.parent.mkdir(parents=True, exist_ok=True)
+                        # Exclusive creation never replaces a candidate/concurrent writer.
+                        with destination.open('xb') as handle:handle.write(contents[name])
+                if documents:
+                    for entry in bundle['files']:
+                        body = _validation_document_body(root, entry)
+                        if (_read_evidence(workspace, target/entry['path'], VALIDATION_DOCUMENT_MAX_BYTES) != body
+                                or _read_evidence(workspace, destinations[entry['path']], VALIDATION_DOCUMENT_MAX_BYTES) != body):
+                            raise ValueError('Validation document changed during export: '+entry['path'])
+                    row['delivery'] = 'workspace-documents'
                 row.update(state='verified', files=bundle['files'], tests=required)
             except (OSError, ValueError, KeyError, TypeError) as exc:
                 row.update(state='rejected', reason=str(exc)[:300]); result['errors'].append({'bundle':bundle['id'],'reason':str(exc)[:300]})
@@ -575,6 +713,12 @@ def export_validation_sources(root, workspace):
                     shutil.rmtree(temporary)
     except (OSError, ValueError, KeyError, TypeError) as exc:
         result['errors'].append({'bundle':None, 'reason':str(exc)[:300]})
+    if any(bundle.get('delivery') == 'workspace-documents' for bundle in bundles):
+        try:
+            if _validation_catalog(root)[0] != catalog_sha:
+                raise ValueError('Validation catalogue changed during document export')
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            result['errors'].append({'bundle':None, 'reason':str(exc)[:300]})
     if result['errors']:
         result['state'] = 'rejected'
     atomic_json(target_root/'export.json', result)
@@ -587,14 +731,19 @@ def verify_validation_sources(root, workspace):
     for parent in (workspace, *workspace.parents):
         if parent.is_symlink():raise ValueError('Unsafe validation workspace')
     catalog_sha, bundles = _validation_catalog(root)
-    if catalog_sha is None:
-        return
     target_root = workspace/'data/validation_sources'
+    if catalog_sha is None:
+        receipt_path = target_root/'export.json'
+        if receipt_path.exists() or receipt_path.is_symlink():
+            prior = _validation_json(_read_evidence(workspace, receipt_path, 1024*1024))
+            if any(row.get('delivery') == 'workspace-documents' for row in prior.get('bundles', []) if isinstance(row, dict)):
+                raise ValueError('Validation document catalogue was removed')
+        return
     receipt = _validation_json(_read_evidence(workspace, target_root/'export.json', 1024*1024))
     if receipt.get('catalogue_sha256') != catalog_sha or receipt.get('state') != 'exported':
         raise ValueError('Validation export receipt is missing, rejected or changed')
     for bundle in bundles:
-        required = [test for test in bundle['tests'] if (workspace/test['path']).exists()]
+        required = [test for test in bundle['tests'] if (workspace/test['path']).exists() or (workspace/test['path']).is_symlink()]
         if not required:continue
         target = target_root/bundle['id']
         for test in required:
@@ -604,6 +753,15 @@ def verify_validation_sources(root, workspace):
             body = _read_evidence(workspace, target/entry['path'], MAX_FILE)
             if len(body) != entry['bytes'] or _sha(body) != entry['sha256']:
                 raise ValueError('Validation evidence changed: '+entry['path'])
+        if bundle.get('delivery') == 'workspace-documents':
+            expected = {'id':bundle['id'], 'state':'verified', 'delivery':'workspace-documents', 'files':bundle['files'], 'tests':required}
+            matching = [row for row in receipt.get('bundles', []) if isinstance(row, dict) and row.get('id') == bundle['id']]
+            if matching != [expected]:raise ValueError('Validation document receipt differs from root binding')
+            for entry in bundle['files']:
+                destination = _validation_document_destination(root, workspace, entry['path'])
+                source = _validation_document_body(root, entry)
+                if _read_evidence(workspace, destination, VALIDATION_DOCUMENT_MAX_BYTES) != source:
+                    raise ValueError('Validation workspace document changed: '+entry['path'])
         existing = {str(p.relative_to(target)) for p in target.rglob('*') if p.is_file() or p.is_symlink()}
         if existing != {e['path'] for e in bundle['files']}:
             raise ValueError('Validation bundle contains undeclared files')

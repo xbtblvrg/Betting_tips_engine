@@ -162,6 +162,26 @@ def recovery_evidence_valid(folder, recovery, *, check_current=True):
                         return False
             except (OSError, ValueError, KeyError, TypeError):
                 return False
+    if recovery.get('kind') == 'validation_documents_changed':
+        update = recovery.get('input_update') or {}
+        changes = update.get('validation_documents', {})
+        update_hash = hashlib.sha256(json.dumps(update, sort_keys=True).encode()).hexdigest()
+        if (not isinstance(changes, dict) or not 1 <= len(changes) <= 16
+                or update.get('source_run_id') != recovery.get('source_run_id')
+                or {'path': 'recovery-evidence/' + update_hash + '.json', 'sha256': update_hash} not in evidence):
+            return False
+        from .development_inputs import validation_document_generation
+        for name, change in changes.items():
+            try:
+                if (not isinstance(change, dict) or set(change) != {'previous', 'current'}
+                        or change['current'].get('available') is not True
+                        or not isinstance(change['current'].get('sha256'), str)
+                        or not re.fullmatch('[a-f0-9]{64}', change['current']['sha256'])):
+                    return False
+                if check_current and validation_document_generation(Path(folder).parent.parent, name) != change['current']:
+                    return False
+            except (OSError, ValueError, KeyError, TypeError, AttributeError, RecursionError):
+                return False
     return True
 
 
@@ -357,6 +377,35 @@ def required_input_components(requirements):
     return components
 
 
+def _enrich_runtime_diagnostic(folder, previous, diagnostic):
+    """Archive the old record before metadata-only exact-log parser migration."""
+    from .runtime_errors import DIAGNOSTIC_PARSER
+    old = previous.get('diagnostic') or {}
+    if not isinstance(old, dict): return None
+    if (not diagnostic or old.get('parser_version') == DIAGNOSTIC_PARSER
+            or old.get('logs') and old['logs'] != diagnostic['logs']):
+        return None
+    raw = json.dumps(previous, sort_keys=True).encode()
+    sha = hashlib.sha256(raw).hexdigest()
+    relative = 'recovery-evidence/' + sha + '.json'
+    archive = Path(folder) / relative
+    if any(p.is_symlink() for p in (archive, *archive.parents) if p.is_relative_to(Path(folder))):
+        return None
+    if archive.exists():
+        if _recovery_bytes(folder, relative) != raw: return None
+    else:
+        atomic_bytes(archive, raw)
+    evidence = list(previous['evidence'])
+    for item in [*({'path': r['path'], 'sha256': r['sha256']} for r in diagnostic['logs']),
+                 {'path': relative, 'sha256': sha}]:
+        if item not in evidence: evidence.append(item)
+    return {**previous, 'diagnostic': diagnostic, 'diagnostic_checked': True,
+        'prior_diagnostic_record': {'path': relative, 'sha256': sha},
+        'failure_fingerprint': diagnostic['failure_fingerprint'], 'evidence': evidence,
+        'evidence_sha256': hashlib.sha256(json.dumps(evidence, sort_keys=True).encode()).hexdigest(),
+        'findings': ['Retained failed test: ' + name for name in diagnostic['failed_tests']] or previous.get('findings', [])}
+
+
 def schedule_recoveries(plan, state, folder, now=None, input_generation=None):
     """One evidence-bound repair dispatch per failed run, retaining old backoff.
 
@@ -372,17 +421,55 @@ def schedule_recoveries(plan, state, folder, now=None, input_generation=None):
         if row.get('state') != 'retry' or not isinstance(rid, str) or Path(rid).name != rid:
             continue
         previous = row.get('recovery_work', {})
-        from .runtime_errors import diagnostic_archive_valid, diagnostic_is_current
+        # Check the retained archive before parsing it: missing/corrupt run
+        # bytes must invalidate an already scheduled recovery after restart.
+        if (previous.get('source_run_id') == rid and previous.get('version') == RECOVERY_VERSION
+                and previous.get('state') == 'scheduled'
+                and not recovery_evidence_valid(folder, previous, check_current=False)):
+            row['recovery_work'] = {**previous, 'state': 'evidence_invalid',
+                'invalidated_at': now.isoformat(), 'invalid_reason': 'archive_changed',
+                'next_action': 'Archived repair evidence changed or is missing; investigate without bypassing the original backoff.'}
+            events.append({'task_id': task['id'], **row['recovery_work']})
+            continue
+        path = folder / 'runs' / rid / 'run.json'
+        try:
+            body = path.read_bytes(); result = json.loads(body)
+            if result.get('id') != rid or result.get('task_id') != task['id'] or result.get('state') != 'retry' or result.get('error') != row.get('last_error'):
+                continue
+            finished = parse_time(result['finished_at'])
+            if finished > now:
+                continue
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+        kind = result.get('failure_class') or failure_class(result.get('error'), result.get('failure_phase'))
+        previous = row.get('recovery_work', {})
+        from .runtime_errors import (diagnostic_archive_valid, diagnostic_is_current,
+            failure_diagnostic, validation_document_changes)
+        diagnostic = failure_diagnostic(folder, rid, result) if kind == 'test_failure' else None
         gate = row.get('runtime_failure_gate', {})
-        refresh_failure = False
+        if (previous.get('source_run_id') == rid and previous.get('version') == RECOVERY_VERSION
+                and previous.get('kind') == 'test_failure'
+                and recovery_evidence_valid(folder, previous, check_current=False)):
+            enriched = _enrich_runtime_diagnostic(folder, previous, diagnostic)
+            if enriched is not None:
+                row['recovery_work'] = previous = enriched
+                events.append({'task_id': task['id'], **enriched, 'event': 'diagnostic_enriched'})
+                if gate.get('source_run_id') == rid:
+                    gate = {**gate, 'diagnostic': diagnostic,
+                        'failure_fingerprint': diagnostic['failure_fingerprint']}
+                    row['runtime_failure_gate'] = gate
+        document_changes = validation_document_changes(folder, diagnostic) if diagnostic else {}
+        if document_changes == (previous.get('input_update') or {}).get('validation_documents'):
+            document_changes = {}
+        refresh_failure = bool(document_changes)
         if gate.get('source_run_id') == rid and gate.get('state') in ('awaiting_changed_evidence', 'evidence_invalid'):
-            diagnostic = gate.get('diagnostic', {})
-            if not diagnostic_archive_valid(folder, diagnostic):
+            gate_diagnostic = gate.get('diagnostic', {})
+            if not diagnostic_archive_valid(folder, gate_diagnostic):
                 if gate.get('state') != 'evidence_invalid':
                     row['runtime_failure_gate'] = {**gate, 'state': 'evidence_invalid',
                         'next_action': 'Restore or inspect the exact retained failure log; no automatic code retry from changed diagnostics.'}
                 continue
-            if diagnostic_is_current(folder, diagnostic):
+            if diagnostic_is_current(folder, gate_diagnostic) and not document_changes:
                 continue
             refresh_failure = True
         rebind_sources = False
@@ -397,30 +484,19 @@ def schedule_recoveries(plan, state, folder, now=None, input_generation=None):
                         else 'Archived repair evidence changed or is missing; investigate without bypassing the original backoff.'}
                 events.append({'task_id': task['id'], **row['recovery_work']})
                 continue
-            rebind_sources = (intact and previous.get('kind') == 'protected_sources_changed'
+            if not intact:
+                continue
+            rebind_sources = (intact and previous.get('kind') in ('protected_sources_changed', 'validation_documents_changed')
                 and previous.get('state') == 'evidence_invalid'
                 and previous.get('invalid_reason') != 'archive_changed')
             # Older generic test-failure entries gain exact retained diagnostics
             # once; immutable run and original deadline remain unchanged.
             enrich_failure = intact and previous.get('kind') == 'test_failure' and not previous.get('diagnostic_checked')
-            if not rebind_sources and not enrich_failure and not refresh_failure:
+            if not rebind_sources and not enrich_failure and not refresh_failure and not document_changes:
                 continue
-        path = folder / 'runs' / rid / 'run.json'
-        try:
-            body = path.read_bytes(); result = json.loads(body)
-            if result.get('id') != rid or result.get('task_id') != task['id'] or result.get('state') != 'retry' or result.get('error') != row.get('last_error'):
-                continue
-            finished = parse_time(result['finished_at'])
-            if finished > now:
-                continue
-        except (OSError, ValueError, KeyError, TypeError):
-            continue
-        kind = result.get('failure_class') or failure_class(result.get('error'), result.get('failure_phase'))
         row['failure_class'] = kind
         evidence = [{'path': str(path.relative_to(folder)), 'sha256': hashlib.sha256(body).hexdigest()}]
         findings = []
-        from .runtime_errors import failure_diagnostic
-        diagnostic = failure_diagnostic(folder, rid, result) if kind == 'test_failure' else None
         if diagnostic:
             evidence.extend({k:r[k] for k in ('path','sha256')} for r in diagnostic['logs'])
             findings = ['Retained failed test: ' + name for name in diagnostic['failed_tests']]
@@ -441,6 +517,22 @@ def schedule_recoveries(plan, state, folder, now=None, input_generation=None):
                 'requirements': result.get('remaining', []), 'evidence': evidence,
                 'next_action': 'Export the specifically missing authenticated source inputs or implement their source adapter; original acceptance remains unmet.'}
         source_update = None
+        if document_changes:
+            source_update = {'version': RECOVERY_VERSION, 'source_run_id': rid,
+                'validation_documents': document_changes,
+                'claim': 'An exact controller-missing document generation changed; rerun the original acceptance. No task or model approval.'}
+            raw = json.dumps(source_update, sort_keys=True).encode()
+            sha = hashlib.sha256(raw).hexdigest()
+            relative = 'recovery-evidence/' + sha + '.json'
+            archive = folder / relative
+            if any(p.is_symlink() for p in (archive, *archive.parents) if p.is_relative_to(folder)):
+                continue
+            if archive.exists():
+                if _recovery_bytes(folder, relative) != raw: continue
+            else:
+                atomic_bytes(archive, raw)
+            evidence.append({'path': relative, 'sha256': sha})
+            kind = 'validation_documents_changed'
         if kind == 'native_boundary_failure':
             native_update = native_probe_source_update(folder, rid, result)
             if native_update:
@@ -485,7 +577,7 @@ def schedule_recoveries(plan, state, folder, now=None, input_generation=None):
             streak = previous.get('repeated_failure_count', 1)
         if refresh_failure:
             streak = 1
-        delay = 60 if kind in ('source_rebase', 'source_inputs_changed', 'protected_sources_changed') else min(900, 120 * 2 ** min(streak - 1, 3))
+        delay = 60 if kind in ('source_rebase', 'source_inputs_changed', 'protected_sources_changed', 'validation_documents_changed') else min(900, 120 * 2 ** min(streak - 1, 3))
         # Repeated identical repairs get an explicit diagnosis and cooldown;
         # changing genuine findings do not inherit unrelated exponential waits.
         if streak >= 3:
@@ -512,7 +604,7 @@ def schedule_recoveries(plan, state, folder, now=None, input_generation=None):
                 'due_at': previous_gate.get('due_at', task.get('due_at') or row.get('due_at') or due.isoformat()),
                 'next_action': 'Three exact controller-input failures remain. Preserve the candidate and logs; repair the named controller/test/source dependency before another costly coding attempt. New unrelated files or heartbeat changes do not wake this task.'}
             recovery['state'] = 'awaiting_changed_evidence'
-        elif refresh_failure:
+        elif refresh_failure and gate.get('source_run_id') == rid:
             row['runtime_failure_gate'] = {**gate, 'state': 'changed_evidence_available',
                 'resumed_at': now.isoformat(), 'next_input_fingerprint': diagnostic.get('input_fingerprint') if diagnostic else None}
         events.append({'task_id': task['id'], **recovery})
@@ -949,6 +1041,9 @@ class DevelopmentWorker:
                      Path(self.config['codex_binary']),Path(self.config['codex_binary']).resolve())):
             fs.append(json.dumps(str(path))+'="read"')
         fs.append(json.dumps(str(self.workspace / 'data/validation_sources'))+'="read"')
+        from .development_inputs import validation_workspace_document_paths
+        for relative in validation_workspace_document_paths(self.root, self.workspace):
+            fs.append(json.dumps(str(self.workspace / relative))+'="read"')
         fs.append(json.dumps(str(self.workspace / 'data/task_diagnostics'))+'="read"')
         for entry in getattr(self, 'task_diagnostics', {}).get('files', []):
             fs.append(json.dumps(str(self.workspace / entry['path']))+'="read"')

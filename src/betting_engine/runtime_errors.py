@@ -11,6 +11,7 @@ import re
 from .io_utils import atomic_json
 
 VERSION = 'runtime-error-evidence-v1'
+DIAGNOSTIC_PARSER = 'pytest-failure-diagnostic-v2'
 CONTROLLER_INPUTS = ('scripts/development_service.py', 'scripts/release_service.py',
                      'config/development_runner.json')
 PROFILE_TEST = 'tests/test_resource_service_profile.py'
@@ -226,27 +227,52 @@ def failure_diagnostic(folder, run_id, result):
         logs.append({'path': name, 'sha256': hashlib.sha256(body).hexdigest(), 'bytes': len(body)})
         text += '\n' + body.decode('utf-8', errors='replace')
     if not logs: return None
-    all_failed = sorted(set(re.findall(r'^FAILED (tests/[^\s]+)', text, flags=re.M)))
+    all_failed = sorted(set(re.findall(r'^(?:FAILED|ERROR) (tests/[^\s]+)', text, flags=re.M)))
     failed = all_failed[:100]
     signatures = sorted(set(re.sub(r'/(?:Users|private|tmp)/[^\s\"\']+', '<local-path>', line)
-        for line in re.findall(r'^FAILED tests/[^\n]+', text, flags=re.M)))
+        for line in re.findall(r'^(?:FAILED|ERROR) tests/[^\n]+', text, flags=re.M)))
     missing = sorted({name for name in CONTROLLER_INPUTS
         if re.search(r'FileNotFoundError:[^\n]*["\'][^\n"\']*/' + re.escape(name) + r'["\']', text)})
     paths = set(p.split('::')[0] for p in failed)
+    root = folder.parent.parent
+    documents = {}
+    try:
+        from .development_inputs import validation_document_paths, validation_document_test_paths
+        declared = validation_document_paths(root)
+    except (OSError, ValueError, TypeError, AttributeError, RecursionError):
+        declared = []
+    for name in declared:
+        try:
+            tests = validation_document_test_paths(root, name)
+            missing_path = re.search(r'FileNotFoundError:[^\n]*["\'][^\n"\']*/'
+                                    + re.escape(name) + r'["\']', text)
+            if not missing_path or not paths.intersection(tests):
+                continue
+            missing.append(name)
+            old = (result.get('input_generation') or {}).get('validation_documents', {}).get(name)
+            if (isinstance(old, dict) and set(old) == {'sha256', 'available'}
+                    and isinstance(old['sha256'], str) and re.fullmatch('[a-f0-9]{64}', old['sha256'])
+                    and type(old['available']) is bool):
+                documents[name] = dict(old)
+        except (OSError, ValueError, TypeError, AttributeError, RecursionError):
+            continue
+    missing = sorted(set(missing))
     paths.update(re.findall(r'(?<![A-Za-z0-9_])(src/betting_engine/[A-Za-z0-9_]+\.py):\d+', text))
-    paths.update(missing)
+    # Document content/export generations are separate from ordinary code
+    # inputs: an unrelated exporter edit must not become generic source wake.
+    paths.update(name for name in missing if name in CONTROLLER_INPUTS)
     # Only exact ordinary source/test/config paths observed in the failure.
     files = {}
-    root = folder.parent.parent
     for path in sorted(paths)[:64]:
         try: files[path] = hashlib.sha256(bounded_bytes(root,path,1024*1024)).hexdigest()
         except (OSError, ValueError): files[path] = None
-    if missing:
+    if any(name in CONTROLLER_INPUTS for name in missing):
         # The known copier correction is material even when the previously
         # missing root file already existed at the earlier failed attempt.
         try: files['src/betting_engine/runtime_errors.py'] = hashlib.sha256(bounded_bytes(root, 'src/betting_engine/runtime_errors.py', 1024*1024)).hexdigest()
         except (OSError, ValueError): files['src/betting_engine/runtime_errors.py'] = None
-    return {'version': VERSION, 'source_run_id': run_id, 'task_id': result.get('task_id'),
+    return {'version': VERSION, 'parser_version': DIAGNOSTIC_PARSER,
+        'source_run_id': run_id, 'task_id': result.get('task_id'), 'validation_documents': documents,
         'phase': phase, 'logs': logs, 'failed_tests': failed, 'failed_test_count': len(all_failed),
         'failure_signatures': signatures[:100], 'truncated': len(all_failed)>100, 'missing_controller_inputs': missing,
         'failure_fingerprint': digest({'phase': phase, 'failed_tests': all_failed, 'signatures': signatures, 'missing': missing,
@@ -273,6 +299,34 @@ def diagnostic_is_current(folder, diagnostic):
         try: current[path] = hashlib.sha256(bounded_bytes(root,path,1024*1024)).hexdigest()
         except (OSError, ValueError): current[path] = None
     return bool(current) and digest(current) == diagnostic.get('input_fingerprint')
+
+
+def validation_document_changes(folder, diagnostic):
+    """Only changed, available document generations from a pinned failed run.
+
+    Old runs without a captured per-document generation are deliberately not
+    inferred from current root state or task prose. Root can hand those off
+    separately after verifying their actual restored workspaces.
+    """
+    if not diagnostic_archive_valid(folder, diagnostic): return {}
+    prior = diagnostic.get('validation_documents', {})
+    if not isinstance(prior, dict) or len(prior) > 16: return {}
+    root = Path(folder).parent.parent
+    changes = {}
+    from .development_inputs import validation_document_generation
+    for name, old in prior.items():
+        if (name not in diagnostic.get('missing_controller_inputs', [])
+                or not isinstance(old, dict) or set(old) != {'sha256', 'available'}
+                or not isinstance(old['sha256'], str) or not re.fullmatch('[a-f0-9]{64}', old['sha256'])
+                or type(old['available']) is not bool):
+            continue
+        try: current = validation_document_generation(root, name)
+        except (OSError, ValueError, TypeError, AttributeError, RecursionError): continue
+        if (isinstance(current, dict) and set(current) == {'sha256', 'available'}
+                and current.get('available') is True and isinstance(current.get('sha256'), str)
+                and re.fullmatch('[a-f0-9]{64}', current['sha256']) and current['sha256'] != old['sha256']):
+            changes[name] = {'previous': dict(old), 'current': current}
+    return changes
 
 
 def meaningful_source_changes(folder, run_id, result, generation, changed, cache=None):
