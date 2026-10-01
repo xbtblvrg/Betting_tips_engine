@@ -952,7 +952,11 @@ class LiveBackend:
             'Check hidden dependencies on accepted-but-uninstalled modules, every immutable original bet requirement, '
             'and source-bound candidate evidence. Passing tests alone does not authorize a model or guarantee profit.\n'
             + json.dumps(request, sort_keys=True))
-        worker.run_process(worker.command(schema, output, 'read-only'), run / 'release-review', prompt, timeout=600)
+        from .provider_runtime import enabled, run_ai_step
+        if enabled(root):
+            run_ai_step(worker, schema, output, run / 'release-review', prompt, timeout=600, sandbox='read-only', require_codex=True)
+        else:
+            worker.run_process(worker.command(schema, output, 'read-only'), run / 'release-review', prompt, timeout=600)
         verify_validation_sources(root, workspace)
         return {'python': 'passed', 'dom': 'passed', 'review': read_json(output)}
 

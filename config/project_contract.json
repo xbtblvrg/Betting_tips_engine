@@ -130,12 +130,12 @@
     },
     {
       "id": "R26",
-      "rule": "Codex remains the primary quant-engine brain, developer and final supervisor. Claude CLI may perform secondary advisory work. Google via Antigravity agy and Grok CLI may perform tertiary advisory work. The controller delegates bounded test-case and acceptance-checklist tasks, archives their outputs and requires explicit Codex dispositions. Helpers cannot approve bets, alter stakes or immutable ledgers, waive validation, deploy production or replace Codex. Helper failures remain visible and do not stop primary development.",
+      "rule": "Codex remains the primary quant-engine brain, developer and final supervisor. Claude CLI may perform secondary advisory work. Google via Antigravity agy and Grok CLI may perform tertiary advisory work. The controller delegates bounded test-case and acceptance-checklist tasks, archives their outputs and requires explicit Codex dispositions. Helpers cannot approve bets, alter stakes or immutable ledgers, waive validation, deploy production or replace Codex. Helper failures remain visible and do not stop primary development. Subject to the explicit 2026-10-01 provider_continuity_policy temporary Claude exception.",
       "implementation": "ai_delegation.py; DevelopmentWorker; config/ai_delegation.json; /api/development ai_roles"
     },
     {
       "id": "R27",
-      "rule": "Run independent Codex implementation tasks concurrently in isolated workspaces with exclusive durable claims, dependency ordering and bounded provider concurrency. Merge candidate changes only with conflict checks, complete regression validation and independent Codex review; do not overwrite another accepted candidate. Claude helper must use Opus 5.5; Google helper uses agy. Codex remains primary even when helpers fail or exhaust quota.",
+      "rule": "Run independent Codex implementation tasks concurrently in isolated workspaces with exclusive durable claims, dependency ordering and bounded provider concurrency. Merge candidate changes only with conflict checks, complete regression validation and independent Codex review; do not overwrite another accepted candidate. Claude helper must use Opus 5.5; Google helper uses agy. Codex remains primary even when helpers fail or exhaust quota. Subject to the explicit 2026-10-01 provider_continuity_policy temporary Claude exception.",
       "implementation": "parallel development coordinator; provider locks; claude-opus-5-5"
     },
     {
@@ -475,5 +475,19 @@
     "current_live_funding_policy": "continuous_best_available_v1 / all_tiers_weighted_v3",
     "policy_migration": "Evidence-following sizing and market blending require reproducible calculation, independent review, validation and a separately checked release. This requirement ledger does not claim activation.",
     "originals_immutable": true
+  },
+  "provider_continuity_policy": {
+    "version": "provider-recovery-v1",
+    "user_correction_at": "2026-10-01",
+    "rule": "User update (2026-10-01), provider continuity: on a verified exhausted Codex weekly limit, automatically consume a supported available earned reset using an idempotent attempt. If GPT remains unavailable, try other verified available GPT models before temporary Claude Opus 5.5. Probe preferred GPT availability periodically and return to the strongest configured, catalog-verified model after a real successful response, at a step boundary. Preserve existing in-flight work, deadlines, failure evidence, isolated candidate permissions, unchanged regression tests and every betting guard/ledger. Claude fallback may implement and independently review isolated candidates via bounded no-tool structured edits; separately verified production release still requires independent Codex review. Ordinary helper roles remain advisory. Do not purchase credits or use a new paid API; no reset on a mere timeout, auth error or context reset. Never claim a switch changed this interactive chat model.",
+    "configuration": "config/provider_recovery.json",
+    "implementation": [
+      "provider_recovery.py",
+      "codex_control.py",
+      "claude_development.py",
+      "provider_runtime.py",
+      "development.py"
+    ],
+    "precedence": "This explicit temporary fallback exception supersedes earlier absolute Codex-only provider capacity wording. Other helper/deployment/betting restrictions remain."
   }
 }

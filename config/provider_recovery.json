@@ -1,0 +1,83 @@
+{
+  "version": "provider-recovery-v1",
+  "enabled": true,
+  "allow_temporary_claude": true,
+  "consume_earned_reset_on_weekly_limit": true,
+  "poll_seconds": 60,
+  "preferred_probe_seconds": 300,
+  "capability_ttl_seconds": 3600,
+  "control_timeout_seconds": 15,
+  "probe_timeout_seconds": 35,
+  "routes": [
+    {
+      "id": "gpt-6-astra",
+      "provider": "codex",
+      "family": "gpt",
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high"
+    },
+    {
+      "id": "gpt-6-sol",
+      "provider": "codex",
+      "family": "gpt",
+      "model": "gpt-6-sol",
+      "reasoning_effort": "high"
+    },
+    {
+      "id": "gpt-6-luna",
+      "provider": "codex",
+      "family": "gpt",
+      "model": "gpt-6-luna",
+      "reasoning_effort": "high"
+    },
+    {
+      "id": "gpt-5.6-sol",
+      "provider": "codex",
+      "family": "gpt",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "high"
+    },
+    {
+      "id": "gpt-5.6-terra",
+      "provider": "codex",
+      "family": "gpt",
+      "model": "gpt-5.6-terra",
+      "reasoning_effort": "high"
+    },
+    {
+      "id": "gpt-5.6-luna",
+      "provider": "codex",
+      "family": "gpt",
+      "model": "gpt-5.6-luna",
+      "reasoning_effort": "high"
+    },
+    {
+      "id": "gpt-5.5",
+      "provider": "codex",
+      "family": "gpt",
+      "model": "gpt-5.5",
+      "reasoning_effort": "high"
+    },
+    {
+      "id": "gpt-reserve",
+      "provider": "codex",
+      "family": "gpt",
+      "model": "gpt-reserve",
+      "reasoning_effort": "high"
+    },
+    {
+      "id": "claude-opus-5-5",
+      "provider": "claude",
+      "family": "opus-5.5",
+      "model": "claude-opus-5-5"
+    }
+  ],
+  "claude_binary": "/Users/belavarga/.local/bin/claude",
+  "release_review_requires_codex": true,
+  "purchases_authorized": false,
+  "sources": [
+    "https://learn.chatgpt.com/docs/app-server",
+    "https://learn.chatgpt.com/docs/developer-commands?surface=cli"
+  ],
+  "ranking_basis": "Reviewed explicit coding-capability preference over exact account catalog; no alphabetical or newest-number inference. Only fresh catalog entries are eligible. GPT-6 Astra is preferred. Reserve is a final GPT route."
+}
