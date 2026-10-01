@@ -49,8 +49,8 @@ def verify_publication(tip,now):
     from .funding_policy import funding_basis,size_recommendation
     policy=guard.get('recommendation_policy','strict')
     model_sizing=guard.get('model_pick_sizing_policy','unit_cap_v1')
-    policy_settings={**guard.get('sizing_settings',{}),'minimum_roi':guard['minimum_roi'],'recommendation_policy':policy,'model_pick_sizing_policy':model_sizing}
-    if policy!='strict' or 'funding_basis' in tip or model_sizing!='unit_cap_v1':
+    policy_settings={**guard.get('sizing_settings',{}),'minimum_roi':guard['minimum_roi'],'recommendation_policy':policy,'model_pick_sizing_policy':model_sizing,'model_pick_allocation_policy':guard.get('model_pick_allocation_policy','one_per_game_v1')}
+    if policy!='strict' or 'funding_basis' in tip or model_sizing!='unit_cap_v1' or policy_settings['model_pick_allocation_policy']!='one_per_game_v1':
         basis=funding_basis(tip,policy_settings)
         if tip.get('funding_basis')!=basis:raise ValueError('Publication blocked: funding policy evidence changed or missing')
         if stake>0 and not basis['eligible']:raise ValueError('Publication blocked: funded selection no longer qualifies')
@@ -70,7 +70,7 @@ def verify_publication(tip,now):
         reviewed=guard.get('sizing_settings')
         if reviewed and (any(settings[k]!=reviewed[k] for k in ('bankroll','unit_stake','kelly_fraction','max_bankroll_fraction')) or settings['max_bet']>reviewed['max_bet']):
             raise ValueError('Publication blocked: sizing settings changed after evidence review')
-        settings.update(minimum_roi=guard['minimum_roi'],recommendation_policy=policy,model_pick_sizing_policy=model_sizing)
+        settings.update(minimum_roi=guard['minimum_roi'],recommendation_policy=policy,model_pick_sizing_policy=model_sizing,model_pick_allocation_policy=guard.get('model_pick_allocation_policy','one_per_game_v1'))
         reproduced=size_recommendation(tip,settings,sizing['maximum_stake'],sizing['related_contracts']) if policy!='strict' else stake_assessment(tip['stress_probability'],tip['push_probability'],tip['reference_odds'],settings,sizing['maximum_stake'],sizing['related_contracts'])
         if reproduced!=sizing or stake!=reproduced['amount']:raise ValueError('Publication blocked: stake sizing does not reproduce')
 
@@ -124,7 +124,7 @@ class EvidenceGuard:
         if website_issue:errors.append(website_issue['code'])
         policy=settings.get('recommendation_policy','strict')
         model_sizing=settings.get('model_pick_sizing_policy','unit_cap_v1')
-        if policy!='strict' or 'funding_basis' in tip or model_sizing!='unit_cap_v1':
+        if policy!='strict' or 'funding_basis' in tip or model_sizing!='unit_cap_v1' or settings.get('model_pick_allocation_policy','one_per_game_v1')!='one_per_game_v1':
             from .funding_policy import funding_basis
             try:
                 tip['funding_basis']=funding_basis(tip,settings)
@@ -208,6 +208,8 @@ class EvidenceGuard:
         evidence.update(review_type='deterministic_evidence_and_calculation_checks',llm_approval=False,minimum_roi=settings['minimum_roi'])
         evidence['recommendation_policy']=policy
         evidence['model_pick_sizing_policy']=model_sizing
+        if settings.get('model_pick_allocation_policy','one_per_game_v1')!='one_per_game_v1':
+            evidence['model_pick_allocation_policy']=settings['model_pick_allocation_policy']
         evidence['sizing_settings']={key:settings[key] for key in ('bankroll','unit_stake','max_bet','kelly_fraction','max_bankroll_fraction')}
         if not errors:evidence['candidate_sha256']=evidence_digest(tip)
         tip['decision_guard']=evidence

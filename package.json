@@ -1,1 +1,1 @@
-{"name":"betting-quant-web-tests","private":true,"type":"module","scripts":{"test":"node --test tests/web.test.mjs"},"devDependencies":{"happy-dom":"20.14.5"}}
+{"name":"betting-quant-web-tests","private":true,"type":"module","scripts":{"test":"node --test tests/web.test.mjs tests/web_model_pick_allocation_cases.mjs"},"devDependencies":{"happy-dom":"20.14.5"}}

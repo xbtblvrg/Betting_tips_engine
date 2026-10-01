@@ -189,7 +189,7 @@ def probability_preference_ids(candidates,settings,bases=None,held_preference_al
     return {c['id'] for c in best.values()}
 
 
-def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_contracts=(),held_event_counts=None,held_preference_allocations=()):
+def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_contracts=(),held_event_counts=None,held_preference_allocations=(),held_allocation_families=()):
     # Select the best current contract per family, including held contracts.
     # A new best line can be issued later; holding the best does not rotate to inferior alternatives.
     families={}
@@ -198,8 +198,12 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
     def covered(c):return c['id'] in held_ids if additions else (c['game_id'],c['market']) in held
     event_cap=settings.get('max_per_event')
     funded_counts=Counter(held_event_counts) if held_event_counts is not None else Counter(g for g,m in held)
+    original_event_counts=Counter(funded_counts)
     continuous=settings.get('recommendation_policy','strict') in ('continuous_model_v1','continuous_best_available_v1')
-    from .funding_policy import funding_basis,size_recommendation
+    from .funding_policy import funding_basis,size_recommendation,model_allocation_policy
+    allocation_mode=model_allocation_policy(settings)
+    family_additions=allocation_mode=='distinct_family_v1'
+    allocated_families=set(held_allocation_families)
     bases={c['id']:funding_basis(c,settings) for c in candidates} if continuous else {}
     preference_allocations=set(held_preference_allocations);new_preference_events=set()
     probability_ids=probability_preference_ids(candidates,settings,bases,held_preference_allocations)
@@ -246,6 +250,7 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
         c['allocation_policy']={'version':ALLOCATION_VERSION,'core_market':is_core_market(c),
                                 'allocation_rank':allocation_rank,'value_rank':ranks[c['id']],
                                 'reason':'Qualified full-game Winner, Handicap and Total receive first sizing priority; exact modeled value selects each family winner. Other qualified families remain eligible.'}
+        if family_additions:c['allocation_policy']['model_pick_allocation_policy']=allocation_mode
         if diversify:
             c['allocation_policy'].update(event_priority='diversify_first_v1',
                 exposure_round=exposure_round.get(c['id']),hard_event_cap=False,
@@ -260,7 +265,11 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
         if covered(c):
             c['allocation_code']='already_held';c['allocation_reason']='This exact selection has already been issued. No repeated ticket is requested.' if additions else 'A bet is already recorded for this game and market family.'
             c['stake_note']=c['allocation_reason']
-        elif continuous and tier(c) in (1,2) and ((c['game_id'],bases[c['id']]['tier']) in preference_allocations or c['game_id'] in new_preference_events):
+        elif continuous and tier(c)==2 and family_additions and (c['game_id'],allocation_family(c)) in allocated_families:
+            c['allocation_code']='model_pick_family_covered'
+            c['allocation_reason']='A funded contract already covers this market family. No weaker alternative or repeat nominal allocation is requested.'
+            c['stake_note']=c['allocation_reason']
+        elif continuous and tier(c) in (1,2) and not (tier(c)==2 and family_additions) and ((c['game_id'],bases[c['id']]['tier']) in preference_allocations or c['game_id'] in new_preference_events):
             c['allocation_code']='model_pick_event_covered'
             c['allocation_reason']='This preference allocation for the game is already covered. Stress-qualified distinct contracts remain eligible.'
             c['stake_note']=c['allocation_reason']
@@ -277,7 +286,11 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
             if amount and continuous and tier(c) in (1,2):
                 preference_allocations.add((c['game_id'],bases[c['id']]['tier']));new_preference_events.add(c['game_id'])
                 c['allocation_reason']=(f'Positive current-model expected value; stress threshold not passed. One model pick for this game, sized at ${amount:.2f}.' if tier(c)==2 else (f'Selected for model win probability; model expected return is not positive. Calculated non-Kelly base-unit allocation ${amount:.2f}, not a value-bet claim.' if settings.get('model_pick_sizing_policy')=='all_tiers_weighted_v3' else 'Selected for model win probability; model expected return is not positive. Explicit $1 preference allocation, not a value-bet claim.'))
-            if amount:funded_counts[c['game_id']]+=1
+            if amount:
+                funded_counts[c['game_id']]+=1
+                allocated_families.add((c['game_id'],allocation_family(c)))
+                if continuous and tier(c)==2 and family_additions:
+                    c['allocation_reason']=f'Positive current-model expected value in a new market family; stress threshold not passed. Related-game exposure is included in the ${amount:.2f} stake. This is not an independence or hedge claim.'
             c['reference_stake_executable']=amount>=c.get('reference_minimum_notional',0) and amount>0
             if amount and not c['reference_stake_executable']:c['stake_note']+=' A referencia-platform minimuma nagyobb ennél; ez a tét csak megfelelő minimumú másik platformon alkalmazható.'
         elif continuous and bases[c['id']]['tier']=='probability_pick' and c['id'] not in probability_ids:
@@ -293,4 +306,29 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
             c['allocation_code']='price_below_threshold';c['allocation_reason']='Current odds do not meet the model threshold after the stress allowance.'
             c['stake_note']=f'Feltételes jelölt: csak legalább {c["minimum_odds"]:.2f} sportsbook oddson, azonos szabályok mellett.'
         chosen.append(c)
+    if family_additions:
+        # Size against the complete new batch, not just earlier allocations.
+        # Otherwise recording later same-game contracts would immediately make
+        # the first instruction exceed its freshly recalculated support.
+        batch=[c for c in chosen if c.get('stake',0)>0]
+        while batch:
+            batch_counts=Counter(c['game_id'] for c in batch)
+            remaining=remaining_budget(settings,open_exposure)
+            survivors=[]
+            for c in batch:
+                related=original_event_counts[c['game_id']]+batch_counts[c['game_id']]-1
+                sizing=size_recommendation(c,settings,remaining,related) if continuous else stake_assessment(c['stress_probability'],c['push_probability'] if c.get('reference_platform')=='Stake.com' else 0,c['reference_odds'],settings,remaining,related)
+                c['stake_sizing']=sizing;c['stake']=sizing['amount'];c['stake_note']=sizing['note']
+                c['allocation_policy']['exposure_basis']='held_plus_complete_publication_batch_v1'
+                c['reference_stake_executable']=c['stake']>=c.get('reference_minimum_notional',0) and c['stake']>0
+                if c['stake']:
+                    remaining-=c['stake'];survivors.append(c)
+                    if continuous and tier(c)==2:
+                        c['allocation_reason']=f'Positive current-model expected value in a new market family; stress threshold not passed. All held and co-issued related contracts are included in the ${c["stake"]:.2f} stake. This is not an independence or hedge claim.'
+                else:
+                    c['allocation_code']='stake_below_minimum'
+                    c['allocation_reason']='Complete-batch exposure sizing or the remaining allocation is below $1.'
+            if len(survivors)==len(batch):break
+            # Only remove allocations: never rotate to inferior family choices.
+            batch=survivors
     return chosen,alternatives

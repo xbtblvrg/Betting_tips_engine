@@ -129,6 +129,10 @@ class Store:
                         raise ValueError('Publication blocked: recommendation policy changed during review')
                     if tip.get('decision_guard',{}).get('model_pick_sizing_policy','unit_cap_v1')!=active_settings.get('model_pick_sizing_policy','unit_cap_v1'):
                         raise ValueError('Publication blocked: model-pick sizing policy changed during review')
+                from .funding_policy import model_allocation_policy
+                family_additions=model_allocation_policy(active_settings)=='distinct_family_v1'
+                if any(t.get('decision_guard',{}).get('model_pick_allocation_policy','one_per_game_v1')!=model_allocation_policy(active_settings) for t in payload.get('recommendations',[])+payload.get('alternatives',[])+payload.get('evaluated_candidates',[])):
+                    raise ValueError('Publication blocked: model-pick allocation policy changed during review')
                 # One new nominal-model allocation per game, checked under the
                 # same write transaction as immutable issuance. Replaying the
                 # identical original ticket remains idempotent.
@@ -136,6 +140,9 @@ class Store:
                 new_preference_games=set()
                 for tip in {t['id']:t for t in payload.get('recommendations',[])+payload.get('alternatives',[])+payload.get('evaluated_candidates',[])}.values():
                     if tip.get('stake',0)>0 and tip.get('funding_basis',{}).get('tier') in ('model_pick','probability_pick'):
+                        if family_additions and tip['funding_basis']['tier']=='model_pick':
+                            model_picks[(tip['game_id'],'model_pick')]=tip['id']
+                            continue
                         key=(tip['game_id'],tip['funding_basis']['tier'])
                         if model_picks.get(key,tip['id'])!=tip['id']:
                             raise ValueError('Publication blocked: model-pick game allocation already issued')
@@ -145,6 +152,9 @@ class Store:
                         model_picks[key]=tip['id']
                 from .decisions import probability_preference_ids
                 candidates=list({t['id']:t for t in payload.get('recommendations',[])+payload.get('alternatives',[])+payload.get('evaluated_candidates',[])}.values())
+                if family_additions:
+                    from .model_allocation import verify_family_publication
+                    verify_family_publication(c,payload.get('recommendations',[])+payload.get('alternatives',[])+payload.get('evaluated_candidates',[]),active_settings)
                 allowed=probability_preference_ids(candidates,active_settings,held_preference_allocations=model_picks)
                 for tip in candidates:
                     if tip.get('stake',0)>0 and tip.get('funding_basis',{}).get('tier')=='probability_pick' and tip['id'] not in allowed:
@@ -446,6 +456,12 @@ class Store:
         from collections import Counter
         with self.db() as c:rows=c.execute("SELECT tip_id,payload FROM bets WHERE status='open'").fetchall()
         return dict(Counter(t['game_id'] for t in {r['tip_id']:json.loads(r['payload']) for r in rows}.values() if t.get('game_id')))
+    def held_allocation_families(self):
+        from .contracts import allocation_family
+        with self.db() as c:
+            rows=c.execute("SELECT payload FROM bets WHERE stake>0 UNION SELECT payload FROM system_decisions WHERE json_extract(payload,'$.stake')>0").fetchall()
+        return {(tip['game_id'],allocation_family(tip)) for row in rows
+                if (tip:=json.loads(row['payload'])).get('game_id') and tip.get('market')}
     def held_preference_allocations(self):
         with self.db() as c:
             return {(r['game_id'],r['tier']) for r in c.execute("SELECT DISTINCT json_extract(payload,'$.game_id') game_id,json_extract(payload,'$.funding_basis.tier') tier FROM system_decisions WHERE json_extract(payload,'$.funding_basis.tier') IN ('model_pick','probability_pick') AND json_extract(payload,'$.stake')>0")}

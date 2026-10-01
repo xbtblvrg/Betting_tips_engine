@@ -489,5 +489,32 @@
       "development.py"
     ],
     "precedence": "This explicit temporary fallback exception supersedes earlier absolute Codex-only provider capacity wording. Other helper/deployment/betting restrictions remain."
+  },
+  "near_game_market_continuity": {
+    "updated_at": "2026-10-01",
+    "user_requirement": "New informed recommendations for upcoming near games and detailed markets after earlier instructions were placed",
+    "model_pick_allocation_policy": "distinct_family_v1",
+    "legacy_policy": "one_per_game_v1",
+    "unit": "one new nominal allocation per previously unfunded canonical game/market family",
+    "held_evidence": "all original funded bets and system decisions; payoff aliases; vanished quotes retain their family allocation",
+    "selection": "best current family candidate including held contracts; no inferior rotation",
+    "exposure": "actual related-game count and remaining budget rechecked inside publication transaction; related families are not independent or a proven hedge",
+    "unchanged": [
+      "exact contract and freshness guards",
+      "approved independent source/model/scope",
+      "positive nominal EV and stress-failure disclosure",
+      "probability-only lifetime limits",
+      "USD1–5 sizing",
+      "original stakes/decisions",
+      "daily target20 without duplicate inflation"
+    ],
+    "near_window_hours": 12,
+    "scan_horizon_hours": 48,
+    "near_depletion_action": "durable coalesced priority scan despite remaining later instructions",
+    "unfinished_capabilities": [
+      "player props with current participation and validated historical availability",
+      "event sequences",
+      "joint/SGM models with exact combined quotes"
+    ]
   }
 }

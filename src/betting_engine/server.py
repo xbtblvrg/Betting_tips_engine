@@ -215,6 +215,7 @@ class Settings(BaseModel):
     minimum_roi:float=Field(.03,ge=0,le=.5)
     recommendation_policy:Literal['strict','continuous_model_v1','continuous_best_available_v1']='strict'
     model_pick_sizing_policy:Literal['unit_cap_v1','model_weighted_v2','all_tiers_weighted_v3']='unit_cap_v1'
+    model_pick_allocation_policy:Literal['one_per_game_v1','distinct_family_v1']='one_per_game_v1'
     refresh_seconds:int=Field(60,ge=60,le=3600)
     monthly_system_cost:float|None=Field(default=None,ge=0,le=100000)
     auto_track_recommendations:bool|None=None

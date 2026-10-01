@@ -15,6 +15,16 @@ WEIGHTED_MODEL_PICK_VERSION = 'model-pick-unit-v2'
 PROBABILITY_PICK_VERSION = 'probability-pick-unit-v1'
 ALL_TIERS_MODEL_PICK_VERSION = 'model-pick-unit-v3'
 ALL_TIERS_PROBABILITY_PICK_VERSION = 'probability-pick-unit-v3'
+MODEL_ALLOCATION_POLICIES = ('one_per_game_v1', 'distinct_family_v1')
+
+
+def model_allocation_policy(settings):
+    value = settings.get('model_pick_allocation_policy', 'one_per_game_v1')
+    if value not in MODEL_ALLOCATION_POLICIES:
+        raise ValueError('Unknown model-pick allocation policy')
+    return value
+
+
 MODEL_EV_EPSILON = 1e-9
 POLICIES = ('strict', 'continuous_model_v1', 'continuous_best_available_v1')
 MODEL_SIZING_POLICIES = ('unit_cap_v1', 'model_weighted_v2', 'all_tiers_weighted_v3')
@@ -64,6 +74,7 @@ def funding_basis(tip, settings):
     """
     from .decisions import sportsbook_ev
     p, stress, push, odds, roi, policy = _inputs(tip, settings)
+    allocation_policy = model_allocation_policy(settings)
     sizing_policy = settings.get('model_pick_sizing_policy', 'unit_cap_v1')
     if not isinstance(sizing_policy, str) or sizing_policy not in MODEL_SIZING_POLICIES:
         raise ValueError('Unknown model-pick sizing policy')
@@ -108,6 +119,8 @@ def funding_basis(tip, settings):
             'note': note, 'claim': 'Reproducible allocation policy only. Exact current contract, source, independent model and publication guards remain mandatory; no guaranteed win or established profit.'}
     if weighted:
         result.update(version=ALL_TIERS_VERSION if all_tiers else WEIGHTED_VERSION, model_pick_sizing_policy=sizing_policy)
+    if allocation_policy != 'one_per_game_v1':
+        result['model_pick_allocation_policy'] = allocation_policy
     return result
 
 
@@ -197,6 +210,8 @@ def size_recommendation(tip, settings, remaining, related_count=0):
     # a stake merely because the lower-level sizing heuristic sees positive EV.
     result = stake_assessment(probability, tip['push_probability'], tip['reference_odds'],
         local_settings, remaining if basis['eligible'] else 0., related_count)
+    if model and model_allocation_policy(settings) == 'distinct_family_v1':
+        result['note'] = result['note'].replace('prior same-game contracts', 'held or co-issued same-game contracts')
     if any(isinstance(value, float) and not math.isfinite(value) for value in result.values()):
         raise ValueError('Stake assessment numeric overflow')
     if probability_only and all_tiers:

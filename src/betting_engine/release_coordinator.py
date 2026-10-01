@@ -938,7 +938,8 @@ class LiveBackend:
         worker.run_process(worker.test_command([str((root / '.venv').resolve() / 'bin/python'), '-m', 'pytest', '-q', 'tests']),
             run / 'release-python', timeout=600)
         verify_validation_sources(root, workspace)
-        worker.run_process(worker.test_command([worker.config['node_binary'], '--test', 'tests/web.test.mjs']),
+        extra_dom = ['tests/web_model_pick_allocation_cases.mjs'] if (workspace / 'tests/web_model_pick_allocation_cases.mjs').is_file() else []
+        worker.run_process(worker.test_command([worker.config['node_binary'], '--test', 'tests/web.test.mjs', *extra_dom]),
             run / 'release-dom', timeout=180)
         verify_validation_sources(root, workspace)
         schema = run / 'release-review-schema.json'; output = run / 'release-review.json'

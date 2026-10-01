@@ -66,6 +66,9 @@ def current_execution_review(tip, now, minimum_roi, sizing_settings=None):
             if any(k not in reviewed_settings or k not in sizing_settings
                    or reviewed_settings[k] != sizing_settings[k] for k in policy_keys):
                 return _denied('policy_changed', 'The configured stake policy changed. A fresh sealed model and sizing review is required.')
+        allocation_policy=guard.get('model_pick_allocation_policy','one_per_game_v1')
+        if sizing_settings is not None and allocation_policy!=sizing_settings.get('model_pick_allocation_policy','one_per_game_v1'):
+            return _denied('policy_changed','The model-pick allocation policy changed. A fresh sealed review is required.')
         evidence = tip.get('stake_evidence', {})
         if (not all(isinstance(evidence.get(k), str) and evidence[k] for k in ('fixture_slug', 'market_name', 'outcome_name'))
                 or evidence.get('fetched_at') != tip['quote_at']
@@ -87,7 +90,7 @@ def current_execution_review(tip, now, minimum_roi, sizing_settings=None):
         if any(not math.isclose(tip[k], value, abs_tol=1e-9, rel_tol=0) for k, value in expected.items()):
             return _denied('invalid_values', 'The current probability, value and minimum odds do not reproduce.')
         from .funding_policy import funding_basis
-        basis=funding_basis(tip,{**guard['sizing_settings'],'minimum_roi':minimum_roi,'recommendation_policy':policy,'model_pick_sizing_policy':model_sizing})
+        basis=funding_basis(tip,{**guard['sizing_settings'],'minimum_roi':minimum_roi,'recommendation_policy':policy,'model_pick_sizing_policy':model_sizing,'model_pick_allocation_policy':allocation_policy})
         if not basis['eligible']:
             return _denied('value_below_threshold', 'The current model assessment and exact-selection price do not meet the value threshold.')
         return {'state': 'current', 'actionable': True,
@@ -95,6 +98,7 @@ def current_execution_review(tip, now, minimum_roi, sizing_settings=None):
                 'quote_at': tip['quote_at'], 'valid_until': tip['valid_until'], 'odds': odds,
                 'minimum_odds': basis['minimum_odds'], 'probability': p, 'stress_probability': stress,
                 'funding_tier':basis['tier'],'recommendation_policy':policy,'model_pick_sizing_policy':model_sizing,
+                **({'model_pick_allocation_policy':allocation_policy} if allocation_policy!='one_per_game_v1' else {}),
                 'push_probability': push, 'expected_roi': tip['expected_roi'], 'stress_roi': tip['stress_roi'],
                 'model_version': tip['model_version'],
                 'review_type': 'deterministic_evidence_and_calculation_checks', 'llm_approval': False}
@@ -145,7 +149,7 @@ def _original_budget(original, issued_at):
         raise ValueError('Original sizing settings changed after issuance review')
     if sizing['version'] in ('model-pick-unit-v1','model-pick-unit-v2','model-pick-unit-v3','probability-pick-unit-v1','probability-pick-unit-v3'):
         from .funding_policy import funding_basis,size_recommendation
-        settings.update(minimum_roi=guard['minimum_roi'],recommendation_policy=guard.get('recommendation_policy','strict'),model_pick_sizing_policy=guard.get('model_pick_sizing_policy','unit_cap_v1'))
+        settings.update(minimum_roi=guard['minimum_roi'],recommendation_policy=guard.get('recommendation_policy','strict'),model_pick_sizing_policy=guard.get('model_pick_sizing_policy','unit_cap_v1'),model_pick_allocation_policy=guard.get('model_pick_allocation_policy','one_per_game_v1'))
         if original.get('funding_basis')!=funding_basis(original,{**settings,'max_bet':guard['sizing_settings']['max_bet']}):
             raise ValueError('Original funding policy does not reproduce')
         reproduced=size_recommendation(original,settings,sizing['maximum_stake'],sizing['related_contracts'])
@@ -216,7 +220,7 @@ def instruction_review(record, current, now, minimum_roi, related_contracts=None
         policy=current['decision_guard'].get('recommendation_policy','strict')
         if policy!='strict':
             from .funding_policy import size_recommendation
-            settings={**settings,'minimum_roi':minimum_roi,'recommendation_policy':policy,'model_pick_sizing_policy':current['decision_guard'].get('model_pick_sizing_policy','unit_cap_v1')}
+            settings={**settings,'minimum_roi':minimum_roi,'recommendation_policy':policy,'model_pick_sizing_policy':current['decision_guard'].get('model_pick_sizing_policy','unit_cap_v1'),'model_pick_allocation_policy':current['decision_guard'].get('model_pick_allocation_policy','one_per_game_v1')}
             supported=size_recommendation(current,settings,sizing['maximum_stake'],related)
         else:
             supported = stake_assessment(current['stress_probability'], current['push_probability'],

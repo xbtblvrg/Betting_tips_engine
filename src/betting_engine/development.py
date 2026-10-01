@@ -42,7 +42,7 @@ PROTECTED = ('config/validation_sources.json', 'AGENTS.md', 'pyproject.toml', 'p
     'src/betting_engine/storage.py', 'src/betting_engine/supervisor.py',
     'src/betting_engine/dashboard_payload.py', 'src/betting_engine/dashboard_process.py', 'src/betting_engine/dashboard_worker.py',
     'src/betting_engine/freshness.py', 'src/betting_engine/instructions.py', 'src/betting_engine/decision_readiness.py',
-    'src/betting_engine/stake_website_availability.py', 'src/betting_engine/funding_policy.py')
+    'src/betting_engine/stake_website_availability.py', 'src/betting_engine/funding_policy.py', 'src/betting_engine/model_allocation.py')
 IGNORED = {'__pycache__', '.pytest_cache', '.git', 'node_modules', 'data', '.venv'}
 SCHEMA = {'type': 'object', 'properties': {
     'summary': {'type': 'string'}, 'task_complete': {'type': 'boolean'},
@@ -1323,7 +1323,8 @@ class DevelopmentWorker:
         verify_validation_sources(self.root, self.workspace)
         verify_task_diagnostics(self.root, self.workspace, task)
         self._failure_phase = prefix + 'dom-tests'
-        self.run_process(self.test_command([self.config['node_binary'], '--test', 'tests/web.test.mjs']),
+        extra_dom = ['tests/web_model_pick_allocation_cases.mjs'] if (self.workspace / 'tests/web_model_pick_allocation_cases.mjs').is_file() else []
+        self.run_process(self.test_command([self.config['node_binary'], '--test', 'tests/web.test.mjs', *extra_dom]),
             run / (prefix + 'dom-tests'), timeout=180)
         verify_validation_sources(self.root, self.workspace)
         verify_task_diagnostics(self.root, self.workspace, task)

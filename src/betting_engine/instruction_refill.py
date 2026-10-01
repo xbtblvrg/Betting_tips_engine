@@ -16,6 +16,7 @@ from .domain import utcnow, parse_time
 from .storage import Store
 
 VERSION = 'instruction-refill-v1'
+NEAR_WINDOW_HOURS = 12
 
 
 def _json(value):
@@ -48,7 +49,7 @@ def ready_snapshot(store, now=None, *, include_marked=False):
         if review['state'] in ('current', 'value_below_threshold'):
             current[tip['id']] = tip
     selected, alternatives = rank_and_size(list(current.values()), settings, store.risk_committed(),
-        store.held_families(), held, counts, preferences)
+        store.held_families(), held, counts, preferences, (store.held_allocation_families() if settings.get('model_pick_allocation_policy')=='distinct_family_v1' else ()))
     allowed = probability_preference_ids(list(current.values()), settings, held_preference_allocations=preferences)
     groups = defaultdict(list)
     for record in store.open_bets(): groups[record['tip_id']].append(record)
@@ -70,9 +71,15 @@ def ready_snapshot(store, now=None, *, include_marked=False):
         if review.get('actionable') is True: ready[identity] = tip
     contracts = {key: sorted(equivalent_contract_ids(tip)) for key, tip in sorted(ready.items())}
     unmarked = sorted(key for key in ready if not marks.get(key))
+    near_qualified = sorted(key for key in ready
+        if timedelta(0) < parse_time(ready[key]['start']) - now <= timedelta(hours=NEAR_WINDOW_HOURS))
+    near = sorted(set(unmarked) & set(near_qualified))
     return {'version': VERSION, 'observed_at': now.isoformat(),
         'publication_version': payload.get('version', 0), 'publication_at': payload.get('generated_at'),
         'ids': unmarked, 'contracts': {key: contracts[key] for key in unmarked},
+        'near_window_hours': NEAR_WINDOW_HOURS, 'near_instruction_ids': near,
+        'near_qualified_ids': near_qualified,
+        'instruction_start_times': {key: ready[key]['start'] for key in unmarked},
         'marked_qualified_ids': sorted(set(ready)-set(unmarked)), 'qualified_contracts': contracts}
 
 
@@ -113,22 +120,40 @@ def mark_placed(connection, tip_id, placed, now=None):
         connection.execute('INSERT OR IGNORE INTO placement_checklist VALUES (?,?)', (tip_id, now.isoformat()))
     else:
         connection.execute('DELETE FROM placement_checklist WHERE tip_id=?', (tip_id,))
-    if before and before['ids'] == [tip_id]:
+    full_depleted = bool(before and before['ids'] == [tip_id])
+    near_depleted = bool(before and before.get('near_window_hours') == NEAR_WINDOW_HOURS
+        and before.get('near_instruction_ids') == [tip_id] and tip_id in before['ids'])
+    if full_depleted or near_depleted:
         # Stable across requotes, repeated marks, and unmark/mark cycles.
         identity = hashlib.sha256(_json(before['contracts'][tip_id]).encode()).hexdigest()
         prior = connection.execute('SELECT request_id FROM instruction_refill_triggers WHERE identity=?', (identity,)).fetchone()
         if not prior:
-            queued = connection.execute("SELECT id FROM instruction_refill_requests WHERE state IN ('queued','failed','interrupted') ORDER BY id LIMIT 1").fetchone()
-            if queued: request_id = queued['id']
+            queued = connection.execute("SELECT id,payload FROM instruction_refill_requests WHERE state IN ('queued','failed','interrupted') ORDER BY id LIMIT 1").fetchone()
+            if queued:
+                request_id = queued['id']
+                if near_depleted:
+                    value=json.loads(queued['payload'])
+                    value.update(near_window_hours=NEAR_WINDOW_HOURS,
+                        near_instruction_ids=sorted(set(value.get('near_instruction_ids',[])) | set(before['near_instruction_ids'])),
+                        remaining_instruction_ids=sorted(set(before['ids']) - {tip_id}))
+                    connection.execute('UPDATE instruction_refill_requests SET payload=? WHERE id=?',(_json(value),request_id))
             else:
                 value = {'version': VERSION, 'horizon_hours': 48, 'reason': 'placed_instruction_depletion',
                     'requested_at': now.isoformat(), 'source_publication_version': before['publication_version']}
+                if near_depleted:
+                    value.update(near_window_hours=NEAR_WINDOW_HOURS,
+                        near_instruction_ids=before['near_instruction_ids'],
+                        remaining_instruction_ids=sorted(set(before['ids']) - {tip_id}))
+                    if not full_depleted: value['reason'] = 'placed_near_instruction_depletion'
                 request_id = connection.execute('INSERT INTO instruction_refill_requests(requested_at,state,payload) VALUES (?,?,?)',
                     (now.isoformat(), 'queued', _json(value))).lastrowid
                 _event(connection, request_id, 'requested', now, value)
             connection.execute('INSERT INTO instruction_refill_triggers VALUES (?,?,?)', (identity, request_id, now.isoformat()))
             _event(connection, request_id, 'depletion_observed', now,
-                {'trigger_identity': identity, 'tip_id': tip_id, 'before': before, 'remaining_instruction_ids': []})
+                {'trigger_identity': identity, 'tip_id': tip_id, 'before': before,
+                 'near_window_hours': NEAR_WINDOW_HOURS if near_depleted else None,
+                 'near_window_depleted': near_depleted, 'full_window_depleted': full_depleted,
+                 'remaining_instruction_ids': sorted(set(before['ids']) - {tip_id})})
     row = connection.execute('SELECT placed_at FROM placement_checklist WHERE tip_id=?', (tip_id,)).fetchone()
     return {'tip_id': tip_id, 'placed': bool(row), 'placed_at': row['placed_at'] if row else None}
 
@@ -153,6 +178,7 @@ def claim(connection, now=None):
     store = TransactionStore(connection)
     previous = json.loads(row['payload'])
     receipt = {key: previous[key] for key in ('version','horizon_hours','reason','requested_at','source_publication_version')}
+    receipt.update({key: previous[key] for key in ('near_window_hours','near_instruction_ids','remaining_instruction_ids') if key in previous})
     receipt.update(request_id=row['id'], started_at=now.isoformat(),
         attempt_number=previous.get('attempt_number', 0)+1, force_data=previous.get('attempt_number', 0)==0,
         baseline_publication_version=previous.get('baseline_publication_version', store.latest_version()),
@@ -184,12 +210,22 @@ def complete(connection, receipt, *, error=None, now=None):
         aliases = set(snapshot['qualified_contracts'][key])
         if key in issued and not accounted.intersection(aliases):
             novel.append(key); accounted.update(aliases)
+    all_horizon_novel = list(novel)
+    near_request = receipt.get('near_window_hours') == NEAR_WINDOW_HOURS
+    if near_request:
+        # The broad scan cannot close a near-window shortage with far-away picks.
+        near_qualified = set(snapshot.get('near_qualified_ids', []))
+        novel = [key for key in novel if key in near_qualified]
     later = snapshot['publication_version'] > receipt['baseline_publication_version']
     state = 'failed' if error or not later else 'completed' if novel else 'shortage'
     result = {**receipt, 'state': state, 'finished_at': now.isoformat(), 'observed': snapshot,
         'novel_qualified_instruction_ids': novel if state != 'failed' else [],
         'error': str(error)[:500] if error else None if later else 'No later publication committed',
         'shortage': state == 'shortage', 'claim': 'Priority 48-hour scan outcome; no quota padding, repeat issuance, model approval or profitability claim.'}
+    if near_request:
+        result.update(all_horizon_novel_qualified_instruction_ids=all_horizon_novel if state != 'failed' else [],
+            near_window_fulfilled=state == 'completed',
+            claim='Priority 48-hour scan outcome; near-window fulfillment requires a novel qualified instruction within 12 hours at observation. Farther new instructions are reported separately; no quota padding, model approval or profitability claim.')
     if state == 'failed': result['retry_at'] = (now + timedelta(seconds=min(900, 60*2**min(receipt.get('attempt_number',1)-1,4)))).isoformat()
     connection.execute('UPDATE instruction_refill_requests SET state=?,payload=? WHERE id=?', (state, _json(result), row['id']))
     _event(connection, row['id'], 'attempt_finished', now, result)
