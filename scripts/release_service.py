@@ -30,13 +30,13 @@ def main():
     plist = Path.home() / 'Library/LaunchAgents' / (LABEL + '.plist'); domain = 'gui/' + str(os.getuid())
     if args.action == 'install':
         policy = json.loads((root / 'config/release_policy.json').read_text())
-        if policy.get('version') != 'root-utility-release-v1' or policy.get('enabled') is not True:
+        if policy.get('version') != 'root-guarded-engine-release-v1' or policy.get('enabled') is not True:
             raise SystemExit('Install requires the enabled root-owned tested release policy.')
         (root / 'data/logs').mkdir(parents=True, exist_ok=True); plist.parent.mkdir(parents=True, exist_ok=True)
         plist.write_bytes(plistlib.dumps(configuration(root)))
         subprocess.run(['launchctl', 'bootout', domain, str(plist)], capture_output=True)
         subprocess.run(['launchctl', 'bootstrap', domain, str(plist)], check=True)
-        print('Root-owned utility release service installed. Coding workers remain isolated; no model activation is authorized.')
+        print('Root-owned trusted release service installed. Guarded engine changes require the exact profile and review gates; automatic betting remains disabled.')
     elif args.action == 'stop':
         subprocess.run(['launchctl', 'bootout', domain, str(plist)], check=True)
     else:
