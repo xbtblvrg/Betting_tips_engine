@@ -59,8 +59,30 @@ def market_types(inventory,candidates=()):
         row['supported_outcomes']+=m.get('supported_outcomes',0)
         if m.get('reason')!='supported':row['reasons'][m.get('reason','unknown')]+=m['outcome_count']-m.get('supported_outcomes',0)
     evaluated=Counter((t['league'],t.get('stake_evidence',{}).get('market_name')) for t in candidates)
-    return [{**v,'reasons':dict(v['reasons']),
-             'evaluated_outcomes':evaluated[(v['league'],v['market'])] if v['section']=='standard' else 0} for _,v in sorted(groups.items())]
+    def next_step(reasons, supported, evaluated_count):
+        if 'unmatched_fixture' in reasons:
+            return 'Reconcile the Stake fixture with one unique independent event before pricing.'
+        if 'missing_league_model' in reasons:
+            return 'Build, chronologically validate and review the league model before enabling funding.'
+        if 'swish_contract_scope_and_model_not_validated' in reasons:
+            return 'Validate player identity, participation, scope and settlement against an independent model.'
+        if 'unsupported_or_inactive_contract' in reasons or supported==0:
+            return 'Implement the exact Stake contract model and settlement tests, then run a fresh guarded evaluation.'
+        if evaluated_count==0:
+            return 'Run a fresh guarded candidate evaluation for the supported contract family.'
+        return 'No unresolved market-type action in this publication.'
+    result=[]
+    for _,value in sorted(groups.items()):
+        count=evaluated[(value['league'],value['market'])] if value['section']=='standard' else 0
+        reasons=dict(value['reasons'])
+        # A provider can label an offer supported while the decision path
+        # produces no exact candidate. Keep that gap explicit instead of
+        # rendering an empty reason object as if it were fully evaluated.
+        if value['observed_outcomes'] and count==0 and not reasons:
+            reasons['no_candidate_evaluation']=value['observed_outcomes']
+        result.append({**value,'reasons':reasons,'evaluated_outcomes':count,
+                       'next_step':next_step(reasons,value['supported_outcomes'],count)})
+    return result
 
 def operating_audit(payload,progress,now=None):
     now=now or utcnow();status=payload.get('status',{})

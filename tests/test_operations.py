@@ -80,6 +80,13 @@ def test_market_catalog_counts_exact_names_and_never_counts_swish_as_modeled():
     rows=market_types(inventory,[{'league':'NHL','stake_evidence':{'market_name':'Total'}}])
     assert rows[0]['evaluated_outcomes']==1 and rows[1]['evaluated_outcomes']==0
 
+
+def test_market_catalog_never_hides_an_observed_unpriced_family_without_reason():
+    rows=market_types([{'league':'NFL','market':'2nd Quarter - Draw No Bet','outcome_count':2,
+                        'supported_outcomes':2,'reason':'supported'}],[])
+    assert rows[0]['reasons']=={'no_candidate_evaluation':2}
+    assert 'fresh guarded candidate evaluation' in rows[0]['next_step']
+
 def test_dossier_executes_research_but_does_not_claim_market_implementation(tmp_path):
     result=research_dossier('NHL',publication(),tmp_path)
     assert result['knowledge'] and result['market_types'] and not result['missing_market_models_resolved']
