@@ -158,6 +158,12 @@ class EvidenceGuard:
         tip['input_readiness']=readiness
         errors.extend('input_readiness:'+error for error in readiness['errors'])
         scope,base=split_market(market.kind)
+        # Newly supported joint/exact contracts remain research-only until
+        # their exact offered-line family validation and settlement evidence is
+        # present.  Parsing and generic score arithmetic alone cannot fund an
+        # unvalidated contract.
+        if base in ('winner_total', 'exact_total', 'exact_score'):
+            errors.append('composite_market_validation_not_established')
         # Payoff-equivalent handicap aliases cannot bypass a Winner failure.
         quality=self.model_quality(model_report,allocation_family(tip) if scope=='full_game' else market.kind)
         readiness['model_quality']=quality

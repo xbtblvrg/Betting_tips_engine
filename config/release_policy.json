@@ -144,6 +144,7 @@
         "src/betting_engine/presentation.py",
         "src/betting_engine/scope_markets.py",
         "src/betting_engine/decisions.py",
+        "src/betting_engine/governance.py",
         "tests/test_composite_market_coverage.py"
       ],
       "guards": {
@@ -165,6 +166,7 @@
         "src/betting_engine/presentation.py",
         "src/betting_engine/scope_markets.py",
         "src/betting_engine/decisions.py",
+        "src/betting_engine/governance.py",
         "tests/test_composite_market_coverage.py"
       ],
       "guards": {

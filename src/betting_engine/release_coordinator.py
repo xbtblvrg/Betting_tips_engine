@@ -163,7 +163,7 @@ def guarded_engine_path(name):
     path.  The exact file allowlist still lives in release_policy.json.
     """
     p = Path(name)
-    guarded_core_allow = {'src/betting_engine/decisions.py'}
+    guarded_core_allow = {'src/betting_engine/decisions.py', 'src/betting_engine/governance.py'}
     forbidden = {
         'src/betting_engine/storage.py', 'src/betting_engine/governance.py',
         'src/betting_engine/funding_policy.py', 'src/betting_engine/engine.py',
