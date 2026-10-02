@@ -1,5 +1,11 @@
 # Legutóbbi ellenőrzött kiadás: 2026-10-02.21
 
+## 2026-10-02 — minden megfigyelt, de nem árazott piachoz ok és következő lépés
+
+Commit **17454f8**: a már elmentett régi publication snapshotok is kapnak `no_candidate_evaluation` vagy pontos okkódot és végrehajtható következő lépést a dashboard-olvasáskor; ezért az élő katalógusban nincs megfigyelt, modell nélkül maradt sor üres indoklással. Ez nem tesz piacot pénzes executable ajánlássá: a pontos scope-, identitás-, settlement- és modellfeltétel továbbra is kötelező.
+
+Újraindítás után a helyi és Tailscale dashboard egyaránt **HTTP 200**, friss publication `version=6320`; a 397 market-type sorból **0** maradt üres okkal. A közös execution snapshot továbbra is **389 / 0 / 9 / 0 / 416** (first issued / current executable / marked / started-expired / no-longer-qualifying). A célzott operations/API/instruction tesztek **97 passed**, a frontend korábbi futása **272/272**.
+
 ## 2026-10-02 — bounded execution list, shared counters and Asian/DNB anchor fix
 
 Az urgent execution-list javítás commitja **4f17225**. A kiadási útvonal és a dashboard most ugyanabból a napi issuance snapshotból kapja a számláló alapját: az `issuance_rows` a szűrt horizon/league/market nézethez használható, a napi checkpoint és a naptári összesítés külön, explicit mező. A fő UI-lista csak friss, aktuálisan actionable, finanszírozott sorokat ad át; a korábbi immutábilis rekordok és a már nem kvalifikáló szerződések a Bet Tracker kontextusában maradnak. A korábbi tippek minden dashboard-ciklusban új current review-t kapnak.
