@@ -211,6 +211,13 @@ class EvidenceGuard:
         if settings.get('model_pick_allocation_policy','one_per_game_v1')!='one_per_game_v1':
             evidence['model_pick_allocation_policy']=settings['model_pick_allocation_policy']
         evidence['sizing_settings']={key:settings[key] for key in ('bankroll','unit_stake','max_bet','kelly_fraction','max_bankroll_fraction')}
+        # New policy controls are sealed only for new receipts. This keeps
+        # historical receipts byte-compatible while making the active CLV
+        # gate reproducible during publication and current execution review.
+        if 'fallback_clv_gate' in settings:
+            evidence['sizing_settings'].update(
+                fallback_clv_gate=settings.get('fallback_clv_gate','legacy'),
+                clv_min_games=settings.get('clv_min_games',30))
         if not errors:evidence['candidate_sha256']=evidence_digest(tip)
         tip['decision_guard']=evidence
         return evidence
