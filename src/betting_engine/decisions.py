@@ -255,7 +255,14 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
     daily_family_counts=Counter(daily_family_counts or {})
     daily_family_limit=max(1, math.ceil((daily_funded_count + (0 if cycle_cap==math.inf else cycle_cap) or 1) * float(settings.get('max_daily_family_share',.25)))) if limits_enabled else math.inf
     funded_counts=Counter(held_event_counts) if held_event_counts is not None else Counter(g for g,m in held)
-    event_stakes=Counter(held_event_stakes or {})
+    # Keep the persisted exposure separate from the provisional first-pass
+    # allocations.  The second pass below re-sizes the complete batch against
+    # the same held exposure that publication_guard.py rereads.  Reusing the
+    # mutated first-pass counter would subtract those provisional stakes a
+    # second time and shrink a single fresh contract (for example $3.90 to
+    # $1.10), making the immutable publication receipt impossible to replay.
+    held_event_stakes_base=Counter(held_event_stakes or {})
+    event_stakes=Counter(held_event_stakes_base)
     period_counts=Counter(held_period_counts or {})
     original_event_counts=Counter(funded_counts)
     continuous=settings.get('recommendation_policy','strict') in ('continuous_model_v1','continuous_best_available_v1')
@@ -405,6 +412,11 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
             batch_counts=Counter(c['game_id'] for c in batch)
             remaining=remaining_budget(settings,open_exposure)
             batch_stakes=Counter()
+            # ``event_stakes`` was used by the initial allocation pass and may
+            # now include provisional amounts.  Rebuild it from the durable
+            # held inventory before replaying the complete batch so sizing and
+            # the publication guard use identical inputs.
+            event_stakes=Counter(held_event_stakes_base)
             batch_periods=Counter()
             survivors=[]
             for c in batch:

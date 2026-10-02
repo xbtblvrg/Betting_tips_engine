@@ -96,6 +96,24 @@ def test_multiple_families_recheck_exposure_in_one_transaction(reviewed, tmp_pat
     assert len(store.system_decisions()) == 2
 
 
+def test_single_new_value_receipt_replays_after_batch_resizing(reviewed, tmp_path):
+    """The complete-batch replay must not subtract its own first-pass stake.
+
+    Before the regression fix a lone fresh value candidate was first sized at
+    the full event cap and then re-sized against that provisional amount.  The
+    resulting smaller receipt failed the publication guard, so the live
+    refresh published no new tips after existing quotes expired.
+    """
+    tip, settings, _ = reviewed(cases.BEST, probability=.72, odds=2.6)
+    store = cases.database(tmp_path, settings)
+    selected, _ = rank(store, [tip], settings)
+    assert len(selected) == 1
+    assert selected[0]['stake'] >= 1
+    assert selected[0]['stake_sizing']['maximum_stake'] == 5.0
+    publish(store, selected)
+    assert len(store.system_decisions()) == 1
+
+
 def test_concurrent_new_exposure_blocks_stale_stake_atomically(reviewed, tmp_path):
     winner, settings, _ = reviewed(cases.BEST)
     total, _, _ = reviewed(cases.BEST, market_kind='totals', side='over', line=215.5)
