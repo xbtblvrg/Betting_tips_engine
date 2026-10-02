@@ -489,6 +489,11 @@ function renderStatistics(report){
  $('#statistics-decisions').innerHTML=statisticsGroupTable([d],['Basis'],()=>['Original Issued Decisions']);
  const calibration=d.calibration||{};
  $('#statistics-calibration').textContent=`Frozen-probability calibration: ${calibration.observations??0} scored original contracts across ${calibration.independent_games??0} distinct games; Brier ${num(calibration.brier,4)}, log loss ${num(calibration.log_loss,4)}. Pushes and unresolved or unsupported targets are excluded. A short run or several bets on one game does not establish a reliable improvement.`;
+ const reliability=Array.isArray(calibration.reliability_diagram)?calibration.reliability_diagram:[];
+ $('#statistics-reliability').innerHTML=reliability.length?table(['Probability bin','Contracts','Games','Estimated','Observed'],reliability.map(b=>[
+  esc(`${(100*b.lower).toFixed(0)}–${(100*b.upper).toFixed(0)}%`),esc(b.observations??0),esc(b.games??0),
+  esc(Number.isFinite(b.predicted)?(100*b.predicted).toFixed(1)+'%':'—'),esc(Number.isFinite(b.observed)?(100*b.observed).toFixed(1)+'%':'—')
+ ])):'<p class="panel-copy">No reliability observations in this cohort.</p>';
  const audit=report.resolution_audit||{},issues=[...(audit.issues||[])];
  const globalOrphans=report.global_integrity?.orphan_bet_ids||[];for(const id of globalOrphans)if(!issues.some(r=>r.code==='orphan_outcome'&&(r.bet_id??r.id)===id))issues.push({code:'orphan_outcome',bet_id:id,detail:'Global ledger integrity: this outcome has no matching ticket, outside any display filter.'});
  const legacy=issues.filter(r=>r.code==='legacy_full_game_reference').length,other=issues.length-legacy;

@@ -50,7 +50,7 @@ def current_execution_review(tip, now, minimum_roi, sizing_settings=None):
             return _denied('internal_reassessment_required', 'The current sports inputs need a fresh readiness and model review.')
         # Recheck the seal, freshness and any nonzero allocation. A passed flag
         # alone cannot authorize mutated odds, probabilities, scope or line.
-        verify_publication(tip, now)
+        verify_publication(tip, now, sizing_settings)
         guard = tip['decision_guard']
         policy=guard.get('recommendation_policy','strict')
         model_sizing=guard.get('model_pick_sizing_policy','unit_cap_v1')

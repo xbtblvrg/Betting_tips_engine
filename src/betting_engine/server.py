@@ -218,6 +218,9 @@ class Settings(BaseModel):
     model_pick_allocation_policy:Literal['one_per_game_v1','distinct_family_v1']='one_per_game_v1'
     fallback_clv_gate:Literal['legacy','prospective_positive_clv']='legacy'
     clv_min_games:int=Field(30,ge=1,le=10000)
+    market_anchor_mode:Literal['legacy','shadow','live']='shadow'
+    market_model_weight:float=Field(.15,ge=0,le=1)
+    market_disagreement_threshold:float=Field(.30,gt=0,lt=1)
     refresh_seconds:int=Field(60,ge=60,le=3600)
     monthly_system_cost:float|None=Field(default=None,ge=0,le=100000)
     auto_track_recommendations:bool|None=None

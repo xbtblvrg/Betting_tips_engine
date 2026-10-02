@@ -270,10 +270,23 @@ def _calibration(rows):
     for row in values:
         games[row['game']].append(row['brier'])
     mean = lambda key: sum(row[key] for row in values)/len(values) if values else None
+    # A reliability diagram is kept as data, rather than as a rendered image,
+    # so the API and the web client use the same frozen cohort.  Empty bins
+    # remain explicit; they are not interpolated or treated as evidence.
+    bins = []
+    for index in range(10):
+        lo, hi = index / 10, (index + 1) / 10
+        members = [row for row in values if (lo <= row['p'] < hi or (index == 9 and row['p'] == hi))]
+        bins.append({'bin': index + 1, 'lower': lo, 'upper': hi,
+                     'observations': len(members),
+                     'predicted': sum(row['p'] for row in members) / len(members) if members else None,
+                     'observed': sum(row['y'] for row in members) / len(members) if members else None,
+                     'games': len({row['game'] for row in members})})
     return {'observations': len(values), 'independent_games': len(games), 'brier': mean('brier'),
             'log_loss': mean('log_loss'), 'mean_conditional_win_probability': mean('p'),
             'observed_win_rate': mean('y'),
             'game_equal_weight_brier': sum(sum(v)/len(v) for v in games.values())/len(games) if games else None,
+            'reliability_diagram': bins,
             'excluded': dict(sorted((k, v) for k, v in excluded.items() if v)),
             'basis': 'Frozen original p/(1-push), win/loss only; one observation per contract; game clustering is reported, not proof of independence or profitability.'}
 

@@ -1,4 +1,20 @@
-# Legutóbbi ellenőrzött kiadás: 2026-09-30.18
+# Legutóbbi ellenőrzött kiadás: 2026-10-02.20
+
+## 2026-10-02 19:40 CEST — piaci horgony, kalibrációs diagram és élő guard-helyreállítás
+
+Az elsődleges WR/ROI-fejlesztés részeként a döntési útvonal most a Stake exact condition piaci árát devigeli, majd a független modell és a piaci valószínűséget logit-térben, kezdeti 0,15-ös modell-súllyal keveri. A súly és a liga/piaccsalád szerinti későbbi újrafittelés időrendi megfigyelésekből készül; 30 külön meccs alatti minta nem léphet elő éles tanulási súlyként. A 0,30 feletti modell–piac eltérés review/shadow státuszba kerül. A Stake-handicap home −line / away +line párjait ugyanazon exact condition alatt kezeli az anchor; korábban ez külön csoportba esett és guard-mismatch-et okozott.
+
+Az élő futás `version=6262`: **1 858** teljes devig anchor-szerződés, **2 012** EvidenceGuard-ellenőrzésből **1 650 átengedett**, **362 elutasított**, **1 650** horgonyzott jelölt és **476** aktuális, nem ismétlődő jelölt. Számítási mismatch nincs; az elutasítások mért okai: 184 hiányzó/review anchor, 51 nagy modell–piac eltérés, 109 MLB kezdődobó-adat hiány (84 away, 25 home) és 36 model-quality validációs elutasítás. Az aktuális CLV-gate miatt a friss futásban a pénzes új ajánlások száma **0**: a pénzes tier csak pozitív, stresszelt EV és legalább 30 független meccses prospektív CLV után engedélyezett. A napi cél hiányát nem töltjük fel gyengébb jelöltekkel.
+
+Statistics kapott 10 bin-es reliability diagramot ugyanabból a befagyasztott eredeti döntési kohorszból. A jelenlegi immutable mérés: **693** tracker-sor, **278** lezárt, **113 win / 159 loss / 6 push**, **34** lezárt meccs, settled stake **$312.84**, payout **$269.9504**, P&L **−$42.8896**, ROI **−13.7098%**, win rate **41.5441%**; Brier **0.241583**, log-loss **0.677388**. Ezek tényleges mérési adatok, nem profit- vagy jövőbeli nyereségállítás.
+
+Az `EvidenceGuard` a piaci horgony módját, súlyát és eltérési küszöbét is a döntési bizonyítékba zárja; a storage publikáció ugyanazon tranzakcióban összeveti az aktív beállításokkal. Az eredeti ledger/tétek nem változtak, automatikus fogadásküldés továbbra sincs. Teljes ellenőrzés: **6093 Python-teszt, 1 skipped, 25 warning, 5 subtest**, valamint **272/272 webteszt** sikeres.
+
+Konkrét fennmaradó blokkolók és következő végrehajtott lépések: (1) MLB probable-pitcher, NHL goalie, NFL QB/injury, időjárási és NCAAF tempó inputok pótlása az input-adapterekben; (2) a 51 nagy eltérésű anchor-szerződés tartós shadow-review-ja; (3) legalább 30 független meccs CLV-adat gyűjtése szegmensenként a pénzes tierhez; (4) a fejlesztési worker `D31` stale állapotának lezárása és a megmaradt release-evidence blokkolók integrációs javítása. A komponensállapot ezt `attention_required`-ként és konkrét feladatként naplózza; a fogadási útvonal a horgonyzott, guardolt jelöltek frissítését közben folytatja.
+
+A Stake exact-market anchor és a reliability diagram kódja a jelen kiadásban aktív; a teljes piaclefedettség, tartós pozitív CLV/ROI és minden speciális/player/live piac éles bizonyítása külön, mérhető fejlesztési munkaként marad a következő végrehajtási ciklusban.
+
+# Korábbi legutóbbi ellenőrzött kiadás: 2026-09-30.18
 
 A Stake szakaszhandicapek mezősorrend-függő kihagyása javítva: befagyasztott valós replay-ben +74 pontos kimenetel értékelhető. Ismert professzionális Winner-regresszió kötelező kiadási ellenőrzést kapott, a családhibák tartós D18-munkák. Három fejlesztési/release SQLite-olvasó kapcsolatlezárása javítva. 1796 Python + 5 alteszt és 64 DOM-teszt, kihagyás nélkül; független review, friss local/Tailscale publikáció és minden eredeti fogadási rekord megőrzése ellenőrizve. A teljes engine és a tartós profit továbbra sem igazolt. [Teljes követelményaudit](DEVELOPER_AUDIT_2026-09-30_18.hu.md).
 

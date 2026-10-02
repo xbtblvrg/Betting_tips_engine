@@ -124,7 +124,7 @@ class Store:
                 active_settings={**DEFAULT_SETTINGS,**(json.loads(saved['value']) if saved else {})}
                 active_policy=active_settings.get('recommendation_policy','strict')
                 for tip in payload.get('recommendations',[])+payload.get('alternatives',[])+payload.get('evaluated_candidates',[]):
-                    verify_publication(tip,parse_time(now))
+                    verify_publication(tip,parse_time(now),active_settings)
                     if tip.get('decision_guard',{}).get('recommendation_policy','strict')!=active_policy:
                         raise ValueError('Publication blocked: recommendation policy changed during review')
                     if tip.get('decision_guard',{}).get('model_pick_sizing_policy','unit_cap_v1')!=active_settings.get('model_pick_sizing_policy','unit_cap_v1'):

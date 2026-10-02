@@ -16,7 +16,7 @@ CARD_IDS={'NBA':'K05','WNBA':'K05','MLB':'K04','NFL':'K06','NHL':'K07','NCAAF':'
 SEALED_FIELDS=('id','game_id','league','home','away','start','market','side','line','selection',
     'model_version','probability','push_probability','stress_probability','reference_odds',
     'expected_roi','stress_roi','minimum_odds','quote_at','valid_until','reference_platform',
-    'reference_market_id','reference_contract_description','reference_url','stake_evidence','model_scope','input_readiness','game_context')
+    'reference_market_id','reference_contract_description','reference_url','stake_evidence','model_scope','input_readiness','game_context','market_anchor','probability_basis')
 
 
 def evidence_digest(tip):
@@ -26,7 +26,7 @@ def evidence_digest(tip):
     return hashlib.sha256(json.dumps(fields,sort_keys=True,allow_nan=False).encode()).hexdigest()
 
 
-def verify_publication(tip,now):
+def verify_publication(tip,now,active_settings=None):
     from .stake_website_availability import website_availability_issue
     issue=website_availability_issue(tip)
     if issue:raise ValueError('Publication blocked: '+issue['code'])
@@ -73,6 +73,21 @@ def verify_publication(tip,now):
         settings.update(minimum_roi=guard['minimum_roi'],recommendation_policy=policy,model_pick_sizing_policy=model_sizing,model_pick_allocation_policy=guard.get('model_pick_allocation_policy','one_per_game_v1'))
         reproduced=size_recommendation(tip,settings,sizing['maximum_stake'],sizing['related_contracts']) if policy!='strict' else stake_assessment(tip['stress_probability'],tip['push_probability'],tip['reference_odds'],settings,sizing['maximum_stake'],sizing['related_contracts'])
         if reproduced!=sizing or stake!=reproduced['amount']:raise ValueError('Publication blocked: stake sizing does not reproduce')
+    # The market anchor is part of the pricing contract.  New receipts carry
+    # the exact mode, weight and disagreement policy used by the guard; a
+    # later settings change cannot silently reinterpret an issued decision.
+    anchor_settings=guard.get('market_anchor_settings')
+    if anchor_settings:
+        # Publication callers provide active settings from the same storage
+        # transaction.  Standalone historical verification has no runtime
+        # settings, so it compares the receipt with itself and remains
+        # byte-compatible; live publication is fail-closed in storage.
+        active_anchor_settings=anchor_settings if active_settings is None else {
+            key: active_settings.get(key, default) for key,default in (
+                ('market_anchor_mode','shadow'),('market_model_weight',.15),
+                ('market_disagreement_threshold',.30))}
+        if anchor_settings != active_anchor_settings:
+            raise ValueError('Publication blocked: market anchor settings changed after evidence review')
 
 
 class KnowledgeAgent:
@@ -184,6 +199,14 @@ class EvidenceGuard:
             if not all(math.isfinite(v) and 0<=v<=1 for v in (p,push)) or p+push>1+1e-9:
                 raise ValueError('Invalid model probability mass')
             p=min(.99,max(.01,p));push=min(push,1-p)
+            anchor=tip.get('market_anchor')
+            if settings.get('market_anchor_mode','shadow')=='live':
+                from .market_anchor import logit_blend
+                if not isinstance(anchor,dict) or anchor.get('status')!='usable':
+                    errors.append('market_anchor_missing_or_review')
+                else:
+                    p=logit_blend(p,float(anchor['market_probability']),float(settings.get('market_model_weight',.15)))
+                    push=min(push,1-p)
             stress=market_stress(market.kind,game.league,market.line,forecast.disagreement)
             conservative=max(.01,p-stress)
             odds=1/quote.effective_cost
@@ -211,6 +234,9 @@ class EvidenceGuard:
         if settings.get('model_pick_allocation_policy','one_per_game_v1')!='one_per_game_v1':
             evidence['model_pick_allocation_policy']=settings['model_pick_allocation_policy']
         evidence['sizing_settings']={key:settings[key] for key in ('bankroll','unit_stake','max_bet','kelly_fraction','max_bankroll_fraction')}
+        evidence['market_anchor_settings']={key:settings.get(key, default) for key,default in (
+            ('market_anchor_mode','shadow'),('market_model_weight',.15),
+            ('market_disagreement_threshold',.30))}
         # New policy controls are sealed only for new receipts. This keeps
         # historical receipts byte-compatible while making the active CLV
         # gate reproducible during publication and current execution review.

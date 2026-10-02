@@ -10,6 +10,9 @@ from .contracts import split_market,allocation_family,SCOPE_LABELS
 DEFAULT_SETTINGS={'bankroll':None,'daily_risk_limit':None,'daily_pick_target':15,'max_bet':5.,'unit_stake':1.,'kelly_fraction':.125,'max_bankroll_fraction':.01,'minimum_roi':.03,'refresh_seconds':60,'max_per_event':None,'allow_event_additions':True,'monthly_system_cost':None,'currency':'USD','timezone':'Europe/Budapest','auto_track_recommendations':False}
 DEFAULT_SETTINGS['recommendation_policy']='strict'
 DEFAULT_SETTINGS['model_pick_sizing_policy']='unit_cap_v1'
+DEFAULT_SETTINGS['market_anchor_mode']='shadow'
+DEFAULT_SETTINGS['market_model_weight']=.15
+DEFAULT_SETTINGS['market_disagreement_threshold']=.30
 
 def remaining_budget(settings,committed=0.):
     limit=settings.get('daily_risk_limit')
@@ -127,7 +130,7 @@ def core_market_audit(candidates,selected,games=(),minimum_roi=.03):
             'status_counts':dict(Counter(row['status'] for row in rows)),
             'claim':'Main-market evaluation and allocation evidence; absence remains unresolved, and a selected contract may already be held. No hedge or winner is inferred.'}
 
-def candidate(g,m,q,forecast,settings):
+def candidate(g,m,q,forecast,settings,market_anchor=None):
     now=utcnow()
     scope,base=split_market(m.kind)
     if parse_time(g.start)<=now or g.state!='scheduled':return None
@@ -136,6 +139,21 @@ def candidate(g,m,q,forecast,settings):
     if not all(math.isfinite(v) and 0<=v<=1 for v in (p,push)) or p+push>1+1e-9:
         raise ValueError('Model returned invalid win/push probability mass')
     p=min(.99,max(.01,p));push=min(push,1-p)
+    anchor = market_anchor if isinstance(market_anchor, dict) else None
+    if anchor and isinstance(anchor.get('market_probability'), (int, float)):
+        from .market_anchor import anchor_status, logit_blend
+        market_p=float(anchor['market_probability'])
+        weight=float(settings.get('market_model_weight', .15))
+        disagreement=float(settings.get('market_disagreement_threshold', .30))
+        anchor = {**anchor,
+                  'model_probability': p,
+                  'blended_probability': logit_blend(p, market_p, weight),
+                  'model_weight': weight,
+                  'disagreement_threshold': disagreement,
+                  'status': anchor_status(p, market_p, threshold=disagreement),
+                  'mode': settings.get('market_anchor_mode', 'shadow')}
+        if settings.get('market_anchor_mode', 'shadow') == 'live' and anchor['status'] == 'usable':
+            p=anchor['blended_probability'];push=min(push,1-p)
     # Not a statistical confidence interval: explicit scenario stress allowance.
     from .contracts import market_stress
     stress=market_stress(m.kind,g.league,m.line,forecast.disagreement)
@@ -167,7 +185,16 @@ def candidate(g,m,q,forecast,settings):
     reasons.append(f'A referenciaárhoz tartozó becsült nettó hozam {roi:+.1%}, díjjal együtt.')
     x=forecast.features
     if x['home_rest']!=x['away_rest']:reasons.append(f'Pihenő az előző meccs kezdésétől: hazai {x["home_rest"]:.1f}, vendég {x["away_rest"]:.1f} nap (14 napnál korlátozva).')
-    return {'id':id,'game_id':g.id,'league':g.league,'home':g.home,'away':g.away,'start':g.start,'market':m.kind,'side':m.side,'line':m.line,'selection':m.selection,'model_scope':scope,'period':SCOPE_LABELS[scope],'settlement':('Only the named scoring scope counts. Ties push in two-way Winner and lose in 1x2 unless Draw is selected.' if scope!='full_game' else 'Hosszabbítással; moneyline döntetlennél a platform szabálya ellenőrizendő.'),'probability':p,'push_probability':push,'stress_probability':conservative,'stress_note':'Érzékenységi forgatókönyv, nem statisztikai konfidenciaintervallum.','fair_odds':fair,'minimum_odds':threshold,'reference_odds':display_odds,'reference_price':q.price,'reference_fee_per_share':q.fee_per_share,'reference_effective_cost':q.effective_cost,'reference_minimum_notional':q.minimum_notional,'maximum_poly_effective_cost':required_poly_cost,'reference_platform':m.platform,'reference_url':m.url,'reference_market_id':m.id,'quote_at':q.fetched_at,'valid_until':min(parse_time(g.start),parse_time(q.fetched_at)+timedelta(seconds=MAX_QUOTE_AGE_SECONDS)).isoformat(),'expected_roi':roi,'stress_roi':stress_roi,'label':label,'reasons':reasons,'warnings':list(forecast.warnings),'model_version':forecast.model_version,'model_probabilities':forecast.model_probabilities,'predicted_home_points':forecast.home_points,'predicted_away_points':forecast.away_points,'game_context':g.context,'source_url':g.source,'stake':0.,'stake_note':'','created_at':now.isoformat(),'rank_score':stress_roi,'basis':'Sportadatból tanított modell; az odds csak az utólagos érték-összevetéshez kerül be.','reference_contract_description':m.description}
+    result={'id':id,'game_id':g.id,'league':g.league,'home':g.home,'away':g.away,'start':g.start,'market':m.kind,'side':m.side,'line':m.line,'selection':m.selection,'model_scope':scope,'period':SCOPE_LABELS[scope],'settlement':('Only the named scoring scope counts. Ties push in two-way Winner and lose in 1x2 unless Draw is selected.' if scope!='full_game' else 'Hosszabbítással; moneyline döntetlennél a platform szabálya ellenőrizendő.'),'probability':p,'push_probability':push,'stress_probability':conservative,'stress_note':'Érzékenységi forgatókönyv, nem statisztikai konfidenciaintervallum.','fair_odds':fair,'minimum_odds':threshold,'reference_odds':display_odds,'reference_price':q.price,'reference_fee_per_share':q.fee_per_share,'reference_effective_cost':q.effective_cost,'reference_minimum_notional':q.minimum_notional,'maximum_poly_effective_cost':required_poly_cost,'reference_platform':m.platform,'reference_url':m.url,'reference_market_id':m.id,'quote_at':q.fetched_at,'valid_until':min(parse_time(g.start),parse_time(q.fetched_at)+timedelta(seconds=MAX_QUOTE_AGE_SECONDS)).isoformat(),'expected_roi':roi,'stress_roi':stress_roi,'label':label,'reasons':reasons,'warnings':list(forecast.warnings),'model_version':forecast.model_version,'model_probabilities':forecast.model_probabilities,'predicted_home_points':forecast.home_points,'predicted_away_points':forecast.away_points,'game_context':g.context,'source_url':g.source,'stake':0.,'stake_note':'','created_at':now.isoformat(),'rank_score':stress_roi,'basis':'Sportadatból tanított modell; az odds csak az utólagos érték-összevetéshez kerül be.','reference_contract_description':m.description}
+
+    if anchor:
+        result['market_anchor'] = anchor
+        result['probability_basis'] = ('market-devig/logit blend' if anchor['mode'] == 'live' and anchor['status'] == 'usable'
+                                       else 'independent model (market anchor shadow)')
+        if anchor['status'] == 'review':
+            result['market_anchor_review'] = 'model/market disagreement exceeds configured threshold'
+    return result
+
 
 def probability_preference_ids(candidates,settings,bases=None,held_preference_allocations=()):
     """Current event-wide preference, shared by allocation and execution checks.

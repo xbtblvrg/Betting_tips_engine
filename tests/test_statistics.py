@@ -104,6 +104,10 @@ def test_calibration_uses_frozen_precision_conditional_push_and_game_weighting()
     assert s['observations']==3 and s['independent_games']==2
     assert s['brier']==.25 and s['game_equal_weight_brier']==.25
     assert s['log_loss']==pytest.approx(math.log(2))
+    diagram=s['reliability_diagram']
+    assert len(diagram)==10 and sum(row['observations'] for row in diagram)==3
+    assert diagram[5]['observations']==3 and diagram[5]['predicted']==pytest.approx(.5)
+    assert diagram[5]['observed']==pytest.approx(2/3)
     r=report(fixtures()); row=r['ticket_ledger']['closed_tickets'][0]
     assert row['probability']==.6234567890123456
     assert row['brier']==pytest.approx((.6234567890123456-1)**2)
