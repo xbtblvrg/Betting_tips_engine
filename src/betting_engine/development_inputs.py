@@ -723,6 +723,12 @@ def export_validation_sources(root, workspace):
                 raise ValueError('Validation catalogue changed during document export')
         except (OSError, ValueError, KeyError, TypeError) as exc:
             result['errors'].append({'bundle':None, 'reason':str(exc)[:300]})
+    if not result['errors']:
+        from .developer_regression import export_developer_regression
+        try:
+            result['developer_regression'] = export_developer_regression(root, workspace)
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            result['errors'].append({'bundle': 'developer-regression-v1', 'reason': str(exc)[:300]})
     if result['errors']:
         result['state'] = 'rejected'
     atomic_json(target_root/'export.json', result)
@@ -734,6 +740,8 @@ def verify_validation_sources(root, workspace):
     root, workspace = Path(root).resolve(), Path(workspace).absolute()
     for parent in (workspace, *workspace.parents):
         if parent.is_symlink():raise ValueError('Unsafe validation workspace')
+    from .developer_regression import verify_developer_regression
+    verify_developer_regression(root, workspace)
     catalog_sha, bundles = _validation_catalog(root)
     target_root = workspace/'data/validation_sources'
     if catalog_sha is None:

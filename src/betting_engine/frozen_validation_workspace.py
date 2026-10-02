@@ -176,7 +176,7 @@ def validate_frozen_validation_inputs(root, workspace):
             **{key: item for key, item in value.items() if key != 'bodies'}}
 
 
-def _inventory(root, *, ignore=()):
+def _inventory(root, *, ignore=(), allow_test_outputs=False):
     """Bounded ordinary candidate inputs, never follow links or live roots."""
     result = {}; total = 0; ignored = set(ignore)
     for directory, names, files in os.walk(root, followlinks=False):
@@ -193,7 +193,10 @@ def _inventory(root, *, ignore=()):
             path = Path(directory) / name; rel = path.relative_to(root).as_posix(); parts = Path(rel).parts
             if name in CACHE_SKIP or rel in TOP_SKIP or name.endswith('.pyc') or rel in ignored:
                 continue
-            if parts[0] not in TOP or (parts[0] == 'data' and (len(parts) < 2 or parts[1] not in DATA)):
+            test_output = allow_test_outputs and rel in {
+                'data/engine.sqlite3', 'data/engine.sqlite3-wal',
+                'data/engine.sqlite3-shm', 'data/engine.sqlite3-journal'}
+            if not test_output and (parts[0] not in TOP or (parts[0] == 'data' and (len(parts) < 2 or parts[1] not in DATA))):
                 raise ValueError('Undeclared candidate input namespace: ' + rel)
             if path.is_symlink():
                 raise ValueError('Symlink candidate file: ' + rel)
@@ -321,7 +324,7 @@ def frozen_validation_workspace(worker, prefix):
         yield receipt
         # Check source trees and every retained input, allowing only generated
         # scratch files outside protected originals; added code/tests fail closed.
-        actual = _inventory(workspace, ignore={RECEIPT, 'data/sports_source_evidence'} if sports else {RECEIPT})
+        actual = _inventory(workspace, ignore={RECEIPT, 'data/sports_source_evidence'} if sports else {RECEIPT}, allow_test_outputs=True)
         for name, pin in clone_expected.items():
             if actual.get(name) != pin:
                 raise ValueError('Validation copy changed an original input: ' + name)

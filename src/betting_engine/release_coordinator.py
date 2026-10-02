@@ -1685,6 +1685,52 @@ class ReleaseCoordinator:
             return self.scan_complete(state)
 
 
+def accepted_drift_source_generation(root):
+    """Verify content identity; historical run rotation is not new evidence.
+
+    The complete accepted and production source generations are intentionally
+    included because rebase and full-suite dependencies cross individual tasks.
+    Live research exports, journal timestamps and candidate run IDs are not
+    part of the retry identity. This is routing evidence, never release approval.
+    """
+    root = Path(root); dev = root / 'data/development'
+    journal, journal_hash = _generation_json(root, 'data/development/accepted-publication.json')
+    if journal.get('state') != 'committed' or journal.get('acceptance_required') is not True:
+        raise ValueError('Current accepted source generation lacks committed controller authority')
+    run_id = journal.get('run_id')
+    if not isinstance(run_id, str) or not run_id or Path(run_id).name != run_id or run_id in ('.', '..'):
+        raise ValueError('Current accepted source generation has invalid run identity')
+    receipt_path = 'data/development/runs/' + run_id + '/candidate-acceptance.json'
+    _, receipt_hash = _generation_json(root, receipt_path)
+    receipt = _read_acceptance(dev, run_id)
+    if (not receipt or receipt.get('integration_state') != 'committed'
+            or receipt['candidate_manifest_sha256'] != journal.get('candidate_manifest_sha256')
+            or receipt['production_base'] != journal.get('production_base')
+            or not parse_time(receipt['result']['finished_at']) <= parse_time(receipt['integrated_at']) <= utcnow()):
+        raise ValueError('Current accepted source generation does not match its controller receipt')
+    accepted = confined(root, 'data/development/accepted')
+    manifest = tree_manifest(accepted)
+    if not manifest or manifest != receipt['candidate_manifest']:
+        raise ValueError('Current accepted source bytes differ from their verified generation')
+    current = production_manifest(root)
+    for folder, records in ((accepted, manifest), (root, current)):
+        for name, value in records.items():
+            if not isinstance(value, str) or not re.fullmatch('[0-9a-f]{64}', value):
+                raise ValueError('Unsafe source entry in accepted drift generation')
+            if file_hash(confined(folder, name)) != value:
+                raise ValueError('Accepted drift source generation changed while hashing')
+    for item in receipt['changed_files']:
+        if file_hash(confined(dev / 'runs' / run_id / 'accepted-files', item['path'])) != item['sha256']:
+            raise ValueError('Accepted generation archive changed while hashing')
+    if tree_manifest(accepted) != manifest or production_manifest(root) != current:
+        raise ValueError('Accepted drift source inventory changed while hashing')
+    if (_generation_json(root, 'data/development/accepted-publication.json')[1] != journal_hash
+            or _generation_json(root, receipt_path)[1] != receipt_hash):
+        raise ValueError('Accepted generation authority changed while hashing')
+    return {'version': 'accepted-drift-source-generation-v1',
+            'accepted_manifest_sha256': digest(manifest), 'production_manifest_sha256': digest(current)}
+
+
 def release_task_focus(root, state):
     """Reopen the original coding task once per new actionable release failure.
 
@@ -1692,7 +1738,8 @@ def release_task_focus(root, state):
     self-authorize new file profiles. Existing attempt records remain intact.
     """
     rows = read_json(Path(root) / 'data/releases/gaps.json').get('gaps', [])
-    groups = {}; obsolete = {}; accepted_repairs = None
+    groups = {}; obsolete = {}; accepted_repairs = None; drift_generation = None; drift_error = None
+    unverified_drift_tasks = set()
     root_actions = {'profile_required', 'file_not_allowed', 'existing_core_change', 'immutable_record_changed',
         'production_drift', 'root_authorization_invalid', 'prerequisite_utility_required', 'validation_sources_required',
         'review_unavailable', 'validation_unavailable', 'live_verification_failed'}
@@ -1745,10 +1792,30 @@ def release_task_focus(root, state):
             continue
         if (row.get('state') == 'open' and row.get('code') not in root_actions and row.get('task_id') != 'unknown'
                 and not task_release_verified(root, row['task_id'])):
+            if row.get('code') == 'accepted_drift':
+                if drift_generation is None and drift_error is None:
+                    try:
+                        drift_generation = accepted_drift_source_generation(root)
+                    except (OSError, ValueError, TypeError, KeyError, AttributeError) as exc:
+                        drift_error = {'code': 'accepted_drift_generation_unavailable',
+                            'error': type(exc).__name__ + ': ' + str(exc)[:500], 'verified': False}
+                        drift_error['evidence_sha256'] = digest(drift_error)
+                task = state.setdefault('tasks', {}).setdefault(task_id, {})
+                if drift_error is not None:
+                    task['release_blocker_evidence_error'] = dict(drift_error)
+                    unverified_drift_tasks.add(task_id)
+                    continue  # Keep the open release gap; do not fabricate a retry token.
+                task.pop('release_blocker_evidence_error', None)
             groups.setdefault(row['task_id'], []).append(row)
     focus = {}
     for task_id, gaps in sorted(groups.items()):
-        token = digest(sorted((g['run_id'], g['code'], digest(g.get('release_failure_evidence'))) for g in gaps))
+        if task_id in unverified_drift_tasks:
+            continue  # An incomplete composite identity cannot reset this task's backoff.
+        identities = [(g['run_id'], g['code'], digest(g.get('release_failure_evidence')))
+            for g in gaps if g['code'] != 'accepted_drift']
+        if any(g['code'] == 'accepted_drift' for g in gaps):
+            identities.append((drift_generation['version'], 'accepted_drift', digest(drift_generation)))
+        token = digest(sorted(identities))
         row = state.setdefault('tasks', {}).setdefault(task_id, {})
         if row.get('release_blocker_token') != token:
             if row.get('state') in ('running', 'integrating'):

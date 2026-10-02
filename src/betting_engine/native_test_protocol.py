@@ -46,6 +46,7 @@ PROTECTED_ADDITIONS = {'src/betting_engine/native_test_protocol.py',
                        'src/betting_engine/release_fixture_inputs.py',
                        'src/betting_engine/release_sports_fixture_inputs.py',
                        'src/betting_engine/frozen_validation_workspace.py',
+                       'src/betting_engine/developer_regression.py',
                        'src/betting_engine/controller_dependency_recovery.py'}
 MAX_FILE = 2 * 1024 * 1024
 MAX_TOTAL = 64 * 1024 * 1024
@@ -135,6 +136,26 @@ def _development_ast(body):
                 if matches != [expected_position]:
                     raise ValueError('Dependency handoff hook moved outside its reviewed control flow')
                 del node.body[matches[0]:matches[0] + len(snippet)]
+    # Exact append-only developer test guidance; no broad prompt normalization.
+    for node in tree.body:
+        if isinstance(node, ast.ClassDef) and node.name == 'DevelopmentWorker':
+            for method in node.body:
+                if not isinstance(method, ast.FunctionDef) or method.name != 'prompt':
+                    continue
+                hook = ast.parse('from .developer_regression import developer_regression_instructions').body[0]
+                imported = [i for i, line in enumerate(method.body) if dump(line) == dump(hook)]
+                if imported:
+                    if imported != [0] or len(method.body) != 3:
+                        raise ValueError('Developer regression guidance hook moved')
+                    returned = method.body[-1]
+                    call = ast.parse('developer_regression_instructions(self.workspace)', mode='eval').body
+                    if (not isinstance(returned, ast.Return) or not isinstance(returned.value, ast.BinOp)
+                            or not isinstance(returned.value.op, ast.Add)
+                            or not isinstance(returned.value.left, ast.JoinedStr)
+                            or dump(returned.value.right) != dump(call)):
+                        raise ValueError('Developer regression guidance must append its exact call')
+                    returned.value = returned.value.left
+                    del method.body[0]
     protected = 0
     for node in tree.body:
         if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == 'PROTECTED' for t in node.targets):
@@ -186,6 +207,15 @@ def _dependency_hook_counts(body):
             for node in tree.body if isinstance(node, ast.FunctionDef) and node.name in expected}
 
 
+def _developer_guidance_count(body):
+    tree = ast.parse(body)
+    return sum(isinstance(call, ast.Call) and isinstance(call.func, ast.Name)
+               and call.func.id == 'developer_regression_instructions'
+               for node in tree.body if isinstance(node, ast.ClassDef) and node.name == 'DevelopmentWorker'
+               for method in node.body if isinstance(method, ast.FunctionDef) and method.name == 'prompt'
+               for call in ast.walk(method))
+
+
 def _bindings(root, workspace):
     sources = _inventory(root)
     candidate = _inventory(workspace)
@@ -204,6 +234,7 @@ def _bindings(root, workspace):
     after_dependencies = _dependency_hook_counts(proposed)
     if (not old_protected <= new_protected or new_protected - old_protected - PROTECTED_ADDITIONS
             or any(after_dependencies.get(name, 0) < count for name, count in before_dependencies.items())
+            or _developer_guidance_count(proposed) < _developer_guidance_count(original)
             or new_hooks < old_hooks or _development_ast(original) != _development_ast(proposed)):
         raise ValueError('Unreviewed controller delta cannot inherit native-test evidence')
     return {'trusted_root': str(root), 'candidate': str(workspace),

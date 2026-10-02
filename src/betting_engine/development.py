@@ -35,7 +35,7 @@ PROTECTED = ('config/validation_sources.json', 'AGENTS.md', 'pyproject.toml', 'p
     'src/betting_engine/development.py', 'src/betting_engine/delivery.py',
     'src/betting_engine/ai_delegation.py', 'src/betting_engine/native_boundary.py', 'src/betting_engine/native_test_protocol.py', 'src/betting_engine/parallel_development.py',
     'src/betting_engine/provider_runtime.py', 'src/betting_engine/provider_recovery.py', 'src/betting_engine/codex_control.py', 'src/betting_engine/claude_development.py',
-    'src/betting_engine/runtime_errors.py', 'src/betting_engine/workspace_copy.py', 'src/betting_engine/release_fixture_inputs.py', 'src/betting_engine/release_sports_fixture_inputs.py', 'src/betting_engine/frozen_validation_workspace.py', 'src/betting_engine/controller_dependency_recovery.py', 'src/betting_engine/workspace_boundary.py', 'src/betting_engine/engineering_loop.py', 'src/betting_engine/release_coordinator.py', 'src/betting_engine/resource_capacity.py',
+    'src/betting_engine/runtime_errors.py', 'src/betting_engine/workspace_copy.py', 'src/betting_engine/release_fixture_inputs.py', 'src/betting_engine/release_sports_fixture_inputs.py', 'src/betting_engine/frozen_validation_workspace.py', 'src/betting_engine/developer_regression.py', 'src/betting_engine/controller_dependency_recovery.py', 'src/betting_engine/workspace_boundary.py', 'src/betting_engine/engineering_loop.py', 'src/betting_engine/release_coordinator.py', 'src/betting_engine/resource_capacity.py',
     'src/betting_engine/statistics.py', 'src/betting_engine/statistics_worker.py', 'src/betting_engine/outcome_feedback.py',
     'src/betting_engine/player_runtime.py', 'src/betting_engine/development_inputs.py', 'src/betting_engine/development_sports_evidence.py', 'src/betting_engine/training_evidence.py',
     'src/betting_engine/governance.py', 'src/betting_engine/decisions.py',
@@ -1362,6 +1362,7 @@ class DevelopmentWorker:
         return review
 
     def prompt(self, task, row):
+        from .developer_regression import developer_regression_instructions
         release_policy = read_json(self.workspace / 'config/release_policy.json')
         return f'''You are implementing one bounded increment of a sports quant engine in an isolated development copy.
 Read AGENTS.md and config/project_contract.json. The user wants all available NBA/WNBA/NHL/MLB/NFL/NCAA markets, independent sports forecasts, exact Stake contracts, 20+ daily funded instructions, $1-$5 per bet, no fixed daily stake cap, immutable decisions and profitable measured performance. Never invent evidence, edge, a line, outcome or profit. Manual wagering only.
@@ -1377,7 +1378,7 @@ TASK: {json.dumps(task)}
 TARGETED RECOVERY WORK (original TASK acceptance remains mandatory): {json.dumps(row.get('recovery_work'))}
 PREVIOUS ATTEMPT: {json.dumps({k: row.get(k) for k in ('attempts', 'last_error', 'remaining')})}
 PREVIOUS CANDIDATE (read-only repair evidence if present): {self.folder/'runs'/str(row.get('previous_run_id'))/'files'}
-'''
+''' + developer_regression_instructions(self.workspace)
 
     def loop(self, once=False):
         with (self.folder / 'worker.lock').open('a') as lock:

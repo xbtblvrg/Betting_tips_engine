@@ -15,6 +15,8 @@ VERSION = 'controller-dependency-repair-v1'
 CONFIG = 'config/controller_dependency_repairs.json'
 SOURCES = {
     'src/betting_engine/development.py',
+    'src/betting_engine/development_inputs.py',
+    'src/betting_engine/developer_regression.py',
     'src/betting_engine/native_test_protocol.py',
     'src/betting_engine/controller_dependency_recovery.py',
     'src/betting_engine/frozen_validation_workspace.py',
