@@ -46,6 +46,17 @@ are reread here. A concurrent ticket cannot leave a stale allocation funded.
     families, held_ids, exact_ids = held_inventory(connection)
     store = TransactionStore(connection)
     counts = store.held_event_counts()
+    # Reproduce the same per-game budget that rank_and_size uses.  The old
+    # guard only replayed the global remaining budget, so a second funded
+    # contract on one game was sized against the full $5 cap instead of the
+    # residual event cap.  That made an otherwise valid publication fail
+    # closed with a misleading "related-game exposure" error.
+    event_stakes = Counter(store.held_event_stakes())
+    # Legacy fixtures intentionally have no publication-limits switch.  Keep
+    # their uncapped sizing semantics; the live service opts into v1 explicitly.
+    event_cap = (float(settings.get('max_stake_per_event', 5.0))
+                 if settings.get('publication_limits_version') == 'v1' else float('inf'))
+    new_event_stakes = Counter()
     remaining = remaining_budget(settings, store.risk_committed())
     funded = [tip for tip in unique.values() if tip.get('stake', 0) > 0]
     funded.sort(key=lambda tip: (tip.get('allocation_policy', {}).get('allocation_rank', 0), tip['id']))
@@ -68,9 +79,12 @@ are reread here. A concurrent ticket cannot leave a stale allocation funded.
         if tip.get('funding_basis', {}).get('tier') == 'model_pick' and family in families:
             raise ValueError('Publication blocked: model-pick family allocation already issued')
         related = counts.get(tip['game_id'], 0) + new_counts[tip['game_id']] - 1
-        reproduced = size_recommendation(tip, settings, remaining, related)
+        event_available = max(0.0, event_cap - event_stakes[tip['game_id']] - new_event_stakes[tip['game_id']])
+        sizing_budget = min(remaining, event_available)
+        reproduced = size_recommendation(tip, settings, sizing_budget, related)
         if reproduced != tip.get('stake_sizing') or reproduced['amount'] != tip['stake']:
             raise ValueError('Publication blocked: related-game exposure or remaining allocation changed')
         remaining -= tip['stake']
+        new_event_stakes[tip['game_id']] += tip['stake']
         families.add(family)
         held_ids.update(aliases)
