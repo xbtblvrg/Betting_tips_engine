@@ -35,7 +35,7 @@ PROTECTED = ('config/validation_sources.json', 'AGENTS.md', 'pyproject.toml', 'p
     'src/betting_engine/development.py', 'src/betting_engine/delivery.py',
     'src/betting_engine/ai_delegation.py', 'src/betting_engine/native_boundary.py', 'src/betting_engine/native_test_protocol.py', 'src/betting_engine/parallel_development.py',
     'src/betting_engine/provider_runtime.py', 'src/betting_engine/provider_recovery.py', 'src/betting_engine/codex_control.py', 'src/betting_engine/claude_development.py',
-    'src/betting_engine/runtime_errors.py', 'src/betting_engine/workspace_copy.py', 'src/betting_engine/release_fixture_inputs.py', 'src/betting_engine/workspace_boundary.py', 'src/betting_engine/engineering_loop.py', 'src/betting_engine/release_coordinator.py', 'src/betting_engine/resource_capacity.py',
+    'src/betting_engine/runtime_errors.py', 'src/betting_engine/workspace_copy.py', 'src/betting_engine/release_fixture_inputs.py', 'src/betting_engine/release_sports_fixture_inputs.py', 'src/betting_engine/frozen_validation_workspace.py', 'src/betting_engine/controller_dependency_recovery.py', 'src/betting_engine/workspace_boundary.py', 'src/betting_engine/engineering_loop.py', 'src/betting_engine/release_coordinator.py', 'src/betting_engine/resource_capacity.py',
     'src/betting_engine/statistics.py', 'src/betting_engine/statistics_worker.py', 'src/betting_engine/outcome_feedback.py',
     'src/betting_engine/player_runtime.py', 'src/betting_engine/development_inputs.py', 'src/betting_engine/development_sports_evidence.py', 'src/betting_engine/training_evidence.py',
     'src/betting_engine/governance.py', 'src/betting_engine/decisions.py',
@@ -145,6 +145,10 @@ def recovery_evidence_valid(folder, recovery, *, check_current=True):
                     or hashlib.sha256(source.read_bytes()).hexdigest() != item.get('sha256')):
                 return False
         except OSError:
+            return False
+    if (recovery.get('input_update') or {}).get('controller_dependency') is not None:
+        from .controller_dependency_recovery import dependency_evidence_valid
+        if not dependency_evidence_valid(folder, recovery['input_update'], check_current=check_current):
             return False
     if recovery.get('kind') == 'protected_sources_changed':
         update = recovery.get('input_update') or {}
@@ -276,6 +280,10 @@ def protected_source_update(folder, run_id, result):
     failed-run source, diagnosis and current source pinned for the next full
     candidate validation; a heartbeat or unrelated deployment cannot wake it.
     """
+    from .controller_dependency_recovery import dependency_source_update
+    dependency_update = dependency_source_update(folder, run_id, result)
+    if dependency_update:
+        return dependency_update
     folder = Path(folder); root = folder.parent.parent; run = folder / 'runs' / run_id
     requirements = ' '.join(str(x) for x in result.get('remaining', []))
     try:

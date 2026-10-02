@@ -921,7 +921,9 @@ class ReleaseSandbox(DevelopmentWorker):
     def readonly_input_paths(self):
         # Release-only frozen inputs must remain immutable inside candidate tests
         # and review, not merely be rechecked between those steps.
-        return (*super().readonly_input_paths(), 'data/development_inputs')
+        from .release_sports_fixture_inputs import sports_fixture_required
+        sports = ('data/sports_source_evidence',) if sports_fixture_required(self.workspace) else ()
+        return (*super().readonly_input_paths(), 'data/development_inputs', *sports)
 
     def heartbeat(self, state='running', **extra):
         atomic_json(self.root / 'data/releases/validation-worker.json', {
@@ -933,8 +935,10 @@ class LiveBackend:
     def validate(self, root, workspace, run, policy, request):
         from .development_inputs import verify_validation_sources
         from .release_fixture_inputs import verify_release_fixture_inputs
+        from .release_sports_fixture_inputs import verify_release_sports_fixture_inputs
         verify_validation_sources(root, workspace)
         verify_release_fixture_inputs(root, workspace)
+        verify_release_sports_fixture_inputs(root, workspace)
         worker = ReleaseSandbox(root); worker.root = Path(root).resolve(); worker.workspace = workspace
         worker.run_started_at = utcnow().isoformat()
         config = policy.get('validation', {})
@@ -946,11 +950,13 @@ class LiveBackend:
         validate_python(worker, run / 'release-python', str((root / '.venv').resolve() / 'bin/python'))
         verify_validation_sources(root, workspace)
         verify_release_fixture_inputs(root, workspace)
+        verify_release_sports_fixture_inputs(root, workspace)
         extra_dom = ['tests/web_model_pick_allocation_cases.mjs'] if (workspace / 'tests/web_model_pick_allocation_cases.mjs').is_file() else []
         worker.run_process(worker.test_command([worker.config['node_binary'], '--test', 'tests/web.test.mjs', *extra_dom]),
             run / 'release-dom', timeout=180)
         verify_validation_sources(root, workspace)
         verify_release_fixture_inputs(root, workspace)
+        verify_release_sports_fixture_inputs(root, workspace)
         schema = run / 'release-review-schema.json'; output = run / 'release-review.json'
         atomic_json(schema, REVIEW_SCHEMA)
         prompt = ('Independently review this exact root-owned utility release. Read the changed files and tests. '
@@ -969,6 +975,7 @@ class LiveBackend:
             worker.run_process(worker.command(schema, output, 'read-only'), run / 'release-review', prompt, timeout=600)
         verify_validation_sources(root, workspace)
         verify_release_fixture_inputs(root, workspace)
+        verify_release_sports_fixture_inputs(root, workspace)
         return {'python': 'passed', 'dom': 'passed', 'review': read_json(output)}
 
     def observe(self, root):
@@ -1222,6 +1229,8 @@ class ReleaseCoordinator:
         from .release_fixture_inputs import export_release_fixture_inputs
         try:
             export_release_fixture_inputs(self.root, workspace)
+            from .release_sports_fixture_inputs import export_release_sports_fixture_inputs
+            export_release_sports_fixture_inputs(self.root, workspace)
         except (OSError, ValueError) as exc:
             raise ReleaseBlocked('release_fixture_required', str(exc)) from exc
         return workspace, records

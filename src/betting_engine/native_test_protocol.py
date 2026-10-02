@@ -43,7 +43,10 @@ COPY_SOURCE = 'src/betting_engine/workspace_copy.py'
 COPY_BEFORE = '38b1f52a6764902c82dbba45af9a9512930071a27ff8c85036a7e6af63de384e'
 COPY_REVIEWED = 'c5183278b458fcd26d50ed7fbb1d71aeb862767f8f61138b15a20d71960eec24'
 PROTECTED_ADDITIONS = {'src/betting_engine/native_test_protocol.py',
-                       'src/betting_engine/release_fixture_inputs.py'}
+                       'src/betting_engine/release_fixture_inputs.py',
+                       'src/betting_engine/release_sports_fixture_inputs.py',
+                       'src/betting_engine/frozen_validation_workspace.py',
+                       'src/betting_engine/controller_dependency_recovery.py'}
 MAX_FILE = 2 * 1024 * 1024
 MAX_TOTAL = 64 * 1024 * 1024
 MAX_LOG = 256 * 1024
@@ -114,6 +117,24 @@ def _development_ast(body):
     old = ast.parse("self.run_process(self.test_command([python, '-m', 'pytest', '-q', 'tests']), run / (prefix + 'python-tests'), timeout=600)").body[0]
     new = ast.parse("from .native_test_protocol import validate_python\nvalidate_python(self, run / (prefix + 'python-tests'), python)").body
     dump = lambda node: ast.dump(node, include_attributes=False)
+    # Exact root-reviewed dependency handoff hooks. All other controller AST
+    # differences still fail; candidate changes cannot expand this allowlist.
+    hooks = {
+        'recovery_evidence_valid': ast.parse("if (recovery.get('input_update') or {}).get('controller_dependency') is not None:\n    from .controller_dependency_recovery import dependency_evidence_valid\n    if not dependency_evidence_valid(folder, recovery['input_update'], check_current=check_current):\n        return False").body,
+        'protected_source_update': ast.parse("from .controller_dependency_recovery import dependency_source_update\ndependency_update = dependency_source_update(folder, run_id, result)\nif dependency_update:\n    return dependency_update").body,
+    }
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef) and node.name in hooks:
+            snippet = hooks[node.name]
+            matches = [i for i in range(len(node.body) - len(snippet) + 1)
+                       if [dump(n) for n in node.body[i:i + len(snippet)]] == [dump(n) for n in snippet]]
+            if len(matches) > 1:
+                raise ValueError('Duplicate dependency handoff hook')
+            if matches:
+                expected_position = {'recovery_evidence_valid': 3, 'protected_source_update': 1}[node.name]
+                if matches != [expected_position]:
+                    raise ValueError('Dependency handoff hook moved outside its reviewed control flow')
+                del node.body[matches[0]:matches[0] + len(snippet)]
     protected = 0
     for node in tree.body:
         if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == 'PROTECTED' for t in node.targets):
@@ -156,6 +177,15 @@ def _controller_features(body):
     return set(protected), hooks
 
 
+def _dependency_hook_counts(body):
+    tree = ast.parse(body)
+    expected = {'recovery_evidence_valid': 'dependency_evidence_valid',
+                'protected_source_update': 'dependency_source_update'}
+    return {node.name: sum(isinstance(call, ast.Call) and isinstance(call.func, ast.Name)
+                          and call.func.id == expected[node.name] for call in ast.walk(node))
+            for node in tree.body if isinstance(node, ast.FunctionDef) and node.name in expected}
+
+
 def _bindings(root, workspace):
     sources = _inventory(root)
     candidate = _inventory(workspace)
@@ -170,13 +200,16 @@ def _bindings(root, workspace):
     original, proposed = _read(root / name), _read(workspace / name)
     old_protected, old_hooks = _controller_features(original)
     new_protected, new_hooks = _controller_features(proposed)
+    before_dependencies = _dependency_hook_counts(original)
+    after_dependencies = _dependency_hook_counts(proposed)
     if (not old_protected <= new_protected or new_protected - old_protected - PROTECTED_ADDITIONS
+            or any(after_dependencies.get(name, 0) < count for name, count in before_dependencies.items())
             or new_hooks < old_hooks or _development_ast(original) != _development_ast(proposed)):
         raise ValueError('Unreviewed controller delta cannot inherit native-test evidence')
     return {'trusted_root': str(root), 'candidate': str(workspace),
             'trusted_sources': sources, 'candidate_sources': candidate,
             'protocol_sha256': _digest(_read(Path(__file__))), 'protocol_source': str(Path(__file__).resolve()),
-            'normalization': 'exact validate_python hook, named protection additions and reviewed copy-source transition only'}
+            'normalization': 'exact validate_python and dependency handoff hooks, monotonic protections and reviewed copy-source transition only'}
 
 
 _BOOTSTRAP = r'''
@@ -315,6 +348,13 @@ def verify_control(root, workspace, receipt):
 
 
 def validate_python(worker, prefix, python, *, process_env=None):
+    """Validate identical candidate sources on authenticated frozen test inputs."""
+    from .frozen_validation_workspace import frozen_validation_workspace
+    with frozen_validation_workspace(worker, prefix):
+        return _validate_python_in_workspace(worker, prefix, python, process_env=process_env)
+
+
+def _validate_python_in_workspace(worker, prefix, python, *, process_env=None):
     """Run one verified native control plus the complete remaining sandbox suite."""
     receipt = prepare_control(worker.root, worker.workspace, prefix)
     exclusions = verify_control(worker.root, worker.workspace, receipt) if receipt else []
