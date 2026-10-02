@@ -95,6 +95,21 @@ def test_recovery_status_rechecks_current_inputs_without_writing(tmp_path):
     assert path.read_bytes() == before
 
 
+def test_terminal_legacy_journal_is_retained_without_poisoning_supervisor(tmp_path):
+    root, policy, rid = project(tmp_path)
+    (root / 'data/development/runs' / rid / 'candidate-acceptance.json').unlink()
+    atomic_json(root / 'data/releases/state.json', {
+        'version': 'root-utility-release-v1', 'runs': {}, 'managed_files': {}, 'gaps': {}})
+    atomic_json(root / 'data/releases/journal.json', {
+        'version': 'root-utility-release-v1', 'state': 'blocked',
+        'release_id': 'release-legacy', 'candidate_run_id': rid,
+        'task_id': 'D01', 'journal_sha256': 'legacy-evidence'})
+    state = release.ReleaseCoordinator(root, Backend()).run_once()
+    assert state['version'] == release.VERSION
+    assert state['service_state'] == 'watching'
+    assert state['legacy_journals']['release-legacy']['version'] == 'root-utility-release-v1'
+
+
 def test_root_authorization_revalidates_only_exact_current_base(tmp_path):
     root, policy, rid = project(tmp_path); change_base(root)
     path, value = authorization(root, rid); before = release.ledger_fingerprint(root)

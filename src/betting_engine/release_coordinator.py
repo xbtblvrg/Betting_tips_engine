@@ -1102,7 +1102,15 @@ class ReleaseCoordinator:
         atomic_json(self.folder / 'gaps.json', {'checked_at': state['checked_at'], 'gaps': list(state.get('gaps', {}).values())})
 
     def load(self):
-        return read_json(self.folder / 'state.json', {'version': VERSION, 'runs': {}, 'managed_files': {}, 'gaps': {}})
+        state = read_json(self.folder / 'state.json', {'version': VERSION, 'runs': {}, 'managed_files': {}, 'gaps': {}})
+        # Keep historical release evidence readable across the guarded-policy
+        # version change.  The state envelope is migrated on the next durable
+        # scan; retained runs and gaps are never discarded.
+        if state.get('version') not in (None, VERSION):
+            state.setdefault('legacy_state_versions', []).append({
+                'version': state.get('version'), 'migrated_at': utcnow().isoformat()})
+            state['version'] = VERSION
+        return state
 
     def reconcile_acceptance_gaps(self, state):
         for gap in state.get('gaps', {}).values():
@@ -1363,6 +1371,18 @@ class ReleaseCoordinator:
     def recover(self, state):
         journal = read_json(self.folder / 'journal.json')
         if not journal:
+            return
+        # A terminal journal written by a previous trusted-policy generation
+        # is immutable historical evidence.  It cannot be replayed under a new
+        # policy schema, but it must not poison the supervisor or be rewritten.
+        if journal.get('version') != VERSION and journal.get('state') in TERMINAL:
+            retained = state.setdefault('legacy_journals', {})
+            key = journal.get('release_id') or digest(journal)
+            retained[key] = {'version': journal.get('version'),
+                'state': journal.get('state'), 'release_id': journal.get('release_id'),
+                'candidate_run_id': journal.get('candidate_run_id'),
+                'journal_sha256': journal.get('journal_sha256'),
+                'retained_at': retained.get(key, {}).get('retained_at', utcnow().isoformat())}
             return
         journal = self.verify_journal(journal)
         if journal.get('state') == 'installed_utility':
