@@ -68,6 +68,12 @@ def current_execution_review(tip, now, minimum_roi, sizing_settings=None):
             if any(k not in reviewed_settings or k not in sizing_settings
                    or reviewed_settings[k] != sizing_settings[k] for k in policy_keys):
                 return _denied('policy_changed', 'The configured stake policy changed. A fresh sealed model and sizing review is required.')
+            if sizing_settings.get('publication_limits_version'):
+                expected_limits={key:sizing_settings.get(key) for key in (
+                    'publication_limits_version','max_new_funded_per_publication','max_per_event',
+                    'max_period_per_event','max_stake_per_event','max_daily_family_share')}
+                if guard.get('publication_limits')!=expected_limits:
+                    return _denied('policy_changed','The live publication exposure limits changed. A fresh sealed review is required.')
         allocation_policy=guard.get('model_pick_allocation_policy','one_per_game_v1')
         if sizing_settings is not None and allocation_policy!=sizing_settings.get('model_pick_allocation_policy','one_per_game_v1'):
             return _denied('policy_changed','The model-pick allocation policy changed. A fresh sealed review is required.')

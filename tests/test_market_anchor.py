@@ -4,7 +4,8 @@ from types import SimpleNamespace
 import pytest
 
 from betting_engine.market_anchor import (
-    anchor_status, contract_anchors, devig_probabilities, fit_model_weight, logit_blend,
+    anchor_status, conditional_devig_probabilities, conditional_push_free_line,
+    contract_anchors, devig_probabilities, fit_model_weight, logit_blend,
 )
 
 
@@ -60,3 +61,35 @@ def test_handicap_anchor_groups_opposite_signed_lines_from_one_stake_condition()
     assert set(result) == {'m-home', 'm-away'}
     assert result['m-home']['market_probability'] == pytest.approx(.5)
     assert result['m-away']['market_probability'] == pytest.approx(.5)
+
+
+@pytest.mark.parametrize('kind,line', [('totals',5.0),('totals',5.25),('spreads',0.25),('totals',5.5)])
+def test_asian_anchor_declares_push_free_conditional_mass(kind,line):
+    assert conditional_push_free_line(kind,line) is True
+    fair=conditional_devig_probabilities({'over':2.0,'under':2.0})
+    assert fair == {'over':pytest.approx(.5),'under':pytest.approx(.5)}
+
+
+def test_nhl_over_five_anchor_marks_conditional_push_mass():
+    common={'game_id':'NHL:g1','condition_id':'nhl-total-5','kind':'totals',
+            'metadata':{'model_scope':'full_game','stake_contract_identity':'nhl-total-5'}}
+    over=SimpleNamespace(id='over',side='over',line=5.0,**common)
+    under=SimpleNamespace(id='under',side='under',line=5.0,**common)
+    q={'over':SimpleNamespace(effective_cost=.5,fetched_at='2026-10-02T00:00:00Z'),
+       'under':SimpleNamespace(effective_cost=.5,fetched_at='2026-10-02T00:00:00Z')}
+    result=contract_anchors([over,under],q)
+    assert result['over']['conditional_push_free'] is True
+    assert 'conditional push-free' in result['over']['market_weight_source']
+
+
+def test_quarter_draw_no_bet_uses_conditional_push_free_anchor():
+    common={'game_id':'NFL:g1','condition_id':'nfl-q2-dnb','kind':'quarter_2:moneyline',
+            'metadata':{'model_scope':'quarter_2','stake_contract_identity':'nfl-q2-dnb',
+                        'stake_market_name':'2nd Quarter - Draw No Bet'}}
+    home=SimpleNamespace(id='home',side='home',line=None,**common)
+    away=SimpleNamespace(id='away',side='away',line=None,**common)
+    q={'home':SimpleNamespace(effective_cost=.5,fetched_at='2026-10-02T00:00:00Z'),
+       'away':SimpleNamespace(effective_cost=.5,fetched_at='2026-10-02T00:00:00Z')}
+    result=contract_anchors([home,away],q)
+    assert result['home']['conditional_push_free'] is True
+    assert 'conditional push-free' in result['home']['market_weight_source']

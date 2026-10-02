@@ -249,6 +249,11 @@ class EvidenceGuard:
             ('market_disagreement_threshold',.30))}
         evidence['calibration_settings']={key:settings.get(key, default) for key,default in (
             ('calibration_uncertainty_mode','legacy'),('calibration_min_games',30))}
+        if settings.get('publication_limits_version'):
+            evidence['publication_limits']={key:settings.get(key) for key in (
+                'publication_limits_version','max_new_funded_per_publication',
+                'max_per_event','max_period_per_event','max_stake_per_event',
+                'max_daily_family_share')}
         # New policy controls are sealed only for new receipts. This keeps
         # historical receipts byte-compatible while making the active CLV
         # gate reproducible during publication and current execution review.

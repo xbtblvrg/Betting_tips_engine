@@ -129,13 +129,21 @@ def build_dashboard(store,health,data_dir):
         if t.get('id') in held_contracts:
             t.update(allocation_code='already_held',allocation_reason='This exact selection has already been issued. No repeated ticket is requested.')
     held_preferences=store.held_preference_allocations()
-    chosen,alternatives=rank_and_size(reviewed,settings,store.risk_committed(),store.held_families(),held_contracts,held_event_counts,held_preferences,(store.held_allocation_families() if settings.get('model_pick_allocation_policy')=='distinct_family_v1' else ()))
+    progress=store.daily_progress()
+    chosen,alternatives=rank_and_size(reviewed,settings,store.risk_committed(),store.held_families(),held_contracts,held_event_counts,held_preferences,(store.held_allocation_families() if settings.get('model_pick_allocation_policy')=='distinct_family_v1' else ()),store.held_event_stakes(),store.held_period_counts(),store.daily_family_counts(),progress.get('calendar_day_issued',progress.get('issued',0)))
     probability_ids=probability_preference_ids(reviewed,settings,held_preference_allocations=held_preferences)
     for t in reviewed:
         t['execution_review']=preference_execution_review(t,current_execution_review(t,now,settings['minimum_roi'],settings),probability_ids)
         if not t['execution_review']['actionable']:t['stake']=0
     d['evaluated_candidates']=current+expired
-    d['recommendations']=chosen+expired+unreviewed;d['alternatives']=alternatives;d['archived_recommendations']=store.archived_candidates();d['settings']=settings
+    # The execution list is intentionally narrow: only fresh, currently
+    # actionable, funded selections belong here. Full research evidence stays
+    # in evaluated_candidates/alternatives; tracked historical contracts stay
+    # in Bet Tracker. This prevents the old “all unreviewed rows as picks”
+    # flood while preserving the immutable publication and ledger.
+    d['recommendations']=[t for t in chosen if t.get('stake',0)>0 or t.get('id') in held_contracts]
+    d['recommendations'] += [t for t in unreviewed if t.get('id') in held_contracts] + expired
+    d['alternatives']=alternatives+unreviewed;d['archived_recommendations']=store.archived_candidates();d['settings']=settings
     recorded=store.open_bets()
     current_by_id={t['id']:t for t in current}
     for b in recorded:
@@ -178,7 +186,16 @@ def build_dashboard(store,health,data_dir):
         and tip.get('execution_review', {}).get('actionable') is True)
     d['status']['current_candidate_count']=len(chosen)
     progress=store.daily_progress()
-    d.setdefault('status',{}).update(recommendations=len(chosen),funded_recommendations=sum(t['stake']>0 for t in chosen),minimum_target=progress['target'],target_shortfall=progress['shortfall'],daily_progress=progress)
+    execution_counts={
+        'first_issued_today':progress.get('issued',0),
+        'previously_issued_today':progress.get('previously_issued_today',0),
+        'current_executable':sum(t.get('stake',0)>0 and t.get('execution_review',{}).get('actionable') is True and not store.placement_marks().get(t.get('id')) for t in chosen),
+        'marked_placed':sum(1 for t in chosen if store.placement_marks().get(t.get('id'))),
+        'started_or_expired':sum(1 for t in all_tips if t.get('expired') or parse_time(t.get('start'))<=now),
+        'no_longer_qualifying':sum(1 for b in recorded if b.get('instruction_review',{}).get('actionable') is False and b.get('instruction_review',{}).get('reason')),
+        'source':'shared dashboard snapshot: current reviews, placement checklist, immutable issuance and open-ticket ledger'
+    }
+    d.setdefault('status',{}).update(recommendations=len(d['recommendations']),funded_recommendations=sum(t['stake']>0 for t in d['recommendations']),minimum_target=progress['target'],target_shortfall=progress['shortfall'],daily_progress=progress,execution_counts=execution_counts)
     from .opportunities import rolling_opportunities
     d['opportunities']=rolling_opportunities(d,recorded,d['placement_marks'],now,settings['minimum_roi'])
     d.pop('opportunity_inventory',None)

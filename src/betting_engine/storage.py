@@ -133,6 +133,7 @@ class Store:
                 family_additions=model_allocation_policy(active_settings)=='distinct_family_v1'
                 if any(t.get('decision_guard',{}).get('model_pick_allocation_policy','one_per_game_v1')!=model_allocation_policy(active_settings) for t in payload.get('recommendations',[])+payload.get('alternatives',[])+payload.get('evaluated_candidates',[])):
                     raise ValueError('Publication blocked: model-pick allocation policy changed during review')
+                self._validate_publication_limits(c,payload,active_settings)
                 # One new nominal-model allocation per game, checked under the
                 # same write transaction as immutable issuance. Replaying the
                 # identical original ticket remains idempotent.
@@ -196,6 +197,52 @@ class Store:
             c.execute('INSERT INTO publications(created_at,payload) VALUES (?,?)',(now,encode_publication(payload)))
             # Keep all tip changes, but limit repeated full UI snapshots to 7 days.
             c.execute('DELETE FROM publications WHERE created_at < ?',( (parse_time(now)-timedelta(days=7)).isoformat(),))
+
+    @staticmethod
+    def _validate_publication_limits(c,payload,settings):
+        """Write-transaction anti-flood guard for the live execution list."""
+        if settings.get('publication_limits_version')!='v1':
+            return
+        from .contracts import allocation_family,split_market
+        funded=[]
+        for tip in {t.get('id'):t for t in payload.get('recommendations',[]) if isinstance(t,dict) and t.get('id')}.values():
+            try:
+                if 1<=float(tip.get('stake',0))<=5 and tip.get('reference_platform')=='Stake.com' and not tip.get('alternative'):
+                    funded.append(tip)
+            except (TypeError,ValueError):
+                continue
+        if len(funded)>int(settings.get('max_new_funded_per_publication',10)):
+            raise ValueError('Publication blocked: maximum 10 new funded recommendations per cycle')
+        existing_ids={r['tip_id'] for r in c.execute('SELECT tip_id FROM recommendation_issuance')}
+        open_event_counts={};open_event_stakes={};open_period_counts={}
+        for row in c.execute("SELECT payload,stake FROM bets WHERE status='open'").fetchall():
+            try:
+                tip=json.loads(row['payload']);gid=tip.get('game_id');open_event_counts[gid]=open_event_counts.get(gid,0)+1;open_event_stakes[gid]=open_event_stakes.get(gid,0.)+float(row['stake'])
+                scope,_=split_market(tip.get('market',''))
+                if scope!='full_game':open_period_counts[gid]=open_period_counts.get(gid,0)+1
+            except (TypeError,ValueError,json.JSONDecodeError):continue
+        local=utcnow().astimezone(ZoneInfo(settings.get('timezone','Europe/Budapest')))
+        day_start=datetime.combine(local.date(),time.min,tzinfo=local.tzinfo).astimezone(timezone.utc).isoformat()
+        day_end=datetime.combine(local.date()+timedelta(days=1),time.min,tzinfo=local.tzinfo).astimezone(timezone.utc).isoformat()
+        daily={}
+        for row in c.execute("SELECT i.league,d.payload FROM recommendation_issuance i JOIN system_decisions d ON d.family=i.family WHERE i.issued_at>=? AND i.issued_at<?",(day_start,day_end)).fetchall():
+            try:
+                tip=json.loads(row['payload']);key=(row['league'],allocation_family(tip));daily[key]=daily.get(key,0)+1
+            except (TypeError,ValueError,json.JSONDecodeError):continue
+        new=[tip for tip in funded if tip.get('id') not in existing_ids]
+        counts={};stakes={};periods={};families={}
+        for tip in new:
+            gid=tip.get('game_id');counts[gid]=counts.get(gid,0)+1;stakes[gid]=stakes.get(gid,0.)+float(tip['stake'])
+            scope,_=split_market(tip.get('market',''))
+            if scope!='full_game':periods[gid]=periods.get(gid,0)+1
+            key=(tip.get('league'),allocation_family(tip));families[key]=families.get(key,0)+1
+        for gid,count in counts.items():
+            if open_event_counts.get(gid,0)+count>3:raise ValueError('Publication blocked: maximum 3 funded selections per game')
+            if open_event_stakes.get(gid,0.)+stakes[gid]>float(settings.get('max_stake_per_event',5.))+1e-9:raise ValueError('Publication blocked: $5 maximum stake per game')
+            if open_period_counts.get(gid,0)+periods.get(gid,0)>int(settings.get('max_period_per_event',1)):raise ValueError('Publication blocked: maximum 1 period/quarter selection per game')
+        total=sum(daily.values())+len(new);limit=max(1,math.ceil(total*float(settings.get('max_daily_family_share',.25))))
+        for key,count in families.items():
+            if daily.get(key,0)+count>limit:raise ValueError('Publication blocked: market-family daily share exceeds 25%')
     @staticmethod
     def record_issuance(c,tip,issued_at,source='publication'):
         # Count an actually funded recommendation once, never a watchlist row,
@@ -292,13 +339,17 @@ class Store:
             rows=c.execute('SELECT league,COUNT(*) n FROM recommendation_issuance WHERE issued_at>=? AND issued_at<? GROUP BY league',(since.isoformat(),end.isoformat())).fetchall()
             games=c.execute("SELECT i.league,COUNT(DISTINCT json_extract(d.payload,'$.game_id')) n FROM recommendation_issuance i JOIN system_decisions d ON d.family=i.family WHERE i.issued_at>=? AND i.issued_at<? GROUP BY i.league",(since.isoformat(),end.isoformat())).fetchall()
             calendar_count=c.execute('SELECT COUNT(*) FROM recommendation_issuance WHERE issued_at>=? AND issued_at<?',(start.isoformat(),end.isoformat())).fetchone()[0]
+            issuance_rows=c.execute("SELECT i.tip_id,i.league,i.start,i.issued_at,json_extract(d.payload,'$.market') market FROM recommendation_issuance i JOIN system_decisions d ON d.family=i.family WHERE i.issued_at>=? AND i.issued_at<? ORDER BY i.start,i.issued_at,i.tip_id",(start.isoformat(),end.isoformat())).fetchall()
         count=sum(r['n'] for r in rows);target=settings.get('daily_pick_target',15)
         return {'date':local.date().isoformat(),'timezone':settings['timezone'],'target':target,'issued':count,
+                'first_issued_today':count,
                 'shortfall':max(0,target-count),'by_league':{r['league']:r['n'] for r in rows},
                 'distinct_games':sum(r['n'] for r in games),'games_by_league':{r['league']:r['n'] for r in games},
                 'counting_since':since.isoformat(),'counting_basis':'since_release' if checkpoint else 'calendar_day',
                 'calendar_day_issued':calendar_count,'previously_issued_today':calendar_count-count,
+                'issuance_rows':[dict(r) for r in issuance_rows],
                 'checkpoint':dict(checkpoint) if checkpoint else None,
+                'checkpoint_state':'active' if checkpoint else 'none',
                 'basis':'First funded issuance of each exact contract since the explicit release checkpoint today.' if checkpoint else 'First funded issuance of each exact contract, by publication date. Additional lines may be correlated; repriced duplicates and research candidates are excluded.'}
     def _auto_track(self,c,payload,now):
         row=c.execute("SELECT value FROM kv WHERE key='settings'").fetchone()
@@ -456,6 +507,39 @@ class Store:
         from collections import Counter
         with self.db() as c:rows=c.execute("SELECT tip_id,payload FROM bets WHERE status='open'").fetchall()
         return dict(Counter(t['game_id'] for t in {r['tip_id']:json.loads(r['payload']) for r in rows}.values() if t.get('game_id')))
+    def held_event_stakes(self):
+        """Open recorded stake by game for the live $5 exposure cap."""
+        with self.db() as c:
+            rows=c.execute("SELECT json_extract(payload,'$.game_id') game_id,COALESCE(SUM(stake),0) amount FROM bets WHERE status='open' GROUP BY game_id").fetchall()
+        return {r['game_id']:float(r['amount'] or 0.) for r in rows if r['game_id']}
+    def held_period_counts(self):
+        """Open period/quarter/inning tickets by game."""
+        from .contracts import split_market
+        with self.db() as c:rows=c.execute("SELECT payload FROM bets WHERE status='open'").fetchall()
+        result={}
+        for row in rows:
+            try:
+                tip=json.loads(row['payload']);scope,_=split_market(tip.get('market',''))
+                if scope!='full_game' and tip.get('game_id'):
+                    result[tip['game_id']]=result.get(tip['game_id'],0)+1
+            except (TypeError,ValueError,json.JSONDecodeError):
+                continue
+        return result
+    def daily_family_counts(self):
+        """Calendar-day funded first issuances by (league, allocation family)."""
+        from .contracts import allocation_family
+        settings=self.settings();local=utcnow().astimezone(ZoneInfo(settings['timezone']))
+        start=datetime.combine(local.date(),time.min,tzinfo=local.tzinfo).astimezone(timezone.utc).isoformat()
+        end=datetime.combine(local.date()+timedelta(days=1),time.min,tzinfo=local.tzinfo).astimezone(timezone.utc).isoformat()
+        with self.db() as c:
+            rows=c.execute("SELECT i.league,d.payload FROM recommendation_issuance i JOIN system_decisions d ON d.family=i.family WHERE i.issued_at>=? AND i.issued_at<?",(start,end)).fetchall()
+        result={}
+        for row in rows:
+            try:
+                tip=json.loads(row['payload']);key=(row['league'],allocation_family(tip));result[key]=result.get(key,0)+1
+            except (TypeError,ValueError,json.JSONDecodeError):
+                continue
+        return result
     def held_allocation_families(self):
         from .contracts import allocation_family
         with self.db() as c:

@@ -517,6 +517,20 @@
       "joint/SGM models with exact combined quotes"
     ]
   },
+  "urgent_execution_list_limits": {
+    "version": "publication-limits-v1",
+    "updated_at": "2026-10-02",
+    "rule": "Use one shared dashboard snapshot for issuance, current execution, checklist, lifecycle and no-longer-recommended counts. Reassess prior unmarked selections against fresh anchored/calibrated terms; keep only currently qualifying funded Stake contracts in the execution list and preserve originals in the tracker.",
+    "limits": {
+      "max_new_funded_per_publication": 10,
+      "max_funded_per_game": 3,
+      "max_period_or_quarter_per_game": 1,
+      "max_stake_per_game_usd": 5.0,
+      "max_daily_market_family_share": 0.25
+    },
+    "historical_replay": "tests/test_publication_limits.py reproduces the 2026-10-02 17:00–17:10 UTC 158-tip shape and asserts the caps.",
+    "immutable": ["system_decisions", "bets", "original_stakes", "original_odds", "outcomes"]
+  },
   "quality_gate_directive": {
     "version": "2026-10-02.market-relative-quality-v1",
     "objective": "Improve measured CLV and log-loss versus the exact contemporaneous market while retaining independent sports probabilities; realized ROI remains measured from immutable original decisions.",

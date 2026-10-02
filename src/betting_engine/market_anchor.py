@@ -14,6 +14,24 @@ import math
 EPSILON = 1e-9
 
 
+def conditional_push_free_line(kind: str, line) -> bool:
+    """Whether a two-way quoted Asian contract is priced on non-push mass.
+
+    Integer totals/handicaps and quarter lines have a zero/half settlement
+    component.  The sportsbook's two prices identify the relative win/loss
+    mass only; the model's push mass must be retained separately.  Half lines
+    are included harmlessly (their model push mass is normally zero), while
+    three-way markets never use this branch.
+    """
+    if kind.rsplit(':', 1)[-1] not in ('totals','spreads','home_total','away_total') or line is None:
+        return False
+    try:
+        value=float(line)
+        return math.isfinite(value) and abs(value*4-round(value*4))<1e-9
+    except (TypeError,ValueError):
+        return False
+
+
 def _probability(value: float, name: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
         raise ValueError(f"Invalid {name}")
@@ -42,6 +60,18 @@ def devig_probabilities(odds_by_outcome: dict[str, float]) -> dict[str, float]:
     if not math.isfinite(total) or total <= 0:
         raise ValueError("Invalid implied probability mass")
     return {outcome: value / total for outcome, value in implied.items()}
+
+
+def conditional_devig_probabilities(odds_by_outcome: dict[str, float]) -> dict[str, float]:
+    """Two-way devig explicitly labelled as conditional on no push.
+
+    The arithmetic is proportional devig, but the separate name and receipt
+    prevent callers from accidentally treating the result as unconditional
+    probability when an integer/quarter line has model push mass.
+    """
+    if not isinstance(odds_by_outcome, dict) or len(odds_by_outcome)!=2:
+        raise ValueError('A complete two-way Asian market is required')
+    return devig_probabilities(odds_by_outcome)
 
 
 def logit(value: float) -> float:
@@ -113,14 +143,20 @@ def contract_anchors(markets, quotes):
             continue
         try:
             odds = {market.side: 1.0 / quote.effective_cost for market, quote in rows}
-            fair = devig_probabilities(odds)
+            market_name = str(rows[0][0].metadata.get('stake_market_name') or getattr(rows[0][0], 'description', '') or '').lower()
+            # Draw No Bet is a two-way contract whose draw outcome is a push.
+            # Stake exposes it with moneyline-shaped sides, so the kind alone
+            # cannot identify its conditional (push-free) pricing rule.
+            conditional = conditional_push_free_line(kind, rows[0][0].line) or 'draw no bet' in market_name
+            fair = conditional_devig_probabilities(odds) if conditional else devig_probabilities(odds)
         except (ValueError, ZeroDivisionError):
             continue
         for market, quote in rows:
             result[market.id] = {
                 'market_probability': fair[market.side],
                 'market_probabilities': fair,
-                'market_weight_source': 'Stake exact condition, proportional devig',
+                'market_weight_source': 'Stake exact condition, conditional push-free devig' if conditional else 'Stake exact condition, proportional devig',
+                'conditional_push_free': conditional,
                 'market_anchor_key': [market.game_id, market.condition_id, market.kind, market.line],
                 'quote_at': quote.fetched_at,
             }

@@ -7,7 +7,12 @@ from .domain import utcnow,parse_time
 from .freshness import MAX_QUOTE_AGE_SECONDS
 from .contracts import split_market,allocation_family,SCOPE_LABELS
 
-DEFAULT_SETTINGS={'bankroll':None,'daily_risk_limit':None,'daily_pick_target':15,'max_bet':5.,'unit_stake':1.,'kelly_fraction':.125,'max_bankroll_fraction':.01,'minimum_roi':.03,'refresh_seconds':60,'max_per_event':None,'allow_event_additions':True,'monthly_system_cost':None,'currency':'USD','timezone':'Europe/Budapest','auto_track_recommendations':False}
+# The legacy sizing defaults remain backwards compatible for historical
+# receipts.  The live service enables publication_limits_version=v1 in its
+# durable settings; rank_and_size and the write transaction then apply the
+# hard anti-flood limits below.  Keeping the switch explicit prevents a
+# historical fixture or receipt from being silently rewritten.
+DEFAULT_SETTINGS={'bankroll':None,'daily_risk_limit':None,'daily_pick_target':15,'max_bet':5.,'unit_stake':1.,'kelly_fraction':.125,'max_bankroll_fraction':.01,'minimum_roi':.03,'refresh_seconds':60,'max_per_event':None,'allow_event_additions':True,'monthly_system_cost':None,'currency':'USD','timezone':'Europe/Budapest','auto_track_recommendations':False,'publication_limits_version':None,'max_new_funded_per_publication':10,'max_period_per_event':1,'max_stake_per_event':5.,'max_daily_family_share':.25}
 DEFAULT_SETTINGS['recommendation_policy']='strict'
 DEFAULT_SETTINGS['model_pick_sizing_policy']='unit_cap_v1'
 DEFAULT_SETTINGS['market_anchor_mode']='shadow'
@@ -147,15 +152,24 @@ def candidate(g,m,q,forecast,settings,market_anchor=None,calibration_summary=Non
         market_p=float(anchor['market_probability'])
         weight=float(settings.get('market_model_weight', .15))
         disagreement=float(settings.get('market_disagreement_threshold', .30))
+        anchor_model_probability=p/(1-push) if anchor.get('conditional_push_free') and push<1 else p
         anchor = {**anchor,
-                  'model_probability': p,
-                  'blended_probability': logit_blend(p, market_p, weight),
+                  'model_probability': anchor_model_probability,
+                  'blended_probability': logit_blend(anchor_model_probability, market_p, weight),
                   'model_weight': weight,
                   'disagreement_threshold': disagreement,
-                  'status': anchor_status(p, market_p, threshold=disagreement),
+                  'status': anchor_status(anchor_model_probability, market_p, threshold=disagreement),
                   'mode': settings.get('market_anchor_mode', 'shadow')}
         if settings.get('market_anchor_mode', 'shadow') == 'live' and anchor['status'] == 'usable':
-            p=anchor['blended_probability'];push=min(push,1-p)
+            # Asian integer/quarter quotes identify only the relative
+            # win/loss mass. Blend conditional probabilities, then restore
+            # the model push mass so EV and settlement stay consistent.
+            if anchor.get('conditional_push_free') and push>0:
+                conditional_model=p/(1-push)
+                conditional_blend=logit_blend(conditional_model,market_p,weight)
+                p=conditional_blend*(1-push)
+            else:
+                p=anchor['blended_probability'];push=min(push,1-p)
     # Not a statistical confidence interval: explicit scenario stress allowance.
     from .contracts import market_stress
     stress=market_stress(m.kind,g.league,m.line,forecast.disagreement,calibration_summary)
@@ -221,15 +235,25 @@ def probability_preference_ids(candidates,settings,bases=None,held_preference_al
     return {c['id'] for c in best.values()}
 
 
-def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_contracts=(),held_event_counts=None,held_preference_allocations=(),held_allocation_families=()):
+def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_contracts=(),held_event_counts=None,held_preference_allocations=(),held_allocation_families=(),held_event_stakes=None,held_period_counts=None,daily_family_counts=None,daily_funded_count=0):
     # Select the best current contract per family, including held contracts.
     # A new best line can be issued later; holding the best does not rotate to inferior alternatives.
     families={}
     held=set(held_families)
     held_ids=set(held_contracts);additions=settings.get('allow_event_additions',False)
     def covered(c):return c['id'] in held_ids if additions else (c['game_id'],c['market']) in held
-    event_cap=settings.get('max_per_event')
+    limits_enabled=settings.get('publication_limits_version')=='v1'
+    configured_event_cap=settings.get('max_per_event')
+    event_cap=min(3, int(configured_event_cap)) if limits_enabled and configured_event_cap is not None else (3 if limits_enabled else configured_event_cap)
+    cycle_cap=int(settings.get('max_new_funded_per_publication',10)) if limits_enabled else math.inf
+    event_stake_cap=float(settings.get('max_stake_per_event',5.)) if limits_enabled else math.inf
+    period_cap=int(settings.get('max_period_per_event',1)) if limits_enabled else math.inf
+    daily_funded_count=int(daily_funded_count or 0)
+    daily_family_counts=Counter(daily_family_counts or {})
+    daily_family_limit=max(1, math.ceil((daily_funded_count + (0 if cycle_cap==math.inf else cycle_cap) or 1) * float(settings.get('max_daily_family_share',.25)))) if limits_enabled else math.inf
     funded_counts=Counter(held_event_counts) if held_event_counts is not None else Counter(g for g,m in held)
+    event_stakes=Counter(held_event_stakes or {})
+    period_counts=Counter(held_period_counts or {})
     original_event_counts=Counter(funded_counts)
     continuous=settings.get('recommendation_policy','strict') in ('continuous_model_v1','continuous_best_available_v1')
     from .funding_policy import funding_basis,size_recommendation,model_allocation_policy
@@ -275,7 +299,7 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                 next_round[c['game_id']]+=1
         ordered=sorted(ordered,key=lambda c:(c['id'] not in exposure_round,
             exposure_round.get(c['id'],0),not is_core_market(c),-c['stress_roi'],-c['probability'],str(c['id'])))
-    counts=Counter();chosen=[];alternatives=[]
+    counts=Counter();period_new=Counter();family_new=Counter();new_funded=0;chosen=[];alternatives=[]
     remaining=remaining_budget(settings,open_exposure)
     for allocation_rank,c in enumerate(ordered,1):
         c['rank']=ranks[c['id']]
@@ -288,15 +312,32 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                 exposure_round=exposure_round.get(c['id']),hard_event_cap=False,
                 reason='Allocate across the least-exposed games first, with core-market priority within each round. Other qualified same-game family winners remain eligible; the related-exposure discount still applies. This is not a hedge or independence certificate.')
         c['is_additional']=additions and not covered(c) and any(g==c['game_id'] for g,m in held)
-        if event_cap is not None and counts[c['game_id']]>=event_cap:
+        is_period = c.get('model_scope','full_game')!='full_game'
+        family_key=(c.get('league'),allocation_family(c))
+        if event_cap is not None and (funded_counts[c['game_id']]+counts[c['game_id']])>=event_cap and not covered(c):
             c['allocation_code']='event_limit';c['allocation_reason']='Other markets already use the per-game allocation; this is an alternative, not an extra bet.'
             if covered(c):c['allocation_code']='already_held';c['allocation_reason']='This exact selection has already been issued. No repeated ticket is requested.'
             c['stake_note']=c['allocation_reason']
             c['alternative']=True;alternatives.append(c);continue
+        if is_period and (period_counts[c['game_id']]+period_new[c['game_id']])>=period_cap and not covered(c):
+            c['allocation_code']='period_limit';c['allocation_reason']='The per-game period/quarter allocation is already committed; this is an alternative, not an extra bet.'
+            c['stake_note']=c['allocation_reason'];c['alternative']=True;alternatives.append(c);continue
+        if limits_enabled and not covered(c) and daily_family_counts[family_key]+family_new[family_key]>=daily_family_limit:
+            c['allocation_code']='family_share_limit';c['allocation_reason']='This market family reached the 25% daily publication share; another family or game must be selected.'
+            c['stake_note']=c['allocation_reason'];c['alternative']=True;alternatives.append(c);continue
         counts[c['game_id']]+=1;c['alternative']=False
         if covered(c):
             c['allocation_code']='already_held';c['allocation_reason']='This exact selection has already been issued. No repeated ticket is requested.' if additions else 'A bet is already recorded for this game and market family.'
             c['stake_note']=c['allocation_reason']
+            # A family-level hold is an alternative in the legacy/non-addition
+            # path.  Keeping it out of ``chosen`` prevents the execution list
+            # from treating an already covered family as a fresh selection,
+            # while exact contract holds remain visible in ``chosen`` for the
+            # immutable tracker/audit path.
+            if not additions and c['id'] not in held_ids:
+                c['alternative']=True
+                alternatives.append(c)
+                continue
         elif continuous and tier(c)==2 and family_additions and (c['game_id'],allocation_family(c)) in allocated_families:
             c['allocation_code']='model_pick_family_covered'
             c['allocation_reason']='A funded contract already covers this market family. No weaker alternative or repeat nominal allocation is requested.'
@@ -308,17 +349,24 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
         elif event_cap is not None and funded_counts[c['game_id']]>=event_cap:
             c['allocation_code']='event_limit';c['allocation_reason']='The per-game allocation is already committed to recorded bets.'
             c['stake_note']='The per-game limit is already allocated to recorded bets.'
-        elif tier(c)>0:
+        elif tier(c)>0 and new_funded<cycle_cap:
             # Stake pushes refund the stake; use the contract's push probability.
-            sizing=size_recommendation(c,settings,remaining,funded_counts[c['game_id']]) if continuous else stake_assessment(c['stress_probability'],c['push_probability'] if c.get('reference_platform')=='Stake.com' else 0,c['reference_odds'],settings,remaining,funded_counts[c['game_id']])
+            available_event=max(0.,event_stake_cap-event_stakes[c['game_id']])
+            available=min(remaining,available_event)
+            sizing=size_recommendation(c,settings,available,funded_counts[c['game_id']]) if continuous else stake_assessment(c['stress_probability'],c['push_probability'] if c.get('reference_platform')=='Stake.com' else 0,c['reference_odds'],settings,available,funded_counts[c['game_id']])
             c['stake_sizing']=sizing;amount,note=sizing['amount'],sizing['note']
             c['stake']=amount;c['stake_note']=note if amount else 'A megmaradt keretből vagy a rész-Kelly alapján nem adódik legalább 1 USD tét.';remaining-=amount
-            c['allocation_code']='funded' if amount else 'stake_below_minimum'
+            if amount and limits_enabled and (event_stakes[c['game_id']]+amount>event_stake_cap+1e-9):
+                amount=0.;c['stake']=0.;c['allocation_code']='event_stake_limit';c['allocation_reason']='The $5 per-game stake cap would be exceeded.'
+            elif amount:
+                c['allocation_code']='funded'
+            else:c['allocation_code']='stake_below_minimum'
             c['allocation_reason']='Qualified at the current Stake price.' if amount else 'Stake sizing or the remaining allocation is below $1.'
             if amount and continuous and tier(c) in (1,2):
                 preference_allocations.add((c['game_id'],bases[c['id']]['tier']));new_preference_events.add(c['game_id'])
                 c['allocation_reason']=(f'Positive current-model expected value; stress threshold not passed. One model pick for this game, sized at ${amount:.2f}.' if tier(c)==2 else (f'Selected for model win probability; model expected return is not positive. Calculated non-Kelly base-unit allocation ${amount:.2f}, not a value-bet claim.' if settings.get('model_pick_sizing_policy')=='all_tiers_weighted_v3' else 'Selected for model win probability; model expected return is not positive. Explicit $1 preference allocation, not a value-bet claim.'))
             if amount:
+                new_funded+=1;event_stakes[c['game_id']]+=amount;period_new[c['game_id']]+=int(is_period);family_new[family_key]+=1
                 funded_counts[c['game_id']]+=1
                 allocated_families.add((c['game_id'],allocation_family(c)))
                 if continuous and tier(c)==2 and family_additions:
@@ -338,6 +386,13 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
             c['allocation_code']='price_below_threshold';c['allocation_reason']='Current odds do not meet the model threshold after the stress allowance.'
             c['stake_note']=f'Feltételes jelölt: csak legalább {c["minimum_odds"]:.2f} sportsbook oddson, azonos szabályok mellett.'
         chosen.append(c)
+        if limits_enabled and new_funded>=cycle_cap:
+            # Remaining rows stay visible as research alternatives, but can
+            # never be interpreted as newly funded execution instructions.
+            for rest in ordered[allocation_rank:]:
+                if rest.get('id') in {x.get('id') for x in chosen}: continue
+                rest['stake']=0.;rest['allocation_code']='publication_cycle_limit';rest['allocation_reason']='The publication cycle cap is 10 new funded selections.';rest['stake_note']=rest['allocation_reason'];rest['alternative']=True;alternatives.append(rest)
+            break
     if family_additions:
         # Size against the complete new batch, not just earlier allocations.
         # Otherwise recording later same-game contracts would immediately make
@@ -346,15 +401,19 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
         while batch:
             batch_counts=Counter(c['game_id'] for c in batch)
             remaining=remaining_budget(settings,open_exposure)
+            batch_stakes=Counter()
+            batch_periods=Counter()
             survivors=[]
             for c in batch:
                 related=original_event_counts[c['game_id']]+batch_counts[c['game_id']]-1
-                sizing=size_recommendation(c,settings,remaining,related) if continuous else stake_assessment(c['stress_probability'],c['push_probability'] if c.get('reference_platform')=='Stake.com' else 0,c['reference_odds'],settings,remaining,related)
+                event_available=event_stake_cap-event_stakes[c['game_id']]-batch_stakes[c['game_id']]
+                sizing_budget=min(remaining,max(0.,event_available))
+                sizing=size_recommendation(c,settings,sizing_budget,related) if continuous else stake_assessment(c['stress_probability'],c['push_probability'] if c.get('reference_platform')=='Stake.com' else 0,c['reference_odds'],settings,sizing_budget,related)
                 c['stake_sizing']=sizing;c['stake']=sizing['amount'];c['stake_note']=sizing['note']
                 c['allocation_policy']['exposure_basis']='held_plus_complete_publication_batch_v1'
                 c['reference_stake_executable']=c['stake']>=c.get('reference_minimum_notional',0) and c['stake']>0
                 if c['stake']:
-                    remaining-=c['stake'];survivors.append(c)
+                    remaining-=c['stake'];batch_stakes[c['game_id']]+=c['stake'];batch_periods[c['game_id']]+=int(c.get('model_scope','full_game')!='full_game');survivors.append(c)
                     if continuous and tier(c)==2:
                         c['allocation_reason']=f'Positive current-model expected value in a new market family; stress threshold not passed. All held and co-issued related contracts are included in the ${c["stake"]:.2f} stake. This is not an independence or hedge claim.'
                 else:
