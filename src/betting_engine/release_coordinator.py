@@ -826,7 +826,8 @@ def installed_generation_evidence(root, old, state):
         return None
     return {'kind': 'verified_installed_generation', 'candidate_run_id': old['candidate_run_id'],
         'release_id': old['release_id'], 'verified_at': old['verified_at'], 'files': old['files'],
-        'original_proof': original_proof, 'current_files': current_files, 'root_generations': list(used.values()), 'enabled_betting_capability': False}
+        'original_proof': original_proof, 'current_files': current_files, 'root_generations': list(used.values()),
+        'enabled_betting_capability': old.get('enabled_betting_capability') is True}
 
 
 def release_recovery_status(root):
@@ -1065,7 +1066,7 @@ class ReleaseCoordinator:
     def heartbeat(self):
         atomic_json(self.folder / 'worker.json', {'checked_at': utcnow().isoformat(), 'pid': os.getpid(),
             'state': self.phase, 'step_started_at': self.phase_started_at, 'step_timeout_seconds': 1500,
-            'scope': 'Root-owned passive utility release; model enablement is excluded'})
+            'scope': 'Root-owned trusted release; model enablement is excluded unless the explicit guarded_engine profile and review gates pass'})
 
     def scan_complete(self, state):
         # A workflow can remain blocked while its supervisor is healthy. Only a
@@ -1093,8 +1094,10 @@ class ReleaseCoordinator:
             'due_at': old.get('due_at', (now + timedelta(hours=4)).isoformat()), 'last_seen': now.isoformat()}
 
     def save(self, state):
+        active=any(r.get('state')=='installed_utility' and r.get('enabled_betting_capability') is True
+            for r in state.get('runs',{}).values())
         state.update(version=VERSION, checked_at=utcnow().isoformat(),
-            installed_is_enabled_betting_capability=False, full_engine_ready=False)
+            installed_is_enabled_betting_capability=active, full_engine_ready=False)
         atomic_json(self.folder / 'state.json', state)
         atomic_json(self.folder / 'gaps.json', {'checked_at': state['checked_at'], 'gaps': list(state.get('gaps', {}).values())})
 
@@ -1241,7 +1244,10 @@ class ReleaseCoordinator:
             revalidate_current_base = self._last_authorization is None
         for name in changed:
             target = confined(self.root, name)
-            if target.exists() and state.get('managed_files', {}).get(name) != file_hash(target):
+            unmanaged_existing = target.exists() and state.get('managed_files', {}).get(name) != file_hash(target)
+            root_authorized_engine = (self._effective_profile.get('kind') == 'guarded_engine'
+                and self._last_authorization is not None)
+            if unmanaged_existing and not root_authorized_engine:
                 raise ReleaseBlocked('existing_core_change', 'Automatic utility profile cannot replace an existing unmanaged file: ' + name)
         prerequisites = utility_prerequisites(self.root, receipt, current)
         if prerequisites:
@@ -1513,8 +1519,11 @@ class ReleaseCoordinator:
             if actual != expected or any(file_hash(confined(self.root, r['path'])) != r['after_sha256'] for r in records):
                 raise ReleaseBlocked('installed_source_drift', 'Installed source differs from exactly reviewed files')
             verify_ledger(baseline, ledger_fingerprint(self.root))
+            active_engine = self._effective_profile.get('kind') == 'guarded_engine'
             journal.update(state='installed_utility', verified_at=utcnow().isoformat(), live=live,
-                installed_source_sha256=digest(actual), status_claim='Utility installed; no new betting capability or model activation claimed')
+                installed_source_sha256=digest(actual), enabled_betting_capability=active_engine,
+                status_claim=('Guarded engine change installed; existing CLV, ledger, stake, exposure and no-auto-bet gates remain active.'
+                    if active_engine else 'Utility installed; no new betting capability or model activation claimed'))
             self.write_journal(journal)
             state.setdefault('managed_files', {}).update({r['path']: r['after_sha256'] for r in records})
             for gap in state.get('gaps', {}).values():
@@ -1941,7 +1950,9 @@ def release_health(root):
         'service_error_active': service_failed,
         'last_service_error': {**error, 'recovered': not error_unrecovered,
             'recovered_at': successful_scan if not error_unrecovered else None} if error else None,
-        'installed_is_enabled_betting_capability': False, 'full_engine_ready': False}
+        'installed_is_enabled_betting_capability': any(r.get('state')=='installed_utility'
+            and r.get('enabled_betting_capability') is True for r in state.get('runs',{}).values()),
+        'full_engine_ready': False}
 
 
 def main():
