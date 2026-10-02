@@ -38,7 +38,9 @@ REVIEW_SCHEMA = {'type': 'object', 'properties': {
     'clv_gate_unchanged': {'type': 'boolean'}, 'ledger_immutable': {'type': 'boolean'},
     'auto_betting_disabled': {'type': 'boolean'},
     'summary': {'type': 'string'}, 'findings': {'type': 'array', 'items': {'type': 'string'}}},
-    'required': ['accepted', 'passive_utility', 'model_gate_required', 'no_runtime_enablement', 'summary', 'findings'],
+    'required': ['accepted', 'passive_utility', 'model_gate_required', 'no_runtime_enablement',
+        'guarded_engine_review', 'production_enablement', 'clv_gate_unchanged',
+        'ledger_immutable', 'auto_betting_disabled', 'summary', 'findings'],
     'additionalProperties': False}
 IMMUTABLE = {
     'bets': ('id', 'tip_id', 'created_at', 'stake', 'odds', 'platform', 'payload'),
