@@ -33,6 +33,54 @@ def test_new_settled_outcome_triggers_review_without_waiting_for_next_hour(tmp_p
     w.run_once();assert len(w.snapshot()['jobs'])==2
 
 
+def test_outcome_review_retries_are_coalesced_without_mutating_original_decisions(tmp_path):
+    """A later review supersedes stale failures while preserving audit history."""
+    w=worker(tmp_path)
+    payload={'id':'immutable','game_id':'NFL:g','league':'NFL','market':'moneyline',
+             'start':utcnow().isoformat(),'stake':1}
+    with w.store.db() as c:
+        c.execute("INSERT INTO system_decisions(family,tip_id,issued_at,payload,status,pnl) VALUES (?,?,?,?,'lost',-1)",
+                  ('immutable','immutable',utcnow().isoformat(),json.dumps(payload)))
+        before=dict(c.execute("SELECT * FROM system_decisions WHERE tip_id='immutable'").fetchone())
+    first=w.enqueue('outcome_review','legacy-hour-1',payload={'settled_evidence_sha256':'old-1'})
+    second=w.enqueue('outcome_review','legacy-hour-2',payload={'settled_evidence_sha256':'old-2'})
+    with w.store.db() as c:
+        c.execute("UPDATE learning_jobs SET status='retry',attempts=3,last_error='evidence_invalid' WHERE id=?",(first,))
+        c.execute("UPDATE learning_jobs SET status='retry',attempts=2,last_error='old_retry' WHERE id=?",(second,))
+    w.plan()
+    jobs=[j for j in w.snapshot()['jobs'] if j['kind']=='outcome_review']
+    pending=[j for j in jobs if j['status'] in ('queued','retry')]
+    assert len(pending)==1
+    assert pending[0]['id'] not in (first,second)
+    old={j['id']:j for j in jobs if j['id'] in (first,second)}
+    assert old[first]['status']=='superseded' and old[first]['attempts']==3
+    assert old[first]['last_error']=='evidence_invalid'
+    assert old[first]['result']['superseded_by']==pending[0]['id']
+    assert old[second]['status']=='superseded' and old[second]['attempts']==2
+    with w.store.db() as c:
+        after=dict(c.execute("SELECT * FROM system_decisions WHERE tip_id='immutable'").fetchone())
+    assert after==before
+
+
+def test_outcome_review_evidence_failure_stays_retry_and_never_completed(tmp_path, monkeypatch):
+    """An evidence-limit failure is durable retry state, never false success."""
+    w=worker(tmp_path)
+    w.run_once()
+    job_id=w.enqueue('outcome_review','fresh-evidence-failure')
+
+    def blocked(*args,**kwargs):
+        raise ValueError('existing_feedback_evidence_invalid: feedback_total_evidence_limit')
+    monkeypatch.setattr('betting_engine.outcome_feedback.record_outcome_feedback',blocked)
+    w.run_once()
+    job=next(j for j in w.snapshot()['jobs'] if j['id']==job_id)
+    assert job['status']=='retry'
+    assert job['result'] is None
+    assert 'feedback_total_evidence_limit' in job['last_error']
+    with w.store.db() as c:
+        attempts=[dict(r) for r in c.execute('SELECT * FROM learning_attempts WHERE job_id=?',(job_id,))]
+    assert len(attempts)==1 and attempts[0]['status']=='failed'
+
+
 def test_controlled_training_executes_and_persists_rejected_candidate(tmp_path):
     calls=[]
     def train(**kwargs):

@@ -96,10 +96,7 @@ class LearningWorker:
                                 payload={'acceptance':'Existing paired chronological promotion gate; rejected candidates stay archived.'})
         # Review on the first worker tick after a result/reconciliation change,
         # retaining the hourly fallback. Never turn repeated reads into trials.
-        from .outcome_feedback import snapshot_outcomes, outcome_generation, VERSION as OUTCOME_VERSION
-        outcome_digest=outcome_generation(snapshot_outcomes(self.store))
-        self.enqueue('outcome_review',OUTCOME_VERSION+':'+now.strftime('%Y-%m-%dT%H')+':'+outcome_digest,
-                     payload={'settled_evidence_sha256':outcome_digest,'feedback_version':OUTCOME_VERSION})
+        self.plan_outcome_review(now)
         self.plan_segments()
         self.plan_market_expansion()
         self.plan_player_evidence()
@@ -128,6 +125,60 @@ class LearningWorker:
             with self.store.db() as c:
                 for row in c.execute("SELECT id FROM learning_jobs WHERE kind='research_gap' AND status!='resolved'").fetchall():
                     if row['id'] not in active_gaps:c.execute("UPDATE learning_jobs SET status='resolved',updated_at=? WHERE id=?",(now.isoformat(),row['id']))
+
+    def plan_outcome_review(self, now):
+        """Coalesce stale outcome-review retries without discarding their audit.
+
+        A failed review is retried with its attempts and error intact. Once a
+        later review for the same outcome evidence is queued, older pending
+        copies cannot add information and would otherwise keep surfacing as
+        permanent failures. Mark those copies superseded, retaining the full
+        attempt history and the replacement job identity. A running job is
+        never stolen.
+        """
+        from .outcome_feedback import snapshot_outcomes, outcome_generation, VERSION as OUTCOME_VERSION
+        outcome_digest=outcome_generation(snapshot_outcomes(self.store))
+        job_id=self.enqueue('outcome_review',OUTCOME_VERSION+':'+now.strftime('%Y-%m-%dT%H')+':'+outcome_digest,
+                            payload={'settled_evidence_sha256':outcome_digest,'feedback_version':OUTCOME_VERSION})
+        with self.store.db() as c:
+            current=c.execute("SELECT * FROM learning_jobs WHERE id=?",(job_id,)).fetchone()
+            pending=[dict(r) for r in c.execute(
+                "SELECT * FROM learning_jobs WHERE kind='outcome_review' AND status IN ('queued','retry')").fetchall()]
+            # If this evidence generation already completed, all older pending
+            # copies are stale. Otherwise the newly requested generation is the
+            # sole replacement and must remain runnable.
+            current_status=current['status'] if current else None
+            latest=(dict(current) if current_status in ('queued','retry','running') else None)
+            if not pending:
+                return job_id
+            if latest is None:
+                latest=None
+            elif latest['status']=='running':
+                # A live worker owns this generation; pending older copies are
+                # safe to supersede without stealing its lock.
+                pass
+            stamp=now.isoformat()
+            replacement_id=latest['id'] if latest is not None else job_id
+            for row in pending:
+                if latest is not None and row['id']==latest['id']:
+                    continue
+                # Keep manually injected or legacy jobs without a pinned
+                # evidence digest runnable; only coalesce scheduler-created
+                # reviews whose immutable snapshot can be compared.
+                try:
+                    payload=json.loads(row['payload']) if row['payload'] else {}
+                except (TypeError,ValueError):
+                    payload={}
+                if not payload.get('settled_evidence_sha256'):
+                    continue
+                prior=json.loads(row['result']) if row['result'] else None
+                result={'state':'superseded',
+                    'reason':'A later outcome review covers the same or newer immutable outcome snapshot; original attempts, errors and retry time retained.',
+                    'superseded_by':replacement_id,'previous_result':prior,
+                    'scheduling_version':SCHEDULING_VERSION}
+                c.execute("UPDATE learning_jobs SET status='superseded',result=?,updated_at=? WHERE id=? AND status IN ('queued','retry')",
+                    (json.dumps(result),stamp,row['id']))
+        return job_id
 
     def plan_shadow(self, now):
         """Keep one latest pending summary; never reset retry delay/history."""
