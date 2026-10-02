@@ -34,6 +34,9 @@ TERMINAL = ('installed_utility', 'rolled_back', 'blocked', 'abandoned', 'manual_
 REVIEW_SCHEMA = {'type': 'object', 'properties': {
     'accepted': {'type': 'boolean'}, 'passive_utility': {'type': 'boolean'},
     'model_gate_required': {'type': 'boolean'}, 'no_runtime_enablement': {'type': 'boolean'},
+    'guarded_engine_review': {'type': 'boolean'}, 'production_enablement': {'type': 'boolean'},
+    'clv_gate_unchanged': {'type': 'boolean'}, 'ledger_immutable': {'type': 'boolean'},
+    'auto_betting_disabled': {'type': 'boolean'},
     'summary': {'type': 'string'}, 'findings': {'type': 'array', 'items': {'type': 'string'}}},
     'required': ['accepted', 'passive_utility', 'model_gate_required', 'no_runtime_enablement', 'summary', 'findings'],
     'additionalProperties': False}
@@ -149,6 +152,31 @@ def utility_path(name):
         raise ReleaseBlocked('file_not_allowed', 'Release may change only ordinary utility code, new tests and documentation')
 
 
+def guarded_engine_path(name):
+    """Allow only source/test/docs bytes explicitly named by a guarded profile.
+
+    This is deliberately separate from ``utility_path``: a guarded engine
+    release may change a reviewed runtime contract, but it may never touch the
+    ledger, credentials, configuration, deployment controller or auto-bet
+    path.  The exact file allowlist still lives in release_policy.json.
+    """
+    p = Path(name)
+    guarded_core_allow = {'src/betting_engine/decisions.py'}
+    forbidden = {
+        'src/betting_engine/storage.py', 'src/betting_engine/governance.py',
+        'src/betting_engine/funding_policy.py', 'src/betting_engine/engine.py',
+        'src/betting_engine/supervisor.py', 'src/betting_engine/dashboard_payload.py',
+        'src/betting_engine/release_coordinator.py',
+    }
+    if (p.is_absolute() or '..' in p.parts or str(p) != name or (name in PROTECTED and name not in guarded_core_allow)
+            or name in forbidden or p.name in ('__init__.py', 'conftest.py',
+                'sitecustomize.py', 'usercustomize.py')
+            or not ((name.startswith('src/betting_engine/') and p.suffix == '.py')
+                or (name.startswith('tests/test_') and p.suffix in ('.py', '.mjs'))
+                or (name.startswith('docs/') and p.suffix == '.md'))):
+        raise ReleaseBlocked('file_not_allowed', 'Guarded engine release may change only explicitly reviewed runtime modules, tests and documentation')
+
+
 def verify_json_evidence(path, *, body=None):
     """Small inert source evidence only; serialized models stay outside this profile."""
     path = Path(path)
@@ -203,16 +231,21 @@ def verify_passive_evidence(path, *, body=None):
 
 def profile_for(policy, task_id, changes):
     profile = policy.get('profiles', {}).get(task_id)
-    if not isinstance(profile, dict) or profile.get('kind') != 'passive_utility':
+    kind = profile.get('kind') if isinstance(profile, dict) else None
+    if kind not in ('passive_utility', 'guarded_engine'):
         raise ReleaseBlocked('profile_required', 'No exact passive-utility release profile for task ' + task_id)
     allowed = profile.get('files', [])
     if not isinstance(allowed, list) or not changes or not set(changes).issubset(allowed):
         raise ReleaseBlocked('file_not_allowed', 'Candidate changes files outside its root-owned exact profile')
     if not any(name.startswith('src/betting_engine/') and name.endswith('.py') for name in changes):
-        raise ReleaseBlocked('no_implementation', 'A release needs a utility implementation')
+        raise ReleaseBlocked('no_implementation', 'A release needs a runtime implementation')
     for name in changes:
-        utility_path(name)
+        (guarded_engine_path if kind == 'guarded_engine' else utility_path)(name)
     return profile
+
+
+def profile_path(name, profile_kind='passive_utility'):
+    (guarded_engine_path if profile_kind == 'guarded_engine' else utility_path)(name)
 
 
 AUTHORIZATION_VERSION = 'root-passive-revalidation-v1'
@@ -463,8 +496,11 @@ def root_authorization(root, receipt, current, policy):
         return None
     try:
         raw = path.read_bytes(); value = json.loads(raw)
-        expected = {'version': AUTHORIZATION_VERSION, 'kind': 'passive_utility',
-            'run_id': receipt['run_id'], 'task_id': receipt['result']['task_id'],
+        task_id = receipt['result']['task_id']
+        profile = policy.get('profiles', {}).get(task_id, {})
+        kind = profile.get('kind', 'passive_utility') if isinstance(profile, dict) else 'passive_utility'
+        expected = {'version': AUTHORIZATION_VERSION, 'kind': kind,
+            'run_id': receipt['run_id'], 'task_id': task_id,
             'receipt_sha256': digest(receipt), 'changed_files': changed_records(receipt),
             'production_manifest_sha256': digest(current),
             'policy_sha256': file_hash(root / 'config/release_policy.json')}
@@ -489,12 +525,13 @@ def recovery_context(root, run_id, receipt=None, policy=None, current=None, peer
     current = current if current is not None else production_manifest(root)
     task_id = receipt['result']['task_id']; changed = changed_records(receipt)
     profile = policy.get('profiles', {}).get(task_id, {})
+    profile_kind = profile.get('kind', 'passive_utility') if isinstance(profile, dict) else 'passive_utility'
     allowed = profile.get('files', []) if isinstance(profile, dict) else []
     accepted = {r['path']: file_hash(confined(dev / 'accepted', r['path'])) for r in changed}
     base = receipt['production_base']; unmanaged = []; unsupported = []
     managed = read_json(root / 'data/releases/state.json').get('managed_files', {})
     for r in changed:
-        try: utility_path(r['path'])
+        try: profile_path(r['path'], profile_kind)
         except ReleaseBlocked: unsupported.append(r['path'])
         actual = file_hash(confined(root, r['path']))
         if confined(root, r['path']).exists() and actual != managed.get(r['path']):
@@ -513,13 +550,14 @@ def recovery_context(root, run_id, receipt=None, policy=None, current=None, peer
         'authorization_sha256': file_hash(confined(root, 'data/releases/root-authorizations/' + run_id + '.json')),
         'coordinator_sha256': file_hash(Path(__file__))}
     return {'task_id': task_id, 'run_id': run_id, 'evidence_sha256': digest(inputs), 'inputs': inputs,
-        'changed_files': changed, 'profile_missing': not isinstance(profile, dict) or profile.get('kind') != 'passive_utility',
+        'changed_files': changed, 'profile_missing': not isinstance(profile, dict) or profile_kind not in ('passive_utility', 'guarded_engine'),
         'files_outside_profile': [r['path'] for r in changed if r['path'] not in allowed],
         'accepted_drift': [r['path'] for r in changed if accepted[r['path']] != r['sha256']],
         'production_drift': sorted(n for n in set(base) | set(current) if base.get(n) != current.get(n)),
         'unmanaged_existing_files': unmanaged, 'unsupported_paths': unsupported,
         'missing_prerequisites': prerequisites,
-        'new_utility_review_eligible': new_utility_profile(root, policy, receipt) is not None}
+        'new_utility_review_eligible': new_utility_profile(root, policy, receipt) is not None,
+        'profile_kind': profile_kind}
 
 
 ROOT_GENERATION_VERSION = 'root-installed-generation-v1'
@@ -637,8 +675,9 @@ def _root_generation_proof(root, descriptor, old, descriptor_sha256):
     selected = descriptor['files']
     if not isinstance(selected, list) or not 1 <= len(selected) <= 16 or len({r['path'] for r in selected}) != len(selected):
         raise ValueError('Root generation has no bounded exact file list')
+    profile_kind = journal.get('profile_kind', 'passive_utility')
     for item in selected:
-        name = item['path']; utility_path(name)
+        name = item['path']; profile_path(name, profile_kind)
         before, after = item['before_sha256'], item['after_sha256']
         if (not re.fullmatch(r'[0-9a-f]{64}', before) or not re.fullmatch(r'[0-9a-f]{64}', after) or before == after
                 or original_files.get(name, {}).get('after_sha256') != before
@@ -654,7 +693,7 @@ def _root_generation_proof(root, descriptor, old, descriptor_sha256):
         'descriptor_sha256': descriptor_sha256, 'candidate_run_id': rid, 'release_id': release_id,
         'task_id': old['task_id'], 'root_release_version': manifest['version'],
         'verified_at': journal['verified_at'], 'artifacts': pins, 'files': selected,
-        'enabled_betting_capability': False}
+        'enabled_betting_capability': profile_kind == 'guarded_engine'}
 
 
 def register_root_generation(root, descriptor):
@@ -729,17 +768,20 @@ def _verified_installed_archive(root, old):
                 or len({r['path'] for r in accepted}) != len(accepted)
                 or {r['path']:r['after_sha256'] for r in files} != {r['path']:r['sha256'] for r in accepted}):
             return None
+        profile_kind=archived.get('profile_kind', 'passive_utility')
         for item in files:
-            utility_path(item['path'])
+            profile_path(item['path'], profile_kind)
         checks=archived.get('checks',{}); review=checks.get('review',{}); live=archived.get('live',{})
         deployed=parse_time(archived['deployed_at']); verified=parse_time(archived['verified_at']); published=parse_time(live['publication_at'])
         reviewed=parse_time(archived['reviewed_at']); integrated=parse_time(receipt['integrated_at'])
         finished=parse_time(receipt['result']['finished_at'])
         observed=parse_time(live.get('checked_at') or archived['verified_at'])
         if (checks.get('python') != 'passed' or checks.get('dom') != 'passed'
-                or any(review.get(k) is not True for k in ('accepted','passive_utility','no_runtime_enablement'))
-                or review.get('model_gate_required') is not False
-                or archived.get('enabled_betting_capability') is not False or archived.get('database_restored') is not False
+                or (not all(review.get(k) is True for k in ('accepted','guarded_engine_review','production_enablement','clv_gate_unchanged','ledger_immutable','auto_betting_disabled'))
+                    if profile_kind == 'guarded_engine' else
+                    not all(review.get(k) is True for k in ('accepted','passive_utility','no_runtime_enablement'))
+                    or review.get('model_gate_required') is not False)
+                or archived.get('enabled_betting_capability') is not (profile_kind == 'guarded_engine') or archived.get('database_restored') is not False
                 or not finished <= integrated <= reviewed <= deployed < published <= observed <= verified <= utcnow()
                 or (verified-published).total_seconds()>300
                 or live.get('health_ok') is not True or live.get('guard_consistent') is not True):
@@ -959,13 +1001,26 @@ class LiveBackend:
         verify_release_sports_fixture_inputs(root, workspace)
         schema = run / 'release-review-schema.json'; output = run / 'release-review.json'
         atomic_json(schema, REVIEW_SCHEMA)
-        prompt = ('Independently review this exact root-owned utility release. Read the changed files and tests. '
-            'This review is separate from candidate implementation review. You may only read; do not edit or run mutating commands. '
-            'Accept only a passive independently useful utility, with no changed runtime call site, dynamic registration, '
-            'import hook, production side effect, database migration, model activation or betting decision change. '
-            'If probability/model training/current data pipeline/settlement enablement changes require real gate evidence, '
-            'set model_gate_required=true; the utility profile must not enable them. Fixtures do not prove live model/source approval. '
-            'Check hidden dependencies on accepted-but-uninstalled modules, every immutable original bet requirement, '
+        profile_kind = request.get('profile', {}).get('kind', 'passive_utility')
+        if profile_kind == 'guarded_engine':
+            prompt = ('Independently review this exact guarded engine release. Read the changed runtime contracts, tests and '
+                'the current release guards. This review is separate from candidate implementation review. You may only read; '
+                'do not edit or run mutating commands. Confirm the exact files are bounded, the model/settlement scope is correct, '
+                'the CLV gate is unchanged, original ledger records are immutable, and automatic wager submission remains disabled. '
+                'Accept only a guarded production change with no bypass of freshness, evidence, exposure or USD1-5 controls. '
+                'Set guarded_engine_review, production_enablement, clv_gate_unchanged, ledger_immutable and auto_betting_disabled '
+                'to true only when each is evidenced; otherwise reject it. Fixtures do not prove realized profit or market edge.\n')
+        else:
+            prompt = ('Independently review this exact root-owned utility release. Read the changed files and tests. '
+                'This review is separate from candidate implementation review. You may only read; do not edit or run mutating commands. '
+                'Accept only a passive independently useful utility, with no changed runtime call site, dynamic registration, '
+                'import hook, production side effect, database migration, model activation or betting decision change. '
+                'If probability/model training/current data pipeline/settlement enablement changes require real gate evidence, '
+                'set model_gate_required=true; the utility profile must not enable them. Fixtures do not prove live model/source approval. '
+                'The passive review must keep guarded_engine_review and production_enablement false. '
+                'Check hidden dependencies on accepted-but-uninstalled modules, every immutable original bet requirement, '
+                'and source-bound candidate evidence. Passing tests alone does not authorize a model or guarantee profit.\n')
+        prompt += ('Check hidden dependencies on accepted-but-uninstalled modules, every immutable original bet requirement, '
             'and source-bound candidate evidence. Passing tests alone does not authorize a model or guarantee profit.\n'
             + json.dumps(request, sort_keys=True))
         from .provider_runtime import enabled, run_ai_step
@@ -1155,8 +1210,10 @@ class ReleaseCoordinator:
         if not receipt or receipt.get('integration_state') != 'committed':
             raise ReleaseBlocked('acceptance_missing', 'Candidate lacks a committed source-bound acceptance receipt')
         task = receipt['result']['task_id']; changed = [r['path'] for r in receipt['changed_files']]
+        configured = policy.get('profiles', {}).get(task, {})
+        configured_kind = configured.get('kind', 'passive_utility') if isinstance(configured, dict) else 'passive_utility'
         for name in changed:
-            utility_path(name)
+            profile_path(name, configured_kind)
             verify_passive_evidence(confined(dev / 'runs' / run_id / 'accepted-files', name))
         self._last_authorization = None; self._last_proposal = None
         discovered = new_utility_profile(self.root, policy, receipt)
@@ -1166,6 +1223,7 @@ class ReleaseCoordinator:
             if discovered is None:
                 raise
             self._effective_profile = discovered
+        configured_kind = self._effective_profile.get('kind', configured_kind)
         accepted = dev / 'accepted'; snapshot = tree_manifest(accepted)
         # The active accepted snapshot can contain later peer increments. Each
         # selected byte must still equal its own reviewed acceptance receipt.
@@ -1190,7 +1248,7 @@ class ReleaseCoordinator:
             raise ReleaseBlocked('prerequisite_utility_required', 'Missing local utility/test imports: '
                 + ', '.join(sorted({r['path'] for r in prerequisites})))
         if self._effective_profile.get('authorization') or revalidate_current_base:
-            self._last_proposal = {'version': 'root-new-utility-proposal-v1', 'kind': 'passive_utility',
+            self._last_proposal = {'version': 'root-new-utility-proposal-v1', 'kind': configured_kind,
                 'run_id': run_id, 'task_id': task, 'receipt_sha256': digest(receipt),
                 'changed_files': changed_records(receipt), 'production_manifest_sha256': digest(current),
                 'policy_sha256': file_hash(self.policy_path), 'profile': self._effective_profile,
@@ -1213,9 +1271,10 @@ class ReleaseCoordinator:
             (workspace / 'node_modules').symlink_to((self.root / 'node_modules').resolve(), target_is_directory=True)
         run_id = receipt['run_id']; archived = self.root / 'data/development/runs' / run_id / 'accepted-files'
         records = []
+        profile_kind = getattr(self, '_effective_profile', {}).get('kind', 'passive_utility')
         for row in receipt['changed_files']:
             name = row['path']; source = confined(archived, name); target = confined(workspace, name)
-            utility_path(name)
+            profile_path(name, profile_kind)
             body = source.read_bytes()
             verify_passive_evidence(source, body=body)
             if hashlib.sha256(body).hexdigest() != row['sha256']:
@@ -1260,8 +1319,9 @@ class ReleaseCoordinator:
                     or any(archived.get(k) != journal.get(k) for k in immutable)):
                 raise ReleaseBlocked('journal_invalid', 'Journal differs from its controller archive')
             journal = archived
+        profile_kind = journal.get('profile_kind', 'passive_utility')
         for row in journal.get('files', []):
-            utility_path(row['path'])  # Independently forbids DB/config writes even during recovery.
+            profile_path(row['path'], profile_kind)  # Independently forbids DB/config writes even during recovery.
         return journal
 
     def rollback(self, journal):
@@ -1374,8 +1434,9 @@ class ReleaseCoordinator:
                 'candidate_receipt_sha256': digest(receipt), 'accepted_snapshot_sha256': digest(accepted_before),
                 'source_before': source_before, 'stage_sha256': digest(stage_before), 'policy_sha256': policy_hash,
                 'root_authorization': authorization, 'utility_proposal': proposal_pin,
+                'profile_kind': self._effective_profile.get('kind', 'passive_utility'),
                 'files': records, 'ledger_before': baseline, 'database_restored': False,
-                'enabled_betting_capability': False}
+                'enabled_betting_capability': self._effective_profile.get('kind') == 'guarded_engine'}
             self.write_journal(journal)
             request = {k: journal[k] for k in ('task_id', 'candidate_run_id', 'files', 'stage_sha256', 'policy_sha256')}
             request['profile'] = self._effective_profile; request['candidate_result'] = receipt['result']
@@ -1386,10 +1447,17 @@ class ReleaseCoordinator:
             review = checks.get('review', {})
             if checks.get('python') != 'passed' or checks.get('dom') != 'passed':
                 raise ReleaseBlocked('tests_failed', 'Both complete fixed suites are required')
-            if review.get('model_gate_required') is True:
-                raise ReleaseBlocked('real_model_gate_required', 'Prediction/model/data pipeline change requires separate real source/model/settlement gates; passive profile cannot enable it')
-            if not all(review.get(k) is True for k in ('accepted', 'passive_utility', 'no_runtime_enablement')) or review.get('model_gate_required') is not False:
-                raise ReleaseBlocked('independent_review_rejected', 'Codex release review did not accept the passive utility: ' + '; '.join(review.get('findings', [])))
+            profile_kind = self._effective_profile.get('kind', 'passive_utility')
+            if profile_kind == 'guarded_engine':
+                required = ('accepted', 'guarded_engine_review', 'production_enablement',
+                    'clv_gate_unchanged', 'ledger_immutable', 'auto_betting_disabled')
+                if not all(review.get(k) is True for k in required) or review.get('passive_utility') is True:
+                    raise ReleaseBlocked('independent_review_rejected', 'Codex release review did not accept the guarded engine: ' + '; '.join(review.get('findings', [])))
+            else:
+                if review.get('model_gate_required') is True:
+                    raise ReleaseBlocked('real_model_gate_required', 'Prediction/model/data pipeline change requires separate real source/model/settlement gates; passive profile cannot enable it')
+                if not all(review.get(k) is True for k in ('accepted', 'passive_utility', 'no_runtime_enablement')) or review.get('model_gate_required') is not False:
+                    raise ReleaseBlocked('independent_review_rejected', 'Codex release review did not accept the passive utility: ' + '; '.join(review.get('findings', [])))
             if tree_manifest(workspace) != stage_before:
                 raise ReleaseBlocked('stage_changed', 'Staging files changed during tests/review')
             fresh_receipt, accepted_after, current = self.candidate(run_id, state, policy)
@@ -1402,7 +1470,7 @@ class ReleaseCoordinator:
             self.verify_authorization_pins(journal)
             verify_ledger(baseline, ledger_fingerprint(self.root))
             if proposal:
-                approval = {'version': 'root-new-utility-approval-v1', 'kind': 'passive_utility',
+                approval = {'version': 'root-new-utility-approval-v1', 'kind': self._effective_profile.get('kind', 'passive_utility'),
                     'release_id': release_id, 'proposal_sha256': digest(proposal), 'receipt_sha256': digest(receipt),
                     'changed_files': changed_records(receipt), 'production_manifest_sha256': digest(source_before),
                     'policy_sha256': policy_hash, 'stage_sha256': digest(stage_before),
@@ -1425,7 +1493,7 @@ class ReleaseCoordinator:
                 target = confined(self.root, row['path'])
                 if file_hash(target) != row['before_sha256'] or (row['before_sha256'] is None and target.exists()):
                     raise ReleaseBlocked('production_drift', 'Target changed immediately before install: ' + row['path'])
-                utility_path(row['path'])
+                profile_path(row['path'], self._effective_profile.get('kind', 'passive_utility'))
                 reviewed = confined(workspace, row['path'])
                 body = reviewed.read_bytes()
                 verify_passive_evidence(reviewed, body=body)

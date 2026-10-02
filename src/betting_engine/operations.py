@@ -48,6 +48,7 @@ def allocation_summary(payload,now=None):
         'nonallocation_counts':dict(counts),'scope':'Fresh guarded candidates and selected families from this publication only; not complete feed coverage, daily first issuance, checklist readiness or a health check.'}
 
 def market_types(inventory,candidates=()):
+    from .market_catalog import classify
     groups={}
     for m in inventory:
         key=(m['league'],m.get('provider_section','standard'),m['market'])
@@ -80,7 +81,22 @@ def market_types(inventory,candidates=()):
         # rendering an empty reason object as if it were fully evaluated.
         if value['observed_outcomes'] and count==0 and not reasons:
             reasons['no_candidate_evaluation']=value['observed_outcomes']
+        descriptor=classify({'market':value['market'],'provider_section':value['section']})
+        # These fields are deliberately evidence states, not optimistic
+        # booleans.  A parser-supported offer is not yet a completed
+        # model/settlement/quality proof; the candidate count is the only
+        # live evidence that it traversed the decision chain this cycle.
+        observed=bool(value['observed_outcomes'])
+        paired=not any(reason == 'unmatched_fixture' for reason in reasons)
+        chain=bool(count)
         result.append({**value,'reasons':reasons,'evaluated_outcomes':count,
+                       'scope':descriptor['scope'],'market_family':descriptor['family'],
+                       'occurs_in_next_48h':observed,'stake_event_paired':paired if observed else None,
+                       'scope_model_status':'evaluated' if observed and value['supported_outcomes'] else 'not_established',
+                       'settlement_status':'evaluated' if value['supported_outcomes'] else 'not_established',
+                       'required_data_source':'Stake Sports Data API',
+                       'decision_chain_status':'evaluated' if chain else 'not_established',
+                       'closed_decisions':None,'clv_vs_market':None,'log_loss_vs_market':None,
                        'next_step':next_step(reasons,value['supported_outcomes'],count)})
     return result
 
@@ -88,8 +104,9 @@ def operating_audit(payload,progress,now=None):
     now=now or utcnow();status=payload.get('status',{})
     snapshot=payload.get('opportunity_inventory',{});types=payload.get('market_types',[])
     rows=[];gaps=[];fixture_rows=[]
-    def gap(league,code,action,reason):
-        gaps.append({'id':f'{league}:{code}','league':league,'code':code,'action':action,'reason':reason})
+    def gap(league,code,action,reason,identity=None,**extra):
+        row={'id':f'{league}:{code}'+(f':{identity}' if identity else ''),'league':league,'code':code,'action':action,'reason':reason}
+        row.update(extra);gaps.append(row)
     if any(e.get('league')=='NCAA_DISCOVERY' for e in snapshot.get('issues',[])):
         gap('NCAA_DISCOVERY','source_failure','source_refresh','The enabled-sports/USA registry could not be fully checked; missing NCAA coverage cannot be treated as an empty calendar.')
     for league in sorted(set(ALL_LEAGUES)|set(snapshot.get('schedule_counts',{}))|{f['league'] for f in snapshot.get('fixtures',[])}):
@@ -120,7 +137,21 @@ def operating_audit(payload,progress,now=None):
             gap(league,'fixture_start_mismatch','source_refresh','Stake and independent sports start times conflict; reconcile source schedules before publishing this event.')
             gaps[-1]['fixtures']=[{'fixture_id':f['fixture_id'],**f['start_conflict']} for f in conflicts]
         if fixtures and any(f.get('active') and not f.get('odds_loaded') for f in fixtures):gap(league,'odds_missing','source_refresh','Active fixtures are missing a completed odds response.')
-        if any(m['observed_outcomes']>m['supported_outcomes'] for m in offered):gap(league,'market_coverage','market_research','Some observed contracts are unsupported, inactive or have unverified scope; investigate exact market types.')
+        if any(m['observed_outcomes']>m['supported_outcomes'] for m in offered):
+            gap(league,'market_coverage','market_research','Some observed contracts are unsupported, inactive or have unverified scope; investigate exact market types.')
+            for m in offered:
+                missing=m['observed_outcomes']-m['supported_outcomes']
+                if missing:
+                    gap(league,'market_type_coverage','market_research',
+                        'Exact observed Stake market lacks a complete scope model, settlement path or current guarded evaluation.',
+                        identity=f"{m['section']}:{m['market']}",market=m['market'],provider_section=m['section'],
+                        observed_outcomes=m['observed_outcomes'],supported_outcomes=m['supported_outcomes'],
+                        next_step=m.get('next_step'))
+        for m in offered:
+            if m['observed_outcomes'] and m['supported_outcomes'] and not m.get('evaluated_outcomes'):
+                gap(league,'market_type_evaluation','market_research',
+                    'The parsed Stake contract has no current guarded candidate in this publication.',
+                    identity=f"{m['section']}:{m['market']}",market=m['market'],provider_section=m['section'],next_step=m.get('next_step'))
         if fixtures and model and not candidates and any(m['supported_outcomes'] for m in offered):gap(league,'evaluation_missing','source_refresh','Supported offers exist but no fresh guarded candidate is available; refresh and inspect forecast/guard errors.')
         for f in fixtures:
             gid=f.get('game_id');evaluated=[t for t in candidates if gid and t['game_id']==gid]

@@ -560,6 +560,60 @@
       "objective": "Verify and improve the root-integrated instruction_refill flow. A last currently executable instruction marked placed must produce a durable coalesced priority 48-hour scan, retain interrupted/failed attempts and recover with bounded backoff. Broaden distinct-game coverage without duplicate or inferior-line padding.",
       "acceptance": "Actual server/readiness/engine integration, concurrent/repeated marks, stale/history marks, process restart, failed scan then fresh recovery; immutable ledger and guards, separate daily first-issue accounting and unchanged deadlines. A shortage creates actionable work and never claims fulfillment.",
       "depends_on": []
+    },
+    {
+      "id": "D33",
+      "milestone": "M09",
+      "priority": 1,
+      "title": "Live Stake market catalogue and guarded composite-contract release",
+      "owner": "Codex root integrator; Claude Opus 5.5 independent review; Antigravity and Grok advisory evidence",
+      "created_at": "2026-10-02T19:00:00+02:00",
+      "due_at": "2026-10-02T23:59:00+02:00",
+      "directive_requirements": [
+        "WORKFLOW_EVALUATION_PLAN_DEVELOPMENT_EXECUTION",
+        "STAKE_MARKET_CATALOGUE",
+        "WR_ROI_GUARDED_RELEASE"
+      ],
+      "objective": "Evaluate every observed Stake league/market/scope row in the existing catalogue, persist pairing/model/settlement/source/decision-chain evidence and operating gaps, then release the bounded composite contract support through the guarded trusted gate without changing the ledger, guards, USD1-5 limits, CLV gate or no-auto-bet rule.",
+      "implementation_steps": [
+        "Recompute data/market_catalog/latest.json from the live archived feed and annotate every observed type with 48-hour occurrence, event pairing, scope model, settlement, source and decision-chain states.",
+        "Project unsupported and supported-but-unpriced rows into operating_gaps with identity, reason and next executable step; keep unfinished states visible.",
+        "Integrate the existing composite parser, contract settlement, six-way/three-way anchor and bounded execution evidence with regression coverage.",
+        "Extend config/release_policy.json and the root release coordinator with an exact guarded_engine profile requiring independent review, CLV gate, ledger immutability and disabled automatic betting.",
+        "Run targeted and full Python/web tests, independent Codex review, trusted release checks and local/Tailscale live smoke; update the catalogue and gap states only from observed evidence."
+      ],
+      "files": [
+        "src/betting_engine/contracts.py",
+        "src/betting_engine/markets.py",
+        "src/betting_engine/market_anchor.py",
+        "src/betting_engine/market_catalog.py",
+        "src/betting_engine/operations.py",
+        "src/betting_engine/presentation.py",
+        "src/betting_engine/scope_markets.py",
+        "src/betting_engine/decisions.py",
+        "src/betting_engine/release_coordinator.py",
+        "config/release_policy.json",
+        "data/market_catalog/latest.json",
+        "tests/test_composite_market_coverage.py",
+        "tests/test_guarded_engine_release.py"
+      ],
+      "data_source": "Stake Sports Data API archived responses and current local/Tailscale publication; no invented or paid source.",
+      "tests": [
+        "tests/test_composite_market_coverage.py",
+        "tests/test_guarded_engine_release.py",
+        "tests/test_market_anchor.py",
+        "tests/test_markets.py",
+        "tests/test_operations.py",
+        "tests/test_release_coordinator.py",
+        "tests/web.test.mjs"
+      ],
+      "acceptance": "Every observed catalogue row has explicit evidence-state fields and a corresponding operating gap when incomplete; composite contracts pass the unified decision chain; guarded profile is policy-pinned and rejects ledger/controller/config changes; full tests pass; independent review, trusted release, local/Tailscale smoke and fresh live publication evidence are recorded. No capability is marked complete from a plan or candidate alone.",
+      "depends_on": [
+        "D16",
+        "D27",
+        "D30",
+        "D32"
+      ]
     }
   ],
   "deferred": [

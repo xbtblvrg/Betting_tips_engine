@@ -289,3 +289,11 @@ Kiadva: projekt szerződés `2026-09-29.6`. A teljes leírás: [LEAGUE_OPERATION
 Teljes játékos-, periódus-, kombinált, élő és MLS-modell, teljes sérülés/kezdőhatás, automatikus új forráskód implementálás és igazolt nettó profit továbbra sem teljesített képesség.
 
 Validáció: 213 Python-teszt és 5 alteszt, valamint 23 frontend DOM-teszt sikeres. Az élő API adataival külön DOM-ellenőrzés is sikeres, JavaScript-hiba nélkül.
+
+## 2026-10-02 — Élő Stake-katalógus kiértékelés és guarded engine release gate
+
+Kiértékelés: a meglévő Stake Sports Data API archívumból 3 478 ajánlati sor és 523 piaccsalád került újraértékelésre. A `data/market_catalog/latest.json` minden sorában szerepel a 48 órás előfordulás, párosítás, scope-modell, settlement, adatforrás, döntési lánc és a lezárt CLV/log-loss állapota; a nem bizonyított mezők `not_established`/`null` értéket tartanak.
+
+Fejlesztés: a composite `Winner & Total`, `Total (Over-Exact-Under)` és `Correct Score` szerződésfelismerés, elszámolás és piaci horgony regressziós teszteket kapott. A release policy most exact `guarded_engine` profilt és Codex-felülvizsgálati mezőket tartalmaz; a ledger, guardok, CLV-kapu, USD1–5 sáv, `daily_risk_limit=null` és automatikus fogadásleadási tiltás változatlan.
+
+Mért célzott validáció: 92 release/recovery/guarded-profile teszt és 73 composite/anchor/market/operations teszt sikeres. A teljes Python/web release-csomag és trusted live release még a következő lépés; ezért az aktív composite capability állapota `awaiting_release`, a fennmaradó Stake-piaccsaládok `not_established`/`operating_gaps` állapotban maradnak.

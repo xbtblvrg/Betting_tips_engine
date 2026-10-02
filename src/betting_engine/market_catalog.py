@@ -89,6 +89,26 @@ def summarize(rows,issues,generated_at):
                               **classify(row),'fixtures':set(),'tabs':set(),'contracts':0})
         t['fixtures'].add(row['fixture_id']);t['contracts']+=len(row['outcomes'])
         t['tabs'].update(g['name'] for g in row['tabs'] if g.get('name'))
+    checked=parse_time(generated_at)
+    for t in types.values():
+        # Catalogue evidence is intentionally separated from execution
+        # evidence.  These fields answer the required audit questions without
+        # promoting a recognised contract into a live betting model.
+        matching=[r for r in rows if r['league']==t['league'] and r.get('provider_section')==t['section'] and r.get('market')==t['market']]
+        starts=[]
+        for r in matching:
+            try: starts.append(parse_time(r['start']))
+            except (TypeError,ValueError): pass
+        t['occurs_in_next_48h']=any(checked<start<=checked+timedelta(hours=48) for start in starts)
+        t['stake_event_paired']=bool(matching) and not any((r.get('fixture_evidence') or {}).get('bundle_identity_verified') is False for r in matching)
+        t['scope_model_status']='not_established'
+        t['settlement_status']='recognized_contract_only'
+        t['required_data_source']='Stake Sports Data API'
+        t['decision_chain_status']='not_established'
+        t['closed_decisions']=None
+        t['clv_vs_market']=None
+        t['log_loss_vs_market']=None
+        t['metric_state']='not_established'
     return {'checked_at':generated_at,'state':'partial' if issues else 'observed',
             'scope':'All fixtures returned by the documented USA tournament endpoints, including outside 48 hours. Complete fixture/odds responses archived. Not a recommendation count.',
             'all_website_markets_verified':False,'sgm_quote_integration':False,

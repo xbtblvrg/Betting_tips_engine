@@ -4,7 +4,9 @@ def named_scopes(league,home,away):
     result={}
     names=[('1x2','three_way'),('Winner','moneyline'),('Draw No Bet','moneyline'),
            ('Handicap','spreads'),('Asian Handicap','spreads'),('Total','totals'),
-           ('Asian Total','totals'),('Odd/Even','odd_even'),('Both Teams to Score','both_score'),('Double Chance','double_chance')]
+           ('Asian Total','totals'),('Odd/Even','odd_even'),('Both Teams to Score','both_score'),('Double Chance','double_chance'),
+           ('1x2 & Total','winner_total'),('Winner & Total','winner_total'),
+           ('Total (Over-Exact-Under)','exact_total'),('Correct Score','exact_score')]
     prefixes=[]
     if league in ('NBA','WNBA','NFL'):
         prefixes=[('1st Half','half_1'),('2nd Half','half_2')]+[(p+' Quarter',f'quarter_{i}') for i,p in enumerate(('1st','2nd','3rd','4th'),1)]

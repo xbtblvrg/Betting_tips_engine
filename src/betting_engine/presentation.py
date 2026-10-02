@@ -95,8 +95,8 @@ def market_name(league,market,tip=None):
     if period!='full_game':
         if tip and tip.get('reference_contract_description'):return tip['reference_contract_description']
         prefix=SCOPE_LABELS[period]
-        return prefix+' - '+{'moneyline':'Winner','three_way':'1x2','spreads':'Handicap','totals':'Total','home_total':'Home Team Total','away_total':'Away Team Total','odd_even':'Odd/Even','both_score':'Both Teams to Score','double_chance':'Double Chance'}[base_market]
-    base={'moneyline':'Winner','spreads':'Handicap','totals':'Total','home_total':'Home Team Total','away_total':'Away Team Total'}.get(market,market)
+        return prefix+' - '+{'moneyline':'Winner','three_way':'1x2','spreads':'Handicap','totals':'Total','home_total':'Home Team Total','away_total':'Away Team Total','odd_even':'Odd/Even','both_score':'Both Teams to Score','double_chance':'Double Chance','winner_total':'1x2 & Total','exact_total':'Total (Over-Exact-Under)','exact_score':'Correct Score'}.get(base_market,base_market)
+    base={'moneyline':'Winner','spreads':'Handicap','totals':'Total','home_total':'Home Team Total','away_total':'Away Team Total','odd_even':'Odd/Even','both_score':'Both Teams to Score','double_chance':'Double Chance','winner_total':'1x2 & Total','exact_total':'Total (Over-Exact-Under)','exact_score':'Correct Score'}.get(market,market)
     if tip and market in ('home_total','away_total'):base=tip[market.split('_')[0]]+' Total'
     if league not in STAKE_LEAGUE_PATHS:return base
     scope={'MLB':'Extra Innings','NHL':'Overtime and Penalties'}.get(league,'Overtime')

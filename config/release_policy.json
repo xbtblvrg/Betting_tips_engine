@@ -1,5 +1,5 @@
 {
-  "version": "root-utility-release-v1",
+  "version": "root-guarded-engine-release-v1",
   "enabled": true,
   "retry_seconds": 300,
   "live_timeout_seconds": 180,
@@ -8,7 +8,7 @@
     "node_binary": "/opt/homebrew/bin/node",
     "model": "gpt-6-astra"
   },
-  "claim": "Root-owned exact passive utility release after full tests, independent Codex review, immutable-ledger and fresh-live verification. New utility proposals are pinned to accepted bytes and current production; no automatic betting model activation.",
+  "claim": "Root-owned release after full tests, independent Codex review, immutable-ledger and fresh-live verification. Passive utilities and explicitly allowlisted guarded engine changes use the same trusted gate; CLV, freshness, exposure, USD1-5 and no-auto-bet guards remain mandatory.",
   "profiles": {
     "D01": {
       "kind": "passive_utility",
@@ -132,6 +132,27 @@
         "docs/JOINT_EXPOSURE.md",
         "docs/D16_DEVELOPER_AUDIT.md"
       ]
+    },
+    "ENGINE_COMPOSITE_20261002": {
+      "kind": "guarded_engine",
+      "files": [
+        "src/betting_engine/contracts.py",
+        "src/betting_engine/market_anchor.py",
+        "src/betting_engine/market_catalog.py",
+        "src/betting_engine/markets.py",
+        "src/betting_engine/operations.py",
+        "src/betting_engine/presentation.py",
+        "src/betting_engine/scope_markets.py",
+        "src/betting_engine/decisions.py",
+        "tests/test_composite_market_coverage.py"
+      ],
+      "guards": {
+        "clv_gate_required": true,
+        "ledger_immutable": true,
+        "auto_betting_disabled": true,
+        "stake_range_usd": [1, 5],
+        "daily_risk_limit": null
+      }
     }
   },
   "review_new_passive_utilities": true

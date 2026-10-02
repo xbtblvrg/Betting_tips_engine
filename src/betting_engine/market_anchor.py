@@ -47,8 +47,8 @@ def devig_probabilities(odds_by_outcome: dict[str, float]) -> dict[str, float]:
     non-finite and non-positive-vig contracts fail closed; an incomplete
     Stake response never becomes a fabricated market anchor.
     """
-    if not isinstance(odds_by_outcome, dict) or len(odds_by_outcome) not in (2, 3):
-        raise ValueError("A complete binary or three-way market is required")
+    if not isinstance(odds_by_outcome, dict) or len(odds_by_outcome) < 2:
+        raise ValueError("A complete exclusive market with at least two outcomes is required")
     implied = {}
     for outcome, odds in odds_by_outcome.items():
         if not isinstance(outcome, str) or not outcome:
@@ -135,10 +135,18 @@ def contract_anchors(markets, quotes):
         'moneyline': {'home', 'away'}, 'spreads': {'home', 'away'},
         'totals': {'over', 'under'}, 'home_total': {'over', 'under'},
         'away_total': {'over', 'under'}, 'three_way': {'home', 'draw', 'away'},
+        'odd_even': {'odd', 'even'}, 'both_score': {'yes', 'no'},
+        'double_chance': {'home_draw', 'away_draw', 'home_away'},
+        'exact_total': {'over', 'exact', 'under'},
     }
     for (_, _, kind, _), rows in groups.items():
         base = kind.rsplit(':', 1)[-1]
         sides = expected.get(base)
+        if base in ('winner_total', 'exact_score'):
+            # These are complete exclusive multi-outcome contracts.  The
+            # parser has already checked their exact Stake outcome syntax;
+            # retain all outcomes for one proportional devig calculation.
+            sides = {market.side for market, _ in rows}
         if not sides or len(rows) != len(sides) or {market.side for market, _ in rows} != sides:
             continue
         try:

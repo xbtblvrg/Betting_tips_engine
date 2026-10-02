@@ -194,6 +194,9 @@ def candidate(g,m,q,forecast,settings,market_anchor=None,calibration_summary=Non
         points=forecast.home_points if base=='home_total' else forecast.away_points
         reasons.append(f'Model projected {team} score: {points:.1f}. Probability for this exact team total: {p:.1%}.')
     elif base=='totals':reasons.append(f'Becsült összpontszám: {forecast.total:.1f}; a {m.line:g} vonalra számolt esély {p:.1%}.')
+    elif base=='winner_total':reasons.append(f'Joint winner-and-total model probability for the exact {m.selection} contract: {p:.1%}; projected total {forecast.total:.1f}.')
+    elif base=='exact_total':reasons.append(f'Exact total distribution model: projected total {forecast.total:.1f}; probability for this exact {m.selection} contract: {p:.1%}.')
+    elif base=='exact_score':reasons.append(f'Joint score-distribution probability for the exact {m.selection} contract: {p:.1%}.')
     else:reasons.append(f'Probability for this exact {m.description} selection: {p:.1%}.')
     if scope!='full_game':
         label_scope=SCOPE_LABELS[scope];unit='runs' if g.league=='MLB' else 'goals' if g.league=='NHL' else 'points'

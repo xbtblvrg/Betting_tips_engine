@@ -1,6 +1,7 @@
 """Explicit settlement scope and scalar/vector payoff conditions."""
 import math
-BASE_MARKETS=('moneyline','spreads','totals','home_total','away_total','three_way')
+BASE_MARKETS=('moneyline','spreads','totals','home_total','away_total','three_way',
+              'winner_total','exact_total','exact_score')
 SEGMENT_SCOPES=('inning_1','innings_1_5')
 PERIOD_SCOPES=('quarter_1','quarter_2','quarter_3','quarter_4','half_1','half_2','half_2_ot','quarter_4_ot','period_1','period_2','period_3','regulation')
 SCORE_SCOPES=SEGMENT_SCOPES+PERIOD_SCOPES
@@ -93,6 +94,30 @@ def contract_value(kind,side,line,home,away):
         if side not in ('home','away','draw'):raise ValueError('Invalid three-way side')
         won=(home>away) if side=='home' else (home<away) if side=='away' else (home==away)
         return won*2-1
+    if kind=='winner_total':
+        # Stake's 1x2 & Total / Winner & Total is a joint contract.  The
+        # side carries both legs so the score distribution remains the sole
+        # settlement source (no product of marginal probabilities).
+        parts=str(side).split('_',1)
+        if len(parts)!=2 or parts[0] not in ('home','away','draw') or parts[1] not in ('over','under'):
+            raise ValueError('Invalid winner-total side')
+        winner=parts[0]
+        won=(home>away) if winner=='home' else (home<away) if winner=='away' else (home==away)
+        total=home+away
+        hit=total>float(line) if parts[1]=='over' else total<float(line)
+        return (won & hit)*2-1
+    if kind=='exact_total':
+        if side not in ('over','under','exact') or line is None:raise ValueError('Invalid exact-total side')
+        total=home+away
+        won=total>float(line) if side=='over' else total<float(line) if side=='under' else total==float(line)
+        return won*2-1
+    if kind=='exact_score':
+        try:
+            expected_home,expected_away=(int(part) for part in str(side).split(':',1))
+        except (ValueError,TypeError):
+            raise ValueError('Invalid exact-score side')
+        if expected_home<0 or expected_away<0:raise ValueError('Invalid exact-score value')
+        return ((home==expected_home) & (away==expected_away))*2-1
     if kind in ('moneyline','spreads'):
         if side not in ('home','away'):raise ValueError('Invalid team side')
         return (home-away)*(1 if side=='home' else -1)+(float(line) if kind=='spreads' else 0)

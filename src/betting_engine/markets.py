@@ -93,6 +93,29 @@ def _stake_categorical_side(base, name, game):
             else 'away' if team_matches(team, game.away, game.away_abbr) else None)
 
 
+def _stake_joint_side(base, name, game):
+    """Parse the exact composite outcome labels used by Stake.
+
+    The returned value is deliberately canonical and contains no odds-derived
+    inference.  The eventual probability is calculated jointly from the
+    scope-matched score distribution in ``contracts.contract_value``.
+    """
+    if base == 'winner_total':
+        parts=re.split(r'\s*&\s*',str(name),maxsplit=1)
+        if len(parts)!=2:return None
+        outcome,total=parts
+        side=_stake_categorical_side('three_way',outcome.strip(),game)
+        if side is None:return None
+        mt=re.fullmatch(r'(Over|Under)\s+([+-]?\d+(?:\.\d+)?)',total.strip(),re.I)
+        return f'{side}_{mt[1].lower()}' if mt else None
+    if base == 'exact_total':
+        mt=re.fullmatch(r'(Over|Under|Exact)\s+([+-]?\d+(?:\.\d+)?)',str(name).strip(),re.I)
+        return mt[1].lower() if mt else None
+    if base == 'exact_score':
+        return str(name).strip() if re.fullmatch(r'\d+:\d+',str(name).strip()) else None
+    return None
+
+
 def match_event(event,games,league):
     try:start=parse_time(event.get('startTime') or event['markets'][0]['gameStartTime'])
     except (ValueError,KeyError,IndexError,TypeError):return None
@@ -396,9 +419,19 @@ class StakeSportsbook:
                     if market.get('status') not in (None, 'active'):
                         continue
                     total_kind=next((side+'_total' for side in ('home','away') if name==f'{getattr(game,side)} Total (Incl. {expected_scope})'),None)
+                    full_derived={
+                        f'Odd/Even (Incl. {expected_scope})':'odd_even',
+                        f'Both Teams to Score (Incl. {expected_scope})':'both_score',
+                        f'Double Chance (Incl. {expected_scope})':'double_chance',
+                        '1x2 & Total':'winner_total',
+                        f'1x2 & Total (Incl. {expected_scope})':'winner_total',
+                        f'Winner & Total (Incl. {expected_scope})':'winner_total',
+                        f'Total (Over-Exact-Under) (Incl. {expected_scope})':'exact_total',
+                        'Correct Score':'exact_score',
+                    }
                     scope='full_game'
-                    if total_kind or name in {f'{base} (Incl. {expected_scope})' for base in ('Winner','Handicap','Total')}:
-                        base = total_kind or ('moneyline' if name.startswith('Winner (') else 'spreads' if name.startswith('Handicap (') else 'totals')
+                    if total_kind or name in {f'{base} (Incl. {expected_scope})' for base in ('Winner','Handicap','Total')} or name in full_derived:
+                        base = total_kind or full_derived.get(name) or ('moneyline' if name.startswith('Winner (') else 'spreads' if name.startswith('Handicap (') else 'totals')
                     else:
                         from .scope_markets import named_scopes
                         mapping=named_scopes(league,game.home,game.away)
@@ -407,7 +440,7 @@ class StakeSportsbook:
                         if base not in self.segment_markets.get((league,scope),()):continue
                     kind=base if scope=='full_game' else f'{scope}:{base}'
                     if league.startswith('NCAA') and base not in self.full_markets.get(league,()):continue
-                    line = self._total_from_market(market) if base in ('totals','home_total','away_total') else None
+                    line = self._total_from_market(market) if base in ('totals','home_total','away_total','winner_total','exact_total') else None
                     handicap = self._handicap_from_market(market, scope) if base == 'spreads' else None
                     if base == 'spreads' and handicap is None:
                         continue
@@ -416,14 +449,18 @@ class StakeSportsbook:
                         # the actual signed value for that specific selection.
                         line = None
                     outcomes = market.get('outcomes') or []
-                    if len(outcomes) != (3 if base in ('three_way','double_chance') else 2) or any(not isinstance(o.get('odds'), (int, float)) or not math.isfinite(o['odds']) or float(o['odds']) <= 1 for o in outcomes):
+                    expected_count = (3 if base in ('three_way','double_chance','exact_total') else
+                                      6 if base == 'winner_total' else None)
+                    if ((expected_count is not None and len(outcomes) != expected_count) or
+                            (base == 'exact_score' and len(outcomes) < 2) or
+                            any(not isinstance(o.get('odds'), (int, float)) or not math.isfinite(o['odds']) or float(o['odds']) <= 1 for o in outcomes)):
                         continue
                     if base == 'spreads' and not self._handicap_outcomes_agree(outcomes, handicap, fixture, game):
                         continue
                     if scope != 'full_game' and base != 'spreads':
                         from .period_contracts import scoped_total_line, validate_scoped_specifiers
                         try:
-                            if base in ('totals', 'home_total', 'away_total'):
+                            if base in ('totals', 'home_total', 'away_total', 'winner_total', 'exact_total'):
                                 line = scoped_total_line(market.get('specifiers'), scope)
                             else:
                                 validate_scoped_specifiers(market.get('specifiers'), scope)
@@ -436,6 +473,20 @@ class StakeSportsbook:
                                 or {label[1].lower() for label in labels} != {'over', 'under'}
                                 or any(float(label[2]) != line for label in labels)):
                             continue
+                    elif base in ('winner_total','exact_total','exact_score'):
+                        parsed_sides=[_stake_joint_side(base,str(o.get('name') or ''),game) for o in outcomes]
+                        expected = {'over','under','exact'} if base=='exact_total' else None
+                        if (any(s is None for s in parsed_sides)
+                                or (expected is not None and set(parsed_sides)!=expected)
+                                or len(set(parsed_sides)) != len(parsed_sides)):
+                            continue
+                        if base in ('winner_total','exact_total'):
+                            described=[]
+                            for o in outcomes:
+                                match=re.search(r'(?:Over|Under|Exact)\s+([+-]?\d+(?:\.\d+)?)$',str(o.get('name') or ''),re.I)
+                                described.append(float(match[1]) if match else None)
+                            if line is None or any(value is None or value != line for value in described):
+                                continue
                     elif base != 'spreads':
                         expected = {'odd', 'even'} if base == 'odd_even' else {'yes', 'no'} if base == 'both_score' else (
                             {'home_draw', 'away_draw', 'home_away'} if base == 'double_chance' else
@@ -452,10 +503,13 @@ class StakeSportsbook:
                             explicit = re.fullmatch(r'(?:Over|Under)\s+([+-]?\d+(?:\.\d+)?)', outcome_name, re.I)
                             if not explicit or float(explicit[1]) != line:
                                 continue
+                        elif base in ('winner_total','exact_total','exact_score'):
+                            side = _stake_joint_side(base,outcome_name,game)
+                            actual_line = line
                         else:
                             side = _stake_categorical_side(base, outcome_name, game)
                             actual_line = self._line_from_outcome(outcome) if base == 'spreads' else None
-                        if side is None or (base in ('totals','home_total','away_total','spreads') and actual_line is None):
+                        if side is None or (base in ('totals','home_total','away_total','spreads','winner_total','exact_total') and actual_line is None):
                             continue
                         if scope!='full_game' and actual_line is not None and (not math.isfinite(actual_line) or actual_line*2!=round(actual_line*2)):
                             # Quarter Asian lines split the stake across two

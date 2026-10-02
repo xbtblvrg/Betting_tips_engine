@@ -555,5 +555,13 @@
       "original odds",
       "outcomes"
     ]
+  },
+  "mandatory_workflow_directive": {
+    "version": "2026-10-02.evaluation-plan-development-execution-v1",
+    "sequence": ["evaluation", "plan", "development", "execution_release"],
+    "catalogue": "Use data/market_catalog/latest.json as the single market catalogue; every observed Stake league/market/scope row carries explicit occurrence, pairing, scope-model, settlement, source, decision-chain and measured-outcome states.",
+    "gaps": "Persist every incomplete capability in operating_gaps and config/development_plan.json with implementation, files, source, tests, acceptance, owner and preserved deadline.",
+    "release": "WR/ROI market-model, pairing, anchoring, calibration, selection, correlation and list-counter changes may use the guarded_engine trusted gate. Preserve immutable ledger/original decisions, guards, CLV gate, USD1-5 range, daily_risk_limit=null and no automatic wager submission.",
+    "completion": "Only live evidence after full tests, independent Codex review, trusted release and local/Tailscale smoke can close a capability; plans, candidates and reports remain visible evidence states."
   }
 }
