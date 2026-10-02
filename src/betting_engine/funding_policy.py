@@ -28,6 +28,7 @@ def model_allocation_policy(settings):
 MODEL_EV_EPSILON = 1e-9
 POLICIES = ('strict', 'continuous_model_v1', 'continuous_best_available_v1')
 MODEL_SIZING_POLICIES = ('unit_cap_v1', 'model_weighted_v2', 'all_tiers_weighted_v3')
+CLV_GATE_MODES = ('legacy', 'prospective_positive_clv')
 
 
 def _finite(value, name):
@@ -87,6 +88,23 @@ def funding_basis(tip, settings):
     tier = ('stress_value' if stress_roi > 0 and stress_roi >= roi else
             'model_pick' if policy in ('continuous_model_v1', 'continuous_best_available_v1') and p > 0 and model_roi > MODEL_EV_EPSILON else
             'probability_pick' if policy == 'continuous_best_available_v1' and p >= .5 and model_roi <= MODEL_EV_EPSILON else 'unfunded')
+    if settings.get('fallback_clv_gate', 'legacy') not in CLV_GATE_MODES:
+        raise ValueError('Unknown fallback CLV gate mode')
+    clv_gate = tip.get('clv_evidence') if isinstance(tip, Mapping) else None
+    clv_min_games = settings.get('clv_min_games', 30)
+    if isinstance(clv_min_games, bool) or not isinstance(clv_min_games, int) or clv_min_games < 1:
+        raise ValueError('Invalid CLV minimum independent games')
+    clv_passed = bool(isinstance(clv_gate, Mapping)
+                      and clv_gate.get('state') == 'positive'
+                      and clv_gate.get('source_verified') is True
+                      and isinstance(clv_gate.get('independent_games'), int)
+                      and clv_gate.get('independent_games') >= clv_min_games
+                      and isinstance(clv_gate.get('clv'), (int, float))
+                      and math.isfinite(float(clv_gate.get('clv')))
+                      and float(clv_gate.get('clv')) > 0)
+    shadow_tier = tier if tier in ('model_pick', 'probability_pick') else None
+    if settings.get('fallback_clv_gate', 'legacy') == 'prospective_positive_clv' and shadow_tier and not clv_passed:
+        tier = 'unfunded'
     model = tier == 'model_pick'
     probability_only = tier == 'probability_pick'
     probability = p if model else stress
@@ -117,6 +135,14 @@ def funding_basis(tip, settings):
             'model_probability': p, 'stress_probability': stress, 'push_probability': push,
             'odds': odds, 'model_roi': model_roi, 'stress_roi': stress_roi,
             'note': note, 'claim': 'Reproducible allocation policy only. Exact current contract, source, independent model and publication guards remain mandatory; no guaranteed win or established profit.'}
+    if 'fallback_clv_gate' in settings:
+        result.update(fallback_clv_gate=settings.get('fallback_clv_gate', 'legacy'), clv_min_games=clv_min_games,
+                      clv_evidence=clv_gate if isinstance(clv_gate, Mapping) else None,
+                      clv_gate_passed=clv_passed)
+    if shadow_tier and tier == 'unfunded' and settings.get('fallback_clv_gate', 'legacy') == 'prospective_positive_clv':
+        result.update(shadow_only=True, shadow_tier=shadow_tier,
+                      shadow_reason=f'{shadow_tier} requires source-verified positive prospective CLV on at least {clv_min_games} independent games.')
+        result['note'] = result['note'] + ' Shadow only: no stake until the segment passes the prospective CLV gate.'
     if weighted:
         result.update(version=ALL_TIERS_VERSION if all_tiers else WEIGHTED_VERSION, model_pick_sizing_policy=sizing_policy)
     if allocation_policy != 'one_per_game_v1':

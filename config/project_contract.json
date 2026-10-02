@@ -516,5 +516,30 @@
       "event sequences",
       "joint/SGM models with exact combined quotes"
     ]
+  },
+  "quality_gate_directive": {
+    "version": "2026-10-02.market-relative-quality-v1",
+    "objective": "Improve measured CLV and log-loss versus the exact contemporaneous market while retaining independent sports probabilities; realized ROI remains measured from immutable original decisions.",
+    "active_settings": {
+      "fallback_clv_gate": "prospective_positive_clv",
+      "clv_min_games": 30,
+      "max_bet": 5.0,
+      "daily_risk_limit": null
+    },
+    "funding_rule": "Only stress_value remains executable under the existing stress guard. model_pick and probability_pick are shadow-only until source-verified positive prospective CLV reaches the configured independent-game minimum.",
+    "required_sequence": [
+      "market devig/logit blend on exact complete contracts",
+      "prospective calibration",
+      "league-family-odds segment switch",
+      "challenger promotion"
+    ],
+    "acceptance": "Each change requires archived inputs, isolated regression tests, independent Codex review, trusted release, local/Tailscale smoke and live publication evidence; no model or ROI improvement is inferred from estimates alone.",
+    "immutable_fields": [
+      "system_decisions",
+      "bet ledger",
+      "original stakes",
+      "original odds",
+      "outcomes"
+    ]
   }
 }
