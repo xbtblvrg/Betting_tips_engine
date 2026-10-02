@@ -142,6 +142,20 @@ Mai kibocsátás az ellenőrzéskor: 1/15, 14 hiányzik. A mennyiségi cél és 
 
 Ellenőrzés: 183 Python-teszt + 5 alteszt; 17 DOM-teszt; a végső aggregálási optimalizálás után 39 célzott Python-teszt. Friss élő publikáció: 196/196 EvidenceGuard-ellenőrzés sikeres, helyi és Tailscale elérés, élő DOM 24 órás nézetében 17 kártya. Bizonyíték: `data/rolling-coverage-release-check.json`. Frissítő hibamentes, külön tanulási worker monitoring állapotban.
 
+# 2026-10-02 19:10 CEST — piaci minőségkapu, outcome-feedback és élő ellenőrzés
+
+**Elvégzett lépés.** Az új, mérhető WR/ROI-minőségcél bekerült a követelmény- és agent-szabályzatba (`config/project_contract.json`, `AGENTS.md`). Az aktív tartós beállítások: `fallback_clv_gate=prospective_positive_clv`, `clv_min_games=30`, `max_bet=5`, `daily_risk_limit=null`. A `stress_value` útvonal változatlanul az exact Stake-kontraktus, stresszelt EV és USD1–5 sizing alapján működik. A `model_pick` és `probability_pick` jelöltek most árnyékban maradnak, amíg legalább 30 független meccsen forrás-ellenőrzött pozitív prospektív CLV nem áll rendelkezésre. Az immutable döntések, eredeti oddsok, tétek, kimenetelek és a kézi fogadás tilalma változatlan.
+
+**Bizonyíték és teszt.** A gate és a publikációs újrajátszás 154 célzott Python-teszten átment; az outcome-feedback/coalescing javítás külön 19 teszten átment. A friss élő publikáció 2026-10-02 19:07 CEST-kor sikeresen commitálódott: 549 aktuális döntési sor, 103 stress-value tier és 445 shadow/unfunded sor; a 380 fallback sor `shadow_only=true`, a pénzes ajánlások száma ebben a pillanatképben 0, mert a jelenlegi stress-value jelöltek már rögzített szerződések. A publication failure a gate-seal javítás előtt reprodukálható volt, majd a `6f986d5` javítás után megszűnt.
+
+**Mért teljesítmény.** A lezárt immutable döntések alapján: 278 settled döntés, 34 külön meccs, 113 win, 159 loss, 6 push; settled stake $312.84, payout $269.9504, P&L −$42.8896, ROI −13.7098%, döntési találati arány 41.5441%. A kalibráció 271 win/loss megfigyelésen Brier 0.241583, log-loss 0.677388, meccssúlyozott Brier 0.229949; ez mérés, nem profit- vagy jövőbeli nyereségállítás. A friss záróár-gyűjtés 4353 forrásrögzítést és 0 capture hibát jelez.
+
+**Outcome tanulási kör.** A legutóbbi archivált outcome-review forrása és bemeneti hash-e megmaradt (`generation=11d66cae…`, `input_sha256=b374ce83…`), 49 diagnosztikai javaslattal; az eredeti ledger hash nem változott. A nagy evidence-feldolgozás már streamelve és korlátos budgettel fut. A learning workerben egy régi, külön `shadow_evaluation` retry maradt; ezt nem jelölöm késznek és nem engedem a fogadási döntési útvonalba.
+
+**Élő állapot.** Local API HTTP 200, friss Stake-katalógus 148/148 fixture és 296 response, EvidenceGuard 1966 ellenőrzésből 1850 átment; 8 liga-modell, 2 MLB inning-modell és 31 periódusmodell betöltve, forecast error 0. A component-health állapota `degraded`: az NCAAF/injury input még nincs integrálva, és 14 market implementation gap maradt; ezek a publikációból kizártak.
+
+**Következő végrehajtott lépés és határidő.** A következő worker-ablakban a retry állapotot külön reprodukálom, majd a piac-horgonyzott devig/logit blend és családonkénti prospektív kalibráció árnyék-útvonalát kötöm be (2026-10-02 23:59 CEST checkpoint). Élő tétútvonalra csak izolált regresszió, független Codex-review, trusted release, local/Tailscale smoke és friss publikációs bizonyíték után kerülhet.
+
 # Projektállapot — működő kutatási engine, 2026-09-28
 
 Az új felhasználói követelmény alapján a megvalósítás elkészült helyi kutatási kiadásként. Nem állítjuk, hogy a teljes, éles nyereséget igazolt rendszer kész.
