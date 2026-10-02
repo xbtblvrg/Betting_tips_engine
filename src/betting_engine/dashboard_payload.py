@@ -102,9 +102,33 @@ def automation_status(data_dir):
     return result
 
 
+def _annotate_market_types(rows):
+    """Make every observed-but-unpriced family actionable in the UI.
+
+    Older publications may predate the catalogue annotator. Enriching the
+    read snapshot keeps the live page honest immediately without rewriting
+    immutable publication evidence.
+    """
+    next_steps={
+        'unmatched_fixture':'Reconcile the Stake fixture with one unique independent event before pricing.',
+        'missing_league_model':'Build, chronologically validate and review the league model before enabling funding.',
+        'swish_contract_scope_and_model_not_validated':'Validate player identity, participation, scope and settlement against an independent model.',
+        'unsupported_or_inactive_contract':'Implement the exact Stake contract model and settlement tests, then run a fresh guarded evaluation.',
+        'no_candidate_evaluation':'Run a fresh guarded candidate evaluation for the supported contract family.',
+    }
+    for row in rows or []:
+        reasons=dict(row.get('reasons') or {})
+        if row.get('observed_outcomes',0) and not row.get('evaluated_outcomes',0) and not reasons:
+            reasons['no_candidate_evaluation']=row.get('observed_outcomes',0)
+        row['reasons']=reasons
+        row['next_step']=next_steps.get(next((key for key in next_steps if key in reasons),''),'No unresolved market-type action in this publication.')
+    return rows
+
+
 def build_dashboard(store,health,data_dir):
     d=store.latest()
     if not d:return english_payload({'performance':store.performance(),'version':0,'recommendations':[],'alternatives':[],'archived_recommendations':store.archived_candidates(),'games':[],'models':{},'status':{},'settings':store.settings(),'engine':health})
+    _annotate_market_types(d.get('market_types'))
     d['placement_marks']=store.placement_marks()
     now=utcnow()
     all_tips=d.get('evaluated_candidates') or d.get('recommendations',[])+d.get('alternatives',[])
