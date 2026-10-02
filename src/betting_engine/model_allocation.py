@@ -82,8 +82,22 @@ are reread here. A concurrent ticket cannot leave a stale allocation funded.
         event_available = max(0.0, event_cap - event_stakes[tip['game_id']] - new_event_stakes[tip['game_id']])
         sizing_budget = min(remaining, event_available)
         reproduced = size_recommendation(tip, settings, sizing_budget, related)
-        if reproduced != tip.get('stake_sizing') or reproduced['amount'] != tip['stake']:
-            raise ValueError('Publication blocked: related-game exposure or remaining allocation changed')
+        recorded = tip.get('stake_sizing') or {}
+        # ``maximum_stake`` and the explanatory note include the temporary
+        # remaining/event budget used while the batch was assembled.  They can
+        # legitimately differ after a sibling allocation is removed, while
+        # the actual USD amount and all exposure inputs remain identical.
+        volatile = {'maximum_stake', 'note'}
+        sizing_matches = (set(reproduced) | set(recorded)) - volatile
+        if (any(reproduced.get(key) != recorded.get(key) for key in sizing_matches)
+                or reproduced['amount'] != tip['stake']):
+            mismatches = [key for key in sorted(sizing_matches)
+                          if reproduced.get(key) != recorded.get(key)]
+            raise ValueError('Publication blocked: related-game exposure or remaining allocation changed '
+                             f"(tip={tip.get('id')}, actual={tip.get('stake')}, reproduced={reproduced.get('amount')}, "
+                             f"remaining={remaining}, event_available={event_available}, related={related}, "
+                             f"game={tip.get('game_id')}, held_event_stake={event_stakes.get(tip.get('game_id'), 0)}, "
+                             f"mismatches={mismatches})")
         remaining -= tip['stake']
         new_event_stakes[tip['game_id']] += tip['stake']
         families.add(family)
