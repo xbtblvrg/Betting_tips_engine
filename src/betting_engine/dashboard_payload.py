@@ -4,6 +4,75 @@ from pathlib import Path
 from .domain import utcnow,parse_time
 from .presentation import english_payload
 
+
+_DASHBOARD_TIP_FIELDS = (
+    'id', 'game_id', 'league', 'home', 'away', 'start', 'market', 'market_display',
+    'side', 'line', 'selection', 'model_scope', 'period', 'settlement', 'probability',
+    'push_probability', 'stress_probability', 'fair_odds', 'minimum_odds',
+    'reference_odds', 'reference_price', 'reference_platform', 'reference_url',
+    'reference_market_id', 'reference_contract_description', 'quote_at', 'valid_until',
+    'expected_roi', 'stress_roi', 'label', 'model_version', 'model_trained_at',
+    'predicted_home_points', 'predicted_away_points', 'stake', 'stake_note',
+    'created_at', 'rank_score', 'basis', 'allocation_code', 'allocation_reason',
+    'allocation_policy', 'funding_basis', 'stake_sizing', 'tracking_source',
+    'stake_market', 'market_anchor', 'calibration_uncertainty', 'recorded_snapshot',
+    'tracked_bet', 'related_bets', 'covered_by', 'expired', 'is_additional',
+    'current_assessment', 'instruction_review', 'execution_review', 'decision_guard',
+    'input_readiness', 'game_context', 'reasons', 'warnings', 'model_probabilities',
+    'source_url', 'reference_effective_cost', 'reference_fee_per_share',
+    'reference_minimum_notional', 'maximum_poly_effective_cost', 'reference_contract_description',
+)
+
+
+def _compact_dashboard_tip(tip):
+    """Keep the actionable contract intact while bounding research payloads.
+
+    The engine deliberately keeps full evidence in SQLite and immutable
+    decision records.  The browser only needs the small execution contract for
+    a non-actionable candidate; sending the repeated evidence tree for every
+    market made the isolated dashboard exceed its 64 MiB response bound.
+    """
+    if not isinstance(tip, dict):
+        return tip
+    stake=tip.get('stake', 0)
+    review=tip.get('execution_review') or {}
+    actionable = bool(isinstance(stake, (int, float)) and stake > 0
+                      or tip.get('tracked_bet')
+                      or review.get('actionable') is True)
+    if actionable:
+        return tip
+    compact = {key: tip[key] for key in _DASHBOARD_TIP_FIELDS if key in tip}
+    # Details and table rendering are total functions even for compact rows.
+    compact['reasons']=[str(reason)[:300] for reason in (tip.get('reasons') or [])[:4]]
+    compact['warnings']=[str(warning)[:300] for warning in (tip.get('warnings') or [])[:4]]
+    compact['game_context']={}
+    compact['model_probabilities']={}
+    if isinstance(compact.get('decision_guard'), dict):
+        guard = compact['decision_guard']
+        compact['decision_guard'] = {
+            key: guard[key] for key in (
+                'passed', 'errors', 'checked_at', 'pricing_version',
+                'contract_version', 'minimum_roi', 'recommendation_policy',
+                'model_pick_sizing_policy', 'model_pick_allocation_policy',
+                'market_anchor_settings', 'calibration_settings', 'model',
+            ) if key in guard
+        }
+    for key in ('execution_review', 'instruction_review'):
+        review = compact.get(key)
+        if isinstance(review, dict):
+            compact[key] = {name: review[name] for name in (
+                'state', 'actionable', 'reason', 'review_type', 'llm_approval',
+                'quote_at', 'valid_until', 'recommendation_policy',
+                'model_pick_sizing_policy', 'model_pick_allocation_policy',
+                'funding_tier',
+            ) if name in review}
+    if isinstance(compact.get('input_readiness'), dict):
+        readiness = compact['input_readiness']
+        compact['input_readiness'] = {name: readiness[name] for name in (
+            'version', 'state', 'passed', 'checked_at', 'reason',
+        ) if name in readiness}
+    return compact
+
 def learning_status(data_dir):
     DATA=Path(data_dir)
     path=DATA/'learning_worker.json'
@@ -104,6 +173,10 @@ def build_dashboard(store,health,data_dir):
         probability_pick_families=sum(t.get('funding_basis',{}).get('tier')=='probability_pick' for t in selected),
         probability_pick_new_allocations=sum(t.get('stake',0)>0 and t.get('funding_basis',{}).get('tier')=='probability_pick' for t in selected),
         recommendation_policy=settings.get('recommendation_policy','strict'))
+    d['status']['current_instruction_count']=sum(
+        1 for tip in chosen if tip.get('stake', 0) > 0
+        and tip.get('execution_review', {}).get('actionable') is True)
+    d['status']['current_candidate_count']=len(chosen)
     progress=store.daily_progress()
     d.setdefault('status',{}).update(recommendations=len(chosen),funded_recommendations=sum(t['stake']>0 for t in chosen),minimum_target=progress['target'],target_shortfall=progress['shortfall'],daily_progress=progress)
     from .opportunities import rolling_opportunities
@@ -112,6 +185,14 @@ def build_dashboard(store,health,data_dir):
     d['learning_worker']=learning_status(data_dir)
     d['automation']=automation_status(data_dir)
     d['performance']=store.performance();d['engine']=health;d['server_time']=now.isoformat()
+    # Full evidence remains in the immutable publication/ledger.  Only current
+    # executable instructions and tracked records need the complete tree in the
+    # browser response; compact research rows keep all decision fields needed by
+    # tables/details while preventing a large market catalogue from taking the
+    # isolated renderer past its response bound.
+    d['evaluated_candidates']=[_compact_dashboard_tip(t) for t in d['evaluated_candidates']]
+    d['recommendations']=[_compact_dashboard_tip(t) for t in d['recommendations']]
+    d['alternatives']=[_compact_dashboard_tip(t) for t in d['alternatives']]
     # Data is already JSON-native. Avoid FastAPI recursively re-encoding the
     # large evidence tree on the event loop; freshness is still rebuilt per GET.
     return english_payload(d)

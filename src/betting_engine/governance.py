@@ -16,7 +16,7 @@ CARD_IDS={'NBA':'K05','WNBA':'K05','MLB':'K04','NFL':'K06','NHL':'K07','NCAAF':'
 SEALED_FIELDS=('id','game_id','league','home','away','start','market','side','line','selection',
     'model_version','probability','push_probability','stress_probability','reference_odds',
     'expected_roi','stress_roi','minimum_odds','quote_at','valid_until','reference_platform',
-    'reference_market_id','reference_contract_description','reference_url','stake_evidence','model_scope','input_readiness','game_context','market_anchor','probability_basis')
+    'reference_market_id','reference_contract_description','reference_url','stake_evidence','model_scope','input_readiness','game_context','market_anchor','probability_basis','calibration_uncertainty','model_trained_at')
 
 
 def evidence_digest(tip):
@@ -88,6 +88,13 @@ def verify_publication(tip,now,active_settings=None):
                 ('market_disagreement_threshold',.30))}
         if anchor_settings != active_anchor_settings:
             raise ValueError('Publication blocked: market anchor settings changed after evidence review')
+    calibration_settings=guard.get('calibration_settings')
+    if calibration_settings:
+        active_calibration_settings=calibration_settings if active_settings is None else {
+            key: active_settings.get(key, default) for key,default in (
+                ('calibration_uncertainty_mode','legacy'),('calibration_min_games',30))}
+        if calibration_settings != active_calibration_settings:
+            raise ValueError('Publication blocked: calibration settings changed after evidence review')
 
 
 class KnowledgeAgent:
@@ -132,7 +139,7 @@ class EvidenceGuard:
             self._quality_cache[key]=assess_professional_quality(report,market)
         return self._quality_cache[key]
 
-    def check(self,tip,game,market,quote,forecast,model_report,settings):
+    def check(self,tip,game,market,quote,forecast,model_report,settings,calibration_summary=None):
         errors=[];now=utcnow()
         from .stake_website_availability import website_availability_issue
         website_issue=website_availability_issue(tip)
@@ -207,7 +214,10 @@ class EvidenceGuard:
                 else:
                     p=logit_blend(p,float(anchor['market_probability']),float(settings.get('market_model_weight',.15)))
                     push=min(push,1-p)
-            stress=market_stress(market.kind,game.league,market.line,forecast.disagreement)
+            if settings.get('calibration_uncertainty_mode','legacy')=='measured_v1' and calibration_summary is not None:
+                if tip.get('calibration_uncertainty') != calibration_summary:
+                    errors.append('calibration_uncertainty_mismatch')
+            stress=market_stress(market.kind,game.league,market.line,forecast.disagreement,calibration_summary)
             conservative=max(.01,p-stress)
             odds=1/quote.effective_cost
             values={'probability':p,'push_probability':push,'stress_probability':conservative,
@@ -220,7 +230,7 @@ class EvidenceGuard:
             if not math.isclose(odds,market.metadata['stake_odds'],abs_tol=1e-9):errors.append('odds_mismatch')
         except (KeyError,ValueError,TypeError,ZeroDivisionError):errors.append('invalid_numeric_contract')
         evidence={'checked_at':now.isoformat(),'passed':not errors,'errors':errors,
-                  'pricing_version':PRICING_VERSION,'pricing_code_sha256':hashlib.sha256((Path(__file__).parent/'contracts.py').read_bytes()+(Path(__file__).parent/('models.py' if scope=='full_game' else 'period_models.py' if scope in PERIOD_SCOPES else 'segments.py')).read_bytes()).hexdigest(),
+                  'pricing_version':PRICING_VERSION,'pricing_code_sha256':hashlib.sha256((Path(__file__).parent/'contracts.py').read_bytes()+(Path(__file__).parent/'calibration_uncertainty.py').read_bytes()+(Path(__file__).parent/('models.py' if scope=='full_game' else 'period_models.py' if scope in PERIOD_SCOPES else 'segments.py')).read_bytes()).hexdigest(),
                   'input_readiness':readiness,
                   'contract_version':self.knowledge.contract['version'],'contract_sha256':self.knowledge.contract_hash,
                   'knowledge':self.knowledge.references(game.league),
@@ -237,6 +247,8 @@ class EvidenceGuard:
         evidence['market_anchor_settings']={key:settings.get(key, default) for key,default in (
             ('market_anchor_mode','shadow'),('market_model_weight',.15),
             ('market_disagreement_threshold',.30))}
+        evidence['calibration_settings']={key:settings.get(key, default) for key,default in (
+            ('calibration_uncertainty_mode','legacy'),('calibration_min_games',30))}
         # New policy controls are sealed only for new receipts. This keeps
         # historical receipts byte-compatible while making the active CLV
         # gate reproducible during publication and current execution review.

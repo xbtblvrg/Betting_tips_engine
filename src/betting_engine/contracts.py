@@ -1,4 +1,5 @@
 """Explicit settlement scope and scalar/vector payoff conditions."""
+import math
 BASE_MARKETS=('moneyline','spreads','totals','home_total','away_total','three_way')
 SEGMENT_SCOPES=('inning_1','innings_1_5')
 PERIOD_SCOPES=('quarter_1','quarter_2','quarter_3','quarter_4','half_1','half_2','half_2_ot','quarter_4_ot','period_1','period_2','period_3','regulation')
@@ -60,10 +61,20 @@ def equivalent_contract_ids(tip):
         ids.add(hashlib.sha256(key.encode()).hexdigest()[:20])
     return ids
 
-def market_stress(kind,league,line,disagreement):
-    """Identical payoff names must receive the same probability stress."""
+def market_stress(kind,league,line,disagreement,calibration=None):
+    """Return the conservative probability deduction for this contract.
+
+    The legacy floor remains the fail-closed fallback.  When a prospective,
+    game-clustered calibration summary is present and measured, its uncertainty
+    replaces the fixed deduction without ever making stress less conservative.
+    """
     family=allocation_family({'market':kind,'league':league,'line':line})
-    return max(.03,disagreement*.5) if family=='moneyline' else .06
+    legacy=max(.03,disagreement*.5) if family=='moneyline' else .06
+    if isinstance(calibration,dict) and calibration.get('state')=='measured':
+        uncertainty=calibration.get('uncertainty')
+        if isinstance(uncertainty,(int,float)) and math.isfinite(uncertainty) and uncertainty>=0:
+            return max(legacy,min(.35,float(uncertainty)))
+    return legacy
 
 def contract_value(kind,side,line,home,away):
     _,kind=split_market(kind)

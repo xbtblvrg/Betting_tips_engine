@@ -166,6 +166,11 @@ class Engine:
             for league,model in self.models.items():model.state=feature_history(self.games,league)[1]
             self.status['stage']='Saját meccselőrejelzések'
             settings=self.store.settings();now=utcnow();upcoming=[g for g in self.games if g.state=='scheduled' and not g.context.get('resumed_game') and now<parse_time(g.start)<=now+timedelta(hours=48)]
+            from .calibration_uncertainty import build_snapshot,summary_for
+            trained_at={model.report.get('version'):model.report.get('trained_at') for model in self.models.values()}
+            trained_at.update({model.report.get('version'):model.report.get('trained_at') for model in self.segment_models.values()})
+            calibration_snapshot=build_snapshot(self.store.system_decisions(),trained_at,now,
+                                                minimum_games=int(settings.get('calibration_min_games',30)))
             forecasts={};segment_forecasts={};forecast_errors=[]
             for g in upcoming:
                 if g.league not in self.models:continue
@@ -193,7 +198,8 @@ class Engine:
                 forecast=forecasts.get(m.game_id) if scope=='full_game' else segment_forecasts.get((m.game_id,scope))
                 model=self.models.get(m.league) if scope=='full_game' else self.segment_models.get((m.league,scope))
                 if m.id not in quotes or forecast is None or model is None:continue
-                try:c=candidate(gs[m.game_id],m,quotes[m.id],forecast,settings,market_anchors.get(m.id))
+                calibration_summary=summary_for(calibration_snapshot,gs[m.game_id].league,m.kind,m.line,1/quotes[m.id].effective_cost)
+                try:c=candidate(gs[m.game_id],m,quotes[m.id],forecast,settings,market_anchors.get(m.id),calibration_summary,model.report.get('trained_at'))
                 except (ValueError,ArithmeticError,TypeError) as exc:
                     forecast_errors.append({'game':m.game_id,'market_id':m.id,'stage':'market_pricing','error':str(exc)[:500]})
                     guard_checks.append({'tip_id':None,'game_id':m.game_id,'market_id':m.id,'passed':False,'errors':['invalid_model_market_probability']})
@@ -210,13 +216,13 @@ class Engine:
                                          'decimal_odds':m.metadata['stake_odds'],
                                          'fetched_at':m.fetched_at,'matching_basis':m.metadata.get('matching_basis'),
                                          'fixture_name':m.metadata.get('fixture_name'),'matched_teams':m.metadata.get('matched_teams')}
-                    check=guard.check(c,gs[m.game_id],m,quotes[m.id],forecast,model.report,settings)
+                    check=guard.check(c,gs[m.game_id],m,quotes[m.id],forecast,model.report,settings,calibration_summary)
                     guard_checks.append({'tip_id':c['id'],'game_id':c['game_id'],'passed':check['passed'],'errors':check['errors']})
                     if check['passed']:candidates.append(c)
             self.settle_bets();self.store.settle_forecasts(self.games);self.store.settle_system_decisions(self.games)
             recommendations,alternatives=rank_and_size(candidates,settings,self.store.risk_committed(),self.store.held_families(),self.store.held_contracts(),self.store.held_event_counts(),self.store.held_preference_allocations(),(self.store.held_allocation_families() if settings.get('model_pick_allocation_policy')=='distinct_family_v1' else ()))
             reports={k:{key:value for key,value in m.report.items() if key!='test_predictions'} for k,m in self.models.items()}
-            status={'fetched_at':utcnow().isoformat(),'upcoming_games':len(upcoming),'matched_events':len(set(e['game_id'] for e in events)),'markets':len(markets),'quotes':len(quotes),'candidates':len(candidates),'recommendations':len(recommendations),'funded_recommendations':sum(t['stake']>0 for t in recommendations),'league_games':dict(Counter(g.league for g in upcoming)),'minimum_target':settings.get('daily_pick_target',15),'target_shortfall':self.store.daily_progress()['shortfall'],'data_sources':sources,'market_source':'Stake Sports Data API (exact current fixture markets and decimal odds)','issue_counts':dict(Counter(i['reason'] for i in issues+qissues)),'errors':forecast_errors,'mode':'research','market_feed':feed_health,'market_anchor':{'mode':settings.get('market_anchor_mode','shadow'),'contracts':len(market_anchors),'model_weight':settings.get('market_model_weight',.15),'disagreement_threshold':settings.get('market_disagreement_threshold',.30)},'telegram':'Később csatlakoztatható; jelenleg nincs üzenetküldés.'}
+            status={'fetched_at':utcnow().isoformat(),'upcoming_games':len(upcoming),'matched_events':len(set(e['game_id'] for e in events)),'markets':len(markets),'quotes':len(quotes),'candidates':len(candidates),'recommendations':len(recommendations),'funded_recommendations':sum(t['stake']>0 for t in recommendations),'league_games':dict(Counter(g.league for g in upcoming)),'minimum_target':settings.get('daily_pick_target',15),'target_shortfall':self.store.daily_progress()['shortfall'],'data_sources':sources,'market_source':'Stake Sports Data API (exact current fixture markets and decimal odds)','issue_counts':dict(Counter(i['reason'] for i in issues+qissues)),'errors':forecast_errors,'mode':'research','market_feed':feed_health,'market_anchor':{'mode':settings.get('market_anchor_mode','shadow'),'contracts':len(market_anchors),'model_weight':settings.get('market_model_weight',.15),'disagreement_threshold':settings.get('market_disagreement_threshold',.30)},'calibration_uncertainty':{'version':calibration_snapshot['version'],'snapshot_sha256':calibration_snapshot['snapshot_sha256'],'segments':len(calibration_snapshot['segments']),'measured_segments':sum(v.get('state')=='measured' for v in calibration_snapshot['segments'].values()),'minimum_games':calibration_snapshot['minimum_games']},'telegram':'Később csatlakoztatható; jelenleg nincs üzenetküldés.'}
             status['league_coverage']={league:{'games':sum(g.league==league for g in upcoming),'markets':sum(m.league==league for m in markets),'model_available':league in self.models} for league in LEAGUES}
             status['core_markets']=core_market_audit(candidates,recommendations+alternatives,upcoming,settings['minimum_roi'])
             status['settlement_recovery']=self.nhl_settlement_status

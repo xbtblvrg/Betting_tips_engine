@@ -62,6 +62,11 @@ function allocationReason(t){
  if(held.length)return 'Already covered by '+[...new Set(held.map(b=>b.selection))].join(', ')+'. No repeat bet.';
  return t.allocation_reason||t.stake_note||'No stake allocated; this is not an instruction to bet.';
 }
+function marketPriority(t){
+ const scope=t.model_scope||'full_game',kind=String(t.market||'').split(':').at(-1);
+ if(scope!=='full_game')return 2;
+ return ({moneyline:0,spreads:0,totals:0,home_total:1,away_total:1}[kind]??1);
+}
 function isPlaced(t){return pendingPlacements.has(t.id)?pendingPlacements.get(t.id):!!data?.placement_marks?.[t.id]}
 function visibleTips(rows=liveTips()){
  rows=rows.filter(t=>new Date(t.start)>new Date());if(['24','48'].includes(horizon))rows=rows.filter(t=>new Date(t.start)>new Date()&&new Date(t.start)<=new Date(Date.now()+Number(horizon)*3600000));
@@ -75,7 +80,9 @@ function visibleTips(rows=liveTips()){
   const currentA=executionTerms(a),currentB=executionTerms(b);
   if(sort==='probability'&&currentA.probability!==currentB.probability)return currentB.probability-currentA.probability;
   if(sort==='rank'&&currentA.rank!==currentB.rank&&currentA.rank!=null&&currentB.rank!=null)return currentA.rank-currentB.rank;
-  return new Date(a.start)-new Date(b.start)||String(a.id).localeCompare(String(b.id));
+  const startOrder=new Date(a.start)-new Date(b.start);if(startOrder)return startOrder;
+  const familyOrder=marketPriority(a)-marketPriority(b);if(familyOrder)return familyOrder;
+  return String(a.id).localeCompare(String(b.id));
  });
 }
 function placementControl(t){return `<label class="placement-toggle"><input type="checkbox" data-placement="${esc(t.id)}" ${isPlaced(t)?'checked':''} ${pendingPlacements.has(t.id)?'disabled':''} aria-label="Bet placed: ${esc(t.selection)} — ${esc(t.away)} at ${esc(t.home)}"><span>${pendingPlacements.has(t.id)?'Saving…':isPlaced(t)?'Bet placed':'Mark as placed'}</span></label>`}
@@ -175,7 +182,7 @@ function stakeDisplay(t){return view==='tips'&&executableInstruction(t)?'Bet $'+
 function trackingMarkup(t){if(view==='tips'&&pendingInstruction(t))return `<p class="panel-copy">Bet $${num(t.tracked_bet.stake)} once on this exact selection. If already placed, mark it as placed instead of repeating it.</p>`;return t.tracked_bet?`<p class="panel-copy">Original record: $${num(t.tracked_bet.stake)} at ${num(t.tracked_bet.odds)} on ${esc(when(t.tracked_bet.created_at))}. No additional bet is requested.</p>`:''}
 function renderStats(){
  const ready=visibleTips(readyTips()),amount=ready.reduce((n,t)=>n+instructionStake(t),0);
- $('#stats').innerHTML=[['Ready to Bet',ready.length,'Current Model and Price Checks Passed'],['Games',new Set(ready.map(t=>t.game_id)).size,'In the Selected Time Window'],['Total Stake','$'+num(amount),'Bet Each Selection Once'],['Daily Instructions',(data?.status?.daily_progress?.issued??0)+' / '+(data?.status?.daily_progress?.target??20),data?.status?.daily_progress?.counting_basis==='since_release'?'First Issuances Since '+when(data.status.daily_progress.counting_since):'First Issuances Today']].map(([label,value,sub])=>`<div class="stat"><div class="stat-label">${esc(label)}</div><div class="stat-value">${esc(value)}</div><div class="stat-sub">${esc(sub)}</div></div>`).join('');
+ $('#stats').innerHTML=[['Ready to Bet',ready.length,'Current Model and Price Checks Passed'],['Current Instructions',ready.length,'Filtered current list in this time window'],['Games',new Set(ready.map(t=>t.game_id)).size,'In the Selected Time Window'],['Total Stake','$'+num(amount),'Bet Each Selection Once'],['Daily Instructions',(data?.status?.daily_progress?.issued??0)+' / '+(data?.status?.daily_progress?.target??20),data?.status?.daily_progress?.counting_basis==='since_release'?'First Issuances Since '+when(data.status.daily_progress.counting_since):'First Issuances Today']].map(([label,value,sub])=>`<div class="stat"><div class="stat-label">${esc(label)}</div><div class="stat-value">${esc(value)}</div><div class="stat-sub">${esc(sub)}</div></div>`).join('');
 }
 function priceLabel(t){return t.recorded_snapshot?`Recorded odds: ${num(t.reference_odds)}`:t.reference_platform==='Stake.com'?`Stake odds: ${num(t.reference_odds)}`:`Reference odds: ${num(t.reference_odds)} (after fees)`}
 function renderOpportunitySummary(){

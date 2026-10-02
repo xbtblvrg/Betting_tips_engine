@@ -1,4 +1,14 @@
-# Legutóbbi ellenőrzött kiadás: 2026-10-02.20
+# Legutóbbi ellenőrzött kiadás: 2026-10-02.21
+
+## 2026-10-02 20:05 CEST — piaccsalád-lefedettség, aktuális instrukciószámláló és dashboard-helyreállítás
+
+A friss futás nem szűkült Periods/Quarter piacokra: az aktuális Stake-katalógusból **1 656** kimenetelt értékelt, a kiadásban **479** családjelölt maradt, többek között teljes meccses Winner/Handicap/Total, NHL period, NFL quarter/half, MLB inning és NCAAF főpiacok. A 48 órás lefedettség: **MLB 4 meccs/116 piac, NHL 19/611, NFL 9/810, WNBA 3/16**; NBA és NCAA kosárlabda esetén ebben a pillanatban nem volt meccs a munkablakban.
+
+A korábban csak a tartott period/quarter tételeket dominánsan megjelenítő útvonal javítva: a nem végrehajtható kutatási és stale sorok nem kerülnek executable Betting Picks-ként a főlistába, hanem tömörített, teljesen visszakereshető kutatási sorok maradnak. Az UI most külön mutatja a **Current Instructions** számát és a historikus **Daily Instructions** első kiadás-számlálót; így a szűrés nem hamisítja meg a napi teljesítést. A legutóbbi éles dashboard: `version=6293`, **HTTP 200**, **39 696 916 byte**, az izolált 64 MiB válaszkorláton belül; `/api/health` **200**.
+
+A mérhető kalibrációs stressz modul most csak prospektív, modell-tréningidő után lezárt eredményt és meccsszintű klasztert használ; 30 független meccs alatt fail-closed legacy stress marad, a snapshot hash és a kalibrációs beállítások az EvidenceGuard bizonyítékába kerülnek. A jelenlegi kiadásban **0** új executable instrukció látható: **23** stressz-értékű család már tartott szerződés, a többi jelölt aktuális áron nem felel meg; ez nem kutatási sorral vagy duplikációval van feltöltve. A historikus napi számláló **389/20**, az immutable rekordok és eredeti tétek változatlanok.
+
+Validáció: **6099 Python-teszt, 1 skipped, 25 warning, 5 subtest**, **272/272 webteszt**, valamint izolált dashboard-worker méret- és kalibrációs regressziótesztek sikeresek. A launchd szolgáltatás friss kóddal újraindult, az engine refresh hiba nélkül fejeződött be, a helyi smoke ellenőrzés élő publikációból készült. A Tailscale ellenőrzést a következő hálózati smoke-körben külön újra kell mérni; ez nem zárható le helyi HTTP-ből.
 
 ## 2026-10-02 19:40 CEST — piaci horgony, kalibrációs diagram és élő guard-helyreállítás
 

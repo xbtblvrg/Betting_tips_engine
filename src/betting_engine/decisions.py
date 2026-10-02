@@ -13,6 +13,8 @@ DEFAULT_SETTINGS['model_pick_sizing_policy']='unit_cap_v1'
 DEFAULT_SETTINGS['market_anchor_mode']='shadow'
 DEFAULT_SETTINGS['market_model_weight']=.15
 DEFAULT_SETTINGS['market_disagreement_threshold']=.30
+DEFAULT_SETTINGS['calibration_uncertainty_mode']='measured_v1'
+DEFAULT_SETTINGS['calibration_min_games']=30
 
 def remaining_budget(settings,committed=0.):
     limit=settings.get('daily_risk_limit')
@@ -130,7 +132,7 @@ def core_market_audit(candidates,selected,games=(),minimum_roi=.03):
             'status_counts':dict(Counter(row['status'] for row in rows)),
             'claim':'Main-market evaluation and allocation evidence; absence remains unresolved, and a selected contract may already be held. No hedge or winner is inferred.'}
 
-def candidate(g,m,q,forecast,settings,market_anchor=None):
+def candidate(g,m,q,forecast,settings,market_anchor=None,calibration_summary=None,model_trained_at=None):
     now=utcnow()
     scope,base=split_market(m.kind)
     if parse_time(g.start)<=now or g.state!='scheduled':return None
@@ -156,7 +158,7 @@ def candidate(g,m,q,forecast,settings,market_anchor=None):
             p=anchor['blended_probability'];push=min(push,1-p)
     # Not a statistical confidence interval: explicit scenario stress allowance.
     from .contracts import market_stress
-    stress=market_stress(m.kind,g.league,m.line,forecast.disagreement)
+    stress=market_stress(m.kind,g.league,m.line,forecast.disagreement,calibration_summary)
     conservative=max(.01,p-stress)
     if p<.12 or p>.9:return None # Unvalidated distribution tails are not actionable.
     fair=minimum_odds(p,push);threshold=minimum_odds(conservative,push,settings['minimum_roi'])
@@ -185,7 +187,10 @@ def candidate(g,m,q,forecast,settings,market_anchor=None):
     reasons.append(f'A referenciaárhoz tartozó becsült nettó hozam {roi:+.1%}, díjjal együtt.')
     x=forecast.features
     if x['home_rest']!=x['away_rest']:reasons.append(f'Pihenő az előző meccs kezdésétől: hazai {x["home_rest"]:.1f}, vendég {x["away_rest"]:.1f} nap (14 napnál korlátozva).')
-    result={'id':id,'game_id':g.id,'league':g.league,'home':g.home,'away':g.away,'start':g.start,'market':m.kind,'side':m.side,'line':m.line,'selection':m.selection,'model_scope':scope,'period':SCOPE_LABELS[scope],'settlement':('Only the named scoring scope counts. Ties push in two-way Winner and lose in 1x2 unless Draw is selected.' if scope!='full_game' else 'Hosszabbítással; moneyline döntetlennél a platform szabálya ellenőrizendő.'),'probability':p,'push_probability':push,'stress_probability':conservative,'stress_note':'Érzékenységi forgatókönyv, nem statisztikai konfidenciaintervallum.','fair_odds':fair,'minimum_odds':threshold,'reference_odds':display_odds,'reference_price':q.price,'reference_fee_per_share':q.fee_per_share,'reference_effective_cost':q.effective_cost,'reference_minimum_notional':q.minimum_notional,'maximum_poly_effective_cost':required_poly_cost,'reference_platform':m.platform,'reference_url':m.url,'reference_market_id':m.id,'quote_at':q.fetched_at,'valid_until':min(parse_time(g.start),parse_time(q.fetched_at)+timedelta(seconds=MAX_QUOTE_AGE_SECONDS)).isoformat(),'expected_roi':roi,'stress_roi':stress_roi,'label':label,'reasons':reasons,'warnings':list(forecast.warnings),'model_version':forecast.model_version,'model_probabilities':forecast.model_probabilities,'predicted_home_points':forecast.home_points,'predicted_away_points':forecast.away_points,'game_context':g.context,'source_url':g.source,'stake':0.,'stake_note':'','created_at':now.isoformat(),'rank_score':stress_roi,'basis':'Sportadatból tanított modell; az odds csak az utólagos érték-összevetéshez kerül be.','reference_contract_description':m.description}
+    result={'id':id,'game_id':g.id,'league':g.league,'home':g.home,'away':g.away,'start':g.start,'market':m.kind,'side':m.side,'line':m.line,'selection':m.selection,'model_scope':scope,'period':SCOPE_LABELS[scope],'settlement':('Only the named scoring scope counts. Ties push in two-way Winner and lose in 1x2 unless Draw is selected.' if scope!='full_game' else 'Hosszabbítással; moneyline döntetlennél a platform szabálya ellenőrizendő.'),'probability':p,'push_probability':push,'stress_probability':conservative,'stress_note':('Prospective, game-clustered calibration uncertainty; legacy floor retained until the segment reaches the independent-game minimum.' if calibration_summary else 'Érzékenységi forgatókönyv, nem statisztikai konfidenciaintervallum.'),'fair_odds':fair,'minimum_odds':threshold,'reference_odds':display_odds,'reference_price':q.price,'reference_fee_per_share':q.fee_per_share,'reference_effective_cost':q.effective_cost,'reference_minimum_notional':q.minimum_notional,'maximum_poly_effective_cost':required_poly_cost,'reference_platform':m.platform,'reference_url':m.url,'reference_market_id':m.id,'quote_at':q.fetched_at,'valid_until':min(parse_time(g.start),parse_time(q.fetched_at)+timedelta(seconds=MAX_QUOTE_AGE_SECONDS)).isoformat(),'expected_roi':roi,'stress_roi':stress_roi,'label':label,'reasons':reasons,'warnings':list(forecast.warnings),'model_version':forecast.model_version,'model_trained_at':model_trained_at,'model_probabilities':forecast.model_probabilities,'predicted_home_points':forecast.home_points,'predicted_away_points':forecast.away_points,'game_context':g.context,'source_url':g.source,'stake':0.,'stake_note':'','created_at':now.isoformat(),'rank_score':stress_roi,'basis':'Sportadatból tanított modell; az odds csak az utólagos érték-összevetéshez kerül be.','reference_contract_description':m.description}
+
+    if calibration_summary:
+        result['calibration_uncertainty'] = calibration_summary
 
     if anchor:
         result['market_anchor'] = anchor

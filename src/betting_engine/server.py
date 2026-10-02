@@ -221,6 +221,8 @@ class Settings(BaseModel):
     market_anchor_mode:Literal['legacy','shadow','live']='shadow'
     market_model_weight:float=Field(.15,ge=0,le=1)
     market_disagreement_threshold:float=Field(.30,gt=0,lt=1)
+    calibration_uncertainty_mode:Literal['legacy','measured_v1']='measured_v1'
+    calibration_min_games:int=Field(30,ge=1,le=10000)
     refresh_seconds:int=Field(60,ge=60,le=3600)
     monthly_system_cost:float|None=Field(default=None,ge=0,le=100000)
     auto_track_recommendations:bool|None=None
