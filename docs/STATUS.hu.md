@@ -1,5 +1,17 @@
 # Legutóbbi ellenőrzött kiadás: 2026-10-02.21
 
+## 2026-10-02 — bounded execution list, shared counters and Asian/DNB anchor fix
+
+Az urgent execution-list javítás commitja **4f17225**. A kiadási útvonal és a dashboard most ugyanabból a napi issuance snapshotból kapja a számláló alapját: az `issuance_rows` a szűrt horizon/league/market nézethez használható, a napi checkpoint és a naptári összesítés külön, explicit mező. A fő UI-lista csak friss, aktuálisan actionable, finanszírozott sorokat ad át; a korábbi immutábilis rekordok és a már nem kvalifikáló szerződések a Bet Tracker kontextusában maradnak. A korábbi tippek minden dashboard-ciklusban új current review-t kapnak.
+
+Éles publication-limit guard került a döntési és storage tranzakcióba: ciklusonként legfeljebb **10** új funded tipp, meccsenként legfeljebb **3** funded szerződés és **$5** össztét, legfeljebb **1** period/quarter tipp, piaccsaládonként legfeljebb **25%** napi első kiadás. A 2026-10-02 17:00–17:10 UTC közötti 158-as kiadási alakzat regressziótesztje ezeket a korlátokat reprodukálja; az immutable korábbi kiadásokat nem írja át. A megjelölt/lejárt/no-longer-recommended számlálók és a fő lista ugyanazt az aktuális snapshotot használják.
+
+Az Asian integer/quarter vonalak és a Stake moneyline-alakú **Draw No Bet** period-piacai push-free feltételes devig anchor-t kapnak; a modell push-massza ugyanilyen feltételes tömeggel keveredik, majd visszaáll az unconditional valószínűségbe. Az 1X2/three-way továbbra is háromutas devig. NHL Over 5.0, Asian line és NFL quarter DNB céltesztek bekerültek.
+
+Élő ellenőrzés: helyi `/api/health` **200**, dashboard **200**, Tailscale `/api/health` **200**, Tailscale dashboard **200**, friss Tailscale publication `version=6316`. A közös snapshot mért állapota: **389** napi első kiadás, **0** jelenlegi executable, **9** megjelölt, **0** started/expired, **416** no-longer-qualifying; `publication_limits_version=v1`, 10/3/1/$5/25% limitek aktívak, `daily_risk_limit=null`. A live API tracker-kompatibilitás miatt történeti sorokat is tartalmazhat; a Betting Picks főlista a current executable szűrést használja.
+
+Validáció: teljes Python-csomag **6106 passed, 1 skipped, 25 warnings, 5 subtests**; a végső storage/API/anchor/publication-limit céltesztek **106 passed**; frontend `node --check` és **272/272** webteszt sikeres. Automatikus fogadásleadás nem történt, az eredeti ledger, tétek, oddsok és outcome rekordok változatlanok.
+
 ## 2026-10-02 20:05 CEST — piaccsalád-lefedettség, aktuális instrukciószámláló és dashboard-helyreállítás
 
 A friss futás nem szűkült Periods/Quarter piacokra: az aktuális Stake-katalógusból **1 656** kimenetelt értékelt, a kiadásban **479** családjelölt maradt, többek között teljes meccses Winner/Handicap/Total, NHL period, NFL quarter/half, MLB inning és NCAAF főpiacok. A 48 órás lefedettség: **MLB 4 meccs/116 piac, NHL 19/611, NFL 9/810, WNBA 3/16**; NBA és NCAA kosárlabda esetén ebben a pillanatban nem volt meccs a munkablakban.
