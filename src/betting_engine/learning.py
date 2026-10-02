@@ -47,6 +47,35 @@ def choose_learning_job(rows, recent_attempts, now=None):
         'exclusive_worker_preserved':True, 'model_promotion_unchanged':True}
 
 
+def catalog_operating_gaps(catalog):
+    """Return one durable action row for each incomplete catalogue contract."""
+    result=[]
+    for row in catalog.get('types',[]) if isinstance(catalog,dict) else []:
+        if not isinstance(row,dict):
+            continue
+        complete=(row.get('scope_model_status')=='evaluated'
+            and row.get('settlement_status')=='evaluated'
+            and row.get('decision_chain_status')=='evaluated')
+        if complete:
+            continue
+        league=str(row.get('league') or 'UNKNOWN')
+        section=str(row.get('section') or 'standard')
+        market=str(row.get('market') or 'unknown')
+        identity=f'{section}:{market}'
+        result.append({'id':f'CATALOG:{league}:{identity}', 'league':league,
+            'code':'market_catalog_not_established', 'action':'market_research',
+            'reason':'Observed Stake market lacks complete scope-model, settlement or guarded decision-chain evidence.',
+            'market':market,'provider_section':section,'identity':identity,
+            'occurs_in_next_48h':bool(row.get('occurs_in_next_48h')),
+            'stake_event_paired':row.get('stake_event_paired'),
+            'scope':row.get('scope'),'required_data_source':row.get('required_data_source'),
+            'scope_model_status':row.get('scope_model_status','not_established'),
+            'settlement_status':row.get('settlement_status','not_established'),
+            'decision_chain_status':row.get('decision_chain_status','not_established'),
+            'next_step':'Implement and validate the exact scope model and settlement, then run a fresh guarded evaluation.'})
+    return result
+
+
 class LearningWorker:
     def __init__(self,store=None,data_dir=DATA,trainer=None):
         self.store=store or Store();self.data=Path(data_dir);self.data.mkdir(parents=True,exist_ok=True)
@@ -288,6 +317,13 @@ class LearningWorker:
             # An expired publication cannot prove any gap fixed.
             audit['state']='awaiting_fresh_publication'
             atomic_json(self.data/'operations.json',audit);return
+        # The live publication contains only the currently actionable feed.
+        # Keep the full archived Stake catalogue in the same durable gap table
+        # so a recognized-but-unpriced market cannot disappear between scans.
+        catalog_path=self.data/'market_catalog/latest.json'
+        catalog=json.loads(catalog_path.read_text()) if catalog_path.exists() else {}
+        catalog_gaps=catalog_operating_gaps(catalog)
+        audit['gaps'].extend(catalog_gaps)
         live_ids=[]
         for gap in audit['gaps']:
             live_ids.append(gap['id']);kind=gap['action'];league=gap['league']
