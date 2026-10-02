@@ -21,11 +21,12 @@ The old NFL test failure used a changing research snapshot as a historical regre
 | Local and Tailscale operation | Verified at 08:03:31 UTC; publication 5696 generated 08:03:02 UTC, same response hash on both routes |
 | Original decision records and runtime continuity | Immutable fields unchanged; web PID 266 and learning PID 271 uninterrupted |
 | Exact failed-run recovery | Both tasks automatically dispatched; F0038 attempts 34→35 and D20 35→36; original backoff and failed-run evidence retained |
+| Broader controller status at 08:03 UTC | Release `attention_required`, supervisor `degraded`; existing unresolved operational/release gaps remain. Fresh HTTP is not an all-green engine claim. |
 | Original F0038/D20 feature completion | Still in progress; separate complete validation, review and release remain mandatory |
 | Model learning improvement or profitability | Not evaluated or claimed by this infrastructure change |
 | Private validation-copy cleanup | Pending separately tracked work; no unsafe path-based deletion introduced |
 
-The complete installed baseline does not contain the accepted-but-uninstalled E514/D20 collecting tests. Its context routing therefore correctly reported `not_required`; a separately bound post-validation absence check covers all 29 trigger paths. The accepted candidates' fixture proofs remain distinct from installed-baseline validation. No pending model code was imported into production to force a test path.
+The complete installed baseline does not contain the accepted-but-uninstalled E514/D20 collecting tests. Its context routing therefore correctly took the no-op path; a separately bound post-validation absence check covers all 29 trigger paths. The accepted candidates' fixture proofs remain distinct from installed-baseline validation. No pending model code was imported into production to force a test path.
 
 ## Reproducible records
 
