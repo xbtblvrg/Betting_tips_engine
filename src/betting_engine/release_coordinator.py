@@ -1250,6 +1250,19 @@ class ReleaseCoordinator:
             if self._last_authorization is None and discovered is None:
                 raise
             revalidate_current_base = self._last_authorization is None
+        else:
+            # A source snapshot can still match the candidate base while the
+            # target byte is unmanaged (for example after a direct, reviewed
+            # root integration). Guarded engine releases require the same
+            # explicit root revalidation in that case; the normal utility
+            # profile remains blocked by the existing-core guard below.
+            if self._effective_profile.get('kind') == 'guarded_engine' and any(
+                    confined(self.root, row['path']).exists()
+                    and state.get('managed_files', {}).get(row['path']) != file_hash(confined(self.root, row['path']))
+                    for row in receipt['changed_files']):
+                self._last_authorization = root_authorization(self.root, receipt, current, policy)
+                if self._last_authorization is None:
+                    raise ReleaseBlocked('root_authorization_invalid', 'Guarded engine change requires exact root revalidation authorization')
         for name in changed:
             target = confined(self.root, name)
             unmanaged_existing = target.exists() and state.get('managed_files', {}).get(name) != file_hash(target)
