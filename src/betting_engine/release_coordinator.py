@@ -1010,9 +1010,13 @@ class LiveBackend:
                 'the current release guards. This review is separate from candidate implementation review. You may only read; '
                 'do not edit or run mutating commands. Confirm the exact files are bounded, the model/settlement scope is correct, '
                 'the CLV gate is unchanged, original ledger records are immutable, and automatic wager submission remains disabled. '
+                'This profile is bounded contract/evidence and decision-chain plumbing; it does not approve a new statistical model, '
+                'claim realized profit, or bypass the later live publication and ledger checks. The coordinator records those checks '
+                'after this review, so do not reject merely because the pre-deployment journal has no checks or live observation yet. '
                 'Accept only a guarded production change with no bypass of freshness, evidence, exposure or USD1-5 controls. '
                 'Set guarded_engine_review, production_enablement, clv_gate_unchanged, ledger_immutable and auto_betting_disabled '
-                'to true only when each is evidenced; otherwise reject it. Fixtures do not prove realized profit or market edge.\n')
+                'to true when the changed source preserves those controls; reject only a violated control, an unbounded file, '
+                'or an unapproved model/settlement activation. Fixtures do not prove realized profit or market edge.\n')
         else:
             prompt = ('Independently review this exact root-owned utility release. Read the changed files and tests. '
                 'This review is separate from candidate implementation review. You may only read; do not edit or run mutating commands. '
