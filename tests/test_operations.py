@@ -87,6 +87,30 @@ def test_market_catalog_never_hides_an_observed_unpriced_family_without_reason()
     assert rows[0]['reasons']=={'no_candidate_evaluation':2}
     assert 'fresh guarded candidate evaluation' in rows[0]['next_step']
 
+
+def test_market_catalog_exposes_every_parsed_contract_decision_state():
+    from betting_engine.markets import Market, Quote
+    market = Market(id='stake:m:1', game_id='NHL:g', league='NHL', kind='period_1:three_way',
+                    side='home', line=None, selection='Home', platform='Stake.com',
+                    url='https://stake.com/sports/ice-hockey/usa/nhl/g', token='1',
+                    condition_id='m', description='1st Period - 1x2', fee_rate=0.,
+                    fee_exponent=1., minimum_notional=0., market_start=(utcnow()+timedelta(hours=1)).isoformat(),
+                    fetched_at=utcnow().isoformat(), metadata={'stake_market_name':'1st Period - 1x2'})
+    quote = Quote(market.id, '1', 2., 0., .5, 10., 0., utcnow().isoformat(), utcnow().isoformat())
+    rows = market_types(
+        [{'league':'NHL','market':'1st Period - 1x2','outcome_count':3,
+          'supported_outcomes':3,'reason':'supported'}],
+        [], [market], {market.id: quote},
+        [{'market_id':market.id,'league':'NHL','market_name':'1st Period - 1x2',
+          'state':'guard_rejected','reasons':['segment_market_not_validated']}],
+    )
+    row = rows[0]
+    assert row['parsed_outcomes'] == row['quoted_outcomes'] == 1
+    assert row['guard_checked_outcomes'] == row['guard_rejected_outcomes'] == 1
+    assert row['analysis_status'] == 'guard_rejected'
+    assert row['decision_chain_status'] == 'guard_rejected'
+    assert row['reasons']['segment_market_not_validated'] == 1
+
 def test_dossier_executes_research_but_does_not_claim_market_implementation(tmp_path):
     result=research_dossier('NHL',publication(),tmp_path)
     assert result['knowledge'] and result['market_types'] and not result['missing_market_models_resolved']

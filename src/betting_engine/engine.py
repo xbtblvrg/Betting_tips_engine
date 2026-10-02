@@ -192,21 +192,35 @@ class Engine:
                 market_anchors=contract_anchors(markets,quotes)
             feed_health=market_feed_health(quotes,issues+qissues)
             self.status['stage']='Tippek rangsorolása és tétértékelés'
-            gs={g.id:g for g in upcoming};candidates=[];guard_checks=[]
+            gs={g.id:g for g in upcoming};candidates=[];guard_checks=[];market_evaluations=[]
             for m in markets:
+                evaluation={'market_id':m.id,'league':m.league,'game_id':m.game_id,
+                            'section':'standard','market_name':m.metadata.get('stake_market_name',m.description),
+                            'state':None,'reasons':[]}
                 scope,_=split_market(m.kind)
                 forecast=forecasts.get(m.game_id) if scope=='full_game' else segment_forecasts.get((m.game_id,scope))
                 model=self.models.get(m.league) if scope=='full_game' else self.segment_models.get((m.league,scope))
-                if m.id not in quotes or forecast is None or model is None:continue
+                if m.id not in quotes:
+                    evaluation.update(state='quote_missing',reasons=['current_quote_missing']);market_evaluations.append(evaluation);continue
+                if forecast is None or model is None:
+                    evaluation.update(state='model_missing',reasons=['scope_model_missing']);market_evaluations.append(evaluation);continue
                 calibration_summary=summary_for(calibration_snapshot,gs[m.game_id].league,m.kind,m.line,1/quotes[m.id].effective_cost)
                 try:c=candidate(gs[m.game_id],m,quotes[m.id],forecast,settings,market_anchors.get(m.id),calibration_summary,model.report.get('trained_at'))
                 except (ValueError,ArithmeticError,TypeError) as exc:
                     forecast_errors.append({'game':m.game_id,'market_id':m.id,'stage':'market_pricing','error':str(exc)[:500]})
                     guard_checks.append({'tip_id':None,'game_id':m.game_id,'market_id':m.id,'passed':False,'errors':['invalid_model_market_probability']})
+                    evaluation.update(state='pricing_error',reasons=['invalid_model_market_probability'])
+                    market_evaluations.append(evaluation)
+                    continue
+                if c is None:
+                    evaluation.update(state='not_actionable',reasons=['probability_or_value_gate'])
+                    market_evaluations.append(evaluation)
                     continue
                 if c:
                     if settings.get('market_anchor_mode')=='live' and c.get('market_anchor_review'):
                         guard_checks.append({'tip_id':None,'game_id':c['game_id'],'market_id':m.id,'passed':False,'errors':['market_model_disagreement_review']})
+                        evaluation.update(state='anchor_review',reasons=['market_model_disagreement_review'])
+                        market_evaluations.append(evaluation)
                         continue
                     c['stake_evidence']={'fixture_slug':m.metadata['fixture_slug'],
                                          'league_path':m.metadata['league_path'],'api_source':m.metadata.get('api_source'),
@@ -218,6 +232,8 @@ class Engine:
                                          'fixture_name':m.metadata.get('fixture_name'),'matched_teams':m.metadata.get('matched_teams')}
                     check=guard.check(c,gs[m.game_id],m,quotes[m.id],forecast,model.report,settings,calibration_summary)
                     guard_checks.append({'tip_id':c['id'],'game_id':c['game_id'],'passed':check['passed'],'errors':check['errors']})
+                    evaluation.update(state='guard_passed' if check['passed'] else 'guard_rejected',reasons=check['errors'])
+                    market_evaluations.append(evaluation)
                     if check['passed']:candidates.append(c)
             self.settle_bets();self.store.settle_forecasts(self.games);self.store.settle_system_decisions(self.games)
             progress=self.store.daily_progress()
@@ -251,7 +267,7 @@ class Engine:
             payload['opportunity_inventory']=inventory_snapshot(platform.fixture_audit,platform.inventory,platform.schedule_counts,issues+qissues)
             from .operations import market_types,operating_audit
             status['model_load_errors']=self.model_load_errors
-            payload['market_types']=market_types(platform.inventory,candidates)
+            payload['market_types']=market_types(platform.inventory,candidates,markets,quotes,market_evaluations)
             payload['api_audit']={'tournament_sources':platform.registry_sources,'fixtures':platform.endpoint_audit}
             payload['issued_contracts']=[{k:d['payload'].get(k) for k in ('id','game_id','league','start','stake')} for d in self.store.system_decisions()]
             status['operations']=operating_audit(payload,self.store.daily_progress())

@@ -34,6 +34,14 @@ def test_guard_records_verifiable_sources_and_recomputes_values():
     assert result['contract_sha256'] and args[0]['decision_guard']==result
 
 
+def test_live_market_anchor_pricing_is_reproduced_by_evidence_guard():
+    args=guard_case();t,g,m,q,f,report,settings=args
+    settings={**settings,'market_anchor_mode':'live','market_model_weight':.15}
+    t=candidate(g,m,q,f,settings,{'market_probability':.55,'conditional_push_free':False})
+    result=EvidenceGuard(KnowledgeAgent()).check(t,g,m,q,f,report,settings)
+    assert result['passed'], result['errors']
+
+
 @pytest.mark.parametrize('mass',[(.6,.6),(float('nan'),0),(.6,-.1),(float('inf'),0)])
 def test_invalid_probability_mass_cannot_be_clipped_into_a_betting_instruction(mass):
     t,g,m,q,f,report,settings=guard_case()

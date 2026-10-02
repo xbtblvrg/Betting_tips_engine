@@ -218,7 +218,18 @@ class EvidenceGuard:
                 if not isinstance(anchor,dict) or anchor.get('status')!='usable':
                     errors.append('market_anchor_missing_or_review')
                 else:
-                    p=logit_blend(p,float(anchor['market_probability']),float(settings.get('market_model_weight',.15)))
+                    # Asian/Draw-No-Bet quotes are devigged on the
+                    # push-free mass. Reproduce the exact conditional blend
+                    # used when the candidate was created, then restore the
+                    # model push probability before EV/stress calculations.
+                    market_probability=float(anchor['market_probability'])
+                    weight=float(settings.get('market_model_weight',.15))
+                    if anchor.get('conditional_push_free') and push>0:
+                        conditional_model=p/(1-push)
+                        conditional_blend=logit_blend(conditional_model,market_probability,weight)
+                        p=conditional_blend*(1-push)
+                    else:
+                        p=logit_blend(p,market_probability,weight)
                     push=min(push,1-p)
             if settings.get('calibration_uncertainty_mode','legacy')=='measured_v1' and calibration_summary is not None:
                 if tip.get('calibration_uncertainty') != calibration_summary:

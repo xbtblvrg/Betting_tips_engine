@@ -47,8 +47,17 @@ def allocation_summary(payload,now=None):
         'candidate_games_without_issued_contracts':len(games-issued_games),
         'nonallocation_counts':dict(counts),'scope':'Fresh guarded candidates and selected families from this publication only; not complete feed coverage, daily first issuance, checklist readiness or a health check.'}
 
-def market_types(inventory,candidates=()):
+def market_types(inventory,candidates=(),markets=(),quotes=None,market_evaluations=()):
+    """Summarise every observed Stake contract and its current decision path.
+
+    ``inventory`` is the provider catalogue; ``markets`` are the exact parsed
+    contracts and ``market_evaluations`` are the per-contract outcomes of the
+    current pricing/guard pass.  Keeping these inputs separate is deliberate:
+    an observed contract is not silently counted as modelled, while a parsed
+    contract that was rejected remains visible with a concrete reason.
+    """
     from .market_catalog import classify
+    quotes=quotes or {}
     groups={}
     for m in inventory:
         key=(m['league'],m.get('provider_section','standard'),m['market'])
@@ -60,6 +69,23 @@ def market_types(inventory,candidates=()):
         row['supported_outcomes']+=m.get('supported_outcomes',0)
         if m.get('reason')!='supported':row['reasons'][m.get('reason','unknown')]+=m['outcome_count']-m.get('supported_outcomes',0)
     evaluated=Counter((t['league'],t.get('stake_evidence',{}).get('market_name')) for t in candidates)
+    parsed=Counter();quoted=Counter();priced=Counter();guarded=Counter();passed=Counter();rejected=Counter();eval_reasons=Counter()
+    for market in markets or ():
+        metadata=getattr(market,'metadata',{}) or {}
+        key=(getattr(market,'league',None),'standard',metadata.get('stake_market_name',getattr(market,'description',None)))
+        parsed[key]+=1
+        market_id=getattr(market,'id',None)
+        if market_id in quotes:quoted[key]+=1
+    for item in market_evaluations or ():
+        key=(item.get('league'),item.get('section','standard'),item.get('market_name'))
+        state=item.get('state')
+        if state in ('priced','guard_passed','guard_rejected','anchor_review','not_actionable','pricing_error'):
+            priced[key]+=1
+        if state in ('guard_passed','guard_rejected','anchor_review'):guarded[key]+=1
+        if state=='guard_passed':passed[key]+=1
+        if state in ('guard_rejected','anchor_review','pricing_error','quote_missing','model_missing','not_actionable'):
+            rejected[key]+=1
+        for reason in item.get('reasons',()):eval_reasons[(key,reason)]+=1
     def next_step(reasons, supported, evaluated_count):
         if 'unmatched_fixture' in reasons:
             return 'Reconcile the Stake fixture with one unique independent event before pricing.'
@@ -76,6 +102,17 @@ def market_types(inventory,candidates=()):
     for _,value in sorted(groups.items()):
         count=evaluated[(value['league'],value['market'])] if value['section']=='standard' else 0
         reasons=dict(value['reasons'])
+        key=(value['league'],value['section'],value['market'])
+        # These counters describe the exact current pass. They do not upgrade
+        # an unsupported provider contract into a production model.
+        parsed_count=parsed[key]
+        quoted_count=quoted[key]
+        priced_count=priced[key]
+        guarded_count=guarded[key]
+        passed_count=passed[key]
+        rejected_count=rejected[key]
+        for (reason_key,reason),n in eval_reasons.items():
+            if reason_key==key and n and not reasons.get(reason):reasons[reason]=n
         # A provider can label an offer supported while the decision path
         # produces no exact candidate. Keep that gap explicit instead of
         # rendering an empty reason object as if it were fully evaluated.
@@ -89,13 +126,29 @@ def market_types(inventory,candidates=()):
         observed=bool(value['observed_outcomes'])
         paired=not any(reason == 'unmatched_fixture' for reason in reasons)
         chain=bool(count)
+        if passed_count:
+            analysis_status='guard_passed'
+        elif guarded_count:
+            analysis_status='guard_rejected'
+        elif priced_count:
+            analysis_status='priced_no_candidate'
+        elif parsed_count and quoted_count:
+            analysis_status='parsed_and_quoted'
+        elif parsed_count:
+            analysis_status='parsed_quote_missing'
+        else:
+            analysis_status='catalog_only'
         result.append({**value,'reasons':reasons,'evaluated_outcomes':count,
+                       'parsed_outcomes':parsed_count,'quoted_outcomes':quoted_count,
+                       'priced_outcomes':priced_count,'guard_checked_outcomes':guarded_count,
+                       'guard_passed_outcomes':passed_count,'guard_rejected_outcomes':rejected_count,
+                       'analysis_status':analysis_status,
                        'scope':descriptor['scope'],'market_family':descriptor['family'],
                        'occurs_in_next_48h':observed,'stake_event_paired':paired if observed else None,
                        'scope_model_status':'evaluated' if observed and value['supported_outcomes'] else 'not_established',
                        'settlement_status':'evaluated' if value['supported_outcomes'] else 'not_established',
                        'required_data_source':'Stake Sports Data API',
-                       'decision_chain_status':'evaluated' if chain else 'not_established',
+                       'decision_chain_status':('evaluated' if chain else 'guard_rejected' if guarded_count else 'priced_no_candidate' if priced_count else 'not_established'),
                        'closed_decisions':None,'clv_vs_market':None,'log_loss_vs_market':None,
                        'next_step':next_step(reasons,value['supported_outcomes'],count)})
     return result
