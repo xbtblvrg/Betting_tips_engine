@@ -148,3 +148,14 @@ Enable model_pick_allocation_policy=distinct_family_v1 for this project. This su
 When the last currently executable unmarked instruction within the next twelve hours is marked placed, request the existing coalesced priority 48-hour scan even if later instructions remain. Keep exact-contract trigger idempotency, failure/backoff evidence and the ordinary 60-second scan. A search is not an issuance; unsupported player/sequence/joint markets remain development gaps until full source/model/validation/settlement support exists. Complete frontend validation includes both tests/web.test.mjs and the new tests/web_model_pick_allocation_cases.mjs; keep all existing test files unchanged.
 
 Under distinct_family_v1, reproduce funded stakes against all held and co-issued same-game contracts in the complete publication batch. Remove subminimum allocations without rotating to inferior alternatives, recompute the surviving roster, and verify it again atomically. Original issued stakes are never resized.
+
+
+## Latest user directive — no unfinished or unproven readiness claims (2026-10-02)
+
+An unfinished, untested, unreleased, unreviewed, unverified or unproven capability must never be reported as ready or complete. Keep its state visible as `attention_required`, `candidate_only`, `awaiting_release`, `awaiting_external_inputs` or `not_established` until every applicable acceptance condition is evidenced.
+
+For every repair, preserve the sequence: reproduce → isolated implementation → regression tests → independent Codex review → trusted release → local and Tailscale smoke verification → live evidence check. A report, queued task, passive utility, candidate branch or green targeted test alone does not close the capability.
+
+The measured objective is improved decision quality and eventually positive realised ROI from immutable original decisions. Track model probability against resolved outcomes, calibration, CLV, exposure and P&L; do not infer improvement from a model estimate or a small sample. Outcome feedback must be consumed by controlled, time-separated challenger evaluation before any production model change.
+
+Multiple bounded AI workers may propose and test isolated changes when useful. Codex remains the root integrator and final reviewer; helper output cannot approve a bet, promote a model or close a release gate. Unresolved failures and timeouts remain durable and actionable until repaired or explicitly evidenced as externally blocked.
