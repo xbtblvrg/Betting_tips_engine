@@ -1,47 +1,64 @@
-# Frozen regression input delivery and recovery — 2026-10-02
+# Frozen regression delivery and retry recovery — 2026-10-02
 
-Scope: generic validation infrastructure. No betting model, probability, selection, stake, original decision, settlement rule or automated order change.
+Scope: development/test-input delivery and release retry integrity. Code version: `58f01caec4a4e6fdd528d4cca562f70695edbad6`.
 
-## Result
+## Current result
 
-The two diagnosed test-input blockers were repaired and deployed at **08:00:07 UTC**. The existing supervisor dispatched fresh original-task runs after the reviewed dependency handoff: **F0038: 20261002T080640758486-F0038**, **D20: 20261002T080707914622-D20**. Both were observed running at 08:08:58 UTC. Their underlying feature work is not declared complete.
+The combined ten-file repair was installed at **09:12:10 UTC (11:12 Budapest)** after complete tests and independent Codex review. Developer, release and supervisor services were restored. Web PID266 and learning PID271 remained uninterrupted. At **09:13:02 UTC**, local and Tailscale endpoints returned the same publication **5766**, generated09:12:59UTC; immutable original ledger fields were unchanged.
 
-The old NFL test failure used a changing research snapshot as a historical regression fixture. Validation now uses an isolated copy with the exact archived cohort while preserving current research. D20 release preparation now supplies the complete original manifest and all 24 referenced bodies. Missing, changed, partial or unsafe inputs fail validation. A root-reviewed exact-run handoff checks installed sources, archives, original acceptance chains and validation/review artifacts before one retry; it does not reset old deadlines or erase failures.
+The developer now receives a bounded, authenticated, read-only frozen regression bundle and an explicit command that tests current candidate code in a private scratch copy. Current research inputs remain separate. Controller validation permits only four exact SQLite scratch-output names after testing; undeclared inputs, code changes and unsafe paths still fail.
+
+The release retry identity now follows authenticated accepted and installed source contents. Rotating old accepted run IDs cannot repeatedly reset retry backoff. Real source changes remain eligible for one new attempt, and incomplete authority preserves failures and backoff. A separately reviewed exact-run dependency declaration preserves all prior entries and original task deadlines.
 
 ## Evidence and status
 
-| Requirement | Actual status |
+| Requirement | Verified status |
 |---|---|
-| Authentic frozen inputs, separate from current research | Implemented and independently tested; 106 immutable config/archive inputs provisioned |
-| Full installed-baseline regression suite | 5552 Python tests plus 1 exact original native-boundary control passed; 272 DOM tests passed |
-| Original tests preserved | All 268 pre-existing test artifacts unchanged |
-| Pending-candidate fixture paths | 17 original E514 tests passed through the new context; 497 original D20/D09 tests passed with the complete frozen cohort; these do not certify those candidates' full acceptance |
-| Native write/isolation boundaries | 12 context permission denials and 9 D20 mutation denials verified, including alias paths |
-| Controlled installation and independent review | Complete; 10 code/test files installed with rollback and immutable-ledger checks |
-| Local and Tailscale operation | Verified at 08:03:31 UTC; publication 5696 generated 08:03:02 UTC, same response hash on both routes |
-| Original decision records and runtime continuity | Immutable fields unchanged; web PID 266 and learning PID 271 uninterrupted |
-| Exact failed-run recovery | Both tasks automatically dispatched; F0038 attempts 34→35 and D20 35→36; original backoff and failed-run evidence retained |
-| Broader controller status at 08:03 UTC | Release `attention_required`, supervisor `degraded`; existing unresolved operational/release gaps remain. Fresh HTTP is not an all-green engine claim. |
-| Original F0038/D20 feature completion | Still in progress; separate complete validation, review and release remain mandatory |
-| Model learning improvement or profitability | Not evaluated or claimed by this infrastructure change |
-| Private validation-copy cleanup | Pending separately tracked work; no unsafe path-based deletion introduced |
+| Developer frozen-input implementation | Installed; module SHA7895dbd7… |
+| Actual isolated developer command | Two separate643-test native runs passed for copied F0038 and D20 candidates; original research/workspaces and permission boundaries preserved |
+| Complete combined Python validation | 5634 tests passed plus1 separately executed original native-boundary control |
+| Complete web validation |272 DOM tests passed |
+| Original regression artifacts |All272 existing artifacts unchanged;3 new test files added |
+| Retry-generation regression |373 focused tests passed;14 historical run rotations retained one source identity |
+| New test resource-leak correction |80 repetitions retained4 open descriptors with the original256 limit; independent reproduction also stayed stable |
+| Independent review and controlled install |Complete; ten exact code/test files and source-bound receipts retained |
+| Local/Tailscale operation after install |Verified on publication5766 with identical response hashes |
+| Runtime recovery |All services restored; initial measured resource admission recovery was visible and subsequently admitted fresh coding work |
+| Actual original-task completion |Pending; fresh dispatch/input receipt is distinct from full candidate tests, review and release |
+| Original deadline |08:57:32UTC was missed and remains recorded; it was not moved |
+| Validation-copy retention |Separate open task due2026-10-03T07:30UTC; automatic cleanup is not claimed |
+| Overall engine readiness/profit improvement |Not established by this infrastructure repair; broader model and operational gaps remain |
 
-The complete installed baseline does not contain the accepted-but-uninstalled E514/D20 collecting tests. Its context routing therefore correctly took the no-op path; a separately bound post-validation absence check covers all 29 trigger paths. The accepted candidates' fixture proofs remain distinct from installed-baseline validation. No pending model code was imported into production to force a test path.
+The installed baseline does not contain the accepted-but-uninstalled E514/D20 collecting tests. The full-suite proof therefore includes a separately bound check that all29 triggering paths are absent. The two643-test candidate probes supply separate developer-path evidence; they do not certify either original feature's complete acceptance.
 
-## Reproducible records
+## Live recovery and remaining work
 
-All paths below are relative to the project and contain exact source/data hashes:
+F0038 resumed as `20261002T091306338082-F0038` (attempt39), and D20 as `20261002T091651998221-D20` (attempt38). At09:18:59UTC both actual new workspaces verified the28-module immutable bundle and contained the exact developer command in their prompts. Six coding jobs were active after measured resource admission recovered. The original retry history remains intact. The observation is stored in `data/fixture-delivery-followup-20261002/developer-phase/live-worker-consumption.json` (SHA2f42baa1…). No fresh CLI execution event or completed developer result had yet been observed; delivery and execution are separate claims. Full original-task acceptance remains pending until the corresponding complete tests, independent review, controlled deployment and live checks succeed.
 
-- `data/fixture-delivery-followup-20261002/task.json` — fixed original two-hour deadline, scoped completion and remaining work.
-- `data/fixture-delivery-followup-20261002/release/install-manifest.json` — exact installed version and original test inventory.
-- `data/fixture-delivery-followup-20261002/release/release-review.json` — independent source-bound approval.
-- `data/fixture-delivery-followup-20261002/release/native-suite-proof.json` and `dom.log` — complete actual controller validation.
-- `data/fixture-delivery-followup-20261002/release/install-journal.json` — controlled install, service restarts and preserved records.
-- `data/fixture-delivery-followup-20261002/release/live-20261002T080331318001/report.json` — fresh local/Tailscale verification.
-- `data/fixture-delivery-followup-20261002/release/handoff-application.json` and `live-recovery.json` — exact handoff and observed new run identities.
-- `data/fixture-delivery-followup-20261002/final-audit.json` — requirement/status mapping.
-- `data/fixture-delivery-followup-20261002/retention-task.json` — separate retention owner, deadline and acceptance.
+The supervisor still reports `degraded` for broader unresolved work. Process availability and successful HTTP responses do not close missing models, market support, CLV/outcome improvements, daily issuance requirements or profitability validation. No betting-model, probability, stake, settlement, original decision or wager-submission behavior was changed by this release.
 
-Initial partial-cohort failure, unsafe-cleanup probe, malformed-evidence failures, first full-suite compatibility failure and first post-install publication wait are retained under the same evidence folder. They were not replaced with success reports. The successful full run followed the relevant fixes; no original test was edited or weakened.
+## Reproducible evidence
 
-The overall engine and every user requirement are **not** declared complete. This release restores these two validation/retry paths; currently running jobs and broader capability gaps remain separately accountable.
+Paths are relative to the project:
+
+- `data/fixture-delivery-followup-20261002/developer-phase/release/install-manifest.json` — ten exact file versions, complete test hashes and all272 original test artifacts; SHA270fde4b….
+- `data/fixture-delivery-followup-20261002/developer-phase/release/release-review.json` — independent exact-source approval; SHA6988f043….
+- `data/fixture-delivery-followup-20261002/developer-phase/release/native-suite-proof.json`, `python.log`, `dom.log` — actual complete validation.
+- `data/fixture-delivery-followup-20261002/developer-phase/release/install-journal.json` — atomic installation, original-record checks and restored services.
+- `data/fixture-delivery-followup-20261002/developer-phase/release/live-20261002T091302116319/report.json` — post-install local/Tailscale verification; SHA6ad33b28….
+- `data/fixture-delivery-followup-20261002/developer-phase/release/handoff-application.json` and `handoff-candidate/independent-review.json` — appended130-dependency exact-run repair declaration; no task-state or deadline writes.
+- `data/fixture-delivery-followup-20261002/review/retry-churn-final-review.json` — independent retry failure/race review and14-run replay.
+- `data/fixture-delivery-followup-20261002/review/retry-churn-fd-fix-review.json` — independent descriptor-ownership review.
+- `data/fixture-delivery-followup-20261002/task.json`, `retry-churn-task.json`, `retention-task.json` — fixed deadlines and separate scoped statuses.
+
+## Preserved failures
+
+The first08:00 controller-only release did not deliver the developer-phase inputs: new F0038/D20 jobs failed again, so the repair was reopened. This is retained in `audit-before-developer-phase-release.md`, `final-live-review.json` and original run receipts. The combined suite then exposed a SQLite connection leak in the new tests. The failed suite is preserved under `developer-phase/release/validation-fd-exhaustion`; only the new test helper was corrected to close its connections, and the entire suite was rerun. No limit increase or original-test removal was used.
+
+An extra handoff command after successful publication was rejected by its existing-application guard before any write; the receipt is retained as `developer-phase/release/duplicate-handoff-attempt.json`. It did not create another retry declaration.
+
+## Subsequent health observation
+
+At09:21:33UTC the stricter live audit failed its learning-heartbeat freshness check: the status was196seconds old against180seconds. The worker was executing a synchronous shadow-evaluation job; the process was alive, and prior same-kind jobs took355–421seconds. Source, ledger, fresh local/Tailscale publication5774 and other services passed. This observation does not establish a crash, nor does CPU activity prove semantic progress. The supervisor currently permits7200seconds for a running learning job. The discrepancy is retained in `developer-phase/live-health-addendum-092133.json`; no threshold was relaxed and no active job was restarted.
+
+The distinct generic monitoring gap is tracked as `ROOT-LEARNING-PROGRESS-20261002` in `data/fixture-delivery-followup-20261002/learning-progress-task.json`, owner root Codex, fixed deadline10:30UTC. It is diagnosed, not implemented or declared automatically dispatched. This remains open alongside original feature acceptance; the overall system is not reported fully ready.
