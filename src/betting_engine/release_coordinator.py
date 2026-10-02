@@ -29,7 +29,7 @@ from .development import DevelopmentWorker, tree_manifest, COPY_DIRS, COPY_FILES
 from .parallel_development import _read_acceptance
 from .delivery import task_release_verified, verify_release_receipt
 
-VERSION = 'root-utility-release-v1'
+VERSION = 'root-guarded-engine-release-v1'
 TERMINAL = ('installed_utility', 'rolled_back', 'blocked', 'abandoned', 'manual_attention')
 REVIEW_SCHEMA = {'type': 'object', 'properties': {
     'accepted': {'type': 'boolean'}, 'passive_utility': {'type': 'boolean'},
