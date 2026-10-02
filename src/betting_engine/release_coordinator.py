@@ -165,7 +165,7 @@ def guarded_engine_path(name):
     p = Path(name)
     guarded_core_allow = {'src/betting_engine/decisions.py', 'src/betting_engine/governance.py'}
     forbidden = {
-        'src/betting_engine/storage.py', 'src/betting_engine/governance.py',
+        'src/betting_engine/storage.py',
         'src/betting_engine/funding_policy.py', 'src/betting_engine/engine.py',
         'src/betting_engine/supervisor.py', 'src/betting_engine/dashboard_payload.py',
         'src/betting_engine/release_coordinator.py',
