@@ -297,3 +297,10 @@ Kiértékelés: a meglévő Stake Sports Data API archívumból 3 478 ajánlati 
 Fejlesztés: a composite `Winner & Total`, `Total (Over-Exact-Under)` és `Correct Score` szerződésfelismerés, elszámolás és piaci horgony regressziós teszteket kapott. A release policy most exact `guarded_engine` profilt és Codex-felülvizsgálati mezőket tartalmaz; a ledger, guardok, CLV-kapu, USD1–5 sáv, `daily_risk_limit=null` és automatikus fogadásleadási tiltás változatlan.
 
 Mért célzott validáció: 92 release/recovery/guarded-profile teszt és 73 composite/anchor/market/operations teszt sikeres. A teljes Python/web release-csomag és trusted live release még a következő lépés; ezért az aktív composite capability állapota `awaiting_release`, a fennmaradó Stake-piaccsaládok `not_established`/`operating_gaps` állapotban maradnak.
+
+
+## 2026-10-02 — D33 trusted live release lezárva
+
+Élesítés: `release-20261002T194059127957-600e50e3`, `D33`, `guarded_engine`, 10 hash-azonosított fájl. A teljes Python release-suite `6119 passed, 1 skipped, 5 subtests passed`; a DOM kapu sikeres. A független Codex-review elfogadta a bounded composite parser/settlement és EvidenceGuard-gating változást; a composite családok validáció hiányában fail-closed, nincs új statisztikai modell- vagy automatikus fogadásleadási engedély.
+
+Élő bizonyíték: a trusted release után a helyi és Tailscale `/api/health` egyaránt `ok=true`, `engine.error=null`, friss publikáció `2026-10-02T19:47:51.457743+00:00`, `guard_consistent=true`. A release coordinator új verziója `root-guarded-engine-release-v1`, az engedélyezett betting capability `true`; az immutable ledger, CLV-kapu, USD1–5 sáv, `daily_risk_limit=null` és az automatikus fogadásleadás tiltása változatlan. A katalógusban megmaradt 523 Stake-piaccsalád és minden nem bizonyított család `not_established`/`operating_gaps` állapotban van.
