@@ -335,7 +335,11 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
         if limits_enabled and not covered(c) and daily_family_counts[family_key]+family_new[family_key]>=daily_family_limit:
             c['allocation_code']='family_share_limit';c['allocation_reason']='This market family reached the 25% daily publication share; another family or game must be selected.'
             c['stake_note']=c['allocation_reason'];c['alternative']=True;alternatives.append(c);continue
-        counts[c['game_id']]+=1;c['alternative']=False
+        # ``counts`` is an exposure counter, not a count of evaluated rows.
+        # Unfunded candidates and already-held contracts must not consume a
+        # per-game slot; otherwise one held family plus a few zero-stake
+        # alternatives can suppress every fresh contract on that game.
+        c['alternative']=False
         if covered(c):
             c['allocation_code']='already_held';c['allocation_reason']='This exact selection has already been issued. No repeated ticket is requested.' if additions else 'A bet is already recorded for this game and market family.'
             c['stake_note']=c['allocation_reason']
@@ -376,7 +380,7 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                 preference_allocations.add((c['game_id'],bases[c['id']]['tier']));new_preference_events.add(c['game_id'])
                 c['allocation_reason']=(f'Positive current-model expected value; stress threshold not passed. One model pick for this game, sized at ${amount:.2f}.' if tier(c)==2 else (f'Selected for model win probability; model expected return is not positive. Calculated non-Kelly base-unit allocation ${amount:.2f}, not a value-bet claim.' if settings.get('model_pick_sizing_policy')=='all_tiers_weighted_v3' else 'Selected for model win probability; model expected return is not positive. Explicit $1 preference allocation, not a value-bet claim.'))
             if amount:
-                new_funded+=1;event_stakes[c['game_id']]+=amount;period_new[c['game_id']]+=int(is_period);family_new[family_key]+=1
+                new_funded+=1;counts[c['game_id']]+=1;event_stakes[c['game_id']]+=amount;period_new[c['game_id']]+=int(is_period);family_new[family_key]+=1
                 funded_counts[c['game_id']]+=1
                 allocated_families.add((c['game_id'],allocation_family(c)))
                 if continuous and tier(c)==2 and family_additions:

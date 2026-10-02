@@ -114,6 +114,22 @@ def test_single_new_value_receipt_replays_after_batch_resizing(reviewed, tmp_pat
     assert len(store.system_decisions()) == 1
 
 
+def test_held_families_do_not_consume_new_event_slots(reviewed, tmp_path):
+    """Two held contracts leave the third live event slot available."""
+    winner, settings, _ = reviewed(cases.BEST, probability=.72, odds=2.2)
+    total, _, _ = reviewed(cases.BEST, market_kind='totals', side='over', line=215.5,
+                           probability=.72, odds=2.2)
+    team_total, _, _ = reviewed(cases.BEST, market_kind='home_total', side='over', line=108.5,
+                                probability=.72, odds=2.2)
+    store = cases.database(tmp_path, settings)
+    held, _ = rank(store, [winner, total], settings)
+    publish(store, held)
+    selected, _ = rank(store, [team_total], settings)
+    assert selected and selected[0]['stake'] >= 1
+    publish(store, selected)
+    assert len(store.system_decisions()) == 3
+
+
 def test_concurrent_new_exposure_blocks_stale_stake_atomically(reviewed, tmp_path):
     winner, settings, _ = reviewed(cases.BEST)
     total, _, _ = reviewed(cases.BEST, market_kind='totals', side='over', line=215.5)
