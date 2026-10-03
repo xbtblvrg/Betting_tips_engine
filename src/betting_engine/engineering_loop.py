@@ -38,11 +38,13 @@ def engineering_input_generation(root, state):
             files.append((name, None))
     failures = []
     for task_id, row in sorted(state.get('tasks', {}).items()):
-        if row.get('last_error') or row.get('runtime_failure_gate'):
+        if row.get('last_error') or row.get('runtime_failure_gate') or row.get('timeout_recovery_hold'):
             gate = row.get('runtime_failure_gate') or {}
             failures.append((task_id, row.get('state'), row.get('run_id'),
                 row.get('failure_class'), row.get('last_error'),
-                gate.get('source_run_id'), gate.get('state'), gate.get('resumed_at')))
+                gate.get('source_run_id'), gate.get('state'), gate.get('resumed_at'),
+                row.get('timeout_recovery_hold', {}).get('state'),
+                row.get('timeout_recovery_hold', {}).get('controller_sha256')))
     return tuple(files), tuple(failures)
 
 
@@ -482,7 +484,41 @@ def _collect(root, payload, operations, components, plan, state, now, release_re
             first_seen=gate.get('first_seen') or now.isoformat(),due_at=gate.get('due_at') or now.isoformat(),
             next_action=gate.get('next_action') or 'Repair the named source/test dependency and rerun the original acceptance.')
         add(issue)
-    definitions = {t['id']: t for t in plan.get('tasks', [])}
+    definitions = {t['id']: t for t in [*plan.get('tasks', []), *state.get('extra_tasks', [])]}
+    # A second checkpoint timeout changes the work to bounded task decomposition
+    # instead of silently waiting or repeating the same expensive coding attempt.
+    for task_id, row in state.get('tasks', {}).items():
+        hold = row.get('timeout_recovery_hold', {})
+        task = definitions.get(task_id, {})
+        if (hold.get('state') != 'awaiting_changed_controller'
+                or hold.get('source_run_id') != row.get('run_id')
+                or not task or str(task.get('engineering_bucket', '')).startswith('timeout_repair_')):
+            continue
+        rid = row.get('run_id')
+        if not isinstance(rid, str) or Path(rid).name != rid:
+            continue
+        path = Path(root) / 'data/development/runs' / rid / 'run.json'
+        try:
+            raw = path.read_bytes(); retained = json.loads(raw)
+        except (OSError, ValueError):
+            diagnostics.append('Timeout recovery archive missing: ' + task_id)
+            continue
+        if (retained.get('id') != rid or retained.get('task_id') != task_id
+                or retained.get('error') != 'Development step exceeded its execution time limit'
+                or retained.get('failure_phase') != 'implementation'
+                or retained.get('timeout_recovery_strategy') != 'checkpoint_then_report_v1'):
+            diagnostics.append('Timeout recovery archive mismatch: ' + task_id)
+            continue
+        stamp = retained.get('finished_at') or row.get('updated_at') or now.isoformat()
+        issue = _observation('timeout_recovery:' + task_id, 'timeout_checkpoint_hold', 'SYSTEM',
+            'Implement a bounded decomposition or controller/input repair for the repeated checkpoint timeout; preserve the parent task acceptance.',
+            stamp, {'task_id': task_id, 'run_id': rid, 'controller_sha256': hold.get('controller_sha256'),
+                'run_path': str(path.relative_to(root)), 'run_sha256': hashlib.sha256(raw).hexdigest(),
+                'original_task': task, 'hold': hold}, bucket='timeout_repair_' + task_id, priority=0)
+        issue.update(first_seen=stamp, due_at=task.get('due_at') or stamp,
+            owner='codex_development_worker', parent_task_id=task_id,
+            next_action='Implement and test a bounded resumable evaluator/input repair in the isolated workspace, with exact protected integration instructions. Root integrates only after review; rerun the parent acceptance after controller or task changes.')
+        add(issue)
     for task_id, row in state.get('tasks', {}).items():
         if task_id not in definitions:
             continue
@@ -565,6 +601,11 @@ def _tasks(registry, plan, state, now):
                     'acceptance': ACCEPTANCE, 'depends_on': [target] if seed and row.get('state') in READY else [],
                     'engineering_bucket': bucket, 'engineering_generation': generation,
                     'created_at': now.isoformat(), 'due_at': deadline}
+        if bucket.startswith('timeout_repair_') and task_id in extra:
+            extra[task_id].update(owner='codex_development_worker',
+                objective='Implement a bounded repair for the exact pinned timeout evidence. Inspect and preserve the retained candidate. Build and test the smallest resumable implementation or input adapter that lets the original task finish within its budget. Do not repeat full exploration, return a diagnosis-only result, change the original deadline or weaken acceptance. Protected caller changes require root integration.',
+                acceptance='Regression reproduces the original timeout or excessive work; bounded candidate completes that stage, preserves source/ledger/guard semantics and supplies exact root integration changes. Independent review and original parent-task acceptance remain required. A report alone is incomplete.',
+                parent_task_ids=sorted({g.get('parent_task_id') for g in gaps if g.get('parent_task_id')}))
         for gap in gaps:
             gap['task_id'] = task_id
         previous = focus.get(task_id, {})
