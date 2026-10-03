@@ -4307,5 +4307,41 @@
       "pnl": 2.7
     },
     "interpretation": "No settled post-limit comparison; no causal claim for or against volume limits. The retrospective family analysis is diagnostic, not an untouched validation set."
+  },
+  "nhl_total_diagnostic": {
+    "reviewer": "Codex core_markets_sizing read-only diagnosis",
+    "sample": {
+      "decisions": 22,
+      "games": 12,
+      "won": 3,
+      "lost": 15,
+      "push": 4,
+      "pnl": -14.4499
+    },
+    "predicted_total_mean": 5.901,
+    "observed_total_mean": 6.667,
+    "residual_sd": 3.462,
+    "without_one_16_goal_game": {
+      "mean_error": -0.052,
+      "residual_sd": 2.087
+    },
+    "mean_model_predictive_sd": 2.303,
+    "official_game_type": 2,
+    "original_mean_forecasts_reproduced": 12,
+    "confirmed_goalie_feature_present": false,
+    "anchored_decisions": 5,
+    "hypotheses": [
+      {
+        "task": "D27",
+        "claim": "Empirical residual support and exact-line calibration may miss tail events. A631-row residual pool assigned no support to the observed16-goal total in one game.",
+        "experiment": "Freeze mean model; compare current empirical residual distribution with a preregistered nonnegative heavier-tail residual mixture using exact lines/pushes, logscore, CRPS and tail coverage. Do not widen all variances from one outlier."
+      },
+      {
+        "task": "D29",
+        "claim": "Season opening, missing confirmed goalie and issuance regime may have different conditional errors.",
+        "experiment": "Separate season-stage, goalie evidence state, Over/Under and issue-regime cohorts; test goalie features only with retained pre-start confirmation and prior stats. Later boxscores cannot establish earlier availability."
+      }
+    ],
+    "validation_boundary": "This already-inspected2026 cohort is retrospective diagnostic evidence, never a new untouched holdout. Use chronological train/development/calibration and fresh prospective final evidence; no live model promotion is authorized by this diagnostic."
   }
 }

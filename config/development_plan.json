@@ -731,7 +731,10 @@
       ],
       "data_source": "Durable learning_jobs and learning_attempts: outcome ef6845202c7307a5e913cbca waited08:01:54–08:20:53 UTC behind shadow and source jobs.",
       "acceptance": "Aged eligible feedback is selected before source refresh/shadow, never ahead of genuine restore or before next_attempt; original attempts and wagers unchanged; full tests, independent review and runtime evidence.",
-      "status": "attention_required"
+      "status": "live_verified",
+      "completed_at": "2026-10-03T08:47:53.147391+00:00",
+      "code_commit": "bbae92352af8261fe3005f82ff5f051a8af38a2c",
+      "live_evidence": "data/releases/root-feedback-fairness-20261003/release.json"
     }
   ],
   "deferred": [
@@ -786,6 +789,28 @@
           "path": "docs/audits/20261001-0726-model-work.json",
           "sha256": "75135e385cfb9db0205a9b119eabb35044c9194f45f3b3cc723e27924a851a76",
           "bytes": 19881
+        }
+      ]
+    },
+    "D27": {
+      "version": "root-shared-task-diagnostics-v1",
+      "scope": "already_inspected_model_outcome_diagnostics",
+      "files": [
+        {
+          "path": "docs/audits/20261003-performance-36h-after-recovery.json",
+          "sha256": "fa120fa4a0095754c317ebbc1da9d83f0e09dd62ac3e5a7af5bbe058a158846a",
+          "bytes": 103723
+        }
+      ]
+    },
+    "D29": {
+      "version": "root-shared-task-diagnostics-v1",
+      "scope": "already_inspected_model_outcome_diagnostics",
+      "files": [
+        {
+          "path": "docs/audits/20261003-performance-36h-after-recovery.json",
+          "sha256": "fa120fa4a0095754c317ebbc1da9d83f0e09dd62ac3e5a7af5bbe058a158846a",
+          "bytes": 103723
         }
       ]
     }

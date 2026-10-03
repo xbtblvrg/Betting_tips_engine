@@ -1,3 +1,11 @@
+## 2026-10-03 — Eredményvisszacsatolás prioritásjavítása élesben (D36)
+
+- Kód: `bbae923`; `bounded-learning-fairness-v2`. A legalább 300 másodperce futtatható outcome/closing feladat előresorolódik a source refresh/shadow/background munkák elé. A tényleges model/segment/period restore, retry-backoff és egyetlen OS-lock megmarad; ez prioritásküszöb, nem 300 másodperces befejezési garancia.
+- Független Codex ACCEPT, 64 célzott teszt. Teljes Python: 6242 passed, 1 skipped, 5 subtests; frontend: 272 passed. Egy korábbi CLI-startup teszt időtúllépése megőrizve; külön6/6, majd teljes6242/6242 sikeres, változatlan tesztekkel. Az átmeneti hiba pontos külső oka nincs megállapítva.
+- Biztonságos worker-újraindítás 08:44:57 UTC: OS-lock megszerezve, 0 futó/megszakított job. V2 élő admission 08:45:17 UTC, valódi1768 attempt sikeresen completed. A teljes meglévő háttérforgás működik; ekkor nem volt overdue feedback, annak előresorolását regressziós teszt igazolja.
+- Helyi/Tailscale publikáció6609:13/13 végrehajtható kártya,14/20 napi első kiadás, error=null. 741 eredeti szelvény,740 döntés,733 kiadás,378 eredmény változatlan. Bizonyíték:`data/releases/root-feedback-fairness-20261003/release.json`.
+- A helyreállított377 eredeti lezárt döntés outcome_review-ja 08:21:27 UTC-kor befejeződött (ef6845202c7307a5e913cbca). Ez eredménydiagnosztika, nem automatikus modellpromóció. D27/D29 megkapta a rögzített NHL-total diagnózist: az egyetlen16-gólos szélsőség nélkül nincs általános átlag- vagy szóráshiba-igazolás; exact-line tail-kalibráció és korabeli kapusinput célzott kísérlete következik. Új modell/WR/ROI-javulás nincs állítva.
+
 ## 2026-10-03 — Kvalifikált családválasztás éles javítása (D35)
 
 - Éles kód: `edc850d`; aktív `family_selection_policy=qualified_probability_v1`. Ugyanazon meccs/család és finanszírozási szint jelöltjei között a végső, horgonyzott/kalibrált tényleges nyerési esély az első, a stresszelt EV a holtverseny-felbontó. A push/no-loss esély nem nyerési esély. A funding, CLV, kitettség és korábbi döntések változatlanok.
