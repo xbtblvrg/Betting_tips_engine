@@ -22,7 +22,7 @@ def test_timeout_hold_dispatches_deduplicated_independent_repair(tmp_path, monke
     candidate.parent.mkdir(parents=True)
     candidate.write_text('def checkpoint(): return 3\n')
     (path.parent / 'candidate-manifest.json').write_text(json.dumps({'src/betting_engine/checkpoint.py': hashlib.sha256(candidate.read_bytes()).hexdigest()}))
-    (path.parent / 'implementation.provider-1.stdout.log').write_text('retained diagnostics\n')
+    (path.parent / 'implementation.provider-1.stdout.log').write_text('x' * (1536 * 1024))
     state = {'tasks': {'D27': {'state': 'retry', 'run_id': rid, 'last_error': result['error'],
         'timeout_recovery_hold': {'state': 'awaiting_changed_controller', 'source_run_id': rid,
             'controller_sha256': 'a' * 64}}}}
@@ -51,6 +51,7 @@ def test_timeout_hold_dispatches_deduplicated_independent_repair(tmp_path, monke
     prefix = 'data/engineering-evidence/checkpoints/runs/' + rid
     assert (workspace / prefix / 'files/src/betting_engine/checkpoint.py').read_bytes() == candidate.read_bytes()
     assert prefix + '/implementation.provider-1.stdout.log' in paths
+    assert (workspace / prefix / 'implementation.provider-1.stdout.log').stat().st_size == 1536 * 1024
     assert prefix + '/run.json' in paths
     candidate.write_text('tampered')
     rejected_workspace = tmp_path / 'rejected-child'

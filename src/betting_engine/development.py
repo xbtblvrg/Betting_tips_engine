@@ -795,7 +795,7 @@ def copy_task_evidence(folder, workspace, task):
                     if (rel.is_absolute() or '..' in rel.parts
                             or rel.parts[:2] != ('runs', rid)):
                         raise ValueError('invalid checkpoint path')
-                    data = _recovery_bytes(folder, str(rel))
+                    data = _recovery_bytes(folder, str(rel), limit=2 * 1024 * 1024)
                     total += len(data)
                     if total > 16 * 1024 * 1024 or hashlib.sha256(data).hexdigest() != item.get('sha256'):
                         raise ValueError('checkpoint budget or hash mismatch')
