@@ -204,6 +204,8 @@ function stakeDisplay(t){return view==='tips'&&executableInstruction(t)?'Bet $'+
 function trackingMarkup(t){if(view==='tips'&&pendingInstruction(t))return `<p class="panel-copy">Bet $${num(t.tracked_bet.stake)} once on this exact selection. If already placed, mark it as placed instead of repeating it.</p>`;return t.tracked_bet?`<p class="panel-copy">Original record: $${num(t.tracked_bet.stake)} at ${num(t.tracked_bet.odds)} on ${esc(when(t.tracked_bet.created_at))}. No additional bet is requested.</p>`:''}
 function renderStats(){
  const ready=visibleTips(readyTips()),visible=visibleTips(liveTips()),amount=ready.reduce((n,t)=>n+instructionStake(t),0),p=data?.status?.daily_progress||{},league=$('#league-filter').value;
+ const readyIds=new Set(ready.map(t=>t.id));
+ const changed=visibleTips(todayIssuedTips().filter(t=>!readyIds.has(t.id)&&!isPlaced(t))).length;
  const filteredFirst=(p.issuance_rows?issuedRowsVisible(p.issuance_rows):[]).length || (!p.issuance_rows?(p.first_issued_today??p.issued??0):0);
  const marked=visible.filter(isPlaced).length;
  const started=(data?.evaluated_candidates||[]).filter(t=>(league==='all'||t.league===league)&&(!t.start||new Date(t.start)<=new Date()||t.expired)).length;
@@ -211,6 +213,7 @@ function renderStats(){
  $('#stats').innerHTML=[
   ['First issued today',filteredFirst,'Shared immutable issuance count'],
   ['Ready to Bet',ready.length,'Filtered, fresh, funded and qualified'],
+  ['Changed / No bet anymore',changed,'Issued today, upcoming, no longer qualifying'],
   ['Marked placed',marked,'Filtered checklist records'],
   ['Started / expired',started,'Filtered lifecycle rows'],
   ['No longer recommended',noLonger,'Tracked, reassessed rows'],

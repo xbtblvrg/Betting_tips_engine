@@ -605,7 +605,7 @@ test('today issued changed selections stay in the Betting Picks card list',async
  const changed={...tip,id,stake:1,reference_odds:2,created_at:new Date().toISOString(),tracking_source:'auto_assumed_placed',stake_market:{event_url:'https://stake.com/sports/basketball/usa/nba/events/g',tab:'Main'}};
  const record={id:7,tip_id:id,stake:1,odds:2,status:'open',created_at:changed.created_at,payload:changed,instruction_review:{actionable:false,reason:'Model no longer supports'}};
  const {w,d,writes}=await boot({recommendations:[],evaluated_candidates:[],tracked_bets:[record],status:{daily_progress:{issuance_rows:[{tip_id:id,issued_at:new Date().toISOString(),start:tip.start}]}}});
- const card=d.querySelector('.changed-card');assert.ok(card);assert.match(card.textContent,/No bet anymore/);assert.match(card.textContent,/Model no longer supports/);assert.match(card.textContent,/View on Stake/);assert.equal(card.querySelector('.stake-bet-button').getAttribute('href'),'https://stake.com/sports/basketball/usa/nba/events/g');assert.deepEqual(writes,[]);await w.happyDOM.close();
+ const card=d.querySelector('.changed-card');assert.ok(card);assert.match(card.textContent,/No bet anymore/);assert.match(card.textContent,/Model no longer supports/);assert.match(card.textContent,/View on Stake/);assert.equal(card.querySelector('.stake-bet-button').getAttribute('href'),'https://stake.com/sports/basketball/usa/nba/events/g');assert.match(d.querySelector('#stats').textContent,/Changed \/ No bet anymore\s*1/);assert.deepEqual(writes,[]);await w.happyDOM.close();
 });
 test('started and marked daily records are excluded while future changed records remain',async()=>{
  const futureId='future-changed',startedId='started-daily',markedId='marked-daily';
