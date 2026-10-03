@@ -281,14 +281,15 @@ def assess_capacity(samples, config, active_count, state=None, *, now=None):
         out.update(state='warming_up', reasons=['first_native_delta_pending'])
         return out, next_state
     if metrics['memory_pressure'] == 2:
-        # User-authorized progress under warning pressure: one lane, not a
+        # User-authorized progress under warning pressure: bounded lanes, not a
         # blanket stop. Critical pressure and all independent hard gates above
         # still block new work; existing workers are never terminated here.
-        slots = min(1, cfg['slots'])
+        spare_gib = metrics['memory_headroom_proxy_bytes'] / GIB - cfg['memory_reserve_gib']
+        slots = min(cfg['slots'], max(1, min(2, int(spare_gib // 2))))
         next_state = {'healthy_samples': 0, 'last_sample': latest.get('monotonic'), 'allowed_slots': slots}
         out.update(allowed_slots=slots, allow_new=active_count < slots,
                    state='reduced_capacity' if active_count < slots else 'at_capacity',
-                   reasons=['memory_warning_single_lane'])
+                   reasons=['memory_warning_reduced_lanes'])
         return out, next_state
     sample_id = latest.get('monotonic')
     healthy = previous.get('healthy_samples', 0)

@@ -239,14 +239,14 @@ def test_only_complete_first_sample_has_bounded_nonfault_warming_status():
     assert assess([sample(), sample()], now=BASE)[0]['state'] == 'telemetry_unavailable'
 
 
-def test_warning_pressure_keeps_one_lane_without_overdispatch():
+def test_warning_pressure_keeps_bounded_lanes_without_overdispatch():
     samples=[sample(0,memory_pressure=2),sample(5,memory_pressure=2)]
     result,state=assess(samples,active=0)
-    assert result['allow_new'] and result['allowed_slots']==1
+    assert result['allow_new'] and result['allowed_slots']==2
     assert result['state']=='reduced_capacity'
-    for active in (1,3):
+    for active in (2,3):
         result,_=assess(samples,active=active,state=state)
-        assert not result['allow_new'] and result['allowed_slots']==1
+        assert not result['allow_new'] and result['allowed_slots']==2
     samples.append(sample(10,memory_pressure=4))
     result,_=assess(samples,active=0,state=state)
     assert not result['allow_new'] and result['allowed_slots']==0
@@ -260,13 +260,13 @@ def test_warning_pressure_does_not_override_independent_limits(changes):
 
 def test_warning_normal_recovery_is_gradual_and_cpu_blocks_warning():
     samples=[sample(0,memory_pressure=2),sample(5,memory_pressure=2)]
-    _,state=assess(samples,active=1)
+    _,state=assess(samples,active=2)
     for t in (10,15):
         samples.append(sample(t))
-        result,state=assess(samples,active=1,state=state)
+        result,state=assess(samples,active=2,state=state)
         assert not result['allow_new']
     samples.append(sample(20))
-    result,_=assess(samples,active=1,state=state)
-    assert result['allow_new'] and result['allowed_slots']==2
+    result,_=assess(samples,active=2,state=state)
+    assert result['allow_new'] and result['allowed_slots']==3
     result,_=assess([sample(0,busy=90,memory_pressure=2),sample(5,busy=90,memory_pressure=2)],active=0)
     assert not result['allow_new'] and 'cpu_high_water' in result['reasons']
