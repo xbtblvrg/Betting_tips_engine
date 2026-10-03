@@ -39,8 +39,10 @@ def publication_limits(settings):
     row cannot silently disable the anti-flood guard.
     """
     version = settings.get('publication_limits_version')
-    if version not in (PUBLICATION_LIMITS_V1, PUBLICATION_LIMITS_V2):
+    if version is None:
         return None
+    if version not in (PUBLICATION_LIMITS_V1, PUBLICATION_LIMITS_V2):
+        raise ValueError('Unknown publication limits version')
     if version == PUBLICATION_LIMITS_V1:
         configured_event_cap = settings.get('max_per_event')
         event_cap = (min(3, int(configured_event_cap))

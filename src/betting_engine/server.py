@@ -240,6 +240,12 @@ def get_settings():return engine.store.settings()
 def put_settings(settings:Settings):
     values=settings.model_dump(exclude_unset=True)
     current=engine.store.settings()
+    if 'publication_limits_version' in values:
+        active_limits=current.get('publication_limits_version')
+        requested_limits=values['publication_limits_version']
+        if (active_limits in ('v1','v2') and requested_limits is None
+                or active_limits=='v2' and requested_limits!='v2'):
+            raise HTTPException(422,'The active publication exposure policy cannot be cleared or downgraded by a stale settings form.')
     active_target=current.get('daily_pick_target',20)
     minimum_active_target=100 if active_target>=100 else 40 if active_target>=40 else None
     if minimum_active_target is not None and values.get('daily_pick_target',minimum_active_target)<minimum_active_target:

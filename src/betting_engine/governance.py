@@ -46,6 +46,15 @@ def verify_publication(tip,now,active_settings=None):
     if not quality['passed']:
         raise ValueError('Publication blocked: model family quality evidence is missing or failed')
     if guard.get('candidate_sha256')!=evidence_digest(tip):raise ValueError('Publication blocked: candidate changed after evidence review')
+    if active_settings is not None:
+        from .decisions import publication_limits
+        active_limits = publication_limits(active_settings)
+        expected_limits = ({key: active_settings.get(key) for key in (
+            'publication_limits_version', 'max_new_funded_per_publication',
+            'max_per_event', 'max_period_per_event', 'max_stake_per_event',
+            'max_daily_family_share')} if active_limits is not None else None)
+        if guard.get('publication_limits') != expected_limits:
+            raise ValueError('Publication blocked: publication exposure limits changed after evidence review')
     selection_policy=family_selection_policy(guard)
     if selection_policy != family_selection_policy(tip):
         raise ValueError('Publication blocked: family selection policy receipt changed')
