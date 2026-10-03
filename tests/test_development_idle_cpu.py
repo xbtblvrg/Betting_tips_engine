@@ -101,3 +101,33 @@ def test_expansion_scan_is_bounded_and_receipt_change_invalidates(monkeypatch, t
     worker.state['tasks']['D1']['state'] = 'retry'
     worker._expand_work(plan, set())
     assert len(calls) == 3
+
+
+def test_definition_changes_invalidate_both_caches(monkeypatch, tmp_path):
+    root, _ = _project(tmp_path)
+    worker = DevelopmentWorker(root)
+    plan = json.loads((root / 'config' / 'development_plan.json').read_text())
+    calls = {'recovery': 0, 'expansion': 0}
+    def recover(*args, **kwargs):
+        calls['recovery'] += 1
+        return {}
+    def expand(*args, **kwargs):
+        calls['expansion'] += 1
+        return args[0]
+    monkeypatch.setattr(development, 'schedule_recoveries', recover)
+    monkeypatch.setattr(development, 'expand_work', expand)
+    def scan():
+        worker._schedule_recoveries(plan)
+        worker._expand_work(plan, set())
+    scan()
+    scan()
+    assert calls == {'recovery': 1, 'expansion': 1}
+    plan['tasks'][0]['acceptance'] = 'new acceptance'
+    scan()
+    assert calls == {'recovery': 2, 'expansion': 2}
+    worker.state['extra_tasks'] = [{'id': 'D2', 'priority': 1}]
+    scan()
+    assert calls == {'recovery': 3, 'expansion': 3}
+    worker.state['extra_tasks'][0]['priority'] = 2
+    scan()
+    assert calls == {'recovery': 4, 'expansion': 4}

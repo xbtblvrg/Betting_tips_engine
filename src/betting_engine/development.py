@@ -944,7 +944,8 @@ class DevelopmentWorker:
                 files.append((relative, _maintenance_path_token(path)))
         generation = self._input_generation if isinstance(self._input_generation, dict) else {}
         components = generation.get('components') if isinstance(generation.get('components'), dict) else {}
-        return (self._maintenance_task_rows(plan), generation.get('sha256'),
+        return (hashlib.sha256(json.dumps({'plan': plan, 'extra_tasks': self.state.get('extra_tasks', [])},sort_keys=True,separators=(',',':')).encode()).hexdigest(),
+            self._maintenance_task_rows(plan), generation.get('sha256'),
             tuple(sorted((str(k), str(v)) for k, v in components.items())),
             len(self.state.get('recovery_events', [])), tuple(files))
 
@@ -970,7 +971,8 @@ class DevelopmentWorker:
         for milestone in plan.get('milestones', []):
             path = self.root / 'data/development/releases' / (milestone.get('id', '') + '.json')
             receipts.append((milestone.get('id'), _maintenance_path_token(path)))
-        return (self._maintenance_task_rows(plan), tuple(sorted(str(x) for x in occupied)),
+        return (hashlib.sha256(json.dumps({'plan': plan, 'extra_tasks': self.state.get('extra_tasks', [])},sort_keys=True,separators=(',',':')).encode()).hexdigest(),
+            self._maintenance_task_rows(plan), tuple(sorted(str(x) for x in occupied)),
             tuple(receipts), tuple(t.get('id') for t in plan.get('tasks', [])))
 
     def _expand_work(self, plan, occupied=()):
