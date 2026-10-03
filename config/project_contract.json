@@ -120,7 +120,7 @@
     },
     {
       "id": "R24",
-      "rule": "Use the documented official Stake Sports Data API, retain complete responses with timestamps and hashes, cross-check tournament schedule and fixture lists, and fetch fixture detail plus odds per event. Preserve all standard/Swish contracts and unknown schema fields. Use one validated response per executable quote. Diagnose every upcoming fixture lacking a recommendation, retain recovery evidence, and supervise process and component health. NCAA scope is every sport available on Stake; train and validate college models separately from professional leagues. The 20/day target is a minimum objective, not a pick cap or permission to fabricate edge.",
+      "rule": "Use the documented official Stake Sports Data API, retain complete responses with timestamps and hashes, cross-check tournament schedule and fixture lists, and fetch fixture detail plus odds per event. Preserve all standard/Swish contracts and unknown schema fields. Use one validated response per executable quote. Diagnose every upcoming fixture lacking a recommendation, retain recovery evidence, and supervise process and component health. NCAA scope is every sport available on Stake; train and validate college models separately from professional leagues. The 40/day target is a minimum objective, not a pick cap or permission to fabricate edge.",
       "implementation": "stake_api.py; college.py; market_catalog.py; fixture operating audit; component_health.py; supervisor.py"
     },
     {
@@ -207,8 +207,8 @@
     },
     {
       "id": "R39",
-      "rule": "Latest user directive (2026-10-01): minimum20 distinct funded first issuances per Budapest day is the active delivery target, with no upper count cap. Activate it in durable settings without resetting the existing daily checkpoint or rewriting any prior decisions. Preserve all exact-contract, model/input, freshness, publication and USD1–5 checks. Persist timeout/error evidence and fixed deadlines; identify deterministic failures by actual retained logs and relevant input hashes, avoid repeated expensive unchanged attempts, and wake recovery on verified input changes. New declared model protocols/recipes must enqueue fresh isolated experiments without treating identical polls as new work; deploy only candidates that pass separated chronological promotion validation. Development activity and unvalidated hypotheses are not proof of accuracy or profit improvement.",
-      "implementation": "config/project_contract.json; durable settings.daily_pick_target=20; development.py; runtime_errors.py; engineering_loop.py; learning.py; experiments.py; tests/test_daily_target_twenty.py; release27 evidence"
+      "rule": "Latest user directive (2026-10-03): minimum40 distinct funded first issuances per Budapest day is the active delivery target, with no upper count cap. Activate it in durable settings without resetting the existing daily checkpoint or rewriting any prior decisions. Preserve all exact-contract, model/input, freshness, publication and USD1–5 checks. Persist timeout/error evidence and fixed deadlines; identify deterministic failures by actual retained logs and relevant input hashes, avoid repeated expensive unchanged attempts, and wake recovery on verified input changes. New declared model protocols/recipes must enqueue fresh isolated experiments without treating identical polls as new work; deploy only candidates that pass separated chronological promotion validation. Development activity and unvalidated hypotheses are not proof of accuracy or profit improvement.",
+      "implementation": "durable settings.daily_pick_target=40; tests/test_daily_target_forty.py; prior target20 tests retained for historical compatibility; D37 release evidence"
     },
     {
       "id": "R40",
@@ -217,7 +217,7 @@
     },
     {
       "id": "R41",
-      "rule": "When marking the last currently executable instruction as placed exhausts the list, durably request a coalesced priority 48-hour search through the existing refresh owner. Preserve request/attempt/interruption/outcome evidence and retry with backoff. Publish only novel qualified exact contracts; never count a held contract, price change, shadow observation or inferior-line rotation as new delivery. Prefer broader distinct-game coverage across NFL, NHL, MLB, WNBA and NBA where fixtures and valid modeled opportunities exist. The minimum20 daily target is not an upper cap; shortfalls produce concrete engineering work.",
+      "rule": "When marking the last currently executable instruction as placed exhausts the list, durably request a coalesced priority 48-hour search through the existing refresh owner. Preserve request/attempt/interruption/outcome evidence and retry with backoff. Publish only novel qualified exact contracts; never count a held contract, price change, shadow observation or inferior-line rotation as new delivery. Prefer broader distinct-game coverage across NFL, NHL, MLB, WNBA and NBA where fixtures and valid modeled opportunities exist. The minimum40 daily target is not an upper cap; shortfalls produce concrete engineering work.",
       "implementation": "instruction_refill.py; storage.py; engine.py; server.py; engineering_loop.py; tests/test_instruction_refill*.py"
     }
   ],
