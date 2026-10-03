@@ -203,6 +203,35 @@ def outcome_generation(inputs):
     return _digest({'evaluator': evaluator_identity(), 'inputs': inputs})
 
 
+def cumulative_monitor(stats):
+    """Monitor original-decision economics without changing live bet policy.
+
+    A drawdown is a diagnostic observation, never proof of a model defect or
+    authority to increase stakes. The current settlement curve is archived with
+    the ordinary outcome review; no parallel scheduler or ledger is introduced.
+    """
+    section = stats.get('system_decisions', {})
+    curve = section.get('cumulative_performance', {})
+    summary = curve.get('summary', {})
+    coverage = curve.get('coverage', {})
+    points = curve.get('points', [])
+    drawdown = summary.get('current_drawdown')
+    games = summary.get('games', summary.get('settled_games', 0)) or 0
+    state = ('unavailable' if not curve else 'awaiting_results' if not points
+             else 'drawdown_observed' if drawdown is not None and drawdown > 0
+             else 'observed')
+    return {'version': 'cumulative-outcome-monitor-v1', 'state': state,
+        'basis': 'Original immutable decisions; realised settlement-order P&L before operating costs.',
+        'summary': summary, 'coverage': coverage,
+        'top_markets': section.get('top_markets', []),
+        'curve_sha256': _digest(points), 'point_count': len(points),
+        'last_settlement_at': points[-1].get('at') if points else None,
+        'diagnostic_due': bool(drawdown is not None and drawdown > 0 and games >= 5),
+        'diagnostic_min_games': 5,
+        'action': 'Reproduce drawdown and identify contributing league/scope/market segments through the existing outcome-review workflow; validate any proposed correction before promotion.',
+        'automatic_stake_change': False, 'automatic_model_promotion': False}
+
+
 def _proposals(stats, inputs):
     result = []
     def add(kind, league, scope, family, evidence, reason, bucket, priority=1):
@@ -234,6 +263,13 @@ def _proposals(stats, inputs):
         if errors or group.get('excluded_money_rows'):
             add('outcome_integrity', league, scope, family, evidence,
                 f'Repair or explicitly account for {league} {scope} {family} outcome/decision evidence discrepancies; preserve original records.', 'source', 0)
+    curve_monitor = cumulative_monitor(stats)
+    if curve_monitor['diagnostic_due']:
+        add('cumulative_drawdown', 'SYSTEM', 'all_scopes', 'portfolio',
+            {'monitor': curve_monitor, 'original_decision_ids': sorted(str(r['family']) for r in inputs['decisions']),
+             'input_sha256': _digest(inputs), 'limitation': LIMITATION},
+            f"Investigate cumulative original-decision drawdown of ${curve_monitor['summary']['current_drawdown']:.4f}; compare contributing segments, ROI and win rate using original outcomes.",
+            'economics')
     coverage = stats['system_decisions'].get('source_coverage', {})
     # Source coverage is a declared-evidence classification, not a filesystem
     # archive verification. Even hash-referenced rows require real verification.
@@ -279,7 +315,8 @@ def record_outcome_feedback(data_dir, bets, decisions, bet_outcomes, *, as_of=No
             stats = build_statistics(**inputs, as_of=now)
             review = {'version': VERSION, 'generation': generation, 'reviewed_at': now.isoformat(),
                 'evaluator': evaluator_identity(), 'input_sha256': _digest(inputs), 'inputs': inputs,
-                'statistics': stats, 'proposals': _proposals(stats, inputs), 'limitation': LIMITATION}
+                'statistics': stats, 'cumulative_monitor': cumulative_monitor(stats),
+                'proposals': _proposals(stats, inputs), 'limitation': LIMITATION}
             body = json.dumps(review, allow_nan=False).encode()
             if len(body) > MAX_BYTES: raise ValueError('feedback_review_limit')
             atomic_json(archive, review); review, sha = _read(archive)
@@ -418,6 +455,7 @@ def read_outcome_feedback(data_dir, *, now=None, development_state=None, include
                 'input_sha256': latest['input_sha256'], 'review_path': 'data/' + state['latest_review']['path'],
                 'review_sha256': state['latest_review']['sha256'], 'generation': latest['generation'],
                 'statistics_evidence_sha256': latest['statistics']['evidence_sha256'], 'proposals': proposals,
+                'cumulative_monitor': latest.get('cumulative_monitor', {'state': 'unavailable', 'reason': 'Earlier review predates the cumulative monitor.'}),
                 'stages': {'settlement': 'recorded_scope_evidence_retained', 'diagnosis': 'reproducible_archived_inputs',
                            'engineering': 'assigned' if any(p.get('task', {}).get('id') for p in proposals) else 'awaiting_intake',
                            'retraining': 'separate_controlled_workflow', 'model_promotion': 'existing_validation_required'}}

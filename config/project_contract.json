@@ -613,5 +613,12 @@
       "odds_preference": "Preference among comparably qualified opportunities, not a minimum-odds exclusion or permission to weaken probability, price, evidence or exposure checks. Current probability-first then stressed-ROI selection remains active.",
       "measurement": "Track stake, payout, net betting P&L, WR, ROI, sample size, calibration and CLV. Higher volume or a selected model probability alone does not establish improvement; keep operating costs separate."
     }
+  },
+  "cumulative_performance": {
+    "requested_at": "2026-10-03",
+    "basis": "Realised net betting P&L accumulated in observed settlement order; open exposure and operating costs excluded. Ticket cash and immutable original-decision curves remain distinct.",
+    "presentation": "Statistics: cumulative PnL chart, same-cohort ROI and WR, top5positive netPnL scope/market families with stake and independent-game/sample counts. Existing filters apply.",
+    "monitoring": "Existing durable outcome-review workflow archives original-decision curve metrics and routes observed drawdowns with >=5games to existing economics development intake; no new scheduler or automatic stake/model change.",
+    "integrity": "Missing money/time coverage explicit; no fabricated chronological points, original decisions and bets immutable; small positive samples are descriptive not proof of profitable predictions."
   }
 }

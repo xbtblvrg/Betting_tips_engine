@@ -192,3 +192,8 @@ The latest explicit user instruction supersedes older volume caps: activate publ
 ## Quality and odds preference (2026-10-03)
 
 Mandatory objective: improve net betting P&L and ROI, pursuing higher WR with broad qualified volume. Prefer decimal odds above1.50 among comparably qualified opportunities; this is not a hard exclusion of lower odds or permission to weaken probability/EV/evidence/exposure checks. Preserve the active probability-first, stressed-ROI-second selection until a reviewed policy replacement. Assess improvement on original resolved decisions by league/scope/family with independent-game counts; volume or model estimates alone cannot establish gains.
+
+
+## Cumulative outcome performance (2026-10-03)
+
+Show cumulative realised P&L in Statistics in observed settlement order, with same-cohort ROI/WR and top five positive-net-P&L scope/market families. Keep ticket cash and original engine decisions distinct, preserve date/league/execution filters and expose missing-time/money coverage. Rank observed success descriptively, with samples and independent-game uncertainty; never infer future profitability from rank. Feed the original-decision curve and drawdown to the existing durable outcome review and economics repair intake, retaining all original records and model/placement guards. No new scheduler or automatic stake/model change is authorized by this display/monitoring feature.
