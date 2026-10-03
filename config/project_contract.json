@@ -25,7 +25,7 @@
     },
     {
       "id": "R05",
-      "rule": "Deliver at least 20 distinct funded first issuances per Budapest calendar day, with no upper count cap, across as many different games as valid opportunities permit. The latest user clarification rejects a blanket funding shutdown solely for insufficient historical CLV. Keep exact fresh quotes, independent models, model/input quality and the explicitly active funding-policy/sizing gates. The authorized fallback tiers in R34 change return preference only; the daily target is not guaranteed and does not authorize padding. Report shortfalls and create concrete development work; never count shadow observations, repricing, old decisions or duplicate tickets. On the explicitly requested reset day, count first funded issuances only since the audited release checkpoint. Preserve the full calendar-day history separately; never count a revalidated old instruction as a new ticket. The next local midnight restores normal daily counting.",
+      "rule": "Deliver at least 40 distinct funded first issuances per Budapest calendar day, with no upper count cap, across as many different games as valid opportunities permit. The latest user clarification rejects a blanket funding shutdown solely for insufficient historical CLV. Keep exact fresh quotes, independent models, model/input quality and the explicitly active funding-policy/sizing gates. The authorized fallback tiers in R34 change return preference only; the daily target is not guaranteed and does not authorize padding. Report shortfalls and create concrete development work; never count shadow observations, repricing, old decisions or duplicate tickets. On the explicitly requested reset day, count first funded issuances only since the audited release checkpoint. Preserve the full calendar-day history separately; never count a revalidated old instruction as a new ticket. The next local midnight restores normal daily counting.",
       "implementation": "recommendation_issuance; daily_target_checkpoints; Store.daily_progress"
     },
     {
@@ -100,7 +100,7 @@
     },
     {
       "id": "R20",
-      "rule": "Continuously audit every modeled league and MLS inventory for source failures, missing artifacts, matching failures and unmodeled market types. Run durable source recovery and exact approved-model restoration; retain unresolved implementation gaps after research jobs complete. Discover primary-source research separately for each league daily. Price stress_value instructions within $1–$5 using stressed probability, exact odds and related-game exposure, and apply the active versioned sizing policy to fallback tiers without a tier-specific USD1 maximum under all_tiers_weighted_v3; retain original issued stakes. Without a bankroll, disclose bounded unit sizing as a heuristic, never personalized Kelly. Daily volume remains 20 distinct funded first issuances without fabricating edge or new contracts.",
+      "rule": "Continuously audit every modeled league and MLS inventory for source failures, missing artifacts, matching failures and unmodeled market types. Run durable source recovery and exact approved-model restoration; retain unresolved implementation gaps after research jobs complete. Discover primary-source research separately for each league daily. Price stress_value instructions within $1–$5 using stressed probability, exact odds and related-game exposure, and apply the active versioned sizing policy to fallback tiers without a tier-specific USD1 maximum under all_tiers_weighted_v3; retain original issued stakes. Without a bankroll, disclose bounded unit sizing as a heuristic, never personalized Kelly. Daily volume remains 40 distinct funded first issuances without fabricating edge or new contracts.",
       "implementation": "operations.py; LearningWorker operating_gaps; stake_assessment; per-league research sources; English coverage UI"
     },
     {
@@ -595,5 +595,15 @@
       "no automatic bet placement"
     ],
     "evidence_rule": "Report prospective original-decision outcomes; retrospective family profit does not prove the policy improves performance."
+  },
+  "daily_outcome_sizing_directive": {
+    "date": "2026-10-03",
+    "daily_pick_target": 40,
+    "count_definition": "Distinct funded first issuances per Europe/Budapest calendar day; not simultaneous open cards. Preserve checkpoint and original dates. Report actual shortfall without padding.",
+    "coverage": "Do not narrow leagues or market types. Preserve all current source/model/price/funding and exposure guards.",
+    "sizing_policy": "historical_game_weighted_v1",
+    "evidence": "Original settled funded engine decisions, league x scope x canonical allocation family, equal-weight independent games; odds-adjusted win-rate surplus and realized ROI; past-only availability cutoff and reproducible digest.",
+    "limits": "USD1–5; maximum5; daily_risk_limit=null; existing game and publication caps; original stakes unchanged; no automated placement.",
+    "interpretation": "Historical outcome multiplier is a shrinkage heuristic, not proof of future profit or a probability estimate."
   }
 }

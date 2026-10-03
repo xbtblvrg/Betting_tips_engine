@@ -735,6 +735,33 @@
       "completed_at": "2026-10-03T08:47:53.147391+00:00",
       "code_commit": "bbae92352af8261fe3005f82ff5f051a8af38a2c",
       "live_evidence": "data/releases/root-feedback-fairness-20261003/release.json"
+    },
+    {
+      "id": "D37",
+      "milestone": "M09",
+      "priority": 0,
+      "title": "Forty daily first issuances and outcome-informed reproducible sizing",
+      "owner": "Codex outcome evidence; Codex integration; independent Codex review; root release",
+      "created_at": "2026-10-03T08:58:21.876337+00:00",
+      "due_at": "2026-10-03T10:15:00+00:00",
+      "depends_on": [],
+      "objective": "Raise active target40 without resetting counts or narrowing coverage; adapt new stakes to past original game-balanced family outcomes.",
+      "implementation_steps": [
+        "Persist target40 and preserve checkpoint/count definitions.",
+        "Compute time-valid original outcome summaries by league/scope/family with game-balanced ROI and odds-adjusted WR surplus; shrink sparse evidence.",
+        "Integrate sealed sizing trace and atomic original-source verification, preserving every funding and exposure gate.",
+        "Targeted regression tests, independent review, complete tests, trusted release and local/Tailscale live verification."
+      ],
+      "files": [
+        "src/betting_engine/outcome_sizing.py",
+        "src/betting_engine/funding_policy.py",
+        "src/betting_engine/engine.py",
+        "src/betting_engine/governance.py",
+        "src/betting_engine/storage.py"
+      ],
+      "data_source": "Immutable original funded system_decisions and timestamped settlement evidence, no ticket duplication.",
+      "acceptance": "Live target40 with unchanged checkpoint/originals and no league/family narrowing; new sizing traces reproduce from past immutable outcomes and honor USD1–5/game caps; tests, independent review and local/Tailscale evidence. Historical performance is not claimed future improvement.",
+      "status": "attention_required"
     }
   ],
   "deferred": [
