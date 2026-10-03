@@ -94,3 +94,9 @@ def test_stale_cached_healthy_audit_cannot_close_existing_failure(tmp_path):
     row=json.loads((tmp_path/'data/development/engineering.json').read_text())['gaps']['component:Stability execution counts']
     assert row['state']=='open' and row['observations']==1
     assert row['last_observed_at']==now.isoformat()
+
+
+def test_null_previous_audit_timestamp_rebuilds_instead_of_crashing():
+    now=utcnow();result,dashboard=inputs(now)
+    audit=stability_audit(result,{'stability_audit':{'checked_at':None}},now,lambda:dashboard,lambda:'10 /bin/python -m uvicorn betting_engine.server:app')
+    assert audit['state']=='stable' and audit['checked_at']==now.isoformat()

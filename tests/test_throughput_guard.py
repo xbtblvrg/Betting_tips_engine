@@ -54,3 +54,15 @@ def test_unreadable_metadata_is_not_healthy_or_destructively_recreated(tmp_path)
     checks,_=throughput_checks(tmp_path,{}, {},utcnow())
     row=next(c for c in checks if c['component']=='Shadow report size')
     assert row['state']=='degraded' and path.read_bytes()==b'bad database'
+
+
+def test_running_to_resource_wait_starts_timer_when_prior_since_is_null(tmp_path):
+    now=utcnow()
+    obs={'development':{'pid':123,'state':'running','active_count':1,'checked_at':now.isoformat()}}
+    _,memory=throughput_checks(tmp_path,obs,{},now)
+    assert memory['development_wait']['since'] is None
+    later=now+timedelta(minutes=1)
+    obs['development'].update(state='resource_wait',active_count=0,checked_at=later.isoformat())
+    checks,memory=throughput_checks(tmp_path,obs,{'throughput_memory':memory},later,cpu_reader=lambda pid:1)
+    assert memory['development_wait']['since']==later.isoformat()
+    assert next(c for c in checks if c['component']=='Development resource wait')['wait_seconds']==0

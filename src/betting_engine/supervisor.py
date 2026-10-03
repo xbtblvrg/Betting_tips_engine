@@ -178,9 +178,9 @@ def throughput_checks(data, observations, previous, now, cpu_reader=None):
         waiting=dev.get('state')=='resource_wait' and not dev.get('active_count')
         prior=memory.get('development_wait',{})
         same=prior.get('pid')==dev.get('pid')
-        since=prior.get('since') if waiting and same else now.isoformat()
+        since=(prior.get('since') or now.isoformat()) if waiting and same else now.isoformat()
         try:duration=(now-parse_time(since)).total_seconds()
-        except (TypeError,ValueError):since=now.isoformat();duration=0
+        except (AttributeError,TypeError,ValueError):since=now.isoformat();duration=0
         cpu=None
         if waiting:
             try:
@@ -192,7 +192,7 @@ def throughput_checks(data, observations, previous, now, cpu_reader=None):
             except (ValueError,TypeError,KeyError,OSError,subprocess.SubprocessError):cpu=None
         prior_at=prior.get('observed_at')
         try:consecutive=same and 30<=(now-parse_time(prior_at)).total_seconds()<=180
-        except (TypeError,ValueError):consecutive=False
+        except (AttributeError,TypeError,ValueError):consecutive=False
         hits=(prior.get('high_cpu_samples',0) if consecutive else 0)+1 if waiting and cpu is not None and cpu>=50 else 0
         current['development_wait']={'pid':dev.get('pid'),'since':since if waiting else None,'observed_at':now.isoformat(),'high_cpu_samples':hits,'cpu_percent_one_core':cpu}
         add('Development resource wait','degraded' if waiting and duration>=300 else 'healthy',
@@ -215,7 +215,7 @@ def stability_audit(result, previous, now, dashboard_reader=None, process_reader
     try:
         if 0 <= (now-parse_time(old['checked_at'])).total_seconds() < 900:
             return old
-    except (KeyError,TypeError,ValueError):pass
+    except (AttributeError,KeyError,TypeError,ValueError):pass
     checks=[]
     active=set(result.get('development',{}).get('progress',{}).get('active_tasks',[]))
     def add(name,ok,detail,task='D14'):
