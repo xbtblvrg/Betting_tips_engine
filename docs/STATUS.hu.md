@@ -1,3 +1,12 @@
+## 2026-10-03 — Kvalifikált családválasztás éles javítása (D35)
+
+- Éles kód: `edc850d`; aktív `family_selection_policy=qualified_probability_v1`. Ugyanazon meccs/család és finanszírozási szint jelöltjei között a végső, horgonyzott/kalibrált tényleges nyerési esély az első, a stresszelt EV a holtverseny-felbontó. A push/no-loss esély nem nyerési esély. A funding, CLV, kitettség és korábbi döntések változatlanok.
+- Független Codex review: ACCEPT, 341 célzott teszt. Teljes Python: 6236 passed, 1 skipped, 5 subtests; frontend: 272 passed. Az első izolált futásból hiányzó tudáskártyák okozta hibák és pótlásuk megőrizve; guardot/tesztet nem lazítottunk.
+- Éles publikáció: 6583, 08:18:15 UTC; helyi és Tailscale DOM/API: 13/13 végrehajtható utasítás, 14/20 napi első kiadás, engine error=null. A következő 6584 publikáció 3208 őrzött jelöltjének policy/seal ellenőrzése és 35 megfelelő család nyertesének újraszámítása sikeres. Nincs mesterséges új kiadás.
+- 741 korábbi szelvény, 740 eredeti rendszer-döntés, 733 kiadási rekord és 378 elszámolás hash-ellenőrzéssel változatlan. Bizonyíték: `data/releases/root-qualified-selection-20261003/release.json`.
+- A rögzített 36 órás diagnosztikában Winner +19,2004 USD, Handicap +19,0539 USD; periódus/inning Winner–DNB −4,98 USD. NHL teljes meccses Total: −14,4499 USD, 12 meccs. Ez kutatási diagnózis, nem automatikus családtiltás vagy igazolt modellfejlődés. Részletek az eredeti `docs/audits/20261003-performance-36h-after-recovery.json` kibővített családbontásában.
+- A korlátozások utáni 47 döntés / 46 meccs az összevetéskor még nyitott; a korábbi pozitív eredményből nem állapítható meg a szűkítés hatása. Következő fókusz D27/D29: NHL total kalibráció és prospektív, meccscsoportos eredménymérés.
+
 ## 2026-10-03 09:47 CEST — teljes eredménykövetés és 36 órás mérés
 
 D34 éles javítás: `9d02880` (integráció), `7fb10ab` (pontos ESPN eredmény-visszapótlás). A rolling naptárból kieső négy NCAAF-meccs és az elavult WNBA-sor 16 eredeti fogadása az éles engine normál elszámolásával lezárult: 13 win / 3 loss, +$30.0409. Most **378 lezárt ticket / 378 matching outcome**, **363 jövőbeli open**, **0 elkezdődött open**. 741 ticket, 740 eredeti döntés, 733 issuance és minden korábban lezárt outcome változatlan hashű; a helyreállítás kizárólag új eredményeket csatolt.

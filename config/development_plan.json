@@ -704,8 +704,11 @@
       ],
       "data_source": "Current guarded anchored/calibrated candidates; exact current quotes; immutable originals for exposure only.",
       "acceptance": "New live guarded publications record the policy; qualified family selection follows probability before stress ROI without funding an ineligible or lower-tier candidate, increasing limits, changing originals, or asserting unmeasured WR/ROI improvement. Targeted/full tests, independent review, and local/Tailscale verification succeed.",
-      "status": "attention_required",
-      "evidence": "docs/audits/20261003-performance-36h-after-recovery.json"
+      "status": "live_verified",
+      "evidence": "docs/audits/20261003-performance-36h-after-recovery.json",
+      "completed_at": "2026-10-03T08:21:32.929477+00:00",
+      "code_commit": "edc850d7b73e72667968e103062876658101e83d",
+      "live_evidence": "data/releases/root-qualified-selection-20261003/release.json"
     }
   ],
   "deferred": [
