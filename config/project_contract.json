@@ -690,5 +690,20 @@
     "policy": "historical_confidence_v3",
     "instruction": "Use final reviewed win probability, model-market agreement, verified input completeness and game-shrunken positive historical performance for meaningful USD1-5 sizing, preserving active caps and original decisions. Losing history alone must not boost confidence.",
     "unplaced_batch": "User declares current50ready instructions unplaced and authorizes audited replacement execution sizing, not new tickets or increased first-issuance count. Preserve before-record in reconciliation audit; never overwrite system_decisions or original issuance stakes."
+  },
+  "mandatory_execution_assignment": {
+    "updated_at": "2026-10-03T15:41:29.224900+00:00",
+    "plan": "config/development_plan.json",
+    "tasks": [
+      "D27",
+      "D29",
+      "D26",
+      "D28",
+      "D30",
+      "D33"
+    ],
+    "supervisor": "D14 / existing DevelopmentWorker, engineering intake and supervisor",
+    "acceptance_checker": "D15 / existing release coordinator and independent Codex review",
+    "closure": "Commit, successful tests, independent review, trusted release and current local/Tailscale source-pinned feature evidence; preserve task IDs, original deadlines, failures and incomplete stages. No new orchestration service or funding-policy change."
   }
 }

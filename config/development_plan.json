@@ -492,7 +492,7 @@
       "milestone": "M09",
       "priority": 2,
       "title": "Starter and season-context feature improvement",
-      "owner": "Codex isolated developer; root controlled integration",
+      "owner": "Codex isolated implementation; Root Codex integration; independent Codex reviewer",
       "created_at": "2026-10-01T11:26:53.657532+00:00",
       "due_at": "2026-10-02T11:30:00+00:00",
       "directive_requirements": [
@@ -500,15 +500,64 @@
         "A3"
       ],
       "objective": "Audit actual deployed features first; reuse MLB starter/history features that already exist. Repair targeted confirmed-starter availability and implement source-timed NHL goalies, NBA/WNBA injury and NFL QB features plus early-season shrinkage/playoff context as validated increments. Missing official starters stay missing; quotes do not substitute for sports inputs.",
-      "acceptance": "Exact source identity/availability, archived training input, chronological game-grouped comparison, honest missingness and source refresh recovery. No model activation from fixtures alone; existing guard/settlement behavior preserved.",
-      "depends_on": []
+      "acceptance": "Exact source identity/availability, archived training input, chronological game-grouped comparison, honest missingness and source refresh recovery. No model activation from fixtures alone; existing guard/settlement behavior preserved. Completion also requires every completion_evidence field and the integration_plan gates; no report-only closure.",
+      "depends_on": [],
+      "files": [
+        "src/betting_engine/providers.py",
+        "src/betting_engine/models.py",
+        "src/betting_engine/engine.py",
+        "src/betting_engine/player_injury_context.py",
+        "src/betting_engine/context.py"
+      ],
+      "data_source": "Existing official sports feeds and archived feature evidence; confirmed NHL goalie, NFL QB/injury, MLB lineup, weather and season roster sources with timestamps.",
+      "implementation_steps": [
+        "Audit each existing collected field through its actual model consumer; classify observed, missing and unused separately.",
+        "Integrate confirmed NHL goalie first, then NFL QB/injury, MLB lineup, weather and roster/season context using free verifiable sources.",
+        "Keep source publication time, confirmation, missingness and training/live parity; do not infer confirmation from a projected lineup.",
+        "Test each feature with chronological ablation and integrate only validated versioned changes; retain incumbent fallback during source failure."
+      ],
+      "tests": [
+        "New feature availability/confirmation/training-live parity and source-failure regressions",
+        "Chronological game-disjoint ablations"
+      ],
+      "mandatory": true,
+      "execution_supervisor": "Existing DevelopmentWorker + engineering intake + supervisor; no new service. Preserve exclusive claims, active runs, backoff and original deadlines.",
+      "integration_owner": "Root Codex",
+      "independent_reviewer": "A separate Codex review, not the implementing agent; hash-pinned candidate output.",
+      "next_review_at": "2026-10-03T16:00:00+00:00",
+      "delivery_checkpoint_at": "2026-10-03T20:00:00+00:00",
+      "checkpoint_rule": "Review/checkpoint does not replace due_at. Preserve overdue status and failed attempts; report actual shipped increment and remaining acceptance criteria.",
+      "integration_plan": [
+        "Implement in exclusively claimed isolated workspace using frozen bounded read-only inputs; no production database, ledger or credential writes.",
+        "Run targeted behavioral/regression tests; attach exact code, input and output hashes to independent Codex review.",
+        "Root Codex integrates protected engine callers and explicit bounded release-policy allowlist; candidate cannot alter its own authorization. Preserve current funding, CLV and exposure configuration.",
+        "Run full Python/frontend release suite; trusted release only after review. Preserve incumbent on failure; rollback code/artifact pointer without rewriting decisions.",
+        "Verify fresh local and Tailscale publication with the same publication ID and code/artifact versions; confirm existing decision-chain guards and counters.",
+        "Only source-bound release/live evidence closes the corresponding operating gap and acceptance stage; update docs/STATUS.hu.md. candidate_ready alone is not completion."
+      ],
+      "completion_evidence": [
+        "commit",
+        "targeted_test_results",
+        "full_release_test_results",
+        "independent_review_hash",
+        "trusted_release_receipt",
+        "local_and_tailscale_publication_id",
+        "live_feature_version",
+        "original_decision_integrity",
+        "remaining_gaps"
+      ],
+      "failure_action": "Existing intake deduplicates by task/evidence identity, retains failure and deadline. After two same-cause attempts change implementation approach/provider; do not blindly retry unchanged inputs. Continue independent runnable tasks.",
+      "assignment_updated_at": "2026-10-03T15:41:29.224900+00:00",
+      "supervision_scope": "Existing scheduler enforces depends_on/claims/backoff and reads this task into its implementation prompt. Completion_evidence is a mandatory root/reviewer checklist, not a claim that a new automatic checker was implemented. D14/D15 remain existing capability tasks; live supervisor/worker/release coordinator own runtime monitoring.",
+      "advisory_delegation": "Antigravity: free confirmed source integration; Grok: timestamped injury/roster source cross-check.",
+      "advisory_rule": "Use existing isolated provider routing if available; no paid credits. Advisor failure does not block Codex implementation. Hash outputs and bind Codex acceptance; no automatic production writes."
     },
     {
       "id": "D27",
       "milestone": "M09",
-      "priority": 1,
+      "priority": 0,
       "title": "Learned market blending and own-decision calibration",
-      "owner": "Codex isolated developer; root controlled integration",
+      "owner": "Codex isolated implementation; Root Codex integration; independent Codex reviewer",
       "created_at": "2026-10-01T11:26:53.657532+00:00",
       "due_at": "2026-10-02T11:30:00+00:00",
       "directive_requirements": [
@@ -517,17 +566,69 @@
         "C7"
       ],
       "objective": "Build replayable league/family probability blending from independently retained sports probabilities and contemporaneous complete no-vig exact-market evidence. Learn weights/calibration on admissible earlier original/shadow observations; held-out final outcomes and future closing prices cannot enter issue-time features. Develop near-breakeven calibrated Probability Pick selection without fabricating positive EV or padding.",
-      "acceptance": "Separated fit/selection/calibration/test, game grouping, source hashes and as_of, complementary/push/line coherence, sparse-data fallback explicitly labeled, proper model/market comparator. Default no implicit production replacement. Checked integration must reproduce probability and funding receipts before activation.",
-      "depends_on": [
+      "acceptance": "Learned weights and post-anchor calibration are consumed by the live engine, source-version pinned and reproducible. No test leakage, independent-side mass violation, fabricated positive EV or implicit funding-policy change. Separate original and shadow cohorts; freeze recipe before prospective evaluation. Sparse segments explicitly retain fallback. Full release/review/live evidence required. Completion also requires every completion_evidence field and the integration_plan gates; no report-only closure.",
+      "depends_on": [],
+      "files": [
+        "src/betting_engine/market_anchor.py",
+        "src/betting_engine/calibration_uncertainty.py",
+        "src/betting_engine/decisions.py",
+        "src/betting_engine/learning.py",
+        "src/betting_engine/models.py"
+      ],
+      "data_source": "Frozen original issued decisions, issue-time complete Stake outcome quotes and outcome availability timestamps; separately identified prospective shadow observations. Polymarket optional after exact matching.",
+      "implementation_steps": [
+        "Wire the existing fit_model_weight into a versioned per-league/family training artifact; start with complete Stake quotes without waiting for D25.",
+        "Fit/select/calibrate on chronological game-disjoint partitions using only outcomes available before as_of; retain independent sports probability and contemporaneous devig comparator.",
+        "Implement coherent post-anchor family calibration and measured uncertainty; preserve full outcome-vector mass, conditional push mass and Asian settlement-weighted EV.",
+        "Expose artifact version, learned/fallback weight, calibration sample and uncertainty in current decision receipts. Keep 15/85 explicitly labeled fallback until a candidate passes prospective evaluation.",
+        "Integrate approved artifact loading into the live decision path and verify live probabilities reproduce from archived inputs."
+      ],
+      "tests": [
+        "tests/test_market_anchor.py",
+        "tests/test_calibration_uncertainty.py",
+        "New regressions: unavailable-at-as_of outcomes, repeated quote/game grouping, push/Asian/three-way coherence, sparse fallback, artifact reload and rollback"
+      ],
+      "optional_dependencies": [
         "D25"
-      ]
+      ],
+      "mandatory": true,
+      "execution_supervisor": "Existing DevelopmentWorker + engineering intake + supervisor; no new service. Preserve exclusive claims, active runs, backoff and original deadlines.",
+      "integration_owner": "Root Codex",
+      "independent_reviewer": "A separate Codex review, not the implementing agent; hash-pinned candidate output.",
+      "next_review_at": "2026-10-03T16:00:00+00:00",
+      "delivery_checkpoint_at": "2026-10-03T20:00:00+00:00",
+      "checkpoint_rule": "Review/checkpoint does not replace due_at. Preserve overdue status and failed attempts; report actual shipped increment and remaining acceptance criteria.",
+      "integration_plan": [
+        "Implement in exclusively claimed isolated workspace using frozen bounded read-only inputs; no production database, ledger or credential writes.",
+        "Run targeted behavioral/regression tests; attach exact code, input and output hashes to independent Codex review.",
+        "Root Codex integrates protected engine callers and explicit bounded release-policy allowlist; candidate cannot alter its own authorization. Preserve current funding, CLV and exposure configuration.",
+        "Run full Python/frontend release suite; trusted release only after review. Preserve incumbent on failure; rollback code/artifact pointer without rewriting decisions.",
+        "Verify fresh local and Tailscale publication with the same publication ID and code/artifact versions; confirm existing decision-chain guards and counters.",
+        "Only source-bound release/live evidence closes the corresponding operating gap and acceptance stage; update docs/STATUS.hu.md. candidate_ready alone is not completion."
+      ],
+      "completion_evidence": [
+        "commit",
+        "targeted_test_results",
+        "full_release_test_results",
+        "independent_review_hash",
+        "trusted_release_receipt",
+        "local_and_tailscale_publication_id",
+        "live_feature_version",
+        "original_decision_integrity",
+        "remaining_gaps"
+      ],
+      "failure_action": "Existing intake deduplicates by task/evidence identity, retains failure and deadline. After two same-cause attempts change implementation approach/provider; do not blindly retry unchanged inputs. Continue independent runnable tasks.",
+      "assignment_updated_at": "2026-10-03T15:41:29.224900+00:00",
+      "supervision_scope": "Existing scheduler enforces depends_on/claims/backoff and reads this task into its implementation prompt. Completion_evidence is a mandatory root/reviewer checklist, not a claim that a new automatic checker was implemented. D14/D15 remain existing capability tasks; live supervisor/worker/release coordinator own runtime monitoring.",
+      "advisory_delegation": "Claude: independent statistical experiment review; no duplicate implementation.",
+      "advisory_rule": "Use existing isolated provider routing if available; no paid credits. Advisor failure does not block Codex implementation. Hash outputs and bind Codex acceptance; no automatic production writes."
     },
     {
       "id": "D28",
       "milestone": "M09",
       "priority": 1,
       "title": "All-candidate shadow and closing capture completeness",
-      "owner": "Codex isolated developer; root controlled integration",
+      "owner": "Codex isolated implementation; Root Codex integration; independent Codex reviewer",
       "created_at": "2026-10-01T11:26:53.657532+00:00",
       "due_at": "2026-10-02T11:30:00+00:00",
       "directive_requirements": [
@@ -536,17 +637,65 @@
         "C8"
       ],
       "objective": "Extend existing prospective_shadow/shadow_runtime/closing_capture rather than duplicating them. Preserve every evaluated candidate status, immutable first issue and distinct observation histories; collect exact close attempts for funded/unfunded contracts, learn CLV by issue lead-time. Rejected/unsupported candidates retain why they cannot be modeled or settled.",
-      "acceptance": "Durable bounded tasks and restart recovery; exact same line/scope settlement; source-timestamp integrity; missing closes remain missing; every candidate and close coverage gap counted; no repeated quote as independent sample; distinct prospective and retrospective studies.",
+      "acceptance": "Durable bounded tasks and restart recovery; exact same line/scope settlement; source-timestamp integrity; missing closes remain missing; every candidate and close coverage gap counted; no repeated quote as independent sample; distinct prospective and retrospective studies. Completion also requires every completion_evidence field and the integration_plan gates; no report-only closure.",
       "depends_on": [
         "D02"
-      ]
+      ],
+      "files": [
+        "src/betting_engine/prospective_shadow.py",
+        "src/betting_engine/closing_capture.py",
+        "src/betting_engine/learning.py"
+      ],
+      "data_source": "Exact-contract issued/shadow quotes, pre-start closing snapshots and scope-specific final results.",
+      "implementation_steps": [
+        "Diagnose current missing-close cohorts by exact contract and timestamp without substituting later or different lines.",
+        "Capture bounded deduplicated closing/outcome evidence for issued and evaluated shadow contracts; preserve missing-close reasons.",
+        "Repair bounded outcome-feedback processing so failed/incomplete batches cannot become completed.",
+        "Measure eligible/observed closing coverage and resolved settlement coverage separately; prove replay and interruption recovery."
+      ],
+      "tests": [
+        "Exact-line/late-close rejection",
+        "Outcome-feedback partial failure and bounded history replay",
+        "Shadow duplicate/game-weight regressions"
+      ],
+      "mandatory": true,
+      "execution_supervisor": "Existing DevelopmentWorker + engineering intake + supervisor; no new service. Preserve exclusive claims, active runs, backoff and original deadlines.",
+      "integration_owner": "Root Codex",
+      "independent_reviewer": "A separate Codex review, not the implementing agent; hash-pinned candidate output.",
+      "next_review_at": "2026-10-03T16:00:00+00:00",
+      "delivery_checkpoint_at": "2026-10-03T20:00:00+00:00",
+      "checkpoint_rule": "Review/checkpoint does not replace due_at. Preserve overdue status and failed attempts; report actual shipped increment and remaining acceptance criteria.",
+      "integration_plan": [
+        "Implement in exclusively claimed isolated workspace using frozen bounded read-only inputs; no production database, ledger or credential writes.",
+        "Run targeted behavioral/regression tests; attach exact code, input and output hashes to independent Codex review.",
+        "Root Codex integrates protected engine callers and explicit bounded release-policy allowlist; candidate cannot alter its own authorization. Preserve current funding, CLV and exposure configuration.",
+        "Run full Python/frontend release suite; trusted release only after review. Preserve incumbent on failure; rollback code/artifact pointer without rewriting decisions.",
+        "Verify fresh local and Tailscale publication with the same publication ID and code/artifact versions; confirm existing decision-chain guards and counters.",
+        "Only source-bound release/live evidence closes the corresponding operating gap and acceptance stage; update docs/STATUS.hu.md. candidate_ready alone is not completion."
+      ],
+      "completion_evidence": [
+        "commit",
+        "targeted_test_results",
+        "full_release_test_results",
+        "independent_review_hash",
+        "trusted_release_receipt",
+        "local_and_tailscale_publication_id",
+        "live_feature_version",
+        "original_decision_integrity",
+        "remaining_gaps"
+      ],
+      "failure_action": "Existing intake deduplicates by task/evidence identity, retains failure and deadline. After two same-cause attempts change implementation approach/provider; do not blindly retry unchanged inputs. Continue independent runnable tasks.",
+      "assignment_updated_at": "2026-10-03T15:41:29.224900+00:00",
+      "supervision_scope": "Existing scheduler enforces depends_on/claims/backoff and reads this task into its implementation prompt. Completion_evidence is a mandatory root/reviewer checklist, not a claim that a new automatic checker was implemented. D14/D15 remain existing capability tasks; live supervisor/worker/release coordinator own runtime monitoring.",
+      "advisory_delegation": "Antigravity: exact-contract close/missingness test cases.",
+      "advisory_rule": "Use existing isolated provider routing if available; no paid credits. Advisor failure does not block Codex implementation. Hash outputs and bind Codex acceptance; no automatic production writes."
     },
     {
       "id": "D29",
       "milestone": "M09",
-      "priority": 1,
+      "priority": 0,
       "title": "Segment scoreboard and evidence-weighted allocation",
-      "owner": "Codex isolated developer; root controlled integration",
+      "owner": "Codex isolated implementation; Root Codex integration; independent Codex reviewer",
       "created_at": "2026-10-01T11:26:53.657532+00:00",
       "due_at": "2026-10-02T11:30:00+00:00",
       "directive_requirements": [
@@ -555,29 +704,128 @@
         "GH14"
       ],
       "objective": "Combine original decision outcomes and separate shadow studies by league/scope/family with game-cluster samples. Report model/market Brier, calibration, CLV coverage/values, realized stake P&L/ROI and timing. Route weak segments into stable development tasks. Implement a reproducible bounded evidence-following USD1–5 allocation experiment with low exploratory stakes, stronger CLV evidence earning larger stake weights, preserving no fixed daily cap.",
-      "acceptance": "Explicit evidence thresholds and uncertainty, no invented bankroll, original stakes immutable, candidate versus active policy distinct, no blanket sparse-CLV funding veto, reproducible posterior/random seed if sampling is used, same-event exposure analysis, no claims of profit from model estimate.",
-      "depends_on": [
+      "acceptance": "Historical outcome signal affects actual live selection as well as the existing sizing flow, reproducibly and with explicit fallback; no automatic policy/cap change, invented bankroll or original-stake rewrite. Confirmed/assumed/not-placed cash cohorts stay separate from engine quality. Show measured effect, not predicted profitability, and full release/review/live evidence. Completion also requires every completion_evidence field and the integration_plan gates; no report-only closure.",
+      "depends_on": [],
+      "files": [
+        "src/betting_engine/outcome_sizing.py",
+        "src/betting_engine/outcome_sizing_runtime.py",
+        "src/betting_engine/decisions.py",
+        "src/betting_engine/statistics.py",
+        "src/betting_engine/learning.py"
+      ],
+      "data_source": "Immutable original decision outcomes, existing game-cluster statistics and historical_confidence_v3 receipts; execution cash/not-placed separately; D28 closing evidence optional diagnostic enrichment.",
+      "implementation_steps": [
+        "Reuse deployed historical_confidence_v3; do not rebuild or reset existing sizing. Measure which learned components currently reach ranking versus sizing.",
+        "Build a deterministic shrunken league/scope/family/odds-band performance feature from outcomes available before each decision, weighted by independent games.",
+        "Integrate calibrated probability, learned segment signal and EV ranking with current diversification/funding/exposure policy; retain eligible new-family fallback without an invented historical-data veto.",
+        "Use the same versioned segment artifact in selection and sizing; archive component contributions and cap effects for each decision.",
+        "Compare frozen incumbent and challenger on game-disjoint prospective volume, WR, ROI and PnL; separate cash execution accounting from original decision quality."
+      ],
+      "tests": [
+        "tests/test_outcome_sizing.py",
+        "New regressions: game-cluster duplication, sparse/losing cohort shrinkage, no lookahead, same artifact in ranking/sizing, original decision immutability, active cap enforcement"
+      ],
+      "optional_dependencies": [
         "D28"
-      ]
+      ],
+      "mandatory": true,
+      "execution_supervisor": "Existing DevelopmentWorker + engineering intake + supervisor; no new service. Preserve exclusive claims, active runs, backoff and original deadlines.",
+      "integration_owner": "Root Codex",
+      "independent_reviewer": "A separate Codex review, not the implementing agent; hash-pinned candidate output.",
+      "next_review_at": "2026-10-03T16:00:00+00:00",
+      "delivery_checkpoint_at": "2026-10-03T20:00:00+00:00",
+      "checkpoint_rule": "Review/checkpoint does not replace due_at. Preserve overdue status and failed attempts; report actual shipped increment and remaining acceptance criteria.",
+      "integration_plan": [
+        "Implement in exclusively claimed isolated workspace using frozen bounded read-only inputs; no production database, ledger or credential writes.",
+        "Run targeted behavioral/regression tests; attach exact code, input and output hashes to independent Codex review.",
+        "Root Codex integrates protected engine callers and explicit bounded release-policy allowlist; candidate cannot alter its own authorization. Preserve current funding, CLV and exposure configuration.",
+        "Run full Python/frontend release suite; trusted release only after review. Preserve incumbent on failure; rollback code/artifact pointer without rewriting decisions.",
+        "Verify fresh local and Tailscale publication with the same publication ID and code/artifact versions; confirm existing decision-chain guards and counters.",
+        "Only source-bound release/live evidence closes the corresponding operating gap and acceptance stage; update docs/STATUS.hu.md. candidate_ready alone is not completion."
+      ],
+      "completion_evidence": [
+        "commit",
+        "targeted_test_results",
+        "full_release_test_results",
+        "independent_review_hash",
+        "trusted_release_receipt",
+        "local_and_tailscale_publication_id",
+        "live_feature_version",
+        "original_decision_integrity",
+        "remaining_gaps"
+      ],
+      "failure_action": "Existing intake deduplicates by task/evidence identity, retains failure and deadline. After two same-cause attempts change implementation approach/provider; do not blindly retry unchanged inputs. Continue independent runnable tasks.",
+      "assignment_updated_at": "2026-10-03T15:41:29.224900+00:00",
+      "supervision_scope": "Existing scheduler enforces depends_on/claims/backoff and reads this task into its implementation prompt. Completion_evidence is a mandatory root/reviewer checklist, not a claim that a new automatic checker was implemented. D14/D15 remain existing capability tasks; live supervisor/worker/release coordinator own runtime monitoring.",
+      "advisory_delegation": "Claude: game-cluster shrinkage and ranking review.",
+      "advisory_rule": "Use existing isolated provider routing if available; no paid credits. Advisor failure does not block Codex implementation. Hash outputs and bind Codex acceptance; no automatic production writes."
     },
     {
       "id": "D30",
       "milestone": "M09",
       "priority": 2,
       "title": "Market-relative model promotion and live challenger trials",
-      "owner": "Codex isolated developer; root controlled integration",
+      "owner": "Codex isolated implementation; Root Codex integration; independent Codex reviewer",
       "created_at": "2026-10-01T11:26:53.657532+00:00",
       "due_at": "2026-10-02T11:30:00+00:00",
       "directive_requirements": [
         "GH12",
         "GH13"
       ],
-      "objective": "Audit every training entry point; default to checked mode. Extend existing promotion to compare a candidate with the contemporaneous relevant market and nonregressing CLV, using prospective live shadow challenger evidence before replacement. Preserve the incumbent and continuous live publication while a challenger collects evidence.",
-      "acceptance": "Archive exact code/input/model/source versions before fit; untouched final test not used for recipe selection; minimum evidence/stability and market/CLV tests; interrupted promotion rollback and stale candidate rejection; no champion change from a queue or unvalidated utility.",
+      "objective": "Audit every training entry point and preserve checked training. Compare a frozen challenger with the incumbent and contemporaneous market on predeclared prospective acceptance metrics, reporting CLV diagnostically under the active policy. Preserve incumbent publication while evidence accumulates; do not change funding or CLV configuration through model promotion.",
+      "acceptance": "Prospective paired evaluation uses a predeclared metric and unchanged evidence thresholds; candidate model promotion does not alter funding/CLV policy. Preserve incumbent publication, untouched final test, exact input/code archive, source-pinned live model consumption and rollback. CLV diagnostic follows latest contract; no obsolete blanket CLV funding veto. Completion also requires every completion_evidence field and the integration_plan gates; no report-only closure.",
       "depends_on": [
         "D27",
         "D28"
-      ]
+      ],
+      "files": [
+        "src/betting_engine/learning.py",
+        "src/betting_engine/models.py",
+        "src/betting_engine/training_evidence.py"
+      ],
+      "data_source": "D27 versioned artifacts, D28 prospective exact-contract evidence and archived incumbent/challenger predictions.",
+      "implementation_steps": [
+        "Inspect every training entry point and retain checked, archived, reproducible training.",
+        "Register one primary acceptance metric and stability/volume criteria before prospective results; do not cherry-pick WR OR ROI OR loss after observing them.",
+        "Run frozen challenger beside incumbent; compare game-cluster WR/ROI/log-loss with uncertainty and report CLV diagnostically under current policy.",
+        "Integrate winning artifact through existing promotion/rollback path; stale evidence, interrupted runs and failed checks retain incumbent."
+      ],
+      "tests": [
+        "Prospective cutoff/recipe freeze",
+        "All entry points checked",
+        "Artifact promotion/reload/rollback and failed job status"
+      ],
+      "mandatory": true,
+      "execution_supervisor": "Existing DevelopmentWorker + engineering intake + supervisor; no new service. Preserve exclusive claims, active runs, backoff and original deadlines.",
+      "integration_owner": "Root Codex",
+      "independent_reviewer": "A separate Codex review, not the implementing agent; hash-pinned candidate output.",
+      "next_review_at": "2026-10-03T16:00:00+00:00",
+      "delivery_checkpoint_at": "2026-10-03T20:00:00+00:00",
+      "checkpoint_rule": "Review/checkpoint does not replace due_at. Preserve overdue status and failed attempts; report actual shipped increment and remaining acceptance criteria.",
+      "integration_plan": [
+        "Implement in exclusively claimed isolated workspace using frozen bounded read-only inputs; no production database, ledger or credential writes.",
+        "Run targeted behavioral/regression tests; attach exact code, input and output hashes to independent Codex review.",
+        "Root Codex integrates protected engine callers and explicit bounded release-policy allowlist; candidate cannot alter its own authorization. Preserve current funding, CLV and exposure configuration.",
+        "Run full Python/frontend release suite; trusted release only after review. Preserve incumbent on failure; rollback code/artifact pointer without rewriting decisions.",
+        "Verify fresh local and Tailscale publication with the same publication ID and code/artifact versions; confirm existing decision-chain guards and counters.",
+        "Only source-bound release/live evidence closes the corresponding operating gap and acceptance stage; update docs/STATUS.hu.md. candidate_ready alone is not completion."
+      ],
+      "completion_evidence": [
+        "commit",
+        "targeted_test_results",
+        "full_release_test_results",
+        "independent_review_hash",
+        "trusted_release_receipt",
+        "local_and_tailscale_publication_id",
+        "live_feature_version",
+        "original_decision_integrity",
+        "remaining_gaps"
+      ],
+      "failure_action": "Existing intake deduplicates by task/evidence identity, retains failure and deadline. After two same-cause attempts change implementation approach/provider; do not blindly retry unchanged inputs. Continue independent runnable tasks.",
+      "assignment_updated_at": "2026-10-03T15:41:29.224900+00:00",
+      "supervision_scope": "Existing scheduler enforces depends_on/claims/backoff and reads this task into its implementation prompt. Completion_evidence is a mandatory root/reviewer checklist, not a claim that a new automatic checker was implemented. D14/D15 remain existing capability tasks; live supervisor/worker/release coordinator own runtime monitoring.",
+      "advisory_delegation": "Claude: independent prospective acceptance critique.",
+      "advisory_rule": "Use existing isolated provider routing if available; no paid credits. Advisor failure does not block Codex implementation. Hash outputs and bind Codex acceptance; no automatic production writes."
     },
     {
       "id": "D31",
@@ -647,7 +895,7 @@
       "milestone": "M09",
       "priority": 1,
       "title": "Live Stake market catalogue and guarded composite-contract release",
-      "owner": "Codex root integrator; Claude Opus 5.5 independent review; Antigravity and Grok advisory evidence",
+      "owner": "Codex isolated implementation; Root Codex integration; independent Codex reviewer",
       "created_at": "2026-10-02T19:00:00+02:00",
       "due_at": "2026-10-02T23:59:00+02:00",
       "directive_requirements": [
@@ -657,11 +905,11 @@
       ],
       "objective": "Evaluate every observed Stake league/market/scope row in the existing catalogue, persist pairing/model/settlement/source/decision-chain evidence and operating gaps, then release the bounded composite contract support through the guarded trusted gate without changing the ledger, guards, USD1-5 limits, CLV gate or no-auto-bet rule.",
       "implementation_steps": [
-        "Recompute data/market_catalog/latest.json from the live archived feed and annotate every observed type with 48-hour occurrence, event pairing, scope model, settlement, source and decision-chain states.",
-        "Project unsupported and supported-but-unpriced rows into operating_gaps with identity, reason and next executable step; keep unfinished states visible.",
-        "Integrate the existing composite parser, contract settlement, six-way/three-way anchor and bounded execution evidence with regression coverage.",
-        "Extend config/release_policy.json and the root release coordinator with an exact guarded_engine profile requiring independent review, CLV gate, ledger immutability and disabled automatic betting.",
-        "Run targeted and full Python/web tests, independent Codex review, trusted release checks and local/Tailscale live smoke; update the catalogue and gap states only from observed evidence."
+        "Immediately execute independent catalogue/event-pairing work using current production decision chain, preserving existing catalogue identities and operating_gaps.",
+        "For each league/scope/family record occurrence, pairing, source, model, settlement, actual decision-chain traversal and observed performance; unsupported is not evaluated.",
+        "Implement missing scope-correct models in bounded family increments, including exact composite/push/multiway semantics and settlement. Prioritize observed coverage and validated benefit.",
+        "A model may integrate against existing approved anchor/ranking only if all current guards pass. A stage using new anchor/promotion/allocation must wait for the corresponding verified D27/D30/D29 implementation; do not bypass these stage dependencies.",
+        "Root supplies exact bounded guarded release profile; run regression/full suites, independent review, trusted release and fresh local/Tailscale feature evidence before closing each family gap."
       ],
       "files": [
         "src/betting_engine/contracts.py",
@@ -680,21 +928,57 @@
       ],
       "data_source": "Stake Sports Data API archived responses and current local/Tailscale publication; no invented or paid source.",
       "tests": [
-        "tests/test_composite_market_coverage.py",
-        "tests/test_guarded_engine_release.py",
         "tests/test_market_anchor.py",
-        "tests/test_markets.py",
-        "tests/test_operations.py",
-        "tests/test_release_coordinator.py",
-        "tests/web.test.mjs"
+        "tests/test_catalog_gap_projection.py",
+        "tests/test_composite_market_coverage.py",
+        "Exact scope/player/mapping and unsupported-family regressions"
       ],
-      "acceptance": "Every observed catalogue row has explicit evidence-state fields and a corresponding operating gap when incomplete; composite contracts pass the unified decision chain; guarded profile is policy-pinned and rejects ledger/controller/config changes; full tests pass; independent review, trusted release, local/Tailscale smoke and fresh live publication evidence are recorded. No capability is marked complete from a plan or candidate alone.",
-      "depends_on": [
-        "D16",
-        "D27",
-        "D30",
-        "D32"
-      ]
+      "acceptance": "Every observed catalogue row has explicit evidence-state fields and a corresponding operating gap when incomplete; composite contracts pass the unified decision chain; guarded profile is policy-pinned and rejects ledger/controller/config changes; full tests pass; independent review, trusted release, local/Tailscale smoke and fresh live publication evidence are recorded. No capability is marked complete from a plan or candidate alone. Completion also requires every completion_evidence field and the integration_plan gates; no report-only closure.",
+      "depends_on": [],
+      "stage_dependencies": {
+        "existing_chain_catalog_and_pairing": [],
+        "new_anchor_integration": [
+          "D27"
+        ],
+        "new_promotion_integration": [
+          "D30"
+        ],
+        "new_allocation_integration": [
+          "D29"
+        ]
+      },
+      "mandatory": true,
+      "execution_supervisor": "Existing DevelopmentWorker + engineering intake + supervisor; no new service. Preserve exclusive claims, active runs, backoff and original deadlines.",
+      "integration_owner": "Root Codex",
+      "independent_reviewer": "A separate Codex review, not the implementing agent; hash-pinned candidate output.",
+      "next_review_at": "2026-10-03T16:00:00+00:00",
+      "delivery_checkpoint_at": "2026-10-03T20:00:00+00:00",
+      "checkpoint_rule": "Review/checkpoint does not replace due_at. Preserve overdue status and failed attempts; report actual shipped increment and remaining acceptance criteria.",
+      "integration_plan": [
+        "Implement in exclusively claimed isolated workspace using frozen bounded read-only inputs; no production database, ledger or credential writes.",
+        "Run targeted behavioral/regression tests; attach exact code, input and output hashes to independent Codex review.",
+        "Root Codex integrates protected engine callers and explicit bounded release-policy allowlist; candidate cannot alter its own authorization. Preserve current funding, CLV and exposure configuration.",
+        "Run full Python/frontend release suite; trusted release only after review. Preserve incumbent on failure; rollback code/artifact pointer without rewriting decisions.",
+        "Verify fresh local and Tailscale publication with the same publication ID and code/artifact versions; confirm existing decision-chain guards and counters.",
+        "Only source-bound release/live evidence closes the corresponding operating gap and acceptance stage; update docs/STATUS.hu.md. candidate_ready alone is not completion."
+      ],
+      "completion_evidence": [
+        "commit",
+        "targeted_test_results",
+        "full_release_test_results",
+        "independent_review_hash",
+        "trusted_release_receipt",
+        "local_and_tailscale_publication_id",
+        "live_feature_version",
+        "original_decision_integrity",
+        "remaining_gaps"
+      ],
+      "failure_action": "Existing intake deduplicates by task/evidence identity, retains failure and deadline. After two same-cause attempts change implementation approach/provider; do not blindly retry unchanged inputs. Continue independent runnable tasks.",
+      "assignment_updated_at": "2026-10-03T15:41:29.224900+00:00",
+      "stage_dependency_enforcement": "These are root integration/review acceptance requirements, not scheduler-interpreted depends_on. Root must attach the exact required verified dependency receipts before accepting each dependent integration stage; absence blocks release of that stage, not independent catalogue work.",
+      "supervision_scope": "Existing scheduler enforces depends_on/claims/backoff and reads this task into its implementation prompt. Completion_evidence is a mandatory root/reviewer checklist, not a claim that a new automatic checker was implemented. D14/D15 remain existing capability tasks; live supervisor/worker/release coordinator own runtime monitoring.",
+      "advisory_delegation": "Antigravity: feed inventory/source coverage; Grok: alternative model ideas only.",
+      "advisory_rule": "Use existing isolated provider routing if available; no paid credits. Advisor failure does not block Codex implementation. Hash outputs and bind Codex acceptance; no automatic production writes."
     },
     {
       "id": "D34",
@@ -999,5 +1283,20 @@
         }
       ]
     }
+  },
+  "mandatory_execution_assignment": {
+    "updated_at": "2026-10-03T15:41:29.224900+00:00",
+    "tasks": [
+      "D27",
+      "D29",
+      "D26",
+      "D28",
+      "D30",
+      "D33"
+    ],
+    "supervision_task": "D14",
+    "acceptance_task": "D15",
+    "existing_intake": "engineering_loop + operating_gaps",
+    "rule": "Use existing IDs and claims. due_at is unchanged. Remove only false cross-stage prerequisites; retain actual integration dependencies. Existing active workers are not interrupted. The supervisor reports runnable/claimed/candidate/release/live states separately. Configuration assignment is not a production-capability claim."
   }
 }
