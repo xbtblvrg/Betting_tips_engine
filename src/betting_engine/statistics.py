@@ -11,6 +11,7 @@ from decimal import Decimal, InvalidOperation
 import hashlib
 import json
 import math
+import random
 import re
 
 from .contracts import contract_value, split_market
@@ -328,6 +329,71 @@ def _group(rows, keys):
     return [{**dict(zip(keys, key)), **_summary(group)} for key, group in sorted(groups.items(), key=lambda pair: str(pair[0]))]
 
 
+_CLUSTER_CI_MIN_GAMES = 20
+_CLUSTER_CI_DRAWS = 1000
+
+
+def _cluster_confidence(rows):
+    """Bounded deterministic percentile bootstrap over whole game clusters.
+
+    This is deliberately called only for final summaries and top-market groups,
+    never for every cumulative point.  Related tickets on one game are first
+    aggregated, so they cannot be mistaken for independent observations.
+    """
+    games = defaultdict(lambda: {'pnl': Decimal(0), 'stake': Decimal(0), 'won': 0, 'decisive': 0})
+    for row in rows:
+        if row['status'] not in CLOSED or not row['money_known'] or not row['game_id']:
+            continue
+        game = games[row['game_id']]
+        game['pnl'] += row['_pnl']
+        game['stake'] += row['_stake']
+        if row['status'] in ('won', 'lost'):
+            game['decisive'] += 1
+            game['won'] += row['status'] == 'won'
+    clusters = [games[key] for key in sorted(games)]
+    roi_clusters = [game for game in clusters if game['stake'] > 0]
+    wr_clusters = [game for game in clusters if game['decisive'] > 0]
+    result = {
+        'method': 'game_cluster_percentile_bootstrap',
+        'draws': _CLUSTER_CI_DRAWS,
+        'minimum_games': _CLUSTER_CI_MIN_GAMES,
+        'independent_games': len(clusters),
+        'roi_independent_games': len(roi_clusters),
+        'hit_rate_independent_games': len(wr_clusters),
+        'roi_ci95': None, 'hit_rate_ci95': None,
+        'state': 'insufficient_independent_games',
+    }
+    if len(roi_clusters) < _CLUSTER_CI_MIN_GAMES and len(wr_clusters) < _CLUSTER_CI_MIN_GAMES:
+        return result
+
+    # Stable seed and sorted cluster order make this report reproducible for
+    # the same frozen cohort, independent of input row order.
+    rng = random.Random(91237)
+    if len(roi_clusters) >= _CLUSTER_CI_MIN_GAMES:
+        roi_draws = []
+        for _ in range(_CLUSTER_CI_DRAWS):
+            sample = [roi_clusters[index] for index in (rng.randrange(len(roi_clusters)) for _ in roi_clusters)]
+            sample_stake = sum((game['stake'] for game in sample), Decimal(0))
+            sample_pnl = sum((game['pnl'] for game in sample), Decimal(0))
+            if sample_stake > 0:
+                roi_draws.append(float(sample_pnl / sample_stake))
+        if roi_draws:
+            roi_draws.sort()
+            result['roi_ci95'] = [roi_draws[24], roi_draws[974]]
+    if len(wr_clusters) >= _CLUSTER_CI_MIN_GAMES:
+        wr_draws = []
+        for _ in range(_CLUSTER_CI_DRAWS):
+            sample = [wr_clusters[index] for index in (rng.randrange(len(wr_clusters)) for _ in wr_clusters)]
+            total_decisive = sum(game['decisive'] for game in sample)
+            if total_decisive:
+                wr_draws.append(sum(game['won'] for game in sample) / total_decisive)
+        if wr_draws:
+            wr_draws.sort()
+            result['hit_rate_ci95'] = [wr_draws[24], wr_draws[974]]
+    result['state'] = 'measured' if result['roi_ci95'] is not None or result['hit_rate_ci95'] is not None else 'insufficient_evidence'
+    return result
+
+
 def _cumulative_performance(rows):
     """Return a settlement-time cumulative ledger view for an already filtered cohort.
 
@@ -393,7 +459,9 @@ def _cumulative_performance(rows):
     known_pnl = pnl if included else zero
     known_stake = stake if included else zero
     complete_money = not invalid_money_closed
-    complete_points = bool(included) and complete_money
+    complete_time = not unknown_time
+    complete_points = bool(included) and complete_money and complete_time
+    confidence = _cluster_confidence(closed)
     summary = {
         'pnl': _float(known_pnl) if complete_points else None,
         'settled_stake': _float(known_stake) if complete_points else None,
@@ -408,7 +476,9 @@ def _cumulative_performance(rows):
         'current_drawdown': _float(peak - pnl) if included else 0.0,
         'peak_pnl': _float(peak) if included else 0.0,
         'known_pnl': _float(known_pnl), 'known_settled_stake': _float(known_stake),
-        'complete_money': complete_money, 'points': len(points),
+        'complete_money': complete_money, 'complete_time': complete_time,
+        'points': len(points), 'confidence_intervals': confidence,
+        'roi_ci95': confidence['roi_ci95'], 'hit_rate_ci95': confidence['hit_rate_ci95'],
     }
     coverage = {
         'input_rows': len(rows), 'closed': len(closed), 'timestamped_closed': len(timestamped),
@@ -450,11 +520,18 @@ def _top_markets(rows):
         else:
             market_label = f'{scope} / {family}'
         group_pnl = sum((row['_pnl'] for row in group if row['_pnl'] is not None), Decimal(0))
-        group_stake = sum((row['_stake'] for row in group if row['_stake'] is not None), Decimal(0))
+        group_stake = sum((row['_stake'] for row in group
+                           if row['status'] in CLOSED and row['_stake'] is not None), Decimal(0))
         compact_summary = {key: summary[key] for key in (
             'count', 'settled', 'won', 'lost', 'pushes', 'voids', 'manual',
             'games', 'settled_games', 'settled_stake', 'pnl', 'roi', 'hit_rate',
             'money_complete', 'excluded_money_rows')}
+        confidence = _cluster_confidence(group)
+        compact_summary.update({
+            'confidence_intervals': confidence,
+            'roi_ci95': confidence['roi_ci95'],
+            'hit_rate_ci95': confidence['hit_rate_ci95'],
+        })
         candidates.append({
             'scope': scope, 'market_family': family, 'market_label': market_label,
             'summary': compact_summary,
@@ -536,8 +613,8 @@ def build_statistics(bets, decisions, bet_outcomes, *, as_of):
             'definitions': {'money': 'Recorded ticket stake and P&L; payout is stake plus net P&L. Assumed and user-reported tickets are not account-verified cash receipts. No operating costs deducted.',
                             'roi': 'Net P&L / settled stake for the same closed cohort, including push, void and manual returns. Unknown/incomplete closed money makes ROI unavailable; known subtotals remain explicit.',
                             'hit_rate': 'Won / (won + lost). Push, void, manual, open and unknown are excluded.',
-                            'cumulative_performance': 'Settlement-time cumulative view over the caller-filtered cohort. The baseline point has at=null and zero values; every other point is one canonical UTC settled_at batch. Rows without retained settlement time or complete money are counted in coverage and excluded from points; no timestamp is inferred.',
-                            'top_markets': 'At most five positive net-P&L scope×market_family groups, ranked by net P&L, then ROI, then deterministic identifiers. Groups with incomplete money are withheld.',
+                            'cumulative_performance': 'Settlement-time cumulative view over the caller-filtered cohort. The baseline point has at=null and zero values; every other point is one canonical UTC settled_at batch. Rows without retained settlement time or complete money are counted in coverage and excluded from points; no timestamp is inferred. Final ROI and hit-rate intervals are deterministic 95% percentile bootstraps over whole known game clusters (minimum 20), never per point.',
+                            'top_markets': 'At most five positive net-P&L scope×market_family groups, ranked by net P&L, then ROI, then deterministic identifiers. Groups with incomplete money are withheld; final ROI and hit-rate intervals use the same whole-game-cluster method.',
                             'decisions': 'Original immutable decisions at original terms. Duplicate real tickets count separately only in the money ledger.',
                             'research': 'Prospective forecasts, shadow trials and current unpublished candidates are excluded from both money and decision totals.',
                             'games': 'Distinct known game IDs; selections on the same game are correlated, not independent observations.',

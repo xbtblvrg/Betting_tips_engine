@@ -60,6 +60,32 @@ def test_cumulative_withholds_unknown_time_and_invalid_money_explicitly():
     assert curve['basis'].startswith('Chronological batch accumulation')
 
 
+def test_missing_settlement_time_withholds_cumulative_headline_but_keeps_baseline():
+    item = fixtures(1, game='g1')
+    item[1]['outcome_evidence'].pop('settled_at')
+    item[2]['evidence'].pop('settled_at')
+    curve = report(item)['ticket_ledger']['cumulative_performance']
+    assert curve['points'] == [{
+        'at': None, 'baseline': True, 'pnl': 0.0, 'settled_stake': 0.0,
+        'roi': None, 'hit_rate': None, 'settled': 0, 'won': 0, 'lost': 0,
+        'games': 0,
+    }]
+    assert curve['summary']['pnl'] is None
+    assert curve['summary']['roi'] is None
+    assert curve['summary']['complete_time'] is False
+    assert curve['coverage']['complete'] is False
+
+
+def test_open_stake_cannot_change_top_market_roi_ranking():
+    closed = fixtures(1, game='g1')
+    open_row = fixtures(2, game='g2', status='open', pnl=None)
+    open_row[0]['stake'] = open_row[1]['payload']['stake'] = 1000
+    open_row[1]['outcome_evidence'] = None
+    top = report(closed, open_row)['ticket_ledger']['top_markets']
+    assert top[0]['summary']['settled_stake'] == 2
+    assert top[0]['summary']['roi'] == 1.5
+
+
 def test_top_markets_are_positive_scope_family_groups_with_deterministic_ties():
     rows = []
     # Six positive scope/family groups: only five should be retained.
@@ -105,3 +131,22 @@ def test_performance_is_added_to_both_sections_without_input_mutation():
     assert 'cumulative_performance' in result['system_decisions']
     assert 'top_markets' in result['ticket_ledger']
     assert 'top_markets' in result['system_decisions']
+
+
+def test_confidence_intervals_use_whole_game_clusters_and_are_reproducible():
+    rows = [fixtures(1, game='g1'),
+            fixtures(2, game='g1', status='lost', pnl=-2, home=0, away=1)]
+    rows.extend(fixtures(index, game=f'g{index}', status='won' if index % 2 else 'lost',
+                         pnl=3 if index % 2 else -2, home=3 if index % 2 else 0,
+                         away=1 if index % 2 else 1) for index in range(3, 22))
+    forward = report(*rows)['ticket_ledger']
+    reverse = report(*reversed(rows))['ticket_ledger']
+    curve = forward['cumulative_performance']
+    confidence = curve['summary']['confidence_intervals']
+    assert confidence['independent_games'] == 20
+    assert confidence['roi_ci95'] is not None
+    assert confidence['hit_rate_ci95'] is not None
+    assert confidence['state'] == 'measured'
+    assert curve['summary']['roi_ci95'] == confidence['roi_ci95']
+    assert forward['cumulative_performance']['summary']['confidence_intervals'] == reverse['cumulative_performance']['summary']['confidence_intervals']
+    assert forward['top_markets'][0]['summary']['confidence_intervals']['independent_games'] == 20
