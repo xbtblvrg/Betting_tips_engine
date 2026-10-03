@@ -220,3 +220,20 @@ def test_retention_error_log_is_supported_and_fd2_passed(tmp_path,monkeypatch):
     monkeypatch.setattr('betting_engine.log_rotation.rotate_log',lambda p,*,fd:calls.append((p.name,fd)) or {'state':'absent'})
     assert m.main(['--root',str(root),'--apply'])==0
     assert calls==[('workspace-retention.log',1),('workspace-retention-error.log',2)]
+
+
+def test_multiline_ai_prompt_process_inventory_preserves_reference_checks(tmp_path,monkeypatch):
+    root=setup(tmp_path)
+    original_candidates=m.candidates
+    monkeypatch.setattr(m,'candidates',lambda root,**kw:original_candidates(root,NOW,**kw))
+    prompt = '999 claude -p\nFELADAT: inspect the application\nand improve performance\n1000 unrelated worker\n'
+    def inventory(command,**kwargs):
+        return type('R',(),{'stdout':prompt if command[0]=='ps' else ''})()
+    monkeypatch.setattr(m.subprocess,'run',inventory)
+    m.require_unused_workspace(root,OLD)
+    prompt = '999 claude -p\nFELADAT: inspect '+str(root/'data/development/workspaces'/OLD)+'\n'
+    with pytest.raises(ValueError,match='Process still references workspace: 999'):
+        m.require_unused_workspace(root,OLD)
+    prompt = 'FELADAT: inspect '+OLD+'\n'
+    with pytest.raises(ValueError,match='Process still references workspace: unknown'):
+        m.require_unused_workspace(root,OLD)

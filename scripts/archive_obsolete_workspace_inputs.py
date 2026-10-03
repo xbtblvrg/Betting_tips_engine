@@ -89,11 +89,20 @@ def require_unused_workspace(root, rid, *, retiring=False):
     safe(workspace)
     processes = subprocess.run(['ps', '-axo', 'pid=,command='],
         capture_output=True, text=True, check=True, timeout=15).stdout
+    # Command arguments can contain literal newlines (for example AI CLI
+    # prompts). Those continuation lines are not new PID records. Still inspect
+    # them for workspace references: silently dropping them could retire live
+    # input data. Unknown owners remain conservative blockers.
+    pid = 'unknown'
     for line in processes.splitlines():
         fields = line.strip().split(None, 1)
-        if len(fields) != 2: continue
-        pid, command = fields
-        if int(pid) != os.getpid() and (str(workspace) in command or rid in command):
+        if not fields: continue
+        if fields[0].isascii() and fields[0].isdigit():
+            pid = fields[0]
+            command = fields[1] if len(fields) == 2 else ''
+        else:
+            command = line
+        if pid != str(os.getpid()) and (str(workspace) in command or rid in command):
             raise ValueError('Process still references workspace: ' + pid)
     # lsof includes cwd, mapped files and open descriptors for this user's
     # processes. A failed inventory is not evidence of inactivity.
