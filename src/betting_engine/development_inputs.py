@@ -25,6 +25,7 @@ MAX_TOTAL = 256 * 1024 * 1024
 MAX_BLOBS = 512
 MAX_MODELS = 64
 MAX_DECISIONS = 10000
+DECISION_EXPORT_VERSION = 'independent-history-v2'
 MAX_NHL_SOURCE = 4 * 1024 * 1024
 
 
@@ -138,7 +139,7 @@ def _decompress(raw):
     return body
 
 
-def _snapshot(root, *, include_publication=True):
+def _snapshot(root, *, include_publication=True, publication_errors=None):
     path = root / 'data/engine.sqlite3'
     # Inspect path without copying/opening arbitrary files or running migrations.
     if not path.is_file() or path.is_symlink() or path.parent.is_symlink():
@@ -160,15 +161,24 @@ def _snapshot(root, *, include_publication=True):
                         raise ValueError('Decision payload exceeds byte bound')
                     record[key] = json.loads(record[key])
             decisions.append(record)
-        publication = db.execute('SELECT id,created_at,payload FROM publications ORDER BY id DESC LIMIT 1').fetchone() if include_publication else None
         public = None
-        if publication:
-            value = publication['payload']
-            if len(value) > MAX_FILE:
-                raise ValueError('Publication exceeds byte bound')
-            if isinstance(value, bytes) and value.startswith(PREFIX):
-                value = _decompress(value[len(PREFIX):])
-            public = {'version': publication['id'], 'created_at': publication['created_at'], 'payload': json.loads(value)}
+        if include_publication:
+            try:
+                # Check the stored length before materialising the SQLite BLOB.
+                publication = db.execute('SELECT id,created_at,length(payload) AS size FROM publications ORDER BY id DESC LIMIT 1').fetchone()
+                if publication:
+                    if publication['size'] > MAX_FILE:
+                        raise ValueError('Publication exceeds byte bound')
+                    value = db.execute('SELECT payload FROM publications WHERE id=?', (publication['id'],)).fetchone()[0]
+                    if isinstance(value, bytes) and value.startswith(PREFIX):
+                        value = _decompress(value[len(PREFIX):])
+                    public = {'version': publication['id'], 'created_at': publication['created_at'], 'payload': json.loads(value)}
+            except Exception as exc:
+                if publication_errors is None:
+                    raise
+                # A large/corrupt current dashboard is not a loss of immutable
+                # outcome history. Keep the error explicit and limits unchanged.
+                publication_errors.append(exc)
         return {'source': 'read-only system_decisions transaction', 'total_records': total,
                 'exported_records': len(decisions), 'truncated': total > len(decisions), 'records': decisions}, public
     finally:
@@ -241,7 +251,7 @@ def input_generation(root):
     try:
         if decisions is None:
             raise ValueError('Decision evidence unavailable')
-        components['decision_history'] = _sha(_json(decisions))
+        components['decision_history'] = _sha(_json({'export_version': DECISION_EXPORT_VERSION, 'decisions': decisions}))
         available['decision_history'] = True
     except Exception as exc:
         components['decision_history'] = _sha(_json({'unavailable': type(exc).__name__}))
@@ -310,20 +320,27 @@ def export_development_inputs(root, workspace):
         references.extend(_refs(endpoints))
     except Exception as exc:
         error('stake_catalog', 'current', exc)
+    publication = None
+    publication_errors = []
     try:
-        decisions, publication = _snapshot(root)
+        decisions, publication = _snapshot(root, publication_errors=publication_errors)
         _metadata_safe(decisions)
-        _metadata_safe(publication)
         write('development_inputs/system_decisions.json', _json(decisions))
         references.extend(_refs(decisions))
         nhl_references.extend(_nhl_refs(decisions))
         if decisions['truncated']:
             error('decision_history', 'limit', 'Older decisions omitted by explicit export bound')
-        if publication:
-            write('development_inputs/publication.json', _json(publication))
-            references.extend(_refs(publication))
     except Exception as exc:
         error('decision_history', 'read-only snapshot', exc)
+    for exc in publication_errors:
+        error('publication', 'read-only snapshot', exc)
+    if publication is not None:
+        try:
+            _metadata_safe(publication)
+            write('development_inputs/publication.json', _json(publication))
+            references.extend(_refs(publication))
+        except Exception as exc:
+            error('publication', 'read-only snapshot', exc)
 
     seen_refs = set()
     blob_count = 0

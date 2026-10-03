@@ -149,3 +149,51 @@ def test_historical_recovery_is_visible_while_current_catalogue_is_missing(tmp_p
     assert not absent['available']['stake_sources'] and restored['available']['stake_sources']
     r=inputs.export_development_inputs(tmp_path,tmp_path/'isolated')
     assert r['state']=='partial' and len(r['sources'])==1
+
+
+@pytest.mark.parametrize('failure', ['compressed_oversize', 'stored_oversize', 'malformed', 'unsafe_metadata'])
+def test_publication_failure_preserves_independent_immutable_history(tmp_path, monkeypatch, failure):
+    seed(tmp_path)
+    monkeypatch.setattr(inputs, 'MAX_FILE', 8192)
+    if failure == 'compressed_oversize':
+        payload = inputs.PREFIX + gzip.compress(json.dumps({'padding': 'x' * 9000}).encode())
+    elif failure == 'stored_oversize':
+        payload = json.dumps({'padding': 'x' * 9000})
+    elif failure == 'malformed':
+        payload = inputs.PREFIX + b'not gzip'
+    else:
+        payload = json.dumps({'url': 'https://user:secret@odds-data.stake.com/fixtures/g1'})
+    db = sqlite3.connect(tmp_path / 'data/engine.sqlite3')
+    db.execute('UPDATE publications SET payload=?', (payload,))
+    db.commit(); db.close()
+    original = (tmp_path / 'data/engine.sqlite3').read_bytes()
+    generation = inputs.input_generation(tmp_path)
+    dest = tmp_path / 'isolated'
+    result = inputs.export_development_inputs(tmp_path, dest)
+    assert result['state'] == 'partial'
+    assert any(e['kind'] == 'publication' for e in result['errors'])
+    assert not any(e['kind'] == 'decision_history' for e in result['errors'])
+    history = json.loads((dest / 'data/development_inputs/system_decisions.json').read_text())
+    assert history['exported_records'] == history['total_records'] == 1
+    assert history['records'][0]['payload']['stake'] == 3
+    assert history['records'][0]['pnl'] == -3
+    assert history['records'][0]['outcome_evidence'] == {'actual_score': 7}
+    assert not (dest / 'data/development_inputs/publication.json').exists()
+    assert original == (tmp_path / 'data/engine.sqlite3').read_bytes()
+    assert result['generation'] == generation
+    assert generation['available']['decision_history']
+    assert b'user:secret' not in (dest / 'data/development_inputs/manifest.json').read_bytes()
+
+
+def test_repaired_decision_export_has_one_stable_generation_change(tmp_path, monkeypatch):
+    seed(tmp_path)
+    current = inputs.input_generation(tmp_path)
+    decisions, _ = inputs._snapshot(tmp_path, include_publication=False)
+    legacy = inputs._sha(inputs._json(decisions))
+    assert current['components']['decision_history'] != legacy
+    assert current == inputs.input_generation(tmp_path)
+    monkeypatch.setattr(inputs, 'DECISION_EXPORT_VERSION', 'next-export-protocol')
+    changed = inputs.input_generation(tmp_path)
+    assert changed['components']['decision_history'] != current['components']['decision_history']
+    for key in current['components'].keys() - {'decision_history'}:
+        assert current['components'][key] == changed['components'][key]
