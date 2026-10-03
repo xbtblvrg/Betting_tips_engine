@@ -310,7 +310,8 @@
     "maximum_development_jobs": 6,
     "scheduling": "Standard with Nice 5",
     "scope": "Soft new-job admission; not a hard CPU cap. Remote AI and network waits may leave CPU below target.",
-    "betting_policy_changed": false
+    "betting_policy_changed": false,
+    "memory_warning_policy": "2026-10-03 user correction: warning pressure2 permits one developer lane when other native gates pass; critical4 blocks new work; preserve active tasks and adaptive normal capacity."
   },
   "statistics_policy": {
     "version": "statistics-v1",

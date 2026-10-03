@@ -264,7 +264,7 @@ def assess_capacity(samples, config, active_count, state=None, *, now=None):
         reasons.append('cpu_high_water')
     if not warming_up and metrics['cpu_rolling_percent'] >= cfg['cpu_soft_target']:
         reasons.append('cpu_soft_target')
-    if metrics['memory_pressure'] != 1:
+    if metrics['memory_pressure'] == 4:
         reasons.append('memory_pressure')
     if metrics['memory_headroom_proxy_bytes'] < cfg['memory_reserve_gib'] * GIB:
         reasons.append('memory_reserve')
@@ -279,6 +279,16 @@ def assess_capacity(samples, config, active_count, state=None, *, now=None):
         return out, next_state
     if warming_up:
         out.update(state='warming_up', reasons=['first_native_delta_pending'])
+        return out, next_state
+    if metrics['memory_pressure'] == 2:
+        # User-authorized progress under warning pressure: one lane, not a
+        # blanket stop. Critical pressure and all independent hard gates above
+        # still block new work; existing workers are never terminated here.
+        slots = min(1, cfg['slots'])
+        next_state = {'healthy_samples': 0, 'last_sample': latest.get('monotonic'), 'allowed_slots': slots}
+        out.update(allowed_slots=slots, allow_new=active_count < slots,
+                   state='reduced_capacity' if active_count < slots else 'at_capacity',
+                   reasons=['memory_warning_single_lane'])
         return out, next_state
     sample_id = latest.get('monotonic')
     healthy = previous.get('healthy_samples', 0)

@@ -98,7 +98,6 @@ def test_normal_pressure_with_nearly_all_ram_used_is_not_oom():
 
 
 @pytest.mark.parametrize('changes,reason', [
-    ({'memory_pressure': 2}, 'memory_pressure'),
     ({'memory_pressure': 4}, 'memory_pressure'),
     ({'thermal_state': 1}, 'thermal_advisory'),
     ({'thermal_state': 2}, 'thermal_advisory'),
@@ -238,3 +237,22 @@ def test_only_complete_first_sample_has_bounded_nonfault_warming_status():
     assert assess([sample(thermal_state=2)], now=BASE)[0]['state'] == 'resource_limited'
     # Multiple samples without a usable interval are a measurement fault, not warmup.
     assert assess([sample(), sample()], now=BASE)[0]['state'] == 'telemetry_unavailable'
+
+
+def test_warning_pressure_keeps_one_lane_without_overdispatch():
+    samples=[sample(0,memory_pressure=2),sample(5,memory_pressure=2)]
+    result,state=assess(samples,active=0)
+    assert result['allow_new'] and result['allowed_slots']==1
+    assert result['state']=='reduced_capacity'
+    for active in (1,3):
+        result,_=assess(samples,active=active,state=state)
+        assert not result['allow_new'] and result['allowed_slots']==1
+    samples.append(sample(10,memory_pressure=4))
+    result,_=assess(samples,active=0,state=state)
+    assert not result['allow_new'] and result['allowed_slots']==0
+
+
+@pytest.mark.parametrize('changes', [dict(swap_used_bytes=8*rc.MIB),dict(memory_headroom_proxy_bytes=3*rc.GIB),dict(thermal_state=2)])
+def test_warning_pressure_does_not_override_independent_limits(changes):
+    result,_=assess([sample(0,memory_pressure=2),sample(5,memory_pressure=2,**changes)],active=0)
+    assert not result['allow_new'] and result['allowed_slots']==0
