@@ -678,5 +678,11 @@
     "stability": "Extend existing supervisor: measured 15-minute audit, stable deduplicated highest-priority repair intake, existing AI failover and release workflow, dashboard one-line state. Never infer active repair from queued task alone.",
     "execution": "Use existing catalog/plan/gaps; reproduce, isolated fix, targeted tests, independent review, full release tests, local and Tailscale live verification. No new administrative orchestration.",
     "status": "requirements recorded; acceptance requires per-capability deployed and live-tested code, not this record"
+  },
+  "confidence_sizing_correction": {
+    "date": "2026-10-03",
+    "policy": "historical_confidence_v3",
+    "instruction": "Use final reviewed win probability, model-market agreement, verified input completeness and game-shrunken positive historical performance for meaningful USD1-5 sizing, preserving active caps and original decisions. Losing history alone must not boost confidence.",
+    "unplaced_batch": "User declares current50ready instructions unplaced and authorizes audited replacement execution sizing, not new tickets or increased first-issuance count. Preserve before-record in reconciliation audit; never overwrite system_decisions or original issuance stakes."
   }
 }
