@@ -223,7 +223,8 @@ def instruction_review(record, current, now, minimum_roi, related_contracts=None
             return _denied('original_stake_unverified', 'The original single issued stake and odds do not validate.')
         # Verify the original allocation at its actual issuance time, not at
         # today's time, and retain the frozen amount even when the price moves.
-        issued_at = parse_time(record['created_at'])
+        revision = original.get('execution_revision', {})
+        issued_at = parse_time(revision.get('revised_at', record['created_at']))
         if issued_at > now:
             return _denied('original_stake_unverified', 'The original issuance timestamp is invalid.')
         original_format = _original_budget(original, issued_at)
@@ -244,7 +245,8 @@ def instruction_review(record, current, now, minimum_roi, related_contracts=None
                 current['reference_odds'], settings, sizing['maximum_stake'], related)
         if supported['amount'] + 1e-9 < amount:
             return _denied('stake_reassessment_required', 'The current model no longer supports the original issued stake. The record remains unchanged.')
-        return {**review, 'stake': amount, 'stake_basis': 'original_single_issuance',
+        return {**review, 'stake': amount, 'stake_basis': ('authorized_unplaced_revision' if revision else 'original_single_issuance'),
+                **({'execution_revision': revision} if revision else {}),
                 'current_supported_stake': supported['amount'], 'original_evidence_format': original_format,
                 'repeat_bet': False}
     except (KeyError, TypeError, ValueError, ArithmeticError, AttributeError):

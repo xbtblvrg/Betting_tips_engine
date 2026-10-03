@@ -566,6 +566,10 @@ class Store:
                 ids.append(bid)
             c.execute('INSERT INTO reported_bet_imports VALUES (?,?,?,?)',(source_id,signature,json.dumps(ids),now))
         return ids
+    def reprice_unplaced(self, request_id, tip_ids, authorization):
+        from .unplaced_repricing import reprice_unplaced
+        return reprice_unplaced(self, request_id, tip_ids, authorization)
+
     def open_bets(self):
         with self.db() as c:rows=c.execute("SELECT * FROM bets WHERE status='open' ORDER BY id").fetchall()
         return [{**dict(r),'payload':json.loads(r['payload'])} for r in rows]
@@ -573,6 +577,14 @@ class Store:
         with self.db() as c:return float(c.execute("SELECT COALESCE(SUM(stake),0) FROM bets WHERE status='open'").fetchone()[0])
     def settle(self,id,status,pnl,evidence=None):
         with self.db() as c:
+            c.execute('BEGIN IMMEDIATE')
+            current=c.execute('SELECT stake,odds,payload FROM bets WHERE id=?', (id,)).fetchone()
+            # A settlement worker may have read its ticket before an explicit
+            # unplaced resize. Resolve cash from the locked execution terms.
+            if (current and json.loads(current['payload']).get('execution_revision')
+                    and evidence and evidence.get('basis')=='verified_score_in_contract_scope'
+                    and status in ('won','lost','push')):
+                pnl=current['stake']*(current['odds']-1) if status=='won' else (-current['stake'] if status=='lost' else 0.)
             updated=c.execute("UPDATE bets SET status=?,pnl=? WHERE id=? AND status='open'",(status,pnl,id)).rowcount==1
             if updated and evidence:
                 tip=json.loads(c.execute('SELECT payload FROM bets WHERE id=?',(id,)).fetchone()['payload'])
