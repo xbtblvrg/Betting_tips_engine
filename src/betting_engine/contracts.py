@@ -128,6 +128,8 @@ def contract_value(kind,side,line,home,away):
     raise ValueError('Unsupported settlement contract')
 
 def settlement_scores(tip,game):
+    if game.context.get('espn_settlement_pending') is True:
+        raise ValueError('Exact official ESPN result evidence is pending')
     if game.league=='NHL' and game.context.get('nhl_settlement_pending') is True:
         raise ValueError('Exact official NHL result evidence is pending')
     scope,_=split_market(tip['market'])

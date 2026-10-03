@@ -647,6 +647,35 @@
         "D30",
         "D32"
       ]
+    },
+    {
+      "id": "D34",
+      "milestone": "M07",
+      "priority": 0,
+      "title": "Recover outstanding ESPN final results outside rolling schedules",
+      "owner": "Codex outcome recovery; root integration",
+      "release_owner": "Root Codex",
+      "created_at": "2026-10-03T07:31:07.930035+00:00",
+      "due_at": "2026-10-03T08:30:00+00:00",
+      "depends_on": [],
+      "objective": "Recover 16 original NCAAF/WNBA open wagers on five independently confirmed final events; rolling schedule/historical-result lag must not strand issued decisions.",
+      "implementation_steps": [
+        "Recover exact ESPN summary responses for pending original game identities, retaining raw hashes and bounded retries.",
+        "Verify event/start/home-away teams/final integer scores; reject absent scope instead of using full-game scores.",
+        "Run recovery before regular settlement; preserve original ticket and decision payloads.",
+        "Test persistence failures, cache replay and idempotence; independently review; deploy and verify local/Tailscale and outcome counts."
+      ],
+      "files": [
+        "src/betting_engine/espn_results.py",
+        "src/betting_engine/engine.py",
+        "src/betting_engine/contracts.py",
+        "tests/test_espn_result_recovery.py",
+        "tests/test_espn_recovery_integration.py"
+      ],
+      "data_source": "Public ESPN exact-event summary API for NBA/WNBA/NCAAF/NCAAM/NCAAW; original frozen event identities.",
+      "acceptance": "All 16 observed overdue wagers and decisions settle from hash-retained matching official full-game evidence exactly once; original payload/odds/stakes and already settled outcomes unchanged. Invalid/unavailable/ambiguous/future sources remain pending; no full-game substitution for periods. Targeted/full suites, independent Codex review and fresh local/Tailscale publication verified.",
+      "status": "attention_required",
+      "evidence": "docs/audits/20261003-072230-performance-36h.json"
     }
   ],
   "deferred": [

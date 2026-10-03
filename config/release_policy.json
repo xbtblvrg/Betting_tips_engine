@@ -199,6 +199,33 @@
         ],
         "daily_risk_limit": null
       }
+    },
+    "D34": {
+      "kind": "guarded_engine",
+      "files": [
+        "src/betting_engine/espn_results.py",
+        "src/betting_engine/engine.py",
+        "src/betting_engine/contracts.py",
+        "tests/test_espn_result_recovery.py",
+        "tests/test_espn_recovery_integration.py",
+        "tests/fixtures/espn_results/NCAAF-401858245.json.gz",
+        "tests/fixtures/espn_results/NCAAF-401858476.json.gz",
+        "tests/fixtures/espn_results/NCAAF-401868094.json.gz",
+        "tests/fixtures/espn_results/NCAAF-401871050.json.gz",
+        "tests/fixtures/espn_results/WNBA-401918294.json.gz",
+        "tests/fixtures/espn_results/manifest.json"
+      ],
+      "guards": {
+        "clv_gate_required": true,
+        "ledger_immutable": true,
+        "auto_betting_disabled": true,
+        "stake_range_usd": [
+          1,
+          5
+        ],
+        "daily_risk_limit": null
+      },
+      "root_integration_required": true
     }
   },
   "review_new_passive_utilities": true

@@ -105,6 +105,45 @@ class Engine:
             self.nhl_settlement_status={'checked_at':now.isoformat(),'state':'failed',
                 'error':str(exc)[:500],'unresolved_count':len(unresolved),
                 'rows':[{'game_id':gid,'state':'recovery_failed'} for gid in unresolved]}
+    def recover_espn_results(self,period_scores=None):
+        """Recover issued games independently of the rolling sports calendar."""
+        from .espn_results import recover_pending_espn, LEAGUE_PATHS
+        pending_ids=None;now=utcnow()
+        try:
+            bets=self.store.open_bets();decisions=self.store.system_decisions()
+            pending_ids_building=set()
+            for row in bets+decisions:
+                tip=row.get('payload',{})
+                gid=tip.get('game_id')
+                supported_prefix=isinstance(gid,str) and gid.split(':',1)[0] in LEAGUE_PATHS
+                if row.get('status')!='open' or (tip.get('league') not in LEAGUE_PATHS and not supported_prefix):continue
+                try:
+                    if parse_time(tip['start'])>=now:continue
+                except (KeyError,TypeError,ValueError,AttributeError):pass
+                if isinstance(gid,str):pending_ids_building.add(gid)
+            # An interrupted enumeration must fail closed for all supported
+            # finals rather than protecting only the prefix of the ledger read.
+            pending_ids=pending_ids_building
+            recovered,status=recover_pending_espn(self.games,bets,decisions,data_dir=DATA)
+            # The exact-event adapter supplies full-game scores only. Reattach
+            # separately verified scopes after its identity/final-score repair;
+            # the period adapter rejects changed teams, starts and final scores.
+            from .period_data import attach_scores
+            attach_scores([g for g in recovered if g.league in LEAGUE_PATHS],period_scores or {})
+            if status.get('recovered_games'):
+                atomic_json(DATA/'games.json',[g.dict() for g in recovered])
+            self.games,self.espn_settlement_status=recovered,status
+        except Exception as exc:
+            log.exception('Pending ESPN game result recovery failed')
+            blocked=[]
+            for game in self.games:
+                if game.league in LEAGUE_PATHS and (game.id in pending_ids if pending_ids is not None else game.state=='final'):
+                    game.context={**game.context,'espn_settlement_pending':True};blocked.append(game.id)
+            unresolved=sorted(pending_ids if pending_ids is not None else set(blocked))
+            self.espn_settlement_status={'checked_at':now.isoformat(),'state':'failed',
+                'error':str(exc)[:500],'unresolved_count':len(unresolved),
+                'rows':[{'game_id':gid,'state':'recovery_failed'} for gid in unresolved]}
+
     def refresh(self,force_data=False):
         if not self.lock.acquire(False):return False
         priority=None;completed=False
@@ -159,6 +198,7 @@ class Engine:
             # moves to the next day. Recover exact official finals before both
             # settlement and current team-history feature construction.
             self.recover_nhl_results()
+            self.recover_espn_results(period_scores)
             self.load_models()
             # The separate learning worker owns training and promotion. Market
             # publication keeps using complete, atomically replaced champions.
@@ -243,6 +283,7 @@ class Engine:
             status['league_coverage']={league:{'games':sum(g.league==league for g in upcoming),'markets':sum(m.league==league for m in markets),'model_available':league in self.models} for league in LEAGUES}
             status['core_markets']=core_market_audit(candidates,recommendations+alternatives,upcoming,settings['minimum_roi'])
             status['settlement_recovery']=self.nhl_settlement_status
+            status['espn_settlement_recovery']=self.espn_settlement_status
             # Model-quality repair remains visible even when a league has no
             # fixture inside today's window. Price changes cannot resolve it.
             status['model_quality']={league:{market:guard.model_quality(model.report,market)
