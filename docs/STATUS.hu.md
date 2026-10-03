@@ -388,3 +388,12 @@ Mért célzott validáció: 92 release/recovery/guarded-profile teszt és 73 com
 Élesítés: `release-20261002T194059127957-600e50e3`, `D33`, `guarded_engine`, 10 hash-azonosított fájl. A teljes Python release-suite `6119 passed, 1 skipped, 5 subtests passed`; a DOM kapu sikeres. A független Codex-review elfogadta a bounded composite parser/settlement és EvidenceGuard-gating változást; a composite családok validáció hiányában fail-closed, nincs új statisztikai modell- vagy automatikus fogadásleadási engedély.
 
 Élő bizonyíték: a trusted release után a helyi és Tailscale `/api/health` egyaránt `ok=true`, `engine.error=null`, friss publikáció `2026-10-02T19:47:51.457743+00:00`, `guard_consistent=true`. A release coordinator új verziója `root-guarded-engine-release-v1`, az engedélyezett betting capability `true`; az immutable ledger, CLV-kapu, USD1–5 sáv, `daily_risk_limit=null` és az automatikus fogadásleadás tiltása változatlan. A katalógusban megmaradt 523 Stake-piaccsalád és minden nem bizonyított család `not_established`/`operating_gaps` állapotban van.
+
+
+## 2026-10-03 13:54 CEST — 100-as cél, több piac, eredményalapú tétezés v2
+
+Commitolt és élesített kód: `268060d` (integráció). Napi cél100; v2 limitek4 tipp/meccs,2 periódus/meccs,USD10/meccs,15 új/ciklus,35% liga/piaccsalád; USD1–5/fogadás és daily_risk_limit=null változatlan. Új allokációk kettős számlálása javítva. V2 tétezés eredeti lezárt döntéseken, liga/scope/család szerint, előjeles meccseredménnyel és20-meccses zsugorítással; v1 bizonyíték visszajátszható.
+
+Mért élő eredmény:18→43 mai első kiadás,42 Ready to Bet kártya,8 különböző Stake-piacnév; új tétek köztUSD1.49,1.92 és2.62. A100-as cél hiánya57.25 új döntés mindegyikének guardja és v2 tétezése visszaellenőrizve; kiadási ciklusok15 és10.744 eredeti rekord változatlan.3272 kiértékelt jelölt az első friss ellenőrzésben. Ez működési volumenjavulás, nem mért új WR/ROI javulás.
+
+Validáció:6367 Python teszt +5 subtest sikeres,1 kihagyott;278 frontendteszt sikeres; független Codex review; helyi és Tailscale friss publikáció és DOM-fejléc/kártyaszám egyezés. Első teljes futás256 fájlleírókorlátot ért el; hibanapló megőrizve, új tesztkapcsolatok lezárva, végső teljes futás1024 limit mellett sikeres. Bizonyíték:`data/releases/root-outcome-volume-20261003/`. D38/D39 meglévő éles funkciók frissen igazolva és gyökér-kiadási bizonylattal lezárva; felesleges újrapróbálás megszűnt. Shadow worker üresjáratban újraindítva indexelt capture olvasással; a folyamatban levő fejlesztői feladatokat nem szakítottuk meg.

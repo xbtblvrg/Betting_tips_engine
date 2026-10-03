@@ -711,14 +711,17 @@
       "live_evidence": "data/releases/root-qualified-selection-20261003/release.json",
       "followup": {
         "requested_at": "2026-10-03T11:30:42.439368+00:00",
-        "state": "awaiting_release",
+        "state": "live_verified",
         "owner": "Codex integration and independent Codex review",
         "deadline": "2026-10-03T15:00:00+00:00",
         "steps": [
           "Reproduce and fix duplicate counting of new event allocations; preserve all existing limits.",
           "Activate user-authorized v2 caps:4/game,2 periods/game,USD10/game,15/cycle,35% family; preserve legacy v1."
         ],
-        "acceptance": "Targeted regressions, full suite, independent review, commit and live local/Tailscale verification; report actual issuance shortfall."
+        "acceptance": "Targeted regressions, full suite, independent review, commit and live local/Tailscale verification; report actual issuance shortfall.",
+        "verified_at": "2026-10-03T11:54:42.958767+00:00",
+        "code_commit": "268060d",
+        "live_evidence": "data/releases/root-outcome-volume-20261003/ui-live.json"
       }
     },
     {
@@ -755,7 +758,9 @@
           "Reconcile trusted root task receipts at claim/completion; preserve attempts and deadlines.",
           "Restrict shadow price capture reads using existing fixture index without changing evidence or evaluation."
         ],
-        "acceptance": "Targeted regressions, full suite, independent review, commit and live local/Tailscale verification; report actual issuance shortfall."
+        "acceptance": "Targeted regressions, full suite, independent review, commit and live local/Tailscale verification; report actual issuance shortfall.",
+        "live_evidence": "data/releases/root-outcome-volume-20261003/live.json",
+        "progress": "Root receipts D38/D39 production_verified; learning worker restarted idle with indexed capture code; development claim-boundary code pending next safe worker restart."
       }
     },
     {
@@ -795,14 +800,17 @@
       },
       "followup": {
         "requested_at": "2026-10-03T11:30:42.439368+00:00",
-        "state": "awaiting_release",
+        "state": "live_verified",
         "owner": "Codex integration and independent Codex review",
         "deadline": "2026-10-03T15:00:00+00:00",
         "steps": [
           "Implement versioned full-range historical outcome uplift; retain v1 replay, uncertainty shrinkage and immutable original stakes.",
           "Persist daily target100 without resetting daily checkpoint; activate revised signed-game sizing v2."
         ],
-        "acceptance": "Targeted regressions, full suite, independent review, commit and live local/Tailscale verification; report actual issuance shortfall."
+        "acceptance": "Targeted regressions, full suite, independent review, commit and live local/Tailscale verification; report actual issuance shortfall.",
+        "verified_at": "2026-10-03T11:54:42.958767+00:00",
+        "code_commit": "268060d",
+        "live_evidence": "data/releases/root-outcome-volume-20261003/ui-live.json"
       }
     },
     {
