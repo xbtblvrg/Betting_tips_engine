@@ -9,13 +9,14 @@ from decimal import Decimal, ROUND_DOWN
 import hashlib
 import json
 import math
+from urllib.parse import urlsplit
 
 from .contracts import allocation_family, split_market
 
 POLICY = 'historical_game_weighted_v1'
 VERSION = 'outcome-sizing-evidence-v1'
 MIN_GAMES = 2
-FORMULA = '1 + n/(n+20) * min(1,max(0,game_roi)/0.20) * min(1,max(0,game_wr-break_even_wr)/0.10)'
+FORMULA = '1 + min(1,max(0,n*game_roi/(n+20))/0.20) * min(1,max(0,d*(game_wr-break_even_wr)/(d+20))/0.10)'
 NOTE = 'Historical game-weighted sizing heuristic; not validated profit, a confidence interval, or an independent probability forecast.'
 
 
@@ -47,7 +48,8 @@ def _factor(summary):
     n = summary['independent_games']
     if n < MIN_GAMES or summary['decisive_games'] < MIN_GAMES:
         return 1.0
-    return 1 + n / (n + 20) * min(1., max(0., summary['game_roi']) / .20) * min(1., max(0., summary['game_wr'] - summary['break_even_wr']) / .10)
+    d = summary['decisive_games']
+    return 1 + min(1., max(0., n * summary['game_roi'] / (n + 20)) / .20) * min(1., max(0., d * (summary['game_wr'] - summary['break_even_wr']) / (d + 20)) / .10)
 
 
 def _aggregate(games):
@@ -90,6 +92,14 @@ def build_snapshot(decisions, as_of):
             issued, start, settled = _time(row['issued_at']), _time(tip['start']), _time(evidence['settled_at'])
             if settled > cutoff or issued > settled or start > settled:
                 raise ValueError('invalid_or_future_settlement')
+            source = urlsplit(evidence.get('source', ''))
+            if source.scheme != 'https' or not source.hostname or source.username or source.password:
+                raise ValueError('missing_or_invalid_source_provenance')
+            fetched = _time(evidence['fetched_at'])
+            if fetched > settled:
+                raise ValueError('source_fetched_after_settlement')
+            if any(_number(evidence[k]) < 0 for k in ('home_score', 'away_score')):
+                raise ValueError('invalid_source_scores')
             stake, odds, pnl = _number(tip['stake']), _number(tip['reference_odds']), _number(row['pnl'])
             if stake <= 0 or odds <= 1:
                 raise ValueError('invalid_original_money')
@@ -112,16 +122,20 @@ def build_snapshot(decisions, as_of):
             excluded.append({**identity, 'reason': str(exc) or 'invalid_row'})
     segments = {key: {**_aggregate(games), 'games': games} for key, games in sorted(groups.items())}
     body = {'version': VERSION, 'policy': POLICY, 'as_of': cutoff.isoformat(), 'minimum_games': MIN_GAMES,
-            'segments': segments, 'accepted': accepted, 'excluded': excluded, 'inputs': inputs,
-            'input_sha256': _digest(inputs), 'exclusion_counts': dict(sorted(Counter(r['reason'] for r in excluded).items())), 'note': NOTE}
-    return {**body, 'snapshot_sha256': _digest(body)}
+            'segments': segments, 'accepted': accepted, 'note': NOTE}
+    # Input inventory and rejections are audited separately. Unsettled/future rows
+    # cannot invalidate the identity of evidence available at this cutoff.
+    diagnostics = {'excluded': excluded, 'inputs': inputs, 'input_sha256': _digest(inputs),
+                   'exclusion_counts': dict(sorted(Counter(r['reason'] for r in excluded).items()))}
+    return {**body, 'snapshot_sha256': _digest(body), **diagnostics,
+            'diagnostics_sha256': _digest(diagnostics)}
 
 
 def summary_for(snapshot, tip):
     key = segment_key(tip)
     if snapshot is None:
         return None
-    if not isinstance(snapshot, dict) or snapshot.get('version') != VERSION or snapshot.get('policy') != POLICY or _digest({k: v for k, v in snapshot.items() if k != 'snapshot_sha256'}) != snapshot.get('snapshot_sha256'):
+    if not isinstance(snapshot, dict) or snapshot.get('version') != VERSION or snapshot.get('policy') != POLICY or _digest({k: snapshot[k] for k in ('version', 'policy', 'as_of', 'minimum_games', 'segments', 'accepted', 'note')}) != snapshot.get('snapshot_sha256'):
         raise ValueError('Invalid outcome snapshot digest')
     values = snapshot['segments'].get(key, {**_aggregate({}), 'games': {}})
     result = {**values, 'segment': key, 'snapshot_sha256': snapshot['snapshot_sha256'], 'as_of': snapshot['as_of'], 'version': VERSION, 'policy': POLICY, 'minimum_games': MIN_GAMES, 'note': NOTE}
@@ -150,7 +164,7 @@ def verify_summary(summary):
             if _number(game['stake']) <= 0 or _number(game['pnl']) < -game['stake'] - 1e-8 or not 0 <= _number(game['inverse_odds_sum']) <= game['wins'] + game['losses']:
                 return False
         rebuilt = _aggregate(summary['games'])
-        return all(summary[k] == value for k, value in rebuilt.items()) and 1 <= summary['factor'] < 2
+        return all(summary[k] == value for k, value in rebuilt.items()) and 1 <= summary['factor'] <= 2
     except (ValueError, TypeError, KeyError, AttributeError, OverflowError):
         return False
 

@@ -16,7 +16,7 @@ def decision(i, status='won', stake=1., odds=2., game=None, **changes):
     return {'family': 'contract:' + str(i), 'tip_id': str(i), 'issued_at': '2026-10-01T09:00:00+00:00',
             'payload': tip, 'status': status,
             'pnl': stake * (odds - 1) if status == 'won' else -stake if status == 'lost' else 0.,
-            'outcome_evidence': {'settled_at': '2026-10-01T12:00:00+00:00', 'source': 'sports_score'}}
+            'outcome_evidence': {'settled_at': '2026-10-01T12:00:00+00:00', 'source': 'https://statsapi.mlb.com/api/v1/schedule', 'fetched_at': '2026-10-01T11:59:00+00:00', 'home_score': 1, 'away_score': 0}}
 
 
 class OutcomeSizingTests(unittest.TestCase):
@@ -65,10 +65,10 @@ class OutcomeSizingTests(unittest.TestCase):
     def test_sparse_shrinkage_and_downward_change(self):
         self.assertEqual(self.summary([decision(1)])['factor'], 1)
         tiny = self.summary([decision(1), decision(2)])['factor']
-        self.assertAlmostEqual(tiny, 1 + 2 / 22)
+        self.assertAlmostEqual(tiny, 1 + (2 / 22 / .20) * (1 / 22 / .10))
         larger = self.summary([decision(i) for i in range(20)])['factor']
         self.assertGreater(larger, tiny)
-        self.assertLess(larger, 2)
+        self.assertLessEqual(larger, 2)
         self.assertLess(self.summary([decision(1), decision(2), decision(3, 'lost'), decision(4, 'lost')])['factor'], tiny)
 
     def test_caps_bankroll_no_revival_and_original_fields(self):
@@ -147,3 +147,49 @@ class OutcomeSizingTests(unittest.TestCase):
         updated = build_snapshot(rows, AS_OF)
         self.assertNotEqual(snapshot['snapshot_sha256'], updated['snapshot_sha256'])
         self.assertNotEqual(snapshot['input_sha256'], updated['input_sha256'])
+
+    def test_new_loss_cannot_increase_three_odds3_wins_stake(self):
+        rows = [decision(i, odds=3) for i in range(3)]
+        before = self.summary(rows)
+        after = self.summary(rows + [decision(4, 'lost', odds=3)])
+        self.assertLessEqual(after['factor'], before['factor'])
+        base = {'amount': 4, 'maximum_stake': 5}
+        settings = {'outcome_sizing_policy': POLICY}
+        tip = decision('new')['payload']
+        stake_before = apply_adjustment(base, {**tip, 'outcome_sizing_evidence': before}, settings, 5)['amount']
+        stake_after = apply_adjustment(base, {**tip, 'outcome_sizing_evidence': after}, settings, 5)['amount']
+        self.assertLessEqual(stake_after, stake_before)
+
+    def test_loss_and_push_monotonic_grid(self):
+        for wins in (2, 3, 5, 10, 25):
+            for losses in (0, 1, 3, 10):
+                for odds in (1.2, 1.5, 2., 3., 8.):
+                    rows = [decision('w'+str(i), odds=odds) for i in range(wins)]
+                    rows += [decision('l'+str(i), 'lost', odds=odds) for i in range(losses)]
+                    before = self.summary(rows)['factor']
+                    after = self.summary(rows + [decision('extra_loss', 'lost', odds=odds)])['factor']
+                    pushed = self.summary(rows + [decision('extra_push', 'push', odds=odds)])['factor']
+                    self.assertLessEqual(after, before + 1e-12)
+                    self.assertLessEqual(pushed, before + 1e-12)
+
+    def test_unavailable_rows_only_change_diagnostic_digest(self):
+        rows = [decision(1), decision(2)]
+        original = build_snapshot(rows, AS_OF)
+        future = decision(3)
+        future['outcome_evidence']['settled_at'] = '2026-10-04T00:00:00Z'
+        opened = decision(4, 'open')
+        changed = build_snapshot(rows + [future, opened], AS_OF)
+        self.assertEqual(original['snapshot_sha256'], changed['snapshot_sha256'])
+        self.assertNotEqual(original['diagnostics_sha256'], changed['diagnostics_sha256'])
+        self.assertEqual(summary_for(original, rows[0]['payload']), summary_for(changed, rows[0]['payload']))
+
+    def test_unknown_or_future_source_cannot_boost(self):
+        for source in ('', 'unknown', 'http://sports.example/scores'):
+            rows = [decision(1), decision(2)]
+            for row in rows:
+                row['outcome_evidence']['source'] = source
+            self.assertEqual(self.summary(rows)['factor'], 1)
+        rows = [decision(1), decision(2)]
+        for row in rows:
+            row['outcome_evidence']['fetched_at'] = '2026-10-02T00:00:00Z'
+        self.assertEqual(self.summary(rows)['factor'], 1)
