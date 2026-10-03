@@ -288,7 +288,7 @@
       "acceptance": "Tests prove failed code, failed review and interrupted work cannot become production-ready; candidate status never closes full engine readiness; use new tests/modules, do not modify protected worker. Actual restore drill remains required.",
       "depends_on": [],
       "followup": {
-        "state": "awaiting_release",
+        "state": "live_verified",
         "owner": "Root Codex; independent Codex review",
         "deadline": "2026-10-03T15:00:00+00:00",
         "implementation_steps": [
@@ -310,8 +310,8 @@
         ],
         "acceptance": "Independent review, complete suite, preserved source/admission/deadline semantics; running updated worker and fresh live publication.",
         "code_commit": "35e5565",
-        "live_evidence": "data/releases/root-throughput-repair-20261003/",
-        "progress": "Initial scan cache and timed guard live; exact regex cache6394fulltests passed. Existing implementation run drains before safe restart; no active work killed."
+        "live_evidence": "data/releases/root-throughput-repair-20261003/release.json",
+        "progress": "Worker80764 loaded code at safe idle boundary; idle30second CPU15.91%ofonecore. Full6394Python/278frontend, independent review, original769decisions intact, local/Tailscale44cards46/100daily. Native memory-pressure pause remains monitored separately."
       }
     },
     {
@@ -787,7 +787,7 @@
         ],
         "acceptance": "Targeted regressions, full suite, independent review, commit and live local/Tailscale verification; report actual issuance shortfall.",
         "live_evidence": "data/releases/root-throughput-repair-20261003/live-compact-report.json",
-        "progress": "Bounded32-entry diagnostics live inshadow evaluation1103,54contracts: same-trial report41871030→1894947bytes; exact rejection counts/hash retained. Existing60-second supervisor live and automatically routes report-size bottleneck toD36. Final6394Python/278frontend tests and independent review passed; immutable769decisions unchanged. Entire20-trial cycle and persistent memory-pressure recovery remain monitored.",
+        "progress": "Bounded32-entry diagnostics live inshadow evaluation1103,54contracts: same-trial report41871030→1894947bytes; exact rejection counts/hash retained. Existing60-second supervisor live and automatically routes report-size bottleneck toD36. Final6394Python/278frontend tests and independent review passed; immutable769decisions unchanged. Entire20-trial cycle and persistent memory-pressure recovery remain monitored. Seven fresh production reports recorded by12:54UTC; source/report semantics tested. Existing memory-pressure and historical database size remain attention-required; no historical evidence deleted.",
         "audit_evidence": "data/releases/root-throughput-repair-20261003/reviews.json"
       }
     },
