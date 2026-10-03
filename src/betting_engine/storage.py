@@ -9,6 +9,7 @@ from datetime import datetime,time,timezone,timedelta
 from zoneinfo import ZoneInfo
 from .decisions import DEFAULT_SETTINGS,publication_limits
 from .contracts import contract_key,contract_value,settlement_scores,equivalent_contract_ids,split_market,allocation_family
+from .freshness import MAX_QUOTE_AGE_SECONDS
 from .snapshots import encode_publication,decode_publication
 
 class Store:
@@ -378,8 +379,10 @@ class Store:
                 if scope!='full_game':period_counts[gid]+=1
             except (TypeError,ValueError):
                 continue
+        event_counts=Counter(t.get('game_id') for t in existing)
         cycle_funded=0
         daily_family_counts=Counter();family_new=Counter()
+        allowed_ids=None
         if policy:
             day_end=datetime.combine(local.date()+timedelta(days=1),time.min,tzinfo=local.tzinfo).astimezone(timezone.utc).isoformat()
             for issued in c.execute("SELECT i.league,d.payload FROM recommendation_issuance i JOIN system_decisions d ON d.family=i.family WHERE i.issued_at>=? AND i.issued_at<?",(day_start,day_end)).fetchall():
@@ -388,10 +391,11 @@ class Store:
                     daily_family_counts[(issued['league'],allocation_family(previous))]+=1
                 except (TypeError,ValueError,json.JSONDecodeError):
                     continue
-            # The atomic publication guard uses the unique, usable candidate
-            # batch as its denominator.  The fallback auto-tracker must use
-            # the same population: counting stale rows or duplicate ids would
-            # enlarge the denominator and could over-permit one family.
+            # First construct the usable, unique candidates and apply every
+            # non-family cap without writing.  The final family-share pass is
+            # then a fixed point over the candidates that could actually be
+            # tracked.  This keeps the direct fallback path equivalent to the
+            # atomic publication guard and prevents partial inserts.
             usable_ids=set();usable_families=set();usable_candidates=[]
             for candidate in payload.get('recommendations',[]):
                 try:
@@ -400,21 +404,53 @@ class Store:
                     amount=float(candidate.get('stake',0));odds=float(candidate.get('reference_odds',0))
                     evidence=candidate.get('stake_evidence',{})
                     if (not candidate_id or candidate_id in contracts or candidate_id in usable_ids
+                            or not candidate.get('game_id') or not candidate.get('market')
+                            or isinstance(candidate.get('stake'),bool) or not isinstance(candidate.get('stake'),(int,float))
+                            or isinstance(candidate.get('reference_odds'),bool) or not isinstance(candidate.get('reference_odds'),(int,float))
                             or candidate.get('reference_platform')!='Stake.com'
                             or candidate.get('alternative') or candidate.get('withdrawn_at')
                             or not 1<=amount<=min(5,settings['max_bet'])
-                            or not math.isfinite(odds) or odds<=1
-                            or not evidence or abs(float(evidence.get('decimal_odds',0))-odds)>1e-8):continue
+                            or not math.isfinite(amount) or not math.isfinite(odds)
+                            or not evidence or isinstance(evidence.get('decimal_odds'),bool)
+                            or not isinstance(evidence.get('decimal_odds'),(int,float))
+                            or not math.isfinite(float(evidence.get('decimal_odds',0)))
+                            or abs(float(evidence.get('decimal_odds',0))-odds)>1e-8):continue
                     if min(parse_time(candidate['start']),parse_time(candidate['valid_until']))<=parse_time(now):continue
-                    if (parse_time(now)-parse_time(evidence['fetched_at'])).total_seconds()>max(300,settings['refresh_seconds']*2):continue
+                    if (parse_time(now)-parse_time(evidence['fetched_at'])).total_seconds()>MAX_QUOTE_AGE_SECONDS:continue
                     family=(candidate.get('game_id'),candidate.get('market'))
                     if not additions and (family in families or family in usable_families):continue
                     usable_ids.add(candidate_id);usable_families.add(family);usable_candidates.append(candidate)
                 except (KeyError,TypeError,ValueError,OverflowError):
                     continue
-            family_limit=max(1,math.ceil((sum(daily_family_counts.values())+len(usable_candidates))*policy['max_daily_family_share']))
-        event_counts=Counter(t.get('game_id') for t in existing)
+            # Remove candidates that cannot survive event, period, cycle or
+            # daily-risk limits before calculating the family denominator.
+            eligible=[];prospective_events=Counter(event_counts)
+            prospective_stakes=Counter(event_stakes);prospective_periods=Counter(period_counts)
+            prospective_committed=committed
+            for candidate in usable_candidates:
+                gid=candidate['game_id'];amount=float(candidate['stake']);scope,_=split_market(candidate.get('market',''))
+                if len(eligible)>=policy['max_new_funded_per_publication']:continue
+                if prospective_events[gid]>=policy['max_per_event']:continue
+                if prospective_stakes[gid]+amount>policy['max_stake_per_event']+1e-9:continue
+                if scope!='full_game' and prospective_periods[gid]>=policy['max_period_per_event']:continue
+                if settings.get('daily_risk_limit') is not None and prospective_committed+amount>settings['daily_risk_limit']+1e-8:continue
+                eligible.append(candidate);prospective_events[gid]+=1;prospective_stakes[gid]+=amount
+                if scope!='full_game':prospective_periods[gid]+=1
+                prospective_committed+=amount
+            selected=eligible
+            while True:
+                family_limit=max(1,math.ceil((sum(daily_family_counts.values())+len(selected))*policy['max_daily_family_share']))
+                counts=Counter(daily_family_counts);survivors=[]
+                for candidate in selected:
+                    key=(candidate.get('league'),allocation_family(candidate))
+                    if counts[key]>=family_limit:continue
+                    counts[key]+=1;survivors.append(candidate)
+                if len(survivors)==len(selected):break
+                selected=survivors
+            allowed_ids={candidate['id'] for candidate in selected}
+            family_limit=max(1,math.ceil((sum(daily_family_counts.values())+len(selected))*policy['max_daily_family_share']))
         for tip in payload.get('recommendations',[]):
+            if policy and (not isinstance(tip,dict) or tip.get('id') not in allowed_ids):continue
             amount=tip.get('stake',0);odds=tip.get('reference_odds',0)
             if not(1<=amount<=min(5,settings['max_bet']) and math.isfinite(odds) and odds>1):continue
             if tip.get('reference_platform')!='Stake.com' or tip.get('alternative') or tip.get('withdrawn_at'):continue
@@ -422,7 +458,8 @@ class Store:
             if not evidence or abs(evidence.get('decimal_odds',0)-odds)>1e-8:continue
             try:
                 if min(parse_time(tip['start']),parse_time(tip['valid_until']))<=parse_time(now):continue
-                if (parse_time(now)-parse_time(evidence['fetched_at'])).total_seconds()>max(300,settings['refresh_seconds']*2):continue
+                quote_age_limit=MAX_QUOTE_AGE_SECONDS if policy else max(300,settings['refresh_seconds']*2)
+                if (parse_time(now)-parse_time(evidence['fetched_at'])).total_seconds()>quote_age_limit:continue
             except (KeyError,ValueError,TypeError):continue
             family=(tip['game_id'],tip['market'])
             if tip['id'] in contracts or (not additions and family in families):continue

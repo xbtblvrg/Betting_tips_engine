@@ -201,3 +201,46 @@ def test_v2_auto_tracking_excludes_stale_rows_from_family_share_denominator(tmp_
     stale=tip(id='stale',valid_until=(utcnow()-timedelta(seconds=1)).isoformat())
     store.publish({'recommendations':[tip(id='fresh-a'),tip(id='fresh-b'),stale]})
     assert len(store.bets())==1
+
+
+def test_v2_auto_tracking_family_fixed_point_runs_after_cycle_cap(tmp_path):
+    from test_autotracking import tip
+    store=Store(tmp_path/'v2-fixed-point.sqlite')
+    store.save_settings({'publication_limits_version':'v2','max_new_funded_per_publication':15,
+                         'max_per_event':4,'max_period_per_event':2,
+                         'max_stake_per_event':10.,'max_daily_family_share':.35,
+                         'auto_track_recommendations':True})
+    rows=[tip(id=str(i),game_id=f'NBA:{i}') for i in range(100)]
+    store.publish({'recommendations':rows})
+    # The cycle cap leaves 15 eligible rows; the fixed point then applies the
+    # 35% family cap to the final accepted batch, which settles at one.
+    assert len(store.bets())==1
+
+
+def test_v2_auto_tracking_removes_event_capped_rows_before_family_denominator(tmp_path):
+    from test_autotracking import tip
+    store=Store(tmp_path/'v2-event-denominator.sqlite')
+    store.save_settings({'publication_limits_version':'v2','max_new_funded_per_publication':15,
+                         'max_per_event':4,'max_period_per_event':2,
+                         'max_stake_per_event':10.,'max_daily_family_share':.35,
+                         'auto_track_recommendations':True})
+    rows=[tip(id=str(i),line=float(i)+.5) for i in range(100)]
+    store.publish({'recommendations':rows})
+    # Four same-event rows survive the event cap, then the final-batch family
+    # fixed point settles at one (ceil(1 * 35%) = 1).
+    assert len(store.bets())==1
+
+
+def test_v2_auto_tracking_rejects_a_quote_older_than_three_hundred_seconds(tmp_path):
+    from datetime import timedelta
+    from test_autotracking import tip
+    from betting_engine.domain import utcnow
+    store=Store(tmp_path/'v2-quote-age.sqlite')
+    store.save_settings({'publication_limits_version':'v2','refresh_seconds':300,
+                         'max_new_funded_per_publication':15,'max_per_event':4,
+                         'max_period_per_event':2,'max_stake_per_event':10.,
+                         'max_daily_family_share':.35,'auto_track_recommendations':True})
+    candidate=tip(id='late')
+    candidate['stake_evidence']['fetched_at']=(utcnow()-timedelta(seconds=301)).isoformat()
+    store.publish({'recommendations':[candidate]})
+    assert store.bets()==[]
