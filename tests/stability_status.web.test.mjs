@@ -11,5 +11,6 @@ test('Stability line reports measured errors and actual repairs without treating
  w.checkStability({state:'attention_required',checked_at:new Date().toISOString(),error_count:3,repairing_count:1});assert.match(read(),/3 issues · 1 under repair/);
  w.checkStability({state:'stable',checked_at:'2000-01-01',error_count:0,repairing_count:0});assert.match(read(),/fresh measured check/);
  w.checkStability({state:'stable',checked_at:new Date().toISOString(),error_count:-1,repairing_count:0});assert.match(read(),/invalid check data/);
+ w.checkStability({state:'stable',checked_at:new Date().toISOString(),error_count:null,repairing_count:0});assert.match(read(),/invalid check data/);
  await w.happyDOM.close();
 });

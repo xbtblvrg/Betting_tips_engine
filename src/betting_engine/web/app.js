@@ -426,7 +426,7 @@ function renderStability(){
  const audit=data?.automation?.supervisor?.stability_audit;
  const stamp=Date.parse(audit?.checked_at),age=Date.now()-stamp;
  if(!audit||!Number.isFinite(stamp)||age< -60000||age>20*60*1000){host.textContent='Stability: awaiting a fresh measured check.';return;}
- const errors=Number(audit.error_count),repairing=Number(audit.repairing_count);
+ const errors=audit.error_count,repairing=audit.repairing_count;
  if(!Number.isInteger(errors)||errors<0||!Number.isInteger(repairing)||repairing<0){host.textContent='Stability: invalid check data.';return;}
  host.textContent=`Stability: ${audit.state==='stable'&&errors===0?'stable':'attention required'} · ${errors} issues · ${repairing} under repair · Checked ${when(audit.checked_at)}`;
 }
