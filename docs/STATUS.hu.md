@@ -1,3 +1,15 @@
+## 2026-10-03 — Teljesítménydirektíva, stabilitási első kiadás
+
+Éles kód `e48615b`. A legújabb felhasználói utasítás elsőbbsége rögzítve az AGENTS.md és config/project_contract.json fájlokban; meglévő D14 feladat kibővítve, korábbi határidő nem módosítva. Kijavítva a többsoros AI-parancs miatti takarítási PID-parse hiba; az aktív munkaterületek védelme megmaradt. Shadow forrásarchívum-ellenőrzés az írási tranzakción kívül, source+capture atomikus és idempotens mentéssel. Ez a record_captures útvonal javítása; a candidate capture() külön tranzakciós szűkítése fennmaradó munka.
+
+Meglévő percenkénti supervisorban 900másodperces audit: szolgáltatás, supervisor-újraindítás számláló, közvetlen webfolyamat, friss dashboard, közös számlálók, forrás/képességhiány, futtatható és függő fejlesztési munka. A dashboard egysoros friss státuszt mutat. A supervisor-számláló nem teljes launchd-crash-történet. Az éles ellenőrzés külön null resource_wait időbélyeg-hibát talált; reprodukálva, javítva, regresszióval. A megőrzött 15perces bizonyíték eredeti időbélyeggel jut a deduplikált priority0 engineering intake-be; régi pozitív mérés nem zárhat hibát. Tényleges javításnak csak aktív kapcsolt feladat számít.
+
+Végső teljes suite: **6423 passed,1 skipped,5 subtests; frontend285 passed**. Független Codex-review és root-integráció; Claude Opus5.5, agy és Grok hashhez kötött tesztjavaslatai ellenőrizve. Engine üres ciklusban, development aktív feladat nélkül kontrolláltan újratöltve. Helyi/Tailscale smoke sikeres: friss publikáció13:36:54UTC, érvényes stabilitási sor, Statistics/Schedule render regressziómentes. **772 eredeti payload hash változatlan.**
+
+Élő audit13:35:57UTC: **3hibacsoport,0igazolt aktív javítás**; meglévő D14/D36 priority0 intake-ben. Forrás-/modellhiány; memória-pressure miatt7futtatható feladat admission-blokkolt;17kiadásra váró,15függőségi és10backoff feladat. Ezek nem lezárt javítások. Megfigyelt kiértékelt liga×scope×család82→82; napi46→46/100 (MLB3,NCAAF36,NFL3,NHL2,WNBA2). Követett lezárt készpénzeredmény változatlan: PnL+11.7879USD, ROI2.7024% (95%meccs-CI−18.1812%–25.1426%), WR47.1545%; ebből a stabilitási kiadásból nem állítunk fogadási eredményjavulást.
+
+Következő funkcionális hiány: explicit „nem kötöttem meg” auditált szelvény-kizárás; a checklist pipa törlése nem zár ki pénzmozgást. További modellek és az új kiválasztási/tanulási előírások teljes runtime átvezetése külön végrehajtandó feladat. Bizonyíték: `data/releases/root-stability-performance-20261003/` (live,tesztek,review,repair-routing,immutable-check,segéd-AI-vélemények).
+
 ## 2026-10-03 — Kumulatív PnL, ROI/WR, Top 5 és outcome-monitor
 
 Éles kód: `8add7ab`. Statistics: elszámolási idő szerint kumulált nettó PnL-grafikon, ROI/WR és maximális visszaesés; külön követett szelvények és eredeti döntések, közös szűrők, nettó profit szerint Top 5 scope×piaccsalád. Meccsszintű bootstrap 95% intervallum, hiányos idő/pénzadat explicit kizárva; nincs kitalált elszámolási idő. Eredeti fogadási feltételeket nem módosító fejlesztés.
