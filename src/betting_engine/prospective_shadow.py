@@ -423,24 +423,30 @@ class ShadowEvidenceStore:
 
     def record_captures(self, captures, *, archive_root, as_of):
         now = _time(as_of); root = Path(archive_root).resolve(strict=True); added = 0; errors = []
-        with closing(self._db(True)) as db, db:
-            for capture in captures:
-                try:
-                    stamp = _time(capture['observed_at'])
-                    if not 0 <= (now-stamp).total_seconds() <= 300:
-                        raise ValueError('stale_or_future_capture')
-                except (ValueError, KeyError, TypeError) as exc:
-                    errors.append({'capture': capture.get('id'), 'reason': str(exc)})
-                    continue
-                evidence = {'capture': capture, 'error': None, 'snapshots': []}
-                try:
-                    body, rows = _source(capture, root); evidence['snapshots'] = rows
+        for capture in captures:
+            try:
+                stamp = _time(capture['observed_at'])
+                if not 0 <= (now-stamp).total_seconds() <= 300:
+                    raise ValueError('stale_or_future_capture')
+            except (ValueError, KeyError, TypeError) as exc:
+                errors.append({'capture': capture.get('id'), 'reason': str(exc)})
+                continue
+            evidence = {'capture': capture, 'error': None, 'snapshots': []}
+            body = None
+            try:
+                body, rows = _source(capture, root); evidence['snapshots'] = rows
+            except (ValueError, KeyError, TypeError, OSError, EOFError) as exc:
+                evidence['error'] = str(exc); errors.append({'capture': capture.get('id'), 'reason': str(exc)})
+            key = _hash(evidence)
+            # Archive I/O, decompression and source verification must not hold
+            # the shared writer lock. Preserve each verified body and capture
+            # atomically; replay safely resumes any interrupted batch.
+            encoded = _json(evidence)
+            with closing(self._db(True)) as db, db:
+                if body is not None:
                     db.execute('INSERT OR IGNORE INTO source_blobs VALUES (?,?)', (capture['sha256'], body))
-                except (ValueError, KeyError, TypeError, OSError, EOFError) as exc:
-                    evidence['error'] = str(exc); errors.append({'capture': capture.get('id'), 'reason': str(exc)})
-                key = _hash(evidence)
                 added += db.execute('INSERT OR IGNORE INTO captures VALUES (?,?,?,?,?)',
-                    (key, capture.get('fixture_id'), stamp.isoformat(), now.isoformat(), _json(evidence))).rowcount
+                    (key, capture.get('fixture_id'), stamp.isoformat(), now.isoformat(), encoded)).rowcount
         return {'added': added, 'errors': errors, 'as_of': now.isoformat()}
 
     def export_decisions(self, trial_id, *, as_of):

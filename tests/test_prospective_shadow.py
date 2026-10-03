@@ -278,3 +278,37 @@ def test_runtime_propagates_exact_nested_official_proof_without_reverification(t
     conflict=shadow_runtime._results([{'payload':t}],[g],stamp)[0]
     assert conflict['source_sha256'] is None and conflict['source_archive'] is None
     assert conflict['raw_source_proof']=='conflicting_raw_proof'
+
+
+def test_source_capture_verification_does_not_hold_shared_writer_lock(tmp_path,monkeypatch):
+    from betting_engine import prospective_shadow
+    journal=ShadowEvidenceStore.create(tmp_path/'shadow.sqlite3')
+    at=utcnow().isoformat();body=b'verified';sha=hashlib.sha256(body).hexdigest()
+    capture={'observed_at':at,'sha256':sha,'fixture_id':'fixture'}
+    calls=[]
+    def verify(source,root):
+        # A concurrent learner can write while the slow archive is inspected.
+        with sqlite3.connect(journal.path,timeout=0) as db:
+            db.execute('BEGIN IMMEDIATE')
+            calls.append(True)
+        return body,[]
+    monkeypatch.setattr(prospective_shadow,'_source',verify)
+    assert journal.record_captures([capture],archive_root=tmp_path,as_of=at)['added']==1
+    assert calls==[True]
+    with sqlite3.connect(journal.path) as db:
+        assert db.execute('SELECT body FROM source_blobs WHERE sha256=?',(sha,)).fetchone()[0]==body
+        assert db.execute('SELECT count(*) FROM captures').fetchone()[0]==1
+    assert journal.record_captures([capture],archive_root=tmp_path,as_of=at)['added']==0
+
+
+def test_source_capture_pair_rolls_back_together_on_write_failure(tmp_path,monkeypatch):
+    from betting_engine import prospective_shadow
+    journal=ShadowEvidenceStore.create(tmp_path/'shadow.sqlite3')
+    at=utcnow().isoformat();body=b'verified';sha=hashlib.sha256(body).hexdigest()
+    monkeypatch.setattr(prospective_shadow,'_source',lambda *_:(body,[]))
+    with sqlite3.connect(journal.path) as db:
+        db.execute("CREATE TRIGGER reject_capture BEFORE INSERT ON captures BEGIN SELECT RAISE(ABORT,'injected'); END")
+    with pytest.raises(sqlite3.IntegrityError,match='injected'):
+        journal.record_captures([{'observed_at':at,'sha256':sha,'fixture_id':'f'}],archive_root=tmp_path,as_of=at)
+    with sqlite3.connect(journal.path) as db:
+        assert db.execute('SELECT count(*) FROM source_blobs').fetchone()[0]==0
