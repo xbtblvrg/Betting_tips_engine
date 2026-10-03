@@ -24,6 +24,8 @@ def evidence_digest(tip):
     # Add policy evidence only when present, preserving every pre-policy seal.
     if 'funding_basis' in tip:fields['funding_basis']=tip['funding_basis']
     if 'family_selection_policy' in tip:fields['family_selection_policy']=tip['family_selection_policy']
+    for key in ('outcome_sizing_policy','outcome_sizing_evidence'):
+        if key in tip:fields[key]=tip[key]
     return hashlib.sha256(json.dumps(fields,sort_keys=True,allow_nan=False).encode()).hexdigest()
 
 
@@ -49,6 +51,11 @@ def verify_publication(tip,now,active_settings=None):
         raise ValueError('Publication blocked: family selection policy receipt changed')
     if active_settings is not None and selection_policy != family_selection_policy(active_settings):
         raise ValueError('Publication blocked: family selection policy changed during review')
+    from .outcome_sizing_runtime import outcome_policy,verify_evidence
+    outcome=outcome_policy(guard)
+    if outcome!=outcome_policy(tip) or outcome!=outcome_policy(guard.get('sizing_settings',{})) or (active_settings is not None and outcome!=outcome_policy(active_settings)):
+        raise ValueError('Publication blocked: outcome sizing policy changed during review')
+    verify_evidence(tip,guard,now)
     if not fresh_quote(tip,now):raise ValueError('Publication blocked: quote expired after evidence review')
     stake=tip.get('stake',0)
     if not isinstance(stake,(float,int)) or not math.isfinite(stake) or (stake!=0 and not 1<=stake<=5):raise ValueError('Publication blocked: invalid stake')
@@ -77,7 +84,10 @@ def verify_publication(tip,now,active_settings=None):
         if reviewed and (any(settings[k]!=reviewed[k] for k in ('bankroll','unit_stake','kelly_fraction','max_bankroll_fraction')) or settings['max_bet']>reviewed['max_bet']):
             raise ValueError('Publication blocked: sizing settings changed after evidence review')
         settings.update(minimum_roi=guard['minimum_roi'],recommendation_policy=policy,model_pick_sizing_policy=model_sizing,model_pick_allocation_policy=guard.get('model_pick_allocation_policy','one_per_game_v1'))
-        reproduced=size_recommendation(tip,settings,sizing['maximum_stake'],sizing['related_contracts']) if policy!='strict' else stake_assessment(tip['stress_probability'],tip['push_probability'],tip['reference_odds'],settings,sizing['maximum_stake'],sizing['related_contracts'])
+        if outcome!='legacy':settings['outcome_sizing_policy']=outcome
+        for key in ('fallback_clv_gate','clv_min_games'):
+            if key in guard.get('sizing_settings',{}):settings[key]=guard['sizing_settings'][key]
+        reproduced=size_recommendation(tip,settings,sizing['maximum_stake'],sizing['related_contracts']) if policy!='strict' or outcome!='legacy' else stake_assessment(tip['stress_probability'],tip['push_probability'],tip['reference_odds'],settings,sizing['maximum_stake'],sizing['related_contracts'])
         if reproduced!=sizing or stake!=reproduced['amount']:raise ValueError('Publication blocked: stake sizing does not reproduce')
     # The market anchor is part of the pricing contract.  New receipts carry
     # the exact mode, weight and disagreement policy used by the guard; a
@@ -145,7 +155,7 @@ class EvidenceGuard:
             self._quality_cache[key]=assess_professional_quality(report,market)
         return self._quality_cache[key]
 
-    def check(self,tip,game,market,quote,forecast,model_report,settings,calibration_summary=None):
+    def check(self,tip,game,market,quote,forecast,model_report,settings,calibration_summary=None,trusted_outcome_summary=None):
         errors=[];now=utcnow()
         try:
             selection_policy=family_selection_policy(settings)
@@ -154,6 +164,16 @@ class EvidenceGuard:
             errors.append('invalid_family_selection_policy')
         if selection_policy and (selection_policy != LEGACY_FAMILY_SELECTION or 'family_selection_policy' in tip):
             tip['family_selection_policy']=selection_policy
+        from .outcome_sizing_runtime import outcome_policy,verify_evidence
+        try:
+            outcome=outcome_policy(settings)
+            if outcome!='legacy' or 'outcome_sizing_policy' in tip:tip['outcome_sizing_policy']=outcome
+            verify_evidence(tip,settings,now)
+            if trusted_outcome_summary is not None and tip.get('outcome_sizing_evidence')!=trusted_outcome_summary:
+                raise ValueError('Outcome sizing evidence differs from the cycle snapshot')
+        except (ValueError,TypeError,KeyError):
+            outcome=None
+            errors.append('invalid_outcome_sizing_evidence')
         from .stake_website_availability import website_availability_issue
         website_issue=website_availability_issue(tip)
         if website_issue:errors.append(website_issue['code'])
@@ -276,6 +296,9 @@ class EvidenceGuard:
         if settings.get('model_pick_allocation_policy','one_per_game_v1')!='one_per_game_v1':
             evidence['model_pick_allocation_policy']=settings['model_pick_allocation_policy']
         evidence['sizing_settings']={key:settings[key] for key in ('bankroll','unit_stake','max_bet','kelly_fraction','max_bankroll_fraction')}
+        if outcome and (outcome!='legacy' or 'outcome_sizing_policy' in tip):
+            evidence['outcome_sizing_policy']=outcome
+            evidence['sizing_settings']['outcome_sizing_policy']=outcome
         evidence['market_anchor_settings']={key:settings.get(key, default) for key,default in (
             ('market_anchor_mode','shadow'),('market_model_weight',.15),
             ('market_disagreement_threshold',.30))}

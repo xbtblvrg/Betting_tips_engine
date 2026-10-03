@@ -89,10 +89,17 @@ are reread here. A concurrent ticket cannot leave a stale allocation funded.
         # the actual USD amount and all exposure inputs remain identical.
         volatile = {'maximum_stake', 'note'}
         sizing_matches = (set(reproduced) | set(recorded)) - volatile
-        if (any(reproduced.get(key) != recorded.get(key) for key in sizing_matches)
+        def comparable(sizing,key):
+            value=sizing.get(key)
+            if key=='outcome_adjustment' and isinstance(value,dict):
+                # The same effective remaining budget is diagnostic here;
+                # amount, base amount, factor and source must still replay.
+                value={k:v for k,v in value.items() if k not in ('caps','base_note')}
+            return value
+        if (any(comparable(reproduced,key) != comparable(recorded,key) for key in sizing_matches)
                 or reproduced['amount'] != tip['stake']):
             mismatches = [key for key in sorted(sizing_matches)
-                          if reproduced.get(key) != recorded.get(key)]
+                          if comparable(reproduced,key) != comparable(recorded,key)]
             raise ValueError('Publication blocked: related-game exposure or remaining allocation changed '
                              f"(tip={tip.get('id')}, actual={tip.get('stake')}, reproduced={reproduced.get('amount')}, "
                              f"remaining={remaining}, event_available={event_available}, related={related}, "

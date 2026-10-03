@@ -108,6 +108,7 @@ def current_execution_review(tip, now, minimum_roi, sizing_settings=None):
                 'minimum_odds': basis['minimum_odds'], 'probability': p, 'stress_probability': stress,
                 'funding_tier':basis['tier'],'recommendation_policy':policy,'model_pick_sizing_policy':model_sizing,
                 **({'family_selection_policy':guard['family_selection_policy']} if 'family_selection_policy' in guard else {}),
+                **({'outcome_sizing_policy':guard['outcome_sizing_policy']} if 'outcome_sizing_policy' in guard else {}),
                 **({'model_pick_allocation_policy':allocation_policy} if allocation_policy!='one_per_game_v1' else {}),
                 'push_probability': push, 'expected_roi': tip['expected_roi'], 'stress_roi': tip['stress_roi'],
                 'model_version': tip['model_version'],
@@ -157,12 +158,16 @@ def _original_budget(original, issued_at):
     if reviewed and (any(settings[k] != reviewed[k] for k in ('bankroll','unit_stake','kelly_fraction','max_bankroll_fraction'))
                      or settings['max_bet'] > reviewed['max_bet']):
         raise ValueError('Original sizing settings changed after issuance review')
-    if sizing['version'] in ('model-pick-unit-v1','model-pick-unit-v2','model-pick-unit-v3','probability-pick-unit-v1','probability-pick-unit-v3'):
+    from .outcome_sizing_runtime import outcome_policy,verify_evidence
+    outcome=outcome_policy(guard)
+    if outcome!=outcome_policy(original) or outcome!=outcome_policy(guard.get('sizing_settings',{})):raise ValueError('Original outcome sizing policy mismatch')
+    verify_evidence(original,guard,issued_at)
+    if sizing['version'] in ('model-pick-unit-v1','model-pick-unit-v2','model-pick-unit-v3','probability-pick-unit-v1','probability-pick-unit-v3') or outcome!='legacy':
         from .funding_policy import funding_basis,size_recommendation
         settings.update(minimum_roi=guard['minimum_roi'],recommendation_policy=guard.get('recommendation_policy','strict'),model_pick_sizing_policy=guard.get('model_pick_sizing_policy','unit_cap_v1'),model_pick_allocation_policy=guard.get('model_pick_allocation_policy','one_per_game_v1'))
-        for key in ('fallback_clv_gate','clv_min_games'):
+        for key in ('fallback_clv_gate','clv_min_games','outcome_sizing_policy'):
             if key in guard.get('sizing_settings', {}): settings[key]=guard['sizing_settings'][key]
-        if original.get('funding_basis')!=funding_basis(original,{**settings,'max_bet':guard['sizing_settings']['max_bet']}):
+        if (settings['recommendation_policy']!='strict' or 'funding_basis' in original) and original.get('funding_basis')!=funding_basis(original,{**settings,'max_bet':guard['sizing_settings']['max_bet']}):
             raise ValueError('Original funding policy does not reproduce')
         reproduced=size_recommendation(original,settings,sizing['maximum_stake'],sizing['related_contracts'])
     else:
@@ -170,7 +175,7 @@ def _original_budget(original, issued_at):
             original['reference_odds'], settings, sizing['maximum_stake'], sizing['related_contracts'])
     # v1 and v2 share the numeric unit/Kelly formula. v2 added diagnostic
     # fields, stricter validation and different prose; never rewrite v1 into v2.
-    if sizing['version'] in ('stress-kelly-unit-v2','model-pick-unit-v1','model-pick-unit-v2','model-pick-unit-v3','probability-pick-unit-v1','probability-pick-unit-v3'):
+    if sizing['version'] in ('stress-kelly-unit-v2','model-pick-unit-v1','model-pick-unit-v2','model-pick-unit-v3','probability-pick-unit-v1','probability-pick-unit-v3') or outcome!='legacy':
         valid = reproduced == sizing
     else:
         keys = ('amount','mode','full_kelly_fraction','related_contracts','event_discount','reference_kelly_fraction',
@@ -230,7 +235,7 @@ def instruction_review(record, current, now, minimum_roi, related_contracts=None
                 raise ValueError('Invalid current related exposure')
             related = max(related, related_contracts)
         policy=current['decision_guard'].get('recommendation_policy','strict')
-        if policy!='strict':
+        if policy!='strict' or current['decision_guard'].get('outcome_sizing_policy','legacy')!='legacy':
             from .funding_policy import size_recommendation
             settings={**settings,'minimum_roi':minimum_roi,'recommendation_policy':policy,'model_pick_sizing_policy':current['decision_guard'].get('model_pick_sizing_policy','unit_cap_v1'),'model_pick_allocation_policy':current['decision_guard'].get('model_pick_allocation_policy','one_per_game_v1')}
             supported=size_recommendation(current,settings,sizing['maximum_stake'],related)

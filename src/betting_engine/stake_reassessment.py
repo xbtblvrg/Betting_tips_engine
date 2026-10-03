@@ -37,6 +37,7 @@ def assess_existing_stakes(records, current_by_id, settings, now,
             'target_stake': None, 'difference': None, 'original_stake': None,
             'recorded_stake': None, 'new_bet_instruction': False,
             'model_pick_sizing_policy': settings.get('model_pick_sizing_policy', 'unit_cap_v1'),
+            **({'outcome_sizing_policy':settings['outcome_sizing_policy']} if 'outcome_sizing_policy' in settings else {}),
             'note': 'Current total sizing assessment only. The difference is not an additional betting instruction. Original records and daily issuance counts are unchanged.',
         }
         try:

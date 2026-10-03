@@ -206,7 +206,18 @@ class Engine:
             self.status['missing_models']=[x for x in LEAGUES if x not in self.models]
             for league,model in self.models.items():model.state=feature_history(self.games,league)[1]
             self.status['stage']='Saját meccselőrejelzések'
-            settings=self.store.settings();now=utcnow();upcoming=[g for g in self.games if g.state=='scheduled' and not g.context.get('resumed_game') and now<parse_time(g.start)<=now+timedelta(hours=48)]
+            settings=self.store.settings()
+            from .outcome_sizing_runtime import outcome_policy
+            from .outcome_sizing import build_snapshot as outcome_snapshot, summary_for as outcome_summary, segment_key
+            outcome_enabled=outcome_policy(settings)!='legacy'
+            if outcome_enabled:
+                # Settle current official scores before freezing the sizing
+                # cohort, so this cycle cannot invalidate its own snapshot.
+                self.settle_bets();self.store.settle_system_decisions(self.games)
+            now=utcnow()
+            outcome_evidence=outcome_snapshot(self.store.system_decisions(),now) if outcome_enabled else None
+            outcome_summaries={}
+            upcoming=[g for g in self.games if g.state=='scheduled' and not g.context.get('resumed_game') and now<parse_time(g.start)<=now+timedelta(hours=48)]
             from .calibration_uncertainty import build_snapshot,summary_for
             trained_at={model.report.get('version'):model.report.get('trained_at') for model in self.models.values()}
             trained_at.update({model.report.get('version'):model.report.get('trained_at') for model in self.segment_models.values()})
@@ -271,17 +282,28 @@ class Engine:
                                          'decimal_odds':m.metadata['stake_odds'],
                                          'fetched_at':m.fetched_at,'matching_basis':m.metadata.get('matching_basis'),
                                          'fixture_name':m.metadata.get('fixture_name'),'matched_teams':m.metadata.get('matched_teams')}
-                    check=guard.check(c,gs[m.game_id],m,quotes[m.id],forecast,model.report,settings,calibration_summary)
+                    if outcome_enabled:
+                        key=segment_key(c)
+                        if key not in outcome_summaries:outcome_summaries[key]=outcome_summary(outcome_evidence,c)
+                        c['outcome_sizing_evidence']=outcome_summaries[key]
+                    check=guard.check(c,gs[m.game_id],m,quotes[m.id],forecast,model.report,settings,calibration_summary,**({'trusted_outcome_summary':outcome_summaries[key]} if outcome_enabled else {}))
                     guard_checks.append({'tip_id':c['id'],'game_id':c['game_id'],'passed':check['passed'],'errors':check['errors']})
                     evaluation.update(state='guard_passed' if check['passed'] else 'guard_rejected',reasons=check['errors'])
                     market_evaluations.append(evaluation)
                     if check['passed']:candidates.append(c)
-            self.settle_bets();self.store.settle_forecasts(self.games);self.store.settle_system_decisions(self.games)
+            if not outcome_enabled:self.settle_bets()
+            self.store.settle_forecasts(self.games)
+            if not outcome_enabled:self.store.settle_system_decisions(self.games)
             progress=self.store.daily_progress()
             recommendations,alternatives=rank_and_size(candidates,settings,self.store.risk_committed(),self.store.held_families(),self.store.held_contracts(),self.store.held_event_counts(),self.store.held_preference_allocations(),(self.store.held_allocation_families() if settings.get('model_pick_allocation_policy')=='distinct_family_v1' else ()),self.store.held_event_stakes(),self.store.held_period_counts(),self.store.daily_family_counts(),progress.get('calendar_day_issued',progress.get('issued',0)))
             reports={k:{key:value for key,value in m.report.items() if key!='test_predictions'} for k,m in self.models.items()}
             status={'fetched_at':utcnow().isoformat(),'upcoming_games':len(upcoming),'matched_events':len(set(e['game_id'] for e in events)),'markets':len(markets),'quotes':len(quotes),'candidates':len(candidates),'recommendations':len(recommendations),'funded_recommendations':sum(t['stake']>0 for t in recommendations),'league_games':dict(Counter(g.league for g in upcoming)),'minimum_target':settings.get('daily_pick_target',15),'target_shortfall':self.store.daily_progress()['shortfall'],'data_sources':sources,'market_source':'Stake Sports Data API (exact current fixture markets and decimal odds)','issue_counts':dict(Counter(i['reason'] for i in issues+qissues)),'errors':forecast_errors,'mode':'research','market_feed':feed_health,'market_anchor':{'mode':settings.get('market_anchor_mode','shadow'),'contracts':len(market_anchors),'model_weight':settings.get('market_model_weight',.15),'disagreement_threshold':settings.get('market_disagreement_threshold',.30)},'calibration_uncertainty':{'version':calibration_snapshot['version'],'snapshot_sha256':calibration_snapshot['snapshot_sha256'],'segments':len(calibration_snapshot['segments']),'measured_segments':sum(v.get('state')=='measured' for v in calibration_snapshot['segments'].values()),'minimum_games':calibration_snapshot['minimum_games']},'telegram':'Később csatlakoztatható; jelenleg nincs üzenetküldés.'}
             status['league_coverage']={league:{'games':sum(g.league==league for g in upcoming),'markets':sum(m.league==league for m in markets),'model_available':league in self.models} for league in LEAGUES}
+            if outcome_enabled:
+                status['outcome_sizing']={'policy':outcome_policy(settings),'as_of':outcome_evidence['as_of'],
+                    'snapshot_sha256':outcome_evidence['snapshot_sha256'],'segments':len(outcome_evidence['segments']),
+                    'accepted_decisions':len(outcome_evidence['accepted']),'excluded_decisions':len(outcome_evidence['excluded']),
+                    'profit_validated':False}
             status['core_markets']=core_market_audit(candidates,recommendations+alternatives,upcoming,settings['minimum_roi'],settings=settings)
             status['settlement_recovery']=self.nhl_settlement_status
             status['espn_settlement_recovery']=self.espn_settlement_status

@@ -216,6 +216,7 @@ class Settings(BaseModel):
     recommendation_policy:Literal['strict','continuous_model_v1','continuous_best_available_v1']='strict'
     model_pick_sizing_policy:Literal['unit_cap_v1','model_weighted_v2','all_tiers_weighted_v3']='unit_cap_v1'
     model_pick_allocation_policy:Literal['one_per_game_v1','distinct_family_v1']='one_per_game_v1'
+    outcome_sizing_policy:Literal['legacy','historical_game_weighted_v1']='legacy'
     family_selection_policy:Literal['stressed_value_v1','qualified_probability_v1']='stressed_value_v1'
     fallback_clv_gate:Literal['legacy','prospective_positive_clv']='legacy'
     clv_min_games:int=Field(30,ge=1,le=10000)
@@ -232,7 +233,10 @@ def get_settings():return engine.store.settings()
 @app.put('/api/settings')
 def put_settings(settings:Settings):
     values=settings.model_dump(exclude_unset=True)
-    proposed={**engine.store.settings(),**values}
+    current=engine.store.settings()
+    if current.get('daily_pick_target',20)>=40 and values.get('daily_pick_target',40)<40:
+        raise HTTPException(422,'The active daily first-issuance target is at least 40.')
+    proposed={**current,**values}
     if proposed['bankroll'] and proposed['daily_risk_limit'] is not None and proposed['daily_risk_limit']>proposed['bankroll']:raise HTTPException(422,'A napi keret nem lehet nagyobb a bankrollnál.')
     if values.get('auto_track_recommendations') is None:values.pop('auto_track_recommendations',None)
     result=engine.store.save_settings(values)

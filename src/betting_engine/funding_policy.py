@@ -205,7 +205,7 @@ def _probability_base_units_v3(result, tip, settings, remaining, related_count, 
     return result
 
 
-def size_recommendation(tip, settings, remaining, related_count=0):
+def _base_size_recommendation(tip, settings, remaining, related_count=0):
     """Normal eligible sizing is byte-equivalent to existing stake_assessment.
 
     Model picks use its nominal-probability sizing and related-event discount,
@@ -281,3 +281,20 @@ def size_recommendation(tip, settings, remaining, related_count=0):
     # mode. Keep the actual calculation explanation without inventing stress.
     result['note'] = basis['note'] + ' ' + result['note'].replace('from stressed probability', 'from nominal model probability')
     return result
+
+
+def size_recommendation(tip, settings, remaining, related_count=0):
+    """Apply optional historical sizing after the unchanged eligibility formula."""
+    from .outcome_sizing_runtime import outcome_policy
+    from .outcome_sizing import apply_adjustment, verify_summary, segment_key
+    policy = outcome_policy(settings)
+    base = _base_size_recommendation(tip, settings, remaining, related_count)
+    if policy == 'legacy':
+        return base
+    evidence = tip.get('outcome_sizing_evidence')
+    if not verify_summary(evidence) or evidence['segment'] != segment_key(tip):
+        raise ValueError('Outcome sizing evidence is missing or invalid')
+    # Normalize unused budget to the effective base cap. Historical replay
+    # supplies this same recorded cap, not today's portfolio or bankroll.
+    cap = base['maximum_stake']
+    return apply_adjustment(base, tip, {**settings, 'max_bet': cap}, cap)

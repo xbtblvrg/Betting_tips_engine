@@ -286,6 +286,8 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
     # Select the best current contract per family, including held contracts.
     # A new best line can be issued later; holding the best does not rotate to inferior alternatives.
     selection_policy=family_selection_policy(settings)
+    from .outcome_sizing_runtime import outcome_policy
+    outcome_sizing=outcome_policy(settings)!='legacy'
     families={}
     held=set(held_families)
     held_ids=set(held_contracts);additions=settings.get('allow_event_additions',False)
@@ -422,7 +424,7 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
             # Stake pushes refund the stake; use the contract's push probability.
             available_event=max(0.,event_stake_cap-event_stakes[c['game_id']])
             available=min(remaining,available_event)
-            sizing=size_recommendation(c,settings,available,funded_counts[c['game_id']]) if continuous else stake_assessment(c['stress_probability'],c['push_probability'] if c.get('reference_platform')=='Stake.com' else 0,c['reference_odds'],settings,available,funded_counts[c['game_id']])
+            sizing=size_recommendation(c,settings,available,funded_counts[c['game_id']]) if continuous or outcome_sizing else stake_assessment(c['stress_probability'],c['push_probability'] if c.get('reference_platform')=='Stake.com' else 0,c['reference_odds'],settings,available,funded_counts[c['game_id']])
             c['stake_sizing']=sizing;amount,note=sizing['amount'],sizing['note']
             c['stake']=amount;c['stake_note']=note if amount else 'A megmaradt keretből vagy a rész-Kelly alapján nem adódik legalább 1 USD tét.';remaining-=amount
             if amount and limits_enabled and (event_stakes[c['game_id']]+amount>event_stake_cap+1e-9):
@@ -500,7 +502,7 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                 related=original_event_counts[c['game_id']]+batch_counts[c['game_id']]-1
                 event_available=event_stake_cap-event_stakes[c['game_id']]-batch_stakes[c['game_id']]
                 sizing_budget=min(remaining,max(0.,event_available))
-                sizing=size_recommendation(c,settings,sizing_budget,related) if continuous else stake_assessment(c['stress_probability'],c['push_probability'] if c.get('reference_platform')=='Stake.com' else 0,c['reference_odds'],settings,sizing_budget,related)
+                sizing=size_recommendation(c,settings,sizing_budget,related) if continuous or outcome_sizing else stake_assessment(c['stress_probability'],c['push_probability'] if c.get('reference_platform')=='Stake.com' else 0,c['reference_odds'],settings,sizing_budget,related)
                 c['stake_sizing']=sizing;c['stake']=sizing['amount'];c['stake_note']=sizing['note']
                 c['allocation_policy']['exposure_basis']='held_plus_complete_publication_batch_v1'
                 c['reference_stake_executable']=c['stake']>=c.get('reference_minimum_notional',0) and c['stake']>0

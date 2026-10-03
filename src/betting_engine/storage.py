@@ -122,6 +122,8 @@ class Store:
                 from .governance import verify_publication
                 saved=c.execute("SELECT value FROM kv WHERE key='settings'").fetchone()
                 active_settings={**DEFAULT_SETTINGS,**(json.loads(saved['value']) if saved else {})}
+                from .outcome_sizing_runtime import verify_ledger_evidence
+                verify_ledger_evidence(c,payload.get('recommendations',[])+payload.get('alternatives',[])+payload.get('evaluated_candidates',[]),active_settings,parse_time(now))
                 active_policy=active_settings.get('recommendation_policy','strict')
                 for tip in payload.get('recommendations',[])+payload.get('alternatives',[])+payload.get('evaluated_candidates',[]):
                     verify_publication(tip,parse_time(now),active_settings)
