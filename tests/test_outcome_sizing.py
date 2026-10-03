@@ -65,7 +65,7 @@ class OutcomeSizingTests(unittest.TestCase):
     def test_sparse_shrinkage_and_downward_change(self):
         self.assertEqual(self.summary([decision(1)])['factor'], 1)
         tiny = self.summary([decision(1), decision(2)])['factor']
-        self.assertAlmostEqual(tiny, 1 + (2 / 22 / .20) * (1 / 22 / .10))
+        self.assertAlmostEqual(tiny, 1 + 2 / 22)
         larger = self.summary([decision(i) for i in range(20)])['factor']
         self.assertGreater(larger, tiny)
         self.assertLessEqual(larger, 2)
@@ -193,3 +193,32 @@ class OutcomeSizingTests(unittest.TestCase):
         for row in rows:
             row['outcome_evidence']['fetched_at'] = '2026-10-02T00:00:00Z'
         self.assertEqual(self.summary(rows)['factor'], 1)
+
+    def test_mixed_net_losing_game_unequal_stakes_never_boosts(self):
+        # Previous saturated segment-product formula increased 1.8333 ->1.8537.
+        rows = [decision('w'+str(i), odds=3) for i in range(10)]
+        rows += [decision('l'+str(i), 'lost', odds=3) for i in range(10)]
+        before = self.summary(rows)
+        rows += [decision('mixed_win', stake=1, odds=3, game='mixed'),
+                 decision('mixed_loss', 'lost', stake=5, odds=3, game='mixed')]
+        after = self.summary(rows)
+        self.assertLessEqual(after['factor'], before['factor'])
+        self.assertLess(after['game_score_sum'], before['game_score_sum'])
+        self.assertTrue(verify_summary(after))
+        # Also check a positive-score history where the decrease is observable.
+        before = self.summary(rows[:15])
+        after = self.summary(rows[:15] + rows[-2:])
+        self.assertLess(after['factor'], before['factor'])
+
+    def test_three_high_odds_wins_remain_strongly_shrunk(self):
+        for odds in (3., 5., 1000.):
+            summary = self.summary([decision(i, odds=odds) for i in range(3)])
+            self.assertAlmostEqual(summary['factor'], 1 + 3 / 23)
+            self.assertEqual(summary['game_score_sum'], 3)
+
+    def test_positive_score_without_positive_aggregate_roi_never_boosts(self):
+        rows = [decision(i, odds=1.1) for i in range(3)] + [decision('loss', 'lost', odds=10)]
+        summary = self.summary(rows)
+        self.assertGreater(summary['game_score_sum'], 0)
+        self.assertLess(summary['game_roi'], 0)
+        self.assertEqual(summary['factor'], 1)
