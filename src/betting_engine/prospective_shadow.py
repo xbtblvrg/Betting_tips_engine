@@ -131,6 +131,28 @@ def _fair_probability(tip, snapshots, comparison, *, snapshot_index=None):
 
 
 
+def _capture_rows_for_fixtures(db, fixtures, cutoff):
+    """Use the existing fixture index without changing capture encounter order.
+
+    Every unknown-route capture still participates. Bounded parameter chunks
+    avoid SQLite variable limits; NULL rows are fetched once. Explicit rowid
+    order reproduces the former captures table scan, including tie conflicts.
+    """
+    fixtures = sorted(set(fixtures))
+    fields = 'rowid AS capture_rowid,id,fixture_id,evidence,recorded_at'
+    rows = [dict(row) for row in db.execute(
+        f'SELECT {fields} FROM captures WHERE fixture_id IS NULL AND recorded_at<=?', (cutoff,))]
+    for start in range(0, len(fixtures), 400):
+        batch = fixtures[start:start+400]
+        placeholders = ','.join('?' for _ in batch)
+        rows.extend(dict(row) for row in db.execute(
+            f'SELECT {fields} FROM captures WHERE fixture_id IN ({placeholders}) AND recorded_at<=?',
+            (*batch, cutoff)))
+    rows.sort(key=lambda row: row['capture_rowid'])
+    for row in rows: row.pop('capture_rowid')
+    return rows
+
+
 def _capture_evidence_by_fixture(capture_rows):
     """Decode each immutable capture once in this evaluation only.
 
@@ -437,7 +459,7 @@ class ShadowEvidenceStore:
             pending = Counter((r['identity']['league'], r['identity']['scope'], r['identity']['family']) for r in frozen_rows if _time(r['decision']['payload']['start']) > now)
             pending_families = [{'league': k[0], 'scope': k[1], 'family': k[2], 'contracts': n} for k, n in sorted(pending.items())]
             fixtures = {r['decision']['payload']['reference_market_id'].split(':')[1] for r in closed}
-            capture_rows = [dict(r) for r in db.execute('SELECT id,fixture_id,evidence,recorded_at FROM captures WHERE recorded_at<=?', (now.isoformat(),)) if r['fixture_id'] in fixtures or r['fixture_id'] is None]
+            capture_rows = _capture_rows_for_fixtures(db, fixtures, now.isoformat())
             games = {r['identity']['game_id'] for r in closed}
             available_results = []
             for r in settlements:
