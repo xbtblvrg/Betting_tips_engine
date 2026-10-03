@@ -204,6 +204,87 @@ def throughput_checks(data, observations, previous, now, cpu_reader=None):
     return checks,current
 
 
+def stability_audit(result, previous, now, dashboard_reader=None, process_reader=None):
+    """Fifteen-minute bounded measurements within the existing watchdog.
+
+    Stable check identities flow to existing priority-zero engineering intake.
+    This audit neither restarts healthy services nor claims queued work is running.
+    """
+    from datetime import timedelta
+    import shlex
+    old=previous.get('stability_audit',{})
+    try:
+        if 0 <= (now-parse_time(old['checked_at'])).total_seconds() < 900:
+            return old
+    except (KeyError,TypeError,ValueError):pass
+    checks=[]
+    active=set(result.get('development',{}).get('progress',{}).get('active_tasks',[]))
+    def add(name,ok,detail,task='D14'):
+        checks.append(dict(component=name,state='healthy' if ok else 'degraded',detail=detail,
+            repair_task=task,observed_at=now.isoformat(),restart_eligible=False,
+            next_action='Repair through existing priority-zero engineering intake and reviewed release.',
+            repairing=task in active))
+    services=result.get('services',{})
+    add('Stability service progress',bool(services) and all(r.get('state')=='healthy' for r in services.values()),
+        '; '.join(f"{name}: {row.get('state')}" for name,row in services.items()) or 'Service evidence unavailable.')
+    baseline=old.get('restart_counts',{})
+    counts={name:row.get('restart_count',0) for name,row in services.items()}
+    changed={name:value-baseline[name] for name,value in counts.items() if name in baseline and value>baseline[name]}
+    add('Stability restart interval',not changed,'Restart increases since prior audit: '+json.dumps(changed)+
+        ('; initial baseline, no historical stability inference.' if not baseline else ''))
+    try:
+        raw=process_reader() if process_reader else subprocess.check_output(['ps','-axo','pid=,command='],text=True,timeout=3)
+        pids=[]
+        for line in raw.splitlines():
+            parts=shlex.split(line)
+            if len(parts)>4 and 'python' in Path(parts[1]).name.lower() and parts[2:5]==['-m','uvicorn','betting_engine.server:app']:
+                pids.append(int(parts[0]))
+        add('Stability duplicate web processes',len(pids)==1,'Direct engine web PIDs (wrapper processes excluded): '+json.dumps(pids))
+    except (ValueError,OSError,subprocess.SubprocessError):
+        add('Stability duplicate web processes',False,'Process inventory unavailable; no process was terminated.')
+    try:
+        if dashboard_reader:dashboard=dashboard_reader()
+        else:
+            with urlopen('http://127.0.0.1:8765/api/dashboard',timeout=25) as response:dashboard=json.load(response)
+        stamp=parse_time(dashboard.get('generated_at'))
+        add('Stability dashboard publication',-30<=(now-stamp).total_seconds()<=300,
+            'Dashboard publication: '+str(dashboard.get('generated_at')))
+        from .dashboard_payload import _execution_counts
+        status=dashboard['status'];progress=status['daily_progress']
+        # Use the same render instant, not the later watchdog instant at a game boundary.
+        render_at=parse_time(dashboard.get('server_time') or now.isoformat())
+        expected=_execution_counts(dashboard.get('recommendations',[])+dashboard.get('alternatives',[]),
+            dashboard.get('evaluated_candidates') or dashboard.get('recommendations',[])+dashboard.get('alternatives',[]),
+            dashboard.get('tracked_bets',[]),dashboard.get('placement_marks',{}),dashboard['settings'],progress,render_at)
+        actual=status['execution_counts']
+        mismatch={key:{'expected':value,'actual':actual.get(key)} for key,value in expected.items() if key!='source' and actual.get(key)!=value}
+        rows=progress.get('issuance_rows')
+        if isinstance(rows,list):
+            unique=len({r['tip_id'] for r in rows})
+            if progress.get('calendar_day_issued',progress.get('issued'))!=unique:
+                mismatch['calendar_day_issued']={'expected':unique,'actual':progress.get('calendar_day_issued',progress.get('issued'))}
+        add('Stability execution counts',not mismatch,'Shared snapshot count differences: '+json.dumps(mismatch))
+    except Exception as exc:
+        name='Stability execution counts' if any(c['component']=='Stability dashboard publication' for c in checks) else 'Stability dashboard publication'
+        add(name,False,'Dashboard probe failed: '+type(exc).__name__+': '+str(exc)[:150])
+    components=result.get('components',{}).get('checks',[])
+    faults=[c['component'] for c in components if c.get('state') in ('stale','degraded','missing','failed','needs_implementation')]
+    add('Stability source and capability gaps',bool(components) and not faults,
+        'Unresolved component checks: '+json.dumps(faults[:30]),'D36')
+    progress=result.get('development',{}).get('progress',{})
+    runnable=progress.get('runnable_count');admission=progress.get('resource_admission',{})
+    blocked=bool(runnable and (progress.get('dispatch_stalled') or not active or admission.get('allow_new') is False))
+    add('Stability runnable development',runnable is not None and not blocked,
+        json.dumps({'runnable':runnable,'active':sorted(active),'admission_reasons':admission.get('reasons',[]),'dispatch_stalled':progress.get('dispatch_stalled')}))
+    pending=progress.get('counts',{})
+    add('Stability development backlog',bool(pending) and not any(pending.get(k,0) for k in ('awaiting_release','dependency_blocked','retry_backoff')),
+        json.dumps({k:pending.get(k,0) for k in ('awaiting_release','dependency_blocked','retry_backoff')}))
+    failed=[c for c in checks if c['state']!='healthy']
+    return dict(checked_at=now.isoformat(),next_check_at=(now+timedelta(seconds=900)).isoformat(),
+        interval_seconds=900,state='attention_required' if failed else 'stable',error_count=len(failed),
+        repairing_count=sum(c['repairing'] for c in failed),checks=checks,restart_counts=counts)
+
+
 def compact_summary(result, data_dir=DATA):
     """Stable stdout record; detailed health stays in supervisor.json."""
     services = {name: {key: row[key] for key in
@@ -215,6 +296,7 @@ def compact_summary(result, data_dir=DATA):
         'component_state': result.get('components', {}).get('state'),
         'component_check_count': len(result.get('components', {}).get('checks', [])),
         'delivery_state': result.get('delivery_state'),
+        'stability_audit': result.get('stability_audit', {}),
         'log_rotation': result.get('log_rotation', []),
         'current_json': str(Path(data_dir) / 'supervisor.json')}
 
@@ -272,6 +354,12 @@ def run_once(data_dir=DATA, *, emit_summary=False):
         checks, result['throughput_memory'] = throughput_checks(data, observations, previous, utcnow())
         result['components'].setdefault('checks', []).extend(checks)
         if any(check['state']=='degraded' for check in checks):
+            result['components']['state']='degraded'
+        result['stability_audit']=stability_audit(result, previous, utcnow())
+        # Retain actual observation timestamps; cached checks are not fresh evidence.
+        if result['stability_audit']['checked_at'] != previous.get('stability_audit',{}).get('checked_at'):
+            result['components'].setdefault('checks',[]).extend(result['stability_audit']['checks'])
+        if result['stability_audit']['error_count']:
             result['components']['state']='degraded'
         result['periodic_question']='Are services progressing, are resources bounded, and which concrete bottleneck requires immediate repair?'
         result['state']='degraded' if any(s['state']!='healthy' for s in result['services'].values()) or result['components']['state']!='operational' or delivery.get('progress',{}).get('attention_required') else 'operational'
