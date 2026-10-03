@@ -52,6 +52,11 @@ def _compact_outcome_fields(tip):
     guard=tip.get('decision_guard')
     compact_guard=({key:value for key,value in guard.items() if key not in ('knowledge','input_readiness')}
                    if isinstance(guard,dict) and any(key in guard for key in ('knowledge','input_readiness')) else guard)
+    if compact_guard is not guard and isinstance(guard.get('knowledge'),list):
+        # Preserve the methodology links shown in Decision Evidence, without
+        # repeating complete book-card excerpts for every contract.
+        compact_guard['knowledge']=[{'id':k['id']} for k in guard['knowledge']
+                                    if isinstance(k,dict) and isinstance(k.get('id'),str)]
     if compact_summary is summary and compact_sizing is sizing and compact_guard is guard:return tip
     result=dict(tip)
     if compact_guard is not guard:result['decision_guard']=compact_guard
@@ -107,7 +112,7 @@ def _compact_dashboard_tip(tip):
                 'contract_version', 'minimum_roi', 'recommendation_policy',
                 'model_pick_sizing_policy', 'model_pick_allocation_policy',
                 'family_selection_policy', 'outcome_sizing_policy',
-                'market_anchor_settings', 'calibration_settings', 'model',
+                'market_anchor_settings', 'calibration_settings', 'model', 'knowledge',
             ) if key in guard
         }
     for key in ('execution_review', 'instruction_review'):

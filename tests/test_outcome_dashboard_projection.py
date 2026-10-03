@@ -40,6 +40,8 @@ def test_funded_trace_retains_aggregates_policies_and_browser_contract(make_tip)
     assert projected['stake']==tip['stake'] and projected['funding_basis']==tip['funding_basis']
     assert projected['stake_evidence']==tip['stake_evidence']
     assert projected['decision_guard']['passed'] is True
+    assert projected['decision_guard']['knowledge']==[{'id':k['id']} for k in tip['decision_guard']['knowledge']]
+    assert all(set(k)=={'id'} for k in projected['decision_guard']['knowledge'])
     assert projected['decision_guard']['outcome_sizing_policy']==settings['outcome_sizing_policy']
     evidence=projected['outcome_sizing_evidence']
     assert 'games' not in evidence and evidence['evidence_projection']=='dashboard_aggregate_v1'

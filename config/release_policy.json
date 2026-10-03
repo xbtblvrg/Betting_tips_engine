@@ -286,7 +286,9 @@
         "tests/test_daily_target_forty.py",
         "tests/web_outcome_sizing.test.mjs",
         "src/betting_engine/stake_reassessment.py",
-        "src/betting_engine/web/index.html"
+        "src/betting_engine/web/index.html",
+        "src/betting_engine/dashboard_payload.py",
+        "tests/test_outcome_dashboard_projection.py"
       ],
       "guards": {
         "clv_gate_required": true,
