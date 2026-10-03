@@ -188,3 +188,7 @@ The user authorized implementing the diagnosed feedback, sizing and volume corre
 ## Latest volume authorization (2026-10-03)
 
 The latest explicit user instruction supersedes older volume caps: activate publication_limits_version=v2 with4 funded picks/game,2 period/quarter picks/game,USD10 aggregate/game,15 new funded/cycle and35% daily league/family share. Daily target100 funded first issuances; no padding, repeated contracts or retrospective resizing. Keep USD5 per-bet maximum, daily_risk_limit=null and all model/scope/source/freshness/funding guards. Legacy v1 caps remain replayable. Evaluate diverse leagues and families; a historically successful market title alone is not sufficient sizing evidence.
+
+## Quality and odds preference (2026-10-03)
+
+Mandatory objective: improve net betting P&L and ROI, pursuing higher WR with broad qualified volume. Prefer decimal odds above1.50 among comparably qualified opportunities; this is not a hard exclusion of lower odds or permission to weaken probability/EV/evidence/exposure checks. Preserve the active probability-first, stressed-ROI-second selection until a reviewed policy replacement. Assess improvement on original resolved decisions by league/scope/family with independent-game counts; volume or model estimates alone cannot establish gains.

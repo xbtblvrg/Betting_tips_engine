@@ -606,6 +606,12 @@
     "limits": "USD1–5 per bet; max5; daily_risk_limit=null; publication_limits_version=v2:4/game,2 period/game,USD10/game,15/cycle,35% family share; originals unchanged; no automatic placement.",
     "interpretation": "Historical outcome multiplier is a shrinkage heuristic, not proof of future profit or a probability estimate.",
     "historical_replay_policy": "historical_game_weighted_v1",
-    "outcome_uplift": "v2 per-game score=min(1, game ROI/1.0, odds-adjusted WR surplus/0.5), signed negative scores retained; factor=1+4*max(0,sum(scores)/(independent_games+20)), positive aggregate ROI and WR surplus required. Preserve v1 exact replay. Historical heuristic, not new funding eligibility."
+    "outcome_uplift": "v2 per-game score=min(1, game ROI/1.0, odds-adjusted WR surplus/0.5), signed negative scores retained; factor=1+4*max(0,sum(scores)/(independent_games+20)), positive aggregate ROI and WR surplus required. Preserve v1 exact replay. Historical heuristic, not new funding eligibility.",
+    "quality_objective": {
+      "priority": "Improve realised net betting P&L and ROI while pursuing higher WR and broad qualified volume; compare immutable original issuances by league, scope, family and independent game.",
+      "preferred_decimal_odds_above": 1.5,
+      "odds_preference": "Preference among comparably qualified opportunities, not a minimum-odds exclusion or permission to weaken probability, price, evidence or exposure checks. Current probability-first then stressed-ROI selection remains active.",
+      "measurement": "Track stake, payout, net betting P&L, WR, ROI, sample size, calibration and CLV. Higher volume or a selected model probability alone does not establish improvement; keep operating costs separate."
+    }
   }
 }
