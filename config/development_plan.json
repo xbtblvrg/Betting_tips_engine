@@ -761,7 +761,16 @@
       ],
       "data_source": "Immutable original funded system_decisions and timestamped settlement evidence, no ticket duplication.",
       "acceptance": "Live target40 with unchanged checkpoint/originals and no league/family narrowing; new sizing traces reproduce from past immutable outcomes and honor USD1–5/game caps; tests, independent review and local/Tailscale evidence. Historical performance is not claimed future improvement.",
-      "status": "attention_required"
+      "status": "live_verified",
+      "completed_at": "2026-10-03T09:43:18.004402+00:00",
+      "code_commit": "7624940d36cc37dcc1a4addb11c8efa2be7f18bf",
+      "live_evidence": "data/releases/root-outcome-sizing-20261003/release.json",
+      "delivery_observation": {
+        "target": 40,
+        "issued": 14,
+        "shortfall": 26,
+        "capability_release_is_not_daily_target_completion": true
+      }
     }
   ],
   "deferred": [
