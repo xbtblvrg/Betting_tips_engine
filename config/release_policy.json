@@ -266,6 +266,37 @@
         "daily_risk_limit": null
       },
       "root_integration_required": true
+    },
+    "D37": {
+      "kind": "guarded_engine",
+      "files": [
+        "src/betting_engine/outcome_sizing.py",
+        "src/betting_engine/outcome_sizing_runtime.py",
+        "src/betting_engine/funding_policy.py",
+        "src/betting_engine/engine.py",
+        "src/betting_engine/decisions.py",
+        "src/betting_engine/governance.py",
+        "src/betting_engine/storage.py",
+        "src/betting_engine/instructions.py",
+        "src/betting_engine/server.py",
+        "src/betting_engine/model_allocation.py",
+        "src/betting_engine/web/app.js",
+        "tests/test_outcome_sizing.py",
+        "tests/test_outcome_sizing_integration.py",
+        "tests/test_daily_target_forty.py",
+        "tests/web_outcome_sizing.test.mjs"
+      ],
+      "guards": {
+        "clv_gate_required": true,
+        "ledger_immutable": true,
+        "auto_betting_disabled": true,
+        "stake_range_usd": [
+          1,
+          5
+        ],
+        "daily_risk_limit": null
+      },
+      "root_integration_required": true
     }
   },
   "review_new_passive_utilities": true
