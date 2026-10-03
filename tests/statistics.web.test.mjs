@@ -43,3 +43,24 @@ test('Filtered Statistics still exposes global orphan outcome findings',async()=
 test('Global integrity findings are not counted twice in an unfiltered audit',async()=>{
  const r=report();r.resolution_audit.issues=[{category:'outcome',id:999,code:'orphan_outcome'}];r.global_integrity={orphan_outcome_count:1,orphan_bet_ids:[999]};const b=await boot(r);await b.open();assert.match(b.d.querySelector('#statistics-resolution-note').textContent,/1 resolution or evidence findings/);assert.equal(b.d.querySelectorAll('#statistics-resolution tbody tr').length,1);assert.equal(r.resolution_audit.issues.length,1);await b.w.happyDOM.close();
 });
+
+test('Segment analysis keeps frozen model and engine cash cohorts distinct across league and scope',async()=>{
+ const r=report();
+ const make=(league,scope,brier)=>({...summary,league,scope,market_family:'moneyline',calibration:{observations:7,independent_games:3,mean_conditional_win_probability:.7,observed_win_rate:.4,brier,log_loss:.8123,game_equal_weight_brier:.3123,excluded:{resolution_evidence_issue:2}}});
+ r.system_decisions.by_league_market=[make('NHL','full_game',.1234),make('NHL','period_1',.2345),make('MLB','full_game',.3456)];
+ r.system_decisions.by_league=[make('NHL',null,.4567)];r.system_decisions.by_market_family=[make(null,'period_1',.5678)];
+ const b=await boot(r);await b.open();
+ const rows=[...b.d.querySelectorAll('#statistics-segment-models tbody tr')].map(x=>x.textContent);
+ assert.equal(rows.length,3);assert.match(rows[0],/NHL.*full game.*7 \/ 3.*70\.00% \/ 40\.00%.*-30\.00%.*0\.1234.*0\.8123.*0\.3123.*resolution evidence issue: 2.*D18/);
+ assert.match(rows[1],/NHL.*period 1.*0\.2345/);assert.doesNotMatch(rows[1],/D18/);assert.match(rows[2],/MLB.*0\.3456/);assert.doesNotMatch(rows[2],/D18/);
+ assert.match(b.d.querySelector('#statistics-segment-results').textContent,/Settled Games/);
+ const select=b.d.querySelector('#statistics-segment-group');select.value='by_league';select.dispatchEvent(new b.w.Event('change'));
+ assert.equal(b.d.querySelectorAll('#statistics-segment-models tbody tr').length,1);assert.match(b.d.querySelector('#statistics-segment-models').textContent,/0\.4567/);
+ select.value='by_market_family';select.dispatchEvent(new b.w.Event('change'));assert.match(b.d.querySelector('#statistics-segment-models').textContent,/0\.5678/);
+ assert.equal(b.calls.filter(x=>x.startsWith('/api/statistics?')).length,1);assert.deepEqual(b.writes,[]);await b.w.happyDOM.close();
+});
+
+test('Unscored original segments show unknown model quality and escape development findings',async()=>{
+ const r=report();r.system_decisions.by_league_market=[{league:'NHL',scope:'full_game',market_family:'moneyline',settled_games:0}];r.improvement_loop.proposals[0].task.id='<img src=x onerror=bad()>';
+ const b=await boot(r);await b.open();const host=b.d.querySelector('#statistics-segment-models');assert.match(host.textContent,/0 \/ 0.*— \/ —/);assert.doesNotMatch(host.textContent,/NaN|undefined|Infinity/);assert.equal(host.querySelector('img'),null);assert.match(host.textContent,/<img/);await b.w.happyDOM.close();
+});

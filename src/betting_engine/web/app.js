@@ -534,7 +534,24 @@ function statisticsGroupTable(rows,labels,identity){
   ...identity(r).map(esc),esc(`${r.settled??0} / ${r.open??0}`),esc([r.won??0,r.lost??0,r.pushes??0,r.voids??0].join(' / ')),
   esc(statisticsPct(r.hit_rate)),esc(statisticsMoney(r.settled_stake)),esc(statisticsMoney(r.payout)),statisticsCash(r.pnl),esc(statisticsPct(r.roi))]));
 }
+let statisticsSegmentReport=null;
+function renderStatisticsSegments(report){
+ statisticsSegmentReport=report;
+ const group=$('#statistics-segment-group').value;
+ const rows=report.system_decisions?.[group]||[];
+ const identity=r=>group==='by_league'?[r.league]:group==='by_market_family'?[statisticsWords(r.scope),marketName[r.market_family]||statisticsWords(r.market_family)]:[r.league,statisticsWords(r.scope),marketName[r.market_family]||statisticsWords(r.market_family)];
+ const labels=group==='by_league'?['League']:group==='by_market_family'?['Scope','Market']:['League','Scope','Market'];
+ $('#statistics-segment-results').innerHTML=statisticsGroupTable(rows,[...labels,'Settled Games'],r=>[...identity(r),r.settled_games??0]);
+ $('#statistics-segment-models').innerHTML=table([...labels,'Scored Contracts / Games','Estimated / Observed','Observed − Estimated','Brier','Log Loss','Game-weighted Brier','Scoring Exclusions','Development Findings'],rows.map(r=>{
+  const c=r.calibration||{},gap=Number.isFinite(c.observed_win_rate)&&Number.isFinite(c.mean_conditional_win_probability)?c.observed_win_rate-c.mean_conditional_win_probability:null;
+  const findings=(report.improvement_loop?.proposals||[]).filter(p=>(!r.league||p.league===r.league)&&(!r.scope||p.scope===r.scope)&&(!r.market_family||p.market_family===r.market_family));
+  const work=findings.map(p=>`${p.task?.id||'Awaiting intake'} · ${statisticsWords(p.kind||p.title)} · ${statisticsWords(p.task?.state||'pending')}`);
+  return [...identity(r).map(esc),esc(`${c.observations??0} / ${c.independent_games??0}`),esc(`${statisticsPct(c.mean_conditional_win_probability)} / ${statisticsPct(c.observed_win_rate)}`),esc(statisticsPct(gap)),esc(num(c.brier,4)),esc(num(c.log_loss,4)),esc(num(c.game_equal_weight_brier,4)),esc(Object.entries(c.excluded||{}).map(([k,v])=>`${statisticsWords(k)}: ${v}`).join('; ')||'None'),esc(work.join('; ')||'No recorded finding')];
+ }));
+}
+$('#statistics-segment-group').onchange=()=>{if(statisticsSegmentReport)renderStatisticsSegments(statisticsSegmentReport)};
 function renderStatistics(report){
+ renderStatisticsSegments(report);
  const ledger=report.ticket_ledger,s=ledger.summary,d=report.system_decisions?.summary||{},f=report.filters||{};
  $('#statistics-status').textContent='Results checked: '+when(report.as_of)+'. Match dates: Europe/Budapest. '+(s.settled?'Only completed tickets enter win rate and settled P&L.':'No completed tickets in this selection yet.');
  $('#statistics-basis').textContent='Assumed placements use the original recommendation odds and stakes; user reports remain distinct from account verification. Win rate = won ÷ (won + lost); pushes, voids and manual/unknown outcomes are excluded. '+(!s.money_complete?'Some closed cash amounts are missing or invalid; complete-cohort cash totals and ROI are withheld.':'');

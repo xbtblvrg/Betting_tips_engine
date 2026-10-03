@@ -771,6 +771,31 @@
         "shortfall": 26,
         "capability_release_is_not_daily_target_completion": true
       }
+    },
+    {
+      "id": "D38",
+      "milestone": "M09",
+      "priority": 1,
+      "title": "League and market segment model quality alongside original engine results",
+      "owner": "Codex implementation; independent Codex review; root release",
+      "created_at": "2026-10-03T10:43:46.622644+00:00",
+      "due_at": "2026-10-03T12:00:00+00:00",
+      "depends_on": [],
+      "objective": "Expose existing original-decision league/scope/family model calibration and cash outcomes in one filtered Statistics view without duplicate-ticket learning inflation.",
+      "implementation_steps": [
+        "Use existing Statistics grouped original decisions, preserving scopes and missing evidence.",
+        "Display scored counts, games, predicted/observed rate, Brier, log loss and game-weighted Brier alongside original engine outcomes.",
+        "Join existing outcome-feedback task findings by exact available segment dimensions.",
+        "Regression tests, independent review, full suite and local/Tailscale rendered verification."
+      ],
+      "files": [
+        "src/betting_engine/web/app.js",
+        "src/betting_engine/web/index.html",
+        "tests/statistics.web.test.mjs"
+      ],
+      "data_source": "Existing read-only Statistics snapshot and existing outcome-feedback findings.",
+      "acceptance": "All three groupings match the selected original-decision cohort; cash and calibration remain separate; no scope mixing, fabricated scores or ledger changes; live served UI renders the snapshot.",
+      "status": "awaiting_release"
     }
   ],
   "deferred": [
