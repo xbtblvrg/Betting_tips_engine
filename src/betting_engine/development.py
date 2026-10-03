@@ -6,6 +6,7 @@ verified release. The unchanged live engine and learning worker keep operating.
 """
 import argparse
 import concurrent.futures
+from collections import OrderedDict
 from contextlib import contextmanager
 import fcntl
 import hashlib
@@ -237,15 +238,43 @@ def _recovery_source_allowed(name):
             and name.startswith('src/betting_engine/') and name.endswith('.py')) or _recovery_test_source(name) or name in ('scripts/development_service.py','scripts/release_service.py','config/development_runner.json')
 
 
-def _diagnosed_regression_sources(manifest, text):
-    names = sorted(name for name in manifest if _recovery_test_source(name))
+_DIAG_SOURCE_CACHE_MAX = 64
+_DIAG_SOURCE_CACHE = OrderedDict()
+
+
+def _diagnosed_regression_sources_uncached(names, text):
     basenames = {}
     for name in names:
         basenames.setdefault(Path(name).name, []).append(name)
-    def mentioned(name):
-        return re.search(r'(?<![A-Za-z0-9_./-])' + re.escape(name) + r'(?![A-Za-z0-9_./-])', text) is not None
-    return [name for name in names if mentioned(name)
-            or (len(basenames[Path(name).name]) == 1 and mentioned(Path(name).name))]
+    patterns = {name: re.compile(r'(?<![A-Za-z0-9_./-])' + re.escape(name)
+        + r'(?![A-Za-z0-9_./-])') for name in names}
+    basename_patterns = {name: re.compile(r'(?<![A-Za-z0-9_./-])' + re.escape(name)
+        + r'(?![A-Za-z0-9_./-])') for name, rows in basenames.items() if len(rows) == 1}
+    return [name for name in names if patterns[name].search(text) is not None
+            or (len(basenames[Path(name).name]) == 1
+                and basename_patterns[Path(name).name].search(text) is not None)]
+
+
+def _diagnosed_regression_sources(manifest, text):
+    """Find exact regression references with bounded content-addressed reuse.
+
+    Recovery polling revisits the same immutable result/manifest text.  Cache
+    only the small list of matched names, never the potentially large text, and
+    key it by both exact input digests so changed diagnostics miss immediately.
+    """
+    names = tuple(sorted(name for name in manifest if _recovery_test_source(name)))
+    key = (hashlib.sha256(json.dumps(names, separators=(',', ':')).encode()).hexdigest(),
+        hashlib.sha256(text.encode()).hexdigest())
+    cached = _DIAG_SOURCE_CACHE.get(key)
+    if cached is not None:
+        _DIAG_SOURCE_CACHE.move_to_end(key)
+        return list(cached)
+    result = tuple(_diagnosed_regression_sources_uncached(names, text))
+    _DIAG_SOURCE_CACHE[key] = result
+    _DIAG_SOURCE_CACHE.move_to_end(key)
+    while len(_DIAG_SOURCE_CACHE) > _DIAG_SOURCE_CACHE_MAX:
+        _DIAG_SOURCE_CACHE.popitem(last=False)
+    return list(result)
 
 
 def native_probe_source_update(folder, run_id, result):
