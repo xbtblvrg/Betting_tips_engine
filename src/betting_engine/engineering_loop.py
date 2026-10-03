@@ -490,6 +490,16 @@ def _collect(root, payload, operations, components, plan, state, now, release_re
     for task_id, row in state.get('tasks', {}).items():
         hold = row.get('timeout_recovery_hold', {})
         task = definitions.get(task_id, {})
+        if hold.get('source_run_id'):
+            from .delivery import task_release_verified
+            receipt = _read(Path(root) / 'data/development/task-releases' / (task_id + '.json'))
+            prior_run = _read(Path(root) / 'data/development/runs' / hold['source_run_id'] / 'run.json') if Path(str(hold['source_run_id'])).name == hold['source_run_id'] else {}
+            if (prior_run.get('finished_at') and task_release_verified(root, task_id)
+                    and _later(receipt.get('verified_at'), prior_run['finished_at'])
+                    and not _later(receipt.get('verified_at'), now.isoformat())):
+                positives['timeout_recovery:' + task_id] = {'observed_at': receipt['verified_at'],
+                    'kind': 'source_bound_production_receipt', 'task_id': task_id}
+                continue
         if (hold.get('state') != 'awaiting_changed_controller'
                 or hold.get('source_run_id') != row.get('run_id')
                 or not task or str(task.get('engineering_bucket', '')).startswith('timeout_repair_')):
@@ -510,11 +520,34 @@ def _collect(root, payload, operations, components, plan, state, now, release_re
             diagnostics.append('Timeout recovery archive mismatch: ' + task_id)
             continue
         stamp = retained.get('finished_at') or row.get('updated_at') or now.isoformat()
+        checkpoint = []
+        manifest_path = path.parent / 'candidate-manifest.json'
+        try:
+            manifest_raw = manifest_path.read_bytes()
+            if len(manifest_raw) > 2 * 1024 * 1024:
+                raise ValueError('oversized checkpoint manifest')
+            manifest = json.loads(manifest_raw)
+            checkpoint.append({'path': str(manifest_path.relative_to(Path(root) / 'data/development')),
+                'sha256': hashlib.sha256(manifest_raw).hexdigest()})
+            for name, sha in manifest.items():
+                rel = Path(name)
+                candidate = path.parent / 'files' / rel
+                if (rel.is_absolute() or '..' in rel.parts
+                        or not name.startswith(('src/betting_engine/', 'tests/', 'docs/'))):
+                    continue
+                if candidate.is_file() and not candidate.is_symlink():
+                    checkpoint.append({'path': str(candidate.relative_to(Path(root) / 'data/development')), 'sha256': sha})
+        except (OSError, ValueError, TypeError, AttributeError):
+            diagnostics.append('Timeout checkpoint manifest missing or invalid: ' + task_id)
+        for log_path in sorted(path.parent.glob('implementation*.log'))[:4]:
+            if not log_path.is_symlink() and log_path.stat().st_size <= 2 * 1024 * 1024:
+                checkpoint.append({'path': str(log_path.relative_to(Path(root) / 'data/development')),
+                    'sha256': hashlib.sha256(log_path.read_bytes()).hexdigest()})
         issue = _observation('timeout_recovery:' + task_id, 'timeout_checkpoint_hold', 'SYSTEM',
             'Implement a bounded decomposition or controller/input repair for the repeated checkpoint timeout; preserve the parent task acceptance.',
             stamp, {'task_id': task_id, 'run_id': rid, 'controller_sha256': hold.get('controller_sha256'),
                 'run_path': str(path.relative_to(root)), 'run_sha256': hashlib.sha256(raw).hexdigest(),
-                'original_task': task, 'hold': hold}, bucket='timeout_repair_' + task_id, priority=0)
+                'original_task': task, 'hold': hold, 'checkpoint_files': checkpoint}, bucket='timeout_repair_' + task_id, priority=0)
         issue.update(first_seen=stamp, due_at=task.get('due_at') or stamp,
             owner='codex_development_worker', parent_task_id=task_id,
             next_action='Implement and test a bounded resumable evaluator/input repair in the isolated workspace, with exact protected integration instructions. Root integrates only after review; rerun the parent acceptance after controller or task changes.')
