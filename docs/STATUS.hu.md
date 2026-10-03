@@ -1,3 +1,13 @@
+## 2026-10-03 — Tárhelyfelszabadítás és supervisor-naplórotáció
+
+Éles kód: `93eb414` (`cbae22d` naplórotáció). A supervisor teljes állapota továbbra is a meglévő `data/supervisor.json` fájlban marad; stdout rövid összefoglaló. A `supervisor.log` és `supervisor-actions.jsonl` 16 MiB fölött gzip-archívumba kerül, naplónként hét archívum megőrzésével. Az archívum fsync-je megelőzi az append-deszkriptorral azonos inode rövidítését. A JSONL-akciórekordok teljes tartalma megmarad a megőrzési időn belül.
+
+Az engedélyezett operátori eszköz 24 óránál régebbi fejlesztési másolatok három rögzített JSON-bemeneti útvonalán APFS copy-on-write deduplikációt végez. A fejlesztési/kiadási worker leállítását és folyamatmentességet ellenőrzi; mindkét szolgáltatás visszaindult. 1115 fájl cseréje, nulla hiba; minden csere SHA256-azonosság-, metaadat- és változatlanság-ellenőrzés után történt. Sem fájlútvonal, sem tartalom nem veszett el; későbbi írások függetlenek. A szabad hely a művelet alatt 14 538 698 752-ről 48 905 412 608 bájtra nőtt (+34 366 713 856 bájt; az egyidejű naplórotációt és egyéb lemezaktivitást is tartalmazó megfigyelés). A workspace könyvtár 756 GiB logikai du-értéke APFS-megosztás mellett nem azonos a kizárólagos fizikai foglalással. A 92 GiB shadow- és 15 GiB engine-adatbázist nem módosította ez a karbantartás.
+
+Validáció: 5763 tracked és 540 meglévő untracked Python-regresszió sikeres, 1 skip, 5 subtest; 273 frontend-teszt sikeres. Független Codex review a napló- és deduplikációs változtatáson; valódi APFS-, xattr-, független-írás-, symlink- és hibaút-tesztek. Éles rotáció: 1 769 097 683 és 37 392 596 bájt eredeti napló visszaolvasható a gzip-archívumokból. Helyi/Tailscale HTTP200, engine error=null, egészséges feed, publikáció 6689. A supervisor időzített futása exit0; development/release ismét fut.
+
+Bizonyíték: `data/releases/root-storage-bounds-20261003/{python.log,python-existing-untracked.log,web.log,web-sizing.log,deduplication.log,live-check.json}`. A régi workspacemegosztás egyszeri, ellenőrzött karbantartás; az automatikus rotáció minden supervisor-futás része. Más naplók/adatbázisok megőrzési szabálya nem változott.
+
 ## 2026-10-03 — Napi40 cél és eredményalapú tétezés élesben (D37)
 
 - Éles kód: `7624940`; aktív `daily_pick_target=40`, `outcome_sizing_policy=historical_game_weighted_v1`. Nincs számláló-reset, liga- vagy piaccsalád-szűkítés. A régi 20-as űrlap nem csökkentheti vissza az aktív40 célt.
