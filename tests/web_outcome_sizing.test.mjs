@@ -37,3 +37,12 @@ test('historical v2 trace discloses its scaled factor and keeps v1 source eviden
  assert.match(el.textContent,/V2 calculation/);assert.match(el.textContent,/1 \+ 4/);assert.match(el.textContent,/verified v1 evidence/);assert.match(el.textContent,/\$5\.00 after caps/);assert.match(el.textContent,/negative scores are not clipped/);assert.match(el.textContent,/win-rate surplus \/ 0.5/);
  await w.happyDOM.close();
 });
+
+test('confidence sizing exposes drivers without relabelling confidence as win probability',async()=>{
+ const w=new Window({url:'http://localhost',settings:{disableCSSFileLoading:true,disableJavaScriptFileLoading:true}});w.document.write(readFileSync('src/betting_engine/web/index.html','utf8'));w.setInterval=()=>0;w.EventSource=class{addEventListener(){}};w.fetch=async()=>({ok:true,json:async()=>({recommendations:[],settings:{},engine:{},status:{},games:[],models:{},performance:{}})});
+ w.eval(readFileSync('src/betting_engine/web/app.js','utf8')+'\nwindow.trace=outcomeSizingTrace;window.flight=()=>dashboardFlight;');await w.flight();
+ const a={policy:'historical_confidence_v3',base_amount:1,factor:3,adjusted_amount:3,segment:'NFL|full_game|moneyline',confidence:.7,probability_strength:.8,model_market_agreement:.9,required_input_completeness:1,historical_sample_weight:.5,combined_sizing_score:.5,confidence_target_before_event_discount:3,requested_amount:3,source:{independent_games:20,game_wr:.7,game_roi:.2,break_even_wr:.6,as_of:new Date().toISOString(),summary_sha256:'hash'}};
+ const host=w.document.createElement('div');host.innerHTML=w.trace({stake_sizing:{outcome_adjustment:a}});assert.match(host.textContent,/Confidence score: 70.0%/);assert.match(host.textContent,/not win probability/);assert.match(host.textContent,/requested \$3.00/);assert.match(host.textContent,/20 independent settled games/);
+ const revised=w.trace({execution_revision:{original_stake:1,target_stake:3,stake_sizing:{outcome_adjustment:a}}});assert.match(revised,/Updated before placement/);assert.match(revised,/not an additional bet/);
+ a.confidence=null;assert.equal(w.trace({stake_sizing:{outcome_adjustment:a}}),'');await w.happyDOM.close();
+});
