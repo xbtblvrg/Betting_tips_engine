@@ -1,3 +1,13 @@
+## 2026-10-03 — Kumulatív PnL, ROI/WR, Top 5 és outcome-monitor
+
+Éles kód: `8add7ab`. Statistics: elszámolási idő szerint kumulált nettó PnL-grafikon, ROI/WR és maximális visszaesés; külön követett szelvények és eredeti döntések, közös szűrők, nettó profit szerint Top 5 scope×piaccsalád. Meccsszintű bootstrap 95% intervallum, hiányos idő/pénzadat explicit kizárva; nincs kitalált elszámolási idő. Eredeti fogadási feltételeket nem módosító fejlesztés.
+
+Teljes teszt: **6411 passed, 1 skipped, 5 subtests; frontend 284 passed**. Független Codex-review és helyi/Tailscale élő API/DOM ellenőrzés sikeres; valódi böngészőben grafikon és monitor látható. Élő snapshot: 378 lezárt szelvény, 44 meccs, nettó PnL **+11.7879 USD**, ROI **2.7024%** (95% meccs-bootstrap: **−18.1812%–25.1426%**), WR **47.1545%**. 377 eredeti lezárt döntés: **+11.1479 USD**; a külön jegyek pénzeredménye nem növeli az eredeti döntések számát.
+
+A meglévő outcome-feedback útvonal új kumulatív monitorja **2026-10-03T13:20:14Z** élő adatokon lefutott (`source_verified=true`, `observed`, 377/377 időbélyegzett eredeti döntés). A worker új kódra újratöltve; az első ellenőrzést ugyanazzal a zárolt, idempotens feldolgozóval külön lefuttattuk, az időzített útvonal ezt a generációt újra felhasználhatja. Visszaesés és adatlefedettségi hiba a meglévő fejlesztési visszacsatolásba kerül; nincs automatikus tétemelés vagy modellpromóció a görbe alapján.
+
+Bizonyíték: `data/releases/root-cumulative-pnl-20261003/{live.json,monitor-live.json,review.json,python-tests.log,frontend-tests.log,learning-reload.json}`. D38/D39 forráshashhez kötött kiadási igazolása az új Statistics/Schedule élő renderellenőrzés alapján frissítve; korábbi igazolások megőrizve.
+
 ## 2026-10-03 — D39: Spoilermentes 24 órás menetrend és budapesti09 frissítés
 
 Éles kód `c79cc81`. A Schedule nézet NFL/NBA/MLB/NHL/WNBA eseményeket mutat függetlenül a fogadási/modellezési lefedettségtől, egyetlen UTC-kezdés szerint rendezett táblában: `LIGA HH:MM Vendég @ Hazai`. A kéréskori `now < start <= now+24h` intervallum és a `Europe/Budapest` IANA-időzóna kezeli a téli/nyári váltást. Nincs eredmény, odds, pontszám-előrejelzés vagy fogadási fejléc. A kifejezetten kért `Nincs meccs: LIGA` jelzés csak friss, sikeres forrásnál jelenik meg; hibás/elavult forrás külön jelzett. Must-watch: átlátható szerkesztési szabály, rájátszás előbb, majd alapszakasz, holtversenynél legkorábbi kezdés; nem fogadási ajánlás.
