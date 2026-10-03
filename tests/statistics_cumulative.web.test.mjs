@@ -13,7 +13,7 @@ async function boot(){
 }
 test('Cumulative chart preserves negative cash, exact accessible points and basis separation',async()=>{
  const b=await boot(),d=b.d;
- assert.match(d.querySelector('#statistics-performance-metrics').textContent,/Net P&L\$4\.00ROI40\.00%Win Rate50\.00%/);
+ assert.match(d.querySelector('#statistics-performance-metrics').textContent,/Net P&L\$4\.00ROI40\.00%.*Win Rate50\.00%/);
  assert.ok(d.querySelector('.statistics-zero-line'));assert.equal(d.querySelectorAll('.statistics-pnl-point').length,2);
  assert.match(d.querySelector('.statistics-pnl-point').getAttribute('aria-label'),/−\$3\.00/);
  assert.match(d.querySelector('#statistics-performance-table').textContent,/−\$3\.00.*\$4\.00/s);
@@ -34,11 +34,25 @@ test('Filters refresh cumulative chart and leaders together while preserving cho
 test('Unknown cash and hostile metadata cannot invent results or inject SVG/HTML',async()=>{
  const b=await boot(),s=section(null);s.cumulative_performance.summary={pnl:null,roi:null,hit_rate:null,max_drawdown:null};s.cumulative_performance.points=[{at:'invalid',pnl:9},{at:'2026-10-01T00:00:00Z',pnl:null}];s.cumulative_performance.basis='<img src=x onerror=alert(1)>';
  s.top_markets=[{scope:'<svg onload=alert(1)>',market_label:'<img src=x>',pnl:1},{pnl:-10},...Array.from({length:8},(_,i)=>({pnl:i+2,market_label:'Type '+i}))];
- b.w.__cumulative.render({ticket_ledger:s});assert.equal(b.d.querySelector('#statistics-performance-chart svg'),null);assert.match(b.d.querySelector('#statistics-performance-metrics').textContent,/ROI—Win Rate—/);assert.match(b.d.querySelector('#statistics-performance-coverage').textContent,/2 points/);assert.equal(b.d.querySelectorAll('#statistics-top-markets tbody tr').length,5);assert.equal(b.d.querySelector('#statistics-top-markets img'),null);
+ b.w.__cumulative.render({ticket_ledger:s});assert.equal(b.d.querySelector('#statistics-performance-chart svg'),null);assert.match(b.d.querySelector('#statistics-performance-metrics').textContent,/ROI—.*Win Rate—/);assert.match(b.d.querySelector('#statistics-performance-coverage').textContent,/2 points/);assert.equal(b.d.querySelectorAll('#statistics-top-markets tbody tr').length,5);assert.equal(b.d.querySelector('#statistics-top-markets img'),null);
  s.top_markets=s.top_markets.slice(0,1);b.w.__cumulative.render({ticket_ledger:s});assert.equal(b.d.querySelector('#statistics-top-markets svg'),null);assert.match(b.d.querySelector('#statistics-top-markets').textContent,/<img src=x>/);assert.equal(b.d.querySelector('#statistics-performance-note img'),null);await b.w.happyDOM.close();
 });
 test('Outcome monitoring clearly retains its global original-decision scope',async()=>{
  const b=await boot();b.report.improvement_loop={last_reviewed_at:'2026-10-03T10:00:00Z',cumulative_monitor:{state:'drawdown_observed',summary:{current_drawdown:6},diagnostic_due:true}};
  b.w.__cumulative.render(b.report);const text=b.d.querySelector('#statistics-performance-monitor').textContent;
  assert.match(text,/Full original-decision history, independent of the chart filters/);assert.match(text,/drawdown observed.*\$6\.00.*Last reviewed.*diagnostic is due/s);assert.match(text,/does not automatically change stakes or promote a model/);await b.w.happyDOM.close();
+});
+test('Explicit zero baseline is not a missing timestamp and partial coverage is prominent',async()=>{
+ const b=await boot(),s=section(4);s.cumulative_performance.points.unshift({at:null,baseline:true,pnl:0,settled:0,games:0});s.cumulative_performance.coverage={complete:false,unknown_settlement_time_excluded:1,baseline:'zero; at=null'};
+ b.w.__cumulative.render({ticket_ledger:s});assert.equal(b.d.querySelectorAll('.statistics-pnl-point').length,2);
+ assert.ok(Number(b.d.querySelector('.statistics-pnl-baseline').getAttribute('cx'))<Number(b.d.querySelector('.statistics-pnl-point').getAttribute('cx')));
+ assert.match(b.d.querySelector('#statistics-performance-table').textContent,/Opening balance \(no timestamp\)/);
+ assert.match(b.d.querySelector('#statistics-performance-metrics').textContent,/Dated Cash P&L \(Partial\)/);
+ const coverage=b.d.querySelector('#statistics-performance-coverage').textContent;assert.match(coverage,/Partial curve.*known-cash subset/);assert.doesNotMatch(coverage,/points with unavailable|at=null/);await b.w.happyDOM.close();
+});
+test('Final ROI and win-rate intervals retain whole-game sample counts and withhold partial-cohort comparisons',async()=>{
+ const b=await boot(),s=section(4);Object.assign(s.cumulative_performance.summary,{roi_ci95:[-.2,.4],hit_rate_ci95:[.3,.7],confidence_intervals:{roi_independent_games:22,hit_rate_independent_games:21,minimum_games:20}});
+ s.top_markets[0].roi_ci95=[-.1,.8];b.w.__cumulative.render({ticket_ledger:s});
+ assert.match(b.d.querySelector('#statistics-performance-metrics').textContent,/95% game-cluster CI -20\.00% to 40\.00% · 22 games/);assert.match(b.d.querySelector('#statistics-performance-metrics').textContent,/30\.00% to 70\.00% · 21 games/);assert.match(b.d.querySelector('#statistics-top-markets').textContent,/-10\.00% to 80\.00%/);
+ s.cumulative_performance.coverage={complete:false};b.w.__cumulative.render({ticket_ledger:s});assert.match(b.d.querySelector('#statistics-performance-metrics').textContent,/CI withheld: incomplete cohort/);assert.doesNotMatch(b.d.querySelector('#statistics-performance-metrics').textContent,/-20\.00% to 40\.00%/);await b.w.happyDOM.close();
 });
