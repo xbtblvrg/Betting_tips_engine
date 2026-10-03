@@ -2,12 +2,12 @@
 import json
 
 from .domain import parse_time
-from .outcome_sizing import POLICY, build_snapshot, segment_key, summary_for, verify_summary
+from .outcome_sizing import SUPPORTED_POLICIES, build_snapshot, segment_key, summary_for, verify_summary
 
 
 def outcome_policy(settings):
     policy = settings.get('outcome_sizing_policy', 'legacy')
-    if policy not in ('legacy', POLICY):
+    if policy not in SUPPORTED_POLICIES:
         raise ValueError('Unknown outcome sizing policy')
     return policy
 

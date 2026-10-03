@@ -20,5 +20,20 @@ test('historical sizing trace discloses clustered outcomes and caps without extr
  sr.outcome_sizing_policy='historical_game_weighted_v1';sr.execution_review.outcome_sizing_policy='historical_game_weighted_v1';
  assert.equal(w.checkSizing(sr,{outcome_sizing_policy:'historical_game_weighted_v1'}),true);
  assert.equal(w.checkSizing(sr,{outcome_sizing_policy:'unknown'}),false);
+ sr.outcome_sizing_policy='historical_game_weighted_v2';sr.execution_review.outcome_sizing_policy='historical_game_weighted_v2';
+ assert.equal(w.checkSizing(sr,{outcome_sizing_policy:'historical_game_weighted_v2'}),true);
+ await w.happyDOM.close();
+});
+
+test('historical v2 trace discloses its scaled factor and keeps v1 source evidence explicit',async()=>{
+ const w=new Window({url:'http://localhost',settings:{disableCSSFileLoading:true,disableJavaScriptFileLoading:true}});
+ w.document.write(readFileSync('src/betting_engine/web/index.html','utf8'));
+ w.setInterval=()=>0;w.EventSource=class{addEventListener(){}};
+ w.fetch=async()=>({ok:true,json:async()=>({version:1,recommendations:[],settings:{},engine:{},status:{},games:[],models:{},performance:{}})});
+ w.eval(readFileSync('src/betting_engine/web/app.js','utf8')+'\nwindow.outcomeSizingTrace=outcomeSizingTrace;');
+ await new Promise(r=>setTimeout(r,20));
+ const row={stake_sizing:{outcome_adjustment:{policy:'historical_game_weighted_v2',base_amount:2,source_factor:1.5,factor:3,applied_factor:3,adjusted_amount:5,segment:'NBA|full_game|moneyline',source:{independent_games:20,factor:1.5,game_wr:.7,game_roi:.12,break_even_wr:.6,as_of:new Date().toISOString(),summary_sha256:'abc'}}}};
+ const el=w.document.createElement('div');el.innerHTML=w.outcomeSizingTrace(row);
+ assert.match(el.textContent,/V2 calculation/);assert.match(el.textContent,/1 \+ 4/);assert.match(el.textContent,/verified v1 evidence/);assert.match(el.textContent,/\$5\.00 after caps/);
  await w.happyDOM.close();
 });

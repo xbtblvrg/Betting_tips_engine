@@ -14,9 +14,12 @@ from urllib.parse import urlsplit
 from .contracts import allocation_family, split_market
 
 POLICY = 'historical_game_weighted_v1'
+POLICY_V2 = 'historical_game_weighted_v2'
+SUPPORTED_POLICIES = ('legacy', POLICY, POLICY_V2)
 VERSION = 'outcome-sizing-evidence-v1'
 SPARSE_BELOW_GAMES = 2  # Descriptive sparse-sample label only, never a multiplier threshold.
 FORMULA = 'game_score=min(1,game_roi/0.20,(game_wr-game_break_even_wr)/0.10); push_only_score=0; factor=1+max(0,sum(game_scores)/(n+20)); nonpositive_segment_roi_or_wr_surplus_factor=1'
+FORMULA_V2 = 'source_factor=v1.factor; applied_factor=1+4*(source_factor-1); nonpositive_segment_roi_or_wr_surplus_factor=1; source evidence remains historical_game_weighted_v1'
 NOTE = 'Historical game-weighted sizing heuristic; not validated profit, a confidence interval, or an independent probability forecast.'
 
 
@@ -49,6 +52,12 @@ def _factor(summary):
     if summary['game_roi'] <= 0 or summary['game_wr'] <= summary['break_even_wr']:
         return 1.0
     return 1 + max(0., summary['game_score_sum'] / (n + 20))
+
+
+def _applied_factor(policy, summary):
+    """Map the immutable v1 evidence factor to the selected policy."""
+    source_factor = summary['factor'] if summary else 1.
+    return 1 + 4 * (source_factor - 1) if policy == POLICY_V2 else source_factor
 
 
 def _aggregate(games):
@@ -179,7 +188,7 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
     policy = settings.get('outcome_sizing_policy', 'legacy')
     if policy == 'legacy':
         return dict(base_sizing)
-    if policy != POLICY:
+    if policy not in (POLICY, POLICY_V2):
         raise ValueError('Unknown outcome sizing policy')
     base = _number(base_sizing['amount'])
     if base < 0:
@@ -191,7 +200,8 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
         summary = summary_for(settings.get('outcome_sizing_snapshot'), tip)
     if summary is not None and (not verify_summary(summary) or summary['segment'] != segment_key(tip)):
         raise ValueError('Invalid outcome sizing evidence')
-    factor = summary['factor'] if summary else 1.
+    source_factor = summary['factor'] if summary else 1.
+    factor = _applied_factor(policy, summary)
     caps = {'per_bet': 5., 'max_bet': _number(settings.get('max_bet', 5.)), 'remaining': None if remaining == math.inf else remaining}
     for name in ('maximum_stake', 'max_stake'):
         if name in base_sizing:
@@ -204,9 +214,15 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
         raise ValueError('Invalid sizing cap')
     value = min(base * factor, *(v for v in caps.values() if v is not None)) if base else 0.
     amount = float(Decimal(str(value)).quantize(Decimal('.01'), rounding=ROUND_DOWN)) if value >= 1 else 0.
-    detail = {'policy': POLICY, 'base_amount': base, 'factor': factor, 'adjusted_amount': amount, 'caps': caps,
+    detail = {'policy': policy, 'base_amount': base, 'factor': factor, 'adjusted_amount': amount, 'caps': caps,
               'segment': segment_key(tip), 'snapshot_sha256': summary['snapshot_sha256'] if summary else None,
               'summary_sha256': summary['summary_sha256'] if summary else None, 'source': summary, 'formula': FORMULA,
               'state': summary['state'] if summary else 'unavailable', 'profit_validated': False, 'note': NOTE,
               'base_note': base_sizing.get('note', '')}
-    return {**base_sizing, 'amount': amount, 'note': base_sizing.get('note', '') + f' Historical outcome factor {factor:.6f}; target ${amount:.2f}. ' + NOTE, 'outcome_adjustment': detail}
+    if policy == POLICY_V2:
+        detail.update(source_policy=summary['policy'] if summary else POLICY,
+                      source_factor=source_factor, applied_factor=factor, formula=FORMULA_V2)
+    applied_note = f' Historical outcome factor {factor:.6f}; target ${amount:.2f}. '
+    if policy == POLICY_V2:
+        applied_note += 'Applied historical_game_weighted_v2 from the verified v1 source factor. '
+    return {**base_sizing, 'amount': amount, 'note': base_sizing.get('note', '') + applied_note + NOTE, 'outcome_adjustment': detail}

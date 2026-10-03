@@ -3,7 +3,7 @@ import hashlib
 import json
 import unittest
 
-from betting_engine.outcome_sizing import POLICY, apply_adjustment, build_snapshot, summary_for, verify_summary
+from betting_engine.outcome_sizing import POLICY, POLICY_V2, apply_adjustment, build_snapshot, summary_for, verify_summary
 
 AS_OF = '2026-10-03T10:00:00+00:00'
 
@@ -86,6 +86,43 @@ class OutcomeSizingTests(unittest.TestCase):
         self.assertEqual(apply_adjustment({**base, 'amount': 0}, tip, settings, 5)['amount'], 0)
         self.assertEqual(apply_adjustment(base, tip, settings, .99)['amount'], 0)
 
+    def test_v1_trace_and_factor_remain_unchanged_while_v2_expands_verified_source(self):
+        tip = decision('new')['payload']
+        summary = self.summary([decision(i) for i in range(20)])
+        tip['outcome_sizing_evidence'] = summary
+        base = {'amount': 1, 'note': 'base', 'maximum_stake': 5}
+        v1 = apply_adjustment(base, tip, {'outcome_sizing_policy': POLICY}, 5)
+        self.assertEqual(v1['outcome_adjustment']['policy'], POLICY)
+        self.assertAlmostEqual(v1['outcome_adjustment']['factor'], summary['factor'])
+        self.assertNotIn('source_factor', v1['outcome_adjustment'])
+        v2 = apply_adjustment(base, tip, {'outcome_sizing_policy': POLICY_V2}, 5)
+        self.assertEqual(v2['outcome_adjustment']['policy'], POLICY_V2)
+        self.assertAlmostEqual(v2['outcome_adjustment']['source_factor'], summary['factor'])
+        self.assertAlmostEqual(v2['outcome_adjustment']['applied_factor'], 1 + 4 * (summary['factor'] - 1))
+        self.assertAlmostEqual(v2['amount'], 3.)
+        self.assertIn('source evidence remains historical_game_weighted_v1', v2['outcome_adjustment']['formula'])
+
+    def test_v2_sparse_negative_and_bounded_range(self):
+        sparse = self.summary([decision(1)])
+        negative = self.summary([decision(1, 'lost')])
+        self.assertAlmostEqual(sparse['factor'], 1 + 1 / 21)
+        self.assertEqual(negative['factor'], 1)
+        tip = decision('new')['payload']
+        for summary, expected in ((sparse, 1 + 4 / 21), (negative, 1)):
+            result = apply_adjustment({'amount': 4, 'maximum_stake': 5},
+                                      {**tip, 'outcome_sizing_evidence': summary},
+                                      {'outcome_sizing_policy': POLICY_V2}, 5)
+            self.assertGreaterEqual(result['outcome_adjustment']['applied_factor'], 1)
+            self.assertLess(result['outcome_adjustment']['applied_factor'], 5)
+            self.assertAlmostEqual(result['outcome_adjustment']['applied_factor'], expected)
+        saturated = self.summary([decision(i) for i in range(100)])
+        result = apply_adjustment({'amount': 2, 'maximum_stake': 5},
+                                  {**tip, 'outcome_sizing_evidence': saturated},
+                                  {'outcome_sizing_policy': POLICY_V2}, 5)
+        self.assertGreater(result['outcome_adjustment']['applied_factor'], 4)
+        self.assertLess(result['outcome_adjustment']['applied_factor'], 5)
+        self.assertEqual(result['amount'], 5)
+
     def test_legacy_equality_and_unavailable(self):
         base = {'amount': 1.23, 'note': 'unchanged'}
         self.assertEqual(apply_adjustment(base, {}, {}, 5), base)
@@ -110,6 +147,14 @@ class OutcomeSizingTests(unittest.TestCase):
         snapshot['as_of'] = '2026-10-04T00:00:00Z'
         with self.assertRaises(ValueError):
             summary_for(snapshot, decision('new')['payload'])
+
+    def test_v2_tampered_source_factor_fails_closed(self):
+        summary = self.summary([decision(1), decision(2)])
+        forged = copy.deepcopy(summary)
+        forged['factor'] = 1.9
+        tip = {**decision('new')['payload'], 'outcome_sizing_evidence': forged}
+        with self.assertRaises(ValueError):
+            apply_adjustment({'amount': 1}, tip, {'outcome_sizing_policy': POLICY_V2}, 5)
 
     def test_nonfinite_original_money_excluded(self):
         rows = [decision(1), decision(2), decision(3)]

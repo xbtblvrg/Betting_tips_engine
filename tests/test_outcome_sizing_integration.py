@@ -9,7 +9,7 @@ from betting_engine.domain import utcnow
 from betting_engine.funding_policy import size_recommendation
 from betting_engine.governance import verify_publication
 from betting_engine.instructions import current_execution_review, instruction_review, _original_budget
-from betting_engine.outcome_sizing import POLICY, build_snapshot, summary_for
+from betting_engine.outcome_sizing import POLICY, POLICY_V2, build_snapshot, summary_for
 from betting_engine.storage import Store
 import test_continuous_delivery as cases
 from test_outcome_sizing import decision
@@ -187,7 +187,26 @@ def test_api_accepts_only_versioned_policy_and_retains_on_partial_update(tmp_pat
     client = TestClient(server.app)
     assert client.put('/api/settings', json={'outcome_sizing_policy': 'bad'}).status_code == 422
     assert client.put('/api/settings', json={'outcome_sizing_policy': POLICY}).json()['outcome_sizing_policy'] == POLICY
-    assert client.put('/api/settings', json={'unit_stake': 2}).json()['outcome_sizing_policy'] == POLICY
+    assert client.put('/api/settings', json={'outcome_sizing_policy': POLICY_V2}).json()['outcome_sizing_policy'] == POLICY_V2
+    assert client.put('/api/settings', json={'unit_stake': 2}).json()['outcome_sizing_policy'] == POLICY_V2
+
+
+def test_v2_replays_immutable_v1_evidence_and_rejects_tampered_applied_trace(make_tip, tmp_path):
+    rows = history()
+    tip, settings, check = make_tip(rows, settings={'outcome_sizing_policy': POLICY_V2}, probability=.65, odds=1.4)
+    assert check['passed']
+    adjustment = tip['stake_sizing']['outcome_adjustment']
+    assert adjustment['policy'] == POLICY_V2
+    assert adjustment['source_policy'] == POLICY
+    assert adjustment['source_factor'] == tip['outcome_sizing_evidence']['factor']
+    assert adjustment['formula'].startswith('source_factor=v1.factor; applied_factor=1+4*')
+    store = cases.database(tmp_path, settings)
+    insert(store, rows)
+    store.publish({'recommendations': [tip]}, require_guard=True)
+    forged = deepcopy(tip)
+    forged['stake_sizing']['outcome_adjustment']['applied_factor'] = 1
+    with pytest.raises(ValueError, match='stake sizing does not reproduce'):
+        store.publish({'recommendations': [forged]}, require_guard=True)
 
 
 def test_quote_is_hypothetical_and_cannot_issue_or_bypass_changed_policy(make_tip, tmp_path, monkeypatch):
