@@ -193,7 +193,9 @@ def test_future_heartbeat_is_not_accepted(project):
 
 
 @pytest.mark.parametrize('offset,expected', [
-    (-0.1, 'idle'),       # bounded write/read skew remains fresh
+    (0.1, 'idle'),        # heartbeat written after status clock capture
+    (5, 'idle'),          # bounded future skew includes the documented limit
+    (5.001, 'stale'),     # skew beyond the limit fails closed
     (3600, 'stale'),      # materially future-dated heartbeat fails closed
     (-181, 'stale'),      # older than the 180-second freshness window
 ])
