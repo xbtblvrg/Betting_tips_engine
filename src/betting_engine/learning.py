@@ -38,21 +38,21 @@ def choose_learning_job(rows, recent_attempts, now=None):
     recovery = [r for r in runnable if r['kind'] in RECOVERY_KINDS]
     if recovery:
         ordinary = min(recovery, key=lambda r:(PRIORITY.get(r['kind'],5),eligible_at(r),r['id']))
+    streak = 0
+    for attempt in recent_attempts[:HIGH_PRIORITY_BUDGET]:
+        if PRIORITY.get(attempt['kind'],5)>=2: break
+        streak += 1
     aged_feedback = [r for r in runnable if r['kind'] in FEEDBACK_KINDS
                      and (now - eligible_at(r)).total_seconds() >= FEEDBACK_AGE_SLA_SECONDS]
     if aged_feedback and not recovery:
         selected = min(aged_feedback, key=lambda r:(eligible_at(r),PRIORITY.get(r['kind'],5),r['kind'],r['id']))
         return selected, {'version':SCHEDULING_VERSION, 'reason':'aged_feedback_sla',
             'selected_job_id':selected['id'], 'selected_kind':selected['kind'],
-            'high_priority_streak':0, 'runnable_jobs':len(runnable),
+            'high_priority_streak':streak, 'runnable_jobs':len(runnable),
             'feedback_wait_seconds':max(0,(now-eligible_at(selected)).total_seconds()),
             'exclusive_worker_preserved':True, 'model_promotion_unchanged':True}
     background = [r for r in runnable if PRIORITY.get(r['kind'],5)>=2]
     selected = ordinary; reason = 'normal_priority'
-    streak = 0
-    for attempt in recent_attempts[:HIGH_PRIORITY_BUDGET]:
-        if PRIORITY.get(attempt['kind'],5)>=2: break
-        streak += 1
     # A genuine model/segment/period restore is a recovery action and must
     # remain ahead of background fairness, even after the emergency age cap.
     # This also prevents a long-running background queue from hiding a due

@@ -24,11 +24,14 @@ def test_aged_feedback_overtakes_continuous_source_refresh_and_shadow_queue():
         row('outcome_review', 'outcome', now, created_seconds=300),
     ]
 
-    selected, proof = choose_learning_job(rows, [], now)
+    selected, proof = choose_learning_job(
+        rows, [{'kind': 'source_refresh'}] * 3, now
+    )
 
     assert selected['id'] == 'outcome'
     assert proof['reason'] == 'aged_feedback_sla'
     assert proof['selected_kind'] == 'outcome_review'
+    assert proof['high_priority_streak'] == 3
     assert proof['feedback_wait_seconds'] >= 300
 
 
