@@ -192,6 +192,18 @@ def test_future_heartbeat_is_not_accepted(project):
     assert delivery_status(root)['worker']['state']=='stale'
 
 
+@pytest.mark.parametrize('offset,expected', [
+    (-0.1, 'idle'),       # bounded write/read skew remains fresh
+    (3600, 'stale'),      # materially future-dated heartbeat fails closed
+    (-181, 'stale'),      # older than the 180-second freshness window
+])
+def test_worker_heartbeat_skew_and_age_bounds(project,offset,expected):
+    root,_=project;now=utcnow()
+    atomic_json(root/'data/development/worker.json',
+                {'checked_at':(now+timedelta(seconds=offset)).isoformat(),'state':'idle'})
+    assert delivery_status(root,now)['worker']['state']==expected
+
+
 def test_delivery_api_exposes_plan_without_writing_bets(project,monkeypatch):
     from fastapi.testclient import TestClient
     from betting_engine import server,providers

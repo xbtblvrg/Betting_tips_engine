@@ -79,7 +79,11 @@ def delivery_status(root, now=None):
     except (KeyError, TypeError, ValueError):
         age = float('inf')
     enabled = config.get('enabled', False)
-    worker_state = 'disabled' if not enabled else 'stale' if not 0 <= age <= 180 else worker.get('state', 'not_started')
+    # The worker writes its heartbeat independently of this read.  A small
+    # negative age can therefore be a normal read/write race, as in the
+    # supervisor's bounded heartbeat check.  Keep the tolerance narrow so a
+    # materially future-dated heartbeat still fails closed as stale.
+    worker_state = 'disabled' if not enabled else 'stale' if not -5 <= age <= 180 else worker.get('state', 'not_started')
     overdue = [m['id'] for m in milestones if m['checkpoint_due']]
     progress=development_progress(root,plan,state,worker,now)
     return {'checked_at': now.isoformat(), 'plan_version': plan['version'],
