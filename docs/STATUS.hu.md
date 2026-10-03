@@ -492,3 +492,7 @@ Végső visszaellenőrzés12:54UTC:4/4supervisor-szolgáltatás healthy,7új kom
 Éles commit: `60c2703`. A mai Budapest-napi első kiadásokból kieső, még el nem kezdődött és nyitott tételek most a Betting Picks ugyanazon kártyalistájában maradnak. A Ready to Bet jogosultság és validáció változatlan; a Changed kártya csak eredeti tétet/oddsot és `No bet anymore` címkét, valamint a meglévő reason szöveget mutatja, és nem tartalmaz végrehajtási vezérlőt. A First issued számláló és az immutable napi kiadás változatlan, a Ready számláló csak az aktuálisan kvalifikált kártyákat számolja. A kezdett, lezárt, törölt vagy megjelölt rekordok a meglévő tracker/archív logikában maradnak.
 
 Teszt: frontend **289 passed, 0 failed**. A meglévő Python döntési és kiadási logika nem változott.
+
+## 2026-10-03 — Napi kártyalista állapotcímkéi
+
+Éles commit: `35bc24a`. A mai kiadott kártyák közül csak a még jövőbeli, le nem zárt és nem megjelölt rekordok maradnak a Betting Picks listában; a már elkezdődött/settled rekordok eltűnnek a napi végrehajtási listából, az első kiadási számláló és a Tracker megmarad. A kieső jövőbeli kártyák a közös kártyakomponenst, az esemény-URL-t és a `View on Stake` gombot használják; státuszuk `No bet anymore` + ok, `Invalid`, illetve a lezárt állapotok nem kerülnek vissza. Ready-validáció változatlan. Frontend: **290 passed**.
