@@ -12,9 +12,12 @@ from .storage import Store
 from .io_utils import atomic_json
 
 
-SCHEDULING_VERSION = 'bounded-learning-fairness-v1'
+SCHEDULING_VERSION = 'bounded-learning-fairness-v2'
 HIGH_PRIORITY_BUDGET = 3
 EMERGENCY_AGE_CAP_SECONDS = 1800
+FEEDBACK_AGE_SLA_SECONDS = 300
+FEEDBACK_KINDS = frozenset(('outcome_review', 'closing_evaluation'))
+RECOVERY_KINDS = frozenset(('model_restore', 'segment_restore', 'period_restore'))
 PRIORITY = {'source_refresh':0, 'model_restore':0, 'segment_restore':0, 'period_restore':0,
     'outcome_review':1, 'closing_evaluation':1, 'shadow_evaluation':1, 'market_catalog':1,
     'controlled_retrain':2, 'segment_retrain':2, 'period_retrain':2,
@@ -29,13 +32,32 @@ def choose_learning_job(rows, recent_attempts, now=None):
     if not runnable: return None, {'version':SCHEDULING_VERSION, 'reason':'no_due_work'}
     eligible_at = lambda r: max(parse_time(r['created_at']), parse_time(r['next_attempt']))
     ordinary = min(runnable, key=lambda r:(PRIORITY.get(r['kind'],5),eligible_at(r),r['id']))
+    # Preserve genuine model recovery at priority zero. Source refreshes are
+    # ordinary recovery work and may be overtaken once settlement/feedback
+    # evidence has exceeded its bounded service-level age.
+    recovery = [r for r in runnable if r['kind'] in RECOVERY_KINDS]
+    if recovery:
+        ordinary = min(recovery, key=lambda r:(PRIORITY.get(r['kind'],5),eligible_at(r),r['id']))
+    aged_feedback = [r for r in runnable if r['kind'] in FEEDBACK_KINDS
+                     and (now - eligible_at(r)).total_seconds() >= FEEDBACK_AGE_SLA_SECONDS]
+    if aged_feedback and not recovery:
+        selected = min(aged_feedback, key=lambda r:(eligible_at(r),PRIORITY.get(r['kind'],5),r['kind'],r['id']))
+        return selected, {'version':SCHEDULING_VERSION, 'reason':'aged_feedback_sla',
+            'selected_job_id':selected['id'], 'selected_kind':selected['kind'],
+            'high_priority_streak':0, 'runnable_jobs':len(runnable),
+            'feedback_wait_seconds':max(0,(now-eligible_at(selected)).total_seconds()),
+            'exclusive_worker_preserved':True, 'model_promotion_unchanged':True}
     background = [r for r in runnable if PRIORITY.get(r['kind'],5)>=2]
     selected = ordinary; reason = 'normal_priority'
     streak = 0
     for attempt in recent_attempts[:HIGH_PRIORITY_BUDGET]:
         if PRIORITY.get(attempt['kind'],5)>=2: break
         streak += 1
-    if background and streak >= HIGH_PRIORITY_BUDGET:
+    # A genuine model/segment/period restore is a recovery action and must
+    # remain ahead of background fairness, even after the emergency age cap.
+    # This also prevents a long-running background queue from hiding a due
+    # restore behind the single-worker turn-taking rule.
+    if background and not recovery and streak >= HIGH_PRIORITY_BUDGET:
         oldest = min(background, key=lambda r:(eligible_at(r),PRIORITY.get(r['kind'],5),r['id']))
         age = (now-eligible_at(oldest)).total_seconds()
         if PRIORITY.get(ordinary['kind'],5)>0 or age >= EMERGENCY_AGE_CAP_SECONDS:
