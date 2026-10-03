@@ -1,3 +1,11 @@
+## 2026-10-03 — Confidence és történeti eredmény szerinti tétezés, auditált újraárazás
+
+Éles kód: `26273eb`, aktív szabály: `historical_confidence_v3`. A korábbi probability-pick alapegység és erősen zsugorított történeti szorzó mellé önálló confidence-alapú tétcél került: végső nyerési esély, modell–piac egyezés, szükséges inputok teljessége, meccssúlyozott történeti eredmény és mintaméret. Vesztes történeti minta nem növeli a confidence-et. USD1–5, minden meglévő publikációs és aktív meccskorlát változatlan; daily_risk_limit=null. A képlet és az összetevők a fogadás részleteiben láthatók. Ez méretezési heurisztika, nem mért profitjavulás.
+
+A felhasználó által meg nem kötöttnek jelölt eredeti50 ajánlásból49 friss, pontos árral újraárazva: **41 emelés, 8 változatlan; $57.17 → $69.59; tartomány $1.00–$2.77**. Drake Bulldogs +4.5 aktuális pontos quote nélkül kimaradt, eredeti rekordja megmaradt. Az új összeg a teljes egyszeri végrehajtási tét, nem ráfogadás. 49 auditált execution-revízió, idempotens ismétlés,0 új kiadás; mind a778 eredeti döntés payload-hashe változatlan. Érintett meccsek legnagyobb nyitott össztétje $7.52 az aktív $10 korlát mellett.
+
+Teljes teszt: **6453 passed,1 skipped,5 subtests; frontend286 passed**. Független Codex sizing/reprice/UI review; helyi és Tailscale friss API/DOM, kiszolgált forrásazonosság, Statistics és Schedule regresszió sikeres. Távoli főlista49 végrehajtható tét,$69.59. D38/D39 meglévő forráshashhez kötött igazolás frissítve, korábbi bizonyíték megőrizve. Bizonyíték: `data/releases/root-confidence-sizing-20261003/`.
+
 ## 2026-10-03 — Fejlesztés figyelmeztető memórianyomás mellett
 
 Éles `b983b5b`: warning pressure2 nem blanket-stop; a4GiB tartalékon felüli becsült visszanyerhető memória alapján1–2 fejlesztési hely (2GiB/hely), normál állapotban a beállított6helyre fokozatos visszaállás. Kritikus pressure4, CPU80%/rolling75%, gyorsswap, tartalék és hővédelem megmaradt. Felhasználói korrekció az AGENTS.md és project_contract.json fájlokban. Ez becsült erőforrás-admission, nem garantált RAM-igény.
