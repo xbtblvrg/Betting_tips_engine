@@ -15,8 +15,8 @@ from .contracts import allocation_family, split_market
 
 POLICY = 'historical_game_weighted_v1'
 VERSION = 'outcome-sizing-evidence-v1'
-MIN_GAMES = 2
-FORMULA = 'game_score=max(-1,min(1,game_roi/0.20,(game_wr-game_break_even_wr)/0.10)); push_only_score=0; factor=1+max(0,sum(game_scores)/(n+20)); fewer_than_2_decisive_games_or_nonpositive_segment_roi_or_wr_surplus_factor=1'
+MIN_GAMES = 2  # Descriptive sparse-sample label only, never a multiplier threshold.
+FORMULA = 'game_score=min(1,game_roi/0.20,(game_wr-game_break_even_wr)/0.10); push_only_score=0; factor=1+max(0,sum(game_scores)/(n+20)); nonpositive_segment_roi_or_wr_surplus_factor=1'
 NOTE = 'Historical game-weighted sizing heuristic; not validated profit, a confidence interval, or an independent probability forecast.'
 
 
@@ -46,8 +46,7 @@ def segment_key(tip):
 
 def _factor(summary):
     n = summary['independent_games']
-    if (n < MIN_GAMES or summary['decisive_games'] < MIN_GAMES
-            or summary['game_roi'] <= 0 or summary['game_wr'] <= summary['break_even_wr']):
+    if summary['game_roi'] <= 0 or summary['game_wr'] <= summary['break_even_wr']:
         return 1.0
     return 1 + max(0., summary['game_score_sum'] / (n + 20))
 
@@ -55,8 +54,10 @@ def _factor(summary):
 def _aggregate(games):
     ordered = [games[k] for k in sorted(games)]
     decisive = [g for g in ordered if g['wins'] + g['losses']]
-    scores = [max(-1., min(1., (g['pnl'] / g['stake']) / .20,
-                          ((g['wins'] - g['inverse_odds_sum']) / (g['wins'] + g['losses'])) / .10))
+    # Do not floor negative scores: score <= each signed effect preserves
+    # deterioration and makes positive score imply both positive segment effects.
+    scores = [min(1., (g['pnl'] / g['stake']) / .20,
+                  ((g['wins'] - g['inverse_odds_sum']) / (g['wins'] + g['losses'])) / .10)
               if g['wins'] + g['losses'] else 0. for g in ordered]
     total = {k: sum(g[k] for g in ordered) for k in ('stake', 'pnl', 'wins', 'losses', 'pushes', 'observations')}
     result = {**total, 'independent_games': len(ordered), 'decisive_games': len(decisive),
@@ -65,7 +66,8 @@ def _aggregate(games):
               'game_wr': sum(g['wins'] / (g['wins'] + g['losses']) for g in decisive) / len(decisive) if decisive else 0.,
               'break_even_wr': sum(g['inverse_odds_sum'] / (g['wins'] + g['losses']) for g in decisive) / len(decisive) if decisive else 0.}
     result['factor'] = _factor(result)
-    result['state'] = 'historical_heuristic' if len(decisive) >= MIN_GAMES else 'insufficient_evidence'
+    result['state'] = ('historical_heuristic' if len(decisive) >= MIN_GAMES
+                       else 'sparse_heuristic' if decisive else 'insufficient_evidence')
     return result
 
 

@@ -63,7 +63,7 @@ class OutcomeSizingTests(unittest.TestCase):
         self.assertEqual(summary['segment'], 'MLB|full_game|moneyline')
 
     def test_sparse_shrinkage_and_downward_change(self):
-        self.assertEqual(self.summary([decision(1)])['factor'], 1)
+        self.assertAlmostEqual(self.summary([decision(1)])['factor'], 1 + 1 / 21)
         tiny = self.summary([decision(1), decision(2)])['factor']
         self.assertAlmostEqual(tiny, 1 + 2 / 22)
         larger = self.summary([decision(i) for i in range(20)])['factor']
@@ -206,8 +206,8 @@ class OutcomeSizingTests(unittest.TestCase):
         self.assertLess(after['game_score_sum'], before['game_score_sum'])
         self.assertTrue(verify_summary(after))
         # Also check a positive-score history where the decrease is observable.
-        before = self.summary(rows[:15])
-        after = self.summary(rows[:15] + rows[-2:])
+        before = self.summary(rows[:10])
+        after = self.summary(rows[:10] + rows[-2:])
         self.assertLess(after['factor'], before['factor'])
 
     def test_three_high_odds_wins_remain_strongly_shrunk(self):
@@ -216,9 +216,46 @@ class OutcomeSizingTests(unittest.TestCase):
             self.assertAlmostEqual(summary['factor'], 1 + 3 / 23)
             self.assertEqual(summary['game_score_sum'], 3)
 
-    def test_positive_score_without_positive_aggregate_roi_never_boosts(self):
+    def test_nonpositive_aggregate_roi_has_nonpositive_signed_score(self):
         rows = [decision(i, odds=1.1) for i in range(3)] + [decision('loss', 'lost', odds=10)]
         summary = self.summary(rows)
-        self.assertGreater(summary['game_score_sum'], 0)
+        self.assertLessEqual(summary['game_score_sum'], 0)
         self.assertLess(summary['game_roi'], 0)
         self.assertEqual(summary['factor'], 1)
+
+    def test_first_win_then_small_mixed_loss_cannot_unlock_sparse_boost(self):
+        rows = [decision('first', odds=3)]
+        before = self.summary(rows)
+        rows += [decision('mixed_win', odds=3, stake=1, game='mixed'),
+                 decision('mixed_loss', 'lost', odds=3, stake=2.1, game='mixed')]
+        after = self.summary(rows)
+        self.assertEqual(before['state'], 'sparse_heuristic')
+        self.assertGreater(before['factor'], 1)
+        self.assertLess(after['factor'], before['factor'])
+
+    def test_negative_wr_guard_cannot_unlock_after_mixed_loss(self):
+        rows = []
+        for i in range(3):
+            rows += [decision('w'+str(i), odds=10, stake=4.8, game=str(i)),
+                     decision('la'+str(i), 'lost', odds=10, stake=.1, game=str(i)),
+                     decision('lb'+str(i), 'lost', odds=10, stake=.1, game=str(i))]
+        rows.append(decision('favorite_loss', 'lost', odds=1.01))
+        before = self.summary(rows)
+        rows += [decision('mixed_w1', odds=10, stake=.1, game='mixed'),
+                 decision('mixed_w2', odds=10, stake=.1, game='mixed'),
+                 decision('mixed_l', 'lost', odds=10, stake=4.8, game='mixed')]
+        after = self.summary(rows)
+        self.assertLessEqual(before['game_score_sum'], 0)
+        self.assertEqual(before['factor'], 1)
+        self.assertEqual(after['factor'], 1)
+
+    def test_positive_score_implies_positive_roi_and_wr_surplus_grid(self):
+        for wins in (1, 2, 5, 15):
+            for losses in (0, 1, 3, 8):
+                for odds in (1.1, 1.5, 2., 5., 20.):
+                    rows = [decision('w'+str(i), odds=odds) for i in range(wins)]
+                    rows += [decision('l'+str(i), 'lost', odds=odds) for i in range(losses)]
+                    s = self.summary(rows)
+                    if s['game_score_sum'] > 0:
+                        self.assertGreater(s['game_roi'], 0)
+                        self.assertGreater(s['game_wr'], s['break_even_wr'])
