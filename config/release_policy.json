@@ -226,6 +226,28 @@
         "daily_risk_limit": null
       },
       "root_integration_required": true
+    },
+    "D35": {
+      "kind": "guarded_engine",
+      "files": [
+        "src/betting_engine/decisions.py",
+        "src/betting_engine/engine.py",
+        "src/betting_engine/governance.py",
+        "src/betting_engine/instructions.py",
+        "src/betting_engine/server.py",
+        "tests/test_qualified_probability_selection.py"
+      ],
+      "guards": {
+        "clv_gate_required": true,
+        "ledger_immutable": true,
+        "auto_betting_disabled": true,
+        "stake_range_usd": [
+          1,
+          5
+        ],
+        "daily_risk_limit": null
+      },
+      "root_integration_required": true
     }
   },
   "review_new_passive_utilities": true
