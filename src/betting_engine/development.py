@@ -594,6 +594,13 @@ def schedule_recoveries(plan, state, folder, now=None, input_generation=None):
                 atomic_bytes(archive, raw)
             evidence.append({'path': relative, 'sha256': sha})
             kind = 'validation_documents_changed'
+        if kind == 'controller_failure':
+            from .runtime_errors import runtime_diagnostic_source_update
+            diagnostic_update = runtime_diagnostic_source_update(folder, rid, result, previous)
+            if diagnostic_update:
+                source_update, new_evidence = diagnostic_update
+                evidence.extend(new_evidence)
+                kind = 'protected_sources_changed'
         if kind == 'native_boundary_failure':
             native_update = native_probe_source_update(folder, rid, result)
             if native_update:
