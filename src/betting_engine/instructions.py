@@ -107,6 +107,7 @@ def current_execution_review(tip, now, minimum_roi, sizing_settings=None):
                 'quote_at': tip['quote_at'], 'valid_until': tip['valid_until'], 'odds': odds,
                 'minimum_odds': basis['minimum_odds'], 'probability': p, 'stress_probability': stress,
                 'funding_tier':basis['tier'],'recommendation_policy':policy,'model_pick_sizing_policy':model_sizing,
+                **({'family_selection_policy':guard['family_selection_policy']} if 'family_selection_policy' in guard else {}),
                 **({'model_pick_allocation_policy':allocation_policy} if allocation_policy!='one_per_game_v1' else {}),
                 'push_probability': push, 'expected_roi': tip['expected_roi'], 'stress_roi': tip['stress_roi'],
                 'model_version': tip['model_version'],

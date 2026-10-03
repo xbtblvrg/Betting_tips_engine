@@ -21,6 +21,31 @@ DEFAULT_SETTINGS['market_disagreement_threshold']=.30
 DEFAULT_SETTINGS['calibration_uncertainty_mode']='measured_v1'
 DEFAULT_SETTINGS['calibration_min_games']=30
 
+LEGACY_FAMILY_SELECTION = 'stressed_value_v1'
+PROBABILITY_FAMILY_SELECTION = 'qualified_probability_v1'
+
+
+def family_selection_policy(settings):
+    policy = settings.get('family_selection_policy', LEGACY_FAMILY_SELECTION)
+    if policy not in (LEGACY_FAMILY_SELECTION, PROBABILITY_FAMILY_SELECTION):
+        raise ValueError('Unknown family selection policy')
+    return policy
+
+
+def family_selection_priority(tip, tier, settings):
+    """Rank already reviewed exact contracts; never change funding eligibility.
+
+    Probability is the current sealed final probability (including any active
+    market anchor/calibration), not the raw independent model component.
+    """
+    values = (tip['stress_roi'], tip['probability'])
+    if family_selection_policy(settings) == PROBABILITY_FAMILY_SELECTION:
+        values = values[::-1]
+    return (tier, *values,
+            -CORE_MARKETS.index(tip['market']) if tip['market'] in CORE_MARKETS else -len(CORE_MARKETS),
+            str(tip['id']))
+
+
 def remaining_budget(settings,committed=0.):
     limit=settings.get('daily_risk_limit')
     return math.inf if limit is None else max(0.,float(limit)-committed)
@@ -105,7 +130,7 @@ def stake_size(pwin,ppush,odds,settings,remaining,related_count=0):
     result=stake_assessment(pwin,ppush,odds,settings,remaining,related_count)
     return result['amount'],result['note']
 
-def core_market_audit(candidates,selected,games=(),minimum_roi=.03):
+def core_market_audit(candidates,selected,games=(),minimum_roi=.03,settings=None):
     """Trace the three main families without fabricating missing evaluations.
 
     Selection aliases retain their exact labels. This is an evaluation audit,
@@ -118,12 +143,27 @@ def core_market_audit(candidates,selected,games=(),minimum_roi=.03):
     for tip in candidates:
         events.setdefault(tip['game_id'],{key:tip.get(key) for key in ('league','home','away','start')})
     selected_by_family={(t['game_id'],allocation_family(t)):t for t in selected}
+    settings = settings or {'minimum_roi': minimum_roi}
+    probability_first = family_selection_policy(settings) == PROBABILITY_FAMILY_SELECTION
+    if probability_first:
+        from .funding_policy import funding_basis
+        bases = {t['id']: funding_basis(t, settings) for t in candidates}
+        probability_ids = probability_preference_ids(candidates, settings, bases)
+        def audit_tier(t):
+            tier = bases[t['id']]['tier']
+            if tier == 'probability_pick' and t['id'] not in probability_ids:
+                return 0
+            return {'stress_value': 3, 'model_pick': 2, 'probability_pick': 1, 'unfunded': 0}[tier]
     rows=[]
     for game_id,game in sorted(events.items()):
         for market in CORE_MARKETS:
             observed=[t for t in candidates if t['game_id']==game_id and t['market']==market]
             qualified=[t for t in observed if t['stress_roi']>=minimum_roi]
-            best=max(observed,key=lambda t:(t['stress_roi'],t['probability'],str(t['id'])),default=None)
+            if probability_first:
+                qualified = [t for t in observed if audit_tier(t)]
+                best = max(observed, key=lambda t: family_selection_priority(t, audit_tier(t), settings), default=None)
+            else:
+                best=max(observed,key=lambda t:(t['stress_roi'],t['probability'],str(t['id'])),default=None)
             chosen=selected_by_family.get((game_id,allocation_family(best))) if best else None
             if not observed:status='not_evaluated'
             elif not qualified:status='no_qualifying_price'
@@ -245,6 +285,7 @@ def probability_preference_ids(candidates,settings,bases=None,held_preference_al
 def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_contracts=(),held_event_counts=None,held_preference_allocations=(),held_allocation_families=(),held_event_stakes=None,held_period_counts=None,daily_family_counts=None,daily_funded_count=0):
     # Select the best current contract per family, including held contracts.
     # A new best line can be issued later; holding the best does not rotate to inferior alternatives.
+    selection_policy=family_selection_policy(settings)
     families={}
     held=set(held_families)
     held_ids=set(held_contracts);additions=settings.get('allow_event_additions',False)
@@ -292,10 +333,13 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
     for c in candidates:
         c['stake']=0.
         c.pop('stake_sizing',None)
-        c['allocation_code']='not_selected';c['allocation_reason']='Another selection offers higher modeled value in this game and market family.'
+        c['allocation_code']='not_selected';c['allocation_reason']=(
+            'Another contract ranks first under the funding-tier, final-win-probability and stressed-return family policy.'
+            if selection_policy == PROBABILITY_FAMILY_SELECTION else
+            'Another selection offers higher modeled value in this game and market family.')
         key=(c['game_id'],allocation_family(c))
         old=families.get(key)
-        if old is None or priority(c)>priority(old):families[key]=c
+        if old is None or family_selection_priority(c,tier(c),settings)>family_selection_priority(old,tier(old),settings):families[key]=c
     value_order=sorted(families.values(),key=priority,reverse=True)
     ranks={c['id']:rank for rank,c in enumerate(value_order,1)}
     # User policy: reserve first allocation priority for qualified full-game
@@ -323,6 +367,10 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
         c['allocation_policy']={'version':ALLOCATION_VERSION,'core_market':is_core_market(c),
                                 'allocation_rank':allocation_rank,'value_rank':ranks[c['id']],
                                 'reason':'Qualified full-game Winner, Handicap and Total receive first sizing priority; exact modeled value selects each family winner. Other qualified families remain eligible.'}
+        if selection_policy == PROBABILITY_FAMILY_SELECTION:
+            c['allocation_policy'].update(family_selection_policy=selection_policy,
+                reason='Qualified full-game Winner, Handicap and Total receive first sizing priority; the configured final-probability policy selects each family winner. Other qualified families remain eligible.',
+                family_selection_reason='Within each canonical family, preserve funding tier precedence, then prefer the current final win probability, with stressed return as the tie-break. No measured performance improvement is implied.')
         if family_additions:c['allocation_policy']['model_pick_allocation_policy']=allocation_mode
         if diversify:
             c['allocation_policy'].update(event_priority='diversify_first_v1',

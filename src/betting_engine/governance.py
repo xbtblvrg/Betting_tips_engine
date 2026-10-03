@@ -7,7 +7,7 @@ from pathlib import Path
 from collections import Counter
 import hashlib,json,math
 from .domain import utcnow,parse_time,LEAGUES
-from .decisions import sportsbook_ev,minimum_odds
+from .decisions import sportsbook_ev,minimum_odds,family_selection_policy,LEGACY_FAMILY_SELECTION
 from .contracts import PRICING_VERSION,split_market,PERIOD_SCOPES,market_stress,allocation_family
 from .freshness import MAX_QUOTE_AGE_SECONDS,fresh_quote
 
@@ -23,6 +23,7 @@ def evidence_digest(tip):
     fields={k:tip.get(k) for k in SEALED_FIELDS}
     # Add policy evidence only when present, preserving every pre-policy seal.
     if 'funding_basis' in tip:fields['funding_basis']=tip['funding_basis']
+    if 'family_selection_policy' in tip:fields['family_selection_policy']=tip['family_selection_policy']
     return hashlib.sha256(json.dumps(fields,sort_keys=True,allow_nan=False).encode()).hexdigest()
 
 
@@ -43,6 +44,11 @@ def verify_publication(tip,now,active_settings=None):
     if not quality['passed']:
         raise ValueError('Publication blocked: model family quality evidence is missing or failed')
     if guard.get('candidate_sha256')!=evidence_digest(tip):raise ValueError('Publication blocked: candidate changed after evidence review')
+    selection_policy=family_selection_policy(guard)
+    if selection_policy != family_selection_policy(tip):
+        raise ValueError('Publication blocked: family selection policy receipt changed')
+    if active_settings is not None and selection_policy != family_selection_policy(active_settings):
+        raise ValueError('Publication blocked: family selection policy changed during review')
     if not fresh_quote(tip,now):raise ValueError('Publication blocked: quote expired after evidence review')
     stake=tip.get('stake',0)
     if not isinstance(stake,(float,int)) or not math.isfinite(stake) or (stake!=0 and not 1<=stake<=5):raise ValueError('Publication blocked: invalid stake')
@@ -141,6 +147,13 @@ class EvidenceGuard:
 
     def check(self,tip,game,market,quote,forecast,model_report,settings,calibration_summary=None):
         errors=[];now=utcnow()
+        try:
+            selection_policy=family_selection_policy(settings)
+        except ValueError:
+            selection_policy=None
+            errors.append('invalid_family_selection_policy')
+        if selection_policy and (selection_policy != LEGACY_FAMILY_SELECTION or 'family_selection_policy' in tip):
+            tip['family_selection_policy']=selection_policy
         from .stake_website_availability import website_availability_issue
         website_issue=website_availability_issue(tip)
         if website_issue:errors.append(website_issue['code'])
@@ -258,6 +271,8 @@ class EvidenceGuard:
         evidence.update(review_type='deterministic_evidence_and_calculation_checks',llm_approval=False,minimum_roi=settings['minimum_roi'])
         evidence['recommendation_policy']=policy
         evidence['model_pick_sizing_policy']=model_sizing
+        if selection_policy and (selection_policy != LEGACY_FAMILY_SELECTION or 'family_selection_policy' in tip):
+            evidence['family_selection_policy']=selection_policy
         if settings.get('model_pick_allocation_policy','one_per_game_v1')!='one_per_game_v1':
             evidence['model_pick_allocation_policy']=settings['model_pick_allocation_policy']
         evidence['sizing_settings']={key:settings[key] for key in ('bankroll','unit_stake','max_bet','kelly_fraction','max_bankroll_fraction')}
