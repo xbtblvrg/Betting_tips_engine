@@ -36,7 +36,7 @@ PINNED = {
     'src/betting_engine/domain.py': 'd175a82bc9a9a23bd54e49cf230e5a5b8dd9f7b47ab4e21c652fbced4f70b4f2',
     'src/betting_engine/io_utils.py': '4c7b8f6b5e335b9cd5b42ea2b716ab3ed86bcddf848eeca2017ac574fe1a0f6b',
     'src/betting_engine/__init__.py': 'e0889be650d34516f3adda0c37121f4f390d275fd4b1122becb517cb71dbd679',
-    'src/betting_engine/delivery.py': '91544f91acb8f37c65e76fe920b98ee47f7e48fb044c3fea15ea5260a13afaf2',
+    'src/betting_engine/delivery.py': 'f198f67c074ed83fe2d531c147b3f817df354890a0235de5e691fc21c01800ba',
     'src/betting_engine/native_boundary.py': '97e7e172dee4d18f05c37d7477750c0059615241f23c3ffc00b3a4dc5b594abb',
 }
 COPY_SOURCE = 'src/betting_engine/workspace_copy.py'
