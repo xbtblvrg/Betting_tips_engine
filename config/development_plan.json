@@ -825,7 +825,10 @@
       ],
       "data_source": "Public ESPN league-specific scoreboard endpoints, individual dates; no credentials or betting API.",
       "acceptance": "Live chronological exact24h rows for five leagues, Budapest DST handling, no spoilers, distinct missing-source state, scheduled refresh installed, source/UI tests and review.",
-      "status": "awaiting_release"
+      "status": "live_verified",
+      "completed_at": "2026-10-03T11:01:18.586676+00:00",
+      "code_commit": "c79cc81",
+      "live_evidence": "data/releases/root-schedule-20261003/live.json"
     }
   ],
   "deferred": [
