@@ -258,7 +258,7 @@ def build_dashboard(store,health,data_dir):
             t.update(allocation_code='already_held',allocation_reason='This exact selection has already been issued. No repeated ticket is requested.')
     held_preferences=store.held_preference_allocations()
     progress=store.daily_progress()
-    chosen,alternatives=rank_and_size(reviewed,settings,store.risk_committed(),store.held_families(),held_contracts,held_event_counts,held_preferences,(store.held_allocation_families() if settings.get('model_pick_allocation_policy')=='distinct_family_v1' else ()),store.held_event_stakes(),store.held_period_counts(),store.daily_family_counts(),progress.get('calendar_day_issued',progress.get('issued',0)))
+    chosen,alternatives=rank_and_size(reviewed,settings,store.risk_committed(),store.held_families(),held_contracts,held_event_counts,held_preferences,(store.held_allocation_families() if settings.get('model_pick_allocation_policy')=='distinct_family_v1' or settings.get('publication_limits_version')=='v3' else ()),store.held_event_stakes(),store.held_period_counts(),store.daily_family_counts(),progress.get('calendar_day_issued',progress.get('issued',0)))
     probability_ids=probability_preference_ids(reviewed,settings,held_preference_allocations=held_preferences)
     for t in reviewed:
         t['execution_review']=preference_execution_review(t,current_execution_review(t,now,settings['minimum_roi'],settings),probability_ids)

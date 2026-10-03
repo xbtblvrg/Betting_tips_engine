@@ -50,7 +50,7 @@ def ready_snapshot(store, now=None, *, include_marked=False):
             current[tip['id']] = tip
     progress=store.daily_progress()
     selected, alternatives = rank_and_size(list(current.values()), settings, store.risk_committed(),
-        store.held_families(), held, counts, preferences, (store.held_allocation_families() if settings.get('model_pick_allocation_policy')=='distinct_family_v1' else ()),
+        store.held_families(), held, counts, preferences, (store.held_allocation_families() if settings.get('model_pick_allocation_policy')=='distinct_family_v1' or settings.get('publication_limits_version')=='v3' else ()),
         store.held_event_stakes(), store.held_period_counts(), store.daily_family_counts(), progress.get('calendar_day_issued',progress.get('issued',0)))
     allowed = probability_preference_ids(list(current.values()), settings, held_preference_allocations=preferences)
     groups = defaultdict(list)
