@@ -41,9 +41,9 @@ def test_excludes_current_latest_and_all_explicit_recovery_refs(tmp_path):
 
 
 def test_archive_verified_before_data_removed_code_and_runs_preserved(tmp_path,monkeypatch):
-    root=setup(tmp_path);monkeypatch.setattr(m,'require_quiescent',lambda base:None)
+    root=setup(tmp_path);monkeypatch.setattr(m.subprocess,'run',lambda *a,**kw:type('R',(),{'stdout':''})())
     original_candidates=m.candidates
-    monkeypatch.setattr(m,'candidates',lambda root:original_candidates(root,NOW))
+    monkeypatch.setattr(m,'candidates',lambda root,**kw:original_candidates(root,NOW,**kw))
     result=m.archive_one(root,OLD)
     work=root/'data/development/workspaces'/OLD
     assert not (work/'data').exists()
@@ -54,9 +54,9 @@ def test_archive_verified_before_data_removed_code_and_runs_preserved(tmp_path,m
 
 
 def test_failed_verification_does_not_remove_source(tmp_path,monkeypatch):
-    root=setup(tmp_path);monkeypatch.setattr(m,'require_quiescent',lambda base:None)
+    root=setup(tmp_path);monkeypatch.setattr(m.subprocess,'run',lambda *a,**kw:type('R',(),{'stdout':''})())
     original_candidates=m.candidates
-    monkeypatch.setattr(m,'candidates',lambda root:original_candidates(root,NOW))
+    monkeypatch.setattr(m,'candidates',lambda root,**kw:original_candidates(root,NOW,**kw))
     def fail(*args):raise ValueError('corrupt archive')
     monkeypatch.setattr(m,'verify_archive',fail)
     with pytest.raises(ValueError):m.archive_one(root,OLD)
@@ -65,9 +65,9 @@ def test_failed_verification_does_not_remove_source(tmp_path,monkeypatch):
 
 
 def test_changed_source_and_symlink_are_rejected(tmp_path,monkeypatch):
-    root=setup(tmp_path);monkeypatch.setattr(m,'require_quiescent',lambda base:None)
+    root=setup(tmp_path);monkeypatch.setattr(m.subprocess,'run',lambda *a,**kw:type('R',(),{'stdout':''})())
     original_candidates=m.candidates
-    monkeypatch.setattr(m,'candidates',lambda root:original_candidates(root,NOW))
+    monkeypatch.setattr(m,'candidates',lambda root,**kw:original_candidates(root,NOW,**kw))
     original_verify=m.verify_archive
     def changed(archive,expected):
         original_verify(archive,expected)
@@ -79,9 +79,9 @@ def test_changed_source_and_symlink_are_rejected(tmp_path,monkeypatch):
 
 
 def test_reference_appearing_during_archive_blocks_removal(tmp_path,monkeypatch):
-    root=setup(tmp_path);monkeypatch.setattr(m,'require_quiescent',lambda base:None)
+    root=setup(tmp_path);monkeypatch.setattr(m.subprocess,'run',lambda *a,**kw:type('R',(),{'stdout':''})())
     original_candidates=m.candidates
-    monkeypatch.setattr(m,'candidates',lambda root:original_candidates(root,NOW))
+    monkeypatch.setattr(m,'candidates',lambda root,**kw:original_candidates(root,NOW,**kw))
     original_verify=m.verify_archive
     def reference(archive,expected):
         original_verify(archive,expected)
@@ -89,3 +89,45 @@ def test_reference_appearing_during_archive_blocks_removal(tmp_path,monkeypatch)
     monkeypatch.setattr(m,'verify_archive',reference)
     with pytest.raises(ValueError,match='referenced'):m.archive_one(root,OLD)
     assert (root/'data/development/workspaces'/OLD/'data/sub/input.json').exists()
+
+
+def test_unrelated_active_workers_allowed_but_target_process_blocks(tmp_path,monkeypatch):
+    root=setup(tmp_path)
+    original_candidates=m.candidates
+    monkeypatch.setattr(m,'candidates',lambda root,**kw:original_candidates(root,NOW,**kw))
+    def unrelated(command,**kwargs):
+        text = ('999 python -m betting_engine.development\n' if command[0]=='ps' else
+                'p999\nn'+str(root/'data/development/workspaces'/NEW/'data/sub/input.json')+'\n')
+        return type('R',(),{'stdout':text})()
+    monkeypatch.setattr(m.subprocess,'run',unrelated)
+    m.require_unused_workspace(root,OLD)
+    monkeypatch.setattr(m.subprocess,'run',lambda *a,**kw:type('R',(),{'stdout':'999 worker '+OLD+'\n'})())
+    with pytest.raises(ValueError,match='Process'):m.require_unused_workspace(root,OLD)
+
+
+def test_open_target_file_or_cwd_blocks_and_reference_after_rename_rolls_back(tmp_path,monkeypatch):
+    root=setup(tmp_path)
+    original_candidates=m.candidates
+    monkeypatch.setattr(m,'candidates',lambda root,**kw:original_candidates(root,NOW,**kw))
+    def opened(command,**kwargs):
+        return type('R',(),{'stdout':'' if command[0]=='ps' else
+            'p999\nn'+str(root/'data/development/workspaces'/OLD)+'\n'})()
+    monkeypatch.setattr(m.subprocess,'run',opened)
+    with pytest.raises(ValueError,match='Open file/cwd'):m.require_unused_workspace(root,OLD)
+    monkeypatch.setattr(m.subprocess,'run',lambda *a,**kw:type('R',(),{'stdout':''})())
+    real_rename=m.os.rename
+    def renamed(source,target):
+        real_rename(source,target)
+        if target.name=='.data-retiring':
+            (root/'config/pending.json').write_text(json.dumps({'run_id':OLD}))
+    monkeypatch.setattr(m.os,'rename',renamed)
+    with pytest.raises(ValueError,match='referenced'):m.archive_one(root,OLD)
+    assert (root/'data/development/workspaces'/OLD/'data/sub/input.json').exists()
+    assert not (root/'data/development/workspaces'/OLD/'.data-retiring').exists()
+
+
+def test_active_worker_task_reference_is_never_eligible(tmp_path):
+    root=setup(tmp_path)
+    (root/'data/development/worker.json').write_text(json.dumps({
+        'active_tasks':[{'run_id':OLD,'state':'running'}]}))
+    assert m.candidates(root,NOW)==[]

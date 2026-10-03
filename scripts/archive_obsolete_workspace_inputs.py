@@ -3,7 +3,7 @@
 
 Run records, accepted files, current/latest workspaces, release inputs, and source
 archives stay in place. Each removed data directory remains fully in a verified
-gzip tar archive. Requires unloaded development/release workers for application.
+gzip tar archive. Excludes referenced workspaces and any workspace used by a running process.
 """
 import argparse
 from datetime import datetime, timezone, timedelta
@@ -14,10 +14,10 @@ from pathlib import Path
 import re
 import shutil
 import stat
+import subprocess
 import tarfile
 import tempfile
 
-from deduplicate_workspace_inputs import require_quiescent
 
 RUN_ID = re.compile(r'\b\d{8}T\d{12}-[A-Za-z0-9_-]+')
 
@@ -34,7 +34,7 @@ def read(path):
     return json.loads(path.read_text())
 
 
-def candidates(root, now=None):
+def candidates(root, now=None, *, include_retiring=False):
     root = Path(root).resolve(); base = root/'data/development/workspaces'
     safe(base); now = now or datetime.now(timezone.utc)
     references = set()
@@ -67,8 +67,43 @@ def candidates(root, now=None):
         except (KeyError, ValueError): continue
         if finished.tzinfo is None or finished > now-timedelta(hours=48): continue
         data = base/rid/'data'
+        if include_retiring and not data.exists(): data = data.with_name('.data-retiring')
         if data.is_dir() and not data.is_symlink(): result.append(rid)
     return result
+
+
+def require_unused_workspace(root, rid, *, retiring=False):
+    """Fresh references and actual process use, without interrupting other tasks.
+
+    Controller dispatch allocates a new timestamp run ID before preparation
+    (development.py run_task). Recovery only consumes current task run IDs;
+    all task/recovery/config/release references and latest runs are retained.
+    A process still using an obsolete path nevertheless blocks retirement.
+    """
+    root = Path(root).resolve()
+    if rid not in candidates(root, include_retiring=retiring):
+        raise ValueError('Workspace no longer eligible or became referenced')
+    workspace = root/'data/development/workspaces'/rid
+    safe(workspace)
+    processes = subprocess.run(['ps', '-axo', 'pid=,command='],
+        capture_output=True, text=True, check=True, timeout=15).stdout
+    for line in processes.splitlines():
+        fields = line.strip().split(None, 1)
+        if len(fields) != 2: continue
+        pid, command = fields
+        if int(pid) != os.getpid() and (str(workspace) in command or rid in command):
+            raise ValueError('Process still references workspace: ' + pid)
+    # lsof includes cwd, mapped files and open descriptors for this user's
+    # processes. A failed inventory is not evidence of inactivity.
+    opened = subprocess.run(['/usr/sbin/lsof', '-nP', '-u', str(os.getuid()), '-Fpn'],
+        capture_output=True, text=True, check=True, timeout=30).stdout
+    pid = 'unknown'
+    for line in opened.splitlines():
+        if line.startswith('p'): pid = line[1:]
+        if line.startswith('n'):
+            name = line[1:]
+            if name == str(workspace) or name.startswith(str(workspace)+'/'):
+                raise ValueError('Open file/cwd still uses workspace: ' + pid)
 
 
 def file_hash(stream):
@@ -113,8 +148,7 @@ def verify_archive(archive, expected):
 
 def archive_one(root, rid):
     root = Path(root).resolve(); base = root/'data/development/workspaces'
-    require_quiescent(base)
-    if rid not in candidates(root): raise ValueError('Workspace no longer eligible')
+    require_unused_workspace(root, rid)
     data = base/rid/'data'; expected = inventory(data)
     archive_dir = root/'data/workspace-input-archives'; safe(archive_dir)
     archive_dir.mkdir(exist_ok=True)
@@ -133,8 +167,7 @@ def archive_one(root, rid):
         with temporary.open('rb') as stream: os.fsync(stream.fileno())
         verify_archive(temporary, expected)
         if inventory(data) != expected: raise ValueError('Workspace data changed')
-        require_quiescent(base)
-        if rid not in candidates(root): raise ValueError('Workspace became referenced')
+        require_unused_workspace(root, rid)
         os.link(temporary, archive); temporary.unlink()
         directory = os.open(archive_dir, os.O_RDONLY)
         try: os.fsync(directory)
@@ -145,6 +178,7 @@ def archive_one(root, rid):
             after = inventory(retired)
             after = {'data'+name[len('.data-retiring'):]: row for name,row in after.items()}
             if after != expected: raise ValueError('Retiring data changed')
+            require_unused_workspace(root, rid, retiring=True)
         except BaseException:
             os.rename(retired, data)
             raise
