@@ -506,7 +506,7 @@
       "probability-only lifetime limits",
       "USD1–5 sizing",
       "original stakes/decisions",
-      "daily target20 without duplicate inflation"
+      "daily target40 without duplicate inflation"
     ],
     "near_window_hours": 12,
     "scan_horizon_hours": 48,

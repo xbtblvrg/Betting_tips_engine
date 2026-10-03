@@ -21,3 +21,14 @@ def test_forty_target_preserves_checkpoint_and_original_issuance(tmp_path, monke
     assert client.put('/api/settings',json={'unit_stake':1}).json()['daily_pick_target'] == 40
     assert storage.Store(s.path).settings()['daily_pick_target'] == 40
     assert s.settings()['daily_risk_limit'] is None and s.settings()['max_bet'] == 5
+
+
+def test_old_settings_form_cannot_lower_active_forty_target(tmp_path,monkeypatch):
+    s=store(tmp_path,daily_pick_target=40)
+    monkeypatch.setattr(server.engine,'store',s)
+    monkeypatch.setattr(server.engine,'refresh',lambda:True)
+    client=TestClient(server.app)
+    for lower in (20,25,39):
+        assert client.put('/api/settings',json={'daily_pick_target':lower}).status_code==422
+        assert s.settings()['daily_pick_target']==40
+    assert client.put('/api/settings',json={'daily_pick_target':45}).json()['daily_pick_target']==45
