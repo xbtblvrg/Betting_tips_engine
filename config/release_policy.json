@@ -248,6 +248,24 @@
         "daily_risk_limit": null
       },
       "root_integration_required": true
+    },
+    "D36": {
+      "kind": "guarded_engine",
+      "files": [
+        "src/betting_engine/learning.py",
+        "tests/test_learning_feedback_age.py"
+      ],
+      "guards": {
+        "clv_gate_required": true,
+        "ledger_immutable": true,
+        "auto_betting_disabled": true,
+        "stake_range_usd": [
+          1,
+          5
+        ],
+        "daily_risk_limit": null
+      },
+      "root_integration_required": true
     }
   },
   "review_new_passive_utilities": true
