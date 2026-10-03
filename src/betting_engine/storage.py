@@ -388,22 +388,32 @@ class Store:
                     daily_family_counts[(issued['league'],allocation_family(previous))]+=1
                 except (TypeError,ValueError,json.JSONDecodeError):
                     continue
-            # The atomic publication guard uses the full candidate batch as
-            # its denominator.  Counting structurally valid rows here keeps
-            # the fallback auto-tracker closed under the same share policy;
-            # stale rows only make this conservative.
-            candidate_count=0
+            # The atomic publication guard uses the unique, usable candidate
+            # batch as its denominator.  The fallback auto-tracker must use
+            # the same population: counting stale rows or duplicate ids would
+            # enlarge the denominator and could over-permit one family.
+            usable_ids=set();usable_families=set();usable_candidates=[]
             for candidate in payload.get('recommendations',[]):
                 try:
-                    if (isinstance(candidate,dict)
-                            and candidate.get('id') not in contracts
-                            and candidate.get('reference_platform')=='Stake.com'
-                            and not candidate.get('alternative')
-                            and 1<=float(candidate.get('stake',0))<=5):
-                        candidate_count+=1
-                except (TypeError,ValueError):
+                    if not isinstance(candidate,dict):continue
+                    candidate_id=candidate.get('id')
+                    amount=float(candidate.get('stake',0));odds=float(candidate.get('reference_odds',0))
+                    evidence=candidate.get('stake_evidence',{})
+                    if (not candidate_id or candidate_id in contracts or candidate_id in usable_ids
+                            or candidate.get('reference_platform')!='Stake.com'
+                            or candidate.get('alternative') or candidate.get('withdrawn_at')
+                            or not 1<=amount<=min(5,settings['max_bet'])
+                            or not math.isfinite(odds) or odds<=1
+                            or not evidence or abs(float(evidence.get('decimal_odds',0))-odds)>1e-8):continue
+                    if min(parse_time(candidate['start']),parse_time(candidate['valid_until']))<=parse_time(now):continue
+                    if (parse_time(now)-parse_time(evidence['fetched_at'])).total_seconds()>max(300,settings['refresh_seconds']*2):continue
+                    family=(candidate.get('game_id'),candidate.get('market'))
+                    if not additions and (family in families or family in usable_families):continue
+                    usable_ids.add(candidate_id);usable_families.add(family);usable_candidates.append(candidate)
+                except (KeyError,TypeError,ValueError,OverflowError):
                     continue
-            family_limit=max(1,math.ceil((sum(daily_family_counts.values())+candidate_count)*policy['max_daily_family_share']))
+            family_limit=max(1,math.ceil((sum(daily_family_counts.values())+len(usable_candidates))*policy['max_daily_family_share']))
+        event_counts=Counter(t.get('game_id') for t in existing)
         for tip in payload.get('recommendations',[]):
             amount=tip.get('stake',0);odds=tip.get('reference_odds',0)
             if not(1<=amount<=min(5,settings['max_bet']) and math.isfinite(odds) and odds>1):continue
@@ -417,7 +427,7 @@ class Store:
             family=(tip['game_id'],tip['market'])
             if tip['id'] in contracts or (not additions and family in families):continue
             event_cap=(policy['max_per_event'] if policy else settings.get('max_per_event'))
-            if event_cap is not None and sum(g==tip['game_id'] for g,m in families)>=event_cap:continue
+            if event_cap is not None and event_counts[tip['game_id']]>=event_cap:continue
             if policy:
                 if cycle_funded>=policy['max_new_funded_per_publication']:continue
                 if event_stakes[tip['game_id']]+amount>policy['max_stake_per_event']+1e-9:continue
@@ -432,7 +442,7 @@ class Store:
                       'recorded_at':now,'tracking_note':'Assumed placed manually on Stake under your standing instruction. Uses the recommended stake and observed odds; no Stake account confirmation.'}
             c.execute('INSERT INTO bets(tip_id,created_at,stake,odds,platform,payload,request_id) VALUES (?,?,?,?,?,?,?)',
                       (tip['id'],now,amount,odds,'Stake.com',json.dumps(recorded,ensure_ascii=False),f'auto-stake:{tip["id"]}'))
-            families.add(family);contracts.add(tip['id']);committed+=amount
+            families.add(family);contracts.add(tip['id']);event_counts[tip['game_id']]+=1;committed+=amount
             event_stakes[tip['game_id']]+=amount;cycle_funded+=1
             if policy and scope!='full_game':period_counts[tip['game_id']]+=1
             if policy:family_new[family_key]+=1

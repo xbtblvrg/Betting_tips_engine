@@ -172,3 +172,32 @@ def test_v2_auto_tracking_cannot_bypass_the_cycle_or_event_caps(tmp_path):
     rows=[tip(id=str(i),game_id=f'NBA:{i}',market=markets[i % len(markets)]) for i in range(16)]
     store.publish({'recommendations':rows})
     assert len(store.bets())==15
+
+
+def test_v2_auto_tracking_counts_same_market_different_lines_as_separate_tickets(tmp_path):
+    from test_autotracking import tip
+    store=Store(tmp_path/'v2-lines.sqlite')
+    store.save_settings({'publication_limits_version':'v2','max_new_funded_per_publication':15,
+                         'max_per_event':4,'max_period_per_event':2,
+                         'max_stake_per_event':10.,'max_daily_family_share':.35})
+    held=[tip(id=f'old-{i}',line=float(i)+.5) for i in range(4)]
+    store.publish({'recommendations':held})
+    for row in held:
+        store.add_bet(row['id'],1.,row['reference_odds'],'Stake.com')
+    store.save_settings({'auto_track_recommendations':True})
+    store.publish({'recommendations':[tip(id='new-line',line=9.5)]})
+    assert len(store.bets())==4
+
+
+def test_v2_auto_tracking_excludes_stale_rows_from_family_share_denominator(tmp_path):
+    from datetime import timedelta
+    from test_autotracking import tip
+    from betting_engine.domain import utcnow
+    store=Store(tmp_path/'v2-family.sqlite')
+    store.save_settings({'publication_limits_version':'v2','max_new_funded_per_publication':15,
+                         'max_per_event':4,'max_period_per_event':2,
+                         'max_stake_per_event':10.,'max_daily_family_share':.35,
+                         'auto_track_recommendations':True})
+    stale=tip(id='stale',valid_until=(utcnow()-timedelta(seconds=1)).isoformat())
+    store.publish({'recommendations':[tip(id='fresh-a'),tip(id='fresh-b'),stale]})
+    assert len(store.bets())==1
