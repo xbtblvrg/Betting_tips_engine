@@ -583,3 +583,20 @@ import './web_all_tier_sizing_cases.mjs';
 
 // Root-reviewed Statistics regressions; preserve every existing test above.
 import './statistics.web.test.mjs';
+
+test('changed upcoming records remain visible as read-only history without changing execution',async()=>{
+ const make=(id,extra={},review={actionable:false,reason:'Original stake no longer supported <script>bad</script>'})=>({id,tip_id:id,stake:2,odds:1.8,status:'open',created_at:new Date().toISOString(),payload:{...tip,id,stake:2,reference_odds:1.8,tracking_source:'auto_assumed_placed',...extra},instruction_review:review});
+ const rows=[make('changed'),make('started',{start:new Date(Date.now()-1000).toISOString()}),make('marked'),{...make('settled'),status:'won'},make('current',{}, {actionable:true})];
+ const {w,d,writes}=await boot({recommendations:[],evaluated_candidates:[],tracked_bets:rows,placement_marks:{marked:start}});
+ const panel=d.querySelector('#withdrawn-upcoming-section');assert.equal(panel.hidden,false);assert.equal(d.querySelector('#withdrawn-upcoming-count').textContent,'1');
+ assert.match(panel.textContent,/Original stake no longer supported/);assert.match(panel.textContent,/\$2.00/);assert.match(panel.textContent,/1.80/);
+ assert.equal(panel.querySelectorAll('a,button,input,script').length,0);assert.equal(d.querySelectorAll('.tip-card').length,0);assert.deepEqual(writes,[]);
+ assert.match(d.querySelector('#history-table').textContent,/Recorded/);await w.happyDOM.close();
+});
+test('changed history separates original issuance from revised execution and latest observation',async()=>{
+ const original={...tip,id:'changed-revision',stake:1.25,reference_odds:1.9,expected_roi:.14,created_at:new Date(Date.now()-60000).toISOString()};
+ const record={id:4,tip_id:original.id,stake:3.5,odds:2.2,status:'open',created_at:original.created_at,payload:original,instruction_review:{actionable:false,reason:'Assessment changed'}};
+ const current={...original,reference_odds:1.7,expected_roi:-.03,probability:.57};
+ const {w,d,writes}=await boot({recommendations:[],tracked_bets:[record],evaluated_candidates:[current]});
+ const panel=d.querySelector('#withdrawn-upcoming-section');assert.match(panel.textContent,/Odds: 1.90 · Stake: \$1.25/);assert.match(panel.textContent,/Observed odds: 1.70/);assert.match(panel.textContent,/14.0%/);assert.doesNotMatch(panel.textContent,/\$3.50/);assert.deepEqual(writes,[]);await w.happyDOM.close();
+});

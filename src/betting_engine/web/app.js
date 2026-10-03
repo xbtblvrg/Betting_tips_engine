@@ -269,6 +269,17 @@ function renderTips(){
 function historyRows(){return liveTips().filter(t=>t.tracked_bet||isPlaced(t)).sort((a,b)=>new Date(a.start)-new Date(b.start)||String(a.id).localeCompare(String(b.id)))}
 function renderTracked(){
  const history=historyRows();
+ const withdrawn=history.filter(t=>new Date(t.start)>new Date()&&!isPlaced(t)&&t.tracked_bet?.status==='open'&&t.instruction_review?.actionable===false);
+ $('#withdrawn-upcoming-section').hidden=!withdrawn.length;
+ $('#withdrawn-upcoming-count').textContent=withdrawn.length;
+ $('#withdrawn-upcoming-table').innerHTML=table(['League','Matchup / Start','Original Market / Selection','Original Issuance','Latest Observed Assessment','Changed — Reason'],withdrawn.map(t=>{
+  const original=(data?.tracked_bets||[]).filter(b=>b.tip_id===t.id).sort((a,b)=>String(a.created_at).localeCompare(String(b.created_at)))[0]?.payload||t;
+  const current=(data?.evaluated_candidates||[]).find(c=>c.id===t.id);
+  return [esc(t.league),esc(t.away)+' @ '+esc(t.home)+`<small>${esc(when(t.start))}</small>`,esc(t.market_display||marketName[t.market]||t.market)+`<small>${esc(t.selection)}</small>`,
+   `Odds: ${num(original.reference_odds)} · Stake: $${num(original.stake)}<small>Estimated ROI at issue: ${pct(original.expected_roi)} · ${esc(when(original.created_at))}</small>`,
+   current?`Observed odds: ${num(current.reference_odds)}<small>Model probability: ${pct(current.probability)} · Estimated ROI: ${pct(current.expected_roi)} · Quote observed: ${esc(when(current.quote_at))}</small>`:'No current assessment available',
+   `<span class="badge muted">Changed</span><small>${esc(t.instruction_review.reason||'Current assessment is unavailable; the original record is retained.')}</small>`];
+ }));
  const status=t=>isPlaced(t)?'Marked as placed':pendingInstruction(t)?'Current instruction':t.tracked_bet&&t.instruction_review?.actionable===false?'No longer recommended · Not a current instruction':'Recorded · Not a current instruction';
  $('#history-table').innerHTML=table(['League','Matchup / Start','Market / Selection','Original Stake','Original Odds','Model at Issue','Status','Checklist','Details'],history.map(t=>[esc(t.league),esc(t.away)+' @ '+esc(t.home)+`<small>${esc(when(t.start))}</small>`,esc(t.market_display||marketName[t.market])+`<small>${esc(t.selection)}</small>`,'$'+num(instructionStake(t)),num(t.tracked_bet?.odds||t.reference_odds),pct(t.probability),status(t),placementControl(t),`<button class="detail-button" data-detail="${esc(t.id)}">Original Bet Details →</button>`]));
  const rows=(data?.tracked_bets||[]).map(b=>({...b.payload,record:b})).sort((a,b)=>new Date(a.start)-new Date(b.start));
