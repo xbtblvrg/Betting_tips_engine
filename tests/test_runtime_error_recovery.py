@@ -387,3 +387,64 @@ def test_runtime_log_manifest_cannot_write_through_symlink(tmp_path):
     with pytest.raises(ValueError,match='manifest path'):
         export_failure_diagnostics(root/'data/development',workspace,state['tasks']['D0']['recovery_work'])
     assert external.read_text()=='original'
+
+
+def incomplete_recovery(root, plan):
+    state, now, run, result = failed_test(root, plan)
+    for suffix in ('stdout', 'stderr'):
+        (run / f'python-tests.{suffix}.log').unlink()
+    result.update(id=run.name, task_id='D0', state='retry', failure_phase='python-tests',
+                  error='Unreviewed controller delta cannot inherit native-test evidence')
+    atomic_json(run / 'run.json', result)
+    diagnostic = failure_diagnostic(root / 'data/development', run.name, result)
+    return run, {'source_run_id': run.name, 'diagnostic': diagnostic, 'evidence': [{
+        'path': f'runs/{run.name}/run.json',
+        'sha256': hashlib.sha256((run / 'run.json').read_bytes()).hexdigest()}]}
+
+
+def test_pretest_failure_without_logs_exports_pinned_incomplete_context(tmp_path):
+    from betting_engine.runtime_errors import export_failure_diagnostics, diagnostic_archive_valid
+    root, plan = project(tmp_path / 'root', 1)
+    run, recovery = incomplete_recovery(root, plan)
+    workspace = tmp_path / 'worker'
+    manifest = export_failure_diagnostics(root / 'data/development', workspace, recovery)
+    assert manifest['state'] == 'verified'
+    assert manifest['completeness'] == 'incomplete'
+    assert manifest['evidence_kind'] == 'incomplete_failed_run'
+    assert manifest['test_evidence_eligible'] is False
+    assert manifest['failed_tests'] == []
+    assert manifest['unavailable_logs']
+    assert not diagnostic_archive_valid(root / 'data/development', recovery['diagnostic'])
+    assert (workspace / manifest['files'][0]['path']).read_bytes() == (run / 'run.json').read_bytes()
+
+
+@pytest.mark.parametrize('mutation', ['hash', 'task', 'run', 'phase', 'state', 'pin', 'symlink'])
+def test_incomplete_context_cannot_hide_changed_or_wrong_source(tmp_path, mutation):
+    from betting_engine.runtime_errors import export_failure_diagnostics
+    root, plan = project(tmp_path / 'root', 1)
+    run, recovery = incomplete_recovery(root, plan)
+    path = run / 'run.json'
+    if mutation == 'hash':
+        path.write_text(path.read_text() + ' ')
+    elif mutation == 'pin':
+        recovery['evidence'] = []
+    elif mutation == 'symlink':
+        external = tmp_path / 'external.json'
+        external.write_bytes(path.read_bytes()); path.unlink(); path.symlink_to(external)
+    else:
+        value = json.loads(path.read_text())
+        value[{'task': 'task_id', 'run': 'id', 'phase': 'failure_phase', 'state': 'state'}[mutation]] = 'wrong'
+        atomic_json(path, value)
+        recovery['evidence'][0]['sha256'] = hashlib.sha256(path.read_bytes()).hexdigest()
+    with pytest.raises(ValueError):
+        export_failure_diagnostics(root / 'data/development', tmp_path / 'worker', recovery)
+
+
+def test_missing_formerly_pinned_test_log_still_rejects(tmp_path):
+    from betting_engine.runtime_errors import export_failure_diagnostics
+    root, plan = project(tmp_path, 1)
+    state, now, run, result = failed_test(root, plan)
+    schedule_recoveries(plan, state, root / 'data/development', now)
+    (run / 'python-tests.stdout.log').unlink()
+    with pytest.raises(ValueError):
+        export_failure_diagnostics(root / 'data/development', tmp_path / 'worker', state['tasks']['D0']['recovery_work'])

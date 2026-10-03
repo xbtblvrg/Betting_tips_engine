@@ -431,6 +431,31 @@ def meaningful_source_changes(folder, run_id, result, generation, changed, cache
     return kept,notes
 
 
+def _incomplete_run_evidence(folder, recovery, diagnostic):
+    """A pre-test failure has no subprocess logs; retain its pinned run instead.
+
+    This is context for a fresh repair attempt, never inherited test evidence.
+    Missing formerly pinned logs still fail closed and cannot use this path.
+    """
+    if diagnostic.get('logs') != [] or not diagnostic.get('unavailable_logs'):
+        return None
+    run_id = recovery.get('source_run_id')
+    name = f'runs/{run_id}/run.json'
+    rows = [row for row in recovery.get('evidence', [])
+            if isinstance(row, dict) and row.get('path') == name]
+    if len(rows) != 1:
+        raise ValueError('Missing exact failed-run evidence pin')
+    body = bounded_bytes(folder, name, MAX_LOG_BYTES)
+    if hashlib.sha256(body).hexdigest() != rows[0].get('sha256'):
+        raise ValueError('Failed-run evidence hash changed')
+    source = _package_json(body)
+    if (source.get('id') != run_id or source.get('task_id') != diagnostic.get('task_id')
+            or source.get('failure_phase') != diagnostic.get('phase')
+            or source.get('state') != 'retry' or not source.get('error')):
+        raise ValueError('Failed-run evidence identity differs')
+    return {'path': name, 'sha256': rows[0]['sha256'], 'bytes': len(body)}, body
+
+
 def export_failure_diagnostics(folder, workspace, recovery):
     """Only a scheduled task's exact bounded retained logs reach its next worker."""
     folder,workspace=Path(folder),Path(workspace)
@@ -441,13 +466,16 @@ def export_failure_diagnostics(folder, workspace, recovery):
         run_id=recovery.get('source_run_id');phase=diagnostic.get('phase')
         if (diagnostic.get('source_run_id')!=run_id or not isinstance(run_id,str)
                 or not re.fullmatch(r'[A-Za-z0-9_-]{1,120}',run_id)
-                or phase not in ('python-tests','dom-tests','integration-python-tests','integration-dom-tests')
-                or not diagnostic_archive_valid(folder,diagnostic)):
+                or phase not in ('python-tests','dom-tests','integration-python-tests','integration-dom-tests')):
+            raise ValueError('Retained runtime failure evidence unavailable or invalid')
+        incomplete = _incomplete_run_evidence(folder, recovery, diagnostic)
+        if incomplete is None and not diagnostic_archive_valid(folder, diagnostic):
             raise ValueError('Retained runtime failure evidence unavailable or invalid')
         allowed={f'runs/{run_id}/{phase}.{suffix}.log' for suffix in ('stdout','stderr')}
         if len(diagnostic['logs'])>2 or any(row['path'] not in allowed for row in diagnostic['logs']):
             raise ValueError('Runtime diagnostic path does not belong to this failed attempt')
-        for row in diagnostic['logs']:
+        export_rows = diagnostic['logs'] if incomplete is None else [incomplete[0]]
+        for row in export_rows:
             body=bounded_bytes(folder,row['path'],MAX_DIAGNOSTIC_LOG_BYTES)
             if len(body)!=row.get('bytes') or hashlib.sha256(body).hexdigest()!=row.get('sha256'):
                 raise ValueError('Runtime diagnostic bytes changed during export')
@@ -458,6 +486,8 @@ def export_failure_diagnostics(folder, workspace, recovery):
             target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(body)
             manifest['files'].append({'path':relative,'source_path':row['path'],'sha256':row['sha256'],'bytes':len(body)})
         manifest.update(state='verified',source_run_id=run_id,failed_tests=diagnostic['failed_tests'],
+            evidence_kind='incomplete_failed_run' if incomplete else 'test_logs',
+            test_evidence_eligible=False,
             failure_fingerprint=diagnostic['failure_fingerprint'],
             truncated=bool(diagnostic.get('truncated')),
             unavailable_logs=diagnostic.get('unavailable_logs', []),
