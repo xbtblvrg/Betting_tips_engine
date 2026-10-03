@@ -93,3 +93,18 @@ def test_family_trimming_resizes_survivors_against_final_related_exposure(tmp_pa
     with Store(tmp_path/'limits.sqlite').db() as db:
         Store._validate_publication_limits(db,{'recommendations':selected},settings)
         verify_family_publication(db,selected,settings)
+
+
+def test_same_game_new_allocations_are_counted_once_up_to_existing_cap():
+    """A real three-ticket cap must not become two through double counting."""
+    import copy
+    for held in range(4):
+        settings={**DEFAULT_SETTINGS,'publication_limits_version':'v1'}
+        candidates=[row('winner','moneyline',p=.52),row('spread','spreads',p=.52),
+                    row('total','totals',p=.52,side='over',line=8.5)]
+        selected,alternatives=rank_and_size(copy.deepcopy(candidates),settings,
+            held_event_counts={'game':held},held_event_stakes={'game':float(held)})
+        funded=[t for t in selected if t['stake']>0]
+        assert len(funded)==max(0,3-held)
+        assert held+sum(t['stake'] for t in funded)<=5
+        assert len(funded)+len([t for t in alternatives if t.get('allocation_code')=='event_limit'])==3

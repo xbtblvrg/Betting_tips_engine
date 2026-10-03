@@ -362,7 +362,7 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                 next_round[c['game_id']]+=1
         ordered=sorted(ordered,key=lambda c:(c['id'] not in exposure_round,
             exposure_round.get(c['id'],0),not is_core_market(c),-c['stress_roi'],-c['probability'],str(c['id'])))
-    counts=Counter();period_new=Counter();family_new=Counter();new_funded=0;chosen=[];alternatives=[]
+    period_new=Counter();family_new=Counter();new_funded=0;chosen=[];alternatives=[]
     remaining=remaining_budget(settings,open_exposure)
     for allocation_rank,c in enumerate(ordered,1):
         c['rank']=ranks[c['id']]
@@ -381,7 +381,9 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
         c['is_additional']=additions and not covered(c) and any(g==c['game_id'] for g,m in held)
         is_period = c.get('model_scope','full_game')!='full_game'
         family_key=(c.get('league'),allocation_family(c))
-        if event_cap is not None and (funded_counts[c['game_id']]+counts[c['game_id']])>=event_cap and not covered(c):
+        # funded_counts already includes the new allocations from this pass.
+        # Adding a second new-only counter would consume each slot twice.
+        if event_cap is not None and funded_counts[c['game_id']]>=event_cap and not covered(c):
             c['allocation_code']='event_limit';c['allocation_reason']='Other markets already use the per-game allocation; this is an alternative, not an extra bet.'
             if covered(c):c['allocation_code']='already_held';c['allocation_reason']='This exact selection has already been issued. No repeated ticket is requested.'
             c['stake_note']=c['allocation_reason']
@@ -437,7 +439,7 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                 preference_allocations.add((c['game_id'],bases[c['id']]['tier']));new_preference_events.add(c['game_id'])
                 c['allocation_reason']=(f'Positive current-model expected value; stress threshold not passed. One model pick for this game, sized at ${amount:.2f}.' if tier(c)==2 else (f'Selected for model win probability; model expected return is not positive. Calculated non-Kelly base-unit allocation ${amount:.2f}, not a value-bet claim.' if settings.get('model_pick_sizing_policy')=='all_tiers_weighted_v3' else 'Selected for model win probability; model expected return is not positive. Explicit $1 preference allocation, not a value-bet claim.'))
             if amount:
-                new_funded+=1;counts[c['game_id']]+=1;event_stakes[c['game_id']]+=amount;period_new[c['game_id']]+=int(is_period);family_new[family_key]+=1
+                new_funded+=1;event_stakes[c['game_id']]+=amount;period_new[c['game_id']]+=int(is_period);family_new[family_key]+=1
                 funded_counts[c['game_id']]+=1
                 allocated_families.add((c['game_id'],allocation_family(c)))
                 if continuous and tier(c)==2 and family_additions:
