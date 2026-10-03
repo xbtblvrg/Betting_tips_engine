@@ -240,6 +240,7 @@ def _recovery_source_allowed(name):
 
 _DIAG_SOURCE_CACHE_MAX = 64
 _DIAG_SOURCE_CACHE = OrderedDict()
+_DIAG_SOURCE_CACHE_LOCK = threading.Lock()
 
 
 def _diagnosed_regression_sources_uncached(names, text):
@@ -265,15 +266,17 @@ def _diagnosed_regression_sources(manifest, text):
     names = tuple(sorted(name for name in manifest if _recovery_test_source(name)))
     key = (hashlib.sha256(json.dumps(names, separators=(',', ':')).encode()).hexdigest(),
         hashlib.sha256(text.encode()).hexdigest())
-    cached = _DIAG_SOURCE_CACHE.get(key)
-    if cached is not None:
-        _DIAG_SOURCE_CACHE.move_to_end(key)
-        return list(cached)
+    with _DIAG_SOURCE_CACHE_LOCK:
+        cached = _DIAG_SOURCE_CACHE.get(key)
+        if cached is not None:
+            _DIAG_SOURCE_CACHE.move_to_end(key)
+            return list(cached)
     result = tuple(_diagnosed_regression_sources_uncached(names, text))
-    _DIAG_SOURCE_CACHE[key] = result
-    _DIAG_SOURCE_CACHE.move_to_end(key)
-    while len(_DIAG_SOURCE_CACHE) > _DIAG_SOURCE_CACHE_MAX:
-        _DIAG_SOURCE_CACHE.popitem(last=False)
+    with _DIAG_SOURCE_CACHE_LOCK:
+        _DIAG_SOURCE_CACHE[key] = result
+        _DIAG_SOURCE_CACHE.move_to_end(key)
+        while len(_DIAG_SOURCE_CACHE) > _DIAG_SOURCE_CACHE_MAX:
+            _DIAG_SOURCE_CACHE.popitem(last=False)
     return list(result)
 
 

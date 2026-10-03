@@ -37,3 +37,22 @@ def test_diagnosed_regression_source_cache_is_bounded(monkeypatch):
         development._diagnosed_regression_sources(
             {f'tests/test_{index}.py': 'sha'}, f'tests/test_{index}.py')
     assert len(development._DIAG_SOURCE_CACHE) == development._DIAG_SOURCE_CACHE_MAX
+
+
+def test_cached_reference_boundaries_and_duplicate_basenames():
+    manifest = {'tests/a/test_same.py': 'a', 'tests/b/test_same.py': 'b',
+                'tests/test_unique.py': 'c'}
+    for _ in range(2):
+        assert development._diagnosed_regression_sources(manifest, 'test_same.py') == []
+        assert development._diagnosed_regression_sources(manifest, 'x/tests/test_unique.py.extra') == []
+        assert development._diagnosed_regression_sources(manifest, '(test_unique.py)') == ['tests/test_unique.py']
+
+
+def test_concurrent_eviction_preserves_results(monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    monkeypatch.setattr(development, '_DIAG_SOURCE_CACHE_MAX', 2)
+    def query(i):
+        name = f'tests/test_{i % 7}.py'
+        return development._diagnosed_regression_sources({name: 'sha'}, name) == [name]
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        assert all(pool.map(query, range(100)))
