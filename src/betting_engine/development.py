@@ -150,7 +150,7 @@ def failure_class(error, phase=None):
         return 'test_failure'
     if error.startswith(('Protected file changed:', 'Existing regression tests', 'No implementation change', 'Implementation needs', 'Out-of-scope change:', 'Symlinks and deletions', 'Candidate changed after tests')):
         return 'code_validation'
-    if phase in ('implementation', 'review', 'integration-review') and error == 'Development step exceeded its execution time limit':
+    if phase == 'implementation' and error == 'Development step exceeded its execution time limit':
         return 'execution_timeout'
     if error.startswith(('implementation exited', 'review exited', 'integration-review exited')) or (phase in ('implementation', 'review', 'integration-review') and 'time limit' in error):
         return 'provider_failure'
