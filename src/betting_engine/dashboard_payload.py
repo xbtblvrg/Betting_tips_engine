@@ -16,6 +16,7 @@ _DASHBOARD_TIP_FIELDS = (
     'predicted_home_points', 'predicted_away_points', 'stake', 'stake_note',
     'created_at', 'rank_score', 'basis', 'allocation_code', 'allocation_reason',
     'allocation_policy', 'funding_basis', 'stake_sizing', 'tracking_source',
+    'family_selection_policy', 'outcome_sizing_policy', 'outcome_sizing_evidence',
     'stake_market', 'market_anchor', 'calibration_uncertainty', 'recorded_snapshot',
     'tracked_bet', 'related_bets', 'covered_by', 'expired', 'is_additional',
     'current_assessment', 'instruction_review', 'execution_review', 'decision_guard',
@@ -23,6 +24,40 @@ _DASHBOARD_TIP_FIELDS = (
     'source_url', 'reference_effective_cost', 'reference_fee_per_share',
     'reference_minimum_notional', 'maximum_poly_effective_cost', 'reference_contract_description',
 )
+
+
+def _compact_outcome_summary(summary):
+    """Display aggregates only; hashes identify the full stored evidence."""
+    if not isinstance(summary,dict) or 'games' not in summary:
+        return summary
+    return {**{key:value for key,value in summary.items() if key not in ('games','note')},
+            'evidence_projection':'dashboard_aggregate_v1'}
+
+
+def _compact_outcome_sizing(sizing):
+    if not isinstance(sizing,dict):return sizing
+    adjustment=sizing.get('outcome_adjustment')
+    if not isinstance(adjustment,dict):return sizing
+    source=adjustment.get('source')
+    compact_source=_compact_outcome_summary(source)
+    if compact_source is source:return sizing
+    return {**sizing,'outcome_adjustment':{**{k:v for k,v in adjustment.items() if k!='base_note'},'source':compact_source}}
+
+
+def _compact_outcome_fields(tip):
+    summary=tip.get('outcome_sizing_evidence')
+    sizing=tip.get('stake_sizing')
+    compact_summary=_compact_outcome_summary(summary)
+    compact_sizing=_compact_outcome_sizing(sizing)
+    guard=tip.get('decision_guard')
+    compact_guard=({key:value for key,value in guard.items() if key not in ('knowledge','input_readiness')}
+                   if isinstance(guard,dict) and any(key in guard for key in ('knowledge','input_readiness')) else guard)
+    if compact_summary is summary and compact_sizing is sizing and compact_guard is guard:return tip
+    result=dict(tip)
+    if compact_guard is not guard:result['decision_guard']=compact_guard
+    if compact_summary is not summary:result['outcome_sizing_evidence']=compact_summary
+    if compact_sizing is not sizing:result['stake_sizing']=compact_sizing
+    return result
 
 
 def _compact_dashboard_tip(tip):
@@ -36,18 +71,34 @@ def _compact_dashboard_tip(tip):
     if not isinstance(tip, dict):
         return tip
     stake=tip.get('stake', 0)
-    review=tip.get('execution_review') or {}
     actionable = bool(isinstance(stake, (int, float)) and stake > 0
-                      or tip.get('tracked_bet')
-                      or review.get('actionable') is True)
+                      or tip.get('tracked_bet'))
     if actionable:
-        return tip
+        return _compact_outcome_fields(tip)
+    # An eligible zero-stake research candidate is not an instruction. Keeping
+    # its full guard/context merely because review.actionable was true caused
+    # thousands of duplicated evidence trees to bypass this response bound.
     compact = {key: tip[key] for key in _DASHBOARD_TIP_FIELDS if key in tip}
     # Details and table rendering are total functions even for compact rows.
     compact['reasons']=[str(reason)[:300] for reason in (tip.get('reasons') or [])[:4]]
     compact['warnings']=[str(warning)[:300] for warning in (tip.get('warnings') or [])[:4]]
     compact['game_context']={}
     compact['model_probabilities']={}
+    # No funded instruction exists for this row. Its complete sizing receipt
+    # stays available server-side; keep just one small outcome display summary.
+    compact.pop('stake_sizing',None)
+    summary=compact.get('outcome_sizing_evidence')
+    if isinstance(summary,dict):
+        compact['outcome_sizing_evidence']={key:summary[key] for key in (
+            'version','policy','segment','factor','independent_games','decisive_games',
+            'game_roi','game_wr','break_even_wr','state','as_of','snapshot_sha256','summary_sha256') if key in summary}
+        compact['outcome_sizing_evidence']['evidence_projection']='dashboard_aggregate_v1'
+    if isinstance(compact.get('funding_basis'),dict):
+        # Retain every numeric/policy gate; repeated narrative is already
+        # represented by the row's stake_note and allocation_reason.
+        compact['funding_basis']={key:value for key,value in compact['funding_basis'].items() if key not in ('note','claim')}
+    if isinstance(compact.get('allocation_policy'),dict):
+        compact['allocation_policy']={key:value for key,value in compact['allocation_policy'].items() if key not in ('reason','family_selection_reason')}
     if isinstance(compact.get('decision_guard'), dict):
         guard = compact['decision_guard']
         compact['decision_guard'] = {
@@ -55,6 +106,7 @@ def _compact_dashboard_tip(tip):
                 'passed', 'errors', 'checked_at', 'pricing_version',
                 'contract_version', 'minimum_roi', 'recommendation_policy',
                 'model_pick_sizing_policy', 'model_pick_allocation_policy',
+                'family_selection_policy', 'outcome_sizing_policy',
                 'market_anchor_settings', 'calibration_settings', 'model',
             ) if key in guard
         }
@@ -65,14 +117,16 @@ def _compact_dashboard_tip(tip):
                 'state', 'actionable', 'reason', 'review_type', 'llm_approval',
                 'quote_at', 'valid_until', 'recommendation_policy',
                 'model_pick_sizing_policy', 'model_pick_allocation_policy',
-                'funding_tier',
+                'family_selection_policy', 'outcome_sizing_policy',
+                'funding_tier','minimum_odds','probability','stress_probability',
+                'push_probability','odds','expected_roi','stress_roi','model_version',
             ) if name in review}
     if isinstance(compact.get('input_readiness'), dict):
         readiness = compact['input_readiness']
         compact['input_readiness'] = {name: readiness[name] for name in (
             'version', 'state', 'passed', 'checked_at', 'reason',
         ) if name in readiness}
-    return compact
+    return _compact_outcome_fields(compact)
 
 def learning_status(data_dir):
     DATA=Path(data_dir)
@@ -259,14 +313,15 @@ def build_dashboard(store,health,data_dir):
     d['learning_worker']=learning_status(data_dir)
     d['automation']=automation_status(data_dir)
     d['performance']=store.performance();d['engine']=health;d['server_time']=now.isoformat()
-    # Full evidence remains in the immutable publication/ledger.  Only current
-    # executable instructions and tracked records need the complete tree in the
-    # browser response; compact research rows keep all decision fields needed by
-    # tables/details while preventing a large market catalogue from taking the
-    # isolated renderer past its response bound.
+    # All server validation, sizing and instruction reviews above use the full
+    # stored evidence. Projection below is display-only: do not feed the compact
+    # aggregates back into guard/replay. Original evidence stays in SQLite.
     d['evaluated_candidates']=[_compact_dashboard_tip(t) for t in d['evaluated_candidates']]
     d['recommendations']=[_compact_dashboard_tip(t) for t in d['recommendations']]
     d['alternatives']=[_compact_dashboard_tip(t) for t in d['alternatives']]
+    d['tracked_bets']=[{**b,'payload':_compact_outcome_fields(b['payload'])} for b in d['tracked_bets']]
+    d['stake_reassessments']=[{**row,'sizing':_compact_outcome_sizing(row['sizing'])}
+        if 'sizing' in row else row for row in d['stake_reassessments']]
     # Data is already JSON-native. Avoid FastAPI recursively re-encoding the
     # large evidence tree on the event loop; freshness is still rebuilt per GET.
     return english_payload(d)
