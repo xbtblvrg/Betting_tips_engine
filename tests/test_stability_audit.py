@@ -75,3 +75,22 @@ def test_delayed_engineering_intake_uses_original_audit_stamp_and_no_duplicate(t
     row=json.loads((tmp_path/'data/development/engineering.json').read_text())['gaps']['component:Stability execution counts']
     assert row['task_id']=='D14' and row['priority']==0 and row['observations']==1
     assert row['last_observed_at']==now.isoformat()
+
+
+def test_stale_cached_healthy_audit_cannot_close_existing_failure(tmp_path):
+    import json
+    from betting_engine.engineering_loop import sync_engineering_loop
+    now=utcnow();result,dashboard=inputs(now)
+    dashboard['status']['execution_counts']['current_executable']=9
+    audit=stability_audit(result,{},now,lambda:dashboard,lambda:'10 /bin/python -m uvicorn betting_engine.server:app')
+    plan={'tasks':[{'id':'D14','milestone':'M08','priority':14,'depends_on':[]}],'milestones':[]}
+    def ingest(at,checks):
+        sync_engineering_loop(tmp_path,plan,{},payload={'generated_at':at.isoformat()},
+            operations={'checked_at':at.isoformat(),'publication_at':at.isoformat(),'gaps':[]},
+            components={'checked_at':at.isoformat(),'checks':checks},now=at)
+    ingest(now,audit['checks'])
+    healthy=[{**c,'state':'healthy','observed_at':(now+timedelta(seconds=1)).isoformat()} for c in audit['checks']]
+    ingest(now+timedelta(minutes=17),healthy)
+    row=json.loads((tmp_path/'data/development/engineering.json').read_text())['gaps']['component:Stability execution counts']
+    assert row['state']=='open' and row['observations']==1
+    assert row['last_observed_at']==now.isoformat()
