@@ -165,3 +165,58 @@ def test_retention_log_rotates_via_shared_bounded_policy(tmp_path):
     result=rotate_log(path,max_bytes=1)
     assert path.read_bytes()==b''
     assert gzip.decompress((root/result['archive']).read_bytes())==b'old retention log\n'
+
+
+def test_retry_reuses_verified_archive_after_final_consumer_disappears(tmp_path,monkeypatch):
+    root=setup(tmp_path)
+    original_candidates=m.candidates
+    monkeypatch.setattr(m,'candidates',lambda root,**kw:original_candidates(root,NOW,**kw))
+    monkeypatch.setattr(m.subprocess,'run',lambda *a,**kw:type('R',(),{'stdout':''})())
+    original_unused=m.require_unused_workspace
+    def final_consumer(root,rid,*,retiring=False):
+        original_unused(root,rid,retiring=retiring)
+        if retiring:raise ValueError('consumer appeared')
+    monkeypatch.setattr(m,'require_unused_workspace',final_consumer)
+    with pytest.raises(ValueError,match='consumer'):m.archive_one(root,OLD)
+    archive=root/'data/workspace-input-archives'/(OLD+'.data.tar.gz')
+    original_archive=archive.read_bytes()
+    monkeypatch.setattr(m,'require_unused_workspace',original_unused)
+    original_tar_open=m.tarfile.open
+    def no_recompression(name,mode,*args,**kwargs):
+        assert mode != 'w:gz'
+        return original_tar_open(name,mode,*args,**kwargs)
+    monkeypatch.setattr(m.tarfile,'open',no_recompression)
+    m.archive_one(root,OLD)
+    assert archive.read_bytes()==original_archive
+    assert not (root/'data/development/workspaces'/OLD/'data').exists()
+
+
+def test_bad_existing_archive_and_original_both_preserved(tmp_path,monkeypatch):
+    root=setup(tmp_path)
+    original_candidates=m.candidates
+    monkeypatch.setattr(m,'candidates',lambda root,**kw:original_candidates(root,NOW,**kw))
+    monkeypatch.setattr(m.subprocess,'run',lambda *a,**kw:type('R',(),{'stdout':''})())
+    archives=root/'data/workspace-input-archives';archives.mkdir()
+    archive=archives/(OLD+'.data.tar.gz');archive.write_bytes(b'corrupt retained archive')
+    with pytest.raises(tarfile.ReadError):m.archive_one(root,OLD)
+    assert archive.read_bytes()==b'corrupt retained archive'
+    assert (root/'data/development/workspaces'/OLD/'data/sub/input.json').read_bytes()==b'original evidence'*50
+
+
+def test_retention_error_log_is_supported_and_fd2_passed(tmp_path,monkeypatch):
+    import gzip
+    from betting_engine.log_rotation import rotate_log
+    root=setup(tmp_path);log=root/'workspace-retention-error.log';log.write_bytes(b'full original error')
+    result=rotate_log(log,max_bytes=1)
+    assert gzip.decompress((root/result['archive']).read_bytes())==b'full original error'
+    monkeypatch.setattr(m,'candidates',lambda *a,**kw:[])
+    calls=[]
+    class Stream:
+        def __init__(self,fd):self.fd=fd
+        def flush(self):pass
+        def write(self,text):pass
+        def fileno(self):return self.fd
+    monkeypatch.setattr(m.sys,'stdout',Stream(1));monkeypatch.setattr(m.sys,'stderr',Stream(2))
+    monkeypatch.setattr('betting_engine.log_rotation.rotate_log',lambda p,*,fd:calls.append((p.name,fd)) or {'state':'absent'})
+    assert m.main(['--root',str(root),'--apply'])==0
+    assert calls==[('workspace-retention.log',1),('workspace-retention-error.log',2)]

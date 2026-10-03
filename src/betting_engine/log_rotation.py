@@ -10,7 +10,7 @@ import time
 
 MAX_BYTES = 16 * 1024 * 1024
 KEEP_ARCHIVES = 7
-NAMES = frozenset(('supervisor.log', 'supervisor-actions.jsonl', 'workspace-retention.log'))
+NAMES = frozenset(('supervisor.log', 'supervisor-actions.jsonl', 'workspace-retention.log', 'workspace-retention-error.log'))
 
 
 def _safe_parent(path):

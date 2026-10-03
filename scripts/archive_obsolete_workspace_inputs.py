@@ -155,22 +155,30 @@ def archive_one(root, rid):
     archive_dir = root/'data/workspace-input-archives'; safe(archive_dir)
     archive_dir.mkdir(exist_ok=True)
     archive = archive_dir/(rid+'.data.tar.gz')
-    if archive.exists(): raise ValueError('Archive already exists; inspect before retry')
-    fd, temporary_name = tempfile.mkstemp(prefix='.'+rid+'-', dir=archive_dir)
-    os.close(fd); temporary = Path(temporary_name)
+    safe(archive)
+    temporary = None
     retired = data.with_name('.data-retiring')
     if retired.exists(): raise ValueError('Interrupted retirement requires recovery')
     try:
-        with tarfile.open(temporary, 'w:gz', compresslevel=1, format=tarfile.PAX_FORMAT) as tar:
-            # Explicit inventory prevents following links or adding unexpected
-            # new entries. Later inventory comparison catches changed sources.
-            for name in expected:
-                tar.add(data.parent/name, arcname=name, recursive=False)
-        with temporary.open('rb') as stream: os.fsync(stream.fileno())
-        verify_archive(temporary, expected)
+        if archive.exists():
+            # A last-moment live consumer may have blocked a previous removal.
+            # Reuse only the exact complete archive; never overwrite a mismatch.
+            verify_archive(archive, expected)
+            with archive.open('rb') as stream: os.fsync(stream.fileno())
+        else:
+            fd, temporary_name = tempfile.mkstemp(prefix='.'+rid+'-', dir=archive_dir)
+            os.close(fd); temporary = Path(temporary_name)
+            with tarfile.open(temporary, 'w:gz', compresslevel=1, format=tarfile.PAX_FORMAT) as tar:
+                # Explicit inventory prevents following links or adding new
+                # entries. Later inventory comparison catches changed sources.
+                for name in expected:
+                    tar.add(data.parent/name, arcname=name, recursive=False)
+            with temporary.open('rb') as stream: os.fsync(stream.fileno())
+            verify_archive(temporary, expected)
         if inventory(data) != expected: raise ValueError('Workspace data changed')
         require_unused_workspace(root, rid)
-        os.link(temporary, archive); temporary.unlink()
+        if temporary is not None:
+            os.link(temporary, archive); temporary.unlink(); temporary = None
         directory = os.open(archive_dir, os.O_RDONLY)
         try: os.fsync(directory)
         finally: os.close(directory)
@@ -194,7 +202,7 @@ def archive_one(root, rid):
                 'files': sum(r['kind']=='file' for r in expected.values()),
                 'state': 'archived_data_removed_code_and_run_evidence_retained'}
     finally:
-        temporary.unlink(missing_ok=True)
+        if temporary is not None: temporary.unlink(missing_ok=True)
 
 
 def main(argv=None):
@@ -220,12 +228,18 @@ def main(argv=None):
             print(json.dumps({'state':'busy', 'applied':False}), flush=True)
             return 0
         from betting_engine.log_rotation import rotate_log
-        try:
-            sys.stdout.flush()
-            rotation = rotate_log(root/'data/logs/workspace-retention.log', fd=sys.stdout.fileno())
-        except (OSError, ValueError) as error:
-            rotation = {'state':'error', 'error':str(error)}
-            print(json.dumps({'log_rotation':rotation}), file=sys.stderr, flush=True)
+        rotation = []
+        for name, stream in (('workspace-retention.log', sys.stdout),
+                             ('workspace-retention-error.log', sys.stderr)):
+            try:
+                stream.flush()
+                outcome = rotate_log(root/'data/logs'/name, fd=stream.fileno())
+            except (OSError, ValueError) as error:
+                outcome = {'log':name, 'state':'error', 'error':str(error)}
+            rotation.append(outcome)
+        for outcome in rotation:
+            if outcome['state'] == 'error':
+                print(json.dumps({'log_rotation':outcome}), file=sys.stderr, flush=True)
         eligible = candidates(root)
         print(json.dumps({'eligible':len(eligible), 'limit':args.limit,
                           'apply':True, 'log_rotation':rotation}), flush=True)
