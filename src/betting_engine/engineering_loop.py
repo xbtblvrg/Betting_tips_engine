@@ -307,11 +307,18 @@ def _collect(root, payload, operations, components, plan, state, now, release_re
         positives['SYSTEM:component_evidence'] = {'observed_at': components['checked_at'], 'kind': 'fresh_component_audit'}
         for check in components.get('checks', []):
             name = str(check.get('component', 'unknown')); identity = 'component:' + name
+            stamp=check.get('observed_at',components['checked_at'])
+            # The existing supervisor's 15-minute audit retains its original
+            # timestamp between ticks. Never lose it after a one-minute poll,
+            # nor invent repeated observations from unchanged cached evidence.
+            audit=name.startswith('Stability ') and check.get('audit_interval_seconds')==900
+            if not _fresh(stamp,now,960 if audit else 180):
+                continue
             if check.get('state') in ('degraded', 'stale', 'missing', 'failed'):
                 add(_observation(identity, 'component_failure', 'SYSTEM', str(check.get('detail', name)),
-                    components['checked_at'], check, bucket={'D36':'learning_flow','D14':'development_efficiency'}.get(check.get('repair_task'),'component'), priority=0))
+                    stamp, check, bucket={'D36':'learning_flow','D14':'development_efficiency'}.get(check.get('repair_task'),'component'), priority=0))
             elif check.get('state') == 'healthy':
-                positives[identity] = {'observed_at': components['checked_at'], 'kind': 'healthy_component', 'evidence': check}
+                positives[identity] = {'observed_at': stamp, 'kind': 'healthy_component', 'evidence': check}
     else:
         diagnostics.append('Component evidence absent or stale; no component gap was resolved from it.')
         add(_observation('SYSTEM:component_evidence', 'component_evidence', 'SYSTEM',

@@ -211,7 +211,6 @@ def stability_audit(result, previous, now, dashboard_reader=None, process_reader
     This audit neither restarts healthy services nor claims queued work is running.
     """
     from datetime import timedelta
-    import shlex
     old=previous.get('stability_audit',{})
     try:
         if 0 <= (now-parse_time(old['checked_at'])).total_seconds() < 900:
@@ -221,7 +220,7 @@ def stability_audit(result, previous, now, dashboard_reader=None, process_reader
     active=set(result.get('development',{}).get('progress',{}).get('active_tasks',[]))
     def add(name,ok,detail,task='D14'):
         checks.append(dict(component=name,state='healthy' if ok else 'degraded',detail=detail,
-            repair_task=task,observed_at=now.isoformat(),restart_eligible=False,
+            repair_task=task,observed_at=now.isoformat(),audit_interval_seconds=900,restart_eligible=False,
             next_action='Repair through existing priority-zero engineering intake and reviewed release.',
             repairing=task in active))
     services=result.get('services',{})
@@ -236,8 +235,8 @@ def stability_audit(result, previous, now, dashboard_reader=None, process_reader
         raw=process_reader() if process_reader else subprocess.check_output(['ps','-axo','pid=,command='],text=True,timeout=3)
         pids=[]
         for line in raw.splitlines():
-            parts=shlex.split(line)
-            if len(parts)>4 and 'python' in Path(parts[1]).name.lower() and parts[2:5]==['-m','uvicorn','betting_engine.server:app']:
+            parts=line.split(None,5)
+            if len(parts)>4 and parts[0].isdigit() and 'python' in Path(parts[1]).name.lower() and parts[2:5]==['-m','uvicorn','betting_engine.server:app']:
                 pids.append(int(parts[0]))
         add('Stability duplicate web processes',len(pids)==1,'Direct engine web PIDs (wrapper processes excluded): '+json.dumps(pids))
     except (ValueError,OSError,subprocess.SubprocessError):
@@ -357,8 +356,7 @@ def run_once(data_dir=DATA, *, emit_summary=False):
             result['components']['state']='degraded'
         result['stability_audit']=stability_audit(result, previous, utcnow())
         # Retain actual observation timestamps; cached checks are not fresh evidence.
-        if result['stability_audit']['checked_at'] != previous.get('stability_audit',{}).get('checked_at'):
-            result['components'].setdefault('checks',[]).extend(result['stability_audit']['checks'])
+        result['components'].setdefault('checks',[]).extend(result['stability_audit']['checks'])
         if result['stability_audit']['error_count']:
             result['components']['state']='degraded'
         result['periodic_question']='Are services progressing, are resources bounded, and which concrete bottleneck requires immediate repair?'

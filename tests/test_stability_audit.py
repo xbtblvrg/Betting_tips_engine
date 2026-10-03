@@ -50,3 +50,28 @@ def test_malformed_counts_have_one_stable_identity_and_new_publication_during_pr
     audit=stability_audit(result,{},now,lambda:dashboard,lambda:'10 /bin/python -m uvicorn betting_engine.server:app')
     assert len({c['component'] for c in audit['checks']})==len(audit['checks'])
     assert [c['component'] for c in audit['checks'] if c['state']=='degraded']==['Stability execution counts']
+
+
+def test_unrelated_process_unbalanced_quotes_and_continuations_are_ignored():
+    now=utcnow();result,dashboard=inputs(now)
+    raw='10 /bin/python -m uvicorn betting_engine.server:app\n20 /bin/claude -p "unterminated\ncontinuation python -m uvicorn betting_engine.server:app\n30 /bin/zsh -c python -m uvicorn betting_engine.server:app'
+    audit=stability_audit(result,{},now,lambda:dashboard,lambda:raw)
+    check=next(c for c in audit['checks'] if c['component']=='Stability duplicate web processes')
+    assert check['state']=='healthy' and '[10]' in check['detail']
+
+
+def test_delayed_engineering_intake_uses_original_audit_stamp_and_no_duplicate(tmp_path):
+    import json
+    from betting_engine.engineering_loop import sync_engineering_loop
+    now=utcnow();result,dashboard=inputs(now)
+    dashboard['status']['execution_counts']['current_executable']=9
+    audit=stability_audit(result,{},now,lambda:dashboard,lambda:'10 /bin/python -m uvicorn betting_engine.server:app')
+    plan={'tasks':[{'id':'D14','milestone':'M08','priority':14,'depends_on':[]}],'milestones':[]}
+    for minutes in (5,6):
+        later=now+timedelta(minutes=minutes)
+        sync_engineering_loop(tmp_path,plan,{},payload={'generated_at':later.isoformat()},
+            operations={'checked_at':later.isoformat(),'publication_at':later.isoformat(),'gaps':[]},
+            components={'checked_at':later.isoformat(),'checks':audit['checks']},now=later)
+    row=json.loads((tmp_path/'data/development/engineering.json').read_text())['gaps']['component:Stability execution counts']
+    assert row['task_id']=='D14' and row['priority']==0 and row['observations']==1
+    assert row['last_observed_at']==now.isoformat()
