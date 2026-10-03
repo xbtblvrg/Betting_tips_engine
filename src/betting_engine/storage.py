@@ -1,13 +1,14 @@
 """Durable publication, audit trail, manual bets and future notification outbox."""
 import json,sqlite3,hashlib,math
+from collections import Counter
 from contextlib import contextmanager
 from pathlib import Path
 from .providers import DATA
 from .domain import utcnow,parse_time
 from datetime import datetime,time,timezone,timedelta
 from zoneinfo import ZoneInfo
-from .decisions import DEFAULT_SETTINGS
-from .contracts import contract_key,contract_value,settlement_scores,equivalent_contract_ids
+from .decisions import DEFAULT_SETTINGS,publication_limits
+from .contracts import contract_key,contract_value,settlement_scores,equivalent_contract_ids,split_market,allocation_family
 from .snapshots import encode_publication,decode_publication
 
 class Store:
@@ -203,9 +204,10 @@ class Store:
     @staticmethod
     def _validate_publication_limits(c,payload,settings):
         """Write-transaction anti-flood guard for the live execution list."""
-        if settings.get('publication_limits_version')!='v1':
+        from .decisions import publication_limits
+        limits = publication_limits(settings)
+        if limits is None:
             return
-        from .contracts import allocation_family,split_market
         funded=[]
         for tip in {t.get('id'):t for t in payload.get('recommendations',[]) if isinstance(t,dict) and t.get('id')}.values():
             try:
@@ -213,8 +215,9 @@ class Store:
                     funded.append(tip)
             except (TypeError,ValueError):
                 continue
-        if len(funded)>int(settings.get('max_new_funded_per_publication',10)):
-            raise ValueError('Publication blocked: maximum 10 new funded recommendations per cycle')
+        cycle_cap = limits['max_new_funded_per_publication']
+        if len(funded)>cycle_cap:
+            raise ValueError(f'Publication blocked: maximum {cycle_cap} new funded recommendations per cycle')
         existing_ids={r['tip_id'] for r in c.execute('SELECT tip_id FROM recommendation_issuance')}
         open_event_counts={};open_event_stakes={};open_period_counts={}
         for row in c.execute("SELECT payload,stake FROM bets WHERE status='open'").fetchall():
@@ -239,12 +242,12 @@ class Store:
             if scope!='full_game':periods[gid]=periods.get(gid,0)+1
             key=(tip.get('league'),allocation_family(tip));families[key]=families.get(key,0)+1
         for gid,count in counts.items():
-            if open_event_counts.get(gid,0)+count>3:raise ValueError('Publication blocked: maximum 3 funded selections per game')
-            if open_event_stakes.get(gid,0.)+stakes[gid]>float(settings.get('max_stake_per_event',5.))+1e-9:raise ValueError('Publication blocked: $5 maximum stake per game')
-            if open_period_counts.get(gid,0)+periods.get(gid,0)>int(settings.get('max_period_per_event',1)):raise ValueError('Publication blocked: maximum 1 period/quarter selection per game')
-        total=sum(daily.values())+len(new);limit=max(1,math.ceil(total*float(settings.get('max_daily_family_share',.25))))
+            if open_event_counts.get(gid,0)+count>limits['max_per_event']:raise ValueError(f"Publication blocked: maximum {limits['max_per_event']} funded selections per game")
+            if open_event_stakes.get(gid,0.)+stakes[gid]>limits['max_stake_per_event']+1e-9:raise ValueError(f"Publication blocked: ${limits['max_stake_per_event']:.0f} maximum stake per game")
+            if open_period_counts.get(gid,0)+periods.get(gid,0)>limits['max_period_per_event']:raise ValueError(f"Publication blocked: maximum {limits['max_period_per_event']} period/quarter selection per game")
+        total=sum(daily.values())+len(new);limit=max(1,math.ceil(total*limits['max_daily_family_share']))
         for key,count in families.items():
-            if daily.get(key,0)+count>limit:raise ValueError('Publication blocked: market-family daily share exceeds 25%')
+            if daily.get(key,0)+count>limit:raise ValueError(f"Publication blocked: market-family daily share exceeds {limits['max_daily_family_share']:.0%}")
     @staticmethod
     def record_issuance(c,tip,issued_at,source='publication'):
         # Count an actually funded recommendation once, never a watchlist row,
@@ -366,6 +369,41 @@ class Store:
         existing=[json.loads(r['payload']) for r in c.execute('SELECT payload FROM bets')]
         families={(t.get('game_id'),t.get('market')) for t in existing}
         contracts={t.get('id') for t in existing};additions=settings.get('allow_event_additions',False)
+        policy=publication_limits(settings)
+        event_stakes=Counter();period_counts=Counter()
+        for old in existing:
+            try:
+                gid=old.get('game_id');event_stakes[gid]+=float(old.get('stake',0))
+                scope,_=split_market(old.get('market',''))
+                if scope!='full_game':period_counts[gid]+=1
+            except (TypeError,ValueError):
+                continue
+        cycle_funded=0
+        daily_family_counts=Counter();family_new=Counter()
+        if policy:
+            day_end=datetime.combine(local.date()+timedelta(days=1),time.min,tzinfo=local.tzinfo).astimezone(timezone.utc).isoformat()
+            for issued in c.execute("SELECT i.league,d.payload FROM recommendation_issuance i JOIN system_decisions d ON d.family=i.family WHERE i.issued_at>=? AND i.issued_at<?",(day_start,day_end)).fetchall():
+                try:
+                    previous=json.loads(issued['payload'])
+                    daily_family_counts[(issued['league'],allocation_family(previous))]+=1
+                except (TypeError,ValueError,json.JSONDecodeError):
+                    continue
+            # The atomic publication guard uses the full candidate batch as
+            # its denominator.  Counting structurally valid rows here keeps
+            # the fallback auto-tracker closed under the same share policy;
+            # stale rows only make this conservative.
+            candidate_count=0
+            for candidate in payload.get('recommendations',[]):
+                try:
+                    if (isinstance(candidate,dict)
+                            and candidate.get('id') not in contracts
+                            and candidate.get('reference_platform')=='Stake.com'
+                            and not candidate.get('alternative')
+                            and 1<=float(candidate.get('stake',0))<=5):
+                        candidate_count+=1
+                except (TypeError,ValueError):
+                    continue
+            family_limit=max(1,math.ceil((sum(daily_family_counts.values())+candidate_count)*policy['max_daily_family_share']))
         for tip in payload.get('recommendations',[]):
             amount=tip.get('stake',0);odds=tip.get('reference_odds',0)
             if not(1<=amount<=min(5,settings['max_bet']) and math.isfinite(odds) and odds>1):continue
@@ -378,8 +416,15 @@ class Store:
             except (KeyError,ValueError,TypeError):continue
             family=(tip['game_id'],tip['market'])
             if tip['id'] in contracts or (not additions and family in families):continue
-            event_cap=settings.get('max_per_event')
+            event_cap=(policy['max_per_event'] if policy else settings.get('max_per_event'))
             if event_cap is not None and sum(g==tip['game_id'] for g,m in families)>=event_cap:continue
+            if policy:
+                if cycle_funded>=policy['max_new_funded_per_publication']:continue
+                if event_stakes[tip['game_id']]+amount>policy['max_stake_per_event']+1e-9:continue
+                scope,_=split_market(tip.get('market',''))
+                if scope!='full_game' and period_counts[tip['game_id']]>=policy['max_period_per_event']:continue
+                family_key=(tip.get('league'),allocation_family(tip))
+                if (daily_family_counts[family_key]+family_new[family_key]>=family_limit):continue
             limit=settings.get('daily_risk_limit')
             if limit is not None and committed+amount>limit+1e-8:continue
             recorded={**tip,'ledger_contract':'sportsbook','tracking_source':'auto_assumed_placed',
@@ -388,6 +433,9 @@ class Store:
             c.execute('INSERT INTO bets(tip_id,created_at,stake,odds,platform,payload,request_id) VALUES (?,?,?,?,?,?,?)',
                       (tip['id'],now,amount,odds,'Stake.com',json.dumps(recorded,ensure_ascii=False),f'auto-stake:{tip["id"]}'))
             families.add(family);contracts.add(tip['id']);committed+=amount
+            event_stakes[tip['game_id']]+=amount;cycle_funded+=1
+            if policy and scope!='full_game':period_counts[tip['game_id']]+=1
+            if policy:family_new[family_key]+=1
     def get_tip(self,id):
         with self.db() as c:r=c.execute('SELECT payload FROM tips WHERE id=?',(id,)).fetchone()
         return json.loads(r['payload']) if r else None

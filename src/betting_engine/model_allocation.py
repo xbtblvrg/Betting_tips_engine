@@ -34,7 +34,7 @@ def verify_family_publication(connection, candidates, settings):
 The same actual open-event exposure and remaining allocation used by sizing
 are reread here. A concurrent ticket cannot leave a stale allocation funded.
 """
-    from .decisions import remaining_budget
+    from .decisions import remaining_budget, publication_limits
     from .funding_policy import size_recommendation
     from .instruction_refill import TransactionStore
 
@@ -54,8 +54,8 @@ are reread here. A concurrent ticket cannot leave a stale allocation funded.
     event_stakes = Counter(store.held_event_stakes())
     # Legacy fixtures intentionally have no publication-limits switch.  Keep
     # their uncapped sizing semantics; the live service opts into v1 explicitly.
-    event_cap = (float(settings.get('max_stake_per_event', 5.0))
-                 if settings.get('publication_limits_version') == 'v1' else float('inf'))
+    limits = publication_limits(settings)
+    event_cap = (limits['max_stake_per_event'] if limits else float('inf'))
     new_event_stakes = Counter()
     remaining = remaining_budget(settings, store.risk_committed())
     funded = [tip for tip in unique.values() if tip.get('stake', 0) > 0]

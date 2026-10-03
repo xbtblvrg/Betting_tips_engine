@@ -1,7 +1,9 @@
 """Regression for the 2026-10-02 17:00–17:10 UTC 158-tip flood."""
 from collections import Counter
 
-from betting_engine.decisions import DEFAULT_SETTINGS, rank_and_size
+import pytest
+
+from betting_engine.decisions import DEFAULT_SETTINGS, publication_limits, rank_and_size
 from betting_engine.contracts import allocation_family
 from betting_engine.storage import Store
 from test_core_market_sizing import row
@@ -108,3 +110,65 @@ def test_same_game_new_allocations_are_counted_once_up_to_existing_cap():
         assert len(funded)==max(0,3-held)
         assert held+sum(t['stake'] for t in funded)<=5
         assert len(funded)+len([t for t in alternatives if t.get('allocation_code')=='event_limit'])==3
+
+
+def test_v2_policy_expands_only_the_versioned_publication_caps():
+    settings={**DEFAULT_SETTINGS,'publication_limits_version':'v2',
+              'max_new_funded_per_publication':15,'max_per_event':4,
+              'max_period_per_event':2,'max_stake_per_event':10.,
+              'max_daily_family_share':.35}
+    assert publication_limits(settings)=={
+        'version':'v2','max_new_funded_per_publication':15,'max_per_event':4,
+        'max_period_per_event':2,'max_stake_per_event':10.,
+        'max_daily_family_share':.35,
+    }
+
+
+def test_v2_replay_is_bounded_by_the_wider_caps_without_158_row_flood():
+    markets=['moneyline','spreads','totals','home_total','away_total',
+             'quarter_1:moneyline','quarter_2:moneyline','half_1:totals']
+    rows=[row(f'tip-{i}',markets[i % len(markets)],p=.65,odds=2.0,
+              game=f'game-{i % 20}') for i in range(158)]
+    settings={**DEFAULT_SETTINGS,'publication_limits_version':'v2',
+              'max_new_funded_per_publication':15,'max_per_event':4,
+              'max_period_per_event':2,'max_stake_per_event':10.,
+              'max_daily_family_share':.35}
+    chosen, alternatives=rank_and_size(rows,settings)
+    funded=[tip for tip in chosen if tip.get('stake',0)>0]
+    assert len(funded)<=15
+    assert max(Counter(t['game_id'] for t in funded).values(),default=0)<=4
+    assert max(Counter(t['game_id'] for t in funded if t.get('model_scope')!='full_game').values(),default=0)<=2
+    assert max((sum(t['stake'] for t in funded if t['game_id']==game)
+                for game in {t['game_id'] for t in funded}),default=0)<=10
+    family_counts=Counter((t['league'],t['market']) for t in funded)
+    assert max(family_counts.values(),default=0)<=6  # ceil(15 * 35%)
+    assert len(funded)+sum(t.get('stake',0)>0 for t in alternatives)<=15
+
+
+def test_v2_write_guard_rejects_a_cycle_that_exceeds_fifteen(tmp_path):
+    from test_autotracking import tip
+    store=Store(tmp_path/'v2.sqlite')
+    store.save_settings({'publication_limits_version':'v2',
+                         'max_new_funded_per_publication':15,
+                         'max_per_event':4,'max_period_per_event':2,
+                         'max_stake_per_event':10.,'max_daily_family_share':.35,
+                         'auto_track_recommendations':True})
+    rows=[tip(id=str(i),game_id=f'NBA:{i}') for i in range(16)]
+    with store.db() as db:
+        with pytest.raises(ValueError,match='maximum 15'):
+            Store._validate_publication_limits(db,{'recommendations':rows},store.settings())
+    assert store.bets()==[] and store.latest() is None
+
+
+def test_v2_auto_tracking_cannot_bypass_the_cycle_or_event_caps(tmp_path):
+    from test_autotracking import tip
+    store=Store(tmp_path/'v2-auto.sqlite')
+    store.save_settings({'publication_limits_version':'v2',
+                         'max_new_funded_per_publication':15,
+                         'max_per_event':4,'max_period_per_event':2,
+                         'max_stake_per_event':10.,'max_daily_family_share':.35,
+                         'auto_track_recommendations':True})
+    markets=['moneyline','spreads','totals','quarter_1:moneyline','quarter_2:moneyline']
+    rows=[tip(id=str(i),game_id=f'NBA:{i}',market=markets[i % len(markets)]) for i in range(16)]
+    store.publish({'recommendations':rows})
+    assert len(store.bets())==15

@@ -21,6 +21,18 @@ def test_unknown_cost_is_preserved_and_excess_bet_cap_rejected(client):
     assert client.put('/api/settings',json={'max_bet':6}).status_code==422
     assert client.put('/api/settings',json={'monthly_system_cost':30}).json()['monthly_system_cost']==30
 
+
+def test_publication_limits_v2_is_exposed_and_bounded_by_api(client):
+    values={'publication_limits_version':'v2',
+            'max_new_funded_per_publication':15,'max_per_event':4,
+            'max_period_per_event':2,'max_stake_per_event':10,
+            'max_daily_family_share':.35}
+    result=client.put('/api/settings',json=values)
+    assert result.status_code==200
+    assert {key:result.json()[key] for key in values}==values
+    assert client.put('/api/settings',json={'max_new_funded_per_publication':16}).status_code==422
+    assert client.put('/api/settings',json={'max_per_event':5}).status_code==422
+
 def test_daily_cap_can_be_removed_and_is_preserved_on_partial_update(client):
     assert client.put('/api/settings',json={'daily_risk_limit':10}).json()['daily_risk_limit']==10
     settings=client.put('/api/settings',json={'daily_risk_limit':None}).json()

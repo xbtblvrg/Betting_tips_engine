@@ -8,7 +8,7 @@ from .freshness import MAX_QUOTE_AGE_SECONDS
 from .contracts import split_market,allocation_family,SCOPE_LABELS
 
 # The legacy sizing defaults remain backwards compatible for historical
-# receipts.  The live service enables publication_limits_version=v1 in its
+# receipts.  The live service enables a versioned publication policy in its
 # durable settings; rank_and_size and the write transaction then apply the
 # hard anti-flood limits below.  Keeping the switch explicit prevents a
 # historical fixture or receipt from being silently rewritten.
@@ -23,6 +23,47 @@ DEFAULT_SETTINGS['calibration_min_games']=30
 
 LEGACY_FAMILY_SELECTION = 'stressed_value_v1'
 PROBABILITY_FAMILY_SELECTION = 'qualified_probability_v1'
+
+PUBLICATION_LIMITS_V1 = 'v1'
+PUBLICATION_LIMITS_V2 = 'v2'
+
+
+def publication_limits(settings):
+    """Return the effective, bounded publication limits for an active policy.
+
+    The explicit version is part of the durable settings and of the
+    publication evidence.  No-version settings retain the historical
+    uncapped behavior.  Version 1 values remain byte-for-byte compatible with
+    the former guards; version 2 widens only the requested throughput caps.
+    Values are capped at the policy maximum so a stale or malformed settings
+    row cannot silently disable the anti-flood guard.
+    """
+    version = settings.get('publication_limits_version')
+    if version not in (PUBLICATION_LIMITS_V1, PUBLICATION_LIMITS_V2):
+        return None
+    if version == PUBLICATION_LIMITS_V1:
+        configured_event_cap = settings.get('max_per_event')
+        event_cap = (min(3, int(configured_event_cap))
+                     if configured_event_cap is not None else 3)
+        return {
+            'version': version,
+            'max_new_funded_per_publication': int(settings.get('max_new_funded_per_publication', 10)),
+            'max_per_event': event_cap,
+            'max_period_per_event': int(settings.get('max_period_per_event', 1)),
+            'max_stake_per_event': float(settings.get('max_stake_per_event', 5.)),
+            'max_daily_family_share': float(settings.get('max_daily_family_share', .25)),
+        }
+    configured_event_cap = settings.get('max_per_event')
+    event_cap = (min(4, int(configured_event_cap))
+                 if configured_event_cap is not None else 4)
+    return {
+        'version': version,
+        'max_new_funded_per_publication': min(15, int(settings.get('max_new_funded_per_publication', 15))),
+        'max_per_event': event_cap,
+        'max_period_per_event': min(2, int(settings.get('max_period_per_event', 2))),
+        'max_stake_per_event': min(10., float(settings.get('max_stake_per_event', 10.))),
+        'max_daily_family_share': min(.35, float(settings.get('max_daily_family_share', .35))),
+    }
 
 
 def family_selection_policy(settings):
@@ -52,7 +93,9 @@ def remaining_budget(settings,committed=0.):
 
 def publication_family_limit(settings,issued_count,new_count):
     """Mirror Store's atomic daily family check with actual first issuances."""
-    return max(1,math.ceil((issued_count+new_count)*float(settings.get('max_daily_family_share',.25))))
+    limits = publication_limits(settings)
+    share = limits['max_daily_family_share'] if limits else float(settings.get('max_daily_family_share', .25))
+    return max(1,math.ceil((issued_count+new_count)*share))
 
 def sportsbook_ev(pwin,ppush,odds):
     if not(0<=pwin<=1 and 0<=ppush<=1 and pwin+ppush<=1+1e-9 and odds>1):raise ValueError('Invalid probability or odds')
@@ -292,12 +335,17 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
     held=set(held_families)
     held_ids=set(held_contracts);additions=settings.get('allow_event_additions',False)
     def covered(c):return c['id'] in held_ids if additions else (c['game_id'],c['market']) in held
-    limits_enabled=settings.get('publication_limits_version')=='v1'
+    publication_policy = publication_limits(settings)
+    limits_enabled = publication_policy is not None
     configured_event_cap=settings.get('max_per_event')
-    event_cap=min(3, int(configured_event_cap)) if limits_enabled and configured_event_cap is not None else (3 if limits_enabled else configured_event_cap)
-    cycle_cap=int(settings.get('max_new_funded_per_publication',10)) if limits_enabled else math.inf
-    event_stake_cap=float(settings.get('max_stake_per_event',5.)) if limits_enabled else math.inf
-    period_cap=int(settings.get('max_period_per_event',1)) if limits_enabled else math.inf
+    event_cap=(publication_policy['max_per_event'] if limits_enabled
+               else configured_event_cap)
+    cycle_cap=(publication_policy['max_new_funded_per_publication']
+                if limits_enabled else math.inf)
+    event_stake_cap=(publication_policy['max_stake_per_event']
+                     if limits_enabled else math.inf)
+    period_cap=(publication_policy['max_period_per_event']
+                if limits_enabled else math.inf)
     daily_family_counts=Counter(daily_family_counts or {})
     # Use the same ledger population as the publication transaction, not a
     # UI target/checkpoint counter. The ten-slot ceiling is only provisional;
@@ -392,7 +440,7 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
             c['allocation_code']='period_limit';c['allocation_reason']='The per-game period/quarter allocation is already committed; this is an alternative, not an extra bet.'
             c['stake_note']=c['allocation_reason'];c['alternative']=True;alternatives.append(c);continue
         if limits_enabled and not covered(c) and daily_family_counts[family_key]+family_new[family_key]>=daily_family_limit:
-            c['allocation_code']='family_share_limit';c['allocation_reason']='This market family reached the 25% daily publication share; another family or game must be selected.'
+            c['allocation_code']='family_share_limit';c['allocation_reason']=f"This market family reached the {publication_policy['max_daily_family_share']:.0%} daily publication share; another family or game must be selected."
             c['stake_note']=c['allocation_reason'];c['alternative']=True;alternatives.append(c);continue
         # ``counts`` is an exposure counter, not a count of evaluated rows.
         # Unfunded candidates and already-held contracts must not consume a
@@ -430,7 +478,7 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
             c['stake_sizing']=sizing;amount,note=sizing['amount'],sizing['note']
             c['stake']=amount;c['stake_note']=note if amount else 'A megmaradt keretből vagy a rész-Kelly alapján nem adódik legalább 1 USD tét.';remaining-=amount
             if amount and limits_enabled and (event_stakes[c['game_id']]+amount>event_stake_cap+1e-9):
-                amount=0.;c['stake']=0.;c['allocation_code']='event_stake_limit';c['allocation_reason']='The $5 per-game stake cap would be exceeded.'
+                amount=0.;c['stake']=0.;c['allocation_code']='event_stake_limit';c['allocation_reason']=f'The ${event_stake_cap:.0f} per-game stake cap would be exceeded.'
             elif amount:
                 c['allocation_code']='funded'
             else:c['allocation_code']='stake_below_minimum'
@@ -464,7 +512,7 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
             # never be interpreted as newly funded execution instructions.
             for rest in ordered[allocation_rank:]:
                 if rest.get('id') in {x.get('id') for x in chosen}: continue
-                rest['stake']=0.;rest['allocation_code']='publication_cycle_limit';rest['allocation_reason']='The publication cycle cap is 10 new funded selections.';rest['stake_note']=rest['allocation_reason'];rest['alternative']=True;alternatives.append(rest)
+                rest['stake']=0.;rest['allocation_code']='publication_cycle_limit';rest['allocation_reason']=f'The publication cycle cap is {cycle_cap} new funded selections.';rest['stake_note']=rest['allocation_reason'];rest['alternative']=True;alternatives.append(rest)
             break
     if family_additions or limits_enabled:
         # Size against the complete new batch, not just earlier allocations.

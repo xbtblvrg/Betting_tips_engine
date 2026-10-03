@@ -212,6 +212,12 @@ class Settings(BaseModel):
     daily_pick_target:int=Field(20,ge=20,le=100)
     max_bet:float=Field(5,ge=1,le=5)
     unit_stake:float=Field(1,ge=1,le=5)
+    publication_limits_version:Literal['v1','v2']|None=None
+    max_new_funded_per_publication:int=Field(10,ge=1,le=15)
+    max_per_event:int|None=Field(None,ge=1,le=4)
+    max_period_per_event:int=Field(1,ge=1,le=2)
+    max_stake_per_event:float=Field(5,ge=1,le=10)
+    max_daily_family_share:float=Field(.25,gt=0,le=.35)
     minimum_roi:float=Field(.03,ge=0,le=.5)
     recommendation_policy:Literal['strict','continuous_model_v1','continuous_best_available_v1']='strict'
     model_pick_sizing_policy:Literal['unit_cap_v1','model_weighted_v2','all_tiers_weighted_v3']='unit_cap_v1'
@@ -234,8 +240,10 @@ def get_settings():return engine.store.settings()
 def put_settings(settings:Settings):
     values=settings.model_dump(exclude_unset=True)
     current=engine.store.settings()
-    if current.get('daily_pick_target',20)>=40 and values.get('daily_pick_target',40)<40:
-        raise HTTPException(422,'The active daily first-issuance target is at least 40.')
+    active_target=current.get('daily_pick_target',20)
+    minimum_active_target=100 if active_target>=100 else 40 if active_target>=40 else None
+    if minimum_active_target is not None and values.get('daily_pick_target',minimum_active_target)<minimum_active_target:
+        raise HTTPException(422,f'The active daily first-issuance target is at least {minimum_active_target}.')
     proposed={**current,**values}
     if proposed['bankroll'] and proposed['daily_risk_limit'] is not None and proposed['daily_risk_limit']>proposed['bankroll']:raise HTTPException(422,'A napi keret nem lehet nagyobb a bankrollnál.')
     if values.get('auto_track_recommendations') is None:values.pop('auto_track_recommendations',None)

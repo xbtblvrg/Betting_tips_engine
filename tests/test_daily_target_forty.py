@@ -32,3 +32,15 @@ def test_old_settings_form_cannot_lower_active_forty_target(tmp_path,monkeypatch
         assert client.put('/api/settings',json={'daily_pick_target':lower}).status_code==422
         assert s.settings()['daily_pick_target']==40
     assert client.put('/api/settings',json={'daily_pick_target':45}).json()['daily_pick_target']==45
+
+
+def test_old_settings_form_cannot_lower_active_hundred_target(tmp_path,monkeypatch):
+    """A stale form must not silently undo the activated 100-issuance target."""
+    s=store(tmp_path,daily_pick_target=100)
+    monkeypatch.setattr(server.engine,'store',s)
+    monkeypatch.setattr(server.engine,'refresh',lambda:True)
+    client=TestClient(server.app)
+    for lower in (20,40,99):
+        assert client.put('/api/settings',json={'daily_pick_target':lower}).status_code==422
+        assert s.settings()['daily_pick_target']==100
+    assert client.put('/api/settings',json={'unit_stake':1}).json()['daily_pick_target']==100
