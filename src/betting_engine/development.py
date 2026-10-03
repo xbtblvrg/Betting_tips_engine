@@ -1077,11 +1077,17 @@ class DevelopmentWorker:
             shutil.copytree(accepted, self.workspace, dirs_exist_ok=True, copy_function=workspace_copy2,
                 ignore=shutil.ignore_patterns('__pycache__', '.pytest_cache', '.git', 'node_modules', 'data', 'candidate_fixture_repairs'))
             staged=tree_manifest(self.workspace)
-            changes=changed_files(old_base,current_base)
+            # The accepted tree may predate a controller repair even when the
+            # shared production baseline is already current. Protected inputs
+            # are root-owned, never candidate implementations: restore them on
+            # every prepare rather than inheriting stale/missing accepted bytes.
+            protected_drift = [p for p in PROTECTED if p in current_base
+                               and staged.get(p) != current_base[p]]
+            changes=sorted(set(changed_files(old_base,current_base)) | set(protected_drift))
             conflicts=[p for p in changes if not p.startswith('knowledge/') and staged.get(p) not in (old_base.get(p),current_base.get(p))]
             if conflicts:
-                evidence={'at':utcnow().isoformat(),'files':conflicts,'state':'requires_candidate_resolution',
-                    'action':'Resolve against the copied current production version; retain old candidate behavior and tests. Production remains untouched.'}
+                evidence={'at':utcnow().isoformat(),'files':conflicts,'protected_restored':protected_drift,'state':'requires_candidate_resolution',
+                    'action':'Resolve against the copied current production version; retain old candidate behavior and tests. Protected restored files are authoritative root inputs and must not be edited. Production remains untouched.'}
                 atomic_json(self.folder/'rebase-conflicts.json',evidence)
                 atomic_json(self.workspace/'data/rebase/conflicts.json',evidence)
                 for name in conflicts:
@@ -1098,6 +1104,9 @@ class DevelopmentWorker:
                 if name in current_base:
                     target.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(self.root/name,target)
                 else:target.unlink(missing_ok=True)
+            for name in protected_drift:
+                if hashlib.sha256(_recovery_bytes(self.workspace,name)).hexdigest() != current_base[name]:
+                    raise ValueError('Protected root source changed during preparation: ' + name)
             if changes:atomic_json(self.folder/'last-rebase.json',{'at':utcnow().isoformat(),'files':changes,'state':'awaiting_candidate_revalidation'})
         else:
             for relative in COPY_DIRS:
