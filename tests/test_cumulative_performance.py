@@ -150,3 +150,23 @@ def test_confidence_intervals_use_whole_game_clusters_and_are_reproducible():
     assert curve['summary']['roi_ci95'] == confidence['roi_ci95']
     assert forward['cumulative_performance']['summary']['confidence_intervals'] == reverse['cumulative_performance']['summary']['confidence_intervals']
     assert forward['top_markets'][0]['summary']['confidence_intervals']['independent_games'] == 20
+
+
+def test_confidence_cannot_silently_drop_unknown_game_from_same_cohort():
+    rows = [fixtures(i, game=f'g{i}') for i in range(1, 22)]
+    rows[-1][0]['payload']['game_id'] = None
+    rows[-1][1]['payload']['game_id'] = None
+    result = report(*rows)['ticket_ledger']
+    for summary in (result['cumulative_performance']['summary'], result['top_markets'][0]):
+        assert summary['roi_ci95'] is None
+        assert summary['hit_rate_ci95'] is None
+        assert summary['confidence_intervals']['state'] == 'incomplete_game_or_money_evidence'
+
+
+def test_incomplete_curve_does_not_show_confidence_from_a_different_cohort():
+    rows = [fixtures(i, game=f'g{i}') for i in range(1, 22)]
+    rows[-1][2]['evidence'].pop('settled_at')
+    rows[-1][1]['outcome_evidence'].pop('settled_at')
+    summary = report(*rows)['ticket_ledger']['cumulative_performance']['summary']
+    assert summary['pnl'] is None and summary['roi'] is None
+    assert summary['roi_ci95'] is None and summary['hit_rate_ci95'] is None

@@ -363,6 +363,9 @@ def _cluster_confidence(rows):
         'roi_ci95': None, 'hit_rate_ci95': None,
         'state': 'insufficient_independent_games',
     }
+    if any(row['status'] in CLOSED and (not row['money_known'] or not row['game_id']) for row in rows):
+        result['state'] = 'incomplete_game_or_money_evidence'
+        return result
     if len(roi_clusters) < _CLUSTER_CI_MIN_GAMES and len(wr_clusters) < _CLUSTER_CI_MIN_GAMES:
         return result
 
@@ -461,7 +464,9 @@ def _cumulative_performance(rows):
     complete_money = not invalid_money_closed
     complete_time = not unknown_time
     complete_points = bool(included) and complete_money and complete_time
-    confidence = _cluster_confidence(closed)
+    confidence = _cluster_confidence(included) if complete_points else {
+        'state': 'incomplete_or_empty_curve', 'roi_ci95': None, 'hit_rate_ci95': None,
+        'minimum_games': _CLUSTER_CI_MIN_GAMES, 'independent_games': len(games)}
     summary = {
         'pnl': _float(known_pnl) if complete_points else None,
         'settled_stake': _float(known_stake) if complete_points else None,
@@ -526,12 +531,6 @@ def _top_markets(rows):
             'count', 'settled', 'won', 'lost', 'pushes', 'voids', 'manual',
             'games', 'settled_games', 'settled_stake', 'pnl', 'roi', 'hit_rate',
             'money_complete', 'excluded_money_rows')}
-        confidence = _cluster_confidence(group)
-        compact_summary.update({
-            'confidence_intervals': confidence,
-            'roi_ci95': confidence['roi_ci95'],
-            'hit_rate_ci95': confidence['hit_rate_ci95'],
-        })
         candidates.append({
             'scope': scope, 'market_family': family, 'market_label': market_label,
             'summary': compact_summary,
@@ -544,6 +543,11 @@ def _top_markets(rows):
     candidates.sort(key=lambda item: (-item['_sort_pnl'], -item['_sort_roi'], str(item['scope']), str(item['market_family']), str(item['market_label'])) )
     result = []
     for item in candidates[:5]:
+        confidence = _cluster_confidence(groups[(item['scope'], item['market_family'])])
+        metrics = {'confidence_intervals': confidence, 'roi_ci95': confidence['roi_ci95'],
+                   'hit_rate_ci95': confidence['hit_rate_ci95']}
+        item.update(metrics)
+        item['summary'].update(metrics)
         item.pop('_sort_pnl', None)
         item.pop('_sort_roi', None)
         result.append(item)
