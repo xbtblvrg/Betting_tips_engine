@@ -15,7 +15,7 @@ import re
 
 from .contracts import contract_value, split_market
 
-VERSION = 'betting-statistics-v1'
+VERSION = 'betting-statistics-v2'
 CLOSED = frozenset(('won', 'lost', 'push', 'void', 'manual'))
 OUTCOMES = frozenset(('won', 'lost', 'push', 'void'))
 
@@ -328,6 +328,151 @@ def _group(rows, keys):
     return [{**dict(zip(keys, key)), **_summary(group)} for key, group in sorted(groups.items(), key=lambda pair: str(pair[0]))]
 
 
+def _cumulative_performance(rows):
+    """Return a settlement-time cumulative ledger view for an already filtered cohort.
+
+    Only rows with a retained, parseable settlement timestamp and complete money
+    fields can enter the points.  The explicit baseline is a chart origin, not a
+    settlement timestamp.  In particular, this function never substitutes start,
+    issued, or fetch time for a missing settlement time.
+    """
+    closed = [row for row in rows if row['status'] in CLOSED]
+    timestamped = [row for row in closed if row.get('settled_at') is not None]
+    unknown_time = [row for row in closed if row.get('settled_at') is None]
+    included = [row for row in timestamped if row['money_known']]
+    invalid_money = [row for row in timestamped if not row['money_known']]
+    invalid_money_closed = [row for row in closed if not row['money_known']]
+    unplaced = [row for row in rows if row['_stake'] is None or row['_stake'] <= 0]
+    known_timestamped = [row for row in timestamped if row['money_known']]
+
+    # Group by canonical UTC timestamp.  Every row settled at the same instant
+    # produces one point, so the chart cannot imply an arbitrary row ordering.
+    batches = defaultdict(list)
+    for row in included:
+        batches[row['settled_at']].append(row)
+
+    zero = Decimal(0)
+    pnl = stake = zero
+    settled = won = lost = 0
+    games = set()
+    peak = zero
+    max_drawdown = zero
+    points = [{
+        'at': None, 'baseline': True, 'pnl': 0.0, 'settled_stake': 0.0,
+        'roi': None, 'hit_rate': None, 'settled': 0, 'won': 0, 'lost': 0,
+        'games': 0,
+    }]
+    for at in sorted(batches):
+        for row in batches[at]:
+            pnl += row['_pnl']
+            stake += row['_stake']
+            settled += 1
+            if row['status'] == 'won':
+                won += 1
+            elif row['status'] == 'lost':
+                lost += 1
+            if row['game_id']:
+                games.add(row['game_id'])
+        if pnl > peak:
+            peak = pnl
+        drawdown = peak - pnl
+        if drawdown > max_drawdown:
+            max_drawdown = drawdown
+        points.append({
+            'at': at, 'baseline': False, 'pnl': _float(pnl),
+            'settled_stake': _float(stake),
+            'roi': _float(pnl / stake) if stake > 0 else None,
+            'hit_rate': won / (won + lost) if won + lost else None,
+            'settled': settled, 'won': won, 'lost': lost,
+            'games': len(games),
+        })
+
+    # Keep the known subtotal available for an honest partial view.  The public
+    # headline fields are withheld if any timestamped closed money is invalid;
+    # this prevents a partial sum from being presented as the complete cohort.
+    known_pnl = pnl if included else zero
+    known_stake = stake if included else zero
+    complete_money = not invalid_money_closed
+    complete_points = bool(included) and complete_money
+    summary = {
+        'pnl': _float(known_pnl) if complete_points else None,
+        'settled_stake': _float(known_stake) if complete_points else None,
+        'roi': _float(known_pnl / known_stake) if complete_points and known_stake > 0 else None,
+        'hit_rate': won / (won + lost) if included and won + lost else None,
+        'settled': settled, 'won': won, 'lost': lost,
+        'pushes': sum(row['status'] == 'push' for row in included),
+        'voids': sum(row['status'] == 'void' for row in included),
+        'manual': sum(row['status'] == 'manual' for row in included),
+        'games': len(games), 'independent_games': len(games),
+        'max_drawdown': _float(max_drawdown) if included else 0.0,
+        'current_drawdown': _float(peak - pnl) if included else 0.0,
+        'peak_pnl': _float(peak) if included else 0.0,
+        'known_pnl': _float(known_pnl), 'known_settled_stake': _float(known_stake),
+        'complete_money': complete_money, 'points': len(points),
+    }
+    coverage = {
+        'input_rows': len(rows), 'closed': len(closed), 'timestamped_closed': len(timestamped),
+        'timestamped_money_known': len(known_timestamped), 'points_rows': len(included),
+        'unknown_settlement_time_excluded': len(unknown_time),
+        'invalid_money_excluded': len(invalid_money_closed), 'unplaced': len(unplaced),
+        'open': sum(row['status'] == 'open' for row in rows),
+        'games': len({row['game_id'] for row in included if row['game_id']}),
+        'settlement_time_complete': not unknown_time,
+        'money_complete': not invalid_money_closed,
+        'complete': not unknown_time and not invalid_money_closed,
+        'baseline': 'zero; at=null is an explicit chart origin, not a settlement timestamp',
+    }
+    return {
+        'points': points,
+        'summary': summary,
+        'coverage': coverage,
+        'basis': 'Chronological batch accumulation of normalized closed rows using retained outcome_evidence.settled_at; missing settlement times and invalid money are excluded, and no timestamps are inferred.',
+    }
+
+
+def _top_markets(rows):
+    """Return at most five positive, complete-money scope/family groups."""
+    groups = defaultdict(list)
+    for row in rows:
+        groups[(row['scope'], row['market_family'])].append(row)
+    candidates = []
+    for (scope, family), group in groups.items():
+        summary = _summary(group)
+        # A positive subtotal containing an invalid money row is not a proven
+        # positive market result, so it is withheld from this ranking.
+        if not summary['money_complete'] or summary['pnl'] is None or summary['pnl'] <= 0:
+            continue
+        labels = [row['market_label'] for row in group if isinstance(row.get('market_label'), str) and row['market_label']]
+        label = Counter(labels).most_common()
+        if label:
+            top_count = label[0][1]
+            market_label = sorted(value for value, count in label if count == top_count)[0]
+        else:
+            market_label = f'{scope} / {family}'
+        group_pnl = sum((row['_pnl'] for row in group if row['_pnl'] is not None), Decimal(0))
+        group_stake = sum((row['_stake'] for row in group if row['_stake'] is not None), Decimal(0))
+        compact_summary = {key: summary[key] for key in (
+            'count', 'settled', 'won', 'lost', 'pushes', 'voids', 'manual',
+            'games', 'settled_games', 'settled_stake', 'pnl', 'roi', 'hit_rate',
+            'money_complete', 'excluded_money_rows')}
+        candidates.append({
+            'scope': scope, 'market_family': family, 'market_label': market_label,
+            'summary': compact_summary,
+            # Keep the compact metrics flat as well as under summary so older
+            # dashboard clients can render the ranking without recomputation.
+            **compact_summary,
+            '_sort_pnl': group_pnl,
+            '_sort_roi': group_pnl / group_stake if group_stake > 0 else Decimal(0),
+        })
+    candidates.sort(key=lambda item: (-item['_sort_pnl'], -item['_sort_roi'], str(item['scope']), str(item['market_family']), str(item['market_label'])) )
+    result = []
+    for item in candidates[:5]:
+        item.pop('_sort_pnl', None)
+        item.pop('_sort_roi', None)
+        result.append(item)
+    return result
+
+
 def _public(row):
     return {key: value for key, value in row.items() if not key.startswith('_')}
 
@@ -338,6 +483,8 @@ def _section(rows):
             'by_league_market': _group(rows, ('league', 'scope', 'market_family')),
             'by_execution_source': _group(rows, ('execution_source',)),
             'by_funding_tier': _group(rows, ('funding_tier',)),
+            'cumulative_performance': _cumulative_performance(rows),
+            'top_markets': _top_markets(rows),
             'source_coverage': dict(sorted(Counter(row['settlement_source']['evidence_level'] for row in rows if row['status'] in CLOSED).items())),
             'resolution_coverage': dict(sorted(Counter(row['resolution_evidence_state'] for row in rows if row['status'] in CLOSED).items()))}
 
@@ -389,6 +536,8 @@ def build_statistics(bets, decisions, bet_outcomes, *, as_of):
             'definitions': {'money': 'Recorded ticket stake and P&L; payout is stake plus net P&L. Assumed and user-reported tickets are not account-verified cash receipts. No operating costs deducted.',
                             'roi': 'Net P&L / settled stake for the same closed cohort, including push, void and manual returns. Unknown/incomplete closed money makes ROI unavailable; known subtotals remain explicit.',
                             'hit_rate': 'Won / (won + lost). Push, void, manual, open and unknown are excluded.',
+                            'cumulative_performance': 'Settlement-time cumulative view over the caller-filtered cohort. The baseline point has at=null and zero values; every other point is one canonical UTC settled_at batch. Rows without retained settlement time or complete money are counted in coverage and excluded from points; no timestamp is inferred.',
+                            'top_markets': 'At most five positive net-P&L scope×market_family groups, ranked by net P&L, then ROI, then deterministic identifiers. Groups with incomplete money are withheld.',
                             'decisions': 'Original immutable decisions at original terms. Duplicate real tickets count separately only in the money ledger.',
                             'research': 'Prospective forecasts, shadow trials and current unpublished candidates are excluded from both money and decision totals.',
                             'games': 'Distinct known game IDs; selections on the same game are correlated, not independent observations.',
