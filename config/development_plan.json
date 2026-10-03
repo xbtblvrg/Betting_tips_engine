@@ -978,7 +978,20 @@
       "stage_dependency_enforcement": "These are root integration/review acceptance requirements, not scheduler-interpreted depends_on. Root must attach the exact required verified dependency receipts before accepting each dependent integration stage; absence blocks release of that stage, not independent catalogue work.",
       "supervision_scope": "Existing scheduler enforces depends_on/claims/backoff and reads this task into its implementation prompt. Completion_evidence is a mandatory root/reviewer checklist, not a claim that a new automatic checker was implemented. D14/D15 remain existing capability tasks; live supervisor/worker/release coordinator own runtime monitoring.",
       "advisory_delegation": "Antigravity: feed inventory/source coverage; Grok: alternative model ideas only.",
-      "advisory_rule": "Use existing isolated provider routing if available; no paid credits. Advisor failure does not block Codex implementation. Hash outputs and bind Codex acceptance; no automatic production writes."
+      "advisory_rule": "Use existing isolated provider routing if available; no paid credits. Advisor failure does not block Codex implementation. Hash outputs and bind Codex acceptance; no automatic production writes.",
+      "urgent_professional_increment": {
+        "owner": "Root Codex",
+        "state": "awaiting_release",
+        "implementation_commits": [
+          "adbc655",
+          "0b5d2a5",
+          "0bd30cb"
+        ],
+        "acceptance": "Independent review + complete suite + live MLB mixed-seed mapping + receipt/transaction-consistent v3 professional limits; no guard bypass.",
+        "external_input": "Dodgers–Braves away probable pitcher absent in official specific schedule and feed/live; retain source retry.",
+        "nba": "All21 current Stake NBA catalogue fixtures outside48h; earliest2026-10-20T19:00Z.",
+        "wnba": "Existing half-scope model family validation excludes unpassed markets; do not relabel them supported."
+      }
     },
     {
       "id": "D34",

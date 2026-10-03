@@ -705,5 +705,23 @@
     "supervisor": "D14 / existing DevelopmentWorker, engineering intake and supervisor",
     "acceptance_checker": "D15 / existing release coordinator and independent Codex review",
     "closure": "Commit, successful tests, independent review, trusted release and current local/Tailscale source-pinned feature evidence; preserve task IDs, original deadlines, failures and incomplete stages. No new orchestration service or funding-policy change."
+  },
+  "professional_league_override_20261003": {
+    "authorization": "User urgently requested fixing professional leagues and more diverse bets/game when NFL/NHL/MLB schedules are small.",
+    "version": "v3",
+    "enabled_leagues": [
+      "NFL",
+      "NHL",
+      "MLB"
+    ],
+    "max_per_event": 6,
+    "max_period_per_event": 3,
+    "max_stake_per_event": 20,
+    "max_bet": 5,
+    "max_new_funded_per_publication": 15,
+    "max_daily_family_share": 0.35,
+    "distinct_scope_families": true,
+    "activation": "Root explicitly verifies current48h league count before activating; no automatic schedule-count switch is claimed.",
+    "preserve": "Other leagues v2; original records and held exposure, funding/model/quote/input guards, daily_risk_limit=null, no automatic wager submission."
   }
 }
