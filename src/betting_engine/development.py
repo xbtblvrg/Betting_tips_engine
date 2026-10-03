@@ -30,7 +30,9 @@ from .ai_delegation import collect as collect_advice, validate_reviews, REVIEW_P
 COPY_DIRS = ('src', 'tests', 'docs', 'knowledge/cards')
 COPY_FILES = ('AGENTS.md', 'pyproject.toml', 'package.json', 'package-lock.json',
               'config/project_contract.json', 'config/development_plan.json', 'config/ai_delegation.json', 'config/release_policy.json', 'config/validation_sources.json',
-              'scripts/development_service.py', 'scripts/release_service.py', 'config/development_runner.json', 'config/provider_recovery.json')
+              'scripts/development_service.py', 'scripts/release_service.py',
+              'scripts/archive_offline_databases.py', 'scripts/archive_obsolete_workspace_inputs.py',
+              'scripts/deduplicate_workspace_inputs.py', 'scripts/schedule_service.py', 'config/development_runner.json', 'config/provider_recovery.json')
 PROTECTED = ('config/validation_sources.json', 'AGENTS.md', 'pyproject.toml', 'package.json', 'package-lock.json',
     'src/betting_engine/__init__.py',
     'src/betting_engine/development.py', 'src/betting_engine/delivery.py',
@@ -40,6 +42,7 @@ PROTECTED = ('config/validation_sources.json', 'AGENTS.md', 'pyproject.toml', 'p
     'src/betting_engine/statistics.py', 'src/betting_engine/statistics_worker.py', 'src/betting_engine/outcome_feedback.py',
     'src/betting_engine/player_runtime.py', 'src/betting_engine/development_inputs.py', 'src/betting_engine/development_sports_evidence.py', 'src/betting_engine/training_evidence.py',
     'src/betting_engine/governance.py', 'src/betting_engine/decisions.py',
+    'src/betting_engine/calibration_uncertainty.py',
     'src/betting_engine/storage.py', 'src/betting_engine/supervisor.py',
     'src/betting_engine/dashboard_payload.py', 'src/betting_engine/dashboard_process.py', 'src/betting_engine/dashboard_worker.py',
     'src/betting_engine/freshness.py', 'src/betting_engine/instructions.py', 'src/betting_engine/decision_readiness.py',
@@ -378,7 +381,7 @@ def protected_source_update(folder, run_id, result):
         changes = []; source_bodies = []
         for name in sorted(set(diagnosed)):
             old_path = folder / 'workspaces' / run_id / name
-            missing_controller = name in CONTROLLER_INPUTS and name not in manifest and not old_path.exists() and not old_path.is_symlink()
+            missing_controller = (name in CONTROLLER_INPUTS or name in PROTECTED) and name not in manifest and not old_path.exists() and not old_path.is_symlink()
             before = None if missing_controller else _recovery_bytes(folder / 'workspaces' / run_id, name)
             old_hash = None if before is None else hashlib.sha256(before).hexdigest()
             if old_hash != manifest.get(name):
@@ -1083,8 +1086,12 @@ class DevelopmentWorker:
             # every prepare rather than inheriting stale/missing accepted bytes.
             protected_drift = [p for p in PROTECTED if p in current_base
                                and staged.get(p) != current_base[p]]
-            changes=sorted(set(changed_files(old_base,current_base)) | set(protected_drift))
-            conflicts=[p for p in changes if not p.startswith('knowledge/') and staged.get(p) not in (old_base.get(p),current_base.get(p))]
+            # Accepted candidates may predate newly supplied root sources even
+            # after another lane advanced production-base. Deletions are never
+            # accepted candidate edits, so missing baseline files must be supplied.
+            missing_root_sources = set(current_base) - set(staged)
+            changes=sorted(set(changed_files(old_base,current_base)) | set(protected_drift) | missing_root_sources)
+            conflicts=[p for p in changes if p in staged and not p.startswith('knowledge/') and staged.get(p) not in (old_base.get(p),current_base.get(p))]
             if conflicts:
                 evidence={'at':utcnow().isoformat(),'files':conflicts,'protected_restored':protected_drift,'state':'requires_candidate_resolution',
                     'action':'Resolve against the copied current production version; retain old candidate behavior and tests. Protected restored files are authoritative root inputs and must not be edited. Production remains untouched.'}
@@ -1200,7 +1207,8 @@ class DevelopmentWorker:
         result = {}
         for folder in ('src', 'tests'):
             result.update({folder + '/' + k: v for k, v in tree_manifest(self.root / folder).items()})
-        for name in ('AGENTS.md','pyproject.toml','package.json','package-lock.json','config/project_contract.json','config/ai_delegation.json','config/validation_sources.json','config/provider_recovery.json'):
+        for name in ('AGENTS.md','pyproject.toml','package.json','package-lock.json','config/project_contract.json','config/ai_delegation.json','config/validation_sources.json','config/provider_recovery.json',
+                     *(p for p in COPY_FILES if p.startswith('scripts/'))):
             path=self.root/name
             if path.exists():result[name]=hashlib.sha256(path.read_bytes()).hexdigest()
         # Small curated requirements/reading ledger hashes bind each coding
