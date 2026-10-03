@@ -217,16 +217,18 @@ def cumulative_monitor(stats):
     points = curve.get('points', [])
     drawdown = summary.get('current_drawdown')
     games = summary.get('games', summary.get('settled_games', 0)) or 0
-    state = ('unavailable' if not curve else 'awaiting_results' if not points
-             else 'drawdown_observed' if drawdown is not None and drawdown > 0
-             else 'observed')
+    complete = coverage.get('complete') is True
+    state = ('unavailable' if not curve else 'incomplete_coverage' if not complete
+             else 'awaiting_results' if not summary.get('settled', 0)
+             else 'unavailable' if drawdown is None
+             else 'drawdown_observed' if drawdown > 0 else 'observed')
     return {'version': 'cumulative-outcome-monitor-v1', 'state': state,
         'basis': 'Original immutable decisions; realised settlement-order P&L before operating costs.',
         'summary': summary, 'coverage': coverage,
         'top_markets': section.get('top_markets', []),
         'curve_sha256': _digest(points), 'point_count': len(points),
         'last_settlement_at': points[-1].get('at') if points else None,
-        'diagnostic_due': bool(drawdown is not None and drawdown > 0 and games >= 5),
+        'diagnostic_due': bool(complete and summary.get('settled', 0) and drawdown is not None and drawdown > 0 and games >= 5),
         'diagnostic_min_games': 5,
         'action': 'Reproduce drawdown and identify contributing league/scope/market segments through the existing outcome-review workflow; validate any proposed correction before promotion.',
         'automatic_stake_change': False, 'automatic_model_promotion': False}
@@ -264,6 +266,10 @@ def _proposals(stats, inputs):
             add('outcome_integrity', league, scope, family, evidence,
                 f'Repair or explicitly account for {league} {scope} {family} outcome/decision evidence discrepancies; preserve original records.', 'source', 0)
     curve_monitor = cumulative_monitor(stats)
+    if curve_monitor['state'] == 'incomplete_coverage':
+        add('cumulative_curve_coverage', 'SYSTEM', 'all_scopes', 'portfolio',
+            {'monitor': curve_monitor, 'input_sha256': _digest(inputs), 'limitation': LIMITATION},
+            'Repair missing settlement-time or money evidence before interpreting the complete cumulative curve; never infer settlement timestamps.', 'source', 0)
     if curve_monitor['diagnostic_due']:
         add('cumulative_drawdown', 'SYSTEM', 'all_scopes', 'portfolio',
             {'monitor': curve_monitor, 'original_decision_ids': sorted(str(r['family']) for r in inputs['decisions']),

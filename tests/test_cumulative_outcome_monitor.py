@@ -8,7 +8,7 @@ def stats(pnl=3, drawdown=2, games=5):
         'cumulative_performance': {'points': [{'at': '2026-10-03T12:00:00+00:00', 'pnl': pnl}],
             'summary': {'pnl': pnl, 'current_drawdown': drawdown, 'max_drawdown': drawdown,
                         'roi': .1, 'hit_rate': .6, 'games': games, 'settled': games},
-            'coverage': {'missing_settlement_time': 0}},
+            'coverage': {'complete': True, 'unknown_settlement_time_excluded': 0}},
         'top_markets': [{'scope': 'full_game', 'market_family': 'moneyline', 'pnl': 3}],
         'by_league_market': [], 'source_coverage': {}},
         'resolution_audit': {'error_count': 0}}
@@ -44,3 +44,28 @@ def test_drawdown_proposal_uses_existing_economics_route_and_stable_identity():
     assert first[0]['evidence']['monitor']['curve_sha256'] != second[0]['evidence']['monitor']['curve_sha256']
     assert first[0]['evidence']['original_decision_ids'] == ['a', 'b']
     assert first[0]['profit_established'] is False
+
+
+def test_missing_money_or_time_never_reports_complete_curve_or_triggers_repair():
+    for key in ('invalid_money_excluded', 'unknown_settlement_time_excluded'):
+        source = stats()
+        source['system_decisions']['cumulative_performance']['coverage'].update(complete=False, **{key: 1})
+        result = cumulative_monitor(source)
+        assert result['state'] == 'incomplete_coverage'
+        assert not result['diagnostic_due']
+
+
+def test_baseline_alone_is_not_a_settled_outcome():
+    source = stats(games=0)
+    source['system_decisions']['cumulative_performance']['points'] = [{'at': None, 'baseline': True, 'pnl': 0}]
+    result = cumulative_monitor(source)
+    assert result['state'] == 'awaiting_results'
+    assert not result['diagnostic_due']
+
+
+def test_incomplete_curve_routes_evidence_repair_instead_of_performance_lesson():
+    source = stats()
+    source['system_decisions']['cumulative_performance']['coverage']['complete'] = False
+    proposals = _proposals(source, {'decisions': [], 'bets': [], 'bet_outcomes': []})
+    assert [p['kind'] for p in proposals] == ['cumulative_curve_coverage']
+    assert proposals[0]['bucket'] == 'source' and proposals[0]['priority'] == 0
