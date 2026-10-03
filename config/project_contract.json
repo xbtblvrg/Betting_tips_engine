@@ -237,7 +237,7 @@
     "Validated independent models and settlement for newly discovered NCAA sports beyond football and basketball"
   ],
   "instruction_precedence": {
-    "latest_correction": "2026-10-01 profit-learning directive plus free sources/Polymarket only, continued new instructions and broad distinct-game coverage. User permits learned final market blending while preserving independent sports forecasts. USD1–5/max5 and daily_risk_limit=null remain; exploratory minimum stakes and evidence-following allocation are the requested validated next policy, not a claim that it is already active.",
+    "latest_correction": "2026-10-03 performance-oriented full coverage directive: the performance_oriented_directive below supersedes conflicting earlier requirements; active user exposure/issuance limits are unchanged. Policy requirements and deployed capabilities are separate.",
     "funding": "The existing BOTH eligibility/selection rules remain. Under active all_tiers_weighted_v3 every eligible tier has a configured/hard ceiling USD5. Stress and positive nominal model sizing retain their formulas. Probability preference has nonpositive nominal model return and uses non-Kelly base units with related-event discount and optional bankroll cap; never call it positive edge. Amount below USD1 is unfunded. Unit1 can correctly calculate USD1. Every exact-contract/model/source/freshness/settlement/website guard remains mandatory.",
     "diversification": "Soft least-exposed-game priority. Keep best candidates per family including held, avoid inferior rotation, suppress probability picks where any positive-EV-qualified candidate exists, and apply one new fallback/event/cycle plus one lifetime issuance per game/tier. Stress-qualified same-game additions remain eligible. Hedge labels require joint-payout evidence; original tickets remain untouched.",
     "measurement": "Daily counts are distinct funded first issuances; game counts separately disclose concentration. Shadow observations never count as money decisions.",
@@ -620,5 +620,62 @@
     "presentation": "Statistics: cumulative PnL chart, same-cohort ROI and WR, top5positive netPnL scope/market families with stake and independent-game/sample counts. Existing filters apply.",
     "monitoring": "Existing durable outcome-review workflow archives original-decision curve metrics and routes observed drawdowns with >=5games to existing economics development intake; no new scheduler or automatic stake/model change.",
     "integrity": "Missing money/time coverage explicit; no fabricated chronological points, original decisions and bets immutable; small positive samples are descriptive not proof of profitable predictions."
+  },
+  "performance_oriented_directive": {
+    "date": "2026-10-03",
+    "priority_order": [
+      "stability repairs and existing 15-minute stability guard",
+      "consistent execution ledger and not-placed cash exclusion",
+      "learned segment performance and USD1-5 sizing",
+      "push/multiway anchoring",
+      "fixture matching and all observed market families",
+      "independent inputs and calibration",
+      "daily segment refresh and weekly controlled challenger learning"
+    ],
+    "objective": "High qualified volume together with improving WR, ROI and cumulative realised PnL; measure outcomes, never assert guaranteed improvement. User owns risk decisions. No new unsolicited exposure constraints.",
+    "preserve": [
+      "immutable original decisions/odds/stakes",
+      "max USD5 per bet",
+      "daily_risk_limit=null",
+      "manual wager placement only",
+      "fresh quotes, exact identity and appropriate scoped models",
+      "all active user exposure and publication limits"
+    ],
+    "daily_target": 100,
+    "count": "Distinct funded first issuance across all leagues per Budapest day; no league quotas or padded duplicate/shadow counts.",
+    "coverage": "Every observed Stake market across every league/scope, including player, sequence, stat, composite, alternate lines and specials; actual combined quote for SGM. Missing model/source/matching goes to existing catalog, operating_gaps and development_plan.",
+    "decision_chain": [
+      "independent sport model",
+      "market anchoring with correct multiway devig and conditional push handling",
+      "family calibration",
+      "learned league/scope/family/odds-band performance",
+      "selection",
+      "sizing",
+      "publication"
+    ],
+    "selection_order": [
+      "calibrated win probability",
+      "shrunken game-weighted segment performance",
+      "expected value"
+    ],
+    "sizing": "USD1-5 based on learned outcomes and confidence: calibration, model-market agreement, input completeness and independent-game sample; retain reproducible calculation at tip.",
+    "learning": "Daily segment and sizing refresh; weekly weights, calibration and challenger tests; prospective WR/ROI/log-loss comparison against incumbent with reproducible archived inputs.",
+    "metrics": {
+      "primary": [
+        "funded daily first issuances",
+        "WR",
+        "ROI",
+        "cumulative PnL"
+      ],
+      "diagnostic": [
+        "CLV",
+        "market-relative log-loss",
+        "calibration"
+      ],
+      "grouping": "league x scope x market family with game-clustered uncertainty"
+    },
+    "stability": "Extend existing supervisor: measured 15-minute audit, stable deduplicated highest-priority repair intake, existing AI failover and release workflow, dashboard one-line state. Never infer active repair from queued task alone.",
+    "execution": "Use existing catalog/plan/gaps; reproduce, isolated fix, targeted tests, independent review, full release tests, local and Tailscale live verification. No new administrative orchestration.",
+    "status": "requirements recorded; acceptance requires per-capability deployed and live-tested code, not this record"
   }
 }
