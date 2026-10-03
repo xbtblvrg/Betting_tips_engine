@@ -1,3 +1,11 @@
+## 2026-10-03 09:15 CEST — publikáció és végrehajtható lista helyreállítva
+
+Kód: `536e761` (végleges batch napi családkorlátja és tétezése), `a262983` (a már kiadott, bejelöletlen single tippek beszámítása; hibás kezdésű importrekord kezelése). A korábbi 10 tervezett tipp helyett a tényleges végleges batch adja a napi arány nevezőjét; a tranzakciós guard változatlan.
+
+Élő helyi és Tailscale ellenőrzés: publikáció `6519`, `2026-10-03T07:14:46.165056+00:00`; **13 kártya = 13 fejléc = 13 API végrehajtható utasítás**, 13 külön meccs, össztét $13.00; napi első kiadás 14/20. A helyreállítás óta 5 új első kiadás; az engine hibája null. HTTP-n letöltött oldal és JavaScript élő adatú DOM-ellenőrzése, fogadási/írási művelet nélkül.
+
+Validáció: 5598 Python-teszt + 5 alteszt sikeres, 1 skipped; 272 webteszt sikeres; két független Codex-review pontos diff-hashhez kötve. A javítás előtti 736 bet-, 735 system_decision- és 728 issuance-rekord eredeti mezői hash-azonosak. Bizonyíték: `data/releases/root-publication-family-20261003/release.json` és `live-check.json`. A D32-höz tartozó konkrét incidens lezárva; a D32 teljes, tágabb feladatköre nem lett automatikusan készre állítva.
+
 # Legutóbbi ellenőrzött kiadás: 2026-10-02.21
 
 ## 2026-10-02 — minden megfigyelt, de nem árazott piachoz ok és következő lépés

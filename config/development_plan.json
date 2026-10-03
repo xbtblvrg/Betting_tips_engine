@@ -561,7 +561,7 @@
       "acceptance": "Actual server/readiness/engine integration, concurrent/repeated marks, stale/history marks, process restart, failed scan then fresh recovery; immutable ledger and guards, separate daily first-issue accounting and unchanged deadlines. A shortage creates actionable work and never claims fulfillment.",
       "depends_on": [],
       "publication_batch_repair": {
-        "state": "awaiting_release",
+        "state": "live_verified",
         "code_commit": "536e761",
         "files": [
           "src/betting_engine/decisions.py",
@@ -569,11 +569,29 @@
         ],
         "implementation": "Finalize daily family share using the actual surviving batch; re-size after removal; preserve the transaction guard.",
         "source": "Live service-error.log and immutable daily first issuances",
-        "test": "tests/test_publication_limits.py; 5587 full tracked Python tests plus final sizing regression; 272 DOM tests",
+        "test": "5598 Python tests + 5 subtests passed, 1 skipped; 272 DOM tests passed; independent Codex review for each diff; local/Tailscale live DOM matches API counts.",
         "acceptance": "Fresh successful local and Tailscale publication; current executable count equals displayed unmarked instructions; immutable records unchanged.",
         "owner": "root Codex",
         "due_at": "2026-10-02T11:30:00+00:00",
-        "release_evidence": "data/releases/root-publication-family-20261003/release.json"
+        "release_evidence": "data/releases/root-publication-family-20261003/release.json",
+        "counter_commit": "a262983",
+        "verified_at": "2026-10-03T07:15:45.911631+00:00",
+        "live_publications": [
+          {
+            "url": "http://127.0.0.1:8765",
+            "version": 6519,
+            "publication_at": "2026-10-03T07:14:46.165056+00:00",
+            "cards": 13,
+            "daily_issued": 14
+          },
+          {
+            "url": "https://bela-macbook-pro-m4-pro.tail8a282e.ts.net:8443",
+            "version": 6519,
+            "publication_at": "2026-10-03T07:14:46.165056+00:00",
+            "cards": 13,
+            "daily_issued": 14
+          }
+        ]
       }
     },
     {
