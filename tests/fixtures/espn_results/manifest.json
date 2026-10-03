@@ -1,0 +1,87 @@
+[
+  {
+    "league": "NCAAF",
+    "game_id": "NCAAF:401858245",
+    "url": "https://site.api.espn.com/apis/site/v2/sports/football/college-football/summary?event=401858245",
+    "fetched_at": "2026-10-03T07:28:46.087428+00:00",
+    "sha256": "7feca8c4e561449ef8a213787eb2c839a06e300846c6635f5c01b7cfa7a1f7e5",
+    "path": "NCAAF-401858245.json.gz",
+    "start": "2026-10-02T23:00Z",
+    "home": "Virginia Tech Hokies",
+    "away": "Pittsburgh Panthers",
+    "home_id": "259",
+    "away_id": "221",
+    "final": [
+      33,
+      35
+    ]
+  },
+  {
+    "league": "NCAAF",
+    "game_id": "NCAAF:401871050",
+    "url": "https://site.api.espn.com/apis/site/v2/sports/football/college-football/summary?event=401871050",
+    "fetched_at": "2026-10-03T07:28:46.070802+00:00",
+    "sha256": "bbb516f915ca26163963fbcb356271c84a009a5494b4955724aa508ab1b0780e",
+    "path": "NCAAF-401871050.json.gz",
+    "start": "2026-10-02T23:00Z",
+    "home": "Delaware Blue Hens",
+    "away": "Liberty Flames",
+    "home_id": "48",
+    "away_id": "2335",
+    "final": [
+      14,
+      30
+    ]
+  },
+  {
+    "league": "NCAAF",
+    "game_id": "NCAAF:401858476",
+    "url": "https://site.api.espn.com/apis/site/v2/sports/football/college-football/summary?event=401858476",
+    "fetched_at": "2026-10-03T07:28:46.074566+00:00",
+    "sha256": "32d59404f7bd6b713bdc6bf2bf28b0a71d0e36fac883b3e5d33529cf42249b72",
+    "path": "NCAAF-401858476.json.gz",
+    "start": "2026-10-03T00:00Z",
+    "home": "Northwestern Wildcats",
+    "away": "Penn State Nittany Lions",
+    "home_id": "77",
+    "away_id": "213",
+    "final": [
+      34,
+      13
+    ]
+  },
+  {
+    "league": "NCAAF",
+    "game_id": "NCAAF:401868094",
+    "url": "https://site.api.espn.com/apis/site/v2/sports/football/college-football/summary?event=401868094",
+    "fetched_at": "2026-10-03T07:28:46.022798+00:00",
+    "sha256": "960c7cf9b6eadb476df6890fbb0d55132e45ba5db7b5f077f91be6383e70609f",
+    "path": "NCAAF-401868094.json.gz",
+    "start": "2026-10-03T02:30Z",
+    "home": "Idaho Vandals",
+    "away": "Montana State Bobcats",
+    "home_id": "70",
+    "away_id": "147",
+    "final": [
+      35,
+      34
+    ]
+  },
+  {
+    "league": "WNBA",
+    "game_id": "WNBA:401918294",
+    "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/summary?event=401918294",
+    "fetched_at": "2026-10-03T07:28:46.186234+00:00",
+    "sha256": "3c8ec1eef43c9eb8859f7d2b34d4a07d4310361cfd2d6ff0944c4ac4da0b5f1b",
+    "path": "WNBA-401918294.json.gz",
+    "start": "2026-10-03T01:00Z",
+    "home": "Golden State Valkyries",
+    "away": "Dallas Wings",
+    "home_id": "129689",
+    "away_id": "3",
+    "final": [
+      77,
+      73
+    ]
+  }
+]
