@@ -25,6 +25,10 @@ def remaining_budget(settings,committed=0.):
     limit=settings.get('daily_risk_limit')
     return math.inf if limit is None else max(0.,float(limit)-committed)
 
+def publication_family_limit(settings,issued_count,new_count):
+    """Mirror Store's atomic daily family check with actual first issuances."""
+    return max(1,math.ceil((issued_count+new_count)*float(settings.get('max_daily_family_share',.25))))
+
 def sportsbook_ev(pwin,ppush,odds):
     if not(0<=pwin<=1 and 0<=ppush<=1 and pwin+ppush<=1+1e-9 and odds>1):raise ValueError('Invalid probability or odds')
     return pwin*(odds-1)-(1-pwin-ppush)
@@ -251,9 +255,12 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
     cycle_cap=int(settings.get('max_new_funded_per_publication',10)) if limits_enabled else math.inf
     event_stake_cap=float(settings.get('max_stake_per_event',5.)) if limits_enabled else math.inf
     period_cap=int(settings.get('max_period_per_event',1)) if limits_enabled else math.inf
-    daily_funded_count=int(daily_funded_count or 0)
     daily_family_counts=Counter(daily_family_counts or {})
-    daily_family_limit=max(1, math.ceil((daily_funded_count + (0 if cycle_cap==math.inf else cycle_cap) or 1) * float(settings.get('max_daily_family_share',.25)))) if limits_enabled else math.inf
+    # Use the same ledger population as the publication transaction, not a
+    # UI target/checkpoint counter. The ten-slot ceiling is only provisional;
+    # actual surviving allocations are checked again after batch sizing.
+    daily_funded_count=sum(daily_family_counts.values())
+    daily_family_limit=publication_family_limit(settings,daily_funded_count,cycle_cap) if limits_enabled else math.inf
     funded_counts=Counter(held_event_counts) if held_event_counts is not None else Counter(g for g,m in held)
     # Keep the persisted exposure separate from the provisional first-pass
     # allocations.  The second pass below re-sizes the complete batch against
@@ -407,12 +414,30 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                 if rest.get('id') in {x.get('id') for x in chosen}: continue
                 rest['stake']=0.;rest['allocation_code']='publication_cycle_limit';rest['allocation_reason']='The publication cycle cap is 10 new funded selections.';rest['stake_note']=rest['allocation_reason'];rest['alternative']=True;alternatives.append(rest)
             break
-    if family_additions:
+    if family_additions or limits_enabled:
         # Size against the complete new batch, not just earlier allocations.
         # Otherwise recording later same-game contracts would immediately make
         # the first instruction exceed its freshly recalculated support.
         batch=[c for c in chosen if c.get('stake',0)>0]
         while batch:
+            initial_size=len(batch)
+            if limits_enabled:
+                limit=publication_family_limit(settings,daily_funded_count,len(batch))
+                kept=[];family_counts=Counter(daily_family_counts)
+                for c in batch:
+                    key=(c.get('league'),allocation_family(c))
+                    if family_counts[key]>=limit:
+                        c['stake']=0.;c.pop('stake_sizing',None)
+                        c['reference_stake_executable']=False
+                        c['allocation_code']='family_share_limit'
+                        c['allocation_reason']='The actual funded batch would exceed this market family\'s daily share. No new stake is allocated.'
+                        c['stake_note']=c['allocation_reason']
+                    else:
+                        family_counts[key]+=1;kept.append(c)
+                batch=kept
+            if not family_additions:
+                if len(batch)==initial_size:break
+                continue
             batch_counts=Counter(c['game_id'] for c in batch)
             remaining=remaining_budget(settings,open_exposure)
             batch_stakes=Counter()
@@ -438,7 +463,7 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                 else:
                     c['allocation_code']='stake_below_minimum'
                     c['allocation_reason']='Complete-batch exposure sizing or the remaining allocation is below $1.'
-            if len(survivors)==len(batch):break
+            if len(survivors)==initial_size:break
             # Only remove allocations: never rotate to inferior family choices.
             batch=survivors
     return chosen,alternatives

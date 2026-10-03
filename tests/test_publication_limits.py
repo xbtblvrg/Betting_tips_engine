@@ -2,6 +2,8 @@
 from collections import Counter
 
 from betting_engine.decisions import DEFAULT_SETTINGS, rank_and_size
+from betting_engine.contracts import allocation_family
+from betting_engine.storage import Store
 from test_core_market_sizing import row
 
 
@@ -29,3 +31,65 @@ def test_158_tip_publication_replay_is_bounded_by_live_execution_limits():
     family_counts=Counter((t['league'],t['market']) for t in funded)
     assert max(family_counts.values(),default=0)<=3
     assert len(funded)+sum(t.get('stake',0)>0 for t in alternatives)<=10
+
+
+def test_small_batch_respects_actual_family_share_at_publication(tmp_path):
+    """A ten-slot estimate must not authorize three same-family tickets."""
+    settings={**DEFAULT_SETTINGS,'publication_limits_version':'v1'}
+    rows=[row(str(i),'moneyline',game=str(i)) for i in range(3)]
+    selected,_=rank_and_size(rows,settings)
+    funded=[tip for tip in selected if tip['stake']>0]
+    assert len(funded)==1
+    assert sum(t.get('allocation_code')=='family_share_limit' for t in selected)==2
+    with Store(tmp_path/'limits.sqlite').db() as db:
+        Store._validate_publication_limits(db,{'recommendations':selected},settings)
+
+
+def test_family_share_is_recomputed_after_another_family_is_removed(tmp_path):
+    settings={**DEFAULT_SETTINGS,'publication_limits_version':'v1'}
+    rows=[row(str(i),'moneyline',game=str(i)) for i in range(3)]
+    rows += [row('spread','spreads',game='spread'),row('total','totals',game='total')]
+    selected,_=rank_and_size(rows,settings)
+    funded=[tip for tip in selected if tip['stake']>0]
+    assert len(funded)==3
+    assert Counter(allocation_family(t) for t in funded)=={'moneyline':1,'spreads':1,'totals':1}
+    with Store(tmp_path/'limits.sqlite').db() as db:
+        Store._validate_publication_limits(db,{'recommendations':selected},settings)
+
+
+def test_existing_daily_issuances_and_checkpoint_count_do_not_deadlock(tmp_path):
+    from test_autotracking import tip
+    from betting_engine.domain import utcnow
+    settings={**DEFAULT_SETTINGS,'publication_limits_version':'v1'}
+    store=Store(tmp_path/'limits.sqlite')
+    # Nine first issues survived before the incident; daily checkpoints and
+    # UI counters must not supply a different denominator from the ledger.
+    markets=['moneyline']*3+['totals']*3+['spreads']*2+['regulation:three_way']
+    with store.db() as db:
+        for i,market in enumerate(markets):
+            Store.record_issuance(db,tip(id=f'held-{i}',game_id=f'held-{i}',league='NCAAF',market=market),utcnow().isoformat())
+    counts=store.daily_family_counts()
+    rows=[row('new','moneyline',game='new',league='NCAAF')]
+    selected,_=rank_and_size(rows,settings,daily_family_counts=counts,daily_funded_count=100)
+    assert not any(t['stake'] for t in selected)
+    with store.db() as db:
+        Store._validate_publication_limits(db,{'recommendations':selected},settings)
+    assert store.daily_family_counts()==counts
+
+
+def test_family_trimming_resizes_survivors_against_final_related_exposure(tmp_path):
+    from betting_engine.model_allocation import verify_family_publication
+    settings={**DEFAULT_SETTINGS,'publication_limits_version':'v1',
+              'model_pick_allocation_policy':'distinct_family_v1'}
+    rows=[row('m3','moneyline',game='g3'),row('m2','moneyline',game='g2'),
+          row('m1','moneyline',game='g1'),row('spread','spreads',game='g4'),
+          row('total','totals',game='g1')]
+    selected,_=rank_and_size(rows,settings)
+    funded=[tip for tip in selected if tip['stake']>0]
+    assert {t['id'] for t in funded}=={'m3','spread','total'}
+    total=next(t for t in funded if t['id']=='total')
+    assert total['stake']==3.87
+    assert total['stake_sizing']['related_contracts']==0
+    with Store(tmp_path/'limits.sqlite').db() as db:
+        Store._validate_publication_limits(db,{'recommendations':selected},settings)
+        verify_family_publication(db,selected,settings)
