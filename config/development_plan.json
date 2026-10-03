@@ -751,16 +751,18 @@
       "live_evidence": "data/releases/root-feedback-fairness-20261003/release.json",
       "followup": {
         "requested_at": "2026-10-03T11:30:42.439368+00:00",
-        "state": "awaiting_release",
+        "state": "attention_required",
         "owner": "Codex integration and independent Codex review",
         "deadline": "2026-10-03T15:00:00+00:00",
         "steps": [
           "Reconcile trusted root task receipts at claim/completion; preserve attempts and deadlines.",
-          "Restrict shadow price capture reads using existing fixture index without changing evidence or evaluation."
+          "Restrict shadow price capture reads using existing fixture index without changing evidence or evaluation.",
+          "Reproduce evaluation report inflation; implement bounded summary-cache reads and deduplicated diagnostic representation preserving historical evidence and exact summary results; benchmark RSS/time before release."
         ],
         "acceptance": "Targeted regressions, full suite, independent review, commit and live local/Tailscale verification; report actual issuance shortfall.",
         "live_evidence": "data/releases/root-outcome-volume-20261003/live.json",
-        "progress": "Root receipts D38/D39 production_verified; learning worker restarted idle with indexed capture code; development claim-boundary code pending next safe worker restart."
+        "progress": "Development worker safely restarted idle at12:07UTC; receipt-boundary code loaded. Indexed shadow evaluation actively progresses but duplicate rejected-snapshot details inflate reports to155MB, causing GC/JSON cost.",
+        "audit_evidence": "data/releases/root-today-audit-20261003/audit.json"
       }
     },
     {
