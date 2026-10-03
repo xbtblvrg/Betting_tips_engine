@@ -580,7 +580,7 @@
     "task_id": "D35",
     "setting": "family_selection_policy",
     "active_target": "qualified_probability_v1",
-    "legacy": "stressed_roi_v1",
+    "legacy": "stressed_value_v1",
     "order": [
       "existing funding eligibility and tier",
       "current actual anchored/calibrated win probability descending",
