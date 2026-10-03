@@ -600,3 +600,10 @@ test('changed history separates original issuance from revised execution and lat
  const {w,d,writes}=await boot({recommendations:[],tracked_bets:[record],evaluated_candidates:[current]});
  const panel=d.querySelector('#withdrawn-upcoming-section');assert.match(panel.textContent,/Odds: 1.90 · Stake: \$1.25/);assert.match(panel.textContent,/Observed odds: 1.70/);assert.match(panel.textContent,/14.0%/);assert.doesNotMatch(panel.textContent,/\$3.50/);assert.deepEqual(writes,[]);await w.happyDOM.close();
 });
+test('today issued changed selections stay in the Betting Picks card list',async()=>{
+ const id='changed-pick';
+ const changed={...tip,id,stake:1,reference_odds:2,created_at:new Date().toISOString(),tracking_source:'auto_assumed_placed'};
+ const record={id:7,tip_id:id,stake:1,odds:2,status:'open',created_at:changed.created_at,payload:changed,instruction_review:{actionable:false,reason:'Model no longer supports'}};
+ const {w,d,writes}=await boot({recommendations:[],evaluated_candidates:[],tracked_bets:[record],status:{daily_progress:{issuance_rows:[{tip_id:id,issued_at:new Date().toISOString(),start:tip.start}]}}});
+ const card=d.querySelector('.changed-card');assert.ok(card);assert.match(card.textContent,/No bet anymore/);assert.match(card.textContent,/Model no longer supports/);assert.equal(card.querySelector('.stake-bet-button'),null);assert.deepEqual(writes,[]);await w.happyDOM.close();
+});

@@ -487,3 +487,8 @@ Valós nyitott akadály: natív memory_pressure=2 miatt0 fejlesztői slot enged�
 6394Python+5subtest sikeres,1kihagyott;278frontendteszt sikeres; független Codex review. Helyi/Tailscale ugyanaz a friss publikáció,42kártya és43/100mai kiadás;769eredeti döntés byte-hash változatlan. Bizonyíték:data/releases/root-throughput-repair-20261003/. A teljes shadow-ciklus és a natív memória-várakozás állapotát tovább mérjük; ezekből nincs profitjavulási állítás.
 
 Végső visszaellenőrzés12:54UTC:4/4supervisor-szolgáltatás healthy,7új kompakt shadow-jelentés,44végrehajtható kártya,46/100mai kiadás és9Stake-piacnév helyben/Tailscale-en azonos. Az eredeti769döntés változatlan. D14throughput-followup live_verified; a natív memória-várakozás és a történeti97GiB adatbázis külön nyitott körülmény. Összesített bizonyíték:data/releases/root-throughput-repair-20261003/release.json.
+## 2026-10-03 — Changed kártyák a Betting Picks teljes listájában
+
+Éles commit: `PENDING`. A mai Budapest-napi első kiadásokból kieső, még el nem kezdődött és nyitott tételek most a Betting Picks ugyanazon kártyalistájában maradnak. A Ready to Bet jogosultság és validáció változatlan; a Changed kártya csak eredeti tétet/oddsot és `No bet anymore` címkét, valamint a meglévő reason szöveget mutatja, és nem tartalmaz végrehajtási vezérlőt. A First issued számláló és az immutable napi kiadás változatlan, a Ready számláló csak az aktuálisan kvalifikált kártyákat számolja. A kezdett, lezárt, törölt vagy megjelölt rekordok a meglévő tracker/archív logikában maradnak.
+
+Teszt: frontend **289 passed, 0 failed**. A meglévő Python döntési és kiadási logika nem változott.
