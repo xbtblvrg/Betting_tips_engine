@@ -1,5 +1,5 @@
 """Independent launchd watchdog for stopped or stalled project services."""
-import argparse,fcntl,json,os,subprocess
+import argparse,fcntl,json,os,subprocess,sys
 from pathlib import Path
 from urllib.request import urlopen
 from .domain import utcnow,parse_time
@@ -129,11 +129,42 @@ def supervise(observations,previous,now,restart_service=restart):
     return state
 
 
-def run_once(data_dir=DATA):
+def compact_summary(result, data_dir=DATA):
+    """Stable stdout record; detailed health stays in supervisor.json."""
+    services = {name: {key: row[key] for key in
+        ('state', 'reason', 'error', 'consecutive_failures', 'restart_count') if key in row}
+        for name, row in result.get('services', {}).items()}
+    return {'checked_at': result.get('checked_at'), 'state': result.get('state', 'busy'),
+        'busy': result.get('busy', False), 'services': services,
+        'actions': result.get('actions', []), 'action_count': len(result.get('actions', [])),
+        'component_state': result.get('components', {}).get('state'),
+        'component_check_count': len(result.get('components', {}).get('checks', [])),
+        'delivery_state': result.get('delivery_state'),
+        'log_rotation': result.get('log_rotation', []),
+        'current_json': str(Path(data_dir) / 'supervisor.json')}
+
+
+def run_once(data_dir=DATA, *, emit_summary=False):
     data=Path(data_dir);data.mkdir(parents=True,exist_ok=True)
     with (data/'supervisor.lock').open('a') as lock:
         try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-        except BlockingIOError:return {'busy':True}
+        except BlockingIOError:
+            result = {'busy': True}
+            if emit_summary: print(json.dumps(compact_summary(result, data)), flush=True)
+            return result
+        from .log_rotation import rotate_log
+        rotation = []
+        for name in ('supervisor.log', 'supervisor-actions.jsonl'):
+            try:
+                if name == 'supervisor.log':
+                    if not emit_summary: continue
+                    sys.stdout.flush()
+                    outcome = rotate_log(data/'logs'/name, fd=sys.stdout.fileno())
+                else:
+                    outcome = rotate_log(data/'logs'/name)
+                if outcome['state'] not in ('absent', 'within_limit'): rotation.append(outcome)
+            except (OSError, ValueError) as exc:
+                rotation.append({'log': name, 'state': 'error', 'error': str(exc)})
         path=data/'supervisor.json'
         try:previous=json.loads(path.read_text())
         except (FileNotFoundError,ValueError):previous={}
@@ -167,13 +198,18 @@ def run_once(data_dir=DATA):
         result['delivery_state']=result['development']['state']
         # Source/model capability gaps use the durable repair queue; restarting
         # a healthy process cannot implement a missing statistical model.
+        result['log_rotation'] = rotation
         atomic_json(path,result)
         if result['actions']:
             log=data/'logs'/'supervisor-actions.jsonl';log.parent.mkdir(parents=True,exist_ok=True)
-            with log.open('a') as f:f.write(json.dumps(result)+'\n')
+            from .log_rotation import _safe_parent
+            _safe_parent(log)
+            with os.fdopen(os.open(log, os.O_WRONLY | os.O_APPEND | os.O_CREAT | os.O_NOFOLLOW, 0o600), 'a') as f:
+                f.write(json.dumps(result)+'\n')
+        if emit_summary: print(json.dumps(compact_summary(result, data)), flush=True)
         return result
 
 
 if __name__=='__main__':
     argparse.ArgumentParser(description=__doc__).parse_args()
-    print(json.dumps(run_once()))
+    run_once(emit_summary=True)
