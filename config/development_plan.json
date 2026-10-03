@@ -312,6 +312,28 @@
         "code_commit": "35e5565",
         "live_evidence": "data/releases/root-throughput-repair-20261003/release.json",
         "progress": "Worker80764 loaded code at safe idle boundary; idle30second CPU15.91%ofonecore. Full6394Python/278frontend, independent review, original769decisions intact, local/Tailscale44cards46/100daily. Native memory-pressure pause remains monitored separately."
+      },
+      "latest_user_requirements": {
+        "date": "2026-10-03",
+        "stability_interval_seconds": 900,
+        "steps": [
+          "Measured service/restart/process/dashboard/counter/admission/backlog audit in existing supervisor",
+          "Fix multiline process parsing in workspace cleanup while protecting active inputs",
+          "Shorten shadow evidence write transactions without losing source or outcome evidence",
+          "Display fresh stability/error/actual-repair counts; durable existing priority-zero intake"
+        ],
+        "files": [
+          "src/betting_engine/supervisor.py",
+          "src/betting_engine/prospective_shadow.py",
+          "scripts/archive_obsolete_workspace_inputs.py",
+          "src/betting_engine/web/app.js"
+        ],
+        "tests": [
+          "test_stability_audit.py",
+          "test_workspace_input_retention.py",
+          "stability_status.web.test.mjs"
+        ],
+        "acceptance": "Full suite, independent review, trusted root integration, measured local/Tailscale dashboard and live audit; preserved deadlines and immutable betting decisions."
       }
     },
     {
