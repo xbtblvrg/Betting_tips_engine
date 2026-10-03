@@ -799,6 +799,33 @@
       "completed_at": "2026-10-03T10:46:16.298784+00:00",
       "code_commit": "e310fb1",
       "live_evidence": "data/releases/root-segment-performance-20261003/live.json"
+    },
+    {
+      "id": "D39",
+      "milestone": "M09",
+      "priority": 1,
+      "title": "Spoiler-free next24h five-league schedule with Budapest09 daily refresh",
+      "owner": "Codex implementation and integration; independent Codex review",
+      "created_at": "2026-10-03T10:54:58.892845+00:00",
+      "due_at": "2026-10-03T13:00:00+00:00",
+      "depends_on": [],
+      "objective": "Display strictly chronological next24h schedule independently of bet/model coverage; exact Budapest lines, no-game and source-error states, transparent must-watch.",
+      "implementation_steps": [
+        "Fetch ESPN daily scoreboard schedules across the UTC-boundary coverage range and whitelist spoiler-free fields.",
+        "Implement aware24h filter and DST-safe Europe/Budapest09 due logic, idempotent lock and15min intraday refresh.",
+        "Replace Schedule projections with exact requested one-column lines and verified source references.",
+        "DST/window/failure/DOM tests, independent review, full suite, trusted release and local/Tailscale smoke."
+      ],
+      "files": [
+        "src/betting_engine/schedule.py",
+        "src/betting_engine/server.py",
+        "src/betting_engine/web/app.js",
+        "src/betting_engine/web/index.html",
+        "scripts/schedule_service.py"
+      ],
+      "data_source": "Public ESPN league-specific scoreboard endpoints, individual dates; no credentials or betting API.",
+      "acceptance": "Live chronological exact24h rows for five leagues, Budapest DST handling, no spoilers, distinct missing-source state, scheduled refresh installed, source/UI tests and review.",
+      "status": "awaiting_release"
     }
   ],
   "deferred": [

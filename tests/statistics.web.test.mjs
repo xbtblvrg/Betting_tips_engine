@@ -11,7 +11,7 @@ async function boot(response=report()){
  const calls=[],writes=[],errors=[];w.addEventListener('error',e=>errors.push(e.message));w.setInterval=()=>0;w.EventSource=class{addEventListener(){}};
  let stats=async()=>({ok:true,json:async()=>structuredClone(response)});
  w.fetch=async(path,options={})=>{calls.push(String(path));if(options.method&&!['GET','HEAD'].includes(options.method))writes.push(path);if(String(path).startsWith('/api/statistics?'))return stats(path,options);return {ok:true,json:async()=>({version:1,recommendations:[],alternatives:[],settings:{max_bet:5,daily_risk_limit:null},status:{},engine:{stage:'Updated'},games:[],models:{},performance:{prospective:[]}})}};
- w.eval(script+'\nwindow.__statisticsTest={dashboard:()=>dashboardFlight,statistics:()=>statisticsFlight,load:()=>load()};');await w.__statisticsTest.dashboard();
+ w.eval(script+'\nwindow.__statisticsTest={schedule:renderSchedule,dashboard:()=>dashboardFlight,statistics:()=>statisticsFlight,load:()=>load()};');await w.__statisticsTest.dashboard();
  return {w,d:w.document,calls,writes,errors,setStats:value=>{stats=value},open:async()=>{w.document.querySelector('[data-view="statistics"]').click();await w.__statisticsTest.statistics()}};
 }
 test('Statistics shows cash winrate, original decisions, exposure and source evidence distinctly',async()=>{
@@ -63,4 +63,21 @@ test('Segment analysis keeps frozen model and engine cash cohorts distinct acros
 test('Unscored original segments show unknown model quality and escape development findings',async()=>{
  const r=report();r.system_decisions.by_league_market=[{league:'NHL',scope:'full_game',market_family:'moneyline',settled_games:0}];r.improvement_loop.proposals[0].task.id='<img src=x onerror=bad()>';
  const b=await boot(r);await b.open();const host=b.d.querySelector('#statistics-segment-models');assert.match(host.textContent,/0 \/ 0.*— \/ —/);assert.doesNotMatch(host.textContent,/NaN|undefined|Infinity/);assert.equal(host.querySelector('img'),null);assert.match(host.textContent,/<img/);await b.w.happyDOM.close();
+});
+
+test('Schedule renders exact spoiler-free rows, missing leagues and escaped must-watch',async()=>{
+ const b=await boot();await new Promise(r=>setTimeout(r,0));
+ const schedule={checked_at:stamp,timezone_label:'CEST',games:[{line:'NBA 01:30 Boston Celtics @ New York Knicks'},{line:'MLB 02:00 Away <img> @ Home'}],no_games:['NFL'],unavailable:['WNBA'],must_watch:{line:'NBA 01:30 Boston Celtics @ New York Knicks',reason:'Postseason first.'},sources:[{league:'NBA',url:'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard'},{league:'BAD',url:'javascript:alert(1)'}]};
+ b.w.__statisticsTest.schedule(schedule);
+ assert.deepEqual([...b.d.querySelectorAll('#games-table tbody tr')].map(x=>x.textContent),schedule.games.map(g=>g.line));
+ assert.equal(b.d.querySelector('#games-table img'),null);assert.match(b.d.querySelector('#schedule-empty').textContent,/Nincs meccs: NFL.*Source unavailable or stale: WNBA/);assert.match(b.d.querySelector('#schedule-watch').textContent,/Must-watch: NBA/);assert.equal(b.d.querySelectorAll('#schedule-sources a').length,1);
+ assert.doesNotMatch(b.d.querySelector('#view-games').textContent,/Projected Score|Odds|Home Win Probability/);await b.w.happyDOM.close();
+});
+
+test('Schedule has spoiler-free page chrome distinct from Statistics',async()=>{
+ const b=await boot();b.d.querySelector('[data-view="games"]').click();
+ assert.equal(b.d.querySelector('.page-head .eyebrow').textContent,'NEXT 24 HOURS');
+ assert.match(b.d.querySelector('#page-description').textContent,/Budapest local time/);
+ assert.equal(b.d.querySelector('#stats').hidden,true);assert.equal(b.d.querySelector('#notice').hidden,true);
+ await b.open();assert.equal(b.d.querySelector('.page-head .eyebrow').textContent,'RECORDED RESULTS');await b.w.happyDOM.close();
 });

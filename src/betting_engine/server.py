@@ -262,6 +262,12 @@ def add_bet(bet:Bet):
         return result
     except ValueError as e:raise HTTPException(404,str(e))
 
+@app.get('/api/schedule')
+def get_schedule():
+    from .schedule import view
+    from .providers import DATA
+    return JSONResponse(view(DATA), headers={'Cache-Control':'no-store'})
+
 WEB=Path(__file__).parent/'web'
 @app.get('/')
 def index():return FileResponse(WEB/'index.html',headers={'Cache-Control':'no-cache'})
