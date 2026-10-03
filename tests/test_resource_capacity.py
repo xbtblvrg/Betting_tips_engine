@@ -270,3 +270,9 @@ def test_warning_normal_recovery_is_gradual_and_cpu_blocks_warning():
     assert result['allow_new'] and result['allowed_slots']==3
     result,_=assess([sample(0,busy=90,memory_pressure=2),sample(5,busy=90,memory_pressure=2)],active=0)
     assert not result['allow_new'] and 'cpu_high_water' in result['reasons']
+
+@pytest.mark.parametrize('gib,slots',[(3.99,0),(4,1),(7.99,1),(8,2),(12,2)])
+def test_warning_headroom_boundary(gib,slots):
+    result,_=assess([sample(0,memory_pressure=2),sample(5,memory_pressure=2,memory_headroom_proxy_bytes=int(gib*rc.GIB))],active=0)
+    assert result['allowed_slots']==slots
+    assert result['allow_new']==bool(slots)
