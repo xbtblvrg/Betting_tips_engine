@@ -26,6 +26,8 @@ def test_game_history_strengthens_and_losing_history_never_earns_uplift():
     losses=[decision(i,'lost') for i in range(40)]
     assert sized(rows=wins)['amount']>sized()['amount']
     assert sized(rows=losses)['outcome_adjustment']['historical_signal']==0
+    assert sized(rows=losses)['amount']==sized()['amount']
+    assert sized(rows=losses)['outcome_adjustment']['historical_sample_weight']==0
     assert sized(.95,rows=wins)['amount']>4
 
 

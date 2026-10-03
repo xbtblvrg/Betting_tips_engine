@@ -108,7 +108,7 @@ def _v3_adjustment(summary, tip, base_sizing):
             missing = len(features.get('missing') or []) + len(features.get('invalid') or [])
             completeness = max(0., 1 - missing / required)
     games = summary['independent_games'] if summary else 0
-    sample_weight = games / (games + 20)
+    sample_weight = games / (games + 20) if history['historical_signal'] > 0 else 0.
     confidence = probability_strength * agreement * completeness * (.75 + .25 * sample_weight)
     score = min(1., .7 * confidence + .3 * history['historical_signal'])
     discount = _number(base_sizing.get('event_discount', 1.))
@@ -120,7 +120,7 @@ def _v3_adjustment(summary, tip, base_sizing):
             'historical_sample_weight': sample_weight, 'combined_sizing_score': score,
             'confidence_target_before_event_discount': 1 + 4 * score,
             'confidence_target': target, 'event_discount': discount,
-            'formula': 'confidence=clip((pwin-.5)/.4,0,1)*anchor_agreement*required_input_completeness*(.75+.25*n/(n+20)); score=.7*confidence+.3*v2_historical_signal; target=max(1,(1+4*score)*event_discount); requested=max(base*v2_factor,target); all caps bind'}
+            'formula': 'confidence=clip((pwin-.5)/.4,0,1)*anchor_agreement*required_input_completeness*(.75+.25*positive_history_sample_weight); positive_history_sample_weight=n/(n+20) only when signed historical_signal>0; score=.7*confidence+.3*v2_historical_signal; target=max(1,(1+4*score)*event_discount); requested=max(base*v2_factor,target); all caps bind'}
 
 
 def _aggregate(games):
