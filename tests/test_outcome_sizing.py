@@ -304,3 +304,61 @@ class OutcomeSizingTests(unittest.TestCase):
                     if s['game_score_sum'] > 0:
                         self.assertGreater(s['game_roi'], 0)
                         self.assertGreater(s['game_wr'], s['break_even_wr'])
+
+
+class OutcomeSizingV2MonotonicTests(unittest.TestCase):
+    def adjusted(self, rows):
+        tip = decision('new')['payload']
+        summary = summary_for(build_snapshot(rows, AS_OF), tip)
+        before = copy.deepcopy(summary)
+        tip['outcome_sizing_evidence'] = summary
+        result = apply_adjustment({'amount': 1, 'maximum_stake': 5}, tip,
+                                  {'outcome_sizing_policy': POLICY_V2}, 5)
+        self.assertEqual(summary, before)
+        return result
+
+    def test_four_even_odds_wins_and_one_loss_can_receive_bounded_uplift(self):
+        rows = [decision(i) for i in range(4)] + [decision(4, 'lost')]
+        result = self.adjusted(rows); trace = result['outcome_adjustment']
+        self.assertEqual(trace['source_factor'], 1.)
+        self.assertEqual(trace['source']['game_score_sum'], -1.)
+        self.assertEqual(trace['applied_game_score_sum'], 3.)
+        self.assertEqual(trace['shrinkage_denominator'], 25)
+        self.assertAlmostEqual(trace['historical_signal'], 3/25)
+        self.assertAlmostEqual(trace['applied_factor'], 1.48)
+        self.assertEqual(result['amount'], 1.48)
+        self.assertIn('negative_scores_unbounded', trace['formula'])
+
+    def test_new_net_losing_or_push_game_never_increases_factor(self):
+        rows = [decision(i, odds=3.) for i in range(10)]
+        before = self.adjusted(rows)['outcome_adjustment']['applied_factor']
+        for additional in ([decision('loss', 'lost', odds=3.)],
+                           [decision('push', 'push', odds=3.)],
+                           [decision('mixed-win1', odds=2., game='mixed'),
+                            decision('mixed-win2', odds=2., game='mixed'),
+                            decision('mixed-win3', odds=2., game='mixed'),
+                            decision('mixed-loss', 'lost', odds=2., stake=3.5, game='mixed')]):
+            after = self.adjusted(rows+additional)['outcome_adjustment']['applied_factor']
+            self.assertLess(after, before)
+
+    def test_aggregate_gate_transition_cannot_boost_after_a_new_losing_game(self):
+        rows = [decision('A-win', stake=5., odds=10., game='A')]
+        rows += [decision('A-loss'+str(i), 'lost', odds=1.3, game='A') for i in range(4)]
+        rows += [decision('B', odds=1.25), decision('C', odds=1.25)]
+        loss_game = [decision('D-win'+str(i), odds=2., game='D') for i in range(3)]
+        loss_game += [decision('D-loss', 'lost', odds=2., stake=3.5, game='D')]
+        before = self.adjusted(rows)['outcome_adjustment']
+        after = self.adjusted(rows+loss_game)['outcome_adjustment']
+        self.assertLess(before['source']['game_wr'], before['source']['break_even_wr'])
+        self.assertGreater(after['source']['game_wr'], after['source']['break_even_wr'])
+        self.assertGreater(after['source']['game_roi'], 0)
+        self.assertLess(after['applied_game_score_sum'], 0)
+        self.assertEqual(before['applied_factor'], 1.)
+        self.assertEqual(after['applied_factor'], 1.)
+
+    def test_v2_negative_effects_and_push_only_evidence_stay_neutral(self):
+        for rows in ([decision('loss', 'lost')], [decision('push', 'push')],
+                     [decision('big-win', odds=100.)]+[decision(i, 'lost', odds=1.1) for i in range(9)]):
+            result = self.adjusted(rows)
+            self.assertEqual(result['outcome_adjustment']['applied_factor'], 1.)
+            self.assertEqual(result['amount'], 1.)

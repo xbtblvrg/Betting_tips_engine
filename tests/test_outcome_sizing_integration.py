@@ -199,7 +199,8 @@ def test_v2_replays_immutable_v1_evidence_and_rejects_tampered_applied_trace(mak
     assert adjustment['policy'] == POLICY_V2
     assert adjustment['source_policy'] == POLICY
     assert adjustment['source_factor'] == tip['outcome_sizing_evidence']['factor']
-    assert adjustment['formula'].startswith('source_factor=v1.factor; applied_factor=1+4*')
+    assert adjustment['formula'].startswith('game_score=min(1,game_roi/1.0,')
+    assert adjustment['applied_factor'] == 1 + 4 * adjustment['historical_signal']
     store = cases.database(tmp_path, settings)
     insert(store, rows)
     store.publish({'recommendations': [tip]}, require_guard=True)

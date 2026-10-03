@@ -466,9 +466,9 @@ function outcomeSizingTrace(t){
  if(!['historical_game_weighted_v1','historical_game_weighted_v2'].includes(a?.policy)||!e)return '';
  if(![a.base_amount,a.factor,a.adjusted_amount,e.independent_games,e.game_wr,e.game_roi,e.break_even_wr].every(Number.isFinite))return '';
  const v2=a.policy==='historical_game_weighted_v2';
- if(v2&&!Number.isFinite(a.source_factor))return '';
+ if(v2&&![a.source_factor,a.applied_game_score_sum,a.shrinkage_denominator,a.historical_signal,a.applied_factor].every(Number.isFinite))return '';
  const calculation=v2
-  ? `V2 calculation: $${num(a.base_amount)} × [1 + 4 × (${num(a.source_factor,3)} − 1)] = $${num(a.adjusted_amount)} after caps. Source factor is from the verified v1 evidence.`
+  ? `V2 calculation: $${num(a.base_amount)} × [1 + 4 × ${num(a.historical_signal,4)}] = $${num(a.adjusted_amount)} after caps. Signed game scores sum to ${num(a.applied_game_score_sum,4)} with shrinkage denominator ${num(a.shrinkage_denominator,0)}. Each game score is min(1, ROI / 1.0, win-rate surplus / 0.5); negative scores are not clipped. Both segment effects must be positive. Source factor ${num(a.source_factor,3)} remains in the verified v1 evidence.`
   : `Base calculation: $${num(a.base_amount)} × ${num(a.factor,3)} historical factor → $${num(a.adjusted_amount)} after caps.`;
  return `<details class="outcome-sizing-trace"><summary>Historical Outcome Sizing</summary><p>Segment: ${esc(a.segment)} · ${e.independent_games} independent settled games.</p><p>Game-weighted win rate: ${pct(e.game_wr)} · Break-even win rate: ${pct(e.break_even_wr)} · Game-weighted ROI: ${pct(e.game_roi)}.</p><p>${calculation} This is a sizing calculation; place only the instruction amount shown above, once.</p><p>Evidence cutoff: ${esc(when(e.as_of))}. Small samples are shrunk. Historical results do not establish future profitability.</p><code>${esc(e.summary_sha256)}</code></details>`;
 }

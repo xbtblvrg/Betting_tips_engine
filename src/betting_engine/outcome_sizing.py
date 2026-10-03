@@ -19,7 +19,7 @@ SUPPORTED_POLICIES = ('legacy', POLICY, POLICY_V2)
 VERSION = 'outcome-sizing-evidence-v1'
 SPARSE_BELOW_GAMES = 2  # Descriptive sparse-sample label only, never a multiplier threshold.
 FORMULA = 'game_score=min(1,game_roi/0.20,(game_wr-game_break_even_wr)/0.10); push_only_score=0; factor=1+max(0,sum(game_scores)/(n+20)); nonpositive_segment_roi_or_wr_surplus_factor=1'
-FORMULA_V2 = 'source_factor=v1.factor; applied_factor=1+4*(source_factor-1); nonpositive_segment_roi_or_wr_surplus_factor=1; source evidence remains historical_game_weighted_v1'
+FORMULA_V2 = 'game_score=min(1,game_roi/1.0,(game_wr-game_break_even_wr)/0.5); push_only_score=0; negative_scores_unbounded; signal=max(0,sum(game_scores)/(independent_games+20)); applied_factor=1+4*signal; nonpositive_segment_roi_or_wr_surplus_factor=1; source evidence remains historical_game_weighted_v1'
 NOTE = 'Historical game-weighted sizing heuristic; not validated profit, a confidence interval, or an independent probability forecast.'
 
 
@@ -54,10 +54,27 @@ def _factor(summary):
     return 1 + max(0., summary['game_score_sum'] / (n + 20))
 
 
-def _applied_factor(policy, summary):
-    """Map the immutable v1 evidence factor to the selected policy."""
-    source_factor = summary['factor'] if summary else 1.
-    return 1 + 4 * (source_factor - 1) if policy == POLICY_V2 else source_factor
+def _v2_adjustment(summary):
+    """Broader v2 effect scales, preserving signed losses and v1 source bytes.
+
+    Never floor negative game scores. Each score remains <= both scaled signed
+    effects, so a positive sum already implies positive aggregate ROI and WR
+    surplus. Appending a net-losing or push-only game cannot increase uplift.
+    """
+    games = summary['games'] if summary else {}
+    scores = []
+    for key in sorted(games):
+        game = games[key]
+        decisive = game['wins'] + game['losses']
+        scores.append(min(1., game['pnl'] / game['stake'],
+            ((game['wins'] - game['inverse_odds_sum']) / decisive) / .5) if decisive else 0.)
+    score_sum = sum(scores)
+    denominator = len(games) + 20
+    positive = bool(summary and summary['game_roi'] > 0
+                    and summary['game_wr'] > summary['break_even_wr'])
+    signal = max(0., score_sum / denominator) if positive else 0.
+    return {'applied_game_score_sum': score_sum, 'shrinkage_denominator': denominator,
+            'historical_signal': signal, 'applied_factor': 1 + 4 * signal}
 
 
 def _aggregate(games):
@@ -201,7 +218,8 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
     if summary is not None and (not verify_summary(summary) or summary['segment'] != segment_key(tip)):
         raise ValueError('Invalid outcome sizing evidence')
     source_factor = summary['factor'] if summary else 1.
-    factor = _applied_factor(policy, summary)
+    v2 = _v2_adjustment(summary) if policy == POLICY_V2 else None
+    factor = v2['applied_factor'] if v2 else source_factor
     caps = {'per_bet': 5., 'max_bet': _number(settings.get('max_bet', 5.)), 'remaining': None if remaining == math.inf else remaining}
     for name in ('maximum_stake', 'max_stake'):
         if name in base_sizing:
@@ -221,8 +239,8 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
               'base_note': base_sizing.get('note', '')}
     if policy == POLICY_V2:
         detail.update(source_policy=summary['policy'] if summary else POLICY,
-                      source_factor=source_factor, applied_factor=factor, formula=FORMULA_V2)
+                      source_factor=source_factor, formula=FORMULA_V2, **v2)
     applied_note = f' Historical outcome factor {factor:.6f}; target ${amount:.2f}. '
     if policy == POLICY_V2:
-        applied_note += 'Applied historical_game_weighted_v2 from the verified v1 source factor. '
+        applied_note += 'Applied historical_game_weighted_v2 to the verified v1 game evidence. '
     return {**base_sizing, 'amount': amount, 'note': base_sizing.get('note', '') + applied_note + NOTE, 'outcome_adjustment': detail}
