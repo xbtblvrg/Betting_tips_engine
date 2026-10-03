@@ -17,7 +17,8 @@ if action == 'install':
         'EnvironmentVariables': {'PYTHONPATH': str(ROOT / 'src'), 'PYTHONUNBUFFERED': '1',
             'PATH': '/opt/homebrew/bin:/usr/bin:/bin:/Users/belavarga/.local/bin',
             'OMP_NUM_THREADS': '1', 'OPENBLAS_NUM_THREADS': '1', 'VECLIB_MAXIMUM_THREADS': '1'},
-        'ProcessType': 'Standard', 'Nice': 5, 'StandardOutPath': str(logs / 'development.log'),
+        'ProcessType': 'Standard', 'Nice': 5,
+        'SoftResourceLimits': {'NumberOfFiles': 4096}, 'StandardOutPath': str(logs / 'development.log'),
         'StandardErrorPath': str(logs / 'development-error.log')}
     PLIST.write_bytes(plistlib.dumps(config))
     subprocess.run(['launchctl', 'bootout', DOMAIN, str(PLIST)], capture_output=True)

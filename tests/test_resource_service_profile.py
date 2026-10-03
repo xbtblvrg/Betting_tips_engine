@@ -17,6 +17,10 @@ def test_development_and_release_profiles_keep_numerical_threads_bounded(tmp_pat
     for config in (namespace['config'], release):
         assert config['ProcessType'] == 'Standard'
         assert config['Nice'] == 5
+        # Full validation opens many independent databases; macOS defaults to
+        # 256 descriptors. Raise only the soft ceiling, not system/hard limits.
+        assert config['SoftResourceLimits'] == {'NumberOfFiles': 4096}
+        assert 'HardResourceLimits' not in config
         assert config['EnvironmentVariables']['OMP_NUM_THREADS'] == '1'
         assert config['EnvironmentVariables']['OPENBLAS_NUM_THREADS'] == '1'
         assert config['EnvironmentVariables']['VECLIB_MAXIMUM_THREADS'] == '1'

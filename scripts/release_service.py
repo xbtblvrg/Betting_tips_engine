@@ -18,7 +18,8 @@ def configuration(root):
         'EnvironmentVariables': {'PYTHONPATH': str(root / 'src'), 'PYTHONUNBUFFERED': '1',
             'PATH': '/opt/homebrew/bin:/usr/bin:/bin:' + str(Path.home() / '.local/bin'),
             'OMP_NUM_THREADS': '1', 'OPENBLAS_NUM_THREADS': '1', 'VECLIB_MAXIMUM_THREADS': '1'},
-        'ProcessType': 'Standard', 'Nice': 5, 'StandardOutPath': str(logs / 'release.log'),
+        'ProcessType': 'Standard', 'Nice': 5,
+        'SoftResourceLimits': {'NumberOfFiles': 4096}, 'StandardOutPath': str(logs / 'release.log'),
         'StandardErrorPath': str(logs / 'release-error.log')}
 
 
