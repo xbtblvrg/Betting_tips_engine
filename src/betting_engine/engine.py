@@ -112,13 +112,14 @@ class Engine:
         try:
             bets=self.store.open_bets();decisions=self.store.system_decisions()
             pending_ids_building=set()
+            existing_finals={game.id for game in self.games if game.state=='final'}
             for row in bets+decisions:
                 tip=row.get('payload',{})
                 gid=tip.get('game_id')
                 supported_prefix=isinstance(gid,str) and gid.split(':',1)[0] in LEAGUE_PATHS
                 if row.get('status')!='open' or (tip.get('league') not in LEAGUE_PATHS and not supported_prefix):continue
                 try:
-                    if parse_time(tip['start'])>=now:continue
+                    if parse_time(tip['start'])>=now and gid not in existing_finals:continue
                 except (KeyError,TypeError,ValueError,AttributeError):pass
                 if isinstance(gid,str):pending_ids_building.add(gid)
             # An interrupted enumeration must fail closed for all supported

@@ -118,3 +118,16 @@ def test_partial_identity_scan_failure_cannot_allow_schedule_final_settlement(mo
     assert worker.espn_settlement_status['state']=='failed'
     assert worker.espn_settlement_status['unresolved_count']==1
     with pytest.raises(ValueError,match='ESPN'):settlement_scores(tip,game)
+
+
+def test_future_original_with_stale_final_stays_blocked_on_helper_failure(tmp_path,monkeypatch):
+    tip={**original(),'start':'2026-10-04T01:00:00Z'};game=final(tip)
+    store=Store(tmp_path/'engine.sqlite3');seed(store,[tip]);before=originals(store)
+    worker=Engine.__new__(Engine);worker.store=store;worker.games=[game]
+    monkeypatch.setattr(engine,'utcnow',lambda:NOW)
+    def failed(*a,**kw):raise OSError('injected source failure')
+    monkeypatch.setattr(espn_results,'recover_pending_espn',failed)
+    worker.recover_espn_results();worker.settle_bets();store.settle_system_decisions(worker.games)
+    assert worker.espn_settlement_status['unresolved_count']==1
+    assert originals(store)==before
+    assert store.bets()[0]['status']=='open' and store.system_decisions()[0]['status']=='open'
