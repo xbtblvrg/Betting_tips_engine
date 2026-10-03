@@ -679,6 +679,33 @@
       "completed_at": "2026-10-03T07:49:32.998111+00:00",
       "live_evidence": "data/releases/root-result-recovery-20261003/release.json",
       "code_commit": "9d028803a1ba4ca476f4f48f9b25bde4fc6bec8a"
+    },
+    {
+      "id": "D35",
+      "milestone": "M09",
+      "priority": 0,
+      "title": "Choose highest qualified probability within an exact game and allocation family",
+      "owner": "Codex selection implementation; independent Codex review; root integration",
+      "created_at": "2026-10-03T08:05:46.049578+00:00",
+      "due_at": "2026-10-03T09:00:00+00:00",
+      "depends_on": [],
+      "objective": "Correct the EV-first family comparator to the user-requested probability-first comparator among equally funding-qualified candidates, preserving all funding tiers and guard checks. Do not infer profit improvement from retrospective winning families.",
+      "implementation_steps": [
+        "Add explicit opt-in qualified_probability_v1 family selection policy; retain legacy replay.",
+        "Select by current anchored/calibrated probability after funding eligibility/tier; use stress ROI for ties; preserve held-family and exposure checks.",
+        "Seal policy in current evidence and atomic publication; reject policy drift.",
+        "Test qualified probability, price failures, canonical aliases, held best, and unchanged publication limits; independent review and full release tests.",
+        "Enable audited setting after reviewed release; verify current cards/counts and original-record hashes locally and on Tailscale."
+      ],
+      "files": [
+        "src/betting_engine/decisions.py",
+        "src/betting_engine/governance.py",
+        "src/betting_engine/storage.py"
+      ],
+      "data_source": "Current guarded anchored/calibrated candidates; exact current quotes; immutable originals for exposure only.",
+      "acceptance": "New live guarded publications record the policy; qualified family selection follows probability before stress ROI without funding an ineligible or lower-tier candidate, increasing limits, changing originals, or asserting unmeasured WR/ROI improvement. Targeted/full tests, independent review, and local/Tailscale verification succeed.",
+      "status": "attention_required",
+      "evidence": "docs/audits/20261003-performance-36h-after-recovery.json"
     }
   ],
   "deferred": [

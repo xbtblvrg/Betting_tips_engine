@@ -1034,5 +1034,3278 @@
     "missing_or_mismatched_outcomes": 0,
     "open_started_tickets": 0,
     "local_and_tailscale_cards": 13
+  },
+  "resolved_family_analysis": {
+    "by_type": [
+      {
+        "key": [
+          "Full Game Winner"
+        ],
+        "count": 15,
+        "statuses": {
+          "won": 9,
+          "lost": 6
+        },
+        "settled": 15,
+        "games": 15,
+        "settled_games": 15,
+        "settled_stake": 22.02,
+        "payout": 41.220400000000005,
+        "pnl": 19.200400000000002,
+        "roi": 0.871952770208901,
+        "wr": 0.6,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -0.12110897466256212,
+            1.9102928013498828
+          ],
+          "wr": [
+            0.3333333333333333,
+            0.8666666666666667
+          ]
+        }
+      },
+      {
+        "key": [
+          "Full Game Handicap"
+        ],
+        "count": 23,
+        "statuses": {
+          "won": 17,
+          "lost": 6
+        },
+        "settled": 23,
+        "games": 18,
+        "settled_games": 18,
+        "settled_stake": 40.08,
+        "payout": 59.133900000000004,
+        "pnl": 19.053900000000002,
+        "roi": 0.4753967065868264,
+        "wr": 0.7391304347826086,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -0.01152118376701129,
+            0.7538844802298662
+          ],
+          "wr": [
+            0.5,
+            0.9130434782608695
+          ]
+        }
+      },
+      {
+        "key": [
+          "Regulation/Period 1x2"
+        ],
+        "count": 41,
+        "statuses": {
+          "lost": 24,
+          "won": 17
+        },
+        "settled": 41,
+        "games": 13,
+        "settled_games": 13,
+        "settled_stake": 41.37,
+        "payout": 53.2,
+        "pnl": 11.83,
+        "roi": 0.2859560067681895,
+        "wr": 0.4146341463414634,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -0.26517341161376684,
+            0.94532534708514
+          ],
+          "wr": [
+            0.24390243902439024,
+            0.6046511627906976
+          ]
+        }
+      },
+      {
+        "key": [
+          "Period/Inning Total"
+        ],
+        "count": 15,
+        "statuses": {
+          "won": 9,
+          "lost": 6
+        },
+        "settled": 15,
+        "games": 8,
+        "settled_games": 8,
+        "settled_stake": 15.0,
+        "payout": 19.220000000000002,
+        "pnl": 4.220000000000001,
+        "roi": 0.2813333333333334,
+        "wr": 0.6,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -0.4922222222222223,
+            0.7595454545454546
+          ],
+          "wr": [
+            0.3,
+            0.7857142857142857
+          ]
+        }
+      },
+      {
+        "key": [
+          "Full Game Total"
+        ],
+        "count": 39,
+        "statuses": {
+          "won": 17,
+          "push": 4,
+          "lost": 18
+        },
+        "settled": 39,
+        "games": 21,
+        "settled_games": 21,
+        "settled_stake": 49.87,
+        "payout": 53.4275,
+        "pnl": 3.5574999999999997,
+        "roi": 0.07133547222779225,
+        "wr": 0.4857142857142857,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -0.4815957306288801,
+            0.4844334313183716
+          ],
+          "wr": [
+            0.21428571428571427,
+            0.7222222222222222
+          ]
+        }
+      },
+      {
+        "key": [
+          "Team Total"
+        ],
+        "count": 35,
+        "statuses": {
+          "won": 20,
+          "lost": 15
+        },
+        "settled": 35,
+        "games": 17,
+        "settled_games": 17,
+        "settled_stake": 39.39,
+        "payout": 40.3792,
+        "pnl": 0.989199999999999,
+        "roi": 0.025112972835745085,
+        "wr": 0.5714285714285714,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -0.32215479683133025,
+            0.3414299374157883
+          ],
+          "wr": [
+            0.3888888888888889,
+            0.7567567567567568
+          ]
+        }
+      },
+      {
+        "key": [
+          "Regulation/Period Double Chance"
+        ],
+        "count": 13,
+        "statuses": {
+          "lost": 5,
+          "won": 8
+        },
+        "settled": 13,
+        "games": 7,
+        "settled_games": 7,
+        "settled_stake": 13.34,
+        "payout": 13.82,
+        "pnl": 0.4799999999999997,
+        "roi": 0.035982008995502225,
+        "wr": 0.6153846153846154,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -0.6399999999999999,
+            0.6900584795321638
+          ],
+          "wr": [
+            0.23076923076923078,
+            1.0
+          ]
+        }
+      },
+      {
+        "key": [
+          "Scoped both_score"
+        ],
+        "count": 8,
+        "statuses": {
+          "lost": 5,
+          "won": 3
+        },
+        "settled": 8,
+        "games": 5,
+        "settled_games": 5,
+        "settled_stake": 8.0,
+        "payout": 5.63,
+        "pnl": -2.37,
+        "roi": -0.29625,
+        "wr": 0.375,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -0.7828571428571429,
+            0.4159999999999999
+          ],
+          "wr": [
+            0.14285714285714285,
+            0.625
+          ]
+        }
+      },
+      {
+        "key": [
+          "Scoped odd_even"
+        ],
+        "count": 3,
+        "statuses": {
+          "lost": 3
+        },
+        "settled": 3,
+        "games": 3,
+        "settled_games": 3,
+        "settled_stake": 3.0,
+        "payout": 0.0,
+        "pnl": -3.0,
+        "roi": -1.0,
+        "wr": 0.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -1.0,
+            -1.0
+          ],
+          "wr": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "key": [
+          "Period/Inning Winner or Draw No Bet"
+        ],
+        "count": 41,
+        "statuses": {
+          "lost": 23,
+          "won": 16,
+          "push": 2
+        },
+        "settled": 41,
+        "games": 13,
+        "settled_games": 13,
+        "settled_stake": 41.0,
+        "payout": 36.02,
+        "pnl": -4.98,
+        "roi": -0.12146341463414635,
+        "wr": 0.41025641025641024,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -0.39974342105263155,
+            0.15256617647058818
+          ],
+          "wr": [
+            0.2631578947368421,
+            0.5454545454545454
+          ]
+        }
+      },
+      {
+        "key": [
+          "Period/Inning Handicap"
+        ],
+        "count": 18,
+        "statuses": {
+          "won": 7,
+          "lost": 11
+        },
+        "settled": 18,
+        "games": 9,
+        "settled_games": 9,
+        "settled_stake": 18.0,
+        "payout": 12.040000000000001,
+        "pnl": -5.96,
+        "roi": -0.3311111111111111,
+        "wr": 0.3888888888888889,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -0.6845568181818182,
+            0.20545454545454547
+          ],
+          "wr": [
+            0.2,
+            0.6666666666666666
+          ]
+        }
+      }
+    ],
+    "by_league_type": [
+      {
+        "key": [
+          "NCAAF",
+          "Full Game Winner"
+        ],
+        "count": 3,
+        "statuses": {
+          "won": 3
+        },
+        "settled": 3,
+        "games": 3,
+        "settled_games": 3,
+        "settled_stake": 7.61,
+        "payout": 24.450400000000002,
+        "pnl": 16.840400000000002,
+        "roi": 2.212930354796321,
+        "wr": 1.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            0.8200000000000002,
+            4.2
+          ],
+          "wr": [
+            1.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "key": [
+          "WNBA",
+          "Full Game Total"
+        ],
+        "count": 7,
+        "statuses": {
+          "won": 7
+        },
+        "settled": 7,
+        "games": 2,
+        "settled_games": 2,
+        "settled_stake": 12.74,
+        "payout": 24.1178,
+        "pnl": 11.377799999999999,
+        "roi": 0.893076923076923,
+        "wr": 1.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            0.867242888402626,
+            0.9075275397796817
+          ],
+          "wr": [
+            1.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "key": [
+          "NCAAF",
+          "Full Game Handicap"
+        ],
+        "count": 6,
+        "statuses": {
+          "lost": 1,
+          "won": 5
+        },
+        "settled": 6,
+        "games": 3,
+        "settled_games": 3,
+        "settled_stake": 14.99,
+        "payout": 24.971400000000003,
+        "pnl": 9.981400000000002,
+        "roi": 0.6658705803869247,
+        "wr": 0.8333333333333334,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -1.0,
+            0.8800000000000002
+          ],
+          "wr": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "Regulation/Period 1x2"
+        ],
+        "count": 34,
+        "statuses": {
+          "lost": 20,
+          "won": 14
+        },
+        "settled": 34,
+        "games": 11,
+        "settled_games": 11,
+        "settled_stake": 34.37,
+        "payout": 44.3,
+        "pnl": 9.93,
+        "roi": 0.2889147512365435,
+        "wr": 0.4117647058823529,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -0.35588831478537364,
+            0.9921240601503756
+          ],
+          "wr": [
+            0.21212121212121213,
+            0.625
+          ]
+        }
+      },
+      {
+        "key": [
+          "NFL",
+          "Full Game Total"
+        ],
+        "count": 4,
+        "statuses": {
+          "won": 4
+        },
+        "settled": 4,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 5.9,
+        "payout": 12.338000000000001,
+        "pnl": 6.438000000000001,
+        "roi": 1.091186440677966,
+        "wr": 1.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "NFL",
+          "Period/Inning Total"
+        ],
+        "count": 5,
+        "statuses": {
+          "won": 4,
+          "lost": 1
+        },
+        "settled": 5,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 5.0,
+        "payout": 10.51,
+        "pnl": 5.510000000000001,
+        "roi": 1.102,
+        "wr": 0.8,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "WNBA",
+          "Team Total"
+        ],
+        "count": 6,
+        "statuses": {
+          "won": 4,
+          "lost": 2
+        },
+        "settled": 6,
+        "games": 2,
+        "settled_games": 2,
+        "settled_stake": 9.25,
+        "payout": 12.488,
+        "pnl": 3.2379999999999995,
+        "roi": 0.350054054054054,
+        "wr": 0.6666666666666666,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            0.14102073365231255,
+            0.7898657718120804
+          ],
+          "wr": [
+            0.5,
+            1.0
+          ]
+        }
+      },
+      {
+        "key": [
+          "MLB",
+          "Full Game Handicap"
+        ],
+        "count": 1,
+        "statuses": {
+          "won": 1
+        },
+        "settled": 1,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 1.67,
+        "payout": 4.843,
+        "pnl": 3.1729999999999996,
+        "roi": 1.8999999999999997,
+        "wr": 1.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "Full Game Winner"
+        ],
+        "count": 9,
+        "statuses": {
+          "lost": 4,
+          "won": 5
+        },
+        "settled": 9,
+        "games": 9,
+        "settled_games": 9,
+        "settled_stake": 11.41,
+        "payout": 14.58,
+        "pnl": 3.17,
+        "roi": 0.2778264680105171,
+        "wr": 0.5555555555555556,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -0.5766567754698319,
+            1.0527131782945736
+          ],
+          "wr": [
+            0.2222222222222222,
+            0.8888888888888888
+          ]
+        }
+      },
+      {
+        "key": [
+          "MLB",
+          "Regulation/Period 1x2"
+        ],
+        "count": 1,
+        "statuses": {
+          "won": 1
+        },
+        "settled": 1,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 1.0,
+        "payout": 4.1,
+        "pnl": 3.0999999999999996,
+        "roi": 3.0999999999999996,
+        "wr": 1.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "NFL",
+          "Full Game Handicap"
+        ],
+        "count": 2,
+        "statuses": {
+          "won": 2
+        },
+        "settled": 2,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 2.79,
+        "payout": 5.88,
+        "pnl": 3.09,
+        "roi": 1.10752688172043,
+        "wr": 1.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "Full Game Handicap"
+        ],
+        "count": 14,
+        "statuses": {
+          "lost": 5,
+          "won": 9
+        },
+        "settled": 14,
+        "games": 13,
+        "settled_games": 13,
+        "settled_stake": 20.63,
+        "payout": 23.4395,
+        "pnl": 2.8095000000000008,
+        "roi": 0.13618516723218616,
+        "wr": 0.6428571428571429,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -0.36212259676615266,
+            0.5495087020149456
+          ],
+          "wr": [
+            0.38461538461538464,
+            0.8666666666666667
+          ]
+        }
+      },
+      {
+        "key": [
+          "NFL",
+          "Team Total"
+        ],
+        "count": 2,
+        "statuses": {
+          "won": 2
+        },
+        "settled": 2,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 2.92,
+        "payout": 5.4472,
+        "pnl": 2.5271999999999997,
+        "roi": 0.8654794520547944,
+        "wr": 1.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "MLB",
+          "Team Total"
+        ],
+        "count": 2,
+        "statuses": {
+          "won": 2
+        },
+        "settled": 2,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 2.0,
+        "payout": 3.9,
+        "pnl": 1.9000000000000001,
+        "roi": 0.9500000000000001,
+        "wr": 1.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "MLB",
+          "Period/Inning Total"
+        ],
+        "count": 2,
+        "statuses": {
+          "won": 2
+        },
+        "settled": 2,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 2.0,
+        "payout": 3.48,
+        "pnl": 1.4800000000000002,
+        "roi": 0.7400000000000001,
+        "wr": 1.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "NFL",
+          "Full Game Winner"
+        ],
+        "count": 1,
+        "statuses": {
+          "won": 1
+        },
+        "settled": 1,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 1.0,
+        "payout": 2.19,
+        "pnl": 1.19,
+        "roi": 1.19,
+        "wr": 1.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "MLB",
+          "Full Game Total"
+        ],
+        "count": 1,
+        "statuses": {
+          "won": 1
+        },
+        "settled": 1,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 1.0,
+        "payout": 1.9499999999999997,
+        "pnl": 0.9499999999999997,
+        "roi": 0.9499999999999997,
+        "wr": 1.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "MLB",
+          "Period/Inning Winner or Draw No Bet"
+        ],
+        "count": 1,
+        "statuses": {
+          "won": 1
+        },
+        "settled": 1,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 1.0,
+        "payout": 1.92,
+        "pnl": 0.9199999999999999,
+        "roi": 0.9199999999999999,
+        "wr": 1.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "Regulation/Period Double Chance"
+        ],
+        "count": 13,
+        "statuses": {
+          "lost": 5,
+          "won": 8
+        },
+        "settled": 13,
+        "games": 7,
+        "settled_games": 7,
+        "settled_stake": 13.34,
+        "payout": 13.82,
+        "pnl": 0.4799999999999997,
+        "roi": 0.035982008995502225,
+        "wr": 0.6153846153846154,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -0.6399999999999999,
+            0.6900584795321638
+          ],
+          "wr": [
+            0.23076923076923078,
+            1.0
+          ]
+        }
+      },
+      {
+        "key": [
+          "NCAAF",
+          "Full Game Total"
+        ],
+        "count": 5,
+        "statuses": {
+          "won": 2,
+          "lost": 3
+        },
+        "settled": 5,
+        "games": 5,
+        "settled_games": 5,
+        "settled_stake": 6.39,
+        "payout": 5.6316,
+        "pnl": -0.7583999999999999,
+        "roi": -0.11868544600938966,
+        "wr": 0.4,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -1.0,
+            0.5662400000000002
+          ],
+          "wr": [
+            0.0,
+            0.8
+          ]
+        }
+      },
+      {
+        "key": [
+          "WNBA",
+          "Scoped odd_even"
+        ],
+        "count": 1,
+        "statuses": {
+          "lost": 1
+        },
+        "settled": 1,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 1.0,
+        "payout": 0.0,
+        "pnl": -1.0,
+        "roi": -1.0,
+        "wr": 0.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "NFL",
+          "Regulation/Period 1x2"
+        ],
+        "count": 6,
+        "statuses": {
+          "won": 2,
+          "lost": 4
+        },
+        "settled": 6,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 6.0,
+        "payout": 4.8,
+        "pnl": -1.1999999999999997,
+        "roi": -0.19999999999999996,
+        "wr": 0.3333333333333333,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "Period/Inning Winner or Draw No Bet"
+        ],
+        "count": 35,
+        "statuses": {
+          "lost": 19,
+          "won": 15,
+          "push": 1
+        },
+        "settled": 35,
+        "games": 11,
+        "settled_games": 11,
+        "settled_stake": 35.0,
+        "payout": 33.1,
+        "pnl": -1.9000000000000004,
+        "roi": -0.05428571428571429,
+        "wr": 0.4411764705882353,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -0.3336402821316614,
+            0.1927041006523765
+          ],
+          "wr": [
+            0.3,
+            0.5625
+          ]
+        }
+      },
+      {
+        "key": [
+          "WNBA",
+          "Full Game Winner"
+        ],
+        "count": 2,
+        "statuses": {
+          "lost": 2
+        },
+        "settled": 2,
+        "games": 2,
+        "settled_games": 2,
+        "settled_stake": 2.0,
+        "payout": 0.0,
+        "pnl": -2.0,
+        "roi": -1.0,
+        "wr": 0.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -1.0,
+            -1.0
+          ],
+          "wr": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "Scoped odd_even"
+        ],
+        "count": 2,
+        "statuses": {
+          "lost": 2
+        },
+        "settled": 2,
+        "games": 2,
+        "settled_games": 2,
+        "settled_stake": 2.0,
+        "payout": 0.0,
+        "pnl": -2.0,
+        "roi": -1.0,
+        "wr": 0.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -1.0,
+            -1.0
+          ],
+          "wr": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "Period/Inning Handicap"
+        ],
+        "count": 13,
+        "statuses": {
+          "won": 6,
+          "lost": 7
+        },
+        "settled": 13,
+        "games": 8,
+        "settled_games": 8,
+        "settled_stake": 13.0,
+        "payout": 10.65,
+        "pnl": -2.3499999999999996,
+        "roi": -0.18076923076923077,
+        "wr": 0.46153846153846156,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -0.6607142857142857,
+            0.3854570707070707
+          ],
+          "wr": [
+            0.18181818181818182,
+            0.75
+          ]
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "Scoped both_score"
+        ],
+        "count": 8,
+        "statuses": {
+          "lost": 5,
+          "won": 3
+        },
+        "settled": 8,
+        "games": 5,
+        "settled_games": 5,
+        "settled_stake": 8.0,
+        "payout": 5.63,
+        "pnl": -2.37,
+        "roi": -0.29625,
+        "wr": 0.375,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -0.7828571428571429,
+            0.4159999999999999
+          ],
+          "wr": [
+            0.14285714285714285,
+            0.625
+          ]
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "Period/Inning Total"
+        ],
+        "count": 8,
+        "statuses": {
+          "lost": 5,
+          "won": 3
+        },
+        "settled": 8,
+        "games": 6,
+        "settled_games": 6,
+        "settled_stake": 8.0,
+        "payout": 5.23,
+        "pnl": -2.77,
+        "roi": -0.34625,
+        "wr": 0.375,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -0.7814285714285714,
+            0.03374999999999995
+          ],
+          "wr": [
+            0.14285714285714285,
+            0.625
+          ]
+        }
+      },
+      {
+        "key": [
+          "NFL",
+          "Period/Inning Handicap"
+        ],
+        "count": 5,
+        "statuses": {
+          "lost": 4,
+          "won": 1
+        },
+        "settled": 5,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 5.0,
+        "payout": 1.39,
+        "pnl": -3.6100000000000003,
+        "roi": -0.722,
+        "wr": 0.2,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "NFL",
+          "Period/Inning Winner or Draw No Bet"
+        ],
+        "count": 5,
+        "statuses": {
+          "lost": 4,
+          "push": 1
+        },
+        "settled": 5,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 5.0,
+        "payout": 1.0,
+        "pnl": -4.0,
+        "roi": -0.8,
+        "wr": 0.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "Team Total"
+        ],
+        "count": 25,
+        "statuses": {
+          "lost": 13,
+          "won": 12
+        },
+        "settled": 25,
+        "games": 13,
+        "settled_games": 13,
+        "settled_stake": 25.22,
+        "payout": 18.544,
+        "pnl": -6.676,
+        "roi": -0.264710547184774,
+        "wr": 0.48,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -0.6184980203803466,
+            0.12133080216245393
+          ],
+          "wr": [
+            0.2692307692307692,
+            0.6956521739130435
+          ]
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "Full Game Total"
+        ],
+        "count": 22,
+        "statuses": {
+          "push": 4,
+          "lost": 15,
+          "won": 3
+        },
+        "settled": 22,
+        "games": 12,
+        "settled_games": 12,
+        "settled_stake": 23.84,
+        "payout": 9.3901,
+        "pnl": -14.4499,
+        "roi": -0.6061199664429531,
+        "wr": 0.16666666666666666,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -0.9033039779595623,
+            -0.21521609216366905
+          ],
+          "wr": [
+            0.0,
+            0.42857142857142855
+          ]
+        }
+      }
+    ],
+    "by_scope_family": [
+      {
+        "key": [
+          "NCAAF",
+          "full_game",
+          "moneyline"
+        ],
+        "count": 3,
+        "statuses": {
+          "won": 3
+        },
+        "settled": 3,
+        "games": 3,
+        "settled_games": 3,
+        "settled_stake": 7.61,
+        "payout": 24.450400000000002,
+        "pnl": 16.840400000000002,
+        "roi": 2.212930354796321,
+        "wr": 1.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            0.8200000000000002,
+            4.2
+          ],
+          "wr": [
+            1.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "key": [
+          "WNBA",
+          "full_game",
+          "totals"
+        ],
+        "count": 7,
+        "statuses": {
+          "won": 7
+        },
+        "settled": 7,
+        "games": 2,
+        "settled_games": 2,
+        "settled_stake": 12.74,
+        "payout": 24.1178,
+        "pnl": 11.377799999999999,
+        "roi": 0.893076923076923,
+        "wr": 1.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            0.867242888402626,
+            0.9075275397796817
+          ],
+          "wr": [
+            1.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "key": [
+          "NCAAF",
+          "full_game",
+          "spreads"
+        ],
+        "count": 6,
+        "statuses": {
+          "lost": 1,
+          "won": 5
+        },
+        "settled": 6,
+        "games": 3,
+        "settled_games": 3,
+        "settled_stake": 14.99,
+        "payout": 24.971400000000003,
+        "pnl": 9.981400000000002,
+        "roi": 0.6658705803869247,
+        "wr": 0.8333333333333334,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -1.0,
+            0.8800000000000002
+          ],
+          "wr": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "key": [
+          "NFL",
+          "full_game",
+          "totals"
+        ],
+        "count": 4,
+        "statuses": {
+          "won": 4
+        },
+        "settled": 4,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 5.9,
+        "payout": 12.338000000000001,
+        "pnl": 6.438000000000001,
+        "roi": 1.091186440677966,
+        "wr": 1.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "NFL",
+          "half_1",
+          "totals"
+        ],
+        "count": 3,
+        "statuses": {
+          "won": 3
+        },
+        "settled": 3,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 3.0,
+        "payout": 8.540000000000001,
+        "pnl": 5.54,
+        "roi": 1.8466666666666667,
+        "wr": 1.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "period_1",
+          "three_way"
+        ],
+        "count": 9,
+        "statuses": {
+          "won": 4,
+          "lost": 5
+        },
+        "settled": 9,
+        "games": 9,
+        "settled_games": 9,
+        "settled_stake": 9.0,
+        "payout": 13.4,
+        "pnl": 4.4,
+        "roi": 0.48888888888888893,
+        "wr": 0.4444444444444444,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -0.6277777777777778,
+            1.6111111111111112
+          ],
+          "wr": [
+            0.1111111111111111,
+            0.7777777777777778
+          ]
+        }
+      },
+      {
+        "key": [
+          "WNBA",
+          "full_game",
+          "away_total"
+        ],
+        "count": 3,
+        "statuses": {
+          "won": 3
+        },
+        "settled": 3,
+        "games": 2,
+        "settled_games": 2,
+        "settled_stake": 4.92,
+        "payout": 8.9042,
+        "pnl": 3.9841999999999995,
+        "roi": 0.8097967479674796,
+        "wr": 1.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            0.75,
+            0.8250510204081631
+          ],
+          "wr": [
+            1.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "regulation",
+          "three_way"
+        ],
+        "count": 11,
+        "statuses": {
+          "lost": 6,
+          "won": 5
+        },
+        "settled": 11,
+        "games": 11,
+        "settled_games": 11,
+        "settled_stake": 11.37,
+        "payout": 15.15,
+        "pnl": 3.78,
+        "roi": 0.33245382585751976,
+        "wr": 0.45454545454545453,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -0.5074758135444151,
+            1.2454545454545454
+          ],
+          "wr": [
+            0.18181818181818182,
+            0.7272727272727273
+          ]
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "period_2",
+          "moneyline"
+        ],
+        "count": 12,
+        "statuses": {
+          "won": 7,
+          "lost": 4,
+          "push": 1
+        },
+        "settled": 12,
+        "games": 10,
+        "settled_games": 10,
+        "settled_stake": 12.0,
+        "payout": 15.74,
+        "pnl": 3.7399999999999998,
+        "roi": 0.31166666666666665,
+        "wr": 0.6363636363636364,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -0.12274242424242428,
+            0.76092803030303
+          ],
+          "wr": [
+            0.4,
+            0.8888888888888888
+          ]
+        }
+      },
+      {
+        "key": [
+          "MLB",
+          "full_game",
+          "spreads"
+        ],
+        "count": 1,
+        "statuses": {
+          "won": 1
+        },
+        "settled": 1,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 1.67,
+        "payout": 4.843,
+        "pnl": 3.1729999999999996,
+        "roi": 1.8999999999999997,
+        "wr": 1.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "full_game",
+          "moneyline"
+        ],
+        "count": 9,
+        "statuses": {
+          "lost": 4,
+          "won": 5
+        },
+        "settled": 9,
+        "games": 9,
+        "settled_games": 9,
+        "settled_stake": 11.41,
+        "payout": 14.58,
+        "pnl": 3.17,
+        "roi": 0.2778264680105171,
+        "wr": 0.5555555555555556,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -0.5766567754698319,
+            1.0527131782945736
+          ],
+          "wr": [
+            0.2222222222222222,
+            0.8888888888888888
+          ]
+        }
+      },
+      {
+        "key": [
+          "MLB",
+          "inning_1",
+          "three_way"
+        ],
+        "count": 1,
+        "statuses": {
+          "won": 1
+        },
+        "settled": 1,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 1.0,
+        "payout": 4.1,
+        "pnl": 3.0999999999999996,
+        "roi": 3.0999999999999996,
+        "wr": 1.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "NFL",
+          "full_game",
+          "spreads"
+        ],
+        "count": 2,
+        "statuses": {
+          "won": 2
+        },
+        "settled": 2,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 2.79,
+        "payout": 5.88,
+        "pnl": 3.09,
+        "roi": 1.10752688172043,
+        "wr": 1.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "full_game",
+          "spreads"
+        ],
+        "count": 14,
+        "statuses": {
+          "lost": 5,
+          "won": 9
+        },
+        "settled": 14,
+        "games": 13,
+        "settled_games": 13,
+        "settled_stake": 20.63,
+        "payout": 23.4395,
+        "pnl": 2.8095000000000008,
+        "roi": 0.13618516723218616,
+        "wr": 0.6428571428571429,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -0.36212259676615266,
+            0.5495087020149456
+          ],
+          "wr": [
+            0.38461538461538464,
+            0.8666666666666667
+          ]
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "period_2",
+          "three_way"
+        ],
+        "count": 7,
+        "statuses": {
+          "lost": 4,
+          "won": 3
+        },
+        "settled": 7,
+        "games": 7,
+        "settled_games": 7,
+        "settled_stake": 7.0,
+        "payout": 9.25,
+        "pnl": 2.25,
+        "roi": 0.32142857142857145,
+        "wr": 0.42857142857142855,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -0.5857142857142856,
+            1.535892857142855
+          ],
+          "wr": [
+            0.14285714285714285,
+            0.8571428571428571
+          ]
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "period_2",
+          "spreads"
+        ],
+        "count": 4,
+        "statuses": {
+          "won": 3,
+          "lost": 1
+        },
+        "settled": 4,
+        "games": 4,
+        "settled_games": 4,
+        "settled_stake": 4.0,
+        "payout": 5.78,
+        "pnl": 1.7799999999999998,
+        "roi": 0.44499999999999995,
+        "wr": 0.75,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -0.5925,
+            1.3375000000000001
+          ],
+          "wr": [
+            0.25,
+            1.0
+          ]
+        }
+      },
+      {
+        "key": [
+          "NFL",
+          "full_game",
+          "home_total"
+        ],
+        "count": 1,
+        "statuses": {
+          "won": 1
+        },
+        "settled": 1,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 1.92,
+        "payout": 3.6672,
+        "pnl": 1.7471999999999999,
+        "roi": 0.9099999999999999,
+        "wr": 1.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "MLB",
+          "full_game",
+          "home_total"
+        ],
+        "count": 1,
+        "statuses": {
+          "won": 1
+        },
+        "settled": 1,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 1.0,
+        "payout": 2.6,
+        "pnl": 1.6,
+        "roi": 1.6,
+        "wr": 1.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "NFL",
+          "regulation",
+          "three_way"
+        ],
+        "count": 1,
+        "statuses": {
+          "won": 1
+        },
+        "settled": 1,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 1.0,
+        "payout": 2.41,
+        "pnl": 1.4100000000000001,
+        "roi": 1.4100000000000001,
+        "wr": 1.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "NFL",
+          "quarter_2",
+          "three_way"
+        ],
+        "count": 1,
+        "statuses": {
+          "won": 1
+        },
+        "settled": 1,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 1.0,
+        "payout": 2.39,
+        "pnl": 1.3900000000000001,
+        "roi": 1.3900000000000001,
+        "wr": 1.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "NFL",
+          "full_game",
+          "moneyline"
+        ],
+        "count": 1,
+        "statuses": {
+          "won": 1
+        },
+        "settled": 1,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 1.0,
+        "payout": 2.19,
+        "pnl": 1.19,
+        "roi": 1.19,
+        "wr": 1.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "MLB",
+          "inning_1",
+          "totals"
+        ],
+        "count": 1,
+        "statuses": {
+          "won": 1
+        },
+        "settled": 1,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 1.0,
+        "payout": 2.02,
+        "pnl": 1.02,
+        "roi": 1.02,
+        "wr": 1.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "NFL",
+          "quarter_2",
+          "totals"
+        ],
+        "count": 1,
+        "statuses": {
+          "won": 1
+        },
+        "settled": 1,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 1.0,
+        "payout": 1.9700000000000002,
+        "pnl": 0.9700000000000002,
+        "roi": 0.9700000000000002,
+        "wr": 1.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "MLB",
+          "full_game",
+          "totals"
+        ],
+        "count": 1,
+        "statuses": {
+          "won": 1
+        },
+        "settled": 1,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 1.0,
+        "payout": 1.9499999999999997,
+        "pnl": 0.9499999999999997,
+        "roi": 0.9499999999999997,
+        "wr": 1.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "MLB",
+          "inning_1",
+          "moneyline"
+        ],
+        "count": 1,
+        "statuses": {
+          "won": 1
+        },
+        "settled": 1,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 1.0,
+        "payout": 1.92,
+        "pnl": 0.9199999999999999,
+        "roi": 0.9199999999999999,
+        "wr": 1.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "NFL",
+          "full_game",
+          "away_total"
+        ],
+        "count": 1,
+        "statuses": {
+          "won": 1
+        },
+        "settled": 1,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 1.0,
+        "payout": 1.7799999999999998,
+        "pnl": 0.7799999999999998,
+        "roi": 0.7799999999999998,
+        "wr": 1.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "period_2",
+          "double_chance"
+        ],
+        "count": 4,
+        "statuses": {
+          "won": 3,
+          "lost": 1
+        },
+        "settled": 4,
+        "games": 4,
+        "settled_games": 4,
+        "settled_stake": 4.0,
+        "payout": 4.67,
+        "pnl": 0.6699999999999999,
+        "roi": 0.16749999999999998,
+        "wr": 0.75,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -0.6174999999999999,
+            0.595
+          ],
+          "wr": [
+            0.25,
+            1.0
+          ]
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "period_1",
+          "both_score"
+        ],
+        "count": 1,
+        "statuses": {
+          "won": 1
+        },
+        "settled": 1,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 1.0,
+        "payout": 1.5199999999999998,
+        "pnl": 0.5199999999999998,
+        "roi": 0.5199999999999998,
+        "wr": 1.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "MLB",
+          "innings_1_5",
+          "totals"
+        ],
+        "count": 1,
+        "statuses": {
+          "won": 1
+        },
+        "settled": 1,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 1.0,
+        "payout": 1.4600000000000002,
+        "pnl": 0.4600000000000002,
+        "roi": 0.4600000000000002,
+        "wr": 1.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "NFL",
+          "quarter_3",
+          "spreads"
+        ],
+        "count": 1,
+        "statuses": {
+          "won": 1
+        },
+        "settled": 1,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 1.0,
+        "payout": 1.39,
+        "pnl": 0.3899999999999999,
+        "roi": 0.3899999999999999,
+        "wr": 1.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "MLB",
+          "innings_1_5",
+          "home_total"
+        ],
+        "count": 1,
+        "statuses": {
+          "won": 1
+        },
+        "settled": 1,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 1.0,
+        "payout": 1.3,
+        "pnl": 0.30000000000000004,
+        "roi": 0.30000000000000004,
+        "wr": 1.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "period_1",
+          "totals"
+        ],
+        "count": 2,
+        "statuses": {
+          "lost": 1,
+          "won": 1
+        },
+        "settled": 2,
+        "games": 2,
+        "settled_games": 2,
+        "settled_stake": 2.0,
+        "payout": 2.18,
+        "pnl": 0.1800000000000002,
+        "roi": 0.0900000000000001,
+        "wr": 0.5,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -1.0,
+            1.1800000000000002
+          ],
+          "wr": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "regulation",
+          "double_chance"
+        ],
+        "count": 4,
+        "statuses": {
+          "lost": 2,
+          "won": 2
+        },
+        "settled": 4,
+        "games": 4,
+        "settled_games": 4,
+        "settled_stake": 4.34,
+        "payout": 4.4799999999999995,
+        "pnl": 0.1399999999999998,
+        "roi": 0.03225806451612898,
+        "wr": 0.5,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -1.0,
+            0.9145299145299145
+          ],
+          "wr": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "key": [
+          "NFL",
+          "quarter_3",
+          "moneyline"
+        ],
+        "count": 1,
+        "statuses": {
+          "push": 1
+        },
+        "settled": 1,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 1.0,
+        "payout": 1.0,
+        "pnl": 0.0,
+        "roi": 0.0,
+        "wr": null,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "period_1",
+          "double_chance"
+        ],
+        "count": 3,
+        "statuses": {
+          "won": 2,
+          "lost": 1
+        },
+        "settled": 3,
+        "games": 3,
+        "settled_games": 3,
+        "settled_stake": 3.0,
+        "payout": 2.98,
+        "pnl": -0.02,
+        "roi": -0.006666666666666667,
+        "wr": 0.6666666666666666,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -1.0,
+            0.5
+          ],
+          "wr": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "period_2",
+          "both_score"
+        ],
+        "count": 2,
+        "statuses": {
+          "lost": 1,
+          "won": 1
+        },
+        "settled": 2,
+        "games": 2,
+        "settled_games": 2,
+        "settled_stake": 2.0,
+        "payout": 1.75,
+        "pnl": -0.25,
+        "roi": -0.125,
+        "wr": 0.5,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -1.0,
+            0.75
+          ],
+          "wr": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "period_3",
+          "double_chance"
+        ],
+        "count": 2,
+        "statuses": {
+          "won": 1,
+          "lost": 1
+        },
+        "settled": 2,
+        "games": 2,
+        "settled_games": 2,
+        "settled_stake": 2.0,
+        "payout": 1.69,
+        "pnl": -0.31,
+        "roi": -0.155,
+        "wr": 0.5,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -1.0,
+            0.69
+          ],
+          "wr": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "period_3",
+          "three_way"
+        ],
+        "count": 7,
+        "statuses": {
+          "lost": 5,
+          "won": 2
+        },
+        "settled": 7,
+        "games": 7,
+        "settled_games": 7,
+        "settled_stake": 7.0,
+        "payout": 6.5,
+        "pnl": -0.5,
+        "roi": -0.07142857142857142,
+        "wr": 0.2857142857142857,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -1.0,
+            0.8571428571428571
+          ],
+          "wr": [
+            0.0,
+            0.5714285714285714
+          ]
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "period_3",
+          "both_score"
+        ],
+        "count": 3,
+        "statuses": {
+          "won": 1,
+          "lost": 2
+        },
+        "settled": 3,
+        "games": 3,
+        "settled_games": 3,
+        "settled_stake": 3.0,
+        "payout": 2.36,
+        "pnl": -0.6400000000000001,
+        "roi": -0.21333333333333337,
+        "wr": 0.3333333333333333,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -1.0,
+            1.36
+          ],
+          "wr": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "key": [
+          "WNBA",
+          "full_game",
+          "home_total"
+        ],
+        "count": 3,
+        "statuses": {
+          "lost": 2,
+          "won": 1
+        },
+        "settled": 3,
+        "games": 2,
+        "settled_games": 2,
+        "settled_stake": 4.33,
+        "payout": 3.5837999999999997,
+        "pnl": -0.7462000000000003,
+        "roi": -0.17233256351039267,
+        "wr": 0.3333333333333333,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -1.0,
+            0.8099999999999998
+          ],
+          "wr": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "key": [
+          "NCAAF",
+          "full_game",
+          "totals"
+        ],
+        "count": 5,
+        "statuses": {
+          "won": 2,
+          "lost": 3
+        },
+        "settled": 5,
+        "games": 5,
+        "settled_games": 5,
+        "settled_stake": 6.39,
+        "payout": 5.6316,
+        "pnl": -0.7583999999999999,
+        "roi": -0.11868544600938966,
+        "wr": 0.4,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -1.0,
+            0.5662400000000002
+          ],
+          "wr": [
+            0.0,
+            0.8
+          ]
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "period_3",
+          "totals"
+        ],
+        "count": 4,
+        "statuses": {
+          "lost": 2,
+          "won": 2
+        },
+        "settled": 4,
+        "games": 4,
+        "settled_games": 4,
+        "settled_stake": 4.0,
+        "payout": 3.05,
+        "pnl": -0.9500000000000002,
+        "roi": -0.23750000000000004,
+        "wr": 0.5,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -1.0,
+            0.5249999999999999
+          ],
+          "wr": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "key": [
+          "WNBA",
+          "half_1",
+          "odd_even"
+        ],
+        "count": 1,
+        "statuses": {
+          "lost": 1
+        },
+        "settled": 1,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 1.0,
+        "payout": 0.0,
+        "pnl": -1.0,
+        "roi": -1.0,
+        "wr": 0.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "NFL",
+          "half_2_ot",
+          "three_way"
+        ],
+        "count": 1,
+        "statuses": {
+          "lost": 1
+        },
+        "settled": 1,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 1.0,
+        "payout": 0.0,
+        "pnl": -1.0,
+        "roi": -1.0,
+        "wr": 0.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "NFL",
+          "half_2_ot",
+          "moneyline"
+        ],
+        "count": 1,
+        "statuses": {
+          "lost": 1
+        },
+        "settled": 1,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 1.0,
+        "payout": 0.0,
+        "pnl": -1.0,
+        "roi": -1.0,
+        "wr": 0.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "NFL",
+          "quarter_1",
+          "three_way"
+        ],
+        "count": 1,
+        "statuses": {
+          "lost": 1
+        },
+        "settled": 1,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 1.0,
+        "payout": 0.0,
+        "pnl": -1.0,
+        "roi": -1.0,
+        "wr": 0.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "NFL",
+          "quarter_3",
+          "totals"
+        ],
+        "count": 1,
+        "statuses": {
+          "lost": 1
+        },
+        "settled": 1,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 1.0,
+        "payout": 0.0,
+        "pnl": -1.0,
+        "roi": -1.0,
+        "wr": 0.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "NFL",
+          "quarter_3",
+          "three_way"
+        ],
+        "count": 1,
+        "statuses": {
+          "lost": 1
+        },
+        "settled": 1,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 1.0,
+        "payout": 0.0,
+        "pnl": -1.0,
+        "roi": -1.0,
+        "wr": 0.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "NFL",
+          "quarter_1",
+          "spreads"
+        ],
+        "count": 1,
+        "statuses": {
+          "lost": 1
+        },
+        "settled": 1,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 1.0,
+        "payout": 0.0,
+        "pnl": -1.0,
+        "roi": -1.0,
+        "wr": 0.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "NFL",
+          "quarter_4",
+          "three_way"
+        ],
+        "count": 1,
+        "statuses": {
+          "lost": 1
+        },
+        "settled": 1,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 1.0,
+        "payout": 0.0,
+        "pnl": -1.0,
+        "roi": -1.0,
+        "wr": 0.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "NFL",
+          "quarter_4",
+          "moneyline"
+        ],
+        "count": 1,
+        "statuses": {
+          "lost": 1
+        },
+        "settled": 1,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 1.0,
+        "payout": 0.0,
+        "pnl": -1.0,
+        "roi": -1.0,
+        "wr": 0.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "NFL",
+          "quarter_4_ot",
+          "moneyline"
+        ],
+        "count": 1,
+        "statuses": {
+          "lost": 1
+        },
+        "settled": 1,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 1.0,
+        "payout": 0.0,
+        "pnl": -1.0,
+        "roi": -1.0,
+        "wr": 0.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "NFL",
+          "quarter_1",
+          "moneyline"
+        ],
+        "count": 1,
+        "statuses": {
+          "lost": 1
+        },
+        "settled": 1,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 1.0,
+        "payout": 0.0,
+        "pnl": -1.0,
+        "roi": -1.0,
+        "wr": 0.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "NFL",
+          "quarter_4",
+          "spreads"
+        ],
+        "count": 1,
+        "statuses": {
+          "lost": 1
+        },
+        "settled": 1,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 1.0,
+        "payout": 0.0,
+        "pnl": -1.0,
+        "roi": -1.0,
+        "wr": 0.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "regulation",
+          "home_total"
+        ],
+        "count": 12,
+        "statuses": {
+          "won": 7,
+          "lost": 5
+        },
+        "settled": 12,
+        "games": 12,
+        "settled_games": 12,
+        "settled_stake": 12.22,
+        "payout": 10.943999999999999,
+        "pnl": -1.2760000000000002,
+        "roi": -0.10441898527004913,
+        "wr": 0.5833333333333334,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -0.5434439834024896,
+            0.31552155360735434
+          ],
+          "wr": [
+            0.3333333333333333,
+            0.8333333333333334
+          ]
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "period_1",
+          "spreads"
+        ],
+        "count": 5,
+        "statuses": {
+          "lost": 3,
+          "won": 2
+        },
+        "settled": 5,
+        "games": 5,
+        "settled_games": 5,
+        "settled_stake": 5.0,
+        "payout": 3.13,
+        "pnl": -1.8699999999999999,
+        "roi": -0.374,
+        "wr": 0.4,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -1.0,
+            0.25400000000000006
+          ],
+          "wr": [
+            0.0,
+            0.8
+          ]
+        }
+      },
+      {
+        "key": [
+          "WNBA",
+          "full_game",
+          "moneyline"
+        ],
+        "count": 2,
+        "statuses": {
+          "lost": 2
+        },
+        "settled": 2,
+        "games": 2,
+        "settled_games": 2,
+        "settled_stake": 2.0,
+        "payout": 0.0,
+        "pnl": -2.0,
+        "roi": -1.0,
+        "wr": 0.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -1.0,
+            -1.0
+          ],
+          "wr": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "regulation",
+          "both_score"
+        ],
+        "count": 2,
+        "statuses": {
+          "lost": 2
+        },
+        "settled": 2,
+        "games": 2,
+        "settled_games": 2,
+        "settled_stake": 2.0,
+        "payout": 0.0,
+        "pnl": -2.0,
+        "roi": -1.0,
+        "wr": 0.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -1.0,
+            -1.0
+          ],
+          "wr": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "period_2",
+          "odd_even"
+        ],
+        "count": 2,
+        "statuses": {
+          "lost": 2
+        },
+        "settled": 2,
+        "games": 2,
+        "settled_games": 2,
+        "settled_stake": 2.0,
+        "payout": 0.0,
+        "pnl": -2.0,
+        "roi": -1.0,
+        "wr": 0.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -1.0,
+            -1.0
+          ],
+          "wr": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "key": [
+          "NFL",
+          "half_2_ot",
+          "spreads"
+        ],
+        "count": 2,
+        "statuses": {
+          "lost": 2
+        },
+        "settled": 2,
+        "games": 1,
+        "settled_games": 1,
+        "settled_stake": 2.0,
+        "payout": 0.0,
+        "pnl": -2.0,
+        "roi": -1.0,
+        "wr": 0.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": null,
+          "wr": null
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "period_2",
+          "totals"
+        ],
+        "count": 2,
+        "statuses": {
+          "lost": 2
+        },
+        "settled": 2,
+        "games": 2,
+        "settled_games": 2,
+        "settled_stake": 2.0,
+        "payout": 0.0,
+        "pnl": -2.0,
+        "roi": -1.0,
+        "wr": 0.0,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -1.0,
+            -1.0
+          ],
+          "wr": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "period_1",
+          "moneyline"
+        ],
+        "count": 13,
+        "statuses": {
+          "lost": 8,
+          "won": 5
+        },
+        "settled": 13,
+        "games": 10,
+        "settled_games": 10,
+        "settled_stake": 13.0,
+        "payout": 10.9,
+        "pnl": -2.1,
+        "roi": -0.16153846153846155,
+        "wr": 0.38461538461538464,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -0.62,
+            0.255
+          ],
+          "wr": [
+            0.16666666666666666,
+            0.5833333333333334
+          ]
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "period_3",
+          "spreads"
+        ],
+        "count": 4,
+        "statuses": {
+          "won": 1,
+          "lost": 3
+        },
+        "settled": 4,
+        "games": 4,
+        "settled_games": 4,
+        "settled_stake": 4.0,
+        "payout": 1.7400000000000002,
+        "pnl": -2.26,
+        "roi": -0.565,
+        "wr": 0.25,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -1.0,
+            0.30500000000000016
+          ],
+          "wr": [
+            0.0,
+            0.75
+          ]
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "period_3",
+          "moneyline"
+        ],
+        "count": 10,
+        "statuses": {
+          "lost": 7,
+          "won": 3
+        },
+        "settled": 10,
+        "games": 9,
+        "settled_games": 9,
+        "settled_stake": 10.0,
+        "payout": 6.46,
+        "pnl": -3.54,
+        "roi": -0.354,
+        "wr": 0.3,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -1.0,
+            0.20800000000000005
+          ],
+          "wr": [
+            0.0,
+            0.5555555555555556
+          ]
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "regulation",
+          "away_total"
+        ],
+        "count": 13,
+        "statuses": {
+          "lost": 8,
+          "won": 5
+        },
+        "settled": 13,
+        "games": 11,
+        "settled_games": 11,
+        "settled_stake": 13.0,
+        "payout": 7.6,
+        "pnl": -5.4,
+        "roi": -0.41538461538461535,
+        "wr": 0.38461538461538464,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -0.8107692307692307,
+            0.12545454545454549
+          ],
+          "wr": [
+            0.13333333333333333,
+            0.7272727272727273
+          ]
+        }
+      },
+      {
+        "key": [
+          "NHL",
+          "full_game",
+          "totals"
+        ],
+        "count": 22,
+        "statuses": {
+          "push": 4,
+          "lost": 15,
+          "won": 3
+        },
+        "settled": 22,
+        "games": 12,
+        "settled_games": 12,
+        "settled_stake": 23.84,
+        "payout": 9.3901,
+        "pnl": -14.4499,
+        "roi": -0.6061199664429531,
+        "wr": 0.16666666666666666,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -0.9033039779595623,
+            -0.21521609216366905
+          ],
+          "wr": [
+            0.0,
+            0.42857142857142855
+          ]
+        }
+      }
+    ],
+    "original_decision_ids": [
+      "contract:ede47b930fd020527ce5",
+      "contract:2b33a881b974fa081966",
+      "contract:f48ec13d856aefaaf726",
+      "contract:ba3af159a467cfc57745",
+      "contract:6d11e696c2dc5c2ac6d9",
+      "contract:6ed4f027339d89c94697",
+      "contract:34a8d011a0365b58e77c",
+      "contract:25eef355f4c28a1fbaf4",
+      "contract:77d32f98eead8c035a7b",
+      "contract:337ea2ffb5fb751ff885",
+      "contract:8dd7de7bb05d8289952f",
+      "contract:f22704972559cead36df",
+      "contract:c7cd74cfb75e6e9530ce",
+      "contract:241426bc05dd0b8701e5",
+      "contract:f553cfe2473da9a422ec",
+      "contract:1aa445e917cb320d6225",
+      "contract:8bf0558e45d70eda1fb2",
+      "contract:6a0898814ab14d31dc6a",
+      "contract:bab875423ca1a6a377dc",
+      "contract:b0c274f7a5aa544f530f",
+      "contract:974897d813f4e0fc0f35",
+      "contract:6f4a952998c27dd6969c",
+      "contract:84d9c0525c8bde3e2240",
+      "contract:3395ff8985ae7c859a45",
+      "contract:33527e04b87536342850",
+      "contract:b027b9181f37a7456764",
+      "contract:2b6801d7729a51f1a7a0",
+      "contract:1a479eb2bab4d58de8a2",
+      "contract:4656a3519720d6a15d32",
+      "contract:4793c89e2f0f6044a5e1",
+      "contract:19aa5f0c89cf7b5077ae",
+      "contract:b748c41dc94eebd43ebf",
+      "contract:b76122ade1739e4d62e8",
+      "contract:6a3f43ad6c1dc9a0d34d",
+      "contract:afc4a1d8483a327b5acc",
+      "contract:039009ffca9be68822e4",
+      "contract:0240808061f731a0e0bd",
+      "contract:02322223925c97d46dd7",
+      "contract:1c061557f50da6979198",
+      "contract:e4b37e50bba03823df40",
+      "contract:98ce1ba7d77f1bd5657e",
+      "contract:b0fc098c40a0c8759365",
+      "contract:a63805f8130128032cfe",
+      "contract:97733d330002e587036f",
+      "contract:ed9956888d67d10b08b5",
+      "contract:5e46b488dfdf4a6c92de",
+      "contract:526642b8c2c54ad20ff9",
+      "contract:6bfac67aa76c0c13bd95",
+      "contract:1459ceba41bcb40d6352",
+      "contract:4bd694164179bee35d8e",
+      "contract:9b0ce6f55e18928c4436",
+      "contract:bd122474406194e9a0b7",
+      "contract:2385536d8ae2933f8fc5",
+      "contract:3a4469f9b8e20635b6f3",
+      "contract:7f1eac154bfcf380c161",
+      "contract:bcd7ca190aa60c849f76",
+      "contract:31baf0a6eadf09352e8c",
+      "contract:96b7aa67258c4986206b",
+      "contract:65fec004a0998b2b85b9",
+      "contract:e1e6e244acb584da8c1e",
+      "contract:e0654360d9054e0896e2",
+      "contract:2e153c86204318849324",
+      "contract:481fcc62066433a6db5d",
+      "contract:93b544f3580a984d5bd3",
+      "contract:7a4e40cbe4becdc2b6eb",
+      "contract:870736aeea1ba8179a9e",
+      "contract:9a3b5a1c06673e5e6733",
+      "contract:7f05697b2156b1190c2f",
+      "contract:5a4eed58174abd2db356",
+      "contract:fd1da6e4e2b059d76136",
+      "contract:40deccdc8c0eaf3e67c7",
+      "contract:af1806a03436f25eb285",
+      "contract:9daf2d936148dccf4cec",
+      "contract:fc680984a47f12cd3b1c",
+      "contract:d381f1c65c1fe6ccb976",
+      "contract:3d8b3cec550db5e51ae3",
+      "contract:842efba39842426556c3",
+      "contract:7d1514d747a8eee77ecd",
+      "contract:1501e40ef92027c4e555",
+      "contract:c8c322c03ea3dd14285c",
+      "contract:0d4793f31d933d03a4ef",
+      "contract:3e35f6431a1d3f4b0e48",
+      "contract:cd13ce1cbebb82b271e1",
+      "contract:a537d1214fb3acbdfbfe",
+      "contract:bbe2355b7516d4eb9454",
+      "contract:30266bc8dbf82000ad33",
+      "contract:b67ce356dfbf44b6fe19",
+      "contract:73c6b55221f83fe658f0",
+      "contract:5ac550e115e36d41a8b7",
+      "contract:e3abceaed669fdfaca03",
+      "contract:9e901006da01474ebb28",
+      "contract:6d3bb7a19e631e7e470b",
+      "contract:bbfe134a73903419819d",
+      "contract:b7dbbf822714609e3bfd",
+      "contract:63a594df17ee497d5b26",
+      "contract:286922eaf073dda31272",
+      "contract:c174093c17ad03dd4cef",
+      "contract:9444468382c30397a5e4",
+      "contract:80bc44ef6b84b284e819",
+      "contract:69650951902ea89d7888",
+      "contract:a02adc240a815cba4e28",
+      "contract:744d67ad1cf660862ab5",
+      "contract:2653e0858233b56a89f6",
+      "contract:db6932f94d1108e66bce",
+      "contract:cde83f357567823b1f09",
+      "contract:6283627db10bb547f2aa",
+      "contract:ee561f3bd9169d309816",
+      "contract:a33e05c237bbe26d12b3",
+      "contract:a5c692f1fe2059912b5e",
+      "contract:6dd6b4c830b2cfc158bf",
+      "contract:6418fd697cdfcd2ff8dc",
+      "contract:bac4bec649e6c4b61ab3",
+      "contract:9f330320518aa89163a6",
+      "contract:a26dfc491e27874e2ef8",
+      "contract:e279faa6fc8dd39b820b",
+      "contract:95eef67c57a85f5f65f1",
+      "contract:70798ef7b72481f90b63",
+      "contract:f5fa2420070d9f6487a2",
+      "contract:31157d26fdcb760dac62",
+      "contract:9460c96879d5940de402",
+      "contract:93a60826daa7527e1641",
+      "contract:cf7c4218176efa5e0caf",
+      "contract:ed0943a5902ed350ef8c",
+      "contract:dddadf163fbe5afecc00",
+      "contract:9af6f52f23a70a023dea",
+      "contract:5ec799d535c33a9b4026",
+      "contract:863e5ca8783dd463a95d",
+      "contract:b11beffd329adeccc632",
+      "contract:271524e0be0c55d74517",
+      "contract:d60dd64ac3ac315e6c13",
+      "contract:03f575482c1feaa4a8d8",
+      "contract:72c2f8d1682ba2ce9bdf",
+      "contract:648e98f234f869ef3734",
+      "contract:6cab9e4f96f010c3b541",
+      "contract:09ff046fa5859d6e048e",
+      "contract:f661d1522d7723afa863",
+      "contract:d8d01893d742768c5fb7",
+      "contract:ee4ad74ef7f3ca733e1e",
+      "contract:76b05cbf04440aa14e54",
+      "contract:ab799f69b8b7cbbda45f",
+      "contract:376ab21be18a5d743c9c",
+      "contract:ab94239b5166a308c514",
+      "contract:14af68b356b66d2b9dc6",
+      "contract:da9f6040e37b3814127c",
+      "contract:d438760dde95c74485ef",
+      "contract:285561a4e9538187682d",
+      "contract:7c3f13a5bc1236eb08be",
+      "contract:12330cb3c15ae4b71112",
+      "contract:394004d13ce5d32f4c36",
+      "contract:92c1bddf2ba0bade2023",
+      "contract:2e4d9b0e6e05f652577a",
+      "contract:cd9a3bc212354aa418f9",
+      "contract:acccdafc69115b0e9126",
+      "contract:070289b5e2ac7cbde5e0",
+      "contract:dc19cac6d749f824c8b4",
+      "contract:e4cbcd4d3793608d5c8b",
+      "contract:3ae5a11677f6e804557e",
+      "contract:12602834cb2e48e638de",
+      "contract:e48d5d511cec6806e313",
+      "contract:e3eb42c7653cfc651a01",
+      "contract:f062f4084f056a95db3a",
+      "contract:de00a653909d734a01e7",
+      "contract:c4f05b38792b878ab48f",
+      "contract:4e990ba1ef3c991d7e00",
+      "contract:953b5ddcd902cd1dcf9c",
+      "contract:b0dfa93663252cb3eddf",
+      "contract:db8f018f23b8762c4e43",
+      "contract:c88502cec457d604e354",
+      "contract:73b7d75b35be01b27ab9",
+      "contract:83f4c8db408f259d307c",
+      "contract:0dd870709e2cdd6c413a",
+      "contract:a9a4d9ceaedb982cf8ee",
+      "contract:fbf50a0fb3b6fc52053d",
+      "contract:67f2a5949aa355ae33fb",
+      "contract:3dd513a94e73089c95bb",
+      "contract:75ee76cf86a8d5cb23e8",
+      "contract:03f1abb393eb8500ab66",
+      "contract:ea2c5625435196ea5bc3",
+      "contract:537bb90e5da095be0977",
+      "contract:ffe2635bf57b6661516a",
+      "contract:9bdb73fc6b94e3732a02",
+      "contract:19919935818b09ffd6fa",
+      "contract:c88d078914c92bdd462f",
+      "contract:b7befc311b6579ae56ae",
+      "contract:e29ff231674ae2ff42eb",
+      "contract:6aa2c1499420b32df90c",
+      "contract:28ed9ed1210b696bdae7",
+      "contract:98a0cc94753094429ab6",
+      "contract:f86f6ce48837f8177871",
+      "contract:ab376479dc10d8301605",
+      "contract:9df0af91179326f11b43",
+      "contract:08f18ca27737e568c0f6",
+      "contract:baa7455e60debc91e654",
+      "contract:b35f5045c01f76d255c3",
+      "contract:f41577982c8ca5c1e7f4",
+      "contract:5a4dd16eb3b369331162",
+      "contract:f168ef4773d7d30aa3fd",
+      "contract:a8110ca7a0a1e054eb72",
+      "contract:7e02cf8a73d15df0defd",
+      "contract:421baab3665759aa8110",
+      "contract:b7f538810eda9680f456",
+      "contract:fa82157bc9c19b4c665f",
+      "contract:af143cf795485ef31b67",
+      "contract:8e255c45e6c29e3ef4f9",
+      "contract:e8e0b75aaac3ef40a9a7",
+      "contract:fe49c197d419616c8955",
+      "contract:6e570f65336bc207d327",
+      "contract:b9deb18f5b35da569f98",
+      "contract:7a62fd705de1ec009303",
+      "contract:1bcf704ad7bb6272852e",
+      "contract:412cf29a3cb44d1251ee",
+      "contract:49c51bcec30cdf3bc86f",
+      "contract:a67b7e75d49e9f79de32",
+      "contract:87eee15f8cee49afbe70",
+      "contract:378d1e6c30e28586ad7e",
+      "contract:ab98a647fae97fbf3de6",
+      "contract:c1cca0a8a92d64b7e072",
+      "contract:a6e0a422d8b6fca7068f",
+      "contract:8c84b3ae3cdc2425258a",
+      "contract:6554ceb8c3b10e7c463e",
+      "contract:f9fcc7aefa13fbc2ee06",
+      "contract:594f23e84567ea34d3fe",
+      "contract:c42193427c8c6f97c8fd",
+      "contract:79a39485530680eb4192",
+      "contract:00b283a89a0120dfb24d",
+      "contract:ba561c1495d42c1a13a1",
+      "contract:484b0f3df342e457e3b1",
+      "contract:f2e1150b995b6a42ffec",
+      "contract:f38090437583eecb302b",
+      "contract:d14933c727b152d15668",
+      "contract:9f5799d9f3d07613289f",
+      "contract:c5923602a7b4d2745af4",
+      "contract:dfdee1c40b7e5d49241e",
+      "contract:e242c71046990f39a857",
+      "contract:0c9e8446f80e69c03219",
+      "contract:856e44f88012ead51801",
+      "contract:1d0d214908d3e446ce95",
+      "contract:ba1905c0294b887d0919",
+      "contract:c02e3332b5572e298c3e",
+      "contract:a607d0726ca6a3403787",
+      "contract:702a90c82ee9c66b91f5",
+      "contract:1192867fe3253641514d",
+      "contract:38b937a5d2ff55855c1e",
+      "contract:a243929dec3e5aab94da",
+      "contract:1f0cf35938d4125732c2",
+      "contract:c6f964e71f71a20a4dec",
+      "contract:adb7d37ae3f09b4a87f5",
+      "contract:ab02c6f4463d5cf5f5d1",
+      "contract:fb3bf3c2c0d25e9b74c9",
+      "contract:08f4d8341d5d56d966d7",
+      "contract:c722a76d35b865959012"
+    ]
+  },
+  "selection_change_comparison": {
+    "as_of": "2026-10-03T07:55:00+00:00",
+    "first_limited_publication": 6303,
+    "activated_at": "2026-10-02T18:17:10.782328+00:00",
+    "before": {
+      "decisions": 693,
+      "games": 101,
+      "settled": 377,
+      "settled_games": 44,
+      "pnl": 11.1479
+    },
+    "after": {
+      "decisions": 47,
+      "games": 46,
+      "settled": 0,
+      "open_stake": 53.63
+    },
+    "flood_1700_1710": {
+      "decisions": 158,
+      "games": 15,
+      "settled": 1,
+      "pnl": 2.7
+    },
+    "interpretation": "No settled post-limit comparison; no causal claim for or against volume limits. The retrospective family analysis is diagnostic, not an untouched validation set."
   }
 }
