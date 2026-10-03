@@ -559,7 +559,22 @@
       ],
       "objective": "Verify and improve the root-integrated instruction_refill flow. A last currently executable instruction marked placed must produce a durable coalesced priority 48-hour scan, retain interrupted/failed attempts and recover with bounded backoff. Broaden distinct-game coverage without duplicate or inferior-line padding.",
       "acceptance": "Actual server/readiness/engine integration, concurrent/repeated marks, stale/history marks, process restart, failed scan then fresh recovery; immutable ledger and guards, separate daily first-issue accounting and unchanged deadlines. A shortage creates actionable work and never claims fulfillment.",
-      "depends_on": []
+      "depends_on": [],
+      "publication_batch_repair": {
+        "state": "awaiting_release",
+        "code_commit": "536e761",
+        "files": [
+          "src/betting_engine/decisions.py",
+          "tests/test_publication_limits.py"
+        ],
+        "implementation": "Finalize daily family share using the actual surviving batch; re-size after removal; preserve the transaction guard.",
+        "source": "Live service-error.log and immutable daily first issuances",
+        "test": "tests/test_publication_limits.py; 5587 full tracked Python tests plus final sizing regression; 272 DOM tests",
+        "acceptance": "Fresh successful local and Tailscale publication; current executable count equals displayed unmarked instructions; immutable records unchanged.",
+        "owner": "root Codex",
+        "due_at": "2026-10-02T11:30:00+00:00",
+        "release_evidence": "data/releases/root-publication-family-20261003/release.json"
+      }
     },
     {
       "id": "D33",

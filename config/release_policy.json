@@ -151,7 +151,10 @@
         "clv_gate_required": true,
         "ledger_immutable": true,
         "auto_betting_disabled": true,
-        "stake_range_usd": [1, 5],
+        "stake_range_usd": [
+          1,
+          5
+        ],
         "daily_risk_limit": null
       }
     },
@@ -173,7 +176,27 @@
         "clv_gate_required": true,
         "ledger_immutable": true,
         "auto_betting_disabled": true,
-        "stake_range_usd": [1, 5],
+        "stake_range_usd": [
+          1,
+          5
+        ],
+        "daily_risk_limit": null
+      }
+    },
+    "ENGINE_PUBLICATION_BATCH_20261003": {
+      "kind": "guarded_engine",
+      "files": [
+        "src/betting_engine/decisions.py",
+        "tests/test_publication_limits.py"
+      ],
+      "guards": {
+        "clv_gate_required": true,
+        "ledger_immutable": true,
+        "auto_betting_disabled": true,
+        "stake_range_usd": [
+          1,
+          5
+        ],
         "daily_risk_limit": null
       }
     }
