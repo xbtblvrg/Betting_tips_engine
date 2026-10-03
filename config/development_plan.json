@@ -795,7 +795,10 @@
       ],
       "data_source": "Existing read-only Statistics snapshot and existing outcome-feedback findings.",
       "acceptance": "All three groupings match the selected original-decision cohort; cash and calibration remain separate; no scope mixing, fabricated scores or ledger changes; live served UI renders the snapshot.",
-      "status": "awaiting_release"
+      "status": "live_verified",
+      "completed_at": "2026-10-03T10:46:16.298784+00:00",
+      "code_commit": "e310fb1",
+      "live_evidence": "data/releases/root-segment-performance-20261003/live.json"
     }
   ],
   "deferred": [

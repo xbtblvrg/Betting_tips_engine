@@ -1,3 +1,11 @@
+## 2026-10-03 — D38: Liga és fogadástípus szerinti modell- és rendszereredmény
+
+Éles kód `e310fb1`. Statistics → Engine and Model Performance by Segment: liga, scope × piaccsalád és liga × scope × piaccsalád bontás. Az eredeti döntések pénzügyi eredményei külön táblában; mellettük eredeti valószínűségből számolt becsült/tényleges arány, Brier, log loss, meccsenként egyenlő súlyú Brier, értékelt szerződések/meccsek, kizárási okok és pontos szegmenshez kapcsolt meglévő fejlesztési feladatok. A duplikált jegyek nem növelik a modellmintát. Az oldal szűrői ugyanazt a Statistics-pillanatképet használják; a fejlesztési találatok teljes történeti hatóköre külön jelzett. CLV/piaci összehasonlítás a meglévő Model Performance nézetben, saját lefedett mintával.
+
+Teljes teszt: **6322 Python passed, 1 skipped, 5 subtests; 275 frontend passed**. Független Codex review: nincs blokkoló hiba, célzott10/10 teszt. Helyi és Tailscale éles HTML/JS hash-egyezés és tényleges API-adatból DOM-render: **78 liga/scope/család, 5 liga, 58 scope/család** sor, mindkét táblában az API-val egyezően. Pillanatkép 10:45:29–30 UTC:377 lezárt eredeti döntés,44 meccs. A megjelenítési hiány javítva; nincs módosított funding, méretezés, ledger vagy modell, és nincs állított WR/ROI-javulás. A meglévő outcome-review53 diagnosztikai találatot mutat, attention_required állapottal; feladat létrehozása nem egyenlő javítás élesítésével.
+
+Bizonyíték: `data/releases/root-segment-performance-20261003/{live.json,review.json,smoke.mjs,segment-performance-python.log,segment-performance-web.log,segment-performance-sizing.log}`. Következő érdemi munka: a meglévő vesztes szegmensek kísérleteinek és fejlesztéseinek lezárása, prospektív ellenőrzéssel. Piacmodell-lefedettség e UI-kiadásban változatlan.
+
 ## 2026-10-03 — Régi adatmásolatok tényleges eltávolítása és időzített megőrzés
 
 Kód `63339c0`; korábbi napló/COW kiadás után külön archiválási javítás. 14 használaton kívüli, legalább 48 órás backup/teszt SQLite-példány: 37 458 870 272 bájt helyett 4 915 016 745 bájt gzip maradt; az eredeti kibontott másolatokat teljes visszaolvasási SHA256-ellenőrzés, fsync, nyitott-fájl- és WAL/SHM/journal-ellenőrzés után eltávolítottuk. Az éles adatbázisok nem kerülhetnek az allowlistbe.
