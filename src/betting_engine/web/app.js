@@ -571,7 +571,41 @@ function renderStatisticsSegments(report){
  }));
 }
 $('#statistics-segment-group').onchange=()=>{if(statisticsSegmentReport)renderStatisticsSegments(statisticsSegmentReport)};
+let statisticsPerformanceReport=null;
+function renderStatisticsPerformance(report){
+ statisticsPerformanceReport=report;
+ const basis=$('#statistics-performance-basis').value,section=report[basis]||{},performance=section.cumulative_performance||{},summary=performance.summary||{};
+ const label=basis==='ticket_ledger'?'Tracked ticket cash':'Original engine decisions';
+ $('#statistics-performance-note').textContent=label+'. '+(basis==='ticket_ledger'?'Duplicate tickets affect cash. Assumed and reported placement are not account verification. ':'Original issued odds and stakes; extra tickets do not add another engine decision. ')+(performance.basis||'Cumulative performance is not available for this cohort.');
+ const metrics=[['Net P&L',statisticsMoney(summary.pnl)],['ROI',statisticsPct(summary.roi)],['Win Rate',statisticsPct(summary.hit_rate)],['Max Drawdown',statisticsMoney(summary.max_drawdown)]];
+ $('#statistics-performance-metrics').innerHTML=metrics.map(([name,value])=>`<div><span>${esc(name)}</span><strong>${esc(value)}</strong></div>`).join('');
+ const raw=Array.isArray(performance.points)?performance.points:[];
+ const points=raw.filter(p=>p&&Number.isFinite(p.pnl)&&typeof p.at==='string'&&Number.isFinite(Date.parse(p.at))).map(p=>({...p,time:Date.parse(p.at)})).sort((a,b)=>a.time-b.time);
+ const loop=report.improvement_loop||{},monitor=loop.cumulative_monitor;
+ const reviewed=typeof loop.last_reviewed_at==='string'&&Number.isFinite(Date.parse(loop.last_reviewed_at))?` Last reviewed ${when(loop.last_reviewed_at)}.`:'';
+ $('#statistics-performance-monitor').textContent=monitor?`Outcome monitoring · Full original-decision history, independent of the chart filters: ${statisticsWords(monitor.state)}.${Number.isFinite(monitor.summary?.current_drawdown)?` Current drawdown ${statisticsMoney(monitor.summary.current_drawdown)}.`:''}${reviewed} ${monitor.diagnostic_due?'A drawdown diagnostic is due through the existing outcome-review workflow. ':''}Monitoring does not automatically change stakes or promote a model.`:'Outcome monitoring · Full original-decision history: no cumulative review observation available yet.';
+ const coverage=Object.entries(performance.coverage||{}).filter(([,v])=>['number','string','boolean'].includes(typeof v)).map(([k,v])=>`${statisticsWords(k)}: ${v}`).join(' · ');
+ $('#statistics-performance-coverage').textContent=[coverage,raw.length!==points.length?`${raw.length-points.length} points with unavailable date or cash are not plotted.`:'','ROI = net P&L ÷ settled stakes. Win rate = wins ÷ decisive wins and losses.'].filter(Boolean).join(' ');
+ const chart=$('#statistics-performance-chart');
+ if(!points.length){chart.innerHTML='<p class="statistics-chart-empty">No dated settled cash results to plot for this selection.</p>';}else{
+  const width=900,height=280,left=76,right=24,top=26,bottom=46,plotWidth=width-left-right,plotHeight=height-top-bottom;
+  let low=0,high=0;for(const point of points){low=Math.min(low,point.pnl);high=Math.max(high,point.pnl);}
+  const padding=Math.max((high-low)*.12,.5);low-=padding;high+=padding;
+  const first=points[0].time,last=points[points.length-1].time;
+  const x=p=>left+(last===first?plotWidth/2:(p.time-first)/(last-first)*plotWidth),y=value=>top+(high-value)/(high-low)*plotHeight;
+  const date=t=>new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'Europe/Budapest'}).format(new Date(t));
+  const ticks=[high,0,low],grid=ticks.map(value=>`<line x1="${left}" x2="${width-right}" y1="${y(value)}" y2="${y(value)}" class="${value===0?'statistics-zero-line':'statistics-grid-line'}"/><text x="${left-10}" y="${y(value)+4}" text-anchor="end">${esc(statisticsMoney(value))}</text>`).join('');
+  const path=`M ${x(points[0])} ${y(0)} `+points.map(p=>`L ${x(p)} ${y(p.pnl)}`).join(' ');
+  const tooltip=p=>`${when(p.at)} · Net P&L ${statisticsMoney(p.pnl)} · ROI ${statisticsPct(p.roi)} · Win rate ${statisticsPct(p.hit_rate)} · ${p.settled??0} settled · ${p.games??0} games`;
+  chart.innerHTML=`<svg class="statistics-pnl-chart" viewBox="0 0 ${width} ${height}" role="img" aria-labelledby="statistics-chart-title statistics-chart-description"><title id="statistics-chart-title">${esc(label)} cumulative net P&amp;L</title><desc id="statistics-chart-description">${esc(`${points.length} cumulative points, ${date(first)} to ${date(last)}. Final P&L ${statisticsMoney(points[points.length-1].pnl)}. Zero line included. Exact values are available in the table below.`)}</desc>${grid}<path d="${path}" class="statistics-pnl-line"/>${points.map(p=>`<circle cx="${x(p)}" cy="${y(p.pnl)}" r="4" tabindex="0" role="img" aria-label="${esc(tooltip(p))}" class="statistics-pnl-point"><title>${esc(tooltip(p))}</title></circle>`).join('')}<text x="${left}" y="${height-13}">${esc(date(first))}</text>${last!==first?`<text x="${width-right}" y="${height-13}" text-anchor="end">${esc(date(last))}</text>`:''}</svg>`;
+ }
+ $('#statistics-performance-table').innerHTML=points.length?table(['Date (Budapest)','Net P&L','Settled Stakes','ROI','Win Rate','Settled / Games'],points.map(p=>[esc(when(p.at)),statisticsCash(p.pnl),esc(statisticsMoney(p.settled_stake)),esc(statisticsPct(p.roi)),esc(statisticsPct(p.hit_rate)),esc(`${p.settled??0} / ${p.games??0}`)])):'<p class="panel-copy">No cumulative observations available.</p>';
+ const leaders=(Array.isArray(section.top_markets)?section.top_markets:[]).filter(r=>Number.isFinite(r.pnl)&&r.pnl>0).sort((a,b)=>b.pnl-a.pnl).slice(0,5);
+ $('#statistics-top-markets').innerHTML=leaders.length?table(['Bet Type / Scope','Net P&L','ROI','Win Rate','Settled / Games'],leaders.map(r=>[esc(r.market_label||marketName[r.market_family]||statisticsWords(r.market_family))+`<small>${esc(statisticsWords(r.scope))}</small>`,statisticsCash(r.pnl),esc(statisticsPct(r.roi)),esc(statisticsPct(r.hit_rate)),esc(`${r.settled??0} / ${r.settled_games??r.games??0}`)])):'<p class="panel-copy">No profitable settled bet types in this selection.</p>';
+}
+$('#statistics-performance-basis').onchange=()=>{if(statisticsPerformanceReport)renderStatisticsPerformance(statisticsPerformanceReport)};
 function renderStatistics(report){
+ renderStatisticsPerformance(report);
  renderStatisticsSegments(report);
  const ledger=report.ticket_ledger,s=ledger.summary,d=report.system_decisions?.summary||{},f=report.filters||{};
  $('#statistics-status').textContent='Results checked: '+when(report.as_of)+'. Match dates: Europe/Budapest. '+(s.settled?'Only completed tickets enter win rate and settled P&L.':'No completed tickets in this selection yet.');
