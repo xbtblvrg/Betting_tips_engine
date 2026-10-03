@@ -552,6 +552,7 @@ def _collect(root, payload, operations, components, plan, state, now, release_re
             owner='codex_development_worker', parent_task_id=task_id,
             next_action='Implement and test a bounded resumable evaluator/input repair in the isolated workspace, with exact protected integration instructions. Root integrates only after review; rerun the parent acceptance after controller or task changes.')
         add(issue)
+    definitions = {t['id']: t for t in plan.get('tasks', [])}
     for task_id, row in state.get('tasks', {}).items():
         if task_id not in definitions:
             continue
