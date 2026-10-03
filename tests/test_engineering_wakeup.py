@@ -35,3 +35,22 @@ def test_failed_task_resolution_is_a_new_generation(tmp_path):
     before = engineering_input_generation(tmp_path, state)
     state['tasks']['D14'] = {'state': 'production_verified'}
     assert engineering_input_generation(tmp_path, state) != before
+
+
+def test_scheduler_wakes_on_error_before_timer_and_coalesces(tmp_path, monkeypatch):
+    from betting_engine.development import DevelopmentWorker
+    import betting_engine.development as development
+    clock = [100.0]
+    monkeypatch.setattr(development.time, 'monotonic', lambda: clock[0])
+    worker = DevelopmentWorker(tmp_path)
+    assert worker.engineering_intake_due()
+    assert worker._engineering_due == 160
+    clock[0] = 101
+    worker.state['tasks']['D14'] = {'state': 'retry', 'last_error': 'new failure'}
+    assert not worker.engineering_intake_due()  # two-second coalescing
+    clock[0] = 102
+    assert worker.engineering_intake_due()
+    clock[0] = 105
+    assert not worker.engineering_intake_due()  # unchanged error not a new attempt
+    clock[0] = 162
+    assert worker.engineering_intake_due()  # periodic fallback still runs

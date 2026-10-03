@@ -241,3 +241,25 @@ def test_overdue_checkpoint_changes_the_next_task_priority():
           'milestones':[{'id':'later','checkpoint_at':(now+timedelta(days=1)).isoformat()},
                         {'id':'due','checkpoint_at':(now-timedelta(seconds=1)).isoformat()}]}
     assert choose_task(plan,{},now)['id']=='late'
+
+
+def test_error_wakeup_reaches_real_intake_before_regular_poll(project, monkeypatch):
+    import betting_engine.engineering_loop as intake
+    from betting_engine.engineering_loop import engineering_input_generation
+    import time
+    root, plan = project
+    config = json.loads((root/'config/development_runner.json').read_text())
+    config['enabled'] = False  # no external process needed to verify intake entry
+    atomic_json(root/'config/development_runner.json', config)
+    worker = DevelopmentWorker(root)
+    worker._engineering_due = time.monotonic() + 60
+    worker._engineering_generation = engineering_input_generation(root, worker.state)
+    atomic_json(worker.path, {'tasks': {'D1': {'state': 'retry', 'last_error': 'new controller failure'}}, 'runs': []})
+    observed = []
+    def sync(root, plan, state):
+        observed.append(state['tasks']['D1']['last_error'])
+        return {'extra_tasks': [], 'task_focus': {}, 'status': 'attention_required'}
+    monkeypatch.setattr(intake, 'sync_engineering_loop', sync)
+    worker.loop(once=True)
+    assert observed == ['new controller failure']
+    assert worker.state['tasks']['D1']['state'] == 'retry'

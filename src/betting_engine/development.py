@@ -886,6 +886,22 @@ class DevelopmentWorker:
         self._expansion_scan_signature_value = None
         self._expansion_scan_result = None
 
+    def engineering_intake_due(self):
+        """Wake the existing intake on new evidence; coalesce rapid writes.
+
+        A wake schedules analysis only, never overrides task claims or backoff.
+        """
+        from .engineering_loop import engineering_input_generation
+        now = time.monotonic()
+        generation = engineering_input_generation(self.root, self.state)
+        changed = generation != getattr(self, '_engineering_generation', None)
+        if now < self._engineering_due and not (changed and now >= getattr(self, '_engineering_wake_after', 0)):
+            return False
+        self._engineering_generation = generation
+        self._engineering_wake_after = now + 2
+        self._engineering_due = now + max(10, self.config.get('engineering_poll_seconds', 60))
+        return True
+
     def save(self):
         with self._state_lock:
             atomic_json(self.path, self.state)
@@ -1601,8 +1617,7 @@ PREVIOUS CANDIDATE (read-only repair evidence if present): {self.folder/'runs'/s
                                 from .engineering_loop import sync_engineering_loop
                             except ImportError:
                                 sync_engineering_loop = None
-                            if sync_engineering_loop and time.monotonic() >= self._engineering_due:
-                                self._engineering_due = time.monotonic() + max(10, self.config.get('engineering_poll_seconds', 60))
+                            if sync_engineering_loop and self.engineering_intake_due():
                                 try:
                                     engineering = sync_engineering_loop(self.root, plan, self.state)
                                     existing = {task['id'] for task in plan['tasks']} | {task['id'] for task in self.state.get('extra_tasks', [])}
