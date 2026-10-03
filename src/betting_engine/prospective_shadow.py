@@ -29,6 +29,7 @@ TABLES = {'trials', 'observations', 'captures', 'source_blobs', 'evaluations'}
 MAX_SOURCE_BYTES = 16 * 1024 * 1024
 MIN_CLUSTER_INTERVAL = 20  # Reporting threshold only. Never a funding veto.
 EVALUATOR_ID = {'version': VERSION, 'closing_version': _closing_evaluator.VERSION,
+                'rejection_diagnostics': 'ordered-rejection-sample-v1',
                 'code_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                 'closing_code_sha256': hashlib.sha256(Path(_closing_evaluator.__file__).read_bytes()).hexdigest(),
                 'settlement_code_sha256': hashlib.sha256(Path(_settlement_contracts.__file__).read_bytes()).hexdigest()}
@@ -493,7 +494,8 @@ class ShadowEvidenceStore:
                                    if e['error'] or e['capture']['league'] != tip['league']],
                         'start_conflicts': {}, 'snapshot_index': None}
                 source = contract_sources[source_key]; snapshots = source['snapshots']
-                close = evaluate_closing_price(decision, snapshots, as_of=now.isoformat())
+                close = evaluate_closing_price(decision, snapshots, as_of=now.isoformat(),
+                                               rejection_sample_limit=32)
                 errors = list(source['errors'])
                 if tip['start'] not in source['start_conflicts']:
                     source['start_conflicts'][tip['start']] = any(

@@ -273,14 +273,19 @@ def _contract(tip):
     return title, outcome, scope, kind
 
 
-def evaluate_closing_price(decision, snapshots, *, as_of):
+def evaluate_closing_price(decision, snapshots, *, as_of, rejection_sample_limit=None):
     """Evaluate one system_decisions export against timestamped catalogue rows.
 
     ``decision`` has family, tip_id, issued_at and a decoded payload, exactly as
     Store.system_decisions returns. ``snapshots`` contains contracts.json rows,
     potentially from multiple captures. No source availability is inferred from
     a catalogue's checked_at. Callers must retain the returned frozen report.
+    Default diagnostics retain every rejection. A bounded sample preserves exact
+    counts and a hash of the complete ordered sequence; validation is identical.
     """
+    if rejection_sample_limit is not None and (
+            type(rejection_sample_limit) is not int or not 0 <= rejection_sample_limit <= 1000):
+        raise ValueError("invalid_rejection_sample_limit")
     cutoff = _time(as_of)
     report = {"version": VERSION, "as_of": cutoff.isoformat(),
               "status": "invalid_decision", "price_clv": None, "closing_price": None,
@@ -288,6 +293,18 @@ def evaluate_closing_price(decision, snapshots, *, as_of):
               "close_window_seconds": CLOSE_WINDOW_SECONDS,
               "basis": "Original issued decimal odds / last observed eligible pre-start odds - 1",
               "live_source_verified": False, "account_execution_verified": False}
+    if rejection_sample_limit is not None:
+        # Hash the canonical complete sequence as it is inspected, without
+        # retaining one Python dictionary for every rejected snapshot.
+        rejection_hash = hashlib.sha256(b"[")
+        rejection_total = 0
+        rejection_counts = Counter()
+        encoded_reasons = {}
+        report["rejection_diagnostics"] = {
+            "version": "ordered-rejection-sample-v1",
+            "sample_limit": rejection_sample_limit, "total": 0, "omitted": 0,
+            "sequence_sha256": hashlib.sha256(b"[]").hexdigest(),
+            "sequence_encoding": "utf-8 canonical JSON array; sort_keys=True,separators=(',',':'),ensure_ascii=True"}
     try:
         tip = decision["payload"]
         report["tip_id"] = _text(decision["tip_id"])
@@ -390,8 +407,29 @@ def evaluate_closing_price(decision, snapshots, *, as_of):
             if reason:
                 raise ValueError(reason)
         except (KeyError, TypeError, ValueError, OverflowError, OSError, AttributeError) as exc:
-            report["rejected_snapshots"].append({"index": index, "reason": str(exc)})
-    report["rejection_counts"] = dict(Counter(r["reason"] for r in report["rejected_snapshots"]))
+            reason = str(exc)
+            if rejection_sample_limit is None:
+                report["rejected_snapshots"].append({"index": index, "reason": reason})
+            else:
+                if reason not in encoded_reasons:
+                    encoded_reasons[reason] = json.dumps(reason).encode()
+                # Exact canonical JSON bytes, with repeated reason encoding
+                # reused instead of allocating/serializing a per-row dict.
+                rejection_hash.update((b"," if rejection_total else b"") + b'{"index":'
+                                      + str(index).encode() + b',"reason":'
+                                      + encoded_reasons[reason] + b"}")
+                rejection_total += 1
+                rejection_counts[reason] += 1
+                if len(report["rejected_snapshots"]) < rejection_sample_limit:
+                    report["rejected_snapshots"].append({"index": index, "reason": reason})
+    if rejection_sample_limit is None:
+        report["rejection_counts"] = dict(Counter(r["reason"] for r in report["rejected_snapshots"]))
+    else:
+        rejection_hash.update(b"]")
+        report["rejection_counts"] = dict(rejection_counts)
+        report["rejection_diagnostics"].update(
+            total=rejection_total, omitted=rejection_total-len(report["rejected_snapshots"]),
+            sequence_sha256=rejection_hash.hexdigest())
     report.update(status="missing_closing_price", reason="no_eligible_exact_snapshot")
     lifecycle_block = None
     latest_contract = max((stamp for stamp, _ in candidates), default=None)
