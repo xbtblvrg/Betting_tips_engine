@@ -36,7 +36,7 @@ def test_multiple_parameter_chunks_null_and_conflicts_keep_exact_row_order():
 def test_full_report_and_input_hash_equal_legacy_with_unknown_and_conflicting_captures(tmp_path,monkeypatch):
     store,t,at=setup(tmp_path);close(tmp_path,store,t)
     outcome=result(t);cutoff=outcome['observed_at']
-    with sqlite3.connect(store.path) as db:
+    with closing(sqlite3.connect(store.path)) as db, db:
         raw=db.execute('SELECT evidence FROM captures LIMIT 1').fetchone()[0]
         evidence=json.loads(raw)
         evidence['error']='conflicting_source';evidence['snapshots']=[]
@@ -46,7 +46,7 @@ def test_full_report_and_input_hash_equal_legacy_with_unknown_and_conflicting_ca
               ('future','fixture',at,(datetime.fromisoformat(cutoff)+timedelta(seconds=1)).isoformat(),'malformed future data')]
         db.executemany('INSERT INTO captures VALUES (?,?,?,?,?)',rows)
         db.commit()
-        with sqlite3.connect(tmp_path/'legacy.sqlite3') as duplicate: db.backup(duplicate)
+        with closing(sqlite3.connect(tmp_path/'legacy.sqlite3')) as duplicate: db.backup(duplicate)
     expected_store=module.ShadowEvidenceStore(tmp_path/'legacy.sqlite3')
     original=module._capture_rows_for_fixtures
     monkeypatch.setattr(module,'_capture_rows_for_fixtures',legacy)
@@ -60,7 +60,7 @@ def test_full_report_and_input_hash_equal_legacy_with_unknown_and_conflicting_ca
 
 def test_malformed_unknown_capture_still_fails_closed_when_trial_starts(tmp_path):
     store,t,at=setup(tmp_path)
-    with sqlite3.connect(store.path) as db:
+    with closing(sqlite3.connect(store.path)) as db, db:
         db.execute('INSERT INTO captures VALUES (?,?,?,?,?)',('unknown',None,at,at,'malformed'))
     pending=store.evaluate('t',settlements=[],as_of=at)
     assert pending['pending_contracts']==1

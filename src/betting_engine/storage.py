@@ -410,13 +410,13 @@ class Store:
                             or candidate.get('reference_platform')!='Stake.com'
                             or candidate.get('alternative') or candidate.get('withdrawn_at')
                             or not 1<=amount<=min(5,settings['max_bet'])
-                            or not math.isfinite(amount) or not math.isfinite(odds)
+                            or not math.isfinite(amount) or not math.isfinite(odds) or odds<=1
                             or not evidence or isinstance(evidence.get('decimal_odds'),bool)
                             or not isinstance(evidence.get('decimal_odds'),(int,float))
                             or not math.isfinite(float(evidence.get('decimal_odds',0)))
                             or abs(float(evidence.get('decimal_odds',0))-odds)>1e-8):continue
                     if min(parse_time(candidate['start']),parse_time(candidate['valid_until']))<=parse_time(now):continue
-                    if (parse_time(now)-parse_time(evidence['fetched_at'])).total_seconds()>MAX_QUOTE_AGE_SECONDS:continue
+                    if not 0<=(parse_time(now)-parse_time(evidence['fetched_at'])).total_seconds()<=MAX_QUOTE_AGE_SECONDS:continue
                     family=(candidate.get('game_id'),candidate.get('market'))
                     if not additions and (family in families or family in usable_families):continue
                     usable_ids.add(candidate_id);usable_families.add(family);usable_candidates.append(candidate)
