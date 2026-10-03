@@ -1,3 +1,9 @@
+## 2026-10-03 — Changed történeti nézet
+
+Éles commit `9216a7d`: Bet Tracker külön, csak olvasható Changed — Upcoming Historical Records táblája. Meglévő nyitott, bejelöletlen, kezdés előtti, negatív instruction_review rekordokból automatikus visszamenőleges megjelenítés; eredeti kiadási odds/tét/becsült ROI/időpont, legutóbbi pontos azonosítójú értékelés és megfigyelési idő, pontos kivonási ok. Nem új kiadási állapot vagy végrehajtási jogosultság; Ready-kritérium, ledger, modellek változatlanok. Elkezdődött/lezárt/megjelölt sorok nem szerepelnek e részben, a meglévő Tracker megmarad. A kezdés előtti állapot nem igazolja a piac aktivitását. View on Stake link és placed_after_change kategória nem implementálva.
+
+Független Codex-review jóváhagyta. Frontend288passed; teljes Python a meglévő projektkörnyezetben6523passed,1skipped,5subtests. Izolált teljes Python304failure hiányzó helyi bemenetekkel, napló megőrizve, nem sikeresnek minősítve. Helyi/Tailscale azonos kiszolgáltJS SHA256:6603764ff68292a6e443307d91107f5a329ecfeb3a8d177f7ea99317ecf49c3c. Élő18:51:12UTC publikációval renderelve:278Changed történeti sor,0műveleti vezérlő,33Ready. Bizonyíték és tesztnaplók:data/releases/root-changed-history-20261003/.
+
 ## 2026-10-03 18:42 Budapest — Autonóm elakadás-helyreállítás élesítve
 
 Éles kód: `840d53c`. A fejlesztő és kiadási szolgáltatás üres munkafázisban újratöltve. A hiányzó elfogadott root-forrásokat a workspace-előkészítés visszaállítja; a döntéstörténet exportja a túlméretes publikáció hibájától független. Az implementációs időtúllépés nem globális szolgáltatóhiba: megőrzött, hash-ellenőrzött kódjelöltből egyszeri, megváltoztatott folytatás indul. Ismételt elakadás a meglévő engineering intake-ba prioritás0 javításként kerül, tényleges szülőforrásokkal és logokkal, deduplikálva. Lezárás csak ellenőrzött, későbbi szülőkiadással; nincs végtelen vak újrapróbálkozás vagy guard-lazítás.
