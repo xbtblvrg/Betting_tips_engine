@@ -30,7 +30,7 @@ def engineering_input_generation(root, state):
     root = Path(root)
     files = []
     for name in ('data/supervisor.json', 'data/operations.json',
-                 'data/outcome_feedback.json', 'data/market_catalog/latest.json'):
+                 'data/outcome_feedback/latest.json', 'data/market_catalog/latest.json'):
         try:
             stat = (root / name).stat()
             files.append((name, stat.st_dev, stat.st_ino, stat.st_mtime_ns, stat.st_size))
