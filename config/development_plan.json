@@ -286,7 +286,33 @@
       "title": "Development acceptance evidence",
       "objective": "Add independent behavior tests and release evidence tooling for development-run failure, resume, source conflict and candidate-versus-production state.",
       "acceptance": "Tests prove failed code, failed review and interrupted work cannot become production-ready; candidate status never closes full engine readiness; use new tests/modules, do not modify protected worker. Actual restore drill remains required.",
-      "depends_on": []
+      "depends_on": [],
+      "followup": {
+        "state": "awaiting_release",
+        "owner": "Root Codex; independent Codex review",
+        "deadline": "2026-10-03T15:00:00+00:00",
+        "implementation_steps": [
+          "Cache unchanged recovery/receipt scans with immediate task-definition invalidation.",
+          "Cache exact diagnostic-name/text matching in bounded64-entry thread-safe cache.",
+          "Use existing minute supervisor to flag sustained high CPU without active development and dispatch existingD14 repair.",
+          "Drain active task before worker restart; verify actual process CPU and fresh local/Tailscale publication."
+        ],
+        "files": [
+          "src/betting_engine/development.py",
+          "src/betting_engine/supervisor.py",
+          "src/betting_engine/engineering_loop.py"
+        ],
+        "data_source": "Native process sample; existing development run logs and exact source manifests.",
+        "tests": [
+          "tests/test_development_idle_cpu.py",
+          "tests/test_development_regex_cache.py",
+          "tests/test_throughput_guard.py"
+        ],
+        "acceptance": "Independent review, complete suite, preserved source/admission/deadline semantics; running updated worker and fresh live publication.",
+        "code_commit": "35e5565",
+        "live_evidence": "data/releases/root-throughput-repair-20261003/",
+        "progress": "Initial scan cache and timed guard live; exact regex cache6394fulltests passed. Existing implementation run drains before safe restart; no active work killed."
+      }
     },
     {
       "id": "D15",
@@ -760,9 +786,9 @@
           "Reproduce evaluation report inflation; implement bounded summary-cache reads and deduplicated diagnostic representation preserving historical evidence and exact summary results; benchmark RSS/time before release."
         ],
         "acceptance": "Targeted regressions, full suite, independent review, commit and live local/Tailscale verification; report actual issuance shortfall.",
-        "live_evidence": "data/releases/root-outcome-volume-20261003/live.json",
-        "progress": "Development worker safely restarted idle at12:07UTC; receipt-boundary code loaded. Indexed shadow evaluation actively progresses but duplicate rejected-snapshot details inflate reports to155MB, causing GC/JSON cost.",
-        "audit_evidence": "data/releases/root-today-audit-20261003/audit.json"
+        "live_evidence": "data/releases/root-throughput-repair-20261003/live-compact-report.json",
+        "progress": "Bounded32-entry diagnostics live inshadow evaluation1103,54contracts: same-trial report41871030→1894947bytes; exact rejection counts/hash retained. Existing60-second supervisor live and automatically routes report-size bottleneck toD36. Final6394Python/278frontend tests and independent review passed; immutable769decisions unchanged. Entire20-trial cycle and persistent memory-pressure recovery remain monitored.",
+        "audit_evidence": "data/releases/root-throughput-repair-20261003/reviews.json"
       }
     },
     {
