@@ -524,6 +524,9 @@ def _top_markets(rows):
             market_label = sorted(value for value, count in label if count == top_count)[0]
         else:
             market_label = f'{scope} / {family}'
+        # A team-total family aggregates different teams; do not label its
+        # combined profit as one team's named Stake market.
+        market_label = {'home_total': 'Home Team Total', 'away_total': 'Away Team Total'}.get(family, market_label)
         group_pnl = sum((row['_pnl'] for row in group if row['_pnl'] is not None), Decimal(0))
         group_stake = sum((row['_stake'] for row in group
                            if row['status'] in CLOSED and row['_stake'] is not None), Decimal(0))

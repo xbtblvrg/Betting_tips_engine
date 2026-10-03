@@ -170,3 +170,10 @@ def test_incomplete_curve_does_not_show_confidence_from_a_different_cohort():
     summary = report(*rows)['ticket_ledger']['cumulative_performance']['summary']
     assert summary['pnl'] is None and summary['roi'] is None
     assert summary['roi_ci95'] is None and summary['hit_rate_ci95'] is None
+
+
+def test_aggregate_team_total_is_not_labelled_as_one_specific_team():
+    row = fixtures(1, game='g1', market='away_total', side='over', line=1)
+    row[0]['payload']['market_label'] = 'Las Vegas Aces Total (Incl. Overtime)'
+    row[1]['payload']['market_label'] = 'Las Vegas Aces Total (Incl. Overtime)'
+    assert report(row)['ticket_ledger']['top_markets'][0]['market_label'] == 'Away Team Total'
