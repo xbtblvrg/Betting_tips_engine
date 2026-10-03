@@ -55,8 +55,10 @@ def _compact_outcome_fields(tip):
     if compact_guard is not guard and isinstance(guard.get('knowledge'),list):
         # Preserve the methodology links shown in Decision Evidence, without
         # repeating complete book-card excerpts for every contract.
-        compact_guard['knowledge']=[{'id':k['id']} for k in guard['knowledge']
-                                    if isinstance(k,dict) and isinstance(k.get('id'),str)]
+        knowledge=[{'id':k['id']} for k in guard['knowledge']
+                   if isinstance(k,dict) and isinstance(k.get('id'),str)]
+        if knowledge:
+            compact_guard['knowledge']=knowledge
     if compact_summary is summary and compact_sizing is sizing and compact_guard is guard:return tip
     result=dict(tip)
     if compact_guard is not guard:result['decision_guard']=compact_guard
