@@ -709,6 +709,29 @@
       "completed_at": "2026-10-03T08:21:32.929477+00:00",
       "code_commit": "edc850d7b73e72667968e103062876658101e83d",
       "live_evidence": "data/releases/root-qualified-selection-20261003/release.json"
+    },
+    {
+      "id": "D36",
+      "milestone": "M09",
+      "priority": 0,
+      "title": "Bound waiting of settled-outcome and closing feedback behind source retries",
+      "owner": "Codex scheduler bugfix; independent Codex review; root integration",
+      "created_at": "2026-10-03T08:22:41.374172+00:00",
+      "due_at": "2026-10-03T09:00:00+00:00",
+      "depends_on": [],
+      "objective": "Prevent repeated source_refresh jobs from indefinitely outranking ready outcome_review and closing_evaluation jobs. Preserve single worker lock, retry backoff and genuine model restoration priority.",
+      "implementation_steps": [
+        "Reproduce an overdue outcome job losing selection to continuously due source refreshes.",
+        "Apply a 300-second eligible-wait priority within the existing choose_learning_job function; retain restore priority and background fairness elsewhere.",
+        "Test backoff, future jobs, restore priority, deterministic ordering and unchanged ordinary scheduling.",
+        "Independent review, full tests and safe learning-worker boundary restart; verify later runtime admission and intact ledger."
+      ],
+      "files": [
+        "src/betting_engine/learning.py"
+      ],
+      "data_source": "Durable learning_jobs and learning_attempts: outcome ef6845202c7307a5e913cbca waited08:01:54–08:20:53 UTC behind shadow and source jobs.",
+      "acceptance": "Aged eligible feedback is selected before source refresh/shadow, never ahead of genuine restore or before next_attempt; original attempts and wagers unchanged; full tests, independent review and runtime evidence.",
+      "status": "attention_required"
     }
   ],
   "deferred": [
