@@ -526,9 +526,12 @@ def recovery_context(root, run_id, receipt=None, policy=None, current=None, peer
     policy = policy if policy is not None else read_json(root / 'config/release_policy.json')
     current = current if current is not None else production_manifest(root)
     task_id = receipt['result']['task_id']; changed = changed_records(receipt)
-    profile = policy.get('profiles', {}).get(task_id, {})
-    profile_kind = profile.get('kind', 'passive_utility') if isinstance(profile, dict) else 'passive_utility'
+    profile = policy.get('profiles', {}).get(task_id)
+    # Match profile_for: an absent/empty profile is not passive authorization.
+    profile_kind = profile.get('kind') if isinstance(profile, dict) else None
     allowed = profile.get('files', []) if isinstance(profile, dict) else []
+    if not isinstance(allowed, list):
+        allowed = []
     accepted = {r['path']: file_hash(confined(dev / 'accepted', r['path'])) for r in changed}
     base = receipt['production_base']; unmanaged = []; unsupported = []
     managed = read_json(root / 'data/releases/state.json').get('managed_files', {})
