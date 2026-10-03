@@ -311,18 +311,19 @@ class StakeSportsbook:
         # fixture's active Winner contract already names the actual teams.
         # Never infer seeds from time alone or override a conflicting real title.
         teams=self._fixture_teams(fixture.get('name'))
-        if league!='MLB' or len(teams)!=2 or not all(re.fullmatch(r'(?:AL|NL) Seed [1-6]',name,re.I) for name in teams):return None
+        from .stake_api import seed_title, _seed_team, market_records
+        if league!='MLB' or len(teams)!=2 or not seed_title(fixture.get('name')):return None
+        named=[name for name in teams if not _seed_team(name)]
         pairs=set()
-        for group in payload.get('groups',[]):
-            for bucket in group.get('markets',[]):
-                for market in bucket or []:
-                    if market.get('name')!='Winner (Incl. Extra Innings)' or market.get('status') not in (None,'active'):continue
-                    outcomes=market.get('outcomes') or []
-                    if len(outcomes)!=2 or any(o.get('active') is not True or o.get('status') not in (None,'active') for o in outcomes):continue
-                    pair=tuple(sorted(str(o.get('name') or '') for o in outcomes))
-                    if pair[0] and pair[0]!=pair[1]:pairs.add(pair)
+        for _,market in market_records(payload):
+            if market.get('name')!='Winner (Incl. Extra Innings)' or market.get('status') not in (None,'active'):continue
+            outcomes=market.get('outcomes') or []
+            if len(outcomes)!=2 or any(o.get('active') is not True or o.get('status') not in (None,'active') for o in outcomes):continue
+            pair=tuple(sorted(str(o.get('name') or '').strip() for o in outcomes))
+            if pair[0] and pair[0].casefold()!=pair[1].casefold():pairs.add(pair)
         if len(pairs)!=1:return None
         pair=next(iter(pairs))
+        if any(not any(team_matches(name,actual,'') for actual in pair) for name in named):return None
         return self._match_fixture({**fixture,'name':' - '.join(pair)},games,league)
 
     @staticmethod

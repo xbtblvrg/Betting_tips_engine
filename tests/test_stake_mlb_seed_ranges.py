@@ -149,3 +149,40 @@ def test_observed_recovery_preserves_independent_start_gate_and_current_horizon(
     changed[0].start='2026-10-03T17:30:00Z'
     blocked,_,issues=sportsbook.discover(changed)
     assert not blocked and any(i['reason']=='stake_start_mismatch' for i in issues)
+
+
+def _mixed_seed_case():
+    # Observed 2026-10-03: both calendar endpoints retain this mixed title,
+    # while the exact active Winner names Rays and Yankees.
+    game=Game(id='MLB:849835',league='MLB',start='2026-10-03T22:30:00Z',
+              home='Tampa Bay Rays',away='New York Yankees',home_id='139',away_id='147',
+              home_abbr='',away_abbr='',state='scheduled',season=2026)
+    fixture={'enabled':True,'preMatchEnabled':True,'name':'Tampa Bay Rays - AL 4/5','date':parse_time(game.start).timestamp()*1000}
+    winner={'name':'Winner (Incl. Extra Innings)','status':'active',
+            'outcomes':[{'name':game.home,'active':True},{'name':game.away,'active':True}]}
+    return game,fixture,{'groups':[{'markets':[[winner]]}]}
+
+
+def test_mixed_seed_range_recovers_from_actual_winner_and_independent_schedule():
+    game,fixture,payload=_mixed_seed_case()
+    book=StakeSportsbook(object())
+    assert book._match_fixture(fixture,[game],'MLB') is None
+    assert book._match_seed_fixture_from_outcomes(fixture,payload,[game],'MLB') is game
+
+
+@pytest.mark.parametrize('mutation',['named_conflict','inactive','suspended','wrong_scope','ambiguous_game','late_start','bad_seed','non_mlb','conflicting_pair'])
+def test_mixed_seed_recovery_remains_fail_closed(mutation):
+    game,fixture,payload=_mixed_seed_case();games=[game];league='MLB'
+    winner=payload['groups'][0]['markets'][0][0]
+    if mutation=='named_conflict':fixture['name']='Boston Red Sox - AL 4/5'
+    elif mutation=='inactive':winner['outcomes'][1]['active']=False
+    elif mutation=='suspended':winner['status']='suspended'
+    elif mutation=='wrong_scope':winner['name']='Innings 1 to 5 - Winner'
+    elif mutation=='ambiguous_game':games.append(deepcopy(game))
+    elif mutation=='late_start':fixture['date']+=3600001
+    elif mutation=='bad_seed':fixture['name']='Tampa Bay Rays - AL 4/4'
+    elif mutation=='non_mlb':league='NBA'
+    else:
+        other=deepcopy(winner);other['outcomes'][1]['name']='Boston Red Sox'
+        payload['groups'][0]['markets'].append([other])
+    assert StakeSportsbook(object())._match_seed_fixture_from_outcomes(fixture,payload,games,league) is None
