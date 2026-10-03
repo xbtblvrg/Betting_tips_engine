@@ -448,3 +448,39 @@ def test_missing_formerly_pinned_test_log_still_rejects(tmp_path):
     (run / 'python-tests.stdout.log').unlink()
     with pytest.raises(ValueError):
         export_failure_diagnostics(root / 'data/development', tmp_path / 'worker', state['tasks']['D0']['recovery_work'])
+
+
+@pytest.mark.parametrize('changed', [False, True])
+def test_exporter_recovery_wakes_only_exact_changed_source(tmp_path, changed):
+    from betting_engine.runtime_errors import runtime_diagnostic_source_update
+    from betting_engine.development import recovery_evidence_valid
+    root, plan = project(tmp_path / 'root', 1)
+    prior, recovery = incomplete_recovery(root, plan)
+    source = 'src/betting_engine/runtime_errors.py'
+    old = b'old exact exporter source'
+    (root / source).parent.mkdir(parents=True, exist_ok=True)
+    (root / source).write_bytes(b'changed source' if changed else old)
+    run_id = 'prepare-failed'
+    workspace = root / 'data/development/workspaces' / run_id / source
+    workspace.parent.mkdir(parents=True); workspace.write_bytes(old)
+    atomic_json(prior / 'candidate-manifest.json', {source: hashlib.sha256(old).hexdigest()})
+    result = {'id': run_id, 'task_id': 'D0', 'state': 'retry', 'failure_phase': 'preparing',
+              'failure_class': 'controller_failure', 'error': 'Retained runtime failure evidence unavailable or invalid'}
+    folder = root / 'data/development'
+    outcome = runtime_diagnostic_source_update(folder, run_id, result, recovery)
+    if not changed:
+        assert outcome is None
+        return
+    update, evidence = outcome
+    assert update['protected_sources'][0]['previous_sha256'] == hashlib.sha256(old).hexdigest()
+    record = {'kind': 'protected_sources_changed', 'source_run_id': run_id,
+              'input_update': update, 'evidence': evidence,
+              'evidence_sha256': hashlib.sha256(json.dumps(evidence, sort_keys=True).encode()).hexdigest()}
+    assert recovery_evidence_valid(folder, record)
+    (root / source).write_bytes(b'another change')
+    assert not recovery_evidence_valid(folder, record)
+    assert recovery_evidence_valid(folder, record, check_current=False)
+    workspace.write_bytes(b'unpinned old source')
+    assert runtime_diagnostic_source_update(folder, run_id, result, recovery) is None
+    result['error'] = 'unrelated failure'
+    assert runtime_diagnostic_source_update(folder, run_id, result, recovery) is None

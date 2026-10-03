@@ -498,3 +498,59 @@ def export_failure_diagnostics(folder, workspace, recovery):
         raise ValueError('Unsafe runtime diagnostic manifest path')
     atomic_json(target,manifest)
     return manifest
+
+
+def runtime_diagnostic_source_update(folder, run_id, result, recovery):
+    """Wake only an exporter failure whose exact retained implementation changed."""
+    if (result.get('error') != 'Retained runtime failure evidence unavailable or invalid'
+            or result.get('failure_phase') != 'preparing'
+            or result.get('failure_class') != 'controller_failure'
+            or result.get('id') != run_id or result.get('state') != 'retry'):
+        return None
+    folder = Path(folder)
+    source = 'src/betting_engine/runtime_errors.py'
+    try:
+        if not isinstance(run_id, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,120}', run_id):
+            return None
+        diagnostic = recovery.get('diagnostic') or {}
+        prior = recovery.get('source_run_id')
+        if (not isinstance(prior, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,120}', prior)
+                or diagnostic.get('source_run_id') != prior
+                or diagnostic.get('task_id') != result.get('task_id')):
+            return None
+        retained = _incomplete_run_evidence(folder, recovery, diagnostic)
+        if retained is None:
+            return None
+        name = f'runs/{prior}/candidate-manifest.json'
+        manifest_body = bounded_bytes(folder, name)
+        manifest = _package_json(manifest_body)
+        before = bounded_bytes(folder, f'workspaces/{run_id}/{source}')
+        previous_sha = hashlib.sha256(before).hexdigest()
+        if manifest.get(source) != previous_sha:
+            return None
+        after = bounded_bytes(folder.parent.parent, source)
+        current_sha = hashlib.sha256(after).hexdigest()
+        if previous_sha == current_sha:
+            return None
+        update = {'version': 'development-recovery-v1', 'source_run_id': run_id,
+            'protected_sources': [{'path': source, 'previous_sha256': previous_sha,
+                                   'current_sha256': current_sha}],
+            'diagnostic_source_run_id': prior,
+            'claim': 'Exact failed diagnostic exporter changed. Retry original acceptance; no inherited tests or release approval.'}
+        bound = [{'path': name, 'sha256': hashlib.sha256(manifest_body).hexdigest()},
+                 {key: retained[0][key] for key in ('path', 'sha256')}]
+        from .io_utils import atomic_bytes
+        for body, suffix in [(before, '.blob'), (after, '.blob'),
+                (json.dumps(update, sort_keys=True).encode(), '.json')]:
+            sha = hashlib.sha256(body).hexdigest()
+            relative = 'recovery-evidence/' + sha + suffix
+            destination = _package_destination(folder, relative)
+            if destination.exists():
+                if bounded_bytes(folder, relative) != body:
+                    return None
+            else:
+                atomic_bytes(destination, body)
+            bound.append({'path': relative, 'sha256': sha})
+        return update, bound
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, RecursionError):
+        return None
