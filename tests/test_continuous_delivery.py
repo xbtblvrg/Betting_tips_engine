@@ -274,6 +274,8 @@ def test_dashboard_retires_old_probability_instruction_when_positive_family_appe
     original = s.bets()[0]
     initial = dashboard_payload.build_dashboard(s, {}, tmp_path)
     assert initial['tracked_bets'][0]['instruction_review']['actionable']
+    assert initial['status']['current_instruction_count'] == 1
+    assert initial['status']['execution_counts']['current_executable'] == 1
     current, _, check = reviewed(BEST, probability=.65, odds=1.4, start=negative['start'], held=[negative['id']])
     positive, _, check_positive = reviewed(BEST, probability=.53, odds=2., start=negative['start'],
         market_kind='totals', side='over', line=210.5)
@@ -284,4 +286,5 @@ def test_dashboard_retires_old_probability_instruction_when_positive_family_appe
     assert not prior_instruction['actionable'] and prior_instruction['state'] == 'preference_superseded'
     current_negative = next(r for r in updated['evaluated_candidates'] if r['id'] == negative['id'])
     assert not current_negative['execution_review']['actionable'] and current_negative['stake'] == 0
+    assert updated['status']['execution_counts']['no_longer_qualifying'] == 1
     assert next(r for r in s.bets() if r['tip_id'] == negative['id']) == original

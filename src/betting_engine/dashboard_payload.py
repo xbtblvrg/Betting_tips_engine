@@ -1,5 +1,6 @@
 """Fresh read-only dashboard assembly, shared by the isolated renderer."""
-import json
+import json,math
+from datetime import timedelta
 from pathlib import Path
 from .domain import utcnow,parse_time
 from .presentation import english_payload
@@ -125,6 +126,48 @@ def _annotate_market_types(rows):
     return rows
 
 
+def _execution_counts(recommendations,current,recorded,marks,settings,progress,now):
+    """Summarize the same 48h instruction population as the default web view.
+
+    An auto-tracked first issuance retains its original stake even though the
+    allocator correctly gives the held contract zero *new* stake. Counting
+    only new allocations incorrectly reports zero while instructions exist.
+    Reviews are consumed here, never created or relaxed.
+    """
+    end=now+timedelta(hours=48)
+    def start_time(tip):
+        try:return parse_time(tip.get('start'))
+        except (ValueError,TypeError,AttributeError):return None
+    def visible(tip):
+        start=start_time(tip)
+        return start is not None and now<start<=end
+    def funded(amount):
+        return type(amount) in (int,float) and math.isfinite(amount) and 1<=amount<=min(5,settings['max_bet'])
+    live={t['id']:t for t in recommendations if visible(t) and (t.get('stake',0)>0 or t.get('tracked_bet') or marks.get(t['id']))}
+    current_by_id={t['id']:t for t in current}
+    groups={}
+    for record in recorded:groups.setdefault(record['tip_id'],[]).append(record)
+    ready={identity for identity,t in live.items() if identity not in groups and funded(t.get('stake'))
+           and t.get('execution_review',{}).get('actionable') is True and not marks.get(identity)}
+    no_longer=set()
+    for identity,records in groups.items():
+        first=min(records,key=lambda b:b['created_at']);tip=first['payload']
+        if not visible(tip):continue
+        live[identity]=tip
+        review=first.get('instruction_review',{})
+        if review.get('actionable') is False:no_longer.add(identity)
+        current_review=current_by_id.get(identity,{}).get('execution_review',{})
+        if (len(records)==1 and first['status']=='open' and tip.get('tracking_source')=='auto_assumed_placed'
+                and funded(first.get('stake')) and not marks.get(identity)
+                and review.get('actionable') is True and current_review.get('actionable') is True):ready.add(identity)
+    first_issued=sum(visible(row) for row in progress['issuance_rows']) if 'issuance_rows' in progress else progress.get('issued',0)
+    return {'first_issued_today':first_issued,'previously_issued_today':progress.get('previously_issued_today',0),
+            'current_executable':len(ready),'marked_placed':sum(bool(marks.get(identity)) for identity in live),
+            'started_or_expired':sum(bool(t.get('expired')) or start_time(t) is None or start_time(t)<=now for t in current),
+            'no_longer_qualifying':len(no_longer),
+            'source':'shared dashboard snapshot: current reviews, placement checklist, immutable issuance and open-ticket ledger'}
+
+
 def build_dashboard(store,health,data_dir):
     d=store.latest()
     if not d:return english_payload({'performance':store.performance(),'version':0,'recommendations':[],'alternatives':[],'archived_recommendations':store.archived_candidates(),'games':[],'models':{},'status':{},'settings':store.settings(),'engine':health})
@@ -205,20 +248,10 @@ def build_dashboard(store,health,data_dir):
         probability_pick_families=sum(t.get('funding_basis',{}).get('tier')=='probability_pick' for t in selected),
         probability_pick_new_allocations=sum(t.get('stake',0)>0 and t.get('funding_basis',{}).get('tier')=='probability_pick' for t in selected),
         recommendation_policy=settings.get('recommendation_policy','strict'))
-    d['status']['current_instruction_count']=sum(
-        1 for tip in chosen if tip.get('stake', 0) > 0
-        and tip.get('execution_review', {}).get('actionable') is True)
     d['status']['current_candidate_count']=len(chosen)
     progress=store.daily_progress()
-    execution_counts={
-        'first_issued_today':progress.get('issued',0),
-        'previously_issued_today':progress.get('previously_issued_today',0),
-        'current_executable':sum(t.get('stake',0)>0 and t.get('execution_review',{}).get('actionable') is True and not store.placement_marks().get(t.get('id')) for t in chosen),
-        'marked_placed':sum(1 for t in chosen if store.placement_marks().get(t.get('id'))),
-        'started_or_expired':sum(1 for t in all_tips if t.get('expired') or parse_time(t.get('start'))<=now),
-        'no_longer_qualifying':sum(1 for b in recorded if b.get('instruction_review',{}).get('actionable') is False and b.get('instruction_review',{}).get('reason')),
-        'source':'shared dashboard snapshot: current reviews, placement checklist, immutable issuance and open-ticket ledger'
-    }
+    execution_counts=_execution_counts(d['recommendations']+alternatives,all_tips,recorded,d['placement_marks'],settings,progress,now)
+    d['status']['current_instruction_count']=execution_counts['current_executable']
     d.setdefault('status',{}).update(recommendations=len(d['recommendations']),funded_recommendations=sum(t['stake']>0 for t in d['recommendations']),minimum_target=progress['target'],target_shortfall=progress['shortfall'],daily_progress=progress,execution_counts=execution_counts)
     from .opportunities import rolling_opportunities
     d['opportunities']=rolling_opportunities(d,recorded,d['placement_marks'],now,settings['minimum_roi'])
