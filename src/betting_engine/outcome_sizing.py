@@ -15,7 +15,7 @@ from .contracts import allocation_family, split_market
 
 POLICY = 'historical_game_weighted_v1'
 VERSION = 'outcome-sizing-evidence-v1'
-MIN_GAMES = 2  # Descriptive sparse-sample label only, never a multiplier threshold.
+SPARSE_BELOW_GAMES = 2  # Descriptive sparse-sample label only, never a multiplier threshold.
 FORMULA = 'game_score=min(1,game_roi/0.20,(game_wr-game_break_even_wr)/0.10); push_only_score=0; factor=1+max(0,sum(game_scores)/(n+20)); nonpositive_segment_roi_or_wr_surplus_factor=1'
 NOTE = 'Historical game-weighted sizing heuristic; not validated profit, a confidence interval, or an independent probability forecast.'
 
@@ -66,7 +66,7 @@ def _aggregate(games):
               'game_wr': sum(g['wins'] / (g['wins'] + g['losses']) for g in decisive) / len(decisive) if decisive else 0.,
               'break_even_wr': sum(g['inverse_odds_sum'] / (g['wins'] + g['losses']) for g in decisive) / len(decisive) if decisive else 0.}
     result['factor'] = _factor(result)
-    result['state'] = ('historical_heuristic' if len(decisive) >= MIN_GAMES
+    result['state'] = ('historical_heuristic' if len(decisive) >= SPARSE_BELOW_GAMES
                        else 'sparse_heuristic' if decisive else 'insufficient_evidence')
     return result
 
@@ -127,7 +127,7 @@ def build_snapshot(decisions, as_of):
         except (ValueError, TypeError, KeyError, AttributeError, OverflowError) as exc:
             excluded.append({**identity, 'reason': str(exc) or 'invalid_row'})
     segments = {key: {**_aggregate(games), 'games': games} for key, games in sorted(groups.items())}
-    body = {'version': VERSION, 'policy': POLICY, 'as_of': cutoff.isoformat(), 'minimum_games': MIN_GAMES,
+    body = {'version': VERSION, 'policy': POLICY, 'as_of': cutoff.isoformat(), 'sparse_below_games': SPARSE_BELOW_GAMES,
             'segments': segments, 'accepted': accepted, 'note': NOTE}
     # Input inventory and rejections are audited separately. Unsettled/future rows
     # cannot invalidate the identity of evidence available at this cutoff.
@@ -141,10 +141,10 @@ def summary_for(snapshot, tip):
     key = segment_key(tip)
     if snapshot is None:
         return None
-    if not isinstance(snapshot, dict) or snapshot.get('version') != VERSION or snapshot.get('policy') != POLICY or _digest({k: snapshot[k] for k in ('version', 'policy', 'as_of', 'minimum_games', 'segments', 'accepted', 'note')}) != snapshot.get('snapshot_sha256'):
+    if not isinstance(snapshot, dict) or snapshot.get('version') != VERSION or snapshot.get('policy') != POLICY or _digest({k: snapshot[k] for k in ('version', 'policy', 'as_of', 'sparse_below_games', 'segments', 'accepted', 'note')}) != snapshot.get('snapshot_sha256'):
         raise ValueError('Invalid outcome snapshot digest')
     values = snapshot['segments'].get(key, {**_aggregate({}), 'games': {}})
-    result = {**values, 'segment': key, 'snapshot_sha256': snapshot['snapshot_sha256'], 'as_of': snapshot['as_of'], 'version': VERSION, 'policy': POLICY, 'minimum_games': MIN_GAMES, 'note': NOTE}
+    result = {**values, 'segment': key, 'snapshot_sha256': snapshot['snapshot_sha256'], 'as_of': snapshot['as_of'], 'version': VERSION, 'policy': POLICY, 'sparse_below_games': SPARSE_BELOW_GAMES, 'note': NOTE}
     result['summary_sha256'] = _digest(result)
     if not verify_summary(result):
         raise ValueError('Invalid outcome summary')
@@ -154,7 +154,7 @@ def summary_for(snapshot, tip):
 def verify_summary(summary):
     """Cheap numeric/digest consistency; not a substitute for ledger replay."""
     try:
-        if not isinstance(summary, dict) or summary['version'] != VERSION or summary['policy'] != POLICY or summary['minimum_games'] != MIN_GAMES:
+        if not isinstance(summary, dict) or summary['version'] != VERSION or summary['policy'] != POLICY or summary['sparse_below_games'] != SPARSE_BELOW_GAMES:
             return False
         if _digest({k: v for k, v in summary.items() if k != 'summary_sha256'}) != summary['summary_sha256']:
             return False
