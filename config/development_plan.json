@@ -981,7 +981,7 @@
       "advisory_rule": "Use existing isolated provider routing if available; no paid credits. Advisor failure does not block Codex implementation. Hash outputs and bind Codex acceptance; no automatic production writes.",
       "urgent_professional_increment": {
         "owner": "Root Codex",
-        "state": "awaiting_release",
+        "state": "live_verified",
         "implementation_commits": [
           "adbc655",
           "0b5d2a5",
@@ -990,7 +990,10 @@
         "acceptance": "Independent review + complete suite + live MLB mixed-seed mapping + receipt/transaction-consistent v3 professional limits; no guard bypass.",
         "external_input": "Dodgers–Braves away probable pitcher absent in official specific schedule and feed/live; retain source retry.",
         "nba": "All21 current Stake NBA catalogue fixtures outside48h; earliest2026-10-20T19:00Z.",
-        "wnba": "Existing half-scope model family validation excludes unpassed markets; do not relabel them supported."
+        "wnba": "Existing half-scope model family validation excludes unpassed markets; do not relabel them supported.",
+        "live_evidence": "data/releases/root-pro-leagues-20261003/live-verification.json",
+        "publication": "2026-10-03T16:08:31.825716+00:00",
+        "remaining": "D33 overall remains open: validated family models/inputs/coverage beyond this exact matching and limits increment."
       }
     },
     {
