@@ -19,6 +19,33 @@ from .domain import utcnow, parse_time
 from .io_utils import atomic_json
 from .market_catalog import classify
 
+def engineering_input_generation(root, state):
+    """Cheap wake signal for the existing dispatcher, never a retry permit.
+
+    Poll existing evidence files by identity, without reading large snapshots.
+    In-memory failure transitions wake intake in the same scheduler turn; normal
+    heartbeats and admission updates do not. The regular timer remains fallback.
+    Task claims, provider backoff and unchanged-evidence gates remain authoritative.
+    """
+    root = Path(root)
+    files = []
+    for name in ('data/supervisor.json', 'data/operations.json',
+                 'data/outcome_feedback.json', 'data/market_catalog/latest.json'):
+        try:
+            stat = (root / name).stat()
+            files.append((name, stat.st_dev, stat.st_ino, stat.st_mtime_ns, stat.st_size))
+        except OSError:
+            files.append((name, None))
+    failures = []
+    for task_id, row in sorted(state.get('tasks', {}).items()):
+        if row.get('last_error') or row.get('runtime_failure_gate'):
+            gate = row.get('runtime_failure_gate') or {}
+            failures.append((task_id, row.get('state'), row.get('run_id'),
+                row.get('failure_class'), row.get('last_error'),
+                gate.get('source_run_id'), gate.get('status'), gate.get('resumed_at')))
+    return tuple(files), tuple(failures)
+
+
 VERSION = 'engineering-intake-v1'
 MISSION = ('Improve the engine that finds the strongest independently modeled, '
     'fresh exact Stake betting instructions. Prioritize Winner (moneyline), '
