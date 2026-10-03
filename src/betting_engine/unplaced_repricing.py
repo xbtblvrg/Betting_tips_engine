@@ -47,6 +47,8 @@ def reprice_unplaced(store, request_id, tip_ids, authorization):
                 result['skipped'].append({'tip_id': identity, 'reason': 'Not a single current unmarked assumed instruction'})
             else:
                 eligible.append((tickets[0], deepcopy(candidates[identity])))
+        from .outcome_sizing_runtime import verify_ledger_evidence
+        verify_ledger_evidence(c, [tip for _, tip in eligible], settings, now)
         limits = publication_limits(settings)
         event_stakes = view.held_event_stakes(); event_counts = view.held_event_counts()
         committed = view.risk_committed()

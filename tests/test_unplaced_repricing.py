@@ -106,3 +106,28 @@ def test_settlement_reader_cannot_commit_stale_cash_after_revision(tmp_path):
     store.reprice_unplaced('resize',[current['id']],'explicit unplaced')
     store.settle(old['id'],'lost',-old['stake'],evidence={'basis':'verified_score_in_contract_scope'})
     assert store.bets()[0]['pnl']==-4
+
+
+from test_outcome_sizing_integration import make_tip, history, insert
+
+
+def test_repricing_replays_outcome_summary_against_locked_original_ledger(make_tip,tmp_path):
+    import test_continuous_delivery as cases
+    rows=history()
+    original,settings,check=make_tip(rows,probability=.65,odds=1.4)
+    assert check['passed']
+    store=cases.database(tmp_path,settings);insert(store,rows)
+    store.publish({'recommendations':[original],'evaluated_candidates':[original]},require_guard=True)
+    current,_,check=make_tip(store.system_decisions(),probability=.65,odds=1.4,
+                           start=original['start'],held=[original['id']])
+    assert check['passed']
+    store.publish({'recommendations':[current],'evaluated_candidates':[current]},require_guard=True)
+    before=deepcopy(store.bets())
+    # Emulate changed historical evidence after the original publication. A
+    # self-consistent candidate hash cannot substitute for transactional replay.
+    with store.db() as c:
+        c.execute("UPDATE system_decisions SET pnl=-100 WHERE family=?",(rows[0]['family'],))
+    with pytest.raises(ValueError,match='differs from original ledger'):
+        store.reprice_unplaced('ledger-race',[current['id']],'explicit unplaced')
+    assert store.bets()==before
+    with store.db() as c:assert c.execute('SELECT COUNT(*) FROM bet_reconciliation').fetchone()[0]==0
