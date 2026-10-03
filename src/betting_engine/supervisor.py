@@ -129,6 +129,81 @@ def supervise(observations,previous,now,restart_service=restart):
     return state
 
 
+def throughput_checks(data, observations, previous, now, cpu_reader=None):
+    """Bounded watchdog evidence; route bottlenecks to existing repair tasks.
+
+    These are repair signals, not restart requests. A long active calculation
+    or legitimate memory admission pause must never cause a restart storm.
+    """
+    import math
+    import sqlite3
+    import time
+    from contextlib import closing
+    checks=[];memory=previous.get('throughput_memory',{})
+    current={}
+    def add(name,state,detail,task,**evidence):
+        checks.append({'component':name,'state':state,'detail':detail,
+            'repair_task':task,'next_action':'Repair immediately through the existing isolated development and reviewed release workflow; preserve original decisions and machine safety limits.',
+            'restart_eligible':False,**evidence})
+    worker=observations.get('learning') or {}
+    jobs=[j for j in worker.get('jobs',[]) if j.get('status')=='running' and j.get('kind') in ('shadow_evaluation','outcome_review','closing_evaluation')]
+    slow=[]
+    for job in jobs:
+        try:
+            duration=(now-parse_time(job.get('updated_at'))).total_seconds()
+            if duration>900:slow.append({'job_id':job.get('id'),'kind':job.get('kind'),'elapsed_seconds':round(duration)})
+        except (TypeError,ValueError):slow.append({'job_id':job.get('id'),'reason':'invalid_job_timestamp'})
+    try:
+        worker_fresh=-5<=(now-parse_time(worker['checked_at'])).total_seconds()<=(7200 if worker.get('counts',{}).get('running') else 300)
+    except (ValueError,TypeError,KeyError):worker_fresh=False
+    add('Learning throughput','degraded' if slow or not worker_fresh else 'healthy',
+        'Feedback jobs exceed the 15-minute throughput objective; inspect actual progress and reduce work before restarting.' if slow else 'No fresh learning observation; cannot establish recovery.' if not worker_fresh else 'No feedback job exceeds the throughput objective.', 'D36',slow_jobs=slow)
+    path=Path(data)/'shadow_evidence.sqlite3'
+    if path.exists():
+        started=time.monotonic()
+        try:
+            with closing(sqlite3.connect(path.resolve().as_uri()+'?mode=ro',uri=True,timeout=1)) as db:
+                db.set_progress_handler(lambda: int(time.monotonic()-started>2),1000)
+                row=db.execute('SELECT rowid,length(CAST(report AS BLOB)) FROM evaluations ORDER BY rowid DESC LIMIT 1').fetchone()
+            size=row[1] if row else 0
+            add('Shadow report size','degraded' if size>8*1024*1024 else 'healthy',
+                f'Latest evaluation report: {size} bytes. Keep diagnostics bounded without discarding original evidence.',
+                'D36',latest_evaluation_id=row[0] if row else None,report_bytes=size,database_bytes=path.stat().st_size)
+        except (OSError,sqlite3.Error) as exc:
+            add('Shadow report size','degraded','Report metadata could not be checked: '+type(exc).__name__,'D36')
+    dev=observations.get('development') or {}
+    try:fresh=-5<=(now-parse_time(dev['checked_at'])).total_seconds()<=180
+    except (ValueError,TypeError,KeyError):fresh=False
+    if fresh:
+        waiting=dev.get('state')=='resource_wait' and not dev.get('active_count')
+        prior=memory.get('development_wait',{})
+        same=prior.get('pid')==dev.get('pid')
+        since=prior.get('since') if waiting and same else now.isoformat()
+        try:duration=(now-parse_time(since)).total_seconds()
+        except (TypeError,ValueError):since=now.isoformat();duration=0
+        cpu=None
+        if waiting:
+            try:
+                pid=dev['pid']
+                if type(pid) is not int or pid<=0:raise ValueError('invalid_pid')
+                raw=cpu_reader(pid) if cpu_reader else subprocess.check_output(['ps','-p',str(pid),'-o','%cpu='],text=True,timeout=2)
+                cpu=float(raw)
+                if not math.isfinite(cpu) or cpu<0:raise ValueError('invalid_cpu')
+            except (ValueError,TypeError,KeyError,OSError,subprocess.SubprocessError):cpu=None
+        prior_at=prior.get('observed_at')
+        try:consecutive=same and 30<=(now-parse_time(prior_at)).total_seconds()<=180
+        except (TypeError,ValueError):consecutive=False
+        hits=(prior.get('high_cpu_samples',0) if consecutive else 0)+1 if waiting and cpu is not None and cpu>=50 else 0
+        current['development_wait']={'pid':dev.get('pid'),'since':since if waiting else None,'observed_at':now.isoformat(),'high_cpu_samples':hits,'cpu_percent_one_core':cpu}
+        add('Development resource wait','degraded' if waiting and duration>=300 else 'healthy',
+            f'Development admission wait: {round(duration) if waiting else 0}s. Preserve memory guard; repair expensive background work to restore capacity.',
+            'D36',wait_seconds=round(duration) if waiting else 0,reasons=dev.get('resource_admission',{}).get('reasons',[]))
+        add('Development idle CPU','degraded' if hits>=3 else 'healthy' if cpu is not None or not waiting else 'degraded',
+            'Repeated high CPU with no active development task; eliminate repeated unchanged recovery scans.' if hits>=3 else 'Bounded idle CPU observation; no repeated overload established.' if cpu is not None or not waiting else 'Idle process CPU observation unavailable.',
+            'D14',high_cpu_samples=hits,cpu_percent_one_core=cpu)
+    return checks,current
+
+
 def compact_summary(result, data_dir=DATA):
     """Stable stdout record; detailed health stays in supervisor.json."""
     services = {name: {key: row[key] for key in
@@ -194,6 +269,11 @@ def run_once(data_dir=DATA, *, emit_summary=False):
             result['development']={'state':delivery['state'],'fully_ready':delivery['fully_ready'],
                 'overdue_checkpoints':delivery.get('overdue_checkpoints',[]),'progress':delivery.get('progress',{})}
         except Exception as e:result['development']={'state':'error','error':str(e)[:300],'fully_ready':False}
+        checks, result['throughput_memory'] = throughput_checks(data, observations, previous, utcnow())
+        result['components'].setdefault('checks', []).extend(checks)
+        if any(check['state']=='degraded' for check in checks):
+            result['components']['state']='degraded'
+        result['periodic_question']='Are services progressing, are resources bounded, and which concrete bottleneck requires immediate repair?'
         result['state']='degraded' if any(s['state']!='healthy' for s in result['services'].values()) or result['components']['state']!='operational' or delivery.get('progress',{}).get('attention_required') else 'operational'
         result['delivery_state']=result['development']['state']
         # Source/model capability gaps use the durable repair queue; restarting

@@ -38,6 +38,7 @@ SOURCE_CODES = {'source_failure', 'independent_source_failure', 'fixture_unmatch
 # A finite set of work buckets bounds task fanout even if thousands of offers fail.
 ROUTES = {
     'source': ('D13', 'M07'), 'component': ('D13', 'M01'),
+    'learning_flow': ('D36', 'M09'), 'development_efficiency': ('D14', 'M08'),
     'core': ('D18', 'M05'), 'player': ('D04', 'M03'),
     'participation': ('D03', 'M02'), 'period': ('D09', 'M04'),
     'special': ('D09', 'M04'), 'ncaa': ('D10', 'M04'),
@@ -308,7 +309,7 @@ def _collect(root, payload, operations, components, plan, state, now, release_re
             name = str(check.get('component', 'unknown')); identity = 'component:' + name
             if check.get('state') in ('degraded', 'stale', 'missing', 'failed'):
                 add(_observation(identity, 'component_failure', 'SYSTEM', str(check.get('detail', name)),
-                    components['checked_at'], check, bucket='component', priority=0))
+                    components['checked_at'], check, bucket={'D36':'learning_flow','D14':'development_efficiency'}.get(check.get('repair_task'),'component'), priority=0))
             elif check.get('state') == 'healthy':
                 positives[identity] = {'observed_at': components['checked_at'], 'kind': 'healthy_component', 'evidence': check}
     else:
