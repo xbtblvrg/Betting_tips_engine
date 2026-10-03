@@ -222,7 +222,7 @@ class Settings(BaseModel):
     recommendation_policy:Literal['strict','continuous_model_v1','continuous_best_available_v1']='strict'
     model_pick_sizing_policy:Literal['unit_cap_v1','model_weighted_v2','all_tiers_weighted_v3']='unit_cap_v1'
     model_pick_allocation_policy:Literal['one_per_game_v1','distinct_family_v1']='one_per_game_v1'
-    outcome_sizing_policy:Literal['legacy','historical_game_weighted_v1','historical_game_weighted_v2']='legacy'
+    outcome_sizing_policy:Literal['legacy','historical_game_weighted_v1','historical_game_weighted_v2','historical_confidence_v3']='legacy'
     family_selection_policy:Literal['stressed_value_v1','qualified_probability_v1']='stressed_value_v1'
     fallback_clv_gate:Literal['legacy','prospective_positive_clv']='legacy'
     clv_min_games:int=Field(30,ge=1,le=10000)

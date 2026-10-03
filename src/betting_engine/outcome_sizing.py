@@ -15,7 +15,8 @@ from .contracts import allocation_family, split_market
 
 POLICY = 'historical_game_weighted_v1'
 POLICY_V2 = 'historical_game_weighted_v2'
-SUPPORTED_POLICIES = ('legacy', POLICY, POLICY_V2)
+POLICY_V3 = 'historical_confidence_v3'
+SUPPORTED_POLICIES = ('legacy', POLICY, POLICY_V2, POLICY_V3)
 VERSION = 'outcome-sizing-evidence-v1'
 SPARSE_BELOW_GAMES = 2  # Descriptive sparse-sample label only, never a multiplier threshold.
 FORMULA = 'game_score=min(1,game_roi/0.20,(game_wr-game_break_even_wr)/0.10); push_only_score=0; factor=1+max(0,sum(game_scores)/(n+20)); nonpositive_segment_roi_or_wr_surplus_factor=1'
@@ -75,6 +76,51 @@ def _v2_adjustment(summary):
     signal = max(0., score_sum / denominator) if positive else 0.
     return {'applied_game_score_sum': score_sum, 'shrinkage_denominator': denominator,
             'historical_signal': signal, 'applied_factor': 1 + 4 * signal}
+
+
+def _v3_adjustment(summary, tip, base_sizing):
+    """Auditable unit heuristic on sealed inputs; not a probability estimate.
+
+    Actual win probability, not win-or-push, drives the confidence component.
+    Missing anchoring/readiness does not earn confidence uplift. History is
+    game-balanced, signed and shrunk using the unchanged v2 evidence method.
+    """
+    history = _v2_adjustment(summary)
+    probability = _number(tip['probability'])
+    if not 0 <= probability <= 1:
+        raise ValueError('Invalid sizing probability')
+    probability_strength = max(0., min(1., (probability - .5) / .4))
+    anchor = tip.get('market_anchor') or {}
+    agreement = 0.
+    if anchor.get('status') == 'usable':
+        model = _number(anchor['model_probability'])
+        market = _number(anchor['market_probability'])
+        threshold = _number(anchor['disagreement_threshold'])
+        if not (0 <= model <= 1 and 0 <= market <= 1 and 0 < threshold <= 1):
+            raise ValueError('Invalid sizing anchor')
+        agreement = max(0., 1 - abs(model - market) / threshold)
+    readiness = tip.get('input_readiness') or {}
+    completeness = 0.
+    features = (readiness.get('checks') or {}).get('model_features') or {}
+    if readiness.get('passed') is True and readiness.get('state') == 'ready':
+        required = features.get('required', 0)
+        if type(required) is int and required > 0:
+            missing = len(features.get('missing') or []) + len(features.get('invalid') or [])
+            completeness = max(0., 1 - missing / required)
+    games = summary['independent_games'] if summary else 0
+    sample_weight = games / (games + 20)
+    confidence = probability_strength * agreement * completeness * (.75 + .25 * sample_weight)
+    score = min(1., .7 * confidence + .3 * history['historical_signal'])
+    discount = _number(base_sizing.get('event_discount', 1.))
+    if not 0 <= discount <= 1:
+        raise ValueError('Invalid sizing event discount')
+    target = max(1., round((1 + 4 * score) * discount, 12))
+    return {**history, 'confidence': confidence, 'probability_strength': probability_strength,
+            'model_market_agreement': agreement, 'required_input_completeness': completeness,
+            'historical_sample_weight': sample_weight, 'combined_sizing_score': score,
+            'confidence_target_before_event_discount': 1 + 4 * score,
+            'confidence_target': target, 'event_discount': discount,
+            'formula': 'confidence=clip((pwin-.5)/.4,0,1)*anchor_agreement*required_input_completeness*(.75+.25*n/(n+20)); score=.7*confidence+.3*v2_historical_signal; target=max(1,(1+4*score)*event_discount); requested=max(base*v2_factor,target); all caps bind'}
 
 
 def _aggregate(games):
@@ -205,7 +251,7 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
     policy = settings.get('outcome_sizing_policy', 'legacy')
     if policy == 'legacy':
         return dict(base_sizing)
-    if policy not in (POLICY, POLICY_V2):
+    if policy not in (POLICY, POLICY_V2, POLICY_V3):
         raise ValueError('Unknown outcome sizing policy')
     base = _number(base_sizing['amount'])
     if base < 0:
@@ -218,7 +264,8 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
     if summary is not None and (not verify_summary(summary) or summary['segment'] != segment_key(tip)):
         raise ValueError('Invalid outcome sizing evidence')
     source_factor = summary['factor'] if summary else 1.
-    v2 = _v2_adjustment(summary) if policy == POLICY_V2 else None
+    v2 = _v2_adjustment(summary) if policy in (POLICY_V2, POLICY_V3) else None
+    v3 = _v3_adjustment(summary, tip, base_sizing) if policy == POLICY_V3 else None
     factor = v2['applied_factor'] if v2 else source_factor
     caps = {'per_bet': 5., 'max_bet': _number(settings.get('max_bet', 5.)), 'remaining': None if remaining == math.inf else remaining}
     for name in ('maximum_stake', 'max_stake'):
@@ -230,7 +277,8 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
         caps['underlying_bankroll_bound'] = base
     if any(v < 0 for v in caps.values() if v is not None):
         raise ValueError('Invalid sizing cap')
-    value = min(base * factor, *(v for v in caps.values() if v is not None)) if base else 0.
+    requested = max(base * factor, v3['confidence_target']) if v3 else base * factor
+    value = min(requested, *(v for v in caps.values() if v is not None)) if base else 0.
     amount = float(Decimal(str(value)).quantize(Decimal('.01'), rounding=ROUND_DOWN)) if value >= 1 else 0.
     detail = {'policy': policy, 'base_amount': base, 'factor': factor, 'adjusted_amount': amount, 'caps': caps,
               'segment': segment_key(tip), 'snapshot_sha256': summary['snapshot_sha256'] if summary else None,
@@ -240,7 +288,13 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
     if policy == POLICY_V2:
         detail.update(source_policy=summary['policy'] if summary else POLICY,
                       source_factor=source_factor, formula=FORMULA_V2, **v2)
-    applied_note = f' Historical outcome factor {factor:.6f}; target ${amount:.2f}. '
+    if v3:
+        detail.update(v3)
+        detail.update(requested_amount=requested, source_policy=POLICY, source_factor=source_factor, factor=(requested / base if base else 1.))
+    applied_note = (f' Historical/confidence requested amount ${requested:.2f}; capped target ${amount:.2f}. '
+                    if v3 else f' Historical outcome factor {factor:.6f}; target ${amount:.2f}. ')
     if policy == POLICY_V2:
         applied_note += 'Applied historical_game_weighted_v2 to the verified v1 game evidence. '
+    if v3:
+        applied_note += f" Historical/confidence sizing v3: confidence {v3['confidence']:.4f}; pre-cap target ${requested:.2f}. "
     return {**base_sizing, 'amount': amount, 'note': base_sizing.get('note', '') + applied_note + NOTE, 'outcome_adjustment': detail}

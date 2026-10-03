@@ -307,3 +307,18 @@ def test_transaction_rebuilds_once_and_caches_summary_per_segment(make_tip,tmp_p
     with store.db() as connection:
         runtime.verify_ledger_evidence(connection,[tip]*100,settings,utcnow())
     assert calls=={'snapshot':1,'summary':1}
+
+
+def test_v3_replay_trace_and_api_policy(make_tip,tmp_path):
+    from betting_engine.outcome_sizing import POLICY_V3
+    rows=history()
+    tip,settings,check=make_tip(rows,settings={'outcome_sizing_policy':POLICY_V3},probability=.65,odds=1.4)
+    assert check['passed']
+    assert tip['stake_sizing']['outcome_adjustment']['policy']==POLICY_V3
+    store=cases.database(tmp_path,settings)
+    insert(store,rows)
+    store.publish({'recommendations':[tip]},require_guard=True)
+    forged=deepcopy(tip)
+    forged['stake_sizing']['outcome_adjustment']['confidence']=.999
+    with pytest.raises(ValueError,match='stake sizing does not reproduce'):
+        store.publish({'recommendations':[forged]},require_guard=True)
