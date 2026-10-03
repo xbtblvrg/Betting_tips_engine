@@ -498,3 +498,5 @@ Teszt: frontend **289 passed, 0 failed**. A meglévő Python döntési és kiad�
 Éles commit: `35bc24a`. A mai kiadott kártyák közül csak a még jövőbeli, le nem zárt és nem megjelölt rekordok maradnak a Betting Picks listában; a már elkezdődött/settled rekordok eltűnnek a napi végrehajtási listából, az első kiadási számláló és a Tracker megmarad. A kieső jövőbeli kártyák a közös kártyakomponenst, az esemény-URL-t és a `View on Stake` gombot használják; státuszuk `No bet anymore` + ok, `Invalid`, illetve a lezárt állapotok nem kerülnek vissza. Ready-validáció változatlan. Frontend: **290 passed**.
 
 Kiegészítés: a fejlécben külön `Changed / No bet anymore` statkártya mutatja a szűrt nézetben bent maradó, mai és még közelgő, már nem kvalifikáló kártyák számát. A First issued és Daily Instructions definíciója változatlan.
+
+Changed-kártya javítás: a normál `Mark as placed` vezérlő is megmarad rajtuk. A jelölés ugyanazon checklist/API útvonalon működik, a rekord a Trackerbe kerül, a kártya pedig nem marad végrehajtható Picks-elem. Frontend: **290 passed**.
