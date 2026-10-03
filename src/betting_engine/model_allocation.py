@@ -79,6 +79,8 @@ are reread here. A concurrent ticket cannot leave a stale allocation funded.
         if tip.get('funding_basis', {}).get('tier') == 'model_pick' and family in families:
             raise ValueError('Publication blocked: model-pick family allocation already issued')
         related = counts.get(tip['game_id'], 0) + new_counts[tip['game_id']] - 1
+        limits = publication_limits(settings, tip.get('league'))
+        event_cap = limits['max_stake_per_event'] if limits else float('inf')
         event_available = max(0.0, event_cap - event_stakes[tip['game_id']] - new_event_stakes[tip['game_id']])
         sizing_budget = min(remaining, event_available)
         reproduced = size_recommendation(tip, settings, sizing_budget, related)

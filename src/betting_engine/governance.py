@@ -47,12 +47,9 @@ def verify_publication(tip,now,active_settings=None):
         raise ValueError('Publication blocked: model family quality evidence is missing or failed')
     if guard.get('candidate_sha256')!=evidence_digest(tip):raise ValueError('Publication blocked: candidate changed after evidence review')
     if active_settings is not None:
-        from .decisions import publication_limits
+        from .decisions import publication_limits, publication_limit_receipt
         active_limits = publication_limits(active_settings)
-        expected_limits = ({key: active_settings.get(key) for key in (
-            'publication_limits_version', 'max_new_funded_per_publication',
-            'max_per_event', 'max_period_per_event', 'max_stake_per_event',
-            'max_daily_family_share')} if active_limits is not None else None)
+        expected_limits = publication_limit_receipt(active_settings) if active_limits is not None else None
         if guard.get('publication_limits') != expected_limits:
             raise ValueError('Publication blocked: publication exposure limits changed after evidence review')
     selection_policy=family_selection_policy(guard)
@@ -314,10 +311,8 @@ class EvidenceGuard:
         evidence['calibration_settings']={key:settings.get(key, default) for key,default in (
             ('calibration_uncertainty_mode','legacy'),('calibration_min_games',30))}
         if settings.get('publication_limits_version'):
-            evidence['publication_limits']={key:settings.get(key) for key in (
-                'publication_limits_version','max_new_funded_per_publication',
-                'max_per_event','max_period_per_event','max_stake_per_event',
-                'max_daily_family_share')}
+            from .decisions import publication_limit_receipt
+            evidence['publication_limits']=publication_limit_receipt(settings)
         # New policy controls are sealed only for new receipts. This keeps
         # historical receipts byte-compatible while making the active CLV
         # gate reproducible during publication and current execution review.

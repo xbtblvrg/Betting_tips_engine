@@ -212,7 +212,8 @@ class Settings(BaseModel):
     daily_pick_target:int=Field(20,ge=20,le=100)
     max_bet:float=Field(5,ge=1,le=5)
     unit_stake:float=Field(1,ge=1,le=5)
-    publication_limits_version:Literal['v1','v2']|None=None
+    publication_limits_version:Literal['v1','v2','v3']|None=None
+    sparse_league_overrides:list[Literal['NFL','NHL','MLB']]=Field(default_factory=list)
     max_new_funded_per_publication:int=Field(10,ge=1,le=15)
     max_per_event:int|None=Field(None,ge=1,le=4)
     max_period_per_event:int=Field(1,ge=1,le=2)
@@ -243,8 +244,9 @@ def put_settings(settings:Settings):
     if 'publication_limits_version' in values:
         active_limits=current.get('publication_limits_version')
         requested_limits=values['publication_limits_version']
-        if (active_limits in ('v1','v2') and requested_limits is None
-                or active_limits=='v2' and requested_limits!='v2'):
+        if (active_limits in ('v1','v2','v3') and requested_limits is None
+                or active_limits=='v2' and requested_limits not in ('v2','v3')
+                or active_limits=='v3' and requested_limits!='v3'):
             raise HTTPException(422,'The active publication exposure policy cannot be cleared or downgraded by a stale settings form.')
     active_target=current.get('daily_pick_target',20)
     minimum_active_target=100 if active_target>=100 else 40 if active_target>=40 else None

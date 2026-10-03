@@ -60,6 +60,7 @@ def reprice_unplaced(store, request_id, tip_ids, authorization):
         for record, tip in sorted(eligible, key=lambda item: (-item[1]['probability'], item[1]['id'])):
             gid = tip['game_id']; related = max(0, event_counts.get(gid, 1) - 1)
             available = remaining_budget(settings, max(0., committed - 1.))
+            limits = publication_limits(settings, tip.get('league'))
             if limits:
                 available = min(available, limits['max_stake_per_event'] - event_stakes[gid] + 1.)
             sizing = size_recommendation(tip, settings, max(0., available), related)

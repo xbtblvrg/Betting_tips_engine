@@ -242,7 +242,16 @@ class Store:
             scope,_=split_market(tip.get('market',''))
             if scope!='full_game':periods[gid]=periods.get(gid,0)+1
             key=(tip.get('league'),allocation_family(tip));families[key]=families.get(key,0)+1
+        from .model_allocation import held_inventory
+        held_families = held_inventory(c)[0] if settings.get('publication_limits_version') == 'v3' else set()
+        for tip in new:
+            effective = publication_limits(settings, tip.get('league'))
+            key=(tip.get('game_id'), allocation_family(tip))
+            if effective.get('distinct_families_required') and key in held_families:
+                raise ValueError('Publication blocked: sparse league requires distinct scope/market families')
+            held_families.add(key)
         for gid,count in counts.items():
+            limits = publication_limits(settings, next(t.get('league') for t in new if t.get('game_id') == gid))
             if open_event_counts.get(gid,0)+count>limits['max_per_event']:raise ValueError(f"Publication blocked: maximum {limits['max_per_event']} funded selections per game")
             if open_event_stakes.get(gid,0.)+stakes[gid]>limits['max_stake_per_event']+1e-9:raise ValueError(f"Publication blocked: ${limits['max_stake_per_event']:.0f} maximum stake per game")
             if open_period_counts.get(gid,0)+periods.get(gid,0)>limits['max_period_per_event']:raise ValueError(f"Publication blocked: maximum {limits['max_period_per_event']} period/quarter selection per game")
@@ -380,6 +389,7 @@ class Store:
             except (TypeError,ValueError):
                 continue
         event_counts=Counter(t.get('game_id') for t in existing)
+        diverse_families={(t.get('game_id'),allocation_family(t)) for t in existing}
         cycle_funded=0
         daily_family_counts=Counter();family_new=Counter()
         allowed_ids=None
@@ -428,12 +438,16 @@ class Store:
             prospective_stakes=Counter(event_stakes);prospective_periods=Counter(period_counts)
             prospective_committed=committed
             for candidate in usable_candidates:
+                policy=publication_limits(settings, candidate.get('league'))
                 gid=candidate['game_id'];amount=float(candidate['stake']);scope,_=split_market(candidate.get('market',''))
                 if len(eligible)>=policy['max_new_funded_per_publication']:continue
+                diverse_key=(gid,allocation_family(candidate))
+                if policy.get('distinct_families_required') and diverse_key in diverse_families:continue
                 if prospective_events[gid]>=policy['max_per_event']:continue
                 if prospective_stakes[gid]+amount>policy['max_stake_per_event']+1e-9:continue
                 if scope!='full_game' and prospective_periods[gid]>=policy['max_period_per_event']:continue
                 if settings.get('daily_risk_limit') is not None and prospective_committed+amount>settings['daily_risk_limit']+1e-8:continue
+                diverse_families.add(diverse_key)
                 eligible.append(candidate);prospective_events[gid]+=1;prospective_stakes[gid]+=amount
                 if scope!='full_game':prospective_periods[gid]+=1
                 prospective_committed+=amount
@@ -451,6 +465,7 @@ class Store:
             family_limit=max(1,math.ceil((sum(daily_family_counts.values())+len(selected))*policy['max_daily_family_share']))
         for tip in payload.get('recommendations',[]):
             if policy and (not isinstance(tip,dict) or tip.get('id') not in allowed_ids):continue
+            policy=publication_limits(settings, tip.get('league'))
             amount=tip.get('stake',0);odds=tip.get('reference_odds',0)
             if not(1<=amount<=min(5,settings['max_bet']) and math.isfinite(odds) and odds>1):continue
             if tip.get('reference_platform')!='Stake.com' or tip.get('alternative') or tip.get('withdrawn_at'):continue

@@ -37,7 +37,7 @@ def test_live_publication_requires_exact_reviewed_limits_but_historical_standalo
         verify_publication(forged,utcnow(),active)
 
 
-@pytest.mark.parametrize('unknown',['v3','bad','',False,1])
+@pytest.mark.parametrize('unknown',['v4','bad','',False,1])
 def test_unknown_versions_fail_closed_and_absent_legacy_remains(unknown):
     with pytest.raises(ValueError,match='Unknown publication limits'):
         publication_limits({'publication_limits_version':unknown})

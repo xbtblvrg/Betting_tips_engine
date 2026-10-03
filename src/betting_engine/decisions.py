@@ -28,7 +28,7 @@ PUBLICATION_LIMITS_V1 = 'v1'
 PUBLICATION_LIMITS_V2 = 'v2'
 
 
-def publication_limits(settings):
+def publication_limits(settings, league=None):
     """Return the effective, bounded publication limits for an active policy.
 
     The explicit version is part of the durable settings and of the
@@ -41,7 +41,7 @@ def publication_limits(settings):
     version = settings.get('publication_limits_version')
     if version is None:
         return None
-    if version not in (PUBLICATION_LIMITS_V1, PUBLICATION_LIMITS_V2):
+    if version not in (PUBLICATION_LIMITS_V1, PUBLICATION_LIMITS_V2, 'v3'):
         raise ValueError('Unknown publication limits version')
     if version == PUBLICATION_LIMITS_V1:
         configured_event_cap = settings.get('max_per_event')
@@ -55,6 +55,15 @@ def publication_limits(settings):
             'max_stake_per_event': float(settings.get('max_stake_per_event', 5.)),
             'max_daily_family_share': float(settings.get('max_daily_family_share', .25)),
         }
+    overrides = settings.get('sparse_league_overrides', [])
+    if version == 'v3':
+        if not isinstance(overrides, list) or any(x not in ('NFL', 'NHL', 'MLB') for x in overrides):
+            raise ValueError('Invalid explicitly approved sparse league overrides')
+        if league in overrides:
+            return {'version': version, 'max_new_funded_per_publication': min(15, int(settings.get('max_new_funded_per_publication', 15))),
+                    'max_per_event': 6, 'max_period_per_event': 3, 'max_stake_per_event': 20.,
+                    'max_daily_family_share': min(.35, float(settings.get('max_daily_family_share', .35))),
+                    'distinct_families_required': True}
     configured_event_cap = settings.get('max_per_event')
     event_cap = (min(4, int(configured_event_cap))
                  if configured_event_cap is not None else 4)
@@ -66,6 +75,14 @@ def publication_limits(settings):
         'max_stake_per_event': min(10., float(settings.get('max_stake_per_event', 10.))),
         'max_daily_family_share': min(.35, float(settings.get('max_daily_family_share', .35))),
     }
+
+
+def publication_limit_receipt(settings):
+    keys = ('publication_limits_version', 'max_new_funded_per_publication',
+            'max_per_event', 'max_period_per_event', 'max_stake_per_event', 'max_daily_family_share')
+    if settings.get('publication_limits_version') == 'v3':
+        keys += ('sparse_league_overrides',)
+    return {key: settings.get(key) for key in keys}
 
 
 def family_selection_policy(settings):
@@ -415,6 +432,9 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
     period_new=Counter();family_new=Counter();new_funded=0;chosen=[];alternatives=[]
     remaining=remaining_budget(settings,open_exposure)
     for allocation_rank,c in enumerate(ordered,1):
+        effective = publication_limits(settings, c.get('league'))
+        if effective:
+            event_cap=effective['max_per_event']; event_stake_cap=effective['max_stake_per_event']; period_cap=effective['max_period_per_event']
         c['rank']=ranks[c['id']]
         c['allocation_policy']={'version':ALLOCATION_VERSION,'core_market':is_core_market(c),
                                 'allocation_rank':allocation_rank,'value_rank':ranks[c['id']],
@@ -469,6 +489,8 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
             c['allocation_code']='model_pick_event_covered'
             c['allocation_reason']='This preference allocation for the game is already covered. Stress-qualified distinct contracts remain eligible.'
             c['stake_note']=c['allocation_reason']
+        elif effective and effective.get('distinct_families_required') and (c['game_id'],allocation_family(c)) in allocated_families:
+            c['allocation_code']='event_family_covered';c['allocation_reason']='This game already holds this scope and market family.';c['stake_note']=c['allocation_reason']
         elif event_cap is not None and funded_counts[c['game_id']]>=event_cap:
             c['allocation_code']='event_limit';c['allocation_reason']='The per-game allocation is already committed to recorded bets.'
             c['stake_note']='The per-game limit is already allocated to recorded bets.'
@@ -552,6 +574,8 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
             survivors=[]
             for c in batch:
                 related=original_event_counts[c['game_id']]+batch_counts[c['game_id']]-1
+                effective = publication_limits(settings, c.get('league'))
+                event_stake_cap = effective['max_stake_per_event'] if effective else math.inf
                 event_available=event_stake_cap-event_stakes[c['game_id']]-batch_stakes[c['game_id']]
                 sizing_budget=min(remaining,max(0.,event_available))
                 sizing=size_recommendation(c,settings,sizing_budget,related) if continuous or outcome_sizing else stake_assessment(c['stress_probability'],c['push_probability'] if c.get('reference_platform')=='Stake.com' else 0,c['reference_odds'],settings,sizing_budget,related)
