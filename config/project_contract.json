@@ -677,7 +677,13 @@
     },
     "stability": "Extend existing supervisor: measured 15-minute audit, stable deduplicated highest-priority repair intake, existing AI failover and release workflow, dashboard one-line state. Never infer active repair from queued task alone.",
     "execution": "Use existing catalog/plan/gaps; reproduce, isolated fix, targeted tests, independent review, full release tests, local and Tailscale live verification. No new administrative orchestration.",
-    "status": "requirements recorded; acceptance requires per-capability deployed and live-tested code, not this record"
+    "status": "requirements recorded; acceptance requires per-capability deployed and live-tested code, not this record",
+    "error_intake_wakeup": {
+      "requested_at": "2026-10-03",
+      "mechanism": "Existing engineering intake wakes on changed error/source evidence on the next scheduler pass, with 2-second coalescing and periodic fallback. No new orchestration service.",
+      "dispatch": "Existing exclusive claims, resource limits, dependencies and reviewed-source recovery decide dispatch; distinguish detected, queued, blocked and actively repairing.",
+      "blocked_recovery": "Exact diagnostic-export preparation failure may wake after hash-verified relevant exporter source change; preserve attempts, original deadlines and evidence. Unchanged errors do not authorize repeated attempts."
+    }
   },
   "confidence_sizing_correction": {
     "date": "2026-10-03",
