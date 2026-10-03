@@ -150,6 +150,8 @@ def failure_class(error, phase=None):
         return 'test_failure'
     if error.startswith(('Protected file changed:', 'Existing regression tests', 'No implementation change', 'Implementation needs', 'Out-of-scope change:', 'Symlinks and deletions', 'Candidate changed after tests')):
         return 'code_validation'
+    if phase in ('implementation', 'review', 'integration-review') and error == 'Development step exceeded its execution time limit':
+        return 'execution_timeout'
     if error.startswith(('implementation exited', 'review exited', 'integration-review exited')) or (phase in ('implementation', 'review', 'integration-review') and 'time limit' in error):
         return 'provider_failure'
     return 'controller_failure'
@@ -414,7 +416,47 @@ def protected_source_update(folder, run_id, result):
         return None
 
 
+def timeout_recovery_evidence(folder, rid, result):
+    """A bounded changed approach for a productive implementation timeout.
+
+    Use controller-retained files as diagnostic checkpoints, never as accepted
+    code. No model prose is interpreted as success or provider unavailability.
+    """
+    if (result.get('failure_phase') != 'implementation'
+            or result.get('error') != 'Development step exceeded its execution time limit'
+            or result.get('timeout_recovery_strategy') == 'checkpoint_then_report_v1'):
+        return None
+    try:
+        relative = 'runs/' + rid + '/candidate-manifest.json'
+        raw = _recovery_bytes(folder, relative)
+        manifest = json.loads(raw)
+        if not isinstance(manifest, dict) or not manifest:
+            return None
+        # A material retained candidate makes this a changed-input attempt.
+        retained = Path(folder) / 'runs' / rid / 'files'
+        files = []
+        for name, sha in manifest.items():
+            if not name.startswith(('src/betting_engine/', 'tests/', 'docs/')):
+                continue
+            path = retained / name
+            if not path.is_file():
+                continue
+            body = _recovery_bytes(folder, str(path.relative_to(folder)))
+            if hashlib.sha256(body).hexdigest() != sha:
+                return None
+            files.append({'path': str(path.relative_to(folder)), 'sha256': sha})
+        if not files:
+            return None
+        return ({'strategy': 'checkpoint_then_report_v1', 'source_run_id': rid,
+            'next_action': 'Inspect the exact retained candidate files first. Reuse correct work after checking current upstream; do not repeat completed exploration. Implement only the smallest remaining acceptance gap this attempt. Run focused regressions only; the controller owns full suites and review. Reserve the final 120 seconds to return the required structured report, task_complete=false with exact blockers if necessary. No acceptance or deadline is relaxed.'},
+            [{'path': relative, 'sha256': hashlib.sha256(raw).hexdigest()}, *files])
+    except (OSError, ValueError, TypeError, AttributeError):
+        return None
+
+
 def task_due(row, now):
+    if row.get('timeout_recovery_hold', {}).get('state') == 'awaiting_changed_controller':
+        return False
     gate = row.get('runtime_failure_gate', {})
     if gate.get('source_run_id') == row.get('run_id') and gate.get('state') in ('awaiting_changed_evidence', 'evidence_invalid'):
         return False
@@ -505,7 +547,19 @@ def schedule_recoveries(plan, state, folder, now=None, input_generation=None):
                 continue
         except (OSError, ValueError, KeyError, TypeError):
             continue
+        if result.get('timeout_recovery_strategy') == 'checkpoint_then_report_v1' and failure_class(result.get('error'), result.get('failure_phase')) == 'execution_timeout':
+            controller_root = folder.parent.parent
+            source_pin = hashlib.sha256(json.dumps([task, [(name, hashlib.sha256((controller_root / name).read_bytes()).hexdigest() if (controller_root / name).is_file() else None) for name in ('src/betting_engine/development.py', 'src/betting_engine/development_inputs.py', 'src/betting_engine/controller_dependency_recovery.py')]], sort_keys=True).encode()).hexdigest()
+            hold = row.get('timeout_recovery_hold', {})
+            if not hold or hold.get('source_run_id') != rid:
+                row['timeout_recovery_hold'] = {'state': 'awaiting_changed_controller', 'source_run_id': rid, 'controller_sha256': source_pin, 'next_action': 'Checkpoint strategy also timed out. Preserve both attempts; repair the controller/input export or decompose the task before another coding attempt.'}
+                continue
+            if hold.get('controller_sha256') == source_pin:
+                continue
+            row['timeout_recovery_hold'] = {**hold, 'state': 'changed_controller', 'current_controller_sha256': source_pin}
         kind = result.get('failure_class') or failure_class(result.get('error'), result.get('failure_phase'))
+        if failure_class(result.get('error'), result.get('failure_phase')) == 'execution_timeout':
+            kind = 'execution_timeout'  # migrate old provider_failure classification without rewriting its archive
         previous = row.get('recovery_work', {})
         from .runtime_errors import (diagnostic_archive_valid, diagnostic_is_current,
             failure_diagnostic, validation_document_changes)
@@ -581,6 +635,11 @@ def schedule_recoveries(plan, state, folder, now=None, input_generation=None):
                 'requirements': result.get('remaining', []), 'evidence': evidence,
                 'next_action': 'Export the specifically missing authenticated source inputs or implement their source adapter; original acceptance remains unmet.'}
         source_update = None
+        if kind == 'execution_timeout':
+            timeout_update = timeout_recovery_evidence(folder, rid, result)
+            if timeout_update:
+                source_update, timeout_evidence = timeout_update
+                evidence.extend(timeout_evidence)
         if document_changes:
             source_update = {'version': RECOVERY_VERSION, 'source_run_id': rid,
                 'validation_documents': document_changes,
@@ -679,6 +738,14 @@ def schedule_recoveries(plan, state, folder, now=None, input_generation=None):
             row['runtime_failure_gate'] = {**gate, 'state': 'changed_evidence_available',
                 'resumed_at': now.isoformat(), 'next_input_fingerprint': diagnostic.get('input_fingerprint') if diagnostic else None}
         events.append({'task_id': task['id'], **recovery})
+    retry_at = state.get('infrastructure_retry_at')
+    if retry_at:
+        for run in reversed(state.get('runs', [])):
+            if run.get('failure_class') != 'provider_failure':
+                continue
+            if failure_class(run.get('error'), run.get('failure_phase')) == 'execution_timeout':
+                state.pop('infrastructure_retry_at', None)
+            break
     return {task['id']: state.get('tasks', {}).get(task['id'], {}).get('recovery_work')
             for task in plan['tasks'] if state.get('tasks', {}).get(task['id'], {}).get('recovery_work')}
 
@@ -1372,6 +1439,9 @@ class DevelopmentWorker:
                 self.workspace.parent.mkdir(parents=True, exist_ok=True)
             self.heartbeat('running', step='preparing', run_started_at=self.run_started_at)
         result = {'id': rid, 'task_id': task['id'], 'started_at': now.isoformat()}
+        strategy = (row.get('recovery_work', {}).get('input_update') or {}).get('strategy')
+        if strategy:
+            result['timeout_recovery_strategy'] = strategy
         before = None; report = None
         try:
             with self.integration_slot('waiting-preparation'):
@@ -1413,7 +1483,7 @@ class DevelopmentWorker:
             (run / 'prompt.txt').write_text(prompt)
             self._failure_phase = 'implementation'
             self.run_ai_step(run / 'implementation-schema.json', run / 'result.json', run / 'implementation',
-                prompt, self.config.get('max_run_seconds', 1500))
+                prompt + '\nExecution budget: ' + str(self.config.get('max_run_seconds', 1500)) + ' seconds. Reserve the last 120 seconds for the structured final report. The controller runs full suites; use focused tests during implementation. Preserve incomplete evidence honestly.\n', self.config.get('max_run_seconds', 1500))
             result['implementation_provider'] = getattr(self, '_last_ai_provider', {'provider': 'codex', 'model': self.config['model']})
             report = read_json(run / 'result.json')
             result['helper_reviews'] = validate_reviews(report.get('helper_reviews', []), advice)
