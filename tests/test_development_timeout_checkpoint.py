@@ -82,3 +82,9 @@ def test_second_timeout_is_held_until_approach_or_controller_changes(tmp_path):
     plan['tasks'][0]['implementation_steps'] = ['Isolate the source export regression first']
     schedule_recoveries(plan, state, tmp_path, now)
     assert task_due(row, now)
+
+
+def test_bounded_decision_export_defects_request_decision_history_generation():
+    from betting_engine.development import required_input_components
+    for phrase in ('decision/publication export', 'decision history', 'decision_history', 'system_decisions'):
+        assert 'decision_history' in required_input_components([phrase])

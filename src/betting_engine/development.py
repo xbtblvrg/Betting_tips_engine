@@ -474,7 +474,7 @@ def required_input_components(requirements):
     text = ' '.join(str(x) for x in requirements).lower()
     groups = {'stake_sources': ('stake', 'quote', 'odds', 'offered', 'offers', 'price', 'endpoint', 'current contract'),
         'scoped_models': ('period artifacts', 'period model', 'segment model', 'inning model', 'validation reports', 'frozen reports'),
-        'decision_history': ('lifecycle', 'outcome', 'issuance', 'settled'),
+        'decision_history': ('lifecycle', 'outcome', 'issuance', 'settled', 'decision/publication export', 'decision history', 'decision_history', 'system_decisions'),
         'validation_sources': ('sources.json', 'sports_source_evidence', 'existing test', 'existing tests', 'test reference', 'copied native', 'test’s manifest')}
     components = [name for name, terms in groups.items() if any(term in text for term in terms)]
     if (re.search(r'\bnhl\b|\bnhl_settlement\b', text)
