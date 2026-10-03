@@ -1158,8 +1158,12 @@ class DevelopmentWorker:
         self._failure_phase = 'preparing'
         run = self.folder / 'runs' / rid
         with self._state_lock:
+            # A root release may arrive after scheduler selection but before
+            # this child claims its task. Verify it at the claim boundary.
+            apply_task_releases(self.root, {'tasks': [task]}, self.state)
             row = self.state.setdefault('tasks', {}).setdefault(task['id'], {})
             if row.get('state') in (*READY_TASK_STATES, 'running', 'integrating', 'superseded'):
+                self.save()
                 self.current = None
                 return {'state': 'not_claimed', 'task_id': task['id']}
             gate = row.get('runtime_failure_gate', {})
@@ -1315,6 +1319,10 @@ class DevelopmentWorker:
                          self.config.get('cadence_seconds', 3600))
                 self.state['next_run_at'] = (utcnow() + timedelta(seconds=delay)).isoformat()
                 self._active.pop(task['id'], None)
+                # Keep the attempt's actual failure/candidate result above,
+                # while a verified independent production release owns task
+                # completion even when it arrived during this attempt.
+                apply_task_releases(self.root, {'tasks': [task]}, self.state)
                 self.save(); self.current = None
                 self.heartbeat('idle' if result['state'] == 'candidate_ready' else 'failed',
                     last_run=result, next_run_at=self.state['next_run_at'])
