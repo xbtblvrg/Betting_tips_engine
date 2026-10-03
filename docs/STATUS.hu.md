@@ -1,3 +1,9 @@
+## 2026-10-03 — Fejlesztés figyelmeztető memórianyomás mellett
+
+Éles `b983b5b`: warning pressure2 nem blanket-stop; a4GiB tartalékon felüli becsült visszanyerhető memória alapján1–2 fejlesztési hely (2GiB/hely), normál állapotban a beállított6helyre fokozatos visszaállás. Kritikus pressure4, CPU80%/rolling75%, gyorsswap, tartalék és hővédelem megmaradt. Felhasználói korrekció az AGENTS.md és project_contract.json fájlokban. Ez becsült erőforrás-admission, nem garantált RAM-igény.
+
+Független review PASS; célzott72teszt, majd memóriahatár-regressziók; teljes **6432passed,1skipped,5subtests; frontend285passed**. Kontrollált workerújratöltés, korábbi aktív próbálkozások rögzítve reload-before.json; megszakított munkák a meglévő recovery útvonalon folytatódnak. Élő újPID91727:1engedélyezett hely,1aktív feladat, normál pressure1 mellett fokozatos felfutás; nem memory_pressure-blokk. Helyi/Tailscale health HTTP200. Fogadási engine, limitek és eredeti döntések nem módosultak. Bizonyíték: `data/releases/root-memory-progress-20261003/`.
+
 ## 2026-10-03 — Teljesítménydirektíva, stabilitási első kiadás
 
 Éles kód `e48615b`. A legújabb felhasználói utasítás elsőbbsége rögzítve az AGENTS.md és config/project_contract.json fájlokban; meglévő D14 feladat kibővítve, korábbi határidő nem módosítva. Kijavítva a többsoros AI-parancs miatti takarítási PID-parse hiba; az aktív munkaterületek védelme megmaradt. Shadow forrásarchívum-ellenőrzés az írási tranzakción kívül, source+capture atomikus és idempotens mentéssel. Ez a record_captures útvonal javítása; a candidate capture() külön tranzakciós szűkítése fennmaradó munka.
