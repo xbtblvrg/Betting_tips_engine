@@ -233,7 +233,7 @@ def test_only_complete_first_sample_has_bounded_nonfault_warming_status():
     for changes in ({'thermal_state': None}, {'memory_pressure': None}, {'cpu_ticks': []},
                     {'errors': ['sysctl:TimeoutExpired']}, {'monotonic': float('nan')}):
         assert assess([sample(**changes)], now=BASE)[0]['state'] == 'telemetry_unavailable'
-    assert assess([sample(memory_pressure=2)], now=BASE)[0]['state'] == 'resource_limited'
+    assert assess([sample(memory_pressure=2)], now=BASE)[0]['state'] == 'warming_up'
     assert assess([sample(thermal_state=2)], now=BASE)[0]['state'] == 'resource_limited'
     # Multiple samples without a usable interval are a measurement fault, not warmup.
     assert assess([sample(), sample()], now=BASE)[0]['state'] == 'telemetry_unavailable'
@@ -256,3 +256,17 @@ def test_warning_pressure_keeps_one_lane_without_overdispatch():
 def test_warning_pressure_does_not_override_independent_limits(changes):
     result,_=assess([sample(0,memory_pressure=2),sample(5,memory_pressure=2,**changes)],active=0)
     assert not result['allow_new'] and result['allowed_slots']==0
+
+
+def test_warning_normal_recovery_is_gradual_and_cpu_blocks_warning():
+    samples=[sample(0,memory_pressure=2),sample(5,memory_pressure=2)]
+    _,state=assess(samples,active=1)
+    for t in (10,15):
+        samples.append(sample(t))
+        result,state=assess(samples,active=1,state=state)
+        assert not result['allow_new']
+    samples.append(sample(20))
+    result,_=assess(samples,active=1,state=state)
+    assert result['allow_new'] and result['allowed_slots']==2
+    result,_=assess([sample(0,busy=90,memory_pressure=2),sample(5,busy=90,memory_pressure=2)],active=0)
+    assert not result['allow_new'] and 'cpu_high_water' in result['reasons']
