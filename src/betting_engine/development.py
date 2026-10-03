@@ -111,6 +111,25 @@ def dependency_satisfied(row):
 RECOVERY_VERSION = 'development-recovery-v1'
 REPAIRABLE_FAILURES = {'review_rejected', 'test_failure', 'code_validation', 'source_rebase'}
 
+# The controller polls frequently for liveness, but recovery and milestone
+# scans read a potentially large set of immutable run/release evidence.  Keep
+# those scans bounded while preserving prompt invalidation through the cheap
+# signatures below.  This is a scheduler cache, not a new worker or a change
+# to retry/deadline semantics.
+MAINTENANCE_SCAN_SECONDS = 15
+
+
+def _maintenance_path_token(path):
+    """Return a cheap change token without reading an evidence file."""
+    path = Path(path)
+    try:
+        if path.is_symlink():
+            return ('symlink',)
+        stat = path.stat()
+        return ('file', stat.st_mtime_ns, stat.st_size)
+    except OSError:
+        return ('missing',)
+
 
 def failure_class(error, phase=None):
     """Classify controller observations, never infer provider health from task prose."""
@@ -828,6 +847,12 @@ class DevelopmentWorker:
         self._engineering_due = 0
         self._engineering_focus = {}
         self._input_generation = None
+        self._recovery_scan_deadline = 0.0
+        self._recovery_scan_signature_value = None
+        self._recovery_scan_result = {}
+        self._expansion_scan_deadline = 0.0
+        self._expansion_scan_signature_value = None
+        self._expansion_scan_result = None
 
     def save(self):
         with self._state_lock:
@@ -873,6 +898,93 @@ class DevelopmentWorker:
                 'active_count': len(active), 'active_tasks': active,
                 'scope': 'Parallel isolated Codex-led development with recorded provider fallback; serialized tested candidate integration; production deployment is separate.',
                 **extra, **({'run_started_at': min(starts)} if starts else {})})
+
+    def _maintenance_task_rows(self, plan):
+        """Return the small mutable portion relevant to scheduler rescans."""
+        definitions = [*plan.get('tasks', []), *self.state.get('extra_tasks', [])]
+        rows = []
+        for task in definitions:
+            task_id = task.get('id')
+            row = self.state.get('tasks', {}).get(task_id, {})
+            recovery = row.get('recovery_work') or {}
+            rows.append((task_id, row.get('state'), row.get('run_id'),
+                row.get('last_error'), row.get('next_attempt_at'), row.get('updated_at'),
+                row.get('failure_class'),
+                recovery.get('state'), recovery.get('source_run_id'),
+                recovery.get('evidence_sha256'), recovery.get('failure_fingerprint'),
+                recovery.get('due_at'), recovery.get('repeated_failure_count'),
+                (row.get('runtime_failure_gate') or {}).get('state'),
+                (row.get('runtime_failure_gate') or {}).get('source_run_id'),
+                (row.get('evidence_request') or {}).get('state'),
+                (row.get('evidence_request') or {}).get('source_run_id'),
+                (row.get('source_reassessment') or {}).get('state'),
+                (row.get('source_reassessment') or {}).get('generation_sha256')))
+        return tuple(rows)
+
+    def _recovery_scan_signature(self, plan):
+        """Build a bounded signature for recovery input and retained evidence.
+
+        The expensive parser still runs on the first scan, on a changed input,
+        or at the short refresh boundary.  Stat tokens ensure a newly written
+        run/evidence file wakes the worker without waiting for the input
+        generation timer.
+        """
+        files = []
+        for task_id, state, run_id, *_ in self._maintenance_task_rows(plan):
+            if state != 'retry' or not isinstance(run_id, str) or Path(run_id).name != run_id:
+                continue
+            run_path = self.folder / 'runs' / run_id / 'run.json'
+            files.append((str(run_path.relative_to(self.folder)), _maintenance_path_token(run_path)))
+            row = self.state.get('tasks', {}).get(task_id, {})
+            for evidence in (row.get('recovery_work') or {}).get('evidence', []):
+                relative = evidence.get('path') if isinstance(evidence, dict) else None
+                if not isinstance(relative, str) or Path(relative).is_absolute():
+                    continue
+                path = self.folder / relative
+                files.append((relative, _maintenance_path_token(path)))
+        generation = self._input_generation if isinstance(self._input_generation, dict) else {}
+        components = generation.get('components') if isinstance(generation.get('components'), dict) else {}
+        return (self._maintenance_task_rows(plan), generation.get('sha256'),
+            tuple(sorted((str(k), str(v)) for k, v in components.items())),
+            len(self.state.get('recovery_events', [])), tuple(files))
+
+    def _schedule_recoveries(self, plan):
+        """Run recovery parsing at a bounded cadence with input invalidation."""
+        signature = self._recovery_scan_signature(plan)
+        now = time.monotonic()
+        if (signature == self._recovery_scan_signature_value
+                and now < self._recovery_scan_deadline):
+            return self._recovery_scan_result
+        result = schedule_recoveries(plan, self.state, self.folder,
+            input_generation=self._input_generation)
+        self._recovery_scan_result = result
+        # schedule_recoveries can update recovery_work/event state.  Record the
+        # post-scan signature so those legitimate mutations do not cause an
+        # immediate duplicate parse on the next two-second liveness tick.
+        self._recovery_scan_signature_value = self._recovery_scan_signature(plan)
+        self._recovery_scan_deadline = time.monotonic() + MAINTENANCE_SCAN_SECONDS
+        return result
+
+    def _expansion_scan_signature(self, plan, occupied):
+        receipts = []
+        for milestone in plan.get('milestones', []):
+            path = self.root / 'data/development/releases' / (milestone.get('id', '') + '.json')
+            receipts.append((milestone.get('id'), _maintenance_path_token(path)))
+        return (self._maintenance_task_rows(plan), tuple(sorted(str(x) for x in occupied)),
+            tuple(receipts), tuple(t.get('id') for t in plan.get('tasks', [])))
+
+    def _expand_work(self, plan, occupied=()):
+        """Bound repeated milestone/receipt scans while idle or resource-limited."""
+        signature = self._expansion_scan_signature(plan, occupied)
+        now = time.monotonic()
+        if (signature == self._expansion_scan_signature_value
+                and now < self._expansion_scan_deadline):
+            return self._expansion_scan_result
+        result = expand_work(plan, self.state, self.root, occupied)
+        self._expansion_scan_result = result
+        self._expansion_scan_signature_value = self._expansion_scan_signature(plan, occupied)
+        self._expansion_scan_deadline = time.monotonic() + MAINTENANCE_SCAN_SECONDS
+        return result
 
     @contextmanager
     def integration_slot(self, step='waiting-integration'):
@@ -1483,7 +1595,7 @@ PREVIOUS CANDIDATE (read-only repair evidence if present): {self.folder/'runs'/s
                                 except (ImportError, OSError, ValueError, KeyError, TypeError) as exc:
                                     self._input_generation = None
                                     self.state['input_generation_error'] = {'at': utcnow().isoformat(), 'exception_type': type(exc).__name__}
-                            schedule_recoveries(recovery_plan, self.state, self.folder, input_generation=self._input_generation)
+                            self._schedule_recoveries(recovery_plan)
                             enabled = bool(self.config.get('enabled'))
                             retry_at = self.state.get('infrastructure_retry_at')
                             due = not retry_at or utcnow() >= parse_time(retry_at)
@@ -1492,7 +1604,7 @@ PREVIOUS CANDIDATE (read-only repair evidence if present): {self.folder/'runs'/s
                             # Old serial next_run_at does not impose idle gaps
                             # between independent validated implementation jobs.
                             if enabled and due and (not once or not results):
-                                plan = expand_work(plan, self.state, self.root, set(futures.values()))
+                                plan = self._expand_work(plan, set(futures.values()))
                                 plan = {**plan, 'tasks': [apply_task_focus(task, self._engineering_focus.get(task['id'], {})) for task in plan['tasks']]}
                                 while admission['allow_new'] and len(futures) < admission['allowed_slots']:
                                     occupied = set(futures.values())
@@ -1501,7 +1613,7 @@ PREVIOUS CANDIDATE (read-only repair evidence if present): {self.folder/'runs'/s
                                     if not task:
                                         # A running eligible task must not prevent other
                                         # completed milestones from filling idle lanes.
-                                        expanded = expand_work(plan, self.state, self.root, occupied)
+                                        expanded = self._expand_work(plan, occupied)
                                         task = choose_task({**expanded, 'tasks': [t for t in expanded['tasks'] if t['id'] not in occupied]}, self.state)
                                         if not task: break
                                         plan = {**plan, 'tasks': list({t['id']: t for t in [*plan['tasks'], *expanded['tasks']]}.values())}
