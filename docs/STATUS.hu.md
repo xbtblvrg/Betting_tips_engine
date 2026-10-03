@@ -1,3 +1,13 @@
+## 2026-10-03 09:47 CEST — teljes eredménykövetés és 36 órás mérés
+
+D34 éles javítás: `9d02880` (integráció), `7fb10ab` (pontos ESPN eredmény-visszapótlás). A rolling naptárból kieső négy NCAAF-meccs és az elavult WNBA-sor 16 eredeti fogadása az éles engine normál elszámolásával lezárult: 13 win / 3 loss, +$30.0409. Most **378 lezárt ticket / 378 matching outcome**, **363 jövőbeli open**, **0 elkezdődött open**. 741 ticket, 740 eredeti döntés, 733 issuance és minden korábban lezárt outcome változatlan hashű; a helyreállítás kizárólag új eredményeket csatolt.
+
+Teljes release-validáció: **6216 Python + 5 alteszt sikeres, 1 skipped; 272 webteszt; 168 független review-teszt**. Az izolált kör első futásából hiányzó meglévő sportfixture-t pontos archívummal pótoltuk; az eredeti hibalog megmaradt. Független Codex-review: ACCEPT, diff SHA256 `cb65a82fd640060348e9ba5eff85861bc3d15dd6d36481d477a277f89a868a8c`. Root kontrollált kiadás; automatikus fejlesztői jogosultság nem bővült.
+
+Helyi és Tailscale élő publikáció **6552**, `2026-10-03T07:46:50.055361Z`: **13 kártya = 13 API utasítás = 13 fejléc**, engine error null; ESPN recovery healthy, unresolved_count 0. A 2026-10-01 21:46:49 – 2026-10-03 09:46:49 CEST ablakban lezárt 251 eredeti döntés: **123 win / 122 loss / 6 push; WR 50.2041%; settled stake $291.07; P&L +$43.021; ROI +14.7803%**, 23 meccs. Meccsklaszteres 95%-os ROI-intervallum **−15.3042% – +43.7613%**. Ez a hiányzó elszámolások helyreállítása, nem modelljavulás bizonyítéka. Az ugyanebben az ablakban kiadott 535 döntésből 188 lezárt: WR46.7391%, ROI+9.3154%; 347 még nyitott.
+
+Bizonyíték: `data/releases/root-result-recovery-20261003/release.json`, `ledger-before.json`, `ledger-after.json`, `live-check.json`; [mért 36 órás eredmény](audits/20261003-performance-36h-after-recovery.json), [javítás előtti audit](audits/20261003-072230-performance-36h.json). Az adatok eredeti ajánlások/feltételezett vagy felhasználó által jelentett megjátszás alapján számoltak, Stake-számlával nincsenek egyeztetve; működési költségek külön.
+
 ## 2026-10-03 09:15 CEST — publikáció és végrehajtható lista helyreállítva
 
 Kód: `536e761` (végleges batch napi családkorlátja és tétezése), `a262983` (a már kiadott, bejelöletlen single tippek beszámítása; hibás kezdésű importrekord kezelése). A korábbi 10 tervezett tipp helyett a tényleges végleges batch adja a napi arány nevezőjét; a tranzakciós guard változatlan.

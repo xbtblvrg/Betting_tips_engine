@@ -1,0 +1,909 @@
+{
+  "as_of": "2026-10-03T07:22:30+00:00",
+  "cutoff": "2026-10-01T19:22:30+00:00",
+  "basis": "Original immutable funded system decisions; original stakes/odds; no account verification or operating costs.",
+  "interval_method": "10000 whole-game bootstrap resamples, fixed seed 362026, percentile 95%; correlated selections retained in each game block.",
+  "cohorts": {
+    "issued_last36h": {
+      "summary": {
+        "count": 545,
+        "statuses": {
+          "open": 370,
+          "lost": 95,
+          "won": 76,
+          "push": 4
+        },
+        "settled": 175,
+        "games": 123,
+        "settled_games": 16,
+        "settled_stake": 176.08,
+        "payout": 169.4516,
+        "pnl": -6.628400000000001,
+        "roi": -0.03764425261244889,
+        "wr": 0.4444444444444444,
+        "open_stake": 480.62,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -0.3186409554370659,
+            0.2334964913787253
+          ],
+          "wr": [
+            0.31952662721893493,
+            0.5632202095154953
+          ]
+        }
+      },
+      "by_league": {
+        "MLB": {
+          "count": 9,
+          "statuses": {
+            "won": 7,
+            "open": 2
+          },
+          "settled": 7,
+          "games": 3,
+          "settled_games": 1,
+          "settled_stake": 7.0,
+          "payout": 15.35,
+          "pnl": 8.35,
+          "roi": 1.1928571428571428,
+          "wr": 1.0,
+          "open_stake": 8.63,
+          "game_cluster_bootstrap_ci95": {
+            "roi": null,
+            "wr": null
+          }
+        },
+        "NCAAF": {
+          "count": 135,
+          "statuses": {
+            "open": 133,
+            "lost": 2
+          },
+          "settled": 2,
+          "games": 76,
+          "settled_games": 1,
+          "settled_stake": 2.33,
+          "payout": 0.0,
+          "pnl": -2.33,
+          "roi": -1.0,
+          "wr": 0.0,
+          "open_stake": 226.52,
+          "game_cluster_bootstrap_ci95": {
+            "roi": null,
+            "wr": null
+          }
+        },
+        "NFL": {
+          "count": 202,
+          "statuses": {
+            "lost": 13,
+            "won": 7,
+            "push": 1,
+            "open": 181
+          },
+          "settled": 21,
+          "games": 15,
+          "settled_games": 1,
+          "settled_stake": 21.0,
+          "payout": 17.74,
+          "pnl": -3.26,
+          "roi": -0.15523809523809523,
+          "wr": 0.35,
+          "open_stake": 181.01,
+          "game_cluster_bootstrap_ci95": {
+            "roi": null,
+            "wr": null
+          }
+        },
+        "NHL": {
+          "count": 196,
+          "statuses": {
+            "lost": 80,
+            "won": 62,
+            "open": 51,
+            "push": 3
+          },
+          "settled": 145,
+          "games": 28,
+          "settled_games": 13,
+          "settled_stake": 145.75,
+          "payout": 136.3616,
+          "pnl": -9.3884,
+          "roi": -0.06441440823327615,
+          "wr": 0.43661971830985913,
+          "open_stake": 61.46,
+          "game_cluster_bootstrap_ci95": {
+            "roi": [
+              -0.3788180221659748,
+              0.22407909888944014
+            ],
+            "wr": [
+              0.2956521739130435,
+              0.5586257606490872
+            ]
+          }
+        },
+        "WNBA": {
+          "count": 3,
+          "statuses": {
+            "open": 3
+          },
+          "settled": 0,
+          "games": 1,
+          "settled_games": 0,
+          "settled_stake": 0.0,
+          "payout": 0.0,
+          "pnl": 0.0,
+          "roi": null,
+          "wr": null,
+          "open_stake": 3.0,
+          "game_cluster_bootstrap_ci95": {
+            "roi": null,
+            "wr": null
+          }
+        }
+      },
+      "metrics_agree_with_statistics": true
+    },
+    "games_started_last36h": {
+      "summary": {
+        "count": 251,
+        "statuses": {
+          "won": 110,
+          "lost": 119,
+          "push": 6,
+          "open": 16
+        },
+        "settled": 235,
+        "games": 23,
+        "settled_games": 18,
+        "settled_stake": 260.37,
+        "payout": 273.3501,
+        "pnl": 12.980099999999998,
+        "roi": 0.049852517571148745,
+        "wr": 0.48034934497816595,
+        "open_stake": 30.7,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -0.24299575560737935,
+            0.3213526951319618
+          ],
+          "wr": [
+            0.3481746646026832,
+            0.6049398148148148
+          ]
+        }
+      },
+      "by_league": {
+        "MLB": {
+          "count": 8,
+          "statuses": {
+            "won": 8
+          },
+          "settled": 8,
+          "games": 1,
+          "settled_games": 1,
+          "settled_stake": 8.67,
+          "payout": 20.192999999999998,
+          "pnl": 11.523,
+          "roi": 1.3290657439446365,
+          "wr": 1.0,
+          "open_stake": 0.0,
+          "game_cluster_bootstrap_ci95": {
+            "roi": null,
+            "wr": null
+          }
+        },
+        "NCAAF": {
+          "count": 14,
+          "statuses": {
+            "won": 2,
+            "lost": 2,
+            "open": 10
+          },
+          "settled": 4,
+          "games": 6,
+          "settled_games": 2,
+          "settled_stake": 6.84,
+          "payout": 8.1796,
+          "pnl": 1.3396000000000003,
+          "roi": 0.19584795321637433,
+          "wr": 0.5,
+          "open_stake": 22.15,
+          "game_cluster_bootstrap_ci95": {
+            "roi": [
+              0.03615526802218127,
+              0.7999999999999998
+            ],
+            "wr": [
+              0.3333333333333333,
+              1.0
+            ]
+          }
+        },
+        "NFL": {
+          "count": 30,
+          "statuses": {
+            "won": 16,
+            "lost": 13,
+            "push": 1
+          },
+          "settled": 30,
+          "games": 1,
+          "settled_games": 1,
+          "settled_stake": 33.61,
+          "payout": 43.5552,
+          "pnl": 9.9452,
+          "roi": 0.2959000297530497,
+          "wr": 0.5517241379310345,
+          "open_stake": 0.0,
+          "game_cluster_bootstrap_ci95": {
+            "roi": null,
+            "wr": null
+          }
+        },
+        "NHL": {
+          "count": 183,
+          "statuses": {
+            "lost": 100,
+            "won": 78,
+            "push": 5
+          },
+          "settled": 183,
+          "games": 13,
+          "settled_games": 13,
+          "settled_stake": 194.81,
+          "payout": 178.6836,
+          "pnl": -16.1264,
+          "roi": -0.08278014475642935,
+          "wr": 0.43820224719101125,
+          "open_stake": 0.0,
+          "game_cluster_bootstrap_ci95": {
+            "roi": [
+              -0.42697412356396935,
+              0.2525028441235454
+            ],
+            "wr": [
+              0.28168811720900117,
+              0.5860215053763441
+            ]
+          }
+        },
+        "WNBA": {
+          "count": 16,
+          "statuses": {
+            "won": 6,
+            "lost": 4,
+            "open": 6
+          },
+          "settled": 10,
+          "games": 2,
+          "settled_games": 1,
+          "settled_stake": 16.44,
+          "payout": 22.738699999999998,
+          "pnl": 6.298699999999998,
+          "roi": 0.38313260340632593,
+          "wr": 0.6,
+          "open_stake": 8.55,
+          "game_cluster_bootstrap_ci95": {
+            "roi": null,
+            "wr": null
+          }
+        }
+      },
+      "metrics_agree_with_statistics": true
+    },
+    "resolved_last36h": {
+      "summary": {
+        "count": 235,
+        "statuses": {
+          "won": 110,
+          "lost": 119,
+          "push": 6
+        },
+        "settled": 235,
+        "games": 18,
+        "settled_games": 18,
+        "settled_stake": 260.37,
+        "payout": 273.3501,
+        "pnl": 12.980099999999998,
+        "roi": 0.049852517571148745,
+        "wr": 0.48034934497816595,
+        "open_stake": 0.0,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -0.24299575560737935,
+            0.3213526951319618
+          ],
+          "wr": [
+            0.3481746646026832,
+            0.6049398148148148
+          ]
+        }
+      },
+      "by_league": {
+        "MLB": {
+          "count": 8,
+          "statuses": {
+            "won": 8
+          },
+          "settled": 8,
+          "games": 1,
+          "settled_games": 1,
+          "settled_stake": 8.67,
+          "payout": 20.192999999999998,
+          "pnl": 11.523,
+          "roi": 1.3290657439446365,
+          "wr": 1.0,
+          "open_stake": 0.0,
+          "game_cluster_bootstrap_ci95": {
+            "roi": null,
+            "wr": null
+          }
+        },
+        "NCAAF": {
+          "count": 4,
+          "statuses": {
+            "won": 2,
+            "lost": 2
+          },
+          "settled": 4,
+          "games": 2,
+          "settled_games": 2,
+          "settled_stake": 6.84,
+          "payout": 8.1796,
+          "pnl": 1.3396000000000003,
+          "roi": 0.19584795321637433,
+          "wr": 0.5,
+          "open_stake": 0.0,
+          "game_cluster_bootstrap_ci95": {
+            "roi": [
+              0.03615526802218127,
+              0.7999999999999998
+            ],
+            "wr": [
+              0.3333333333333333,
+              1.0
+            ]
+          }
+        },
+        "NFL": {
+          "count": 30,
+          "statuses": {
+            "won": 16,
+            "lost": 13,
+            "push": 1
+          },
+          "settled": 30,
+          "games": 1,
+          "settled_games": 1,
+          "settled_stake": 33.61,
+          "payout": 43.5552,
+          "pnl": 9.9452,
+          "roi": 0.2959000297530497,
+          "wr": 0.5517241379310345,
+          "open_stake": 0.0,
+          "game_cluster_bootstrap_ci95": {
+            "roi": null,
+            "wr": null
+          }
+        },
+        "NHL": {
+          "count": 183,
+          "statuses": {
+            "lost": 100,
+            "won": 78,
+            "push": 5
+          },
+          "settled": 183,
+          "games": 13,
+          "settled_games": 13,
+          "settled_stake": 194.81,
+          "payout": 178.6836,
+          "pnl": -16.1264,
+          "roi": -0.08278014475642935,
+          "wr": 0.43820224719101125,
+          "open_stake": 0.0,
+          "game_cluster_bootstrap_ci95": {
+            "roi": [
+              -0.42697412356396935,
+              0.2525028441235454
+            ],
+            "wr": [
+              0.28168811720900117,
+              0.5860215053763441
+            ]
+          }
+        },
+        "WNBA": {
+          "count": 10,
+          "statuses": {
+            "won": 6,
+            "lost": 4
+          },
+          "settled": 10,
+          "games": 1,
+          "settled_games": 1,
+          "settled_stake": 16.44,
+          "payout": 22.738699999999998,
+          "pnl": 6.298699999999998,
+          "roi": 0.38313260340632593,
+          "wr": 0.6,
+          "open_stake": 0.0,
+          "game_cluster_bootstrap_ci95": {
+            "roi": null,
+            "wr": null
+          }
+        }
+      },
+      "metrics_agree_with_statistics": true
+    },
+    "all_funded": {
+      "summary": {
+        "count": 740,
+        "statuses": {
+          "won": 160,
+          "lost": 192,
+          "push": 9,
+          "open": 379
+        },
+        "settled": 361,
+        "games": 146,
+        "settled_games": 39,
+        "settled_stake": 404.5,
+        "payout": 385.60699999999997,
+        "pnl": -18.893,
+        "roi": -0.0467070457354759,
+        "wr": 0.45454545454545453,
+        "open_stake": 497.25,
+        "game_cluster_bootstrap_ci95": {
+          "roi": [
+            -0.26785987343255313,
+            0.16449600201131026
+          ],
+          "wr": [
+            0.3534653554107237,
+            0.5517241379310345
+          ]
+        }
+      },
+      "by_league": {
+        "MLB": {
+          "count": 65,
+          "statuses": {
+            "lost": 33,
+            "won": 29,
+            "push": 1,
+            "open": 2
+          },
+          "settled": 63,
+          "games": 11,
+          "settled_games": 9,
+          "settled_stake": 77.12,
+          "payout": 69.8086,
+          "pnl": -7.311400000000001,
+          "roi": -0.0948054979253112,
+          "wr": 0.46774193548387094,
+          "open_stake": 8.63,
+          "game_cluster_bootstrap_ci95": {
+            "roi": [
+              -0.46273601891458394,
+              0.45626588465298135
+            ],
+            "wr": [
+              0.3050847457627119,
+              0.671875
+            ]
+          }
+        },
+        "NCAAF": {
+          "count": 143,
+          "statuses": {
+            "won": 2,
+            "open": 139,
+            "lost": 2
+          },
+          "settled": 4,
+          "games": 77,
+          "settled_games": 2,
+          "settled_stake": 6.84,
+          "payout": 8.1796,
+          "pnl": 1.3396000000000003,
+          "roi": 0.19584795321637433,
+          "wr": 0.5,
+          "open_stake": 237.6,
+          "game_cluster_bootstrap_ci95": {
+            "roi": [
+              0.03615526802218127,
+              0.7999999999999998
+            ],
+            "wr": [
+              0.3333333333333333,
+              1.0
+            ]
+          }
+        },
+        "NFL": {
+          "count": 216,
+          "statuses": {
+            "won": 21,
+            "lost": 13,
+            "push": 1,
+            "open": 181
+          },
+          "settled": 35,
+          "games": 16,
+          "settled_games": 2,
+          "settled_stake": 38.61,
+          "payout": 54.6352,
+          "pnl": 16.0252,
+          "roi": 0.41505309505309507,
+          "wr": 0.6176470588235294,
+          "open_stake": 181.01,
+          "game_cluster_bootstrap_ci95": {
+            "roi": [
+              0.2959000297530497,
+              1.216
+            ],
+            "wr": [
+              0.5517241379310345,
+              1.0
+            ]
+          }
+        },
+        "NHL": {
+          "count": 274,
+          "statuses": {
+            "won": 91,
+            "lost": 125,
+            "push": 7,
+            "open": 51
+          },
+          "settled": 223,
+          "games": 36,
+          "settled_games": 21,
+          "settled_stake": 237.69,
+          "payout": 207.8413,
+          "pnl": -29.8487,
+          "roi": -0.12557827422272708,
+          "wr": 0.4212962962962963,
+          "open_stake": 61.46,
+          "game_cluster_bootstrap_ci95": {
+            "roi": [
+              -0.42689089080245496,
+              0.16301797814575525
+            ],
+            "wr": [
+              0.2816326530612245,
+              0.5491895584108698
+            ]
+          }
+        },
+        "WNBA": {
+          "count": 42,
+          "statuses": {
+            "lost": 19,
+            "won": 17,
+            "open": 6
+          },
+          "settled": 36,
+          "games": 6,
+          "settled_games": 5,
+          "settled_stake": 44.24,
+          "payout": 45.1423,
+          "pnl": 0.9022999999999984,
+          "roi": 0.02039556962025313,
+          "wr": 0.4722222222222222,
+          "open_stake": 8.55,
+          "game_cluster_bootstrap_ci95": {
+            "roi": [
+              -0.7893098079916968,
+              0.5861615337548439
+            ],
+            "wr": [
+              0.1111111111111111,
+              0.8048780487804879
+            ]
+          }
+        }
+      },
+      "metrics_agree_with_statistics": true
+    }
+  },
+  "all_ticket_summary": {
+    "count": 741,
+    "settled": 362,
+    "open": 379,
+    "won": 161,
+    "lost": 192,
+    "pushes": 9,
+    "voids": 0,
+    "manual": 0,
+    "unknown": 0,
+    "games": 146,
+    "settled_games": 39,
+    "stake": 902.75,
+    "open_stake": 497.25,
+    "settled_stake": 405.5,
+    "payout": 387.247,
+    "pnl": -18.253,
+    "known_settled_stake": 405.5,
+    "known_payout": 387.247,
+    "known_pnl": -18.253,
+    "money_complete": true,
+    "excluded_money_rows": 0,
+    "roi": -0.04501356350184957,
+    "hit_rate": 0.45609065155807366,
+    "date_range": {
+      "first_start": "2026-09-29T00:15:00+00:00",
+      "last_start": "2026-10-05T00:20:00+00:00"
+    },
+    "calibration": {
+      "observations": 352,
+      "independent_games": 39,
+      "brier": 0.2510573545686382,
+      "log_loss": 0.7004053330095538,
+      "mean_conditional_win_probability": 0.561450475677341,
+      "observed_win_rate": 0.45454545454545453,
+      "game_equal_weight_brier": 0.23756130489321825,
+      "reliability_diagram": [
+        {
+          "bin": 1,
+          "lower": 0.0,
+          "upper": 0.1,
+          "observations": 0,
+          "predicted": null,
+          "observed": null,
+          "games": 0
+        },
+        {
+          "bin": 2,
+          "lower": 0.1,
+          "upper": 0.2,
+          "observations": 2,
+          "predicted": 0.1357505046948959,
+          "observed": 0.0,
+          "games": 2
+        },
+        {
+          "bin": 3,
+          "lower": 0.2,
+          "upper": 0.3,
+          "observations": 9,
+          "predicted": 0.2574512443375492,
+          "observed": 0.1111111111111111,
+          "games": 9
+        },
+        {
+          "bin": 4,
+          "lower": 0.3,
+          "upper": 0.4,
+          "observations": 57,
+          "predicted": 0.3578820834504804,
+          "observed": 0.3157894736842105,
+          "games": 22
+        },
+        {
+          "bin": 5,
+          "lower": 0.4,
+          "upper": 0.5,
+          "observations": 58,
+          "predicted": 0.4592286061475325,
+          "observed": 0.3620689655172414,
+          "games": 22
+        },
+        {
+          "bin": 6,
+          "lower": 0.5,
+          "upper": 0.6,
+          "observations": 76,
+          "predicted": 0.5515729515661123,
+          "observed": 0.5,
+          "games": 32
+        },
+        {
+          "bin": 7,
+          "lower": 0.6,
+          "upper": 0.7,
+          "observations": 76,
+          "predicted": 0.6533803974950155,
+          "observed": 0.5263157894736842,
+          "games": 31
+        },
+        {
+          "bin": 8,
+          "lower": 0.7,
+          "upper": 0.8,
+          "observations": 59,
+          "predicted": 0.7447946792935317,
+          "observed": 0.576271186440678,
+          "games": 26
+        },
+        {
+          "bin": 9,
+          "lower": 0.8,
+          "upper": 0.9,
+          "observations": 15,
+          "predicted": 0.8325417806531953,
+          "observed": 0.5333333333333333,
+          "games": 10
+        },
+        {
+          "bin": 10,
+          "lower": 0.9,
+          "upper": 1.0,
+          "observations": 0,
+          "predicted": null,
+          "observed": null,
+          "games": 0
+        }
+      ],
+      "excluded": {
+        "duplicate_ticket": 1,
+        "not_win_loss": 388
+      },
+      "basis": "Frozen original p/(1-push), win/loss only; one observation per contract; game clustering is reported, not proof of independence or profitability."
+    },
+    "issues": {
+      "legacy_full_game_reference": 6
+    }
+  },
+  "all_ticket_coverage": {
+    "source_coverage": {
+      "retained_archive_hash": 223,
+      "retained_hash": 54,
+      "retained_url_time": 85
+    },
+    "resolution_coverage": {
+      "legacy_full_game_reference": 6,
+      "reproduced": 356
+    }
+  },
+  "all_decision_coverage": {
+    "source_coverage": {
+      "retained_archive_hash": 223,
+      "retained_hash": 54,
+      "retained_url_time": 84
+    },
+    "resolution_coverage": {
+      "legacy_full_game_reference": 5,
+      "reproduced": 356
+    }
+  },
+  "statistics_integrity": {
+    "version": "betting-statistics-v1",
+    "as_of": "2026-10-03T07:22:30+00:00",
+    "evidence_sha256": "1432566ebc6f8442bd7d3a6026a2eeaafd4684973df546a0f2903bf2b7e662d7",
+    "resolution_audit": {
+      "issue_count": 11,
+      "warning_count": 11,
+      "error_count": 0,
+      "counts": {
+        "legacy_full_game_reference": 11
+      },
+      "issues": [
+        {
+          "category": "ticket",
+          "id": 1,
+          "code": "legacy_full_game_reference",
+          "severity": "warning"
+        },
+        {
+          "category": "ticket",
+          "id": 17,
+          "code": "legacy_full_game_reference",
+          "severity": "warning"
+        },
+        {
+          "category": "ticket",
+          "id": 21,
+          "code": "legacy_full_game_reference",
+          "severity": "warning"
+        },
+        {
+          "category": "ticket",
+          "id": 23,
+          "code": "legacy_full_game_reference",
+          "severity": "warning"
+        },
+        {
+          "category": "ticket",
+          "id": 32,
+          "code": "legacy_full_game_reference",
+          "severity": "warning"
+        },
+        {
+          "category": "ticket",
+          "id": 7,
+          "code": "legacy_full_game_reference",
+          "severity": "warning"
+        },
+        {
+          "category": "decision",
+          "id": "contract:074800399c8b5253a97b",
+          "code": "legacy_full_game_reference",
+          "severity": "warning"
+        },
+        {
+          "category": "decision",
+          "id": "contract:098cf9dc329e8c29700f",
+          "code": "legacy_full_game_reference",
+          "severity": "warning"
+        },
+        {
+          "category": "decision",
+          "id": "contract:6fc3691428543ee7e281",
+          "code": "legacy_full_game_reference",
+          "severity": "warning"
+        },
+        {
+          "category": "decision",
+          "id": "contract:903bc96bf2fbd5e45643",
+          "code": "legacy_full_game_reference",
+          "severity": "warning"
+        },
+        {
+          "category": "decision",
+          "id": "contract:fea67efbcc7569942c20",
+          "code": "legacy_full_game_reference",
+          "severity": "warning"
+        }
+      ],
+      "input_counts": {
+        "tickets": 741,
+        "decisions": 740,
+        "bet_outcomes": 362
+      },
+      "source_reverification": "Not performed by this report; retained evidence and contract arithmetic are checked without asserting account verification."
+    }
+  },
+  "independent_coverage_audit": {
+    "as_of": "2026-10-03T07:22:30+00:00",
+    "cutoff": "2026-10-01T19:22:30+00:00",
+    "tickets": 741,
+    "decisions": 740,
+    "issuance": 733,
+    "closed_tickets": 362,
+    "open_tickets": 379,
+    "issuance_without_ticket": 0,
+    "closed_without_matching_outcome": 0,
+    "closed_contract_math_mismatches": 0,
+    "nhl_archived_games_valid": 21,
+    "nhl_archived_ticket_scopes_valid": 223,
+    "pending_final_ticket_count": 16,
+    "pending_final_stake": 30.7,
+    "pending_final_expected_pnl": 30.0409,
+    "pending_final_games": {
+      "NCAAF:401858245": [
+        33,
+        35,
+        3
+      ],
+      "NCAAF:401871050": [
+        14,
+        30,
+        1
+      ],
+      "NCAAF:401858476": [
+        34,
+        13,
+        1
+      ],
+      "NCAAF:401868094": [
+        35,
+        34,
+        5
+      ],
+      "WNBA:401918294": [
+        77,
+        73,
+        6
+      ]
+    },
+    "primary_result_observed_at": "2026-10-03T07:26:23+00:00",
+    "account_verified": false,
+    "audit_only_no_ledger_changes": true
+  },
+  "analysis_script_sha256": "7b57debcabfcebd807d95cc6f5b7c5e2162ed3abc80feed93940267660d4361c"
+}

@@ -674,8 +674,11 @@
       ],
       "data_source": "Public ESPN exact-event summary API for NBA/WNBA/NCAAF/NCAAM/NCAAW; original frozen event identities.",
       "acceptance": "All 16 observed overdue wagers and decisions settle from hash-retained matching official full-game evidence exactly once; original payload/odds/stakes and already settled outcomes unchanged. Invalid/unavailable/ambiguous/future sources remain pending; no full-game substitution for periods. Targeted/full suites, independent Codex review and fresh local/Tailscale publication verified.",
-      "status": "attention_required",
-      "evidence": "docs/audits/20261003-072230-performance-36h.json"
+      "status": "live_verified",
+      "evidence": "docs/audits/20261003-072230-performance-36h.json",
+      "completed_at": "2026-10-03T07:49:32.998111+00:00",
+      "live_evidence": "data/releases/root-result-recovery-20261003/release.json",
+      "code_commit": "9d028803a1ba4ca476f4f48f9b25bde4fc6bec8a"
     }
   ],
   "deferred": [
