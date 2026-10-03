@@ -131,3 +131,37 @@ def test_active_worker_task_reference_is_never_eligible(tmp_path):
     (root/'data/development/worker.json').write_text(json.dumps({
         'active_tasks':[{'run_id':OLD,'state':'running'}]}))
     assert m.candidates(root,NOW)==[]
+
+
+def test_apply_cli_lock_busy_is_success_and_does_no_work(tmp_path,monkeypatch,capsys):
+    import fcntl
+    root=setup(tmp_path)
+    with (root/'data/workspace-retention.lock').open('a') as lock:
+        fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        monkeypatch.setattr(m,'archive_one',lambda *args:pytest.fail('must not archive while busy'))
+        assert m.main(['--root',str(root),'--apply'])==0
+    assert json.loads(capsys.readouterr().out)['state']=='busy'
+
+
+def test_apply_cli_bounds_output_and_reports_individual_errors(tmp_path,monkeypatch,capsys):
+    root=setup(tmp_path)
+    monkeypatch.setattr(m,'candidates',lambda *args,**kwargs:[OLD]*1000)
+    calls=[]
+    def fail(root,rid):
+        calls.append(rid);raise ValueError('retained error')
+    monkeypatch.setattr(m,'archive_one',fail)
+    monkeypatch.setattr('betting_engine.log_rotation.rotate_log',lambda *a,**kw:{'state':'absent'})
+    assert m.main(['--root',str(root),'--apply','--limit','2'])==1
+    output=capsys.readouterr()
+    assert len(calls)==2 and len(output.out)<1000
+    assert output.err.count('retained error')==2
+
+
+def test_retention_log_rotates_via_shared_bounded_policy(tmp_path):
+    from betting_engine.log_rotation import rotate_log
+    import gzip
+    root=tmp_path.resolve();path=root/'workspace-retention.log'
+    path.write_bytes(b'old retention log\n')
+    result=rotate_log(path,max_bytes=1)
+    assert path.read_bytes()==b''
+    assert gzip.decompress((root/result['archive']).read_bytes())==b'old retention log\n'

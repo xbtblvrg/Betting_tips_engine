@@ -8,6 +8,7 @@ gzip tar archive. Excludes referenced workspaces and any workspace used by a run
 import argparse
 from datetime import datetime, timezone, timedelta
 import hashlib
+import fcntl
 import json
 import os
 from pathlib import Path
@@ -17,6 +18,7 @@ import stat
 import subprocess
 import tarfile
 import tempfile
+import sys
 
 
 RUN_ID = re.compile(r'\b\d{8}T\d{12}-[A-Za-z0-9_-]+')
@@ -195,14 +197,48 @@ def archive_one(root, rid):
         temporary.unlink(missing_ok=True)
 
 
-if __name__ == '__main__':
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, required=True)
     parser.add_argument('--apply', action='store_true')
     parser.add_argument('--limit', type=int, default=10)
-    args = parser.parse_args()
-    eligible = candidates(args.root)
-    print(json.dumps({'eligible': len(eligible), 'run_ids': eligible}), flush=True)
-    if args.apply:
-        if args.limit < 1: raise ValueError('Positive bounded limit required')
-        for rid in eligible[:args.limit]: print(json.dumps(archive_one(args.root, rid)), flush=True)
+    args = parser.parse_args(argv)
+    if args.limit < 1 or args.limit > 500:
+        raise ValueError('Limit must be between 1 and 500 workspaces')
+    root = args.root.resolve()
+    if not args.apply:
+        eligible = candidates(root)
+        print(json.dumps({'eligible': len(eligible), 'sample': eligible[:20],
+                          'apply': False}), flush=True)
+        return 0
+    lock_path = root/'data/workspace-retention.lock'; safe(lock_path)
+    with os.fdopen(os.open(lock_path, os.O_WRONLY | os.O_APPEND | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600), 'a') as lock:
+        if not stat.S_ISREG(os.fstat(lock.fileno()).st_mode):
+            raise ValueError('Retention lock is not a regular file')
+        try: fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            print(json.dumps({'state':'busy', 'applied':False}), flush=True)
+            return 0
+        from betting_engine.log_rotation import rotate_log
+        try:
+            sys.stdout.flush()
+            rotation = rotate_log(root/'data/logs/workspace-retention.log', fd=sys.stdout.fileno())
+        except (OSError, ValueError) as error:
+            rotation = {'state':'error', 'error':str(error)}
+            print(json.dumps({'log_rotation':rotation}), file=sys.stderr, flush=True)
+        eligible = candidates(root)
+        print(json.dumps({'eligible':len(eligible), 'limit':args.limit,
+                          'apply':True, 'log_rotation':rotation}), flush=True)
+        errors = 0
+        for rid in eligible[:args.limit]:
+            try:
+                print(json.dumps(archive_one(root, rid)), flush=True)
+            except Exception as error:
+                errors += 1
+                print(json.dumps({'run_id':rid, 'state':'error',
+                    'error':str(error)}), file=sys.stderr, flush=True)
+        return 1 if errors else 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())
