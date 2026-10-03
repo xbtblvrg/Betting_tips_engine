@@ -42,7 +42,7 @@ def engineering_input_generation(root, state):
             gate = row.get('runtime_failure_gate') or {}
             failures.append((task_id, row.get('state'), row.get('run_id'),
                 row.get('failure_class'), row.get('last_error'),
-                gate.get('source_run_id'), gate.get('status'), gate.get('resumed_at')))
+                gate.get('source_run_id'), gate.get('state'), gate.get('resumed_at')))
     return tuple(files), tuple(failures)
 
 

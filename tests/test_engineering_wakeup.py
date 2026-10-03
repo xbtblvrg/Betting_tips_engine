@@ -54,3 +54,10 @@ def test_scheduler_wakes_on_error_before_timer_and_coalesces(tmp_path, monkeypat
     assert not worker.engineering_intake_due()  # unchanged error not a new attempt
     clock[0] = 162
     assert worker.engineering_intake_due()  # periodic fallback still runs
+
+
+def test_gate_only_state_transition_wakes_intake(tmp_path):
+    state = {'tasks': {'D14': {'runtime_failure_gate': {'source_run_id': 'r1', 'state': 'awaiting_changed_evidence'}}}}
+    before = engineering_input_generation(tmp_path, state)
+    state['tasks']['D14']['runtime_failure_gate']['state'] = 'evidence_invalid'
+    assert engineering_input_generation(tmp_path, state) != before
