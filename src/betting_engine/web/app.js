@@ -132,6 +132,8 @@ function executionReview(t){
  if(c.reference_platform!=='Stake.com'||c.stake_market?.availability_verified!==true||c.decision_guard?.passed!==true)return {actionable:false};
  if(!Number.isFinite(c.probability)||c.probability<=0||c.probability>=1||!Number.isFinite(c.reference_odds)||c.reference_odds<=1)return {actionable:false};
  const policy=data?.settings?.recommendation_policy??'strict',basis=c.funding_basis,currentReview=c.execution_review;
+ const outcomePolicy=data?.settings?.outcome_sizing_policy??'legacy';
+ if(!['legacy','historical_game_weighted_v1'].includes(outcomePolicy)||![c,c.decision_guard,r,currentReview].every(v=>(v?.outcome_sizing_policy??'legacy')===outcomePolicy))return {actionable:false};
  const allocationPolicy=modelPickAllocationPolicy(data?.settings);
  if(!['one_per_game_v1','distinct_family_v1'].includes(allocationPolicy)||
   ![c.decision_guard,basis,r,currentReview].every(v=>modelPickAllocationPolicy(v)===allocationPolicy))return {actionable:false};
@@ -196,7 +198,7 @@ function validInstructionStake(t){const amount=instructionStake(t);return Number
 function pendingInstruction(t){return !!t.tracked_bet&&t.tracked_bet.count===1&&t.tracked_bet.status==='open'&&t.tracking_source==='auto_assumed_placed'&&!isPlaced(t)&&validInstructionStake(t)&&executionReview(t).actionable===true}
 function executableInstruction(t){return !isPlaced(t)&&validInstructionStake(t)&&(t.tracked_bet?pendingInstruction(t):executionReview(t).actionable===true)}
 function executionTerms(t){return pendingInstruction(t)?t.current_assessment:t}
-function instructionSignature(t){const c=executionTerms(t),n=stakeNavigation(t),r=executionReview(t),b=c.funding_basis;return JSON.stringify([c.id,c.start,c.market,c.side,c.line,c.selection,c.probability,c.push_probability,c.reference_odds,c.minimum_odds,c.stress_roi,c.model_version,c.quote_at,c.valid_until,instructionStake(t),n.event_url,n.tab,n.navigation_source,n.navigation_status,data?.settings?.recommendation_policy??'strict',b?.policy,b?.tier,b?.eligible,b?.maximum_stake,b?.minimum_odds,r.recommendation_policy,r.funding_tier,effectiveMinimumOdds(t),data?.settings?.model_pick_sizing_policy??'unit_cap_v1',b?.version,b?.model_pick_sizing_policy,r.model_pick_sizing_policy,modelPickAllocationPolicy(data?.settings),modelPickAllocationPolicy(c.decision_guard),modelPickAllocationPolicy(b),modelPickAllocationPolicy(r),modelPickAllocationPolicy(c.execution_review)])}
+function instructionSignature(t){const c=executionTerms(t),n=stakeNavigation(t),r=executionReview(t),b=c.funding_basis;return JSON.stringify([c.id,c.start,c.market,c.side,c.line,c.selection,c.probability,c.push_probability,c.reference_odds,c.minimum_odds,c.stress_roi,c.model_version,c.quote_at,c.valid_until,instructionStake(t),n.event_url,n.tab,n.navigation_source,n.navigation_status,data?.settings?.recommendation_policy??'strict',b?.policy,b?.tier,b?.eligible,b?.maximum_stake,b?.minimum_odds,r.recommendation_policy,r.funding_tier,effectiveMinimumOdds(t),data?.settings?.model_pick_sizing_policy??'unit_cap_v1',b?.version,b?.model_pick_sizing_policy,r.model_pick_sizing_policy,modelPickAllocationPolicy(data?.settings),modelPickAllocationPolicy(c.decision_guard),modelPickAllocationPolicy(b),modelPickAllocationPolicy(r),modelPickAllocationPolicy(c.execution_review),data?.settings?.outcome_sizing_policy??'legacy',c.outcome_sizing_policy??'legacy',r.outcome_sizing_policy??'legacy',c.outcome_sizing_evidence?.summary_sha256])}
 function readyTips(){return liveTips().filter(executableInstruction)}
 function stakeDisplay(t){return view==='tips'&&executableInstruction(t)?'Bet $'+num(instructionStake(t)):t.tracked_bet?'Recorded $'+num(t.tracked_bet.stake):'No new bet'}
 function trackingMarkup(t){if(view==='tips'&&pendingInstruction(t))return `<p class="panel-copy">Bet $${num(t.tracked_bet.stake)} once on this exact selection. If already placed, mark it as placed instead of repeating it.</p>`;return t.tracked_bet?`<p class="panel-copy">Original record: $${num(t.tracked_bet.stake)} at ${num(t.tracked_bet.odds)} on ${esc(when(t.tracked_bet.created_at))}. No additional bet is requested.</p>`:''}
@@ -378,6 +380,8 @@ function populateSettings(){const f=$('#settings-form'),s=data?.settings||{};for
 function currentSizingAssessment(row){
  const policy=data?.settings?.model_pick_sizing_policy===undefined?'unit_cap_v1':data.settings.model_pick_sizing_policy;
  const age=Date.now()-new Date(row.quote_at),maximum=Math.min(5,data?.settings?.max_bet??5),review=row.execution_review,basis=row.funding_basis;
+ const outcomePolicy=data?.settings?.outcome_sizing_policy??'legacy';
+ if(!['legacy','historical_game_weighted_v1'].includes(outcomePolicy)||(review?.outcome_sizing_policy??'legacy')!==outcomePolicy||(row.outcome_sizing_policy??'legacy')!==outcomePolicy)return false;
  const receiptVersion=policy==='all_tiers_weighted_v3'?'funding-policy-v3':policy==='model_weighted_v2'?'funding-policy-v2':null;
  if(!review||review.actionable!==true||review.state!=='current'||review.model_pick_sizing_policy!==policy||
   review.quote_at!==row.quote_at||review.valid_until!==row.valid_until||review.odds!==row.odds||
