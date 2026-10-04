@@ -107,6 +107,10 @@ def _v3_adjustment(summary, tip, base_sizing):
         if type(required) is int and required > 0:
             missing = len(features.get('missing') or []) + len(features.get('invalid') or [])
             completeness = max(0., 1 - missing / required)
+    if readiness.get('missing_starter_policy') == 'verified_model_prior_v1' and readiness.get('league') == 'MLB':
+        starter_checks = readiness.get('checks') or {}
+        known_fraction = sum(starter_checks.get(side, {}).get('known') is True for side in ('home', 'away')) / 2
+        completeness = min(completeness, known_fraction)
     games = summary['independent_games'] if summary else 0
     sample_weight = games / (games + 20) if history['historical_signal'] > 0 else 0.
     confidence = probability_strength * agreement * completeness * (.75 + .25 * sample_weight)

@@ -94,3 +94,14 @@ def test_missing_starter_does_not_relax_freshness(inputs):
 def test_model_artifact_version_must_match_forecast(inputs):
     args=prepare(inputs);args[3].model_version='different'
     assert 'starter_prior_model_identity_mismatch' in check(args)['errors']
+
+
+@pytest.mark.parametrize('home_known,away_known,fraction',[(True,True,1.),(True,False,.5),(False,False,0.)])
+def test_prior_does_not_count_as_confirmed_input_confidence(home_known,away_known,fraction):
+    from test_confident_outcome_sizing import sized
+    readiness={'passed':True,'state':'ready','league':'MLB','missing_starter_policy':'verified_model_prior_v1',
+        'checks':{'home':{'known':home_known},'away':{'known':away_known},'model_features':{'required':10,'missing':[],'invalid':[]}}}
+    result=sized(input_readiness=readiness)
+    assert result['outcome_adjustment']['required_input_completeness']==fraction
+    legacy=copy.deepcopy(readiness);legacy.pop('missing_starter_policy')
+    assert sized(input_readiness=legacy)['outcome_adjustment']['required_input_completeness']==1.

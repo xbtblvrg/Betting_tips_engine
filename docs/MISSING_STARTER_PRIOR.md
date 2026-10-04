@@ -11,3 +11,5 @@ The readiness receipt retains `known=false`, null pitcher identity, zero observa
 Read-only inspection of the deployed MLB artifact found 5 home/2 away missing training rows among 7302 score-regression rows. Both inning artifacts had 3 home/1 away missing rows. These are input-support counts, not evidence of predictive accuracy or profit.
 
 Root must expose the Literal setting in the API and activate only after independent review. This implementation does not write a production model, database, or setting.
+
+For the new policy only, historical_confidence_v3 input completeness cannot exceed the fraction of the two actual starters known from verified source evidence. One missing starter caps completeness at 0.5; two at 0. This preserves the existing confidence formula while preventing prior-filled numeric features from claiming fully observed inputs. Legacy sizing receipts retain their original calculation.
