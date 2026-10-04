@@ -344,6 +344,12 @@ def candidate(g,m,q,forecast,settings,market_anchor=None,calibration_summary=Non
     if support_policy != LEGACY_PROBABILITY_SUPPORT:
         result['probability_support_policy']=support_policy
 
+    from .composite_contracts import policy as composite_policy, POLICY as COMPOSITE_POLICY, receipt as composite_receipt
+    if base in ('winner_total','exact_total') and composite_policy(settings)==COMPOSITE_POLICY:
+        result['composite_contract_policy']=COMPOSITE_POLICY
+        result['composite_contract_evidence']=composite_receipt(g,m,forecast,settings)
+        result['warnings'].append('Joint/exact contract calibration is not independently validated; probability is derived from the existing paired score distribution.')
+
     if calibration_summary:
         result['calibration_uncertainty'] = calibration_summary
 

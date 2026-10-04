@@ -15,7 +15,7 @@ import re
 
 from .scope_markets import named_scopes
 
-VERSION = "observed-close-v7"
+VERSION = "observed-close-v8"
 CLOSE_WINDOW_SECONDS = 300
 STARTED_STATUSES = frozenset(("live", "inplay", "in_play", "in-progress", "finished", "ended"))
 
@@ -144,7 +144,7 @@ def _specifier_fields(value, scope, kind):
             raise ValueError("invalid_specifiers")
         fields[pair[0]] = pair[1]
     selectors = {"periodnr": "period_", "quarternr": "quarter_", "inningnr": "inning_"}
-    line_key = "hcp" if kind == "spreads" else "total" if kind in ("totals", "home_total", "away_total") else None
+    line_key = "hcp" if kind == "spreads" else "total" if kind in ("totals", "home_total", "away_total", "winner_total", "exact_total") else None
     if set(fields) - (set(selectors) | ({line_key} if line_key else set())):
         raise ValueError("unexpected_specifiers")
     for key, prefix in selectors.items():
@@ -204,8 +204,13 @@ def _quote(row, tip, kind, name, outcome_id):
     _, expected_name, scope, expected_kind = _contract(tip)
     if expected_kind != kind or expected_name != name:
         raise ValueError("side_or_line_mismatch")
+    if kind in ("winner_total","exact_total"):
+        from .composite_contracts import identity
+        composite=identity(tip["league"],kind,tip["home"],tip["away"],raw)
+        if composite["line"]!=tip["line"] or composite["outcomes"].get(tip["side"],{}).get("id")!=outcome_id:
+            raise ValueError("side_or_line_mismatch")
     specifier = _specifier_fields(row.get("specifiers"), scope, kind)
-    if kind in ("totals", "home_total", "away_total"):
+    if kind in ("totals", "home_total", "away_total", "winner_total", "exact_total"):
         if specifier != _number(tip["line"]):
             raise ValueError("line_mismatch")
     elif kind == "spreads":
@@ -239,6 +244,25 @@ def _contract(tip):
         if (tip['market'], tip['side']) != alias or tip['line'] is not None or tip.get('model_scope') != 'regulation':
             raise ValueError('scope_or_market_mismatch')
         return title, outcome, 'regulation', alias[0].split(':')[1]
+    from .composite_contracts import TITLES
+    kind=tip.get('market')
+    if (league,kind) in TITLES and title==TITLES[(league,kind)]:
+        if tip.get('model_scope')!='full_game':raise ValueError('scope_or_market_mismatch')
+        line=_number(tip['line'])
+        if line<0 or line%1 != (Decimal('.5') if kind=='winner_total' else 0):
+            raise ValueError('unsupported_split_line')
+        side=tip['side']
+        if kind=='winner_total':
+            parts=side.split('_')
+            if len(parts)!=2 or parts[0] not in ('home','away') or parts[1] not in ('over','under'):
+                raise ValueError('side_or_line_mismatch')
+            prefix=tip[parts[0]]+' & '+parts[1].title()
+        else:
+            if side not in ('over','under','exact'):raise ValueError('side_or_line_mismatch')
+            prefix=side.title()
+        match=re.fullmatch(re.escape(prefix)+r' (\d+(?:\.\d+)?)',outcome)
+        if not match or _number(match[1])!=line:raise ValueError('side_or_line_mismatch')
+        return title,outcome,'full_game',kind
     scopes = named_scopes(league, home, away)
     suffix = {"NBA": "Overtime", "WNBA": "Overtime", "NFL": "Overtime",
               "NHL": "Overtime and Penalties", "MLB": "Extra Innings",

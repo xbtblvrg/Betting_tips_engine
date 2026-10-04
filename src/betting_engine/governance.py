@@ -26,7 +26,7 @@ def evidence_digest(tip):
     if 'funding_basis' in tip:fields['funding_basis']=tip['funding_basis']
     if 'family_selection_policy' in tip:fields['family_selection_policy']=tip['family_selection_policy']
     if 'probability_support_policy' in tip:fields['probability_support_policy']=tip['probability_support_policy']
-    for key in ('outcome_sizing_policy','outcome_sizing_evidence'):
+    for key in ('outcome_sizing_policy','outcome_sizing_evidence','composite_contract_policy','composite_contract_evidence'):
         if key in tip:fields[key]=tip[key]
     return hashlib.sha256(json.dumps(fields,sort_keys=True,allow_nan=False).encode()).hexdigest()
 
@@ -54,6 +54,12 @@ def verify_publication(tip,now,active_settings=None):
         expected_limits = publication_limit_receipt(active_settings) if active_limits is not None else None
         if guard.get('publication_limits') != expected_limits:
             raise ValueError('Publication blocked: publication exposure limits changed after evidence review')
+    if tip.get('market') in ('winner_total','exact_total','exact_score'):
+        from .composite_contracts import policy as composite_policy, POLICY as COMPOSITE_POLICY
+        if (composite_policy(tip)!=COMPOSITE_POLICY or composite_policy(guard)!=COMPOSITE_POLICY
+                or (active_settings is not None and composite_policy(active_settings)!=COMPOSITE_POLICY)
+                or guard.get('composite_contract_evidence')!=tip.get('composite_contract_evidence')):
+            raise ValueError('Publication blocked: composite contract policy or evidence changed')
     support_policy=probability_support_policy(guard)
     if support_policy != probability_support_policy(tip):
         raise ValueError('Publication blocked: probability support policy receipt changed')
@@ -228,8 +234,18 @@ class EvidenceGuard:
         # their exact offered-line family validation and settlement evidence is
         # present.  Parsing and generic score arithmetic alone cannot fund an
         # unvalidated contract.
+        composite_evidence=None
         if base in ('winner_total', 'exact_total', 'exact_score'):
-            errors.append('composite_market_validation_not_established')
+            from .composite_contracts import receipt as composite_receipt, POLICY as COMPOSITE_POLICY
+            try:
+                composite_evidence=composite_receipt(game,market,forecast,settings)
+                source_odds=composite_evidence['contract']['outcomes'][market.side]['odds']
+                if not math.isclose(source_odds,1/quote.effective_cost,rel_tol=1e-12,abs_tol=1e-12):
+                    raise ValueError('Composite source quote mismatch')
+                if tip.get('composite_contract_policy')!=COMPOSITE_POLICY or tip.get('composite_contract_evidence')!=composite_evidence:
+                    raise ValueError('Composite receipt mismatch')
+            except (ValueError,KeyError,TypeError,AttributeError,ArithmeticError):
+                errors.append('composite_market_validation_not_established')
         # Payoff-equivalent handicap aliases cannot bypass a Winner failure.
         quality=self.model_quality(model_report,allocation_family(tip) if scope=='full_game' else market.kind)
         readiness['model_quality']=quality
@@ -319,6 +335,9 @@ class EvidenceGuard:
                   'model':{'version':forecast.model_version,'code_sha256':model_report.get('code_sha256'),'training_data_fingerprint':model_report.get('training_data_fingerprint')},
                   'market':{'id':market.id,'url':market.url,'fetched_at':quote.fetched_at},
                   'claim':'Inputs and calculations checked; profitability is not established by this guard.'}
+        if composite_evidence is not None:
+            evidence['composite_contract_policy']=COMPOSITE_POLICY
+            evidence['composite_contract_evidence']=composite_evidence
         evidence.update(review_type='deterministic_evidence_and_calculation_checks',llm_approval=False,minimum_roi=settings['minimum_roi'])
         if support_policy and (support_policy != LEGACY_PROBABILITY_SUPPORT or 'probability_support_policy' in tip):
             evidence['probability_support_policy']=support_policy

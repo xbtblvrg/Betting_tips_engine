@@ -556,6 +556,13 @@ class StakeSportsbook:
                         elif base == 'spreads': selection = f'{game.home if side == "home" else game.away} {actual_line:+g}'
                         elif base in ('totals','home_total','away_total'): selection = f'{"Over" if side == "over" else "Under"} {actual_line:g}'
                         else:selection=outcome_name
+                        composite_raw = {}
+                        from .composite_contracts import TITLES, identity as composite_identity
+                        if (league,kind) in TITLES and name==TITLES[(league,kind)]:
+                            try:composite_identity(league,kind,game.home,game.away,market)
+                            except (ValueError,TypeError,KeyError):continue
+                            from copy import deepcopy
+                            composite_raw={'composite_raw_contract':deepcopy(market)}
                         result.append(Market(
                             id=f'stake:{fixture.get("id", fixture_slug)}:{market.get("id", name)}:{outcome.get("id", outcome_name)}',
                             game_id=game.id, league=league, kind=kind, side=side, line=actual_line,
@@ -563,7 +570,7 @@ class StakeSportsbook:
                             token=str(outcome.get('id', outcome_name)), condition_id=str(market.get('id', name)),
                             description=name, fee_rate=0., fee_exponent=1., minimum_notional=0.,
                             market_start=game.start, fetched_at=fetched_at,
-                            metadata={'provider': 'stake-sports-data', 'fixture_slug': fixture_slug,
+                            metadata={**composite_raw,'provider': 'stake-sports-data', 'fixture_slug': fixture_slug,
                                       'league_path':league_path,
                                       'stake_market_name': name, 'stake_outcome_name': outcome_name,
                                       'stake_market_groups':groups_by_market.get(_stake_contract_key(market),[]),

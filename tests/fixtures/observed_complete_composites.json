@@ -1,0 +1,140 @@
+{
+  "scope": "Unmodified market and fixture objects extracted from archived complete Stake endpoint responses; source hashes identify whole responses.",
+  "rows": [
+    {
+      "league": "WNBA",
+      "fixture": {
+        "blacklisted": false,
+        "cashoutEnabled": true,
+        "enabled": true,
+        "endTime": 0,
+        "extId": "sr:match:75182780",
+        "feedEndTime": null,
+        "feedStartTime": null,
+        "id": "d1baab97-b2af-4c14-939b-172e869714cf",
+        "inPlayEnabled": true,
+        "name": "Atlanta Dream - New York Liberty",
+        "preMatchEnabled": true,
+        "provider": "betradar",
+        "slug": "46953525-atlanta-dream-new-york-liberty",
+        "stakeFixtureId": "3a5dfbfa-da35-41e4-b08f-0017db4077e9",
+        "startTime": 1791136800000,
+        "status": "active",
+        "tournamentId": "1256f3f9-6927-438f-8f73-863b80e27af4",
+        "type": "match",
+        "updatedAt": 1791049370099
+      },
+      "raw_contract": {
+        "id": "a6512491-9f5e-4c17-893f-214f282c8fe2",
+        "status": "active",
+        "specifiers": "total=173.5",
+        "extendedSpecifiers": "",
+        "updatedAt": 1791097795542,
+        "name": "Winner & Total (Incl. Overtime)",
+        "outcomes": [
+          {
+            "odds": 3,
+            "active": true,
+            "voidFactor": 0,
+            "id": "e37fa42d-b138-4348-8fda-8eb80d6b8f60",
+            "name": "Atlanta Dream & Over 173.5"
+          },
+          {
+            "odds": 4.5,
+            "active": true,
+            "voidFactor": 0,
+            "id": "5a1062d5-fd24-48e4-b3d8-5f053818429a",
+            "name": "New York Liberty & Over 173.5"
+          },
+          {
+            "odds": 3,
+            "active": true,
+            "voidFactor": 0,
+            "id": "fb34f79b-9665-48eb-9834-7aed5d33adae",
+            "name": "Atlanta Dream & Under 173.5"
+          },
+          {
+            "odds": 4.4,
+            "active": true,
+            "voidFactor": 0,
+            "id": "e4ba8ad7-0268-467b-81f5-f3c001391f77",
+            "name": "New York Liberty & Under 173.5"
+          }
+        ]
+      },
+      "source": {
+        "url": "https://odds-data.stake.com/fixtures/46953525-atlanta-dream-new-york-liberty",
+        "fetched_at": "2026-10-04T07:30:16.247784+00:00",
+        "sha256": "58a66bf9c422fc45573ca8569424c4ec9c73388dc5780ecb38cc979881f54552",
+        "blob": "58a66bf9c422fc45573ca8569424c4ec9c73388dc5780ecb38cc979881f54552.data",
+        "archive": "stake_api_archive/58a66bf9c422fc45573ca8569424c4ec9c73388dc5780ecb38cc979881f54552.json.gz",
+        "bytes": 74179,
+        "http_status": 200
+      }
+    },
+    {
+      "league": "MLB",
+      "fixture": {
+        "blacklisted": false,
+        "cashoutEnabled": true,
+        "enabled": true,
+        "endTime": 0,
+        "extId": "sr:match:75065654",
+        "feedEndTime": null,
+        "feedStartTime": null,
+        "id": "b7dce31a-6f9b-4c37-a51d-d834f3c3131e",
+        "inPlayEnabled": true,
+        "name": "Milwaukee Brewers - San Diego Padres",
+        "preMatchEnabled": true,
+        "provider": "betradar",
+        "slug": "46944475-milwaukee-brewers-nl-4-5",
+        "stakeFixtureId": "21fb3af2-b377-4686-a82d-cb2d9f3942d6",
+        "startTime": 1791144000000,
+        "status": "active",
+        "tournamentId": "fa6faae6-14fd-4ae2-9dae-a91fec1f3dd8",
+        "type": "match",
+        "updatedAt": 1791086992965
+      },
+      "raw_contract": {
+        "id": "6066da6b-59b6-4886-8298-7bfe388b299d",
+        "status": "active",
+        "specifiers": "total=7",
+        "extendedSpecifiers": "",
+        "updatedAt": 1791098853150,
+        "name": "Total (Over-Exact-Under) (Incl. Extra Innings)",
+        "outcomes": [
+          {
+            "odds": 2.01,
+            "active": true,
+            "voidFactor": 0,
+            "id": "888c76b9-49ed-40c5-96fe-985948ae1a2f",
+            "name": "Under 7"
+          },
+          {
+            "odds": 6.6,
+            "active": true,
+            "voidFactor": 0,
+            "id": "d4d4e862-b172-401b-8bb7-815fe7682522",
+            "name": "Exact 7"
+          },
+          {
+            "odds": 2,
+            "active": true,
+            "voidFactor": 0,
+            "id": "830fc8fb-0565-4542-bbbc-8a83a19a9e50",
+            "name": "Over 7"
+          }
+        ]
+      },
+      "source": {
+        "url": "https://odds-data.stake.com/fixtures/46944475-milwaukee-brewers-nl-4-5",
+        "fetched_at": "2026-10-04T07:30:16.255865+00:00",
+        "sha256": "5f22888b7f5feaea3a5d7a1c01131e5af31bfcd72212dd2e2808fb93d2dba21f",
+        "blob": "5f22888b7f5feaea3a5d7a1c01131e5af31bfcd72212dd2e2808fb93d2dba21f.data",
+        "archive": "stake_api_archive/5f22888b7f5feaea3a5d7a1c01131e5af31bfcd72212dd2e2808fb93d2dba21f.json.gz",
+        "bytes": 28632,
+        "http_status": 200
+      }
+    }
+  ]
+}
