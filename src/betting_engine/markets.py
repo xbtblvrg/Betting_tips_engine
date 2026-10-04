@@ -450,8 +450,20 @@ class StakeSportsbook:
                         # the actual signed value for that specific selection.
                         line = None
                     outcomes = market.get('outcomes') or []
+                    # Observed WNBA Winner & Total includes overtime and has
+                    # two winners crossed with Over/Under. Regulation 1x2
+                    # remains a distinct six-outcome contract. This recognition
+                    # does not waive composite-family validation in the guard.
+                    binary_winner_total = (league == 'WNBA' and scope == 'full_game'
+                        and name == 'Winner & Total (Incl. Overtime)')
+                    if binary_winner_total:
+                        from .period_contracts import scoped_total_line
+                        try:
+                            line = scoped_total_line(market.get('specifiers'), scope)
+                        except ValueError:
+                            continue
                     expected_count = (3 if base in ('three_way','double_chance','exact_total') else
-                                      6 if base == 'winner_total' else None)
+                                      (4 if binary_winner_total else 6) if base == 'winner_total' else None)
                     if ((expected_count is not None and len(outcomes) != expected_count) or
                             (base == 'exact_score' and len(outcomes) < 2) or
                             any(not isinstance(o.get('odds'), (int, float)) or not math.isfinite(o['odds']) or float(o['odds']) <= 1 for o in outcomes)):
@@ -476,7 +488,14 @@ class StakeSportsbook:
                             continue
                     elif base in ('winner_total','exact_total','exact_score'):
                         parsed_sides=[_stake_joint_side(base,str(o.get('name') or ''),game) for o in outcomes]
-                        expected = {'over','under','exact'} if base=='exact_total' else None
+                        expected = ({'over','under','exact'} if base=='exact_total' else
+                            {winner+'_'+total for winner in (('home','away') if binary_winner_total else ('home','away','draw'))
+                             for total in ('over','under')} if base=='winner_total' else None)
+                        if binary_winner_total and (line is None or not math.isfinite(line)
+                                or line < 0 or line % 1 != .5):
+                            # Integer/quarter composite totals need an explicit
+                            # push/split payout rule before this path can price them.
+                            continue
                         if (any(s is None for s in parsed_sides)
                                 or (expected is not None and set(parsed_sides)!=expected)
                                 or len(set(parsed_sides)) != len(parsed_sides)):
