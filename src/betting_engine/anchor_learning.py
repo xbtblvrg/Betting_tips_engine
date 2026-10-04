@@ -164,7 +164,7 @@ def _archive(folder,value):
     return sha
 
 
-def update_weights(data_dir,decisions,as_of,*,minimum_games=MIN_GAMES,fallback_weight=.15,committed_at=None):
+def update_weights(data_dir,decisions,as_of,*,minimum_games=MIN_GAMES,fallback_weight=.15,committed_at=None,fallback_reader=None):
     """Called by one existing durable learning worker under its process lock."""
     if not 0<=fallback_weight<=1:raise ValueError('invalid_fallback_weight')
     folder=Path(data_dir)/'anchor_learning';folder.mkdir(parents=True,exist_ok=True)
@@ -216,6 +216,8 @@ def update_weights(data_dir,decisions,as_of,*,minimum_games=MIN_GAMES,fallback_w
     state['last_result']=result
     from .domain import utcnow
     with weight_epoch(folder.parent,exclusive=True):
+        if fallback_reader is not None and fallback_reader()!=fallback_weight:
+            raise ValueError('anchor_baseline_changed_during_fit')
         actual_commit=committed_at or utcnow()
         if actual_commit<as_of:raise ValueError('fit_commit_precedes_training_cutoff')
         for identity in new_candidates:state['candidates'][identity]['created_at']=actual_commit.isoformat()

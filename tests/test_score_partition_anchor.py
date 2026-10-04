@@ -85,3 +85,12 @@ def test_consistently_forged_partition_rejected_against_archived_payload(tmp_pat
     forged.update(exclusive_probabilities=fair,market_probabilities=probs,market_probability=probs[selected.side])
     with pytest.raises(ValueError,match='archived source'):
         verify_score_anchor_source(game,selected,forged,tmp_path)
+    # Replacing an archive with equal size and restored mtime must not reuse
+    # the previously verified cached partition.
+    import os
+    path=folder/(sha+'.json.gz');before=path.stat();bad=bytearray(path.read_bytes());bad[-1]^=1
+    replacement=folder/'replacement.gz';replacement.write_bytes(bad);os.replace(replacement,path)
+    os.utime(path,ns=(before.st_atime_ns,before.st_mtime_ns))
+    with pytest.raises((OSError,ValueError)):
+        verify_score_anchor_source(game,selected,anchor,tmp_path)
+

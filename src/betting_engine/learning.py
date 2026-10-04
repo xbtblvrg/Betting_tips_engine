@@ -428,7 +428,7 @@ class LearningWorker:
         if job['kind']=='anchor_weight_learning':
             from .anchor_learning import update_weights,iter_decisions
             payload=json.loads(job['payload']) if isinstance(job['payload'],str) else job['payload']
-            return update_weights(self.data,iter_decisions(self.store),parse_time(payload['as_of']),fallback_weight=self.store.settings().get('market_model_weight',.15))
+            return update_weights(self.data,iter_decisions(self.store),parse_time(payload['as_of']),fallback_weight=self.store.settings().get('market_model_weight',.15),fallback_reader=lambda:self.store.settings().get('market_model_weight',.15))
         if job['kind'] in ('player_history_refresh','player_prop_audit'):
             payload=json.loads(job['payload']) if isinstance(job['payload'],str) else job['payload']
             source='players/sources.json' if job['kind']=='player_history_refresh' else 'market_catalog/latest.json'

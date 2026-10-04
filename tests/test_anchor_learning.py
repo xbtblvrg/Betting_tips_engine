@@ -252,3 +252,12 @@ def test_composite_learned_proof_cannot_be_carried_through_unchecked():
     _,g,ms,qs,f,s=case();m=ms[0];anchor=contract_anchors(ms,qs)[m.id]
     anchor['learned_weight']={'proof_sha256':'forged'}
     with pytest.raises(ValueError,match='provenance'):anchored_partition(receipt(g,m,f,s),m,s,anchor,qs[m.id].fetched_at)
+
+def test_settings_change_during_fit_cannot_activate_a_stale_baseline(tmp_path):
+    ds=[decision(i) for i in range(5)]
+    update_weights(tmp_path,ds,NOW,minimum_games=5,committed_at=NOW)
+    before=(tmp_path/'anchor_learning/active.json').read_bytes()
+    ds.extend(decision(10+i,NOW+timedelta(hours=i+1)) for i in range(5))
+    with pytest.raises(ValueError,match='baseline_changed_during_fit'):
+        update_weights(tmp_path,ds,NOW+timedelta(days=2),minimum_games=5,committed_at=NOW+timedelta(days=2),fallback_reader=lambda:.7)
+    assert (tmp_path/'anchor_learning/active.json').read_bytes()==before

@@ -51,9 +51,10 @@ class Store:
         from .anchor_learning import runtime_settings
         return runtime_settings({**DEFAULT_SETTINGS,**(json.loads(r['value']) if r else {})},self.path.parent)
     def save_settings(self,value):
-        from .anchor_learning import RUNTIME_KEY
-        result={k:v for k,v in {**self.settings(),**value}.items() if k!=RUNTIME_KEY}
-        with self.db() as c:c.execute('INSERT OR REPLACE INTO kv VALUES (?,?)',('settings',json.dumps(result)))
+        from .anchor_learning import RUNTIME_KEY,weight_epoch
+        with weight_epoch(self.path.parent,exclusive=True):
+            result={k:v for k,v in {**self.settings(),**value}.items() if k!=RUNTIME_KEY}
+            with self.db() as c:c.execute('INSERT OR REPLACE INTO kv VALUES (?,?)',('settings',json.dumps(result)))
         return result
     def request_source_refresh(self,reason):
         with self.db() as c:

@@ -372,7 +372,7 @@ def verify_score_anchor_source(game, market, anchor, data_dir):
     target = Path(data_dir) / archive
     stat = target.stat()
     source = _score_source_anchors(str(Path(data_dir).resolve()), meta.get('sha256'), archive,
-        meta.get('bytes'), meta.get('fetched_at'), stat.st_mtime_ns, stat.st_size,
+        meta.get('bytes'), meta.get('fetched_at'), stat.st_mtime_ns, stat.st_size, stat.st_ino, stat.st_ctime_ns,
         game.id, game.league, game.home, game.away, game.start,
         getattr(game,'home_abbr',''),getattr(game,'away_abbr',''),
         market.metadata.get('model_scope'), market.metadata.get('fixture_slug'),
@@ -393,7 +393,7 @@ def verify_score_anchor_source(game, market, anchor, data_dir):
 from functools import lru_cache
 
 @lru_cache(maxsize=64)
-def _score_source_anchors(data_dir, sha, archive, size, fetched_at, mtime_ns, compressed_size,
+def _score_source_anchors(data_dir, sha, archive, size, fetched_at, mtime_ns, compressed_size, inode, ctime_ns,
                           game_id, league, home, away, start, home_abbr, away_abbr, scope, slug, league_path):
     # Stat generation participates in the key; archive hash is checked on every
     # new body generation. Cache contains only parsed anchors, not raw bodies.
