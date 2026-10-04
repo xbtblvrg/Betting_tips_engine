@@ -155,5 +155,20 @@ def refresh_catalog(data_dir=DATA,fetcher=None,horizon_days=None):
         discovered_fixtures=len(fixtures),fixtures_fetched=len(endpoint_audits),
         complete_endpoint_responses=sum(len(a['responses']) for a in endpoint_audits),
         cadence_minutes=15,tournaments={l:[t['slug'] for t in ts] for l,ts in registry.items()})
+    # Reuse this catalogue refresh for the requested read-only evidence export.
+    # Dashboard reads never write docs or the immutable ledger.
+    if (Path(data_dir)/'engine.sqlite3').exists():
+        import sqlite3
+        from .live_market_coverage import build_live_coverage,read_decisions,feedback_ids,export_markdown
+        from .snapshots import decode_publication
+        with sqlite3.connect('file:'+str((Path(data_dir)/'engine.sqlite3').resolve())+'?mode=ro',uri=True) as connection:
+            connection.row_factory=sqlite3.Row
+            latest=connection.execute('SELECT id,payload FROM publications ORDER BY id DESC LIMIT 1').fetchone()
+            decisions=read_decisions(connection)
+        publication={**decode_publication(latest['payload']),'version':latest['id']} if latest else {}
+        ids,evidence=feedback_ids(data_dir)
+        summary['live_coverage']=build_live_coverage(publication,summary,decisions,ids)
+        summary['live_coverage']['feedback_evidence']=evidence
+        export_markdown(summary['live_coverage'],Path(data_dir).parent/'docs/LIVE_MARKET_COVERAGE.md')
     atomic_json(folder/'latest.json',summary)
     return summary
