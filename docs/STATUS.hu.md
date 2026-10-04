@@ -609,3 +609,4 @@ A heti tanult súlyozás tartós jobként bekötve; aktuális jóváhagyott súl
 - UI-only:Ready/Changed közös pickCard, azonos probability/odds/stake sorrend és stakeBetButton; Changed eredeti odds/tét, oklabel, View on Stake. Metaadat nélküli történeti kártyán a megőrzött https://stake.com/sports/ meccslink használható; explicit null és aktuális útvonal továbbra is elsőbbséget élvez.
 - Független Codex-review elfogadva;7 célzott navigációs teszt és294 teljes DOM-teszt sikeres. Modell, validáció, kiadás és ledger nem változott.
 - Teljes release-ellenőrzés:7023 Python-teszt sikeres,1skipped,25warning,5subtests;294 DOM-teszt sikeres.
+- Éles eef7e4d,8324 publikáció:129 kártya,0 hiányzó meccsgomb; mindkét érintett kártya pontos eredeti Stake URL-lel és View on Stake felirattal. Helyi/Tailscale appbytes azonos; bizonyíték:data/releases/root-flow-audit-20261004/card-buttons-after.json.
