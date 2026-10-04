@@ -41,6 +41,9 @@ def verify_publication(tip,now,active_settings=None):
     readiness=tip.get('input_readiness',{})
     if readiness.get('version')!=READINESS_VERSION or readiness.get('passed') is not True or readiness.get('state')!='ready' or guard.get('input_readiness')!=readiness:
         raise ValueError('Publication blocked: current input readiness evidence is missing or failed')
+    from .decision_readiness import missing_starter_policy
+    if active_settings is not None and missing_starter_policy(readiness)!=missing_starter_policy(active_settings):
+        raise ValueError('Publication blocked: missing starter policy changed during review')
     from .professional_quality import verify_quality_receipt
     quality=verify_quality_receipt(readiness.get('model_quality'),league=tip.get('league'),
         model_version=tip.get('model_version'),scope=tip.get('model_scope','full_game'),
@@ -216,7 +219,7 @@ class EvidenceGuard:
         from .winner_reference import verify_selected_forecast
         try:verify_selected_forecast(forecast,model_report)
         except (ValueError,KeyError,TypeError,AttributeError):errors.append('winner_reference_probability_or_provenance_invalid')
-        readiness=self.readiness.check(game,forecast,model_report,now)
+        readiness=self.readiness.check(game,forecast,model_report,now,settings=settings)
         tip['input_readiness']=readiness
         errors.extend('input_readiness:'+error for error in readiness['errors'])
         scope,base=split_market(market.kind)

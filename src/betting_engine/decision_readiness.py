@@ -30,6 +30,18 @@ def _id(value):
     return str(value)
 
 
+MISSING_STARTER_LEGACY = 'required_v1'
+MISSING_STARTER_PRIOR = 'verified_model_prior_v1'
+STARTER_PRIOR_VALUES = (4.5, 1.35, 20/90, 7.2/90, 2.7/90, 0., 0.)
+
+
+def missing_starter_policy(settings):
+    policy = (settings or {}).get('missing_starter_policy', MISSING_STARTER_LEGACY)
+    if policy not in (MISSING_STARTER_LEGACY, MISSING_STARTER_PRIOR):
+        raise ValueError('unknown_missing_starter_policy')
+    return policy
+
+
 class DecisionReadiness:
     def __init__(self,data_dir):
         self.data_dir=Path(data_dir)
@@ -37,6 +49,7 @@ class DecisionReadiness:
         self._history_cache={}
         self._games=None
         self._sources=None
+        self._prior_support_cache={}
 
     def _raw(self,url,now,expected=None):
         parsed=urlsplit(url)
@@ -127,13 +140,54 @@ class DecisionReadiness:
         self._history_cache[pid]=result
         return result
 
-    def check(self,game,forecast,model_report,now=None):
+    def _prior_support(self,forecast,side):
+        """Verify missing-flag exposure from the exact deployed fitted artifact.
+
+        Scaler moments retain the binary missing-flag training frequency. This
+        establishes model input support, not missing-starter calibration quality.
+        """
+        import io
+        import joblib
+        from .models import feature_names
+        scope=getattr(forecast,'scope','full_game')
+        if scope not in ('full_game','inning_1','innings_1_5'):
+            raise ValueError('unsupported_starter_prior_scope')
+        key=(scope,forecast.model_version)
+        if key not in self._prior_support_cache:
+            path=(self.data_dir/'models/MLB.joblib' if scope=='full_game' else
+                  self.data_dir/'segment_models'/f'MLB-{scope}.joblib')
+            if path.is_symlink():raise ValueError('unsafe_model_prior_artifact')
+            raw=path.read_bytes();model=joblib.load(io.BytesIO(raw))
+            if model.report.get('version')!=forecast.model_version or model.report.get('features')!=list(feature_names('MLB')):
+                raise ValueError('starter_prior_model_identity_mismatch')
+            regressors=[model.score_model] if scope=='full_game' else model.regressors
+            evidence={}
+            for role in ('home','away'):
+                idx=feature_names('MLB').index(role+'_starter_known');counts=[]
+                for regressor in regressors:
+                    scaler=regressor.named_steps['standardscaler']
+                    n=float(scaler.n_samples_seen_);mean=float(scaler.mean_[idx]);var=float(scaler.var_[idx])
+                    missing=n*(1-mean)
+                    if not all(math.isfinite(v) for v in (n,mean,var,missing)) or n<1 or not 0<=mean<=1 or not math.isclose(var,mean*(1-mean),abs_tol=1e-9) or not math.isclose(missing,round(missing),abs_tol=1e-6):
+                        raise ValueError('starter_prior_training_moments_invalid')
+                    counts.append({'training_rows':int(n),'missing_rows':round(missing)})
+                evidence[role]={'model_version':forecast.model_version,'artifact_sha256':hashlib.sha256(raw).hexdigest(),
+                    'scope':scope,'fitted_score_models':counts,'basis':'frozen scaler binary starter_known training moments'}
+            self._prior_support_cache[key]=evidence
+        result=self._prior_support_cache[key][side]
+        if not result['fitted_score_models'] or any(row['missing_rows']<1 for row in result['fitted_score_models']):
+            raise ValueError(side+'_starter_prior_not_seen_in_training')
+        return result
+
+    def check(self,game,forecast,model_report,now=None,settings=None):
         now=now or utcnow();errors=[];checks={};features=getattr(forecast,'features',{})
         scope=getattr(forecast,'scope','full_game')
         base={'version':READINESS_VERSION,'checked_at':now.isoformat(),'league':game.league,'game_id':game.id,
               'model_version':forecast.model_version,'scope':scope,'checks':checks,
               'claim':'Required-input verification, not a profitability or full model-quality approval.'}
         try:
+            policy=missing_starter_policy(settings)
+            if policy!=MISSING_STARTER_LEGACY:base['missing_starter_policy']=policy
             required=model_report.get('features')
             if not isinstance(required,list) or not required or any(not isinstance(k,str) for k in required) or len(required)!=len(set(required)) or not isinstance(features,dict):
                 raise ValueError('model_features_missing')
@@ -162,13 +216,23 @@ class DecisionReadiness:
                 checks['schedule_source']=ev
                 for side in ('home','away'):
                     value=(game.context.get(side+'_pitcher') or {}).get('id')
-                    if value is None:raise ValueError(side+'_probable_pitcher_missing')
-                    pid=_id(value)
                     team=event['teams'][side]
-                    if _id(team['team']['id'])!=str(getattr(game,side+'_id')) or _id((team.get('probablePitcher') or {}).get('id'))!=pid:
-                        raise ValueError(side+'_probable_pitcher_identity_mismatch')
                     vals=[features[f'{side}_starter_{k}'] for k in STARTER_FIELDS]
                     if any(isinstance(v,bool) or not isinstance(v,(int,float)) or not math.isfinite(v) for v in vals):raise ValueError(side+'_pitcher_features_invalid')
+                    if value is None:
+                        if policy!=MISSING_STARTER_PRIOR:raise ValueError(side+'_probable_pitcher_missing')
+                        if _id(team['team']['id'])!=str(getattr(game,side+'_id')) or (team.get('probablePitcher') or {}).get('id') is not None:
+                            raise ValueError(side+'_probable_pitcher_identity_mismatch')
+                        if any(not math.isclose(v,w,rel_tol=1e-9,abs_tol=1e-9) for v,w in zip(vals,STARTER_PRIOR_VALUES)):
+                            raise ValueError(side+'_missing_starter_prior_does_not_reproduce')
+                        support=self._prior_support(forecast,side)
+                        checks[side]={'pitcher_id':None,'known':False,'observations':0,'input_state':'official_source_missing',
+                            'prior_features':dict(zip(STARTER_FIELDS,STARTER_PRIOR_VALUES)),'training_support':support,
+                            'warning':'Probable starter unavailable. Existing model league prior used; missing-starter calibration and actual pitcher strength remain unverified.'}
+                        continue
+                    pid=_id(value)
+                    if _id(team['team']['id'])!=str(getattr(game,side+'_id')) or _id((team.get('probablePitcher') or {}).get('id'))!=pid:
+                        raise ValueError(side+'_probable_pitcher_identity_mismatch')
                     if vals[-1]!=1:raise ValueError(side+'_pitcher_not_known')
                     if vals[-2]<=0:raise ValueError(side+'_pitcher_history_unknown')
                     h=self._pitcher_history(pid,now)
@@ -181,7 +245,7 @@ class DecisionReadiness:
                     if any(not math.isclose(v,w,rel_tol=1e-9,abs_tol=1e-9) for v,w in zip(vals,expected)):raise ValueError(side+'_pitcher_features_do_not_reproduce')
                     checks[side]={'pitcher_id':pid,'known':True,'observations':h['observations'],'last_game_start':h['last'].isoformat(),
                                   'last_result_available_at':h['last_available'].isoformat(),'observation_sha256':h['observation_sha256'],'sources':h['sources']}
-                checks['required_pitcher_inputs']='verified'
+                checks['required_pitcher_inputs']=('verified_with_source_missing_prior' if any(checks[side].get('known') is False for side in ('home','away')) else 'verified')
             else:
                 checks['required_pitcher_inputs']='not_applicable'
             base['input_sha256']=_digest({k:base[k] for k in ('game_id','model_version','scope','features_sha256','context_sha256','checks')})
