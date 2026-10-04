@@ -66,7 +66,7 @@ def test_consistently_forged_partition_rejected_against_archived_payload(tmp_pat
     from betting_engine.market_anchor import verify_score_anchor_source,devig_probabilities
     from betting_engine.domain import parse_time
     game=N(id='NHL:g',league='NHL',home='Detroit Red Wings',away='Winnipeg Jets',home_abbr='DET',away_abbr='WPG',start='2026-10-04T12:00:00Z')
-    fixture={'id':'fixture-id','slug':'detroit-winnipeg','status':'active','startTime':parse_time(game.start).timestamp()*1000}
+    fixture={'id':'fixture-id','slug':'detroit-winnipeg','status':'active','enabled':True,'preMatchEnabled':True,'blacklisted':False,'startTime':parse_time(game.start).timestamp()*1000}
     outcomes=[{'id':str(i),'name':name,'active':True,'odds':odds} for i,(name,odds) in enumerate([(game.home,2.9),('Draw',2.65),(game.away,2.85)])]
     raw={'fixture':fixture,'groups':[{'name':'Periods','markets':[[{'id':'condition','name':'1st Period - 1x2','specifiers':'periodnr=1','status':'active','outcomes':outcomes}]]}]}
     if double:

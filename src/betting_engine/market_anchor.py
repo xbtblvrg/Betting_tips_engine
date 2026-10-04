@@ -405,7 +405,9 @@ def _score_source_anchors(data_dir, sha, archive, size, fetched_at, mtime_ns, co
     from .domain import parse_time
     raw = json.loads(_body(Path(data_dir), {'archive':archive, 'sha256':sha, 'bytes':size}))
     fixture = raw.get('fixture') or {}
-    if (not fixture.get('id') or fixture.get('status') != 'active' or
+    if (not fixture.get('id') or fixture.get('status') != 'active'
+            or fixture.get('enabled') is not True or fixture.get('preMatchEnabled') is not True
+            or fixture.get('blacklisted') is True or
             abs(float(fixture['startTime']) / 1000 - parse_time(start).timestamp()) > 1):
         raise ValueError('Score source fixture lifecycle/start mismatch')
     game = SimpleNamespace(id=game_id, league=league, home=home, away=away, start=start,home_abbr=home_abbr,away_abbr=away_abbr)
