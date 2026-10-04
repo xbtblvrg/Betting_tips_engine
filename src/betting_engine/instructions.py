@@ -7,7 +7,7 @@ from .decisions import minimum_odds, sportsbook_ev, stake_assessment
 from .decision_readiness import READINESS_VERSION
 from .domain import parse_time
 from .freshness import fresh_quote
-from .governance import evidence_digest, verify_publication
+from .governance import evidence_digest, verify_publication, SEALED_FIELDS
 
 # Exact pre-readiness receipt format, retained only for original issued records.
 LEGACY_SEALED_FIELDS = ('id','game_id','league','home','away','start','market','side','line','selection',
@@ -135,10 +135,37 @@ def _original_budget(original, issued_at):
                                       sort_keys=True, allow_nan=False).encode()).hexdigest()
     format_name = 'current_seal'
     if guard.get('candidate_sha256') != expected:
-        if ('input_readiness' in original or 'input_readiness' in guard
-                or guard.get('candidate_sha256') != legacy):
+        # Historical schemas are exact code versions, not a relaxed current seal.
+        # 6f18869 added anchor keys and 8a8fcac added calibration keys
+        # unconditionally; their null fields changed earlier immutable hashes.
+        formats = (
+            ('pre_anchor_seal', '2026-10-02T17:39:48+00:00',
+             ('market_anchor','probability_basis','calibration_uncertainty','model_trained_at')),
+            ('pre_calibration_seal', '2026-10-02T18:06:19+00:00',
+             ('calibration_uncertainty','model_trained_at')),
+        )
+        historical_format = None
+        new_policies = ('family_selection_policy','probability_support_policy',
+                        'outcome_sizing_policy','outcome_sizing_evidence',
+                        'composite_contract_policy','composite_contract_evidence')
+        for name, cutoff, omitted in formats:
+            if (issued_at > parse_time(cutoff)
+                    or any(k in original or k in guard for k in omitted + new_policies)):
+                continue
+            fields = {k: original.get(k) for k in SEALED_FIELDS if k not in omitted}
+            if 'funding_basis' in original:
+                fields['funding_basis'] = original['funding_basis']
+            digest = hashlib.sha256(json.dumps(fields,sort_keys=True,allow_nan=False).encode()).hexdigest()
+            if guard.get('candidate_sha256') == digest:
+                historical_format = name
+                break
+        if historical_format:
+            format_name = historical_format
+        elif ('input_readiness' not in original and 'input_readiness' not in guard
+              and guard.get('candidate_sha256') == legacy):
+            format_name = 'legacy_pre_readiness_seal'
+        else:
             raise ValueError('Original evidence seal does not validate')
-        format_name = 'legacy_pre_readiness_seal'
     if guard.get('passed') is not True or not fresh_quote(original, issued_at):
         raise ValueError('Original issuance was not reviewed while fresh')
     sizing = original['stake_sizing']
