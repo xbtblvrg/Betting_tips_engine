@@ -114,3 +114,11 @@ def test_ticket_reconciliation_null_ticket_cannot_hide_missing_decision(tmp_path
     db.commit();db.close()
     result=read_lifecycle(tmp_path,NOW)
     assert result['verified'] and result['missing_tickets']==1
+
+
+def test_flow_findings_use_existing_functional_repair_buckets():
+    r=rows(assess_flow({}, {}, {}, NOW))
+    assert r['1.4']['repair_bucket']=='allocation'
+    assert r['1.9']['repair_bucket']=='learning_flow'
+    assert r['1.2']['repair_bucket']=='special'
+    assert r['1.8']['repair_bucket']=='economics'

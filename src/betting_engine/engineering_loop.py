@@ -345,7 +345,8 @@ def _collect(root, payload, operations, components, plan, state, now, release_re
                 continue
             if check.get('state') in ('degraded', 'stale', 'missing', 'failed'):
                 add(_observation(identity, 'component_failure', 'SYSTEM', str(check.get('detail', name)),
-                    stamp, check, bucket={'D36':'learning_flow','D14':'development_efficiency'}.get(check.get('repair_task'),'component'), priority=0))
+                    stamp, check, bucket=(check.get('repair_bucket') if name.startswith('Flow ') and check.get('repair_bucket') in ROUTES
+                            else {'D36':'learning_flow','D14':'development_efficiency'}.get(check.get('repair_task'),'component')), priority=0))
             elif check.get('state') == 'healthy':
                 positives[identity] = {'observed_at': stamp, 'kind': 'healthy_component', 'evidence': check}
     else:

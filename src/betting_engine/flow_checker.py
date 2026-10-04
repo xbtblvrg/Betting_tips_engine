@@ -33,7 +33,9 @@ def assess_flow(dashboard, supervisor, previous, now, lifecycle=None):
             'state':'healthy' if ok else 'degraded','status':'fulfilled' if ok else 'under_repair' if task in active else 'not_fulfilled',
             'passed':ok,'consecutive_publications':count,'observed_at':now.isoformat(),
             'publication_at':publication,'detail':action if not ok else 'Fresh measured assertions passed.',
-            'evidence':evidence,'next_action':action,'repair_task':task,'restart_eligible':False})
+            'evidence':evidence,'next_action':action,'repair_task':task,
+            'repair_bucket':{'1.1':'source','1.2':'special','1.3':'inputs','1.4':'allocation','1.5':'delivery','1.6':'component','1.7':'source','1.8':'economics','1.9':'learning_flow','2':'special'}[identity],
+            'restart_eligible':False})
     leagues={r.get('league'):r for r in dashboard.get('opportunities',{}).get('windows',{}).get('48',{}).get('leagues',[])}
     scan={league:{key:leagues.get(league,{}).get(key) for key in ('source_state','games','matched_games','odds_loaded_games','source_errors')} for league in LEAGUES}
     add('1.1','48-hour event scan',all(r.get('source_state')=='observed' and not r.get('source_errors') and r.get('games') is not None and r['games']==r['matched_games']==r['odds_loaded_games'] for r in scan.values()),scan,'Repair missing league source, fixture mapping or endpoint loading; an empty missing source is not a valid zero-game calendar.')
