@@ -1,3 +1,9 @@
+## 2026-10-04 — NFL/NBA overtime útvonal élesítve
+
+Éles commit `1242f06`: pontos Yes/No piac → regulation draw/non-draw kifizetés, kétutas devig, változatlan modellvalidáció/kiadási feltételek, záróár és elszámolás. NFL-szezonfázis az archivált forrásból újraellenőrizve; előidény kizárva. Az azonos kifizetésű 1x2/Double Chance/Overtime ajánlatok a guard után egy kanonikus döntésre szűkülnek, a jobb aktuális ár megtartásával. Eredeti döntések/tétek változatlanok.
+
+Független Codex-review: 182 Python + 1 DOM; teljes kiadási teszt: 6586 passed, 1 skipped, 5 subtests; 281 DOM passed. Az első teljes futás 2 ideiglenes SQLite-megnyitási hibája megőrizve; magasabb (4096) fájlleíró-limitű teljes futás sikeres. Élő helyi és Tailscale bizonyíték: `data/releases/root-market-expansion-20261004/overtime-live.json`. 14 NFL-meccs 28 overtime kimenete korábbi 0 helyett parsed/quoted/priced; mind28 probability_or_value_gate miatt nem ajánlott, új pénzes tipp ebből0. NBA-útvonal tesztelt/telepített, aktuális48h NBA-meccs0; WNBA overtime megfelelő regulation-validáció hiányában változatlanul kizárt. Teljes piaclefedettség nincs készre jelentve.
+
 ## 2026-10-04 — WNBA Winner & Total feldolgozás javítása
 
 Éles kód: `5c39e10`, `8b353ee`. A pontos overtime négykimenetes piac felismerése; hiányzó/inaktív kimenet vagy quote esetén nincs hibás devig. Független Codex-review után teljes Python: 6546 passed, 1 skipped, 5 subtests; frontend: 280 passed. Helyi 08:04:14 UTC és Tailscale 08:05:04 UTC publikáció: 2 meccsen 8 kimenet parsed/quoted/priced/guard_checked (korábban 0). A composite-validációs guard mind a 8-at kutatási állapotban tartja; ebből új pénzes ajánlás: 0. Ez parser/árazási javítás, nem a kombinált modell jóváhagyása. Bizonyíték: `data/releases/root-market-expansion-20261004/`. Az NFL overtime bekötése külön implementáció alatt.

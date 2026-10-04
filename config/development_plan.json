@@ -994,6 +994,19 @@
         "live_evidence": "data/releases/root-pro-leagues-20261003/live-verification.json",
         "publication": "2026-10-03T16:08:31.825716+00:00",
         "remaining": "D33 overall remains open: validated family models/inputs/coverage beyond this exact matching and limits increment."
+      },
+      "latest_root_increment": {
+        "code_commits": [
+          "5c39e10",
+          "8b353ee",
+          "1242f06"
+        ],
+        "state": "live_verified_increment",
+        "evidence": "data/releases/root-market-expansion-20261004/overtime-live.json",
+        "scope": "NFL/NBA exact overtime score aliases; WNBA four-way winner-total parsing only",
+        "full_task_complete": false,
+        "new_funded_recommendations_from_increment": 0,
+        "next_implementation": "Exact offered-line joint-market validation and remaining scope-specific/player models; no approval flag fabrication."
       }
     },
     {
