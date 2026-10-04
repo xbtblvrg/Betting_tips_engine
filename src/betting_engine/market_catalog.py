@@ -170,6 +170,11 @@ def refresh_catalog(data_dir=DATA,fetcher=None,horizon_days=None):
             publication['recommendations']=reviewed.get('recommendations',[])
             publication['settings']=reviewed.get('settings',{})
             publication['placement_marks']=reviewed.get('placement_marks',{})
+            publication['tracked_bets']=reviewed.get('tracked_bets',[])
+            publication['alternatives']=reviewed.get('alternatives',[])
+            current_reviews={tip['id']:tip.get('execution_review',{}) for tip in reviewed.get('evaluated_candidates',[])}
+            for tip in publication.get('evaluated_candidates',[]):
+                tip['execution_review']=current_reviews.get(tip['id'],{})
             summary['live_coverage']=build_from_store(reader,publication,summary,data_dir)
         finally:
             reader.close()

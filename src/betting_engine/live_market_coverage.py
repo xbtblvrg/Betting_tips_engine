@@ -68,10 +68,17 @@ def build_live_coverage(publication, catalog, decisions=(), feedback_tip_ids=(),
                 qualifying[_key(tip)] += 1
         except (KeyError, TypeError, ValueError, ArithmeticError):
             continue
-    for tip in publication.get('recommendations', []):
-        review = tip.get('execution_review') or {}
-        if current and active(tip) and tip.get('id') not in publication.get('placement_marks', {}) and _fresh(tip.get('quote_at'), now) and tip.get('stake', 0) > 0 and review.get('actionable') is True:
-            funded[_key(tip)] += 1
+    from .dashboard_payload import _execution_counts
+    if current:
+        ready = _execution_counts(publication.get('recommendations', []) + publication.get('alternatives', []),
+                                  publication.get('evaluated_candidates', []), publication.get('tracked_bets', []),
+                                  publication.get('placement_marks', {}), {'max_bet': 5, **settings}, {}, now,
+                                  include_ready_ids=True)['ready_tip_ids']
+        tip_index = {t['id']: t for t in publication.get('recommendations', []) + publication.get('alternatives', [])}
+        tip_index.update({b['tip_id']: b['payload'] for b in publication.get('tracked_bets', [])})
+        for identity in ready:
+            if identity in tip_index:
+                funded[_key(tip_index[identity])] += 1
     historical = defaultdict(list)
     seen = set()
     for decision in decisions:

@@ -63,3 +63,16 @@ def test_placed_and_started_not_ready(monkeypatch):
     assert not build_live_coverage(pub,cat,now=NOW)['rows'][0]['funding_eligible_now']
     pub['placement_marks']={};pub['recommendations'][0]['start']=NOW.isoformat()
     assert not build_live_coverage(pub,cat,now=NOW)['rows'][0]['funding_eligible_now']
+
+def test_held_original_stake_uses_shared_readiness_predicate():
+    pub,cat=inputs();tip=pub['recommendations'][0]
+    original={**tip,'tracking_source':'auto_assumed_placed'}
+    tip['stake']=0;tip['tracked_bet']=True
+    pub['evaluated_candidates']=[tip]
+    record={'tip_id':'a','stake':2,'status':'open','created_at':NOW.isoformat(),'payload':original,'instruction_review':{'actionable':True}}
+    pub['tracked_bets']=[record]
+    assert build_live_coverage(pub,cat,now=NOW)['rows'][0]['funding_eligible_now']
+    pub['placement_marks']={'a':'yes'}
+    assert not build_live_coverage(pub,cat,now=NOW)['rows'][0]['funding_eligible_now']
+    pub['placement_marks']={};pub['tracked_bets'].append(record)
+    assert not build_live_coverage(pub,cat,now=NOW)['rows'][0]['funding_eligible_now']

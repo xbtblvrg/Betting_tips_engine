@@ -191,7 +191,7 @@ def _annotate_market_types(rows):
     return rows
 
 
-def _execution_counts(recommendations,current,recorded,marks,settings,progress,now):
+def _execution_counts(recommendations,current,recorded,marks,settings,progress,now,include_ready_ids=False):
     """Summarize the same 48h instruction population as the default web view.
 
     An auto-tracked first issuance retains its original stake even though the
@@ -226,7 +226,7 @@ def _execution_counts(recommendations,current,recorded,marks,settings,progress,n
                 and funded(first.get('stake')) and not marks.get(identity)
                 and review.get('actionable') is True and current_review.get('actionable') is True):ready.add(identity)
     first_issued=sum(visible(row) for row in progress['issuance_rows']) if 'issuance_rows' in progress else progress.get('issued',0)
-    return {'first_issued_today':first_issued,'previously_issued_today':progress.get('previously_issued_today',0),
+    return {**({'ready_tip_ids':sorted(ready)} if include_ready_ids else {}),'first_issued_today':first_issued,'previously_issued_today':progress.get('previously_issued_today',0),
             'current_executable':len(ready),'marked_placed':sum(bool(marks.get(identity)) for identity in live),
             'started_or_expired':sum(bool(t.get('expired')) or start_time(t) is None or start_time(t)<=now for t in current),
             'no_longer_qualifying':len(no_longer),
