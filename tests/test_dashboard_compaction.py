@@ -66,3 +66,17 @@ def test_default_window_issuance_count_keeps_calendar_target_separate():
     assert progress['issued']==3
     progress['issuance_rows']=[]
     assert _execution_counts([],[],[],{}, {'max_bet':5},progress,now)['first_issued_today']==0
+
+
+def test_new_policy_projection_retains_joint_receipt_and_missing_input_disclosure():
+    from betting_engine.dashboard_payload import _compact_dashboard_tip
+    tip={'id':'x','probability_support_policy':'validated_mass_v1',
+         'composite_contract_policy':'complete_joint_score_v1','composite_contract_evidence':{'sha256':'source'},
+         'input_readiness':{'passed':True,'state':'ready','missing_starter_policy':'verified_model_prior_v1',
+             'checks':{'required_pitcher_inputs':'verified_with_source_missing_prior',
+                       'home':{'known':True},'away':{'known':False,'input_state':'official_source_missing','warning':'Prior used'}}}}
+    result=_compact_dashboard_tip(tip)
+    assert result['composite_contract_evidence']==tip['composite_contract_evidence']
+    assert result['probability_support_policy']=='validated_mass_v1'
+    assert result['input_readiness']['starter_inputs']['away']['known'] is False
+    assert result['input_readiness']['starter_inputs']['away']['warning']=='Prior used'
