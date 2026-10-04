@@ -358,3 +358,61 @@ def fit_model_weight(observations, *, minimum_games: int = 30, grid_step: float 
     return {'state': 'candidate', 'independent_games': len(games), 'observations': len(valid),
             'weight': best, 'log_loss': loss(best), 'grid_step': float(grid_step),
             'basis': 'chronological training sample; prospective holdout required before promotion'}
+
+
+def verify_score_anchor_source(game, market, anchor, data_dir):
+    """Bind all partition prices to the hash-verified original Stake response.
+
+    Reparse the archived payload with the existing exact-scope parser; no
+    generated candidate probability or supplied anchor odds is a source.
+    """
+    from pathlib import Path
+    meta = market.metadata.get('api_source') or {}
+    archive = meta.get('archive', '')
+    target = Path(data_dir) / archive
+    stat = target.stat()
+    source = _score_source_anchors(str(Path(data_dir).resolve()), meta.get('sha256'), archive,
+        meta.get('bytes'), meta.get('fetched_at'), stat.st_mtime_ns, stat.st_size,
+        game.id, game.league, game.home, game.away, game.start,
+        getattr(game,'home_abbr',''),getattr(game,'away_abbr',''),
+        market.metadata.get('model_scope'), market.metadata.get('fixture_slug'),
+        market.metadata.get('league_path'))
+    expected = source.get(market.id)
+    if not expected:
+        raise ValueError('Selected score partition absent from verified source')
+    keys = ('market_probability','market_probabilities','conditional_push_free',
+            'market_anchor_key','quote_at','exclusive_odds','exclusive_probabilities',
+            'exclusive_partition_kind','exclusive_source_contracts','exclusive_quote_times',
+            'partition_version','probability_semantics')
+    if any(anchor.get(key) != expected.get(key) for key in keys):
+        raise ValueError('Score partition anchor differs from archived source')
+    return {'source_sha256': meta['sha256'], 'source_market_id': market.id,
+            'probability_semantics': expected['probability_semantics']}
+
+
+from functools import lru_cache
+
+@lru_cache(maxsize=64)
+def _score_source_anchors(data_dir, sha, archive, size, fetched_at, mtime_ns, compressed_size,
+                          game_id, league, home, away, start, home_abbr, away_abbr, scope, slug, league_path):
+    # Stat generation participates in the key; archive hash is checked on every
+    # new body generation. Cache contains only parsed anchors, not raw bodies.
+    from pathlib import Path
+    from types import SimpleNamespace
+    import json
+    from .player_runtime import _body
+    from .markets import StakeSportsbook
+    from .domain import parse_time
+    raw = json.loads(_body(Path(data_dir), {'archive':archive, 'sha256':sha, 'bytes':size}))
+    fixture = raw.get('fixture') or {}
+    if (not fixture.get('id') or fixture.get('status') != 'active' or
+            abs(float(fixture['startTime']) / 1000 - parse_time(start).timestamp()) > 1):
+        raise ValueError('Score source fixture lifecycle/start mismatch')
+    game = SimpleNamespace(id=game_id, league=league, home=home, away=away, start=start,home_abbr=home_abbr,away_abbr=away_abbr)
+    book = StakeSportsbook(fetcher=object(),segment_markets={(league,scope):('three_way','double_chance')},
+                           full_markets={league:('three_way','double_chance')})
+    parsed = book._markets_for_fixture(raw, {'id':fixture['id'],'slug':slug,'league_path':league_path},game,league,fetched_at)
+    quotes, errors = book.quotes(parsed)
+    if errors:
+        raise ValueError('Invalid archived score quote')
+    return contract_anchors(parsed, quotes)

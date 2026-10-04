@@ -58,3 +58,30 @@ def test_threeway_binds_all_source_times_and_rejects_stale_peer():
     assert len(anchors[ms[0].id]['exclusive_quote_times'])==3
     q[ms[0].id].fetched_at='2026-10-04T09:54:59Z'
     assert not contract_anchors(ms,q)
+
+@pytest.mark.parametrize('double', [False, True])
+def test_consistently_forged_partition_rejected_against_archived_payload(tmp_path, double):
+    import gzip,hashlib,json
+    from betting_engine.markets import StakeSportsbook
+    from betting_engine.market_anchor import verify_score_anchor_source,devig_probabilities
+    from betting_engine.domain import parse_time
+    game=N(id='NHL:g',league='NHL',home='Detroit Red Wings',away='Winnipeg Jets',home_abbr='DET',away_abbr='WPG',start='2026-10-04T12:00:00Z')
+    fixture={'id':'fixture-id','slug':'detroit-winnipeg','status':'active','startTime':parse_time(game.start).timestamp()*1000}
+    outcomes=[{'id':str(i),'name':name,'active':True,'odds':odds} for i,(name,odds) in enumerate([(game.home,2.9),('Draw',2.65),(game.away,2.85)])]
+    raw={'fixture':fixture,'groups':[{'name':'Periods','markets':[[{'id':'condition','name':'1st Period - 1x2','specifiers':'periodnr=1','status':'active','outcomes':outcomes}]]}]}
+    if double:
+        raw['groups'][0]['markets'][0].append({'id':'double','name':'1st Period - Double Chance','specifiers':'periodnr=1','status':'active','outcomes':[{'id':'dc'+str(i),'name':name,'active':True,'odds':1.5} for i,name in enumerate([game.home+' or Draw','Draw or '+game.away,game.home+' or '+game.away])]})
+    body=json.dumps(raw).encode();sha=hashlib.sha256(body).hexdigest();folder=tmp_path/'stake_api_archive';folder.mkdir();(folder/(sha+'.json.gz')).write_bytes(gzip.compress(body))
+    meta={'sha256':sha,'archive':'stake_api_archive/'+sha+'.json.gz','bytes':len(body),'fetched_at':STAMP}
+    book=StakeSportsbook(fetcher=object(),segment_markets={('NHL','period_1'):('three_way','double_chance')})
+    ms=book._markets_for_fixture(raw,fixture,game,'NHL',STAMP);assert len(ms)==(6 if double else 3)
+    for m in ms:m.metadata['api_source']=meta
+    quotes,_=book.quotes(ms);selected=ms[3] if double else ms[0];anchor=contract_anchors(ms,quotes)[selected.id]
+    assert verify_score_anchor_source(game,selected,anchor,tmp_path)['source_sha256']==sha
+    forged={**anchor,'exclusive_odds':{'home':2.,'draw':3.,'away':4.}}
+    fair=devig_probabilities(forged['exclusive_odds'])
+    from betting_engine.market_anchor import double_chance_probabilities
+    probs=double_chance_probabilities(fair) if double else fair
+    forged.update(exclusive_probabilities=fair,market_probabilities=probs,market_probability=probs[selected.side])
+    with pytest.raises(ValueError,match='archived source'):
+        verify_score_anchor_source(game,selected,forged,tmp_path)
