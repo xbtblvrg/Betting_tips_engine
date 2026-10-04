@@ -1,0 +1,8 @@
+{
+  "schema": "public-regression-inputs-v1",
+  "sha256": "92f222b09aed74e8b7ec1cc3ef43afb0db4e5a5cf2b0152878aa6dbe37f8074f",
+  "archive_bytes": 79890505,
+  "expanded_bytes": 97536059,
+  "files": 49,
+  "purpose": "Public NHL/MLB/NFL observations for existing native-schema regression tests; no betting or account records."
+}

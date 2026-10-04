@@ -74,3 +74,5 @@ Check the dashboard's publication time, market-source state, allocation funnel, 
 For a full disaster-recovery migration, stop all writers, transfer `.env` and the complete active `data/` directory privately, then restart on the destination; preserve the ledger and paired WAL/SHM files together, or use SQLite's backup API. Never copy only a live `.sqlite3` file while writers run. Do not put that backup in Git. The source Git history is preserved.
 
 To train new candidates, use the existing [controlled learning](docs/AUTONOMOUS_ENGINEERING.hu.md) workflow. Do not replace trained artifacts with guessed probabilities or treat a successful clone/test run as evidence of betting profitability.
+
+The public native-schema recovery fixtures required by the regression suite are included in a hash-verified, bounded test archive. Tests extract it into one temporary directory, removed when the test process exits; they do not populate production `data/`. One optional replay of the original private decision ledger is skipped when that private input is absent. Its synthetic boundary tests still run. The private ledger is intentionally not a Git fixture.

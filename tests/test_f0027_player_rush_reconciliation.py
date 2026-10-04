@@ -194,6 +194,9 @@ def test_join_availability_is_later_capture_and_inputs_unchanged():
     (2026, GAME), (2026, '2026_01_NO_DET')])
 def test_actual_copied_native_schemas(year, game):
     root = Path(__file__).resolve().parents[1] / 'data/validation_sources/native-rush-v1'
+    if not (root / 'data/sports_source_evidence/manifest.json').is_file():
+        from tests.fixture_runtime import public_fixture_root
+        root = public_fixture_root() / 'native-rush-v1'
     manifest = root / 'data/sports_source_evidence/manifest.json'
     assert manifest.is_file(), 'Exact native-rush-v1 validation source bundle is required'
     sources = json.loads(manifest.read_text())['sources']

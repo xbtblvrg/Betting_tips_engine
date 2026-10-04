@@ -610,3 +610,8 @@ A heti tanult súlyozás tartós jobként bekötve; aktuális jóváhagyott súl
 - Független Codex-review elfogadva;7 célzott navigációs teszt és294 teljes DOM-teszt sikeres. Modell, validáció, kiadás és ledger nem változott.
 - Teljes release-ellenőrzés:7023 Python-teszt sikeres,1skipped,25warning,5subtests;294 DOM-teszt sikeres.
 - Éles eef7e4d,8324 publikáció:129 kártya,0 hiányzó meccsgomb; mindkét érintett kártya pontos eredeti Stake URL-lel és View on Stake felirattal. Helyi/Tailscale appbytes azonos; bizonyíték:data/releases/root-flow-audit-20261004/card-buttons-after.json.
+
+## 2026-10-04 — hordozható Git-mentés és klóntelepítés
+
+- b5fd75e/d76564d: dependency lock, .env.example, bootstrap, aktuális runtime settings és82 hash-ellenőrzött modell/report fájl; külön klónban mind betöltődött, SQLite3.53.4 integrity_check=ok. A telepítés meglévő ledger/modell felülírása nélkül ismételhető.
+- Nyilvános regressziós forrásfixture-k hordozható csomagban; privát eredeti fogadási napló nem kerül Gitbe. A teljes klón-teszt és a távoli push eredménye a következő bejegyzésben.
