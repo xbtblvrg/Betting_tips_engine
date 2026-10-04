@@ -7,6 +7,7 @@ from collections import Counter
 import json,re,hashlib,unicodedata,math
 from .domain import Game,utcnow,parse_time,LEAGUES
 from .providers import Fetcher,DATA
+from .team_identity import exact_team_name_match, team_name_variants
 
 @dataclass
 class Market:
@@ -53,7 +54,7 @@ def normalize(s):
 def team_matches(label,name,abbr=''):
     a,b=normalize(label),normalize(name)
     if not a:return False
-    if a==b or (abbr and a==normalize(abbr)):return True
+    if exact_team_name_match(label,name) or (abbr and a==normalize(abbr)):return True
     # Exact mascot suffix, at least 4 characters; no approximate/fuzzy matching.
     if len(a)>=4 and b.endswith(a):return True
     return a.replace('la','losangeles',1)==b if a.startswith('la') else False
@@ -429,7 +430,8 @@ class StakeSportsbook:
                                 result.append(alias)
                                 seen.add(alias.id)
                         continue
-                    total_kind=next((side+'_total' for side in ('home','away') if name==f'{getattr(game,side)} Total (Incl. {expected_scope})'),None)
+                    total_sides=[side for side in ('home','away') if any(name==f'{team} Total (Incl. {expected_scope})' for team in team_name_variants(getattr(game,side)))]
+                    total_kind=total_sides[0]+'_total' if len(total_sides)==1 else None
                     full_derived={
                         f'Odd/Even (Incl. {expected_scope})':'odd_even',
                         f'Both Teams to Score (Incl. {expected_scope})':'both_score',

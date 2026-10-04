@@ -14,8 +14,9 @@ import math
 import re
 
 from .scope_markets import named_scopes
+from .team_identity import exact_team_name_match, team_name_variants
 
-VERSION = "observed-close-v8"
+VERSION = "observed-close-v9"
 CLOSE_WINDOW_SECONDS = 300
 STARTED_STATUSES = frozenset(("live", "inplay", "in_play", "in-progress", "finished", "ended"))
 
@@ -169,9 +170,10 @@ def _handicap_signs(row, tip, specifier):
     sides = {}
     for outcome in row.get("outcomes", []):
         match = re.fullmatch(r"(.+) \(([+-]?\d+(?:\.\d+)?)\)", str(outcome.get("name", "")))
-        if not match or match[1] not in (tip["home"], tip["away"]):
+        matches=[tip[side] for side in ("home","away") if match and exact_team_name_match(match[1],tip[side])]
+        if len(matches)!=1:
             raise ValueError("handicap_outcomes_mismatch")
-        team, line = match[1], _number(match[2])
+        team, line = matches[0], _number(match[2])
         if team in sides or abs(line) != abs(specifier):
             raise ValueError("handicap_outcomes_mismatch")
         sides[team] = line
@@ -180,6 +182,7 @@ def _handicap_signs(row, tip, specifier):
     fixture_name = (row.get("raw_fixture") or {}).get("name")
     if isinstance(fixture_name, str):
         teams = fixture_name.split(" - ")
+        teams = [next((tip[side] for side in ("home","away") if exact_team_name_match(team,tip[side])),team) for team in teams]
         if len(teams) == 2 and set(teams) == {tip["home"], tip["away"]}:
             if teams[0] in sides and sides[teams[0]] != specifier:
                 raise ValueError("handicap_specifier_sign_mismatch")
@@ -272,6 +275,10 @@ def _contract(tip):
                            ("Total", "totals"), (home + " Total", "home_total"),
                            (away + " Total", "away_total")):
             scopes[f"{name} (Incl. {suffix})"] = ("full_game", kind)
+    if suffix:
+        for side in ("home","away"):
+            for team in team_name_variants(tip[side]):
+                scopes[f"{team} Total (Incl. {suffix})"]=("full_game",side+"_total")
     if title not in scopes:
         raise ValueError("unsupported_contract_title")
     scope, kind = scopes[title]
@@ -289,7 +296,7 @@ def _contract(tip):
             raise ValueError("side_or_line_mismatch")
     elif kind == "spreads":
         match = re.fullmatch(r"(.+) \(([+-]?\d+(?:\.\d+)?)\)", outcome)
-        if side not in ("home", "away") or not match or match[1] != tip[side] or _number(match[2]) != _number(line):
+        if side not in ("home", "away") or not match or not exact_team_name_match(match[1],tip[side]) or _number(match[2]) != _number(line):
             raise ValueError("side_or_line_mismatch")
     else:
         names = {"moneyline": {"home": home, "away": away},
@@ -301,6 +308,8 @@ def _contract(tip):
         valid_names={names.get(kind,{}).get(side)}
         if kind=='double_chance' and side in ('home_draw','away_draw'):
             valid_names.add('Draw or '+tip[side.split('_')[0]])
+        if kind in ("moneyline","three_way") and side in ("home","away"):
+            valid_names.update(team_name_variants(tip[side]))
         if line is not None or outcome not in valid_names:
             raise ValueError("side_or_line_mismatch")
     return title, outcome, scope, kind

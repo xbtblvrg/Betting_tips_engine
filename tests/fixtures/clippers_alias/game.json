@@ -1,0 +1,133 @@
+{
+  "id": "NBA:401918010",
+  "league": "NBA",
+  "start": "2026-10-04T23:00Z",
+  "home": "LA Clippers",
+  "away": "Golden State Warriors",
+  "home_id": "12",
+  "away_id": "9",
+  "home_abbr": "LAC",
+  "away_abbr": "GS",
+  "state": "scheduled",
+  "season": 2027,
+  "home_score": null,
+  "away_score": null,
+  "neutral": true,
+  "game_type": "preseason",
+  "source": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261004&limit=1000",
+  "fetched_at": "2026-10-04T08:50:37.229134+00:00",
+  "context": {
+    "schedule_phase_evidence": {
+      "raw_season_type": "1",
+      "source": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261004&limit=1000",
+      "source_sha256": "c74d7ce33811cf83179e440a07d38e9d01b77bdad6f17af1cfc8bb46f453223e",
+      "fetched_at": "2026-10-04T08:50:37.229134+00:00"
+    },
+    "preseason_inference": "provisional extrapolation from regular/postseason team history; preseason calibration unverified",
+    "injuries": {
+      "home": [
+        {
+          "athlete_id": "6580",
+          "athlete_display_name": "Bradley Beal",
+          "athlete_position": "G",
+          "status": "Day-To-Day",
+          "injury_date": "2026-09-28T18:12Z",
+          "short_comment": "Beal (knee) will miss the start of training camp, Law Murray of The Athletic reports.",
+          "detail_return_date": "2026-10-04",
+          "snapshot_date": "2026-10-03",
+          "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nba_injuries/injuries_2027.parquet",
+          "fetched_at": "2026-10-04T08:50:39.833271+00:00"
+        },
+        {
+          "athlete_id": "3913176",
+          "athlete_display_name": "Brandon Ingram",
+          "athlete_position": "F",
+          "status": "Out",
+          "injury_date": "2026-09-28T18:01Z",
+          "short_comment": "Ingram won't be ready for the start of the season due to a partially torn Achilles, per Joey Linn of SI.com.",
+          "detail_return_date": "2026-11-01",
+          "snapshot_date": "2026-10-03",
+          "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nba_injuries/injuries_2027.parquet",
+          "fetched_at": "2026-10-04T08:50:39.833271+00:00"
+        },
+        {
+          "athlete_id": "4396818",
+          "athlete_display_name": "Jordan Miller",
+          "athlete_position": "G",
+          "status": "Out",
+          "injury_date": "2026-08-26T20:04Z",
+          "short_comment": "Miller underwent surgery Wednesday to repair a torn left rotator cuff and will be re-evaluated in six months, per Law Murray of The Athletic.",
+          "detail_return_date": "2027-03-01",
+          "snapshot_date": "2026-10-03",
+          "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nba_injuries/injuries_2027.parquet",
+          "fetched_at": "2026-10-04T08:50:39.833271+00:00"
+        },
+        {
+          "athlete_id": "5108024",
+          "athlete_display_name": "Yanic Konan Niederhauser",
+          "athlete_position": "C",
+          "status": "Out",
+          "injury_date": "2026-09-28T18:07Z",
+          "short_comment": "Niederhauser (foot) won't be ready for the start of the season, Law Murray of The Athletic reports.",
+          "detail_return_date": "2026-11-01",
+          "snapshot_date": "2026-10-03",
+          "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nba_injuries/injuries_2027.parquet",
+          "fetched_at": "2026-10-04T08:50:39.833271+00:00"
+        }
+      ],
+      "away": [
+        {
+          "athlete_id": "6430",
+          "athlete_display_name": "Jimmy Butler III",
+          "athlete_position": "F",
+          "status": "Out",
+          "injury_date": "2026-10-02T18:48Z",
+          "short_comment": "The Warriors hope to have Butler (knee) back early in 2027, per Keith Watkins of Yahoo Sports.",
+          "detail_return_date": "2027-01-02",
+          "snapshot_date": "2026-10-03",
+          "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nba_injuries/injuries_2027.parquet",
+          "fetched_at": "2026-10-04T08:50:39.833271+00:00"
+        },
+        {
+          "athlete_id": "3102531",
+          "athlete_display_name": "Kristaps Porzingis",
+          "athlete_position": "C",
+          "status": "Day-To-Day",
+          "injury_date": "2026-09-28T15:15Z",
+          "short_comment": "Porzingis is out indefinitely due to an undisclosed issue, Anthony Slater of ESPN.com reports.",
+          "detail_return_date": "2026-10-13",
+          "snapshot_date": "2026-10-03",
+          "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nba_injuries/injuries_2027.parquet",
+          "fetched_at": "2026-10-04T08:50:39.833271+00:00"
+        },
+        {
+          "athlete_id": "4432171",
+          "athlete_display_name": "Moses Moody",
+          "athlete_position": "G",
+          "status": "Out",
+          "injury_date": "2026-09-28T15:06Z",
+          "short_comment": "Moody has progressed to light on-court activities as he continues his recovery from a ruptured left patellar tendon, Evan Webeck of The Mercury News reports.",
+          "detail_return_date": "2026-12-01",
+          "snapshot_date": "2026-10-03",
+          "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nba_injuries/injuries_2027.parquet",
+          "fetched_at": "2026-10-04T08:50:39.833271+00:00"
+        },
+        {
+          "athlete_id": "5170949",
+          "athlete_display_name": "Alex Toohey",
+          "athlete_position": "F",
+          "status": "Day-To-Day",
+          "injury_date": "2026-09-10T01:12Z",
+          "short_comment": "Toohey (knee) signed an Exhibit 10 contract with the Warriors on Wednesday, Anthony Slater of ESPN.com reports.",
+          "detail_return_date": "2026-10-04",
+          "snapshot_date": "2026-10-03",
+          "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nba_injuries/injuries_2027.parquet",
+          "fetched_at": "2026-10-04T08:50:39.833271+00:00"
+        }
+      ],
+      "snapshot_date": "2026-10-03",
+      "stale": false,
+      "quantitative_model_input": false
+    }
+  }
+}
