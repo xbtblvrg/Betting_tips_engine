@@ -110,3 +110,15 @@ def test_college_family_gate_can_reject_totals_without_blocking_qualified_winner
     g=stake_game('NCAAM');f={'id':'f','slug':'fixture','league_path':'basketball/usa/ncaa'}
     p=stake_payload('Total (Incl. Overtime)',[('Over 145.5',2),('Under 145.5',2)],'total=145.5')
     assert not StakeSportsbook(full_markets={'NCAAM':gate['validated_markets']})._markets_for_fixture(p,f,g,'NCAAM',utcnow().isoformat())
+
+
+def test_observed_nba_preseason_registry_is_discovered_without_esports_aliasing():
+    rows={BASE+'/sports':[]}
+    for sport in set(SPORTS.values()):rows[BASE+f'/sports/{sport}/usa/tournaments']={'tournaments':[]}
+    rows[BASE+'/sports/basketball/usa/tournaments']={'tournaments':[
+        {'slug':'nba','enabled':True}, {'slug':'nba-preseason','enabled':True},
+        {'slug':'nba-2k','enabled':True}, {'slug':'nba-preseason-fake','enabled':True}]}
+    registry,_,_,issues=tournaments(Feed(rows))
+    assert not issues
+    assert [r['slug'] for r in registry['NBA']]==['nba','nba-preseason']
+    assert registry['NBA'][1]['league_path']=='basketball/usa/nba-preseason'

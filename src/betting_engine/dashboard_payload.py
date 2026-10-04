@@ -16,7 +16,7 @@ _DASHBOARD_TIP_FIELDS = (
     'predicted_home_points', 'predicted_away_points', 'stake', 'stake_note',
     'created_at', 'rank_score', 'basis', 'allocation_code', 'allocation_reason',
     'allocation_policy', 'funding_basis', 'stake_sizing', 'tracking_source',
-    'family_selection_policy', 'outcome_sizing_policy', 'outcome_sizing_evidence',
+    'family_selection_policy', 'outcome_sizing_policy', 'probability_support_policy', 'outcome_sizing_evidence',
     'stake_market', 'market_anchor', 'calibration_uncertainty', 'recorded_snapshot',
     'tracked_bet', 'related_bets', 'covered_by', 'expired', 'is_additional',
     'current_assessment', 'instruction_review', 'execution_review', 'decision_guard',
@@ -113,7 +113,7 @@ def _compact_dashboard_tip(tip):
                 'passed', 'errors', 'checked_at', 'pricing_version',
                 'contract_version', 'minimum_roi', 'recommendation_policy',
                 'model_pick_sizing_policy', 'model_pick_allocation_policy',
-                'family_selection_policy', 'outcome_sizing_policy',
+                'family_selection_policy', 'outcome_sizing_policy', 'probability_support_policy',
                 'market_anchor_settings', 'calibration_settings', 'model', 'knowledge',
             ) if key in guard
         }
@@ -124,7 +124,7 @@ def _compact_dashboard_tip(tip):
                 'state', 'actionable', 'reason', 'review_type', 'llm_approval',
                 'quote_at', 'valid_until', 'recommendation_policy',
                 'model_pick_sizing_policy', 'model_pick_allocation_policy',
-                'family_selection_policy', 'outcome_sizing_policy',
+                'family_selection_policy', 'outcome_sizing_policy', 'probability_support_policy',
                 'funding_tier','minimum_odds','probability','stress_probability',
                 'push_probability','odds','expected_roi','stress_roi','model_version',
             ) if name in review}

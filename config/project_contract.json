@@ -723,5 +723,23 @@
     "distinct_scope_families": true,
     "activation": "Root explicitly verifies current48h league count before activating; no automatic schedule-count switch is claimed.",
     "preserve": "Other leagues v2; original records and held exposure, funding/model/quote/input guards, daily_risk_limit=null, no automatic wager submission."
+  },
+  "professional_coverage_directive_20261004": {
+    "leagues": [
+      "NFL",
+      "NHL",
+      "MLB",
+      "NBA",
+      "WNBA"
+    ],
+    "rolling_hours": 48,
+    "daily_distinct_funded_target": 100,
+    "preserve_active_exposure_limits": true,
+    "automatic_wager_submission": false,
+    "probability_support_policy": "validated_mass_v1",
+    "require_exact_source_scope_and_fresh_price": true,
+    "preseason_current_schedule_supplement": true,
+    "statistical_quality_action": "repair_model_or_verified_reference",
+    "no_fabricated_evidence_or_duplicate_issuance": true
   }
 }

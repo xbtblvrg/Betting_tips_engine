@@ -127,6 +127,8 @@ def stake_market(t):
     path=STAKE_LEAGUE_PATHS.get(league,'')
     try:
         parsed=urlsplit(url)
+        if league=='NBA' and t.get('stake_evidence',{}).get('league_path')=='basketball/usa/nba-preseason':
+            path='basketball/usa/nba-preseason'
         if league.startswith('NCAA'):
             observed=t.get('stake_evidence',{}).get('league_path','')
             sport='american-football' if league=='NCAAF' else 'basketball'

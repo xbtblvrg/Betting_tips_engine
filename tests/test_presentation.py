@@ -61,3 +61,13 @@ def test_navigation_uses_observed_group_not_a_guess_from_market_name():
     assert stake_market({**t,'stake_evidence':{}})['tab'] is None
     t['stake_evidence']['market_groups'].append({'id':'main','name':'main'})
     assert stake_market(t)['tab']=='Main'
+
+
+def test_preseason_link_requires_exact_observed_league_path():
+    from betting_engine.presentation import stake_market
+    t={'league':'NBA','market':'moneyline','reference_platform':'Stake.com',
+       'reference_url':'https://stake.com/sports/basketball/usa/nba-preseason/exact-fixture',
+       'stake_evidence':{'league_path':'basketball/usa/nba-preseason'}}
+    assert stake_market(t)['event_url']==t['reference_url']
+    assert stake_market({**t,'stake_evidence':{}})['event_url'] is None
+    assert stake_market({**t,'reference_url':t['reference_url'].replace('nba-preseason','nba-2k')})['event_url'] is None

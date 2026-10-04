@@ -13,6 +13,8 @@ COLLEGE=('NCAAF','NCAAM','NCAAW')
 SPORTS={'NBA':'basketball','WNBA':'basketball','MLB':'baseball','NHL':'ice-hockey','NFL':'american-football',
         'NCAAF':'american-football','NCAAM':'basketball','NCAAW':'basketball','MLS':'soccer'}
 TOURNAMENTS={'NBA':'nba','WNBA':'wnba','MLB':'mlb','NHL':'nhl','NFL':'nfl','MLS':'major-league-soccer'}
+# Exact observed official tournament aliases; never substring-match NBA esports.
+TOURNAMENT_ALIASES={('basketball','nba-preseason'):'NBA'}
 ALL_LEAGUES=tuple(SPORTS)
 
 def meta_ref(meta):
@@ -74,7 +76,7 @@ def tournaments(fetcher):
         available.update(l for l,s in SPORTS.items() if s==sport)
         for t in rows:
             if not t.get('enabled'):continue
-            league=college_league(sport,t) or next((l for l,s in TOURNAMENTS.items() if SPORTS[l]==sport and s==t.get('slug')),None)
+            league=college_league(sport,t) or TOURNAMENT_ALIASES.get((sport,t.get('slug'))) or next((l for l,s in TOURNAMENTS.items() if SPORTS[l]==sport and s==t.get('slug')),None)
             if league:
                 slug=t.get('slug','')
                 if not re.fullmatch(r'[a-z0-9-]+',slug):continue
