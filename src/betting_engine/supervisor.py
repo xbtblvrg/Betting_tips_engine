@@ -213,8 +213,24 @@ def stability_audit(result, previous, now, dashboard_reader=None, process_reader
     """
     from datetime import timedelta
     old=previous.get('stability_audit',{})
+    # Cache expensive probes only while the already-measured runtime state agrees.
+    # Heartbeat timestamps are deliberately excluded: ordinary polling is not a
+    # state change, whereas service recovery and repair dispatch must be visible.
+    progress=result.get('development',{}).get('progress',{})
+    evidence={
+        'services':{name:{key:row.get(key) for key in ('state','restart_count')}
+                    for name,row in result.get('services',{}).items()},
+        'components':sorted((row.get('component',''),row.get('state',''))
+                            for row in result.get('components',{}).get('checks',[])),
+        'development':{key:progress.get(key) for key in
+                       ('runnable_count','active_tasks','counts','dispatch_stalled')},
+        'admission':{key:progress.get('resource_admission',{}).get(key)
+                     for key in ('state','allow_new','reasons')},
+    }
+    evidence_key=json.dumps(evidence,sort_keys=True,separators=(',',':'))
     try:
-        if 0 <= (now-parse_time(old['checked_at'])).total_seconds() < 900:
+        if (0 <= (now-parse_time(old['checked_at'])).total_seconds() < 900
+                and old.get('runtime_evidence_key')==evidence_key):
             return old
     except (AttributeError,KeyError,TypeError,ValueError):pass
     checks=[]
@@ -273,7 +289,9 @@ def stability_audit(result, previous, now, dashboard_reader=None, process_reader
         'Unresolved component checks: '+json.dumps(faults[:30]),'D36')
     progress=result.get('development',{}).get('progress',{})
     runnable=progress.get('runnable_count');admission=progress.get('resource_admission',{})
-    blocked=bool(runnable and (progress.get('dispatch_stalled') or not active or admission.get('allow_new') is False))
+    at_capacity=bool(active) and admission.get('state')=='at_capacity' and admission.get('reasons')==['configured_capacity']
+    blocked=bool(runnable and (progress.get('dispatch_stalled') or not active or
+                              (admission.get('allow_new') is False and not at_capacity)))
     add('Stability runnable development',runnable is not None and not blocked,
         json.dumps({'runnable':runnable,'active':sorted(active),'admission_reasons':admission.get('reasons',[]),'dispatch_stalled':progress.get('dispatch_stalled')}))
     pending=progress.get('counts',{})
@@ -281,7 +299,7 @@ def stability_audit(result, previous, now, dashboard_reader=None, process_reader
         json.dumps({k:pending.get(k,0) for k in ('awaiting_release','dependency_blocked','retry_backoff')}))
     failed=[c for c in checks if c['state']!='healthy']
     return dict(checked_at=now.isoformat(),next_check_at=(now+timedelta(seconds=900)).isoformat(),
-        interval_seconds=900,state='attention_required' if failed else 'stable',error_count=len(failed),
+        interval_seconds=900,runtime_evidence_key=evidence_key,state='attention_required' if failed else 'stable',error_count=len(failed),
         repairing_count=sum(c['repairing'] for c in failed),checks=checks,restart_counts=counts)
 
 

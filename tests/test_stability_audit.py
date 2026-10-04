@@ -100,3 +100,40 @@ def test_null_previous_audit_timestamp_rebuilds_instead_of_crashing():
     now=utcnow();result,dashboard=inputs(now)
     audit=stability_audit(result,{'stability_audit':{'checked_at':None}},now,lambda:dashboard,lambda:'10 /bin/python -m uvicorn betting_engine.server:app')
     assert audit['state']=='stable' and audit['checked_at']==now.isoformat()
+
+
+def test_cached_audit_rechecks_service_recovery_and_new_repairs():
+    now=utcnow();result,dashboard=inputs(now)
+    result['services']['engine']['state']='degraded'
+    audit=stability_audit(result,{},now,lambda:dashboard,lambda:'10 /bin/python -m uvicorn betting_engine.server:app')
+    assert audit['error_count']==1
+    result['services']['engine']['state']='healthy'
+    recovered=stability_audit(result,{'stability_audit':audit},now+timedelta(seconds=60),lambda:dashboard,lambda:'10 /bin/python -m uvicorn betting_engine.server:app')
+    assert recovered['state']=='stable'
+    assert recovered['checked_at']!=audit['checked_at']
+    result['development']['progress']['counts']={'awaiting_release':1}
+    failed=stability_audit(result,{'stability_audit':recovered},now+timedelta(seconds=120),lambda:dashboard,lambda:'10 /bin/python -m uvicorn betting_engine.server:app')
+    assert failed['repairing_count']==0
+    result['development']['progress']['active_tasks']=['D14']
+    repairing=stability_audit(result,{'stability_audit':failed},now+timedelta(seconds=180),lambda:dashboard,lambda:'10 /bin/python -m uvicorn betting_engine.server:app')
+    assert repairing['error_count']==1 and repairing['repairing_count']==1
+
+
+def test_cached_audit_ignores_heartbeat_timestamp_changes():
+    now=utcnow();result,dashboard=inputs(now)
+    audit=stability_audit(result,{},now,lambda:dashboard,lambda:'10 /bin/python -m uvicorn betting_engine.server:app')
+    result['services']['engine']['checked_at']=(now+timedelta(seconds=60)).isoformat()
+    def no_read():raise AssertionError('unchanged state must reuse bounded probes')
+    assert stability_audit(result,{'stability_audit':audit},now+timedelta(seconds=60),no_read,no_read)==audit
+
+
+def test_full_worker_capacity_is_not_a_development_stall():
+    now=utcnow();result,dashboard=inputs(now)
+    result['development']['progress'].update(runnable_count=1,active_tasks=['D31'],
+        resource_admission={'state':'at_capacity','allow_new':False,'reasons':['configured_capacity']})
+    audit=stability_audit(result,{},now,lambda:dashboard,lambda:'10 /bin/python -m uvicorn betting_engine.server:app')
+    check=next(c for c in audit['checks'] if c['component']=='Stability runnable development')
+    assert check['state']=='healthy'
+    result['development']['progress']['resource_admission']['checked_at']=now.isoformat()
+    def no_read():raise AssertionError('resource measurement timestamp does not invalidate cache')
+    assert stability_audit(result,{'stability_audit':audit},now+timedelta(seconds=60),no_read,no_read)==audit

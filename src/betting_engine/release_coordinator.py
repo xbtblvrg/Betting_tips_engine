@@ -847,17 +847,27 @@ def release_recovery_status(root):
                 'first_seen': gap['first_seen'], 'due_at': gap['due_at'], 'checked_at': gap.get('last_seen'),
                 'owner': 'root_release_coordinator', 'next_action': gap['reason'], 'legacy_projection': True}
     for stored in requests.values():
-        row = dict(stored); run_id = row['run_id']
+        row = dict(stored); run_id = row['run_id']; original_id = row['id']
         if run_id not in cache:
             try: cache[run_id] = recovery_context(root, run_id, policy=policy, current=current, peer_cache=peer_cache)
             except (OSError, ValueError, TypeError, KeyError): cache[run_id] = None
         context = cache[run_id]
         if row.pop('legacy_projection', False) and context:
             row.update(context)
+            if stored.get('task_id') == 'unknown' and context.get('run_id') == run_id:
+                row.update(id=context['task_id']+':'+row['blocker_code'],
+                    gap_ids=[context['task_id']+':'+row['blocker_code']],
+                    original_gap_id=original_id)
+        # Older early-policy failures recorded first detection but omitted the
+        # standard four-hour deadline. Derive from that original timestamp,
+        # never from the current scan; preserve the source metadata in the view.
+        if row.get('due_at') is None and row.get('first_seen'):
+            row['due_at'] = (parse_time(row['first_seen']) + timedelta(hours=4)).isoformat()
+            row['deadline_basis'] = 'original_first_seen_plus_existing_four_hour_policy'
         valid = bool(context and context['evidence_sha256'] == row.get('evidence_sha256'))
         row.update(state='action_required', source_bound_verified=valid, evidence_state='current' if valid else 'changed' if context else 'unavailable',
             resolution_evidence_valid=False)
-        gap = state.get('gaps', {}).get(row['id'], {})
+        gap = state.get('gaps', {}).get(original_id, {})
         proof = gap.get('resolution_evidence', {})
         if (gap.get('state') == 'resolved' and gap.get('resolution') == 'committed_controller_acceptance'
                 and context and proof.get('receipt_sha256') == context['inputs']['receipt_sha256']
@@ -1148,6 +1158,43 @@ class ReleaseCoordinator:
                     reopened_reason='Committed controller acceptance no longer validates')
 
     def migrate_recovery_requests(self, state):
+        # Early preauthorization failures used a placeholder owner. Rebind only
+        # to a committed original acceptance, retaining the old metadata and
+        # keeping the actual blocker open under the correct task.
+        for old_id, gap in list(state.get('gaps', {}).items()):
+            if gap.get('task_id') != 'unknown' or gap.get('state') != 'open':
+                continue
+            try:
+                receipt = _read_acceptance(self.root / 'data/development', gap['run_id'])
+                if not receipt or receipt.get('integration_state') != 'committed':
+                    continue
+                task_id = receipt['result']['task_id']
+                if not isinstance(task_id, str) or not task_id or task_id == 'unknown':
+                    continue
+                new_id = task_id + ':' + gap['code']
+                prior = state['gaps'].get(new_id)
+                if prior and (prior.get('run_id') != gap['run_id'] or prior.get('state') != 'open'):
+                    continue  # A different generation needs its own reconciliation.
+                sources = [gap, prior or {},
+                    state.get('recovery_requests', {}).get(old_id, {}),
+                    state.get('recovery_requests', {}).get(new_id, {})]
+                first_seen = min((row['first_seen'] for row in sources if row.get('first_seen')), key=parse_time)
+                deadlines = [row['due_at'] for row in sources if row.get('due_at')]
+                if any(not row.get('due_at') for row in sources if row):
+                    deadlines.append((parse_time(first_seen) + timedelta(hours=4)).isoformat())
+                rebound = {**gap, **(prior or {}), 'id': new_id, 'task_id': task_id,
+                    'first_seen': first_seen, 'due_at': min(deadlines, key=parse_time)}
+                archived = {'gap': dict(gap), 'acceptance_sha256': digest(receipt),
+                    'rebound_at': utcnow().isoformat(), 'basis': 'committed_original_controller_acceptance'}
+                request = state.get('recovery_requests', {}).get(old_id)
+                if request: archived['request'] = dict(request)
+                rebound['identity_history'] = [*(prior or {}).get('identity_history', []), archived]
+                state['gaps'][new_id] = rebound
+                del state['gaps'][old_id]
+                state.get('recovery_requests', {}).pop(old_id, None)
+                self.recovery_request(state, gap['run_id'], receipt, gap['code'])
+            except (OSError, ValueError, TypeError, KeyError):
+                continue  # Keep original evidence on any failed identity proof.
         for gap in list(state.get('gaps', {}).values()):
             if gap.get('state') != 'open' or gap['id'] in state.get('recovery_requests', {}):
                 continue
@@ -1206,10 +1253,13 @@ class ReleaseCoordinator:
         actions['prerequisite_utility_required'] = ('Release the source-pinned prerequisite utility candidates first under their own full review and release gates; '
             'missing producers need a scoped root integration. Never copy unreviewed accepted peer files into production.')
         old = state.setdefault('recovery_requests', {}).get(identity, {})
+        first_seen = gap.get('first_seen') or old.get('first_seen') or utcnow().isoformat()
         state['recovery_requests'][identity] = {**context, 'id': identity, 'gap_ids': [identity],
             'state': 'action_required', 'owner': owner, 'blocker_code': code,
-            'first_seen': gap.get('first_seen', old.get('first_seen', utcnow().isoformat())),
-            'due_at': gap.get('due_at', old.get('due_at')), 'checked_at': utcnow().isoformat(),
+            'first_seen': first_seen,
+            'due_at': gap.get('due_at') or old.get('due_at') or
+                (parse_time(first_seen) + timedelta(hours=4)).isoformat(),
+            'checked_at': utcnow().isoformat(),
             'next_action': actions.get(code, 'Repair the recorded release evidence and rerun the unchanged release gates.'),
             'source_bound_verified': bound, 'resolution_evidence_valid': False}
         if failure:
@@ -1455,12 +1505,14 @@ class ReleaseCoordinator:
         journal = None; task_id = 'unknown'
         try:
             self.set_phase('preparing')
-            policy_hash = file_hash(self.policy_path)
-            if read_json(self.policy_path) != policy or file_hash(self.policy_path) != policy_hash or policy.get('enabled') is not True:
-                raise ReleaseBlocked('policy_drift', 'Root-owned policy changed before release authorization')
+            # Identify the archived candidate before a preauthorization policy
+            # failure, so the durable blocker has its actual task owner.
             initial = _read_acceptance(self.root / 'data/development', run_id)
             if initial:
                 task_id = initial['result']['task_id']
+            policy_hash = file_hash(self.policy_path)
+            if read_json(self.policy_path) != policy or file_hash(self.policy_path) != policy_hash or policy.get('enabled') is not True:
+                raise ReleaseBlocked('policy_drift', 'Root-owned policy changed before release authorization')
             receipt, accepted_before, source_before = self.candidate(run_id, state, policy)
             task_id = receipt['result']['task_id']; workspace, records = self.prepare(release_id, receipt, source_before)
             authorization = self._last_authorization; proposal = self._last_proposal

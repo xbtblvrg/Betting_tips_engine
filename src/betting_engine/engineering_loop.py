@@ -415,7 +415,7 @@ def _collect(root, payload, operations, components, plan, state, now, release_re
         release_errors.append(str(release_recovery['error']))
         row=_observation('SYSTEM:release_recovery_evidence','release_recovery_evidence','SYSTEM',
             'Release recovery evidence is unavailable; restore the root handoff audit.',
-            now.isoformat(), {'error':release_recovery['error']},bucket='release',priority=0)
+            now.isoformat(), {'error':release_recovery['error']},bucket='release_audit',priority=0)
         row.update(owner='root_release_coordinator',next_action='Restore verified release recovery evidence.',release_task_id=None)
         add(row)
     for request in release_recovery.get('requests',[]):
@@ -453,7 +453,7 @@ def _collect(root, payload, operations, components, plan, state, now, release_re
     if release_errors:
         row=_observation('SYSTEM:release_recovery_evidence','release_recovery_evidence','SYSTEM',
             'Release recovery evidence is invalid or unavailable; retain blockers and repair the root audit.',
-            now.isoformat(),{'errors':release_errors},bucket='release',priority=0)
+            now.isoformat(),{'errors':release_errors},bucket='release_audit',priority=0)
         row.update(owner='root_release_coordinator',next_action='Repair and revalidate the release recovery source evidence.',release_task_id=None)
         add(row)
     elif _fresh(release_recovery.get('checked_at'),release_now,180):
@@ -636,6 +636,10 @@ def _tasks(registry, plan, state, now):
                     'acceptance': ACCEPTANCE, 'depends_on': [target] if seed and row.get('state') in READY else [],
                     'engineering_bucket': bucket, 'engineering_generation': generation,
                     'created_at': now.isoformat(), 'due_at': deadline}
+        if bucket == 'release_audit' and task_id in extra:
+            extra[task_id].update(owner='codex_development_worker', root_integration_required=True,
+                objective='Repair the release recovery audit parser, identity and deadline handling using the exact archived engineering evidence. Implement and test a bounded candidate patch; root alone reviews and integrates protected coordinator changes. Preserve every actual release blocker and original deadline. Never mint acceptance, alter release policy or claim deployment from an audit repair.',
+                acceptance='Regression reproduces the archived malformed/unavailable recovery evidence; repaired audit yields valid task-owned handoffs without closing unverified blockers. Existing release authorization, tests, independent review and source-bound resolution gates remain unchanged. Root integration and a fresh measured audit are required.')
         if bucket.startswith('timeout_repair_') and task_id in extra:
             extra[task_id].update(owner='codex_development_worker',
                 objective='Implement a bounded repair for the exact pinned timeout evidence. Inspect and preserve the retained candidate. Build and test the smallest resumable implementation or input adapter that lets the original task finish within its budget. Do not repeat full exploration, return a diagnosis-only result, change the original deadline or weaken acceptance. Protected caller changes require root integration.',
@@ -773,7 +777,7 @@ def sync_engineering_loop(root, plan, state=None, *, payload=None, operations=No
             'registry_path': str(path.relative_to(root)), 'reassessment_seconds': 60,
             'automatic_production_deployment': False, 'mission': MISSION, 'diagnostics': diagnostics,
             'release_handoffs':[{k:r.get(k) for k in ('id','task_id','release_run_id','owner','next_action','first_seen','due_at','overdue','evidence_path')}
-                for r in active if r['bucket'] in ('release','controller_repair')],
+                for r in active if r['bucket'] in ('release','release_audit','controller_repair')],
             'gaps': [{key: row.get(key) for key in ('id', 'league', 'family', 'bucket', 'reason', 'state',
                 'task_id', 'first_seen', 'due_at', 'overdue', 'evidence_path', 'observations')}
                 for row in sorted(active, key=lambda r: (not r['overdue'], r['priority'], r['due_at'], r['id']))]}

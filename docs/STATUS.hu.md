@@ -562,3 +562,15 @@ A heti tanult súlyozás tartós jobként bekötve; aktuális jóváhagyott súl
 ##2026-10-04 — végleges másolattakarítás lezárva
 
 329 előkészítési inputkészlet,168 terminális staging,29 eredetivel egyező privát validáció és207 további munkapéldány185039 igazolt bemenetmásolata végleg törölve;362836397779 logikai bájt. Projekt1188,5→858,1GiB; szabad hely286,5→496,1GiB a takarítás végén. Eredeti ledger-hash-ek változatlanok,3 DB integrity_check ok. Commitok:b5d33e9,cbf92d3,a1d918e. Teljes teszt6965passed/1skipped;DOM282passed; független review.7 LaunchAgent visszaindult; helyi/Tailscale friss8202 publikáció azonos,error:null. Óránkénti meglévő retention job végleges, forrásazonosítóval ellenőrzött törléssel bővítve; változott/aktív/hivatkozott anyagok megmaradnak. Részletek:docs/CLEANUP_2026-10-04.hu.md.
+
+
+## 2026-10-04 — élő rendszerellenőrzés, felügyeleti és release-helyreállítási javítás
+
+- Független élő audit (13:29–13:38 UTC): 847 eredeti döntés, 848 jegy, 634 outcome; hiányzó jegy/outcome-link és P&L-számítási eltérés: 0. 633 lezárt döntés, P&L −31.3741 USD, ROI −3.8227%; 160 döntéshez hiányzik összehasonlítható záróár.
+- Profi ligák napi első kiadásai: NFL 4, NHL 2, MLB 13, NBA 7, WNBA 0 (26/100). A teljes, NCAA-t is tartalmazó számláló 28; ez nem helyettesíti a profi ligás célt.
+- 48 órás élő párosítás: NFL 14/14, NHL 5/5, MLB 4/4, NBA 7/7, WNBA 2/2. Hiányos megfigyelt piactípus: 226. A hiányok tényleges modell/scope/adat-képességek, nem pusztán aliasok.
+- Javítás: a stabilitási audit cache-e a mért szolgáltatás/komponens/fejlesztési állapot változásakor újramér; puszta heartbeat nem indít új drága próbát. Aktív, teljesen foglalt worker-kapacitás nem hamis elakadás.
+- Javítás: release recovery eredeti task-azonosítás a policy-kapu előtt; hiányzó határidő az eredeti észlelésből; korábbi request-határidő megőrzése; receipthez kötött unknown-identitás migráció, változatlan nyitott blockerrel és megőrzött előzményekkel. Hibás recovery-audit a meglévő engineering loopban végrehajtható javítási feladatot kap.
+- Független review: supervisor 11 célzott teszt; release 60 célzott teszt. A review-ban reprodukált null-határidő hibát és határidő-hosszabbítási esetet javítottuk, külön regressziókkal. Guard, finanszírozás és eredeti döntés nem változott.
+- Teljes rendszer állapota: attention_required. Tanult profi horgonysúlyok: 0 jóváhagyott szegmens; legnagyobb alkalmas profi minta 4 független meccs a 30-as követelménnyel szemben. Páros prospektív challenger/champion javulásmérés hiányzik; feedback-feldolgozás nem minősül igazolt javulásnak.
+- Végleges teljes tesztek: pytest 6976 passed, 1 skipped, 25 warnings, 5 subtests (169.01 s); npm test 292 passed. Log: /tmp/bte-live-audit-final-pytest.log és /tmp/bte-live-audit-dom.log.
