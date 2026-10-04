@@ -142,7 +142,14 @@ def contract_anchors(markets, quotes):
     for (_, _, kind, _), rows in groups.items():
         base = kind.rsplit(':', 1)[-1]
         sides = expected.get(base)
-        if base in ('winner_total', 'exact_score'):
+        if base == 'winner_total':
+            first = rows[0][0]
+            binary = (getattr(first, 'league', None) == 'WNBA'
+                and first.metadata.get('model_scope') == 'full_game'
+                and first.metadata.get('stake_market_name') == 'Winner & Total (Incl. Overtime)')
+            sides = {winner+'_'+total for winner in (('home', 'away') if binary else ('home', 'away', 'draw'))
+                     for total in ('over', 'under')}
+        if base == 'exact_score':
             # These are complete exclusive multi-outcome contracts.  The
             # parser has already checked their exact Stake outcome syntax;
             # retain all outcomes for one proportional devig calculation.

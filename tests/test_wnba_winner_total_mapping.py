@@ -63,3 +63,21 @@ def test_no_partial_duplicate_draw_or_wrong_line_contract(raw):
         if mutate == 'line': candidate['outcomes'][0]['name'] = 'Atlanta Dream & Over 174.5'
         assert parse(candidate)[0] == []
     assert parse(raw, 'NFL')[0] == []
+
+
+@pytest.mark.parametrize('state', [{'active': False}, {'active': None}, {'status': 'suspended'},
+                                  {'status': 'inactive'}, {'missing_active': True}])
+def test_composite_requires_every_outcome_active(raw, state):
+    if state.get('missing_active'):
+        raw['outcomes'][0].pop('active')
+    else:
+        raw['outcomes'][0].update(state)
+    assert parse(raw)[0] == []
+
+
+def test_binary_anchor_requires_all_four_quotes_and_outcomes(raw):
+    markets, quotes = parse(raw)
+    for omitted in markets:
+        partial_quotes = {key: value for key, value in quotes.items() if key != omitted.id}
+        assert contract_anchors(markets, partial_quotes) == {}
+        assert contract_anchors([m for m in markets if m.id != omitted.id], quotes) == {}

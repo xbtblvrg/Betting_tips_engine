@@ -457,6 +457,9 @@ class StakeSportsbook:
                     binary_winner_total = (league == 'WNBA' and scope == 'full_game'
                         and name == 'Winner & Total (Incl. Overtime)')
                     if binary_winner_total:
+                        if any(o.get('active') is not True or o.get('status') not in (None, 'active')
+                               for o in outcomes):
+                            continue
                         from .period_contracts import scoped_total_line
                         try:
                             line = scoped_total_line(market.get('specifiers'), scope)
