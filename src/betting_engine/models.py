@@ -117,7 +117,7 @@ class FormState:
 
 def feature_history(games,league,as_of=None):
     cutoff=as_of or utcnow();state=FormState(league);rows=[];pending=[]
-    history=sorted((g for g in games if g.league==league and g.state=='final' and parse_time(g.start)<cutoff and not g.context.get('resumed_game')),key=lambda g:(parse_time(g.start),g.id))
+    history=sorted((g for g in games if g.league==league and g.state=='final' and g.game_type!='preseason' and parse_time(g.start)<cutoff and not g.context.get('resumed_game')),key=lambda g:(parse_time(g.start),g.id))
     for g in history:
         start=parse_time(g.start)
         while pending and pending[0][0]<=start:
@@ -290,6 +290,7 @@ class LeagueModel:
         mu=self.score_model.predict(x[None,:])[0];margin,total=map(float,mu)
         warnings=['A sérülések és teljes kezdőcsapat kvantitatív korrekciója még hiányzik.']
         if g.league=='MLB' and not all(g.context.get(side+'_pitcher') for side in ('home','away')):warnings.append('A kezdő dobó még nincs mindkét csapatnál megadva; a modell ligaátlagra húz vissza.')
+        if g.game_type=='preseason':warnings.append('Preseason: provisional extrapolation from regular/postseason team history; preseason calibration and rotations are unverified.')
         injury=g.context.get('injuries',{})
         if injury.get('stale'):warnings.append('A sérüléslista több mint egy napos.')
         if any(injury.get(side) for side in ('home','away')):warnings.append('A sérüléslistán szerepel játékos; a konkrét státusz a részletek között látható, az esélyt még nem korrigálja.')

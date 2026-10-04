@@ -84,6 +84,42 @@ class SportsData:
                     games.append(Game(id=league+':'+r['id'],league=league,start=r['date'],home=r['home_display_name'],away=r['away_display_name'],home_id=r['home_id'],away_id=r['away_id'],home_abbr=r['home_abbreviation'],away_abbr=r['away_abbreviation'],state=state,season=season,home_score=num(r['home_score']) if state=='final' else None,away_score=num(r['away_score']) if state=='final' else None,neutral=truth(r.get('neutral_site')),game_type='playoff' if str(r.get('season_type')) in ('3','3.0') else 'regular',source=url,fetched_at=m['fetched_at']))
             except (ValueError,KeyError):continue
         return validate_batch(games),m
+    def basketball_current(self,league):
+        """Supplement season CSV omissions with independently identified ESPN fixtures.
+
+        Only future scheduled events enter this supplement; preseason results
+        never enter the regular/postseason training or team-form history.
+        """
+        if league not in ('NBA','WNBA'):raise ValueError('Unsupported basketball league')
+        now=utcnow();games={};metas=[]
+        for offset in (-1,0,1,2):
+            day=(now+timedelta(days=offset)).strftime('%Y%m%d')
+            url=f'https://site.api.espn.com/apis/site/v2/sports/basketball/{league.lower()}/scoreboard?dates={day}&limit=1000'
+            payload,meta=self.fetcher.json(url,900);metas.append(meta)
+            if not isinstance(payload.get('events'),list):raise SourceError('events_missing')
+            for event in payload['events']:
+                competitions=event.get('competitions') or []
+                if len(competitions)!=1:continue
+                c=competitions[0];status=(c.get('status') or event.get('status') or {}).get('type',{})
+                if status.get('name')!='STATUS_SCHEDULED' or status.get('state')!='pre' or c.get('timeValid') is False:continue
+                start=c.get('date') or event.get('date')
+                if not start or not now<parse_time(start)<=now+timedelta(hours=48):continue
+                phase=str(event.get('season',{}).get('type',''))
+                if phase not in ('1','2','3'):continue
+                home=[r['team'] for r in c.get('competitors',[]) if r.get('homeAway')=='home']
+                away=[r['team'] for r in c.get('competitors',[]) if r.get('homeAway')=='away']
+                if len(home)!=1 or len(away)!=1:raise SourceError('ambiguous_teams')
+                h,a=home[0],away[0]
+                if not all(t.get('id') and t.get('displayName') and t.get('abbreviation') for t in (h,a)):continue
+                if league=='NBA' and not all(str(t['id']).isdigit() and 1<=int(t['id'])<=30 for t in (h,a)):continue
+                if any(x in event.get('name','').lower() for x in ('all-star','rising stars')):continue
+                context={'schedule_phase_evidence':{'raw_season_type':phase,'source':url,'source_sha256':meta['sha256'],'fetched_at':meta['fetched_at']}}
+                if phase=='1':context['preseason_inference']='provisional extrapolation from regular/postseason team history; preseason calibration unverified'
+                g=Game(id=league+':'+str(event['id']),league=league,start=start,home=h['displayName'],away=a['displayName'],home_id=str(h['id']),away_id=str(a['id']),home_abbr=h['abbreviation'],away_abbr=a['abbreviation'],state='scheduled',season=int(event['season']['year']),neutral=bool(c.get('neutralSite',False)),game_type={'1':'preseason','2':'regular','3':'playoff'}[phase],source=url,fetched_at=meta['fetched_at'],context=context)
+                if g.id in games and (games[g.id].start,games[g.id].home_id,games[g.id].away_id)!=(g.start,g.home_id,g.away_id):raise SourceError('conflicting_event')
+                games[g.id]=g
+        return list(games.values()),{'url':metas[1]['url'],'fetched_at':max(m['fetched_at'] for m in metas),'sha256':hashlib.sha256(''.join(m['sha256'] for m in metas).encode()).hexdigest()}
+
     def nfl(self):
         url='https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv'
         rows,m=self.fetcher.csv(url,1800);games=[]
@@ -147,6 +183,8 @@ class SportsData:
                 for s in range(2020 if league=='NCAAF' else 2023,year+1+(league!='NCAAF')):
                     jobs[f'{league}/{s}']=(season,(self.fetcher,league,s))
                 jobs[f'{league}/current']=(current,(self.fetcher,league))
+        for league in ('NBA','WNBA'):
+            if league in leagues:jobs[f'{league}/current']=(self.basketball_current,(league,))
         if 'NHL' in leagues:
             jobs['NHL/current']=(self.nhl_current,())
             # The league schedule is forward-looking by hockey date. Keep the
@@ -165,6 +203,11 @@ class SportsData:
                             # A newly downloaded season CSV must not replace an
                             # official completed result with a scheduled row.
                             def priority(row):return (row.state=='final',row.source.startswith('https://api-web.nhle.com/'),row.fetched_at)
+                            if priority(g)>=priority(old):games[g.id]=g
+                        elif g.league in ('NBA','WNBA') and old:
+                            # Current scoreboard identity/phase takes precedence
+                            # over season CSV omissions and stale scheduled rows.
+                            def priority(row):return (row.state=='final',row.source.startswith('https://site.api.espn.com/'),row.fetched_at)
                             if priority(g)>=priority(old):games[g.id]=g
                         elif not old or g.fetched_at>=old.fetched_at:games[g.id]=g
                     status.append({'source':key,'ok':True,'rows':len(rows),'fetched_at':meta['fetched_at'],'url':meta['url'],'sha256':meta['sha256']})
