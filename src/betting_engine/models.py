@@ -35,6 +35,12 @@ RECIPES={
     'richer_interactions':{'logistic_c':.3,'calibration_c':.3,'leaves':15,'l2':16.,'ridge':40.},
     'elo_anchor':{'logistic_c':.3,'calibration_c':1.,'leaves':7,'l2':8.,'ridge':80.},
     'identity_calibration':{'logistic_c':.3,'calibration_c':.1,'leaves':7,'l2':8.,'ridge':80.,'calibration_mode':'identity'},
+    # A transparent odds-independent fallback.  The deployed NFL report
+    # showed the historical ensemble regressing against its own Elo
+    # comparator, so this recipe keeps the exact Elo probability and skips
+    # outcome-fitted calibration.  It is promoted through the normal paired
+    # gate; it is not an EvidenceGuard bypass.
+    'elo_identity':{'logistic_c':.3,'calibration_c':.1,'leaves':7,'l2':8.,'ridge':80.,'calibration_mode':'identity'},
 }
 
 def feature_names(league):
@@ -223,7 +229,7 @@ class LeagueModel:
         # Selection uses tune only, never the final test.
         tune_y=y[tune&not_tie];tune_predictions={name:m.predict_proba(allx[tune&not_tie])[:,1] for name,m in initial.items()}
         candidates=[{'logistic':a/4,'boosting':b/4,'elo':1-(a+b)/4} for a in range(5) for b in range(5-a)]
-        if self.recipe=='elo_anchor':candidates=[{'logistic':0.,'boosting':0.,'elo':1.}]
+        if self.recipe in ('elo_anchor','elo_identity'):candidates=[{'logistic':0.,'boosting':0.,'elo':1.}]
         self.weights=min(candidates,key=lambda w:brier_score_loss(tune_y,sum(w[name]*p for name,p in tune_predictions.items())))
         self.weight=self.weights['logistic']
         frozen=fit_class(train|tune)

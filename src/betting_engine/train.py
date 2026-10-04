@@ -32,7 +32,7 @@ def promotion_gate(champion,challenger):
     scores=score_gate(champion,challenger)
     return {'promote':hi<0 and scores['passed'],'reason':'Paired weekly Brier comparison and score-regression check; not proof of betting profit.','paired_games':len(pairs),'weeks':len(blocks),'delta_ci95':[lo,hi],'score_guard':scores}
 
-def train(refresh=False,leagues=LEAGUES,controlled=False):
+def train(refresh=False,leagues=LEAGUES,controlled=False,recipe_override=None):
     from .experiments import training_digest
     from .training_evidence import capture_inputs,bind_archive
     if refresh or not (DATA/'games.json').exists():
@@ -47,7 +47,7 @@ def train(refresh=False,leagues=LEAGUES,controlled=False):
             champion_raw=destination.read_bytes() if controlled and destination.exists() else None
             champion=joblib.load(io.BytesIO(champion_raw)) if champion_raw is not None else None
             evidence_digest=training_digest(games,league)
-            recipe=champion.report.get('recipe','baseline') if champion else 'baseline'
+            recipe=(recipe_override or champion.report.get('recipe','baseline')) if champion else (recipe_override or 'baseline')
             fit_at=utcnow()
             inputs=capture_inputs(DATA,games,league,recipe=recipe,as_of=fit_at,metadata={'training_digest':evidence_digest})
             model=LeagueModel(league,recipe).fit(games,as_of=fit_at)
@@ -77,5 +77,5 @@ def train(refresh=False,leagues=LEAGUES,controlled=False):
     atomic_json(out/'summary.json',reports);return reports
 
 if __name__=='__main__':
-    parser=argparse.ArgumentParser();parser.add_argument('--refresh',action='store_true');parser.add_argument('--controlled',action='store_true');parser.add_argument('--league',choices=LEAGUES,action='append');args=parser.parse_args()
-    train(args.refresh,args.league or LEAGUES,args.controlled)
+    parser=argparse.ArgumentParser();parser.add_argument('--refresh',action='store_true');parser.add_argument('--controlled',action='store_true');parser.add_argument('--league',choices=LEAGUES,action='append');parser.add_argument('--recipe',choices=tuple(sorted(__import__('betting_engine.models',fromlist=['RECIPES']).RECIPES)),help='Use an explicitly reviewed recipe for the selected challenger.') ;args=parser.parse_args()
+    train(args.refresh,args.league or LEAGUES,args.controlled,args.recipe)

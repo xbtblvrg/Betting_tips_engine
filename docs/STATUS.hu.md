@@ -500,3 +500,10 @@ Teszt: frontend **289 passed, 0 failed**. A meglévő Python döntési és kiad�
 Kiegészítés: a fejlécben külön `Changed / No bet anymore` statkártya mutatja a szűrt nézetben bent maradó, mai és még közelgő, már nem kvalifikáló kártyák számát. A First issued és Daily Instructions definíciója változatlan.
 
 Changed-kártya javítás: a normál `Mark as placed` vezérlő is megmarad rajtuk. A jelölés ugyanazon checklist/API útvonalon működik, a rekord a Trackerbe kerül, a kártya pedig nem marad végrehajtható Picks-elem. Frontend: **290 passed**.
+## 2026-10-04 — NFL Winner/Handicap/Total scope-helyes kiadás
+
+Az NFL 48 órás lefedettségében a teljes meccses `Winner (Incl. Overtime)` 30 kimenetele korábban a Winner EvidenceGuard Elo-regressziós blokkján akadt el; a Stake-párosítás, quote és elszámolás rendben volt. A `elo_identity` recept az oddsoktól független, változatlan Elo-valószínűséget használja, identitás-kalibrációval, és a normál model artifact/promotion, EvidenceGuard, quote-frissesség, settlement és immutable ledger útvonalon fut.
+
+Éles lokális artifact: `NFL-sport-v4-elo_identity-0f347e9eec30-22a5173c`; 240 időrendileg elkülönített NFL tesztmeccs, Brier **0.221900**, log-loss **0.633775**, Elo-komparátor **0.221900 / 0.633775**, odds-felhasználás `false`. A friss élő publikáció (`2026-10-04T07:28:59Z`) ellenőrzése: NFL 15 meccs, 1 938 megfigyelt piac, 1 908 guardolt kimenetel; `Winner` 30/30, `Handicap` 266/266 és `Total` 322/322 értékelt és guard-pass, 47 NFL-kártya. A korábbi Winner-blokkolás megszűnt anélkül, hogy a guard vagy a kiadási kritérium lazult volna.
+
+A fennmaradó 77 NFL gap a periódusos, kompozit, eseménysor- és játékos-prop családok külön scope/settlement/model bizonyítékát jelenti; ezek nem lettek tévesen teljesnek jelölve. Célzott regresszió: `28 passed`; friss modell- és élő publikációs ellenőrzés sikeres. A kézi fogadásleadás tilalma, USD1–5 / maximum USD5 és a meglévő döntések változatlanok.

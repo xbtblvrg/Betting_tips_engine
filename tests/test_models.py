@@ -72,6 +72,12 @@ def test_same_day_updates_preserve_play_order_not_game_id_order():
     _,state=feature_history([late,early],'NBA')
     assert state.teams['h']['last']==late.start
 
+def test_elo_identity_recipe_is_explicit_and_odds_independent():
+    from betting_engine.models import LeagueModel, RECIPES
+    assert RECIPES['elo_identity']['calibration_mode']=='identity'
+    model=LeagueModel('NFL','elo_identity')
+    assert model.recipe=='elo_identity'
+
 @pytest.mark.parametrize('score',[float('nan'),float('inf'),-1,1.5])
 def test_nonfinite_or_impossible_score_rejected(score):
     with pytest.raises(ValueError):game('bad','2025-01-01',score,1)
