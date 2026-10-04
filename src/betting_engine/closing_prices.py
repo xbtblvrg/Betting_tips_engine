@@ -272,7 +272,9 @@ def _contract(tip):
               "NCAAF": "Overtime", "NCAAM": "Overtime", "NCAAW": "Overtime"}.get(league)
     if suffix:
         for name, kind in (("Winner", "moneyline"), ("Handicap", "spreads"),
-                           ("Total", "totals"), (home + " Total", "home_total"),
+                           ("Total", "totals"), ("Odd/Even", "odd_even"),
+                           ("Both Teams to Score", "both_score"),
+                           ("Double Chance", "double_chance"), (home + " Total", "home_total"),
                            (away + " Total", "away_total")):
             scopes[f"{name} (Incl. {suffix})"] = ("full_game", kind)
     if suffix:

@@ -1,0 +1,58 @@
+{
+  "NFL": {
+    "file": "NFL.json.gz",
+    "source": {
+      "url": "https://odds-data.stake.com/odds/46559768-washington-commanders-indianapolis-colts",
+      "fetched_at": "2026-10-04T08:52:08.196574+00:00",
+      "sha256": "3ef3afdeda1169984bac34ed188955fcf98cb8d671696c09e3966797480ddbaa",
+      "archive": "stake_api_archive/3ef3afdeda1169984bac34ed188955fcf98cb8d671696c09e3966797480ddbaa.json.gz"
+    },
+    "market_id": "d2f05228-d781-4795-8c54-589c281de6a9",
+    "teams": [
+      "Washington Commanders",
+      "Indianapolis Colts"
+    ]
+  },
+  "NHL": {
+    "file": "NHL.json.gz",
+    "source": {
+      "url": "https://odds-data.stake.com/odds/46925114-detroit-red-wings-winnipeg-jets",
+      "fetched_at": "2026-10-04T08:52:07.895592+00:00",
+      "sha256": "11bef499c9539150b63616018b98682ae7cd4cf1f119ca85a4a2ac0b0dbad147",
+      "archive": "stake_api_archive/11bef499c9539150b63616018b98682ae7cd4cf1f119ca85a4a2ac0b0dbad147.json.gz"
+    },
+    "market_id": "6d21cfb5-4bbb-4fd1-92f7-badfd35c5bfd",
+    "teams": [
+      "Detroit Red Wings",
+      "Winnipeg Jets"
+    ]
+  },
+  "MLB": {
+    "file": "MLB.json.gz",
+    "source": {
+      "url": "https://odds-data.stake.com/odds/46944475-milwaukee-brewers-nl-4-5",
+      "fetched_at": "2026-10-04T08:52:07.698120+00:00",
+      "sha256": "afd57ee5aa2cf7d5c73b1d4a6bf84d6e6f9f1e484ccfa97e12213261cf0b682e",
+      "archive": "stake_api_archive/afd57ee5aa2cf7d5c73b1d4a6bf84d6e6f9f1e484ccfa97e12213261cf0b682e.json.gz"
+    },
+    "market_id": "0f301f6b-ea7a-4637-b46e-f44f07e860f3",
+    "teams": [
+      "Milwaukee Brewers",
+      "San Diego Padres"
+    ]
+  },
+  "WNBA": {
+    "file": "WNBA.json.gz",
+    "source": {
+      "url": "https://odds-data.stake.com/odds/46953525-atlanta-dream-new-york-liberty",
+      "fetched_at": "2026-10-04T08:52:07.521088+00:00",
+      "sha256": "13a7283a175ed9bf886c6f2e84d305708cb9d561e44e9110dbc50cc8e9f0472a",
+      "archive": "stake_api_archive/13a7283a175ed9bf886c6f2e84d305708cb9d561e44e9110dbc50cc8e9f0472a.json.gz"
+    },
+    "market_id": "70ba0b76-9579-4929-8a60-bf7d8c8a0501",
+    "teams": [
+      "Atlanta Dream",
+      "New York Liberty"
+    ]
+  }
+}

@@ -89,7 +89,7 @@ def _source(capture, root):
 
 
 def _fair_probability(tip, snapshots, comparison, *, snapshot_index=None):
-    """Proportional de-vig only for a complete, exclusive 2/3-way contract."""
+    """Proportional de-vig only for complete, mutually exclusive outcome sets."""
     chosen = comparison.get('closing_price')
     if not chosen:
         return None
@@ -103,7 +103,10 @@ def _fair_probability(tip, snapshots, comparison, *, snapshot_index=None):
     row = rows[0]; _, _, _, kind = _contract(tip)
     sides = {'moneyline': ('home', 'away'), 'spreads': ('home', 'away'),
              'totals': ('over', 'under'), 'home_total': ('over', 'under'),
-             'away_total': ('over', 'under'), 'three_way': ('home', 'draw', 'away')}.get(kind)
+             'away_total': ('over', 'under'), 'three_way': ('home', 'draw', 'away'),
+             'odd_even': ('odd', 'even'), 'both_score': ('yes', 'no'),
+             'winner_total': ('home_over', 'home_under', 'away_over', 'away_under'),
+             'exact_total': ('under', 'exact', 'over')}.get(kind)
     outcomes = row.get('outcomes', [])
     if not sides or len(outcomes) != len(sides) or len({o.get('id') for o in outcomes}) != len(sides):
         return None
