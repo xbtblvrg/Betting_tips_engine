@@ -15,7 +15,7 @@ def test_exact_evidence_distinguishes_guards_funding_and_feedback():
     report=build_live_coverage(pub,cat,[decision,decision],['a'],NOW)
     row=report['rows'][0]
     assert row['market']==TITLE and row['scope']=='quarter_1'
-    assert row['funding_eligible'] and row['settled_and_feedback']
+    assert row['funding_eligible_now'] and row['settled_and_feedback']
     assert row['issued_today']==1
     pub['recommendations'][0]['execution_review']['actionable']=False
     row=build_live_coverage(pub,cat,[decision],[],NOW)['rows'][0]
@@ -43,3 +43,16 @@ def test_feedback_hash_failure_fails_closed(tmp_path):
     (p/'latest.json').write_text(json.dumps({'latest_review':{'path':'../bad','sha256':'a'*64}}))
     ids,error=feedback_ids(tmp_path)
     assert ids==[] and 'Invalid' in error
+
+def test_funding_support_is_separate_from_marked_or_exposure_blocked(monkeypatch):
+    pub,cat=inputs()
+    candidate={**pub['recommendations'][0], 'stake':0, 'decision_guard':{'passed':True}, 'input_readiness':{'passed':True}}
+    pub['recommendations']=[];pub['evaluated_candidates']=[candidate];pub['settings']={'max_bet':5}
+    import betting_engine.funding_policy as policy
+    monkeypatch.setattr(policy,'funding_basis',lambda *args:{'eligible':True})
+    monkeypatch.setattr(policy,'size_recommendation',lambda *args:{'amount':2})
+    row=build_live_coverage(pub,cat,now=NOW)['rows'][0]
+    assert row['funding_supported'] and row['qualifying_before_exposure']==1
+    assert not row['funding_eligible_now']
+    monkeypatch.setattr(policy,'size_recommendation',lambda *args:{'amount':0})
+    assert not build_live_coverage(pub,cat,now=NOW)['rows'][0]['funding_supported']

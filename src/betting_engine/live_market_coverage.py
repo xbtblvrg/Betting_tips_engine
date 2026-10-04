@@ -47,6 +47,21 @@ def build_live_coverage(publication, catalog, decisions=(), feedback_tip_ids=(),
         groups.setdefault(key, {})
     live = {_key(row): row for row in publication.get('market_types', [])}
     funded = Counter()
+    qualifying = Counter()
+    from .funding_policy import funding_basis, size_recommendation
+    settings = publication.get('settings', {})
+    for tip in publication.get('evaluated_candidates', []):
+        if not (current and _fresh(tip.get('quote_at'), now) and
+                (tip.get('decision_guard') or {}).get('passed') is True and
+                (tip.get('input_readiness') or {}).get('passed') is True):
+            continue
+        try:
+            basis = funding_basis(tip, settings)
+            size = size_recommendation(tip, settings, float(settings['max_bet']), 0)
+            if basis['eligible'] and 1 <= size['amount'] <= min(5, settings['max_bet']):
+                qualifying[_key(tip)] += 1
+        except (KeyError, TypeError, ValueError, ArithmeticError):
+            continue
     for tip in publication.get('recommendations', []):
         review = tip.get('execution_review') or {}
         if current and _fresh(tip.get('quote_at'), now) and tip.get('stake', 0) > 0 and review.get('actionable') is True:
@@ -92,7 +107,10 @@ def build_live_coverage(publication, catalog, decisions=(), feedback_tip_ids=(),
                      'parsed_outcomes': parsed, 'priced_outcomes': priced,
                      'guard_passed_outcomes': passed, 'currently_fundable_outcomes': funded[key],
                      'connected': parsed > 0, 'evaluated': current and (source.get('evaluated_outcomes', 0) > 0 or source.get('guard_checked_outcomes', 0) > 0 or passed > 0),
-                     'funding_eligible': funded[key] > 0,
+                     'funding_eligible': qualifying[key] > 0,
+                     'funding_eligible_now': funded[key] > 0,
+                     'qualifying_before_exposure': qualifying[key],
+                     'funding_supported': qualifying[key] > 0,
                      'issued_today': issued_today, 'settled_decisions': len(closed),
                      'feedback_decisions': fed, 'settled_and_feedback': bool(closed) and fed == len(closed),
                      'reasons': source.get('reasons', {}),
@@ -101,12 +119,13 @@ def build_live_coverage(publication, catalog, decisions=(), feedback_tip_ids=(),
     return {'version': 'live-market-coverage-v1', 'checked_at': now.isoformat(),
             'publication_at': publication.get('generated_at'), 'publication_version': publication.get('version'),
             'catalogue_at': catalog.get('checked_at'), 'publication_fresh': current,
-            'scope': 'Observed feed titles; not proof of complete Stake website coverage. Funding eligibility is current, contract-specific, and may change.',
+            'scope': 'Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.',
             'feedback_definition': 'Every settled original decision of this exact title occurs in supplied successful feedback input IDs; this does not prove model promotion.',
             'rows': rows,
             'leagues': {league: {'observed_types': sum(r['league'] == league for r in rows),
                                 'evaluated_types': sum(r['league'] == league and r['evaluated'] for r in rows),
                                 'funding_eligible_types': sum(r['league'] == league and r['funding_eligible'] for r in rows),
+                                'funding_eligible_now_types': sum(r['league'] == league and r['funding_eligible_now'] for r in rows),
                                 'guard_passed_types': sum(r['league'] == league and r['guard_passed_outcomes'] > 0 for r in rows),
                                 'issued_today': sum(r['issued_today'] for r in rows if r['league'] == league)} for league in LEAGUES}}
 
@@ -118,10 +137,10 @@ def export_markdown(report, path):
     def yes(value):
         return 'Yes' if value else 'No'
     lines = ['# Live Stake market coverage', '', 'Checked: ' + report['checked_at'], '', report['scope'], '',
-             '| League | Exact Stake title | Scope | Connected | Evaluated | Fundable now | Issued today | Settled / feedback |',
+             '| League | Exact Stake title | Scope | Connected | Evaluated | Funding supported / ready now | Issued today | Settled / feedback |',
              '|---|---|---|---|---|---|---:|---|']
     for row in report['rows']:
-        lines.append('| ' + ' | '.join(map(cell, [row['league'], row['market'], row['scope'], yes(row['connected']), yes(row['evaluated']), yes(row['funding_eligible']), row['issued_today'], str(row['settled_decisions']) + ' / ' + str(row['feedback_decisions'])])) + ' |')
+        lines.append('| ' + ' | '.join(map(cell, [row['league'], row['market'], row['scope'], yes(row['connected']), yes(row['evaluated']), yes(row['funding_supported']) + ' / ' + yes(row['funding_eligible_now']), row['issued_today'], str(row['settled_decisions']) + ' / ' + str(row['feedback_decisions'])])) + ' |')
     target = Path(path)
     from .io_utils import atomic_bytes
     atomic_bytes(target, ('\n'.join(lines) + '\n').encode())
