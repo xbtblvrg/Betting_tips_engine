@@ -426,7 +426,10 @@ def _score_source_anchors(data_dir, sha, archive, size, fetched_at, mtime_ns, co
             or fixture.get('blacklisted') is True or
             abs(float(fixture['startTime']) / 1000 - parse_time(start).timestamp()) > 1):
         raise ValueError('Score source fixture lifecycle/start mismatch')
-    game = SimpleNamespace(id=game_id, league=league, home=home, away=away, start=start,home_abbr=home_abbr,away_abbr=away_abbr)
+    # Replay only has score-contract inputs. An unrelated NFL overtime offer
+    # must be rejected for absent verified phase, never supplied an invented one.
+    game = SimpleNamespace(id=game_id, league=league, home=home, away=away, start=start,
+                           home_abbr=home_abbr, away_abbr=away_abbr, context={}, source='', game_type='')
     book = StakeSportsbook(fetcher=object(),segment_markets={(league,scope):('three_way','double_chance')},
                            full_markets={league:('three_way','double_chance')})
     parsed = book._markets_for_fixture(raw, {'id':fixture['id'],'slug':slug,'league_path':league_path},game,league,fetched_at)

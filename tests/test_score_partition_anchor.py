@@ -94,3 +94,32 @@ def test_consistently_forged_partition_rejected_against_archived_payload(tmp_pat
     with pytest.raises((OSError,ValueError)):
         verify_score_anchor_source(game,selected,anchor,tmp_path)
 
+
+
+def test_archived_nfl_score_replay_skips_unverified_overtime_in_same_fixture(tmp_path):
+    import gzip,hashlib,json
+    from betting_engine.markets import StakeSportsbook
+    from betting_engine.market_anchor import verify_score_anchor_source
+    from betting_engine.domain import parse_time
+    game=N(id='NFL:g',league='NFL',home='Dallas Cowboys',away='Baltimore Ravens',
+           home_abbr='DAL',away_abbr='BAL',start='2026-10-04T12:00:00Z',context={},source='',game_type='')
+    fixture={'id':'nfl-fixture','slug':'cowboys-ravens','status':'active','enabled':True,
+             'preMatchEnabled':True,'blacklisted':False,'startTime':parse_time(game.start).timestamp()*1000}
+    raw={'fixture':fixture,'groups':[{'name':'Main','markets':[[
+        {'id':'overtime','name':'Will There Be Overtime','status':'active','outcomes':[
+            {'id':'ot-y','name':'Yes','active':True,'odds':10.},
+            {'id':'ot-n','name':'No','active':True,'odds':1.05}]},
+        {'id':'threeway','name':'1x2','status':'active','outcomes':[
+            {'id':'home','name':game.home,'active':True,'odds':2.1},
+            {'id':'draw','name':'Draw','active':True,'odds':10.},
+            {'id':'away','name':game.away,'active':True,'odds':1.9}]}]]}]}
+    body=json.dumps(raw).encode();sha=hashlib.sha256(body).hexdigest()
+    folder=tmp_path/'stake_api_archive';folder.mkdir();(folder/(sha+'.json.gz')).write_bytes(gzip.compress(body))
+    meta={'sha256':sha,'archive':'stake_api_archive/'+sha+'.json.gz','bytes':len(body),'fetched_at':STAMP}
+    book=StakeSportsbook(fetcher=object(),segment_markets={('NFL','regulation'):('three_way','double_chance')})
+    markets=book._markets_for_fixture(raw,fixture,game,'NFL',STAMP)
+    assert len(markets)==3 and all(m.description=='1x2' for m in markets)
+    for market in markets:market.metadata['api_source']=meta
+    quotes,_=book.quotes(markets);anchors=contract_anchors(markets,quotes)
+    for market in markets:
+        assert verify_score_anchor_source(game,market,anchors[market.id],tmp_path)['source_sha256']==sha
