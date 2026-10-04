@@ -213,6 +213,7 @@ class Settings(BaseModel):
     max_bet:float=Field(5,ge=1,le=5)
     unit_stake:float=Field(1,ge=1,le=5)
     publication_limits_version:Literal['v1','v2','v3']|None=None
+    dynamic_event_limits:dict|None=None
     sparse_league_overrides:list[Literal['NFL','NHL','MLB']]=Field(default_factory=list)
     max_new_funded_per_publication:int=Field(10,ge=1,le=15)
     max_per_event:int|None=Field(None,ge=1,le=4)
@@ -256,6 +257,9 @@ def put_settings(settings:Settings):
     if minimum_active_target is not None and values.get('daily_pick_target',minimum_active_target)<minimum_active_target:
         raise HTTPException(422,f'The active daily first-issuance target is at least {minimum_active_target}.')
     proposed={**current,**values}
+    from .dynamic_event_limits import policy as dynamic_limit_policy
+    try:dynamic_limit_policy(proposed)
+    except ValueError as exc:raise HTTPException(422,str(exc)) from exc
     if proposed['bankroll'] and proposed['daily_risk_limit'] is not None and proposed['daily_risk_limit']>proposed['bankroll']:raise HTTPException(422,'A napi keret nem lehet nagyobb a bankrollnál.')
     if values.get('auto_track_recommendations') is None:values.pop('auto_track_recommendations',None)
     result=engine.store.save_settings(values)

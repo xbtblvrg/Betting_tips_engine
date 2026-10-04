@@ -57,9 +57,10 @@ def ready_snapshot(store, now=None, *, include_marked=False):
         if review['state'] in ('current', 'value_below_threshold'):
             current[tip['id']] = tip
     progress=store.daily_progress()
+    from .dynamic_event_limits import held_roster
     selected, alternatives = rank_and_size(list(current.values()), settings, store.risk_committed(),
         store.held_families(), held, counts, preferences, (store.held_allocation_families() if settings.get('model_pick_allocation_policy')=='distinct_family_v1' or settings.get('publication_limits_version')=='v3' else ()),
-        store.held_event_stakes(), store.held_period_counts(), store.daily_family_counts(), progress.get('calendar_day_issued',progress.get('issued',0)))
+        store.held_event_stakes(), store.held_period_counts(), store.daily_family_counts(), progress.get('calendar_day_issued',progress.get('issued',0)),held_event_roster=(held_roster(store.open_bets()) if settings.get('dynamic_event_limits') is not None else None))
     allowed = probability_preference_ids(list(current.values()), settings, held_preference_allocations=preferences)
     groups = defaultdict(list)
     for record in store.open_bets(): groups[record['tip_id']].append(record)

@@ -15,7 +15,7 @@ _DASHBOARD_TIP_FIELDS = (
     'expected_roi', 'stress_roi', 'label', 'model_version', 'model_trained_at',
     'predicted_home_points', 'predicted_away_points', 'stake', 'stake_note',
     'created_at', 'rank_score', 'basis', 'allocation_code', 'allocation_reason',
-    'allocation_policy', 'funding_basis', 'stake_sizing', 'tracking_source',
+    'allocation_policy', 'funding_basis', 'stake_sizing', 'tracking_source', 'event_limit_evidence',
     'family_selection_policy', 'outcome_sizing_policy', 'probability_support_policy', 'composite_contract_policy', 'composite_contract_evidence', 'outcome_sizing_evidence',
     'stake_market', 'market_anchor', 'calibration_uncertainty', 'recorded_snapshot',
     'tracked_bet', 'related_bets', 'covered_by', 'expired', 'is_additional',
@@ -262,7 +262,8 @@ def build_dashboard(store,health,data_dir):
             t.update(allocation_code='already_held',allocation_reason='This exact selection has already been issued. No repeated ticket is requested.')
     held_preferences=store.held_preference_allocations()
     progress=store.daily_progress()
-    chosen,alternatives=rank_and_size(reviewed,settings,store.risk_committed(),store.held_families(),held_contracts,held_event_counts,held_preferences,(store.held_allocation_families() if settings.get('model_pick_allocation_policy')=='distinct_family_v1' or settings.get('publication_limits_version')=='v3' else ()),store.held_event_stakes(),store.held_period_counts(),store.daily_family_counts(),progress.get('calendar_day_issued',progress.get('issued',0)))
+    from .dynamic_event_limits import held_roster
+    chosen,alternatives=rank_and_size(reviewed,settings,store.risk_committed(),store.held_families(),held_contracts,held_event_counts,held_preferences,(store.held_allocation_families() if settings.get('model_pick_allocation_policy')=='distinct_family_v1' or settings.get('publication_limits_version')=='v3' else ()),store.held_event_stakes(),store.held_period_counts(),store.daily_family_counts(),progress.get('calendar_day_issued',progress.get('issued',0)),held_event_roster=(held_roster(store.open_bets()) if settings.get('dynamic_event_limits') is not None else None))
     probability_ids=probability_preference_ids(reviewed,settings,held_preference_allocations=held_preferences)
     for t in reviewed:
         t['execution_review']=preference_execution_review(t,current_execution_review(t,now,settings['minimum_roi'],settings),probability_ids)

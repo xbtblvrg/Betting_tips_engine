@@ -124,6 +124,10 @@ class Store:
         with weight_epoch(self.path.parent),self.db() as c:
             c.execute('BEGIN IMMEDIATE')
             now=utcnow().isoformat()
+            if not require_guard:
+                configured=c.execute("SELECT value FROM kv WHERE key='settings'").fetchone()
+                if configured and json.loads(configured['value']).get('dynamic_event_limits') is not None:
+                    raise ValueError('Dynamic exposure requires guarded atomic publication')
             if require_guard:
                 from .governance import verify_publication
                 saved=c.execute("SELECT value FROM kv WHERE key='settings'").fetchone()
@@ -241,6 +245,10 @@ class Store:
                 tip=json.loads(row['payload']);key=(row['league'],allocation_family(tip));daily[key]=daily.get(key,0)+1
             except (TypeError,ValueError,json.JSONDecodeError):continue
         new=[tip for tip in funded if tip.get('id') not in existing_ids]
+        from .dynamic_event_limits import policy as dynamic_policy, verify_batch, read_held, limits_for
+        dynamic=dynamic_policy(settings) is not None
+        roster=read_held(c) if dynamic else []
+        if dynamic:verify_batch(c,funded,settings)
         counts={};stakes={};periods={};families={}
         for tip in new:
             gid=tip.get('game_id');counts[gid]=counts.get(gid,0)+1;stakes[gid]=stakes.get(gid,0.)+float(tip['stake'])
@@ -250,13 +258,13 @@ class Store:
         from .model_allocation import held_inventory
         held_families = held_inventory(c)[0] if settings.get('publication_limits_version') == 'v3' else set()
         for tip in new:
-            effective = publication_limits(settings, tip.get('league'))
+            effective = limits_for(settings,tip,roster,new) if dynamic else publication_limits(settings, tip.get('league'))
             key=(tip.get('game_id'), allocation_family(tip))
             if effective.get('distinct_families_required') and key in held_families:
                 raise ValueError('Publication blocked: sparse league requires distinct scope/market families')
             held_families.add(key)
         for gid,count in counts.items():
-            limits = publication_limits(settings, next(t.get('league') for t in new if t.get('game_id') == gid))
+            limits = limits_for(settings,next(t for t in new if t['game_id']==gid),roster,new) if dynamic else publication_limits(settings, next(t.get('league') for t in new if t.get('game_id') == gid))
             if open_event_counts.get(gid,0)+count>limits['max_per_event']:raise ValueError(f"Publication blocked: maximum {limits['max_per_event']} funded selections per game")
             if open_event_stakes.get(gid,0.)+stakes[gid]>limits['max_stake_per_event']+1e-9:raise ValueError(f"Publication blocked: ${limits['max_stake_per_event']:.0f} maximum stake per game")
             if open_period_counts.get(gid,0)+periods.get(gid,0)>limits['max_period_per_event']:raise ValueError(f"Publication blocked: maximum {limits['max_period_per_event']} period/quarter selection per game")
@@ -375,6 +383,11 @@ class Store:
         row=c.execute("SELECT value FROM kv WHERE key='settings'").fetchone()
         settings={**DEFAULT_SETTINGS,**(json.loads(row['value']) if row else {})}
         if not settings.get('auto_track_recommendations'):return
+        from .dynamic_event_limits import policy as dynamic_policy, read_held, limits_for
+        dynamic=dynamic_policy(settings) is not None
+        dynamic_roster=read_held(c) if dynamic else []
+        issued={r['tip_id'] for r in c.execute('SELECT tip_id FROM recommendation_issuance')} if dynamic else set()
+        dynamic_batch=[t for t in payload.get('recommendations',[]) if t.get('stake',0)>0 and t['id'] not in issued] if dynamic else []
         local=parse_time(now).astimezone(ZoneInfo(settings['timezone']))
         day_start=datetime.combine(local.date(),time.min,tzinfo=local.tzinfo).astimezone(timezone.utc).isoformat()
         committed=c.execute("SELECT COALESCE(SUM(stake),0) FROM bets WHERE created_at>=? OR status='open'",(day_start,)).fetchone()[0]
@@ -386,14 +399,15 @@ class Store:
         contracts={t.get('id') for t in existing};additions=settings.get('allow_event_additions',False)
         policy=publication_limits(settings)
         event_stakes=Counter();period_counts=Counter()
-        for old in existing:
+        exposure_records=dynamic_roster if dynamic else existing
+        for old in exposure_records:
             try:
                 gid=old.get('game_id');event_stakes[gid]+=float(old.get('stake',0))
                 scope,_=split_market(old.get('market',''))
                 if scope!='full_game':period_counts[gid]+=1
             except (TypeError,ValueError):
                 continue
-        event_counts=Counter(t.get('game_id') for t in existing)
+        event_counts=Counter(t.get('game_id') for t in exposure_records)
         diverse_families={(t.get('game_id'),allocation_family(t)) for t in existing}
         cycle_funded=0
         daily_family_counts=Counter();family_new=Counter()
@@ -443,7 +457,7 @@ class Store:
             prospective_stakes=Counter(event_stakes);prospective_periods=Counter(period_counts)
             prospective_committed=committed
             for candidate in usable_candidates:
-                policy=publication_limits(settings, candidate.get('league'))
+                policy=limits_for(settings,candidate,dynamic_roster,dynamic_batch) if dynamic else publication_limits(settings, candidate.get('league'))
                 gid=candidate['game_id'];amount=float(candidate['stake']);scope,_=split_market(candidate.get('market',''))
                 if len(eligible)>=policy['max_new_funded_per_publication']:continue
                 diverse_key=(gid,allocation_family(candidate))
@@ -470,7 +484,7 @@ class Store:
             family_limit=max(1,math.ceil((sum(daily_family_counts.values())+len(selected))*policy['max_daily_family_share']))
         for tip in payload.get('recommendations',[]):
             if policy and (not isinstance(tip,dict) or tip.get('id') not in allowed_ids):continue
-            policy=publication_limits(settings, tip.get('league'))
+            policy=limits_for(settings,tip,dynamic_roster,dynamic_batch) if dynamic else publication_limits(settings, tip.get('league'))
             amount=tip.get('stake',0);odds=tip.get('reference_odds',0)
             if not(1<=amount<=min(5,settings['max_bet']) and math.isfinite(odds) and odds>1):continue
             if tip.get('reference_platform')!='Stake.com' or tip.get('alternative') or tip.get('withdrawn_at'):continue

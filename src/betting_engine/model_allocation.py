@@ -56,12 +56,17 @@ are reread here. A concurrent ticket cannot leave a stale allocation funded.
     # their uncapped sizing semantics; the live service opts into v1 explicitly.
     limits = publication_limits(settings)
     event_cap = (limits['max_stake_per_event'] if limits else float('inf'))
+    from .dynamic_event_limits import policy as dynamic_policy, read_held, limits_for
+    dynamic=dynamic_policy(settings) is not None
+    roster=read_held(connection) if dynamic else []
+    if dynamic:counts=dict(Counter(t['game_id'] for t in roster))
     new_event_stakes = Counter()
     remaining = remaining_budget(settings, store.risk_committed())
     funded = [tip for tip in unique.values() if tip.get('stake', 0) > 0]
     funded.sort(key=lambda tip: (tip.get('allocation_policy', {}).get('allocation_rank', 0), tip['id']))
     new_counts = Counter(tip['game_id'] for tip in funded
                          if not (equivalent_contract_ids(tip) & held_ids))
+    held_ids_initial=set(held_ids)
     seen_aliases = set()
     for tip in funded:
         aliases = equivalent_contract_ids(tip)
@@ -79,7 +84,7 @@ are reread here. A concurrent ticket cannot leave a stale allocation funded.
         if tip.get('funding_basis', {}).get('tier') == 'model_pick' and family in families:
             raise ValueError('Publication blocked: model-pick family allocation already issued')
         related = counts.get(tip['game_id'], 0) + new_counts[tip['game_id']] - 1
-        limits = publication_limits(settings, tip.get('league'))
+        limits = limits_for(settings,tip,roster,[t for t in funded if not (equivalent_contract_ids(t)&held_ids_initial)]) if dynamic else publication_limits(settings, tip.get('league'))
         event_cap = limits['max_stake_per_event'] if limits else float('inf')
         event_available = max(0.0, event_cap - event_stakes[tip['game_id']] - new_event_stakes[tip['game_id']])
         sizing_budget = min(remaining, event_available)

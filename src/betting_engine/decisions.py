@@ -12,7 +12,7 @@ from .contracts import split_market,allocation_family,SCOPE_LABELS
 # durable settings; rank_and_size and the write transaction then apply the
 # hard anti-flood limits below.  Keeping the switch explicit prevents a
 # historical fixture or receipt from being silently rewritten.
-DEFAULT_SETTINGS={'bankroll':None,'daily_risk_limit':None,'daily_pick_target':15,'max_bet':5.,'unit_stake':1.,'kelly_fraction':.125,'max_bankroll_fraction':.01,'minimum_roi':.03,'refresh_seconds':60,'max_per_event':None,'allow_event_additions':True,'monthly_system_cost':None,'currency':'USD','timezone':'Europe/Budapest','auto_track_recommendations':False,'publication_limits_version':None,'max_new_funded_per_publication':10,'max_period_per_event':1,'max_stake_per_event':5.,'max_daily_family_share':.25}
+DEFAULT_SETTINGS={'bankroll':None,'daily_risk_limit':None,'daily_pick_target':15,'max_bet':5.,'unit_stake':1.,'kelly_fraction':.125,'max_bankroll_fraction':.01,'minimum_roi':.03,'refresh_seconds':60,'max_per_event':None,'allow_event_additions':True,'monthly_system_cost':None,'currency':'USD','timezone':'Europe/Budapest','auto_track_recommendations':False,'publication_limits_version':None,'dynamic_event_limits':None,'max_new_funded_per_publication':10,'max_period_per_event':1,'max_stake_per_event':5.,'max_daily_family_share':.25}
 DEFAULT_SETTINGS['recommendation_policy']='strict'
 DEFAULT_SETTINGS['model_pick_sizing_policy']='unit_cap_v1'
 DEFAULT_SETTINGS['market_anchor_mode']='shadow'
@@ -82,6 +82,10 @@ def publication_limit_receipt(settings):
             'max_per_event', 'max_period_per_event', 'max_stake_per_event', 'max_daily_family_share')
     if settings.get('publication_limits_version') == 'v3':
         keys += ('sparse_league_overrides',)
+    if settings.get('dynamic_event_limits') is not None:
+        from .dynamic_event_limits import policy
+        policy(settings)
+        keys += ('dynamic_event_limits',)
     return {key: settings.get(key) for key in keys}
 
 
@@ -404,15 +408,29 @@ def probability_preference_ids(candidates,settings,bases=None,held_preference_al
     return {c['id'] for c in best.values()}
 
 
-def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_contracts=(),held_event_counts=None,held_preference_allocations=(),held_allocation_families=(),held_event_stakes=None,held_period_counts=None,daily_family_counts=None,daily_funded_count=0):
+def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_contracts=(),held_event_counts=None,held_preference_allocations=(),held_allocation_families=(),held_event_stakes=None,held_period_counts=None,daily_family_counts=None,daily_funded_count=0,held_event_roster=None):
     # Select the best current contract per family, including held contracts.
     # A new best line can be issued later; holding the best does not rotate to inferior alternatives.
     selection_policy=family_selection_policy(settings)
+    from .dynamic_event_limits import policy as dynamic_policy, limits_for, seal_batch
+    dynamic=dynamic_policy(settings) is not None
+    if dynamic and held_event_roster is None:raise ValueError('Dynamic limits require the complete held ticket roster')
+    if dynamic:
+        from .governance import evidence_digest
+        for candidate in candidates:
+            guard=candidate.get('decision_guard') or {}
+            if guard.get('passed') is True and guard.get('candidate_sha256')!=evidence_digest(candidate):
+                raise ValueError('Candidate changed before dynamic allocation')
+    held_event_roster=held_event_roster or []
     from .outcome_sizing_runtime import outcome_policy
     outcome_sizing=outcome_policy(settings)!='legacy'
     families={}
     held=set(held_families)
     held_ids=set(held_contracts);additions=settings.get('allow_event_additions',False)
+    if dynamic:
+        from .contracts import equivalent_contract_ids
+        held.update((t['game_id'],t['market']) for t in held_event_roster)
+        for t in held_event_roster:held_ids.update(equivalent_contract_ids(t))
     def covered(c):return c['id'] in held_ids if additions else (c['game_id'],c['market']) in held
     publication_policy = publication_limits(settings)
     limits_enabled = publication_policy is not None
@@ -441,12 +459,19 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
     held_event_stakes_base=Counter(held_event_stakes or {})
     event_stakes=Counter(held_event_stakes_base)
     period_counts=Counter(held_period_counts or {})
+    if dynamic:
+        funded_counts=Counter(t['game_id'] for t in held_event_roster)
+        period_counts=Counter(t['game_id'] for t in held_event_roster if split_market(t['market'])[0]!='full_game')
+        held_event_stakes_base=Counter()
+        for t in held_event_roster:held_event_stakes_base[t['game_id']]+=float(t['stake'])
+        event_stakes=Counter(held_event_stakes_base)
     original_event_counts=Counter(funded_counts)
     continuous=settings.get('recommendation_policy','strict') in ('continuous_model_v1','continuous_best_available_v1')
     from .funding_policy import funding_basis,size_recommendation,model_allocation_policy
     allocation_mode=model_allocation_policy(settings)
     family_additions=allocation_mode=='distinct_family_v1'
     allocated_families=set(held_allocation_families)
+    if dynamic:allocated_families.update((t['game_id'],allocation_family(t)) for t in held_event_roster)
     bases={c['id']:funding_basis(c,settings) for c in candidates} if continuous else {}
     preference_allocations=set(held_preference_allocations);new_preference_events=set()
     probability_ids=probability_preference_ids(candidates,settings,bases,held_preference_allocations)
@@ -492,7 +517,7 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
     period_new=Counter();family_new=Counter();new_funded=0;chosen=[];alternatives=[]
     remaining=remaining_budget(settings,open_exposure)
     for allocation_rank,c in enumerate(ordered,1):
-        effective = publication_limits(settings, c.get('league'))
+        effective = limits_for(settings,c,held_event_roster,[t for t in chosen if t.get('stake',0)>0]+[c]) if dynamic else publication_limits(settings, c.get('league'))
         if effective:
             event_cap=effective['max_per_event']; event_stake_cap=effective['max_stake_per_event']; period_cap=effective['max_period_per_event']
         c['rank']=ranks[c['id']]
@@ -634,7 +659,14 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
             survivors=[]
             for c in batch:
                 related=original_event_counts[c['game_id']]+batch_counts[c['game_id']]-1
-                effective = publication_limits(settings, c.get('league'))
+                effective = limits_for(settings,c,held_event_roster,batch) if dynamic else publication_limits(settings, c.get('league'))
+                if dynamic:
+                    already=sum(t['game_id']==c['game_id'] for t in survivors)
+                    scoped=split_market(c['market'])[0]!='full_game'
+                    if (original_event_counts[c['game_id']]+already>=effective['max_per_event']
+                            or scoped and period_counts[c['game_id']]+batch_periods[c['game_id']]>=effective['max_period_per_event']):
+                        c.update(stake=0.,allocation_code='dynamic_event_limit',allocation_reason='Complete held and new roster does not support further event exposure.')
+                        c.pop('stake_sizing',None);continue
                 event_stake_cap = effective['max_stake_per_event'] if effective else math.inf
                 event_available=event_stake_cap-event_stakes[c['game_id']]-batch_stakes[c['game_id']]
                 sizing_budget=min(remaining,max(0.,event_available))
@@ -652,4 +684,5 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
             if len(survivors)==initial_size:break
             # Only remove allocations: never rotate to inferior family choices.
             batch=survivors
+    if dynamic:seal_batch(settings,held_event_roster,chosen+alternatives)
     return chosen,alternatives

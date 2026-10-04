@@ -576,3 +576,10 @@ A heti tanult súlyozás tartós jobként bekötve; aktuális jóváhagyott súl
 - Végleges teljes tesztek: pytest 6976 passed, 1 skipped, 25 warnings, 5 subtests (169.01 s); npm test 292 passed. Log: /tmp/bte-live-audit-final-pytest.log és /tmp/bte-live-audit-dom.log.
 - Verziókövetés: 27 korábban élesített, de Gitben nem követett passzív source/test fájl eredeti D20/F0013 release-receipthez kötött hash-ellenőrzése sikeres. Változatlan tartalommal Gitbe kerültek; új fogadási képességet ez nem aktivál. A teljes tesztcsomag ezeket is tartalmazta.
 - Élesítés: f325ad5; release PID 46147, development PID 46150. Friss recovery: 103 valódi nyitott kérés, 0 hibás azonosító/határidő; SYSTEM:release_recovery_evidence resolved. Helyi/Tailscale azonos 13:42:56 UTC publikáció, azonos számlálók. Eredménylogok: data/releases/root-flow-audit-20261004/live-audit-*.
+
+## 2026-10-04 — tízlépcsős piaclefedettség és minőségalapú dinamikus meccslimit
+
+- Tíz külön bizonyítékos állapot a meglévő dashboard/katalógus/export láncban. A Swish-megfigyelés nem igazolt aktív ajánlat; a tanulás mind a négy aktuális, publikációhoz kötött fogyasztó ellenőrzését igényli.
+- Opt-in quality_roster_v1: teljes tartott és új csomag, leggyengébb jelölt és zsugorított eredmény alapján legfeljebb kétszeres meccskeret, maximum 12 tipp / 6 periódus / 40 USD; az aktív alaplimit és USD5 fogadásonként megmarad. Atomic publish és újraértékelés ugyanazt a lezárt bizonyítékot ellenőrzi.
+- Izolált periódus-kalibrációs jelölt: közös eredményeloszlás szabályozott illesztése időrendi selection mintán, scope szerint korlátozható. NFL 3 és NBA 9 scope egyik modellje sem lépte át a változatlan promóciós kaput; WNBA regulation átlag Brier 0.17441447→0.16969023, de nincs új használható piaccsalád. Champion-csere nem történt.
+- Független Codex-review: végleges integráció elfogadva, blocker 0. Teljes pytest 7003 passed, 1 skipped, 25 warnings, 5 subtests; npm 293 passed. A modellkísérlet nem minősül élő teljesítményjavulásnak.

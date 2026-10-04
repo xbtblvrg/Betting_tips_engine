@@ -52,6 +52,7 @@ class PeriodModel:
     def fit(self,x,y):
         self.scaler=StandardScaler().fit(x);self.x=self.scaler.transform(x);self.y=np.array(y,dtype=float)
         self.nn=NearestNeighbors(n_neighbors=min(self.k,len(x)),algorithm='brute').fit(self.x)
+        self.joint_calibration=None
         return self
     def distributions(self,x):
         distances,indices=self.nn.kneighbors(self.scaler.transform(x))
@@ -59,7 +60,46 @@ class PeriodModel:
         for d,ix in zip(distances,indices):
             weights=np.exp(-d/max(float(np.median(d)),1e-6));weights/=weights.sum()
             w=np.full(len(self.y),.1/len(self.y));w[ix]+=.9*weights
+            calibration=getattr(self,'joint_calibration',None)
+            if calibration is not None:
+                from scipy.special import logsumexp
+                logw=np.log(w)+(self.y-calibration['center'])/calibration['scale']@calibration['theta']
+                w=np.exp(logw-logsumexp(logw))
             yield self.y[:,0],self.y[:,1],w
+    def calibrate_joint(self,x,y):
+        """Fit a fixed regularized joint tilt on selection targets, never test rows.
+
+        The positive tilt retains the empirical paired-score support, including
+        ties and discrete scoring. It cannot manufacture unseen score outcomes.
+        """
+        from scipy.optimize import minimize
+        from scipy.special import logsumexp
+        x=np.asarray(x,dtype=float)
+        if x.ndim!=2 or x.shape[1]!=self.x.shape[1] or not np.isfinite(x).all():
+            raise ValueError('Calibration requires finite matching sport features')
+        targets=np.asarray(y,dtype=float)
+        if (targets.shape!=(len(x),2) or not len(targets) or not np.isfinite(targets).all()
+                or (targets<0).any() or (targets!=np.floor(targets)).any()):
+            raise ValueError('Calibration requires finite observed paired scores')
+        if getattr(self,'joint_calibration',None) is not None:
+            raise ValueError('Joint calibration already fitted')
+        center=self.y.mean(axis=0);scale=np.maximum(self.y.std(axis=0),1.)
+        support=(self.y-center)/scale;target=((targets-center)/scale).mean(axis=0)
+        logweights=np.log(np.array([w for _,_,w in self.distributions(x)]))
+        penalty=.05
+        def objective(theta):
+            logits=logweights+support@theta
+            z=logsumexp(logits,axis=1)
+            weights=np.exp(logits-z[:,None])
+            loss=float(z.mean()-target@theta+penalty*(theta@theta)/2)
+            gradient=(weights@support).mean(axis=0)-target+penalty*theta
+            return loss,gradient
+        fitted=minimize(objective,np.zeros(2),jac=True,method='L-BFGS-B',bounds=[(-2.,2.)]*2)
+        if not fitted.success or not np.isfinite(fitted.x).all():
+            raise ValueError('Joint score calibration did not converge')
+        self.joint_calibration={'version':'selection-joint-tilt-v1','center':center,
+            'scale':scale,'theta':fitted.x,'regularization':penalty,'selection_games':len(targets)}
+        return {k:v.tolist() if isinstance(v,np.ndarray) else v for k,v in self.joint_calibration.items()}
     def forecast(self,g,state):
         x=state.features(g);h,a,w=next(self.distributions(x.reshape(1,-1)))
         return PeriodForecast(g.id,g.league,self.scope,float(h@w),float(a@w),(h,a,w),
@@ -94,10 +134,14 @@ def digest(rows,scope):
     values=[(g.id,g.start,list(map(float,x)),tuple(g.context['segment_scores'][scope][s] for s in ('home','away'))) for g,x in rows]
     return hashlib.sha256(json.dumps(values).encode()).hexdigest()
 
-def train_periods(data_dir=DATA,refresh=True,leagues=('NBA','WNBA','NHL','NFL')):
+def train_periods(data_dir=DATA,refresh=True,leagues=('NBA','WNBA','NHL','NFL'),*,calibrate_joint=False,scopes=None):
     from .period_data import refresh_scores,read_scores,attach_scores
     from .training_evidence import capture_inputs,bind_archive
     data=Path(data_dir)
+    selected_scopes=tuple(PERIOD_SCOPES) if scopes is None else tuple(scopes)
+    if (not selected_scopes or len(set(selected_scopes))!=len(selected_scopes)
+            or any(scope not in PERIOD_SCOPES for scope in selected_scopes)):
+        raise ValueError('Unknown or duplicate exact period training scope')
     if refresh:
         _,sources=refresh_scores(data,historical=True)
         failed=[f'{r["league"]}/{r["season"]}' for r in sources if not r.get('ok')]
@@ -109,7 +153,7 @@ def train_periods(data_dir=DATA,refresh=True,leagues=('NBA','WNBA','NHL','NFL'))
     folder=data/'period_models';folder.mkdir(exist_ok=True);results={}
     for league in leagues:
         all_rows,_=feature_history(games,league)
-        for scope in PERIOD_SCOPES:
+        for scope in selected_scopes:
             rows=[r for r in all_rows if scope in r[0].context.get('segment_scores',{})]
             if len(rows)<600:continue
             dates=sorted({parse_time(g.start).date().isoformat() for g,_ in rows})
@@ -118,12 +162,14 @@ def train_periods(data_dir=DATA,refresh=True,leagues=('NBA','WNBA','NHL','NFL'))
             x=np.array([x for _,x in rows]);y=np.array([[g.context['segment_scores'][scope][s] for s in ('home','away')] for g,_ in rows],dtype=float)
             inputs=capture_inputs(data,[g for g,_ in rows],league,scope,
                 matrix=x,targets=y,partitions=['train' if a else 'selection' if b else 'test' for a,b in zip(train,selection)],
-                recipe={'neighbours':[64,128,256,512]},metadata={'training_digest':digest(rows,scope)})
+                recipe={'neighbours':[64,128,256,512],**({'joint_calibration':'selection-joint-tilt-v1'} if calibrate_joint else {})},metadata={'training_digest':digest(rows,scope)})
             tests=probes(y[train]);trials=[]
             for k in (64,128,256,512):
                 model=PeriodModel(league,scope,k).fit(x[train],y[train]);metrics,_=evaluate(model,x[selection],y[selection],tests)
                 trials.append((metrics['mean_brier'],model))
-            _,model=min(trials,key=lambda p:p[0]);metrics,loss=evaluate(model,x[test],y[test],tests)
+            _,model=min(trials,key=lambda p:p[0])
+            calibration=model.calibrate_joint(x[selection],y[selection]) if calibrate_joint else None
+            metrics,loss=evaluate(model,x[test],y[test],tests)
             validated=[k for k,m in metrics['families'].items() if m['brier']<=m['baseline_brier']+.0025 and m['max_probability_bias']<=.04]
             if 'three_way' in validated:validated.append('moneyline')
             source_digest=digest(rows,scope);code_hash=hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
@@ -144,10 +190,13 @@ def train_periods(data_dir=DATA,refresh=True,leagues=('NBA','WNBA','NHL','NFL'))
                     ci=list(map(float,np.quantile(draws,[.025,.975])));gate.update(comparison_weeks=len(values),delta_brier_ci95=ci)
                     gate['promote']=gate['promote'] and len(values)>=12 and ci[1]<0
             model.report={'league':league,'scope':scope,'version':version,'trained_at':utcnow().isoformat(),
-                'fit_through':max(g.start for (g,_),b in zip(rows,train) if b),'test_from':test_date,
+                'fit_through':max(g.start for (g,_),b in zip(rows,train|selection if calibrate_joint else train) if b),
+                'train_fit_through':max(g.start for (g,_),b in zip(rows,train) if b),
+                'calibration_fit_through':max(g.start for (g,_),b in zip(rows,selection) if b) if calibrate_joint else None,
+                'test_from':test_date,
                 'training_games':len(rows),'training_inputs':inputs,'partitions':{'train':int(train.sum()),'selection':int(selection.sum()),'test':int(test.sum())},
                 'features':list(feature_names(league)),'odds_used':False,'code_sha256':code_hash,'training_data_fingerprint':source_digest,
-                'model_family':'Conditional empirical joint scores','neighbours':model.k,'test':metrics,'validated_markets':validated,
+                'model_family':'Conditional empirical joint scores','joint_calibration':calibration,'neighbours':model.k,'test':metrics,'validated_markets':validated,
                 'promotion_gate':gate,'profit_backtest':None,'selection_trials':[{'neighbours':m.k,'brier':v} for v,m in trials],
                 'limitations':['Uses observed scores in this exact period, never scaled full-game targets.',
                     'Historical sport features condition an empirical score distribution; player availability is not yet quantified.',

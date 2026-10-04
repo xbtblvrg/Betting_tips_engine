@@ -26,7 +26,7 @@ def evidence_digest(tip):
     if 'funding_basis' in tip:fields['funding_basis']=tip['funding_basis']
     if 'family_selection_policy' in tip:fields['family_selection_policy']=tip['family_selection_policy']
     if 'probability_support_policy' in tip:fields['probability_support_policy']=tip['probability_support_policy']
-    for key in ('outcome_sizing_policy','outcome_sizing_evidence','composite_contract_policy','composite_contract_evidence'):
+    for key in ('outcome_sizing_policy','outcome_sizing_evidence','composite_contract_policy','composite_contract_evidence','event_limit_evidence'):
         if key in tip:fields[key]=tip[key]
     return hashlib.sha256(json.dumps(fields,sort_keys=True,allow_nan=False).encode()).hexdigest()
 

@@ -147,7 +147,7 @@ def _original_budget(original, issued_at):
         historical_format = None
         new_policies = ('family_selection_policy','probability_support_policy',
                         'outcome_sizing_policy','outcome_sizing_evidence',
-                        'composite_contract_policy','composite_contract_evidence')
+                        'composite_contract_policy','composite_contract_evidence','event_limit_evidence')
         for name, cutoff, omitted in formats:
             if (issued_at > parse_time(cutoff)
                     or any(k in original or k in guard for k in omitted + new_policies)):
