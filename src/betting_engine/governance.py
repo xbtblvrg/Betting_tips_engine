@@ -197,6 +197,16 @@ class EvidenceGuard:
         tip['input_readiness']=readiness
         errors.extend('input_readiness:'+error for error in readiness['errors'])
         scope,base=split_market(market.kind)
+        from .overtime_contracts import TITLES, overtime_alias
+        if market.description in TITLES:
+            if overtime_alias(game.league, market.description, market.selection) != (market.kind, market.side) or market.line is not None:
+                errors.append('overtime_alias_contract_mismatch')
+            if game.league == 'NFL':
+                from .overtime_contracts import verify_nfl_phase_source
+                if not verify_nfl_phase_source(game, self.readiness.data_dir):
+                    errors.append('nfl_overtime_season_phase_unverified')
+            if tip.get('stake_evidence', {}).get('score_contract_alias') != market.metadata.get('score_contract_alias'):
+                errors.append('overtime_alias_evidence_mismatch')
         # Newly supported joint/exact contracts remain research-only until
         # their exact offered-line family validation and settlement evidence is
         # present.  Parsing and generic score arithmetic alone cannot fund an

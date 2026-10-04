@@ -117,6 +117,12 @@ def stake_market(t):
             'innings_1_5':'Only runs in Innings 1 to 5 count. Stake requires five innings (4.5 if the home team leads); an already determined Over follows Stake rules.'}.get(scope,
             f'Only the named {SCOPE_LABELS[scope]} score counts. '+('Includes overtime.' if scope.endswith('_ot') else 'Excludes overtime and shootouts.'))
         note+=' A tie is a push for two-way Winner and a winning Draw in 1x2. Missing or incomplete segment results remain pending for settlement review.'
+    from .overtime_contracts import overtime_alias
+    alias = overtime_alias(league, t.get('reference_contract_description'), t.get('selection'))
+    if alias == (t['market'], t.get('side')) and scope == 'regulation':
+        note='Yes wins if regulation ends in a draw; No wins if it does not. Whether overtime is actually played does not change settlement. Verified completed regulation scores are required.'
+        if league == 'NFL':
+            note='In a completed NFL regular-season or playoff game, a regulation tie triggers overtime. Yes wins for a regulation tie; No wins for unequal regulation scores. Preseason and incomplete games are excluded from this adapter.'
     url=t.get('reference_url') or ''
     path=STAKE_LEAGUE_PATHS.get(league,'')
     try:

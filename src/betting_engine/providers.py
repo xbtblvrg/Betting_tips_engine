@@ -95,7 +95,7 @@ class SportsData:
             from zoneinfo import ZoneInfo
             dt=datetime.fromisoformat(r['gameday']+'T'+(r.get('gametime') or '13:00')).replace(tzinfo=ZoneInfo('America/New_York')).astimezone(timezone.utc)
             state='final' if hs is not None and ass is not None and dt<utcnow()-timedelta(hours=5) else ('live' if dt<utcnow() and dt>utcnow()-timedelta(hours=5) else 'scheduled')
-            games.append(Game(id='NFL:'+r['game_id'],league='NFL',start=dt.isoformat(),home=NFL_NAMES.get(h,h),away=NFL_NAMES.get(a,a),home_id=h,away_id=a,home_abbr=h,away_abbr=a,state=state,season=int(r['season']),home_score=hs,away_score=ass,neutral=r.get('location')=='Neutral',game_type='regular' if r['game_type']=='REG' else 'playoff',source=url,fetched_at=m['fetched_at']))
+            games.append(Game(id='NFL:'+r['game_id'],league='NFL',start=dt.isoformat(),home=NFL_NAMES.get(h,h),away=NFL_NAMES.get(a,a),home_id=h,away_id=a,home_abbr=h,away_abbr=a,state=state,season=int(r['season']),home_score=hs,away_score=ass,neutral=r.get('location')=='Neutral',game_type='regular' if r['game_type']=='REG' else 'playoff',source=url,fetched_at=m['fetched_at'],context={'nfl_phase_evidence':{'game_id':'NFL:'+r['game_id'],'raw_game_type':r['game_type'],'source':url,'source_sha256':m.get('sha256'),'fetched_at':m['fetched_at']}}))
         return games,m
     def mlb(self,year):
         url=f'https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate={year}-01-01&endDate={year}-12-31&hydrate=probablePitcher'

@@ -613,3 +613,5 @@ test('started and marked daily records are excluded while future changed records
  const marked=mk(markedId,start);const {w,d}=await boot({recommendations:[],evaluated_candidates:[],tracked_bets:[mk(futureId,start),mk(startedId,new Date(Date.now()-60000).toISOString()),marked],placement_marks:{[markedId]:new Date().toISOString()},status:{daily_progress:{issuance_rows:[{tip_id:futureId,issued_at:new Date().toISOString(),start},{tip_id:startedId,issued_at:new Date().toISOString(),start:new Date(Date.now()-60000).toISOString()},{tip_id:markedId,issued_at:new Date().toISOString(),start}]}}});
  assert.equal(d.querySelectorAll('.changed-card').length,1);assert.equal(d.querySelector('[data-tip-id="'+futureId+'"]')!==null,true);assert.equal(d.querySelector('[data-tip-id="'+startedId+'"]'),null);assert.equal(d.querySelector('[data-tip-id="'+markedId+'"]'),null);await w.happyDOM.close();
 });
+
+import './overtime_alias.web.test.mjs';

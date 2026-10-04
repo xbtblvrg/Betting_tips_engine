@@ -128,6 +128,10 @@ def contract_value(kind,side,line,home,away):
     raise ValueError('Unsupported settlement contract')
 
 def settlement_scores(tip,game):
+    from .overtime_contracts import TITLES, verified_nfl_phase
+    if game.league == 'NFL' and tip.get('reference_contract_description') in TITLES:
+        if game.state != 'final' or not verified_nfl_phase(game.id, game.context, game.source, game.game_type):
+            raise ValueError('Completed normal NFL game and verified season phase required for overtime settlement')
     if game.context.get('espn_settlement_pending') is True:
         raise ValueError('Exact official ESPN result evidence is pending')
     if game.league=='NHL' and game.context.get('nhl_settlement_pending') is True:

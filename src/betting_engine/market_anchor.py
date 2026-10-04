@@ -128,7 +128,11 @@ def contract_anchors(markets, quotes):
         # the exact offered line, so including the side's signed line here
         # would split one complete contract into two one-sided groups and
         # silently remove its market anchor.
-        key = (market.game_id, identity, market.kind, market.metadata.get('model_scope'))
+        from .overtime_contracts import overtime_alias
+        alias = overtime_alias(market.league, market.metadata.get('stake_market_name'),
+                               market.metadata.get('stake_outcome_name')) if hasattr(market, 'league') else None
+        binary_overtime = alias == (market.kind, market.side) and market.line is None
+        key = (market.game_id, identity, 'overtime_alias' if binary_overtime else market.kind, market.metadata.get('model_scope'))
         groups[key].append((market, quote))
     result = {}
     expected = {
@@ -138,6 +142,7 @@ def contract_anchors(markets, quotes):
         'odd_even': {'odd', 'even'}, 'both_score': {'yes', 'no'},
         'double_chance': {'home_draw', 'away_draw', 'home_away'},
         'exact_total': {'over', 'exact', 'under'},
+        'overtime_alias': {'draw', 'home_away'},
     }
     for (_, _, kind, _), rows in groups.items():
         base = kind.rsplit(':', 1)[-1]

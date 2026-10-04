@@ -419,6 +419,16 @@ class StakeSportsbook:
                     name = str(market.get('name') or '')
                     if market.get('status') not in (None, 'active'):
                         continue
+                    from .overtime_contracts import TITLES, parse_overtime
+                    if name in TITLES:
+                        aliases = parse_overtime(market, game, fixture, url, fetched_at,
+                            self.segment_markets.get((league, 'regulation'), ()),
+                            groups_by_market.get(_stake_contract_key(market), []), _stake_contract_key(market))
+                        for alias in aliases:
+                            if alias.id not in seen:
+                                result.append(alias)
+                                seen.add(alias.id)
+                        continue
                     total_kind=next((side+'_total' for side in ('home','away') if name==f'{getattr(game,side)} Total (Incl. {expected_scope})'),None)
                     full_derived={
                         f'Odd/Even (Incl. {expected_scope})':'odd_even',

@@ -282,6 +282,8 @@ class Engine:
                                          'decimal_odds':m.metadata['stake_odds'],
                                          'fetched_at':m.fetched_at,'matching_basis':m.metadata.get('matching_basis'),
                                          'fixture_name':m.metadata.get('fixture_name'),'matched_teams':m.metadata.get('matched_teams')}
+                    if m.metadata.get('score_contract_alias'):
+                        c['stake_evidence']['score_contract_alias']=dict(m.metadata['score_contract_alias'])
                     if outcome_enabled:
                         key=segment_key(c)
                         if key not in outcome_summaries:outcome_summaries[key]=outcome_summary(outcome_evidence,c)
@@ -291,6 +293,8 @@ class Engine:
                     evaluation.update(state='guard_passed' if check['passed'] else 'guard_rejected',reasons=check['errors'])
                     market_evaluations.append(evaluation)
                     if check['passed']:candidates.append(c)
+            from .overtime_contracts import deduplicate_alias_candidates
+            candidates=deduplicate_alias_candidates(candidates)
             if not outcome_enabled:self.settle_bets()
             self.store.settle_forecasts(self.games)
             if not outcome_enabled:self.store.settle_system_decisions(self.games)

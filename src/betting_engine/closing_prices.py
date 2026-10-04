@@ -230,6 +230,15 @@ def _contract(tip):
         raise ValueError("ambiguous_teams")
     evidence = tip["stake_evidence"]
     title, outcome = (_text(evidence[k]) for k in ("market_name", "outcome_name"))
+    from .overtime_contracts import overtime_alias
+    alias = overtime_alias(league, title, outcome)
+    if alias is not None:
+        from .overtime_contracts import verified_nfl_phase
+        if league == 'NFL' and not verified_nfl_phase(tip.get('game_id'), tip.get('game_context', {})):
+            raise ValueError('nfl_season_phase_unverified')
+        if (tip['market'], tip['side']) != alias or tip['line'] is not None or tip.get('model_scope') != 'regulation':
+            raise ValueError('scope_or_market_mismatch')
+        return title, outcome, 'regulation', alias[0].split(':')[1]
     scopes = named_scopes(league, home, away)
     suffix = {"NBA": "Overtime", "WNBA": "Overtime", "NFL": "Overtime",
               "NHL": "Overtime and Penalties", "MLB": "Extra Innings",
