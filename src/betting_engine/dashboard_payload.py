@@ -324,7 +324,7 @@ def build_dashboard(store,health,data_dir):
     d['learning_worker']=learning_status(data_dir)
     d['automation']=automation_status(data_dir)
     from .live_market_coverage import build_from_store
-    catalog=d['automation'].get('market_catalog',{})
+    catalog=d['automation'].setdefault('market_catalog',{})
     catalog['live_coverage']=build_from_store(store,d,catalog,data_dir,now)
     d['performance']=store.performance();d['engine']=health;d['server_time']=now.isoformat()
     # All server validation, sizing and instruction reviews above use the full
