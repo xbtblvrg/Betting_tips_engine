@@ -454,6 +454,8 @@ def main(argv=None):
     parser.add_argument('--discard-archived-inputs', action='store_true',
                         help='Explicitly discard eligible already archived failed-attempt inputs; requires --apply to delete')
     parser.add_argument('--prune-release-staging', action='store_true')
+    parser.add_argument('--prune-frozen-validation', action='store_true')
+    parser.add_argument('--prune-manifest-inputs', action='store_true')
     parser.add_argument('--limit', type=int, default=10)
     args = parser.parse_args(argv)
     if args.limit < 1 or args.limit > 500:
@@ -515,6 +517,18 @@ def main(argv=None):
                     errors += 1
                     print(json.dumps({'release_id': release_id, 'state': 'staging_error',
                                       'error': str(error)}), file=sys.stderr, flush=True)
+        if args.prune_frozen_validation:
+            from prune_obsolete_frozen_validation import eligible as frozen_candidates, prune_one as prune_frozen
+            for name in frozen_candidates(root)[:args.limit]:
+                try: print(json.dumps(prune_frozen(root, name)), flush=True)
+                except Exception as error:
+                    errors += 1
+                    print(json.dumps({'release_id': name, 'state': 'frozen_error', 'error': str(error)}), file=sys.stderr, flush=True)
+        if args.prune_manifest_inputs:
+            from prune_obsolete_manifest_inputs import candidate_ids, prune_batch
+            for result in prune_batch(root, candidate_ids(root), args.limit):
+                errors += result.get('state') == 'error'
+                print(json.dumps(result), flush=True)
         return 1 if errors else 0
 
 

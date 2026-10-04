@@ -73,3 +73,20 @@ def test_write_during_last_reference_check_is_preserved(tmp_path,monkeypatch):
     monkeypatch.setattr(m,'require_unused_workspace',check)
     with pytest.raises(ValueError,match='final reference'):m.discard_unused_inputs(root,OLD)
     assert (data/'development_inputs/new.json').exists()
+
+
+def test_scheduled_cleanup_validates_duplicates_before_original_input_pruning(tmp_path, monkeypatch):
+    import prune_obsolete_frozen_validation as frozen
+    import prune_obsolete_manifest_inputs as manifest
+    root, data = case(tmp_path, monkeypatch)
+    (data/'development_inputs/manifest.json').write_text('{}')
+    monkeypatch.setattr(m, 'direct_candidates', lambda root: [])
+    monkeypatch.setattr(m, 'candidates', lambda *a, **kw: [OLD])
+    monkeypatch.setattr(frozen, 'eligible', lambda root: ['copy'])
+    monkeypatch.setattr(manifest, 'candidate_ids', lambda root: [OLD])
+    calls = []
+    monkeypatch.setattr(frozen, 'prune_one', lambda *a: calls.append('frozen') or {})
+    monkeypatch.setattr(manifest, 'prune_one', lambda *a: calls.append('manifest') or {})
+    assert m.main(['--root', str(root), '--apply', '--discard-unused-inputs',
+                   '--prune-frozen-validation', '--prune-manifest-inputs']) == 0
+    assert calls == ['frozen', 'manifest']

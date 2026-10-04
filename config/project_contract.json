@@ -805,6 +805,7 @@
       "referenced recovery evidence"
     ],
     "shadow_evaluations": "Only proven unreferenced obsolete evaluations may be deleted, and unique outcome/source evidence must survive. No blanket age-only deletion.",
-    "unused_input_copies": "2026-10-04 follow-up: explicitly authorized direct permanent removal, without archival or age-only wait, of allowlisted generated inputs from superseded retry/interrupted attempts after current/latest/recovery/static and process checks. Preserve code, unique research/controller logs, original records and run evidence; durable pre-delete inventory."
+    "unused_input_copies": "2026-10-04 follow-up: explicitly authorized direct permanent removal, without archival or age-only wait, of allowlisted generated inputs from superseded retry/interrupted attempts after current/latest/recovery/static and process checks. Preserve code, unique research/controller logs, original records and run evidence; durable pre-delete inventory.",
+    "verified_duplicates": "Hourly existing retention job also deletes superseded unused release/private validation copies and manifest-bound input copies only after independent surviving-source hash/size verification, fresh reference/process checks and a durable receipt. Exact preparation copies use the same surviving-source verification. Preserve changed/unproven inputs and all originals; productive batch limits cannot starve later candidates."
   }
 }

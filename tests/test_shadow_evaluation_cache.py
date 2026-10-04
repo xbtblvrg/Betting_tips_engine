@@ -1,3 +1,4 @@
+from contextlib import closing
 from collections import defaultdict
 from copy import deepcopy
 from datetime import datetime,timedelta
@@ -36,7 +37,7 @@ def test_capture_decode_count_once_not_per_contract(tmp_path,monkeypatch):
     store,t,at=setup(tmp_path);second=tip(tmp_path,line=211.5)
     assert store.capture('t',[second],archive_root=tmp_path,as_of=at)['accepted']==1
     close(tmp_path,store,t);close(tmp_path,store,second)
-    with sqlite3.connect(store.path)as db:raws=[r[0]for r in db.execute('select evidence from captures')]
+    with closing(sqlite3.connect(store.path)) as db, db:raws=[r[0]for r in db.execute('select evidence from captures')]
     original=module.json.loads;counts=defaultdict(int)
     def count(value,*a,**kw):
         if isinstance(value,str)and value in raws:counts[value]+=1
@@ -48,7 +49,7 @@ def test_capture_decode_count_once_not_per_contract(tmp_path,monkeypatch):
 
 def test_fair_probability_hash_index_matches_legacy_and_keeps_full_evidence(tmp_path):
     store,t,_=setup(tmp_path);close(tmp_path,store,t);outcome=result(t)
-    with sqlite3.connect(store.path)as db:rows=[json.loads(r[0])for r in db.execute('select evidence from captures')]
+    with closing(sqlite3.connect(store.path)) as db, db:rows=[json.loads(r[0])for r in db.execute('select evidence from captures')]
     snapshots=[s for r in rows for s in r['snapshots']];before=deepcopy(snapshots)
     decision=store.export_decisions('t',as_of=outcome['observed_at'])[0]
     comparison=module.evaluate_closing_price(decision,snapshots,as_of=outcome['observed_at'])
@@ -61,7 +62,7 @@ def test_changed_capture_and_new_cutoff_do_not_reuse_previous_evaluation_cache(t
     store,t,_=setup(tmp_path);close(tmp_path,store,t,odds=1.8)
     first=store.evaluate('t',settlements=[],as_of=t['start'])
     # A later recorded correction of the exact observed source supersedes the earlier attempt.
-    with sqlite3.connect(store.path)as db:
+    with closing(sqlite3.connect(store.path)) as db, db:
         capture=json.loads(db.execute('select evidence from captures limit 1').fetchone()[0]);capture['error']='source_invalid';capture['snapshots']=[]
         stamp=(datetime.fromisoformat(t['start'])+timedelta(seconds=1)).isoformat()
         db.execute('insert into captures values (?,?,?,?,?)',('new-attempt','fixture',capture['capture']['observed_at'],stamp,module._json(capture)))
@@ -74,7 +75,7 @@ def test_changed_capture_and_new_cutoff_do_not_reuse_previous_evaluation_cache(t
 
 def test_pending_only_trial_does_not_decode_global_capture_body(tmp_path):
     store,t,at=setup(tmp_path)
-    with sqlite3.connect(store.path)as db:
+    with closing(sqlite3.connect(store.path)) as db, db:
         db.execute('insert into captures values (?,?,?,?,?)',('malformed-global',None,at,at,'not JSON'))
     report=store.evaluate('t',settlements=[],as_of=at)
     assert report['pending_contracts']==1 and report['rows']==[]
