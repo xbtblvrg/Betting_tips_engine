@@ -88,7 +88,7 @@ def discard_references(root):
     return references
 
 
-def candidates(root, now=None, *, include_retiring=False, include_archived=False):
+def candidates(root, now=None, *, include_retiring=False, include_archived=False, min_age_hours=48, strict_references=False):
     root = Path(root).resolve(); base = root/'data/development/workspaces'
     safe(base); now = now or datetime.now(timezone.utc)
     references = set()
@@ -101,7 +101,7 @@ def candidates(root, now=None, *, include_retiring=False, include_archived=False
             if path == root/'data/development/state.json':
                 value = {k:v for k,v in value.items() if k not in ('runs','recovery_events')}
             references.update(RUN_ID.findall(json.dumps(value)))
-    if include_archived:
+    if include_archived or strict_references:
         references.update(discard_references(root))
     runs = {}; latest = {}
     for workspace in sorted(base.iterdir()):
@@ -123,7 +123,7 @@ def candidates(root, now=None, *, include_retiring=False, include_archived=False
         if row.get('state') not in ('retry', 'interrupted'): continue
         try: finished = datetime.fromisoformat(row['finished_at'])
         except (KeyError, ValueError): continue
-        if finished.tzinfo is None or finished > now-timedelta(hours=48): continue
+        if finished.tzinfo is None or finished > now-timedelta(hours=min_age_hours): continue
         data = base/rid/'data'
         if include_retiring and not data.exists(): data = data.with_name('.data-retiring')
         if include_archived:
@@ -140,7 +140,7 @@ def candidates(root, now=None, *, include_retiring=False, include_archived=False
     return result
 
 
-def require_unused_workspace(root, rid, *, retiring=False, archived=False):
+def require_unused_workspace(root, rid, *, retiring=False, archived=False, direct=False):
     """Fresh references and actual process use, without interrupting other tasks.
 
     Controller dispatch allocates a new timestamp run ID before preparation
@@ -149,7 +149,8 @@ def require_unused_workspace(root, rid, *, retiring=False, archived=False):
     A process still using an obsolete path nevertheless blocks retirement.
     """
     root = Path(root).resolve()
-    if rid not in candidates(root, include_retiring=retiring, include_archived=archived):
+    options = {'min_age_hours': 0, 'strict_references': True} if direct else {}
+    if rid not in candidates(root, include_retiring=retiring, include_archived=archived, **options):
         raise ValueError('Workspace no longer eligible or became referenced')
     workspace = root/'data/development/workspaces'/rid
     safe(workspace)
@@ -348,19 +349,90 @@ def discard_one(root, rid):
     return receipt
 
 
+# Generated public/model input copies from DevelopmentWorker.prepare and its
+# exporters. Unique candidate research/controller logs and all code stay put.
+DIRECT_INPUTS = frozenset(('development_inputs', 'validation_sources', 'stake_api_archive',
+    'market_catalog', 'periods', 'players', 'period_models', 'segment_models', 'model_evidence',
+    'sports_source_evidence', 'segments', 'games.json', 'knowledge-evidence.json',
+    'engineering-evidence', 'engineering-evidence-manifest.json',
+    'runtime-failure-evidence', 'release-failure-evidence', 'release-failure-evidence-manifest.json',
+    'task_diagnostics'))
+
+
+def preparation_only(root, rid):
+    # prepare() runs before advisory/implementation; no candidate code ran.
+    run = root/'data/development/runs'/rid
+    row = read(run/'run.json')
+    worker = read(run/'worker.json') if (run/'worker.json').exists() else {}
+    return (row.get('failure_phase') == 'preparing' and worker.get('step') == 'preparing'
+            and {p.name for p in run.iterdir()} <= {'run.json', 'worker.json'})
+
+
+def direct_candidates(root):
+    root = Path(root).resolve()
+    return [rid for rid in candidates(root, min_age_hours=0, strict_references=True)
+            if preparation_only(root, rid) and any((root/'data/development/workspaces'/rid/'data'/name).exists()
+                   for name in DIRECT_INPUTS)]
+
+
+def discard_unused_inputs(root, rid):
+    """User-authorized removal of unused superseded input copies, without archive."""
+    root = Path(root).resolve()
+    require_unused_workspace(root, rid, direct=True)
+    if not preparation_only(root, rid):
+        raise ValueError('Only pre-implementation input copies may be directly discarded')
+    data = root/'data/development/workspaces'/rid/'data'
+    targets = sorted(p for p in data.iterdir() if p.name in DIRECT_INPUTS)
+    if not targets:
+        raise ValueError('No disposable input copies')
+    records = {}
+    for target in targets:
+        records[target.name] = inventory(target)
+        finished = datetime.fromisoformat(read(root/'data/development/runs'/rid/'run.json')['finished_at']).timestamp()
+        if any(r['mtime_ns'] > finished * 1e9 for r in records[target.name].values()):
+            raise ValueError('Input changed after preparation failed')
+    # Record hashes first; retain unique research, source, run and patch evidence.
+    receipt = {'run_id': rid, 'at': datetime.now(timezone.utc).isoformat(),
+        'state': 'prepared_direct_input_discard', 'entries': records,
+        'original_logical_bytes': sum(r['size'] for rows in records.values() for r in rows.values()),
+        'scope': 'Superseded unreferenced input copies only; code, research, run evidence retained.'}
+    _discard_receipt(root, rid+'-direct', receipt)
+    require_unused_workspace(root, rid, direct=True)
+    for target in targets:
+        if inventory(target) != records[target.name]:
+            raise ValueError('Input copy changed before deletion')
+    require_unused_workspace(root, rid, direct=True)
+    if not preparation_only(root, rid):
+        raise ValueError('Run acquired implementation evidence')
+    for target in targets:
+        if inventory(target) != records[target.name]:
+            raise ValueError('Input copy changed during final reference check')
+        if target.is_dir(): shutil.rmtree(target)
+        else: target.unlink()
+    directory = os.open(data, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try: os.fsync(directory)
+    finally: os.close(directory)
+    receipt['state'] = 'discarded_unused_inputs_code_research_and_runs_retained'
+    _discard_receipt(root, rid+'-direct', receipt)
+    return {k:v for k,v in receipt.items() if k != 'entries'}
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, required=True)
     parser.add_argument('--apply', action='store_true')
+    parser.add_argument('--discard-unused-inputs', action='store_true',
+                        help='Remove unused superseded input copies directly; preserves code/research/logs')
     parser.add_argument('--discard-archived-inputs', action='store_true',
                         help='Explicitly discard eligible already archived failed-attempt inputs; requires --apply to delete')
+    parser.add_argument('--prune-release-staging', action='store_true')
     parser.add_argument('--limit', type=int, default=10)
     args = parser.parse_args(argv)
     if args.limit < 1 or args.limit > 500:
         raise ValueError('Limit must be between 1 and 500 workspaces')
     root = args.root.resolve()
     if not args.apply:
-        eligible = candidates(root)
+        eligible = direct_candidates(root) if args.discard_unused_inputs else candidates(root)
         print(json.dumps({'eligible': len(eligible), 'sample': eligible[:20],
                           'apply': False, 'discard_archived_inputs': args.discard_archived_inputs,
                           'discard_eligible': candidates(root, include_archived=True) if args.discard_archived_inputs else []}), flush=True)
@@ -386,13 +458,13 @@ def main(argv=None):
         for outcome in rotation:
             if outcome['state'] == 'error':
                 print(json.dumps({'log_rotation':outcome}), file=sys.stderr, flush=True)
-        eligible = candidates(root)
+        eligible = direct_candidates(root) if args.discard_unused_inputs else candidates(root)
         print(json.dumps({'eligible':len(eligible), 'limit':args.limit,
                           'apply':True, 'discard_archived_inputs': args.discard_archived_inputs, 'log_rotation':rotation}), flush=True)
         errors = 0
         for rid in eligible[:args.limit]:
             try:
-                print(json.dumps(archive_one(root, rid)), flush=True)
+                print(json.dumps(discard_unused_inputs(root, rid) if args.discard_unused_inputs else archive_one(root, rid)), flush=True)
             except Exception as error:
                 errors += 1
                 print(json.dumps({'run_id':rid, 'state':'error',
@@ -406,6 +478,14 @@ def main(argv=None):
                 except Exception as error:
                     errors += 1
                     print(json.dumps({'run_id': rid, 'state': 'discard_error',
+                                      'error': str(error)}), file=sys.stderr, flush=True)
+        if args.prune_release_staging:
+            from prune_obsolete_release_staging import eligible as stage_candidates, prune_one
+            for release_id in stage_candidates(root)[:args.limit]:
+                try: print(json.dumps(prune_one(root, release_id)), flush=True)
+                except Exception as error:
+                    errors += 1
+                    print(json.dumps({'release_id': release_id, 'state': 'staging_error',
                                       'error': str(error)}), file=sys.stderr, flush=True)
         return 1 if errors else 0
 

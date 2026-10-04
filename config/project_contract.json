@@ -804,6 +804,7 @@
       "active runtime",
       "referenced recovery evidence"
     ],
-    "shadow_evaluations": "Only proven unreferenced obsolete evaluations may be deleted, and unique outcome/source evidence must survive. No blanket age-only deletion."
+    "shadow_evaluations": "Only proven unreferenced obsolete evaluations may be deleted, and unique outcome/source evidence must survive. No blanket age-only deletion.",
+    "unused_input_copies": "2026-10-04 follow-up: explicitly authorized direct permanent removal, without archival or age-only wait, of allowlisted generated inputs from superseded retry/interrupted attempts after current/latest/recovery/static and process checks. Preserve code, unique research/controller logs, original records and run evidence; durable pre-delete inventory."
   }
 }
