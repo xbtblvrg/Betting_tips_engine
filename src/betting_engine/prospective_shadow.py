@@ -553,6 +553,11 @@ class ShadowEvidenceStore:
                 snapshots = _routed_snapshots(source['routing'], tip['reference_market_id'].split(':')[2])
                 close = evaluate_closing_price(decision, snapshots, as_of=now.isoformat(),
                                                rejection_sample_limit=32)
+                close['snapshot_routing'] = {
+                    'version': 'exact-market-with-complete-lifecycle-v1',
+                    'captured_snapshots': len(all_snapshots),
+                    'evaluated_snapshots': len(snapshots),
+                    'sibling_markets_covered_by_lifecycle': len(all_snapshots)-len(snapshots)}
                 errors = list(source['errors'])
                 if tip['start'] not in source['start_conflicts']:
                     source['start_conflicts'][tip['start']] = any(
