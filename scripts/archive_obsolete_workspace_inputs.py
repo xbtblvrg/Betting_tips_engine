@@ -41,6 +41,27 @@ def read(path):
 _REFERENCE_CACHE = {}
 
 
+def historical_report_references(value):
+    """Historical run IDs are observations; explicit input paths stay binding."""
+    references = set()
+    if isinstance(value, dict):
+        for item in value.values():
+            references.update(historical_report_references(item))
+    elif isinstance(value, list):
+        for item in value:
+            references.update(historical_report_references(item))
+    elif isinstance(value, str):
+        # Keep workspace roots as well as files, and archived/copied inputs.
+        # A run.json or retained run-log path is not a workspace input binding.
+        for token in re.split(r"[\s\"'<>]+", value):
+            if '/' not in token and '\\' not in token:
+                continue
+            normalized = token.replace('\\', '/')
+            if re.search(r'(?:^|/)[^/]*(?:workspace|input|archive)[^/]*/', normalized):
+                references.update(RUN_ID.findall(token))
+    return references
+
+
 def discard_references(root):
     """Extra explicit source/control references, without copied release staging.
 
@@ -62,6 +83,8 @@ def discard_references(root):
                 safe(parent/name)
             for name in files:
                 path = parent/name
+                if parent == root/'docs' and re.fullmatch(r'CLEANUP_\d{4}-\d{2}-\d{2}\.hu\.md', name):
+                    continue
                 if path.suffix not in ('.json', '.md', '.py', '.txt', '.source'):
                     continue
                 safe(path); info = path.lstat()
@@ -71,10 +94,15 @@ def discard_references(root):
                 previous = _REFERENCE_CACHE.get(path)
                 if previous is None or previous[0] != identity:
                     found = set()
+                    historical = (path.suffix == '.json' and path.is_relative_to(root/'data/releases')
+                                  and len(path.relative_to(root/'data/releases').parts) > 1
+                                  and path.relative_to(root/'data/releases').parts[0].startswith('root-'))
                     tail = ''
-                    # Dashboard audit snapshots can exceed 20MiB. Scan every
-                    # byte with bounded memory; never skip a large reference.
+                    # Parse historical reports to distinguish path values from run IDs.
+                    # Other references retain the bounded, complete text scan.
                     with path.open(encoding='utf-8') as stream:
+                        if historical:
+                            found.update(historical_report_references(json.load(stream)))
                         while chunk := stream.read(1024*1024):
                             body = tail + chunk
                             found.update(RUN_ID.findall(body))

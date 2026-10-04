@@ -1176,6 +1176,10 @@ class DevelopmentWorker:
         if self.workspace.exists():
             shutil.rmtree(self.workspace)
         self.workspace.mkdir()
+        # Reject known-invalid retained diagnostics before materializing any
+        # candidate sources or large research inputs. Accepted copies exclude data.
+        from .runtime_errors import export_failure_diagnostics
+        export_failure_diagnostics(self.folder,self.workspace,self.state.get('tasks',{}).get(getattr(self,'current_task',{}).get('id'),{}).get('recovery_work',{}))
         if accepted.exists():
             shutil.copytree(accepted, self.workspace, dirs_exist_ok=True, copy_function=workspace_copy2,
                 ignore=shutil.ignore_patterns('__pycache__', '.pytest_cache', '.git', 'node_modules', 'data', 'candidate_fixture_repairs'))
@@ -1286,8 +1290,6 @@ class DevelopmentWorker:
         # the writable live wager ledger. It supplies source hashes/reasons for repair tasks.
         copy_task_evidence(self.folder, self.workspace, getattr(self, 'current_task', {}))
         copy_release_failure_evidence(self.folder, self.workspace, getattr(self, 'current_task', {}))
-        from .runtime_errors import export_failure_diagnostics
-        export_failure_diagnostics(self.folder,self.workspace,self.state.get('tasks',{}).get(getattr(self,'current_task',{}).get('id'),{}).get('recovery_work',{}))
         try:
             from .development_inputs import export_development_inputs
             exported = export_development_inputs(self.root, self.workspace)
