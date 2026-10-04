@@ -1,3 +1,7 @@
+## 2026-10-04 — WNBA Winner & Total feldolgozás javítása
+
+Éles kód: `5c39e10`, `8b353ee`. A pontos overtime négykimenetes piac felismerése; hiányzó/inaktív kimenet vagy quote esetén nincs hibás devig. Független Codex-review után teljes Python: 6546 passed, 1 skipped, 5 subtests; frontend: 280 passed. Helyi 08:04:14 UTC és Tailscale 08:05:04 UTC publikáció: 2 meccsen 8 kimenet parsed/quoted/priced/guard_checked (korábban 0). A composite-validációs guard mind a 8-at kutatási állapotban tartja; ebből új pénzes ajánlás: 0. Ez parser/árazási javítás, nem a kombinált modell jóváhagyása. Bizonyíték: `data/releases/root-market-expansion-20261004/`. Az NFL overtime bekötése külön implementáció alatt.
+
 ## 2026-10-03 — Changed történeti nézet
 
 Éles commit `9216a7d`: Bet Tracker külön, csak olvasható Changed — Upcoming Historical Records táblája. Meglévő nyitott, bejelöletlen, kezdés előtti, negatív instruction_review rekordokból automatikus visszamenőleges megjelenítés; eredeti kiadási odds/tét/becsült ROI/időpont, legutóbbi pontos azonosítójú értékelés és megfigyelési idő, pontos kivonási ok. Nem új kiadási állapot vagy végrehajtási jogosultság; Ready-kritérium, ledger, modellek változatlanok. Elkezdődött/lezárt/megjelölt sorok nem szerepelnek e részben, a meglévő Tracker megmarad. A kezdés előtti állapot nem igazolja a piac aktivitását. View on Stake link és placed_after_change kategória nem implementálva.
