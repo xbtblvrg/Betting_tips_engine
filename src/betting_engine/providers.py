@@ -9,7 +9,10 @@ from .domain import Game, utcnow, parse_time, LEAGUES
 from .io_utils import atomic_json,atomic_bytes
 
 ROOT = Path(__file__).resolve().parents[2]
+from .runtime_env import load_environment
+load_environment(ROOT / '.env')
 DATA = Path(os.environ.get('BETTING_DATA_DIR', ROOT / 'data'))
+if not DATA.is_absolute():DATA = ROOT / DATA
 log = logging.getLogger(__name__)
 logging.getLogger('httpx').setLevel(logging.WARNING)
 

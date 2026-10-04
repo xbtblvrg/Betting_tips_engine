@@ -1,0 +1,419 @@
+{
+  "version": "runtime-seed-v1",
+  "created_at": "2026-10-04T15:37:34.289605+00:00",
+  "source_code_commit": "fa5f3076c8cd9a0a67df8ceaea789bc5d6d2f675",
+  "python": "3.14",
+  "files": [
+    {
+      "path": "models/MLB.joblib",
+      "bytes": 409646,
+      "sha256": "c35557d4cdb9e60a7597004cb6342271168c92c33ab123987b27930cd514e929"
+    },
+    {
+      "path": "models/MLB.json",
+      "bytes": 161098,
+      "sha256": "556e5e5ef7443f6ac788c3e29df74ab101a55cd524e35f5b40743de295e9d06c"
+    },
+    {
+      "path": "models/NBA.joblib",
+      "bytes": 265486,
+      "sha256": "f5d4005584b61ad4f43801c2ea06e7e0dcf487a6425cccc0591e748b19317fba"
+    },
+    {
+      "path": "models/NBA.json",
+      "bytes": 79072,
+      "sha256": "173d3b41c6d7f36435aeb19567a337b4bc884f2fa849caccd5599177919f4ab2"
+    },
+    {
+      "path": "models/NCAAF.joblib",
+      "bytes": 253470,
+      "sha256": "cdd82282139dbd73133da72f7f66bb72caa7a1433fad3f7fc59f5887d7210b75"
+    },
+    {
+      "path": "models/NCAAF.json",
+      "bytes": 77446,
+      "sha256": "3345319e97b204a5a3c48b27913f5d59a682b22f50f771b32a323c048b8e4c96"
+    },
+    {
+      "path": "models/NCAAM.joblib",
+      "bytes": 544030,
+      "sha256": "e1a9784d18443f78fa74e5f63cc7cd7e36c11601290f75f71b33d4ab648ba5f2"
+    },
+    {
+      "path": "models/NCAAM.json",
+      "bytes": 336491,
+      "sha256": "abe7262f00afae22d64d70f6c52e7de0a4cba3e7cd8a70b71e4d8de0c3858aab"
+    },
+    {
+      "path": "models/NCAAW.joblib",
+      "bytes": 510302,
+      "sha256": "c41601cb09136db1d5281b3745d460051f4513d4338bbc8bf51c40d8287a75ab"
+    },
+    {
+      "path": "models/NCAAW.json",
+      "bytes": 309433,
+      "sha256": "2a46207e65bfa4158b584fd5cd45fc1d1f8b35dba19650e3f4d9db4e66501dda"
+    },
+    {
+      "path": "models/NFL.joblib",
+      "bytes": 219775,
+      "sha256": "dd029b455e015af3df064be3b5de9b61017162a5adaa7633af351e991de8407e"
+    },
+    {
+      "path": "models/NFL.json",
+      "bytes": 31468,
+      "sha256": "4a88652d3f026ae7fcc2a6f1925dc4a9bb1043704205340091a24f9f5f68c4fe"
+    },
+    {
+      "path": "models/NHL.joblib",
+      "bytes": 257343,
+      "sha256": "e8ea5c31d43799a73f3ff77a4472270243ad0ac5c7f1ca755c06cfde8e29f98a"
+    },
+    {
+      "path": "models/NHL.json",
+      "bytes": 82259,
+      "sha256": "cee09097e8632c925d269bd37d9438ba4ddec793af00021445b2e9b0d01b7fbf"
+    },
+    {
+      "path": "models/WNBA.joblib",
+      "bytes": 216111,
+      "sha256": "4bf62cea743e2e4be2973e92410d5a98084a9c7de16035f8dece06d7a63052f0"
+    },
+    {
+      "path": "models/WNBA.json",
+      "bytes": 27732,
+      "sha256": "fbd79f73956722579bb8eae07341cad222b57455ee08bbf4ecc85cbf3d79d2a7"
+    },
+    {
+      "path": "period_models/NBA-half_1.joblib",
+      "bytes": 1603823,
+      "sha256": "cb13000fe6bf3f95896d5a72fcb445963f01fa01ece8265d8c7fd3b5c4ba323a"
+    },
+    {
+      "path": "period_models/NBA-half_1.json",
+      "bytes": 3248,
+      "sha256": "5808d4626fcff24e61e8626705e002eee7f92c18edffbd5c5379b4d892f2242b"
+    },
+    {
+      "path": "period_models/NBA-half_2.joblib",
+      "bytes": 1603826,
+      "sha256": "fe1d3e323308d9eb23805b32dc782c780ac1087df5995aa7cd89133daa952cba"
+    },
+    {
+      "path": "period_models/NBA-half_2.json",
+      "bytes": 3265,
+      "sha256": "963100c14fee288d1f23c09cd6ee05efb7ceced522d7dbffd88cd55989d797bd"
+    },
+    {
+      "path": "period_models/NBA-half_2_ot.joblib",
+      "bytes": 1603829,
+      "sha256": "229f9ac2816bdd0552c90eb097747c2344b1816e33ee2820bc637ae16b59ed81"
+    },
+    {
+      "path": "period_models/NBA-half_2_ot.json",
+      "bytes": 3277,
+      "sha256": "a2f5e576baf9556c6458c0eaa2a8ad2efd2f7165cd0b84adfafdfdb9057f3587"
+    },
+    {
+      "path": "period_models/NBA-quarter_1.joblib",
+      "bytes": 1603824,
+      "sha256": "78c8a754b6db0ef210b79682431dda44862d235151edfd4c442f9944e73727d6"
+    },
+    {
+      "path": "period_models/NBA-quarter_1.json",
+      "bytes": 3245,
+      "sha256": "5f6aed0d9e01d651f4993fcdf2a0590d2469461449182b3d150afa4e44e50f8f"
+    },
+    {
+      "path": "period_models/NBA-quarter_2.joblib",
+      "bytes": 1603829,
+      "sha256": "ba08515274aa3c14dfd475aca103512dea095992d636de6b56f3243598c069ed"
+    },
+    {
+      "path": "period_models/NBA-quarter_2.json",
+      "bytes": 3267,
+      "sha256": "189440de43299c2472c7e0d866095cb7a479da43fb37f147870e1f5c6c69e29f"
+    },
+    {
+      "path": "period_models/NBA-quarter_3.joblib",
+      "bytes": 1603829,
+      "sha256": "d27b7146b4b0ba6eca6d6df2fed7edea477879b4c447002af6027e2e0bb2f138"
+    },
+    {
+      "path": "period_models/NBA-quarter_3.json",
+      "bytes": 3274,
+      "sha256": "9d838429e18970525485183e43e8e8b55d2911cad051148d5e7f02e48090a4e6"
+    },
+    {
+      "path": "period_models/NBA-quarter_4.joblib",
+      "bytes": 1603829,
+      "sha256": "d3b9ba48662dbeae93e68186fe1f5e45685f7f37724983193955f5894b275720"
+    },
+    {
+      "path": "period_models/NBA-quarter_4.json",
+      "bytes": 3270,
+      "sha256": "d19eb7434fa05ba09147f35829fd93d551ac1597453ae3f89f139a01c0fdf1dc"
+    },
+    {
+      "path": "period_models/NBA-quarter_4_ot.joblib",
+      "bytes": 1603848,
+      "sha256": "f985e39d2ec210ae4e0248e0f793f0a2099130eae8b077d8a63e3b880eacb1e3"
+    },
+    {
+      "path": "period_models/NBA-quarter_4_ot.json",
+      "bytes": 3273,
+      "sha256": "de5936fb97b45a671ec9775fbef7b87cb93a8d21b68f21de597d23364a24fd36"
+    },
+    {
+      "path": "period_models/NBA-regulation.joblib",
+      "bytes": 1603827,
+      "sha256": "f11020c1dcacb555a73a733389b7ef3f3ea117a19356af6bdbf24094da363ec9"
+    },
+    {
+      "path": "period_models/NBA-regulation.json",
+      "bytes": 3252,
+      "sha256": "2d5defc0fc45f37abb04aff9c744eb028973559caf8e75e8cceafc5707b54182"
+    },
+    {
+      "path": "period_models/NFL-half_1.joblib",
+      "bytes": 531016,
+      "sha256": "61bcdf02cf7a4bfaa065fb0c664272576db00eff712083a7caba9a2d97130d96"
+    },
+    {
+      "path": "period_models/NFL-half_1.json",
+      "bytes": 3245,
+      "sha256": "800ba1600f2dc07dd23734997bd31e218fc02b0b48df2ab12f0cfb7a03248aa9"
+    },
+    {
+      "path": "period_models/NFL-half_2.joblib",
+      "bytes": 531014,
+      "sha256": "0ec7994ff6b16a804afe5c68e4e9de9e28fc2ad41a935ba354d43d29d7aa0f03"
+    },
+    {
+      "path": "period_models/NFL-half_2.json",
+      "bytes": 3247,
+      "sha256": "c0cfef0b0de74c7b7ae877d85e5958ede6541262c5af87a5816c45dc819d1a05"
+    },
+    {
+      "path": "period_models/NFL-half_2_ot.joblib",
+      "bytes": 531033,
+      "sha256": "c08067c4c16117ca4efa55ad742fe3c30664ead899616bd529fd2b6daef290f8"
+    },
+    {
+      "path": "period_models/NFL-half_2_ot.json",
+      "bytes": 3295,
+      "sha256": "a34a407cd5fffceb4d1a770e53822114a4c6f3014b565dad2936dc8e920f030f"
+    },
+    {
+      "path": "period_models/NFL-quarter_1.joblib",
+      "bytes": 531030,
+      "sha256": "e0c2ec952debe792655c958e08a7daed940843b67de6c08b6ca4f95a6ce94988"
+    },
+    {
+      "path": "period_models/NFL-quarter_1.json",
+      "bytes": 3275,
+      "sha256": "c0739ac18c2137fcaecf0548dfbb6ce2c8eb078ae24194a19ebbe3f0a3f39c2c"
+    },
+    {
+      "path": "period_models/NFL-quarter_2.joblib",
+      "bytes": 531039,
+      "sha256": "6130fa7c6ddf29c01fe863a65d99edc3b504a8a053619e3f5b8a27264f001f33"
+    },
+    {
+      "path": "period_models/NFL-quarter_2.json",
+      "bytes": 3340,
+      "sha256": "728b44211c08eb3b0542160ec8d671c71d9bd066c540c6abcc6ed2f24ad81c1a"
+    },
+    {
+      "path": "period_models/NFL-quarter_3.joblib",
+      "bytes": 531039,
+      "sha256": "24b86c8e8b466f98ae10046cbf18bc4fde52f616e71539e067fad895614bd240"
+    },
+    {
+      "path": "period_models/NFL-quarter_3.json",
+      "bytes": 3329,
+      "sha256": "1c4f09c696b094edc0da640d19a1b48cea24f2ced2d043ac961f254fb5f2ca14"
+    },
+    {
+      "path": "period_models/NFL-quarter_4.joblib",
+      "bytes": 531031,
+      "sha256": "946a7d3cdddd1cc083f220eebc1e2b50366a92d3a481786fa86ea01bd838ab59"
+    },
+    {
+      "path": "period_models/NFL-quarter_4.json",
+      "bytes": 3282,
+      "sha256": "ca2bfbc02365eea64b38afa9b64d907de95d7c34661e6dd1c8208e768ec0a75b"
+    },
+    {
+      "path": "period_models/NFL-quarter_4_ot.joblib",
+      "bytes": 531050,
+      "sha256": "911d097f52b2e78435bee92d81cff6fe2f47b331225b2ccb8dcd8c55c1cf5c67"
+    },
+    {
+      "path": "period_models/NFL-quarter_4_ot.json",
+      "bytes": 3286,
+      "sha256": "a6919f2a16d3c0bb2522e0bccf15dfb93f648eecdcbe7f7159237ee6aef647a5"
+    },
+    {
+      "path": "period_models/NFL-regulation.joblib",
+      "bytes": 531031,
+      "sha256": "fe2215b438b6fd569135bb9e4858acfbc58e2f20f641f29a4d647939bba39732"
+    },
+    {
+      "path": "period_models/NFL-regulation.json",
+      "bytes": 3289,
+      "sha256": "3bf876877136607154433e5d71137468006281d09ed60a36be972f6f2929ed2f"
+    },
+    {
+      "path": "period_models/NHL-period_1.joblib",
+      "bytes": 1572417,
+      "sha256": "203422a03141d2581db08bb404793b8716d4c088f6efc24845406f45e35ffc93"
+    },
+    {
+      "path": "period_models/NHL-period_1.json",
+      "bytes": 3196,
+      "sha256": "b29f3e36a6e37fbdf46acf42b948ad4fff221218d6dd20615be5dc1f46b900ff"
+    },
+    {
+      "path": "period_models/NHL-period_2.joblib",
+      "bytes": 1572417,
+      "sha256": "ccec9b450c3324b7652b5dbb597db80fd90a5ffc4b613a557c8925f99df076ed"
+    },
+    {
+      "path": "period_models/NHL-period_2.json",
+      "bytes": 3194,
+      "sha256": "88b86c532ce6165cfe75dacdae255300d314c949567625318a53f52e4d8cd8eb"
+    },
+    {
+      "path": "period_models/NHL-period_3.joblib",
+      "bytes": 1572417,
+      "sha256": "264e78c53073e7d9cd7e8aca38fe470c0d66ff03d2a26982d622200986590d76"
+    },
+    {
+      "path": "period_models/NHL-period_3.json",
+      "bytes": 3194,
+      "sha256": "0c31075d5f0606165efafe13783288727e722fba30fb533191a23a7862258c04"
+    },
+    {
+      "path": "period_models/NHL-regulation.joblib",
+      "bytes": 1572433,
+      "sha256": "2544d59cff555228acd12f3ab369e0bed843d1cd0e834c4846be5eb4dd7e8ba6"
+    },
+    {
+      "path": "period_models/NHL-regulation.json",
+      "bytes": 3181,
+      "sha256": "20c33cead3312294410cfbade73fd453fb6163228fefc4bf8e43f7d4f848eded"
+    },
+    {
+      "path": "period_models/WNBA-half_1.joblib",
+      "bytes": 337513,
+      "sha256": "3a7371466301949dab1fc23f610e20b25e2119babb4f4acb0f0e9a96dbf435c4"
+    },
+    {
+      "path": "period_models/WNBA-half_1.json",
+      "bytes": 3161,
+      "sha256": "21f8629407b2a75021950fe0e3564ee207cc763b4d5b3eab673fe41d8304bee2"
+    },
+    {
+      "path": "period_models/WNBA-half_2.joblib",
+      "bytes": 340800,
+      "sha256": "6499bbd85829aeeeabbd742f04fa940d05b57fc314e26cfa8c10532a89f90fd3"
+    },
+    {
+      "path": "period_models/WNBA-half_2.json",
+      "bytes": 3534,
+      "sha256": "d570496b9b28cdc00684168583d1f03545dd5870b903ec6b2a38cc9b49efdde6"
+    },
+    {
+      "path": "period_models/WNBA-half_2_ot.joblib",
+      "bytes": 340803,
+      "sha256": "7bd5d646e588626a420eb3cfcc07d5e69b80fc572875c654f9dafa5057250395"
+    },
+    {
+      "path": "period_models/WNBA-half_2_ot.json",
+      "bytes": 3542,
+      "sha256": "be23b7333014ec7846516f319d755c5f543c2067a032f7e0501c49ad1c5e7927"
+    },
+    {
+      "path": "period_models/WNBA-quarter_1.joblib",
+      "bytes": 337516,
+      "sha256": "a7635a92cfff3131c04d3051e77cacd1ddef392e53518825a2f8454d7b1b54c6"
+    },
+    {
+      "path": "period_models/WNBA-quarter_1.json",
+      "bytes": 3170,
+      "sha256": "f26f66b1477efce19b69069a7c33b8cc0db49abf0655860f4cd5214bef727a93"
+    },
+    {
+      "path": "period_models/WNBA-quarter_2.joblib",
+      "bytes": 337518,
+      "sha256": "b3b6bfa526c93ccb0658c6f352af617a1dc54150d66f404dfd2238b539fcff6c"
+    },
+    {
+      "path": "period_models/WNBA-quarter_2.json",
+      "bytes": 3184,
+      "sha256": "2d9f65712c06beb66671b93aee1cbf831c0009df077b6eb731dc85543dfeabca"
+    },
+    {
+      "path": "period_models/WNBA-quarter_3.joblib",
+      "bytes": 338822,
+      "sha256": "b4fecf1ace17b722be29a968cc95a456a5cc8824514d306fc9c26b1c030ad8d3"
+    },
+    {
+      "path": "period_models/WNBA-quarter_3.json",
+      "bytes": 3546,
+      "sha256": "c0e31ad97132ff15d9e1f78e2f8d3f00db22dd3d34ac66fe44a93ca2d6747554"
+    },
+    {
+      "path": "period_models/WNBA-quarter_4.joblib",
+      "bytes": 338801,
+      "sha256": "08040e677db45e18e2b11b9cb5832ddd4cf469aeb53f574ee427800a893385ae"
+    },
+    {
+      "path": "period_models/WNBA-quarter_4.json",
+      "bytes": 3524,
+      "sha256": "f3e21a6ceb730e229b5c1b330825e2716eeb375b649b74bee897ed89bae1bedf"
+    },
+    {
+      "path": "period_models/WNBA-quarter_4_ot.joblib",
+      "bytes": 337552,
+      "sha256": "713b4fdb8d2a3365fba73ae60eb55fc553e7f92b1f484e4aaf3707efadf47daa"
+    },
+    {
+      "path": "period_models/WNBA-quarter_4_ot.json",
+      "bytes": 3217,
+      "sha256": "ff88e4f51d1077cffd784d39b65652a17dfed6ea77d8681746e3fee912c253cc"
+    },
+    {
+      "path": "period_models/WNBA-regulation.joblib",
+      "bytes": 340801,
+      "sha256": "018fa83b207beecc9e7f12b516e9f07ce938c8204276dfc3083540959c1e4a46"
+    },
+    {
+      "path": "period_models/WNBA-regulation.json",
+      "bytes": 3483,
+      "sha256": "a46ca85e2e8153281f8c6a30da71719115325cff54cc2819e8a8195eafa96814"
+    },
+    {
+      "path": "segment_models/MLB-inning_1.joblib",
+      "bytes": 6451,
+      "sha256": "4127e5c7f025f4d5945310a453a2c695639a14ff65d77daee7a461e55fb74c77"
+    },
+    {
+      "path": "segment_models/MLB-inning_1.json",
+      "bytes": 3513,
+      "sha256": "4aec2f753976692725c0de3cf1fd9b2ecdcec08f98563fbfe4931d8cb1a98882"
+    },
+    {
+      "path": "segment_models/MLB-innings_1_5.joblib",
+      "bytes": 6454,
+      "sha256": "ef7d0d29f0589cc526b877f88840d301521f6ca19188c0c4b3fdb0483952aa9d"
+    },
+    {
+      "path": "segment_models/MLB-innings_1_5.json",
+      "bytes": 3518,
+      "sha256": "a4d3982d6af7411c8af4ae04935957f7f8f15c7cd04ceb7b7f3c7b2c103f2195"
+    }
+  ],
+  "note": "Inference seed only; no betting ledger, credentials, source-response archive or claimed transferable outcome history."
+}

@@ -15,7 +15,7 @@ if action == 'install':
         'ProgramArguments': [str(ROOT / '.venv/bin/python'), '-m', 'betting_engine.development', '--root', str(ROOT)],
         'WorkingDirectory': str(ROOT), 'RunAtLoad': True, 'KeepAlive': True, 'ThrottleInterval': 30,
         'EnvironmentVariables': {'PYTHONPATH': str(ROOT / 'src'), 'PYTHONUNBUFFERED': '1',
-            'PATH': '/opt/homebrew/bin:/usr/bin:/bin:/Users/belavarga/.local/bin',
+            'PATH': '/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:' + str(Path.home() / '.local/bin'),
             'OMP_NUM_THREADS': '1', 'OPENBLAS_NUM_THREADS': '1', 'VECLIB_MAXIMUM_THREADS': '1'},
         'ProcessType': 'Standard', 'Nice': 5,
         'SoftResourceLimits': {'NumberOfFiles': 4096}, 'StandardOutPath': str(logs / 'development.log'),

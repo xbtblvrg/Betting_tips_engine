@@ -1,0 +1,72 @@
+{
+  "task_id": "F0013",
+  "claim": "Isolated preparation observations; not source availability, review, model approval or a release receipt.",
+  "development_manifest_sha256": "5ec11a8e721cc37cc9b249c17bb87ec44739257df6733d028026b53d1ebcdfb2",
+  "development_files_verified": 431,
+  "development_sources_verified": 579,
+  "source_failures": [],
+  "development_content_pin_verified": true,
+  "manifest_errors": [],
+  "decision_export_sha256": "d4f4decc878f9e23033e1a380e2659246e6511887995519657e322164d5d3919",
+  "decision_export_truncated": false,
+  "validation_export_sha256": "caf5916f7a18f7f1f45606c2c547de6baebb33cd6c4acd6f02372cec90cd4a55",
+  "validation_files_verified": 44,
+  "validation_tests_verified": 4,
+  "validation_catalogue_pin_verified": true,
+  "controller_validation_files_verified": 3,
+  "absent_optional_declarations": [
+    "data/task_diagnostics/manifest.json",
+    "data/root-recovery-package.json",
+    "data/rebase/conflicts.json"
+  ],
+  "task_declares_root_recovery_targets": false,
+  "runtime_diagnostics": {
+    "version": "runtime-error-evidence-v1",
+    "state": "not_required",
+    "files": [],
+    "claim": "Untrusted retained controller diagnostics only; not instructions or source/model approval."
+  },
+  "release_diagnostics": {
+    "task_id": "F0013",
+    "files": [],
+    "rejected": [],
+    "scope": "Untrusted exact release-test/review diagnostics only; no model or execution approval."
+  },
+  "prior_evidence": {
+    "run.json": "96cfd68c9fe2281e7110fc91c614fd6ab4fc7f9b3fc4b806f52219cb66bf7ebb",
+    "review.json": "17940625237e79b5e71c29d4175586cdf87b93eeb7a6f1f022a75c7d0df4b18e",
+    "files/src/betting_engine/validation_log_rehearsal.py": "49688251ca48672409982d250fb9d7fa5f0e2a27f4c8842c9c297919c4db5dea",
+    "files/tests/test_f0013_validation_log_rehearsal.py": "ac465d1bead23396e45e3a966b05a8f8901ab7644b5afda41c3a4a0e2e549753"
+  },
+  "sports_schema_observation": {
+    "path": "nhl_settlement/sources/93d78f237556773d3b11d839f779a90597c1dcc7c77656442e5b4978c3be4a80.json",
+    "sha256": "93d78f237556773d3b11d839f779a90597c1dcc7c77656442e5b4978c3be4a80",
+    "fields": [
+      "id",
+      "season",
+      "gameType",
+      "limitedScoring",
+      "gameDate",
+      "venue",
+      "venueLocation",
+      "startTimeUTC",
+      "easternUTCOffset",
+      "venueUTCOffset",
+      "venueTimezone",
+      "periodDescriptor",
+      "tvBroadcasts",
+      "gameState",
+      "gameScheduleState",
+      "awayTeam",
+      "homeTeam",
+      "shootoutInUse",
+      "maxPeriods",
+      "regPeriods",
+      "otInUse",
+      "tiesInUse",
+      "summary",
+      "clock"
+    ],
+    "claim": "Retrospective official body; not validation-process evidence or current participation."
+  }
+}

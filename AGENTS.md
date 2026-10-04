@@ -235,3 +235,10 @@ The new instruction authorizes a deterministic dynamic event-limit policy: curre
 
 ## Latest user issuance correction — 2026-10-04
 Activate reviewed continuous_probability_v2 via the existing family_selection_policy seal. Remove lifetime game/tier fallback limits and event-wide probability suppression; distinct unheld contracts compete by calibrated unconditional probability, verified shrunken segment WR/ROI and stressedEV. Actual payoff equivalence remains idempotent. CLV-only fallback waiting becomes parallel measurement; source/model/scope/freshness checks stay binding. Affordable minimum-ticket floor USD1, maxUSD5, no invented bankroll or automatic wagers. quality_roster_v2 expansion uses the full current new batch; original held exposure is counted/sealed, legacy receipt absence alone cannot veto, coldstart ceiling1.5 vs positive history2. Funnel measures every current guarded candidate by tier and disjoint actual allocation reasons. Learning completion measures closed outcomes plus working runtime consumers, not unclosed current decisions. Existing source/readiness/guards and immutable ledger stay intact. Target100 distinct daily firstissuances; report real counts, never fabricate matches or repeat contracts.
+
+## Clone / recovery handoff (2026-10-04)
+
+- README.md and scripts/bootstrap.py define the fresh-machine installation. uv.lock, .python-version and package-lock.json are pinned; .env.example is a template, .env is never committed.
+- config/runtime_settings.json captures the current deployable policy for a NEW ledger only. Never overwrite existing settings/decisions on bootstrap. The runtime seed contains current inference models/reports, not historical bets or a claim of transferable outcome evidence.
+- Track knowledge/cards and derived notes required by KnowledgeAgent. Original books, credentials, live SQLite/WAL, caches and old workspace snapshots stay private.
+- Bootstrap must be verified in an isolated clean checkout. Production deployment still requires existing tests/review and live checks. Machine-specific CLI paths and Tailscale host are localized on the destination; do not reuse the original host identity.

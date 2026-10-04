@@ -1,0 +1,61 @@
+{
+  "task_id": "F0013",
+  "claim": "Isolated author validation and preservation audit; not independent review, production evidence or a release receipt.",
+  "task_complete": true,
+  "implementation": "Detached evaluator repaired for both exact prior review findings.",
+  "existing_files_checked": 1018,
+  "existing_files_changed": [],
+  "existing_test_files": 394,
+  "existing_test_sha256_before": "47a15e065d5dbd067b7721c9d7b29ca54274907948efd3c6471948ab65ec1ae4",
+  "existing_test_sha256_after": "47a15e065d5dbd067b7721c9d7b29ca54274907948efd3c6471948ab65ec1ae4",
+  "restored_prior_tests_byte_identical": true,
+  "export_preparation_sha256_before": "9132869349a377c1bd2c076a6e1f6efe85fe354671ce440a71b80a752741b091",
+  "export_preparation_sha256_after": "9132869349a377c1bd2c076a6e1f6efe85fe354671ce440a71b80a752741b091",
+  "development_files_still_match_pins": true,
+  "decision_export_sha256": "d4f4decc878f9e23033e1a380e2659246e6511887995519657e322164d5d3919",
+  "new_files": {
+    "docs/F0013_SUMMARY_DOM.log": "08ea93798f5725107d767e5fb9c1bcfc2e682021076aef79cb0b77505f58af1e",
+    "docs/F0013_SUMMARY_FOCUSED.log": "f5430491fb860ed16c9ccffe50657ae3d01600a47f2b1d57e4d676bdb728ba26",
+    "docs/F0013_SUMMARY_INPUTS.json": "535d086a87375bd0762f3bdc1f4c09c0c2d7140efb660c7a75cc9cd4e26cfe40",
+    "docs/F0013_SUMMARY_PYTHON.log": "aa33ebf3b382304800092e0330c36a0bcc80c639da1c5279062ac4d6cd40679d",
+    "docs/F0013_SUMMARY_RECOVERY.md": "a342a04de21f350a0261796eed9ce7c045bd30213a47a2674ddfe0963fad53da",
+    "docs/F0013_SUMMARY_REPLAY.json": "e5adda3029c848b03fc723c3221a8ed5c2c155a345c4276eeaecc544276334e4",
+    "src/betting_engine/validation_log_rehearsal.py": "2c699224fc292cd7c3bb1a11f80e9f63f2d5d2459cbd12bb9c85fa2b814f7943",
+    "tests/test_f0013_summary_recovery.py": "5d24d7efb40892363963d7534d6028d2898175e38ee4e0f8a3733dc77e528dcc",
+    "tests/test_f0013_validation_log_rehearsal.py": "ac465d1bead23396e45e3a966b05a8f8901ab7644b5afda41c3a4a0e2e549753"
+  },
+  "tests": {
+    "focused": {
+      "passed": 105,
+      "exit_code": 0
+    },
+    "frontend": {
+      "passed": 272,
+      "exit_code": 0
+    },
+    "complete_python": {
+      "passed": 8617,
+      "failed": 1,
+      "skipped": 5,
+      "subtests_passed": 5,
+      "exit_code": 1,
+      "seconds": 170.45,
+      "failure": "tests/test_claude_development.py::test_native_no_tool_process_cannot_read_or_write_root_or_external_workspace",
+      "reason": "sandbox-exec: sandbox_apply: Operation not permitted; exit 71",
+      "complete_suite_passed": false
+    }
+  },
+  "helper_reviews": [
+    {
+      "id": "acceptance_checklist:grok",
+      "sha256": "7cd6a3b0b488f9f05f9ca81ae3368add1670ac8c0be0e49ca300c9b6e26715ff",
+      "disposition": "partly_used",
+      "reason": "Used unchanged-test, retained-finding and release-boundary checklist. Rejected unsupported zero-funded-count inference and any suggestion to change protected timeouts or require the full milestone before this bounded evaluator can be implemented."
+    }
+  ],
+  "remaining": [
+    "Controller fixed-suite rerun with nested sandbox permission; independent read-only review.",
+    "Separate trusted root integration/release authority and fresh local/Tailscale publication verification; no exact passive profile.",
+    "Actual timeout repair, accepted-snapshot drift resolution, shadow validation, host/alert and production rollback/restore evidence remain open."
+  ]
+}

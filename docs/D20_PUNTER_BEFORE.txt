@@ -1,0 +1,223 @@
+FFFFFFFF.F                                                               [100%]
+=================================== FAILURES ===================================
+____________ test_review_opposing_punter_cannot_be_baltimore_kicker ____________
+
+tmp_path = PosixPath('/private/var/folders/bz/mmh6jc9n3db72lywcjm7qhkh0000gn/T/pytest-of-belavarga/pytest-2548/test_review_opposing_punter_ca0')
+native_game = ({'archive_timestamp_independently_authenticated': False, 'availability_basis': 'archived_observation', 'available_at'...'KC', ...}, {'play_id': 148.0, 'game_id': '2024_01_BAL_KC', 'old_game_id': '2024090500', 'home_team': 'KC', ...}, ...])
+
+    def test_review_opposing_punter_cannot_be_baltimore_kicker(tmp_path, native_game):
+        def mutate(rows):
+            punter, kick = play(rows, 903), play(rows, 2086)
+            kick.update(kicker_player_id=punter['punter_player_id'],
+                        kicker_player_name=punter['punter_player_name'])
+>       rejected(targets(tmp_path, native_game, mutate), 'conflicting_player_team_identity')
+
+tests/test_d20_punter_identity_recovery.py:66: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+result = {'adapter': 'native-event-sequence-v19', 'game_id': 'NFL:2024_01_BAL_KC', 'status': 'ready', 'reason': None, ...}
+reason = 'conflicting_player_team_identity'
+
+    def rejected(result, reason):
+>       assert result['status'] == 'rejected' and result['reason'] == reason, result
+E       AssertionError: {'adapter': 'native-event-sequence-v19', 'game_id': 'NFL:2024_01_BAL_KC', 'status': 'ready', 'reason': None, ...}
+E       assert ('ready' == 'rejected'
+E         
+E         - rejected
+E         + ready)
+
+tests/test_d20_punter_identity_recovery.py:55: AssertionError
+________________ test_later_punt_cannot_borrow_opposing_kicker _________________
+
+tmp_path = PosixPath('/private/var/folders/bz/mmh6jc9n3db72lywcjm7qhkh0000gn/T/pytest-of-belavarga/pytest-2548/test_later_punt_cannot_borrow_0')
+native_game = ({'archive_timestamp_independently_authenticated': False, 'availability_basis': 'archived_observation', 'available_at'...'KC', ...}, {'play_id': 148.0, 'game_id': '2024_01_BAL_KC', 'old_game_id': '2024090500', 'home_team': 'KC', ...}, ...])
+
+    def test_later_punt_cannot_borrow_opposing_kicker(tmp_path, native_game):
+        def mutate(rows):
+            punter, kick = play(rows, 2889), play(rows, 2086)
+            punter.update(punter_player_id=kick['kicker_player_id'],
+                          punter_player_name=kick['kicker_player_name'])
+>       rejected(targets(tmp_path, native_game, mutate), 'conflicting_player_team_identity')
+
+tests/test_d20_punter_identity_recovery.py:74: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+result = {'adapter': 'native-event-sequence-v19', 'game_id': 'NFL:2024_01_BAL_KC', 'status': 'ready', 'reason': None, ...}
+reason = 'conflicting_player_team_identity'
+
+    def rejected(result, reason):
+>       assert result['status'] == 'rejected' and result['reason'] == reason, result
+E       AssertionError: {'adapter': 'native-event-sequence-v19', 'game_id': 'NFL:2024_01_BAL_KC', 'status': 'ready', 'reason': None, ...}
+E       assert ('ready' == 'rejected'
+E         
+E         - rejected
+E         + ready)
+
+tests/test_d20_punter_identity_recovery.py:55: AssertionError
+_______________ test_malformed_punter_identity_rejects[fields0] ________________
+
+tmp_path = PosixPath('/private/var/folders/bz/mmh6jc9n3db72lywcjm7qhkh0000gn/T/pytest-of-belavarga/pytest-2548/test_malformed_punter_identity0')
+native_game = ({'archive_timestamp_independently_authenticated': False, 'availability_basis': 'archived_observation', 'available_at'...'KC', ...}, {'play_id': 148.0, 'game_id': '2024_01_BAL_KC', 'old_game_id': '2024090500', 'home_team': 'KC', ...}, ...])
+fields = {'punter_player_id': 'fake'}
+
+    @pytest.mark.parametrize('fields', [
+        {'punter_player_id': 'fake'},
+        {'punter_player_name': None},
+        {'punter_player_name': ''},
+    ])
+    def test_malformed_punter_identity_rejects(tmp_path, native_game, fields):
+>       rejected(targets(tmp_path, native_game, lambda rows: play(rows, 903).update(fields)),
+                 'invalid_player_identity')
+
+tests/test_d20_punter_identity_recovery.py:83: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+result = {'adapter': 'native-event-sequence-v19', 'game_id': 'NFL:2024_01_BAL_KC', 'status': 'ready', 'reason': None, ...}
+reason = 'invalid_player_identity'
+
+    def rejected(result, reason):
+>       assert result['status'] == 'rejected' and result['reason'] == reason, result
+E       AssertionError: {'adapter': 'native-event-sequence-v19', 'game_id': 'NFL:2024_01_BAL_KC', 'status': 'ready', 'reason': None, ...}
+E       assert ('ready' == 'rejected'
+E         
+E         - rejected
+E         + ready)
+
+tests/test_d20_punter_identity_recovery.py:55: AssertionError
+_______________ test_malformed_punter_identity_rejects[fields1] ________________
+
+tmp_path = PosixPath('/private/var/folders/bz/mmh6jc9n3db72lywcjm7qhkh0000gn/T/pytest-of-belavarga/pytest-2548/test_malformed_punter_identity1')
+native_game = ({'archive_timestamp_independently_authenticated': False, 'availability_basis': 'archived_observation', 'available_at'...'KC', ...}, {'play_id': 148.0, 'game_id': '2024_01_BAL_KC', 'old_game_id': '2024090500', 'home_team': 'KC', ...}, ...])
+fields = {'punter_player_name': None}
+
+    @pytest.mark.parametrize('fields', [
+        {'punter_player_id': 'fake'},
+        {'punter_player_name': None},
+        {'punter_player_name': ''},
+    ])
+    def test_malformed_punter_identity_rejects(tmp_path, native_game, fields):
+>       rejected(targets(tmp_path, native_game, lambda rows: play(rows, 903).update(fields)),
+                 'invalid_player_identity')
+
+tests/test_d20_punter_identity_recovery.py:83: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+result = {'adapter': 'native-event-sequence-v19', 'game_id': 'NFL:2024_01_BAL_KC', 'status': 'ready', 'reason': None, ...}
+reason = 'invalid_player_identity'
+
+    def rejected(result, reason):
+>       assert result['status'] == 'rejected' and result['reason'] == reason, result
+E       AssertionError: {'adapter': 'native-event-sequence-v19', 'game_id': 'NFL:2024_01_BAL_KC', 'status': 'ready', 'reason': None, ...}
+E       assert ('ready' == 'rejected'
+E         
+E         - rejected
+E         + ready)
+
+tests/test_d20_punter_identity_recovery.py:55: AssertionError
+_______________ test_malformed_punter_identity_rejects[fields2] ________________
+
+tmp_path = PosixPath('/private/var/folders/bz/mmh6jc9n3db72lywcjm7qhkh0000gn/T/pytest-of-belavarga/pytest-2548/test_malformed_punter_identity2')
+native_game = ({'archive_timestamp_independently_authenticated': False, 'availability_basis': 'archived_observation', 'available_at'...'KC', ...}, {'play_id': 148.0, 'game_id': '2024_01_BAL_KC', 'old_game_id': '2024090500', 'home_team': 'KC', ...}, ...])
+fields = {'punter_player_name': ''}
+
+    @pytest.mark.parametrize('fields', [
+        {'punter_player_id': 'fake'},
+        {'punter_player_name': None},
+        {'punter_player_name': ''},
+    ])
+    def test_malformed_punter_identity_rejects(tmp_path, native_game, fields):
+>       rejected(targets(tmp_path, native_game, lambda rows: play(rows, 903).update(fields)),
+                 'invalid_player_identity')
+
+tests/test_d20_punter_identity_recovery.py:83: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+result = {'adapter': 'native-event-sequence-v19', 'game_id': 'NFL:2024_01_BAL_KC', 'status': 'ready', 'reason': None, ...}
+reason = 'invalid_player_identity'
+
+    def rejected(result, reason):
+>       assert result['status'] == 'rejected' and result['reason'] == reason, result
+E       AssertionError: {'adapter': 'native-event-sequence-v19', 'game_id': 'NFL:2024_01_BAL_KC', 'status': 'ready', 'reason': None, ...}
+E       assert ('ready' == 'rejected'
+E         
+E         - rejected
+E         + ready)
+
+tests/test_d20_punter_identity_recovery.py:55: AssertionError
+_____________ test_supplied_punter_requires_native_possession_team _____________
+
+tmp_path = PosixPath('/private/var/folders/bz/mmh6jc9n3db72lywcjm7qhkh0000gn/T/pytest-of-belavarga/pytest-2548/test_supplied_punter_requires_0')
+native_game = ({'archive_timestamp_independently_authenticated': False, 'availability_basis': 'archived_observation', 'available_at'...'KC', ...}, {'play_id': 148.0, 'game_id': '2024_01_BAL_KC', 'old_game_id': '2024090500', 'home_team': 'KC', ...}, ...])
+
+    def test_supplied_punter_requires_native_possession_team(tmp_path, native_game):
+>       rejected(targets(tmp_path, native_game, lambda rows: play(rows, 903).update(posteam=None)),
+                 'missing_player_team_identity')
+
+tests/test_d20_punter_identity_recovery.py:88: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+result = {'adapter': 'native-event-sequence-v19', 'game_id': 'NFL:2024_01_BAL_KC', 'status': 'ready', 'reason': None, ...}
+reason = 'missing_player_team_identity'
+
+    def rejected(result, reason):
+>       assert result['status'] == 'rejected' and result['reason'] == reason, result
+E       AssertionError: {'adapter': 'native-event-sequence-v19', 'game_id': 'NFL:2024_01_BAL_KC', 'status': 'ready', 'reason': None, ...}
+E       assert ('ready' == 'rejected'
+E         
+E         - rejected
+E         + ready)
+
+tests/test_d20_punter_identity_recovery.py:55: AssertionError
+____ test_missing_punter_schema_fails_at_archive_boundary[punter_player_id] ____
+
+tmp_path = PosixPath('/private/var/folders/bz/mmh6jc9n3db72lywcjm7qhkh0000gn/T/pytest-of-belavarga/pytest-2548/test_missing_punter_schema_fai0')
+native_game = ({'archive_timestamp_independently_authenticated': False, 'availability_basis': 'archived_observation', 'available_at'...'KC', ...}, {'play_id': 148.0, 'game_id': '2024_01_BAL_KC', 'old_game_id': '2024090500', 'home_team': 'KC', ...}, ...])
+column = 'punter_player_id'
+
+    @pytest.mark.parametrize('column', ['punter_player_id', 'punter_player_name'])
+    def test_missing_punter_schema_fails_at_archive_boundary(tmp_path, native_game, column):
+>       with pytest.raises(SequenceError, match='^missing_native_columns$'):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE SequenceError
+
+tests/test_d20_punter_identity_recovery.py:94: Failed
+___ test_missing_punter_schema_fails_at_archive_boundary[punter_player_name] ___
+
+tmp_path = PosixPath('/private/var/folders/bz/mmh6jc9n3db72lywcjm7qhkh0000gn/T/pytest-of-belavarga/pytest-2548/test_missing_punter_schema_fai1')
+native_game = ({'archive_timestamp_independently_authenticated': False, 'availability_basis': 'archived_observation', 'available_at'...'KC', ...}, {'play_id': 148.0, 'game_id': '2024_01_BAL_KC', 'old_game_id': '2024090500', 'home_team': 'KC', ...}, ...])
+column = 'punter_player_name'
+
+    @pytest.mark.parametrize('column', ['punter_player_id', 'punter_player_name'])
+    def test_missing_punter_schema_fails_at_archive_boundary(tmp_path, native_game, column):
+>       with pytest.raises(SequenceError, match='^missing_native_columns$'):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE SequenceError
+
+tests/test_d20_punter_identity_recovery.py:94: Failed
+__________ test_real_game_preserves_punter_evidence_and_scope_limits ___________
+
+manifest = {'bounds': {'manifest_reserved_bytes': 2097152, 'max_nhl_sources': 24, 'max_sources': 64, 'max_total_bytes': 268435456...: 1, 'exclusion_reasons': {}, 'expected_seasons': [2026, 2025, 2024], 'missing_seasons': [2025, 2024], ...}, ...}, ...}
+
+    def test_real_game_preserves_punter_evidence_and_scope_limits(manifest):
+        entry = source(manifest, 2024)
+        result = load_archive(ROOT, entry['source_sha256']).targets(GAME, as_of=AS_OF)
+        assert result['status'] == 'ready', result
+        assert result['sequence']['final_score'] == [27, 20]
+        identity = next(e for e in result['sequence']['source_event_identities'] if e['event_id'] == 903)
+>       assert dict(role='punter', player_id='00-0037284', player_name='M.Araiza',
+                    team_field='posteam', team='KC') in identity['native_role_team_evidence']
+E       AssertionError: assert {'role': 'punter', 'player_id': '00-0037284', 'player_name': 'M.Araiza', 'team_field': 'posteam', ...} in []
+E        +  where {'role': 'punter', 'player_id': '00-0037284', 'player_name': 'M.Araiza', 'team_field': 'posteam', ...} = dict(role='punter', player_id='00-0037284', player_name='M.Araiza', team_field='posteam', team='KC')
+
+tests/test_d20_punter_identity_recovery.py:116: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_d20_punter_identity_recovery.py::test_review_opposing_punter_cannot_be_baltimore_kicker
+FAILED tests/test_d20_punter_identity_recovery.py::test_later_punt_cannot_borrow_opposing_kicker
+FAILED tests/test_d20_punter_identity_recovery.py::test_malformed_punter_identity_rejects[fields0]
+FAILED tests/test_d20_punter_identity_recovery.py::test_malformed_punter_identity_rejects[fields1]
+FAILED tests/test_d20_punter_identity_recovery.py::test_malformed_punter_identity_rejects[fields2]
+FAILED tests/test_d20_punter_identity_recovery.py::test_supplied_punter_requires_native_possession_team
+FAILED tests/test_d20_punter_identity_recovery.py::test_missing_punter_schema_fails_at_archive_boundary[punter_player_id]
+FAILED tests/test_d20_punter_identity_recovery.py::test_missing_punter_schema_fails_at_archive_boundary[punter_player_name]
+FAILED tests/test_d20_punter_identity_recovery.py::test_real_game_preserves_punter_evidence_and_scope_limits
+9 failed, 1 passed in 0.90s

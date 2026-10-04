@@ -1,0 +1,405 @@
+{
+  "claim": "Synthetic exact review reproduction; not a production run or release receipt.",
+  "source_run_id": "20261001T225137076371-F0013",
+  "cases": [
+    {
+      "input": "1 failed in 0.1s\n2 passed in 0.2s",
+      "process_outcome": "exited",
+      "exit_code": 0,
+      "before": {
+        "version": "validation-log-rehearsal-v1",
+        "state": "incomplete_test_report",
+        "reason": null,
+        "source_run_id": "summary-recovery",
+        "process_outcome": "exited",
+        "exit_code": 0,
+        "tests_passed": false,
+        "retry_authorized": false,
+        "promotion_authorized": false,
+        "model_activation_authorized": false,
+        "input_authentication_required": true,
+        "logs": [
+          {
+            "path": "data/runtime-failure-evidence/python-tests.stdout.log",
+            "sha256": "d05ae2f2b0f5612badcb8817d3baf17d56809cbc9bf15ddee47bb7669dde5af2",
+            "bytes": 33
+          },
+          {
+            "path": "data/runtime-failure-evidence/python-tests.stderr.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "bytes": 0
+          }
+        ],
+        "observations": {
+          "stdout": {
+            "summaries": [
+              {
+                "counts": {
+                  "failed": 1
+                },
+                "terminal": false
+              },
+              {
+                "counts": {
+                  "passed": 2
+                },
+                "terminal": true
+              }
+            ],
+            "summary_count": 2,
+            "named_failures": [],
+            "named_failures_truncated": false,
+            "failure_progress_observed": false,
+            "last_reported_percent": null
+          },
+          "stderr": {
+            "summaries": [],
+            "summary_count": 0,
+            "named_failures": [],
+            "named_failures_truncated": false,
+            "failure_progress_observed": false,
+            "last_reported_percent": null
+          },
+          "failure_observed": false,
+          "reported_counts": null,
+          "summary_count": 2
+        },
+        "manifest_sha256": "2c367df4406ca9760b9f4effea5a78cee025b578b438f71a032cf4e16503af8b",
+        "evidence_fingerprint": "949efc88da4b214486925cdf3937cf46a92639a97586a5db9fd312bc2035edc4"
+      },
+      "after": {
+        "version": "validation-log-rehearsal-v1",
+        "state": "incomplete_test_report",
+        "reason": null,
+        "source_run_id": "summary-recovery",
+        "process_outcome": "exited",
+        "exit_code": 0,
+        "tests_passed": false,
+        "retry_authorized": false,
+        "promotion_authorized": false,
+        "model_activation_authorized": false,
+        "input_authentication_required": true,
+        "logs": [
+          {
+            "path": "data/runtime-failure-evidence/python-tests.stdout.log",
+            "sha256": "d05ae2f2b0f5612badcb8817d3baf17d56809cbc9bf15ddee47bb7669dde5af2",
+            "bytes": 33
+          },
+          {
+            "path": "data/runtime-failure-evidence/python-tests.stderr.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "bytes": 0
+          }
+        ],
+        "observations": {
+          "stdout": {
+            "summaries": [
+              {
+                "counts": {
+                  "failed": 1
+                },
+                "terminal": false
+              },
+              {
+                "counts": {
+                  "passed": 2
+                },
+                "terminal": true
+              }
+            ],
+            "summary_count": 2,
+            "invalid_summaries": [],
+            "invalid_summary_count": 0,
+            "failure_summary_observed": true,
+            "named_failures": [],
+            "named_failures_truncated": false,
+            "failure_progress_observed": false,
+            "last_reported_percent": null
+          },
+          "stderr": {
+            "summaries": [],
+            "summary_count": 0,
+            "invalid_summaries": [],
+            "invalid_summary_count": 0,
+            "failure_summary_observed": false,
+            "named_failures": [],
+            "named_failures_truncated": false,
+            "failure_progress_observed": false,
+            "last_reported_percent": null
+          },
+          "failure_observed": true,
+          "reported_counts": null,
+          "summary_count": 2,
+          "invalid_summary_count": 0
+        },
+        "manifest_sha256": "2c367df4406ca9760b9f4effea5a78cee025b578b438f71a032cf4e16503af8b",
+        "evidence_fingerprint": "949efc88da4b214486925cdf3937cf46a92639a97586a5db9fd312bc2035edc4"
+      }
+    },
+    {
+      "input": "1 failed, 1 failed in 0.1s\n2 passed in 0.2s",
+      "process_outcome": "exited",
+      "exit_code": 0,
+      "before": {
+        "version": "validation-log-rehearsal-v1",
+        "state": "reported_pass",
+        "reason": null,
+        "source_run_id": "summary-recovery",
+        "process_outcome": "exited",
+        "exit_code": 0,
+        "tests_passed": false,
+        "retry_authorized": false,
+        "promotion_authorized": false,
+        "model_activation_authorized": false,
+        "input_authentication_required": true,
+        "logs": [
+          {
+            "path": "data/runtime-failure-evidence/python-tests.stdout.log",
+            "sha256": "d3b87ae56e6ea95e567c5c6b51998a3a674223a81829e61cab8aa24ef9a7381a",
+            "bytes": 43
+          },
+          {
+            "path": "data/runtime-failure-evidence/python-tests.stderr.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "bytes": 0
+          }
+        ],
+        "observations": {
+          "stdout": {
+            "summaries": [
+              {
+                "counts": {
+                  "passed": 2
+                },
+                "terminal": true
+              }
+            ],
+            "summary_count": 1,
+            "named_failures": [],
+            "named_failures_truncated": false,
+            "failure_progress_observed": false,
+            "last_reported_percent": null
+          },
+          "stderr": {
+            "summaries": [],
+            "summary_count": 0,
+            "named_failures": [],
+            "named_failures_truncated": false,
+            "failure_progress_observed": false,
+            "last_reported_percent": null
+          },
+          "failure_observed": false,
+          "reported_counts": {
+            "passed": 2
+          },
+          "summary_count": 1
+        },
+        "manifest_sha256": "5c4539fcfde14f06205dbff238be28e2f83a541b664b49633274df422c93096c",
+        "evidence_fingerprint": "3d6b251de8fa70f077b99c8184b9324db17178d20d33f2d5db3e04a02d28a086"
+      },
+      "after": {
+        "version": "validation-log-rehearsal-v1",
+        "state": "incomplete_test_report",
+        "reason": null,
+        "source_run_id": "summary-recovery",
+        "process_outcome": "exited",
+        "exit_code": 0,
+        "tests_passed": false,
+        "retry_authorized": false,
+        "promotion_authorized": false,
+        "model_activation_authorized": false,
+        "input_authentication_required": true,
+        "logs": [
+          {
+            "path": "data/runtime-failure-evidence/python-tests.stdout.log",
+            "sha256": "d3b87ae56e6ea95e567c5c6b51998a3a674223a81829e61cab8aa24ef9a7381a",
+            "bytes": 43
+          },
+          {
+            "path": "data/runtime-failure-evidence/python-tests.stderr.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "bytes": 0
+          }
+        ],
+        "observations": {
+          "stdout": {
+            "summaries": [
+              {
+                "counts": {
+                  "passed": 2
+                },
+                "terminal": true
+              }
+            ],
+            "summary_count": 2,
+            "invalid_summaries": [
+              {
+                "reasons": [
+                  "duplicate_label"
+                ],
+                "terminal": false
+              }
+            ],
+            "invalid_summary_count": 1,
+            "failure_summary_observed": true,
+            "named_failures": [],
+            "named_failures_truncated": false,
+            "failure_progress_observed": false,
+            "last_reported_percent": null
+          },
+          "stderr": {
+            "summaries": [],
+            "summary_count": 0,
+            "invalid_summaries": [],
+            "invalid_summary_count": 0,
+            "failure_summary_observed": false,
+            "named_failures": [],
+            "named_failures_truncated": false,
+            "failure_progress_observed": false,
+            "last_reported_percent": null
+          },
+          "failure_observed": true,
+          "reported_counts": null,
+          "summary_count": 2,
+          "invalid_summary_count": 1
+        },
+        "manifest_sha256": "5c4539fcfde14f06205dbff238be28e2f83a541b664b49633274df422c93096c",
+        "evidence_fingerprint": "3d6b251de8fa70f077b99c8184b9324db17178d20d33f2d5db3e04a02d28a086"
+      }
+    },
+    {
+      "input": "2 passed in 0.1s\n2 passed in 0.1s\n2 passed in 0.1s\n1 failed in 0.2s",
+      "process_outcome": "exited",
+      "exit_code": 0,
+      "before": {
+        "version": "validation-log-rehearsal-v1",
+        "state": "incomplete_test_report",
+        "reason": null,
+        "source_run_id": "summary-recovery",
+        "process_outcome": "exited",
+        "exit_code": 0,
+        "tests_passed": false,
+        "retry_authorized": false,
+        "promotion_authorized": false,
+        "model_activation_authorized": false,
+        "input_authentication_required": true,
+        "logs": [
+          {
+            "path": "data/runtime-failure-evidence/python-tests.stdout.log",
+            "sha256": "80c79163fe277e631a9d496fce37934f0a297eca154fc86659fdc04eceb79332",
+            "bytes": 67
+          },
+          {
+            "path": "data/runtime-failure-evidence/python-tests.stderr.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "bytes": 0
+          }
+        ],
+        "observations": {
+          "stdout": {
+            "summaries": [
+              {
+                "counts": {
+                  "passed": 2
+                },
+                "terminal": false
+              },
+              {
+                "counts": {
+                  "passed": 2
+                },
+                "terminal": false
+              }
+            ],
+            "summary_count": 4,
+            "named_failures": [],
+            "named_failures_truncated": false,
+            "failure_progress_observed": false,
+            "last_reported_percent": null
+          },
+          "stderr": {
+            "summaries": [],
+            "summary_count": 0,
+            "named_failures": [],
+            "named_failures_truncated": false,
+            "failure_progress_observed": false,
+            "last_reported_percent": null
+          },
+          "failure_observed": false,
+          "reported_counts": null,
+          "summary_count": 4
+        },
+        "manifest_sha256": "825559e0df1854728dde5c72d9b96ad5368dd14904f7d8c0b2780cca1b396365",
+        "evidence_fingerprint": "79d2ee21ab1b7802c6fbac473fc3649f1ca7bf59ae40d7726759e581a687b0c9"
+      },
+      "after": {
+        "version": "validation-log-rehearsal-v1",
+        "state": "incomplete_test_report",
+        "reason": null,
+        "source_run_id": "summary-recovery",
+        "process_outcome": "exited",
+        "exit_code": 0,
+        "tests_passed": false,
+        "retry_authorized": false,
+        "promotion_authorized": false,
+        "model_activation_authorized": false,
+        "input_authentication_required": true,
+        "logs": [
+          {
+            "path": "data/runtime-failure-evidence/python-tests.stdout.log",
+            "sha256": "80c79163fe277e631a9d496fce37934f0a297eca154fc86659fdc04eceb79332",
+            "bytes": 67
+          },
+          {
+            "path": "data/runtime-failure-evidence/python-tests.stderr.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "bytes": 0
+          }
+        ],
+        "observations": {
+          "stdout": {
+            "summaries": [
+              {
+                "counts": {
+                  "passed": 2
+                },
+                "terminal": false
+              },
+              {
+                "counts": {
+                  "passed": 2
+                },
+                "terminal": false
+              }
+            ],
+            "summary_count": 4,
+            "invalid_summaries": [],
+            "invalid_summary_count": 0,
+            "failure_summary_observed": true,
+            "named_failures": [],
+            "named_failures_truncated": false,
+            "failure_progress_observed": false,
+            "last_reported_percent": null
+          },
+          "stderr": {
+            "summaries": [],
+            "summary_count": 0,
+            "invalid_summaries": [],
+            "invalid_summary_count": 0,
+            "failure_summary_observed": false,
+            "named_failures": [],
+            "named_failures_truncated": false,
+            "failure_progress_observed": false,
+            "last_reported_percent": null
+          },
+          "failure_observed": true,
+          "reported_counts": null,
+          "summary_count": 4,
+          "invalid_summary_count": 0
+        },
+        "manifest_sha256": "825559e0df1854728dde5c72d9b96ad5368dd14904f7d8c0b2780cca1b396365",
+        "evidence_fingerprint": "79d2ee21ab1b7802c6fbac473fc3649f1ca7bf59ae40d7726759e581a687b0c9"
+      }
+    }
+  ]
+}
