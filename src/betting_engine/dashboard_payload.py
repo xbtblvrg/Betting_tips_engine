@@ -264,6 +264,15 @@ def build_dashboard(store,health,data_dir):
     progress=store.daily_progress()
     from .dynamic_event_limits import held_roster
     chosen,alternatives=rank_and_size(reviewed,settings,store.risk_committed(),store.held_families(),held_contracts,held_event_counts,held_preferences,(store.held_allocation_families() if settings.get('model_pick_allocation_policy')=='distinct_family_v1' or settings.get('publication_limits_version')=='v3' else ()),store.held_event_stakes(),store.held_period_counts(),store.daily_family_counts(),progress.get('calendar_day_issued',progress.get('issued',0)),held_event_roster=(held_roster(store.open_bets()) if settings.get('dynamic_event_limits') is not None else None))
+    # Re-ranking on GET can discover the next batch after the current batch
+    # has just committed. Reading the dashboard must never issue that batch.
+    # Only the publication transaction creates the immutable issuance record.
+    with store.db() as connection:
+        issued_ids={row['tip_id'] for row in connection.execute('SELECT tip_id FROM recommendation_issuance')}
+    for t in reviewed:
+        if t.get('stake',0)>0 and t['id'] not in issued_ids:
+            t.update(stake=0.,allocation_code='awaiting_publication',
+                allocation_reason='Selected for the next engine cycle; not a betting instruction until the guarded issuance transaction commits.')
     probability_ids=probability_preference_ids(reviewed,settings,held_preference_allocations=held_preferences)
     for t in reviewed:
         t['execution_review']=preference_execution_review(t,current_execution_review(t,now,settings['minimum_roi'],settings),probability_ids)

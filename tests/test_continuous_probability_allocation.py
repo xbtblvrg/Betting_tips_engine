@@ -119,3 +119,20 @@ def test_authorized_minimum_ticket_floor_reproduces_in_real_atomic_publication(r
     chosen,_=rank_and_size([a],settings)
     store.publish({'recommendations':chosen,'evaluated_candidates':chosen},require_guard=True)
     assert len(store.system_decisions())==1 and store.system_decisions()[0]['payload']['stake']==1
+
+
+def test_dashboard_never_turns_read_only_next_batch_into_unissued_ready(reviewed,tmp_path,monkeypatch):
+    import test_continuous_delivery as cases
+    import betting_engine.dashboard_payload as dashboard
+    from betting_engine.domain import utcnow
+    a,settings,g=reviewed(cases.BEST,probability=.8,odds=1.1)
+    b,_,_=reviewed(cases.BEST,probability=.85,odds=1.1,market_kind='totals',side='over',line=215.5)
+    store=cases.database(tmp_path,settings)
+    b['stake']=0
+    store.publish({'generated_at':utcnow().isoformat(),'recommendations':[a],'evaluated_candidates':[a,b],'games':[],'status':{}},require_guard=True)
+    monkeypatch.setattr(dashboard,'automation_status',lambda path:{})
+    result=dashboard.build_dashboard(store,{},tmp_path)
+    candidate=next(t for t in result['evaluated_candidates'] if t['id']==b['id'])
+    assert candidate['stake']==0 and candidate['allocation_code']=='awaiting_publication'
+    assert b['id'] not in {t['id'] for t in result['recommendations']}
+    assert {t['tip_id'] for t in store.system_decisions()}=={a['id']}

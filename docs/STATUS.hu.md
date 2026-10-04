@@ -596,3 +596,6 @@ A heti tanult súlyozás tartós jobként bekötve; aktuális jóváhagyott súl
 - quality_roster_v2: minden régi jegy számít és lezárt, a teljes új guardos csomag minősége szerez bővítést; régi hiányzó sizingbizonylat nem vétó. Coldstart maximum1.5×, pozitív történeti jel2×. MaxUSD5/tipp, pontos duplikáció és forrás/model/scope/freshness guard megmarad.
 - Learning mérés: minden lezárt eredeti döntés feldolgozva plusz legalább egy bizonyított, négy aktuális snapshothoz kötött fogyasztó; pending aktuális döntések nem hiányzó outcome-ok.
 - Független Codex-review209 célzott Python és1DOM; javított reviewtalálatok: publikáció és selected frissesség/azonosság, tier-első kizárás. Teljes7022passed/1skipped/25warnings/5subtests,293DOMpassed. Az első teljesfutás null-időbélyeg regressziója javítva, második teljesfutás sikeres.
+
+- Éles első hat kiadási ciklus87 új eredeti ajánlás: NFL24,NHL24,MLB12,NBA21,WNBA6; mai profi első kiadás113/100. Első ciklus15, közülük13 tényleges earned-expansion receipt. Új tétekUSD1–2.18.
+- Dashboard GET regresszió: következő még nem kiadott batch nem jelenhet meg végrehajtási utasításként; pontos recommendation_issuance rekord szükséges. Független Codex-review és teljes7023passed/1skipped/25warnings/5subtests,293DOMpassed. Eredeti döntések és tétek változatlanok.

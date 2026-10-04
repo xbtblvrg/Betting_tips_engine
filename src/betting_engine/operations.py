@@ -34,6 +34,7 @@ def allocation_funnel(payload, now=None):
         'sizing':{'stake_below_minimum'},
         'prior_contract':{'already_held'},
         'execution':{'execution_review_failed'},
+        'issuance':{'awaiting_publication'},
     }
     def summarize(tips):
         codes=Counter();tiers=Counter();buckets=Counter();reasons={};funded=0
@@ -52,7 +53,7 @@ def allocation_funnel(payload, now=None):
                 buckets[group]+=1
                 reasons.setdefault(group,Counter())['tier_unfunded' if tier=='unfunded' else code]+=1
         remaining=len(tips);stages=[]
-        for name in ('funding','family','preference','prior_contract','limits','sizing','execution','other'):
+        for name in ('funding','family','preference','prior_contract','limits','sizing','execution','issuance','other'):
             rejected=buckets[name];stages.append({'stage':name,'entered':remaining,'rejected':rejected,
                 'passed':remaining-rejected,'reasons':dict(reasons.get(name,{}))});remaining-=rejected
         return {'guard_passed':len(tips),'funding_tiers':dict(tiers),'stages':stages,
