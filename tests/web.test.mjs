@@ -615,3 +615,11 @@ test('started and marked daily records are excluded while future changed records
 });
 
 import './overtime_alias.web.test.mjs';
+
+test('live exact market inventory and independent flow evidence are displayed separately from bets',async()=>{
+ const {w,d,writes}=await boot({automation:{supervisor:{flow_checker:{checked_at:start,checks:[{id:'1.7',title:'Bet lifecycle',status:'under_repair',detail:'4 delayed results',observed_at:start}]}},market_catalog:{live_coverage:{checked_at:start,publication_at:start,scope:'Observed feed titles',leagues:{NFL:{observed_types:3,evaluated_types:2,funding_eligible_types:1,issued_today:4}},rows:[{league:'NFL',market:'2nd Quarter - Draw No Bet',scope:'quarter_2',connected:true,evaluated:true,funding_eligible:false,issued_today:2,settled_decisions:3,feedback_decisions:3,reasons:{event_limit:2}}]}}}});
+ assert.match(d.querySelector('#flow-checker-table').textContent,/Bet lifecycle.*Under repair.*4 delayed results/);
+ assert.match(d.querySelector('#live-coverage-table').textContent,/2nd Quarter - Draw No Bet.*quarter_2.*Yes.*Yes.*No/);
+ assert.match(d.querySelector('#live-coverage-leagues').textContent,/NFL/);
+ assert.deepEqual(writes,[]);await w.happyDOM.close();
+});

@@ -43,7 +43,12 @@ def assess_flow(dashboard, supervisor, previous, now, lifecycle=None):
     model_errors={k:status.get(k) for k in ('segment_errors','period_errors','model_load_errors') if status.get(k)}
     checked=sum(r.get('guard_checked_outcomes',0) for r in types)
     passed=sum(r.get('guard_passed_outcomes',0) for r in types)
-    add('1.3','Model and input evaluation',bool(types) and not gaps and not model_errors and checked==passed and checked>0,{'checked':checked,'passed':passed,'model_errors':model_errors,'anchor':status.get('market_anchor')},'Repair guard/input/model errors and verify each exact scope through pricing; global model availability alone does not prove each contract.')
+    learned=(status.get('market_anchor') or {}).get('learned_weights',{})
+    inputs=status.get('model_input_effects',{})
+    diagnostic_gaps=[]
+    if learned.get('state')!='active' or learned.get('per_segment') is not True:diagnostic_gaps.append('per_segment_learned_anchor_not_active')
+    if inputs.get('verified') is not True:diagnostic_gaps.append('required_input_effects_not_measured')
+    add('1.3','Model and input evaluation',bool(types) and not gaps and not model_errors and checked==passed and checked>0 and not diagnostic_gaps,{'checked':checked,'passed':passed,'model_errors':model_errors,'anchor':status.get('market_anchor'),'diagnostic_gaps':diagnostic_gaps,'input_effects':inputs},'Repair guard/input/model errors and verify each exact scope through pricing; global model availability alone does not prove each contract.')
     daily=status.get('daily_progress',{}); by=daily.get('by_league',{})
     total=sum(by.get(l,0) for l in LEAGUES)
     local=now.astimezone(ZoneInfo('Europe/Budapest')); midnight=local.replace(hour=0,minute=0,second=0,microsecond=0)
@@ -78,9 +83,10 @@ def assess_flow(dashboard, supervisor, previous, now, lifecycle=None):
     add('1.9','Outcome learning and measured improvement',bool(completed) and _fresh(worker.get('checked_at'),now) and sizing.get('accepted_decisions',0)>0 and comparison['state']=='verified_improvement',{'verified_feedback_jobs':len(completed),'latest_feedback_job':completed[0].get('id') if completed else None,'sizing':sizing,'comparison':comparison},'Connect verified feedback to bounded retraining and prospective promotion; measure selection improvement separately from successful job completion.')
     coverage=automation.get('market_catalog',{}).get('live_coverage',{})
     rows=[r for r in coverage.get('rows',[]) if r.get('league') in LEAGUES]
-    observed={(r.get('league'),r.get('section','standard'),r.get('market'),r.get('scope')) for r in types}
+    from .live_market_coverage import _key
+    observed={_key(r) for r in types}
     covered={(r.get('league'),r.get('section','standard'),r.get('market'),r.get('scope')) for r in rows}
-    complete=bool(rows) and observed==covered and _fresh(coverage.get('checked_at'),now) and coverage.get('publication_fresh') is True and all(all(r.get(k) is True for k in ('connected','evaluated','funding_eligible','settled_and_feedback')) for r in rows)
+    complete=bool(rows) and observed<=covered and len(covered)==len(rows) and _fresh(coverage.get('checked_at'),now) and coverage.get('publication_fresh') is True and all(all(r.get(k) is True for k in ('connected','evaluated','funding_eligible','settled_and_feedback')) for r in rows)
     add('2','Named market lifecycle catalogue',complete and coverage.get('publication_at')==publication,{'catalogue_available':bool(coverage),'publication_at':coverage.get('publication_at'),'complete':complete,'types':len(rows),'missing_identities':[list(x) for x in observed-covered]},'Generate named league/scope catalogue from the same publication and measured lifecycle evidence; repair each false capability.')
     failures=sum(not r['passed'] for r in checks)
     return {'checked_at':now.isoformat(),'publication_at':publication,'publication_version':dashboard.get('version'),'mode':'independent_read_only','state':'fulfilled' if not failures else 'attention_required','checks':checks,'failure_count':failures,'repairing_count':sum(r['status']=='under_repair' for r in checks),'fully_verified_multiple_cycles':not failures and all(r['consecutive_publications']>=2 for r in checks)}

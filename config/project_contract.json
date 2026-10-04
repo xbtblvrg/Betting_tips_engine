@@ -753,5 +753,43 @@
       "matching fitted artifact missing-flag exposure",
       "lower confidence completeness"
     ]
+  },
+  "full_flow_verification_directive": {
+    "date": "2026-10-04",
+    "leagues": [
+      "NFL",
+      "NHL",
+      "MLB",
+      "NBA",
+      "WNBA"
+    ],
+    "daily_funded_target": 100,
+    "rolling_hours": 48,
+    "independent_checks": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4",
+      "1.5",
+      "1.6",
+      "1.7",
+      "1.8",
+      "1.9",
+      "2"
+    ],
+    "runtime": "existing supervisor and engineering intake",
+    "coverage_export": "docs/LIVE_MARKET_COVERAGE.md",
+    "distinctions": [
+      "pre-exposure funding support versus currently executable",
+      "assumed placement versus account execution",
+      "feedback processing versus measured model improvement"
+    ],
+    "preserve": [
+      "immutable original decisions",
+      "active exposure caps",
+      "max USD5 per selection",
+      "daily_risk_limit=null",
+      "manual-only wager submission"
+    ]
   }
 }

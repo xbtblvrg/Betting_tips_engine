@@ -85,3 +85,17 @@ def test_single_trial_is_not_paired_improvement():
 def test_yesterdays_daily_count_does_not_meet_target():
     p=snapshot();p['status']['daily_progress']['date']='2026-10-03'
     assert not rows(assess_flow(p,{}, {},NOW))['1.4']['passed']
+
+
+def test_guard_pass_does_not_prove_learned_anchor_or_quantified_inputs():
+    p=snapshot();r=rows(assess_flow(p,{}, {},NOW))['1.3']
+    assert not r['passed']
+    assert set(r['evidence']['diagnostic_gaps'])=={'per_segment_learned_anchor_not_active','required_input_effects_not_measured'}
+
+
+def test_catalogue_additional_history_is_not_missing_current_coverage():
+    p=snapshot(); row={'league':'NFL','section':'standard','market':'Winner (Incl. Overtime)','scope':'full_game','connected':True,'evaluated':True,'funding_eligible':True,'settled_and_feedback':True}
+    p['automation']={'market_catalog':{'live_coverage':{'publication_at':p['generated_at'],'checked_at':p['generated_at'],'publication_fresh':True,'rows':[row,{**row,'market':'Total (Incl. Overtime)'}]}}}
+    assert rows(assess_flow(p,{}, {},NOW))['2']['passed']
+    p['automation']['market_catalog']['live_coverage']['rows'].append(row)
+    assert not rows(assess_flow(p,{}, {},NOW))['2']['passed']
