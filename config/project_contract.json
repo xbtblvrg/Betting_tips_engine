@@ -740,6 +740,18 @@
     "require_exact_source_scope_and_fresh_price": true,
     "preseason_current_schedule_supplement": true,
     "statistical_quality_action": "repair_model_or_verified_reference",
-    "no_fabricated_evidence_or_duplicate_issuance": true
+    "no_fabricated_evidence_or_duplicate_issuance": true,
+    "composite_contract_policy": "complete_joint_score_v1",
+    "enabled_composite_scope": [
+      "WNBA full-game overtime Winner & Total half-point",
+      "MLB full-game extra-inning Over/Exact/Under integer"
+    ],
+    "missing_starter_policy": "verified_model_prior_v1",
+    "missing_starter_requirements": [
+      "fresh official source explicitly missing identity",
+      "exact existing trained prior vector",
+      "matching fitted artifact missing-flag exposure",
+      "lower confidence completeness"
+    ]
   }
 }
