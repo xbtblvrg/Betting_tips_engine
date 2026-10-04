@@ -1245,7 +1245,9 @@ class DevelopmentWorker:
             target = self.workspace / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             body = source.read_bytes()
-            target.write_bytes(body)
+            workspace_copy2(source, target)
+            if target.read_bytes() != body:
+                raise ValueError('Knowledge source changed during preparation: ' + str(relative))
             evidence.append({'path': str(relative), 'sha256': hashlib.sha256(body).hexdigest(), 'bytes': len(body)})
         atomic_json(self.workspace / 'data/knowledge-evidence.json', {'copied_at': utcnow().isoformat(),
             'scope': 'Current curated cards, extracted text and reading ledger; copying is not a claim of new full-text reading.',

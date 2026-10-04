@@ -4,6 +4,8 @@
 Run records, accepted files, current/latest workspaces, release inputs, and source
 archives stay in place. Each removed data directory remains fully in a verified
 gzip tar archive. Excludes referenced workspaces and any workspace used by a running process.
+Explicit --discard-archived-inputs also permanently retires unreferenced failed
+attempt input archives; code, run evidence and a content-hash receipt remain.
 """
 import argparse
 from datetime import datetime, timezone, timedelta
@@ -36,7 +38,57 @@ def read(path):
     return json.loads(path.read_text())
 
 
-def candidates(root, now=None, *, include_retiring=False):
+_REFERENCE_CACHE = {}
+
+
+def discard_references(root):
+    """Extra explicit source/control references, without copied release staging.
+
+    ReleaseCoordinator.prepare copies source into staging; authoritative binding
+    receipts/proposals/journals remain outside staging. Never walk those enormous
+    disposable validation copies. Current source and all other release controls
+    are inventoried afresh; only unchanged file parsing is cached.
+    """
+    references = set()
+    folders = [root/name for name in ('config', 'docs', 'tests', 'src', 'data/releases',
+                                      'data/development/task-releases')]
+    for folder in folders:
+        safe(folder)
+        for parent, dirs, files in os.walk(folder, followlinks=False):
+            parent = Path(parent)
+            if parent == root/'data/releases':
+                dirs[:] = [name for name in dirs if name != 'staging']
+            for name in dirs:
+                safe(parent/name)
+            for name in files:
+                path = parent/name
+                if path.suffix not in ('.json', '.md', '.py', '.txt', '.source'):
+                    continue
+                safe(path); info = path.lstat()
+                if not stat.S_ISREG(info.st_mode):
+                    raise ValueError('Unsupported reference document: ' + str(path))
+                identity = (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+                previous = _REFERENCE_CACHE.get(path)
+                if previous is None or previous[0] != identity:
+                    found = set()
+                    tail = ''
+                    # Dashboard audit snapshots can exceed 20MiB. Scan every
+                    # byte with bounded memory; never skip a large reference.
+                    with path.open(encoding='utf-8') as stream:
+                        while chunk := stream.read(1024*1024):
+                            body = tail + chunk
+                            found.update(RUN_ID.findall(body))
+                            tail = body[-256:]
+                    after = path.lstat()
+                    if identity != (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns, after.st_ctime_ns):
+                        raise ValueError('Reference changed while reading: ' + str(path))
+                    previous = (identity, found)
+                    _REFERENCE_CACHE[path] = previous
+                references.update(previous[1])
+    return references
+
+
+def candidates(root, now=None, *, include_retiring=False, include_archived=False):
     root = Path(root).resolve(); base = root/'data/development/workspaces'
     safe(base); now = now or datetime.now(timezone.utc)
     references = set()
@@ -49,6 +101,8 @@ def candidates(root, now=None, *, include_retiring=False):
             if path == root/'data/development/state.json':
                 value = {k:v for k,v in value.items() if k not in ('runs','recovery_events')}
             references.update(RUN_ID.findall(json.dumps(value)))
+    if include_archived:
+        references.update(discard_references(root))
     runs = {}; latest = {}
     for workspace in sorted(base.iterdir()):
         if workspace.is_symlink() or not workspace.is_dir(): continue
@@ -63,6 +117,8 @@ def candidates(root, now=None, *, include_retiring=False):
     keep_latest = {item[1] for item in latest.values()}
     result = []
     for rid, row in runs.items():
+        if include_archived and len(rid) > 128:
+            raise ValueError('Run identity exceeds reference scanner bound')
         if rid in references or rid in keep_latest: continue
         if row.get('state') not in ('retry', 'interrupted'): continue
         try: finished = datetime.fromisoformat(row['finished_at'])
@@ -70,11 +126,21 @@ def candidates(root, now=None, *, include_retiring=False):
         if finished.tzinfo is None or finished > now-timedelta(hours=48): continue
         data = base/rid/'data'
         if include_retiring and not data.exists(): data = data.with_name('.data-retiring')
-        if data.is_dir() and not data.is_symlink(): result.append(rid)
+        if include_archived:
+            archive = root/'data/workspace-input-archives'/(rid+'.data.tar.gz')
+            if data.exists() or data.is_symlink() or data.with_name('.data-retiring').exists() or data.with_name('.data-retiring').is_symlink():
+                continue
+            if archive.exists() or archive.is_symlink():
+                safe(archive)
+                info = archive.lstat()
+                if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+                    raise ValueError('Archive must be a single-link regular file')
+                result.append(rid)
+        elif data.is_dir() and not data.is_symlink(): result.append(rid)
     return result
 
 
-def require_unused_workspace(root, rid, *, retiring=False):
+def require_unused_workspace(root, rid, *, retiring=False, archived=False):
     """Fresh references and actual process use, without interrupting other tasks.
 
     Controller dispatch allocates a new timestamp run ID before preparation
@@ -83,7 +149,7 @@ def require_unused_workspace(root, rid, *, retiring=False):
     A process still using an obsolete path nevertheless blocks retirement.
     """
     root = Path(root).resolve()
-    if rid not in candidates(root, include_retiring=retiring):
+    if rid not in candidates(root, include_retiring=retiring, include_archived=archived):
         raise ValueError('Workspace no longer eligible or became referenced')
     workspace = root/'data/development/workspaces'/rid
     safe(workspace)
@@ -214,10 +280,80 @@ def archive_one(root, rid):
         if temporary is not None: temporary.unlink(missing_ok=True)
 
 
+def require_unused_archive(archive):
+    """Fail closed on process-inventory errors or any other open consumer."""
+    opened = subprocess.run(['/usr/sbin/lsof', '-nP', '-u', str(os.getuid()), '-Fpn'],
+        capture_output=True, text=True, check=True, timeout=30).stdout
+    pid = 'unknown'
+    for line in opened.splitlines():
+        if line.startswith('p'): pid = line[1:]
+        if line.startswith('n') and line[1:] == str(archive) and pid != str(os.getpid()):
+            raise ValueError('Open archive blocks discard: ' + pid)
+
+
+def _archive_identity(info):
+    return (info.st_dev, info.st_ino, info.st_mode, info.st_nlink,
+            info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+
+
+def _discard_receipt(root, rid, receipt):
+    folder = root/'data/workspace-input-discard-receipts'
+    safe(folder); folder.mkdir(exist_ok=True)
+    destination = folder/(rid+'.json'); safe(destination)
+    fd, name = tempfile.mkstemp(prefix='.'+rid+'-', dir=folder)
+    try:
+        with os.fdopen(fd, 'w') as stream:
+            json.dump(receipt, stream, sort_keys=True); stream.write('\n')
+            stream.flush(); os.fsync(stream.fileno())
+        os.replace(name, destination)
+        directory = os.open(folder, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try: os.fsync(directory)
+        finally: os.close(directory)
+    finally:
+        Path(name).unlink(missing_ok=True)
+
+
+def discard_one(root, rid):
+    """Explicitly discard only an obsolete archived input copy, never run evidence."""
+    root = Path(root).resolve()
+    require_unused_workspace(root, rid, archived=True)
+    archive = root/'data/workspace-input-archives'/(rid+'.data.tar.gz')
+    safe(archive); before = archive.lstat()
+    if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1:
+        raise ValueError('Archive must be a single-link regular file')
+    require_unused_archive(archive)
+    with os.fdopen(os.open(archive, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK), 'rb') as stream:
+        if _archive_identity(os.fstat(stream.fileno())) != _archive_identity(before):
+            raise ValueError('Archive changed before hash')
+        sha = file_hash(stream)
+        if _archive_identity(os.fstat(stream.fileno())) != _archive_identity(before):
+            raise ValueError('Archive changed during hash')
+    receipt = {'run_id': rid, 'archive': str(archive.relative_to(root)),
+               'archive_bytes': before.st_size, 'archive_sha256': sha,
+               'at': datetime.now(timezone.utc).isoformat(), 'state': 'prepared',
+               'scope': 'Explicitly authorized discard of superseded failed-attempt input copy; code and run evidence retained.'}
+    _discard_receipt(root, rid, receipt)
+    # Hashing and receipt persistence may take time: repeat all exclusions.
+    require_unused_workspace(root, rid, archived=True)
+    require_unused_archive(archive)
+    safe(archive)
+    if _archive_identity(archive.lstat()) != _archive_identity(before):
+        raise ValueError('Archive changed before discard')
+    archive.unlink()
+    directory = os.open(archive.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try: os.fsync(directory)
+    finally: os.close(directory)
+    receipt['state'] = 'discarded_archived_inputs_code_and_run_evidence_retained'
+    _discard_receipt(root, rid, receipt)
+    return receipt
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, required=True)
     parser.add_argument('--apply', action='store_true')
+    parser.add_argument('--discard-archived-inputs', action='store_true',
+                        help='Explicitly discard eligible already archived failed-attempt inputs; requires --apply to delete')
     parser.add_argument('--limit', type=int, default=10)
     args = parser.parse_args(argv)
     if args.limit < 1 or args.limit > 500:
@@ -226,7 +362,8 @@ def main(argv=None):
     if not args.apply:
         eligible = candidates(root)
         print(json.dumps({'eligible': len(eligible), 'sample': eligible[:20],
-                          'apply': False}), flush=True)
+                          'apply': False, 'discard_archived_inputs': args.discard_archived_inputs,
+                          'discard_eligible': candidates(root, include_archived=True) if args.discard_archived_inputs else []}), flush=True)
         return 0
     lock_path = root/'data/workspace-retention.lock'; safe(lock_path)
     with os.fdopen(os.open(lock_path, os.O_WRONLY | os.O_APPEND | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600), 'a') as lock:
@@ -251,7 +388,7 @@ def main(argv=None):
                 print(json.dumps({'log_rotation':outcome}), file=sys.stderr, flush=True)
         eligible = candidates(root)
         print(json.dumps({'eligible':len(eligible), 'limit':args.limit,
-                          'apply':True, 'log_rotation':rotation}), flush=True)
+                          'apply':True, 'discard_archived_inputs': args.discard_archived_inputs, 'log_rotation':rotation}), flush=True)
         errors = 0
         for rid in eligible[:args.limit]:
             try:
@@ -260,6 +397,16 @@ def main(argv=None):
                 errors += 1
                 print(json.dumps({'run_id':rid, 'state':'error',
                     'error':str(error)}), file=sys.stderr, flush=True)
+        if args.discard_archived_inputs:
+            archived = candidates(root, include_archived=True)
+            print(json.dumps({'discard_eligible': len(archived), 'limit': args.limit}), flush=True)
+            for rid in archived[:args.limit]:
+                try:
+                    print(json.dumps(discard_one(root, rid)), flush=True)
+                except Exception as error:
+                    errors += 1
+                    print(json.dumps({'run_id': rid, 'state': 'discard_error',
+                                      'error': str(error)}), file=sys.stderr, flush=True)
         return 1 if errors else 0
 
 

@@ -27,6 +27,7 @@ VERSION = 'prospective-exact-shadow-v1'
 APPLICATION_ID = 0x53484431
 TABLES = {'trials', 'observations', 'captures', 'source_blobs', 'evaluations'}
 MAX_SOURCE_BYTES = 16 * 1024 * 1024
+REPORT_PREFIX = b'BQSR1\0'
 MIN_CLUSTER_INTERVAL = 20  # Reporting threshold only. Never a funding veto.
 EVALUATOR_ID = {'version': VERSION, 'closing_version': _closing_evaluator.VERSION,
                 'rejection_diagnostics': 'ordered-rejection-sample-v1',
@@ -38,6 +39,30 @@ EVALUATOR_ID = {'version': VERSION, 'closing_version': _closing_evaluator.VERSIO
 
 def _json(value):
     return json.dumps(value, sort_keys=True, separators=(',', ':'), allow_nan=False)
+
+
+def _encode_report(value):
+    """Lossless new-report storage; original journal rows are never rewritten."""
+    body = _json(value).encode('utf-8')
+    return REPORT_PREFIX + len(body).to_bytes(8, 'big') + gzip.compress(body, compresslevel=3, mtime=0)
+
+
+def report_logical_size(prefix, stored_size):
+    if isinstance(prefix, bytes) and prefix.startswith(REPORT_PREFIX):
+        if len(prefix) < len(REPORT_PREFIX) + 8:
+            raise ValueError('Truncated shadow report header')
+        return int.from_bytes(prefix[len(REPORT_PREFIX):len(REPORT_PREFIX)+8], 'big')
+    return stored_size
+
+
+def _decode_report(value):
+    if isinstance(value, bytes) and value.startswith(REPORT_PREFIX):
+        size = report_logical_size(value, len(value))
+        body = gzip.decompress(value[len(REPORT_PREFIX)+8:])
+        if len(body) != size:
+            raise ValueError('Shadow report length mismatch')
+        value = body
+    return json.loads(value)
 
 
 def _hash(value):
@@ -530,7 +555,7 @@ class ShadowEvidenceStore:
                             'settlements': sorted(available_results, key=_hash), 'trial': dict(trial)})
             previous = db.execute('SELECT report FROM evaluations WHERE trial_id=? AND input_sha256=? AND as_of<=?', (trial_id, inputs, now.isoformat())).fetchone()
             if previous:
-                return json.loads(previous[0])
+                return _decode_report(previous[0])
             capture_index = {}; current_fixture = None
             fixture_cache, contract_sources = {}, {}
             # Only one fixture's archived bodies are resident at a time. Final
@@ -589,12 +614,12 @@ class ShadowEvidenceStore:
         with closing(self._db(True)) as db, db:
             winner = db.execute('SELECT report FROM evaluations WHERE trial_id=? AND input_sha256=? AND as_of<=?', (trial_id, inputs, now.isoformat())).fetchone()
             if winner:
-                return json.loads(winner[0])
-            db.execute('INSERT OR IGNORE INTO evaluations VALUES (?,?,?,?,?)', (study, trial_id, now.isoformat(), inputs, _json(result)))
+                return _decode_report(winner[0])
+            db.execute('INSERT OR IGNORE INTO evaluations VALUES (?,?,?,?,?)', (study, trial_id, now.isoformat(), inputs, _encode_report(result)))
         return result
 
     def report(self, trial_id, *, as_of):
         cutoff = _time(as_of).isoformat()
         with closing(self._db()) as db:
             row = db.execute('SELECT report FROM evaluations WHERE trial_id=? AND as_of<=? ORDER BY as_of DESC,id DESC LIMIT 1', (trial_id, cutoff)).fetchone()
-        return json.loads(row[0]) if row else {'state': 'insufficient_evidence', 'funding_veto': False, 'profit_established': False}
+        return _decode_report(row[0]) if row else {'state': 'insufficient_evidence', 'funding_veto': False, 'profit_established': False}

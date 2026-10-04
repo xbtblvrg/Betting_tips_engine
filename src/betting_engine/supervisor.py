@@ -164,12 +164,13 @@ def throughput_checks(data, observations, previous, now, cpu_reader=None):
         try:
             with closing(sqlite3.connect(path.resolve().as_uri()+'?mode=ro',uri=True,timeout=1)) as db:
                 db.set_progress_handler(lambda: int(time.monotonic()-started>2),1000)
-                row=db.execute('SELECT rowid,length(CAST(report AS BLOB)) FROM evaluations ORDER BY rowid DESC LIMIT 1').fetchone()
-            size=row[1] if row else 0
+                row=db.execute('SELECT rowid,length(CAST(report AS BLOB)),substr(report,1,14) FROM evaluations ORDER BY rowid DESC LIMIT 1').fetchone()
+            from .prospective_shadow import report_logical_size
+            size=report_logical_size(row[2],row[1]) if row else 0
             add('Shadow report size','degraded' if size>8*1024*1024 else 'healthy',
                 f'Latest evaluation report: {size} bytes. Keep diagnostics bounded without discarding original evidence.',
                 'D36',latest_evaluation_id=row[0] if row else None,report_bytes=size,database_bytes=path.stat().st_size)
-        except (OSError,sqlite3.Error) as exc:
+        except (OSError,sqlite3.Error,ValueError) as exc:
             add('Shadow report size','degraded','Report metadata could not be checked: '+type(exc).__name__,'D36')
     dev=observations.get('development') or {}
     try:fresh=-5<=(now-parse_time(dev['checked_at'])).total_seconds()<=180

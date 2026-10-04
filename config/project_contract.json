@@ -791,5 +791,19 @@
       "daily_risk_limit=null",
       "manual-only wager submission"
     ]
+  },
+  "disk_cleanup_policy": {
+    "authorized_at": "2026-10-04",
+    "obsolete_failed_attempt_inputs": "Permanently discard unreferenced archived inputs of superseded retry/interrupted attempts older than 48 hours; preserve latest per task, active/recovery/static references, source code and run evidence. Explicit --discard-archived-inputs required; durable hash/size receipt before deletion.",
+    "preserve": [
+      "original decisions",
+      "bets",
+      "outcomes",
+      "financial records",
+      "git history",
+      "active runtime",
+      "referenced recovery evidence"
+    ],
+    "shadow_evaluations": "Only proven unreferenced obsolete evaluations may be deleted, and unique outcome/source evidence must survive. No blanket age-only deletion."
   }
 }
