@@ -318,6 +318,8 @@ def build_dashboard(store,health,data_dir):
     progress=store.daily_progress()
     execution_counts=_execution_counts(d['recommendations']+alternatives,all_tips,recorded,d['placement_marks'],settings,progress,now)
     d['status']['current_instruction_count']=execution_counts['current_executable']
+    from .operations import allocation_funnel
+    d['status']['allocation_funnel']=allocation_funnel(d,now)
     d.setdefault('status',{}).update(recommendations=len(d['recommendations']),funded_recommendations=sum(t['stake']>0 for t in d['recommendations']),minimum_target=progress['target'],target_shortfall=progress['shortfall'],daily_progress=progress,execution_counts=execution_counts)
     from .opportunities import rolling_opportunities
     d['opportunities']=rolling_opportunities(d,recorded,d['placement_marks'],now,settings['minimum_roi'])

@@ -10,7 +10,7 @@ test('exact coverage renders ten independent stages, offered inventory and incom
  const definitions=['Data','Parsing','Model','Pricing','Guard','Selection','Sizing','Issuance / tracking','Settlement','Learning'].map((label,i)=>({id:String(i),label}));
  const row={league:'NFL',market:'1st Quarter - Draw No Bet',scope:'quarter_1',inventory_state:'offered_now',verified_stages:1,stages:Object.fromEntries(definitions.map(s=>[s.id,{state:s.id==='1'?'verified':'not_observed',observed:s.id==='1'?2:0,expected:2,basis:'Exact source <script>unsafe</script>'}])),funding_eligible:false,funding_eligible_now:false,issued_today:0};
  const report={publication_at:new Date().toISOString(),checked_at:new Date().toISOString(),scope:'Measured coverage',stage_definitions:definitions,rows:[row,{...row,market:'Rushing Yards',section:'swishMarkets.playerProps',inventory_state:'observed_activity_unverified',offered_now:false}],leagues:{NFL:{observed_types:1,offered_types:1,complete_10_of_10_types:0,incomplete_offered_types:1,evaluated_types:0,funding_eligible_types:0,issued_today:0}}};
- const dashboard={version:1,recommendations:[],settings:{bankroll:null,daily_risk_limit:null,daily_pick_target:100,max_bet:5,unit_stake:1,minimum_roi:.03,refresh_seconds:60},engine:{running:true,stage:'Updated'},status:{},games:[],models:{},performance:{prospective:[]},automation:{market_catalog:{live_coverage:report}}};
+ const dashboard={version:1,recommendations:[],settings:{bankroll:null,daily_risk_limit:null,daily_pick_target:100,max_bet:5,unit_stake:1,minimum_roi:.03,refresh_seconds:60},engine:{running:true,stage:'Updated'},status:{allocation_funnel:{publication_at:new Date().toISOString(),definition:'Actual disjoint reasons',total:{guard_passed:12,funded:2},leagues:{NFL:{guard_passed:12,funding_tiers:{probability_pick:12},stages:[{stage:'limits',entered:12,rejected:10,passed:2,reasons:{event_limit:10}}]}}}},games:[],models:{},performance:{prospective:[]},automation:{market_catalog:{live_coverage:report}}};
  w.fetch=async path=>({ok:true,json:async()=>path==='/api/dashboard'?dashboard:{bets:[],performance:{actual_bets:{count:0,pnl:0,settled:0}}}});
  w.eval(readFileSync('src/betting_engine/web/app.js','utf8'));await new Promise(r=>setTimeout(r,20));
  const table=w.document.querySelector('#live-coverage-table');
@@ -20,5 +20,7 @@ test('exact coverage renders ten independent stages, offered inventory and incom
  assert.match(table.textContent,/observed activity unverified/);
  assert.match(table.textContent,/swishMarkets.playerProps/);
  assert.match(w.document.querySelector('#live-coverage-leagues').textContent,/Complete 10\/10/);
+ assert.match(w.document.querySelector('#allocation-funnel-summary').textContent,/12 current guard-passed outcomes · 2 funded allocations/);
+ assert.match(w.document.querySelector('#allocation-funnel-table').textContent,/event_limit: 10/);
  await w.happyDOM.close();
 });

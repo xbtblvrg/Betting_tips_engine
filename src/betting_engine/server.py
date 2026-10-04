@@ -225,7 +225,7 @@ class Settings(BaseModel):
     model_pick_sizing_policy:Literal['unit_cap_v1','model_weighted_v2','all_tiers_weighted_v3']='unit_cap_v1'
     model_pick_allocation_policy:Literal['one_per_game_v1','distinct_family_v1']='one_per_game_v1'
     outcome_sizing_policy:Literal['legacy','historical_game_weighted_v1','historical_game_weighted_v2','historical_confidence_v3']='legacy'
-    family_selection_policy:Literal['stressed_value_v1','qualified_probability_v1']='stressed_value_v1'
+    family_selection_policy:Literal['stressed_value_v1','qualified_probability_v1','continuous_probability_v2']='stressed_value_v1'
     missing_starter_policy:Literal['required_v1','verified_model_prior_v1']='required_v1'
     composite_contract_policy:Literal['research_only_v1','complete_joint_score_v1']='research_only_v1'
     probability_support_policy:Literal['legacy_band_v1','validated_mass_v1']='legacy_band_v1'

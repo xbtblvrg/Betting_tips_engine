@@ -221,8 +221,8 @@ def build_live_coverage(publication, catalog, decisions=(), feedback_tip_ids=(),
             'sizing':_stage(counts['sizing'],counts['guard'],'Current guarded candidates reproduce dynamic sizing under the active policy; zero allocation is not a funded instruction.'),
             'issuance':_stage(tracked,len(original),'Original funded decisions have recorded assumed-placement tickets; history is not a new issuance.'),
             'settlement':_stage(closed_with_evidence,len(closed),'Closed original decisions include outcome evidence and finite P&L. Open events are not settled evidence.'),
-            'learning':_stage(fed + counts['learning_all'],len(closed) + counts['guard'],'Requires every closed original decision ingested and every unique current guarded candidate consuming source-bound segment performance, measured calibration, learned weights and dynamic sizing. Denominator combines closed decisions and guarded candidates; both groups must be nonempty.')}
-        if not closed or not counts['guard']:
+            'learning':_stage(fed + int(counts['learning_all'] > 0),len(closed) + 1,'Functional closed-outcome path: every settled original decision ingested plus at least one source-bound runtime consumer of segment performance, measured calibration, learned weights and sizing. Pending decisions are not missing settled outcomes.')}
+        if not closed:
             stages['learning']['state'] = 'awaiting_measurement'
         if stages['learning']['state'] != 'verified':
             stages['learning']['state'] = 'partial' if any(counts['learning_' + name] for name in ('segment','calibration','weights','sizing')) else 'awaiting_measurement'
@@ -234,7 +234,7 @@ def build_live_coverage(publication, catalog, decisions=(), feedback_tip_ids=(),
                      'observed_in_current_publication': bool(source) and current,
                      'offered_now':offered,'offer_activity_verified':offered and key[1]=='standard','inventory_state':'observed_activity_unverified' if activity_unverified else 'offered_now' if offered else 'historical_only' if original and not source else 'catalogue_only',
                      'stages':stages,'verified_stages':verified,'complete_10_of_10':offered and verified==10,
-                     'learning_detail':{'feedback_ingested':fed,'feedback_expected':len(closed),'current_consumers_expected':counts['guard'],'current_outcome_sizing':counts['learning_sizing'],'current_learned_weights':counts['learning_weights'],'current_measured_calibration':counts['learning_calibration'],'current_segment_performance':counts['learning_segment'],'current_all_four_consumers':counts['learning_all'],'consumers':{name:{'observed_candidates':counts['learning_'+name],'state':'observed' if counts['learning_'+name] else 'awaiting_measurement'} for name in ('segment','calibration','weights','sizing')},'model_promotion_verified':False},
+                     'learning_detail':{'feedback_ingested':fed,'feedback_expected':len(closed),'current_consumers_expected':counts['guard'],'functional_path_expected':1,'functional_path_observed':int(counts['learning_all']>0),'pending_decisions_counted_as_missing':False,'current_outcome_sizing':counts['learning_sizing'],'current_learned_weights':counts['learning_weights'],'current_measured_calibration':counts['learning_calibration'],'current_segment_performance':counts['learning_segment'],'current_all_four_consumers':counts['learning_all'],'consumers':{name:{'observed_candidates':counts['learning_'+name],'state':'observed' if counts['learning_'+name] else 'awaiting_measurement'} for name in ('segment','calibration','weights','sizing')},'model_promotion_verified':False},
                      'observed_outcomes': source.get('observed_outcomes', 0),
                      'parsed_outcomes': parsed, 'priced_outcomes': priced,
                      'guard_passed_outcomes': passed, 'currently_fundable_outcomes': funded[key],

@@ -166,7 +166,7 @@ def test_learning_requires_all_four_source_bound_consumers():
     assert not _learning_consumers(tip,size,pub)['weights']
 
 
-def test_learning_complete_requires_every_closed_decision_and_unique_guarded_candidate(monkeypatch):
+def test_learning_complete_requires_closed_feedback_and_functional_consumers_not_pending_cohort(monkeypatch):
     import betting_engine.live_market_coverage as coverage
     import betting_engine.funding_policy as policy
     pub,cat=inputs();tip=pub['recommendations'][0]
@@ -182,9 +182,25 @@ def test_learning_complete_requires_every_closed_decision_and_unique_guarded_can
     assert row['learning_detail']['current_consumers_expected']==2
     assert row['stages']['sizing']['observed']==2
     assert row['stages']['learning']['state']=='partial'
-    assert row['stages']['learning']['observed']==2 and row['stages']['learning']['expected']==4
+    assert row['stages']['learning']['observed']==2 and row['stages']['learning']['expected']==3
     monkeypatch.setattr(coverage,'_learning_consumers',lambda *args:dict.fromkeys(('segment','sizing','calibration','weights'),True))
     row=build_live_coverage(pub,cat,decisions,['a'],NOW)['rows'][0]
     assert row['stages']['learning']['state']=='partial'
     row=build_live_coverage(pub,cat,decisions,['a','old'],NOW)['rows'][0]
     assert row['stages']['learning']['state']=='verified'
+
+
+def test_learning_pending_candidates_do_not_inflate_missing_feedback(monkeypatch):
+    import betting_engine.live_market_coverage as coverage
+    import betting_engine.funding_policy as policy
+    pub,cat=inputs();tip=pub['recommendations'][0]
+    tip.update(input_readiness={'passed':True},decision_guard={'passed':True})
+    pub.update(settings={'max_bet':5},evaluated_candidates=[tip,{**tip,'id':'pending'}])
+    monkeypatch.setattr(policy,'funding_basis',lambda *args:{'eligible':True})
+    monkeypatch.setattr(policy,'size_recommendation',lambda *args:{'amount':2})
+    monkeypatch.setattr(coverage,'_learning_consumers',lambda t,*args:dict.fromkeys(('segment','sizing','calibration','weights'),t['id']=='a'))
+    closed={'family':'a','tip_id':'a','issued_at':NOW.isoformat(),'status':'won','payload':tip}
+    row=build_live_coverage(pub,cat,[closed],['a'],NOW)['rows'][0]
+    assert row['stages']['learning']['state']=='verified'
+    assert row['stages']['learning']['expected']==2
+    assert row['learning_detail']['pending_decisions_counted_as_missing'] is False

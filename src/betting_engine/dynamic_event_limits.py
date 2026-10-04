@@ -11,6 +11,7 @@ from .contracts import allocation_family, equivalent_contract_ids, split_market
 from .outcome_sizing import _v3_adjustment, verify_summary
 
 VERSION = 'quality_roster_v1'
+VERSION_V2 = 'quality_roster_v2'
 DEFAULT_POLICY = {'version': VERSION, 'max_multiplier': 2., 'max_per_event': 12,
                   'max_period_per_event': 6, 'max_stake_per_event': 40.,
                   'minimum_score': .5, 'minimum_history_signal': .05}
@@ -23,7 +24,7 @@ def digest(value):
 def policy(settings):
     raw = settings.get('dynamic_event_limits')
     if raw is None: return None
-    if not isinstance(raw,dict) or raw.get('version') != VERSION or set(raw)-set(DEFAULT_POLICY):
+    if not isinstance(raw,dict) or raw.get('version') not in (VERSION, VERSION_V2) or set(raw)-set(DEFAULT_POLICY):
         raise ValueError('Invalid dynamic event limit policy')
     result = {**DEFAULT_POLICY, **raw}
     for key in set(result)-{'version'}:
@@ -72,7 +73,9 @@ def _quality(tip):
                 'confidence':signal['confidence'], 'model_market_agreement':signal['model_market_agreement'],
                 'required_input_completeness':signal['required_input_completeness'],
                 'probability_strength':signal['probability_strength'],
-                'historical_sample_weight':signal['historical_sample_weight'], 'calibrated_receipt_present':measured}
+                'historical_sample_weight':signal['historical_sample_weight'], 'calibrated_receipt_present':measured,
+                'independent_games':summary['independent_games'],
+                'signed_historical_signal':signal['applied_game_score_sum']/signal['shrinkage_denominator']}
     except (KeyError,TypeError,ValueError,ZeroDivisionError):
         return {'score':0.,'historical_signal':0.,'reason':'incomplete_quality_evidence'}
 
@@ -93,22 +96,37 @@ def evidence(settings, league, game_id, held, batch):
                 'held_stake':float(tip['stake']) if kind=='held' else None,
                 'family':allocation_family(tip),'input_sha256':digest(fields),'quality':quality})
     entries.sort(key=lambda r:(r['kind'],r['id'],r['ticket_id'] or ''))
-    score=min((e['quality']['score'] for e in entries),default=0.)
-    history=min((e['quality']['historical_signal'] for e in entries),default=0.)
-    earned=score>=configured['minimum_score'] and history>=configured['minimum_history_signal']
+    v2 = configured['version'] == VERSION_V2
+    # Original held tickets still consume every dollar/count and are sealed.
+    # Their historical receipt format cannot veto current guard-qualified data.
+    earning = [e for e in entries if e['kind']=='new'] if v2 else entries
+    if v2:
+        for entry in earning:
+            quality = entry['quality']
+            signed = quality.get('signed_historical_signal', 0.)
+            quality['expansion_score'] = (max(0., min(1., quality.get('confidence', 0.) + .3*signed))
+                if quality.get('calibrated_receipt_present') else 0.)
+    score=min((e['quality'].get('expansion_score',e['quality']['score']) for e in earning),default=0.)
+    history=min((e['quality']['historical_signal'] for e in earning),default=0.)
+    earned=score>=configured['minimum_score'] and (v2 or history>=configured['minimum_history_signal'])
     strength=((score-configured['minimum_score'])/(1-configured['minimum_score'])) if earned else 0.
-    multiplier=1+(configured['max_multiplier']-1)*strength
+    # Current confidence can earn exploratory headroom, not proven-history
+    # status. Full expansion still requires positive shrunk outcome evidence.
+    ceiling = configured['max_multiplier']
+    if v2 and history<configured['minimum_history_signal']: ceiling=min(ceiling,1.5)
+    multiplier=1+(ceiling-1)*strength
     limits=dict(base)
     for key in ('max_per_event','max_period_per_event','max_stake_per_event'):
         value=min(configured[key],base[key]*multiplier)
         # Configuring a ceiling below an existing approved base cannot revoke
         # recorded exposure or silently tighten that base policy.
         limits[key]=max(base[key],round(value,2) if key=='max_stake_per_event' else math.floor(value+1e-12))
-    limits['distinct_families_required']=True
-    result={'version':VERSION,'policy':configured,'game_id':game_id,'league':league,'base_limits':base,
+    limits['distinct_families_required']=settings.get('family_selection_policy')!='continuous_probability_v2'
+    result={'version':configured['version'],'policy':configured,'game_id':game_id,'league':league,'base_limits':base,
             'limits':limits,'weakest_score':score,'weakest_history_signal':history,'multiplier':multiplier,
             'roster':entries,'roster_sha256':digest(entries),
-            'basis':'minimum_quality_of_all_open_held_and_complete_new_batch; positive_game_weighted_shrunken_history_required',
+            'basis':('minimum_current_new_batch_quality; all_held_exposure_counted_and_sealed; cold_start_multiplier_ceiling_1.5; signed_game_weighted_history' if v2 else 'minimum_quality_of_all_open_held_and_complete_new_batch; positive_game_weighted_shrunken_history_required'),
+            'earned_expansion':earned, 'earning_roster_count':len(earning), 'history_proven':history>=configured['minimum_history_signal'],
             'profit_validated':False}
     result['sha256']=digest(result)
     return result
@@ -141,7 +159,7 @@ def verify_batch(connection,tips,settings):
     for tip in held:
         aliases.update(equivalent_contract_ids(tip));families.add((tip['game_id'],allocation_family(tip)))
     for tip in batch:
-        if aliases&equivalent_contract_ids(tip) or (tip['game_id'],allocation_family(tip)) in families:
+        if aliases&equivalent_contract_ids(tip) or (settings.get('family_selection_policy')!='continuous_probability_v2' and (tip['game_id'],allocation_family(tip)) in families):
             raise ValueError('Publication blocked: dynamic roster duplicates an existing payoff family')
         aliases.update(equivalent_contract_ids(tip));families.add((tip['game_id'],allocation_family(tip)))
         actual=evidence(settings,tip.get('league'),tip['game_id'],held,batch)

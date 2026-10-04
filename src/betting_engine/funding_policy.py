@@ -103,7 +103,8 @@ def funding_basis(tip, settings):
                       and math.isfinite(float(clv_gate.get('clv')))
                       and float(clv_gate.get('clv')) > 0)
     shadow_tier = tier if tier in ('model_pick', 'probability_pick') else None
-    if settings.get('fallback_clv_gate', 'legacy') == 'prospective_positive_clv' and shadow_tier and not clv_passed:
+    continuous_diverse = settings.get('family_selection_policy') == 'continuous_probability_v2'
+    if not continuous_diverse and settings.get('fallback_clv_gate', 'legacy') == 'prospective_positive_clv' and shadow_tier and not clv_passed:
         tier = 'unfunded'
     model = tier == 'model_pick'
     probability_only = tier == 'probability_pick'
@@ -139,6 +140,9 @@ def funding_basis(tip, settings):
         result.update(fallback_clv_gate=settings.get('fallback_clv_gate', 'legacy'), clv_min_games=clv_min_games,
                       clv_evidence=clv_gate if isinstance(clv_gate, Mapping) else None,
                       clv_gate_passed=clv_passed)
+    if continuous_diverse:
+        result.update(family_selection_policy='continuous_probability_v2',
+                      clv_gate_role='measurement_only')
     if shadow_tier and tier == 'unfunded' and settings.get('fallback_clv_gate', 'legacy') == 'prospective_positive_clv':
         result.update(shadow_only=True, shadow_tier=shadow_tier,
                       shadow_reason=f'{shadow_tier} requires source-verified positive prospective CLV on at least {clv_min_games} independent games.')
@@ -289,6 +293,19 @@ def size_recommendation(tip, settings, remaining, related_count=0):
     from .outcome_sizing import apply_adjustment, verify_summary, segment_key
     policy = outcome_policy(settings)
     base = _base_size_recommendation(tip, settings, remaining, related_count)
+    if settings.get('family_selection_policy') == 'continuous_probability_v2':
+        # Explicit user-authorized minimum ticket, not a Kelly-derived edge.
+        # Never spend a dollar the event/bankroll/per-ticket caps do not allow.
+        basis = funding_basis(tip, settings)
+        cap = min(remaining, float(settings['max_bet']), 5.)
+        if settings.get('bankroll') is not None:
+            cap = min(cap, float(settings['bankroll']) * float(settings['max_bankroll_fraction']))
+        if basis['eligible'] and cap >= 1 and base['amount'] < 1:
+            base = {**base, 'amount': 1., 'maximum_stake': cap,
+                    'minimum_ticket_floor': {'version': 'authorized_minimum_v1',
+                        'before_floor': base['amount'], 'amount': 1., 'available_cap': cap},
+                    'binding_factors': [*base['binding_factors'], 'authorized_minimum_ticket_floor'],
+                    'note': base['note'] + ' User-authorized $1 minimum ticket when affordable; this floor is not a positive-EV claim.'}
     if policy == 'legacy':
         return base
     evidence = tip.get('outcome_sizing_evidence')

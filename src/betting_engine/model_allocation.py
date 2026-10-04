@@ -34,7 +34,7 @@ def verify_family_publication(connection, candidates, settings):
 The same actual open-event exposure and remaining allocation used by sizing
 are reread here. A concurrent ticket cannot leave a stale allocation funded.
 """
-    from .decisions import remaining_budget, publication_limits
+    from .decisions import remaining_budget, publication_limits, continuous_probability_allocation
     from .funding_policy import size_recommendation
     from .instruction_refill import TransactionStore
 
@@ -81,7 +81,7 @@ are reread here. A concurrent ticket cannot leave a stale allocation funded.
             # An identical prior issuance is idempotent, not a new allocation.
             continue
         family = (tip['game_id'], allocation_family(tip))
-        if tip.get('funding_basis', {}).get('tier') == 'model_pick' and family in families:
+        if not continuous_probability_allocation(settings) and tip.get('funding_basis', {}).get('tier') == 'model_pick' and family in families:
             raise ValueError('Publication blocked: model-pick family allocation already issued')
         related = counts.get(tip['game_id'], 0) + new_counts[tip['game_id']] - 1
         limits = limits_for(settings,tip,roster,[t for t in funded if not (equivalent_contract_ids(t)&held_ids_initial)]) if dynamic else publication_limits(settings, tip.get('league'))

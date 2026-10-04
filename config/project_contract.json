@@ -30,7 +30,7 @@
     },
     {
       "id": "R06",
-      "rule": "Active all_tiers_weighted_v3 sizing has one configured/hard USD5 ceiling across stress_value, model_pick and probability_pick. Funded amounts must be USD1–5. No tier-specific USD1 maximum. Preserve v1/v2 historical receipt reproduction. Positive-EV sizing retains the established stressed/nominal formula; nonpositive-EV preference uses explicitly non-Kelly configured base units with related-exposure and optional bankroll-fraction limits. Unit1 may yield USD1 because of the calculation, not a USD1 cap. No invented bankroll or automatic limit escalation; daily_risk_limit=null.",
+      "rule": "All active tiers have USD1–5 funded stakes, maxUSD5, daily_risk_limit=null. User-authorized minimum ticket floor when actual event/available/bankroll caps afford USD1; preserve raw sizing amount and floor evidence. Historical/confidence sizing reproduces verified signed game-balanced outcomes. Dynamic event expansion is explicitly authorized through quality_roster_v2; original decisions and stakes remain immutable.",
       "implementation": "decisions.py; EvidenceGuard"
     },
     {
@@ -180,7 +180,7 @@
     },
     {
       "id": "R34",
-      "rule": "Historical v1/v2 policy description; R36 supersedes its USD1 sizing ceilings. Apply the explicit BOTH authorization through continuous_best_available_v1: stress_value uses the existing stress-return gate and USD1–5 sizing; model_pick requires nominal model EV > 1e-9 and uses nominal-probability sizing with related-event discount and optional fractional Kelly, capped at USD1 by default or calculated up to USD5 under explicitly enabled model_weighted_v2 when the stress threshold fails; probability_pick requires win probability >=0.5 and nominal EV <=1e-9, uses an explicit non-Kelly fixed unit capped at USD1 with available/bankroll-fraction limits and no claimed exposure discount, and openly discloses nonpositive model return. strict remains the default, and continuous_model_v1 allows only the positive-EV fallback. Seal policy/tier/eligibility/effective minimum/maximum stake and require current server/browser agreement. Positive-EV-qualified candidates in ANY family, including held contracts, suppress a probability pick for that entire game. Keep the best candidate per family including held; permit at most one new fallback per event/cycle and one first issuance per game/tier over its lifetime. A later new-contract model-tier upgrade is permitted, exact-contract reissuance is not. Preserve source/model/quote/settlement/site-availability guards, immutable stakes and the existing daily checkpoint. No guaranteed count/profit and no automated orders. Both fallback tiers fund only when the permitted amount reaches USD1; otherwise allocate zero.",
+      "rule": "Historical tier definitions remain replayable. Active continuous_probability_v2 removes lifetime game/tier fallback limits and event-wide probability suppression. All eligible distinct contracts compete by calibrated unconditional win probability, verified learned segment performance and price/EV, within current quality_roster_v2 dynamic caps. Fallback CLV evidence is measured in parallel; no tier-specific USD1 cap under all_tiers_weighted_v3. Exact source/model/scope/freshness and payoff idempotence guards remain. Do not call nonpositive-EV probability picks value bets.",
       "implementation": "funding_policy.py; decisions.py; EvidenceGuard sealed funding_basis; instructions.py; publication transaction; web/app.js"
     },
     {
@@ -840,5 +840,21 @@
     "no_new_issue_classification": "Diagnose inventory, data, parser, model, policy, exposure and already-issued-contract reasons; never reissue duplicate payoff contracts or invent input/edge.",
     "coverage_registry": "Existing market_catalog/latest.json, development_plan.json and operating_gaps",
     "priority": "Implement missing observed capabilities and publish qualified candidates; implementation, tests, independent review and live release required."
+  },
+  "continuous_issue_correction_20261004": {
+    "runtime_policy": "continuous_probability_v2",
+    "supersedes": "Lifetime game/tier fallback limits, event-wide probability suppression, tier-first ranking, CLV-only shadow waiting, mandatory positive historical signal for all event expansion.",
+    "rank": [
+      "eligible",
+      "calibrated unconditional win probability",
+      "source-verified game-weighted shrunken segment WR/ROI",
+      "stressed EV",
+      "core tie-break"
+    ],
+    "funding": "Existing explicit funding tiers disclosed; CLV measurement continues in parallel. USD1 minimum when affordable under actual event/bankroll/max5 caps. No invented probability, payoff duplicates or automatic wagers.",
+    "dynamic_policy": "quality_roster_v2: current new guarded batch earns expansion, every held dollar/count remains counted and sealed; cold-start ceiling1.5, positive-history ceiling2.",
+    "daily_target": 100,
+    "target_method": "Every cycle evaluates all current guarded candidates; emit strongest unheld distinct contracts within sealed current dynamic limits. No daily-count padding or duplicate reissue.",
+    "learning_stage": "Every settled original outcome consumed plus demonstrated source-bound feedback runtime path; pending current decisions are not missing settled observations."
   }
 }

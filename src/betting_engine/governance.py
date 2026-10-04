@@ -85,6 +85,7 @@ def verify_publication(tip,now,active_settings=None):
     policy=guard.get('recommendation_policy','strict')
     model_sizing=guard.get('model_pick_sizing_policy','unit_cap_v1')
     policy_settings={**guard.get('sizing_settings',{}),'minimum_roi':guard['minimum_roi'],'recommendation_policy':policy,'model_pick_sizing_policy':model_sizing,'model_pick_allocation_policy':guard.get('model_pick_allocation_policy','one_per_game_v1')}
+    if selection_policy == 'continuous_probability_v2':policy_settings['family_selection_policy']=selection_policy
     if policy!='strict' or 'funding_basis' in tip or model_sizing!='unit_cap_v1' or policy_settings['model_pick_allocation_policy']!='one_per_game_v1':
         basis=funding_basis(tip,policy_settings)
         if tip.get('funding_basis')!=basis:raise ValueError('Publication blocked: funding policy evidence changed or missing')
@@ -106,6 +107,7 @@ def verify_publication(tip,now,active_settings=None):
         if reviewed and (any(settings[k]!=reviewed[k] for k in ('bankroll','unit_stake','kelly_fraction','max_bankroll_fraction')) or settings['max_bet']>reviewed['max_bet']):
             raise ValueError('Publication blocked: sizing settings changed after evidence review')
         settings.update(minimum_roi=guard['minimum_roi'],recommendation_policy=policy,model_pick_sizing_policy=model_sizing,model_pick_allocation_policy=guard.get('model_pick_allocation_policy','one_per_game_v1'))
+        if selection_policy == 'continuous_probability_v2':settings['family_selection_policy']=selection_policy
         if outcome!='legacy':settings['outcome_sizing_policy']=outcome
         for key in ('fallback_clv_gate','clv_min_games'):
             if key in guard.get('sizing_settings',{}):settings[key]=guard['sizing_settings'][key]

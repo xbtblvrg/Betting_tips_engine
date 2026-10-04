@@ -143,6 +143,8 @@ class Store:
                     if tip.get('decision_guard',{}).get('model_pick_sizing_policy','unit_cap_v1')!=active_settings.get('model_pick_sizing_policy','unit_cap_v1'):
                         raise ValueError('Publication blocked: model-pick sizing policy changed during review')
                 from .funding_policy import model_allocation_policy
+                from .decisions import continuous_probability_allocation
+                probability_flow=continuous_probability_allocation(active_settings)
                 family_additions=model_allocation_policy(active_settings)=='distinct_family_v1'
                 if any(t.get('decision_guard',{}).get('model_pick_allocation_policy','one_per_game_v1')!=model_allocation_policy(active_settings) for t in payload.get('recommendations',[])+payload.get('alternatives',[])+payload.get('evaluated_candidates',[])):
                     raise ValueError('Publication blocked: model-pick allocation policy changed during review')
@@ -153,7 +155,7 @@ class Store:
                 model_picks={(r['game_id'],r['tier']):r['tip_id'] for r in c.execute("SELECT tip_id,json_extract(payload,'$.game_id') game_id,json_extract(payload,'$.funding_basis.tier') tier FROM system_decisions WHERE json_extract(payload,'$.funding_basis.tier') IN ('model_pick','probability_pick') AND json_extract(payload,'$.stake')>0")}
                 new_preference_games=set()
                 for tip in {t['id']:t for t in payload.get('recommendations',[])+payload.get('alternatives',[])+payload.get('evaluated_candidates',[])}.values():
-                    if tip.get('stake',0)>0 and tip.get('funding_basis',{}).get('tier') in ('model_pick','probability_pick'):
+                    if not probability_flow and tip.get('stake',0)>0 and tip.get('funding_basis',{}).get('tier') in ('model_pick','probability_pick'):
                         if family_additions and tip['funding_basis']['tier']=='model_pick':
                             model_picks[(tip['game_id'],'model_pick')]=tip['id']
                             continue
@@ -166,7 +168,7 @@ class Store:
                         model_picks[key]=tip['id']
                 from .decisions import probability_preference_ids
                 candidates=list({t['id']:t for t in payload.get('recommendations',[])+payload.get('alternatives',[])+payload.get('evaluated_candidates',[])}.values())
-                if family_additions:
+                if family_additions or probability_flow:
                     from .model_allocation import verify_family_publication
                     verify_family_publication(c,payload.get('recommendations',[])+payload.get('alternatives',[])+payload.get('evaluated_candidates',[]),active_settings)
                 allowed=probability_preference_ids(candidates,active_settings,held_preference_allocations=model_picks)
@@ -214,7 +216,7 @@ class Store:
     @staticmethod
     def _validate_publication_limits(c,payload,settings):
         """Write-transaction anti-flood guard for the live execution list."""
-        from .decisions import publication_limits
+        from .decisions import publication_limits, continuous_probability_allocation
         limits = publication_limits(settings)
         if limits is None:
             return
@@ -260,7 +262,7 @@ class Store:
         for tip in new:
             effective = limits_for(settings,tip,roster,new) if dynamic else publication_limits(settings, tip.get('league'))
             key=(tip.get('game_id'), allocation_family(tip))
-            if effective.get('distinct_families_required') and key in held_families:
+            if not continuous_probability_allocation(settings) and effective.get('distinct_families_required') and key in held_families:
                 raise ValueError('Publication blocked: sparse league requires distinct scope/market families')
             held_families.add(key)
         for gid,count in counts.items():
@@ -461,7 +463,7 @@ class Store:
                 gid=candidate['game_id'];amount=float(candidate['stake']);scope,_=split_market(candidate.get('market',''))
                 if len(eligible)>=policy['max_new_funded_per_publication']:continue
                 diverse_key=(gid,allocation_family(candidate))
-                if policy.get('distinct_families_required') and diverse_key in diverse_families:continue
+                if settings.get('family_selection_policy')!='continuous_probability_v2' and policy.get('distinct_families_required') and diverse_key in diverse_families:continue
                 if prospective_events[gid]>=policy['max_per_event']:continue
                 if prospective_stakes[gid]+amount>policy['max_stake_per_event']+1e-9:continue
                 if scope!='full_game' and prospective_periods[gid]>=policy['max_period_per_event']:continue

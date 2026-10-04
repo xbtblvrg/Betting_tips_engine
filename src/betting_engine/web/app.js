@@ -412,6 +412,9 @@ function renderLeagueOperations(){
  const checker=data?.automation?.supervisor?.flow_checker;
  $('#flow-checker-summary').textContent=checker?`Checked ${when(checker.checked_at)}. Independent evidence checks; assumed placement is tracking, not a sportsbook order. Each unresolved check is routed to the existing repair queue.`:'Waiting for independent flow evidence.';
  $('#flow-checker-table').innerHTML=table(['Step','State','Evidence','Checked'],(checker?.checks||[]).map(c=>[esc(c.id+' · '+c.title),esc(({fulfilled:'Fulfilled',not_fulfilled:'Not fulfilled',under_repair:'Under repair'})[c.status]||c.status),esc(c.detail),esc(when(c.observed_at||checker.checked_at))]));
+ const funnel=data?.status?.allocation_funnel;
+ $('#allocation-funnel-summary').textContent=funnel?`Publication ${when(funnel.publication_at)} · ${funnel.total.guard_passed} current guard-passed outcomes · ${funnel.total.funded} funded allocations. ${funnel.definition}`:'Waiting for a fresh allocation funnel.';
+ $('#allocation-funnel-table').innerHTML=table(['League','Stage','Entered','Excluded','Passed','Reason codes'],Object.entries(funnel?.leagues||{}).flatMap(([league,row])=>[{stage:'guard_passed',entered:row.guard_passed,rejected:0,passed:row.guard_passed,reasons:row.funding_tiers},...row.stages].map(stage=>[esc(league),esc(stage.stage.replaceAll('_',' ')),esc(stage.entered),esc(stage.rejected),esc(stage.passed),esc(Object.entries(stage.reasons||{}).map(([code,n])=>`${code}: ${n}`).join(' · '))])));
  const catalog=data?.automation?.market_catalog;
  const liveCoverage=catalog?.live_coverage;
  const yesNo=v=>v===true?'Yes':v===false?'No':'Not measured';

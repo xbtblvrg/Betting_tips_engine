@@ -23,6 +23,30 @@ DEFAULT_SETTINGS['calibration_min_games']=30
 
 LEGACY_FAMILY_SELECTION = 'stressed_value_v1'
 PROBABILITY_FAMILY_SELECTION = 'qualified_probability_v1'
+CONTINUOUS_PROBABILITY_SELECTION = 'continuous_probability_v2'
+
+def continuous_probability_allocation(settings):
+    return family_selection_policy(settings) == CONTINUOUS_PROBABILITY_SELECTION
+
+def learned_selection_score(tip):
+    # Only source-bound, independently game-weighted historical summaries earn
+    # priority. Missing evidence is neutral, never fabricated performance.
+    from .outcome_sizing import verify_summary, segment_key
+    summary = tip.get('outcome_sizing_evidence')
+    if not summary:
+        return 0.
+    if not verify_summary(summary) or summary['segment'] != segment_key(tip):
+        raise ValueError('Invalid historical selection evidence')
+    games = summary['independent_games']
+    shrink = games / (games + 20.)
+    return shrink * (summary['game_wr'] - summary['break_even_wr'] + summary['game_roi'])
+
+def continuous_selection_priority(tip, tier):
+    # Eligible candidates precede ineligible rows. Within eligible contracts,
+    # actual unconditional final win probability is primary; historical
+    # performance then current stressed return break ties.
+    return (int(tier > 0), tip['probability'], learned_selection_score(tip),
+            tip['stress_roi'], is_core_market(tip), str(tip['id']))
 
 PUBLICATION_LIMITS_V1 = 'v1'
 PUBLICATION_LIMITS_V2 = 'v2'
@@ -118,7 +142,7 @@ def stressed_probability(p, stress, settings):
 
 def family_selection_policy(settings):
     policy = settings.get('family_selection_policy', LEGACY_FAMILY_SELECTION)
-    if policy not in (LEGACY_FAMILY_SELECTION, PROBABILITY_FAMILY_SELECTION):
+    if policy not in (LEGACY_FAMILY_SELECTION, PROBABILITY_FAMILY_SELECTION, CONTINUOUS_PROBABILITY_SELECTION):
         raise ValueError('Unknown family selection policy')
     return policy
 
@@ -129,6 +153,8 @@ def family_selection_priority(tip, tier, settings):
     Probability is the current sealed final probability (including any active
     market anchor/calibration), not the raw independent model component.
     """
+    if continuous_probability_allocation(settings):
+        return continuous_selection_priority(tip, tier)
     values = (tip['stress_roi'], tip['probability'])
     if family_selection_policy(settings) == PROBABILITY_FAMILY_SELECTION:
         values = values[::-1]
@@ -397,6 +423,8 @@ def probability_preference_ids(candidates,settings,bases=None,held_preference_al
     if settings.get('recommendation_policy')!='continuous_best_available_v1':return set()
     from .funding_policy import funding_basis
     bases=bases if bases is not None else {c['id']:funding_basis(c,settings) for c in candidates}
+    if continuous_probability_allocation(settings):
+        return {c['id'] for c in candidates if bases[c['id']]['tier']=='probability_pick'}
     positive={c['game_id'] for c in candidates if bases[c['id']]['tier'] in ('stress_value','model_pick')}
     positive.update(game for game,tier in held_preference_allocations if tier=='model_pick')
     best={}
@@ -412,6 +440,7 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
     # Select the best current contract per family, including held contracts.
     # A new best line can be issued later; holding the best does not rotate to inferior alternatives.
     selection_policy=family_selection_policy(settings)
+    probability_flow=continuous_probability_allocation(settings)
     from .dynamic_event_limits import policy as dynamic_policy, limits_for, seal_batch
     dynamic=dynamic_policy(settings) is not None
     if dynamic and held_event_roster is None:raise ValueError('Dynamic limits require the complete held ticket roster')
@@ -482,8 +511,11 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
         return {'stress_value':3,'model_pick':2,'probability_pick':1,'unfunded':0}[bases[c['id']]['tier']]
     # Value at the exact odds, after the probability stress allowance, takes
     # precedence over hit rate. A short-priced favorite is not necessarily a better bet.
-    def priority(c):return (tier(c),c['stress_roi'],c['probability'],
+    def priority(c):
+        if probability_flow:return continuous_selection_priority(c,tier(c))
+        return (tier(c),c['stress_roi'],c['probability'],
                            -CORE_MARKETS.index(c['market']) if c['market'] in CORE_MARKETS else -len(CORE_MARKETS),str(c['id']))
+    held_choices=[]
     for c in candidates:
         c['stake']=0.
         c.pop('stake_sizing',None)
@@ -491,6 +523,9 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
             'Another contract ranks first under the funding-tier, final-win-probability and stressed-return family policy.'
             if selection_policy == PROBABILITY_FAMILY_SELECTION else
             'Another selection offers higher modeled value in this game and market family.')
+        if probability_flow and covered(c):
+            c.update(allocation_code='already_held',allocation_reason='This exact selection has already been issued. No repeated ticket is requested.',alternative=True)
+            c['stake_note']=c['allocation_reason'];held_choices.append(c);continue
         key=(c['game_id'],allocation_family(c))
         old=families.get(key)
         if old is None or family_selection_priority(c,tier(c),settings)>family_selection_priority(old,tier(old),settings):families[key]=c
@@ -500,8 +535,8 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
     # Winner, Handicap and Total. This changes neither the family winner nor
     # its probabilities/edge. Other qualified families remain eligible, with
     # the same related-game discount. Keep model value rank separate.
-    ordered=sorted(value_order,key=lambda c:(priority(c)[0],is_core_market(c),*priority(c)[1:]),reverse=True)
-    diversify=settings.get('event_selection_policy')=='diversify_first_v1'
+    ordered=(value_order if probability_flow else sorted(value_order,key=lambda c:(priority(c)[0],is_core_market(c),*priority(c)[1:]),reverse=True))
+    diversify=settings.get('event_selection_policy')=='diversify_first_v1' and not probability_flow
     exposure_round={}
     if diversify:
         # Round-robin allocation across games, accounting for existing tickets.
@@ -514,7 +549,7 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                 next_round[c['game_id']]+=1
         ordered=sorted(ordered,key=lambda c:(c['id'] not in exposure_round,
             exposure_round.get(c['id'],0),not is_core_market(c),-c['stress_roi'],-c['probability'],str(c['id'])))
-    period_new=Counter();family_new=Counter();new_funded=0;chosen=[];alternatives=[]
+    period_new=Counter();family_new=Counter();new_funded=0;chosen=[];alternatives=list(held_choices)
     remaining=remaining_budget(settings,open_exposure)
     for allocation_rank,c in enumerate(ordered,1):
         effective = limits_for(settings,c,held_event_roster,[t for t in chosen if t.get('stake',0)>0]+[c]) if dynamic else publication_limits(settings, c.get('league'))
@@ -528,6 +563,11 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
             c['allocation_policy'].update(family_selection_policy=selection_policy,
                 reason='Qualified full-game Winner, Handicap and Total receive first sizing priority; the configured final-probability policy selects each family winner. Other qualified families remain eligible.',
                 family_selection_reason='Within each canonical family, preserve funding tier precedence, then prefer the current final win probability, with stressed return as the tie-break. No measured performance improvement is implied.')
+        if probability_flow:
+            c['allocation_policy'].update(version=CONTINUOUS_PROBABILITY_SELECTION,
+                family_selection_policy=selection_policy,
+                historical_selection_score=learned_selection_score(c),
+                reason='Eligible exact contracts compete by final unconditional win probability, game-weighted learned performance and current stressed return, within the active exposure limits.')
         if family_additions:c['allocation_policy']['model_pick_allocation_policy']=allocation_mode
         if diversify:
             c['allocation_policy'].update(event_priority='diversify_first_v1',
@@ -566,15 +606,15 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                 c['alternative']=True
                 alternatives.append(c)
                 continue
-        elif continuous and tier(c)==2 and family_additions and (c['game_id'],allocation_family(c)) in allocated_families:
+        elif not probability_flow and continuous and tier(c)==2 and family_additions and (c['game_id'],allocation_family(c)) in allocated_families:
             c['allocation_code']='model_pick_family_covered'
             c['allocation_reason']='A funded contract already covers this market family. No weaker alternative or repeat nominal allocation is requested.'
             c['stake_note']=c['allocation_reason']
-        elif continuous and tier(c) in (1,2) and not (tier(c)==2 and family_additions) and ((c['game_id'],bases[c['id']]['tier']) in preference_allocations or c['game_id'] in new_preference_events):
+        elif not probability_flow and continuous and tier(c) in (1,2) and not (tier(c)==2 and family_additions) and ((c['game_id'],bases[c['id']]['tier']) in preference_allocations or c['game_id'] in new_preference_events):
             c['allocation_code']='model_pick_event_covered'
             c['allocation_reason']='This preference allocation for the game is already covered. Stress-qualified distinct contracts remain eligible.'
             c['stake_note']=c['allocation_reason']
-        elif effective and effective.get('distinct_families_required') and (c['game_id'],allocation_family(c)) in allocated_families:
+        elif not probability_flow and effective and effective.get('distinct_families_required') and (c['game_id'],allocation_family(c)) in allocated_families:
             c['allocation_code']='event_family_covered';c['allocation_reason']='This game already holds this scope and market family.';c['stake_note']=c['allocation_reason']
         elif event_cap is not None and funded_counts[c['game_id']]>=event_cap:
             c['allocation_code']='event_limit';c['allocation_reason']='The per-game allocation is already committed to recorded bets.'
@@ -594,7 +634,7 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
             c['allocation_reason']='Qualified at the current Stake price.' if amount else 'Stake sizing or the remaining allocation is below $1.'
             if amount and continuous and tier(c) in (1,2):
                 preference_allocations.add((c['game_id'],bases[c['id']]['tier']));new_preference_events.add(c['game_id'])
-                c['allocation_reason']=(f'Positive current-model expected value; stress threshold not passed. One model pick for this game, sized at ${amount:.2f}.' if tier(c)==2 else (f'Selected for model win probability; model expected return is not positive. Calculated non-Kelly base-unit allocation ${amount:.2f}, not a value-bet claim.' if settings.get('model_pick_sizing_policy')=='all_tiers_weighted_v3' else 'Selected for model win probability; model expected return is not positive. Explicit $1 preference allocation, not a value-bet claim.'))
+                c['allocation_reason']=(f'Positive current-model expected value; stress threshold not passed. A current-model pick sized at ${amount:.2f}.' if tier(c)==2 else (f'Selected for model win probability; model expected return is not positive. Calculated non-Kelly base-unit allocation ${amount:.2f}, not a value-bet claim.' if settings.get('model_pick_sizing_policy')=='all_tiers_weighted_v3' else 'Selected for model win probability; model expected return is not positive. Explicit $1 preference allocation, not a value-bet claim.'))
             if amount:
                 new_funded+=1;event_stakes[c['game_id']]+=amount;period_new[c['game_id']]+=int(is_period);family_new[family_key]+=1
                 funded_counts[c['game_id']]+=1

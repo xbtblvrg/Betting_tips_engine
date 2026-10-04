@@ -106,7 +106,8 @@ def test_order_determinism_and_seal_covers_limits():
     assert evidence_digest(a[0])!=before
 
 
-def test_guarded_atomic_publication_and_execution_review(make_tip,monkeypatch,tmp_path):
+@pytest.mark.parametrize('version',['quality_roster_v1','quality_roster_v2'])
+def test_guarded_atomic_publication_and_execution_review(make_tip,monkeypatch,tmp_path,version):
     import test_continuous_delivery as cases
     from test_outcome_sizing_integration import history,insert
     from betting_engine.instructions import current_execution_review
@@ -114,7 +115,7 @@ def test_guarded_atomic_publication_and_execution_review(make_tip,monkeypatch,tm
     original=cases.rank_and_size
     monkeypatch.setattr(cases,'rank_and_size',lambda *a,**kw:original(*a,**kw,held_event_roster=[]))
     rows=history(100,status='won')
-    candidate,config,check=make_tip(rows,settings=settings(auto_track_recommendations=True),probability=.8,odds=2.)
+    candidate,config,check=make_tip(rows,settings=settings(auto_track_recommendations=True,dynamic_event_limits={**DEFAULT_POLICY,'version':version}),probability=.8,odds=2.)
     assert check['passed'],check
     assert 'event_limit_evidence' in candidate
     store=cases.database(tmp_path,config);insert(store,rows)
@@ -160,3 +161,59 @@ def test_settings_api_single_policy_validation_and_partial_preservation(tmp_path
     assert client.put('/api/settings',json={'daily_risk_limit':10}).status_code==422
     assert client.put('/api/settings',json={'minimum_roi':.04}).status_code==200
     assert store.settings()['dynamic_event_limits']==DEFAULT_POLICY
+
+
+def v2settings(**changes):
+    return settings(dynamic_event_limits={**DEFAULT_POLICY,'version':'quality_roster_v2'},**changes)
+
+
+def test_v2_legacy_held_quality_does_not_veto_current_quality_but_is_sealed():
+    new=tip('new',history=None)
+    old=tip('old','totals');old.update(stake=5,_held_ticket_id='legacy')
+    old.pop('outcome_sizing_evidence');old.pop('calibration_uncertainty')
+    result=evidence(v2settings(),'MLB','g',[old],[new])
+    assert result['earned_expansion']
+    assert 1<result['multiplier']<=1.5
+    assert result['limits']['max_per_event']>4
+    assert result['earning_roster_count']==1
+    assert result['history_proven'] is False
+    assert any(e['kind']=='held' and e['held_stake']==5 and e['quality']['score']==0 for e in result['roster'])
+    assert result!=evidence(v2settings(),'MLB','g',[],[new])
+    assert result['profit_validated'] is False
+
+
+def test_v2_coldstart_is_not_full_expansion_and_weak_new_batch_cannot_hide():
+    cold=tip('cold',history=None)
+    warm=tip('warm')
+    a=evidence(v2settings(),'MLB','g',[],[cold])
+    b=evidence(v2settings(),'MLB','g',[],[warm])
+    assert 1<a['multiplier']<b['multiplier']<=2
+    assert a['weakest_history_signal']==0
+    weak=tip('weak','totals',probability=.5)
+    assert evidence(v2settings(),'MLB','g',[],[cold,weak])['multiplier']==1
+    assert evidence(v2settings(),'MLB','g',[{**cold,'stake':1}],[])['multiplier']==1
+    for field in ('market_anchor','input_readiness','calibration_uncertainty'):
+        assert evidence(v2settings(),'MLB','g',[],[{**cold,field:{}}])['multiplier']==1
+
+
+def test_v2_signed_bad_outcomes_reduce_exploratory_expansion():
+    cold=tip('cold',history=None)
+    losing=tip('lost',history='lost')
+    a=evidence(v2settings(),'MLB','g',[],[cold])
+    b=evidence(v2settings(),'MLB','g',[],[losing])
+    assert b['weakest_score']<a['weakest_score']
+    assert b['multiplier']<a['multiplier']
+
+
+def test_continuous_policy_allows_distinct_same_family_but_exact_aliases_still_rejected(tmp_path):
+    s=v2settings(family_selection_policy='continuous_probability_v2')
+    first=tip('first','totals');second=tip('second','totals');second['line']=22
+    assert evidence(s,'MLB','g',[],[first,second])['limits']['distinct_families_required'] is False
+    from betting_engine.dynamic_event_limits import seal_batch
+    first['stake']=1;second['stake']=1
+    seal_batch(s,[],[first,second])
+    with Store(tmp_path/'engine.sqlite').db() as c:
+        verify_batch(c,[first,second],s)
+        alias=deepcopy(first)
+        seal_batch(s,[],[first,alias])
+        with pytest.raises(ValueError,match='duplicates'):verify_batch(c,[first,alias],s)

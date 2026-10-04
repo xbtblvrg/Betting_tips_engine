@@ -588,3 +588,11 @@ A heti tanult súlyozás tartós jobként bekötve; aktuális jóváhagyott súl
 - Profi napi kiadás26/100: NFL4,NHL2,MLB13,NBA7,WNBA0; Ready0. A teljes28 NCAA2-t is tartalmaz. Eredeti döntések847, lezárt633:295won/323lost/15push, turnover820.73USD,P&L−31.3741USD,ROI−3.8227%. Új kiadási/eredményjavulást ez a release még nem mért.
 - Meglévő javítási sor:754 market_research gap,5 queued liga-market research job,8 model_search; shadow_evaluation fut. A teljes bekötés nem teljesült: elsődleges hiány a saját scope/játékosmodellek és a publikációhoz kötött teljes tanulási fogyasztók.
 - Bekötési tábla: docs/LIVE_MARKET_COVERAGE.md; kompakt élő bizonyíték: data/releases/root-flow-audit-20261004/live-independent-coverage.json.
+
+## 2026-10-04 — nulla új kiadás: verziózott allokációs javítás
+
+- Élő előtte14:47:03UTC:2572 guard-passed→1149 jogosult tier→521 családnyertes→278 preferencia-elnyomás→51 eredeti szerződés→192 event/period-limit→0 funded. A tölcsér minden lépése külön okkóddal a Research oldalon látszik.
+- continuous_probability_v2: nincs élettartam game/tier vagy event-wide fallback-elnyomás; unheld pontos szerződések valószínűség, ellenőrzött zsugorított WR/ROI, stresszeltEV alapján versenyeznek. CLV fallbacknél párhuzamos mérés, nem fundingtiltás. Megfizethető USD1 minimum audithoz kötött nyers méretezéssel.
+- quality_roster_v2: minden régi jegy számít és lezárt, a teljes új guardos csomag minősége szerez bővítést; régi hiányzó sizingbizonylat nem vétó. Coldstart maximum1.5×, pozitív történeti jel2×. MaxUSD5/tipp, pontos duplikáció és forrás/model/scope/freshness guard megmarad.
+- Learning mérés: minden lezárt eredeti döntés feldolgozva plusz legalább egy bizonyított, négy aktuális snapshothoz kötött fogyasztó; pending aktuális döntések nem hiányzó outcome-ok.
+- Független Codex-review209 célzott Python és1DOM; javított reviewtalálatok: publikáció és selected frissesség/azonosság, tier-első kizárás. Teljes7022passed/1skipped/25warnings/5subtests,293DOMpassed. Az első teljesfutás null-időbélyeg regressziója javítva, második teljesfutás sikeres.

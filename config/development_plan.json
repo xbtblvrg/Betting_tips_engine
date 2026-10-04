@@ -1090,6 +1090,37 @@
         "verified_at": "2026-10-03T11:54:42.958767+00:00",
         "code_commit": "268060d",
         "live_evidence": "data/releases/root-outcome-volume-20261003/ui-live.json"
+      },
+      "issuance_correction_20261004": {
+        "policy": "continuous_probability_v2",
+        "detected_at": "2026-10-04T14:36:59.134965+00:00",
+        "owner": "root Codex; isolated allocation_repair/dynamic_quality_repair",
+        "implementation_steps": [
+          "Remove lifetime tier/event suppression behind sealed version",
+          "Probability and verified segment-history ranking; distinct exact-contract idempotence",
+          "Affordable minimum-ticket floor and CLV measurement-only fallback",
+          "Quality roster v2 expansion retaining full held exposure",
+          "Live disjoint funnel; functional closed-outcome learning stage",
+          "Full tests, independent review, restart, local/Tailscale and first-issuance check"
+        ],
+        "files": [
+          "src/betting_engine/decisions.py",
+          "src/betting_engine/funding_policy.py",
+          "src/betting_engine/dynamic_event_limits.py",
+          "src/betting_engine/storage.py",
+          "src/betting_engine/operations.py",
+          "src/betting_engine/live_market_coverage.py"
+        ],
+        "tests": [
+          "tests/test_continuous_probability_allocation.py",
+          "tests/test_funding_policy.py",
+          "tests/test_dynamic_event_limits.py",
+          "tests/test_allocation_funnel.py",
+          "tests/test_live_market_coverage.py"
+        ],
+        "acceptance": "Current fresh guarded distinct qualifying contracts receive reproducible USD1–5 allocations within exact current limits; immutable originals and duplicates remain protected; publish fresh local/Tailscale evidence.",
+        "status": "awaiting_release",
+        "deadline": "2026-10-04T15:00:00+00:00"
       }
     },
     {

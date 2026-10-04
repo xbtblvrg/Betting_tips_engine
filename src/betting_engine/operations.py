@@ -14,6 +14,54 @@ from .io_utils import atomic_bytes,atomic_json
 
 ALL_LEAGUES=(*LEAGUES,'MLS')
 
+def allocation_funnel(payload, now=None):
+    """Disjoint, source-bound attribution from actual current allocation codes.
+
+    A funded allocation and a first issuance are separate observations. Unknown
+    codes stay visible rather than being guessed into a successful stage.
+    """
+    now=now or utcnow()
+    try:current=-5 <= (now-parse_time(payload['generated_at'])).total_seconds() <= MAX_QUOTE_AGE_SECONDS
+    except (KeyError,TypeError,ValueError,AttributeError):current=False
+    rows={t['id']:t for t in payload.get('evaluated_candidates',[])
+          if current and t.get('id') and fresh_quote(t,now) and (t.get('decision_guard') or {}).get('passed') is True}
+    selected={t['id']:t for t in [*payload.get('recommendations',[]),*payload.get('alternatives',[])] if t.get('id')}
+    groups={
+        'funding':{'price_below_threshold','funding_policy_ineligible'},
+        'family':{'not_selected'},
+        'preference':{'probability_pick_suppressed','model_pick_event_covered','model_pick_family_covered','event_family_covered'},
+        'limits':{'event_limit','period_limit','event_stake_limit','publication_limit','publication_cycle_limit','daily_family_limit','family_share_limit','daily_risk_limit'},
+        'sizing':{'stake_below_minimum'},
+        'prior_contract':{'already_held'},
+        'execution':{'execution_review_failed'},
+    }
+    def summarize(tips):
+        codes=Counter();tiers=Counter();buckets=Counter();reasons={};funded=0
+        for original in tips:
+            t=selected.get(original['id'],original)
+            identity=('game_id','market','side','line','reference_odds','probability','quote_at','valid_until','start')
+            if (not fresh_quote(t,now) or (t.get('decision_guard') or {}).get('passed') is not True
+                    or any(t.get(key)!=original.get(key) for key in identity)):
+                t={**original,'stake':0,'allocation_code':'invalid_selected_evidence'}
+            tier=(t.get('funding_basis') or {}).get('tier','not_recorded');tiers[tier]+=1
+            code=t.get('allocation_code','not_recorded');codes[code]+=1
+            if tier!='unfunded' and t.get('stake',0)>=1:
+                funded+=1;buckets['funded']+=1
+            else:
+                group='funding' if tier=='unfunded' else next((name for name,values in groups.items() if code in values),'other')
+                buckets[group]+=1
+                reasons.setdefault(group,Counter())['tier_unfunded' if tier=='unfunded' else code]+=1
+        remaining=len(tips);stages=[]
+        for name in ('funding','family','preference','prior_contract','limits','sizing','execution','other'):
+            rejected=buckets[name];stages.append({'stage':name,'entered':remaining,'rejected':rejected,
+                'passed':remaining-rejected,'reasons':dict(reasons.get(name,{}))});remaining-=rejected
+        return {'guard_passed':len(tips),'funding_tiers':dict(tiers),'stages':stages,
+                'funded':funded,'allocation_codes':dict(codes)}
+    return {'version':'allocation-funnel-v1','publication_at':payload.get('generated_at'),
+        'checked_at':now.isoformat(),'total':summarize(list(rows.values())),
+        'leagues':{league:summarize([t for t in rows.values() if t.get('league')==league]) for league in ('NFL','NHL','MLB','NBA','WNBA')},
+        'definition':'Current guard-passed exact candidates, disjoint allocation outcomes. Prior contracts are not new issuances; funded allocations do not prove first issuance or profitability.'}
+
 def allocation_summary(payload,now=None):
     """Observe this publication's allocations, not all inventory or engine health."""
     now=now or utcnow()
@@ -40,7 +88,7 @@ def allocation_summary(payload,now=None):
             f'{counts["price_below_threshold"]} selections did not meet the active price/policy threshold. '
             f'Current guarded candidates cover {len(games)} games, {len(games-issued_games)} without a prior issued contract. '
             'Other allocation reasons remain in the counts; this snapshot alone does not prove process health or future issuance.')
-    return {'version':'publication-allocation-summary-v1','publication_at':payload.get('generated_at'),
+    return {'version':'publication-allocation-summary-v1','funnel':allocation_funnel(payload,now),'publication_at':payload.get('generated_at'),
         'observed_at':now.isoformat(),'state':state,'message':message,
         'current_evaluated_outcomes':len(evaluated),'current_evaluated_games':len(games),
         'selected_family_winners':len(selected),'new_allocations':len(funded),

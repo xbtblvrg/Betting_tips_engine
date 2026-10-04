@@ -227,3 +227,22 @@ def test_probability_preference_retains_push_and_actual_ev_without_mutation():
     assert r['related_contracts']==5 and r['amount']==1
     assert (t,s)==before
     json.dumps(r,allow_nan=False)
+
+
+def test_continuous_probability_v2_clv_is_measurement_not_funding_veto():
+    s=settings(recommendation_policy='continuous_best_available_v1',model_pick_sizing_policy='all_tiers_weighted_v3',family_selection_policy='continuous_probability_v2',fallback_clv_gate='prospective_positive_clv')
+    t=tip(.75,.65,odds=1.2)
+    b=funding_basis(t,s)
+    assert b['tier']=='probability_pick' and b['eligible'] and b['clv_gate_role']=='measurement_only'
+    assert not b.get('shadow_only')
+    assert 1<=size_recommendation(t,s,5,10)['amount']<=5
+    assert size_recommendation(t,s,.99,10)['amount']==0
+
+
+def test_continuous_probability_v2_affordable_floor_keeps_raw_amount_and_caps():
+    s=settings(recommendation_policy='continuous_best_available_v1',model_pick_sizing_policy='all_tiers_weighted_v3',family_selection_policy='continuous_probability_v2',unit_stake=.1)
+    t=tip(.75,.65,odds=1.2)
+    result=size_recommendation(t,s,5,30)
+    assert result['amount']==1 and result['minimum_ticket_floor']['before_floor']<1
+    assert size_recommendation(t,s,.99,30)['amount']==0
+    assert size_recommendation(t,{**s,'bankroll':10,'max_bankroll_fraction':.01},5,30)['amount']==0
