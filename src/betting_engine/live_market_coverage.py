@@ -39,6 +39,11 @@ def build_live_coverage(publication, catalog, decisions=(), feedback_tip_ids=(),
     """
     now = now or utcnow()
     current = _fresh(publication.get('generated_at'), now)
+    def active(tip):
+        try:
+            return parse_time(tip.get('start')) > now and parse_time(tip.get('valid_until')) > now
+        except (TypeError, ValueError, AttributeError):
+            return False
     groups = {}
     for source in [*catalog.get('types', []), *publication.get('market_types', [])]:
         key = _key(source)
@@ -51,7 +56,7 @@ def build_live_coverage(publication, catalog, decisions=(), feedback_tip_ids=(),
     from .funding_policy import funding_basis, size_recommendation
     settings = publication.get('settings', {})
     for tip in publication.get('evaluated_candidates', []):
-        if not (current and _fresh(tip.get('quote_at'), now) and
+        if not (current and active(tip) and _fresh(tip.get('quote_at'), now) and
                 (tip.get('decision_guard') or {}).get('passed') is True and
                 (tip.get('input_readiness') or {}).get('passed') is True):
             continue
@@ -64,7 +69,7 @@ def build_live_coverage(publication, catalog, decisions=(), feedback_tip_ids=(),
             continue
     for tip in publication.get('recommendations', []):
         review = tip.get('execution_review') or {}
-        if current and _fresh(tip.get('quote_at'), now) and tip.get('stake', 0) > 0 and review.get('actionable') is True:
+        if current and active(tip) and tip.get('id') not in publication.get('placement_marks', {}) and _fresh(tip.get('quote_at'), now) and tip.get('stake', 0) > 0 and review.get('actionable') is True:
             funded[_key(tip)] += 1
     historical = defaultdict(list)
     seen = set()

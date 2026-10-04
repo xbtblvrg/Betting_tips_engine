@@ -5,7 +5,7 @@ NOW=datetime(2026,10,4,10,tzinfo=timezone.utc)
 TITLE='1st Quarter - Draw No Bet'
 
 def inputs():
-    tip={'id':'a','league':'NFL','stake':2,'quote_at':NOW.isoformat(),'stake_market':{'name':TITLE},'execution_review':{'actionable':True}}
+    tip={'id':'a','league':'NFL','stake':2,'quote_at':NOW.isoformat(),'start':'2026-10-04T12:00:00Z','valid_until':'2026-10-04T10:05:00Z','stake_market':{'name':TITLE},'execution_review':{'actionable':True}}
     market={'league':'NFL','market':TITLE,'parsed_outcomes':2,'priced_outcomes':2,'guard_passed_outcomes':2,'observed_outcomes':2}
     return {'version':8,'generated_at':NOW.isoformat(),'market_types':[market],'recommendations':[tip]}, {'types':[market]}
 
@@ -56,3 +56,10 @@ def test_funding_support_is_separate_from_marked_or_exposure_blocked(monkeypatch
     assert not row['funding_eligible_now']
     monkeypatch.setattr(policy,'size_recommendation',lambda *args:{'amount':0})
     assert not build_live_coverage(pub,cat,now=NOW)['rows'][0]['funding_supported']
+
+
+def test_placed_and_started_not_ready(monkeypatch):
+    pub,cat=inputs();pub['placement_marks']={'a':NOW.isoformat()}
+    assert not build_live_coverage(pub,cat,now=NOW)['rows'][0]['funding_eligible_now']
+    pub['placement_marks']={};pub['recommendations'][0]['start']=NOW.isoformat()
+    assert not build_live_coverage(pub,cat,now=NOW)['rows'][0]['funding_eligible_now']
