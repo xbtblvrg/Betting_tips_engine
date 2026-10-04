@@ -239,3 +239,24 @@ def quality_repair_task(quality):
             'next_action': quality.get('next_action', 'Recover the exact valid model report.'),
             'deadline_policy': 'Preserve the existing D18 milestone deadline; repeated publication is not a new task or deadline.',
             'resolution': 'Only close against a changed exact report and independently reviewed family evidence; a source refresh, candidate, or research result alone does not resolve the gap.'}
+
+
+def assess_active_winner_quality(forecasts, champion_reports, reference_choices):
+    """Per-event Winner diagnostic for the forecast selected in this cycle.
+
+    The league-level champion report/quality remains independently visible.
+    This diagnostic never changes model choice, funding or repair resolution.
+    """
+    active = {}
+    for game_id, forecast in forecasts.items():
+        report = champion_reports[forecast.league]
+        selected = reference_choices.get(game_id)
+        if selected is not None:
+            forecast, report = selected
+        active[game_id] = {
+            'league': forecast.league, 'market': 'moneyline',
+            'model_version': forecast.model_version,
+            'selection': 'reference' if selected is not None else 'champion',
+            'quality': assess_professional_quality(report, 'moneyline'),
+        }
+    return active
