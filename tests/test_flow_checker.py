@@ -99,3 +99,9 @@ def test_catalogue_additional_history_is_not_missing_current_coverage():
     assert rows(assess_flow(p,{}, {},NOW))['2']['passed']
     p['automation']['market_catalog']['live_coverage']['rows'].append(row)
     assert not rows(assess_flow(p,{}, {},NOW))['2']['passed']
+
+
+def test_priced_but_guard_rejected_outcome_is_not_missing_model():
+    p=snapshot(); p['market_types'][0].update(evaluated_outcomes=1,priced_outcomes=2,guard_checked_outcomes=2,guard_passed_outcomes=1)
+    r=rows(assess_flow(p,{}, {},NOW))
+    assert r['1.2']['passed'] and not r['1.3']['passed']
