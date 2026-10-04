@@ -1129,7 +1129,7 @@
         ],
         "acceptance": "Targeted regressions, full suite, independent review, commit and live local/Tailscale verification; report actual issuance shortfall.",
         "live_evidence": "data/releases/root-shadow-repair-20261004/release.json",
-        "progress": "2026-10-04: resumable shadow sweeps and frozen settlement inputs deployed; first live batch49.41s (1/23 trials) yields partial/retry and admits outcome_review. Full6767 Python +281 DOM; independent review approved. Fifty formerly rejected full-match contracts captured. Outcome_review attempt2125 fails feedback_review_limit; isolated correction underway. Prior deadlines retained.",
+        "progress": "2026-10-04: resumable/frozen shadow sweeps deployed; three partial batches advance with intervening market_research/catalog completion. Outcome feedback overflow fixed in c813f67: live attempt2131 completed09:53:41UTC,629 settled original decisions,56 proposals,source_verified=true. Full6771 Python+281 DOM; independent review approved.50 contract rejections eliminated,9 executable cards,local/Tailscale8107 agree. Entire shadow sweep and broader market gaps remain monitored; deadlines preserved.",
         "audit_evidence": "data/releases/root-throughput-repair-20261003/reviews.json"
       }
     },
