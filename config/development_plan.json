@@ -997,20 +997,23 @@
       },
       "latest_root_increment": {
         "code_commits": [
-          "166f8ac",
-          "4392a76",
-          "07b2dbe",
-          "fcbafc7",
+          "4029f73",
           "38cd4a4",
           "5704369",
-          "4029f73"
+          "2db16fc",
+          "7f859ac",
+          "4183f4e",
+          "3cbf357",
+          "b62abcc",
+          "652b2fc",
+          "ab1cdfe"
         ],
         "state": "live_verified_increment",
-        "evidence": "data/releases/root-market-expansion-20261004/expansion-live-cycles.json",
-        "scope": "NBA preseason full lifecycle, NFL Winner reconstructed reference and valid probability distribution tails",
+        "evidence": "data/releases/root-market-expansion-20261004/final-live-evidence.json",
+        "scope": "NBA preseason lifecycle and aliases; NFL Winner reference; probability tails; WNBA/MLB complete composites; MLB source-missing trained prior",
         "full_task_complete": false,
-        "new_funded_recommendations_from_increment": 3,
-        "next_implementation": "Bounded full-game WNBA Winner & Total and MLB exact totals; explicit observed missing-starter prior support"
+        "new_funded_recommendations_from_increment": 11,
+        "next_implementation": "Remaining joint temporal, event-sequence, comparison and player models. Preserve exposure caps: current267 event-limit and25 period-limit exclusions. Complete coverage and100/day remain open."
       }
     },
     {
