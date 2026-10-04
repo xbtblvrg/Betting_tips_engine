@@ -49,12 +49,19 @@ def assess_flow(dashboard, supervisor, previous, now, lifecycle=None):
     local=now.astimezone(ZoneInfo('Europe/Budapest')); midnight=local.replace(hour=0,minute=0,second=0,microsecond=0)
     tomorrow=(midnight+timedelta(days=1));elapsed=now.timestamp()-midnight.timestamp(); day_seconds=tomorrow.timestamp()-midnight.timestamp()
     pace=math.floor(100*elapsed/day_seconds)
-    add('1.4','Funded professional daily target',total>=100,{'issued':total,'target':100,'pace_target':pace,'behind_pace':total<pace,'by_league':{l:by.get(l,0) for l in LEAGUES},'date':daily.get('date')},'Expand exact supported opportunities and diagnose allocation reasons; preserve limits and never count reprices or other leagues toward this target.')
+    add('1.4','Funded professional daily target',total>=100 and daily.get('date')==local.date().isoformat(),{'issued':total,'target':100,'pace_target':pace,'behind_pace':total<pace,'by_league':{l:by.get(l,0) for l in LEAGUES},'date':daily.get('date')},'Expand exact supported opportunities and diagnose allocation reasons; preserve limits and never count reprices or other leagues toward this target.')
     mismatch={}
     try:
         from .dashboard_payload import _execution_counts
         expected=_execution_counts(dashboard.get('recommendations',[])+dashboard.get('alternatives',[]),dashboard.get('evaluated_candidates') or dashboard.get('recommendations',[])+dashboard.get('alternatives',[]),dashboard.get('tracked_bets',[]),dashboard.get('placement_marks',{}),dashboard['settings'],daily,parse_time(dashboard.get('server_time') or now.isoformat()))
         actual=status['execution_counts']; mismatch={k:{'expected':v,'actual':actual.get(k)} for k,v in expected.items() if k!='source' and v!=actual.get(k)}
+        issuance=daily.get('issuance_rows')
+        if isinstance(issuance,list):
+            ids=[r.get('tip_id') for r in issuance]
+            unique=len(set(ids))
+            if None in ids or unique!=len(ids) or daily.get('calendar_day_issued',daily.get('issued'))!=unique:
+                mismatch['first_issuance']={'unique':unique,'rows':len(ids),'reported':daily.get('calendar_day_issued',daily.get('issued'))}
+        else:mismatch['first_issuance']='Immutable issuance rows unavailable'
     except (KeyError,TypeError,ValueError) as exc:mismatch={'probe_error':type(exc).__name__}
     add('1.5','Publication and counter consistency',not mismatch,{'differences':mismatch,'publication_version':dashboard.get('version')},'Repair shared-snapshot counters and execution eligibility; preserve immutable issuance records.','D14')
     services=supervisor.get('services',{})

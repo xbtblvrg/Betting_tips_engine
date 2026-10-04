@@ -6,7 +6,7 @@ from betting_engine.flow_checker import assess_flow, read_lifecycle, check_live_
 NOW=datetime(2026,10,4,10,tzinfo=timezone.utc)
 
 def snapshot():
-    return {'generated_at':NOW.isoformat(),'version':1,'status':{'daily_progress':{'by_league':{'NFL':40,'MLB':60}},'outcome_sizing':{'accepted_decisions':10}},
+    return {'generated_at':NOW.isoformat(),'version':1,'status':{'daily_progress':{'date':'2026-10-04','by_league':{'NFL':40,'MLB':60}},'outcome_sizing':{'accepted_decisions':10}},
       'opportunities':{'windows':{'48':{'leagues':[{'league':l,'source_state':'observed','games':1,'matched_games':1,'odds_loaded_games':1,'source_errors':[]} for l in LEAGUES]}}},
       'market_types':[{'league':'NFL','market':'Winner (Incl. Overtime)','scope':'full_game','observed_outcomes':2,'evaluated_outcomes':2,'guard_checked_outcomes':2,'guard_passed_outcomes':2}]}
 
@@ -80,3 +80,8 @@ def test_single_trial_is_not_paired_improvement():
     from betting_engine.flow_checker import prospective_comparison
     result=prospective_comparison({'automation':{'shadow_evidence':{'prospective_trials':[{'state':'promoted'}]}}})
     assert result['state']=='paired_live_comparison_source_missing'
+
+
+def test_yesterdays_daily_count_does_not_meet_target():
+    p=snapshot();p['status']['daily_progress']['date']='2026-10-03'
+    assert not rows(assess_flow(p,{}, {},NOW))['1.4']['passed']
