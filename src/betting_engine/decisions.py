@@ -278,10 +278,20 @@ def candidate(g,m,q,forecast,settings,market_anchor=None,calibration_summary=Non
     p,push=forecast.market_probability(m.kind,m.side,m.line)
     p,push=supported_probability_mass(p,push,settings)
     support_policy=probability_support_policy(settings)
-    if p == 0:return None # No finite executable price, including all-push contracts.
+    from .composite_contracts import policy as composite_policy, POLICY as COMPOSITE_POLICY, receipt as composite_receipt, anchored_partition
+    composite_evidence=None
+    if base in ('winner_total','exact_total') and composite_policy(settings)==COMPOSITE_POLICY:
+        composite_evidence=composite_receipt(g,m,forecast,settings)
+    if p == 0 and not (composite_evidence is not None and isinstance(market_anchor,dict)
+                      and settings.get('market_anchor_mode','shadow')=='live'):
+        return None # Zero-win/all-push contracts have no finite executable price.
     endpoint_model=support_policy == VALIDATED_PROBABILITY_SUPPORT
     anchor = market_anchor if isinstance(market_anchor, dict) else None
-    if anchor and isinstance(anchor.get('market_probability'), (int, float)):
+    if composite_evidence is not None and anchor:
+        anchor=anchored_partition(composite_evidence,m,settings,anchor,q.fetched_at)
+        if anchor['mode']=='live' and anchor['status']=='usable':
+            p=anchor['blended_probability'];push=0.
+    elif anchor and isinstance(anchor.get('market_probability'), (int, float)):
         from .market_anchor import anchor_status, logit_blend, conditional_model_probability
         market_p=float(anchor['market_probability'])
         weight=float(settings.get('market_model_weight', .15))
@@ -344,10 +354,9 @@ def candidate(g,m,q,forecast,settings,market_anchor=None,calibration_summary=Non
     if support_policy != LEGACY_PROBABILITY_SUPPORT:
         result['probability_support_policy']=support_policy
 
-    from .composite_contracts import policy as composite_policy, POLICY as COMPOSITE_POLICY, receipt as composite_receipt
-    if base in ('winner_total','exact_total') and composite_policy(settings)==COMPOSITE_POLICY:
+    if composite_evidence is not None:
         result['composite_contract_policy']=COMPOSITE_POLICY
-        result['composite_contract_evidence']=composite_receipt(g,m,forecast,settings)
+        result['composite_contract_evidence']=composite_evidence
         result['warnings'].append('Joint/exact contract calibration is not independently validated; probability is derived from the existing paired score distribution.')
 
     if calibration_summary:

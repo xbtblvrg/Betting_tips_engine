@@ -96,3 +96,43 @@ def receipt(game,market,forecast,settings):
             'probabilities':probabilities,'push_probability':0.,
             'family_calibration':'unvalidated diagnostic; not a proven return or calibrated joint tail',
             'basis':'paired full-game integer score distribution; no marginal multiplication'}
+
+
+def anchored_partition(evidence,market,settings,anchor,quote_at):
+    """Source-bound devig and normalized logit blend of one complete partition."""
+    from .market_anchor import devig_probabilities,logit_blend,anchor_status
+    if policy(settings)!=POLICY or not isinstance(anchor,dict):
+        raise ValueError('Composite anchor policy or input missing')
+    outcomes=evidence['contract']['outcomes']
+    fair=devig_probabilities({side:row['odds'] for side,row in outcomes.items()})
+    supplied=anchor.get('market_probabilities')
+    def matches(actual,expected):
+        return (type(actual) in (int,float) and math.isfinite(actual)
+                and abs(actual-expected)<=1e-12)
+    if (not isinstance(supplied,dict) or set(supplied)!=set(fair)
+            or any(not matches(supplied[side],value) for side,value in fair.items())
+            or not matches(anchor.get('market_probability'),fair[market.side])
+            or anchor.get('conditional_push_free') is not False
+            or anchor.get('quote_at')!=quote_at
+            or anchor.get('market_anchor_key')!=[market.game_id,market.condition_id,market.kind,market.line]):
+        raise ValueError('Composite anchor differs from complete source odds or identity')
+    weight=settings.get('market_model_weight',.15)
+    threshold=settings.get('market_disagreement_threshold',.30)
+    raw=evidence['probabilities']
+    blended={side:logit_blend(raw[side],fair[side],weight,allow_endpoint_model=True) for side in fair}
+    total=math.fsum(blended.values())
+    if not math.isfinite(total) or total<=0:raise ValueError('Invalid composite blend partition')
+    normalized={side:value/total for side,value in blended.items()}
+    # Review the whole offered partition, so funded siblings do not combine
+    # model-only and blended probabilities under different review verdicts.
+    status=('review' if any(anchor_status(raw[side],fair[side],threshold=threshold,
+        allow_endpoint_model=True)=='review' for side in fair) else 'usable')
+    return {**anchor,'market_probability':fair[market.side],'market_probabilities':fair,
+        'model_probability':raw[market.side],'blended_probability':normalized[market.side],
+        'model_weight':weight,'disagreement_threshold':threshold,'status':status,
+        'mode':settings.get('market_anchor_mode','shadow'),
+        'composite_blend':{'version':'source-bound-normalized-logit-v1',
+            'raw_contract_sha256':evidence['contract']['raw_sha256'],
+            'model_probabilities':raw,'market_probabilities':fair,
+            'unnormalized_probabilities':blended,'normalizer':total,
+            'probabilities':normalized}}

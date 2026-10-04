@@ -296,7 +296,14 @@ class EvidenceGuard:
             p,push=forecast.market_probability(market.kind,market.side,market.line)
             p,push=supported_probability_mass(p,push,settings)
             anchor=tip.get('market_anchor')
-            if settings.get('market_anchor_mode','shadow')=='live':
+            if composite_evidence is not None and isinstance(anchor,dict):
+                from .composite_contracts import anchored_partition
+                reproduced=anchored_partition(composite_evidence,market,settings,anchor,quote.fetched_at)
+                if anchor!=reproduced:raise ValueError('Composite anchor receipt differs from source reproduction')
+                if settings.get('market_anchor_mode','shadow')=='live':
+                    if reproduced['status']!='usable':errors.append('market_anchor_missing_or_review')
+                    else:p=reproduced['blended_probability'];push=0.
+            elif settings.get('market_anchor_mode','shadow')=='live':
                 from .market_anchor import logit_blend, conditional_model_probability
                 if not isinstance(anchor,dict) or anchor.get('status')!='usable':
                     errors.append('market_anchor_missing_or_review')
