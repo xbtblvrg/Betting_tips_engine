@@ -1119,8 +1119,35 @@
           "tests/test_live_market_coverage.py"
         ],
         "acceptance": "Current fresh guarded distinct qualifying contracts receive reproducible USD1–5 allocations within exact current limits; immutable originals and duplicates remain protected; publish fresh local/Tailscale evidence.",
-        "status": "awaiting_release",
-        "deadline": "2026-10-04T15:00:00+00:00"
+        "status": "live_verified",
+        "deadline": "2026-10-04T15:00:00+00:00",
+        "verified_at": "2026-10-04T15:09:00.520198+00:00",
+        "deadline_missed": true,
+        "completion_evidence": {
+          "code_commits": [
+            "9b633d7",
+            "f24cf2f"
+          ],
+          "publications": [
+            8305,
+            8306
+          ],
+          "new_first_issuances": 87,
+          "pro_daily_first_issuances": 113,
+          "rolling_24h_pro_first_issuances": 123,
+          "ready_exact_recorded": 107,
+          "tests": {
+            "pytest_passed": 7023,
+            "npm_passed": 293
+          },
+          "independent_review": "dynamic_quality_repair",
+          "live_evidence": "data/releases/root-flow-audit-20261004/allocation-independent-after.json",
+          "remaining_constraints": {
+            "event_limit": 465,
+            "period_limit": 1
+          },
+          "transient_dashboard_503": "Observed between8304/8305; recovered8306 local/Tailscale"
+        }
       }
     },
     {

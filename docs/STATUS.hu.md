@@ -599,3 +599,6 @@ A heti tanult súlyozás tartós jobként bekötve; aktuális jóváhagyott súl
 
 - Éles első hat kiadási ciklus87 új eredeti ajánlás: NFL24,NHL24,MLB12,NBA21,WNBA6; mai profi első kiadás113/100. Első ciklus15, közülük13 tényleges earned-expansion receipt. Új tétekUSD1–2.18.
 - Dashboard GET regresszió: következő még nem kiadott batch nem jelenhet meg végrehajtási utasításként; pontos recommendation_issuance rekord szükséges. Független Codex-review és teljes7023passed/1skipped/25warnings/5subtests,293DOMpassed. Eredeti döntések és tétek változatlanok.
+
+- Éles kód9b633d7/f24cf2f; független8305/8306 helyi/Tailscale:Ready107, mind107 pontos issuance/systemdecision/bet rekorddal; unpublishedReady0. Profi mai113/100, gördülő24h123. Aktuális új allokáció0:465 event_limit+1 period_limit a megtartott aktív korlátokból, preferenciaelnyomás0.
+- Egy frissítésközi dashboard503 után8306 helyben/távolról helyreállt, engineerrorNone. Kompakt tölcsér és review:data/releases/root-flow-audit-20261004/allocation-after.json,allocation-independent-after.json. A javítás15:00UTC határideje megmaradt; végső éles visszaellenőrzés késése deadline_missed=true. Teljes piactípus-modell/forrás hiányok külön nyitva maradnak; új87 döntés még nem lezárt profitbizonyíték.
