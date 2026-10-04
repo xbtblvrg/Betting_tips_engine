@@ -233,6 +233,12 @@ class LearningWorker:
 
     def plan_shadow(self, now):
         """Keep one latest pending summary; never reset retry delay/history."""
+        # An incomplete bounded sweep owns its frozen cutoff until completion.
+        # Do not supersede its durable continuation with every 15-minute tick.
+        with self.store.db() as c:
+            for row in c.execute("SELECT id,result FROM learning_jobs WHERE kind='shadow_evaluation' AND status IN ('queued','retry')"):
+                if row['result'] and json.loads(row['result']).get('continuation_required'):
+                    return row['id']
         job_id=self.enqueue('shadow_evaluation',str(int(now.timestamp())//900),
             payload={'scope':'Frozen exact-market observations; no funded issuance or model promotion.'})
         with self.store.db() as c:
@@ -488,6 +494,8 @@ class LearningWorker:
             report=evaluate_shadow(self.data,games=games,as_of=utcnow().isoformat(),store=self.store)
             return {'state':report['state'],'checked_at':report['checked_at'],
                     'trials':len(report.get('prospective_trials',[])),
+                    'continuation_required':report.get('continuation_required',False),
+                    'evaluation_as_of':report.get('as_of',report['checked_at']),
                     'funding_veto':False,'profit_established':False,
                     'conclusion':'Exact-market prospective and original funded evidence reported separately.'}
         if job['kind']=='closing_evaluation':
@@ -540,8 +548,12 @@ class LearningWorker:
                 try:
                     result=self.execute(job);raw=json.dumps(result,allow_nan=False);stamp=utcnow().isoformat()
                     with self.store.db() as c:
-                        c.execute("UPDATE learning_jobs SET status='completed',result=?,last_error=NULL,updated_at=? WHERE id=?",(raw,stamp,job['id']))
-                        c.execute("UPDATE learning_attempts SET status='completed',result=?,finished_at=? WHERE id=?",(raw,stamp,attempt))
+                        if job['kind']=='shadow_evaluation' and result.get('continuation_required'):
+                            c.execute("UPDATE learning_jobs SET status='retry',result=?,last_error=NULL,updated_at=?,next_attempt=? WHERE id=?",(raw,stamp,stamp,job['id']))
+                            c.execute("UPDATE learning_attempts SET status='partial',result=?,finished_at=? WHERE id=?",(raw,stamp,attempt))
+                        else:
+                            c.execute("UPDATE learning_jobs SET status='completed',result=?,last_error=NULL,updated_at=? WHERE id=?",(raw,stamp,job['id']))
+                            c.execute("UPDATE learning_attempts SET status='completed',result=?,finished_at=? WHERE id=?",(raw,stamp,attempt))
                 except Exception as exc:
                     stamp=utcnow();delay=min(21600,60*2**min(job['attempts'],9));error=f'{type(exc).__name__}: {exc}'[:2000]
                     with self.store.db() as c:

@@ -30,6 +30,7 @@ MAX_SOURCE_BYTES = 16 * 1024 * 1024
 MIN_CLUSTER_INTERVAL = 20  # Reporting threshold only. Never a funding veto.
 EVALUATOR_ID = {'version': VERSION, 'closing_version': _closing_evaluator.VERSION,
                 'rejection_diagnostics': 'ordered-rejection-sample-v1',
+                'snapshot_routing': 'exact-market-with-complete-lifecycle-v1',
                 'code_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                 'closing_code_sha256': hashlib.sha256(Path(_closing_evaluator.__file__).read_bytes()).hexdigest(),
                 'settlement_code_sha256': hashlib.sha256(Path(_settlement_contracts.__file__).read_bytes()).hexdigest()}
@@ -152,6 +153,47 @@ def _capture_rows_for_fixtures(db, fixtures, cutoff):
     rows.sort(key=lambda row: row['capture_rowid'])
     for row in rows: row.pop('capture_rowid')
     return rows
+
+
+def _capture_metadata_for_fixtures(db, fixtures, cutoff):
+    """Cache keys never read multi-megabyte evidence bodies or source blobs."""
+    rows = [dict(r) for r in db.execute(
+        'SELECT id,recorded_at FROM captures WHERE fixture_id IS NULL AND recorded_at<=?', (cutoff,))]
+    fixtures = sorted(set(fixtures))
+    for offset in range(0, len(fixtures), 400):
+        batch = fixtures[offset:offset+400]
+        marks = ','.join('?' for _ in batch)
+        rows.extend(dict(r) for r in db.execute(
+            f'SELECT id,recorded_at FROM captures WHERE fixture_id IN ({marks}) AND recorded_at<=?',
+            (*batch, cutoff)))
+    return rows
+
+
+def _snapshot_routing(snapshots):
+    """Route exact markets while retaining every fixture lifecycle blocker.
+
+    Only standard sibling markets with an identical complete-response lifecycle
+    witness are omitted. Malformed/unwitnessed rows remain in every evaluation.
+    The immutable input hash still covers every capture, including omitted rows.
+    """
+    fields = ('league', 'fixture_id', 'fixture_slug', 'start', 'source', 'raw_fixture')
+    def signature(row):
+        return _json({key: row.get(key) for key in fields})
+    witnesses = {signature(r) for r in snapshots
+                 if isinstance(r, dict) and r.get('provider_section') == 'fixture_lifecycle'}
+    shared, markets = [], defaultdict(list)
+    for index, row in enumerate(snapshots):
+        if (isinstance(row, dict) and row.get('provider_section') == 'standard'
+                and isinstance(row.get('market_id'), str) and signature(row) in witnesses):
+            markets[row['market_id']].append((index, row))
+        else:
+            shared.append((index, row))
+    return shared, markets
+
+
+def _routed_snapshots(routing, market_id):
+    shared, markets = routing
+    return [row for _, row in sorted([*shared, *markets.get(market_id, [])], key=lambda pair: pair[0])]
 
 
 def _capture_evidence_by_fixture(capture_rows):
@@ -466,7 +508,7 @@ class ShadowEvidenceStore:
             pending = Counter((r['identity']['league'], r['identity']['scope'], r['identity']['family']) for r in frozen_rows if _time(r['decision']['payload']['start']) > now)
             pending_families = [{'league': k[0], 'scope': k[1], 'family': k[2], 'contracts': n} for k, n in sorted(pending.items())]
             fixtures = {r['decision']['payload']['reference_market_id'].split(':')[1] for r in closed}
-            capture_rows = _capture_rows_for_fixtures(db, fixtures, now.isoformat())
+            capture_rows = _capture_metadata_for_fixtures(db, fixtures, now.isoformat())
             games = {r['identity']['game_id'] for r in closed}
             available_results = []
             for r in settlements:
@@ -485,10 +527,16 @@ class ShadowEvidenceStore:
             previous = db.execute('SELECT report FROM evaluations WHERE trial_id=? AND input_sha256=? AND as_of<=?', (trial_id, inputs, now.isoformat())).fetchone()
             if previous:
                 return json.loads(previous[0])
-            capture_index = _capture_evidence_by_fixture(capture_rows) if closed else {}
+            capture_index = {}; current_fixture = None
             fixture_cache, contract_sources = {}, {}
-            for frozen in closed:
+            # Only one fixture's archived bodies are resident at a time. Final
+            # report order remains the original deterministic contract order.
+            for frozen in sorted(closed, key=lambda r: r['decision']['payload']['reference_market_id'].split(':')[1]):
                 decision = frozen['decision']; tip = decision['payload']; fixture = tip['reference_market_id'].split(':')[1]
+                if fixture != current_fixture:
+                    capture_index = _capture_evidence_by_fixture(_capture_rows_for_fixtures(db, {fixture}, now.isoformat()))
+                    fixture_cache, contract_sources = {}, {}
+                    current_fixture = fixture
                 if fixture not in fixture_cache:
                     fixture_cache[fixture] = _latest_fixture_evidence(capture_index, fixture)
                 source_key = (fixture, tip.get('stake_evidence', {}).get('fixture_slug'), tip['league'])
@@ -498,26 +546,30 @@ class ShadowEvidenceStore:
                         'snapshots': [s for e in relevant for s in e['snapshots']],
                         'errors': [e['error'] or 'capture_league_mismatch' for e in relevant
                                    if e['error'] or e['capture']['league'] != tip['league']],
-                        'start_conflicts': {}, 'snapshot_index': None}
-                source = contract_sources[source_key]; snapshots = source['snapshots']
+                        'start_conflicts': {}, 'snapshot_index': None, 'routing': None}
+                source = contract_sources[source_key]; all_snapshots = source['snapshots']
+                if source['routing'] is None:
+                    source['routing'] = _snapshot_routing(all_snapshots)
+                snapshots = _routed_snapshots(source['routing'], tip['reference_market_id'].split(':')[2])
                 close = evaluate_closing_price(decision, snapshots, as_of=now.isoformat(),
                                                rejection_sample_limit=32)
                 errors = list(source['errors'])
                 if tip['start'] not in source['start_conflicts']:
                     source['start_conflicts'][tip['start']] = any(
-                        _time(s['start']) != _time(tip['start']) for s in snapshots)
+                        _time(s['start']) != _time(tip['start']) for s in all_snapshots)
                 if source['start_conflicts'][tip['start']]:
                     errors.append('conflicting_fixture_start')
                 if errors and close['status'] != 'pending_start':
                     close.update(status='missing_closing_price', reason='invalid_capture_evidence', price_clv=None, closing_price=None)
                     close['comparison_sha256'] = _hash({k: close[k] for k in ('version', 'as_of', 'decision_sha256', 'status', 'reason', 'closing_price', 'price_clv')})
                 if close.get('closing_price') and source['snapshot_index'] is None:
-                    source['snapshot_index'] = {_hash(r): r for r in snapshots}
+                    source['snapshot_index'] = {_hash(r): r for r in all_snapshots}
                 outcome = _settlement(tip, available_results, now)
                 reports.append({'contract_id': frozen['contract_id'], 'decision': decision,
                     'original_payload_sha256': frozen['original_payload_sha256'], 'close': close,
                     'capture_errors': errors, 'closing_market_probability': _fair_probability(tip, snapshots, close, snapshot_index=source['snapshot_index']),
                     'outcome': outcome})
+        reports.sort(key=lambda r: r['contract_id'])
         result = {'version': VERSION, 'trial_id': trial_id, 'model_version': trial['model_version'],
                   'as_of': now.isoformat(), 'evaluator': EVALUATOR_ID, 'input_sha256': inputs, 'rows': reports, 'families': family_report(reports),
                   'pending_contracts': sum(pending.values()), 'pending_families': pending_families,

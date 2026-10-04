@@ -3,6 +3,7 @@ from collections import Counter, defaultdict
 from copy import deepcopy
 import fcntl
 import json
+import time
 from pathlib import Path
 
 from .closing_prices import _time
@@ -127,18 +128,45 @@ def legacy_funded_summary(decisions, closing, *, as_of):
             'basis': 'Previously recorded exact closing studies and immutable original funded decisions. No new prospective backfill; no account-verified profit or newly authenticated historical price claim.'}
 
 
-def evaluate_shadow(data_dir, *, games, as_of, store=None):
+def evaluate_shadow(data_dir, *, games, as_of, store=None, max_trials=2, time_budget_seconds=30):
     """Learning-worker job. UI reads only the bounded summary JSON."""
     from contextlib import closing
+    if type(max_trials) is not int or max_trials < 1 or time_budget_seconds <= 0:
+        raise ValueError('invalid_shadow_batch_budget')
     data = Path(data_dir); journal = _open(data); summaries = []
-    with closing(journal._db()) as db:
-        trials = [r[0] for r in db.execute('SELECT id FROM trials WHERE created_at<=? ORDER BY id', (_time(as_of).isoformat(),))]
+    checked_at = _time(as_of).isoformat(); path = data/'shadow_summary.json'
+    previous = json.loads(path.read_text()) if path.exists() else {}
+    # Resume the exact cutoff and trial inventory after interruption/restart.
+    # Per-trial immutable evaluator caches make replay idempotent.
+    continuation = previous.get('continuation') or {}
+    if continuation.get('remaining_trial_ids'):
+        as_of = continuation['as_of']
+        trials = continuation['remaining_trial_ids']
+        summaries = previous.get('prospective_trials', [])
+    else:
+        with closing(journal._db()) as db:
+            trials = [r[0] for r in db.execute('SELECT id FROM trials WHERE created_at<=? ORDER BY id', (_time(as_of).isoformat(),))]
+    started = time.monotonic(); processed = 0
     for trial in trials:
         decisions = journal.export_decisions(trial, as_of=as_of)
         result = journal.evaluate(trial, settlements=_results(decisions, games, as_of), as_of=as_of)
         summaries.append({k: result[k] for k in ('trial_id', 'model_version', 'study_id', 'as_of', 'families', 'pending_contracts', 'pending_families')})
+        processed += 1
+        remaining = trials[processed:]
+        # Checkpoint every completed trial; a killed process never restarts the
+        # entire sweep, and partial progress is never reported as complete.
+        atomic_json(path, {'checked_at': checked_at, 'as_of': as_of, 'state': 'processing',
+            'prospective_trials': summaries, 'continuation_required': bool(remaining),
+            'continuation': {'as_of': as_of, 'remaining_trial_ids': remaining},
+            'funding_veto': False, 'profit_established': False})
+        if processed >= max_trials or time.monotonic()-started >= time_budget_seconds:
+            break
+    remaining = trials[processed:]
     measured = any(f['price_clv']['contracts'] or f['hypothetical_unit_return']['contracts'] for s in summaries for f in s['families'])
-    result = {'checked_at': _time(as_of).isoformat(), 'state': 'measured' if measured else 'insufficient_evidence',
+    result = {'checked_at': checked_at, 'as_of': _time(as_of).isoformat(),
+              'state': 'processing' if remaining else 'measured' if measured else 'insufficient_evidence',
+              'continuation_required': bool(remaining),
+              'continuation': {'as_of': _time(as_of).isoformat(), 'remaining_trial_ids': remaining},
               'prospective_trials': summaries, 'funding_veto': False, 'profit_established': False,
               'minimum_daily_funded_target_unchanged': True,
               'note': 'Shadow observations do not count toward daily funded bets. Missing CLV or few independent games is insufficient evidence, not a blanket funding veto. Negative measured evidence remains visible.'}
