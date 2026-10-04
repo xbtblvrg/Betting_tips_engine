@@ -232,6 +232,22 @@ class Engine:
                     if league!=g.league:continue
                     try:segment_forecasts[(g.id,scope)]=model.forecast(g,self.models[league].state)
                     except Exception as e:forecast_errors.append({'game':g.id,'scope':scope,'error':str(e)})
+            # Explicit Winner-only choice keeps fitted artifacts and score forecasts intact.
+            from .winner_reference import load_reference, choose_reference
+            winner_references={}
+            if 'NFL' in self.models:
+                try:
+                    reference=load_reference(guard.knowledge.root,self.models['NFL'].report)
+                    if reference is not None:
+                        for g in upcoming:
+                            if g.league=='NFL' and g.id in forecasts:
+                                winner_references[g.id]=choose_reference(forecasts[g.id],self.models['NFL'].report,reference,'moneyline')
+                except (ValueError,KeyError,TypeError,OSError) as exc:
+                    forecast_errors.append({'league':'NFL','stage':'winner_reference','error':str(exc)[:500]})
+            if winner_references:
+                trained_at.update({r['version']:r['trained_at'] for _,r in winner_references.values()})
+                calibration_snapshot=build_snapshot(self.store.system_decisions(),trained_at,now,
+                                                    minimum_games=int(settings.get('calibration_min_games',30)))
             self.status['stage']='Elérhető piacok és aktuális árak'
             # Recommendations are generated only from the exact markets and
             # current decimal odds returned by Stake. Polymarket remains a
@@ -256,8 +272,11 @@ class Engine:
                     evaluation.update(state='quote_missing',reasons=['current_quote_missing']);market_evaluations.append(evaluation);continue
                 if forecast is None or model is None:
                     evaluation.update(state='model_missing',reasons=['scope_model_missing']);market_evaluations.append(evaluation);continue
+                selected_report=model.report
+                if m.kind=='moneyline' and m.game_id in winner_references:
+                    forecast,selected_report=winner_references[m.game_id]
                 calibration_summary=summary_for(calibration_snapshot,gs[m.game_id].league,m.kind,m.line,1/quotes[m.id].effective_cost)
-                try:c=candidate(gs[m.game_id],m,quotes[m.id],forecast,settings,market_anchors.get(m.id),calibration_summary,model.report.get('trained_at'))
+                try:c=candidate(gs[m.game_id],m,quotes[m.id],forecast,settings,market_anchors.get(m.id),calibration_summary,selected_report.get('trained_at'))
                 except (ValueError,ArithmeticError,TypeError) as exc:
                     forecast_errors.append({'game':m.game_id,'market_id':m.id,'stage':'market_pricing','error':str(exc)[:500]})
                     guard_checks.append({'tip_id':None,'game_id':m.game_id,'market_id':m.id,'passed':False,'errors':['invalid_model_market_probability']})
@@ -288,7 +307,7 @@ class Engine:
                         key=segment_key(c)
                         if key not in outcome_summaries:outcome_summaries[key]=outcome_summary(outcome_evidence,c)
                         c['outcome_sizing_evidence']=outcome_summaries[key]
-                    check=guard.check(c,gs[m.game_id],m,quotes[m.id],forecast,model.report,settings,calibration_summary,**({'trusted_outcome_summary':outcome_summaries[key]} if outcome_enabled else {}))
+                    check=guard.check(c,gs[m.game_id],m,quotes[m.id],forecast,selected_report,settings,calibration_summary,**({'trusted_outcome_summary':outcome_summaries[key]} if outcome_enabled else {}))
                     guard_checks.append({'tip_id':c['id'],'game_id':c['game_id'],'passed':check['passed'],'errors':check['errors']})
                     evaluation.update(state='guard_passed' if check['passed'] else 'guard_rejected',reasons=check['errors'])
                     market_evaluations.append(evaluation)
@@ -302,6 +321,7 @@ class Engine:
             recommendations,alternatives=rank_and_size(candidates,settings,self.store.risk_committed(),self.store.held_families(),self.store.held_contracts(),self.store.held_event_counts(),self.store.held_preference_allocations(),(self.store.held_allocation_families() if settings.get('model_pick_allocation_policy')=='distinct_family_v1' or settings.get('publication_limits_version')=='v3' else ()),self.store.held_event_stakes(),self.store.held_period_counts(),self.store.daily_family_counts(),progress.get('calendar_day_issued',progress.get('issued',0)))
             reports={k:{key:value for key,value in m.report.items() if key!='test_predictions'} for k,m in self.models.items()}
             status={'fetched_at':utcnow().isoformat(),'upcoming_games':len(upcoming),'matched_events':len(set(e['game_id'] for e in events)),'markets':len(markets),'quotes':len(quotes),'candidates':len(candidates),'recommendations':len(recommendations),'funded_recommendations':sum(t['stake']>0 for t in recommendations),'league_games':dict(Counter(g.league for g in upcoming)),'minimum_target':settings.get('daily_pick_target',15),'target_shortfall':self.store.daily_progress()['shortfall'],'data_sources':sources,'market_source':'Stake Sports Data API (exact current fixture markets and decimal odds)','issue_counts':dict(Counter(i['reason'] for i in issues+qissues)),'errors':forecast_errors,'mode':'research','market_feed':feed_health,'market_anchor':{'mode':settings.get('market_anchor_mode','shadow'),'contracts':len(market_anchors),'model_weight':settings.get('market_model_weight',.15),'disagreement_threshold':settings.get('market_disagreement_threshold',.30)},'calibration_uncertainty':{'version':calibration_snapshot['version'],'snapshot_sha256':calibration_snapshot['snapshot_sha256'],'segments':len(calibration_snapshot['segments']),'measured_segments':sum(v.get('state')=='measured' for v in calibration_snapshot['segments'].values()),'minimum_games':calibration_snapshot['minimum_games']},'telegram':'Később csatlakoztatható; jelenleg nincs üzenetküldés.'}
+            status['winner_reference']={gid:report['winner_reference'] for gid,(_,report) in winner_references.items()}
             status['league_coverage']={league:{'games':sum(g.league==league for g in upcoming),'markets':sum(m.league==league for m in markets),'model_available':league in self.models} for league in LEAGUES}
             if outcome_enabled:
                 status['outcome_sizing']={'policy':outcome_policy(settings),'as_of':outcome_evidence['as_of'],

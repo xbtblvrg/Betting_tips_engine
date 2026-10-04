@@ -1,0 +1,8 @@
+{
+  "version": "nfl-reconstructed-elo-winner-v1",
+  "active": true,
+  "league": "NFL",
+  "market": "moneyline",
+  "evidence_sha256": "9ae82f960d69605254861f2c082747508e1cbaa14239c990c4ea0a39b174ba8b",
+  "authorization": "Explicit user instruction: integrate the superior existing reference instead of only blocking weak NFL Winner. Runtime reference choice; no fitted-artifact promotion or untouched-holdout claim."
+}

@@ -207,6 +207,9 @@ class EvidenceGuard:
                     from .presentation import stake_market
                     if not stake_market(tip)['tab']:errors.append('model_pick_website_route_unconfirmed')
             except (KeyError,ValueError,TypeError):errors.append('invalid_funding_policy')
+        from .winner_reference import verify_selected_forecast
+        try:verify_selected_forecast(forecast,model_report)
+        except (ValueError,KeyError,TypeError,AttributeError):errors.append('winner_reference_probability_or_provenance_invalid')
         readiness=self.readiness.check(game,forecast,model_report,now)
         tip['input_readiness']=readiness
         errors.extend('input_readiness:'+error for error in readiness['errors'])

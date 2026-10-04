@@ -123,6 +123,12 @@ def assess_professional_quality(report, market):
                           blocks_publication=False, errors=[])
         elif market == 'moneyline':
             result.update(_winner(report))
+            if report.get('winner_reference'):
+                # This is reconstructed reference evidence, not the champion's
+                # frozen predictions or a statistically validated promotion.
+                result['winner_reference']=report['winner_reference']
+                result['comparison_scope']='Explicit fixed Elo reference choice. Reconstructed sports history reproduces the archived comparator cohort and metrics; original full training archive was not recovered. Reference equals its own comparator; improvement over the champion was observed on an inspected retrospective test.'
+
         else:
             diagnostics = report.get('score_market_diagnostics')
             metric = diagnostics.get(market) if isinstance(diagnostics, Mapping) else None
