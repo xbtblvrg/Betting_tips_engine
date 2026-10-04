@@ -214,7 +214,8 @@ def contract_anchors(markets, quotes):
                 'market_anchor_key': [market.game_id, market.condition_id, market.kind, market.line],
                 'quote_at': quote.fetched_at,
                 **({'exclusive_odds': odds, 'exclusive_probabilities': fair,
-                    'exclusive_partition_kind': kind, 'partition_version': 'exclusive_score_partition_v1'} if base == 'three_way' else {}),
+                    'exclusive_partition_kind': kind, 'partition_version': 'exclusive_score_partition_v1',
+                    'probability_semantics': 'exclusive_three_way_normalized_v1'} if base == 'three_way' else {}),
             }
     # Double-chance outcomes overlap. Their reciprocal odds cannot be
     # normalized as three mutually exclusive outcomes. Bind to one complete
@@ -255,6 +256,7 @@ def contract_anchors(markets, quotes):
             'exclusive_source_contracts': sorted(m.id for m, _ in rows),
             'exclusive_quote_times': {m.id: q.fetched_at for m, q in rows},
             'partition_version': 'exclusive_score_partition_v1',
+            'probability_semantics': 'derived_double_chance_union_v1',
         }
     return result
 
@@ -278,6 +280,9 @@ def anchored_score_partition(forecast, market, anchor, *, weight, threshold, mod
     expected_kind = market.kind.rsplit(':', 1)[0] + ':three_way' if ':' in market.kind else 'three_way'
     if anchor.get('exclusive_partition_kind') != expected_kind or anchor.get('partition_version') != 'exclusive_score_partition_v1':
         raise ValueError('Exact-scope exclusive partition is required')
+    semantics = 'exclusive_three_way_normalized_v1' if kind == 'three_way' else 'derived_double_chance_union_v1'
+    if anchor.get('probability_semantics') != semantics:
+        raise ValueError('Missing or invalid probability semantics')
     fair = devig_probabilities(anchor['exclusive_odds'])
     if set(fair) != {'home', 'draw', 'away'} or fair != anchor.get('exclusive_probabilities'):
         raise ValueError('Exclusive market partition does not reproduce')
