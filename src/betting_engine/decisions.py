@@ -282,11 +282,11 @@ def candidate(g,m,q,forecast,settings,market_anchor=None,calibration_summary=Non
     endpoint_model=support_policy == VALIDATED_PROBABILITY_SUPPORT
     anchor = market_anchor if isinstance(market_anchor, dict) else None
     if anchor and isinstance(anchor.get('market_probability'), (int, float)):
-        from .market_anchor import anchor_status, logit_blend
+        from .market_anchor import anchor_status, logit_blend, conditional_model_probability
         market_p=float(anchor['market_probability'])
         weight=float(settings.get('market_model_weight', .15))
         disagreement=float(settings.get('market_disagreement_threshold', .30))
-        anchor_model_probability=p/(1-push) if anchor.get('conditional_push_free') and push<1 else p
+        anchor_model_probability=conditional_model_probability(p,push,allow_endpoints=endpoint_model) if anchor.get('conditional_push_free') and push<1 else p
         anchor = {**anchor,
                   'model_probability': anchor_model_probability,
                   'blended_probability': logit_blend(anchor_model_probability, market_p, weight, allow_endpoint_model=endpoint_model),
@@ -299,7 +299,7 @@ def candidate(g,m,q,forecast,settings,market_anchor=None,calibration_summary=Non
             # win/loss mass. Blend conditional probabilities, then restore
             # the model push mass so EV and settlement stay consistent.
             if anchor.get('conditional_push_free') and push>0:
-                conditional_model=p/(1-push)
+                conditional_model=conditional_model_probability(p,push,allow_endpoints=endpoint_model)
                 conditional_blend=logit_blend(conditional_model,market_p,weight,allow_endpoint_model=endpoint_model)
                 p=conditional_blend*(1-push)
             else:

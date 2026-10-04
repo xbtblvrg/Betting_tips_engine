@@ -278,7 +278,7 @@ class EvidenceGuard:
             p,push=supported_probability_mass(p,push,settings)
             anchor=tip.get('market_anchor')
             if settings.get('market_anchor_mode','shadow')=='live':
-                from .market_anchor import logit_blend
+                from .market_anchor import logit_blend, conditional_model_probability
                 if not isinstance(anchor,dict) or anchor.get('status')!='usable':
                     errors.append('market_anchor_missing_or_review')
                 else:
@@ -289,7 +289,7 @@ class EvidenceGuard:
                     market_probability=float(anchor['market_probability'])
                     weight=float(settings.get('market_model_weight',.15))
                     if anchor.get('conditional_push_free') and push>0:
-                        conditional_model=p/(1-push)
+                        conditional_model=conditional_model_probability(p,push,allow_endpoints=support_policy == VALIDATED_PROBABILITY_SUPPORT)
                         conditional_blend=logit_blend(conditional_model,market_probability,weight,allow_endpoint_model=support_policy == VALIDATED_PROBABILITY_SUPPORT)
                         p=conditional_blend*(1-push)
                     else:

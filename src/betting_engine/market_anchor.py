@@ -90,6 +90,29 @@ def sigmoid(value: float) -> float:
     return z / (1.0 + z)
 
 
+def conditional_model_probability(win: float, push: float, *, allow_endpoints: bool = False) -> float:
+    """Normalize only floating-point closure of validated win/push mass.
+
+    Decimal complements such as .1/.9 can divide to 1.0000000000000002.
+    Four ulps at unit mass cover arithmetic rounding, not substantive excess.
+    The legacy path keeps its existing division and strict-logit semantics.
+    """
+    if not all(not isinstance(v, bool) and isinstance(v, (int, float))
+               and math.isfinite(v) for v in (win, push)):
+        raise ValueError('Invalid conditional model mass')
+    if not 0 <= win <= 1 or not 0 <= push < 1:
+        raise ValueError('Invalid conditional model mass')
+    tolerance = 4 * math.ulp(1.0)
+    if win + push > 1 + tolerance:
+        raise ValueError('Invalid conditional model mass')
+    conditional = win / (1 - push)
+    if allow_endpoints and abs(conditional - 1) <= tolerance:
+        return 1.0
+    if allow_endpoints and conditional > 1:
+        raise ValueError('Invalid conditional model mass')
+    return conditional
+
+
 def _model_probability(value: float, allow_endpoints: bool) -> float:
     if allow_endpoints and not isinstance(value, bool) and isinstance(value, (int, float)) and math.isfinite(value) and 0 <= value <= 1:
         return float(value)
