@@ -11,6 +11,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -229,6 +230,7 @@ def run_developer_regression(workspace):
     before = _code_inventory(workspace)
     research = frozen._inventory(workspace, ignore=('data/research/developer-regression',))
     scratch = Path(tempfile.mkdtemp(prefix='developer-regression-')).resolve()
+    scratch_identity = (scratch.stat().st_dev, scratch.stat().st_ino)
     archive = _path(workspace, 'data/research/developer-regression/' + uuid.uuid4().hex)
     archive.mkdir(parents=True, exist_ok=False)
     result = {'version': VERSION, 'state': 'preparing', 'developer_only': True,
@@ -273,6 +275,28 @@ def run_developer_regression(workspace):
         result.update(state='failed', error=type(exc).__name__ + ': ' + str(exc)[:1500])
         raise
     finally:
+        atomic_json(archive/'result.json', result)
+    if result['state'] == 'passed':
+        try:
+            # Persist completed evidence before removing only this successful
+            # run's private copy. Failed/tampered/timed-out runs remain intact.
+            for name in ('stdout.log', 'stderr.log', 'result.json'):
+                with (archive/name).open('rb') as stream:
+                    os.fsync(stream.fileno())
+            for folder in (archive, *archive.parents):
+                directory = os.open(folder, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                try: os.fsync(directory)
+                finally: os.close(directory)
+                if folder == workspace:
+                    break
+            info = scratch.lstat()
+            if scratch.is_symlink() or (info.st_dev, info.st_ino) != scratch_identity:
+                raise ValueError('Regression scratch changed before cleanup')
+            shutil.rmtree(scratch)
+            result.update(scratch_retained=False, scratch_cleanup='removed_after_verified_pass')
+        except (OSError, ValueError) as exc:
+            result.update(scratch_cleanup='incomplete',
+                          scratch_cleanup_error=type(exc).__name__ + ': ' + str(exc)[:1500])
         atomic_json(archive/'result.json', result)
     return {**result, 'evidence_path': str(archive/'result.json')}
 

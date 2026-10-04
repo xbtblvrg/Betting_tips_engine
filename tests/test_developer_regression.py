@@ -112,7 +112,13 @@ def test_local_command_runs_original_tests_without_root_or_nested_sandbox(case, 
     assert result['controller_acceptance'] is False and result['developer_only'] is True
     assert result['original_research_unchanged'] and result['candidate_sources_unchanged']
     assert (case.workspace/'data/development_inputs/publication.json').read_bytes() == b'current research'
-    assert (Path(result['scratch'])/'data/development_inputs/publication.json').read_bytes() == b'original frozen publication'
+    assert result['scratch_retained'] is False
+    assert result['scratch_cleanup'] == 'removed_after_verified_pass'
+    assert not Path(result['scratch']).exists()
+    receipt = Path(result['evidence_path'])
+    assert json.loads(receipt.read_text())['scratch_retained'] is False
+    assert b'1 passed' in (receipt.parent/'stdout.log').read_bytes()
+    assert (receipt.parent/'stderr.log').exists()
 
 
 @pytest.mark.parametrize('kind', ['failed', 'skipped', 'timed_out', 'tampered_scratch', 'tampered_original'])
@@ -134,7 +140,10 @@ def test_local_failure_is_not_promoted_to_pass(case, monkeypatch, kind):
         with pytest.raises((ValueError, subprocess.TimeoutExpired)):
             d.run_developer_regression(case.workspace)
     receipt = next((case.workspace/'data/research/developer-regression').glob('*/result.json'))
-    assert json.loads(receipt.read_text())['state'] == 'failed'
+    saved = json.loads(receipt.read_text())
+    assert saved['state'] == 'failed'
+    assert saved['scratch_retained'] is True
+    assert Path(saved['scratch']).is_dir()
 
 
 def test_export_parent_symlink_rejected_before_writing(case):
@@ -180,3 +189,33 @@ def test_oversized_log_cannot_be_loaded_as_success(case, monkeypatch):
     monkeypatch.setattr(d.subprocess, 'run', large)
     with pytest.raises(ValueError, match='bounded'):
         d.run_developer_regression(case.workspace)
+
+
+def test_success_cleanup_failure_preserves_evidence_and_reports_retention(case, monkeypatch):
+    d.export_developer_regression(case.root, case.workspace)
+    def cleanup_failure(path):
+        raise OSError('synthetic cleanup failure')
+    monkeypatch.setattr(d.shutil, 'rmtree', cleanup_failure)
+    result = d.run_developer_regression(case.workspace)
+    assert result['state'] == 'passed'
+    assert result['scratch_retained'] is True
+    assert result['scratch_cleanup'] == 'incomplete'
+    assert 'synthetic cleanup failure' in result['scratch_cleanup_error']
+    assert Path(result['scratch']).is_dir()
+    receipt = Path(result['evidence_path'])
+    assert json.loads(receipt.read_text())['scratch_cleanup'] == 'incomplete'
+    assert b'1 passed' in (receipt.parent/'stdout.log').read_bytes()
+
+
+def test_success_evidence_is_durable_before_cleanup(case, monkeypatch):
+    d.export_developer_regression(case.root, case.workspace)
+    real = d.shutil.rmtree
+    def observed(path):
+        receipt = next((case.workspace/'data/research/developer-regression').glob('*/result.json'))
+        saved = json.loads(receipt.read_text())
+        assert saved['state'] == 'passed' and saved['scratch_retained'] is True
+        assert b'1 passed' in (receipt.parent/'stdout.log').read_bytes()
+        assert (receipt.parent/'stderr.log').exists()
+        real(path)
+    monkeypatch.setattr(d.shutil, 'rmtree', observed)
+    assert d.run_developer_regression(case.workspace)['scratch_retained'] is False
