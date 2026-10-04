@@ -1,0 +1,95 @@
+{
+  "catalog_archive": "market_catalog/versions/20261004T073011012210Z/contracts.json",
+  "rows": [
+    {
+      "league": "WNBA",
+      "fixture_id": "d1baab97-b2af-4c14-939b-172e869714cf",
+      "fixture": "Atlanta Dream - New York Liberty",
+      "fixture_slug": "46953525-atlanta-dream-new-york-liberty",
+      "market": "Will There be Overtime",
+      "raw_contract": {
+        "id": "fd2d29ef-2058-4e4b-9b96-6e7452463b38",
+        "status": "active",
+        "specifiers": "",
+        "extendedSpecifiers": "",
+        "updatedAt": 1791097795542,
+        "name": "Will There be Overtime",
+        "outcomes": [
+          {
+            "odds": 14,
+            "active": true,
+            "voidFactor": 0,
+            "id": "4c80a931-109a-4a95-9de1-b852bc4177c4",
+            "name": "Yes"
+          },
+          {
+            "odds": 1.03,
+            "active": true,
+            "voidFactor": 0,
+            "id": "a92d1c53-f962-473b-9219-776ef6472110",
+            "name": "No"
+          }
+        ]
+      },
+      "source": {
+        "url": "https://odds-data.stake.com/odds/46953525-atlanta-dream-new-york-liberty",
+        "fetched_at": "2026-10-04T07:30:16.458340+00:00",
+        "sha256": "58a66bf9c422fc45573ca8569424c4ec9c73388dc5780ecb38cc979881f54552",
+        "archive": "stake_api_archive/58a66bf9c422fc45573ca8569424c4ec9c73388dc5780ecb38cc979881f54552.json.gz"
+      },
+      "tabs": [
+        {
+          "id": "da6d72e7-1226-43d0-b411-10e370329a4e",
+          "name": "main"
+        }
+      ]
+    },
+    {
+      "league": "NFL",
+      "fixture_id": "21a54ade-74ae-4915-82ee-b45da41147da",
+      "fixture": "Washington Commanders - Indianapolis Colts",
+      "fixture_slug": "46559768-washington-commanders-indianapolis-colts",
+      "market": "Will There be Overtime",
+      "raw_contract": {
+        "id": "fa9ab7cf-15ef-42c0-b585-8d18413f5f4c",
+        "status": "active",
+        "specifiers": "",
+        "extendedSpecifiers": "",
+        "updatedAt": 1791098911765,
+        "name": "Will There be Overtime",
+        "outcomes": [
+          {
+            "odds": 15,
+            "active": true,
+            "voidFactor": 0,
+            "id": "c9d3ebb4-af3d-4f2b-b171-7ab7716d7e46",
+            "name": "Yes"
+          },
+          {
+            "odds": 1.03,
+            "active": true,
+            "voidFactor": 0,
+            "id": "53af336b-2896-40c4-a877-3f9fecaff316",
+            "name": "No"
+          }
+        ]
+      },
+      "source": {
+        "url": "https://odds-data.stake.com/odds/46559768-washington-commanders-indianapolis-colts",
+        "fetched_at": "2026-10-04T07:30:17.490571+00:00",
+        "sha256": "3f6ad81c9922206a927f3e8d1cf41ea5e284f3190f4d3d69eb85cc497c8dc749",
+        "archive": "stake_api_archive/3f6ad81c9922206a927f3e8d1cf41ea5e284f3190f4d3d69eb85cc497c8dc749.json.gz"
+      },
+      "tabs": [
+        {
+          "id": "01f47d78-1d2c-4a52-89d5-3f6616d52978",
+          "name": "main"
+        },
+        {
+          "id": "1d4b46da-6ff4-45d3-b0f9-5bc7ef3314f6",
+          "name": "specials"
+        }
+      ]
+    }
+  ]
+}

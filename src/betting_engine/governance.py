@@ -7,7 +7,8 @@ from pathlib import Path
 from collections import Counter
 import hashlib,json,math
 from .domain import utcnow,parse_time,LEAGUES
-from .decisions import sportsbook_ev,minimum_odds,family_selection_policy,LEGACY_FAMILY_SELECTION
+from .decisions import (sportsbook_ev,minimum_odds,family_selection_policy,LEGACY_FAMILY_SELECTION,
+    probability_support_policy,supported_probability_mass,stressed_probability,LEGACY_PROBABILITY_SUPPORT)
 from .contracts import PRICING_VERSION,split_market,PERIOD_SCOPES,market_stress,allocation_family
 from .freshness import MAX_QUOTE_AGE_SECONDS,fresh_quote
 
@@ -24,6 +25,7 @@ def evidence_digest(tip):
     # Add policy evidence only when present, preserving every pre-policy seal.
     if 'funding_basis' in tip:fields['funding_basis']=tip['funding_basis']
     if 'family_selection_policy' in tip:fields['family_selection_policy']=tip['family_selection_policy']
+    if 'probability_support_policy' in tip:fields['probability_support_policy']=tip['probability_support_policy']
     for key in ('outcome_sizing_policy','outcome_sizing_evidence'):
         if key in tip:fields[key]=tip[key]
     return hashlib.sha256(json.dumps(fields,sort_keys=True,allow_nan=False).encode()).hexdigest()
@@ -52,6 +54,11 @@ def verify_publication(tip,now,active_settings=None):
         expected_limits = publication_limit_receipt(active_settings) if active_limits is not None else None
         if guard.get('publication_limits') != expected_limits:
             raise ValueError('Publication blocked: publication exposure limits changed after evidence review')
+    support_policy=probability_support_policy(guard)
+    if support_policy != probability_support_policy(tip):
+        raise ValueError('Publication blocked: probability support policy receipt changed')
+    if active_settings is not None and support_policy != probability_support_policy(active_settings):
+        raise ValueError('Publication blocked: probability support policy changed during review')
     selection_policy=family_selection_policy(guard)
     if selection_policy != family_selection_policy(tip):
         raise ValueError('Publication blocked: family selection policy receipt changed')
@@ -164,6 +171,13 @@ class EvidenceGuard:
     def check(self,tip,game,market,quote,forecast,model_report,settings,calibration_summary=None,trusted_outcome_summary=None):
         errors=[];now=utcnow()
         try:
+            support_policy=probability_support_policy(settings)
+            if support_policy != probability_support_policy(tip):
+                errors.append('probability_support_policy_mismatch')
+        except ValueError:
+            support_policy=None
+            errors.append('invalid_probability_support_policy')
+        try:
             selection_policy=family_selection_policy(settings)
         except ValueError:
             selection_policy=None
@@ -258,9 +272,7 @@ class EvidenceGuard:
         if tip.get('stake_evidence',{}).get('league_path')!=market.metadata.get('league_path'):errors.append('league_path_evidence_mismatch')
         try:
             p,push=forecast.market_probability(market.kind,market.side,market.line)
-            if not all(math.isfinite(v) and 0<=v<=1 for v in (p,push)) or p+push>1+1e-9:
-                raise ValueError('Invalid model probability mass')
-            p=min(.99,max(.01,p));push=min(push,1-p)
+            p,push=supported_probability_mass(p,push,settings)
             anchor=tip.get('market_anchor')
             if settings.get('market_anchor_mode','shadow')=='live':
                 from .market_anchor import logit_blend
@@ -284,7 +296,7 @@ class EvidenceGuard:
                 if tip.get('calibration_uncertainty') != calibration_summary:
                     errors.append('calibration_uncertainty_mismatch')
             stress=market_stress(market.kind,game.league,market.line,forecast.disagreement,calibration_summary)
-            conservative=max(.01,p-stress)
+            conservative=stressed_probability(p,stress,settings)
             odds=1/quote.effective_cost
             values={'probability':p,'push_probability':push,'stress_probability':conservative,
                     'reference_odds':odds,'expected_roi':sportsbook_ev(p,push,odds),
@@ -305,6 +317,8 @@ class EvidenceGuard:
                   'market':{'id':market.id,'url':market.url,'fetched_at':quote.fetched_at},
                   'claim':'Inputs and calculations checked; profitability is not established by this guard.'}
         evidence.update(review_type='deterministic_evidence_and_calculation_checks',llm_approval=False,minimum_roi=settings['minimum_roi'])
+        if support_policy and (support_policy != LEGACY_PROBABILITY_SUPPORT or 'probability_support_policy' in tip):
+            evidence['probability_support_policy']=support_policy
         evidence['recommendation_policy']=policy
         evidence['model_pick_sizing_policy']=model_sizing
         if selection_policy and (selection_policy != LEGACY_FAMILY_SELECTION or 'family_selection_policy' in tip):

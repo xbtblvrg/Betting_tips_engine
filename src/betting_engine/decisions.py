@@ -85,6 +85,33 @@ def publication_limit_receipt(settings):
     return {key: settings.get(key) for key in keys}
 
 
+LEGACY_PROBABILITY_SUPPORT = 'legacy_band_v1'
+VALIDATED_PROBABILITY_SUPPORT = 'validated_mass_v1'
+
+
+def probability_support_policy(settings):
+    policy = settings.get('probability_support_policy', LEGACY_PROBABILITY_SUPPORT)
+    if policy not in (LEGACY_PROBABILITY_SUPPORT, VALIDATED_PROBABILITY_SUPPORT):
+        raise ValueError('Unknown probability support policy')
+    return policy
+
+
+def supported_probability_mass(p, push, settings):
+    """Validate actual win/push mass; preserve historical clipping on replay."""
+    policy = probability_support_policy(settings)
+    if not all(math.isfinite(v) and 0 <= v <= 1 for v in (p, push)) or p + push > 1 + 1e-9:
+        raise ValueError('Invalid model probability mass')
+    if policy == LEGACY_PROBABILITY_SUPPORT:
+        p = min(.99, max(.01, p))
+    return p, min(push, 1 - p)
+
+
+def stressed_probability(p, stress, settings):
+    # New tails must never receive a stress floor higher than their model p.
+    floor = .01 if probability_support_policy(settings) == LEGACY_PROBABILITY_SUPPORT else min(.01, p)
+    return max(floor, p - stress)
+
+
 def family_selection_policy(settings):
     policy = settings.get('family_selection_policy', LEGACY_FAMILY_SELECTION)
     if policy not in (LEGACY_FAMILY_SELECTION, PROBABILITY_FAMILY_SELECTION):
@@ -249,9 +276,8 @@ def candidate(g,m,q,forecast,settings,market_anchor=None,calibration_summary=Non
     if parse_time(g.start)<=now or g.state!='scheduled':return None
     if not -5<=(now-parse_time(q.fetched_at)).total_seconds()<=MAX_QUOTE_AGE_SECONDS:return None
     p,push=forecast.market_probability(m.kind,m.side,m.line)
-    if not all(math.isfinite(v) and 0<=v<=1 for v in (p,push)) or p+push>1+1e-9:
-        raise ValueError('Model returned invalid win/push probability mass')
-    p=min(.99,max(.01,p));push=min(push,1-p)
+    p,push=supported_probability_mass(p,push,settings)
+    support_policy=probability_support_policy(settings)
     anchor = market_anchor if isinstance(market_anchor, dict) else None
     if anchor and isinstance(anchor.get('market_probability'), (int, float)):
         from .market_anchor import anchor_status, logit_blend
@@ -279,8 +305,9 @@ def candidate(g,m,q,forecast,settings,market_anchor=None,calibration_summary=Non
     # Not a statistical confidence interval: explicit scenario stress allowance.
     from .contracts import market_stress
     stress=market_stress(m.kind,g.league,m.line,forecast.disagreement,calibration_summary)
-    conservative=max(.01,p-stress)
-    if p<.12 or p>.9:return None # Unvalidated distribution tails are not actionable.
+    conservative=stressed_probability(p,stress,settings)
+    if support_policy == LEGACY_PROBABILITY_SUPPORT and (p<.12 or p>.9):return None
+    if p == 0:return None # No finite executable price exists for a zero-win contract.
     fair=minimum_odds(p,push);threshold=minimum_odds(conservative,push,settings['minimum_roi'])
     # Polymarket tie is half a dollar per share; sportsbook assumed void/push.
     expected_payout=p+(push*q.effective_cost if m.platform=='Stake.com' else .5*push)
@@ -311,6 +338,9 @@ def candidate(g,m,q,forecast,settings,market_anchor=None,calibration_summary=Non
     x=forecast.features
     if x['home_rest']!=x['away_rest']:reasons.append(f'Pihenő az előző meccs kezdésétől: hazai {x["home_rest"]:.1f}, vendég {x["away_rest"]:.1f} nap (14 napnál korlátozva).')
     result={'id':id,'game_id':g.id,'league':g.league,'home':g.home,'away':g.away,'start':g.start,'market':m.kind,'side':m.side,'line':m.line,'selection':m.selection,'model_scope':scope,'period':SCOPE_LABELS[scope],'settlement':('Only the named scoring scope counts. Ties push in two-way Winner and lose in 1x2 unless Draw is selected.' if scope!='full_game' else 'Hosszabbítással; moneyline döntetlennél a platform szabálya ellenőrizendő.'),'probability':p,'push_probability':push,'stress_probability':conservative,'stress_note':('Prospective, game-clustered calibration uncertainty; legacy floor retained until the segment reaches the independent-game minimum.' if calibration_summary else 'Érzékenységi forgatókönyv, nem statisztikai konfidenciaintervallum.'),'fair_odds':fair,'minimum_odds':threshold,'reference_odds':display_odds,'reference_price':q.price,'reference_fee_per_share':q.fee_per_share,'reference_effective_cost':q.effective_cost,'reference_minimum_notional':q.minimum_notional,'maximum_poly_effective_cost':required_poly_cost,'reference_platform':m.platform,'reference_url':m.url,'reference_market_id':m.id,'quote_at':q.fetched_at,'valid_until':min(parse_time(g.start),parse_time(q.fetched_at)+timedelta(seconds=MAX_QUOTE_AGE_SECONDS)).isoformat(),'expected_roi':roi,'stress_roi':stress_roi,'label':label,'reasons':reasons,'warnings':list(forecast.warnings),'model_version':forecast.model_version,'model_trained_at':model_trained_at,'model_probabilities':forecast.model_probabilities,'predicted_home_points':forecast.home_points,'predicted_away_points':forecast.away_points,'game_context':g.context,'source_url':g.source,'stake':0.,'stake_note':'','created_at':now.isoformat(),'rank_score':stress_roi,'basis':'Sportadatból tanított modell; az odds csak az utólagos érték-összevetéshez kerül be.','reference_contract_description':m.description}
+
+    if support_policy != LEGACY_PROBABILITY_SUPPORT:
+        result['probability_support_policy']=support_policy
 
     if calibration_summary:
         result['calibration_uncertainty'] = calibration_summary
