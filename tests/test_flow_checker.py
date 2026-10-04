@@ -105,3 +105,12 @@ def test_priced_but_guard_rejected_outcome_is_not_missing_model():
     p=snapshot(); p['market_types'][0].update(evaluated_outcomes=1,priced_outcomes=2,guard_checked_outcomes=2,guard_passed_outcomes=1)
     r=rows(assess_flow(p,{}, {},NOW))
     assert r['1.2']['passed'] and not r['1.3']['passed']
+
+
+def test_ticket_reconciliation_null_ticket_cannot_hide_missing_decision(tmp_path):
+    path,db=dbfixture(tmp_path)
+    db.execute('INSERT INTO system_decisions VALUES (?,?,?,?,?,?)',('f','missing',json.dumps({'stake':2,'start':NOW.isoformat()}),'open',None,None))
+    db.execute('INSERT INTO bets VALUES (1,NULL,"open",1)')
+    db.commit();db.close()
+    result=read_lifecycle(tmp_path,NOW)
+    assert result['verified'] and result['missing_tickets']==1

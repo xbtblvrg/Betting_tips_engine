@@ -112,7 +112,7 @@ def read_lifecycle(data_dir, now, *, budget_seconds=3):
             db.execute('BEGIN')
             funded="CAST(json_extract(d.payload,'$.stake') AS REAL)>0"
             result['funded_decisions']=db.execute('SELECT COUNT(*) FROM system_decisions d WHERE '+funded).fetchone()[0]
-            result['missing_tickets']=db.execute('SELECT COUNT(*) FROM system_decisions d WHERE '+funded+' AND NOT EXISTS(SELECT 1 FROM bets b WHERE b.tip_id=d.tip_id)').fetchone()[0]
+            result['missing_tickets']=db.execute('SELECT COUNT(*) FROM system_decisions d WHERE '+funded+' AND (d.tip_id IS NULL OR d.tip_id NOT IN (SELECT b.tip_id FROM bets b WHERE b.tip_id IS NOT NULL))').fetchone()[0]
             result['settled']=db.execute("SELECT COUNT(*) FROM system_decisions d WHERE "+funded+" AND d.status!='open'").fetchone()[0]
             result['missing_outcome_rows']=db.execute("SELECT COUNT(*) FROM bets b LEFT JOIN bet_outcomes o ON o.bet_id=b.id WHERE b.status NOT IN ('open','not_placed') AND b.stake>0 AND o.bet_id IS NULL").fetchone()[0]
             result['missing_decision_evidence']=db.execute("SELECT COUNT(*) FROM system_decisions d WHERE "+funded+" AND d.status!='open' AND (d.outcome_evidence IS NULL OR d.pnl IS NULL)").fetchone()[0]
