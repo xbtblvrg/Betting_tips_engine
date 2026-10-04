@@ -29,3 +29,17 @@ def test_new_fields_cannot_be_stripped_from_historical_schema(field):
 def test_historical_schema_not_accepted_after_its_cutoff():
     with pytest.raises(ValueError,match='seal'):
         _original_budget(RECORDS[0]['payload'],parse_time('2026-10-04T09:00:00+00:00'))
+
+def test_exact_intermediate_pre_calibration_schema_replays():
+    import hashlib
+    from betting_engine.governance import SEALED_FIELDS
+    record=deepcopy(RECORDS[0]);tip=record['payload']
+    # Synthetic intermediate schema: explicit null anchor fields were sealed
+    # before calibration metadata existed; numeric decision remains unchanged.
+    tip.update(market_anchor=None,probability_basis=None)
+    fields={k:tip.get(k) for k in SEALED_FIELDS if k not in ('calibration_uncertainty','model_trained_at')}
+    fields['funding_basis']=tip['funding_basis']
+    tip['decision_guard']['candidate_sha256']=hashlib.sha256(json.dumps(fields,sort_keys=True,allow_nan=False).encode()).hexdigest()
+    assert _original_budget(tip,parse_time(record['created_at']))=='pre_calibration_seal'
+    tip['market_anchor']={'modified':True}
+    with pytest.raises(ValueError,match='seal'):_original_budget(tip,parse_time(record['created_at']))
