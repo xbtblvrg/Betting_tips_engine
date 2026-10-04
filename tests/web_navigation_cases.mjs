@@ -70,3 +70,17 @@ test('event-link-only refresh also invalidates the open instruction',async t=>{
  h.d.querySelector('.tip-card [data-detail]').click();tip.stake_market.event_url=newURL;await h.w.testUpdate();
  assert.equal(h.d.querySelector('#detail-dialog').open,false);assert.equal(h.d.querySelector('.stake-bet-button').href,newURL);
 });
+
+test('legacy issued changed cards retain their exact recorded Stake link and shared card layout',async t=>{
+ const original=selection();delete original.stake_market;original.reference_url=oldURL;
+ original.tracking_source='auto_assumed_placed';
+ const current={...original,stake:0,execution_review:{actionable:false,reason:'Sizing no longer validates'}};
+ const body=tracked(original,current);body.status={daily_progress:{issuance_rows:[{tip_id:original.id,issued_at:new Date().toISOString(),start:original.start}]}};
+ const {d,w,writes}=await boot(t,body);
+ const card=d.querySelector('.changed-card');assert.ok(card);
+ const link=card.querySelector('.stake-bet-button');assert.ok(link);assert.equal(link.href,oldURL);assert.equal(link.target,'_blank');assert.match(link.textContent,/View on Stake/);
+ assert.deepEqual([...card.querySelectorAll('.tip-metrics .metric-label')].map(x=>x.textContent),['MODEL WIN PROBABILITY','ORIGINAL ODDS','ORIGINAL STAKE · USD']);
+ assert.match(card.textContent,/No bet anymore/);assert.ok(card.querySelector('[data-placement]'));assert.deepEqual(writes,[]);
+ w.navigationHelpers.setView('ledger');assert.equal(w.navigationHelpers.button({...original,reference_url:'https://example.com/sports/event'}),'');
+ assert.equal(w.navigationHelpers.button({...original,stake_market:null}),'');
+});

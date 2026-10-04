@@ -602,3 +602,10 @@ A heti tanult súlyozás tartós jobként bekötve; aktuális jóváhagyott súl
 
 - Éles kód9b633d7/f24cf2f; független8305/8306 helyi/Tailscale:Ready107, mind107 pontos issuance/systemdecision/bet rekorddal; unpublishedReady0. Profi mai113/100, gördülő24h123. Aktuális új allokáció0:465 event_limit+1 period_limit a megtartott aktív korlátokból, preferenciaelnyomás0.
 - Egy frissítésközi dashboard503 után8306 helyben/távolról helyreállt, engineerrorNone. Kompakt tölcsér és review:data/releases/root-flow-audit-20261004/allocation-after.json,allocation-independent-after.json. A javítás15:00UTC határideje megmaradt; végső éles visszaellenőrzés késése deadline_missed=true. Teljes piactípus-modell/forrás hiányok külön nyitva maradnak; új87 döntés még nem lezárt profitbizonyíték.
+
+## 2026-10-04 — két hiányzó kártyagomb és egységes Betting Picks layout
+
+- Élő8317:129 kártyából2 hiányzó meccsgomb,8ab958ec6906d2da664d (Vegas Golden Knights @ Vancouver Canucks),1e045b85a84ae11997b4 (New York Yankees @ Tampa Bay Rays). A történeti payloadból hiányzott a stake_market, a pontos Stake reference_url megmaradt.
+- UI-only:Ready/Changed közös pickCard, azonos probability/odds/stake sorrend és stakeBetButton; Changed eredeti odds/tét, oklabel, View on Stake. Metaadat nélküli történeti kártyán a megőrzött https://stake.com/sports/ meccslink használható; explicit null és aktuális útvonal továbbra is elsőbbséget élvez.
+- Független Codex-review elfogadva;7 célzott navigációs teszt és294 teljes DOM-teszt sikeres. Modell, validáció, kiadás és ledger nem változott.
+- Teljes release-ellenőrzés:7023 Python-teszt sikeres,1skipped,25warning,5subtests;294 DOM-teszt sikeres.
