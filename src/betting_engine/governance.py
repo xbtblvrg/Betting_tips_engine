@@ -302,7 +302,10 @@ class EvidenceGuard:
                     if reproduced['status']!='usable':errors.append('market_anchor_missing_or_review')
                     else:p=reproduced['blended_probability'];push=0.
             elif isinstance(anchor,dict) and market.kind.rsplit(':',1)[-1] in ('three_way','double_chance'):
-                from .market_anchor import anchored_score_partition
+                from .market_anchor import anchored_score_partition,verify_score_anchor_source
+                try:verify_score_anchor_source(game,market,anchor,self.readiness.data_dir)
+                except (OSError,ValueError,KeyError,TypeError) as exc:
+                    errors.append('score_partition_source_unverified:'+type(exc).__name__)
                 from .anchor_learning import effective_weight
                 weight,learned_weight=effective_weight(settings,game.league,market.kind,market.line,forecast.model_version)
                 reproduced=anchored_score_partition(forecast,market,anchor,weight=weight,
