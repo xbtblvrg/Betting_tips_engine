@@ -76,3 +76,30 @@ def test_partial_learning_attempt_is_not_completed_or_superseded(tmp_path,monkey
     w.run_once()
     with w.store.db() as db:
         assert db.execute('SELECT status FROM learning_jobs WHERE id=?',(job,)).fetchone()[0]=='completed'
+
+
+def test_result_sources_are_frozen_before_first_batch_and_reused_on_resume(tmp_path,monkeypatch):
+    journal,tip,_=setup(tmp_path)
+    journal.path.rename(tmp_path/'shadow_evidence.sqlite3')
+    journal=shadow.ShadowEvidenceStore(tmp_path/'shadow_evidence.sqlite3')
+    # Three trials reference the same exact game/scope; archive one result only.
+    from contextlib import closing
+    with closing(journal._db(True)) as db,db:
+        row=db.execute('SELECT * FROM observations LIMIT 1').fetchone()
+        for trial in ('u','v'):
+            db.execute('INSERT INTO trials SELECT ?,model_version,created_at,metadata FROM trials WHERE id=?',(trial,'t'))
+            db.execute('INSERT INTO observations VALUES (?,?,?,?,?,?,?,?,?)',(trial,*tuple(row)[1:]))
+    cutoff=result(tip)['observed_at']
+    from types import SimpleNamespace
+    game=SimpleNamespace(id=tip['game_id'],league=tip['league'],state='final',score=110,stamp=cutoff)
+    monkeypatch.setattr(shadow_runtime,'settlement_scores',lambda _,g:(g.score,105,{'source':'https://sports.test/result','fetched_at':g.stamp}))
+    a=shadow_runtime.evaluate_shadow(tmp_path,games=[game],as_of=cutoff,max_trials=1)
+    assert len(a['continuation']['settlements'])==1
+    frozen=deepcopy(a['continuation']['settlements'])
+    # A subsequently fetched/corrected result cannot enter the frozen sweep.
+    game.score=80;game.stamp=(utcnow()+timedelta(days=5)).isoformat()
+    b=shadow_runtime.evaluate_shadow(tmp_path,games=[game],as_of=game.stamp,max_trials=2)
+    assert not b['continuation_required'] and b['continuation']['settlements']==frozen
+    reports=[journal.report(trial,as_of=cutoff) for trial in ('t','u','v')]
+    assert all(r['rows'][0]['outcome']['outcome']=='won' for r in reports)
+    assert all(r['as_of']==cutoff for r in reports)

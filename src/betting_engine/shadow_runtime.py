@@ -143,13 +143,29 @@ def evaluate_shadow(data_dir, *, games, as_of, store=None, max_trials=2, time_bu
         as_of = continuation['as_of']
         trials = continuation['remaining_trial_ids']
         summaries = previous.get('prospective_trials', [])
+        frozen_results = continuation['settlements']
+        if _hash(frozen_results) != continuation.get('settlements_sha256'):
+            raise ValueError('shadow_continuation_settlement_hash_mismatch')
     else:
         with closing(journal._db()) as db:
-            trials = [r[0] for r in db.execute('SELECT id FROM trials WHERE created_at<=? ORDER BY id', (_time(as_of).isoformat(),))]
+            cutoff = _time(as_of).isoformat()
+            trials = [r[0] for r in db.execute('SELECT id FROM trials WHERE created_at<=? ORDER BY id', (cutoff,))]
+            # Stream original decisions once, freeze only unique exact-scope
+            # result evidence, never the full games history or decision payloads.
+            decisions = (json.loads(r[0])['decision'] for r in db.execute(
+                'SELECT o.record FROM observations o JOIN trials t ON t.id=o.trial_id '
+                'WHERE o.captured_at<=? AND t.created_at<=? ORDER BY o.trial_id,o.contract_id', (cutoff,cutoff)))
+            frozen_results = _results(decisions, games, as_of)
+    def checkpoint(remaining):
+        return {'as_of': as_of, 'remaining_trial_ids': remaining,
+                'settlements': frozen_results, 'settlements_sha256': _hash(frozen_results)}
+    # Persist the result snapshot BEFORE starting an expensive first trial.
+    atomic_json(path, {'checked_at': checked_at, 'as_of': as_of, 'state': 'processing',
+        'prospective_trials': summaries, 'continuation_required': bool(trials),
+        'continuation': checkpoint(trials), 'funding_veto': False, 'profit_established': False})
     started = time.monotonic(); processed = 0
     for trial in trials:
-        decisions = journal.export_decisions(trial, as_of=as_of)
-        result = journal.evaluate(trial, settlements=_results(decisions, games, as_of), as_of=as_of)
+        result = journal.evaluate(trial, settlements=frozen_results, as_of=as_of)
         summaries.append({k: result[k] for k in ('trial_id', 'model_version', 'study_id', 'as_of', 'families', 'pending_contracts', 'pending_families')})
         processed += 1
         remaining = trials[processed:]
@@ -157,7 +173,7 @@ def evaluate_shadow(data_dir, *, games, as_of, store=None, max_trials=2, time_bu
         # entire sweep, and partial progress is never reported as complete.
         atomic_json(path, {'checked_at': checked_at, 'as_of': as_of, 'state': 'processing',
             'prospective_trials': summaries, 'continuation_required': bool(remaining),
-            'continuation': {'as_of': as_of, 'remaining_trial_ids': remaining},
+            'continuation': checkpoint(remaining),
             'funding_veto': False, 'profit_established': False})
         if processed >= max_trials or time.monotonic()-started >= time_budget_seconds:
             break
@@ -166,7 +182,7 @@ def evaluate_shadow(data_dir, *, games, as_of, store=None, max_trials=2, time_bu
     result = {'checked_at': checked_at, 'as_of': _time(as_of).isoformat(),
               'state': 'processing' if remaining else 'measured' if measured else 'insufficient_evidence',
               'continuation_required': bool(remaining),
-              'continuation': {'as_of': _time(as_of).isoformat(), 'remaining_trial_ids': remaining},
+              'continuation': checkpoint(remaining),
               'prospective_trials': summaries, 'funding_veto': False, 'profit_established': False,
               'minimum_daily_funded_target_unchanged': True,
               'note': 'Shadow observations do not count toward daily funded bets. Missing CLV or few independent games is insufficient evidence, not a blanket funding veto. Negative measured evidence remains visible.'}
