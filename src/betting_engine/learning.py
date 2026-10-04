@@ -506,6 +506,8 @@ class LearningWorker:
             from .outcome_feedback import snapshot_outcomes, record_outcome_feedback
             inputs=snapshot_outcomes(self.store)
             feedback=record_outcome_feedback(self.data,**inputs)
+            if feedback.get('source_verified') is not True:
+                raise ValueError('outcome_feedback_verification_failed: '+str(feedback.get('error',feedback.get('state'))))
             performance=self.store.performance();decisions=inputs['decisions']
             settled=[d for d in decisions if d['status']!='open']
             by_league={}

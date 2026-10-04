@@ -18,9 +18,12 @@ from .statistics import build_statistics
 VERSION = 'outcome-feedback-v1'
 OBSERVATION_VERSION = 'outcome-feedback-observation-v1'
 MAX_BYTES = 32 * 1024 * 1024
-# One bounded read budget per inspection; unchanged from the original limit.
+# Retained review/observation memory budget, unchanged from the original limit.
+# External input archives stream through one bounded chunk under their own I/O cap.
 TOTAL_READ_BUDGET = 64 * 1024 * 1024
 MAX_PROPOSALS = 256
+INPUT_CHUNK_BYTES = 2 * 1024 * 1024
+MAX_INPUT_ARCHIVE_BYTES = 256 * 1024 * 1024
 HEX = re.compile(r'^[0-9a-f]{64}$')
 LIMITATION = ('Observed original outcomes are diagnostic evidence, not proof of profitable predictions. '
               'Related selections share one game; small game samples cannot justify model promotion. '
@@ -35,9 +38,91 @@ ACCEPTANCE = ('Reproduce the attached immutable decision cohort and game-weighte
 
 
 def _digest(value):
-    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':'),
-                                    allow_nan=False).encode()).hexdigest()
+    digest = hashlib.sha256()
+    for chunk in json.JSONEncoder(sort_keys=True, separators=(',', ':'), allow_nan=False).iterencode(value):
+        digest.update(chunk.encode())
+    return digest.hexdigest()
 
+
+def _archive_inputs(data, inputs):
+    """Retain exact original rows once in bounded content-addressed chunks."""
+    chunks=[]; total=0
+    for kind in sorted(inputs):
+        rows=[]; size=2
+        def flush():
+            nonlocal rows, size, total
+            if not rows:return
+            value={'kind':kind,'rows':rows}
+            body=json.dumps(value,sort_keys=True,separators=(',', ':'),allow_nan=False).encode()
+            if len(body)>MAX_BYTES:raise ValueError('feedback_input_row_limit')
+            total+=len(body)
+            if total>MAX_INPUT_ARCHIVE_BYTES:raise ValueError('feedback_input_archive_limit')
+            sha=hashlib.sha256(body).hexdigest();rel='outcome_feedback/inputs/'+sha+'.json'
+            path=_safe(Path(data)/rel)
+            if path.exists():
+                if _archive_sha(path)!=sha:raise ValueError('feedback_input_chunk_corrupt')
+            else:atomic_bytes(path,body)
+            chunks.append({'kind':kind,'path':rel,'sha256':sha,'rows':len(rows),'bytes':len(body)})
+            rows=[];size=2
+        for row in inputs[kind]:
+            amount=len(json.dumps(row,sort_keys=True,separators=(',', ':'),allow_nan=False).encode())+1
+            if rows and size+amount>INPUT_CHUNK_BYTES:flush()
+            rows.append(row);size+=amount
+        flush()
+    return {'version':'feedback-input-chunks-v1','counts':{k:len(v) for k,v in inputs.items()},
+            'bytes':total,'chunks':chunks}
+
+
+def _verify_input_archive(data, review):
+    """Verify complete input/generation hashes one chunk at a time; never hydrate history."""
+    manifest=review['input_archive']
+    if manifest.get('version')!='feedback-input-chunks-v1':raise ValueError('feedback_input_archive_version')
+    kinds=('bet_outcomes','bets','decisions')
+    if set(manifest.get('counts',{}))!=set(kinds):raise ValueError('feedback_input_archive_counts')
+    raw=hashlib.sha256(); generation=hashlib.sha256()
+    evaluator=json.dumps(review['evaluator'],sort_keys=True,separators=(',', ':'),allow_nan=False)
+    generation.update(('{"evaluator":'+evaluator+',"inputs":').encode())
+    def feed(value):
+        body=value.encode();raw.update(body);generation.update(body)
+    feed('{');total=0;seen=0
+    chunks=manifest.get('chunks',[])
+    if len(chunks)>10000:raise ValueError('feedback_input_archive_chunks')
+    for kind_index,kind in enumerate(kinds):
+        if kind_index:feed(',')
+        feed(json.dumps(kind)+':[');count=0
+        for ref in chunks:
+            if ref.get('kind')!=kind:continue
+            sha=ref.get('sha256','');rel='outcome_feedback/inputs/'+sha+'.json'
+            if not HEX.fullmatch(sha) or ref.get('path')!=rel:raise ValueError('feedback_input_chunk_reference')
+            path=_safe(Path(data)/rel);size=path.stat().st_size;total+=size;seen+=1
+            if total>MAX_INPUT_ARCHIVE_BYTES:raise ValueError('feedback_input_archive_limit')
+            value,actual=_read(path)
+            if actual!=sha or size!=ref.get('bytes') or value.get('kind')!=kind or len(value.get('rows',[]))!=ref.get('rows'):
+                raise ValueError('feedback_input_chunk_binding')
+            for row in value['rows']:
+                if count:feed(',')
+                for part in json.JSONEncoder(sort_keys=True,separators=(',', ':'),allow_nan=False).iterencode(row):feed(part)
+                count+=1
+        feed(']')
+        if count!=manifest['counts'][kind]:raise ValueError('feedback_input_archive_counts')
+    feed('}');generation.update(b'}')
+    if seen!=len(chunks) or total!=manifest.get('bytes'):raise ValueError('feedback_input_archive_counts')
+    if raw.hexdigest()!=review['input_sha256']:raise ValueError('feedback_input_hash_mismatch')
+    if generation.hexdigest()!=review['generation']:raise ValueError('feedback_generation_mismatch')
+
+
+def _compact_proposals(proposals, input_sha):
+    """Replace duplicated cohorts by exact references into this review's archive."""
+    for proposal in proposals:
+        evidence=proposal['evidence']
+        rows=evidence.pop('original_decisions',None)
+        if rows is not None:
+            evidence['original_decision_ids']=sorted(str(row['family']) for row in rows)
+            evidence['original_decisions_reference']={'input_sha256':input_sha,'collection':'decisions',
+                'selection':'original_decision_ids','cohort_sha256':_digest(rows)}
+        if 'inputs' in evidence:
+            evidence.pop('inputs')
+            evidence['inputs_reference']={'input_sha256':input_sha,'selection':'all'}
 
 def _safe(path):
     path = Path(path)
@@ -136,7 +221,13 @@ def _prepare_registry(data, state, generation, now):
         if not isinstance(ref, dict) or not HEX.fullmatch(str(ref.get('generation', ''))): raise ValueError('invalid_review_reference')
         rel = 'outcome_feedback/reviews/' + ref['generation'] + '.json'
         if ref.get('path') != rel: raise ValueError('invalid_review_path_or_hash')
-        if rel not in seen: seen[rel] = _archive_sha(Path(data) / rel)
+        if rel not in seen:
+            seen[rel] = _archive_sha(Path(data) / rel)
+            # Legacy archives remain streaming-only here. Only compact reviews
+            # have external input chunks that need an additional integrity pass.
+            if ref.get('input_storage') == 'chunked_v1':
+                archived,_ = _read(Path(data) / rel)
+                _verify_input_archive(data,archived)
         if seen[rel] != ref.get('sha256'): raise ValueError('feedback_archive_hash_mismatch')
     needed = {}
     for identity, row in state['proposals'].items():
@@ -177,8 +268,12 @@ def snapshot_outcomes(store):
     """One SQLite read snapshot, original rows decoded; no schema/ledger updates."""
     with store.db() as db:
         db.execute('BEGIN')
-        result = {key: [dict(row) for row in db.execute('SELECT * FROM ' + table)]
-                  for key, table in (('bets', 'bets'), ('decisions', 'system_decisions'), ('bet_outcomes', 'bet_outcomes'))}
+        # Do not materialize unrelated open offers; preserve contradictory open
+        # tickets and orphan outcome rows for the existing integrity audit.
+        queries = {'bets': "SELECT * FROM bets WHERE status IS NOT 'open' OR EXISTS (SELECT 1 FROM bet_outcomes WHERE bet_id=bets.id)",
+                   'decisions': "SELECT * FROM system_decisions WHERE status IS NOT 'open'",
+                   'bet_outcomes': 'SELECT * FROM bet_outcomes'}
+        result = {key: [dict(row) for row in db.execute(query)] for key, query in queries.items()}
     for key, fields in (('bets', ('payload',)), ('decisions', ('payload', 'outcome_evidence')),
                         ('bet_outcomes', ('evidence',))):
         for row in result[key]:
@@ -315,19 +410,28 @@ def record_outcome_feedback(data_dir, bets, decisions, bet_outcomes, *, as_of=No
         archive = _safe(folder / 'reviews' / (generation + '.json'))
         if archive.exists():
             review, sha = _read(archive)
-            if review.get('generation') != generation or review.get('inputs') != inputs or review.get('evaluator') != evaluator_identity():
+            if review.get('generation') != generation or review.get('input_sha256') != _digest(inputs) or review.get('evaluator') != evaluator_identity():
                 raise ValueError('existing_review_conflicts')
+            if 'input_archive' in review:_verify_input_archive(data_dir,review)
+            elif review.get('inputs')!=inputs:raise ValueError('existing_review_conflicts')
         else:
             stats = build_statistics(**inputs, as_of=now)
             review = {'version': VERSION, 'generation': generation, 'reviewed_at': now.isoformat(),
                 'evaluator': evaluator_identity(), 'input_sha256': _digest(inputs), 'inputs': inputs,
                 'statistics': stats, 'cumulative_monitor': cumulative_monitor(stats),
                 'proposals': _proposals(stats, inputs), 'limitation': LIMITATION}
+            # Large histories keep one complete row archive, not repeated cohort
+            # copies in every proposal and observation. Small receipts stay compatible.
+            if sum(len(json.dumps(row,allow_nan=False)) for rows in inputs.values() for row in rows)>MAX_BYTES//8:
+                review['input_archive']=_archive_inputs(data_dir,inputs)
+                review.pop('inputs')
+                _compact_proposals(review['proposals'],review['input_sha256'])
             body = json.dumps(review, allow_nan=False).encode()
             if len(body) > MAX_BYTES: raise ValueError('feedback_review_limit')
             atomic_json(archive, review); review, sha = _read(archive)
         ref = {'path': 'outcome_feedback/reviews/' + generation + '.json', 'sha256': sha,
-               'generation': generation, 'input_sha256': review['input_sha256']}
+               'generation': generation, 'input_sha256': review['input_sha256'],
+               **({'input_storage':'chunked_v1'} if 'input_archive' in review else {})}
         for proposal in review['proposals']:
             row = state['proposals'].get(proposal['id'])
             if not row:
@@ -357,10 +461,15 @@ def _load_review(data, ref, cache):
         review, sha = _read(path)
         if sha != ref['sha256'] or review.get('version') != VERSION or review.get('generation') != ref['generation']:
             raise ValueError('feedback_archive_hash_mismatch')
-        if _digest(review['inputs']) != review.get('input_sha256') or review['input_sha256'] != ref.get('input_sha256'):
+        if review.get('input_sha256') != ref.get('input_sha256'):
             raise ValueError('feedback_input_hash_mismatch')
-        if _digest({'evaluator': review['evaluator'], 'inputs': review['inputs']}) != review['generation']:
-            raise ValueError('feedback_generation_mismatch')
+        if 'input_archive' in review:
+            _verify_input_archive(data,review)
+        else:
+            if _digest(review['inputs']) != review.get('input_sha256'):
+                raise ValueError('feedback_input_hash_mismatch')
+            if _digest({'evaluator': review['evaluator'], 'inputs': review['inputs']}) != review['generation']:
+                raise ValueError('feedback_generation_mismatch')
         if len(review.get('proposals', [])) > MAX_PROPOSALS: raise ValueError('feedback_proposal_limit')
         cache[rel] = (review, sha)
     review, sha = cache[rel]
@@ -456,7 +565,7 @@ def read_outcome_feedback(data_dir, *, now=None, development_state=None, include
             if resolution: proposal.update(state='diagnostic_repair_verified', resolution=resolution, overdue=False)
             if include_chain: proposal.update(_chain(data, proposal, dev, engineering))
             proposals.append(proposal)
-        return {**empty, 'state': 'stale' if age > 7200 else 'attention_required' if any(p['state'] == 'open' for p in proposals) else 'awaiting_results' if not latest['inputs']['decisions'] else 'reviewed',
+        return {**empty, 'state': 'stale' if age > 7200 else 'attention_required' if any(p['state'] == 'open' for p in proposals) else 'awaiting_results' if not (latest['input_archive']['counts']['decisions'] if 'input_archive' in latest else latest['inputs']['decisions']) else 'reviewed',
                 'source_verified': True, 'last_reviewed_at': latest['reviewed_at'], 'report_checked_at': state['checked_at'],
                 'input_sha256': latest['input_sha256'], 'review_path': 'data/' + state['latest_review']['path'],
                 'review_sha256': state['latest_review']['sha256'], 'generation': latest['generation'],
