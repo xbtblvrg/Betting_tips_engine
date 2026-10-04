@@ -359,6 +359,11 @@ def run_once(data_dir=DATA, *, emit_summary=False):
         result['components'].setdefault('checks',[]).extend(result['stability_audit']['checks'])
         if result['stability_audit']['error_count']:
             result['components']['state']='degraded'
+        from .flow_checker import check_live_flow
+        result['flow_checker']=check_live_flow(data,result,previous.get('flow_checker',{}),utcnow())
+        result['components'].setdefault('checks',[]).extend(result['flow_checker']['checks'])
+        if result['flow_checker']['failure_count']:
+            result['components']['state']='degraded'
         result['periodic_question']='Are services progressing, are resources bounded, and which concrete bottleneck requires immediate repair?'
         result['state']='degraded' if any(s['state']!='healthy' for s in result['services'].values()) or result['components']['state']!='operational' or delivery.get('progress',{}).get('attention_required') else 'operational'
         result['delivery_state']=result['development']['state']
