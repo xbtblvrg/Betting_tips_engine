@@ -121,12 +121,13 @@ def parse_summary(raw, meta, tip, now=None):
             if teams[side].get('winner') is not expected:
                 raise ValueError('result_winner_score_conflict')
         season = _integer(header['season']['year'])
-        if not start.year - 1 <= season <= start.year + 1 or header['season'].get('type') not in (2, 3):
+        if not start.year - 1 <= season <= start.year + 1 or header['season'].get('type') not in (1, 2, 3):
             raise ValueError('unsupported_result_season')
     except (KeyError, TypeError, AttributeError, IndexError, UnicodeDecodeError) as exc:
         raise ValueError('malformed_result_body') from exc
     source = {
         'version': VERSION, 'url': url, 'sha256': meta['sha256'], 'fetched_at': meta['fetched_at'],
+        'season_type': header['season']['type'],
         'game_id': gid, 'start': actual_start.isoformat(), 'home_id': ids['home'], 'away_id': ids['away'],
         'home_score': scores['home'], 'away_score': scores['away'],
         'team_identity_basis': 'exact_original_names_and_consistent_espn_ids',
@@ -138,7 +139,7 @@ def parse_summary(raw, meta, tip, now=None):
     return Game(gid, tip['league'], actual_start.isoformat(), home, away, ids['home'], ids['away'],
                 teams['home']['team'].get('abbreviation', ''), teams['away']['team'].get('abbreviation', ''),
                 'final', season, scores['home'], scores['away'], neutral=competition.get('neutralSite') is True,
-                game_type='regular' if header['season']['type'] == 2 else 'playoff', source=url,
+                game_type={1: 'preseason', 2: 'regular', 3: 'playoff'}[header['season']['type']], source=url,
                 fetched_at=meta['fetched_at'], context={'official_result': source})
 
 

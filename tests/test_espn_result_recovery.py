@@ -102,7 +102,7 @@ def test_explicit_supported_league_routing(league, path):
     (lambda b: b['header']['competitions'][0]['competitors'][0].update(score='35'), 'winner_missing'),
     (lambda b: b['header']['competitions'][0]['competitors'][0].update(winner=True), 'winner_score_conflict'),
     (lambda b: b['header']['season'].update(year=2001), 'season'),
-    (lambda b: b['header']['season'].update(type=1), 'season'),
+    (lambda b: b['header']['season'].update(type=4), 'season'),
     (lambda b: b.update(header=[]), 'malformed'),
     (lambda b: b['header']['competitions'][0].update(competitors=None), 'ambiguous_result_teams'),
 ])
@@ -365,3 +365,28 @@ def test_unfinished_source_stays_pending_with_durable_reason_and_backoff(tmp_pat
     assert not games and status['rows'][0]['error'] == 'official_game_not_final'
     games, status = recover_pending_espn([], [row(tip)], [], data_dir=tmp_path, fetcher=feed, now=NOW + timedelta(seconds=60))
     assert not games and feed.calls == 1 and status['rows'][0]['state'] == 'retry_backoff'
+
+
+def test_preseason_final_settles_without_entering_regular_training(tmp_path):
+    # Controlled phase mutation of an archived official WNBA response probes
+    # preseason handling; this is not a claim that the source game was preseason.
+    from betting_engine.models import feature_history
+    from betting_engine.storage import Store
+    from betting_engine.engine import Engine
+    from test_espn_recovery_integration import seed, originals
+    raw,meta,tip=changed(lambda body:body['header']['season'].update(type=1),'401918294')
+    tip['game_context']={'schedule_phase_evidence':{'raw_season_type':'1'}}
+    game=parse_summary(raw,meta,tip,NOW)
+    assert game.game_type=='preseason'
+    assert game.context['official_result']['season_type']==1
+    assert settlement_scores(tip,game)[:2]==(77,73)
+    store=Store(tmp_path/'engine.sqlite3')
+    seed(store,[tip]);before=originals(store)
+    worker=Engine.__new__(Engine);worker.store=store;worker.games=[game]
+    for _ in range(2):
+        worker.settle_bets();store.settle_system_decisions(worker.games)
+    assert store.bets()[0]['status']=='lost'
+    assert store.system_decisions()[0]['status']=='lost'
+    assert originals(store)==before
+    rows,state=feature_history([game],'WNBA',NOW+timedelta(days=2))
+    assert rows==[] and state.n==0
