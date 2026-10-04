@@ -8,7 +8,7 @@ from collections import Counter
 import hashlib,json,math
 from .domain import utcnow,parse_time,LEAGUES
 from .decisions import (sportsbook_ev,minimum_odds,family_selection_policy,LEGACY_FAMILY_SELECTION,
-    probability_support_policy,supported_probability_mass,stressed_probability,LEGACY_PROBABILITY_SUPPORT)
+    probability_support_policy,supported_probability_mass,stressed_probability,LEGACY_PROBABILITY_SUPPORT,VALIDATED_PROBABILITY_SUPPORT)
 from .contracts import PRICING_VERSION,split_market,PERIOD_SCOPES,market_stress,allocation_family
 from .freshness import MAX_QUOTE_AGE_SECONDS,fresh_quote
 
@@ -287,10 +287,10 @@ class EvidenceGuard:
                     weight=float(settings.get('market_model_weight',.15))
                     if anchor.get('conditional_push_free') and push>0:
                         conditional_model=p/(1-push)
-                        conditional_blend=logit_blend(conditional_model,market_probability,weight)
+                        conditional_blend=logit_blend(conditional_model,market_probability,weight,allow_endpoint_model=support_policy == VALIDATED_PROBABILITY_SUPPORT)
                         p=conditional_blend*(1-push)
                     else:
-                        p=logit_blend(p,market_probability,weight)
+                        p=logit_blend(p,market_probability,weight,allow_endpoint_model=support_policy == VALIDATED_PROBABILITY_SUPPORT)
                     push=min(push,1-p)
             if settings.get('calibration_uncertainty_mode','legacy')=='measured_v1' and calibration_summary is not None:
                 if tip.get('calibration_uncertainty') != calibration_summary:

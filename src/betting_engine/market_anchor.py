@@ -90,20 +90,31 @@ def sigmoid(value: float) -> float:
     return z / (1.0 + z)
 
 
-def logit_blend(model_probability: float, market_probability: float, model_weight: float) -> float:
+def _model_probability(value: float, allow_endpoints: bool) -> float:
+    if allow_endpoints and not isinstance(value, bool) and isinstance(value, (int, float)) and math.isfinite(value) and 0 <= value <= 1:
+        return float(value)
+    return _probability(value, "model probability")
+
+
+def logit_blend(model_probability: float, market_probability: float, model_weight: float, *, allow_endpoint_model: bool = False) -> float:
     """Blend independent model and no-vig market probabilities in logit space."""
-    model = _probability(model_probability, "model probability")
+    model = _model_probability(model_probability, allow_endpoint_model)
     market = _probability(market_probability, "market probability")
     if isinstance(model_weight, bool) or not isinstance(model_weight, (int, float)) or not math.isfinite(model_weight):
         raise ValueError("Invalid model weight")
     if not 0.0 <= model_weight <= 1.0:
         raise ValueError("Model weight must be in [0, 1]")
-    return sigmoid((1.0 - float(model_weight)) * logit(market) + float(model_weight) * logit(model))
+    if allow_endpoint_model and model_weight == 1:
+        return model
+    # Epsilon is numerical regularization only at the logit transform;
+    # reported raw model mass and disagreement retain their exact values.
+    transformed_model = min(1.0 - EPSILON, max(EPSILON, model)) if model in (0., 1.) else model
+    return sigmoid((1.0 - float(model_weight)) * logit(market) + float(model_weight) * logit(transformed_model))
 
 
-def anchor_status(model_probability: float, market_probability: float, *, threshold: float = 0.30) -> str:
+def anchor_status(model_probability: float, market_probability: float, *, threshold: float = 0.30, allow_endpoint_model: bool = False) -> str:
     """Classify disagreement before a contract can receive funding."""
-    model = _probability(model_probability, "model probability")
+    model = _model_probability(model_probability, allow_endpoint_model)
     market = _probability(market_probability, "market probability")
     if isinstance(threshold, bool) or not isinstance(threshold, (int, float)) or not math.isfinite(threshold) or threshold <= 0 or threshold >= 1:
         raise ValueError("Invalid disagreement threshold")

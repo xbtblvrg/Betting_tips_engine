@@ -99,3 +99,30 @@ def test_observed_overtime_yes_no_payload_survives_both_distribution_tails(leagu
         assert tip['reference_odds']==pytest.approx(market.metadata['stake_odds'])
         assert tip['selection']==market.selection and tip['model_scope']=='regulation'
         assert tip['stake']==0
+
+@pytest.mark.parametrize('push',[0.,1.])
+def test_zero_win_and_all_push_exit_before_anchor_transform(push):
+    args=make(0.,push,{'market_probability':.9,'conditional_push_free':True})
+    assert args[0] is None
+
+@pytest.mark.parametrize('p,push,conditional',[(1.,0.,False),(.8,.2,True)])
+def test_model_endpoint_live_anchor_and_guard_reproduce(p,push,conditional):
+    args=make(p,push,{'market_probability':.9,'conditional_push_free':conditional})
+    tip=args[0]
+    assert tip['market_anchor']['model_probability']==1.
+    assert tip['push_probability']==pytest.approx(push)
+    assert 0<tip['probability']<p
+    check=EvidenceGuard(KnowledgeAgent()).check(*args)
+    assert check['passed'],check['errors']
+    rank_and_size([tip],args[-1]);verify_publication(tip,utcnow(),args[-1])
+
+
+def test_endpoint_regularization_only_affects_logit_transform():
+    from betting_engine.market_anchor import logit_blend,anchor_status
+    with pytest.raises(ValueError):logit_blend(1.,.9,.15)
+    with pytest.raises(ValueError):anchor_status(1.,.9)
+    assert logit_blend(1.,.9,1.,allow_endpoint_model=True)==1.
+    assert logit_blend(0.,.9,1.,allow_endpoint_model=True)==0.
+    assert anchor_status(1.,.9,allow_endpoint_model=True)=='usable'
+    for invalid in (float('nan'),float('inf'),-1.,1.1,True):
+        with pytest.raises(ValueError):logit_blend(invalid,.9,.15,allow_endpoint_model=True)

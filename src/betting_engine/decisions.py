@@ -278,6 +278,8 @@ def candidate(g,m,q,forecast,settings,market_anchor=None,calibration_summary=Non
     p,push=forecast.market_probability(m.kind,m.side,m.line)
     p,push=supported_probability_mass(p,push,settings)
     support_policy=probability_support_policy(settings)
+    if p == 0:return None # No finite executable price, including all-push contracts.
+    endpoint_model=support_policy == VALIDATED_PROBABILITY_SUPPORT
     anchor = market_anchor if isinstance(market_anchor, dict) else None
     if anchor and isinstance(anchor.get('market_probability'), (int, float)):
         from .market_anchor import anchor_status, logit_blend
@@ -287,10 +289,10 @@ def candidate(g,m,q,forecast,settings,market_anchor=None,calibration_summary=Non
         anchor_model_probability=p/(1-push) if anchor.get('conditional_push_free') and push<1 else p
         anchor = {**anchor,
                   'model_probability': anchor_model_probability,
-                  'blended_probability': logit_blend(anchor_model_probability, market_p, weight),
+                  'blended_probability': logit_blend(anchor_model_probability, market_p, weight, allow_endpoint_model=endpoint_model),
                   'model_weight': weight,
                   'disagreement_threshold': disagreement,
-                  'status': anchor_status(anchor_model_probability, market_p, threshold=disagreement),
+                  'status': anchor_status(anchor_model_probability, market_p, threshold=disagreement, allow_endpoint_model=endpoint_model),
                   'mode': settings.get('market_anchor_mode', 'shadow')}
         if settings.get('market_anchor_mode', 'shadow') == 'live' and anchor['status'] == 'usable':
             # Asian integer/quarter quotes identify only the relative
@@ -298,7 +300,7 @@ def candidate(g,m,q,forecast,settings,market_anchor=None,calibration_summary=Non
             # the model push mass so EV and settlement stay consistent.
             if anchor.get('conditional_push_free') and push>0:
                 conditional_model=p/(1-push)
-                conditional_blend=logit_blend(conditional_model,market_p,weight)
+                conditional_blend=logit_blend(conditional_model,market_p,weight,allow_endpoint_model=endpoint_model)
                 p=conditional_blend*(1-push)
             else:
                 p=anchor['blended_probability'];push=min(push,1-p)
