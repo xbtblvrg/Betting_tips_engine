@@ -122,7 +122,8 @@ def test_same_frozen_run_idempotent_and_recovers_active_write(tmp_path):
     assert load_snapshot(tmp_path) is not None
 
 
-def test_weekly_durable_job_persists_fit_and_respects_seven_days(tmp_path):
+def test_weekly_durable_job_persists_fit_and_respects_seven_days(tmp_path,monkeypatch):
+    monkeypatch.setattr("betting_engine.domain.utcnow",lambda:NOW)
     from betting_engine.storage import Store
     from betting_engine.learning import LearningWorker
     store=Store(tmp_path/'data/engine.sqlite3');worker=LearningWorker(store,tmp_path/'data')
@@ -218,3 +219,36 @@ def test_weight_publication_epoch_excludes_promotion_until_db_commit(tmp_path,mo
     assert completed.wait(1)
     for t in threads:t.join()
     assert store.latest() is not None
+
+def test_legacy_threeway_and_doublechance_are_not_learning_sources():
+    for market in ('three_way','period_1:double_chance'):
+        d=decision(1);d['payload']['market']=market
+        data,reasons=observations([d],NOW)
+        assert not data and reasons['legacy_incompatible_partition_semantics']==1
+
+
+def test_double_chance_training_predicts_union_of_exclusive_partition():
+    d=decision(1);t=d['payload'];t.update(market='quarter_1:double_chance',side='home_draw')
+    t['market_anchor'].update(probability_semantics='derived_double_chance_union_v1',model_probability=.7,market_probability=.65,
+        model_probabilities={'home':.4,'draw':.3,'away':.3},exclusive_probabilities={'home':.35,'draw':.3,'away':.35})
+    data,reasons=observations([d],NOW);assert not reasons
+    assert prediction(data[0],0)==pytest.approx(.65) and prediction(data[0],1)==pytest.approx(.7)
+    assert 'derived_double_chance_union_v1' in data[0]['segment']
+
+
+def test_validated_snapshot_cache_skips_refit_but_modified_proof_invalidates(tmp_path,monkeypatch):
+    import betting_engine.anchor_learning as mod
+    active,proof=promoted(tmp_path)
+    monkeypatch.setattr(mod,'fit_candidate',lambda *a,**kw: (_ for _ in ()).throw(AssertionError('unexpected refit')))
+    assert load_snapshot(tmp_path)==active
+    row=next(iter(active['weights'].values()));path=tmp_path/'anchor_learning/archive'/(row['proof_sha256']+'.json')
+    path.write_text(path.read_text()+' ')
+    with pytest.raises(AssertionError,match='unexpected refit'):load_snapshot(tmp_path)
+
+def test_composite_learned_proof_cannot_be_carried_through_unchecked():
+    from test_complete_composite_policy import case
+    from betting_engine.market_anchor import contract_anchors
+    from betting_engine.composite_contracts import receipt,anchored_partition
+    _,g,ms,qs,f,s=case();m=ms[0];anchor=contract_anchors(ms,qs)[m.id]
+    anchor['learned_weight']={'proof_sha256':'forged'}
+    with pytest.raises(ValueError,match='provenance'):anchored_partition(receipt(g,m,f,s),m,s,anchor,qs[m.id].fetched_at)

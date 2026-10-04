@@ -301,6 +301,19 @@ class EvidenceGuard:
                 if settings.get('market_anchor_mode','shadow')=='live':
                     if reproduced['status']!='usable':errors.append('market_anchor_missing_or_review')
                     else:p=reproduced['blended_probability'];push=0.
+            elif isinstance(anchor,dict) and market.kind.rsplit(':',1)[-1] in ('three_way','double_chance'):
+                from .market_anchor import anchored_score_partition
+                from .anchor_learning import effective_weight
+                weight,learned_weight=effective_weight(settings,game.league,market.kind,market.line,forecast.model_version)
+                reproduced=anchored_score_partition(forecast,market,anchor,weight=weight,
+                    threshold=float(settings.get('market_disagreement_threshold',.30)),
+                    mode=settings.get('market_anchor_mode','shadow'),
+                    allow_endpoint_model=support_policy == VALIDATED_PROBABILITY_SUPPORT)
+                if reproduced.get('learned_weight')!=learned_weight:raise ValueError('Learned partition weight differs')
+                if anchor!=reproduced:raise ValueError('Exclusive score anchor differs from source reproduction')
+                if settings.get('market_anchor_mode','shadow')=='live':
+                    if reproduced['status']!='usable':errors.append('market_anchor_missing_or_review')
+                    else:p=reproduced['blended_probability'];push=0.
             elif settings.get('market_anchor_mode','shadow')=='live':
                 from .market_anchor import logit_blend, conditional_model_probability
                 if not isinstance(anchor,dict) or anchor.get('status')!='usable':

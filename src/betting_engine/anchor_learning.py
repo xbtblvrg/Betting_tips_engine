@@ -3,7 +3,8 @@
 This learning-worker workflow never changes original decisions or sportsbooks.
 The active artifact changes only after a predeclared prospective comparison.
 """
-from collections import defaultdict
+from collections import defaultdict,OrderedDict
+from copy import deepcopy
 from contextlib import contextmanager
 import fcntl
 from datetime import datetime, timezone
@@ -18,8 +19,10 @@ from .market_anchor import logit_blend
 
 VERSION='prospective-anchor-weights-v1'
 MIN_GAMES=30
-GRID=tuple(i/20 for i in range(21))
+_VALIDATED_CACHE=OrderedDict()
+MAX_INPUT_BYTES=64*1024*1024
 RUNTIME_KEY='_market_weight_snapshot'
+SEMANTICS={'three_way':'exclusive_three_way_normalized_v1','double_chance':'derived_double_chance_union_v1','winner_total':'source-bound-normalized-logit-v1','exact_total':'source-bound-normalized-logit-v1'}
 
 
 def digest(value):
@@ -39,7 +42,7 @@ def segment(league,kind,line=None):
     # Keep their learning identity separate; no binary-label extrapolation.
     if line is not None and abs(float(line)*2-round(float(line)*2))>1e-8:
         family+=':quarter_line'
-    return '|'.join((league,scope,family))
+    return '|'.join((league,scope,family,SEMANTICS.get(family,'conditional_binary_v1')))
 
 
 def prediction(row,weight):
@@ -47,7 +50,7 @@ def prediction(row,weight):
     if partition:
         values={k:logit_blend(p,partition['market'][k],weight,allow_endpoint_model=True)
                 for k,p in partition['model'].items()}
-        return values[row['side']]/math.fsum(values.values())
+        return math.fsum(values[k] for k in partition.get('selection',[row['side']]))/math.fsum(values.values())
     return logit_blend(row['model_probability'],row['market_probability'],weight,allow_endpoint_model=True)
 
 
@@ -77,13 +80,22 @@ def observations(decisions,as_of):
             if not trained<=issued<start or issued>as_of:raise ValueError('nonprospective_model_input')
             if not -5<=(issued-stamp(tip['quote_at'])).total_seconds()<=300:raise ValueError('quote_not_issuance_fresh')
             key=segment(tip['league'],tip['market'],tip.get('line'))
-            if key.endswith(':quarter_line'):raise ValueError('fractional_settlement_target_required')
+            if ':quarter_line|' in key:raise ValueError('fractional_settlement_target_required')
             p=float(anchor['model_probability']);q=float(anchor['market_probability'])
             if not 0<=p<=1 or not 0<q<1:raise ValueError('invalid_probability')
             row={'tip_id':identifier,'game_id':tip['game_id'],'segment':key,'model_version':tip['model_version'],
                  'issued_at':issued.isoformat(),'start':start.isoformat(),'model_trained_at':trained.isoformat(),
                  'model_probability':p,'market_probability':q,'side':tip['side'],'outcome':None,
                  'resolved':False,'settled_at':None}
+            _,base=split_market(tip['market'])
+            if base in ('three_way','double_chance'):
+                if anchor.get('probability_semantics')!=SEMANTICS[base]:raise ValueError('legacy_incompatible_partition_semantics')
+                model=anchor['model_probabilities'];market=anchor['exclusive_probabilities']
+                sides={'home_draw':['home','draw'],'away_draw':['away','draw'],'home_away':['home','away']}
+                selection=sides[tip['side']] if base=='double_chance' else [tip['side']]
+                if set(model)!=set(market) or set(model)!={'home','draw','away'} or any(not 0<=v<=1 for v in model.values()) or any(not 0<v<1 for v in market.values()) or abs(sum(model.values())-1)>1e-8 or abs(sum(market.values())-1)>1e-8:raise ValueError('invalid_partition')
+                if abs(math.fsum(model[k] for k in selection)-p)>1e-10 or abs(math.fsum(market[k] for k in selection)-q)>1e-10:raise ValueError('selected_partition_probability_mismatch')
+                row['partition']={'model':model,'market':market,'selection':selection}
             if anchor.get('composite_blend'):
                 part=anchor['composite_blend'];model=part['model_probabilities'];market=part['market_probabilities']
                 if set(model)!=set(market) or tip['side'] not in model or any(not 0<=v<=1 for v in model.values()) or any(not 0<v<1 for v in market.values()) or abs(sum(model.values())-1)>1e-8 or abs(sum(market.values())-1)>1e-8:raise ValueError('invalid_partition')
@@ -171,7 +183,7 @@ def update_weights(data_dir,decisions,as_of,*,minimum_games=MIN_GAMES,fallback_w
     _archive(archive,frozen)
     groups=defaultdict(list)
     for row in rows:groups[(row['segment'],row['model_version'])].append(row)
-    results=[]
+    results=[];new_candidates=[]
     for key,group in sorted(groups.items()):
         identity='|'.join(key);prior=state['candidates'].get(identity)
         if prior and prior['state'] not in ('promoted','rejected'):
@@ -192,12 +204,9 @@ def update_weights(data_dir,decisions,as_of,*,minimum_games=MIN_GAMES,fallback_w
         baseline=state['weights'].get(identity,{}).get('model_weight',fallback_weight)
         candidate=fit_candidate(settled,as_of,baseline,minimum_games)
         if candidate:
-            from .domain import utcnow
-            actual_commit=committed_at or utcnow()
-            if actual_commit<as_of:raise ValueError('fit_commit_precedes_training_cutoff')
             candidate['training_as_of']=as_of.isoformat()
-            candidate['created_at']=actual_commit.isoformat()
             candidate['input_archive']=input_sha;state['candidates'][identity]=candidate
+            new_candidates.append(identity)
             results.append({'segment':key[0],'model_version':key[1],'state':candidate['state'],'training_games':len(candidate['training_game_ids'])})
     state['checked_at']=as_of.isoformat();state['last_input_archive']=input_sha
     active={'version':VERSION,'weights':state['weights']}
@@ -205,24 +214,41 @@ def update_weights(data_dir,decisions,as_of,*,minimum_games=MIN_GAMES,fallback_w
     result={'version':VERSION,'checked_at':as_of.isoformat(),'input_archive':input_sha,'accepted_rows':len(rows),
             'excluded':reasons,'segments':results,'approved_weights':len(state['weights']),'snapshot_sha256':active['snapshot_sha256']}
     state['last_result']=result
-    atomic_json(state_path,state)
-    publish_snapshot(folder,active)
+    from .domain import utcnow
+    with weight_epoch(folder.parent,exclusive=True):
+        actual_commit=committed_at or utcnow()
+        if actual_commit<as_of:raise ValueError('fit_commit_precedes_training_cutoff')
+        for identity in new_candidates:state['candidates'][identity]['created_at']=actual_commit.isoformat()
+        atomic_json(state_path,state)
+        atomic_json(folder/'active.json',active)
     return result
 
 
 def load_snapshot(data_dir):
     path=Path(data_dir)/'anchor_learning/active.json'
     if not path.exists():return None
+    def identity(file):
+        stat=file.stat();return (stat.st_dev,stat.st_ino,stat.st_size,stat.st_mtime_ns,stat.st_ctime_ns)
+    cache_key=str(path.resolve())
+    cached=_VALIDATED_CACHE.get(cache_key)
+    if cached and all(identity(Path(file))==saved for file,saved in cached['files'].items()):
+        _VALIDATED_CACHE.move_to_end(cache_key)
+        return deepcopy(cached['value'])
+    files={str(path):identity(path)};read_bytes=0
     if path.stat().st_size>2*1024*1024:raise ValueError('anchor_snapshot_size')
     value=json.loads(path.read_text());body={k:v for k,v in value.items() if k!='snapshot_sha256'}
     if value.get('version')!=VERSION or digest(body)!=value.get('snapshot_sha256'):raise ValueError('anchor_snapshot_digest')
     archives={}
     def source(sha):
+        nonlocal read_bytes
         if len(sha)!=64 or any(c not in '0123456789abcdef' for c in sha):raise ValueError('anchor_input_identity')
         if sha not in archives:
             file=path.parent/'archive'/(sha+'.json')
-            if file.stat().st_size>32*1024*1024:raise ValueError('anchor_input_size')
+            size=file.stat().st_size;read_bytes+=size
+            if size>32*1024*1024 or read_bytes>MAX_INPUT_BYTES:raise ValueError('anchor_input_size')
+            files[str(file)]=identity(file)
             obj=json.loads(file.read_text())
+            if files[str(file)]!=identity(file):raise ValueError('anchor_input_changed_during_read')
             if digest(obj)!=sha:raise ValueError('anchor_input_digest')
             archives[sha]=obj
         return archives[sha]
@@ -231,7 +257,9 @@ def load_snapshot(data_dir):
         if len(sha)!=64 or any(c not in '0123456789abcdef' for c in sha):raise ValueError('anchor_proof_identity')
         proof_path=path.parent/'archive'/(sha+'.json')
         if proof_path.stat().st_size>1024*1024:raise ValueError('anchor_proof_size')
+        files[str(proof_path)]=identity(proof_path)
         proof=json.loads(proof_path.read_text());evaluation=proof.get('evaluation',{})
+        if files[str(proof_path)]!=identity(proof_path):raise ValueError('anchor_proof_changed_during_read')
         if digest(proof)!=sha or proof.get('state')!='promoted' or evaluation.get('promote') is not True or evaluation.get('versus_baseline',{}).get('upper95',1)>=0 or evaluation.get('versus_market',{}).get('upper95',1)>=0 or key!='|'.join((proof['segment'],proof['model_version'])) or row['model_weight']!=proof['model_weight']:
             raise ValueError('anchor_promotion_proof')
         training=source(proof['input_archive']);later=source(proof['promotion_input_archive'])
@@ -241,6 +269,10 @@ def load_snapshot(data_dir):
             raise ValueError('anchor_fit_reproduction')
         replay=dict(proof);check=evaluate_candidate(replay,later['rows'],stamp(evaluation['evaluated_at']))
         if check!=evaluation:raise ValueError('anchor_holdout_reproduction')
+    if any(identity(Path(file))!=saved for file,saved in files.items()):raise ValueError('anchor_snapshot_changed_during_read')
+    _VALIDATED_CACHE[cache_key]={'files':files,'value':deepcopy(value)}
+    _VALIDATED_CACHE.move_to_end(cache_key)
+    while len(_VALIDATED_CACHE)>4:_VALIDATED_CACHE.popitem(last=False)
     return value
 
 

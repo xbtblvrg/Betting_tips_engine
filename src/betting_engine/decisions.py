@@ -292,6 +292,15 @@ def candidate(g,m,q,forecast,settings,market_anchor=None,calibration_summary=Non
         anchor=anchored_partition(composite_evidence,m,settings,anchor,q.fetched_at)
         if anchor['mode']=='live' and anchor['status']=='usable':
             p=anchor['blended_probability'];push=0.
+    elif anchor and base in ('three_way','double_chance'):
+        from .market_anchor import anchored_score_partition
+        from .anchor_learning import effective_weight
+        weight,learned_weight=effective_weight(settings,g.league,m.kind,m.line,forecast.model_version)
+        anchor=anchored_score_partition(forecast,m,anchor,weight=weight,
+            threshold=float(settings.get('market_disagreement_threshold',.30)),
+            mode=settings.get('market_anchor_mode','shadow'),allow_endpoint_model=endpoint_model)
+        if learned_weight:anchor['learned_weight']=learned_weight
+        if anchor['mode']=='live' and anchor['status']=='usable':p=anchor['blended_probability'];push=0.
     elif anchor and isinstance(anchor.get('market_probability'), (int, float)):
         from .market_anchor import anchor_status, logit_blend, conditional_model_probability
         market_p=float(anchor['market_probability'])

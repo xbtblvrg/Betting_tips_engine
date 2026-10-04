@@ -118,6 +118,8 @@ def anchored_partition(evidence,market,settings,anchor,quote_at):
         raise ValueError('Composite anchor differs from complete source odds or identity')
     from .anchor_learning import effective_weight
     weight,learned_weight=effective_weight(settings,market.league,market.kind,market.line,evidence['model_version'])
+    if 'learned_weight' in anchor and anchor['learned_weight']!=learned_weight:
+        raise ValueError('Composite learned-weight provenance differs from active snapshot')
     threshold=settings.get('market_disagreement_threshold',.30)
     raw=evidence['probabilities']
     blended={side:logit_blend(raw[side],fair[side],weight,allow_endpoint_model=True) for side in fair}
