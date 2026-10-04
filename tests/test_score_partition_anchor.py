@@ -50,3 +50,11 @@ def test_bad_model_mass_and_tampered_anchor_rejected():
 def test_stale_underlying_quote_does_not_anchor_fresh_double_chance():
     ms,q=offers();q[ms[0].id].fetched_at='2026-10-04T09:54:59Z'
     assert not any(k.startswith('dc') for k in contract_anchors(ms,q))
+
+
+def test_threeway_binds_all_source_times_and_rejects_stale_peer():
+    ms,q=offers();anchors=contract_anchors(ms,q)
+    assert anchors[ms[0].id]['exclusive_source_contracts']==sorted(m.id for m in ms[:3])
+    assert len(anchors[ms[0].id]['exclusive_quote_times'])==3
+    q[ms[0].id].fetched_at='2026-10-04T09:54:59Z'
+    assert not contract_anchors(ms,q)

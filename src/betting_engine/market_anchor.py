@@ -206,6 +206,14 @@ def contract_anchors(markets, quotes):
         except (ValueError, ZeroDivisionError):
             continue
         for market, quote in rows:
+            if base == 'three_way':
+                from .domain import parse_time
+                try:
+                    selected_at = parse_time(quote.fetched_at)
+                    if any(not -5 <= (selected_at - parse_time(peer.fetched_at)).total_seconds() <= 300 for _, peer in rows):
+                        continue
+                except (TypeError, ValueError, AttributeError):
+                    continue
             result[market.id] = {
                 'market_probability': fair[market.side],
                 'market_probabilities': fair,
@@ -215,7 +223,9 @@ def contract_anchors(markets, quotes):
                 'quote_at': quote.fetched_at,
                 **({'exclusive_odds': odds, 'exclusive_probabilities': fair,
                     'exclusive_partition_kind': kind, 'partition_version': 'exclusive_score_partition_v1',
-                    'probability_semantics': 'exclusive_three_way_normalized_v1'} if base == 'three_way' else {}),
+                    'probability_semantics': 'exclusive_three_way_normalized_v1',
+                    'exclusive_source_contracts': sorted(m.id for m, _ in rows),
+                    'exclusive_quote_times': {m.id: q.fetched_at for m, q in rows}} if base == 'three_way' else {}),
             }
     # Double-chance outcomes overlap. Their reciprocal odds cannot be
     # normalized as three mutually exclusive outcomes. Bind to one complete
