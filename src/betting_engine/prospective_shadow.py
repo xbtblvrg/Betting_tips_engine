@@ -179,9 +179,10 @@ def _snapshot_routing(snapshots):
     witness are omitted. Malformed/unwitnessed rows remain in every evaluation.
     The immutable input hash still covers every capture, including omitted rows.
     """
-    fields = ('league', 'fixture_id', 'fixture_slug', 'start', 'source', 'raw_fixture')
+    fields = ('league', 'fixture_id', 'fixture_slug', 'start', 'source', 'raw_fixture', 'fixture_status')
     def signature(row):
-        return _json({key: row.get(key) for key in fields})
+        return _json({**{key: row.get(key) for key in fields},
+                      'has_fixture_status': 'fixture_status' in row})
     witnesses = {signature(r) for r in snapshots
                  if isinstance(r, dict) and r.get('provider_section') == 'fixture_lifecycle'}
     shared, markets = [], defaultdict(list)

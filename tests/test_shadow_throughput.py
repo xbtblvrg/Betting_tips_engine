@@ -103,3 +103,17 @@ def test_result_sources_are_frozen_before_first_batch_and_reused_on_resume(tmp_p
     reports=[journal.report(trial,as_of=cutoff) for trial in ('t','u','v')]
     assert all(r['rows'][0]['outcome']['outcome']=='won' for r in reports)
     assert all(r['as_of']==cutoff for r in reports)
+
+
+@pytest.mark.parametrize('status',['suspended',None])
+def test_routing_preserves_conflicting_flattened_lifecycle_status(status):
+    exact=snapshot()
+    later=snapshot(at='2026-09-29T19:59:30+00:00')
+    sibling={**later,'market_id':'other','fixture_status':status}
+    rows=[exact,lifecycle(exact,['market']),sibling,lifecycle(later,['market','other'])]
+    routed=shadow._routed_snapshots(shadow._snapshot_routing(rows),'market')
+    assert sibling in routed
+    full=evaluate_closing_price(decision(),rows,as_of=CUTOFF)
+    selected=evaluate_closing_price(decision(),routed,as_of=CUTOFF)
+    assert full['status']==selected['status']=='missing_closing_price'
+    assert full['reason']==selected['reason']
