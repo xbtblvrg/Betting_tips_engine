@@ -72,6 +72,27 @@ def test_dotenv_malformed_file_does_not_partially_mutate_environment(tmp_path):
     assert environ == {}
 
 
+def test_tailscale_dotenv_host_is_available_to_foreground_server(tmp_path):
+    path = tmp_path / '.env'
+    path.write_text('BETTING_ALLOWED_HOSTS=localhost,127.0.0.1\nBETTING_TAILSCALE_HOST=new-machine.tail123.ts.net\n')
+    env = {}; load_environment(path, env); load_environment(path, env)
+    assert env['BETTING_ALLOWED_HOSTS'] == 'localhost,127.0.0.1,new-machine.tail123.ts.net'
+    path.write_text('BETTING_TAILSCALE_HOST=https://invalid/\n')
+    with pytest.raises(ValueError, match='TAILSCALE'):
+        load_environment(path, {})
+
+
+def test_macos_interpreter_is_homebrew_not_an_implicit_uv_download(monkeypatch):
+    monkeypatch.setattr(bootstrap.sys, 'platform', 'darwin')
+    monkeypatch.setattr(bootstrap.Path, 'is_file', lambda p: True)
+    assert bootstrap.python_interpreter() == '/opt/homebrew/opt/python@3.14/bin/python3.14'
+    monkeypatch.setattr(bootstrap.Path, 'is_file', lambda p: False)
+    with pytest.raises(SystemExit, match='brew install'):
+        bootstrap.python_interpreter()
+    monkeypatch.setattr(bootstrap.sys, 'platform', 'linux')
+    assert bootstrap.python_interpreter() == '3.14'
+
+
 def test_committed_runtime_bundle_hashes_and_policy(tmp_path):
     root = Path(__file__).resolve().parents[1]
     manifest = json.loads((root / 'runtime_seed/manifest.json').read_text())

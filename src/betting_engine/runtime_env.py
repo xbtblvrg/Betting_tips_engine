@@ -27,3 +27,11 @@ def load_environment(path, environ=None):
         values[key] = parts[0] if parts else ''
     for key, value in values.items():
         env.setdefault(key, value)
+    host = env.get('BETTING_TAILSCALE_HOST', '').strip()
+    if host:
+        if not re.fullmatch(r'[A-Za-z0-9.-]+\.ts\.net', host):
+            raise ValueError('Invalid BETTING_TAILSCALE_HOST')
+        hosts = [h.strip() for h in env.get('BETTING_ALLOWED_HOSTS', '').split(',') if h.strip()]
+        if host not in hosts:
+            hosts.append(host)
+        env['BETTING_ALLOWED_HOSTS'] = ','.join(hosts)

@@ -12,6 +12,17 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def python_interpreter():
+    if sys.platform != 'darwin':
+        return '3.14'
+    # The pinned SQLite extension is linked to Homebrew on Apple Silicon.
+    # Do not accidentally select uv's independently bundled SQLite runtime.
+    python = Path('/opt/homebrew/opt/python@3.14/bin/python3.14')
+    if not python.is_file():
+        raise SystemExit('Install Homebrew python@3.14 on Apple Silicon first: brew install python@3.14')
+    return str(python)
+
+
 def seed_runtime(root, data_dir):
     root, data_dir = Path(root).resolve(), Path(data_dir).resolve()
     seed = root / 'runtime_seed'
@@ -98,7 +109,7 @@ def main():
         uv = shutil.which('uv')
         if not uv:
             raise SystemExit('Install uv first: https://docs.astral.sh/uv/getting-started/installation/')
-        subprocess.run([uv, 'sync', '--frozen', '--extra', 'dev', '--python', '3.14'], check=True)
+        subprocess.run([uv, 'sync', '--frozen', '--extra', 'dev', '--python', python_interpreter()], check=True)
     python = ROOT / '.venv/bin/python'
     if not python.is_file():
         raise SystemExit('The project .venv is missing')
@@ -109,8 +120,12 @@ def main():
     sys.path.insert(0, str(ROOT / 'src'))
     from betting_engine.runtime_env import load_environment
     load_environment(env_path)
-    if sys.platform == 'darwin' and not args.skip_sqlite:
+    if sys.platform == 'darwin' and not args.skip_sqlite and os.environ.get('BETTING_BOOTSTRAP_SQLITE_READY') != str(ROOT):
         subprocess.run([str(python), str(ROOT / 'scripts/install_sqlite_runtime.py'), 'install', '--root', str(ROOT)], check=True)
+        # Activate the new .pth before any SQLite connection is opened.
+        subprocess.run([str(python), str(Path(__file__).resolve()), '--skip-sync'],
+                       env={**os.environ, 'BETTING_BOOTSTRAP_SQLITE_READY': str(ROOT)}, check=True)
+        return
     data = Path(os.environ.get('BETTING_DATA_DIR', 'data'))
     if not data.is_absolute():
         data = ROOT / data

@@ -6,7 +6,7 @@ Local sports research, model evaluation, Stake-market recommendations, immutable
 
 ## Clone and install
 
-Fully supported deployment: **macOS**, Python **3.14**, `uv`, Node.js **22+** for tests, Xcode Command Line Tools for the pinned SQLite runtime. Linux can run the foreground web/learning processes; macOS launchd installers and the native SQLite patch are platform-specific. Windows requires a Unix environment such as WSL and is not a tested deployment target.
+Fully supported deployment: **Apple Silicon macOS**, Homebrew Python **3.14** (`brew install python@3.14`), `uv`, Node.js **22+** for tests, Xcode Command Line Tools for the pinned SQLite runtime. Linux can run the foreground web/learning processes; macOS launchd installers and the native SQLite patch are platform-specific. Windows requires a Unix environment such as WSL and is not a tested deployment target.
 
 ```bash
 git clone git@github.com:xbtblvrg/Betting_tips_engine.git

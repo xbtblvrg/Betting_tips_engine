@@ -11,9 +11,10 @@ def test_development_and_release_profiles_keep_numerical_threads_bounded(tmp_pat
     development_tree = ast.parse((ROOT / 'scripts/development_service.py').read_text())
     assignment = next(node for node in ast.walk(development_tree)
         if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == 'config' for t in node.targets))
-    namespace = {'ROOT': tmp_path, 'logs': tmp_path / 'data/logs', 'LABEL': 'test-development'}
+    namespace = {'ROOT': tmp_path, 'logs': tmp_path / 'data/logs', 'LABEL': 'test-development', 'Path': Path}
     exec(compile(ast.Module(body=[assignment], type_ignores=[]), '<development-config>', 'exec'), namespace)
     release = runpy.run_path(str(ROOT / 'scripts/release_service.py'))['configuration'](tmp_path)
+    assert str(Path.home() / '.local/bin') in namespace['config']['EnvironmentVariables']['PATH']
     for config in (namespace['config'], release):
         assert config['ProcessType'] == 'Standard'
         assert config['Nice'] == 5
