@@ -278,9 +278,10 @@ def candidate(g,m,q,forecast,settings,market_anchor=None,calibration_summary=Non
     p,push=forecast.market_probability(m.kind,m.side,m.line)
     p,push=supported_probability_mass(p,push,settings)
     support_policy=probability_support_policy(settings)
-    from .composite_contracts import policy as composite_policy, POLICY as COMPOSITE_POLICY, receipt as composite_receipt, anchored_partition
+    from .composite_contracts import policy as composite_policy, POLICY as COMPOSITE_POLICY, receipt as composite_receipt, anchored_partition, TITLES as COMPOSITE_TITLES
     composite_evidence=None
-    if base in ('winner_total','exact_total') and composite_policy(settings)==COMPOSITE_POLICY:
+    if ((g.league,m.kind) in COMPOSITE_TITLES and m.description==COMPOSITE_TITLES[(g.league,m.kind)]
+            and composite_policy(settings)==COMPOSITE_POLICY):
         composite_evidence=composite_receipt(g,m,forecast,settings)
     if p == 0 and not (composite_evidence is not None and isinstance(market_anchor,dict)
                       and settings.get('market_anchor_mode','shadow')=='live'):

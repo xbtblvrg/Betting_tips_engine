@@ -134,3 +134,16 @@ def test_guard_reproduces_joint_probability_not_claimed_marginal_product():
     row,g,markets,quotes,f,s=case();m=markets[0]
     f.market_probability=lambda *args:(.5,0)
     with pytest.raises(ValueError,match='differs from joint distribution'):receipt(g,m,f,s)
+
+
+def test_opt_in_does_not_misroute_other_composite_titles_to_bounded_adapter():
+    _,g,markets,quotes,f,s=case()
+    market=deepcopy(markets[0]);market.description='1x2 & Total'
+    market.metadata.pop('composite_raw_contract',None)
+    tip=candidate(g,market,quotes[market.id],f,s)
+    assert tip is not None
+    assert 'composite_contract_evidence' not in tip
+    report={'league':g.league,'version':f.model_version,'odds_used':False,'features':list(feature_names(g.league)),
+        'trained_at':utcnow().isoformat(),'code_sha256':'test','training_data_fingerprint':'test'}
+    result=EvidenceGuard(KnowledgeAgent()).check(tip,g,market,quotes[market.id],f,report,s)
+    assert 'composite_market_validation_not_established' in result['errors']
