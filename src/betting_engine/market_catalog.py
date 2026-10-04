@@ -163,7 +163,12 @@ def refresh_catalog(data_dir=DATA,fetcher=None,horizon_days=None):
         from .dashboard_payload import build_dashboard
         reader=ReadOnlyStore(Path(data_dir)/'engine.sqlite3')
         try:
-            publication=build_dashboard(reader,{},data_dir)
+            publication=reader.latest() or {}
+            reviewed=build_dashboard(reader,{},data_dir)
+            # Keep full model/sizing evidence; dashboard projection intentionally
+            # omits historical evidence needed to reproduce funding eligibility.
+            publication['recommendations']=reviewed.get('recommendations',[])
+            publication['settings']=reviewed.get('settings',{})
             summary['live_coverage']=build_from_store(reader,publication,summary,data_dir)
         finally:
             reader.close()
