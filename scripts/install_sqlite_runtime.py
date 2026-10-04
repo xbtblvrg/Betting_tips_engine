@@ -44,6 +44,8 @@ def atomic_write(path, content):
 
 
 def run(args, **kwargs):
+    kwargs['env'] = {**os.environ, **kwargs.get('env', {}),
+                     'DEVELOPER_DIR': '/Library/Developer/CommandLineTools'}
     return subprocess.run([str(x) for x in args], check=True, text=True,
                           capture_output=True, **kwargs).stdout.strip()
 
@@ -58,8 +60,19 @@ def paths(root):
     if not site.is_relative_to(root / '.venv'):
         raise ValueError('Refusing to modify site-packages outside project .venv')
     runtime = root / 'data/runtime' / ('sqlite-' + VERSION)
-    return python, site / PTH_NAME, runtime
+    pth = site / PTH_NAME
+    ensure_local_paths(root, runtime, pth)
+    return python, pth, runtime
 
+
+
+def ensure_local_paths(root, runtime, pth):
+    # Reject escaping symlinks before creating or mutating any runtime file.
+    for path in (runtime, runtime/'python', pth,
+                 *(runtime/name for name in ('sqlite-amalgamation.zip','sqlite3.c','sqlite3.h',
+                     'libsqlite3.dylib','libsqlite3.build.dylib','install_manifest.json','original.pth'))):
+        if not path.resolve().is_relative_to(root.resolve()):
+            raise ValueError('Runtime path escapes project: ' + str(path))
 
 def verify_archive(body):
     if hashlib.sha3_256(body).hexdigest() != ARCHIVE_SHA3:
@@ -107,9 +120,17 @@ def rollback(root):
         return manifest
     if str(pth) != manifest['pth_path']:
         raise ValueError('Python site path changed; explicit operator reconciliation required')
-    if not pth.exists() or sha256(pth) != manifest['pth_sha256']:
+    current = sha256(pth) if pth.exists() else None
+    prior = manifest['original_pth_sha256'] if manifest['original_pth_existed'] else None
+    # A crash before .pth replacement leaves the prior state already restored.
+    unchanged_prior = manifest.get('state') == 'installing' and current == prior
+    if not unchanged_prior and current != manifest['pth_sha256']:
         raise ValueError('Activation file changed externally; refusing to overwrite')
-    if manifest['original_pth_existed']:
+    if unchanged_prior:
+        pass
+    elif manifest.get('rollback_behavior') == 'disable_adopted_pin':
+        pth.unlink()
+    elif manifest['original_pth_existed']:
         backup = runtime / 'original.pth'
         if sha256(backup) != manifest['original_pth_sha256']:
             raise ValueError('Original activation backup hash mismatch')
@@ -147,6 +168,11 @@ def install(root):
     destination = runtime / 'python' / source.name
     dylib = runtime / 'libsqlite3.dylib'
     expected_pth = activation_text(destination.parent)
+    for path in (destination, destination.with_suffix(destination.suffix + '.staging')):
+        if not path.resolve().is_relative_to(Path(root).resolve()):
+            raise ValueError('Extension path escapes project: ' + str(path))
+    if pth.exists() and pth.read_bytes() != expected_pth:
+        raise ValueError('Conflicting existing activation file; explicit migration required')
     if (not old and pth.exists() and pth.read_bytes() == expected_pth
             and destination.exists() and dylib.exists()):
         if str(dylib) not in run(['/usr/bin/otool', '-L', destination]):
@@ -155,7 +181,8 @@ def install(root):
         runtime_check = verify_runtime(python, destination)
         atomic_write(runtime / 'original.pth', expected_pth)
         manifest = make_manifest(python, source, destination, dylib, pth, expected_pth, True, expected_pth)
-        manifest.update(state='active', build_provenance='externally_built_adopted_without_rebuild',runtime=runtime_check)
+        manifest.update(state='active', build_provenance='externally_built_adopted_without_rebuild',
+                        rollback_behavior='disable_adopted_pin', runtime=runtime_check)
         atomic_write(manifest_path, json.dumps(manifest, indent=2).encode())
         return manifest
     dylib = build_library(runtime)
@@ -191,6 +218,7 @@ def make_manifest(python, source, destination, dylib, pth, content, existed, ori
     return {'state': 'installing', 'sqlite_version': VERSION,
         'source_url': ARCHIVE_URL, 'source_sha3_256': ARCHIVE_SHA3,
         'build_provenance': 'installer_verified_archive_build',
+        'rollback_behavior': 'restore_prior_activation',
         'python': str(python), 'python_version': run([python, '--version']),
         'source_extension': str(source), 'source_extension_sha256': sha256(source),
         'extension_path': str(destination), 'extension_sha256': sha256(destination),
