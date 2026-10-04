@@ -91,3 +91,14 @@ def test_model_only_weight_retains_exact_partition_endpoints():
     m=ms[0];proof=receipt(g,m,f,s)
     result=anchored_partition(proof,m,s,contract_anchors(ms,qs)[m.id],qs[m.id].fetched_at)
     assert result['composite_blend']['probabilities']==proof['probabilities']
+
+
+@pytest.mark.parametrize('weight',[0.,1.])
+@pytest.mark.parametrize('league',['WNBA','MLB'])
+def test_weight_endpoints_preserve_complete_input_partition_exactly(weight,league):
+    _,g,ms,qs,f,s=case(league);s.update(market_model_weight=weight)
+    m=ms[0];proof=receipt(g,m,f,s);anchor=contract_anchors(ms,qs)[m.id]
+    result=anchored_partition(proof,m,s,anchor,qs[m.id].fetched_at)
+    expected=anchor['market_probabilities'] if weight==0. else proof['probabilities']
+    assert result['composite_blend']['probabilities']==expected
+    assert result['composite_blend']['normalizer']==1.

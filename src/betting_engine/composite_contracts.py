@@ -123,6 +123,11 @@ def anchored_partition(evidence,market,settings,anchor,quote_at):
     total=math.fsum(blended.values())
     if not math.isfinite(total) or total<=0:raise ValueError('Invalid composite blend partition')
     normalized={side:value/total for side,value in blended.items()}
+    # Already validated complete distributions are identity endpoints of the
+    # weight policy; preserve their floating-point values without a logit roundtrip.
+    if weight in (0.,1.):
+        blended=dict(fair if weight==0. else raw)
+        normalized=dict(blended);total=1.
     # Review the whole offered partition, so funded siblings do not combine
     # model-only and blended probabilities under different review verdicts.
     status=('review' if any(anchor_status(raw[side],fair[side],threshold=threshold,
