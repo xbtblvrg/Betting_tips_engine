@@ -261,3 +261,40 @@ def test_settings_change_during_fit_cannot_activate_a_stale_baseline(tmp_path):
     with pytest.raises(ValueError,match='baseline_changed_during_fit'):
         update_weights(tmp_path,ds,NOW+timedelta(days=2),minimum_games=5,committed_at=NOW+timedelta(days=2),fallback_reader=lambda:.7)
     assert (tmp_path/'anchor_learning/active.json').read_bytes()==before
+
+
+def test_overtime_binary_learning_is_separate_from_three_way():
+    d=decision(0);tip=d['payload']
+    tip.update(league='NBA',market='regulation:three_way',side='draw',selection='Yes',
+               stake_evidence={'market_name':'Will There Be Overtime','outcome_name':'Yes'})
+    tip['market_anchor'].update(probability_semantics='binary_overtime_alias_v1',
+                               market_probabilities={'draw':.55,'home_away':.45})
+    result,errors=observations([d],NOW)
+    assert not errors and len(result)==1 and 'partition' not in result[0]
+    assert result[0]['segment']=='NBA|regulation|overtime_alias|binary_overtime_alias_v1'
+    key=result[0]['segment']+'|v1'
+    settings={RUNTIME_KEY:{'snapshot_sha256':'a','weights':{key:{'segment':result[0]['segment'],
+        'model_weight':.4,'proof_sha256':'p'}}},'market_model_weight':.15}
+    assert effective_weight(settings,'NBA','regulation:three_way',None,'v1',semantics='binary_overtime_alias_v1')[0]==.4
+    assert effective_weight(settings,'NBA','regulation:three_way',None,'v1')[0]==.15
+    tip['stake_evidence']['market_name']='1x2'
+    assert not observations([d],NOW)[0]
+
+
+def test_transaction_store_preserves_runtime_artifact_directory(tmp_path,monkeypatch):
+    from betting_engine.storage import Store
+    from betting_engine.instruction_refill import TransactionStore
+    from betting_engine import anchor_learning
+    store=Store(tmp_path/'data'/'engine.sqlite3')
+    observed=[]
+    def snapshot(directory):
+        observed.append(directory)
+        return {'snapshot_sha256':'approved','weights':{'segment':{'model_weight':.4}}}
+    monkeypatch.setattr(anchor_learning,'load_snapshot',snapshot)
+    with store.db() as connection:
+        connection.execute('BEGIN IMMEDIATE')
+        view=TransactionStore(connection)
+        assert view.path==store.path
+        assert view.settings()[RUNTIME_KEY]==store.settings()[RUNTIME_KEY]
+        assert connection.in_transaction
+    assert observed==[store.path.parent,store.path.parent]

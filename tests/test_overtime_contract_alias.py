@@ -193,7 +193,8 @@ def test_nfl_provider_attaches_raw_phase_and_source_digest():
 
 
 @pytest.mark.parametrize('league', ['NBA','NFL'])
-def test_approved_alias_traverses_actual_guard_with_exact_identity_and_anchor(league, tmp_path):
+@pytest.mark.parametrize('learned_weight', [None,.4])
+def test_approved_alias_traverses_actual_guard_with_exact_identity_and_anchor(league, tmp_path, learned_weight):
     from datetime import timedelta
     from betting_engine.domain import utcnow
     from betting_engine.decisions import candidate, DEFAULT_SETTINGS
@@ -225,9 +226,15 @@ def test_approved_alias_traverses_actual_guard_with_exact_identity_and_anchor(le
         'training_data_fingerprint':'fixture-data','validated_markets':['three_way','double_chance'],
         'promotion_gate':{'promote':True}}
     settings={**DEFAULT_SETTINGS,'auto_track_recommendations':True,'market_anchor_mode':'live','market_model_weight':.15}
+    if learned_weight is not None:
+        from betting_engine.anchor_learning import segment,RUNTIME_KEY
+        key=segment(league,'regulation:three_way',semantics='binary_overtime_alias_v1')
+        settings[RUNTIME_KEY]={'snapshot_sha256':'approved-test-snapshot','weights':{key+'|'+forecast.model_version:{
+            'segment':key,'model_weight':learned_weight,'proof_sha256':'approved-test-proof'}}}
     for market in markets:
         quote=quotes[market.id]
         tip=candidate(game,market,quote,forecast,settings,anchors[market.id])
+        assert tip['market_anchor']['model_weight']==(learned_weight or .15)
         tip['stake_evidence']={'market_name':market.description,'outcome_name':market.selection,
             'fixture_slug':'f','market_groups':market.metadata['stake_market_groups'],
             'league_path':market.metadata['league_path'],

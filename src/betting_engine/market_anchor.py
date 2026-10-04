@@ -144,6 +144,16 @@ def anchor_status(model_probability: float, market_probability: float, *, thresh
     return 'review' if abs(model - market) > threshold else 'usable'
 
 
+def binary_overtime_anchor(market, anchor):
+    """Only the exact source-backed Yes/No alias bypasses score partitions."""
+    from .overtime_contracts import overtime_alias
+    alias = overtime_alias(getattr(market,'league',None), market.metadata.get('stake_market_name'),
+                           market.metadata.get('stake_outcome_name'))
+    return (alias == (market.kind, market.side) and market.line is None
+            and anchor.get('probability_semantics') == 'binary_overtime_alias_v1'
+            and set(anchor.get('market_probabilities', {})) == {'draw', 'home_away'})
+
+
 def contract_anchors(markets, quotes):
     """Build exact-contract anchors from parsed Stake markets and quotes.
 
@@ -219,6 +229,7 @@ def contract_anchors(markets, quotes):
                 'market_probabilities': fair,
                 'market_weight_source': 'Stake exact condition, conditional push-free devig' if conditional else 'Stake exact condition, proportional devig',
                 'conditional_push_free': conditional,
+                **({'probability_semantics': 'binary_overtime_alias_v1'} if base == 'overtime_alias' else {}),
                 'market_anchor_key': [market.game_id, market.condition_id, market.kind, market.line],
                 'quote_at': quote.fetched_at,
                 **({'exclusive_odds': odds, 'exclusive_probabilities': fair,
@@ -237,6 +248,8 @@ def contract_anchors(markets, quotes):
             underlying[(game, kind.rsplit(':', 1)[0] if ':' in kind else '', scope)][identity] = rows
     for market in markets:
         if market.kind.rsplit(':', 1)[-1] != 'double_chance' or market.id not in quotes:
+            continue
+        if binary_overtime_anchor(market, result.get(market.id, {})):
             continue
         prefix = market.kind.rsplit(':', 1)[0] if ':' in market.kind else ''
         partitions = underlying.get((market.game_id, prefix, market.metadata.get('model_scope')), {})
@@ -301,14 +314,17 @@ def anchored_score_partition(forecast, market, anchor, *, weight, threshold, mod
         probability, push = forecast.market_probability(expected_kind, side, None)
         if push != 0:
             raise ValueError('Exclusive 1x2 model cannot contain push mass')
-        raw[side] = _model_probability(probability, allow_endpoint_model)
+        raw[side] = _model_probability(probability, True)
     if not math.isclose(sum(raw.values()), 1., abs_tol=1e-9):
         raise ValueError('Incomplete exclusive model partition')
-    blended = {side: logit_blend(raw[side], fair[side], weight, allow_endpoint_model=allow_endpoint_model) for side in raw}
+    blended = {side: logit_blend(raw[side], fair[side], weight, allow_endpoint_model=True) for side in raw}
     mass = sum(blended.values())
     normalized = {side: value / mass for side, value in blended.items()}
-    status = 'review' if any(anchor_status(raw[side], fair[side], threshold=threshold, allow_endpoint_model=allow_endpoint_model) != 'usable' for side in raw) else 'usable'
+    status = 'review' if any(anchor_status(raw[side], fair[side], threshold=threshold, allow_endpoint_model=True) != 'usable' for side in raw) else 'usable'
     source = raw if kind == 'three_way' else double_chance_probabilities(raw)
+    # Other outcomes may have zero mass even when the selected contract is
+    # interior. Preserve the selected-contract endpoint policy separately.
+    _model_probability(source[market.side], allow_endpoint_model)
     market_probs = fair if kind == 'three_way' else double_chance_probabilities(fair)
     outcomes = normalized if kind == 'three_way' else double_chance_probabilities(normalized)
     if market_probs[market.side] != anchor.get('market_probability') or market_probs != anchor.get('market_probabilities'):

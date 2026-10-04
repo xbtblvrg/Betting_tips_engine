@@ -36,8 +36,10 @@ def stamp(value):
     return result.astimezone(timezone.utc)
 
 
-def segment(league,kind,line=None):
+def segment(league,kind,line=None,semantics=None):
     scope,family=split_market(kind)
+    if semantics == 'binary_overtime_alias_v1':
+        return '|'.join((league,scope,'overtime_alias',semantics))
     # Fractional Asian legs are a different target from a binary final result.
     # Keep their learning identity separate; no binary-label extrapolation.
     if line is not None and abs(float(line)*2-round(float(line)*2))>1e-8:
@@ -79,7 +81,7 @@ def observations(decisions,as_of):
             issued=stamp(decision['issued_at']);trained=stamp(tip['model_trained_at']);start=stamp(tip['start'])
             if not trained<=issued<start or issued>as_of:raise ValueError('nonprospective_model_input')
             if not -5<=(issued-stamp(tip['quote_at'])).total_seconds()<=300:raise ValueError('quote_not_issuance_fresh')
-            key=segment(tip['league'],tip['market'],tip.get('line'))
+            key=segment(tip['league'],tip['market'],tip.get('line'),anchor.get('probability_semantics'))
             if ':quarter_line|' in key:raise ValueError('fractional_settlement_target_required')
             p=float(anchor['model_probability']);q=float(anchor['market_probability'])
             if not 0<=p<=1 or not 0<q<1:raise ValueError('invalid_probability')
@@ -88,7 +90,11 @@ def observations(decisions,as_of):
                  'model_probability':p,'market_probability':q,'side':tip['side'],'outcome':None,
                  'resolved':False,'settled_at':None}
             _,base=split_market(tip['market'])
-            if base in ('three_way','double_chance'):
+            if anchor.get('probability_semantics') == 'binary_overtime_alias_v1':
+                from .overtime_contracts import overtime_alias
+                if overtime_alias(tip['league'],tip.get('stake_evidence',{}).get('market_name'),tip.get('stake_evidence',{}).get('outcome_name')) != (tip['market'],tip['side']) or set(anchor.get('market_probabilities',{})) != {'draw','home_away'}:
+                    raise ValueError('invalid_overtime_alias_semantics')
+            elif base in ('three_way','double_chance'):
                 if anchor.get('probability_semantics')!=SEMANTICS[base]:raise ValueError('legacy_incompatible_partition_semantics')
                 model=anchor['model_probabilities'];market=anchor['exclusive_probabilities']
                 sides={'home_draw':['home','draw'],'away_draw':['away','draw'],'home_away':['home','away']}
@@ -285,8 +291,8 @@ def runtime_settings(settings,data_dir):
     return result
 
 
-def effective_weight(settings,league,kind,line,model_version):
-    key=segment(league,kind,line)+'|'+str(model_version)
+def effective_weight(settings,league,kind,line,model_version,semantics=None):
+    key=segment(league,kind,line,semantics)+'|'+str(model_version)
     snapshot=settings.get(RUNTIME_KEY) or {};row=snapshot.get('weights',{}).get(key)
     if row:
         weight=float(row['model_weight'])

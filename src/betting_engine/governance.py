@@ -293,6 +293,7 @@ class EvidenceGuard:
         try:
             p,push=forecast.market_probability(market.kind,market.side,market.line)
             p,push=supported_probability_mass(p,push,settings)
+            from .market_anchor import binary_overtime_anchor
             anchor=tip.get('market_anchor')
             if composite_evidence is not None and isinstance(anchor,dict):
                 from .composite_contracts import anchored_partition
@@ -301,7 +302,7 @@ class EvidenceGuard:
                 if settings.get('market_anchor_mode','shadow')=='live':
                     if reproduced['status']!='usable':errors.append('market_anchor_missing_or_review')
                     else:p=reproduced['blended_probability'];push=0.
-            elif isinstance(anchor,dict) and market.kind.rsplit(':',1)[-1] in ('three_way','double_chance'):
+            elif isinstance(anchor,dict) and market.kind.rsplit(':',1)[-1] in ('three_way','double_chance') and not binary_overtime_anchor(market,anchor):
                 from .market_anchor import anchored_score_partition,verify_score_anchor_source
                 try:verify_score_anchor_source(game,market,anchor,self.readiness.data_dir)
                 except (OSError,ValueError,KeyError,TypeError) as exc:
@@ -328,7 +329,7 @@ class EvidenceGuard:
                     # model push probability before EV/stress calculations.
                     market_probability=float(anchor['market_probability'])
                     from .anchor_learning import effective_weight
-                    weight,learned_weight=effective_weight(settings,game.league,market.kind,market.line,forecast.model_version)
+                    weight,learned_weight=effective_weight(settings,game.league,market.kind,market.line,forecast.model_version,semantics='binary_overtime_alias_v1' if binary_overtime_anchor(market,anchor) else None)
                     if anchor.get('learned_weight')!=learned_weight or anchor.get('model_weight')!=weight:
                         errors.append('learned_anchor_weight_mismatch')
                     if anchor.get('conditional_push_free') and push>0:

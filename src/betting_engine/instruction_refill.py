@@ -27,6 +27,14 @@ class TransactionStore(Store):
     """Reuse existing read methods on the caller's consistent transaction."""
     def __init__(self, connection):
         self.connection = connection
+        # Bind runtime artifacts to the very database owned by this transaction.
+        # Never silently use cwd or discard approved learned weights.
+        from pathlib import Path
+        databases = connection.execute('PRAGMA database_list').fetchall()
+        location = next((row[2] for row in databases if row[1] == 'main'), None)
+        if not location:
+            raise ValueError('TransactionStore requires a file-backed main database')
+        self.path = Path(location)
 
     @contextmanager
     def db(self):

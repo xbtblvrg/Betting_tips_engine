@@ -271,6 +271,7 @@ def core_market_audit(candidates,selected,games=(),minimum_roi=.03,settings=None
             'claim':'Main-market evaluation and allocation evidence; absence remains unresolved, and a selected contract may already be held. No hedge or winner is inferred.'}
 
 def candidate(g,m,q,forecast,settings,market_anchor=None,calibration_summary=None,model_trained_at=None):
+    from .market_anchor import binary_overtime_anchor
     now=utcnow()
     scope,base=split_market(m.kind)
     if parse_time(g.start)<=now or g.state!='scheduled':return None
@@ -292,7 +293,7 @@ def candidate(g,m,q,forecast,settings,market_anchor=None,calibration_summary=Non
         anchor=anchored_partition(composite_evidence,m,settings,anchor,q.fetched_at)
         if anchor['mode']=='live' and anchor['status']=='usable':
             p=anchor['blended_probability'];push=0.
-    elif anchor and base in ('three_way','double_chance'):
+    elif anchor and base in ('three_way','double_chance') and not binary_overtime_anchor(m,anchor):
         from .market_anchor import anchored_score_partition
         from .anchor_learning import effective_weight
         weight,learned_weight=effective_weight(settings,g.league,m.kind,m.line,forecast.model_version)
@@ -305,7 +306,7 @@ def candidate(g,m,q,forecast,settings,market_anchor=None,calibration_summary=Non
         from .market_anchor import anchor_status, logit_blend, conditional_model_probability
         market_p=float(anchor['market_probability'])
         from .anchor_learning import effective_weight
-        weight,learned_weight=effective_weight(settings,g.league,m.kind,m.line,forecast.model_version)
+        weight,learned_weight=effective_weight(settings,g.league,m.kind,m.line,forecast.model_version,semantics='binary_overtime_alias_v1' if binary_overtime_anchor(m,anchor) else None)
         disagreement=float(settings.get('market_disagreement_threshold', .30))
         anchor_model_probability=conditional_model_probability(p,push,allow_endpoints=endpoint_model) if anchor.get('conditional_push_free') and push<1 else p
         anchor = {**anchor,
