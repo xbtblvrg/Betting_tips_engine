@@ -295,7 +295,8 @@ def candidate(g,m,q,forecast,settings,market_anchor=None,calibration_summary=Non
     elif anchor and isinstance(anchor.get('market_probability'), (int, float)):
         from .market_anchor import anchor_status, logit_blend, conditional_model_probability
         market_p=float(anchor['market_probability'])
-        weight=float(settings.get('market_model_weight', .15))
+        from .anchor_learning import effective_weight
+        weight,learned_weight=effective_weight(settings,g.league,m.kind,m.line,forecast.model_version)
         disagreement=float(settings.get('market_disagreement_threshold', .30))
         anchor_model_probability=conditional_model_probability(p,push,allow_endpoints=endpoint_model) if anchor.get('conditional_push_free') and push<1 else p
         anchor = {**anchor,
@@ -305,6 +306,7 @@ def candidate(g,m,q,forecast,settings,market_anchor=None,calibration_summary=Non
                   'disagreement_threshold': disagreement,
                   'status': anchor_status(anchor_model_probability, market_p, threshold=disagreement, allow_endpoint_model=endpoint_model),
                   'mode': settings.get('market_anchor_mode', 'shadow')}
+        if learned_weight:anchor['learned_weight']=learned_weight
         if settings.get('market_anchor_mode', 'shadow') == 'live' and anchor['status'] == 'usable':
             # Asian integer/quarter quotes identify only the relative
             # win/loss mass. Blend conditional probabilities, then restore

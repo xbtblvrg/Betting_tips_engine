@@ -217,7 +217,7 @@ def contract_anchors(markets, quotes):
     return result
 
 
-def fit_model_weight(observations, *, minimum_games: int = 30, grid_step: float = 0.05):
+def fit_model_weight(observations, *, minimum_games: int = 30, grid_step: float = 0.05, prediction_fn=None):
     """Fit a model logit weight on an earlier chronological sample.
 
     The returned weight is a candidate only.  A caller must run a later
@@ -237,21 +237,23 @@ def fit_model_weight(observations, *, minimum_games: int = 30, grid_step: float 
         try:
             p = _probability(row['model_probability'], 'model probability')
             q = _probability(row['market_probability'], 'market probability')
-            y = int(row['outcome'])
+            y = row['outcome']
             if y not in (0, 1):
                 raise ValueError
-            valid.append((p, q, y))
+            if not row.get('game_id'):raise ValueError
+            valid.append((row,p,q,y))
         except (KeyError, TypeError, ValueError):
             continue
-    if not valid:
+    games={row['game_id'] for row,_,_,_ in valid}
+    if len(games)<minimum_games:
         return {'state': 'insufficient_evidence', 'independent_games': len(games), 'weight': 0.0}
     candidates = [min(1.0, round(i * float(grid_step), 10)) for i in range(int(1 / float(grid_step)) + 1)]
     def loss(weight):
-        total = 0.0
-        for p, q, y in valid:
-            blended = logit_blend(p, q, weight)
-            total -= y * math.log(max(EPSILON, blended)) + (1 - y) * math.log(max(EPSILON, 1 - blended))
-        return total / len(valid)
+        groups={}
+        for row,p,q,y in valid:
+            blended=prediction_fn(row,weight) if prediction_fn else logit_blend(p,q,weight)
+            groups.setdefault(row['game_id'],[]).append(-y*math.log(max(EPSILON,blended))-(1-y)*math.log(max(EPSILON,1-blended)))
+        return math.fsum(math.fsum(values)/len(values) for values in groups.values())/len(groups)
     best = min(candidates, key=lambda weight: (loss(weight), weight))
     return {'state': 'candidate', 'independent_games': len(games), 'observations': len(valid),
             'weight': best, 'log_loss': loss(best), 'grid_step': float(grid_step),

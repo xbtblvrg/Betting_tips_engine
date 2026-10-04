@@ -48,9 +48,11 @@ class Store:
         finally:c.close()
     def settings(self):
         with self.db() as c:r=c.execute('SELECT value FROM kv WHERE key=?',('settings',)).fetchone()
-        return {**DEFAULT_SETTINGS,**(json.loads(r['value']) if r else {})}
+        from .anchor_learning import runtime_settings
+        return runtime_settings({**DEFAULT_SETTINGS,**(json.loads(r['value']) if r else {})},self.path.parent)
     def save_settings(self,value):
-        result={**self.settings(),**value}
+        from .anchor_learning import RUNTIME_KEY
+        result={k:v for k,v in {**self.settings(),**value}.items() if k!=RUNTIME_KEY}
         with self.db() as c:c.execute('INSERT OR REPLACE INTO kv VALUES (?,?)',('settings',json.dumps(result)))
         return result
     def request_source_refresh(self,reason):
@@ -116,14 +118,16 @@ class Store:
             if len(found)>=limit:return list(found.values())
         return list(found.values())
     def publish(self,payload,require_guard=False):
+        from .anchor_learning import weight_epoch
         now=utcnow().isoformat()
-        with self.db() as c:
+        with weight_epoch(self.path.parent),self.db() as c:
             c.execute('BEGIN IMMEDIATE')
             now=utcnow().isoformat()
             if require_guard:
                 from .governance import verify_publication
                 saved=c.execute("SELECT value FROM kv WHERE key='settings'").fetchone()
-                active_settings={**DEFAULT_SETTINGS,**(json.loads(saved['value']) if saved else {})}
+                from .anchor_learning import runtime_settings
+                active_settings=runtime_settings({**DEFAULT_SETTINGS,**(json.loads(saved['value']) if saved else {})},self.path.parent)
                 from .outcome_sizing_runtime import verify_ledger_evidence
                 verify_ledger_evidence(c,payload.get('recommendations',[])+payload.get('alternatives',[])+payload.get('evaluated_candidates',[]),active_settings,parse_time(now))
                 active_policy=active_settings.get('recommendation_policy','strict')

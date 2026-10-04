@@ -120,10 +120,8 @@ def verify_publication(tip,now,active_settings=None):
         # transaction.  Standalone historical verification has no runtime
         # settings, so it compares the receipt with itself and remains
         # byte-compatible; live publication is fail-closed in storage.
-        active_anchor_settings=anchor_settings if active_settings is None else {
-            key: active_settings.get(key, default) for key,default in (
-                ('market_anchor_mode','shadow'),('market_model_weight',.15),
-                ('market_disagreement_threshold',.30))}
+        from .anchor_learning import anchor_settings as weight_settings
+        active_anchor_settings=anchor_settings if active_settings is None else weight_settings(active_settings)
         if anchor_settings != active_anchor_settings:
             raise ValueError('Publication blocked: market anchor settings changed after evidence review')
     calibration_settings=guard.get('calibration_settings')
@@ -313,7 +311,10 @@ class EvidenceGuard:
                     # used when the candidate was created, then restore the
                     # model push probability before EV/stress calculations.
                     market_probability=float(anchor['market_probability'])
-                    weight=float(settings.get('market_model_weight',.15))
+                    from .anchor_learning import effective_weight
+                    weight,learned_weight=effective_weight(settings,game.league,market.kind,market.line,forecast.model_version)
+                    if anchor.get('learned_weight')!=learned_weight or anchor.get('model_weight')!=weight:
+                        errors.append('learned_anchor_weight_mismatch')
                     if anchor.get('conditional_push_free') and push>0:
                         conditional_model=conditional_model_probability(p,push,allow_endpoints=support_policy == VALIDATED_PROBABILITY_SUPPORT)
                         conditional_blend=logit_blend(conditional_model,market_probability,weight,allow_endpoint_model=support_policy == VALIDATED_PROBABILITY_SUPPORT)
@@ -361,9 +362,8 @@ class EvidenceGuard:
         if outcome and (outcome!='legacy' or 'outcome_sizing_policy' in tip):
             evidence['outcome_sizing_policy']=outcome
             evidence['sizing_settings']['outcome_sizing_policy']=outcome
-        evidence['market_anchor_settings']={key:settings.get(key, default) for key,default in (
-            ('market_anchor_mode','shadow'),('market_model_weight',.15),
-            ('market_disagreement_threshold',.30))}
+        from .anchor_learning import anchor_settings as weight_settings
+        evidence['market_anchor_settings']=weight_settings(settings)
         evidence['calibration_settings']={key:settings.get(key, default) for key,default in (
             ('calibration_uncertainty_mode','legacy'),('calibration_min_games',30))}
         if settings.get('publication_limits_version'):

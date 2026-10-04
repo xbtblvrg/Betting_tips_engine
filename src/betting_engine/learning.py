@@ -20,7 +20,7 @@ FEEDBACK_KINDS = frozenset(('outcome_review', 'closing_evaluation'))
 RECOVERY_KINDS = frozenset(('model_restore', 'segment_restore', 'period_restore'))
 PRIORITY = {'source_refresh':0, 'model_restore':0, 'segment_restore':0, 'period_restore':0,
     'outcome_review':1, 'closing_evaluation':1, 'shadow_evaluation':1, 'market_catalog':1,
-    'controlled_retrain':2, 'segment_retrain':2, 'period_retrain':2,
+    'controlled_retrain':2, 'segment_retrain':2, 'period_retrain':2, 'anchor_weight_learning':2,
     'player_history_refresh':2, 'player_prop_audit':2, 'player_data_refresh':3, 'model_search':3,
     'research_watch':4}
 
@@ -148,6 +148,7 @@ class LearningWorker:
         # Review on the first worker tick after a result/reconciliation change,
         # retaining the hourly fallback. Never turn repeated reads into trials.
         self.plan_outcome_review(now)
+        self.plan_anchor_weights(now)
         self.plan_segments()
         self.plan_market_expansion()
         self.plan_player_evidence()
@@ -176,6 +177,19 @@ class LearningWorker:
             with self.store.db() as c:
                 for row in c.execute("SELECT id FROM learning_jobs WHERE kind='research_gap' AND status!='resolved'").fetchall():
                     if row['id'] not in active_gaps:c.execute("UPDATE learning_jobs SET status='resolved',updated_at=? WHERE id=?",(now.isoformat(),row['id']))
+
+    def plan_anchor_weights(self, now):
+        """One durable weekly fit/evaluation job, retaining failures and attempts."""
+        with self.store.db() as c:
+            if not c.execute("SELECT 1 FROM system_decisions WHERE json_type(payload,'$.market_anchor')='object' LIMIT 1").fetchone():return None
+            active=c.execute("SELECT id FROM learning_jobs WHERE kind='anchor_weight_learning' AND status IN ('queued','running','retry') LIMIT 1").fetchone()
+            last=c.execute("SELECT updated_at FROM learning_jobs WHERE kind='anchor_weight_learning' AND status='completed' ORDER BY updated_at DESC LIMIT 1").fetchone()
+        if active:return active['id']
+        if last and now-parse_time(last['updated_at'])<timedelta(days=7):return None
+        from .anchor_learning import VERSION
+        return self.enqueue('anchor_weight_learning',VERSION+':'+now.strftime('%G-W%V'),
+            payload={'as_of':now.isoformat(),'protocol':VERSION,'minimum_games':30,
+                     'acceptance':'Frozen fit; later-issued game-balanced holdout; log-loss better than current blend and devig market.'})
 
     def plan_outcome_review(self, now):
         """Coalesce stale outcome-review retries without discarding their audit.
@@ -411,6 +425,10 @@ class LearningWorker:
                                   'acceptance':'Earlier-period recipe selection followed by one final champion comparison.'})
 
     def execute(self,job):
+        if job['kind']=='anchor_weight_learning':
+            from .anchor_learning import update_weights,iter_decisions
+            payload=json.loads(job['payload']) if isinstance(job['payload'],str) else job['payload']
+            return update_weights(self.data,iter_decisions(self.store),parse_time(payload['as_of']),fallback_weight=self.store.settings().get('market_model_weight',.15))
         if job['kind'] in ('player_history_refresh','player_prop_audit'):
             payload=json.loads(job['payload']) if isinstance(job['payload'],str) else job['payload']
             source='players/sources.json' if job['kind']=='player_history_refresh' else 'market_catalog/latest.json'

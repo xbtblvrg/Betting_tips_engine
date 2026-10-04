@@ -116,7 +116,8 @@ def anchored_partition(evidence,market,settings,anchor,quote_at):
             or anchor.get('quote_at')!=quote_at
             or anchor.get('market_anchor_key')!=[market.game_id,market.condition_id,market.kind,market.line]):
         raise ValueError('Composite anchor differs from complete source odds or identity')
-    weight=settings.get('market_model_weight',.15)
+    from .anchor_learning import effective_weight
+    weight,learned_weight=effective_weight(settings,market.league,market.kind,market.line,evidence['model_version'])
     threshold=settings.get('market_disagreement_threshold',.30)
     raw=evidence['probabilities']
     blended={side:logit_blend(raw[side],fair[side],weight,allow_endpoint_model=True) for side in fair}
@@ -132,7 +133,7 @@ def anchored_partition(evidence,market,settings,anchor,quote_at):
     # model-only and blended probabilities under different review verdicts.
     status=('review' if any(anchor_status(raw[side],fair[side],threshold=threshold,
         allow_endpoint_model=True)=='review' for side in fair) else 'usable')
-    return {**anchor,'market_probability':fair[market.side],'market_probabilities':fair,
+    return {**anchor,**({'learned_weight':learned_weight} if learned_weight else {}),'market_probability':fair[market.side],'market_probabilities':fair,
         'model_probability':raw[market.side],'blended_probability':normalized[market.side],
         'model_weight':weight,'disagreement_threshold':threshold,'status':status,
         'mode':settings.get('market_anchor_mode','shadow'),
