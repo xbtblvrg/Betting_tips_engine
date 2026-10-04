@@ -390,3 +390,32 @@ def test_preseason_final_settles_without_entering_regular_training(tmp_path):
     assert originals(store)==before
     rows,state=feature_history([game],'WNBA',NOW+timedelta(days=2))
     assert rows==[] and state.n==0
+
+
+def test_schedule_confirmed_twenty_minute_delay_recovers_originals(tmp_path):
+    raw, meta, tip = observed()
+    existing = parse_summary(raw, meta, tip, NOW)
+    original = {**tip, 'start': (parse_time(tip['start'])-timedelta(minutes=20)).isoformat()}
+    before = deepcopy(original)
+    games, status = recover_pending_espn([existing], [row(original), row(tip, 2)], [],
+        data_dir=tmp_path, fetcher=Feed(), now=NOW)
+    assert status['recovered_games'] == 1 and status['unresolved_count'] == 0
+    assert original == before
+    assert games[0].context['official_result']['schedule_start_adjustment_seconds'] == 1200
+    assert settlement_scores(original, games[0])[:2] == (33, 35)
+    # Replays exactly the retained official source across restart.
+    games, status = recover_pending_espn(games, [row(original)], [],
+        data_dir=tmp_path, fetcher=Feed(fail={'401858245'}), now=NOW)
+    assert status['cached_recovered_games'] == 1
+
+
+def test_delay_requires_matching_schedule_and_bounded_original_times(tmp_path):
+    raw, meta, tip = observed()
+    original = {**tip, 'start': (parse_time(tip['start'])-timedelta(minutes=20)).isoformat()}
+    with pytest.raises(ValueError, match='result_start_mismatch'):
+        parse_summary(raw, meta, original, NOW)
+    existing = parse_summary(raw, meta, tip, NOW)
+    original['start'] = (parse_time(tip['start'])-timedelta(minutes=31)).isoformat()
+    feed = Feed()
+    _, status = recover_pending_espn([existing], [row(original)], [], data_dir=tmp_path, fetcher=feed, now=NOW)
+    assert not feed.calls and status['unresolved_count'] == 1

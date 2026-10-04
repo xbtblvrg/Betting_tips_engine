@@ -61,7 +61,7 @@ def _url(tip):
     return f'https://site.api.espn.com/apis/site/v2/sports/{LEAGUE_PATHS[tip["league"]]}/summary?event={tip["game_id"].split(":")[1]}'
 
 
-def parse_summary(raw, meta, tip, now=None):
+def parse_summary(raw, meta, tip, now=None, *, scheduled_start=None):
     """Validate source bytes, immutable event identity and final score only."""
     now = now or utcnow()
     gid, home, away, start = _identity(tip)
@@ -90,7 +90,11 @@ def parse_summary(raw, meta, tip, now=None):
             raise ValueError('result_competition_identity_mismatch')
         actual_start = parse_time(competition['date'])
         if actual_start != start:
-            raise ValueError('result_start_mismatch')
+            if (scheduled_start is None or actual_start != parse_time(scheduled_start)
+                    or abs((actual_start-start).total_seconds()) > 1800):
+                raise ValueError('result_start_mismatch')
+        if actual_start >= now or fetched < actual_start:
+            raise ValueError('invalid_result_source_time')
         status = competition['status']['type']
         if status.get('completed') is not True or status.get('state') != 'post' or status.get('name') not in ('STATUS_FINAL', 'STATUS_FINAL_OVERTIME'):
             raise ValueError('official_game_not_final')
@@ -128,7 +132,9 @@ def parse_summary(raw, meta, tip, now=None):
     source = {
         'version': VERSION, 'url': url, 'sha256': meta['sha256'], 'fetched_at': meta['fetched_at'],
         'season_type': header['season']['type'],
-        'game_id': gid, 'start': actual_start.isoformat(), 'home_id': ids['home'], 'away_id': ids['away'],
+        'game_id': gid, 'start': actual_start.isoformat(),
+        'original_start': start.isoformat(), 'schedule_start_adjustment_seconds': (actual_start-start).total_seconds(),
+        'home_id': ids['home'], 'away_id': ids['away'],
         'home_score': scores['home'], 'away_score': scores['away'],
         'team_identity_basis': 'exact_original_names_and_consistent_espn_ids',
         'expected_team_ids_checked': original_ids_checked,
@@ -145,12 +151,20 @@ def parse_summary(raw, meta, tip, now=None):
 
 def _original(tips, existing):
     """Combine compatible original snapshots without guessing absent team IDs."""
-    if len({_identity(tip) for tip in tips}) != 1:
+    identities = [_identity(tip) for tip in tips]
+    starts = [i[3] for i in identities]
+    if len({i[:3] for i in identities}) != 1 or (max(starts)-min(starts)).total_seconds() > 1800:
         raise ValueError('conflicting_original_identities')
-    tip = dict(tips[0])
+    tip = dict(tips[starts.index(min(starts))])
+    tip.pop('_source_schedule_start', None)
     if existing is not None:
-        if (existing.id, existing.home, existing.away, parse_time(existing.start)) != _identity(tip) or existing.league != tip['league']:
+        if ((existing.id, existing.home, existing.away) != _identity(tip)[:3]
+                or existing.league != tip['league']
+                or any(abs((parse_time(existing.start)-start).total_seconds()) > 1800 for start in starts)):
             raise ValueError('conflicting_schedule_identity')
+        tip['_source_schedule_start'] = existing.start
+    elif len(set(starts)) != 1:
+        raise ValueError('conflicting_original_identities')
     for side in ('home', 'away'):
         ids = {_identifier(t[side + '_id']) for t in tips if t.get(side + '_id') is not None}
         if existing is not None:
@@ -255,7 +269,7 @@ def recover_pending_espn(games, bets, decisions, *, data_dir=DATA, fetcher=None,
             path = data / relative
             if path.stat().st_size > MAX_BODY_BYTES:
                 raise ValueError('invalid_result_body')
-            archived = parse_summary(path.read_bytes(), source, tip, now)
+            archived = parse_summary(path.read_bytes(), source, tip, now, scheduled_start=tip.get('_source_schedule_start'))
             archived.context['official_result']['archive'] = relative
             mapping[gid] = archived
             cached_recovered += 1
@@ -288,7 +302,7 @@ def recover_pending_espn(games, bets, decisions, *, data_dir=DATA, fetcher=None,
             raw, meta = fetcher.get(url, ttl=300)
             # Network batches can complete more than five seconds after the
             # cycle began; an explicitly supplied test clock stays fixed.
-            game = parse_summary(raw, meta, tip, now if fixed_now else utcnow())
+            game = parse_summary(raw, meta, tip, now if fixed_now else utcnow(), scheduled_start=tip.get('_source_schedule_start'))
             archive = folder / 'sources' / (meta['sha256'] + '.json')
             if archive.exists():
                 if archive.stat().st_size > MAX_BODY_BYTES or hashlib.sha256(archive.read_bytes()).hexdigest() != meta['sha256']:
