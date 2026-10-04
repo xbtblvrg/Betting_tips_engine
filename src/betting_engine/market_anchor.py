@@ -151,6 +151,7 @@ def contract_anchors(markets, quotes):
     `(game, condition, kind, scope, line)` prevents a neighboring period or
     alternate line from being mixed into the devig calculation.
     """
+    markets = list(markets)
     groups = defaultdict(list)
     for market in markets:
         quote = quotes.get(market.id)
@@ -174,7 +175,6 @@ def contract_anchors(markets, quotes):
         'totals': {'over', 'under'}, 'home_total': {'over', 'under'},
         'away_total': {'over', 'under'}, 'three_way': {'home', 'draw', 'away'},
         'odd_even': {'odd', 'even'}, 'both_score': {'yes', 'no'},
-        'double_chance': {'home_draw', 'away_draw', 'home_away'},
         'exact_total': {'over', 'exact', 'under'},
         'overtime_alias': {'draw', 'home_away'},
     }
@@ -213,9 +213,94 @@ def contract_anchors(markets, quotes):
                 'conditional_push_free': conditional,
                 'market_anchor_key': [market.game_id, market.condition_id, market.kind, market.line],
                 'quote_at': quote.fetched_at,
+                **({'exclusive_odds': odds, 'exclusive_probabilities': fair,
+                    'exclusive_partition_kind': kind, 'partition_version': 'exclusive_score_partition_v1'} if base == 'three_way' else {}),
             }
+    # Double-chance outcomes overlap. Their reciprocal odds cannot be
+    # normalized as three mutually exclusive outcomes. Bind to one complete
+    # underlying 1x2 market in exactly the same game and settlement scope.
+    underlying = defaultdict(dict)
+    for key, rows in groups.items():
+        game, identity, kind, scope = key
+        if kind.rsplit(':', 1)[-1] == 'three_way' and all(m.id in result for m, _ in rows):
+            underlying[(game, kind.rsplit(':', 1)[0] if ':' in kind else '', scope)][identity] = rows
+    for market in markets:
+        if market.kind.rsplit(':', 1)[-1] != 'double_chance' or market.id not in quotes:
+            continue
+        prefix = market.kind.rsplit(':', 1)[0] if ':' in market.kind else ''
+        partitions = underlying.get((market.game_id, prefix, market.metadata.get('model_scope')), {})
+        if len(partitions) != 1:
+            continue
+        rows = next(iter(partitions.values()))
+        from .domain import parse_time
+        try:
+            selected_at = parse_time(quotes[market.id].fetched_at)
+            if any(not -5 <= (selected_at - parse_time(q.fetched_at)).total_seconds() <= 300 for _, q in rows):
+                continue
+        except (TypeError, ValueError, AttributeError):
+            continue
+        source = result[rows[0][0].id]
+        fair = source['exclusive_probabilities']
+        unions = double_chance_probabilities(fair)
+        if market.side not in unions:
+            continue
+        result[market.id] = {
+            'market_probability': unions[market.side], 'market_probabilities': unions,
+            'market_weight_source': 'Stake exact-scope exclusive 1x2 partition; double chance union',
+            'conditional_push_free': False,
+            'market_anchor_key': [market.game_id, market.condition_id, market.kind, market.line],
+            'quote_at': quotes[market.id].fetched_at,
+            'exclusive_odds': source['exclusive_odds'], 'exclusive_probabilities': fair,
+            'exclusive_partition_kind': rows[0][0].kind,
+            'exclusive_source_contracts': sorted(m.id for m, _ in rows),
+            'exclusive_quote_times': {m.id: q.fetched_at for m, q in rows},
+            'partition_version': 'exclusive_score_partition_v1',
+        }
     return result
 
+
+
+def double_chance_probabilities(exclusive):
+    if set(exclusive) != {'home', 'draw', 'away'} or not math.isclose(sum(exclusive.values()), 1., abs_tol=1e-9):
+        raise ValueError('Double chance requires a complete exclusive 1x2 distribution')
+    if any(isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or not 0 <= v <= 1 for v in exclusive.values()):
+        raise ValueError('Invalid exclusive outcome mass')
+    return {'home_draw': exclusive['home'] + exclusive['draw'],
+            'away_draw': exclusive['away'] + exclusive['draw'],
+            'home_away': exclusive['home'] + exclusive['away']}
+
+
+def anchored_score_partition(forecast, market, anchor, *, weight, threshold, mode, allow_endpoint_model=False):
+    """Reproducible exclusive 1x2 blending and derived overlapping DC unions."""
+    kind = market.kind.rsplit(':', 1)[-1]
+    if kind not in ('three_way', 'double_chance'):
+        raise ValueError('Not an exclusive-score/derived double-chance contract')
+    expected_kind = market.kind.rsplit(':', 1)[0] + ':three_way' if ':' in market.kind else 'three_way'
+    if anchor.get('exclusive_partition_kind') != expected_kind or anchor.get('partition_version') != 'exclusive_score_partition_v1':
+        raise ValueError('Exact-scope exclusive partition is required')
+    fair = devig_probabilities(anchor['exclusive_odds'])
+    if set(fair) != {'home', 'draw', 'away'} or fair != anchor.get('exclusive_probabilities'):
+        raise ValueError('Exclusive market partition does not reproduce')
+    raw = {}
+    for side in ('home', 'draw', 'away'):
+        probability, push = forecast.market_probability(expected_kind, side, None)
+        if push != 0:
+            raise ValueError('Exclusive 1x2 model cannot contain push mass')
+        raw[side] = _model_probability(probability, allow_endpoint_model)
+    if not math.isclose(sum(raw.values()), 1., abs_tol=1e-9):
+        raise ValueError('Incomplete exclusive model partition')
+    blended = {side: logit_blend(raw[side], fair[side], weight, allow_endpoint_model=allow_endpoint_model) for side in raw}
+    mass = sum(blended.values())
+    normalized = {side: value / mass for side, value in blended.items()}
+    status = 'review' if any(anchor_status(raw[side], fair[side], threshold=threshold, allow_endpoint_model=allow_endpoint_model) != 'usable' for side in raw) else 'usable'
+    source = raw if kind == 'three_way' else double_chance_probabilities(raw)
+    market_probs = fair if kind == 'three_way' else double_chance_probabilities(fair)
+    outcomes = normalized if kind == 'three_way' else double_chance_probabilities(normalized)
+    if market_probs[market.side] != anchor.get('market_probability') or market_probs != anchor.get('market_probabilities'):
+        raise ValueError('Selected probability differs from exclusive partition')
+    return {**anchor, 'model_probability': source[market.side], 'model_probabilities': raw,
+            'blended_probabilities': normalized, 'blended_probability': outcomes[market.side],
+            'model_weight': weight, 'disagreement_threshold': threshold, 'status': status, 'mode': mode}
 
 def fit_model_weight(observations, *, minimum_games: int = 30, grid_step: float = 0.05, prediction_fn=None):
     """Fit a model logit weight on an earlier chronological sample.
