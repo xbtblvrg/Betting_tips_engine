@@ -34,8 +34,9 @@ def build_live_coverage(publication, catalog, decisions=(), feedback_tip_ids=(),
     decisions: dict rows from system_decisions (payload may be JSON or dict).
     feedback_tip_ids: IDs explicitly present in a successful feedback input;
     a recent worker heartbeat alone is not proof of feedback for a decision.
-    Eligibility means at least one currently executable funded selection, not
-    permanent support for every line/outcome of that title.
+    Funding support means a guarded current candidate passes policy and minimum
+    sizing before exposure. Ready-now separately requires executable funded
+    selection and an unmarked checklist. Neither grants permanent title approval.
     """
     now = now or utcnow()
     current = _fresh(publication.get('generated_at'), now)

@@ -169,6 +169,7 @@ def refresh_catalog(data_dir=DATA,fetcher=None,horizon_days=None):
             # omits historical evidence needed to reproduce funding eligibility.
             publication['recommendations']=reviewed.get('recommendations',[])
             publication['settings']=reviewed.get('settings',{})
+            publication['placement_marks']=reviewed.get('placement_marks',{})
             summary['live_coverage']=build_from_store(reader,publication,summary,data_dir)
         finally:
             reader.close()
