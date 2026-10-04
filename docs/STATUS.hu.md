@@ -500,7 +500,13 @@ Teszt: frontend **289 passed, 0 failed**. A meglévő Python döntési és kiad�
 Kiegészítés: a fejlécben külön `Changed / No bet anymore` statkártya mutatja a szűrt nézetben bent maradó, mai és még közelgő, már nem kvalifikáló kártyák számát. A First issued és Daily Instructions definíciója változatlan.
 
 Changed-kártya javítás: a normál `Mark as placed` vezérlő is megmarad rajtuk. A jelölés ugyanazon checklist/API útvonalon működik, a rekord a Trackerbe kerül, a kártya pedig nem marad végrehajtható Picks-elem. Frontend: **290 passed**.
-## 2026-10-04 — NFL Winner/Handicap/Total scope-helyes kiadás
+## 2026-10-04 — Korrekció: NFL modellcsere visszavonva
+
+Az alábbi korábbi bejegyzés guard-megkerülés nélküli kiadásra vonatkozó állítása hibás. Az elo_identity kontrollált promotion gate-je elutasított, majd controlled=False útvonalon mégis települt. Az archivált NFL-sport-v3-bc70d592b08c-5dd511a5 modell és jelentése visszaállítva; SHA256 dd029b455e015af3df064be3b5de9b61017162a5adaa7633af351e991de8407e, független Codex-review ellenőrizte. Eredeti döntések és kimenetelek megmaradnak.
+
+A train belépési pont immár controlled=False esetén is megköveteli a meglévő champion összevetését és a tanítás alatti stabilitási ellenőrzést. Az elo_identity hiányzó HYPOTHESES bejegyzése javítva: a modellkeresés KeyError hibája reprodukálva, majd megszüntetve. 44 célzott teszt sikeres, köztük a három belépési változat elutasítási regressziója. Teljes release-suite és teljes piaci lefedettség nincs ezzel igazolva. A korábbi kiadás következő szövege auditcélból megmarad.
+
+## 2026-10-04 — NFL Winner/Handicap/Total scope-helyes kiadás (visszavont modell)
 
 Az NFL 48 órás lefedettségében a teljes meccses `Winner (Incl. Overtime)` 30 kimenetele korábban a Winner EvidenceGuard Elo-regressziós blokkján akadt el; a Stake-párosítás, quote és elszámolás rendben volt. A `elo_identity` recept az oddsoktól független, változatlan Elo-valószínűséget használja, identitás-kalibrációval, és a normál model artifact/promotion, EvidenceGuard, quote-frissesség, settlement és immutable ledger útvonalon fut.
 

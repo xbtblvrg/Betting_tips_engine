@@ -10,6 +10,7 @@ from .train import score_gate
 
 PROTOCOL='chronological-recipe-search-v1'
 HYPOTHESES={
+ 'elo_identity':'Use odds-independent Elo without fitted calibration; select on earlier data and retain the paired promotion gate.',
  'baseline':'Reproduce the current model family as the development control.',
  'flexible_calibration':'Reduce shrinkage in probability calibration when forecasts cluster too tightly.',
  'strong_calibration':'Reduce calibration variance in a small or unstable sample.',

@@ -5,7 +5,7 @@ import json,logging,joblib,argparse,io,math,hashlib
 import numpy as np
 from .providers import DATA,SportsData
 from .domain import Game,LEAGUES,parse_time,utcnow
-from .models import LeagueModel
+from .models import LeagueModel, RECIPES
 from .io_utils import atomic_json,atomic_bytes
 
 def score_gate(champion,challenger):
@@ -32,7 +32,10 @@ def promotion_gate(champion,challenger):
     scores=score_gate(champion,challenger)
     return {'promote':hi<0 and scores['passed'],'reason':'Paired weekly Brier comparison and score-regression check; not proof of betting profit.','paired_games':len(pairs),'weeks':len(blocks),'delta_ci95':[lo,hi],'score_guard':scores}
 
-def train(refresh=False,leagues=LEAGUES,controlled=False,recipe_override=None):
+def train(refresh=False,leagues=LEAGUES,controlled=True,recipe_override=None):
+    # Legacy callers may still pass False. It must never turn an existing
+    # champion replacement into an unchecked initial deployment.
+    controlled=True
     from .experiments import training_digest
     from .training_evidence import capture_inputs,bind_archive
     if refresh or not (DATA/'games.json').exists():
@@ -77,5 +80,5 @@ def train(refresh=False,leagues=LEAGUES,controlled=False,recipe_override=None):
     atomic_json(out/'summary.json',reports);return reports
 
 if __name__=='__main__':
-    parser=argparse.ArgumentParser();parser.add_argument('--refresh',action='store_true');parser.add_argument('--controlled',action='store_true');parser.add_argument('--league',choices=LEAGUES,action='append');parser.add_argument('--recipe',choices=tuple(sorted(__import__('betting_engine.models',fromlist=['RECIPES']).RECIPES)),help='Use an explicitly reviewed recipe for the selected challenger.') ;args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--refresh',action='store_true');parser.add_argument('--controlled',action='store_true',default=True);parser.add_argument('--league',choices=LEAGUES,action='append');parser.add_argument('--recipe',choices=tuple(sorted(RECIPES)),help='Recipe for a challenger; existing promotion checks always apply.');args=parser.parse_args()
     train(args.refresh,args.league or LEAGUES,args.controlled,args.recipe)
