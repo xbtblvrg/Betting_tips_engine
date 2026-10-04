@@ -150,8 +150,12 @@ def export_markdown(report, path):
     def yes(value):
         return 'Yes' if value else 'No'
     lines = ['# Live Stake market coverage', '', 'Checked: ' + report['checked_at'], '', report['scope'], '',
-             '| League | Exact Stake title | Scope | Connected | Evaluated | Funding supported / ready now | Issued today | Settled / feedback |',
-             '|---|---|---|---|---|---|---:|---|']
+             '| League | Observed titles | Evaluated | Funding supported | Ready now | Issued today |',
+             '|---|---:|---:|---:|---:|---:|']
+    for league, counts in report['leagues'].items():
+        lines.append('| ' + ' | '.join(map(cell, [league, counts['observed_types'], counts['evaluated_types'], counts['funding_eligible_types'], counts['funding_eligible_now_types'], counts['issued_today']])) + ' |')
+    lines += ['', '| League | Exact Stake title | Scope | Connected | Evaluated | Funding supported / ready now | Issued today | Settled / feedback |',
+              '|---|---|---|---|---|---|---:|---|']
     for row in report['rows']:
         lines.append('| ' + ' | '.join(map(cell, [row['league'], row['market'], row['scope'], yes(row['connected']), yes(row['evaluated']), yes(row['funding_supported']) + ' / ' + yes(row['funding_eligible_now']), row['issued_today'], str(row['settled_decisions']) + ' / ' + str(row['feedback_decisions'])])) + ' |')
     target = Path(path)
