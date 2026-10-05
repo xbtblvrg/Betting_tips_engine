@@ -103,8 +103,11 @@ def funding_basis(tip, settings):
                       and math.isfinite(float(clv_gate.get('clv')))
                       and float(clv_gate.get('clv')) > 0)
     shadow_tier = tier if tier in ('model_pick', 'probability_pick') else None
-    continuous_diverse = settings.get('family_selection_policy') == 'continuous_probability_v2'
+    continuous_diverse = settings.get('family_selection_policy') in ('continuous_probability_v2', 'continuous_probability_v3', 'continuous_probability_v4')
     if not continuous_diverse and settings.get('fallback_clv_gate', 'legacy') == 'prospective_positive_clv' and shadow_tier and not clv_passed:
+        tier = 'unfunded'
+    min_odds_floor = settings.get('min_odds')
+    if min_odds_floor is not None and odds < float(min_odds_floor):
         tier = 'unfunded'
     model = tier == 'model_pick'
     probability_only = tier == 'probability_pick'
@@ -130,18 +133,22 @@ def funding_basis(tip, settings):
                 'Configured base-unit sizing uses a related-event discount and any supplied bankroll-fraction cap, '
                 'within the configured $1–$5 range; no tier-specific $1 cap. The $1 ticket minimum may bind. '
                 'Profit is unproven, with actual nominal and stressed EV retained.')
+    if min_odds_floor is not None and odds < float(min_odds_floor):
+        note = f'Odds {odds:.2f} is below the configured minimum odds floor of {float(min_odds_floor):.2f}.'
     result = {'version': VERSION, 'policy': policy, 'minimum_roi': roi, 'tier': tier,
             'eligible': tier != 'unfunded', 'probability_basis': 'model_win_probability_only' if probability_only else 'model' if model else 'stress',
             'minimum_odds': threshold, 'maximum_stake': cap,
             'model_probability': p, 'stress_probability': stress, 'push_probability': push,
             'odds': odds, 'model_roi': model_roi, 'stress_roi': stress_roi,
             'note': note, 'claim': 'Reproducible allocation policy only. Exact current contract, source, independent model and publication guards remain mandatory; no guaranteed win or established profit.'}
+    if min_odds_floor is not None:
+        result['min_odds'] = float(min_odds_floor)
     if 'fallback_clv_gate' in settings:
         result.update(fallback_clv_gate=settings.get('fallback_clv_gate', 'legacy'), clv_min_games=clv_min_games,
                       clv_evidence=clv_gate if isinstance(clv_gate, Mapping) else None,
                       clv_gate_passed=clv_passed)
     if continuous_diverse:
-        result.update(family_selection_policy='continuous_probability_v2',
+        result.update(family_selection_policy=settings.get('family_selection_policy'),
                       clv_gate_role='measurement_only')
     if shadow_tier and tier == 'unfunded' and settings.get('fallback_clv_gate', 'legacy') == 'prospective_positive_clv':
         result.update(shadow_only=True, shadow_tier=shadow_tier,
@@ -293,7 +300,7 @@ def size_recommendation(tip, settings, remaining, related_count=0):
     from .outcome_sizing import apply_adjustment, verify_summary, segment_key
     policy = outcome_policy(settings)
     base = _base_size_recommendation(tip, settings, remaining, related_count)
-    if settings.get('family_selection_policy') == 'continuous_probability_v2':
+    if settings.get('family_selection_policy') in ('continuous_probability_v2', 'continuous_probability_v3', 'continuous_probability_v4'):
         # Explicit user-authorized minimum ticket, not a Kelly-derived edge.
         # Never spend a dollar the event/bankroll/per-ticket caps do not allow.
         basis = funding_basis(tip, settings)

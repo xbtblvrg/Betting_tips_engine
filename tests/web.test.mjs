@@ -600,18 +600,28 @@ test('changed history separates original issuance from revised execution and lat
  const {w,d,writes}=await boot({recommendations:[],tracked_bets:[record],evaluated_candidates:[current]});
  const panel=d.querySelector('#withdrawn-upcoming-section');assert.match(panel.textContent,/Odds: 1.90 · Stake: \$1.25/);assert.match(panel.textContent,/Observed odds: 1.70/);assert.match(panel.textContent,/14.0%/);assert.doesNotMatch(panel.textContent,/\$3.50/);assert.deepEqual(writes,[]);await w.happyDOM.close();
 });
-test('today issued changed selections stay in the Betting Picks card list',async()=>{
+test('unqualified selections do not appear as cards in Betting Picks grid and stats header',async()=>{
  const id='changed-pick';
  const changed={...tip,id,stake:1,reference_odds:2,created_at:new Date().toISOString(),tracking_source:'auto_assumed_placed',stake_market:{event_url:'https://stake.com/sports/basketball/usa/nba/events/g',tab:'Main'}};
  const record={id:7,tip_id:id,stake:1,odds:2,status:'open',created_at:changed.created_at,payload:changed,instruction_review:{actionable:false,reason:'Model no longer supports'}};
  const {w,d,writes}=await boot({recommendations:[],evaluated_candidates:[],tracked_bets:[record],status:{daily_progress:{issuance_rows:[{tip_id:id,issued_at:new Date().toISOString(),start:tip.start}]}}});
- const card=d.querySelector('.changed-card');assert.ok(card);assert.match(card.textContent,/No bet anymore/);assert.match(card.textContent,/Model no longer supports/);assert.match(card.textContent,/View on Stake/);assert.match(card.textContent,/Mark as placed/);assert.ok(card.querySelector('[data-placement]'));assert.equal(card.querySelector('.stake-bet-button').getAttribute('href'),'https://stake.com/sports/basketball/usa/nba/events/g');assert.match(d.querySelector('#stats').textContent,/Changed \/ No bet anymore\s*1/);assert.deepEqual(writes,[]);await w.happyDOM.close();
+ const card=d.querySelector('.changed-card');assert.equal(card,null);
+ assert.equal(d.querySelectorAll('.tip-card').length,0);
+ assert.doesNotMatch(d.querySelector('#tips-grid').textContent,/No bet anymore/);
+ assert.doesNotMatch(d.querySelector('#stats').textContent,/Changed \/ No bet anymore/);
+ assert.doesNotMatch(d.querySelector('#stats').textContent,/No longer recommended/);
+ assert.deepEqual(writes,[]);await w.happyDOM.close();
 });
-test('started and marked daily records are excluded while future changed records remain',async()=>{
+test('started, marked, and unqualified daily records do not appear as cards in the main grid',async()=>{
  const futureId='future-changed',startedId='started-daily',markedId='marked-daily';
  const mk=(id,start)=>({id,tip_id:id,stake:1,odds:2,status:'open',created_at:new Date().toISOString(),payload:{...tip,id,start,tracking_source:'auto_assumed_placed'},instruction_review:{actionable:false,reason:'Model no longer supports'}});
  const marked=mk(markedId,start);const {w,d}=await boot({recommendations:[],evaluated_candidates:[],tracked_bets:[mk(futureId,start),mk(startedId,new Date(Date.now()-60000).toISOString()),marked],placement_marks:{[markedId]:new Date().toISOString()},status:{daily_progress:{issuance_rows:[{tip_id:futureId,issued_at:new Date().toISOString(),start},{tip_id:startedId,issued_at:new Date().toISOString(),start:new Date(Date.now()-60000).toISOString()},{tip_id:markedId,issued_at:new Date().toISOString(),start}]}}});
- assert.equal(d.querySelectorAll('.changed-card').length,1);assert.equal(d.querySelector('[data-tip-id="'+futureId+'"]')!==null,true);assert.equal(d.querySelector('[data-tip-id="'+startedId+'"]'),null);assert.equal(d.querySelector('[data-tip-id="'+markedId+'"]'),null);await w.happyDOM.close();
+ assert.equal(d.querySelectorAll('.changed-card').length,0);
+ assert.equal(d.querySelectorAll('.tip-card').length,0);
+ assert.equal(d.querySelector('[data-tip-id="'+futureId+'"]'),null);
+ assert.equal(d.querySelector('[data-tip-id="'+startedId+'"]'),null);
+ assert.equal(d.querySelector('[data-tip-id="'+markedId+'"]'),null);
+ await w.happyDOM.close();
 });
 
 import './overtime_alias.web.test.mjs';

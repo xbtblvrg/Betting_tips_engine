@@ -18,7 +18,7 @@ STAT_PRIORS={
  'WNBA':{'offensive_efficiency':102.,'defensive_efficiency':102.,'possessions':79.,'effective_fg':.49,'turnover_rate':.16,'offensive_rebound_rate':.25,'free_throw_rate':.25},
  'NHL':{'shots_for':30.,'shots_against':30.,'shot_share':.5,'save_fraction':.90,'shooting_fraction':.10,'power_play_goals':.6},
  'NFL':{'yards_per_play':5.5,'yards_allowed_per_play':5.5,'passing_yards_per_attempt':6.5,'rushing_yards_per_attempt':4.3,'turnovers_per_play':.02,'third_down_fraction':.4,'offensive_plays':64.},
- 'MLB':{},'NCAAF':{},'NCAAM':{},'NCAAW':{}}
+ 'MLB':{},'NCAAF':{},'NCAAM':{},'NCAAW':{},'MLS':{}}
 
 def number(r,k):
     v=float(r[k])

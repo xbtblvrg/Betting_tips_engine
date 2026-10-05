@@ -345,7 +345,7 @@ class CodexControl:
             return result
         return self._run('consume_reset', operation, timeout_seconds=timeout_seconds, operation_id=idempotency_key)
 
-    def probe_model(self, exact_model, *, provider='codex', reasoning_effort='high', timeout_seconds=30, operation_id=None):
+    def probe_model(self, exact_model, *, provider='codex', reasoning_effort='low', timeout_seconds=30, operation_id=None):
         if provider != 'codex' or not isinstance(exact_model, str) or not re.fullmatch('[A-Za-z0-9._-]{1,100}', exact_model):
             raise ValueError('only an exact Codex model is supported')
         if reasoning_effort not in ('low', 'medium', 'high', 'xhigh', 'max'):

@@ -33,7 +33,7 @@ PINNED = {
     TEST_FILE: '088030e2ef280f1b79a22966ce3f746fc807694c2d124725446e9c9f89a524ba',
     'src/betting_engine/claude_development.py': 'cb5823e4de13147ca2bd8b0ce7a37c70e6b1511a53c01781826222caa3c3d055',
     'src/betting_engine/ai_delegation.py': '1fc4a2adf32e0abbccebde2299ea70d7745f8b968890c3612703b22d90ed279a',
-    'src/betting_engine/domain.py': 'd175a82bc9a9a23bd54e49cf230e5a5b8dd9f7b47ab4e21c652fbced4f70b4f2',
+    'src/betting_engine/domain.py': '1ada26eaa16934b6c7b08fddf545ba0aab019ad7199b23b9ccbc73fd7a7a7b92',
     'src/betting_engine/io_utils.py': '4c7b8f6b5e335b9cd5b42ea2b716ab3ed86bcddf848eeca2017ac574fe1a0f6b',
     'src/betting_engine/__init__.py': 'e0889be650d34516f3adda0c37121f4f390d275fd4b1122becb517cb71dbd679',
     'src/betting_engine/delivery.py': 'f198f67c074ed83fe2d531c147b3f817df354890a0235de5e691fc21c01800ba',
@@ -41,7 +41,7 @@ PINNED = {
 }
 COPY_SOURCE = 'src/betting_engine/workspace_copy.py'
 COPY_BEFORE = '38b1f52a6764902c82dbba45af9a9512930071a27ff8c85036a7e6af63de384e'
-COPY_REVIEWED = 'c5183278b458fcd26d50ed7fbb1d71aeb862767f8f61138b15a20d71960eec24'
+COPY_REVIEWED = '9c3e44c1a71270dd67d935dba525c9758abc781c023b8b7566320b11170593ae'
 PROTECTED_ADDITIONS = {'src/betting_engine/native_test_protocol.py',
                        'src/betting_engine/release_fixture_inputs.py',
                        'src/betting_engine/release_sports_fixture_inputs.py',

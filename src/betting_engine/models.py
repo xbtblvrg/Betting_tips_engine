@@ -21,8 +21,8 @@ from .context import STAT_PRIORS
 
 FEATURES=('elo_difference','home_attack','home_defense','away_attack','away_defense','recent_margin_difference','home_rest','away_rest','rest_difference','home_games','away_games','neutral','playoff','league_scoring')
 # Explicit allowlist: neither odds nor lines nor market-derived ratings are input.
-PRIORS={'NBA':112.,'WNBA':80.,'MLB':4.5,'NHL':3.,'NFL':23.,'NCAAF':28.,'NCAAM':72.,'NCAAW':67.}
-WINDOW={'NBA':20,'WNBA':15,'MLB':30,'NHL':20,'NFL':8,'NCAAF':8,'NCAAM':20,'NCAAW':20}
+PRIORS={'NBA':112.,'WNBA':80.,'MLB':4.5,'NHL':3.,'NFL':23.,'NCAAF':28.,'NCAAM':72.,'NCAAW':67.,'MLS':1.4}
+WINDOW={'NBA':20,'WNBA':15,'MLB':30,'NHL':20,'NFL':8,'NCAAF':8,'NCAAM':20,'NCAAW':20,'MLS':15}
 PITCHER_FEATURES=('starter_earned_runs_per_nine','starter_whip','starter_strikeout_fraction','starter_walk_fraction','starter_home_run_fraction','starter_observed_batters','starter_known')
 
 # Fixed, reviewable hypotheses. Recipe selection belongs to the earlier
@@ -171,7 +171,7 @@ def score_distribution(margin,total,residuals,home_probability,draw_probability,
     margins=margin+residuals[:,0];totals=total+residuals[:,1]
     home=np.maximum(0,np.rint((totals+margins)/2));away=np.maximum(0,np.rint((totals-margins)/2))
     weights=np.ones(len(home),dtype=float)
-    if league!='NFL':
+    if league not in ('NFL', 'MLS'):
         ties=home==away;h0=home[ties];a0=away[ties]
         home=np.concatenate([home[~ties],h0+1,h0]);away=np.concatenate([away[~ties],a0,a0+1]);weights=np.concatenate([weights[~ties],np.full(len(h0),.5),np.full(len(h0),.5)])
     # Small explicit support regularizer for absent outcome classes, not invented observations.
@@ -264,7 +264,7 @@ class LeagueModel:
         self.report['beats_elo_brier']=evaluation['brier']<self.report['elo_baseline']['brier']
         # Deploy exactly the evaluated parameter fit; update observed team form separately.
         self.models=frozen;self.score_model=frozen_score
-        self.draw_rate=float(np.mean(scores[train|tune,0]==0)) if self.league=='NFL' else 0.
+        self.draw_rate=float(np.mean(scores[train|tune,0]==0)) if self.league in ('NFL', 'MLS') else 0.
         # Synthetic, model-centered thresholds: probability diagnostics, NOT a betting ROI backtest.
         all_ptest=self.calibrator.predict_proba(logit(blend(frozen,allx[test])).reshape(-1,1))[:,1]
         market_y={k:[] for k in ('spreads','totals','home_total','away_total')};market_p={k:[] for k in market_y}

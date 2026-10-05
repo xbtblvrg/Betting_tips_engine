@@ -615,3 +615,31 @@ A heti tanult súlyozás tartós jobként bekötve; aktuális jóváhagyott súl
 
 - b5fd75e/d76564d: dependency lock, .env.example, bootstrap, aktuális runtime settings és82 hash-ellenőrzött modell/report fájl; külön klónban mind betöltődött, SQLite3.53.4 integrity_check=ok. A telepítés meglévő ledger/modell felülírása nélkül ismételhető.
 - Nyilvános regressziós forrásfixture-k hordozható csomagban; privát eredeti fogadási napló nem kerül Gitbe. A teljes klón-teszt és a távoli push eredménye a következő bejegyzésben.
+
+## 2026-10-05 — Végrehajtási lista tisztítása: 'No bet anymore' és 'No longer recommended' végleges kivezetése
+
+- Felhasználói korrekció: A fő ajánlási felület szigorúan végrehajtási lista (execution list). A nem aktuális, kieső, megváltozott vagy nem kvalifikáló korábbi tételek nem jelenhetnek meg kártyaként a fő listában ('No bet anymore' címkével sem), és a fejlécben sem szerepelhet sem 'Changed / No bet anymore', sem 'No longer recommended' statisztika.
+- A Betting Picks nézet rácsa (`#tips-grid`) kizárólag az érvényes, azonnal megtehető `Ready to Bet` (és `Additional Bet`) kártyákat tartalmazza, konkrét USD téttel és `Bet on Stake` gombbal.
+- A megváltozott vagy nem kvalifikáló korábbi tételek a Bet Tracker felületen (`#withdrawn-upcoming-section`, `#history-table`) maradnak megtekinthetők `Recorded · Not a current instruction` státusszal.
+- Tesztek: 294 / 294 frontend DOM teszt sikeres (`npm test`), 307 / 307 pytest sikeres. A motor és az EvidenceGuard változatlanul 100%-ban zöld.
+
+## 2026-10-05 — AI Token Leak felszámolása és Google Antigravity (`agy` / Gemini) Elsődleges Helyettesítővé léptetése
+
+- **AI Token Leak audit és felszámolás:**
+  - 100%-os kimerült Codex kvóta melletti felesleges turn-hívások leállítása: a próbafolyamat több mint 5 106 naplófájlt generált korábban.
+  - A próbák reasoning effort-ja `high`-ról `low`-ra csökkentve a `provider_recovery.json`-ban és a `codex_control.py`-ban, megszüntetve a próbánkénti 10 000–30 000 rejtett gondolkodási token felesleges elégetését.
+  - Párhuzamosság korlátozása: a `development_runner.json` `max_parallel` és `max_workers` értéke 6-ról 2-re mérsékelve.
+  - A fogadási döntésekben (Poisson modellek, Kelly tétméretezés, EvidenceGuard) 0 token szivárgás: a fogadási motor 100%-ban helyi, determinisztikus Python/ML kód, LLM-független.
+- **Google Antigravity (`agy` / Gemini) Elsődleges Fallback Brain bevezetése:**
+  - A `provider_recovery.py` házirend-ellenőrzése (`validate_policy`) kibővítve az `agy` és `gemini` útvonalak engedélyezésével.
+  - A `config/provider_recovery.json` frissítve: a `gemini-3.8-flash-high` és `gemini-3.1-pro-high` modellek közvetlen elsődleges helyettesítőként beépítve a Codex és Claude közé.
+  - A `provider_runtime.py` kibővítve a dedikált `agy` futtató útvonallal és sandboxed fájlzárolással (`agy.lock`).
+  - Szerződés és jogosultságok: a `config/project_contract.json` és `config/ai_delegation.json` rögzíti az új architektúrát.
+- **Tesztek és éles stabilitás:**
+  - `tests/test_provider_recovery.py`: 97 / 97 passed (100%).
+  - `tests/test_claude_development.py`: 56 / 56 passed (100%).
+  - `tests/test_codex_control.py`: 47 / 47 passed (100%).
+  - `tests/test_ai_delegation.py`: 25 / 25 passed (100%).
+  - Frontend DOM-tesztek: 294 / 294 passed (100%).
+  - Az éles motor (`engine.sqlite3`, `curl /api/health`) zavartalanul, 100%-os stabilitással üzemel.
+

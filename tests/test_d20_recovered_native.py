@@ -12,9 +12,6 @@ from betting_engine.event_sequence import SequenceError, extract_event_targets
 from betting_engine.native_event_sequence import load_archive
 
 ROOT = Path(__file__).resolve().parents[1] / 'data/sports_source_evidence'
-if not (ROOT / 'manifest.json').is_file():
-    from tests.fixture_runtime import public_fixture_root
-    ROOT = public_fixture_root() / 'sports_source_evidence'
 AS_OF = json.loads((ROOT / 'manifest.json').read_bytes())['created_at']
 
 

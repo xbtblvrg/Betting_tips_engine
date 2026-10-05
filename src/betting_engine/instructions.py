@@ -192,7 +192,7 @@ def _original_budget(original, issued_at):
         from .funding_policy import funding_basis,size_recommendation
         settings['family_selection_policy']=guard.get('family_selection_policy','stressed_value_v1')
         settings.update(minimum_roi=guard['minimum_roi'],recommendation_policy=guard.get('recommendation_policy','strict'),model_pick_sizing_policy=guard.get('model_pick_sizing_policy','unit_cap_v1'),model_pick_allocation_policy=guard.get('model_pick_allocation_policy','one_per_game_v1'))
-        for key in ('fallback_clv_gate','clv_min_games','outcome_sizing_policy','family_selection_policy'):
+        for key in ('fallback_clv_gate','clv_min_games','outcome_sizing_policy','family_selection_policy','min_odds'):
             if key in guard.get('sizing_settings', {}): settings[key]=guard['sizing_settings'][key]
         if (settings['recommendation_policy']!='strict' or 'funding_basis' in original) and original.get('funding_basis')!=funding_basis(original,{**settings,'max_bet':guard['sizing_settings']['max_bet']}):
             raise ValueError('Original funding policy does not reproduce')

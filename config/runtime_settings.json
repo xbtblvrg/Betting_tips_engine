@@ -39,7 +39,7 @@
   "model_pick_allocation_policy": "distinct_family_v1",
   "fallback_clv_gate": "legacy",
   "clv_min_games": 30,
-  "family_selection_policy": "continuous_probability_v2",
+  "family_selection_policy": "continuous_probability_v4",
   "outcome_sizing_policy": "historical_confidence_v3",
   "sparse_league_overrides": [
     "NFL",
@@ -48,5 +48,6 @@
   ],
   "probability_support_policy": "validated_mass_v1",
   "composite_contract_policy": "complete_joint_score_v1",
-  "missing_starter_policy": "verified_model_prior_v1"
+  "missing_starter_policy": "verified_model_prior_v1",
+  "min_odds": 1.40
 }

@@ -315,9 +315,6 @@ def test_history_result_cannot_be_used_as_current_participation():
 
 def test_supplied_native_observations_reconcile_without_claiming_independent_boxscore():
     root = Path(__file__).resolve().parents[1] / "data/validation_sources/native-shots-v1/data/sports_source_evidence"
-    if not (root / "manifest.json").is_file():
-        from tests.fixture_runtime import public_fixture_root
-        root = public_fixture_root() / "native-shots-v1/data/sports_source_evidence"
     manifest = json.loads((root / "manifest.json").read_bytes())
     expected = {"2022030145": (43, 23), "2022020939": (27, 35), "2022020583": (38, 28),
                 "2022020543": (24, 27), "2022020222": (24, 29)}

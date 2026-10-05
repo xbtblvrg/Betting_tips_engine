@@ -24,9 +24,11 @@ DEFAULT_SETTINGS['calibration_min_games']=30
 LEGACY_FAMILY_SELECTION = 'stressed_value_v1'
 PROBABILITY_FAMILY_SELECTION = 'qualified_probability_v1'
 CONTINUOUS_PROBABILITY_SELECTION = 'continuous_probability_v2'
+CONTINUOUS_PROBABILITY_SELECTION_V3 = 'continuous_probability_v3'
+CONTINUOUS_PROBABILITY_SELECTION_V4 = 'continuous_probability_v4'
 
 def continuous_probability_allocation(settings):
-    return family_selection_policy(settings) == CONTINUOUS_PROBABILITY_SELECTION
+    return family_selection_policy(settings) in (CONTINUOUS_PROBABILITY_SELECTION, CONTINUOUS_PROBABILITY_SELECTION_V3, CONTINUOUS_PROBABILITY_SELECTION_V4)
 
 def learned_selection_score(tip):
     # Only source-bound, independently game-weighted historical summaries earn
@@ -47,6 +49,71 @@ def continuous_selection_priority(tip, tier):
     # performance then current stressed return break ties.
     return (int(tier > 0), tip['probability'], learned_selection_score(tip),
             tip['stress_roi'], is_core_market(tip), str(tip['id']))
+
+def continuous_selection_priority_v3(tip, tier):
+    # Eligible candidates precede ineligible rows.
+    # Tier 3 (stress_value) and Tier 2 (model_pick with positive EV) lead.
+    # Within eligible tiers, composite score promotes positive EV (winner, spread, over),
+    # learned historical segment track record, and unconditional win probability,
+    # with a soft deprioritization of negative-EV Totals Under and a value boost for
+    # positive-EV high odds (underdogs >= 2.00) to counter favourite probability bias.
+    p = float(tip.get('probability', 0.))
+    ev = float(tip.get('expected_roi', 0.))
+    stress_roi = float(tip.get('stress_roi', 0.))
+    odds = float(tip.get('reference_odds', 0.) or 0.)
+    learned = learned_selection_score(tip)
+    core = 1.0 if is_core_market(tip) else 0.0
+    side = str(tip.get('side', '')).lower()
+    market = str(tip.get('market', '')).lower()
+    is_under = 'total' in market and side == 'under'
+    under_drag = -0.10 if (is_under and ev < 0.03) else 0.0
+    odds_pref = 0.15 if odds >= 2.00 else 0.10 if odds >= 1.60 else 0.05 if odds >= 1.40 else (-0.20 if odds > 0 else 0.0)
+    underdog_value_boost = min(0.35, ev * odds * 0.5) if (odds >= 2.00 and ev > 0) else 0.0
+    score = (tier * 10.0) + (p * 2.0) + (min(1.0, max(-1.0, ev)) * 1.5) + (learned * 0.5) + (core * 0.2) + odds_pref + under_drag + underdog_value_boost
+    return (int(tier > 0), score, p, stress_roi, is_core_market(tip), str(tip['id']))
+
+def continuous_selection_priority_v4(tip, tier):
+    # Smart line-pivoting selection priority:
+    # 1. Tier 3 (stress_value) and Tier 2 (model_pick with positive EV) lead.
+    # 2. Within eligible tiers, composite score promotes:
+    #    - Higher EV weight (ev * 2.5 for positive EV) to reward genuine statistical edge.
+    #    - Market family preference towards historically high-ROI markets (Spreads +0.40, Moneyline +0.35, Team Totals +0.25).
+    #    - Stronger protection on Totals Under (-0.25 drag unless EV >= 0.05).
+    #    - Attractive odds preference (>=1.70, >=2.00) and underdog value boost.
+    #    - Unconditional win probability (p * 1.5) and learned historical segment evidence.
+    p = float(tip.get('probability', 0.))
+    ev = float(tip.get('expected_roi', 0.))
+    stress_roi = float(tip.get('stress_roi', 0.))
+    odds = float(tip.get('reference_odds', 0.) or 0.)
+    learned = learned_selection_score(tip)
+    core = 1.0 if is_core_market(tip) else 0.0
+    side = str(tip.get('side', '')).lower()
+    market = str(tip.get('market', '')).lower()
+
+    # Family preference towards proven high-ROI families
+    family_pref = 0.0
+    if 'spreads' in market:
+        family_pref = 0.40
+    elif 'moneyline' in market or market == 'winner':
+        family_pref = 0.35
+    elif 'total' in market and ('home' in market or 'away' in market):
+        family_pref = 0.25
+    elif core:
+        family_pref = 0.15
+
+    # End-game protection on Totals Under:
+    is_under = 'total' in market and side == 'under'
+    under_drag = -0.25 if (is_under and ev < 0.05) else (0.10 if (is_under and ev >= 0.08) else 0.0)
+
+    # Attractive odds preference
+    odds_pref = 0.25 if odds >= 2.00 else (0.15 if odds >= 1.70 else (0.05 if odds >= 1.40 else (-0.50 if odds > 0 else 0.0)))
+    underdog_value_boost = min(0.40, ev * odds * 0.6) if (odds >= 2.00 and ev > 0) else 0.0
+
+    # EV scoring: positive EV is rewarded, negative EV is penalized
+    ev_score = (ev * 2.5) if ev >= 0 else (ev * 1.5)
+
+    score = (tier * 10.0) + (p * 1.5) + (min(1.5, max(-1.5, ev_score))) + (learned * 0.5) + family_pref + odds_pref + under_drag + underdog_value_boost
+    return (int(tier > 0), score, p, stress_roi, is_core_market(tip), str(tip['id']))
 
 PUBLICATION_LIMITS_V1 = 'v1'
 PUBLICATION_LIMITS_V2 = 'v2'
@@ -142,7 +209,7 @@ def stressed_probability(p, stress, settings):
 
 def family_selection_policy(settings):
     policy = settings.get('family_selection_policy', LEGACY_FAMILY_SELECTION)
-    if policy not in (LEGACY_FAMILY_SELECTION, PROBABILITY_FAMILY_SELECTION, CONTINUOUS_PROBABILITY_SELECTION):
+    if policy not in (LEGACY_FAMILY_SELECTION, PROBABILITY_FAMILY_SELECTION, CONTINUOUS_PROBABILITY_SELECTION, CONTINUOUS_PROBABILITY_SELECTION_V3, CONTINUOUS_PROBABILITY_SELECTION_V4):
         raise ValueError('Unknown family selection policy')
     return policy
 
@@ -154,6 +221,10 @@ def family_selection_priority(tip, tier, settings):
     market anchor/calibration), not the raw independent model component.
     """
     if continuous_probability_allocation(settings):
+        if family_selection_policy(settings) == CONTINUOUS_PROBABILITY_SELECTION_V4:
+            return continuous_selection_priority_v4(tip, tier)
+        if family_selection_policy(settings) == CONTINUOUS_PROBABILITY_SELECTION_V3:
+            return continuous_selection_priority_v3(tip, tier)
         return continuous_selection_priority(tip, tier)
     values = (tip['stress_roi'], tip['probability'])
     if family_selection_policy(settings) == PROBABILITY_FAMILY_SELECTION:
@@ -512,7 +583,12 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
     # Value at the exact odds, after the probability stress allowance, takes
     # precedence over hit rate. A short-priced favorite is not necessarily a better bet.
     def priority(c):
-        if probability_flow:return continuous_selection_priority(c,tier(c))
+        if probability_flow:
+            if selection_policy == CONTINUOUS_PROBABILITY_SELECTION_V4:
+                return continuous_selection_priority_v4(c, tier(c))
+            if selection_policy == CONTINUOUS_PROBABILITY_SELECTION_V3:
+                return continuous_selection_priority_v3(c, tier(c))
+            return continuous_selection_priority(c, tier(c))
         return (tier(c),c['stress_roi'],c['probability'],
                            -CORE_MARKETS.index(c['market']) if c['market'] in CORE_MARKETS else -len(CORE_MARKETS),str(c['id']))
     held_choices=[]
@@ -528,7 +604,8 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
             c['stake_note']=c['allocation_reason'];held_choices.append(c);continue
         key=(c['game_id'],allocation_family(c))
         old=families.get(key)
-        if old is None or family_selection_priority(c,tier(c),settings)>family_selection_priority(old,tier(old),settings):families[key]=c
+        if old is None or family_selection_priority(c,tier(c),settings)>family_selection_priority(old,tier(old),settings):
+            families[key]=c
     value_order=sorted(families.values(),key=priority,reverse=True)
     ranks={c['id']:rank for rank,c in enumerate(value_order,1)}
     # User policy: reserve first allocation priority for qualified full-game
@@ -564,7 +641,7 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                 reason='Qualified full-game Winner, Handicap and Total receive first sizing priority; the configured final-probability policy selects each family winner. Other qualified families remain eligible.',
                 family_selection_reason='Within each canonical family, preserve funding tier precedence, then prefer the current final win probability, with stressed return as the tie-break. No measured performance improvement is implied.')
         if probability_flow:
-            c['allocation_policy'].update(version=CONTINUOUS_PROBABILITY_SELECTION,
+            c['allocation_policy'].update(version=selection_policy,
                 family_selection_policy=selection_policy,
                 historical_selection_score=learned_selection_score(c),
                 reason='Eligible exact contracts compete by final unconditional win probability, game-weighted learned performance and current stressed return, within the active exposure limits.')
@@ -610,12 +687,22 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
             c['allocation_code']='model_pick_family_covered'
             c['allocation_reason']='A funded contract already covers this market family. No weaker alternative or repeat nominal allocation is requested.'
             c['stake_note']=c['allocation_reason']
+            c['alternative'] = True; alternatives.append(c); continue
         elif not probability_flow and continuous and tier(c) in (1,2) and not (tier(c)==2 and family_additions) and ((c['game_id'],bases[c['id']]['tier']) in preference_allocations or c['game_id'] in new_preference_events):
             c['allocation_code']='model_pick_event_covered'
             c['allocation_reason']='This preference allocation for the game is already covered. Stress-qualified distinct contracts remain eligible.'
             c['stake_note']=c['allocation_reason']
+            c['alternative'] = True; alternatives.append(c); continue
         elif not probability_flow and effective and effective.get('distinct_families_required') and (c['game_id'],allocation_family(c)) in allocated_families:
-            c['allocation_code']='event_family_covered';c['allocation_reason']='This game already holds this scope and market family.';c['stake_note']=c['allocation_reason']
+            c['allocation_code']='event_family_covered'
+            c['allocation_reason']='This game already holds this scope and market family.'
+            c['stake_note']=c['allocation_reason']
+            c['alternative'] = True; alternatives.append(c); continue
+        elif any(held_t.get('game_id') == c['game_id'] and held_t.get('stake', 0) > 0 and allocation_family(held_t) == allocation_family(c) and held_t.get('side') and c.get('side') and held_t.get('side') != c.get('side') for held_t in (held_event_roster or []) + chosen):
+            c['allocation_code'] = 'contradictory_side_blocked'
+            c['allocation_reason'] = 'An opposing side is already held or funded on this game and market family. Opposing bets without proven joint arbitrage are contradictory and not permitted.'
+            c['stake_note'] = c['allocation_reason']
+            c['alternative'] = True; alternatives.append(c); continue
         elif event_cap is not None and funded_counts[c['game_id']]>=event_cap:
             c['allocation_code']='event_limit';c['allocation_reason']='The per-game allocation is already committed to recorded bets.'
             c['stake_note']='The per-game limit is already allocated to recorded bets.'
@@ -651,6 +738,10 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                 c['allocation_reason']='A Model Pick has already been issued for this game; the policy does not rotate back to a probability-only pick.'
             else:
                 c['allocation_reason']='Another current probability-only selection has higher preference in this game; lower-ranked alternatives receive no new stake.'
+            c['stake_note']=c['allocation_reason']
+        elif settings.get('min_odds') is not None and (c.get('reference_odds') or 0) < float(settings['min_odds']):
+            c['allocation_code']='odds_below_minimum'
+            c['allocation_reason']=f"Current odds {(c.get('reference_odds') or 0):.2f} are below the configured minimum odds floor of {float(settings['min_odds']):.2f}."
             c['stake_note']=c['allocation_reason']
         else:
             c['allocation_code']='price_below_threshold';c['allocation_reason']='Current odds do not meet the model threshold after the stress allowance.'

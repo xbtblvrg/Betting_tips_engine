@@ -150,6 +150,7 @@ class LearningWorker:
         self.plan_outcome_review(now)
         self.plan_anchor_weights(now)
         self.plan_segments()
+        self.plan_underperforming_segments(now)
         self.plan_market_expansion()
         self.plan_player_evidence()
         self.plan_research()
@@ -293,6 +294,38 @@ class LearningWorker:
         prior=last['updated_at'] if last else json.loads(path.read_text())['checked_at'] if path.exists() else None
         if not prior or utcnow()-parse_time(prior)>=timedelta(hours=24):
             self.enqueue('segment_retrain',f'MLB:{prior or "initial"}',league='MLB',payload={'acceptance':'Actual inning targets; time-separated selection/test; per-market diagnostics and paired promotion.'})
+
+    def plan_underperforming_segments(self, now):
+        """Automatically identify underperforming segments and route them to autonomous AI repair jobs."""
+        from .segment_scoreboard import compute_segment_scoreboard
+        try:
+            with self.store.db() as c:
+                scoreboard = compute_segment_scoreboard(c)
+                under = scoreboard.get('underperforming_segments', [])
+                for seg in under:
+                    if seg['pnl'] > -3.0 or seg['games'] < 4:
+                        continue
+                    league = seg['league']
+                    task_name = f"Repair underperforming segment {seg['segment']}"
+                    payload = {
+                        'league': league,
+                        'task': task_name,
+                        'segment': seg['segment'],
+                        'pnl': seg['pnl'],
+                        'roi_pct': seg['roi_pct'],
+                        'games': seg['games'],
+                        'wins': seg['wins'],
+                        'losses': seg['losses'],
+                        'objective': (f"Underperforming segment {seg['segment']} has realized PnL of ${seg['pnl']:.2f} "
+                                      f"(ROI {seg['roi_pct']}%) across {seg['games']} games. Investigate failure modes "
+                                      f"(totals volatility, score distribution, key player/line dependencies) and "
+                                      f"propose an improved model recipe or tighter qualification gate to achieve positive PnL."),
+                        'handler': 'controlled_retrain',
+                        'status': 'needs_implementation'
+                    }
+                    self.enqueue('segment_repair', f"{league}:{task_name}", payload, league, 'needs_implementation')
+        except Exception:
+            pass
 
     def plan_market_expansion(self):
         for kind,artifact,hours in [('market_catalog','market_catalog/latest.json',.25),('period_retrain','period_models/latest_training.json',24),('player_data_refresh','players/sources.json',24)]:

@@ -13,7 +13,7 @@ from .contracts import PRICING_VERSION,split_market,PERIOD_SCOPES,market_stress,
 from .freshness import MAX_QUOTE_AGE_SECONDS,fresh_quote
 
 ROOT=Path(__file__).resolve().parents[2]
-CARD_IDS={'NBA':'K05','WNBA':'K05','MLB':'K04','NFL':'K06','NHL':'K07','NCAAF':'K06','NCAAM':'K05','NCAAW':'K05'}
+CARD_IDS={'NBA':'K05','WNBA':'K05','MLB':'K04','NFL':'K06','NHL':'K07','NCAAF':'K06','NCAAM':'K05','NCAAW':'K05','MLS':'K13'}
 SEALED_FIELDS=('id','game_id','league','home','away','start','market','side','line','selection',
     'model_version','probability','push_probability','stress_probability','reference_odds',
     'expected_roi','stress_roi','minimum_odds','quote_at','valid_until','reference_platform',
@@ -85,7 +85,7 @@ def verify_publication(tip,now,active_settings=None):
     policy=guard.get('recommendation_policy','strict')
     model_sizing=guard.get('model_pick_sizing_policy','unit_cap_v1')
     policy_settings={**guard.get('sizing_settings',{}),'minimum_roi':guard['minimum_roi'],'recommendation_policy':policy,'model_pick_sizing_policy':model_sizing,'model_pick_allocation_policy':guard.get('model_pick_allocation_policy','one_per_game_v1')}
-    if selection_policy == 'continuous_probability_v2':policy_settings['family_selection_policy']=selection_policy
+    if selection_policy in ('continuous_probability_v2', 'continuous_probability_v3', 'continuous_probability_v4'):policy_settings['family_selection_policy']=selection_policy
     if policy!='strict' or 'funding_basis' in tip or model_sizing!='unit_cap_v1' or policy_settings['model_pick_allocation_policy']!='one_per_game_v1':
         basis=funding_basis(tip,policy_settings)
         if tip.get('funding_basis')!=basis:raise ValueError('Publication blocked: funding policy evidence changed or missing')
@@ -107,9 +107,9 @@ def verify_publication(tip,now,active_settings=None):
         if reviewed and (any(settings[k]!=reviewed[k] for k in ('bankroll','unit_stake','kelly_fraction','max_bankroll_fraction')) or settings['max_bet']>reviewed['max_bet']):
             raise ValueError('Publication blocked: sizing settings changed after evidence review')
         settings.update(minimum_roi=guard['minimum_roi'],recommendation_policy=policy,model_pick_sizing_policy=model_sizing,model_pick_allocation_policy=guard.get('model_pick_allocation_policy','one_per_game_v1'))
-        if selection_policy == 'continuous_probability_v2':settings['family_selection_policy']=selection_policy
+        if selection_policy in ('continuous_probability_v2', 'continuous_probability_v3', 'continuous_probability_v4'):settings['family_selection_policy']=selection_policy
         if outcome!='legacy':settings['outcome_sizing_policy']=outcome
-        for key in ('fallback_clv_gate','clv_min_games'):
+        for key in ('fallback_clv_gate','clv_min_games','min_odds'):
             if key in guard.get('sizing_settings',{}):settings[key]=guard['sizing_settings'][key]
         reproduced=size_recommendation(tip,settings,sizing['maximum_stake'],sizing['related_contracts']) if policy!='strict' or outcome!='legacy' else stake_assessment(tip['stress_probability'],tip['push_probability'],tip['reference_odds'],settings,sizing['maximum_stake'],sizing['related_contracts'])
         if reproduced!=sizing or stake!=reproduced['amount']:raise ValueError('Publication blocked: stake sizing does not reproduce')
@@ -395,6 +395,8 @@ class EvidenceGuard:
             evidence['sizing_settings'].update(
                 fallback_clv_gate=settings.get('fallback_clv_gate','legacy'),
                 clv_min_games=settings.get('clv_min_games',30))
+        if settings.get('min_odds') is not None:
+            evidence['sizing_settings']['min_odds']=float(settings['min_odds'])
         if not errors:evidence['candidate_sha256']=evidence_digest(tip)
         tip['decision_guard']=evidence
         return evidence

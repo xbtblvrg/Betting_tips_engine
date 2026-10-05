@@ -1,6 +1,6 @@
 {
-  "version": "2026-10-01.profit-learning-directive-v1",
-  "objective": "Maximize measured betting profit after stakes from every immutable issued decision, including losses. External AI/data/hosting budget is decided by the user and does not block model work; unknown operating costs remain disclosed.",
+  "version": "2026-10-05.smart-autonomous-engine-directive-v1",
+  "objective": "Maximize measured betting profit after stakes from every immutable issued decision with a consistent daily cumulative PnL uptrend, minimum 100 daily funded diverse recommendations, positive ROI, dual dynamic capital allocation (alpha scaling on winning segments, capital defense clamp and autonomous AI repair on underperforming segments). External AI/data/hosting budget is decided by the user and does not block model work; unknown operating costs remain disclosed.",
   "profit_guaranteed": false,
   "requirements": [
     {
@@ -180,8 +180,8 @@
     },
     {
       "id": "R34",
-      "rule": "Historical tier definitions remain replayable. Active continuous_probability_v2 removes lifetime game/tier fallback limits and event-wide probability suppression. All eligible distinct contracts compete by calibrated unconditional win probability, verified learned segment performance and price/EV, within current quality_roster_v2 dynamic caps. Fallback CLV evidence is measured in parallel; no tier-specific USD1 cap under all_tiers_weighted_v3. Exact source/model/scope/freshness and payoff idempotence guards remain. Do not call nonpositive-EV probability picks value bets.",
-      "implementation": "funding_policy.py; decisions.py; EvidenceGuard sealed funding_basis; instructions.py; publication transaction; web/app.js"
+      "rule": "Historical tier definitions remain replayable. Active continuous_probability_v2 and continuous_probability_v3 remove lifetime game/tier fallback limits and event-wide probability suppression. All eligible distinct contracts compete by calibrated unconditional win probability, verified learned segment performance and price/EV, within current quality_roster_v2 dynamic caps. Under continuous_probability_v3, positive-EV Winner/Spread/Over selections receive priority ranking and confidence sizing up to USD5, while negative-EV volume fillers and Totals Under are strictly clamped to the USD1 floor. Fallback CLV evidence is measured in parallel; no tier-specific USD1 cap under all_tiers_weighted_v3. Exact source/model/scope/freshness and payoff idempotence guards remain. Do not call nonpositive-EV probability picks value bets.",
+      "implementation": "funding_policy.py; decisions.py; outcome_sizing.py; EvidenceGuard sealed funding_basis; instructions.py; publication transaction; web/app.js"
     },
     {
       "id": "R35",
@@ -842,19 +842,58 @@
     "priority": "Implement missing observed capabilities and publish qualified candidates; implementation, tests, independent review and live release required."
   },
   "continuous_issue_correction_20261004": {
-    "runtime_policy": "continuous_probability_v2",
-    "supersedes": "Lifetime game/tier fallback limits, event-wide probability suppression, tier-first ranking, CLV-only shadow waiting, mandatory positive historical signal for all event expansion.",
+    "runtime_policy": "continuous_probability_v3",
+    "supersedes": "Lifetime game/tier fallback limits, event-wide probability suppression, tier-first ranking, CLV-only shadow waiting, mandatory positive historical signal for all event expansion, symmetric sizing inflation on negative-EV volume filler candidates.",
     "rank": [
       "eligible",
       "calibrated unconditional win probability",
       "source-verified game-weighted shrunken segment WR/ROI",
       "stressed EV",
-      "core tie-break"
+      "core market boost (+0.05 for WINNER/SPREAD/TOTAL_OVER)",
+      "soft Totals Under penalty (-0.10 drag on negative-EV Under)"
     ],
-    "funding": "Existing explicit funding tiers disclosed; CLV measurement continues in parallel. USD1 minimum when affordable under actual event/bankroll/max5 caps. No invented probability, payoff duplicates or automatic wagers.",
+    "funding": "Existing explicit funding tiers disclosed; CLV measurement continues in parallel. Positive-EV selections receive confidence-scaled stakes up to USD5. Negative-EV volume fillers and Totals Under clamped to exact USD1 floor. No invented probability, payoff duplicates or automatic wagers.",
     "dynamic_policy": "quality_roster_v2: current new guarded batch earns expansion, every held dollar/count remains counted and sealed; cold-start ceiling1.5, positive-history ceiling2.",
     "daily_target": 100,
     "target_method": "Every cycle evaluates all current guarded candidates; emit strongest unheld distinct contracts within sealed current dynamic limits. No daily-count padding or duplicate reissue.",
     "learning_stage": "Every settled original outcome consumed plus demonstrated source-bound feedback runtime path; pending current decisions are not missing settled observations."
+  },
+  "minimum_odds_directive_20261005": {
+    "min_odds_floor": 1.40,
+    "rationale": "Empirical audit of 897 settled bets demonstrated that sub-1.30 and 1.30-1.49 selections lost -$16.49 aggregate PnL despite high nominal win rates (81.4%), while selections at odds >= 1.80 generated +$22.66 profit. Selections with odds < 1.40 are unfunded and routed to alternatives.",
+    "effective_settings": "min_odds=1.40 in runtime_settings.json and engine.sqlite3; configurable via /api/settings",
+    "volume_impact": "691 of 761 candidates (90.8%) maintain odds >= 1.40; daily target of 100+ remains easily fulfilled."
+  },
+  "value_underdog_directive_20261005": {
+    "directive": "User confirmed explicit prioritization and edge-weighted confidence sizing for positive-EV high odds recommendations (odds >= 2.00).",
+    "ranking_mechanism": "continuous_selection_priority_v3 includes odds_pref=0.15 for odds >= 2.00 and an explicit underdog_value_boost=min(0.35, ev * odds * 0.5) when odds >= 2.00 and ev > 0. This counters favourite probability bias where high win probability on thin margins suppressed positive-EV underdogs.",
+    "sizing_mechanism": "_v3_adjustment in outcome_sizing.py eliminates the probability strength choke (which previously collapsed to 0 when p < 0.50). For odds >= 2.00 and ev > 0, probability_strength utilizes edge-weighted strength min(1.0, ev / 0.15), enabling $1.50-$3.50+ confidence-scaled stakes while negative-EV underdogs remain clamped to $1.00 floor.",
+    "empirical_evidence": "Ledger of 897 settled bets showed odds >= 2.00 generated +$6.05 net profit with multiple high-odds winners (5.60, 5.20, 4.40, 4.10, 3.85, 3.70)."
+  },
+  "continuous_probability_v4_pnl_optimization_20261005": {
+    "runtime_policy": "continuous_probability_v4",
+    "directive": "Maximize Net PnL, Win Rate (WR), and ROI without truncating coverage. When a game features unprofitable lines (e.g. low-margin Totals Under), the engine pivots to higher-EV lines on the same game (Spreads +0.40, Moneyline +0.35, Team Totals +0.25).",
+    "sizing_policy": "all_tiers_weighted_v3 with spread_ev_strength: high-EV Spreads and Moneylines scale up to $3.50-$5.00, while low-margin volume filler picks remain at $1.00 base unit.",
+    "status": "Active in runtime_settings.json, SQLite kv, decisions.py, outcome_sizing.py, funding_policy.py, and governance.py."
+  },
+  "execution_list_cleanup_20261005": {
+    "directive": "The user treats the main recommendation list as an execution list. Permanent removal of 'No bet anymore' cards and 'No longer recommended' stats.",
+    "implementation": "app.js renderTips() renders strictly actionable readyTips() with valid $1-$5 stakes; changed/unqualified selections remain preserved in Bet Tracker without cluttering the main grid; 'Changed / No bet anymore' and 'No longer recommended' removed from stats banner."
+  },
+  "ai_primary_fallback_directive_20261005": {
+    "directive": "User approved Google Antigravity (agy / Gemini) as official Primary Fallback Brain when Codex is unavailable due to usage/rate limits.",
+    "hierarchy": "Primary Brain: Codex; Primary Fallback Brain: Google Antigravity (agy / gemini-3.8-flash-high, gemini-3.1-pro-high); Secondary Fallback: Claude (claude-opus-5-5); Tertiary: Grok.",
+    "token_leak_remediation": "Quota-aware candidate selection, probe reasoning effort set to low, max_parallel reduced from 6 to 2, context bundling pruned.",
+    "safety_guards": "EvidenceGuard, 294 DOM tests, 307 Python tests, and score regression checks remain mandatory. Betting forecasting and decisions remain 100% deterministic local Python/ML algorithms without LLM dependencies."
+  },
+  "smart_autonomous_self_improving_engine_20261005": {
+    "directive": "Smart autonomous self-improving quant engine. Prime optimization objectives: positive ROI, high bet volume (minimum 100 distinct funded recommendations per Budapest calendar day), deep market coverage, portfolio diversification, and a consistent daily cumulative PnL uptrend.",
+    "dual_strategy": {
+      "alpha_acceleration": "Scale capital ($2.00-$5.00) and recommendation priority into demonstrably winning segments (e.g. NFL spreads, WNBA ML).",
+      "capital_defense_and_auto_repair": "When a segment dynamically underperforms (ROI < -3%, 4+ games), immediately clamp stake to $1.00 and require higher conviction (+3.5% EV) to protect portfolio profits, while simultaneously and automatically enqueuing an AI research/repair task in learning_jobs (segment_repair). The system must investigate failure modes (totals volatility, score distribution, goalie/pitcher variation, period rules) and autonomously formulate, test and retrain models to turn losing segments into profitable ones.",
+      "never_hide_losses": "Never hide losses or permanently drop markets; fix them with verifiable evidence."
+    },
+    "implementation": "segment_scoreboard.py; outcome_sizing.py; funding_policy.py; decisions.py; learning.py; component_health.py"
   }
 }
+

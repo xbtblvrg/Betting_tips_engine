@@ -119,7 +119,8 @@ def _full_copy(source_fd, parent_fd, name):
 
 def _has_xattrs(fd):
     if sys.platform == 'darwin':
-        fn = ctypes.CDLL(None, use_errno=True).flistxattr
+        libc = ctypes.CDLL(None, use_errno=True)
+        fn = libc.flistxattr
         fn.argtypes = [ctypes.c_int, ctypes.c_void_p, ctypes.c_size_t, ctypes.c_int]
         fn.restype = ctypes.c_ssize_t
         size = fn(fd, None, 0, 0)
@@ -128,7 +129,15 @@ def _has_xattrs(fd):
             if code in (errno.ENOTSUP, errno.EOPNOTSUPP):
                 return False
             raise OSError(code, os.strerror(code))
-        return size != 0
+        if size == 0:
+            return False
+        buf = ctypes.create_string_buffer(size)
+        read = fn(fd, buf, size, 0)
+        if read <= 0:
+            return False
+        names = [x for x in buf.raw[:read].split(b'\x00') if x]
+        user_names = [x for x in names if x != b'com.apple.provenance']
+        return len(user_names) != 0
     return bool(os.listxattr(fd)) if hasattr(os, 'listxattr') else False
 
 

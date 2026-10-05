@@ -63,6 +63,7 @@ def validate_batch(games):
 
 NFL_NAMES={'ARI':'Arizona Cardinals','ATL':'Atlanta Falcons','BAL':'Baltimore Ravens','BUF':'Buffalo Bills','CAR':'Carolina Panthers','CHI':'Chicago Bears','CIN':'Cincinnati Bengals','CLE':'Cleveland Browns','DAL':'Dallas Cowboys','DEN':'Denver Broncos','DET':'Detroit Lions','GB':'Green Bay Packers','HOU':'Houston Texans','IND':'Indianapolis Colts','JAX':'Jacksonville Jaguars','KC':'Kansas City Chiefs','LA':'Los Angeles Rams','LAC':'Los Angeles Chargers','LV':'Las Vegas Raiders','MIA':'Miami Dolphins','MIN':'Minnesota Vikings','NE':'New England Patriots','NO':'New Orleans Saints','NYG':'New York Giants','NYJ':'New York Jets','PHI':'Philadelphia Eagles','PIT':'Pittsburgh Steelers','SEA':'Seattle Seahawks','SF':'San Francisco 49ers','TB':'Tampa Bay Buccaneers','TEN':'Tennessee Titans','WAS':'Washington Commanders','OAK':'Las Vegas Raiders','SD':'Los Angeles Chargers','STL':'Los Angeles Rams'}
 NHL_NAMES={'ANA':'Anaheim Ducks','BOS':'Boston Bruins','BUF':'Buffalo Sabres','CAR':'Carolina Hurricanes','CBJ':'Columbus Blue Jackets','CGY':'Calgary Flames','CHI':'Chicago Blackhawks','COL':'Colorado Avalanche','DAL':'Dallas Stars','DET':'Detroit Red Wings','EDM':'Edmonton Oilers','FLA':'Florida Panthers','LAK':'Los Angeles Kings','MIN':'Minnesota Wild','MTL':'Montreal Canadiens','NJD':'New Jersey Devils','NSH':'Nashville Predators','NYI':'New York Islanders','NYR':'New York Rangers','OTT':'Ottawa Senators','PHI':'Philadelphia Flyers','PIT':'Pittsburgh Penguins','SEA':'Seattle Kraken','SJS':'San Jose Sharks','STL':'St. Louis Blues','TBL':'Tampa Bay Lightning','TOR':'Toronto Maple Leafs','UTA':'Utah Mammoth','VAN':'Vancouver Canucks','VGK':'Vegas Golden Knights','WPG':'Winnipeg Jets','WSH':'Washington Capitals','ARI':'Arizona Coyotes'}
+MLS_TEAMS=('18418','20906','9720','21300','182','184','183','193','18267','185','6077','20232','187','18966','17362','18986','189','17606','12011','10739','9723','4771','190','22529','191','9726','186','21812','7318','9727')
 
 class SportsData:
     def __init__(self,fetcher=None):self.fetcher=fetcher or Fetcher()
@@ -171,6 +172,62 @@ class SportsData:
                     found[g.id]=g
         games=validate_batch(list(found.values()))
         return games,{'url':f'https://api-web.nhle.com/v1/club-schedule-season/[teams]/{season-1}{season}','fetched_at':max(m['fetched_at'] for m in metas),'sha256':hashlib.sha256(''.join(sorted(m['sha256'] for m in metas)).encode()).hexdigest()}
+    def mls_official_season(self,season):
+        found={};metas=[]
+        def get_team(team):
+            url=f'https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/teams/{team}/schedule?season={season}'
+            return self.fetcher.json(url,86400*7 if season<utcnow().year else 3600)
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            for d,m in pool.map(get_team,MLS_TEAMS):
+                metas.append(m)
+                for e in d.get('events',[]):
+                    competitions=e.get('competitions') or []
+                    if len(competitions)!=1:continue
+                    c=competitions[0]
+                    status=(c.get('status') or e.get('status') or {}).get('type',{})
+                    if status.get('state')!='post' or status.get('completed') is not True:continue
+                    start=c.get('date') or e.get('date')
+                    if not start:continue
+                    competitors=c.get('competitors') or []
+                    home=[t for t in competitors if t.get('homeAway')=='home']
+                    away=[t for t in competitors if t.get('homeAway')=='away']
+                    if len(home)!=1 or len(away)!=1:continue
+                    h,a=home[0],away[0]
+                    ht,at=h.get('team',{}),a.get('team',{})
+                    hs=num((h.get('score') or {}).get('value')) if isinstance(h.get('score'),dict) else num(h.get('score'))
+                    ass=num((a.get('score') or {}).get('value')) if isinstance(a.get('score'),dict) else num(a.get('score'))
+                    if hs is None or ass is None:continue
+                    st_name=str(e.get('seasonType',{}).get('name') or '').lower()
+                    g_type='playoff' if 'playoff' in st_name or 'cup' in st_name else 'regular'
+                    g=Game(id='MLS:'+str(e['id']),league='MLS',start=start,home=ht.get('displayName',''),away=at.get('displayName',''),home_id=str(ht.get('id','')),away_id=str(at.get('id','')),home_abbr=ht.get('abbreviation',''),away_abbr=at.get('abbreviation',''),state='final',season=season,home_score=hs,away_score=ass,neutral=bool(c.get('neutralSite',False)),game_type=g_type,source=m['url'],fetched_at=m['fetched_at'])
+                    found[g.id]=g
+        games=validate_batch(list(found.values()))
+        return games,{'url':f'https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/teams/[all]/schedule?season={season}','fetched_at':max(m['fetched_at'] for m in metas),'sha256':hashlib.sha256(''.join(sorted(m['sha256'] for m in metas)).encode()).hexdigest()}
+    def mls_current(self):
+        now=utcnow();games={};metas=[]
+        for offset in (-1,0,1,2,3,4,5,6):
+            day=(now+timedelta(days=offset)).strftime('%Y%m%d')
+            url=f'https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/scoreboard?dates={day}&limit=1000'
+            payload,meta=self.fetcher.json(url,900);metas.append(meta)
+            if not isinstance(payload.get('events'),list):continue
+            for event in payload['events']:
+                competitions=event.get('competitions') or []
+                if len(competitions)!=1:continue
+                c=competitions[0]
+                status=(c.get('status') or event.get('status') or {}).get('type',{})
+                if status.get('state') not in ('pre','in') or c.get('timeValid') is False:continue
+                start=c.get('date') or event.get('date')
+                if not start or not now<parse_time(start)<=now+timedelta(hours=48):continue
+                competitors=c.get('competitors') or []
+                home=[r for r in competitors if r.get('homeAway')=='home']
+                away=[r for r in competitors if r.get('homeAway')=='away']
+                if len(home)!=1 or len(away)!=1:continue
+                h,a=home[0]['team'],away[0]['team']
+                st_name=str(event.get('season',{}).get('name') or '').lower()
+                phase='playoff' if 'playoff' in st_name else 'regular'
+                g=Game(id='MLS:'+str(event['id']),league='MLS',start=start,home=h['displayName'],away=a['displayName'],home_id=str(h['id']),away_id=str(a['id']),home_abbr=h.get('abbreviation',''),away_abbr=a.get('abbreviation',''),state='scheduled',season=int(event.get('season',{}).get('year',now.year)),neutral=bool(c.get('neutralSite',False)),game_type=phase,source=url,fetched_at=meta['fetched_at'])
+                games[g.id]=g
+        return list(games.values()),{'url':metas[1]['url'],'fetched_at':max(m['fetched_at'] for m in metas),'sha256':hashlib.sha256(''.join(m['sha256'] for m in metas).encode()).hexdigest()}
     def load(self,leagues=LEAGUES):
         jobs={};year=utcnow().year
         for league in leagues:
@@ -181,6 +238,9 @@ class SportsData:
             elif league=='MLB':
                 for s in range(2023,year+1):jobs[f'MLB/{s}']=(self.mlb,(s,))
             elif league=='NFL':jobs['NFL/all']=(self.nfl,())
+            elif league=='MLS':
+                for s in range(2023,year+1):jobs[f'MLS/{s}']=(self.mls_official_season,(s,))
+                jobs['MLS/current']=(self.mls_current,())
             elif league.startswith('NCAA'):
                 from .college import season,current
                 for s in range(2020 if league=='NCAAF' else 2023,year+1+(league!='NCAAF')):

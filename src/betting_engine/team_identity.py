@@ -14,9 +14,68 @@ def compact(name):
     return re.sub(r'[^a-z0-9]','',value)
 
 
+MLS_CANONICAL = {
+    'atlantaunited': 'atlantaunited',
+    'atlantaunitedfc': 'atlantaunited',
+    'austin': 'austin',
+    'austinfc': 'austin',
+    'charlotte': 'charlotte',
+    'charlottefc': 'charlotte',
+    'chicagofire': 'chicagofire',
+    'chicagofirefc': 'chicagofire',
+    'cincinnati': 'cincinnati',
+    'fccincinnati': 'cincinnati',
+    'coloradorapids': 'coloradorapids',
+    'columbuscrew': 'columbuscrew',
+    'dcunited': 'dcunited',
+    'dallas': 'dallas',
+    'fcdallas': 'dallas',
+    'houstondynamo': 'houstondynamo',
+    'houstondynamofc': 'houstondynamo',
+    'intermiami': 'intermiami',
+    'intermiamicf': 'intermiami',
+    'kansascity': 'sportingkansascity',
+    'sportingkansascity': 'sportingkansascity',
+    'losangeles': 'lafc',
+    'lafc': 'lafc',
+    'losangelesgalaxy': 'lagalaxy',
+    'lagalaxy': 'lagalaxy',
+    'minnesotaunited': 'minnesotaunited',
+    'minnesotaunitedfc': 'minnesotaunited',
+    'montreal': 'cfmontreal',
+    'cfmontreal': 'cfmontreal',
+    'nashville': 'nashville',
+    'nashvillesc': 'nashville',
+    'newengland': 'newenglandrevolution',
+    'newenglandrevolution': 'newenglandrevolution',
+    'newyorkcity': 'newyorkcityfc',
+    'newyorkcityfc': 'newyorkcityfc',
+    'newyorkredbulls': 'redbullnewyork',
+    'redbullnewyork': 'redbullnewyork',
+    'orlandocity': 'orlandocity',
+    'orlandocitysc': 'orlandocity',
+    'philadelphiaunion': 'philadelphiaunion',
+    'portlandtimbers': 'portlandtimbers',
+    'realsaltlake': 'realsaltlake',
+    'sandiego': 'sandiego',
+    'sandiegofc': 'sandiego',
+    'sanjose': 'sanjoseearthquakes',
+    'sanjoseearthquakes': 'sanjoseearthquakes',
+    'seattlesounders': 'seattlesounders',
+    'seattlesoundersfc': 'seattlesounders',
+    'stlouiscity': 'stlouiscity',
+    'stlouiscitysc': 'stlouiscity',
+    'toronto': 'toronto',
+    'torontofc': 'toronto',
+    'vancouverwhitecaps': 'vancouverwhitecaps',
+    'vancouverwhitecapsfc': 'vancouverwhitecaps',
+}
+
+
 def canonical(name):
     value=compact(name)
-    return 'losangelesclippers' if value in ('laclippers','losangelesclippers') else value
+    if value in ('laclippers','losangelesclippers'): return 'losangelesclippers'
+    return MLS_CANONICAL.get(value, value)
 
 
 def exact_team_name_match(left,right):

@@ -102,7 +102,7 @@ def test_committed_runtime_bundle_hashes_and_policy(tmp_path):
     from betting_engine.storage import Store
     settings = Store(tmp_path / 'data/engine.sqlite3').settings()
     assert settings['daily_pick_target'] == 100
-    assert settings['family_selection_policy'] == 'continuous_probability_v2'
+    assert settings['family_selection_policy'] == 'continuous_probability_v4'
     assert settings['max_bet'] == 5 and settings['daily_risk_limit'] is None
     # Deserialize seed models with the deployed package versions and validate
     # period approval through the same loader used by production.

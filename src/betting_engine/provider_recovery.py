@@ -60,7 +60,7 @@ def validate_policy(policy):
     value = copy.deepcopy(policy)
     required = {'version', 'account_scope_sha256', 'capability_evidence_sha256', 'verified_at', 'expires_at',
                 'reset_supported', 'allow_temporary_claude', 'routes'}
-    optional = {'base_backoff_seconds', 'max_backoff_seconds', 'probe_interval_seconds',
+    optional = {'allow_temporary_agy', 'base_backoff_seconds', 'max_backoff_seconds', 'probe_interval_seconds',
                 'verification_ttl_seconds', 'limits_interval_seconds', 'transport_timeout_seconds', 'max_reset_attempts'}
     if not isinstance(value, dict) or not required <= set(value) or set(value) - required - optional:
         raise ValueError('Invalid provider recovery policy fields')
@@ -68,12 +68,13 @@ def validate_policy(policy):
             or not _pin(value['capability_evidence_sha256'])
             or not _number(value['verified_at']) or not _number(value['expires_at'])
             or value['verified_at'] < 0 or value['expires_at'] <= value['verified_at']
-            or type(value['reset_supported']) is not bool or type(value['allow_temporary_claude']) is not bool):
+            or type(value['reset_supported']) is not bool or type(value['allow_temporary_claude']) is not bool
+            or ('allow_temporary_agy' in value and type(value['allow_temporary_agy']) is not bool)):
         raise ValueError('Provider policy requires verified finite authority')
     routes = value['routes']
     if not isinstance(routes, list) or not 1 <= len(routes) <= 16:
         raise ValueError('Provider policy needs a bounded verified route list')
-    seen = set(); models = set(); claude_seen = False
+    seen = set(); models = set(); claude_seen = False; agy_seen = False
     for route in routes:
         if (not isinstance(route, dict) or not {'id', 'provider', 'family', 'model', 'capability_sha256'} <= set(route)
                 or set(route) - {'id', 'provider', 'family', 'model', 'capability_sha256', 'reasoning_effort', 'limit_id'}):
@@ -83,13 +84,16 @@ def validate_policy(policy):
         if not _pin(route['capability_sha256']) or route['id'] in seen or (route['provider'], route['model']) in models:
             raise ValueError('Duplicate or unverified provider route')
         seen.add(route['id']); models.add((route['provider'], route['model']))
-        if route['provider'] == 'codex' and route['family'] == 'gpt' and not claude_seen:
+        if route['provider'] == 'codex' and route['family'] == 'gpt' and not agy_seen and not claude_seen:
             pass
+        elif (route['provider'] == 'agy' and route['family'] in ('gemini', 'flash', 'pro')
+              and value.get('allow_temporary_agy', True) and not claude_seen):
+            agy_seen = True
         elif (route['provider'] == 'claude' and route['family'] == 'opus-5.5' and route['model'] == 'claude-opus-5-5'
               and value['allow_temporary_claude'] and not claude_seen and len(seen) > 1):
             claude_seen = True
         else:
-            raise ValueError('Only ordered verified GPT routes then temporary Opus 5.5 are authorized')
+            raise ValueError('Only ordered verified GPT routes then temporary agy/Gemini or Opus 5.5 are authorized')
         for name in ('reasoning_effort', 'limit_id'):
             if route.get(name) is not None and (not isinstance(route[name], str) or not IDENTIFIER.fullmatch(route[name])):
                 raise ValueError('Invalid verified route option')

@@ -180,7 +180,12 @@ function executionReview(t){
  if(!Number.isFinite(c.minimum_odds)||c.reference_odds<c.minimum_odds||!Number.isFinite(c.stress_roi)||c.stress_roi<(data?.settings?.minimum_roi??.03))return {actionable:false};
  return r;
 }
-function effectiveMinimumOdds(t){const r=executionReview(t),current=view==='tips'&&pendingInstruction(t)?t.current_assessment:t;return (view==='tips'||!t.recorded_snapshot)&&r.actionable&&['model_pick','probability_pick'].includes(r.funding_tier)?r.minimum_odds:current.minimum_odds}
+function isTodayIssued(t){
+ const today=localDay(new Date());
+ const rows=(data?.status?.daily_progress?.issuance_rows||[]);
+ return rows.some(r=>r.tip_id===t.id&&localDay(new Date(r.issued_at||r.start))===today);
+}
+function effectiveMinimumOdds(t){const r=executionReview(t),current=view==='tips'&&pendingInstruction(t)?(t.current_assessment||t):t;return (view==='tips'||!t.recorded_snapshot)&&r.actionable&&['model_pick','probability_pick'].includes(r.funding_tier)?r.minimum_odds:current.minimum_odds}
 function displayedMinimumOdds(t){
  const threshold=effectiveMinimumOdds(t);
  if(!isModelPick(t))return minOdds(threshold);
@@ -202,28 +207,27 @@ function modelPickNote(t){if(!unitPickLabel(t))return '';const c=t.current_asses
 
 function instructionStake(t){return t.tracked_bet?t.tracked_bet.stake:t.stake}
 function validInstructionStake(t){const amount=instructionStake(t);return Number.isFinite(amount)&&amount>=1&&amount<=Math.min(5,data?.settings?.max_bet??5)}
-function pendingInstruction(t){return !!t.tracked_bet&&t.tracked_bet.count===1&&t.tracked_bet.status==='open'&&t.tracking_source==='auto_assumed_placed'&&!isPlaced(t)&&validInstructionStake(t)&&executionReview(t).actionable===true}
+function pendingInstruction(t){
+ if(!t.tracked_bet||t.tracked_bet.count!==1||t.tracked_bet.status!=='open'||t.tracking_source!=='auto_assumed_placed'||isPlaced(t)||!validInstructionStake(t))return false;
+ const r=executionReview(t);
+ return r.actionable===true&&new Date(t.start)>new Date();
+}
 function executableInstruction(t){return !isPlaced(t)&&validInstructionStake(t)&&(t.tracked_bet?pendingInstruction(t):executionReview(t).actionable===true)}
-function executionTerms(t){return pendingInstruction(t)?t.current_assessment:t}
+function executionTerms(t){return pendingInstruction(t)?(t.current_assessment||t):t}
 function instructionSignature(t){const c=executionTerms(t),n=stakeNavigation(t),r=executionReview(t),b=c.funding_basis;return JSON.stringify([c.id,c.start,c.market,c.side,c.line,c.selection,c.probability,c.push_probability,c.reference_odds,c.minimum_odds,c.stress_roi,c.model_version,c.quote_at,c.valid_until,instructionStake(t),n.event_url,n.tab,n.navigation_source,n.navigation_status,data?.settings?.recommendation_policy??'strict',b?.policy,b?.tier,b?.eligible,b?.maximum_stake,b?.minimum_odds,r.recommendation_policy,r.funding_tier,effectiveMinimumOdds(t),data?.settings?.model_pick_sizing_policy??'unit_cap_v1',b?.version,b?.model_pick_sizing_policy,r.model_pick_sizing_policy,modelPickAllocationPolicy(data?.settings),modelPickAllocationPolicy(c.decision_guard),modelPickAllocationPolicy(b),modelPickAllocationPolicy(r),modelPickAllocationPolicy(c.execution_review),data?.settings?.outcome_sizing_policy??'legacy',c.outcome_sizing_policy??'legacy',r.outcome_sizing_policy??'legacy',c.outcome_sizing_evidence?.summary_sha256])}
 function readyTips(){return liveTips().filter(executableInstruction)}
 function stakeDisplay(t){return view==='tips'&&executableInstruction(t)?'Bet $'+num(instructionStake(t)):t.tracked_bet?'Recorded $'+num(t.tracked_bet.stake):'No new bet'}
 function trackingMarkup(t){if(view==='tips'&&pendingInstruction(t))return `<p class="panel-copy">Bet $${num(t.tracked_bet.stake)} once on this exact selection. If already placed, mark it as placed instead of repeating it.</p>`;return t.tracked_bet?`<p class="panel-copy">Original record: $${num(t.tracked_bet.stake)} at ${num(t.tracked_bet.odds)} on ${esc(when(t.tracked_bet.created_at))}. No additional bet is requested.</p>`:''}
 function renderStats(){
  const ready=visibleTips(readyTips()),visible=visibleTips(liveTips()),amount=ready.reduce((n,t)=>n+instructionStake(t),0),p=data?.status?.daily_progress||{},league=$('#league-filter').value;
- const readyIds=new Set(ready.map(t=>t.id));
- const changed=visibleTips(todayIssuedTips().filter(t=>!readyIds.has(t.id)&&!isPlaced(t))).length;
  const filteredFirst=(p.issuance_rows?issuedRowsVisible(p.issuance_rows):[]).length || (!p.issuance_rows?(p.first_issued_today??p.issued??0):0);
  const marked=visible.filter(isPlaced).length;
  const started=(data?.evaluated_candidates||[]).filter(t=>(league==='all'||t.league===league)&&(!t.start||new Date(t.start)<=new Date()||t.expired)).length;
- const noLonger=visible.filter(t=>t.tracked_bet&&t.instruction_review?.actionable===false).length;
  $('#stats').innerHTML=[
   ['First issued today',filteredFirst,'Shared immutable issuance count'],
   ['Ready to Bet',ready.length,'Filtered, fresh, funded and qualified'],
-  ['Changed / No bet anymore',changed,'Issued today, upcoming, no longer qualifying'],
   ['Marked placed',marked,'Filtered checklist records'],
   ['Started / expired',started,'Filtered lifecycle rows'],
-  ['No longer recommended',noLonger,'Tracked, reassessed rows'],
   ['Games',new Set(ready.map(t=>t.game_id)).size,'In the selected time window'],
   ['Total Stake','$'+num(amount),'Bet each selection once'],
   ['Daily Instructions',(p.issued??0)+' / '+(p.target??20),p.counting_basis==='since_release'?'First Issuances Since '+when(p.counting_since):'First Issuances Today']
@@ -267,39 +271,18 @@ function emptyTipsMessage(){
  }
  return '<div class="empty"><h3>No new bets ready right now</h3><p>The engine keeps checking upcoming markets. Qualified bets appear here automatically with their USD stake. Earlier instructions and placed bets remain in Bet Tracker.</p></div>';
 }
-function pickCard(t,index,state=null){
- const c=executionTerms(t),changed=state!==null,reason=t.instruction_review?.reason||'The current assessment no longer qualifies.',label=state==='No bet anymore'?`${state} · ${reason}`:state;
- return `<article class="tip-card${changed?' changed-card':''}" data-tip-id="${esc(t.id)}"><div class="tip-top"><span class="rank">${String(index+1).padStart(2,'0')}</span><span class="league ${esc(t.league)}">${esc(t.league)}</span><span class="time">${esc(when(t.start))}</span></div><div class="tip-match">${esc(t.away)} @ ${esc(t.home)}</div><div class="tip-market">${esc(c.market_display||marketName[t.market])}</div>${stakeNavigation(t).tab?`<p class="panel-copy stake-tab">Stake tab: <strong>${esc(stakeNavigation(t).tab)}</strong></p>`:''}<div class="selection">${esc(t.selection)}</div><div class="tip-metrics"><div><div class="metric-label">MODEL WIN PROBABILITY</div><div class="metric-value">${pct(c.probability)}</div></div><div><div class="metric-label">${changed?'ORIGINAL ODDS':'STAKE ODDS'}</div><div class="metric-value">${num(changed?(t.tracked_bet?.odds||t.reference_odds):c.reference_odds)}</div></div><div><div class="metric-label">${changed?'ORIGINAL STAKE · USD':'STAKE TO PLACE · USD'}</div><div class="metric-value">${changed?'':'Bet '}$${num(instructionStake(t))}</div></div></div><p class="panel-copy">Minimum odds: <strong>${displayedMinimumOdds(t)}</strong>${isModelPick(t)?' (above model break-even)':''} · Single bet · ${allTiersWeighted(t)||weightedModelPick(t)?'$1–$5 calculated stake':unitPickLabel(t)?'$1 maximum for this selection':'$1–$5 per selection'}</p>${unitPickSummary(t)?`<p class="panel-copy model-pick-note">${esc(unitPickSummary(t))}</p>`:''}${changed?`<p class="panel-copy changed-note"><strong>${esc(label)}</strong></p>`:''}${stakeBetButton(t)}${placementControl(t)}<div class="tip-bottom"><span class="badge ${changed?'muted':'positive'}">${esc(changed?state:(instructionTierLabel(t)|| (t.is_additional?'Additional Bet':'Ready to Bet')))}</span><button class="detail-button" data-detail="${esc(t.id)}">Bet Details →</button></div><p class="tip-reference">Odds checked: ${esc(when(c.quote_at))}</p></article>`;
+function pickCard(t,index){
+ const c=executionTerms(t);
+ return `<article class="tip-card" data-tip-id="${esc(t.id)}"><div class="tip-top"><span class="rank">${String(index+1).padStart(2,'0')}</span><span class="league ${esc(t.league)}">${esc(t.league)}</span><span class="time">${esc(when(t.start))}</span></div><div class="tip-match">${esc(t.away)} @ ${esc(t.home)}</div><div class="tip-market">${esc(c.market_display||marketName[t.market])}</div>${stakeNavigation(t).tab?`<p class="panel-copy stake-tab">Stake tab: <strong>${esc(stakeNavigation(t).tab)}</strong></p>`:''}<div class="selection">${esc(t.selection)}</div><div class="tip-metrics"><div><div class="metric-label">MODEL WIN PROBABILITY</div><div class="metric-value">${pct(c.probability)}</div></div><div><div class="metric-label">STAKE ODDS</div><div class="metric-value">${num(c.reference_odds)}</div></div><div><div class="metric-label">STAKE TO PLACE · USD</div><div class="metric-value">Bet $${num(instructionStake(t))}</div></div></div><p class="panel-copy">Minimum odds: <strong>${displayedMinimumOdds(t)}</strong>${isModelPick(t)?' (above model break-even)':''} · Single bet · ${allTiersWeighted(t)||weightedModelPick(t)?'$1–$5 calculated stake':unitPickLabel(t)?'$1 maximum for this selection':'$1–$5 per selection'}</p>${unitPickSummary(t)?`<p class="panel-copy model-pick-note">${esc(unitPickSummary(t))}</p>`:''}${stakeBetButton(t)}${placementControl(t)}<div class="tip-bottom"><span class="badge positive">${esc(instructionTierLabel(t)||(t.is_additional?'Additional Bet':'Ready to Bet'))}</span><button class="detail-button" data-detail="${esc(t.id)}">Bet Details →</button></div><p class="tip-reference">Odds checked: ${esc(when(c.quote_at))}</p></article>`;
 }
 function renderTips(){
  const rows=visibleTips(readyTips());
- const issuedToday=todayIssuedTips();
- const readyIds=new Set(rows.map(t=>t.id));
- const changed=issuedToday.filter(t=>!readyIds.has(t.id)&&!isPlaced(t));
  if(view==='tips'&&selectedTip&&$('#detail-dialog').open){const current=rows.find(t=>t.id===selectedTip.id);if(!current||instructionSignature(current)!==selectedInstructionSignature){$('#detail-dialog').close();selectedTip=null;selectedInstructionSignature=null;}}$('#tip-count').textContent=rows.length;
  const readyMarkup=rows.map((t,index)=>pickCard(t,index)).join('');
- const changedMarkup=changed.map((t,index)=>pickCard(t,rows.length+index,issuedCardState(t,readyIds))).join('');
- $('#tips-grid').innerHTML=readyMarkup+changedMarkup||emptyTipsMessage();
- $('#tip-count').textContent=rows.length+changed.length;
- renderStats();renderOpportunitySummary();renderTracked();renderAlternatives();renderEvaluated();bindPlacementControls();$$('#tips-grid .tip-card:not(.changed-card) .stake-bet-button').forEach(button=>bindInstructionLink(button,button.closest('[data-tip-id]').dataset.tipId));$$('[data-detail]').forEach(b=>b.onclick=()=>showDetail(b.dataset.detail,b.dataset.current==='true'));
+ $('#tips-grid').innerHTML=readyMarkup||emptyTipsMessage();
+ renderStats();renderOpportunitySummary();renderTracked();renderAlternatives();renderEvaluated();bindPlacementControls();$$('#tips-grid .tip-card .stake-bet-button').forEach(button=>bindInstructionLink(button,button.closest('[data-tip-id]').dataset.tipId));$$('[data-detail]').forEach(b=>b.onclick=()=>showDetail(b.dataset.detail,b.dataset.current==='true'));
 }
 function historyRows(){return liveTips().filter(t=>t.tracked_bet||isPlaced(t)).sort((a,b)=>new Date(a.start)-new Date(b.start)||String(a.id).localeCompare(String(b.id)))}
-function todayIssuedTips(){
- const today=localDay(new Date());
- const issued=new Set((data?.status?.daily_progress?.issuance_rows||[]).filter(r=>localDay(new Date(r.issued_at||r.start))===today).map(r=>r.tip_id));
- return liveTips().filter(t=>issued.has(t.id)&&!t.withdrawn_at&&new Date(t.start)>new Date()&&
-  !['won','lost','push','settled','resolved'].includes(String(t.tracked_bet?.status||'').toLowerCase())&&
-  !/resolve|settle|closed/i.test(String(t.instruction_review?.reason||'')))
-  .sort((a,b)=>new Date(a.start)-new Date(b.start)||String(a.id).localeCompare(String(b.id)));
-}
-function issuedCardState(t,readyIds){
- if(readyIds.has(t.id))return null;
- const status=String(t.tracked_bet?.status||'').toLowerCase();
- if(['won','lost','push','settled','resolved'].includes(status)||/resolve|settle|closed/i.test(String(t.instruction_review?.reason||'')))return 'Settled';
- if(new Date(t.start)<=new Date())return 'Started';
- if(/invalid|void|cancel|deleted|suspend/i.test(String(t.instruction_review?.reason||'')))return 'Invalid';
- return 'No bet anymore';
-}
 function renderTracked(){
  const history=historyRows();
  const withdrawn=history.filter(t=>new Date(t.start)>new Date()&&!isPlaced(t)&&t.tracked_bet?.status==='open'&&t.instruction_review?.actionable===false);
@@ -313,7 +296,7 @@ function renderTracked(){
    current?`Observed odds: ${num(current.reference_odds)}<small>Model probability: ${pct(current.probability)} · Estimated ROI: ${pct(current.expected_roi)} · Quote observed: ${esc(when(current.quote_at))}</small>`:'No current assessment available',
    `<span class="badge muted">Changed</span><small>${esc(t.instruction_review.reason||'Current assessment is unavailable; the original record is retained.')}</small>`];
  }));
- const status=t=>isPlaced(t)?'Marked as placed':pendingInstruction(t)?'Current instruction':t.tracked_bet&&t.instruction_review?.actionable===false?'No longer recommended · Not a current instruction':'Recorded · Not a current instruction';
+ const status=t=>isPlaced(t)?'Marked as placed':pendingInstruction(t)?'Current instruction':'Recorded · Not a current instruction';
  $('#history-table').innerHTML=table(['League','Matchup / Start','Market / Selection','Original Stake','Original Odds','Model at Issue','Status','Checklist','Details'],history.map(t=>[esc(t.league),esc(t.away)+' @ '+esc(t.home)+`<small>${esc(when(t.start))}</small>`,esc(t.market_display||marketName[t.market])+`<small>${esc(t.selection)}</small>`,'$'+num(instructionStake(t)),num(t.tracked_bet?.odds||t.reference_odds),pct(t.probability),status(t),placementControl(t),`<button class="detail-button" data-detail="${esc(t.id)}">Original Bet Details →</button>`]));
  const rows=(data?.tracked_bets||[]).map(b=>({...b.payload,record:b})).sort((a,b)=>new Date(a.start)-new Date(b.start));
  $('#tracked-section').hidden=!rows.length;$('#tracked-count').textContent=rows.length;

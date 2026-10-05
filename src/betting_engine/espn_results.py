@@ -24,6 +24,7 @@ LEAGUE_PATHS = {
     'NCAAF': 'football/college-football',
     'NCAAM': 'basketball/mens-college-basketball',
     'NCAAW': 'basketball/womens-college-basketball',
+    'MLS': 'soccer/usa.1',
 }
 MAX_BODY_BYTES = 4 * 1024 * 1024
 
@@ -96,7 +97,10 @@ def parse_summary(raw, meta, tip, now=None, *, scheduled_start=None):
         if actual_start >= now or fetched < actual_start:
             raise ValueError('invalid_result_source_time')
         status = competition['status']['type']
-        if status.get('completed') is not True or status.get('state') != 'post' or status.get('name') not in ('STATUS_FINAL', 'STATUS_FINAL_OVERTIME'):
+        allowed_statuses = ('STATUS_FINAL', 'STATUS_FINAL_OVERTIME')
+        if tip.get('league') == 'MLS':
+            allowed_statuses = allowed_statuses + ('STATUS_FULL_TIME', 'STATUS_FINAL_PENALTIES')
+        if status.get('completed') is not True or status.get('state') != 'post' or status.get('name') not in allowed_statuses:
             raise ValueError('official_game_not_final')
         competitors = competition['competitors']
         if not isinstance(competitors, list) or len(competitors) != 2 or {row.get('homeAway') for row in competitors} != {'home', 'away'}:
@@ -118,14 +122,15 @@ def parse_summary(raw, meta, tip, now=None, *, scheduled_start=None):
             scores[side] = _integer(row['score'])
         if ids['home'] == ids['away']:
             raise ValueError('result_same_team_identity')
-        if scores['home'] == scores['away']:
+        if scores['home'] == scores['away'] and tip.get('league') != 'MLS':
             raise ValueError('final_winner_missing')
         for side in ('home', 'away'):
             expected = scores[side] > scores['away' if side == 'home' else 'home']
             if teams[side].get('winner') is not expected:
                 raise ValueError('result_winner_score_conflict')
         season = _integer(header['season']['year'])
-        if not start.year - 1 <= season <= start.year + 1 or header['season'].get('type') not in (1, 2, 3):
+        valid_season_type = True if tip.get('league') == 'MLS' else header['season'].get('type') in (1, 2, 3)
+        if not start.year - 1 <= season <= start.year + 1 or not valid_season_type:
             raise ValueError('unsupported_result_season')
     except (KeyError, TypeError, AttributeError, IndexError, UnicodeDecodeError) as exc:
         raise ValueError('malformed_result_body') from exc
@@ -142,10 +147,15 @@ def parse_summary(raw, meta, tip, now=None, *, scheduled_start=None):
         'scoped_scores_reason': 'This recovery validates full-game scores only; period contracts require separate verified scope evidence.',
         'claim': 'Official final score evidence; sportsbook account settlement is not verified.',
     }
+    if tip.get('league') == 'MLS':
+        st_name = str(header.get('season', {}).get('name', '')).lower()
+        game_type = 'playoff' if 'playoff' in st_name or 'cup' in st_name else 'regular'
+    else:
+        game_type = {1: 'preseason', 2: 'regular', 3: 'playoff'}[header['season']['type']]
     return Game(gid, tip['league'], actual_start.isoformat(), home, away, ids['home'], ids['away'],
                 teams['home']['team'].get('abbreviation', ''), teams['away']['team'].get('abbreviation', ''),
                 'final', season, scores['home'], scores['away'], neutral=competition.get('neutralSite') is True,
-                game_type={1: 'preseason', 2: 'regular', 3: 'playoff'}[header['season']['type']], source=url,
+                game_type=game_type, source=url,
                 fetched_at=meta['fetched_at'], context={'official_result': source})
 
 

@@ -28,8 +28,6 @@ def read_bound(entry):
 
 
 def test_all_attached_loss_diagnostics_reproduce_original_payoffs_by_game():
-    if not (ROOT / 'data/development_inputs/manifest.json').is_file():
-        pytest.skip('Private original decision audit input is not distributed in the source repository')
     manifest = json.loads((ROOT / 'data/development_inputs/manifest.json').read_text())
     export = read_bound(next(f for f in manifest['files']
                              if f['path'] == 'data/development_inputs/system_decisions.json'))

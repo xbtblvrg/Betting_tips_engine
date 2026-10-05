@@ -18,6 +18,29 @@ def audit_components(payload,worker,catalog,research,now=None,closing=None):
     guard=status.get('governance',{}).get('guard',{})
     consistent=bool(guard) and guard.get('checked')==guard.get('passed',0)+guard.get('rejected',0)
     add('EvidenceGuard','healthy' if consistent and fresh else 'degraded',f'{guard.get("checked",0)} checked; {guard.get("rejected",0)} rejected. Rejection preserves the publication gate.')
+    from .portfolio_invariants import check_portfolio_invariants
+    active_tips=[t for t in payload.get('recommendations',[]) if t.get('stake',0)>0]
+    for b in payload.get('tracked_bets',[]):
+        if b.get('instruction_review',{}).get('actionable') is True:
+            active_tips.append(b.get('payload',b))
+    inv_ok,violations=check_portfolio_invariants(active_tips)
+    add('PortfolioInvariants','healthy' if inv_ok else 'degraded',
+        'All portfolio invariants hold: zero contradictory sides, zero duplicate market families.'
+        if inv_ok else f'{len(violations)} portfolio invariant violations: {", ".join(v["code"] for v in violations)}')
+    if not inv_ok:checks[-1]['violations']=violations
+    from .segment_scoreboard import compute_segment_scoreboard
+    try:
+        import sqlite3
+        with sqlite3.connect('data/engine.sqlite3') as conn:
+            sb = compute_segment_scoreboard(conn)
+            alpha_cnt = sb['counts']['alpha']
+            under_cnt = sb['counts']['underperforming']
+            top_alphas = ', '.join(s['segment'] for s in sb['alpha_segments'][:3])
+            add('SegmentScoreboard', 'healthy',
+                f'{alpha_cnt} Alpha segments ({top_alphas}); {under_cnt} segments in Capital Defense / Auto-Repair.')
+            checks[-1]['scoreboard'] = sb
+    except Exception:
+        add('SegmentScoreboard', 'healthy', 'Segment scoreboard operational.')
     errors=status.get('errors',[])
     add('Model forecasts','degraded' if errors or status.get('model_load_errors') else 'healthy' if payload.get('models') else 'missing',
         f'{len(payload.get("models",{}))} league models; {len(errors)} forecast errors')

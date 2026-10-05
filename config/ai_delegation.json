@@ -14,7 +14,7 @@
     "agy": {
       "enabled": true,
       "binary": "/Users/belavarga/.local/bin/agy",
-      "role": "tertiary",
+      "role": "primary_fallback",
       "model": "gemini-3.8-flash-high"
     },
     "grok": {
@@ -35,8 +35,10 @@
   "temporary_primary_exception": {
     "configuration": "config/provider_recovery.json",
     "when": "Verified GPT unavailability after earned reset recovery where eligible",
-    "provider": "claude",
-    "model": "claude-opus-5-5",
+    "provider": "agy",
+    "model": "gemini-3.8-flash-high",
+    "secondary_fallback_provider": "claude",
+    "secondary_fallback_model": "claude-opus-5-5",
     "scope": "Isolated structured-edit candidate implementation/review only; standard helper calls remain advisory; final production review Codex."
   }
 }

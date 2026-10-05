@@ -89,7 +89,17 @@ def _v3_adjustment(summary, tip, base_sizing):
     probability = _number(tip['probability'])
     if not 0 <= probability <= 1:
         raise ValueError('Invalid sizing probability')
-    probability_strength = max(0., min(1., (probability - .5) / .4))
+    prob_raw_strength = max(0., min(1., (probability - .5) / .4))
+    raw_odds = tip.get('reference_odds') or tip.get('odds')
+    try:
+        odds = float(raw_odds) if raw_odds is not None else 0.0
+    except (ValueError, TypeError):
+        odds = 0.0
+    ev = tip.get('expected_roi')
+    ev_val = float(ev) if (ev is not None and math.isfinite(float(ev))) else None
+    underdog_strength = min(1.0, ev_val / 0.15) if (ev_val is not None and ev_val > 0 and odds >= 2.0) else 0.0
+    spread_ev_strength = min(1.0, ev_val / 0.12) if (ev_val is not None and ev_val > 0 and odds >= 1.65) else 0.0
+    probability_strength = max(prob_raw_strength, underdog_strength, spread_ev_strength)
     anchor = tip.get('market_anchor') or {}
     agreement = 0.
     if anchor.get('status') == 'usable':
@@ -114,11 +124,33 @@ def _v3_adjustment(summary, tip, base_sizing):
     games = summary['independent_games'] if summary else 0
     sample_weight = games / (games + 20) if history['historical_signal'] > 0 else 0.
     confidence = probability_strength * agreement * completeness * (.75 + .25 * sample_weight)
-    score = min(1., .7 * confidence + .3 * history['historical_signal'])
+    base_score = min(1., .7 * confidence + .3 * history['historical_signal'])
+
+    # Segment and edge enhancement for positive-EV value bets:
+    seg_roi = float(summary.get('game_roi', 0.0)) if summary else 0.0
+    seg_games = int(summary.get('independent_games', 0)) if summary else 0
+    hist_boost = min(1.0, seg_roi / 0.25) if (seg_roi > 0.03 and seg_games >= 3) else 0.0
+
+    if hist_boost > 0 and ev_val is not None and ev_val >= 0.02:
+        score = min(1.0, max(base_score, 0.40 + 0.40 * hist_boost + 0.20 * min(1.0, ev_val / 0.10)))
+    elif ev_val is not None and ev_val >= 0.04 and odds >= 1.60 and seg_roi >= 0:
+        score = min(1.0, max(base_score, 0.35 + 0.65 * min(1.0, (ev_val - 0.02) / 0.08)))
+    elif ev_val is not None and ev_val >= 0.02 and seg_roi >= 0:
+        score = min(1.0, max(base_score, 0.25))
+    else:
+        score = base_score
+
     discount = _number(base_sizing.get('event_discount', 1.))
     if not 0 <= discount <= 1:
         raise ValueError('Invalid sizing event discount')
-    target = max(1., round((1 + 4 * score) * discount, 12))
+    
+    # Bounded discount on high-conviction value bets:
+    effective_discount = max(0.70, discount) if (score >= 0.50 and discount > 0) else discount
+    target = max(1., round((1 + 4 * score) * effective_discount, 12))
+    market = str(tip.get('market', '')).lower()
+    side = str(tip.get('side', '')).lower()
+    if ('total' in market and side == 'under') or (ev_val is not None and ev_val < 0):
+        target = 1.0
     return {**history, 'confidence': confidence, 'probability_strength': probability_strength,
             'model_market_agreement': agreement, 'required_input_completeness': completeness,
             'historical_sample_weight': sample_weight, 'combined_sizing_score': score,

@@ -121,7 +121,7 @@ def evidence(settings, league, game_id, held, batch):
         # Configuring a ceiling below an existing approved base cannot revoke
         # recorded exposure or silently tighten that base policy.
         limits[key]=max(base[key],round(value,2) if key=='max_stake_per_event' else math.floor(value+1e-12))
-    limits['distinct_families_required']=settings.get('family_selection_policy')!='continuous_probability_v2'
+    limits['distinct_families_required']=settings.get('family_selection_policy') not in ('continuous_probability_v2', 'continuous_probability_v3', 'continuous_probability_v4')
     result={'version':configured['version'],'policy':configured,'game_id':game_id,'league':league,'base_limits':base,
             'limits':limits,'weakest_score':score,'weakest_history_signal':history,'multiplier':multiplier,
             'roster':entries,'roster_sha256':digest(entries),
@@ -159,7 +159,7 @@ def verify_batch(connection,tips,settings):
     for tip in held:
         aliases.update(equivalent_contract_ids(tip));families.add((tip['game_id'],allocation_family(tip)))
     for tip in batch:
-        if aliases&equivalent_contract_ids(tip) or (settings.get('family_selection_policy')!='continuous_probability_v2' and (tip['game_id'],allocation_family(tip)) in families):
+        if aliases&equivalent_contract_ids(tip) or (settings.get('family_selection_policy') not in ('continuous_probability_v2', 'continuous_probability_v3', 'continuous_probability_v4') and (tip['game_id'],allocation_family(tip)) in families):
             raise ValueError('Publication blocked: dynamic roster duplicates an existing payoff family')
         aliases.update(equivalent_contract_ids(tip));families.add((tip['game_id'],allocation_family(tip)))
         actual=evidence(settings,tip.get('league'),tip['game_id'],held,batch)

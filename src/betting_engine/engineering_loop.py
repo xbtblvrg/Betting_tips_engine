@@ -50,11 +50,14 @@ def engineering_input_generation(root, state):
 
 VERSION = 'engineering-intake-v1'
 MISSION = ('Improve the engine that finds the strongest independently modeled, '
-    'fresh exact Stake betting instructions. Prioritize Winner (moneyline), '
-    'Handicap and Total while retaining other observed markets. Evaluate decisions '
-    'against immutable bet lifecycle and outcome evidence, clustering related '
-    'selections by game and preserving chronological validation. No guaranteed '
-    'winners, fabricated edge, quota padding, invented bankroll, or relaxed gates.')
+    'fresh exact Stake betting instructions. Deliver smart autonomous self-improving '
+    'quant progress: positive ROI, minimum 100 daily funded recommendations, broad '
+    'diversified coverage, and a consistent daily cumulative PnL uptrend. Accelerate capital '
+    'into winning alpha segments while defending capital ($1 clamp) and auto-repairing '
+    'underperforming segments into profit. Prioritize Winner (moneyline), Handicap and Total '
+    'while retaining other observed markets. Evaluate decisions against immutable bet lifecycle '
+    'and outcome evidence, clustering related selections by game and preserving chronological '
+    'validation. No guaranteed winners, fabricated edge, quota padding, invented bankroll, or relaxed gates.')
 ACCEPTANCE = ('Deliver tested implementation, source provenance, exact contract '
     'and settlement identity, appropriate untouched chronological/model validation, '
     'and independently reviewed integration evidence. A research dossier or isolated '

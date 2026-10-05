@@ -463,7 +463,7 @@ class Store:
                 gid=candidate['game_id'];amount=float(candidate['stake']);scope,_=split_market(candidate.get('market',''))
                 if len(eligible)>=policy['max_new_funded_per_publication']:continue
                 diverse_key=(gid,allocation_family(candidate))
-                if settings.get('family_selection_policy')!='continuous_probability_v2' and policy.get('distinct_families_required') and diverse_key in diverse_families:continue
+                if settings.get('family_selection_policy') not in ('continuous_probability_v2', 'continuous_probability_v3', 'continuous_probability_v4') and policy.get('distinct_families_required') and diverse_key in diverse_families:continue
                 if prospective_events[gid]>=policy['max_per_event']:continue
                 if prospective_stakes[gid]+amount>policy['max_stake_per_event']+1e-9:continue
                 if scope!='full_game' and prospective_periods[gid]>=policy['max_period_per_event']:continue

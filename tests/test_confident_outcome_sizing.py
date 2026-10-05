@@ -55,3 +55,17 @@ def test_caps_no_revival_bankroll_and_replay():
 @pytest.mark.parametrize('probability',[float('nan'),float('inf'),True,-.1,1.1])
 def test_invalid_probability_rejected(probability):
     with pytest.raises(ValueError): sized(probability)
+
+
+def test_positive_ev_underdog_earns_confidence_sizing():
+    # An underdog at 2.60 odds with p=0.45 has +17% EV.
+    # Edge-weighted strength allows sizing based on model edge rather than choking at 0.
+    underdog_pos = sized(p=.45, reference_odds=2.60, expected_roi=.17)
+    assert underdog_pos['amount'] > 2.0
+    assert underdog_pos['outcome_adjustment']['probability_strength'] == pytest.approx(1.0, abs=0.01)
+
+    # A negative EV underdog remains at the $1.00 floor
+    underdog_neg = sized(p=.30, reference_odds=2.50, expected_roi=-.25)
+    assert underdog_neg['amount'] == 1.0
+    assert underdog_neg['outcome_adjustment']['probability_strength'] == 0.0
+

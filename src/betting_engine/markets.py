@@ -242,17 +242,20 @@ class StakeSportsbook:
     SPORT_BY_LEAGUE = {
         'NBA': 'basketball', 'WNBA': 'basketball', 'MLB': 'baseball',
         'NHL': 'ice-hockey', 'NFL': 'american-football','NCAAF':'american-football','NCAAM':'basketball','NCAAW':'basketball',
+        'MLS': 'soccer',
     }
-    TOURNAMENT_BY_LEAGUE = {'NBA':'nba','WNBA':'wnba','MLB':'mlb','NHL':'nhl','NFL':'nfl'}
+    TOURNAMENT_BY_LEAGUE = {'NBA':'nba','WNBA':'wnba','MLB':'mlb','NHL':'nhl','NFL':'nfl','MLS':'major-league-soccer'}
     LEAGUE_PATH = {
         'NBA': 'basketball/usa/nba', 'WNBA': 'basketball/usa/wnba',
         'MLB': 'baseball/usa/mlb', 'NHL': 'ice-hockey/usa/nhl',
         'NFL': 'american-football/usa/nfl',
         'NCAAF':'american-football/usa/ncaa-regular','NCAAM':'basketball/usa/ncaa','NCAAW':'basketball/usa/ncaa-women',
+        'MLS': 'soccer/usa/major-league-soccer',
     }
     LEAGUE_SCOPE = {
         'NBA': 'Overtime', 'WNBA': 'Overtime', 'NFL': 'Overtime',
         'MLB': 'Extra Innings', 'NHL': 'Overtime and Penalties','NCAAF':'Overtime','NCAAM':'Overtime','NCAAW':'Overtime',
+        'MLS': 'Regular Time',
     }
 
     def __init__(self, fetcher=None,segment_markets=None,full_markets=None):
@@ -442,6 +445,15 @@ class StakeSportsbook:
                         f'Total (Over-Exact-Under) (Incl. {expected_scope})':'exact_total',
                         'Correct Score':'exact_score',
                     }
+                    if league == 'MLS':
+                        full_derived.update({
+                            '1x2':'three_way',
+                            'Draw No Bet':'moneyline',
+                            'Both Teams to Score':'both_score',
+                            'Double Chance':'double_chance',
+                            'Asian Handicap':'spreads',
+                            'Asian Total':'totals',
+                        })
                     scope='full_game'
                     if total_kind or name in {f'{base} (Incl. {expected_scope})' for base in ('Winner','Handicap','Total')} or name in full_derived:
                         base = total_kind or full_derived.get(name) or ('moneyline' if name.startswith('Winner (') else 'spreads' if name.startswith('Handicap (') else 'totals')

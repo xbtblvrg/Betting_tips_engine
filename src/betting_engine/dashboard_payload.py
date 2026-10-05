@@ -286,12 +286,38 @@ def build_dashboard(store,health,data_dir):
     d['recommendations']=[t for t in chosen if t.get('stake',0)>0 or t.get('id') in held_contracts]
     d['recommendations'] += [t for t in unreviewed if t.get('id') in held_contracts] + expired
     d['alternatives']=alternatives+unreviewed;d['archived_recommendations']=store.archived_candidates();d['settings']=settings
-    recorded=store.open_bets()
+    recorded=sorted(store.open_bets(),key=lambda b:b.get('created_at',''))
     current_by_id={t['id']:t for t in current}
+    from .contracts import allocation_family, split_market
+    allocated_open_families={}
+    allocated_open_markets={}
+    seen_sides={}
     for b in recorded:
         related=max(0,held_event_counts.get(b['payload'].get('game_id'),0)-1)
         current_tip=current_by_id.get(b['tip_id'])
-        b['instruction_review']=preference_execution_review(current_tip,instruction_review(b,current_tip,now,settings['minimum_roi'],related,settings),probability_ids)
+        rev=preference_execution_review(current_tip,instruction_review(b,current_tip,now,settings['minimum_roi'],related,settings),probability_ids)
+        if rev.get('actionable'):
+            gid=b['payload'].get('game_id')
+            fam=allocation_family(b['payload'])
+            mkt=b['payload'].get('market')
+            fam_key=(gid,fam)
+            mkt_key=(gid,mkt)
+            side=b['payload'].get('side')
+            opposing={'home':'away','away':'home','over':'under','under':'over'}.get(side)
+            scope_base=split_market(mkt) if mkt else ('full_game','moneyline')
+            side_key=(gid,scope_base[0],scope_base[1])
+            is_dup_fam=fam_key in allocated_open_families and allocated_open_families[fam_key]!=b['tip_id']
+            is_dup_mkt=mkt_key in allocated_open_markets and allocated_open_markets[mkt_key]!=b['tip_id']
+            is_opposing=bool(opposing and seen_sides.get(side_key)==opposing)
+            if is_dup_fam or is_dup_mkt or is_opposing:
+                rev={'state':'family_already_allocated','actionable':False,
+                     'reason':'A prior held contract on this event already covers this market family or an opposing side. No duplicate or contradictory bet is executable.',
+                     'review_type':'deterministic_evidence_and_calculation_checks','llm_approval':False}
+            else:
+                allocated_open_families[fam_key]=b['tip_id']
+                allocated_open_markets[mkt_key]=b['tip_id']
+                if side:seen_sides[side_key]=side
+        b['instruction_review']=rev
     from .stake_reassessment import assess_existing_stakes
     d['stake_reassessments']=assess_existing_stakes(recorded,current_by_id,settings,now,
         held_event_counts,probability_ids,store.risk_committed(),d['placement_marks'],
@@ -329,7 +355,13 @@ def build_dashboard(store,health,data_dir):
     d['status']['current_instruction_count']=execution_counts['current_executable']
     from .operations import allocation_funnel
     d['status']['allocation_funnel']=allocation_funnel(d,now)
-    d.setdefault('status',{}).update(recommendations=len(d['recommendations']),funded_recommendations=sum(t['stake']>0 for t in d['recommendations']),minimum_target=progress['target'],target_shortfall=progress['shortfall'],daily_progress=progress,execution_counts=execution_counts)
+    from .portfolio_invariants import check_portfolio_invariants
+    active_invariants_tips=[t for t in d['recommendations'] if t.get('stake',0)>0]
+    for b in recorded:
+        if b.get('instruction_review',{}).get('actionable') is True:
+            active_invariants_tips.append(b.get('payload',b))
+    inv_ok,inv_violations=check_portfolio_invariants(active_invariants_tips)
+    d.setdefault('status',{}).update(recommendations=len(d['recommendations']),funded_recommendations=sum(t['stake']>0 for t in d['recommendations']),minimum_target=progress['target'],target_shortfall=progress['shortfall'],daily_progress=progress,execution_counts=execution_counts,portfolio_invariants={'ok':inv_ok,'violations':inv_violations})
     from .opportunities import rolling_opportunities
     d['opportunities']=rolling_opportunities(d,recorded,d['placement_marks'],now,settings['minimum_roi'])
     d.pop('opportunity_inventory',None)

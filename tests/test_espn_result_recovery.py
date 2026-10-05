@@ -419,3 +419,79 @@ def test_delay_requires_matching_schedule_and_bounded_original_times(tmp_path):
     feed = Feed()
     _, status = recover_pending_espn([existing], [row(original)], [], data_dir=tmp_path, fetcher=feed, now=NOW)
     assert not feed.calls and status['unresolved_count'] == 1
+
+
+def test_mls_soccer_result_recovery_draw():
+    import json, hashlib
+    raw_dict = {
+        'header': {
+            'id': '761830',
+            'league': {'slug': 'usa.1'},
+            'season': {'year': 2026, 'type': 13846, 'name': '2026 MLS, Regular Season'},
+            'competitions': [{
+                'id': '761830',
+                'date': '2026-09-26T23:30Z',
+                'status': {'type': {'completed': True, 'state': 'post', 'name': 'STATUS_FULL_TIME'}},
+                'competitors': [
+                    {'id': '18418', 'homeAway': 'home', 'team': {'id': '18418', 'displayName': 'Atlanta United FC'}, 'score': '2', 'winner': False},
+                    {'id': '17606', 'homeAway': 'away', 'team': {'id': '17606', 'displayName': 'New York City FC'}, 'score': '2', 'winner': False}
+                ]
+            }]
+        }
+    }
+    raw = json.dumps(raw_dict).encode('utf-8')
+    url = 'https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/summary?event=761830'
+    meta = {'url': url, 'sha256': hashlib.sha256(raw).hexdigest(), 'fetched_at': '2026-09-27T03:00:00Z'}
+    tip = {
+        'league': 'MLS',
+        'game_id': 'MLS:761830',
+        'home': 'Atlanta United FC',
+        'away': 'New York City FC',
+        'home_id': '18418',
+        'away_id': '17606',
+        'start': '2026-09-26T23:30Z'
+    }
+    game = parse_summary(raw, meta, tip, parse_time('2026-09-27T04:00:00Z'))
+    assert game.state == 'final'
+    assert game.home_score == 2
+    assert game.away_score == 2
+    assert game.game_type == 'regular'
+    assert game.context['official_result']['home_score'] == 2
+    assert game.context['official_result']['away_score'] == 2
+
+
+def test_mls_soccer_result_recovery_win():
+    import json, hashlib
+    raw_dict = {
+        'header': {
+            'id': '761832',
+            'league': {'slug': 'usa.1'},
+            'season': {'year': 2026, 'type': 13846, 'name': '2026 MLS, Regular Season'},
+            'competitions': [{
+                'id': '761832',
+                'date': '2026-09-26T23:30Z',
+                'status': {'type': {'completed': True, 'state': 'post', 'name': 'STATUS_FULL_TIME'}},
+                'competitors': [
+                    {'id': '21300', 'homeAway': 'home', 'team': {'id': '21300', 'displayName': 'Charlotte FC'}, 'score': '2', 'winner': True},
+                    {'id': '182', 'homeAway': 'away', 'team': {'id': '182', 'displayName': 'Chicago Fire FC'}, 'score': '1', 'winner': False}
+                ]
+            }]
+        }
+    }
+    raw = json.dumps(raw_dict).encode('utf-8')
+    url = 'https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/summary?event=761832'
+    meta = {'url': url, 'sha256': hashlib.sha256(raw).hexdigest(), 'fetched_at': '2026-09-27T03:00:00Z'}
+    tip = {
+        'league': 'MLS',
+        'game_id': 'MLS:761832',
+        'home': 'Charlotte FC',
+        'away': 'Chicago Fire FC',
+        'home_id': '21300',
+        'away_id': '182',
+        'start': '2026-09-26T23:30Z'
+    }
+    game = parse_summary(raw, meta, tip, parse_time('2026-09-27T04:00:00Z'))
+    assert game.state == 'final'
+    assert game.home_score == 2
+    assert game.away_score == 1
+    assert game.game_type == 'regular'

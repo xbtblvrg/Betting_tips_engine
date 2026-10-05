@@ -7,7 +7,8 @@ import math
 
 PRO_LEAGUES = ('NBA', 'MLB', 'NHL', 'NFL', 'WNBA')
 COLLEGE_LEAGUES = ('NCAAF','NCAAM','NCAAW')
-LEAGUES = PRO_LEAGUES + COLLEGE_LEAGUES
+SOCCER_LEAGUES = ('MLS',)
+LEAGUES = PRO_LEAGUES + COLLEGE_LEAGUES + SOCCER_LEAGUES
 
 def utcnow():
     return datetime.now(timezone.utc)
