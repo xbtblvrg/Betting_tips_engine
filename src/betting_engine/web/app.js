@@ -11,7 +11,7 @@ const minOdds=v=>Number.isFinite(v)?(Math.ceil((v-Number.EPSILON)*100)/100).toFi
 const when=v=>v?new Intl.DateTimeFormat('en-GB',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',timeZone:'Europe/Budapest'}).format(new Date(v)):'—';
 const localDay=d=>new Intl.DateTimeFormat('en-CA',{year:'numeric',month:'2-digit',day:'2-digit',timeZone:'Europe/Budapest'}).format(d);
 const title={research:'Research and Coverage',tips:'Betting Picks',games:'Schedule',models:'Model Performance',ledger:'Bet Tracker',sizing:'Stake Sizing',statistics:'Statistics',settings:'Settings'};
-const marketName={three_way:'1x2',moneyline:'Winner',spreads:'Handicap',totals:'Total',home_total:'Home Team Total',away_total:'Away Team Total'};
+const marketName={three_way:'1x2','1x2':'1x2',moneyline:'Winner',spreads:'Handicap',totals:'Total',home_total:'Home Team Total',away_total:'Away Team Total',both_score:'Both Teams to Score',double_chance:'Double Chance',odd_even:'Odd/Even',winner_total:'1x2 & Total',exact_score:'Correct Score'};
 function stakeNavigation(t){
  // Old recorded bets keep their original payload. Exact-selection navigation
  // may come from a fresh assessment without rewriting those records.
@@ -32,6 +32,10 @@ function betInstructions(t){
  const market=t.market_display||marketName[t.market],mapping=t.stake_market||{},navigation=stakeNavigation(t),terms=view==='tips'&&pendingInstruction(t)?(t.current_assessment||t):t;
  const units=t.league==='MLB'?'runs':t.league==='NHL'?'goals':'points';
  let outcome='The selected team must win, including the overtime or extra-innings scope shown in the market name.';
+ if(kind==='three_way'||kind==='1x2')outcome=`Regular time only (60 minutes for NHL, 90 minutes for MLS). Excludes overtime and shootouts. Select ${t.selection}; a tied score wins only the Draw selection.`;
+ if(kind==='double_chance')outcome=`Regular time only. Either outcome in ${t.selection} wins. Excludes overtime and shootouts.`;
+ if(kind==='both_score')outcome=`Regular time only. ${t.side==='yes'?'Both teams must score at least once':'At least one team must score zero'}.`;
+ if(t.league==='MLS'&&kind==='moneyline')outcome=`The selected team must win in regular time. If the match ends in a draw, the bet is void/refunded (Draw No Bet).`;
  if(kind==='spreads'&&Number.isFinite(t.line))outcome=t.line<0?`The selected team must win by more than ${Math.abs(t.line)} ${units}.`:t.line>0?`The selected team must win or lose by fewer than ${t.line} ${units}.`:'The selected team must win. A tied handicap result is void.';
  if(['home_total','away_total'].includes(kind))outcome=`Only ${kind==='home_total'?t.home:t.away} must score ${t.side==='over'?'over':'under'} ${t.line} ${units}. Use that team's Total market, with the exact overtime or extra-innings scope.`;
  if(kind==='totals')outcome=`The combined final score of both teams must be ${t.side==='over'?'over':'under'} ${t.line} ${units}. Select the match Total, not a team Total.`;

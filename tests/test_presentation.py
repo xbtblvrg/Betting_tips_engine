@@ -71,3 +71,32 @@ def test_preseason_link_requires_exact_observed_league_path():
     assert stake_market(t)['event_url']==t['reference_url']
     assert stake_market({**t,'stake_evidence':{}})['event_url'] is None
     assert stake_market({**t,'reference_url':t['reference_url'].replace('nba-preseason','nba-2k')})['event_url'] is None
+
+def test_stake_regulation_and_soccer_market_names():
+    from betting_engine.presentation import english_payload, market_name
+    # NHL 3-way regulation must display as 1x2 and never include Overtime
+    assert market_name('NHL', 'three_way') == '1x2'
+    assert market_name('NHL', '1x2') == '1x2'
+    nhl_payload = english_payload({'league': 'NHL', 'market': 'three_way', 'side': 'home', 'home': 'Devils', 'away': 'Rangers', 'selection': 'Devils'})
+    assert nhl_payload['market_display'] == '1x2'
+    assert 'Overtime' not in nhl_payload['market_display']
+    assert 'Regular time only (60 minutes for NHL' in nhl_payload['stake_market']['scope_note']
+
+    # MLS market names matching Stake.com
+    assert market_name('MLS', 'three_way') == '1x2'
+    assert market_name('MLS', '1x2') == '1x2'
+    assert market_name('MLS', 'moneyline') == 'Draw No Bet'
+    assert market_name('MLS', 'both_score') == 'Both Teams to Score'
+    assert market_name('MLS', 'double_chance') == 'Double Chance'
+    mls_payload = english_payload({'league': 'MLS', 'market': 'moneyline', 'side': 'home', 'home': 'LA Galaxy', 'away': 'LAFC', 'selection': 'LA Galaxy'})
+    assert mls_payload['market_display'] == 'Draw No Bet'
+    assert 'Draw No Bet pushes on a draw' in mls_payload['stake_market']['scope_note']
+
+    # Selection name for 1x2 Draw
+    draw_payload = english_payload({'league': 'NHL', 'market': 'three_way', 'side': 'draw', 'home': 'Devils', 'away': 'Rangers', 'selection': 'Draw'})
+    assert draw_payload['selection'] == 'Draw'
+
+    # Tip with reference_contract_description overrides fallback
+    tip_custom = {'league': 'NHL', 'market': 'three_way', 'reference_contract_description': '1x2'}
+    assert market_name('NHL', 'three_way', tip_custom) == '1x2'
+

@@ -87,15 +87,23 @@ STAKE_LEAGUE_PATHS = {
     'NFL':'american-football/usa/nfl', 'MLB':'baseball/usa/mlb',
     'NHL':'ice-hockey/usa/nhl',
     'NCAAF':'american-football/usa/ncaa-regular','NCAAM':'basketball/usa/ncaa','NCAAW':'basketball/usa/ncaa-women',
+    'MLS':'soccer/usa/major-league-soccer',
 }
 
 def market_name(league,market,tip=None):
     from .contracts import split_market,SCOPE_LABELS
+    if tip and tip.get('reference_contract_description'):
+        return tip['reference_contract_description']
     period,base_market=split_market(market)
     if period!='full_game':
-        if tip and tip.get('reference_contract_description'):return tip['reference_contract_description']
         prefix=SCOPE_LABELS[period]
         return prefix+' - '+{'moneyline':'Winner','three_way':'1x2','spreads':'Handicap','totals':'Total','home_total':'Home Team Total','away_total':'Away Team Total','odd_even':'Odd/Even','both_score':'Both Teams to Score','double_chance':'Double Chance','winner_total':'1x2 & Total','exact_total':'Total (Over-Exact-Under)','exact_score':'Correct Score'}.get(base_market,base_market)
+    if market in ('three_way','1x2'):return '1x2'
+    if market=='double_chance':return 'Double Chance'
+    if market=='both_score':return 'Both Teams to Score'
+    if league=='MLS':
+        if market=='moneyline':return 'Draw No Bet'
+        return {'spreads':'Handicap','totals':'Total','home_total':'Home Team Total','away_total':'Away Team Total','odd_even':'Odd/Even','exact_score':'Correct Score'}.get(market,market)
     base={'moneyline':'Winner','spreads':'Handicap','totals':'Total','home_total':'Home Team Total','away_total':'Away Team Total','odd_even':'Odd/Even','both_score':'Both Teams to Score','double_chance':'Double Chance','winner_total':'1x2 & Total','exact_total':'Total (Over-Exact-Under)','exact_score':'Correct Score'}.get(market,market)
     if tip and market in ('home_total','away_total'):base=tip[market.split('_')[0]]+' Total'
     if league not in STAKE_LEAGUE_PATHS:return base
@@ -106,10 +114,14 @@ def stake_market(t):
     from .contracts import split_market
     league=t.get('league')
     note={
-        'NHL':'Includes overtime and penalty shootouts. Regulation-time and 1x2 markets are different bets.',
+        'NHL':'Includes overtime and penalty shootouts for 2-way Winner and Handicap/Total. Regulation-time and 1x2 markets settle on 60 minutes only.',
         'MLB':'Includes extra innings. Winner and Handicap/Total markets have different rules for shortened games; check Stake’s settlement rules.',
         'NFL':'Includes overtime. A tied two-way Winner market is void under Stake’s push rule.',
+        'MLS':'Regular time only (90 minutes + injury time). Extra time and penalty shootouts are excluded. Draw No Bet pushes on a draw.',
     }.get(league,'Includes overtime. Use the exact named match or team market; quarter and half markets settle separately.')
+    scope,kind=split_market(t['market'])
+    if kind in ('three_way','double_chance','both_score') or t.get('market') in ('three_way','double_chance','both_score'):
+        note='Regular time only (60 minutes for NHL, 90 minutes for MLS). Excludes overtime and penalty shootouts. In 1x2, a tied score wins the Draw selection; in Double Chance, a draw satisfies Home/Draw or Draw/Away.'
     scope,_=split_market(t['market'])
     if scope!='full_game':
         from .contracts import SCOPE_LABELS
@@ -177,8 +189,8 @@ def stake_market(t):
 def selection_name(t):
     from .contracts import split_market
     side=t.get('side');_,market=split_market(t['market']);team=t.get(side) if side in ('home','away') else None
-    if market in ('moneyline','three_way') and team:return team
-    if market=='three_way' and side=='draw':return 'Draw'
+    if market in ('moneyline','three_way','1x2') and team:return team
+    if market in ('three_way','1x2') and side=='draw':return 'Draw'
     if market=='spreads' and team and t.get('line') is not None:return f'{team} {t["line"]:+g}'
     if market in ('totals','home_total','away_total') and side in ('over','under') and t.get('line') is not None:
         return f'{side.title()} {t["line"]:g}'
