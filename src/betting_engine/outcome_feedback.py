@@ -23,7 +23,7 @@ MAX_BYTES = 32 * 1024 * 1024
 TOTAL_READ_BUDGET = 64 * 1024 * 1024
 MAX_PROPOSALS = 256
 INPUT_CHUNK_BYTES = 2 * 1024 * 1024
-MAX_INPUT_ARCHIVE_BYTES = 256 * 1024 * 1024
+MAX_INPUT_ARCHIVE_BYTES = 1024 * 1024 * 1024
 HEX = re.compile(r'^[0-9a-f]{64}$')
 LIMITATION = ('Observed original outcomes are diagnostic evidence, not proof of profitable predictions. '
               'Related selections share one game; small game samples cannot justify model promotion. '
@@ -73,42 +73,80 @@ def _archive_inputs(data, inputs):
             'bytes':total,'chunks':chunks}
 
 
+_ARCHIVE_VERIFICATION_CACHE = {}
+
+
 def _verify_input_archive(data, review):
     """Verify complete input/generation hashes one chunk at a time; never hydrate history."""
-    manifest=review['input_archive']
-    if manifest.get('version')!='feedback-input-chunks-v1':raise ValueError('feedback_input_archive_version')
-    kinds=('bet_outcomes','bets','decisions')
-    if set(manifest.get('counts',{}))!=set(kinds):raise ValueError('feedback_input_archive_counts')
-    raw=hashlib.sha256(); generation=hashlib.sha256()
-    evaluator=json.dumps(review['evaluator'],sort_keys=True,separators=(',', ':'),allow_nan=False)
-    generation.update(('{"evaluator":'+evaluator+',"inputs":').encode())
+    manifest = review['input_archive']
+    if manifest.get('version') != 'feedback-input-chunks-v1': raise ValueError('feedback_input_archive_version')
+    kinds = ('bet_outcomes', 'bets', 'decisions')
+    if set(manifest.get('counts', {})) != set(kinds): raise ValueError('feedback_input_archive_counts')
+    gen = review.get('generation')
+    cache_key = (str(Path(data).resolve()), gen)
+    cached = _ARCHIVE_VERIFICATION_CACHE.get(cache_key)
+    chunks = manifest.get('chunks', [])
+    if len(chunks) > 10000: raise ValueError('feedback_input_archive_chunks')
+    if cached is not None and cached.get('input_sha256') == review.get('input_sha256'):
+        cached_chunks = cached.get('chunks', {})
+        if len(cached_chunks) == len(chunks):
+            fast_valid = True
+            for ref in chunks:
+                sha = ref.get('sha256', '')
+                rel = 'outcome_feedback/inputs/' + sha + '.json'
+                expected_stat = cached_chunks.get(rel)
+                if not expected_stat:
+                    fast_valid = False
+                    break
+                path = _safe(Path(data) / rel)
+                try:
+                    st = path.stat()
+                    if (st.st_size, st.st_mtime) != expected_stat:
+                        fast_valid = False
+                        break
+                except OSError:
+                    fast_valid = False
+                    break
+            if fast_valid:
+                return
+
+    raw = hashlib.sha256(); generation = hashlib.sha256()
+    evaluator = json.dumps(review['evaluator'], sort_keys=True, separators=(',', ':'), allow_nan=False)
+    generation.update(('{"evaluator":' + evaluator + ',"inputs":').encode())
     def feed(value):
-        body=value.encode();raw.update(body);generation.update(body)
-    feed('{');total=0;seen=0
-    chunks=manifest.get('chunks',[])
-    if len(chunks)>10000:raise ValueError('feedback_input_archive_chunks')
-    for kind_index,kind in enumerate(kinds):
-        if kind_index:feed(',')
-        feed(json.dumps(kind)+':[');count=0
+        body = value.encode(); raw.update(body); generation.update(body)
+    feed('{'); total = 0; seen = 0
+    chunk_stats = {}
+    encoder = json.JSONEncoder(sort_keys=True, separators=(',', ':'), allow_nan=False)
+    for kind_index, kind in enumerate(kinds):
+        if kind_index: feed(',')
+        feed(json.dumps(kind) + ':[')
+        count = 0
         for ref in chunks:
-            if ref.get('kind')!=kind:continue
-            sha=ref.get('sha256','');rel='outcome_feedback/inputs/'+sha+'.json'
-            if not HEX.fullmatch(sha) or ref.get('path')!=rel:raise ValueError('feedback_input_chunk_reference')
-            path=_safe(Path(data)/rel);size=path.stat().st_size;total+=size;seen+=1
-            if total>MAX_INPUT_ARCHIVE_BYTES:raise ValueError('feedback_input_archive_limit')
-            value,actual=_read(path)
-            if actual!=sha or size!=ref.get('bytes') or value.get('kind')!=kind or len(value.get('rows',[]))!=ref.get('rows'):
+            if ref.get('kind') != kind: continue
+            sha = ref.get('sha256', ''); rel = 'outcome_feedback/inputs/' + sha + '.json'
+            if not HEX.fullmatch(sha) or ref.get('path') != rel: raise ValueError('feedback_input_chunk_reference')
+            path = _safe(Path(data) / rel)
+            st = path.stat()
+            size = st.st_size
+            total += size
+            seen += 1
+            if total > MAX_INPUT_ARCHIVE_BYTES: raise ValueError('feedback_input_archive_limit')
+            value, actual = _read(path)
+            if actual != sha or size != ref.get('bytes') or value.get('kind') != kind or len(value.get('rows', [])) != ref.get('rows'):
                 raise ValueError('feedback_input_chunk_binding')
+            chunk_stats[rel] = (size, st.st_mtime)
             for row in value['rows']:
-                if count:feed(',')
-                for part in json.JSONEncoder(sort_keys=True,separators=(',', ':'),allow_nan=False).iterencode(row):feed(part)
-                count+=1
+                if count: feed(',')
+                feed(encoder.encode(row))
+                count += 1
         feed(']')
-        if count!=manifest['counts'][kind]:raise ValueError('feedback_input_archive_counts')
-    feed('}');generation.update(b'}')
-    if seen!=len(chunks) or total!=manifest.get('bytes'):raise ValueError('feedback_input_archive_counts')
-    if raw.hexdigest()!=review['input_sha256']:raise ValueError('feedback_input_hash_mismatch')
-    if generation.hexdigest()!=review['generation']:raise ValueError('feedback_generation_mismatch')
+        if count != manifest['counts'][kind]: raise ValueError('feedback_input_archive_counts')
+    feed('}'); generation.update(b'}')
+    if seen != len(chunks) or total != manifest.get('bytes'): raise ValueError('feedback_input_archive_counts')
+    if raw.hexdigest() != review['input_sha256']: raise ValueError('feedback_input_hash_mismatch')
+    if generation.hexdigest() != review['generation']: raise ValueError('feedback_generation_mismatch')
+    _ARCHIVE_VERIFICATION_CACHE[cache_key] = {'input_sha256': review.get('input_sha256'), 'chunks': chunk_stats}
 
 
 def _compact_proposals(proposals, input_sha):
