@@ -124,8 +124,10 @@ def test_resolve_graduated_segment_models():
     assert isinstance(resolved[('MLS', 'half_1')], GraduatedSoccerHalfModel)
 
 
-def test_end_to_end_graduated_tennis_candidate_and_evidence_guard():
+def test_end_to_end_graduated_tennis_candidate_and_evidence_guard(monkeypatch):
     """Verifies that a graduated ATP period_1 market passes candidate generation and EvidenceGuard 100%."""
+    import betting_engine.decisions
+    monkeypatch.setattr(betting_engine.decisions, '_get_demoted_segments', lambda: set())
     now_iso = utcnow().isoformat()
     from datetime import timedelta
     from betting_engine.domain import parse_time

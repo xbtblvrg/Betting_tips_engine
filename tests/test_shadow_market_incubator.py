@@ -599,7 +599,7 @@ def test_enforce_minimum_league_quotas(incubator, tmp_path):
     conn.close()
 
     # Enforce minimum quota of 1 for NBA
-    quota_grads = incubator.enforce_minimum_league_quotas(min_quota=1)
+    quota_grads = incubator.enforce_minimum_league_quotas(min_quota=1, min_sample_size=10)
     assert len(quota_grads) == 1
     g = quota_grads[0]
     assert g['segment_key'] == 'NBA|full_game|away_total'
@@ -613,7 +613,7 @@ def test_enforce_minimum_league_quotas(incubator, tmp_path):
     assert 'NBA|full_game|away_total' in loaded
 
     # Subsequent call with min_quota=1 sees quota already fulfilled and returns 0 new
-    subsequent = incubator.enforce_minimum_league_quotas(min_quota=1)
+    subsequent = incubator.enforce_minimum_league_quotas(min_quota=1, min_sample_size=10)
     assert len(subsequent) == 0
 
 
@@ -658,8 +658,8 @@ def test_enforce_unlimited_proven_graduation_zero_rationing(incubator, tmp_path)
     conn.commit()
     conn.close()
 
-    # Call enforce_unlimited_proven_graduation()
-    graduated = incubator.enforce_unlimited_proven_graduation()
+    # Call enforce_unlimited_proven_graduation() with min_sample_size=10
+    graduated = incubator.enforce_unlimited_proven_graduation(min_sample_size=10)
 
     # Zero Rationing: ALL 3 qualifying families MUST graduate!
     assert len(graduated) == 3
@@ -677,7 +677,7 @@ def test_enforce_unlimited_proven_graduation_zero_rationing(incubator, tmp_path)
         assert g['segment_key'] in loaded
 
     # Subsequent execution produces 0 duplicates
-    second_run = incubator.enforce_unlimited_proven_graduation()
+    second_run = incubator.enforce_unlimited_proven_graduation(min_sample_size=10)
     assert len(second_run) == 0
 
 

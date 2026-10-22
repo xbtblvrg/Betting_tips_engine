@@ -2105,6 +2105,7 @@ class ShadowMarketIncubator:
     def enforce_minimum_league_quotas(
         self,
         min_quota: int = MIN_LEAGUE_GRADUATED_QUOTA,
+        min_sample_size: int = 25,
         as_of: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """Zero Rationing & Unlimited Maximum Proven Graduation Mandate.
@@ -2113,8 +2114,9 @@ class ShadowMarketIncubator:
         Strictly satisfies the Constitution and User Directives:
         1. Unlimited Maximum: Zero artificial ceiling per league. Every single market
            demonstrating empirical profitability graduates without rationing or quotas.
-        2. Mandatory Minimum = ALL Proven Markets: N >= 10, PnL > 0, ROI >= +1.5%, MaxDD < 25%.
-        3. Dynamic Coverage: Evaluates all liquid sports (NBA, WTA, ATP, MLB, NHL, NFL,
+        2. Anti-Overfitting Sample Floor: Minimum 25 completed wagers (N >= 25, PnL > 0, ROI >= +3.0%, MaxDD < 20%).
+        3. Calibration Superiority: Delta Brier must demonstrate genuine edge over closing odds (Delta Brier > 0.0005).
+        4. Dynamic Coverage: Evaluates all liquid sports (NBA, WTA, ATP, MLB, NHL, NFL,
            NCAAF, EPL, MLS, UCL, WNBA, CHALLENGER) and dynamic families.
         """
         now_iso = as_of or utcnow().isoformat()
@@ -2185,7 +2187,7 @@ class ShadowMarketIncubator:
                     continue
 
                 n_c = len(records_c)
-                if n_c < 10:
+                if n_c < min_sample_size:
                     continue
 
                 pnl_c = [r[5] for r in records_c]
@@ -2194,7 +2196,7 @@ class ShadowMarketIncubator:
                     continue
 
                 roi_c = tot_pnl_c / float(n_c)
-                if roi_c < 0.015:
+                if roi_c < 0.030:
                     continue
 
                 odds_c = [r[4] for r in records_c]
@@ -2204,14 +2206,15 @@ class ShadowMarketIncubator:
                 avg_bm_c = float(np.mean(bm_c)) if bm_c else 0.25
                 avg_bmkt_c = float(np.mean(bmkt_c)) if bmkt_c else 0.25
                 delta_b_c = avg_bmkt_c - avg_bm_c
-                if delta_b_c <= -0.05 and avg_bm_c > 0.25:
+                # Strict Anti-Overfitting: Delta Brier must demonstrate genuine calibration edge over closing lines
+                if delta_b_c <= 0.0005:
                     continue
 
                 cumsum_c = np.cumsum(pnl_c)
                 peaks_c = np.maximum.accumulate(cumsum_c)
                 drawdowns_c = (peaks_c - cumsum_c) / np.maximum(1.0, peaks_c + float(n_c))
                 max_dd_c = float(np.max(drawdowns_c)) if len(drawdowns_c) > 0 else 0.0
-                if max_dd_c >= 0.25:
+                if max_dd_c >= 0.20:
                     continue
 
                 win_count_c = sum(1 for p in pnl_c if p > 0)
@@ -2336,11 +2339,12 @@ class ShadowMarketIncubator:
 
     def enforce_unlimited_proven_graduation(
         self,
+        min_sample_size: int = 25,
         as_of: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """Unlimited Maximum & Zero Rationing Proven Graduation Mandate.
         Direct alias fulfilling User Mandate: graduates ALL proven candidates."""
-        return self.enforce_minimum_league_quotas(min_quota=0, as_of=as_of)
+        return self.enforce_minimum_league_quotas(min_quota=0, min_sample_size=min_sample_size, as_of=as_of)
 
     def trigger_volume_deficit_expansion(
         self,
