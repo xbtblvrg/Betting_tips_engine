@@ -107,4 +107,38 @@ A gépen végzett fejlesztések, modellek és dokumentációk azonnali feltölt�
 ```bash
 ./scripts/sync_to_github.sh
 ```
-A szkript atomi módon rögzíti a módosításokat, létrehoz egy időbélyeges commitot, és biztonságosan felküldi az adatokat az SSH ágon a GitHub repository-ba.
+A szkript atomi módon rögzíti a módosításokat, létrehoz egy időbélyeges commitot, és biztonságosan felküldi az adatokat az SSH ágon a GitHub repository-ba (beleértve a git tageket is).
+A háttérben futó macOS LaunchAgent (`hu.belavarga.betting-github-sync`) ezt 15 percenként magától is lefutattja.
+
+---
+
+## 7. GitHub Issues — Automatikus Feladat- és Kvantkutatási Tracking
+
+A rendszer önállóan képes a GitHub Issues felületén nyomon követni:
+1. **Kutatási és modell-hiányosságokat** (`research-gap`): ha egy ligának még nincs független modellje vagy funkcióbővítése szükséges.
+2. **Karanténba került piacok turnaround feladatait** (`capital-defense`, `quant-council`): a `$0.00` tőkevédelmi karanténban lévő ligák AI általi megjavítását és Crucible re-graduációját.
+3. **Automatikus lezárás**: amint egy karanténba helyezett ligában minden piac sikeresen re-graduál a Walk-Forward Crucible teszten, a rendszer magától lezárja a megfelelő Issue-t.
+
+Kézi futtatás / ellenőrzés:
+```bash
+python3 scripts/sync_github_issues.py
+```
+*(Ez a lépés automatikusan bele van kötve a 15 perces `scripts/sync_to_github.sh` ciklusba is.)*
+
+---
+
+## 8. GitHub Releases & Tagging — Mérföldkövek és Visszaállási Pontok
+
+Minden jelentős fejlesztési mérföldkőnél (pl. tőkevédelmi zárás, új modell diplomázása, PnL fordulat) automatikusan verziózott GitHub Release és git tag hozható létre:
+
+```bash
+# Új mérföldkő publikálása
+python3 scripts/create_github_milestone.py v2026.10.23-alpha-recovery --title "v2026.10.23 — Alpha Turnaround & Live Profit Milestone" --summary "Részletes leírás az elért eredményekről és verifikációról..."
+
+# Meglévő kiadások listázása
+gh release list
+
+# Korábbi verzióra való visszatérés / megtekintés
+git checkout v2026.10.22-capital-defense
+```
+

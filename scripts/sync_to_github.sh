@@ -17,6 +17,12 @@ if [ "$CURRENT_REMOTE" != "$REMOTE_URL" ]; then
     git remote add origin "$REMOTE_URL"
 fi
 
+# 1.5. Synchronize GitHub Issues with local engine gaps and quarantined turnarounds
+if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+    echo "Syncing quant research gaps and capital defense issues with GitHub..."
+    python3 scripts/sync_github_issues.py || echo "Warning: GitHub issues sync skipped or encountered non-fatal error."
+fi
+
 # 2. Stage all source, docs, config, tests, and root files (excluding ignored files in .gitignore)
 echo "Staging files..."
 git add src/ tests/ docs/ config/ scripts/ knowledge/cards/ package.json pyproject.toml .gitignore AGENTS.md GEMINI.md README.md COLD_START_RECOVERY.md 2>/dev/null || true
@@ -41,8 +47,8 @@ REMOTE_HASH=$(git rev-parse "origin/$CURRENT_BRANCH" 2>/dev/null || echo "")
 if [ "$LOCAL_HASH" = "$REMOTE_HASH" ]; then
     echo "Branch '$CURRENT_BRANCH' is up to date with origin. Nothing to push."
 else
-    echo "Pushing branch '$CURRENT_BRANCH' to origin..."
-    git push -u origin "$CURRENT_BRANCH"
+    echo "Pushing branch '$CURRENT_BRANCH' and tags to origin..."
+    git push -u origin "$CURRENT_BRANCH" --tags
 fi
 
 echo "=== Sync to GitHub completed successfully! ==="
