@@ -711,19 +711,31 @@ class ShadowMarketIncubator:
                 except Exception:
                     pass
 
-        # Family 2: Tennis Set Markets
+        # Family 2: Tennis Set Markets (Exact harmonization with GraduatedTennisSetModel)
         elif contract.family == 'tennis_sets':
-            from .tennis_engine import set_score_distribution, TOUR_BASELINES, SURFACE_MODIFIERS
-            base_p = TOUR_BASELINES.get(league, 0.63)
-            # Estimate player serve strengths if forecast available
-            p_serve_a = base_p + 0.02
-            p_serve_b = base_p - 0.02
-            if forecast is not None and hasattr(forecast, 'features'):
-                elo_diff = float(forecast.features.get('elo_difference', 0.0))
-                adj = (elo_diff / 400.0) * 0.04
-                p_serve_a = max(0.40, min(0.85, base_p + adj))
-                p_serve_b = max(0.40, min(0.85, base_p - adj))
+            from .tennis_engine import (
+                calibrate_serve_probabilities,
+                set_score_distribution,
+                TOUR_BASELINES,
+                SURFACE_MODIFIERS,
+            )
+            context = getattr(game, 'context', {}) or {}
+            surface = context.get('surface', 'hard')
+            rating_diff = float(context.get('rating_diff', 0.0) or 0.0)
+            fatigue_a = float(context.get('fatigue_a', 0.0) or 0.0)
+            fatigue_b = float(context.get('fatigue_b', 0.0) or 0.0)
+            if rating_diff == 0.0 and forecast is not None and hasattr(forecast, 'features'):
+                elo_diff = float(forecast.features.get('elo_difference', 0.0) or 0.0)
+                if elo_diff != 0.0:
+                    rating_diff = elo_diff
 
+            p_serve_a, p_serve_b = calibrate_serve_probabilities(
+                tour=league,
+                surface=surface,
+                rating_diff=rating_diff,
+                fatigue_penalty_a=fatigue_a,
+                fatigue_penalty_b=fatigue_b
+            )
             p_a_wins_set, scores = set_score_distribution(p_serve_a, p_serve_b)
 
             if contract.sub_family == 'set_winner':

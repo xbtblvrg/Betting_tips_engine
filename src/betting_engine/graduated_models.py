@@ -393,17 +393,18 @@ class GraduatedSoccerHalfModel:
         hp, ap, _ = _extract_full_forecast_info(context)
         has_full = hp is not None and ap is not None and hp > 0 and ap > 0
 
-        # Dynamically scale 45% of 90-minute goal expectations
+        # Dynamically scale 45% (half_1) or 55% (half_2) of 90-minute goal expectations (matching incubator)
+        scale = 0.45 if self.scope == 'half_1' else 0.55
         if has_full:
-            lambda_h = max(0.1, hp * 0.45)
-            lambda_a = max(0.1, ap * 0.45)
+            lambda_h = max(0.1, hp * scale)
+            lambda_a = max(0.1, ap * scale)
         else:
             base_h = 1.35
             base_a = 1.15
             rating_diff = float(context.get('rating_diff', 0.0) or 0.0)
             adj = 0.05 * (rating_diff / 50.0)
-            lambda_h = max(0.2, (base_h + adj) * 0.45)
-            lambda_a = max(0.2, (base_a - adj) * 0.45)
+            lambda_h = max(0.2, (base_h + adj) * scale)
+            lambda_a = max(0.2, (base_a - adj) * scale)
 
         # Bivariate Poisson score matrix up to 4-4
         scores: Dict[Tuple[int, int], float] = {}
