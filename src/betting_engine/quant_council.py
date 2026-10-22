@@ -388,4 +388,17 @@ def convene_quant_council(
     )
 
     _append_session(session)
+
+    try:
+        from .telegram_notifier import notify_council_session
+        notify_council_session(
+            session_id=session.session_id,
+            league=session.league,
+            segment=session.segment,
+            trigger_reason=session.trigger_reason,
+            synthesis_decision=session.synthesis.get("decision", "Hypothesis approved for Crucible backtest")
+        )
+    except Exception:
+        pass
+
     return session

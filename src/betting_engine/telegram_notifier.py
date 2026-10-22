@@ -321,3 +321,31 @@ def notify_system_issues(issues: List[Dict[str, Any]]) -> int:
         log.info("Dispatched Telegram alert for %d system issues", len(new_failures))
         return len(new_failures)
     return 0
+
+
+def notify_rd_graduation(league: str, segment: str, sample_size: int, roi_pct: float, win_rate_pct: float) -> bool:
+    """Dispatches real-time Telegram notification when a quarantined segment graduates from Shadow Incubator."""
+    text = (
+        f"🎓 <b>[AUTONOMOUS CRUCIBLE GRADUATION]</b>\n\n"
+        f"🏆 <b>League:</b> {league}\n"
+        f"📊 <b>Segment:</b> <code>{segment}</code>\n"
+        f"📈 <b>Crucible Out-of-Time ROI:</b> +{roi_pct:.1f}%\n"
+        f"🎯 <b>Win Rate:</b> {win_rate_pct:.1f}%\n"
+        f"🧪 <b>Verified Wagers:</b> {sample_size} meccs\n\n"
+        f"🛡️ <i>Tőkevédelmi karantén feloldva! Piac visszadiplomázott az éles ajánlásokba ($0.50-$8.00 tétsáv).</i>"
+    )
+    return send_telegram_message(text)
+
+
+def notify_council_session(session_id: str, league: str, segment: str, trigger_reason: str, synthesis_decision: str) -> bool:
+    """Dispatches Telegram alert when the Multi-AI Quant Council concludes a deliberation session."""
+    text = (
+        f"🧠 <b>[MULTI-AI QUANT COUNCIL DELIBERATION]</b>\n\n"
+        f"🏛️ <b>Segment:</b> <code>{segment}</code> ({league})\n"
+        f"⚠️ <b>Trigger:</b> {trigger_reason}\n"
+        f"🤝 <b>Council:</b> Claude + Codex + Grok + Antigravity\n"
+        f"📋 <b>Döntés:</b> {synthesis_decision}\n\n"
+        f"🔬 <i>Walk-Forward Crucible szimuláció és hipotézis-tesztelés folyamatban.</i>"
+    )
+    return send_telegram_message(text)
+

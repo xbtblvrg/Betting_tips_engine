@@ -18,9 +18,10 @@ Végezz teljes rendszerauditot és mélyreható kvant felülvizsgálatot a legfr
    - Ellenőrizd a teljes rendszer bekötését és működési hurkait: minden modul, fejlesztés és háttérfolyamat ténylegesen meghívódik-e, megfelelő triggerrel és ütemezéssel fut-e, megkapja-e a szükséges bemeneteket, és az eredményét felhasználja-e a következő lépés.
    - Keress bekötetlen kódot, megszakadt visszacsatolást, beragadt vagy duplikált ciklust, hibás aszinkronitást, retry-csapdát és újraindítás után elvesző feladatot/állapotot.
 
-3. Multi-AI Szinergia & Kutatási Eredmények Felülvizsgálata:
-   - Térképezd fel és tekintsd át az összes háttérben futó AI modell, kvant tanács és kutatási motor legfrissebb termékét (hipotézisek, azonosított kudarcmódok, mechanikai meglátások, képességbővítési tervek, szűrők és pajzsok).
-   - Ellenőrizd, hogy a többi AI által javasolt védelmi szabályok, modellek és szűrők ténylegesen érvényesülnek-e a döntési motorban, vagy beépítetlenül elakadtak.
+3. Multi-AI Szinergia, Kitalált Megoldások & Beragadt Innovációk Felülvizsgálata:
+   - Térképezd fel és tekintsd át az összes háttérben futó AI modell, kvant tanács és kutatási motor által kidolgozott, **már kitalált, de még várakozó, beépítetlen vagy kapuknál beragadt megoldásait** (előkészített kódjelöltek, staging tervek, jóváhagyásra váró hipotézisek, képességbővítési tervek, azonosított kudarcmódok és védelmi mechanizmusok).
+   - Vizsgáld meg, miért nem kerültek élesítésre ezek a kész ötletek (pl. biztonsági kapu elakadás, validációs sorban állás, elmaradt promóció vagy hiányzó implementációs híd), és mutasd be a feloldásuk módját.
+   - Ellenőrizd, hogy a többi AI által javasolt és jóváhagyott védelmi szabályok, modellek és szűrők ténylegesen érvényesülnek-e a döntési motorban, vagy beépítetlenül elakadtak.
 
 4. Piacok, Tőkevédelem & Karantén Integritás:
    - Ellenőrizd az összes piac és szegmens teljesítményét: a leromló, negatív szegmensek szigorúan el vannak-e zárva a valós tőkétől ($0.00 virtuális karantén / inkubáció), amíg újra nem bizonyítanak a szigorú validációs kapukon (zéró tőkeszivárgás).

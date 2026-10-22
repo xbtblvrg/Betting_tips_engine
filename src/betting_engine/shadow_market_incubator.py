@@ -1880,6 +1880,12 @@ class ShadowMarketIncubator:
                 except Exception:
                     pass
 
+                try:
+                    from .telegram_notifier import notify_rd_graduation
+                    notify_rd_graduation(league, segment_key, n_samples, roi * 100.0, win_rate * 100.0)
+                except Exception:
+                    pass
+
                 # High-probability & proven core challenger cohorts graduate to SOLID_ALPHA; gap markets start in PROBATION.
                 initial_tier = 'SOLID_ALPHA' if cohort_val in ('high_probability', 'core_challenger') and roi >= 0.03 else 'PROBATION'
                 grad_entry = {
@@ -2040,6 +2046,12 @@ class ShadowMarketIncubator:
 
                 try:
                     cur.execute("DELETE FROM demoted_markets WHERE segment_key = ?", (seg_key,))
+                except Exception:
+                    pass
+
+                try:
+                    from .telegram_notifier import notify_rd_graduation
+                    notify_rd_graduation(lg, seg_key, n_samples, roi * 100.0, win_rate * 100.0)
                 except Exception:
                     pass
 
@@ -2264,6 +2276,12 @@ class ShadowMarketIncubator:
                 ))
                 try:
                     cur.execute("DELETE FROM demoted_markets WHERE segment_key = ? OR segment_key = ?", (cand['segment_key'], cand['canonical_key']))
+                except Exception:
+                    pass
+
+                try:
+                    from .telegram_notifier import notify_rd_graduation
+                    notify_rd_graduation(league, cand['segment_key'], cand['n_samples'], cand['roi'] * 100.0, cand['win_rate'] * 100.0)
                 except Exception:
                     pass
 
@@ -2513,6 +2531,12 @@ class ShadowMarketIncubator:
                 try:
                     cur.execute("DELETE FROM demoted_markets WHERE segment_key = ? OR segment_key = ?", (segment_key, canonical_key))
                     cur.execute("DELETE FROM incubator_diagnostic_repairs WHERE segment_key = ? OR segment_key = ? OR segment_key = ?", (segment_key, canonical_key, sub_key))
+                except Exception:
+                    pass
+
+                try:
+                    from .telegram_notifier import notify_rd_graduation
+                    notify_rd_graduation(league, segment_key, n_samples, roi * 100.0, win_rate * 100.0)
                 except Exception:
                     pass
 
