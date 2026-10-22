@@ -32,9 +32,16 @@ else
     git commit -m "$COMMIT_MSG"
 fi
 
-# 4. Push to GitHub
+# 4. Push to GitHub if local is ahead of remote
 CURRENT_BRANCH=$(git branch --show-current)
-echo "Pushing branch '$CURRENT_BRANCH' to origin..."
-git push -u origin "$CURRENT_BRANCH"
+LOCAL_HASH=$(git rev-parse HEAD)
+REMOTE_HASH=$(git rev-parse "origin/$CURRENT_BRANCH" 2>/dev/null || echo "")
+
+if [ "$LOCAL_HASH" = "$REMOTE_HASH" ]; then
+    echo "Branch '$CURRENT_BRANCH' is up to date with origin. Nothing to push."
+else
+    echo "Pushing branch '$CURRENT_BRANCH' to origin..."
+    git push -u origin "$CURRENT_BRANCH"
+fi
 
 echo "=== Sync to GitHub completed successfully! ==="
