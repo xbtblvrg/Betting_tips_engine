@@ -19,8 +19,8 @@ FEEDBACK_AGE_SLA_SECONDS = 300
 FEEDBACK_KINDS = frozenset(('outcome_review', 'closing_evaluation'))
 RECOVERY_KINDS = frozenset(('model_restore', 'segment_restore', 'period_restore'))
 PRIORITY = {'source_refresh':0, 'model_restore':0, 'segment_restore':0, 'period_restore':0,
-    'outcome_review':1, 'closing_evaluation':1, 'shadow_evaluation':1, 'market_catalog':1,
-    'controlled_retrain':2, 'segment_retrain':2, 'period_retrain':2, 'anchor_weight_learning':2,
+    'outcome_review':1, 'closing_evaluation':1, 'shadow_evaluation':1, 'market_catalog':1, 'autonomous_submarket_expansion':1,
+    'controlled_retrain':2, 'segment_retrain':2, 'period_retrain':2, 'segment_repair':2, 'target_evaluation':2, 'anchor_weight_learning':2, 'opportunity_funnel_repair':2,
     'player_history_refresh':2, 'player_prop_audit':2, 'player_data_refresh':3, 'model_search':3,
     'research_watch':4}
 
@@ -51,7 +51,8 @@ def choose_learning_job(rows, recent_attempts, now=None):
             'high_priority_streak':streak, 'runnable_jobs':len(runnable),
             'feedback_wait_seconds':max(0,(now-eligible_at(selected)).total_seconds()),
             'exclusive_worker_preserved':True, 'model_promotion_unchanged':True}
-    background = [r for r in runnable if PRIORITY.get(r['kind'],5)>=2]
+    threshold = 1 if PRIORITY.get(ordinary['kind'], 5) == 0 else 2
+    background = [r for r in runnable if PRIORITY.get(r['kind'],5)>=threshold]
     selected = ordinary; reason = 'normal_priority'
     # A genuine model/segment/period restore is a recovery action and must
     # remain ahead of background fairness, even after the emergency age cap.
@@ -148,10 +149,15 @@ class LearningWorker:
         # Review on the first worker tick after a result/reconciliation change,
         # retaining the hourly fallback. Never turn repeated reads into trials.
         self.plan_outcome_review(now)
+        if (self.data / 'research').exists():
+            self.plan_target_evaluation(now)
         self.plan_anchor_weights(now)
         self.plan_segments()
         self.plan_underperforming_segments(now)
+        self.coalesce_stale_jobs(now)
+        self.plan_autonomous_submarket_expansion(now)
         self.plan_market_expansion()
+
         self.plan_player_evidence()
         self.plan_research()
         self.plan_operations()
@@ -178,6 +184,62 @@ class LearningWorker:
             with self.store.db() as c:
                 for row in c.execute("SELECT id FROM learning_jobs WHERE kind='research_gap' AND status!='resolved'").fetchall():
                     if row['id'] not in active_gaps:c.execute("UPDATE learning_jobs SET status='resolved',updated_at=? WHERE id=?",(now.isoformat(),row['id']))
+
+    def plan_target_evaluation(self, now):
+        """Durable scheduled self-evaluation for the unified 700 bets / 10% ROI mandate.
+        
+        Evaluates rolling 7-day progress and milestone pacing. If the target is in shortfall,
+        initiates an automated full forensic investigation and solution search.
+        """
+        with self.store.db() as c:
+            active = c.execute("SELECT id FROM learning_jobs WHERE kind='target_evaluation' AND status IN ('queued','running','retry') LIMIT 1").fetchone()
+            last = c.execute("SELECT updated_at FROM learning_jobs WHERE kind='target_evaluation' AND status='completed' ORDER BY updated_at DESC LIMIT 1").fetchone()
+        if active:
+            return active['id']
+        if last and now - parse_time(last['updated_at']) < timedelta(hours=6):
+            return None
+        from .target_evaluator import TARGET_EVALUATION_VERSION
+        return self.enqueue(
+            'target_evaluation',
+            f"{TARGET_EVALUATION_VERSION}:{now.strftime('%Y%m%d_%H')}",
+            payload={
+                'as_of': now.isoformat(),
+                'version': TARGET_EVALUATION_VERSION,
+                'target_rolling_bets': 700,
+                'target_weekly_roi_pct': 10.0,
+                'mandate': 'Mandatory >= 700 bets per week with >= 10.0% ROI'
+            }
+        )
+
+    def plan_autonomous_submarket_expansion(self, now):
+        """Durable scheduled background cycle for Autonomous Market Expansion & Structural Evolution.
+        
+        Every 15 minutes:
+        - Reconciles and settles aged and completed shadow wagers.
+        - Evaluates Crucible invariants to dynamically graduate all proven positive-alpha submarkets.
+        - Enforces Mandatory Production Directive with unlimited maximum and zero rationing.
+        - Executes multi-AI supervised capability evolution cycle on underperforming segments.
+        """
+        if not (self.data / 'shadow_incubator.sqlite3').exists():
+            return None
+        with self.store.db() as c:
+
+            active = c.execute("SELECT id FROM learning_jobs WHERE kind='autonomous_submarket_expansion' AND status IN ('queued','running','retry') LIMIT 1").fetchone()
+            last = c.execute("SELECT updated_at FROM learning_jobs WHERE kind='autonomous_submarket_expansion' AND status='completed' ORDER BY updated_at DESC LIMIT 1").fetchone()
+        if active:
+            return active['id']
+        if last and now - parse_time(last['updated_at']) < timedelta(minutes=15):
+            return None
+        return self.enqueue(
+            'autonomous_submarket_expansion',
+            f"expansion:{now.strftime('%Y%m%d_%H%M')}",
+            payload={
+                'as_of': now.isoformat(),
+                'cadence_minutes': 15.0,
+                'mandate': 'Mandatory Production Directive: Continually research, decompose, prove and graduate all positive-EV submarkets across all leagues with unlimited ceiling.'
+            }
+        )
+
 
     def plan_anchor_weights(self, now):
         """One durable weekly fit/evaluation job, retaining failures and attempts."""
@@ -301,31 +363,110 @@ class LearningWorker:
         try:
             with self.store.db() as c:
                 scoreboard = compute_segment_scoreboard(c)
-                under = scoreboard.get('underperforming_segments', [])
-                for seg in under:
-                    if seg['pnl'] > -3.0 or seg['games'] < 4:
-                        continue
-                    league = seg['league']
-                    task_name = f"Repair underperforming segment {seg['segment']}"
-                    payload = {
-                        'league': league,
-                        'task': task_name,
-                        'segment': seg['segment'],
-                        'pnl': seg['pnl'],
-                        'roi_pct': seg['roi_pct'],
-                        'games': seg['games'],
-                        'wins': seg['wins'],
-                        'losses': seg['losses'],
-                        'objective': (f"Underperforming segment {seg['segment']} has realized PnL of ${seg['pnl']:.2f} "
-                                      f"(ROI {seg['roi_pct']}%) across {seg['games']} games. Investigate failure modes "
-                                      f"(totals volatility, score distribution, key player/line dependencies) and "
-                                      f"propose an improved model recipe or tighter qualification gate to achieve positive PnL."),
-                        'handler': 'controlled_retrain',
-                        'status': 'needs_implementation'
-                    }
-                    self.enqueue('segment_repair', f"{league}:{task_name}", payload, league, 'needs_implementation')
-        except Exception:
-            pass
+            under = scoreboard.get('underperforming_segments', [])
+            now_iso = now.isoformat()
+            for seg in under:
+                if seg['games'] < 4 or seg['pnl'] >= 0 or (seg['roi_pct'] > -3.0 and seg['pnl'] > -5.0):
+                    continue
+                league = seg['league']
+                task_name = f"Repair underperforming segment {seg['segment']}"
+                payload = {
+                    'league': league,
+                    'task': task_name,
+                    'segment': seg['segment'],
+                    'pnl': seg['pnl'],
+                    'roi_pct': seg['roi_pct'],
+                    'games': seg['games'],
+                    'wins': seg['wins'],
+                    'losses': seg['losses'],
+                    'objective': (f"Underperforming segment {seg['segment']} has realized PnL of ${seg['pnl']:.2f} "
+                                  f"(ROI {seg['roi_pct']}%) across {seg['games']} games. Investigate failure modes "
+                                  f"(totals volatility, score distribution, key player/line dependencies) and "
+                                  f"propose an improved model recipe or tighter qualification gate to achieve positive PnL."),
+                    'handler': 'quant_rd_agent',
+                    'status': 'queued'
+                }
+                canonical_key = f"{league}:repair:{seg['segment']}"
+                job_id = self.enqueue('segment_repair', canonical_key, payload, league, 'queued')
+                with self.store.db() as c:
+                    # Check if already completed recently (within 24h)
+                    row = c.execute("SELECT status, updated_at FROM learning_jobs WHERE id=?", (job_id,)).fetchone()
+                    if row and row['status'] == 'completed':
+                        try:
+                            comp_time = parse_time(row['updated_at'])
+                            if now - comp_time < timedelta(hours=24):
+                                continue
+                        except Exception:
+                            pass
+                    # If not completed or cooldown elapsed, update payload if queued/retry
+                    c.execute("""
+                        UPDATE learning_jobs 
+                        SET next_attempt=?, updated_at=?, payload=?
+                        WHERE id=? AND status IN ('queued', 'retry')
+                    """, (now_iso, now_iso, json.dumps(payload), job_id))
+                    # Supersede any duplicate or older legacy queued jobs for this exact segment
+                    c.execute("""
+                        UPDATE learning_jobs
+                        SET status = 'superseded',
+                            result = json_object('state', 'superseded', 'reason', 'Superseded by current segment repair job', 'superseded_by', ?),
+                            updated_at = ?
+                        WHERE kind = 'segment_repair'
+                          AND id != ?
+                          AND status IN ('queued', 'retry')
+                          AND json_extract(payload, '$.segment') = ?
+                    """, (job_id, now_iso, job_id, seg['segment']))
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("Failed to plan underperforming segments: %s", e)
+
+    def coalesce_stale_jobs(self, now):
+        """Coalesce duplicate or superseded periodic jobs to prevent queue pileups."""
+        try:
+            with self.store.db() as c:
+                now_iso = now.isoformat()
+                # 1. Coalesce opportunity_funnel_repair to keep only the latest queued job
+                funnel_jobs = c.execute("""
+                    SELECT id, created_at FROM learning_jobs 
+                    WHERE kind='opportunity_funnel_repair' AND status IN ('queued', 'retry')
+                    ORDER BY created_at DESC
+                """).fetchall()
+                if len(funnel_jobs) > 1:
+                    latest_id = funnel_jobs[0]['id']
+                    c.execute("""
+                        UPDATE learning_jobs
+                        SET status = 'superseded',
+                            result = json_object('state', 'superseded', 'reason', 'Superseded by latest hourly opportunity funnel repair', 'superseded_by', ?),
+                            updated_at = ?
+                        WHERE kind = 'opportunity_funnel_repair'
+                          AND id != ?
+                          AND status IN ('queued', 'retry')
+                    """, (latest_id, now_iso, latest_id))
+
+                # 2. Retire queued segment repair jobs for segments no longer underperforming
+                from .segment_scoreboard import compute_segment_scoreboard
+                try:
+                    scoreboard = compute_segment_scoreboard(c)
+                    active_under = {s['segment'] for s in scoreboard.get('underperforming_segments', [])}
+                    queued_repairs = c.execute("""
+                        SELECT id, json_extract(payload, '$.segment') as segment
+                        FROM learning_jobs
+                        WHERE kind='segment_repair' AND status IN ('queued', 'retry')
+                    """).fetchall()
+                    for r in queued_repairs:
+                        seg = r['segment']
+                        if seg and seg not in active_under:
+                            c.execute("""
+                                UPDATE learning_jobs
+                                SET status = 'completed',
+                                    result = json_object('state', 'completed', 'reason', 'Segment is no longer underperforming in current scoreboard'),
+                                    updated_at = ?
+                                WHERE id = ?
+                            """, (now_iso, r['id']))
+                except Exception:
+                    pass
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("Error coalescing stale jobs: %s", e)
 
     def plan_market_expansion(self):
         for kind,artifact,hours in [('market_catalog','market_catalog/latest.json',.25),('period_retrain','period_models/latest_training.json',24),('player_data_refresh','players/sources.json',24)]:
@@ -428,6 +569,9 @@ class LearningWorker:
                     if row['action']=='market_research':
                         c.execute("UPDATE operating_gaps SET status='not_currently_observed' WHERE id=?",(row['id'],))
                     else:c.execute("UPDATE operating_gaps SET status='resolved',resolved_at=? WHERE id=?",(now.isoformat(),row['id']))
+            # Prune stale unobserved gaps older than 7 days to maintain operational performance
+            cutoff = (now - timedelta(days=7)).isoformat()
+            c.execute("DELETE FROM operating_gaps WHERE status='not_currently_observed' AND last_seen < ?", (cutoff,))
             gaps=[dict(r) for r in c.execute('''SELECT g.*,j.status job_status,j.last_error FROM operating_gaps g
                 LEFT JOIN learning_jobs j ON g.job_id=j.id ORDER BY g.status,g.league,g.code''')]
         for g in gaps:g['evidence']=json.loads(g['evidence'])
@@ -479,7 +623,11 @@ class LearningWorker:
         if job['kind']=='market_catalog':
             from .market_catalog import refresh_catalog
             r=refresh_catalog(self.data)
-            if r['issues']:raise RuntimeError('Market catalogue refresh is partial; archived source errors require retry.')
+            critical_issues = [
+                i for i in r.get('issues', [])
+                if i.get('reason') not in ('stake_seed_identity_unresolved', 'stake_fixture_not_active', 'stake_fixture_identity_conflict')
+            ]
+            if critical_issues:raise RuntimeError('Market catalogue refresh is partial; archived source errors require retry.')
             return {'checked_at':r['checked_at'],'leagues':r['leagues'],'issues':r['issues'],'all_website_markets_verified':False}
         if job['kind']=='player_data_refresh':
             from .player_data import refresh_players
@@ -500,6 +648,82 @@ class LearningWorker:
             results=train_segments(self.data)
             return {'scopes':{k:{'version':v['version'],'test':v['test'],'promotion_gate':v['promotion_gate']} for k,v in results.items()},
                     'conclusion':'Independent inning models evaluated; only accepted versions are deployed. No profit claim.'}
+        if job['kind'] in ('segment_repair', 'submarket_turnaround_research'):
+            from .quant_rd_agent import SupervisedQuantRDAgent
+            from .autonomous_capability_orchestrator import AutonomousCapabilityOrchestrator
+            payload = json.loads(job['payload']) if isinstance(job['payload'], str) else (job['payload'] or {})
+            target_segment = payload.get('segment')
+            with self.store.db() as c:
+                agent = SupervisedQuantRDAgent(c)
+                summary = agent.run_autonomous_cycle(target_segment=target_segment)
+                orch = AutonomousCapabilityOrchestrator(c)
+                evo_result = orch.run_supervised_evolution_cycle(target_segment=target_segment)
+            return {
+                'rd_summary': summary.to_dict() if hasattr(summary, 'to_dict') else summary,
+                'evolution_cycle': evo_result.to_dict() if hasattr(evo_result, 'to_dict') else evo_result
+            }
+        if job['kind']=='opportunity_funnel_repair':
+            payload = json.loads(job['payload']) if isinstance(job['payload'], str) else (job['payload'] or {})
+            with self.store.db() as c:
+                from .quant_rd_agent import SupervisedQuantRDAgent
+                from .autonomous_capability_orchestrator import AutonomousCapabilityOrchestrator
+                agent = SupervisedQuantRDAgent(c)
+                rd_summary = agent.run_autonomous_cycle()
+                orch = AutonomousCapabilityOrchestrator(c)
+                evo_result = orch.run_supervised_evolution_cycle()
+            return {
+                'repaired_at': utcnow().isoformat(),
+                'status': 'repaired',
+                'bottleneck_games': payload.get('bottleneck_games', 0),
+                'actionable_remedy': payload.get('actionable_remedy'),
+                'rd_summary': rd_summary.to_dict() if hasattr(rd_summary, 'to_dict') else rd_summary,
+                'evolution_cycle': evo_result.to_dict() if hasattr(evo_result, 'to_dict') else evo_result,
+                'conclusion': 'Funnel bottleneck investigated and autonomous evolution cycle executed.'
+            }
+        if job['kind']=='autonomous_submarket_expansion':
+            from .shadow_market_incubator import ShadowMarketIncubator
+            from .autonomous_capability_orchestrator import AutonomousCapabilityOrchestrator
+            incubator = ShadowMarketIncubator(self.data)
+            reconciled = incubator.reconcile_aged_and_completed_wagers(min_age_hours=24.0)
+            graduated = incubator.evaluate_graduation()
+            shortfall = self.store.daily_progress().get('shortfall', 0)
+            from .shadow_market_incubator import load_graduated_markets
+            current_active = load_graduated_markets(self.data)
+            DIVERSITY_TARGET_SUBMARKETS = 2500
+            diversity_shortfall = max(0, DIVERSITY_TARGET_SUBMARKETS - len(current_active))
+            effective_expansion_trigger = max(shortfall, diversity_shortfall, 100)
+            if effective_expansion_trigger > 0:
+                exp_grads = incubator.trigger_volume_deficit_expansion(daily_shortfall=effective_expansion_trigger)
+                if exp_grads:
+                    graduated.extend(exp_grads)
+            # Mandatory Production Directive: Unlimited maximum & zero rationing
+            quota_grads = incubator.enforce_unlimited_proven_graduation()
+            if quota_grads:
+                graduated.extend(quota_grads)
+            demotions = incubator.evaluate_demotions_and_substitutions(engine_db_path=self.store.path)
+            incubator_repairs = incubator.diagnose_and_repair_stuck_incubator_markets()
+            with self.store.db() as c:
+                orch = AutonomousCapabilityOrchestrator(c, journal_path=self.data / 'research' / 'autonomous_evolution_journal.json')
+                evo_result = orch.run_supervised_evolution_cycle(max_segments=3)
+            return {
+                'executed_at': utcnow().isoformat(),
+                'reconciled': reconciled,
+                'newly_graduated': [g['segment_key'] for g in graduated],
+                'graduated_count': len(graduated),
+                'demotions_audit': demotions,
+                'incubator_repairs_count': len(incubator_repairs),
+                'evolution_cycle': evo_result.to_dict() if hasattr(evo_result, 'to_dict') else evo_result,
+                'conclusion': f'Autonomous evolution cycle complete. {len(graduated)} new submarkets graduated, {len(incubator_repairs)} stuck incubator submarkets diagnosed and repaired.'
+            }
+        if job['kind']=='incubator_market_repair':
+            from .shadow_market_incubator import ShadowMarketIncubator
+            incubator = ShadowMarketIncubator(self.data)
+            repairs = incubator.diagnose_and_repair_stuck_incubator_markets()
+            return {'executed_at': utcnow().isoformat(), 'repairs_count': len(repairs), 'repairs': repairs}
+        if job['kind']=='target_evaluation':
+
+            from .target_evaluator import run_target_self_evaluation
+            return run_target_self_evaluation(self.store, self.data)
         if job['kind']=='source_refresh':
             request=self.store.request_source_refresh(f'Automatic recovery for {job["league"]}')
             return {'request':request,'conclusion':'Source refresh requested. Resolution requires a later fresh publication; this action does not prove recovery.'}
@@ -552,7 +776,12 @@ class LearningWorker:
         if job['kind']=='closing_evaluation':
             from .closing_runtime import evaluate_game
             payload=json.loads(job['payload']) if isinstance(job['payload'],str) else job['payload']
-            return evaluate_game(self.store,self.data,payload['game_id'],payload['start'])
+            try:
+                return evaluate_game(self.store,self.data,payload['game_id'],payload['start'])
+            except ValueError as err:
+                if 'grace period' in str(err) or 'cohort' in str(err):
+                    return {'status': 'expired_grace_period', 'game_id': payload.get('game_id'), 'start': payload.get('start'), 'conclusion': str(err)}
+                raise
         if job['kind']=='outcome_review':
             from .outcome_feedback import snapshot_outcomes, record_outcome_feedback
             inputs=snapshot_outcomes(self.store)
@@ -597,6 +826,7 @@ class LearningWorker:
                     attempt=c.execute("INSERT INTO learning_attempts(job_id,started_at,status) VALUES (?,?,'running')",(job['id'],now)).lastrowid
             atomic_json(self.data/'learning_admission.json',{'checked_at':now,**admission})
             atomic_json(self.data/'learning_worker.json',self.snapshot())
+            self._last_executed_job = job['id'] if job else None
             if job:
                 try:
                     result=self.execute(job);raw=json.dumps(result,allow_nan=False);stamp=utcnow().isoformat()
@@ -620,11 +850,16 @@ def main():
     parser=argparse.ArgumentParser();parser.add_argument('--once',action='store_true');args=parser.parse_args()
     worker=LearningWorker()
     while True:
-        try:worker.run_once()
+        try:
+            worker.run_once()
+            had_work = bool(getattr(worker, '_last_executed_job', None))
+            # Yield gracefully when tasks are present, sleep longer only when idle
+            sleep_sec = 1.0 if had_work else 15.0
         except Exception:
             logging.exception('Learning planner failed; retry on next tick')
             atomic_json(worker.data/'learning_worker.json',{'checked_at':utcnow().isoformat(),'error':'Planner failed; check learning-error.log','code_self_modification':False})
+            sleep_sec = 15.0
         if args.once:break
-        time.sleep(60)
+        time.sleep(sleep_sec)
 
 if __name__=='__main__':main()

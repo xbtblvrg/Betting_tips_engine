@@ -29,7 +29,7 @@ MAX_EDIT_BYTES = 524288
 MAX_EDITS = 24
 _SHA = re.compile(r'[a-f0-9]{64}\Z')
 _PART = re.compile(r'[A-Za-z0-9_][A-Za-z0-9_.-]{0,159}\Z')
-_CONTEXT = ('AGENTS.md', 'config/project_contract.json',
+_CONTEXT = ('AGENTS.md', 'GEMINI.md', 'config/project_contract.json',
             'data/development_inputs/manifest.json',
             'data/validation_sources/export.json',
             'data/task_diagnostics/manifest.json',
@@ -197,7 +197,7 @@ def source_bundle(workspace, task, prompt, *, preferred_paths=(), max_files=MAX_
         lower = name.lower()
         if name in preferred:
             return (0, name)
-        if name == 'AGENTS.md':
+        if name in ('AGENTS.md', 'GEMINI.md'):
             return (1, name)
         if name in prompt or (task_id and task_id in Path(name).name.lower()):
             return (2, name)

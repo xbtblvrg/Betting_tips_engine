@@ -29,7 +29,7 @@ MAX_TOTAL = 128 * 1024**2
 MAX_FILE = 32 * 1024**2
 MAX_LOG = 8 * 1024**2
 CODE_FOLDERS = ('src', 'tests', 'config', 'knowledge', 'scripts')
-CODE_FILES = ('AGENTS.md', 'pyproject.toml', 'package.json', 'package-lock.json')
+CODE_FILES = ('AGENTS.md', 'GEMINI.md', 'pyproject.toml', 'package.json', 'package-lock.json')
 EXTRA_TESTS = {'tests/test_event_sequence.py': '3556fc9188d212ab022591661f71054446a76ac3ac8d2fd76ae4f0b0e15923dd'}
 
 

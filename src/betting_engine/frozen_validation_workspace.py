@@ -38,7 +38,7 @@ READONLY = ('data/development_inputs', 'data/period_models', 'data/stake_api_arc
 TOP_SKIP = {'.git', 'node_modules', '.venv'}
 CACHE_SKIP = {'__pycache__', '.pytest_cache', '.DS_Store'}
 TOP = {'src', 'tests', 'config', 'docs', 'knowledge', 'scripts', 'data',
-       'AGENTS.md', 'pyproject.toml', 'package.json', 'package-lock.json', 'README.md',
+       'AGENTS.md', 'GEMINI.md', 'pyproject.toml', 'package.json', 'package-lock.json', 'README.md',
        'requirements-installed.txt', 'uv.lock'}
 DATA = {'players', 'model_evidence', 'games.json', 'validation_sources',
         'sports_source_evidence', 'periods', 'development_inputs', 'period_models',

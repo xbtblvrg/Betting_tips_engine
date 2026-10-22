@@ -57,12 +57,37 @@ def parse_feed(raw):
     return papers
 
 
+_LAST_CALL_TS = 0.0
+
+
 def fetch_feed(query):
+    global _LAST_CALL_TS
+    import time
+    import urllib.error
     url=API+'?'+urlencode({'search_query':query,'start':0,'max_results':12,
                          'sortBy':'submittedDate','sortOrder':'descending'})
-    with urlopen(Request(url,headers={'User-Agent':'BettingQuantResearch/1.0'}),timeout=20) as r:
-        raw=r.read(2_000_001)
-    return raw,url
+    max_retries = 3
+    for attempt in range(max_retries):
+        elapsed = time.time() - _LAST_CALL_TS
+        if elapsed < 3.2:
+            time.sleep(3.2 - elapsed)
+        _LAST_CALL_TS = time.time()
+        try:
+            req = Request(url, headers={'User-Agent': 'BettingQuantResearch/1.0 (mailto:research@quant.local)'})
+            with urlopen(req, timeout=30) as r:
+                raw = r.read(2_000_001)
+            return raw, url
+        except urllib.error.HTTPError as e:
+            if e.code == 429 and attempt < max_retries - 1:
+                time.sleep(5.0 * (attempt + 1))
+                continue
+            raise
+        except (TimeoutError, OSError) as e:
+            if attempt < max_retries - 1:
+                time.sleep(3.0 * (attempt + 1))
+                continue
+            raise
+
 
 
 def discover(source,data_dir,fetch=fetch_feed):
