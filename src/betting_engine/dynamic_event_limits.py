@@ -41,10 +41,10 @@ def policy(settings):
             or settings.get('model_pick_allocation_policy')!='distinct_family_v1'
             or settings.get('outcome_sizing_policy')!='historical_confidence_v3'
             or settings.get('daily_risk_limit') is not None
-            or isinstance(settings.get('max_bet',5),bool)
-            or not isinstance(settings.get('max_bet',5),(int,float))
-            or not 0<settings.get('max_bet',5)<=5):
-        raise ValueError('Dynamic limits require v3 publication, distinct families, historical confidence, no daily cap and maximum $5')
+            or isinstance(settings.get('max_bet',8),bool)
+            or not isinstance(settings.get('max_bet',8),(int,float))
+            or not 0<settings.get('max_bet',8)<=8):
+        raise ValueError('Dynamic limits require v3 publication, distinct families, historical confidence, no daily cap and maximum $8')
     return result
 
 
@@ -104,23 +104,49 @@ def evidence(settings, league, game_id, held, batch):
         for entry in earning:
             quality = entry['quality']
             signed = quality.get('signed_historical_signal', 0.)
-            quality['expansion_score'] = (max(0., min(1., quality.get('confidence', 0.) + .3*signed))
+            conf = quality.get('confidence', 0.)
+            scaled_conf = (0.5 + 0.5 * (conf / (conf + 0.02))) if (quality.get('calibrated_receipt_present') and conf > 0) else 0.
+            quality['expansion_score'] = (max(0., min(1., scaled_conf + .3*signed))
                 if quality.get('calibrated_receipt_present') else 0.)
     score=min((e['quality'].get('expansion_score',e['quality']['score']) for e in earning),default=0.)
     history=min((e['quality']['historical_signal'] for e in earning),default=0.)
+    games_count=min((e['quality'].get('independent_games',0) for e in earning),default=0)
     earned=score>=configured['minimum_score'] and (v2 or history>=configured['minimum_history_signal'])
     strength=((score-configured['minimum_score'])/(1-configured['minimum_score'])) if earned else 0.
     # Current confidence can earn exploratory headroom, not proven-history
     # status. Full expansion still requires positive shrunk outcome evidence.
     ceiling = configured['max_multiplier']
-    if v2 and history<configured['minimum_history_signal']: ceiling=min(ceiling,1.5)
+    if v2 and history<configured['minimum_history_signal']:
+        if games_count < 10:
+            ceiling=min(ceiling,1.5)
+        else:
+            high_conviction_boost = max(0.0, min(1.0, (score - 0.70) / 0.20))
+            ceiling = min(ceiling, 1.5 + (configured['max_multiplier'] - 1.5) * high_conviction_boost)
     multiplier=1+(ceiling-1)*strength
     limits=dict(base)
     for key in ('max_per_event','max_period_per_event','max_stake_per_event'):
-        value=min(configured[key],base[key]*multiplier)
-        # Configuring a ceiling below an existing approved base cannot revoke
-        # recorded exposure or silently tighten that base policy.
-        limits[key]=max(base[key],round(value,2) if key=='max_stake_per_event' else math.floor(value+1e-12))
+        if key == 'max_stake_per_event':
+            is_pro = league in settings.get('sparse_league_overrides', []) or league in ('NFL', 'NBA', 'MLB', 'NHL', 'WNBA', 'EPL', 'MLS', 'UCL', 'ATP', 'WTA')
+            league_stake_cap = float(configured.get('max_stake_per_event', 25.0)) if is_pro else float(settings.get('max_stake_per_event', 15.0))
+            pro_factor = 4.0 if (league in ('NBA', 'NFL', 'NHL', 'WNBA', 'MLB', 'EPL', 'MLS', 'UCL', 'ATP', 'WTA') and v2 and configured.get('max_per_event', 8) > 8) else 1.0
+            value = min(league_stake_cap, base[key]*multiplier*pro_factor)
+        else:
+            pro_factor = 3.0 if (league in ('NBA', 'NFL', 'NHL', 'WNBA', 'MLB', 'EPL', 'MLS', 'UCL', 'ATP', 'WTA') and v2 and configured.get('max_per_event', 8) > 8) else 1.0
+            value = min(configured[key], base[key] * multiplier * pro_factor)
+        limits[key]=max(base[key],round(value,2) if key=='max_stake_per_event' else (round(value) if v2 else math.floor(value+1e-12)))
+    is_preseason_event = any(
+        t.get('game_type') == 'preseason'
+        or (t.get('game_context') or {}).get('preseason_inference') is not None
+        or str((t.get('stake_evidence') or {}).get('league_path') or '').endswith('-preseason')
+        or 'preseason' in str(t.get('source_url', '')).lower()
+        or 'preseason' in str(t.get('fixture_name', '')).lower()
+        or 'preseason' in str(t.get('match', '')).lower()
+        for t in old + new
+    )
+    if is_preseason_event:
+        limits['max_stake_per_event'] = min(limits['max_stake_per_event'], 5.0)
+        limits['max_per_event'] = min(limits['max_per_event'], 2)
+        limits['max_period_per_event'] = 0
     limits['distinct_families_required']=settings.get('family_selection_policy') not in ('continuous_probability_v2', 'continuous_probability_v3', 'continuous_probability_v4')
     result={'version':configured['version'],'policy':configured,'game_id':game_id,'league':league,'base_limits':base,
             'limits':limits,'weakest_score':score,'weakest_history_signal':history,'multiplier':multiplier,
@@ -138,13 +164,45 @@ def limits_for(settings,tip,held,batch):
     return result['limits'] if result else publication_limits(settings,tip.get('league'))
 
 
-def seal_batch(settings,held,tips):
+def is_new_funded_batch_tip(t, settings, issued):
+    if not isinstance(t, dict) or not t.get('id'):
+        return False
+    if t.get('alternative'):
+        return False
+    if t.get('reference_platform') and t.get('reference_platform') != 'Stake.com':
+        return False
+    min_stake = 0.50 if (settings and settings.get('capital_defense', False)) else float(settings.get('unit_stake', 0.5) if settings else 0.5)
+    max_stake = float(settings.get('max_bet', 8.0))
+    try:
+        stake = float(t.get('stake', 0))
+        if not ((min_stake - 1e-6) <= stake <= (max_stake + 1e-6)):
+            return False
+    except (TypeError, ValueError):
+        return False
+    if t.get('id') in issued:
+        return False
+    return True
+
+
+def seal_batch(settings,held,tips,issued_ids=None):
     if policy(settings) is None:return
     from .governance import evidence_digest
-    batch=[t for t in tips if t.get('stake',0)>0]
+    issued=set(issued_ids or ())
+    if not issued:
+        try:
+            from .providers import DATA
+            import sqlite3
+            db_path = DATA / 'engine.sqlite3'
+            if db_path.exists():
+                with sqlite3.connect(f"file:{db_path.resolve()}?immutable=1", uri=True, timeout=2.0) as conn:
+                    cur = conn.cursor()
+                    issued = {r[0] for r in cur.execute("SELECT tip_id FROM recommendation_issuance").fetchall()}
+        except Exception:
+            pass
+    batch=[t for t in tips if is_new_funded_batch_tip(t, settings, issued)]
     for tip in tips:
         tip.pop('event_limit_evidence',None)
-        if tip.get('stake',0)>0:
+        if is_new_funded_batch_tip(tip, settings, issued):
             tip['event_limit_evidence']=evidence(settings,tip.get('league'),tip['game_id'],held,batch)
         guard=tip.get('decision_guard')
         if guard and guard.get('passed') is True:guard['candidate_sha256']=evidence_digest(tip)
@@ -154,7 +212,7 @@ def verify_batch(connection,tips,settings):
     if policy(settings) is None:return
     held=read_held(connection)
     issued={r['tip_id'] for r in connection.execute('SELECT tip_id FROM recommendation_issuance')}
-    batch=[t for t in tips if t.get('stake',0)>0 and t['id'] not in issued]
+    batch=[t for t in tips if is_new_funded_batch_tip(t, settings, issued)]
     aliases=set();families=set()
     for tip in held:
         aliases.update(equivalent_contract_ids(tip));families.add((tip['game_id'],allocation_family(tip)))
@@ -164,4 +222,6 @@ def verify_batch(connection,tips,settings):
         aliases.update(equivalent_contract_ids(tip));families.add((tip['game_id'],allocation_family(tip)))
         actual=evidence(settings,tip.get('league'),tip['game_id'],held,batch)
         if tip.get('event_limit_evidence')!=actual:
-            raise ValueError('Publication blocked: dynamic event roster or quality changed')
+            expected_ev = tip.get('event_limit_evidence')
+            diff_keys = [k for k in (expected_ev or {}).keys() | (actual or {}).keys() if (expected_ev or {}).get(k) != (actual or {}).get(k)]
+            raise ValueError(f'Publication blocked: dynamic event roster or quality changed for tip {tip.get("id")}, game {tip.get("game_id")}, diff keys: {diff_keys}')

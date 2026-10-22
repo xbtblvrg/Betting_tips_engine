@@ -1,0 +1,86 @@
+{
+  "task_id": "F0045",
+  "state": "candidate_implementation_tested",
+  "independent_review_verified": false,
+  "production_ready": false,
+  "production_recovery_verified": false,
+  "helper_reviews": [],
+  "original_file_preservation": {
+    "files": 868,
+    "test_files": 362,
+    "changed": [],
+    "method": "SHA-256 against pre-edit inventory"
+  },
+  "inputs": {
+    "development_manifest_sha256": "3b23fb92046eb4e7118f92091865113e76d06bbcaa87096b7a7c83017ad7416d",
+    "files_verified": 325,
+    "source_body_hashes_verified": 409,
+    "source_sizes_checked": "where declared",
+    "development_errors": [],
+    "development_truncation": "field not declared",
+    "validation_export_sha256": "c77030ba1cf0074d23fe9d03eb9795bbc2e9301a76a67f4bbf6b873e94231acb",
+    "validation_catalogue_sha256": "b54253e4f3938511354ecc55b3b21037915a2e5939d082007b54ffac0a44df60",
+    "validation_file_pins_verified": 44,
+    "validation_test_pins_verified": 4,
+    "validation_errors": [],
+    "missing_pinned_references": [],
+    "optional_absent": [
+      "data/task_diagnostics/manifest.json",
+      "data/root-recovery-package.json",
+      "data/rebase/conflicts.json"
+    ],
+    "runtime_diagnostics": "not_required",
+    "release_diagnostics_files": 0,
+    "release_diagnostics_rejected": 0
+  },
+  "checks": [
+    {
+      "command": "PYTHONPATH=src OMP_NUM_THREADS=1 /Users/belavarga/Betting_tips_engine/.venv/bin/python -m pytest -q tests/test_f0045_supervision_series.py tests/test_f0042_supervision_history_recovery.py tests/test_f0040_supervision_cycle.py tests/test_f0038_*.py tests/test_f0029_*.py tests/test_f0028_*.py tests/test_f0022_*.py tests/test_d14_*.py tests/test_e393159_candidate_audit.py tests/test_supervisor.py tests/test_supervisor_feed_recovery.py tests/test_release_supervision.py tests/test_api.py",
+      "passed": 1027,
+      "new_cases": 31,
+      "warnings": 1,
+      "seconds": 28.23,
+      "log": "docs/f0045_validation/python.log"
+    },
+    {
+      "command": "node --test tests/web.test.mjs",
+      "passed": 216,
+      "failed": 0,
+      "log": "docs/f0045_validation/dom.log"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "src/betting_engine/development_supervision_series.py",
+      "sha256": "6b4f258fd8a530ccafa1bdaa303facd9f17156204a4ec8fea314c2c327ab221d",
+      "bytes": 9634
+    },
+    {
+      "path": "tests/test_f0045_supervision_series.py",
+      "sha256": "12b9d4715dd090a333bf15c74e7185b5a99507819a1acfce50d73400fa93bda4",
+      "bytes": 15565
+    },
+    {
+      "path": "docs/F0045_SUPERVISION_ROLLOVER.md",
+      "sha256": "26c483094fb4eeea3cd745d935569f207470cff74d2cd5227d5dfcb72c7332bd",
+      "bytes": 8287
+    },
+    {
+      "path": "docs/f0045_validation/python.log",
+      "sha256": "6fc218a2a8dcd705607fe7e98d34c795dca1a53f778b3286b2f42deb2fdd3928",
+      "bytes": 1739
+    },
+    {
+      "path": "docs/f0045_validation/dom.log",
+      "sha256": "12266db9830650bd56c89faf1dd690ed158f910ad6fb13cedc50cfb90baf9852",
+      "bytes": 43947
+    }
+  ],
+  "remaining": [
+    "Controller full fixed suites and independent Codex review",
+    "Separately authorized root integration, journal ownership, authenticated observations and bounded callbacks",
+    "Long-term archival beyond finite series preserving IDs and errors; experimental engine feed-degradation policy reconciliation",
+    "Real-service recovery drill and measured resumed useful work",
+    "Trusted release source/ledger checks and fresh local/Tailscale publication"
+  ]
+}

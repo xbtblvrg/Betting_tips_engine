@@ -25,6 +25,8 @@ LEAGUE_PATHS = {
     'NCAAM': 'basketball/mens-college-basketball',
     'NCAAW': 'basketball/womens-college-basketball',
     'MLS': 'soccer/usa.1',
+    'EPL': 'soccer/eng.1',
+    'UCL': 'soccer/uefa.champions',
 }
 MAX_BODY_BYTES = 4 * 1024 * 1024
 
@@ -90,15 +92,16 @@ def parse_summary(raw, meta, tip, now=None, *, scheduled_start=None):
         if _identifier(competition['id']) != event:
             raise ValueError('result_competition_identity_mismatch')
         actual_start = parse_time(competition['date'])
+        max_tolerance = 21600 if tip.get('league') in ('NCAAF', 'NCAAM', 'NCAAW') or (scheduled_start and (scheduled_start.endswith('00:00Z') or scheduled_start.endswith('00:00:00Z'))) else 1800
         if actual_start != start:
-            if (scheduled_start is None or actual_start != parse_time(scheduled_start)
-                    or abs((actual_start-start).total_seconds()) > 1800):
+            if (scheduled_start is None or (actual_start != parse_time(scheduled_start) and abs((actual_start-parse_time(scheduled_start)).total_seconds()) > max_tolerance)
+                    or abs((actual_start-start).total_seconds()) > max_tolerance):
                 raise ValueError('result_start_mismatch')
         if actual_start >= now or fetched < actual_start:
             raise ValueError('invalid_result_source_time')
         status = competition['status']['type']
         allowed_statuses = ('STATUS_FINAL', 'STATUS_FINAL_OVERTIME')
-        if tip.get('league') == 'MLS':
+        if tip.get('league') in ('MLS', 'EPL', 'UCL'):
             allowed_statuses = allowed_statuses + ('STATUS_FULL_TIME', 'STATUS_FINAL_PENALTIES')
         if status.get('completed') is not True or status.get('state') != 'post' or status.get('name') not in allowed_statuses:
             raise ValueError('official_game_not_final')
@@ -122,14 +125,14 @@ def parse_summary(raw, meta, tip, now=None, *, scheduled_start=None):
             scores[side] = _integer(row['score'])
         if ids['home'] == ids['away']:
             raise ValueError('result_same_team_identity')
-        if scores['home'] == scores['away'] and tip.get('league') != 'MLS':
+        if scores['home'] == scores['away'] and tip.get('league') not in ('MLS', 'EPL', 'UCL'):
             raise ValueError('final_winner_missing')
         for side in ('home', 'away'):
             expected = scores[side] > scores['away' if side == 'home' else 'home']
             if teams[side].get('winner') is not expected:
                 raise ValueError('result_winner_score_conflict')
         season = _integer(header['season']['year'])
-        valid_season_type = True if tip.get('league') == 'MLS' else header['season'].get('type') in (1, 2, 3)
+        valid_season_type = True if tip.get('league') in ('MLS', 'EPL', 'UCL') else header['season'].get('type') in (1, 2, 3)
         if not start.year - 1 <= season <= start.year + 1 or not valid_season_type:
             raise ValueError('unsupported_result_season')
     except (KeyError, TypeError, AttributeError, IndexError, UnicodeDecodeError) as exc:
@@ -147,16 +150,63 @@ def parse_summary(raw, meta, tip, now=None, *, scheduled_start=None):
         'scoped_scores_reason': 'This recovery validates full-game scores only; period contracts require separate verified scope evidence.',
         'claim': 'Official final score evidence; sportsbook account settlement is not verified.',
     }
-    if tip.get('league') == 'MLS':
+    context = {'official_result': source}
+    requires_scoped = bool(tip.get('requires_scoped_scores'))
+    market_name = tip.get('market') or ''
+    if market_name:
+        from .contracts import split_market
+        scope, _ = split_market(market_name)
+        if scope != 'full_game':
+            requires_scoped = True
+
+    if tip.get('league') in ('MLS', 'EPL', 'UCL'):
         st_name = str(header.get('season', {}).get('name', '')).lower()
         game_type = 'playoff' if 'playoff' in st_name or 'cup' in st_name else 'regular'
+        try:
+            h_ls = teams['home'].get('linescores', [])
+            a_ls = teams['away'].get('linescores', [])
+            if len(h_ls) >= 2 and len(a_ls) >= 2:
+                h1 = int(h_ls[0].get('displayValue', h_ls[0].get('value', 0)))
+                a1 = int(a_ls[0].get('displayValue', a_ls[0].get('value', 0)))
+                h2 = int(h_ls[1].get('displayValue', h_ls[1].get('value', 0)))
+                a2 = int(a_ls[1].get('displayValue', a_ls[1].get('value', 0)))
+                context['segment_scores'] = {
+                    'half_1': {'home': h1, 'away': a1, 'complete': True, 'source': url, 'fetched_at': meta['fetched_at'], 'source_sha256': meta['sha256']},
+                    'half_2': {'home': h2, 'away': a2, 'complete': True, 'source': url, 'fetched_at': meta['fetched_at'], 'source_sha256': meta['sha256']}
+                }
+        except (ValueError, KeyError, TypeError, IndexError):
+            pass
+    elif tip.get('league') in ('NBA', 'WNBA', 'NFL') and requires_scoped:
+        game_type = {1: 'preseason', 2: 'regular', 3: 'playoff'}.get(header['season']['type'], 'regular')
+        try:
+            h_ls = teams['home'].get('linescores', [])
+            a_ls = teams['away'].get('linescores', [])
+            if len(h_ls) >= 4 and len(a_ls) >= 4:
+                q_h = [int(x.get('displayValue', x.get('value', 0))) for x in h_ls[:4]]
+                q_a = [int(x.get('displayValue', x.get('value', 0))) for x in a_ls[:4]]
+                ot_h = sum(int(x.get('displayValue', x.get('value', 0))) for x in h_ls[4:])
+                ot_a = sum(int(x.get('displayValue', x.get('value', 0))) for x in a_ls[4:])
+                if sum(q_h) + ot_h == scores['home'] and sum(q_a) + ot_a == scores['away']:
+                    context['segment_scores'] = {
+                        'quarter_1': {'home': q_h[0], 'away': q_a[0], 'complete': True, 'source': url, 'fetched_at': meta['fetched_at'], 'source_sha256': meta['sha256']},
+                        'quarter_2': {'home': q_h[1], 'away': q_a[1], 'complete': True, 'source': url, 'fetched_at': meta['fetched_at'], 'source_sha256': meta['sha256']},
+                        'quarter_3': {'home': q_h[2], 'away': q_a[2], 'complete': True, 'source': url, 'fetched_at': meta['fetched_at'], 'source_sha256': meta['sha256']},
+                        'quarter_4': {'home': q_h[3], 'away': q_a[3], 'complete': True, 'source': url, 'fetched_at': meta['fetched_at'], 'source_sha256': meta['sha256']},
+                        'half_1': {'home': q_h[0] + q_h[1], 'away': q_a[0] + q_a[1], 'complete': True, 'source': url, 'fetched_at': meta['fetched_at'], 'source_sha256': meta['sha256']},
+                        'half_2': {'home': q_h[2] + q_h[3], 'away': q_a[2] + q_a[3], 'complete': True, 'source': url, 'fetched_at': meta['fetched_at'], 'source_sha256': meta['sha256']},
+                        'regulation': {'home': sum(q_h), 'away': sum(q_a), 'complete': True, 'source': url, 'fetched_at': meta['fetched_at'], 'source_sha256': meta['sha256']},
+                    }
+                    source['scoped_scores_state'] = 'verified'
+                    source.pop('scoped_scores_reason', None)
+        except (ValueError, KeyError, TypeError, IndexError):
+            pass
     else:
         game_type = {1: 'preseason', 2: 'regular', 3: 'playoff'}[header['season']['type']]
     return Game(gid, tip['league'], actual_start.isoformat(), home, away, ids['home'], ids['away'],
                 teams['home']['team'].get('abbreviation', ''), teams['away']['team'].get('abbreviation', ''),
                 'final', season, scores['home'], scores['away'], neutral=competition.get('neutralSite') is True,
                 game_type=game_type, source=url,
-                fetched_at=meta['fetched_at'], context={'official_result': source})
+                fetched_at=meta['fetched_at'], context=context)
 
 
 def _original(tips, existing):
@@ -168,9 +218,10 @@ def _original(tips, existing):
     tip = dict(tips[starts.index(min(starts))])
     tip.pop('_source_schedule_start', None)
     if existing is not None:
+        tolerance = 21600 if existing.start.endswith('00:00Z') or existing.start.endswith('00:00:00Z') else 1800
         if ((existing.id, existing.home, existing.away) != _identity(tip)[:3]
                 or existing.league != tip['league']
-                or any(abs((parse_time(existing.start)-start).total_seconds()) > 1800 for start in starts)):
+                or any(abs((parse_time(existing.start)-start).total_seconds()) > tolerance for start in starts)):
             raise ValueError('conflicting_schedule_identity')
         tip['_source_schedule_start'] = existing.start
     elif len(set(starts)) != 1:
@@ -183,6 +234,9 @@ def _original(tips, existing):
             raise ValueError('conflicting_original_team_ids')
         if ids:
             tip[side + '_id'] = ids.pop()
+    from .contracts import split_market
+    if any(split_market(t.get('market', ''))[0] != 'full_game' for t in tips if t.get('market')):
+        tip['requires_scoped_scores'] = True
     return tip
 
 
@@ -279,11 +333,20 @@ def recover_pending_espn(games, bets, decisions, *, data_dir=DATA, fetcher=None,
             path = data / relative
             if path.stat().st_size > MAX_BODY_BYTES:
                 raise ValueError('invalid_result_body')
-            archived = parse_summary(path.read_bytes(), source, tip, now, scheduled_start=tip.get('_source_schedule_start'))
+            sch_start = tip.get('_source_schedule_start')
+            if sch_start is None and gid not in mapping:
+                try:
+                    c_date = json.loads(path.read_bytes())['header']['competitions'][0]['date']
+                    tol = 21600 if tip.get('league') in ('NCAAF', 'NCAAM', 'NCAAW') else 1800
+                    if abs((parse_time(c_date) - _identity(tip)[3]).total_seconds()) <= tol:
+                        sch_start = c_date
+                except Exception:
+                    pass
+            archived = parse_summary(path.read_bytes(), source, tip, now, scheduled_start=sch_start)
             archived.context['official_result']['archive'] = relative
             mapping[gid] = archived
             cached_recovered += 1
-            missing = _scope_report(tips)
+            missing = [s for s in _scope_report(tips) if s not in archived.context.get('segment_scores', {})]
             problems.append({'game_id': gid, 'state': 'partial_result_recovered' if missing else 'official_final_recovered',
                              'reused_archived_evidence': True, 'source': archived.context['official_result'], 'missing_scopes': missing})
             continue
@@ -312,7 +375,16 @@ def recover_pending_espn(games, bets, decisions, *, data_dir=DATA, fetcher=None,
             raw, meta = fetcher.get(url, ttl=300)
             # Network batches can complete more than five seconds after the
             # cycle began; an explicitly supplied test clock stays fixed.
-            game = parse_summary(raw, meta, tip, now if fixed_now else utcnow(), scheduled_start=tip.get('_source_schedule_start'))
+            sch_start = tip.get('_source_schedule_start')
+            if sch_start is None and gid not in mapping:
+                try:
+                    c_date = json.loads(raw)['header']['competitions'][0]['date']
+                    tol = 21600 if tip.get('league') in ('NCAAF', 'NCAAM', 'NCAAW') else 1800
+                    if abs((parse_time(c_date) - _identity(tip)[3]).total_seconds()) <= tol:
+                        sch_start = c_date
+                except Exception:
+                    pass
+            game = parse_summary(raw, meta, tip, now if fixed_now else utcnow(), scheduled_start=sch_start)
             archive = folder / 'sources' / (meta['sha256'] + '.json')
             if archive.exists():
                 if archive.stat().st_size > MAX_BODY_BYTES or hashlib.sha256(archive.read_bytes()).hexdigest() != meta['sha256']:
@@ -321,7 +393,7 @@ def recover_pending_espn(games, bets, decisions, *, data_dir=DATA, fetcher=None,
                 archive.parent.mkdir(parents=True, exist_ok=True)
                 atomic_bytes(archive, raw)
             game.context['official_result']['archive'] = str(archive.relative_to(data))
-            missing = _scope_report(pending[gid])
+            missing = [s for s in _scope_report(pending[gid]) if s not in game.context.get('segment_scores', {})]
             return gid, game, {'state': 'partial_result_recovered' if missing else 'official_final_recovered',
                                'source': game.context['official_result'], 'missing_scopes': missing}
         except Exception as exc:

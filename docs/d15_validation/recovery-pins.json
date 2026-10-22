@@ -1,0 +1,13 @@
+{
+  "source_run_id": "20261001T052931870165-D15",
+  "verified_prior_run_files": {
+    "run.json": "f37b8f504d3e290f7e1ba21da1b5a397938058229a2eb09e0b4f2db029492ab7",
+    "candidate-manifest.json": "0a8eda06fc318f3f8b7f177aa06ef7a0118046a1e81a5bd28bedc6fa4c6aa8a8",
+    "result.json": "188079f35bb45514eafb0b1b3e900eece13aabf467894d27a997656c18763e40",
+    "files/docs/D15_REQUIREMENT_ACCEPTANCE.md": "b708e1e2a912a34cd4728c18ea56237f609298c3054193f70c5b48e046e7c8c2",
+    "files/docs/d15_validation/evidence-index.json": "3c751f5deeaa89af5ecb636faf60b459b8d5e119660e722496356cd3ab7df235"
+  },
+  "current_lifecycle_test_sha256": "d4402b2c24e4876e5329ff70b037586ffa218ae017ccfdbbff68d9c59fdcc969",
+  "original_due_at": "2026-10-02T00:04:28.263503+00:00",
+  "claim": "Prior diagnostics retained; current test execution verifies the specific recovery, not release or betting capability."
+}

@@ -1,0 +1,50 @@
+{
+  "task": "F0046",
+  "scope": "offline candidate operator view",
+  "baseline_files_unchanged": 888,
+  "baseline_test_files_unchanged": 365,
+  "changed_original_files": [],
+  "commands": {
+    "python": "PYTHONPATH=src OMP_NUM_THREADS=1 /Users/belavarga/Betting_tips_engine/.venv/bin/python -m pytest -q tests/test_f0046_supervision_view.py tests/test_f0045_supervision_series.py tests/test_f0042_supervision_history_recovery.py tests/test_f0040_supervision_cycle.py tests/test_f0038_worker_dispatch.py tests/test_f0028_restart_dispatch.py tests/test_f0028_restart_journal.py tests/test_f0029_worker_restart.py tests/test_f0029_dispatch_stall.py tests/test_f0029_advancing_heartbeat.py tests/test_f0029_worker_evidence_boundaries.py tests/test_f0022_recovery_drill.py tests/test_f0022_commit_durability.py tests/test_f0022_traversal_errors.py tests/test_f0028_acceptance_checkpoint.py tests/test_d14_development_acceptance.py tests/test_d14_nonfinite_evidence.py tests/test_e393159_candidate_audit.py tests/test_supervisor.py tests/test_supervisor_feed_recovery.py tests/test_release_supervision.py tests/test_api.py",
+    "final_new_tests": "PYTHONPATH=src OMP_NUM_THREADS=1 /Users/belavarga/Betting_tips_engine/.venv/bin/python -m pytest -q tests/test_f0046_supervision_view.py",
+    "frontend": "node --test tests/web.test.mjs"
+  },
+  "results": {
+    "related_python_api": 636,
+    "final_new_suite": 22,
+    "existing_frontend_dom": 216
+  },
+  "independent_review_verified": false,
+  "production_ready": false,
+  "live_recovery_verified": false,
+  "files": {
+    "src/betting_engine/development_supervision_view.py": {
+      "sha256": "c5161de4f22e393c08259af0d1df3a128f7399b685309272d55e59b4b96efbde",
+      "bytes": 10817
+    },
+    "tests/test_f0046_supervision_view.py": {
+      "sha256": "46178a871e6357df7118e469534c9f23889241d778db2e328c48972542d00002",
+      "bytes": 13447
+    },
+    "docs/F0046_SUPERVISION_VIEW.md": {
+      "sha256": "9b981eaf70310a5a6123d19fe71fb86a8f29cb5074a622333d800e475d18f2c1",
+      "bytes": 8633
+    },
+    "docs/f0046_validation/new_tests.txt": {
+      "sha256": "a0a576379e8f0d22cffd9232ad37e156003a579a71964039ff64c76bc0727369",
+      "bytes": 99
+    },
+    "docs/f0046_validation/python.txt": {
+      "sha256": "63104540a437ce398620cb904d4628ba13e51781a78a9f16bdcbce53d1ded802",
+      "bytes": 1258
+    },
+    "docs/f0046_validation/new_tests_initial.txt": {
+      "sha256": "003729ae6e0577e94b9c02a99cc1d6b82ea91e0075e7de9e2af1c411eafb347e",
+      "bytes": 1307
+    },
+    "docs/f0046_validation/frontend.txt": {
+      "sha256": "fbb6e1e129e5f246845815cbc1a1cd772d61373fbddf3ed551080935561726cd",
+      "bytes": 43951
+    }
+  }
+}

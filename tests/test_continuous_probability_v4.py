@@ -62,7 +62,7 @@ def test_v4_preserves_full_coverage_and_allocations():
     candidates = [
         tip('t1', 'moneyline', p=.55, odds=2.1, game='game1'),
         tip('t2', 'spreads', p=.58, odds=1.9, game='game1'),
-        tip('t3', 'totals', p=.62, odds=1.65, side='over', game='game2'),
+        tip('t3', 'totals', p=.64, odds=1.65, side='over', game='game2'),
         tip('t4', 'moneyline', p=.50, odds=1.95, game='game3'),
     ]
     chosen, alts = rank_and_size(candidates, SETTINGS_V4)

@@ -1,0 +1,39 @@
+{
+  "task_id": "E6BF9ACD30D",
+  "python": {
+    "command": "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src OMP_NUM_THREADS=1 /Users/belavarga/Betting_tips_engine/.venv/bin/python -m pytest -q -p no:cacheprovider",
+    "passed": 7437,
+    "subtests_passed": 5,
+    "warnings": 1,
+    "warning": "Installed FastAPI/Starlette testclient httpx deprecation",
+    "duration_seconds": 147.77
+  },
+  "dom": {
+    "command": "/opt/homebrew/bin/node --test tests/web.test.mjs",
+    "passed": 216,
+    "failed": 0
+  },
+  "pre_repair_lifecycle_regressions_failed": 7,
+  "focused_closing_tests_passed": 325,
+  "attachment_tests_passed": 13,
+  "logs": {
+    "python": {
+      "path": "docs/E6BF9ACD30D_COMBINED_PYTHON.log",
+      "sha256": "8508e29dc06650cb4b9c41cc25691789e0b16445db8136938121457e6a048a0f",
+      "exit_code": 0
+    },
+    "dom": {
+      "path": "docs/E6BF9ACD30D_COMBINED_DOM.log",
+      "sha256": "12a597b0267a16d016ea69c62a717de92a002481a5041186223dd55b162c324f",
+      "exit_code": 0
+    }
+  },
+  "existing_files_changed": [
+    "src/betting_engine/closing_runtime.py",
+    "src/betting_engine/requirement_acceptance.py"
+  ],
+  "existing_test_and_fixture_files_unchanged": 355,
+  "independent_controller_review": "pending",
+  "production_release": "pending",
+  "live_verification": "pending"
+}

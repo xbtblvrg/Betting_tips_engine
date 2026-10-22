@@ -27,5 +27,7 @@ betting_engine = ["web/*.html", "web/*.css", "web/*.js"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = [".", "src", "tests"]
 tmp_path_retention_policy = "failed"
 tmp_path_retention_count = 3
+

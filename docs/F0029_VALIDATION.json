@@ -1,0 +1,109 @@
+{
+  "task_id": "F0029",
+  "scope": "Candidate worker restart journal and dispatch-stall review repair; not live recovery",
+  "source_run_id": "20261001T001426105581-F0029",
+  "validation": {
+    "python": {
+      "command": "PYTHONPATH=src OMP_NUM_THREADS=1 /Users/belavarga/Betting_tips_engine/.venv/bin/python -m pytest -q",
+      "passed": 4318,
+      "subtests_passed": 5,
+      "warnings": 1,
+      "seconds": 82.96
+    },
+    "dom": {
+      "command": "node --test tests/web.test.mjs",
+      "passed": 216
+    },
+    "focused_before_repair": {
+      "passed": 8,
+      "failed": 8
+    },
+    "focused_after_repair": {
+      "passed": 268
+    },
+    "final_dispatch_regressions": {
+      "passed": 16,
+      "note": "Rerun after tightening the test to the exact cooldown boundary."
+    }
+  },
+  "logs": [
+    {
+      "path": "docs/f0029_validation/dom.log",
+      "sha256": "28ed9bcb57e21fa8dcbf65bff5fa721b43558de1af23b1e48fc8b8a9bdcf2c94"
+    },
+    {
+      "path": "docs/f0029_validation/python.log",
+      "sha256": "798a66b1e0f91f8647c9d96a6589b11f341d31d71dc941c0fbaa897745882343"
+    }
+  ],
+  "candidate_files": [
+    {
+      "path": "src/betting_engine/development_restart_journal.py",
+      "sha256": "d645bca58078406cca179d222101d975f6a35a9c8f6b88ce7a2427488f048678"
+    },
+    {
+      "path": "src/betting_engine/development_restart_dispatch.py",
+      "sha256": "80f38d7b5a463081bf7d1ab912b9658750361ca5998a048c53581ea1733ddf85"
+    },
+    {
+      "path": "src/betting_engine/development_worker_health.py",
+      "sha256": "95a40a95e41e8ed9953149912023dc9a6e570db72b283f6015904cc7d7d38e7b"
+    },
+    {
+      "path": "tests/test_f0029_dispatch_stall.py",
+      "sha256": "851767edfe8fb9a15df1998eefd70717905815451dcde7e8503a0fe0ea670c65"
+    },
+    {
+      "path": "tests/test_f0029_worker_restart.py",
+      "sha256": "3abf64978c36a6047cd02cf08f9ef1012a72386f50ad353c287a8392268504a6"
+    },
+    {
+      "path": "tests/test_f0029_worker_evidence_boundaries.py",
+      "sha256": "090fa93511900d0514cadf0bceadc91536d3478789a2aa9146552b25a0253422"
+    },
+    {
+      "path": "tests/test_f0029_advancing_heartbeat.py",
+      "sha256": "eb1415b155903c51da06c4912658164b7b3ee02f8cb162c65ff8237a97d01d35"
+    },
+    {
+      "path": "docs/F0029_WORKER_RESTART.md",
+      "sha256": "a3d2db6d2051f829785866df337041b0e5c9c6b22dcba73cb74cfd4f240f4bfa"
+    }
+  ],
+  "preservation": {
+    "baseline_files_checked": 485,
+    "original_test_and_fixture_files_unchanged": 214,
+    "existing_changed_files": [
+      "src/betting_engine/development_restart_journal.py",
+      "src/betting_engine/development_restart_dispatch.py"
+    ],
+    "retained_candidate_regression_files_byte_identical": 3,
+    "protected_code_and_config_unchanged": true
+  },
+  "input_verification": {
+    "development_manifest_sha256": "5578f02ee96d20b6e4f06b44915df5c861162a4181fab1d024e9a05a5744df21",
+    "file_hash_and_size_pins": 310,
+    "decompressed_stake_source_hash_and_size_pins": 386,
+    "frozen_validation_file_hash_and_size_pins": 22,
+    "missing_or_mismatched_references": [],
+    "errors": [],
+    "truncation_field_declared": false,
+    "sports_coverage": "partial; not current participation or authenticated historical availability"
+  },
+  "helper_reviews": [
+    {
+      "id": "test_cases:claude",
+      "sha256": "a7729783662aacb9dfa605fbf9a05bceda627b091bacc49a09e14a4aabb7ecd7",
+      "disposition": "partly_used",
+      "reason": "Used retained failures/checkpoint and negative-recovery testing guidance. Rejected duplicate ledger work, obsolete 15-pick target, existing-test edits and destructive live drills; no helper factual or test claims adopted."
+    }
+  ],
+  "independent_review_completed": false,
+  "production_recovery_verified": false,
+  "production_ready": false,
+  "remaining": [
+    "Controller independent review and validation of exact candidate bytes.",
+    "Separate trusted runtime integration and policy authorization; worker journal is not wired to service dispatch.",
+    "Authorized live recovery drill and separately verified release/publication evidence; M01 remains open."
+  ]
+}

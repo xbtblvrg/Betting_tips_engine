@@ -1,0 +1,11 @@
+{
+  "baseline_file_sha256": "229882d843dc49e7a7838e1317757b1d6b8cfdd172573210ae9d979d65ab47e8",
+  "checked_preexisting_files": 414,
+  "changed": [],
+  "missing": [],
+  "added": [
+    "src/betting_engine/requirement_acceptance_history.py",
+    "tests/test_f0036_acceptance_history.py"
+  ],
+  "all_preexisting_bytes_unchanged": true
+}

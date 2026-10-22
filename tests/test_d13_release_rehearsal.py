@@ -127,7 +127,7 @@ def test_each_missing_evidence_gate_blocks_without_any_changes(missing):
     ('settlement', lambda r: r['cases'][1].update(pnl=0), 'reconciliation'),
     ('settlement', lambda r: r['cases'].pop(1), 'coverage'),
     ('settlement', lambda r: r['cases'][0].update(stake='NaN'), 'amounts'),
-    ('settlement', lambda r: r['cases'][0].update(stake=6), 'amounts'),
+    ('settlement', lambda r: r['cases'][0].update(stake=9), 'amounts'),
 ])
 def test_invalid_evidence_blocks_even_with_a_matching_manifest(kind, mutate, reason):
     with ReleaseRehearsal(BASE) as run:

@@ -1,0 +1,76 @@
+{
+  "development_file_pins_verified": 319,
+  "validation_bundles_verified": 4,
+  "errors": [],
+  "development_manifest_sha256": "aaa21a98f618532cf2be8af87209ea51b48855db2f7025dd70f99b2d244245e1",
+  "original_decisions_sha256": "509ec5bd64a4bda24a0f00111448cd785742870ede3fd2f9c3ed77172bba5287",
+  "prior_run_and_review_pins_verified": true,
+  "diagnostics_manifest": "absent; no TASK declaration",
+  "root_recovery": "absent; no TASK binding",
+  "rebase_conflicts": "absent",
+  "git": "workspace branch has no commits; root baseline not verifiable locally",
+  "raw_source_hashes_verified": 378,
+  "task_id": "D31",
+  "phase": "isolated_candidate",
+  "prior_candidate_restored": {
+    "src/betting_engine/experimental_publication_retention.py": "24eeb8f8a3ac8c4899dd700bf7112e03897e2f0346d257d3cbca54daee2aad13",
+    "src/betting_engine/experimental_lifecycle.py": "cd9aef2bc4b5f1e06c9e58bea3df41b15fb6d3ab8024b98a381526747b7b7745",
+    "tests/test_d31_lifecycle_retention_roundtrip.py": "e89d9d9492a34ad544889047730e99a5c87777eb3a942d0e57514466016599cc",
+    "tests/test_d31_review_132639_recovery.py": "644ea29c7244862d406825a17cd507cbbed7863a088a394f0cd17a52d66282ba",
+    "tests/test_d31_baseline_defects.py": "26fede7750c3359e104a822aebb0072d6214daabc148f65f12b358c0dc570e4d",
+    "tests/test_d31_publication_retention.py": "059ee7d00b5ea226133665c90d9791e1dd6293833e4bd5db6b6c1da7327e43a9",
+    "tests/test_d31_lifecycle_integrity.py": "8dc64874911342d7e1c1bf3be79e1f8f42fb3a32f0b02b9d998b1ac73b05354a",
+    "tests/test_d31_retention_review_recovery.py": "9275a149951f4f41684c12f2fb563348a5c41180da8e39be0c100441cc5308e3"
+  },
+  "helper_reviews": [
+    {
+      "id": "acceptance_checklist:grok",
+      "sha256": "876ec66c26ac7ab6f212a03d90733298468fc15c7701391ecc7610626662eb9d",
+      "disposition": "partly_used",
+      "reason": "Used the preservation, idempotency, audit and transactional restore checklist, verified with local tests. Rejected the assertion that defect evidence is absent: the pinned prior review and task engineering observation identify the settlement race. Did not impose an unrequired import-time ordering or copy unchanged ledger tables into publication archives. Root baseline and activation remain separately verifiable."
+    }
+  ],
+  "tests": {
+    "before_repair": "4 failed, 3 passed in 4.33s; real Engine interleaving in isolated SQLite",
+    "targeted": "106 passed in 6.59s",
+    "frontend": "216 passed, 0 failed",
+    "full_python": "7114 passed, 1 dependency deprecation warning, 5 subtests passed in 120.82s",
+    "commands": [
+      "PYTHONPATH=src OMP_NUM_THREADS=1 /Users/belavarga/Betting_tips_engine/.venv/bin/python -m pytest -q tests/test_d31_*.py",
+      "PYTHONPATH=src OMP_NUM_THREADS=1 /Users/belavarga/Betting_tips_engine/.venv/bin/python -m pytest -q",
+      "node --test tests/web.test.mjs"
+    ]
+  },
+  "scope_limits": [
+    "No live data or production access",
+    "Experimental modules are not wired into protected runtime",
+    "Legacy migration, root reference inventory and activation remain pending",
+    "Synthetic receipts/results do not prove account execution or profitability"
+  ],
+  "candidate_files": {
+    "src/betting_engine/experimental_lifecycle.py": "f046b863e34bdf7522dc9f9d9056ce7b049417eac4316191e604a02bd93bd96d",
+    "src/betting_engine/experimental_publication_retention.py": "24eeb8f8a3ac8c4899dd700bf7112e03897e2f0346d257d3cbca54daee2aad13",
+    "tests/test_d31_baseline_defects.py": "26fede7750c3359e104a822aebb0072d6214daabc148f65f12b358c0dc570e4d",
+    "tests/test_d31_lifecycle_integrity.py": "8dc64874911342d7e1c1bf3be79e1f8f42fb3a32f0b02b9d998b1ac73b05354a",
+    "tests/test_d31_lifecycle_retention_roundtrip.py": "e89d9d9492a34ad544889047730e99a5c87777eb3a942d0e57514466016599cc",
+    "tests/test_d31_publication_retention.py": "059ee7d00b5ea226133665c90d9791e1dd6293833e4bd5db6b6c1da7327e43a9",
+    "tests/test_d31_retention_review_recovery.py": "9275a149951f4f41684c12f2fb563348a5c41180da8e39be0c100441cc5308e3",
+    "tests/test_d31_review_132639_recovery.py": "644ea29c7244862d406825a17cd507cbbed7863a088a394f0cd17a52d66282ba",
+    "tests/test_d31_settlement_receipt_race.py": "9ab63f8f3578847d2e33de076dd1a4051c4918b8e3b1efceb6f47fadf9d9ee8a",
+    "docs/D31_LIFECYCLE_INTEGRITY.md": "634f2cac7e66148eb77b83a1e18bd06b797ed6088616e6c04d54264732afd40e"
+  },
+  "validation_logs": {
+    "docs/d31_validation/dom.log": "64172ab4ee608d33b279cf4db6b4d74b79c1c41920b8714c72367ff1bfe8ac8c",
+    "docs/d31_validation/full-python.log": "da53a8bb9a8f8f6e0138787d00d4f40e7ec096cd3892e2565ce015107cb3226f",
+    "docs/d31_validation/race-before-fix.log": "4bcbdad2bb93e3ea1f09ce7a600744301a56212da7117bd07825b86c3a0a2ed0",
+    "docs/d31_validation/targeted.log": "3e8a872b6e998bf4368402941efff631d05d3f1d0be8bc4834e4dd5ebd98666c"
+  },
+  "preexisting_files_verified_unchanged": 715,
+  "restored_tests_verified_unchanged": true,
+  "bounded_implementation_complete": true,
+  "remaining": [
+    "Independent controller review on exact candidate bytes.",
+    "Root baseline verification, protected integration and legacy migration/reference inventory.",
+    "Root-controlled release-copy restore drill, activation and fresh local/Tailscale publication verification."
+  ]
+}

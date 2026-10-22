@@ -49,7 +49,7 @@ const invalidWeighted=[
  ['above current basis cap',p=>{p.recommendations[0].funding_basis.maximum_stake=2;p.recommendations[0].stake=2.81}],
  ['above configured max',p=>p.settings.max_bet=2],
  ['forged basis above five',p=>p.recommendations[0].funding_basis.maximum_stake=6],
- ['below funded minimum',p=>p.recommendations[0].stake=.99],
+ ['below funded minimum',p=>p.recommendations[0].stake=.49],
  ['nonfinite stake',p=>p.recommendations[0].stake=Infinity],
  ['negative nominal model return',p=>{const c=p.recommendations[0];c.reference_odds=1.6;c.expected_roi=c.probability*1.6-1;c.stress_roi=c.stress_probability*1.6-1}],
  ['server website hold',p=>{p.recommendations[0].execution_review.actionable=false;p.recommendations[0].execution_review.state='website_feed_conflict'}],

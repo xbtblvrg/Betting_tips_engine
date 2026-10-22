@@ -58,9 +58,11 @@ args['run_bytes'] = args['run_bytes'].encode()
 args['test_log_bytes'] = args['test_log_bytes'].encode()
 print(json.dumps(assess_service_preparation(sys.argv[1], **args), allow_nan=False))
 """
+    src_dir = str(Path(__file__).resolve().parents[1] / "src")
+    env = {**os.environ, "PYTHONPATH": f"{src_dir}:{os.environ.get('PYTHONPATH', '')}".rstrip(":")}
     child = subprocess.run([sys.executable, "-c", code, str(root)],
                            input=json.dumps(request), text=True, capture_output=True,
-                           timeout=15, check=True)
+                           env=env, timeout=15, check=True)
     reopened = json.loads(child.stdout)
     assert reopened == original
     assert reopened["blocking_paths"] == list(missing)

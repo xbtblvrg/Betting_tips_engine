@@ -1,0 +1,1306 @@
+TAP version 13
+# Subtest: poll and SSE bursts coalesce to one active request and one awaited fresh response
+ok 1 - poll and SSE bursts coalesce to one active request and one awaited fresh response
+  ---
+  duration_ms: 73.56325
+  type: 'test'
+  ...
+# Subtest: a trigger during the trailing request schedules exactly one further fresh request
+ok 2 - a trigger during the trailing request schedules exactly one further fresh request
+  ---
+  duration_ms: 37.957958
+  type: 'test'
+  ...
+# Subtest: synchronous fetch reentrancy cannot bypass the single-flight gate
+ok 3 - synchronous fetch reentrancy cannot bypass the single-flight gate
+  ---
+  duration_ms: 26.444166
+  type: 'test'
+  ...
+# Subtest: explicit Refresh is retained while a dashboard request is pending
+ok 4 - explicit Refresh is retained while a dashboard request is pending
+  ---
+  duration_ms: 30.207792
+  type: 'test'
+  ...
+# Subtest: transport failure fails closed and still executes the queued refresh, then releases the slot
+ok 5 - transport failure fails closed and still executes the queued refresh, then releases the slot
+  ---
+  duration_ms: 32.528625
+  type: 'test'
+  ...
+# Subtest: the flight includes JSON decoding, and malformed JSON permits a fresh retry
+ok 6 - the flight includes JSON decoding, and malformed JSON permits a fresh retry
+  ---
+  duration_ms: 21.82
+  type: 'test'
+  ...
+# Subtest: a stalled dashboard fetch is aborted on deadline and cannot block the queued update forever
+ok 7 - a stalled dashboard fetch is aborted on deadline and cannot block the queued update forever
+  ---
+  duration_ms: 21.892084
+  type: 'test'
+  ...
+# Subtest: a stalled dashboard body is aborted on deadline and cannot block the queued update forever
+ok 8 - a stalled dashboard body is aborted on deadline and cannot block the queued update forever
+  ---
+  duration_ms: 23.285458
+  type: 'test'
+  ...
+# Subtest: coalesced refreshes preserve acknowledged placement and removal before applying fresh server marks
+ok 9 - coalesced refreshes preserve acknowledged placement and removal before applying fresh server marks
+  ---
+  duration_ms: 45.4975
+  type: 'test'
+  ...
+# Subtest: one-second quote expiry remains independent while active and queued refreshes are blocked
+ok 10 - one-second quote expiry remains independent while active and queued refreshes are blocked
+  ---
+  duration_ms: 29.676625
+  type: 'test'
+  ...
+# Subtest: current unknown website route overrides recorded Winner in card and details
+ok 11 - current unknown website route overrides recorded Winner in card and details
+  ---
+  duration_ms: 20.98775
+  type: 'test'
+  ...
+# Subtest: navigation-only refresh closes the old detail and shows the new path
+ok 12 - navigation-only refresh closes the old detail and shows the new path
+  ---
+  duration_ms: 27.635041
+  type: 'test'
+  ...
+# Subtest: current route and event URL are one source even for historical view links
+ok 13 - current route and event URL are one source even for historical view links
+  ---
+  duration_ms: 16.136292
+  type: 'test'
+  ...
+# Subtest: stale or different-contract assessment cannot replace historical navigation
+ok 14 - stale or different-contract assessment cannot replace historical navigation
+  ---
+  duration_ms: 17.683542
+  type: 'test'
+  ...
+# Subtest: fresh explicit null navigation cannot resurrect an old event link
+ok 15 - fresh explicit null navigation cannot resurrect an old event link
+  ---
+  duration_ms: 15.371208
+  type: 'test'
+  ...
+# Subtest: event-link-only refresh also invalidates the open instruction
+ok 16 - event-link-only refresh also invalidates the open instruction
+  ---
+  duration_ms: 23.143542
+  type: 'test'
+  ...
+# Subtest: continuous model pick requires positive model EV and shows the effective nominal threshold and honest stress note
+ok 17 - continuous model pick requires positive model EV and shows the effective nominal threshold and honest stress note
+  ---
+  duration_ms: 16.301917
+  type: 'test'
+  ...
+# Subtest: model pick fail-closed: missing explicit opt-in
+ok 18 - model pick fail-closed: missing explicit opt-in
+  ---
+  duration_ms: 13.024708
+  type: 'test'
+  ...
+# Subtest: model pick fail-closed: strict mode
+ok 19 - model pick fail-closed: strict mode
+  ---
+  duration_ms: 13.052667
+  type: 'test'
+  ...
+# Subtest: model pick fail-closed: missing funding basis
+ok 20 - model pick fail-closed: missing funding basis
+  ---
+  duration_ms: 12.473292
+  type: 'test'
+  ...
+# Subtest: model pick fail-closed: unfunded basis
+ok 21 - model pick fail-closed: unfunded basis
+  ---
+  duration_ms: 12.767625
+  type: 'test'
+  ...
+# Subtest: model pick fail-closed: basis not eligible
+ok 22 - model pick fail-closed: basis not eligible
+  ---
+  duration_ms: 12.978625
+  type: 'test'
+  ...
+# Subtest: model pick fail-closed: forged basis policy
+ok 23 - model pick fail-closed: forged basis policy
+  ---
+  duration_ms: 12.484583
+  type: 'test'
+  ...
+# Subtest: model pick fail-closed: mismatched server tier
+ok 24 - model pick fail-closed: mismatched server tier
+  ---
+  duration_ms: 12.271375
+  type: 'test'
+  ...
+# Subtest: model pick fail-closed: missing server policy
+ok 25 - model pick fail-closed: missing server policy
+  ---
+  duration_ms: 12.640917
+  type: 'test'
+  ...
+# Subtest: model pick fail-closed: missing server current state
+ok 26 - model pick fail-closed: missing server current state
+  ---
+  duration_ms: 11.794708
+  type: 'test'
+  ...
+# Subtest: model pick fail-closed: rejected website/current review
+ok 27 - model pick fail-closed: rejected website/current review
+  ---
+  duration_ms: 12.373083
+  type: 'test'
+  ...
+# Subtest: model pick fail-closed: negative nominal EV
+ok 28 - model pick fail-closed: negative nominal EV
+  ---
+  duration_ms: 12.974167
+  type: 'test'
+  ...
+# Subtest: model pick fail-closed: zero nominal EV
+ok 29 - model pick fail-closed: zero nominal EV
+  ---
+  duration_ms: 11.796209
+  type: 'test'
+  ...
+# Subtest: model pick fail-closed: forged positive nominal EV
+ok 30 - model pick fail-closed: forged positive nominal EV
+  ---
+  duration_ms: 14.108875
+  type: 'test'
+  ...
+# Subtest: model pick fail-closed: invalid probability mass
+ok 31 - model pick fail-closed: invalid probability mass
+  ---
+  duration_ms: 13.936458
+  type: 'test'
+  ...
+# Subtest: model pick fail-closed: missing push probability
+ok 32 - model pick fail-closed: missing push probability
+  ---
+  duration_ms: 12.580292
+  type: 'test'
+  ...
+# Subtest: model pick fail-closed: forged stress EV
+ok 33 - model pick fail-closed: forged stress EV
+  ---
+  duration_ms: 12.514792
+  type: 'test'
+  ...
+# Subtest: model pick fail-closed: over one-dollar instruction
+ok 34 - model pick fail-closed: over one-dollar instruction
+  ---
+  duration_ms: 11.447958
+  type: 'test'
+  ...
+# Subtest: model pick fail-closed: forged two-dollar basis maximum
+ok 35 - model pick fail-closed: forged two-dollar basis maximum
+  ---
+  duration_ms: 12.5585
+  type: 'test'
+  ...
+# Subtest: model pick fail-closed: mismatched effective threshold
+ok 36 - model pick fail-closed: mismatched effective threshold
+  ---
+  duration_ms: 12.842709
+  type: 'test'
+  ...
+# Subtest: model pick fail-closed: forged matching but non-nominal threshold
+ok 37 - model pick fail-closed: forged matching but non-nominal threshold
+  ---
+  duration_ms: 14.076375
+  type: 'test'
+  ...
+# Subtest: model pick floating threshold comparisons tolerate serialization noise only
+ok 38 - model pick floating threshold comparisons tolerate serialization noise only
+  ---
+  duration_ms: 14.587833
+  type: 'test'
+  ...
+# Subtest: tracked model pick retains the original once-only dollar and moves to tracker after marking
+ok 39 - tracked model pick retains the original once-only dollar and moves to tracker after marking
+  ---
+  duration_ms: 37.718625
+  type: 'test'
+  ...
+# Subtest: recorded stakes above one dollar are not resized into model-pick instructions
+ok 40 - recorded stakes above one dollar are not resized into model-pick instructions
+  ---
+  duration_ms: 20.968166
+  type: 'test'
+  ...
+# Subtest: tracked fallback requires matching instruction review and current assessment tier
+ok 41 - tracked fallback requires matching instruction review and current assessment tier
+  ---
+  duration_ms: 12.761875
+  type: 'test'
+  ...
+# Subtest: model pick expiry still removes card and closes its modal on the existing one-second tick
+ok 42 - model pick expiry still removes card and closes its modal on the existing one-second tick
+  ---
+  duration_ms: 19.905
+  type: 'test'
+  ...
+# Subtest: continuous primary stress-value instructions retain justified stakes above one dollar
+ok 43 - continuous primary stress-value instructions retain justified stakes above one dollar
+  ---
+  duration_ms: 13.280791
+  type: 'test'
+  ...
+# Subtest: strict legacy instructions without new receipts remain unchanged
+ok 44 - strict legacy instructions without new receipts remain unchanged
+  ---
+  duration_ms: 14.706666
+  type: 'test'
+  ...
+# Subtest: changing funding policy alone invalidates the open modal even when prices and probabilities are unchanged
+ok 45 - changing funding policy alone invalidates the open modal even when prices and probabilities are unchanged
+  ---
+  duration_ms: 24.795375
+  type: 'test'
+  ...
+# Subtest: a current tier change replaces a model pick and closes its earlier modal
+ok 46 - a current tier change replaces a model pick and closes its earlier modal
+  ---
+  duration_ms: 22.299958
+  type: 'test'
+  ...
+# Subtest: explicit best-available mode shows a negative-EV probability pick honestly at one dollar
+ok 47 - explicit best-available mode shows a negative-EV probability pick honestly at one dollar
+  ---
+  duration_ms: 16.572667
+  type: 'test'
+  ...
+# Subtest: zero-EV probability pick is labelled zero, never a positive-return claim
+ok 48 - zero-EV probability pick is labelled zero, never a positive-return claim
+  ---
+  duration_ms: 14.107084
+  type: 'test'
+  ...
+# Subtest: probability pick fail-closed: positive-only mode
+ok 49 - probability pick fail-closed: positive-only mode
+  ---
+  duration_ms: 12.962
+  type: 'test'
+  ...
+# Subtest: probability pick fail-closed: absent mode
+ok 50 - probability pick fail-closed: absent mode
+  ---
+  duration_ms: 13.233375
+  type: 'test'
+  ...
+# Subtest: probability pick fail-closed: missing basis
+ok 51 - probability pick fail-closed: missing basis
+  ---
+  duration_ms: 12.47575
+  type: 'test'
+  ...
+# Subtest: probability pick fail-closed: forged positive-edge label
+ok 52 - probability pick fail-closed: forged positive-edge label
+  ---
+  duration_ms: 12.438833
+  type: 'test'
+  ...
+# Subtest: probability pick fail-closed: positive EV cannot masquerade as probability-only
+ok 53 - probability pick fail-closed: positive EV cannot masquerade as probability-only
+  ---
+  duration_ms: 12.889375
+  type: 'test'
+  ...
+# Subtest: probability pick fail-closed: win probability below one half
+ok 54 - probability pick fail-closed: win probability below one half
+  ---
+  duration_ms: 11.589375
+  type: 'test'
+  ...
+# Subtest: probability pick fail-closed: over one-dollar allocation
+ok 55 - probability pick fail-closed: over one-dollar allocation
+  ---
+  duration_ms: 13.269542
+  type: 'test'
+  ...
+# Subtest: probability pick fail-closed: wrong minimum odds basis
+ok 56 - probability pick fail-closed: wrong minimum odds basis
+  ---
+  duration_ms: 13.910333
+  type: 'test'
+  ...
+# Subtest: probability pick fail-closed: forged review truthy string
+ok 57 - probability pick fail-closed: forged review truthy string
+  ---
+  duration_ms: 13.279542
+  type: 'test'
+  ...
+# Subtest: probability pick fail-closed: unknown source/website state
+ok 58 - probability pick fail-closed: unknown source/website state
+  ---
+  duration_ms: 13.515375
+  type: 'test'
+  ...
+# Subtest: probability pick fail-closed: nonfinite model EV
+ok 59 - probability pick fail-closed: nonfinite model EV
+  ---
+  duration_ms: 13.341083
+  type: 'test'
+  ...
+# Subtest: best-available policy keeps the positive-EV model tier and its separate label
+ok 60 - best-available policy keeps the positive-EV model tier and its separate label
+  ---
+  duration_ms: 15.308417
+  type: 'test'
+  ...
+# Subtest: changing between two one-dollar tiers invalidates the old modal and updates return disclosure
+ok 61 - changing between two one-dollar tiers invalidates the old modal and updates return disclosure
+  ---
+  duration_ms: 23.404
+  type: 'test'
+  ...
+# Subtest: zero stress EV at a zero threshold remains a model pick rather than claiming positive stress value
+ok 62 - zero stress EV at a zero threshold remains a model pick rather than claiming positive stress value
+  ---
+  duration_ms: 14.841084
+  type: 'test'
+  ...
+# Subtest: Model Performance shows original funding tier losses and missing outcomes without retrospective claims
+ok 63 - Model Performance shows original funding tier losses and missing outcomes without retrospective claims
+  ---
+  duration_ms: 24.099583
+  type: 'test'
+  ...
+# Subtest: model-pick details retain nominal sizing and bankroll/exposure limits rather than claiming a non-Kelly unit
+ok 64 - model-pick details retain nominal sizing and bankroll/exposure limits rather than claiming a non-Kelly unit
+  ---
+  duration_ms: 17.797792
+  type: 'test'
+  ...
+# Subtest: an exact-cent model break-even is never displayed as an inclusive acceptable betting price
+ok 65 - an exact-cent model break-even is never displayed as an inclusive acceptable betting price
+  ---
+  duration_ms: 16.83375
+  type: 'test'
+  ...
+# Subtest: weighted model instruction shows its actual calculated stake 1
+ok 66 - weighted model instruction shows its actual calculated stake 1
+  ---
+  duration_ms: 17.678709
+  type: 'test'
+  ...
+# Subtest: weighted model instruction shows its actual calculated stake 2.81
+ok 67 - weighted model instruction shows its actual calculated stake 2.81
+  ---
+  duration_ms: 18.331375
+  type: 'test'
+  ...
+# Subtest: weighted model instruction shows its actual calculated stake 5
+ok 68 - weighted model instruction shows its actual calculated stake 5
+  ---
+  duration_ms: 17.433125
+  type: 'test'
+  ...
+# Subtest: weighted stake fail-closed: missing guard mode
+ok 69 - weighted stake fail-closed: missing guard mode
+  ---
+  duration_ms: 12.750417
+  type: 'test'
+  ...
+# Subtest: weighted stake fail-closed: wrong guard mode
+ok 70 - weighted stake fail-closed: wrong guard mode
+  ---
+  duration_ms: 13.336625
+  type: 'test'
+  ...
+# Subtest: weighted stake fail-closed: missing setting
+ok 71 - weighted stake fail-closed: missing setting
+  ---
+  duration_ms: 12.875583
+  type: 'test'
+  ...
+# Subtest: weighted stake fail-closed: unknown setting
+ok 72 - weighted stake fail-closed: unknown setting
+  ---
+  duration_ms: 12.733625
+  type: 'test'
+  ...
+# Subtest: weighted stake fail-closed: null setting does not activate weighted
+ok 73 - weighted stake fail-closed: null setting does not activate weighted
+  ---
+  duration_ms: 14.924208
+  type: 'test'
+  ...
+# Subtest: weighted stake fail-closed: legacy mode with new receipt
+ok 74 - weighted stake fail-closed: legacy mode with new receipt
+  ---
+  duration_ms: 15.137375
+  type: 'test'
+  ...
+# Subtest: weighted stake fail-closed: missing basis version
+ok 75 - weighted stake fail-closed: missing basis version
+  ---
+  duration_ms: 13.12575
+  type: 'test'
+  ...
+# Subtest: weighted stake fail-closed: legacy basis version
+ok 76 - weighted stake fail-closed: legacy basis version
+  ---
+  duration_ms: 13.380541
+  type: 'test'
+  ...
+# Subtest: weighted stake fail-closed: missing basis mode
+ok 77 - weighted stake fail-closed: missing basis mode
+  ---
+  duration_ms: 12.763667
+  type: 'test'
+  ...
+# Subtest: weighted stake fail-closed: wrong basis mode
+ok 78 - weighted stake fail-closed: wrong basis mode
+  ---
+  duration_ms: 14.45225
+  type: 'test'
+  ...
+# Subtest: weighted stake fail-closed: missing review mode
+ok 79 - weighted stake fail-closed: missing review mode
+  ---
+  duration_ms: 13.641
+  type: 'test'
+  ...
+# Subtest: weighted stake fail-closed: wrong review mode
+ok 80 - weighted stake fail-closed: wrong review mode
+  ---
+  duration_ms: 13.946542
+  type: 'test'
+  ...
+# Subtest: weighted stake fail-closed: above hard cap
+ok 81 - weighted stake fail-closed: above hard cap
+  ---
+  duration_ms: 13.654084
+  type: 'test'
+  ...
+# Subtest: weighted stake fail-closed: above current basis cap
+ok 82 - weighted stake fail-closed: above current basis cap
+  ---
+  duration_ms: 13.726333
+  type: 'test'
+  ...
+# Subtest: weighted stake fail-closed: above configured max
+ok 83 - weighted stake fail-closed: above configured max
+  ---
+  duration_ms: 13.908166
+  type: 'test'
+  ...
+# Subtest: weighted stake fail-closed: forged basis above five
+ok 84 - weighted stake fail-closed: forged basis above five
+  ---
+  duration_ms: 14.03675
+  type: 'test'
+  ...
+# Subtest: weighted stake fail-closed: below funded minimum
+ok 85 - weighted stake fail-closed: below funded minimum
+  ---
+  duration_ms: 12.544084
+  type: 'test'
+  ...
+# Subtest: weighted stake fail-closed: nonfinite stake
+ok 86 - weighted stake fail-closed: nonfinite stake
+  ---
+  duration_ms: 12.868583
+  type: 'test'
+  ...
+# Subtest: weighted stake fail-closed: negative nominal model return
+ok 87 - weighted stake fail-closed: negative nominal model return
+  ---
+  duration_ms: 13.120333
+  type: 'test'
+  ...
+# Subtest: weighted stake fail-closed: server website hold
+ok 88 - weighted stake fail-closed: server website hold
+  ---
+  duration_ms: 14.524041
+  type: 'test'
+  ...
+# Subtest: legacy default mode still permits one dollar only with no added receipt fields
+ok 89 - legacy default mode still permits one dollar only with no added receipt fields
+  ---
+  duration_ms: 20.945791
+  type: 'test'
+  ...
+# Subtest: original one-dollar instruction stays one dollar under a fresh weighted review without top-up
+ok 90 - original one-dollar instruction stays one dollar under a fresh weighted review without top-up
+  ---
+  duration_ms: 20.920792
+  type: 'test'
+  ...
+# Subtest: tracked instruction requires the fresh review sizing mode too
+ok 91 - tracked instruction requires the fresh review sizing mode too
+  ---
+  duration_ms: 14.905209
+  type: 'test'
+  ...
+# Subtest: sizing mode change alone invalidates a one-dollar modal while retaining the amount
+ok 92 - sizing mode change alone invalidates a one-dollar modal while retaining the amount
+  ---
+  duration_ms: 25.945583
+  type: 'test'
+  ...
+# Subtest: weighted setting does not change the probability-pick one-dollar ceiling
+ok 93 - weighted setting does not change the probability-pick one-dollar ceiling
+  ---
+  duration_ms: 25.904916
+  type: 'test'
+  ...
+# Subtest: strict stress-value staking stays unchanged with an explicit weighted settings receipt
+ok 94 - strict stress-value staking stays unchanged with an explicit weighted settings receipt
+  ---
+  duration_ms: 21.444875
+  type: 'test'
+  ...
+# Subtest: aggregate historical Model Pick report does not falsely label all stakes one dollar
+ok 95 - aggregate historical Model Pick report does not falsely label all stakes one dollar
+  ---
+  duration_ms: 23.024792
+  type: 'test'
+  ...
+# Subtest: explicit null sizing mode is invalid even beside an otherwise valid legacy receipt
+ok 96 - explicit null sizing mode is invalid even beside an otherwise valid legacy receipt
+  ---
+  duration_ms: 22.079542
+  type: 'test'
+  ...
+# Subtest: v3 probability displays actual amount 2 with nonpositive non-Kelly disclosure
+ok 97 - v3 probability displays actual amount 2 with nonpositive non-Kelly disclosure
+  ---
+  duration_ms: 17.024666
+  type: 'test'
+  ...
+# Subtest: v3 probability displays actual amount 3 with nonpositive non-Kelly disclosure
+ok 98 - v3 probability displays actual amount 3 with nonpositive non-Kelly disclosure
+  ---
+  duration_ms: 16.289
+  type: 'test'
+  ...
+# Subtest: v3 probability displays actual amount 4 with nonpositive non-Kelly disclosure
+ok 99 - v3 probability displays actual amount 4 with nonpositive non-Kelly disclosure
+  ---
+  duration_ms: 16.542041
+  type: 'test'
+  ...
+# Subtest: v3 probability displays actual amount 5 with nonpositive non-Kelly disclosure
+ok 100 - v3 probability displays actual amount 5 with nonpositive non-Kelly disclosure
+  ---
+  duration_ms: 15.803167
+  type: 'test'
+  ...
+# Subtest: v3 model_pick labels actual calculated amount
+ok 101 - v3 model_pick labels actual calculated amount
+  ---
+  duration_ms: 15.058958
+  type: 'test'
+  ...
+# Subtest: v3 stress_value labels actual calculated amount
+ok 102 - v3 stress_value labels actual calculated amount
+  ---
+  duration_ms: 17.701833
+  type: 'test'
+  ...
+# Subtest: v3 main instruction rejects null mode
+ok 103 - v3 main instruction rejects null mode
+  ---
+  duration_ms: 17.409708
+  type: 'test'
+  ...
+# Subtest: v3 main instruction rejects unknown mode
+ok 104 - v3 main instruction rejects unknown mode
+  ---
+  duration_ms: 16.80175
+  type: 'test'
+  ...
+# Subtest: v3 main instruction rejects legacy setting
+ok 105 - v3 main instruction rejects legacy setting
+  ---
+  duration_ms: 16.825792
+  type: 'test'
+  ...
+# Subtest: v3 main instruction rejects v2 setting
+ok 106 - v3 main instruction rejects v2 setting
+  ---
+  duration_ms: 16.636875
+  type: 'test'
+  ...
+# Subtest: v3 main instruction rejects missing setting
+ok 107 - v3 main instruction rejects missing setting
+  ---
+  duration_ms: 15.549542
+  type: 'test'
+  ...
+# Subtest: v3 main instruction rejects missing basis version
+ok 108 - v3 main instruction rejects missing basis version
+  ---
+  duration_ms: 15.8285
+  type: 'test'
+  ...
+# Subtest: v3 main instruction rejects v2 basis version
+ok 109 - v3 main instruction rejects v2 basis version
+  ---
+  duration_ms: 15.126709
+  type: 'test'
+  ...
+# Subtest: v3 main instruction rejects null basis mode
+ok 110 - v3 main instruction rejects null basis mode
+  ---
+  duration_ms: 15.234209
+  type: 'test'
+  ...
+# Subtest: v3 main instruction rejects missing guard mode
+ok 111 - v3 main instruction rejects missing guard mode
+  ---
+  duration_ms: 15.172166
+  type: 'test'
+  ...
+# Subtest: v3 main instruction rejects wrong guard policy
+ok 112 - v3 main instruction rejects wrong guard policy
+  ---
+  duration_ms: 15.030291
+  type: 'test'
+  ...
+# Subtest: v3 main instruction rejects wrong current review mode
+ok 113 - v3 main instruction rejects wrong current review mode
+  ---
+  duration_ms: 14.853333
+  type: 'test'
+  ...
+# Subtest: v3 main instruction rejects wrong review tier
+ok 114 - v3 main instruction rejects wrong review tier
+  ---
+  duration_ms: 15.040916
+  type: 'test'
+  ...
+# Subtest: v3 main instruction rejects failed current review
+ok 115 - v3 main instruction rejects failed current review
+  ---
+  duration_ms: 13.579084
+  type: 'test'
+  ...
+# Subtest: v3 main instruction rejects expired quote
+ok 116 - v3 main instruction rejects expired quote
+  ---
+  duration_ms: 13.999041
+  type: 'test'
+  ...
+# Subtest: v3 main instruction rejects expired validity
+ok 117 - v3 main instruction rejects expired validity
+  ---
+  duration_ms: 14.562834
+  type: 'test'
+  ...
+# Subtest: v3 main instruction rejects started event
+ok 118 - v3 main instruction rejects started event
+  ---
+  duration_ms: 15.941
+  type: 'test'
+  ...
+# Subtest: v3 main instruction rejects too much
+ok 119 - v3 main instruction rejects too much
+  ---
+  duration_ms: 14.998791
+  type: 'test'
+  ...
+# Subtest: v3 main instruction rejects forged maximum
+ok 120 - v3 main instruction rejects forged maximum
+  ---
+  duration_ms: 15.388833
+  type: 'test'
+  ...
+# Subtest: v3 main instruction rejects over configured max
+ok 121 - v3 main instruction rejects over configured max
+  ---
+  duration_ms: 13.562833
+  type: 'test'
+  ...
+# Subtest: v3 main instruction rejects over basis maximum
+ok 122 - v3 main instruction rejects over basis maximum
+  ---
+  duration_ms: 15.021
+  type: 'test'
+  ...
+# Subtest: v3 main instruction rejects nonfinite stake
+ok 123 - v3 main instruction rejects nonfinite stake
+  ---
+  duration_ms: 15.480875
+  type: 'test'
+  ...
+# Subtest: v3 main instruction rejects below minimum
+ok 124 - v3 main instruction rejects below minimum
+  ---
+  duration_ms: 14.797708
+  type: 'test'
+  ...
+# Subtest: v2 probability remains capped at one dollar and legacy receipt labels remain intact
+ok 125 - v2 probability remains capped at one dollar and legacy receipt labels remain intact
+  ---
+  duration_ms: 22.299167
+  type: 'test'
+  ...
+# Subtest: fresh v3 assessment leaves original pending one-dollar instruction at one dollar
+ok 126 - fresh v3 assessment leaves original pending one-dollar instruction at one dollar
+  ---
+  duration_ms: 17.250958
+  type: 'test'
+  ...
+# Subtest: Stake Sizing is a separate read-only view with exact target total and signed difference
+ok 127 - Stake Sizing is a separate read-only view with exact target total and signed difference
+  ---
+  duration_ms: 18.065166
+  type: 'test'
+  ...
+# Subtest: negative sizing difference is a lower total assessment only
+ok 128 - negative sizing difference is a lower total assessment only
+  ---
+  duration_ms: 17.16125
+  type: 'test'
+  ...
+# Subtest: Stake Sizing hides the numeric target for expired quote
+ok 129 - Stake Sizing hides the numeric target for expired quote
+  ---
+  duration_ms: 17.433792
+  type: 'test'
+  ...
+# Subtest: Stake Sizing hides the numeric target for expired validity
+ok 130 - Stake Sizing hides the numeric target for expired validity
+  ---
+  duration_ms: 17.165291
+  type: 'test'
+  ...
+# Subtest: Stake Sizing hides the numeric target for started game
+ok 131 - Stake Sizing hides the numeric target for started game
+  ---
+  duration_ms: 17.207333
+  type: 'test'
+  ...
+# Subtest: Stake Sizing hides the numeric target for future quote
+ok 132 - Stake Sizing hides the numeric target for future quote
+  ---
+  duration_ms: 17.104375
+  type: 'test'
+  ...
+# Subtest: Stake Sizing hides the numeric target for different policy
+ok 133 - Stake Sizing hides the numeric target for different policy
+  ---
+  duration_ms: 17.140667
+  type: 'test'
+  ...
+# Subtest: Stake Sizing hides the numeric target for null policy
+ok 134 - Stake Sizing hides the numeric target for null policy
+  ---
+  duration_ms: 17.513667
+  type: 'test'
+  ...
+# Subtest: Stake Sizing hides the numeric target for nonfinite target
+ok 135 - Stake Sizing hides the numeric target for nonfinite target
+  ---
+  duration_ms: 17.327
+  type: 'test'
+  ...
+# Subtest: Stake Sizing hides the numeric target for over maximum
+ok 136 - Stake Sizing hides the numeric target for over maximum
+  ---
+  duration_ms: 17.086375
+  type: 'test'
+  ...
+# Subtest: Stake Sizing hides the numeric target for invalid difference
+ok 137 - Stake Sizing hides the numeric target for invalid difference
+  ---
+  duration_ms: 16.890584
+  type: 'test'
+  ...
+# Subtest: Stake Sizing hides the numeric target for blocked source
+ok 138 - Stake Sizing hides the numeric target for blocked source
+  ---
+  duration_ms: 16.965792
+  type: 'test'
+  ...
+# Subtest: Stake Sizing expires on the existing one-second tick without another API update
+ok 139 - Stake Sizing expires on the existing one-second tick without another API update
+  ---
+  duration_ms: 17.926292
+  type: 'test'
+  ...
+# Subtest: Stake Sizing hides current targets immediately on dashboard failure
+ok 140 - Stake Sizing hides current targets immediately on dashboard failure
+  ---
+  duration_ms: 19.515542
+  type: 'test'
+  ...
+# Subtest: Stake Sizing escapes source text and never mutates main amounts
+ok 141 - Stake Sizing escapes source text and never mutates main amounts
+  ---
+  duration_ms: 16.865875
+  type: 'test'
+  ...
+# Subtest: Stake Sizing rejects missing execution review
+ok 142 - Stake Sizing rejects missing execution review
+  ---
+  duration_ms: 16.620917
+  type: 'test'
+  ...
+# Subtest: Stake Sizing rejects mismatched review mode
+ok 143 - Stake Sizing rejects mismatched review mode
+  ---
+  duration_ms: 16.507625
+  type: 'test'
+  ...
+# Subtest: Stake Sizing rejects mismatched review quote
+ok 144 - Stake Sizing rejects mismatched review quote
+  ---
+  duration_ms: 16.62725
+  type: 'test'
+  ...
+# Subtest: Stake Sizing rejects mismatched review time
+ok 145 - Stake Sizing rejects mismatched review time
+  ---
+  duration_ms: 16.604167
+  type: 'test'
+  ...
+# Subtest: Stake Sizing rejects wrong basis version
+ok 146 - Stake Sizing rejects wrong basis version
+  ---
+  duration_ms: 16.973917
+  type: 'test'
+  ...
+# Subtest: Stake Sizing rejects wrong basis tier
+ok 147 - Stake Sizing rejects wrong basis tier
+  ---
+  duration_ms: 16.660167
+  type: 'test'
+  ...
+# Subtest: Stake Sizing rejects above basis cap
+ok 148 - Stake Sizing rejects above basis cap
+  ---
+  duration_ms: 16.745166
+  type: 'test'
+  ...
+# Subtest: Stake Sizing rejects mismatched sizing amount
+ok 149 - Stake Sizing rejects mismatched sizing amount
+  ---
+  duration_ms: 17.046917
+  type: 'test'
+  ...
+# Subtest: v3 historical probability outcomes are not all labeled as one-dollar tickets
+ok 150 - v3 historical probability outcomes are not all labeled as one-dollar tickets
+  ---
+  duration_ms: 16.858583
+  type: 'test'
+  ...
+# Subtest: v3 strict stress assessment also requires matching policy, mode and basis
+ok 151 - v3 strict stress assessment also requires matching policy, mode and basis
+  ---
+  duration_ms: 22.201041
+  type: 'test'
+  ...
+# Subtest: same amount on a v2 to v3 mode transition closes the open instruction modal
+ok 152 - same amount on a v2 to v3 mode transition closes the open instruction modal
+  ---
+  duration_ms: 26.692333
+  type: 'test'
+  ...
+# Subtest: Statistics shows cash winrate, original decisions, exposure and source evidence distinctly
+ok 153 - Statistics shows cash winrate, original decisions, exposure and source evidence distinctly
+  ---
+  duration_ms: 20.637375
+  type: 'test'
+  ...
+# Subtest: Statistics escapes untrusted evidence and preserves unproven improvement status
+ok 154 - Statistics escapes untrusted evidence and preserves unproven improvement status
+  ---
+  duration_ms: 19.142083
+  type: 'test'
+  ...
+# Subtest: Incomplete cash and zero decisive samples stay unknown, not zero performance
+ok 155 - Incomplete cash and zero decisive samples stay unknown, not zero performance
+  ---
+  duration_ms: 19.039
+  type: 'test'
+  ...
+# Subtest: Statistics filters are GET-only and polling preserves Statistics chrome
+ok 156 - Statistics filters are GET-only and polling preserves Statistics chrome
+  ---
+  duration_ms: 32.211958
+  type: 'test'
+  ...
+# Subtest: Incomplete or failed Statistics response hides totals with an explicit retry path
+ok 157 - Incomplete or failed Statistics response hides totals with an explicit retry path
+  ---
+  duration_ms: 21.584542
+  type: 'test'
+  ...
+# Subtest: A late old-filter Statistics response cannot overwrite the newer cohort
+ok 158 - A late old-filter Statistics response cannot overwrite the newer cohort
+  ---
+  duration_ms: 26.780125
+  type: 'test'
+  ...
+# Subtest: Filtered Statistics still exposes global orphan outcome findings
+ok 159 - Filtered Statistics still exposes global orphan outcome findings
+  ---
+  duration_ms: 19.69525
+  type: 'test'
+  ...
+# Subtest: Global integrity findings are not counted twice in an unfiltered audit
+ok 160 - Global integrity findings are not counted twice in an unfiltered audit
+  ---
+  duration_ms: 19.14175
+  type: 'test'
+  ...
+# Subtest: release checkpoint shows its own target and excludes earlier daily issues
+ok 161 - release checkpoint shows its own target and excludes earlier daily issues
+  ---
+  duration_ms: 17.093584
+  type: 'test'
+  ...
+# Subtest: segment measurement and funded decisions are separate; daily distinct games are disclosed
+ok 162 - segment measurement and funded decisions are separate; daily distinct games are disclosed
+  ---
+  duration_ms: 17.466333
+  type: 'test'
+  ...
+# Subtest: parallel lanes and engineering deadlines are distinct from betting instructions
+ok 163 - parallel lanes and engineering deadlines are distinct from betting instructions
+  ---
+  duration_ms: 17.680041
+  type: 'test'
+  ...
+# Subtest: AI roles keep Codex responsible and report helper failures without exposing advice
+ok 164 - AI roles keep Codex responsible and report helper failures without exposing advice
+  ---
+  duration_ms: 16.964584
+  type: 'test'
+  ...
+# Subtest: closing evidence keeps missing prices separate from zero CLV and betting instructions
+ok 165 - closing evidence keeps missing prices separate from zero CLV and betting instructions
+  ---
+  duration_ms: 17.133792
+  type: 'test'
+  ...
+# Subtest: outcome evidence counts correlated wins by game and does not claim proven profit
+ok 166 - outcome evidence counts correlated wins by game and does not claim proven profit
+  ---
+  duration_ms: 16.745625
+  type: 'test'
+  ...
+# Subtest: NCAA instructions can be filtered and fixture-level missing recommendations stay in Research
+ok 167 - NCAA instructions can be filtered and fixture-level missing recommendations stay in Research
+  ---
+  duration_ms: 19.275792
+  type: 'test'
+  ...
+# Subtest: period instructions preserve hockey scope, units and exact observed tab
+ok 168 - period instructions preserve hockey scope, units and exact observed tab
+  ---
+  duration_ms: 18.788333
+  type: 'test'
+  ...
+# Subtest: quarter parity instruction explains Even including zero without requesting another line
+ok 169 - quarter parity instruction explains Even including zero without requesting another line
+  ---
+  duration_ms: 18.972709
+  type: 'test'
+  ...
+# Subtest: development catalogue and player data do not claim production prop support
+ok 170 - development catalogue and player data do not claim production prop support
+  ---
+  duration_ms: 16.685125
+  type: 'test'
+  ...
+# Subtest: inning instruction keeps the exact Stake scope and never uses the final game score
+ok 171 - inning instruction keeps the exact Stake scope and never uses the final game score
+  ---
+  duration_ms: 19.584
+  type: 'test'
+  ...
+# Subtest: inning draw selection explicitly distinguishes a draw win from a two-way push
+ok 172 - inning draw selection explicitly distinguishes a draw win from a two-way push
+  ---
+  duration_ms: 18.977875
+  type: 'test'
+  ...
+# Subtest: recorded inning selection shows the observed Stake tab from its current exact assessment
+ok 173 - recorded inning selection shows the observed Stake tab from its current exact assessment
+  ---
+  duration_ms: 20.025208
+  type: 'test'
+  ...
+# Subtest: navigation is not invented when an archived market has no group evidence
+ok 174 - navigation is not invented when an archived market has no group evidence
+  ---
+  duration_ms: 20.198333
+  type: 'test'
+  ...
+# Subtest: league operations expose actual catalog coverage and unresolved repairs separately from picks
+ok 175 - league operations expose actual catalog coverage and unresolved repairs separately from picks
+  ---
+  duration_ms: 18.800958
+  type: 'test'
+  ...
+# Subtest: new instruction displays its priced dollar stake and preserves it in the detail
+ok 176 - new instruction displays its priced dollar stake and preserves it in the detail
+  ---
+  duration_ms: 35.312458
+  type: 'test'
+  ...
+# Subtest: model-search results show the selected recipe and actual promotion decision
+ok 177 - model-search results show the selected recipe and actual promotion decision
+  ---
+  duration_ms: 16.5635
+  type: 'test'
+  ...
+# Subtest: learning view distinguishes failed retries and rejected experiments from promotion
+ok 178 - learning view distinguishes failed retries and rejected experiments from promotion
+  ---
+  duration_ms: 17.549292
+  type: 'test'
+  ...
+# Subtest: main page contains instructions while unfunded research is in its own view
+ok 179 - main page contains instructions while unfunded research is in its own view
+  ---
+  duration_ms: 23.232042
+  type: 'test'
+  ...
+# Subtest: additional team-total instruction identifies only the named team
+ok 180 - additional team-total instruction identifies only the named team
+  ---
+  duration_ms: 21.052292
+  type: 'test'
+  ...
+# Subtest: dashboard renders model output and escapes source text
+ok 181 - dashboard renders model output and escapes source text
+  ---
+  duration_ms: 18.853959
+  type: 'test'
+  ...
+# Subtest: league filter and settings navigation work
+ok 182 - league filter and settings navigation work
+  ---
+  duration_ms: 19.155417
+  type: 'test'
+  ...
+# Subtest: price check form evaluates without submitting an actual bet
+ok 183 - price check form evaluates without submitting an actual bet
+  ---
+  duration_ms: 33.155833
+  type: 'test'
+  ...
+# Subtest: cost view does not invent paid results or known costs
+ok 184 - cost view does not invent paid results or known costs
+  ---
+  duration_ms: 30.527792
+  type: 'test'
+  ...
+# Subtest: accountability view reports losses and incomplete coverage without a profit claim
+ok 185 - accountability view reports losses and incomplete coverage without a profit claim
+  ---
+  duration_ms: 18.203625
+  type: 'test'
+  ...
+# Subtest: blank daily cap saves null and daily progress distinguishes target from issued picks
+ok 186 - blank daily cap saves null and daily progress distinguishes target from issued picks
+  ---
+  duration_ms: 30.215125
+  type: 'test'
+  ...
+# Subtest: all selected alternatives are visible, open details and follow league filters
+ok 187 - all selected alternatives are visible, open details and follow league filters
+  ---
+  duration_ms: 36.2835
+  type: 'test'
+  ...
+# Subtest: auto-tracked picks show original stakes without asking for another confirmation
+ok 188 - auto-tracked picks show original stakes without asking for another confirmation
+  ---
+  duration_ms: 20.6555
+  type: 'test'
+  ...
+# Subtest: chronological checklist moves placed picks to Tracker and keeps new actionable picks on the main page
+ok 189 - chronological checklist moves placed picks to Tracker and keeps new actionable picks on the main page
+  ---
+  duration_ms: 59.605583
+  type: 'test'
+  ...
+# Subtest: an older dashboard response cannot undo a saved placement or removal
+ok 190 - an older dashboard response cannot undo a saved placement or removal
+  ---
+  duration_ms: 53.183541
+  type: 'test'
+  ...
+# Subtest: pending placement survives a rerender and disables every copy until saved
+ok 191 - pending placement survives a rerender and disables every copy until saved
+  ---
+  duration_ms: 30.04225
+  type: 'test'
+  ...
+# Subtest: queued refresh applies newer checklist changes from another device after the older response
+ok 192 - queued refresh applies newer checklist changes from another device after the older response
+  ---
+  duration_ms: 35.873375
+  type: 'test'
+  ...
+# Subtest: a failed placement save restores the current controls and permits one retry
+ok 193 - a failed placement save restores the current controls and permits one retry
+  ---
+  duration_ms: 27.136416
+  type: 'test'
+  ...
+# Subtest: unfunded candidates never look like executable recommendations
+ok 194 - unfunded candidates never look like executable recommendations
+  ---
+  duration_ms: 18.282334
+  type: 'test'
+  ...
+# Subtest: recorded selections survive changed lines and retain original odds and probabilities
+ok 195 - recorded selections survive changed lines and retain original odds and probabilities
+  ---
+  duration_ms: 18.088791
+  type: 'test'
+  ...
+# Subtest: all modeled outcomes remain inspectable without being counted as extra bets
+ok 196 - all modeled outcomes remain inspectable without being counted as extra bets
+  ---
+  duration_ms: 20.27975
+  type: 'test'
+  ...
+# Subtest: rolling 24h filters issued picks and coverage without changing daily issuance
+ok 197 - rolling 24h filters issued picks and coverage without changing daily issuance
+  ---
+  duration_ms: 21.792625
+  type: 'test'
+  ...
+# Subtest: Bet on Stake opens the recorded fixture and does not mark or submit a bet
+ok 198 - Bet on Stake opens the recorded fixture and does not mark or submit a bet
+  ---
+  duration_ms: 17.658375
+  type: 'test'
+  ...
+# Subtest: automation shows real recovery and abstract-only research status
+ok 199 - automation shows real recovery and abstract-only research status
+  ---
+  duration_ms: 16.560083
+  type: 'test'
+  ...
+# Subtest: unmarked old instruction loses its executable stake when current value falls
+ok 200 - unmarked old instruction loses its executable stake when current value falls
+  ---
+  duration_ms: 18.944292
+  type: 'test'
+  ...
+# Subtest: Today does not revive a pregame instruction after the match starts
+ok 201 - Today does not revive a pregame instruction after the match starts
+  ---
+  duration_ms: 20.809667
+  type: 'test'
+  ...
+# Subtest: delivery view distinguishes candidate readiness and overdue production checkpoints
+ok 202 - delivery view distinguishes candidate readiness and overdue production checkpoints
+  ---
+  duration_ms: 17.594125
+  type: 'test'
+  ...
+# Subtest: main instructions fail closed without a current server review
+ok 203 - main instructions fail closed without a current server review
+  ---
+  duration_ms: 131.149583
+  type: 'test'
+  ...
+# Subtest: main instructions enforce quote lifetime even when a review claims actionable
+ok 204 - main instructions enforce quote lifetime even when a review claims actionable
+  ---
+  duration_ms: 98.861709
+  type: 'test'
+  ...
+# Subtest: a clean pending instruction uses current estimates and its original one-time USD stake
+ok 205 - a clean pending instruction uses current estimates and its original one-time USD stake
+  ---
+  duration_ms: 18.534
+  type: 'test'
+  ...
+# Subtest: multiple tickets and reported execution never become another main instruction
+ok 206 - multiple tickets and reported execution never become another main instruction
+  ---
+  duration_ms: 50.80825
+  type: 'test'
+  ...
+# Subtest: a rejected recorded review cannot be bypassed by a positive current assessment
+ok 207 - a rejected recorded review cannot be bypassed by a positive current assessment
+  ---
+  duration_ms: 17.683
+  type: 'test'
+  ...
+# Subtest: connection loss hides executable instructions until the next successful update
+ok 208 - connection loss hides executable instructions until the next successful update
+  ---
+  duration_ms: 25.966375
+  type: 'test'
+  ...
+# Subtest: same-selection model and quote changes close the old instruction detail
+ok 209 - same-selection model and quote changes close the old instruction detail
+  ---
+  duration_ms: 28.720459
+  type: 'test'
+  ...
+# Subtest: probability and rank sorting use current reviewed terms of pending instructions
+ok 210 - probability and rank sorting use current reviewed terms of pending instructions
+  ---
+  duration_ms: 24.710791
+  type: 'test'
+  ...
+# Subtest: pending instructions navigate to the currently verified Stake fixture URL
+ok 211 - pending instructions navigate to the currently verified Stake fixture URL
+  ---
+  duration_ms: 17.707667
+  type: 'test'
+  ...
+# Subtest: expired detail navigation is blocked even while dashboard refresh hangs
+ok 212 - expired detail navigation is blocked even while dashboard refresh hangs
+  ---
+  duration_ms: 21.350167
+  type: 'test'
+  ...
+# Subtest: local expiry removes instructions and closes details without a network response
+ok 213 - local expiry removes instructions and closes details without a network response
+  ---
+  duration_ms: 23.100583
+  type: 'test'
+  ...
+# Subtest: manual price checks display a failed engine review without a hypothetical stake
+ok 214 - manual price checks display a failed engine review without a hypothetical stake
+  ---
+  duration_ms: 19.43275
+  type: 'test'
+  ...
+# Subtest: Tracker detail retains the original snapshot without issuing a current instruction
+ok 215 - Tracker detail retains the original snapshot without issuing a current instruction
+  ---
+  duration_ms: 33.497
+  type: 'test'
+  ...
+# Subtest: development heartbeat does not conceal stalled work or release ownership
+ok 216 - development heartbeat does not conceal stalled work or release ownership
+  ---
+  duration_ms: 17.478333
+  type: 'test'
+  ...
+1..216
+# tests 216
+# suites 0
+# pass 216
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 4576.68375

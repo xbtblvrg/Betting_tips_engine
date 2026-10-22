@@ -1,0 +1,35 @@
+{
+  "checks": [
+    {
+      "manifest": "data/development_inputs/manifest.json",
+      "sha256": "5e3f806eb32beb457f9f230bd9aed4c16dc8b19d58a44a8f8477ad3132b3be73",
+      "verified_files": 317,
+      "errors": []
+    },
+    {
+      "manifest": "data/engineering-evidence-manifest.json",
+      "sha256": "2d840ba48817c79fcdd48bcdd1988073fcfc26efd00896e7e6f27ff12e2df15a",
+      "verified_files": 1,
+      "errors": []
+    },
+    {
+      "manifest": "data/controller_validation/manifest.json",
+      "sha256": "2552dcbd27539835c4f779ac5acefc4ab35afea985ed27d05ce1b6892fd3e246",
+      "verified_files": 3,
+      "errors": []
+    },
+    {
+      "manifest": "data/validation_sources/export.json",
+      "sha256": "391e1bb2d3a11f84c119a0b15fc269afb43ce0372edae3c3ca8c05d173b697ca",
+      "verified_files": 46,
+      "errors": []
+    }
+  ],
+  "source_responses": 392,
+  "raw_nhl_responses": 8,
+  "gzip_stake_responses": 384,
+  "root_recovery_package_supplied": false,
+  "runtime_failure_manifest_state": "not_required",
+  "release_failure_attached_files": 0,
+  "claim": "Exact detached byte verification only; no source availability or model/execution approval."
+}

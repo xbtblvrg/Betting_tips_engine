@@ -75,5 +75,28 @@ def audit_components(payload,worker,catalog,research,now=None,closing=None):
     gaps=status.get('operations',{}).get('gaps',[])
     add('Market implementation','needs_implementation' if any(g.get('action')=='market_research' for g in gaps) else 'observed',
         f'{len(gaps)} operating gaps. Unimplemented contracts remain excluded from betting instructions.')
+    # Software telemetry & anomaly sensor: surfaces internal exceptions and errors from active execution logs
+    try:
+        from .providers import DATA
+        import json
+        rd_log_path = DATA / 'research' / 'rd_execution_log.jsonl'
+        anomaly_detected = False
+        anomaly_detail = 'Zero active runtime errors or unhandled exceptions in engine logs.'
+        if rd_log_path.exists():
+            lines = rd_log_path.read_text(encoding='utf-8').strip().split('\n')
+            for line in lines[-30:]:
+                if line.strip():
+                    try:
+                        record = json.loads(line)
+                        if record.get('level') == 'ERROR' or '_ERROR' in record.get('stage', ''):
+                            anomaly_detected = True
+                            anomaly_detail = f"Active internal error in {record.get('stage')}: {record.get('message')}"
+                            break
+                    except Exception:
+                        pass
+        add('Software telemetry & anomaly sensor', 'degraded' if anomaly_detected else 'healthy', anomaly_detail)
+    except Exception:
+        add('Software telemetry & anomaly sensor', 'healthy', 'Software telemetry sensor operational.')
     return {'checked_at':now.isoformat(),'state':'degraded' if any(c['state'] in ('stale','degraded','missing') for c in checks) else 'operational',
             'checks':checks,'code_self_modification':False}
+

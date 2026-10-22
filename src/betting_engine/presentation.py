@@ -14,7 +14,7 @@ TEXT = {
  'Érzékenységi forgatókönyv, nem statisztikai konfidenciaintervallum.':'Sensitivity scenario, not a statistical confidence interval.',
  'Sportadatból tanított modell; az odds csak az utólagos érték-összevetéshez kerül be.':'The model uses sports data. Market odds are used only to assess value after the probability estimate.',
  'becsült előny':'Estimated Value', 'előny bizonytalan':'Uncertain Edge', 'jobb ár szükséges':'Better Odds Needed',
- 'visszavont / lejárt':'Withdrawn / Expired',
+ 'visszavont / lejárt':'Withdrawn / Expired', 'withdrawn / expired':'Withdrawn / Expired',
  'Az aktuális áron nincs becsült pozitív érték.':'No estimated positive expected value at the current odds.',
  'Beállított alapegység; bankroll hiányában nem személyre szabott.':'Uses your default unit stake. Set your bankroll for bankroll-based sizing.',
  'Konzervatív eséllyel számolt rész-Kelly, napi és fogadásonkénti korláttal.':'Fractional Kelly using the conservative probability estimate, capped by your daily limit and maximum stake.',
@@ -88,6 +88,11 @@ STAKE_LEAGUE_PATHS = {
     'NHL':'ice-hockey/usa/nhl',
     'NCAAF':'american-football/usa/ncaa-regular','NCAAM':'basketball/usa/ncaa','NCAAW':'basketball/usa/ncaa-women',
     'MLS':'soccer/usa/major-league-soccer',
+    'EPL':'soccer/england/premier-league',
+    'UCL':'soccer/international-clubs/uefa-champions-league',
+    'ATP':'tennis/atp',
+    'WTA':'tennis/wta',
+    'CHALLENGER':'tennis/challenger',
 }
 
 def market_name(league,market,tip=None):
@@ -101,14 +106,81 @@ def market_name(league,market,tip=None):
     if market in ('three_way','1x2'):return '1x2'
     if market=='double_chance':return 'Double Chance'
     if market=='both_score':return 'Both Teams to Score'
-    if league=='MLS':
+    if league in ('MLS', 'EPL', 'UCL'):
         if market=='moneyline':return 'Draw No Bet'
         return {'spreads':'Handicap','totals':'Total','home_total':'Home Team Total','away_total':'Away Team Total','odd_even':'Odd/Even','exact_score':'Correct Score'}.get(market,market)
-    base={'moneyline':'Winner','spreads':'Handicap','totals':'Total','home_total':'Home Team Total','away_total':'Away Team Total','odd_even':'Odd/Even','both_score':'Both Teams to Score','double_chance':'Double Chance','winner_total':'1x2 & Total','exact_total':'Total (Over-Exact-Under)','exact_score':'Correct Score'}.get(market,market)
+    if league in ('ATP', 'WTA', 'CHALLENGER'):
+        if market=='moneyline':return 'Winner'
+        if market=='spreads':return 'Game Handicap'
+        if market=='totals':return 'Total Games'
+        if market=='total_sets':return 'Total Sets'
+        return {'spreads':'Game Handicap','totals':'Total Games','moneyline':'Winner','total_sets':'Total Sets'}.get(market,market)
+    base={'moneyline':'Winner','spreads':'Handicap','totals':'Total','home_total':'Home Team Total','away_total':'Away Team Total','odd_even':'Odd/Even','both_score':'Both Teams to Score','double_chance':'Double Chance','winner_total':'1x2 & Total','exact_total':'Total (Over-Exact-Under)','exact_score':'Correct Score','total_sets':'Total Sets'}.get(market,market)
     if tip and market in ('home_total','away_total'):base=tip[market.split('_')[0]]+' Total'
     if league not in STAKE_LEAGUE_PATHS:return base
     scope={'MLB':'Extra Innings','NHL':'Overtime and Penalties'}.get(league,'Overtime')
     return f'{base} (Incl. {scope})'
+
+def infer_stake_tab(league, market, market_name='', groups=None):
+    lg = (league or '').upper()
+    m = (market or '').lower()
+    mn = (market_name or '').lower()
+    grp_names = [g.get('name', '').lower() for g in (groups or []) if isinstance(g, dict)]
+
+    if any(h in m or h in mn for h in ('half_1', 'half_2', '1st half', '2nd half', 'halftime', 'halves')):
+        return 'Halves' if lg in ('MLS', 'EPL', 'UCL', 'SOCCER') else 'Half'
+    if any(q in m or q in mn for q in ('quarter_1', 'quarter_2', 'quarter_3', 'quarter_4', '1st quarter', '2nd quarter', '3rd quarter', '4th quarter')):
+        return 'Quarters'
+    if lg in ('ATP', 'WTA', 'CHALLENGER', 'TENNIS'):
+        if m == 'total_sets' or any(s in m or s in mn for s in ('period_1', 'period_2', 'period_3', 'set_1', 'set_2', 'set_3', '1st set', '2nd set', '3rd set', 'sets', 'total_sets', 'set')):
+            return 'Sets'
+        if any(s in m or s in mn for s in ('spreads', 'totals', 'games', 'game_handicap', 'total_games')):
+            return 'Games'
+        if 'sets' in grp_names: return 'Sets'
+        if 'games' in grp_names: return 'Games'
+        return 'Main'
+    if lg in ('NHL', 'ICE_HOCKEY'):
+        if any(p in m or p in mn for p in ('period_1', 'period_2', 'period_3', '1st period', '2nd period', '3rd period', 'periods')):
+            return 'Periods'
+        if any(g in m for g in ('goals', 'totals', 'both_score', 'home_total', 'away_total')):
+            return 'Goals'
+        if 'periods' in grp_names: return 'Periods'
+        if 'goals' in grp_names: return 'Goals'
+        if 'spreads' in m: return 'Handicap'
+        return 'Main'
+    if lg in ('MLB', 'NPB', 'BASEBALL'):
+        if any(x in m or x in mn for x in ('innings_1_5', 'first_five', 'first_5', 'innings 1 to 5')):
+            return 'Innings 1 to 5'
+        if any(x in m or x in mn for x in ('inning_1', 'first_inning', 'innings', 'inning')):
+            return 'Innings'
+        if any(x in m for x in ('runs', 'home_total', 'away_total')):
+            return 'Runs'
+        if 'spreads' in m: return 'Handicap'
+        if 'totals' in m: return 'Total'
+        return 'Main'
+    if lg in ('MLS', 'EPL', 'UCL', 'SOCCER'):
+        if 'halves' in grp_names or 'half' in m: return 'Halves'
+        if any(x in m for x in ('totals', 'both_score', 'home_total', 'away_total', 'goals')): return 'Goals'
+        if 'asianlines' in grp_names or 'asian lines' in grp_names: return 'Asian Lines'
+        if 'spreads' in m: return 'Handicap'
+        return 'Main'
+    if lg in ('NBA', 'WNBA', 'NCAAB', 'BASKETBALL'):
+        if 'half' in m: return 'Half'
+        if 'quarter' in m or 'period_' in m: return 'Quarters'
+        if 'spreads' in m or 'handicap' in mn: return 'Handicap'
+        if 'totals' in m or 'total' in mn or 'total' in m: return 'Total'
+        if 'points' in grp_names: return 'Points'
+        return 'Main'
+    if lg in ('NFL', 'NCAAF', 'FOOTBALL'):
+        if 'half' in m: return 'Half'
+        if 'quarter' in m or 'period_' in m: return 'Quarters'
+        if 'spreads' in m: return 'Handicap'
+        if 'totals' in m: return 'Total'
+        return 'Main'
+
+    if 'spreads' in m: return 'Handicap'
+    if 'totals' in m: return 'Total'
+    return 'Main'
 
 def stake_market(t):
     from .contracts import split_market
@@ -118,6 +190,11 @@ def stake_market(t):
         'MLB':'Includes extra innings. Winner and Handicap/Total markets have different rules for shortened games; check Stake’s settlement rules.',
         'NFL':'Includes overtime. A tied two-way Winner market is void under Stake’s push rule.',
         'MLS':'Regular time only (90 minutes + injury time). Extra time and penalty shootouts are excluded. Draw No Bet pushes on a draw.',
+        'EPL':'Regular time only (90 minutes + injury time). Extra time and penalty shootouts are excluded. Draw No Bet pushes on a draw.',
+        'UCL':'Regular time only (90 minutes + injury time). Extra time and penalty shootouts are excluded. Draw No Bet pushes on a draw.',
+        'ATP':'Match winner settles on official match progression. If a player retires before match completion, uncompleted game/set totals and handicaps are void unless unconditionally determined.',
+        'WTA':'Match winner settles on official match progression. If a player retires before match completion, uncompleted game/set totals and handicaps are void unless unconditionally determined.',
+        'CHALLENGER':'Match winner settles on official match progression. If a player retires before match completion, uncompleted game/set totals and handicaps are void unless unconditionally determined.',
     }.get(league,'Includes overtime. Use the exact named match or team market; quarter and half markets settle separately.')
     scope,kind=split_market(t['market'])
     if kind in ('three_way','double_chance','both_score') or t.get('market') in ('three_way','double_chance','both_score'):
@@ -153,19 +230,41 @@ def stake_market(t):
     group_labels={'main':'Main','innings 1 to 5':'Innings 1 to 5','innings':'Innings',
                   'on the mound':'On The Mound','threeway':'Three Way','runs':'Runs',
                   'other':'Other','handicap':'Handicap','total':'Total','winner':'Winner','outright':'Outright',
-                  'periods':'Periods','quarters':'Quarters','half':'Half','combo':'Combo','goals':'Goals',
-                  'player props':'Player Props','points':'Points','specials':'Specials'}
+                  'periods':'Periods','quarters':'Quarters','half':'Half','sets':'Sets','combo':'Combo','goals':'Goals',
+                  'player props':'Player Props','points':'Points','specials':'Specials',
+                  'asianlines':'Asian Lines','asian lines':'Asian Lines'}
     groups=[{**g,'label':group_labels.get(g['name'].lower(),g['name'])}
             for g in t.get('stake_evidence',{}).get('market_groups',[]) if isinstance(g,dict) and isinstance(g.get('name'),str) and g['name'].strip()]
-    # Feed groups are contract evidence, not a guarantee of a visible website
-    # tab. In particular NHL's internal "winner" group has no Winner tab.
-    # Keep every group above for provenance; only known navigation names can
-    # become a route. Never title-case an unknown group into a made-up tab.
     known_tabs=set(group_labels)-{'winner','outright'}
     if league=='NHL':
         known_tabs={'main','player props','periods','goals','combo'}
     routes=[g for g in groups if g['name'].lower() in known_tabs]
-    primary=next((g for g in routes if g['name'].lower()=='main'),routes[0] if routes else None)
+
+    specific_pref = None
+    m_str = (t.get('market') or '').lower()
+    if any(h in m_str for h in ('half_1', 'half_2', 'half', 'halftime')):
+        specific_pref = next((g for g in routes if g['name'].lower() in ('half', 'halves')), None)
+    elif any(q in m_str for q in ('quarter_1', 'quarter_2', 'quarter_3', 'quarter_4')):
+        specific_pref = next((g for g in routes if g['name'].lower() == 'quarters'), None)
+    elif league in ('ATP', 'WTA', 'CHALLENGER') and ('period_' in m_str or 'set' in m_str):
+        specific_pref = next((g for g in routes if g['name'].lower() == 'sets'), None)
+    elif league in ('ATP', 'WTA', 'CHALLENGER') and t.get('market') in ('spreads', 'totals'):
+        specific_pref = next((g for g in routes if g['name'].lower() == 'games'), None)
+    elif league == 'NHL' and 'period_' in m_str:
+        specific_pref = next((g for g in routes if g['name'].lower() == 'periods'), None)
+    elif t.get('market') in ('spreads', 'totals') and any(g['name'].lower() in ('asianlines', 'asian lines') for g in routes):
+        specific_pref = next((g for g in routes if g['name'].lower() in ('asianlines', 'asian lines')), None)
+
+    main_group = next((g for g in routes if g['name'].lower() == 'main'), None)
+    if main_group:
+        primary = main_group
+    elif specific_pref:
+        primary = specific_pref
+    elif routes:
+        primary = routes[0]
+    else:
+        primary = None
+
     return {
         'name':market_name(league,t['market'],t),
         'league_url':'https://stake.com/sports/'+path,
@@ -201,11 +300,12 @@ def english_payload(value):
     if isinstance(value,list):return [english_payload(v) for v in value]
     if isinstance(value,dict):
         result={k:english_payload(v) for k,v in value.items()}
-        from .contracts import SUPPORTED
-        if 'selection' in value and value.get('market') in SUPPORTED:
+        from .contracts import SUPPORTED, SCORE_MARKETS
+        if 'selection' in value and (value.get('market') in SUPPORTED or value.get('market') in SCORE_MARKETS):
             result['selection']=selection_name(value)
             result['market_display']=market_name(value.get('league'),value['market'],value)
-            if value.get('league') in STAKE_LEAGUE_PATHS:result['stake_market']=stake_market(value)
+            if value.get('league') in STAKE_LEAGUE_PATHS:
+                result['stake_market'] = stake_market(value)
             if result.get('stake_note','').startswith('Watchlist:') and value.get('minimum_odds') is not None:
                 threshold=Decimal(str(value['minimum_odds'])).quantize(Decimal('.01'),rounding=ROUND_CEILING)
                 result['stake_note']=f'Watchlist: requires decimal odds of at least {threshold} on the same market and settlement rules.'

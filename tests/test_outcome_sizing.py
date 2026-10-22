@@ -362,3 +362,64 @@ class OutcomeSizingV2MonotonicTests(unittest.TestCase):
             result = self.adjusted(rows)
             self.assertEqual(result['outcome_adjustment']['applied_factor'], 1.)
             self.assertEqual(result['amount'], 1.)
+
+    def test_alpha_acceleration_scales_super_alpha_and_unclamps_base_caps(self):
+        from betting_engine.outcome_sizing import POLICY_V3
+        rows = [decision(f'win_{i}', odds=1.95, stake=2.0, market='spreads') for i in range(10)]
+        snap = build_snapshot(rows, as_of=rows[-1]['outcome_evidence']['settled_at'])
+        target_tip = decision('new', market='spreads', probability=0.60)['payload']
+        tip = dict(target_tip, outcome_sizing_evidence=summary_for(snap, target_tip))
+        base_sizing = {'amount': 1.0, 'maximum_stake': 1.0, 'note': 'base', 'event_discount': 1.0}
+        settings = {'max_bet': 5.0, 'alpha_acceleration': True, 'outcome_sizing_policy': POLICY_V3}
+        res = apply_adjustment(base_sizing, tip, settings, 5.0)
+        self.assertGreaterEqual(res['amount'], 4.0)
+        self.assertLessEqual(res['amount'], 5.0)
+        # Verify maximum_stake was unclamped from caps
+        self.assertNotIn('maximum_stake', res['outcome_adjustment']['caps'])
+
+    def test_alpha_acceleration_negative_ev_strictly_suppressed(self):
+        from betting_engine.outcome_sizing import POLICY_V3
+        rows = [decision(f'win_{i}', odds=1.95, stake=2.0, market='spreads') for i in range(10)]
+        snap = build_snapshot(rows, as_of=rows[-1]['outcome_evidence']['settled_at'])
+        # Target tip with EV < 0 (odds 1.50, prob 0.40 -> ev = -0.40)
+        target_tip = decision('new', market='spreads', odds=1.50, probability=0.40)['payload']
+        tip = dict(target_tip, outcome_sizing_evidence=summary_for(snap, target_tip))
+        base_sizing = {'amount': 1.0, 'maximum_stake': 1.0, 'note': 'base', 'event_discount': 1.0}
+        settings = {'max_bet': 5.0, 'alpha_acceleration': True, 'outcome_sizing_policy': POLICY_V3}
+        res = apply_adjustment(base_sizing, tip, settings, 5.0)
+        # Sizing must NOT scale above 1.0 for negative EV
+        self.assertEqual(res['amount'], 1.0)
+
+    def test_d40_solid_alpha_asymmetric_scaling(self):
+        from betting_engine.outcome_sizing import POLICY_V3
+        # 7 games: 5 wins @ 1.95, 2 losses @ 1.95 -> ROI ~ 39%, PnL = $2.75 >= $2.0 -> Solid Alpha
+        rows = [decision(f'win_{i}', odds=1.95, stake=1.0, market='spreads') for i in range(5)] + \
+               [decision(f'loss_{j}', 'lost', odds=1.95, stake=1.0, market='spreads') for j in range(2)]
+        snap = build_snapshot(rows, as_of=rows[-1]['outcome_evidence']['settled_at'])
+        target_tip = decision('new', market='spreads', probability=0.58, odds=1.90)['payload']
+        target_tip['expected_roi'] = 0.102
+        tip = dict(target_tip, outcome_sizing_evidence=summary_for(snap, target_tip))
+        base_sizing = {'amount': 1.0, 'maximum_stake': 1.0, 'note': 'base', 'event_discount': 1.0}
+        settings = {'max_bet': 5.0, 'alpha_acceleration': True, 'outcome_sizing_policy': POLICY_V3}
+        res = apply_adjustment(base_sizing, tip, settings, 5.0)
+        # Solid Alpha targets $3.00 - $4.00
+        self.assertGreaterEqual(res['amount'], 3.0)
+        self.assertLessEqual(res['amount'], 4.0)
+
+    def test_probation_nursery_clamp_preserves_050_stake(self):
+        from betting_engine.outcome_sizing import POLICY_V3
+        # Newly graduated market in probation tier with unproven live history (< 5 games)
+        target_tip = decision('new', market='quarter_1:home_total', model_scope='quarter_1', probability=0.52, odds=2.10)['payload']
+        target_tip['is_graduated'] = True
+        target_tip['expected_roi'] = 0.092
+        tip = dict(target_tip)
+        base_sizing = {'amount': 1.0, 'maximum_stake': 8.0, 'per_bet': 8.0, 'note': 'base', 'event_discount': 1.0}
+        settings = {'max_bet': 8.0, 'unit_stake': 1.0, 'outcome_sizing_policy': POLICY_V3, 'capital_defense': True}
+        res = apply_adjustment(base_sizing, tip, settings, 50.0)
+        # Should be clamped to exactly $0.50, NOT dropped to 0.0
+        self.assertEqual(res['amount'], 0.50)
+        self.assertIn('probation_nursery_clamp', res['outcome_adjustment']['caps'])
+
+
+
+

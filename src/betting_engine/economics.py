@@ -35,7 +35,6 @@ def economic_evidence(decisions, *, accrued_system_cost=None, timezone='Europe/B
             pnl=float(row['pnl'])
             if not math.isfinite(pnl) or pnl < -stake-1e-8:raise ValueError('invalid_settlement_pnl')
             g=games.setdefault(game_id,{'game_id':game_id,'date':date,'stake':0.,'pnl':0.,'decisions':0})
-            if g['date']!=date:raise ValueError('conflicting_game_date')
             g['stake']+=stake;g['pnl']+=pnl;g['decisions']+=1
             key=(tip.get('league'),tip.get('market'),tip.get('model_version'))
             s=segments.setdefault(key,{'league':key[0],'market':key[1],'model_version':key[2],

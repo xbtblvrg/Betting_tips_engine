@@ -25,3 +25,13 @@ node_modules/
 data/
 .pytest_cache/
 knowledge/reading_v2/rendered/
+knowledge/reading_v2/*/
+knowledge/reading_v2/*.json
+knowledge/reading_v2/*.jsonl
+knowledge/reading_v2/*.py
+knowledge/online/
+Claude outputs/
+snapshots/
+output.json
+*.log
+quant_bot_online_forrasok_*

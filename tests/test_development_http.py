@@ -5,6 +5,7 @@ import gzip
 import hashlib
 import json
 from pathlib import Path
+import os
 import subprocess
 import sys
 import threading
@@ -70,8 +71,10 @@ from betting_engine.dashboard_process import development_main
 sys.argv=['worker','--development',sys.argv[1],sys.argv[2],sys.argv[3],'{}']
 development_main()
 """
+    src_dir = str(Path(__file__).resolve().parents[1] / 'src')
+    env = {**os.environ, 'PYTHONPATH': f"{src_dir}:{os.environ.get('PYTHONPATH', '')}".rstrip(':')}
     result=subprocess.run([sys.executable,'-c',script,str(root),str(root/'data'),str(output)],
-        capture_output=True,text=True,timeout=10)
+        capture_output=True,text=True,env=env,timeout=10)
     assert result.returncode==0,result.stderr
     assert json.loads((output/'response.json').read_text())['tasks'][0]['state']=='queued'
     assert fingerprints(root)==before

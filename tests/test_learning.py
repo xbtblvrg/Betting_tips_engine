@@ -30,7 +30,7 @@ def test_new_settled_outcome_triggers_review_without_waiting_for_next_hour(tmp_p
     reviews=[j for j in w.snapshot()['jobs'] if j['kind']=='outcome_review']
     assert len(reviews)==2
     assert any(j['result']['settled_decisions']==1 and j['result']['by_league']['NFL']['pnl']==-1 for j in reviews)
-    w.run_once();assert len(w.snapshot()['jobs'])==2
+    w.run_once();assert len([j for j in w.snapshot()['jobs'] if j['kind']=='outcome_review'])==2
 
 
 def test_outcome_review_retries_are_coalesced_without_mutating_original_decisions(tmp_path):
@@ -149,3 +149,47 @@ def test_resolved_gap_can_reopen_without_being_forgotten(tmp_path):
     id=gap()['id'];assert gap()['status']=='needs_cost_input'
     path.write_text('{"tasks":[]}');w.plan();assert gap()['status']=='resolved'
     path.write_text(json.dumps(task));w.plan();assert gap()['id']==id and gap()['status']=='needs_cost_input'
+
+
+def test_autonomous_submarket_expansion_planning_and_execution(tmp_path):
+    w = worker(tmp_path)
+    # 1. Without incubator file, no job is planned
+    w.plan()
+    assert not any(j['kind'] == 'autonomous_submarket_expansion' for j in w.snapshot()['jobs'])
+
+    # 2. Create incubator DB with settled wagers in w.data
+    from betting_engine.shadow_market_incubator import ShadowMarketIncubator
+    inc = ShadowMarketIncubator(data_dir=w.data)
+    conn = inc._get_connection()
+
+    # Insert 25 winning shadow wagers for WTA set handicap
+    for i in range(25):
+        conn.execute("""
+            INSERT INTO incubated_wagers (
+                id, fixture_id, game_id, league, scope, family, sub_family,
+                raw_market_name, selection, line, odds, model_prob, push_prob,
+                market_prob, ev, dynamic_sample_power_req, captured_at, status,
+                settled_at, result, pnl, brier_model, brier_market, metadata, cohort
+            ) VALUES (
+                ?, 'f1', 'g1', 'WTA', 'period_1', 'tennis_sets', 'set_handicap',
+                'Set Handicap', 'Player A +1.5', 1.5, 1.95, 0.65, 0.0,
+                0.50, 0.25, 20, '2026-10-15T10:00:00Z', 'settled',
+                '2026-10-15T12:00:00Z', 'won', 0.95, 0.12, 0.25, '{}', 'gap_market'
+            )
+        """, (f"w_{i}",))
+    conn.commit()
+    conn.close()
+
+    # 3. Now plan() should enqueue autonomous_submarket_expansion
+    w.plan()
+    jobs = [j for j in w.snapshot()['jobs'] if j['kind'] == 'autonomous_submarket_expansion']
+    assert len(jobs) == 1
+    assert jobs[0]['status'] in ('queued', 'completed')
+
+    # 4. Execute the autonomous_submarket_expansion job
+    res = w.execute(jobs[0])
+    assert res['graduated_count'] >= 1
+    assert 'WTA|period_1|tennis_sets' in res['newly_graduated']
+
+
+

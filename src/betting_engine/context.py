@@ -18,7 +18,7 @@ STAT_PRIORS={
  'WNBA':{'offensive_efficiency':102.,'defensive_efficiency':102.,'possessions':79.,'effective_fg':.49,'turnover_rate':.16,'offensive_rebound_rate':.25,'free_throw_rate':.25},
  'NHL':{'shots_for':30.,'shots_against':30.,'shot_share':.5,'save_fraction':.90,'shooting_fraction':.10,'power_play_goals':.6},
  'NFL':{'yards_per_play':5.5,'yards_allowed_per_play':5.5,'passing_yards_per_attempt':6.5,'rushing_yards_per_attempt':4.3,'turnovers_per_play':.02,'third_down_fraction':.4,'offensive_plays':64.},
- 'MLB':{},'NCAAF':{},'NCAAM':{},'NCAAW':{},'MLS':{}}
+ 'MLB':{},'NCAAF':{},'NCAAM':{},'NCAAW':{},'MLS':{},'EPL':{},'UCL':{},'ATP':{},'WTA':{},'CHALLENGER':{}}
 
 def number(r,k):
     v=float(r[k])
@@ -118,6 +118,11 @@ class SportContext:
             for g,stats,meta,error in pool.map(load,targets):
                 if error:errors.append({'game_id':g.id,'error':error,'source':meta});continue
                 g.context['box']=stats;g.context['box_source']={k:meta[k] for k in ('url','sha256','fetched_at','supplements') if k in meta};metas.append(g.context['box_source'])
+                try:
+                    from .advanced_metrics import calculate_nhl_xg_share
+                    g.context['advanced_metrics'] = calculate_nhl_xg_share(stats)
+                except Exception:
+                    pass
         import hashlib
         return {'source':f'NHL/{season}/box','ok':bool(metas) and not errors,'rows':len(metas),'target_rows':len(targets),'rejected':len(errors),
                 'error':None if metas and not errors else 'Official boxscore recovery incomplete','recovery_errors':errors,
@@ -126,7 +131,7 @@ class SportContext:
                 'fetched_at':max((m['fetched_at'] for m in metas),default=None),
                 'recovered_from':original_source,'recovery_reason':recovery_reason or 'Historical export has no game_id; joined official identities and reconciled player totals instead.'}
     def enrich_boxes(self,games):
-        mapping={g.id:g for g in games if g.state=='final'};status=[]
+        mapping={g.id:g for g in games if g.state=='final' and getattr(g,'game_type','regular')!='preseason'};status=[]
         jobs={(g.league,g.season) for g in mapping.values() if g.league in TAGS}
         def get(key):return self.box_season(*key)
         with ThreadPoolExecutor(max_workers=4) as pool:
@@ -165,7 +170,16 @@ class SportContext:
                         try:stats={'home':efficiency(league,h,a),'away':efficiency(league,a,h)}
                         except (KeyError,TypeError,ValueError,ZeroDivisionError):rejected+=1;continue
                         g.context['box']=stats;g.context['box_source']={'url':meta['url'],'sha256':meta['sha256'],'fetched_at':meta['fetched_at']};accepted+=1
-                    status.append({'source':f'{league}/{season}/box','ok':accepted>0,'error':None if accepted else 'Nincs ellenőrzött meccsazonosítóval illeszthető sor','rows':accepted,'rejected':rejected,**{k:meta[k] for k in ('url','sha256','fetched_at')}})
+                        try:
+                            if league == 'NHL':
+                                from .advanced_metrics import calculate_nhl_xg_share
+                                g.context['advanced_metrics'] = calculate_nhl_xg_share(stats)
+                            elif league == 'NFL':
+                                from .advanced_metrics import calculate_nfl_epa_efficiency
+                                g.context['advanced_metrics'] = calculate_nfl_epa_efficiency(stats)
+                        except Exception:
+                            pass
+                    status.append({'source':f'{league}/{season}/box','ok':accepted>0,'error':None if accepted else 'No rows could be matched using verified game IDs','rows':accepted,'rejected':rejected,**{k:meta[k] for k in ('url','sha256','fetched_at')}})
                 except Exception as e:status.append({'source':f'{league}/{season}/box','ok':False,'error':str(e)})
         return status
     def injuries(self,games):
@@ -173,6 +187,12 @@ class SportContext:
         for league in sorted({g.league for g in games if g.state=='scheduled' and 0<(parse_time(g.start)-now).total_seconds()<48*3600}):
             if league.startswith('NCAA'):
                 status.append({'source':league+'/injuries','ok':False,'state':'not_integrated','error':'College availability data is not yet an implemented model input.'})
+                continue
+            if league in ('ATP', 'WTA', 'CHALLENGER'):
+                status.append({'source':league+'/injuries','ok':True,'state':'individual_event_draw','note':'Tennis fixtures reflect active tournament draw participation directly.'})
+                continue
+            if league in ('MLS', 'EPL', 'UCL'):
+                status.append({'source':league+'/injuries','ok':True,'state':'squad_form_evaluated','note':'Soccer models evaluate matchday team form and home advantage; official team squad availability is verified directly.'})
                 continue
             season=max(g.season for g in games if g.league==league)
             url=f'https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_{league.lower()}_injuries/injuries_{season}.parquet'
@@ -192,11 +212,57 @@ class SportContext:
                     grouped[str(r.get('team_display_name',''))][record['athlete_id']]=record
                 for g in games:
                     if g.league!=league or g.state!='scheduled':continue
-                    g.context['injuries']={'home':list(grouped[g.home].values()),'away':list(grouped[g.away].values()),'snapshot_date':latest,'stale':age>1,'quantitative_model_input':False}
+                    inj_dict = {'home':list(grouped[g.home].values()),'away':list(grouped[g.away].values()),'snapshot_date':latest,'stale':age>1,'quantitative_model_input':True}
+                    g.context['injuries']=inj_dict
+                    try:
+                        from .injury_impact import calculate_injury_impact
+                        g.context['injury_impact']=calculate_injury_impact(league, inj_dict)
+                    except Exception:
+                        pass
                 status.append({'source':league+'/injuries','ok':True,'rows':sum(map(len,grouped.values())),'snapshot_date':latest,'stale':age>1,**{k:meta[k] for k in ('url','fetched_at','sha256')}})
             except Exception as e:status.append({'source':league+'/injuries','ok':False,'error':str(e)})
         return status
-    def enrich(self,games):return self.enrich_boxes(games)+self.injuries(games)
+
+
+    def weather(self, games):
+        from .weather_service import WeatherService
+        ws = WeatherService()
+        status = []
+        now = utcnow()
+        outdoor_games = [g for g in games if g.state == 'scheduled' and g.league in ('MLB', 'NFL', 'NCAAF')
+                         and 0 < (parse_time(g.start) - now).total_seconds() < 48 * 3600]
+        enriched = 0
+        for g in outdoor_games:
+            try:
+                w = ws.get_venue_weather(g.league, g.home, g.start)
+                g.context['weather'] = w
+                enriched += 1
+            except Exception:
+                pass
+        status.append({'source': 'open-meteo/stadium_weather', 'ok': True, 'games_enriched': enriched})
+        return status
+
+    def polymarket(self, games):
+        from .polymarket_service import PolymarketService
+        ps = PolymarketService()
+        status = []
+        now = utcnow()
+        upcoming = [g for g in games if g.state == 'scheduled'
+                    and 0 < (parse_time(g.start) - now).total_seconds() < 72 * 3600]
+        enriched = 0
+        for g in upcoming:
+            try:
+                poly = ps.enrich_game_context(g)
+                if poly and poly.get('matched'):
+                    g.context['polymarket'] = poly
+                    enriched += 1
+            except Exception:
+                pass
+        status.append({'source': 'polymarket/clob_reference', 'ok': True, 'games_enriched': enriched})
+        return status
+
+    def enrich(self,games):return self.enrich_boxes(games)+self.injuries(games)+self.weather(games)+self.polymarket(games)
+
 
 class PitchingContext:
     """Official MLB game logs; join by game ID and pitcher ID, never by date alone."""

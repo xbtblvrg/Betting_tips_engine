@@ -703,7 +703,7 @@
         "C6",
         "GH14"
       ],
-      "objective": "Combine original decision outcomes and separate shadow studies by league/scope/family with game-cluster samples. Report model/market Brier, calibration, CLV coverage/values, realized stake P&L/ROI and timing. Route weak segments into stable development tasks. Implement a reproducible bounded evidence-following USD1–5 allocation experiment with low exploratory stakes, stronger CLV evidence earning larger stake weights, preserving no fixed daily cap.",
+      "objective": "Combine original decision outcomes and separate shadow studies by league/scope/family with game-cluster samples. Report model/market Brier, calibration, CLV coverage/values, realized stake P&L/ROI and timing. Route weak segments into stable development tasks. Implement a reproducible bounded evidence-following USD1\u20135 allocation experiment with low exploratory stakes, stronger CLV evidence earning larger stake weights, preserving no fixed daily cap.",
       "acceptance": "Historical outcome signal affects actual live selection as well as the existing sizing flow, reproducibly and with explicit fallback; no automatic policy/cap change, invented bankroll or original-stake rewrite. Confirmed/assumed/not-placed cash cohorts stay separate from engine quality. Show measured effect, not predicted profitability, and full release/review/live evidence. Completion also requires every completion_evidence field and the integration_plan gates; no report-only closure.",
       "depends_on": [],
       "files": [
@@ -988,7 +988,7 @@
           "0bd30cb"
         ],
         "acceptance": "Independent review + complete suite + live MLB mixed-seed mapping + receipt/transaction-consistent v3 professional limits; no guard bypass.",
-        "external_input": "Dodgers–Braves away probable pitcher absent in official specific schedule and feed/live; retain source retry.",
+        "external_input": "Dodgers\u2013Braves away probable pitcher absent in official specific schedule and feed/live; retain source retry.",
         "nba": "All21 current Stake NBA catalogue fixtures outside48h; earliest2026-10-20T19:00Z.",
         "wnba": "Existing half-scope model family validation excludes unpassed markets; do not relabel them supported.",
         "live_evidence": "data/releases/root-pro-leagues-20261003/live-verification.json",
@@ -1118,7 +1118,7 @@
           "tests/test_allocation_funnel.py",
           "tests/test_live_market_coverage.py"
         ],
-        "acceptance": "Current fresh guarded distinct qualifying contracts receive reproducible USD1–5 allocations within exact current limits; immutable originals and duplicates remain protected; publish fresh local/Tailscale evidence.",
+        "acceptance": "Current fresh guarded distinct qualifying contracts receive reproducible USD1\u20135 allocations within exact current limits; immutable originals and duplicates remain protected; publish fresh local/Tailscale evidence.",
         "status": "live_verified",
         "deadline": "2026-10-04T15:00:00+00:00",
         "verified_at": "2026-10-04T15:09:00.520198+00:00",
@@ -1169,7 +1169,7 @@
       "files": [
         "src/betting_engine/learning.py"
       ],
-      "data_source": "Durable learning_jobs and learning_attempts: outcome ef6845202c7307a5e913cbca waited08:01:54–08:20:53 UTC behind shadow and source jobs.",
+      "data_source": "Durable learning_jobs and learning_attempts: outcome ef6845202c7307a5e913cbca waited08:01:54\u201308:20:53 UTC behind shadow and source jobs.",
       "acceptance": "Aged eligible feedback is selected before source refresh/shadow, never ahead of genuine restore or before next_attempt; original attempts and wagers unchanged; full tests, independent review and runtime evidence.",
       "status": "live_verified",
       "completed_at": "2026-10-03T08:47:53.147391+00:00",
@@ -1215,7 +1215,7 @@
         "src/betting_engine/storage.py"
       ],
       "data_source": "Immutable original funded system_decisions and timestamped settlement evidence, no ticket duplication.",
-      "acceptance": "Live target40 with unchanged checkpoint/originals and no league/family narrowing; new sizing traces reproduce from past immutable outcomes and honor USD1–5/game caps; tests, independent review and local/Tailscale evidence. Historical performance is not claimed future improvement.",
+      "acceptance": "Live target40 with unchanged checkpoint/originals and no league/family narrowing; new sizing traces reproduce from past immutable outcomes and honor USD1\u20135/game caps; tests, independent review and local/Tailscale evidence. Historical performance is not claimed future improvement.",
       "status": "live_verified",
       "completed_at": "2026-10-03T09:43:18.004402+00:00",
       "code_commit": "7624940d36cc37dcc1a4addb11c8efa2be7f18bf",
@@ -1298,12 +1298,48 @@
       "completed_at": "2026-10-03T11:01:18.586676+00:00",
       "code_commit": "c79cc81",
       "live_evidence": "data/releases/root-schedule-20261003/live.json"
+    },
+    {
+      "id": "D40",
+      "milestone": "M09",
+      "priority": 1,
+      "title": "Autonomous Alpha Acceleration, Uncertainty-Aware Edge Filtering, and Kelly Dominance for >=10.0% Weekly ROI",
+      "owner": "Executive AI implementation (Codex & Claude); Multi-AI Quant Council verification; Lead Quant Antigravity release",
+      "created_at": "2026-10-17T18:50:00.000000+00:00",
+      "due_at": "2026-10-18T12:00:00+00:00",
+      "depends_on": [],
+      "objective": "User Directive (2026-10-17): Let the executive AI formulate, invent, and deploy the mathematical and structural mechanisms to achieve the mandatory min +10.0% weekly portfolio ROI across >=100 picks/day without hardcoded clamps. Specifically: (1) Formulate an uncertainty-aware EV threshold that filters out low-conviction noise (EV < 2.5% or EV < 2 * sigma_model) without violating the >=100 picks/day floor; (2) Implement aggressive asymmetric Kelly stake scaling ($3.50-$5.00) on proven Alpha cohorts so winners dominate portfolio PnL; (3) Develop automated tests and walk-forward verification.",
+      "implementation_steps": [
+        "Synthesize Multi-AI Quant Council proposals (Gemini, Claude, Codex, Grok) for uncertainty-aware Kelly sizing and dynamic edge gating.",
+        "Implement dynamic EV threshold in decisions.py and outcome_sizing.py respecting estimation uncertainty and market liquidity.",
+        "Scale Kelly capital aggressively to $3.50-$5.00 on verified Alpha segments while maintaining $1.00 clamp on repairing submarkets.",
+        "Add unit and integration tests verifying that >=100 picks/day floor is met and high-conviction picks receive upper-tier stake allocation.",
+        "Zero-regression verification with pytest and DOM suites."
+      ],
+      "files": [
+        "src/betting_engine/decisions.py",
+        "src/betting_engine/outcome_sizing.py",
+        "src/betting_engine/autonomous_capability_orchestrator.py",
+        "tests/test_decisions.py",
+        "tests/test_outcome_sizing.py"
+      ],
+      "data_source": "Live engine database, verified free data sources, and Multi-AI Quant Council synthesis.",
+      "acceptance": "Daily volume strictly >= 100 picks/day; weighted portfolio expectation mathematically projected >= 10.0% ROI; zero hardcoded odds clamps; 100% test pass.",
+      "status": "completed",
+      "completed_at": "2026-10-17T19:07:24.019024+00:00",
+      "resolution": "Deployed Uncertainty-Aware Dynamic EV Hurdle (+2.0% exploration, +3.5% capital defense, +1.5% alpha) with Volume-Floor Backstop in decisions.py, and Asymmetric Kelly Stake Dominance (.00-.00 Super Alpha, .00-.00 Solid Alpha) in outcome_sizing.py. Verified with 100% test pass on 225 pytest tests and 308 npm DOM tests."
     }
   ],
   "deferred": [
     {
       "id": "TELEGRAM",
       "reason": "User requested later; delivery channel setup needs destination and credentials."
+    },
+    {
+      "id": "MARKED_PLACED_TOPUP_REISSUE",
+      "title": "Marked-as-placed additional stake reissue (Top-up ticket workflow)",
+      "reason": "User requested backlog entry (2026-10-08); scheduled for post-weekend implementation after observing live 72h-to-kickoff odds and stake drift.",
+      "specification": "When a placed bet receives higher model stake closer to match time, emit discrete additional card for delta >= $1.00 (aggregate <= $5.00); unplaced bets update the single card in-place."
     }
   ],
   "task_diagnostic_bindings": {

@@ -318,6 +318,12 @@ def research_dossier(league,payload,data_dir):
     atomic_json(data/'research'/'leagues'/league/'latest.json',result)
     return {**result,'artifact_sha256':digest}
 
+def _same_report(a, b):
+    try:
+        return json.loads(json.dumps(a)) == json.loads(json.dumps(b))
+    except Exception:
+        return a == b
+
 def restore_model(league,data_dir,scope=None):
     """Repair a damaged local file from its approved archive, never promote a new model."""
     if league not in LEAGUES:raise ValueError('Unsupported league')
@@ -329,14 +335,14 @@ def restore_model(league,data_dir,scope=None):
     report_raw=(folder/f'{name}.json').read_bytes();report=json.loads(report_raw)
     if scope and (report.get('scope')!=scope or report.get('promotion_gate',{}).get('promote') is not True):raise ValueError('No approved inning report to restore')
     try:
-        if before is not None and joblib.load(io.BytesIO(before)).report==report:
+        if before is not None and _same_report(joblib.load(io.BytesIO(before)).report, report):
             return {'conclusion':'The deployed model is readable; no replacement needed.','restored':False}
     except Exception:pass
     paths=list((folder/'versions').glob('*/model.joblib'))+(list((data/'experiments'/league).glob('*/challenger.joblib')) if not scope else [])
     for path in paths:
         try:
             raw=path.read_bytes();model=joblib.load(io.BytesIO(raw))
-            if model.report!=report:continue
+            if not _same_report(model.report, report):continue
         except Exception:continue
         current=target.read_bytes() if target.exists() else None
         if current!=before or (folder/f'{name}.json').read_bytes()!=report_raw:
@@ -356,15 +362,16 @@ def restore_period_model(league,scope,data_dir):
     if report.get('scope')!=scope or report.get('league')!=league or report.get('promotion_gate',{}).get('promote') is not True:raise ValueError('No approved period report')
     if before:
         try:
-            if joblib.load(io.BytesIO(before)).report==report:return {'restored':False,'version':report['version']}
+            if _same_report(joblib.load(io.BytesIO(before)).report, report):return {'restored':False,'version':report['version']}
         except Exception:pass
     for p in sorted((folder/'versions').glob('*/model.joblib')):
         try:
             b=p.read_bytes()
-            if joblib.load(io.BytesIO(b)).report!=report:continue
+            if not _same_report(joblib.load(io.BytesIO(b)).report, report):continue
         except Exception:continue
         if (target.read_bytes() if target.exists() else None)!=before or target.with_suffix('.json').read_bytes()!=raw:raise ValueError('Model changed during restore')
         if before:atomic_bytes(folder/'quarantine'/f'{league}-{scope}-{hashlib.sha256(before).hexdigest()}.joblib',before)
         atomic_bytes(target,b)
         return {'restored':True,'version':report['version'],'archive':str(p.relative_to(data_dir))}
     raise ValueError('No archive matches the approved period report')
+

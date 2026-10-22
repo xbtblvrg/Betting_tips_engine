@@ -165,14 +165,21 @@ def parse_market(event,m,g,fetched_at):
     result=[]
     for i,(outcome,side,token) in enumerate(zip(outcomes,sides,tokens)):
         actual_line=(line if i==0 else -line) if kind=='spreads' else line
-        selection=(g.home if side=='home' else g.away) if kind=='moneyline' else ((g.home if side=='home' else g.away)+f' {actual_line:+g}' if kind=='spreads' else ('Összpontszám felett ' if side=='over' else 'Összpontszám alatt ')+f'{line:g}')
+        selection=(g.home if side=='home' else g.away) if kind=='moneyline' else ((g.home if side=='home' else g.away)+f' {actual_line:+g}' if kind=='spreads' else ('Over ' if side=='over' else 'Under ')+f'{line:g}')
         result.append(Market(id=f'polymarket:{m["id"]}:{i}',game_id=g.id,league=g.league,kind=kind,side=side,line=actual_line,selection=selection,platform='Polymarket',url='https://polymarket.com/event/'+event['slug'],token=token,condition_id=m['conditionId'],description=desc,fee_rate=rate,fee_exponent=exponent,minimum_notional=float(m.get('orderMinSize') or 0),market_start=g.start,fetched_at=fetched_at,metadata={'raw_market_id':m['id'],'event_id':event['id'],'fee_source':'Gamma feeSchedule','fee_schedule':fees,'tie_payout':.5 if '50-50' in desc else None}))
     return result,None
 
 class Polymarket:
     def __init__(self,fetcher=None):self.fetcher=fetcher or Fetcher()
     def discover(self,games,horizon=48):
-        now=utcnow();end=now+timedelta(hours=horizon);markets=[];issues=[];events=[]
+        now=utcnow()
+        def horizon_for(league):
+            if isinstance(horizon, dict):
+                return float(horizon.get(league, 72 if league=='NFL' else 48))
+            if league == 'NFL' and horizon == 48:
+                return 72.0
+            return float(horizon)
+        markets=[];issues=[];events=[]
         sports,meta=self.fetcher.json('https://gamma-api.polymarket.com/sports',3600)
         def league_events(s):
             allrows=[]
@@ -194,7 +201,7 @@ class Polymarket:
                 for e,m in rows:
                     try:start=parse_time(e.get('startTime') or '')
                     except ValueError:continue
-                    if not now<start<=end:continue
+                    if not now<start<=now+timedelta(hours=horizon_for(league)):continue
                     g=match_event(e,games,league)
                     if not g:issues.append({'league':league,'event':e.get('title'),'reason':'unmatched_schedule'});continue
                     if g.state!='scheduled':continue
@@ -227,7 +234,52 @@ class Polymarket:
                         issues.append({'market':m.id,'reason':'insufficient_top_level_depth'});continue
                     result[m.id]=Quote(m.id,token,price,fee,price+fee,size,m.minimum_notional,fetched,str(b.get('timestamp','')))
             except Exception as e:issues.append({'reason':'orderbook_error','detail':str(e)[:200]})
-        return result,issues
+def _market_is_graduated(g_meta, league, scope, base, name):
+    if g_meta.get('league') != league or g_meta.get('scope') != scope:
+        return False
+    stats = g_meta.get('stats', {})
+    if isinstance(stats, str):
+        try: stats = json.loads(stats)
+        except Exception: stats = {}
+    raw_names = stats.get('raw_market_names', []) if isinstance(stats, dict) else []
+    if name in raw_names:
+        return True
+    fam = g_meta.get('family')
+    sub = g_meta.get('sub_family')
+    if base in (fam, sub):
+        return True
+    if fam == 'american_derivatives':
+        if sub == 'team_total' and base in ('home_total', 'away_total'):
+            return True
+        if sub == 'spreads' and base == 'spreads':
+            return True
+        if sub == 'totals' and base == 'totals':
+            return True
+        if sub == 'moneyline' and base in ('moneyline', 'three_way'):
+            return True
+    elif fam == 'asian_lines' and base in ('spreads', 'totals'):
+        return True
+    elif fam == 'bivariate_derivatives' and base in ('both_score', 'double_chance'):
+        return True
+    elif fam == 'totals' and base in ('totals', 'home_total', 'away_total', 'total_sets'):
+        return True
+    elif fam == 'spreads' and base in ('spreads', 'set_handicap'):
+        return True
+    elif fam == 'moneyline' and base in ('moneyline', 'three_way'):
+        return True
+    elif fam == 'tennis_sets':
+        if sub in ('spreads', 'set_handicap') and base in ('spreads', 'set_handicap'):
+            return True
+        if sub in ('totals', 'total_sets') and base in ('totals', 'total_sets'):
+            return True
+        if sub in ('moneyline', 'three_way') and base in ('moneyline', 'three_way'):
+            return True
+        if sub == 'exact_score' and base == 'exact_score':
+            return True
+    elif fam == 'sequence_hazard':
+        if sub in ('first_to_score', 'first_team_to_score') and (base in ('moneyline', 'three_way', 'first_to_score') or sub == base):
+            return True
+    return False
 
 
 class StakeSportsbook:
@@ -242,20 +294,25 @@ class StakeSportsbook:
     SPORT_BY_LEAGUE = {
         'NBA': 'basketball', 'WNBA': 'basketball', 'MLB': 'baseball',
         'NHL': 'ice-hockey', 'NFL': 'american-football','NCAAF':'american-football','NCAAM':'basketball','NCAAW':'basketball',
-        'MLS': 'soccer',
+        'MLS': 'soccer', 'EPL': 'soccer', 'UCL': 'soccer',
+        'ATP': 'tennis', 'WTA': 'tennis', 'CHALLENGER': 'tennis',
     }
-    TOURNAMENT_BY_LEAGUE = {'NBA':'nba','WNBA':'wnba','MLB':'mlb','NHL':'nhl','NFL':'nfl','MLS':'major-league-soccer'}
+    TOURNAMENT_BY_LEAGUE = {'NBA':'nba','WNBA':'wnba','MLB':'mlb','NHL':'nhl','NFL':'nfl','MLS':'major-league-soccer','EPL':'premier-league','UCL':'uefa-champions-league'}
     LEAGUE_PATH = {
         'NBA': 'basketball/usa/nba', 'WNBA': 'basketball/usa/wnba',
         'MLB': 'baseball/usa/mlb', 'NHL': 'ice-hockey/usa/nhl',
         'NFL': 'american-football/usa/nfl',
         'NCAAF':'american-football/usa/ncaa-regular','NCAAM':'basketball/usa/ncaa','NCAAW':'basketball/usa/ncaa-women',
         'MLS': 'soccer/usa/major-league-soccer',
+        'EPL': 'soccer/england/premier-league',
+        'UCL': 'soccer/international-clubs/uefa-champions-league',
+        'ATP': 'tennis/atp', 'WTA': 'tennis/wta', 'CHALLENGER': 'tennis/challenger',
     }
     LEAGUE_SCOPE = {
         'NBA': 'Overtime', 'WNBA': 'Overtime', 'NFL': 'Overtime',
         'MLB': 'Extra Innings', 'NHL': 'Overtime and Penalties','NCAAF':'Overtime','NCAAM':'Overtime','NCAAW':'Overtime',
-        'MLS': 'Regular Time',
+        'MLS': 'Regular Time', 'EPL': 'Regular Time', 'UCL': 'Regular Time',
+        'ATP': 'Match', 'WTA': 'Match', 'CHALLENGER': 'Match',
     }
 
     def __init__(self, fetcher=None,segment_markets=None,full_markets=None):
@@ -264,6 +321,7 @@ class StakeSportsbook:
         self.fixture_audit = []
         self.segment_markets=segment_markets or {}
         self.full_markets=full_markets or {}
+        self.raw_fixture_markets = {}
 
     @staticmethod
     def _fixture_teams(name):
@@ -279,6 +337,10 @@ class StakeSportsbook:
             return None
         if fixture.get('status') not in (None, 'active'):
             return None
+        if league in ('ATP', 'WTA', 'CHALLENGER'):
+            by_id = [g for g in games if g.id == f"{league}:{fixture['id']}"]
+            if len(by_id) == 1:
+                return by_id[0]
         teams = self._fixture_teams(fixture.get('name'))
         if len(teams) != 2:
             return None
@@ -316,11 +378,12 @@ class StakeSportsbook:
         # Never infer seeds from time alone or override a conflicting real title.
         teams=self._fixture_teams(fixture.get('name'))
         from .stake_api import seed_title, _seed_team, market_records
-        if league!='MLB' or len(teams)!=2 or not seed_title(fixture.get('name')):return None
+        if league not in ('MLB', 'ATP', 'WTA', 'CHALLENGER') or len(teams)!=2 or not seed_title(fixture.get('name')):return None
         named=[name for name in teams if not _seed_team(name)]
         pairs=set()
+        winner_titles = ('Winner (Incl. Extra Innings)', 'Winner', 'Match Winner')
         for _,market in market_records(payload):
-            if market.get('name')!='Winner (Incl. Extra Innings)' or market.get('status') not in (None,'active'):continue
+            if market.get('name') not in winner_titles or market.get('status') not in (None,'active'):continue
             outcomes=market.get('outcomes') or []
             if len(outcomes)!=2 or any(o.get('active') is not True or o.get('status') not in (None,'active') for o in outcomes):continue
             pair=tuple(sorted(str(o.get('name') or '').strip() for o in outcomes))
@@ -356,17 +419,19 @@ class StakeSportsbook:
             if len(parts) != 2 or not all(parts) or parts[0] in specifiers:
                 return None
             specifiers[parts[0]] = parts[1]
-        if set(specifiers) - {'hcp', 'periodnr', 'quarternr'}:
+        if set(specifiers) - {'hcp', 'periodnr', 'quarternr', 'inningnr', 'setnr', 'halfnr'}:
             return None
-        for key, prefix in (('periodnr', 'period_'), ('quarternr', 'quarter_')):
+        for key, prefix in (('periodnr', 'period_'), ('quarternr', 'quarter_'), ('inningnr', 'inning_'), ('setnr', 'period_'), ('halfnr', 'half_')):
             if key in specifiers and scope.removesuffix('_ot') != prefix + specifiers[key]:
                 return None
         value = specifiers.get('hcp', '')
         if not re.fullmatch(r'[+-]?\d+(?:\.\d+)?', value):
             return None
         line = float(value)
-        if not math.isfinite(line) or not math.isfinite(line * 2) or line * 2 != round(line * 2):
-            # Asian quarter lines need split-contract pricing, not this path.
+        if not math.isfinite(line) or not math.isfinite(line * 4) or line * 4 != round(line * 4):
+            return None
+        if not scope.startswith('half_') and scope != 'full_game' and line * 2 != round(line * 2):
+            # Quarter Asian lines split the stake across two contracts; period scopes do not do so.
             return None
         return line
 
@@ -433,7 +498,10 @@ class StakeSportsbook:
                                 result.append(alias)
                                 seen.add(alias.id)
                         continue
-                    total_sides=[side for side in ('home','away') if any(name==f'{team} Total (Incl. {expected_scope})' for team in team_name_variants(getattr(game,side)))]
+                    if expected_scope in ('Overtime', 'Overtime and Penalties', 'Extra Innings'):
+                        total_sides = [side for side in ('home', 'away') if any(name == f'{team} Total (Incl. {expected_scope})' for team in team_name_variants(getattr(game, side)))]
+                    else:
+                        total_sides = [side for side in ('home', 'away') if any(name in (f'{team} Total (Incl. {expected_scope})', f'{team} Total', f'{team} total') for team in team_name_variants(getattr(game, side)))]
                     total_kind=total_sides[0]+'_total' if len(total_sides)==1 else None
                     full_derived={
                         f'Odd/Even (Incl. {expected_scope})':'odd_even',
@@ -445,7 +513,7 @@ class StakeSportsbook:
                         f'Total (Over-Exact-Under) (Incl. {expected_scope})':'exact_total',
                         'Correct Score':'exact_score',
                     }
-                    if league == 'MLS':
+                    if league in ('MLS', 'EPL', 'UCL'):
                         full_derived.update({
                             '1x2':'three_way',
                             'Draw No Bet':'moneyline',
@@ -454,22 +522,88 @@ class StakeSportsbook:
                             'Asian Handicap':'spreads',
                             'Asian Total':'totals',
                         })
+                    if league in ('ATP', 'WTA', 'CHALLENGER'):
+                        full_derived.update({
+                            'Winner': 'moneyline',
+                            'Match Winner': 'moneyline',
+                            'Game Handicap': 'spreads',
+                            'Handicap': 'spreads',
+                            'Handicap (Games)': 'spreads',
+                            'Total Games': 'totals',
+                            'Total': 'totals',
+                            'Total (Games)': 'totals',
+                            'Total Games (Over/Under)': 'totals',
+                            'Total Sets': 'total_sets',
+                            'Set Handicap': 'set_handicap',
+                        })
+                    from .shadow_market_incubator import load_graduated_markets, get_demoted_segments
+                    graduated = load_graduated_markets(DATA)
+                    demoted_segments = get_demoted_segments(DATA)
+                    for meta in graduated.values():
+                        if meta.get('league') == league and meta.get('scope') == 'full_game':
+                            m_fam = meta.get('family')
+                            if m_fam in ('asian_lines', 'spreads'):
+                                full_derived['Asian Handicap'] = 'spreads'
+                                full_derived['Asian Total'] = 'totals'
+                            elif m_fam in ('bivariate_derivatives', 'derivatives'):
+                                full_derived['Both Teams to Score'] = 'both_score'
+                                full_derived['Double Chance'] = 'double_chance'
+                            stats = meta.get('stats', {})
+                            if isinstance(stats, str):
+                                try: stats = json.loads(stats)
+                                except Exception: stats = {}
+                            raw_names = stats.get('raw_market_names', []) if isinstance(stats, dict) else []
+                            for rn in raw_names:
+                                if rn in full_derived:
+                                    continue
+                                base = ('exact_total' if 'over-exact-under' in rn.lower() else
+                                        'spreads' if 'handicap' in rn.lower() or 'spread' in rn.lower() else
+                                        'totals' if 'total' in rn.lower() else
+                                        'moneyline' if 'winner' in rn.lower() or '1x2' in rn.lower() else
+                                        'both_score' if 'both' in rn.lower() else
+                                        'double_chance' if 'chance' in rn.lower() else 'moneyline')
+                                full_derived[rn] = base
                     scope='full_game'
+                    is_demoted = False
                     if total_kind or name in {f'{base} (Incl. {expected_scope})' for base in ('Winner','Handicap','Total')} or name in full_derived:
                         base = total_kind or full_derived.get(name) or ('moneyline' if name.startswith('Winner (') else 'spreads' if name.startswith('Handicap (') else 'totals')
+                        is_graduated = any(_market_is_graduated(g, league, scope, base, name) for g in graduated.values())
+                        is_demoted = any(k in demoted_segments for k in (f"{league}|{scope}|{base}", f"{league}|{scope}|{name}"))
+                        if is_demoted:
+                            is_graduated = False
                     else:
                         from .scope_markets import named_scopes
                         mapping=named_scopes(league,game.home,game.away)
+                        if name not in mapping:
+                            for meta in graduated.values():
+                                if meta.get('league') == league and meta.get('scope') != 'full_game':
+                                    stats = meta.get('stats', {})
+                                    if isinstance(stats, str):
+                                        try: stats = json.loads(stats)
+                                        except Exception: stats = {}
+                                    raw_names = stats.get('raw_market_names', []) if isinstance(stats, dict) else []
+                                    if name in raw_names:
+                                        base = ('spreads' if 'handicap' in name.lower() or 'spread' in name.lower() else
+                                                'totals' if 'total' in name.lower() else
+                                                'moneyline' if 'winner' in name.lower() or '1x2' in name.lower() else
+                                                'both_score' if 'both' in name.lower() else
+                                                'double_chance' if 'chance' in name.lower() else 'moneyline')
+                                        mapping[name] = (meta.get('scope'), base)
+                                        break
                         if name not in mapping:continue
                         scope,base=mapping[name]
+                        is_graduated = any(_market_is_graduated(g, league, scope, base, name) for g in graduated.values())
+                        is_demoted = any(k in demoted_segments for k in (f"{league}|{scope}|{base}", f"{league}|{scope}|{name}"))
+                        if is_demoted:
+                            is_graduated = False
                         if base not in self.segment_markets.get((league,scope),()):continue
                     kind=base if scope=='full_game' else f'{scope}:{base}'
-                    if league.startswith('NCAA') and base not in self.full_markets.get(league,()):continue
-                    line = self._total_from_market(market) if base in ('totals','home_total','away_total','winner_total','exact_total') else None
-                    handicap = self._handicap_from_market(market, scope) if base == 'spreads' else None
-                    if base == 'spreads' and handicap is None:
+                    if league.startswith('NCAA') and scope == 'full_game' and base not in self.full_markets.get(league,()):continue
+                    line = self._total_from_market(market) if base in ('totals','home_total','away_total','winner_total','exact_total','total_sets') else None
+                    handicap = self._handicap_from_market(market, scope) if base in ('spreads','set_handicap') else None
+                    if base in ('spreads','set_handicap') and handicap is None:
                         continue
-                    if base == 'spreads':
+                    if base in ('spreads','set_handicap'):
                         # The API encodes the handicap on each outcome, so use
                         # the actual signed value for that specific selection.
                         line = None
@@ -495,18 +629,18 @@ class StakeSportsbook:
                             (base == 'exact_score' and len(outcomes) < 2) or
                             any(not isinstance(o.get('odds'), (int, float)) or not math.isfinite(o['odds']) or float(o['odds']) <= 1 for o in outcomes)):
                         continue
-                    if base == 'spreads' and not self._handicap_outcomes_agree(outcomes, handicap, fixture, game):
+                    if base in ('spreads','set_handicap') and not self._handicap_outcomes_agree(outcomes, handicap, fixture, game):
                         continue
-                    if scope != 'full_game' and base != 'spreads':
+                    if scope != 'full_game' and base not in ('spreads','set_handicap'):
                         from .period_contracts import scoped_total_line, validate_scoped_specifiers
                         try:
-                            if base in ('totals', 'home_total', 'away_total', 'winner_total', 'exact_total'):
+                            if base in ('totals', 'home_total', 'away_total', 'winner_total', 'exact_total', 'total_sets'):
                                 line = scoped_total_line(market.get('specifiers'), scope)
                             else:
                                 validate_scoped_specifiers(market.get('specifiers'), scope)
                         except ValueError:
                             continue
-                    if base in ('totals', 'home_total', 'away_total'):
+                    if base in ('totals', 'home_total', 'away_total', 'total_sets'):
                         labels = [re.fullmatch(r'(Over|Under)\s+([+-]?\d+(?:\.\d+)?)',
                                               str(o.get('name') or ''), re.I) for o in outcomes]
                         if (any(label is None for label in labels)
@@ -534,7 +668,7 @@ class StakeSportsbook:
                                 described.append(float(match[1]) if match else None)
                             if line is None or any(value is None or value != line for value in described):
                                 continue
-                    elif base != 'spreads':
+                    elif base not in ('spreads','set_handicap'):
                         expected = {'odd', 'even'} if base == 'odd_even' else {'yes', 'no'} if base == 'both_score' else (
                             {'home_draw', 'away_draw', 'home_away'} if base == 'double_chance' else
                             {'home', 'away', 'draw'} if base == 'three_way' else {'home', 'away'})
@@ -544,7 +678,7 @@ class StakeSportsbook:
                         if outcome.get('active') is not True or outcome.get('status') not in (None, 'active'):
                             continue
                         outcome_name = str(outcome.get('name') or '')
-                        if base in ('totals','home_total','away_total'):
+                        if base in ('totals','home_total','away_total','total_sets'):
                             side = 'over' if outcome_name.lower().startswith('over ') else 'under' if outcome_name.lower().startswith('under ') else None
                             actual_line = line
                             explicit = re.fullmatch(r'(?:Over|Under)\s+([+-]?\d+(?:\.\d+)?)', outcome_name, re.I)
@@ -555,8 +689,8 @@ class StakeSportsbook:
                             actual_line = line
                         else:
                             side = _stake_categorical_side(base, outcome_name, game)
-                            actual_line = self._line_from_outcome(outcome) if base == 'spreads' else None
-                        if side is None or (base in ('totals','home_total','away_total','spreads','winner_total','exact_total') and actual_line is None):
+                            actual_line = self._line_from_outcome(outcome) if base in ('spreads','set_handicap') else None
+                        if side is None or (base in ('totals','home_total','away_total','spreads','winner_total','exact_total','total_sets','set_handicap') and actual_line is None):
                             continue
                         if scope!='full_game' and actual_line is not None and (not math.isfinite(actual_line) or actual_line*2!=round(actual_line*2)):
                             # Quarter Asian lines split the stake across two
@@ -592,6 +726,8 @@ class StakeSportsbook:
                                       'stake_contract_identity':_stake_contract_key(market),
                                       'stake_odds': float(outcome['odds']), 'stake_scope': expected_scope if scope=='full_game' else scope,
                                       'model_scope':scope,
+                                      'is_graduated': is_graduated,
+                                      'is_demoted': is_demoted,
                                       'availability_verified': True},
                         ))
         return result
@@ -599,7 +735,11 @@ class StakeSportsbook:
     def discover(self, games, horizon=48):
         from .stake_api import tournaments,league_fixtures,fixture_bundle,market_records,ALL_LEAGUES
         from .opportunities import active_standard_outcomes
-        now=utcnow();end=now+timedelta(hours=horizon)
+        now=utcnow()
+        def horizon_for(league):
+            if isinstance(horizon, dict):
+                return float(horizon.get(league, 72.0))
+            return float(horizon or 72.0)
         self.inventory=[];self.fixture_audit=[];self.schedule_counts={};self.endpoint_audit=[]
         registry,available,registry_sources,issues=tournaments(self.fetcher)
         self.registry_sources=registry_sources
@@ -608,15 +748,16 @@ class StakeSportsbook:
             if league not in available:
                 # Known pro endpoints still provide coverage during registry failure;
                 # college absence is never inferred from that failure.
-                if league.startswith('NCAA'):return league,([],[],[],False)
+                if league.startswith('NCAA') or league in ('ATP', 'WTA', 'CHALLENGER'):return league,([],[],[],False)
                 return league,league_fixtures(self.fetcher,league)
             return league,league_fixtures(self.fetcher,league,registry[league])
         for league,(fixtures,sources,errors,ok) in ThreadPoolExecutor(5).map(load,registry):
             issues.extend(errors)
             if ok:self.schedule_counts[league]=len(fixtures)
+            league_end=now+timedelta(hours=horizon_for(league))
             for fixture in fixtures:
                 start=datetime.fromtimestamp(float(fixture['date'])/1000,tz=timezone.utc)
-                if not now<start<=end:continue
+                if not now<start<=league_end:continue
                 enabled=bool(fixture.get('enabled') and fixture.get('preMatchEnabled') and not fixture.get('blacklisted')
                              and fixture.get('status') in (None,'active') and not fixture.get('identity_conflict'))
                 game=self._match_fixture(fixture,games,league)
@@ -631,7 +772,7 @@ class StakeSportsbook:
             league,fixture,game,audit=target
             try:return target,fixture_bundle(self.fetcher,fixture),None
             except Exception as exc:return target,None,str(exc)[:500]
-        for (league,fixture,game,audit),bundle,error in ThreadPoolExecutor(6).map(fetch,targets):
+        for (league,fixture,game,audit),bundle,error in ThreadPoolExecutor(12).map(fetch,targets):
             if error:
                 issues.append({'league':league,'event':fixture.get('name'),'reason':'stake_fixture_error','detail':error});continue
             payload,meta,endpoint_audit,responses=bundle
@@ -656,7 +797,10 @@ class StakeSportsbook:
                     audit['start_conflict']={'sports_start':game.start,'stake_start':stake_start.isoformat() if stake_start else None}
                     issues.append({'league':league,'event':fixture.get('name'),'reason':'stake_start_mismatch',**audit['start_conflict']})
             audit.update(matched=game is not None,game_id=game.id if game else None,matching_basis=basis,odds_loaded=True,active=active,endpoint_audit=endpoint_audit)
-            if game is not None:events.append({'league':league,'id':fixture['id'],'game_id':game.id,'title':fixture.get('name'),'start':game.start,'provider':'Stake.com','matching_basis':basis,'matched_teams':[game.home,game.away]})
+            if game is not None:
+                events.append({'league':league,'id':fixture['id'],'game_id':game.id,'title':fixture.get('name'),'start':game.start,'provider':'Stake.com','matching_basis':basis,'matched_teams':[game.home,game.away]})
+                if active:
+                    self.raw_fixture_markets[game.id] = [raw for _, raw in market_records(payload) if raw.get('status') in (None, 'active')]
             parsed=self._markets_for_fixture(payload,fixture,game,league,meta['fetched_at']) if game and active else []
             for m in parsed:m.metadata.update(matching_basis=basis,fixture_name=fixture.get('name'),matched_teams=[game.home,game.away],api_source=endpoint_audit['responses'][endpoint_audit['selected_endpoint']])
             markets.extend(parsed);supported=Counter(m.metadata['stake_contract_identity'] for m in parsed);seen=set()

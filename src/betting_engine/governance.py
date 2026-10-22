@@ -13,7 +13,7 @@ from .contracts import PRICING_VERSION,split_market,PERIOD_SCOPES,market_stress,
 from .freshness import MAX_QUOTE_AGE_SECONDS,fresh_quote
 
 ROOT=Path(__file__).resolve().parents[2]
-CARD_IDS={'NBA':'K05','WNBA':'K05','MLB':'K04','NFL':'K06','NHL':'K07','NCAAF':'K06','NCAAM':'K05','NCAAW':'K05','MLS':'K13'}
+CARD_IDS={'NBA':'K05','WNBA':'K05','MLB':'K04','NFL':'K06','NHL':'K07','NCAAF':'K06','NCAAM':'K05','NCAAW':'K05','MLS':'K13','EPL':'K13','UCL':'K13','ATP':'K14','WTA':'K14','CHALLENGER':'K14'}
 SEALED_FIELDS=('id','game_id','league','home','away','start','market','side','line','selection',
     'model_version','probability','push_probability','stress_probability','reference_odds',
     'expected_roi','stress_roi','minimum_odds','quote_at','valid_until','reference_platform',
@@ -80,7 +80,7 @@ def verify_publication(tip,now,active_settings=None):
     verify_evidence(tip,guard,now)
     if not fresh_quote(tip,now):raise ValueError('Publication blocked: quote expired after evidence review')
     stake=tip.get('stake',0)
-    if not isinstance(stake,(float,int)) or not math.isfinite(stake) or (stake!=0 and not 1<=stake<=5):raise ValueError('Publication blocked: invalid stake')
+    if not isinstance(stake,(float,int)) or not math.isfinite(stake) or (stake!=0 and not 0.5<=stake<=8):raise ValueError('Publication blocked: invalid stake')
     from .funding_policy import funding_basis,size_recommendation
     policy=guard.get('recommendation_policy','strict')
     model_sizing=guard.get('model_pick_sizing_policy','unit_cap_v1')
@@ -109,9 +109,15 @@ def verify_publication(tip,now,active_settings=None):
         settings.update(minimum_roi=guard['minimum_roi'],recommendation_policy=policy,model_pick_sizing_policy=model_sizing,model_pick_allocation_policy=guard.get('model_pick_allocation_policy','one_per_game_v1'))
         if selection_policy in ('continuous_probability_v2', 'continuous_probability_v3', 'continuous_probability_v4'):settings['family_selection_policy']=selection_policy
         if outcome!='legacy':settings['outcome_sizing_policy']=outcome
-        for key in ('fallback_clv_gate','clv_min_games','min_odds'):
+        for key in ('fallback_clv_gate','clv_min_games','min_odds','capital_defense','alpha_acceleration'):
             if key in guard.get('sizing_settings',{}):settings[key]=guard['sizing_settings'][key]
-        reproduced=size_recommendation(tip,settings,sizing['maximum_stake'],sizing['related_contracts']) if policy!='strict' or outcome!='legacy' else stake_assessment(tip['stress_probability'],tip['push_probability'],tip['reference_odds'],settings,sizing['maximum_stake'],sizing['related_contracts'])
+            elif active_settings is not None and key in active_settings:settings[key]=active_settings[key]
+        rem_cap=sizing['maximum_stake']
+        if settings.get('alpha_acceleration') and sizing.get('outcome_adjustment',{}).get('caps',{}).get('remaining') is not None:
+            rem_cap=max(rem_cap,sizing['outcome_adjustment']['caps']['remaining'])
+        if settings.get('alpha_acceleration') and guard.get('sizing_settings',{}).get('max_bet'):
+            settings['max_bet']=max(settings['max_bet'],guard['sizing_settings']['max_bet'])
+        reproduced=size_recommendation(tip,settings,rem_cap,sizing['related_contracts']) if policy!='strict' or outcome!='legacy' else stake_assessment(tip['stress_probability'],tip['push_probability'],tip['reference_odds'],settings,sizing['maximum_stake'],sizing['related_contracts'])
         if reproduced!=sizing or stake!=reproduced['amount']:raise ValueError('Publication blocked: stake sizing does not reproduce')
     # The market anchor is part of the pricing contract.  New receipts carry
     # the exact mode, weight and disagreement policy used by the guard; a
@@ -264,7 +270,7 @@ class EvidenceGuard:
         if game.league.startswith('NCAA') and (model_report.get('promotion_gate',{}).get('promote') is not True or base not in model_report.get('validated_markets',[])):errors.append('college_market_not_validated')
         if self.knowledge.missing(game.league):errors.append('missing_knowledge_references')
         if settings.get('daily_risk_limit') is not None:errors.append('daily_cap_conflicts_with_user_instruction')
-        if not 1<=settings.get('max_bet',0)<=5:errors.append('invalid_per_bet_cap')
+        if not 0.5<=settings.get('max_bet',0)<=8:errors.append('invalid_per_bet_cap')
         if not settings.get('auto_track_recommendations'):errors.append('standing_auto_tracking_disabled')
         if model_report.get('odds_used') is not False:errors.append('independent_model_not_verified')
         from .models import feature_names
@@ -273,8 +279,9 @@ class EvidenceGuard:
             if parse_time(model_report['trained_at'])>now:errors.append('future_model_timestamp')
         except (KeyError,ValueError,TypeError):errors.append('missing_model_timestamp')
         if not model_report.get('code_sha256') or not model_report.get('training_data_fingerprint'):errors.append('model_provenance_missing')
-        if model_report.get('version')!=forecast.model_version or tip.get('model_version')!=forecast.model_version:errors.append('model_version_mismatch')
-        if game.state!='scheduled' or not now<parse_time(game.start) or (parse_time(game.start)-now).total_seconds()>48*3600:errors.append('outside_pregame_horizon')
+        horizons=settings.get('league_pregame_horizon_hours') or {}
+        max_horizon=float(horizons.get(game.league, 72))
+        if game.state!='scheduled' or not now<parse_time(game.start) or (parse_time(game.start)-now).total_seconds()>max_horizon*3600:errors.append('outside_pregame_horizon')
         if not game.source or not game.fetched_at:errors.append('sports_source_missing')
         try:
             age=(now-parse_time(game.fetched_at)).total_seconds()
@@ -340,10 +347,21 @@ class EvidenceGuard:
                         p=conditional_blend*(1-push)
                     else:
                         p=logit_blend(p,market_probability,weight,allow_endpoint_model=support_policy == VALIDATED_PROBABILITY_SUPPORT)
-                    push=min(push,1-p)
             if settings.get('calibration_uncertainty_mode','legacy')=='measured_v1' and calibration_summary is not None:
                 if tip.get('calibration_uncertainty') != calibration_summary:
                     errors.append('calibration_uncertainty_mismatch')
+            if settings.get('crucible_rules_mode') == 'live':
+                from .crucible_rules import evaluate_crucible_candidate
+                cand_probe = {'league': game.league, 'market': market.kind, 'side': market.side, 'line': market.line,
+                              'probability': p, 'reference_odds': 1/quote.effective_cost, 'game_context': getattr(game, 'context', {}),
+                              'home_points': getattr(forecast, 'home_points', None),
+                              'away_points': getattr(forecast, 'away_points', None),
+                              'devigged_market_p': (anchor.get('market_probability') if isinstance(anchor, dict) and isinstance(anchor.get('market_probability'), (int, float)) else None)}
+                crucible_ok, crucible_reason, p_crucible = evaluate_crucible_candidate(cand_probe)
+                if not crucible_ok:
+                    errors.append(f'crucible_gate_failed:{crucible_reason}')
+                elif p_crucible is not None:
+                    p = p_crucible
             stress=market_stress(market.kind,game.league,market.line,forecast.disagreement,calibration_summary)
             conservative=stressed_probability(p,stress,settings)
             odds=1/quote.effective_cost
@@ -397,6 +415,9 @@ class EvidenceGuard:
                 clv_min_games=settings.get('clv_min_games',30))
         if settings.get('min_odds') is not None:
             evidence['sizing_settings']['min_odds']=float(settings['min_odds'])
+        for key in ('capital_defense', 'alpha_acceleration'):
+            if key in settings:
+                evidence['sizing_settings'][key] = bool(settings[key])
         if not errors:evidence['candidate_sha256']=evidence_digest(tip)
         tip['decision_guard']=evidence
         return evidence

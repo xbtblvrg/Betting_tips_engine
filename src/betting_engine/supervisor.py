@@ -363,6 +363,13 @@ def run_once(data_dir=DATA, *, emit_summary=False):
         except Exception as e:delivery={'state':'error','error':str(e)[:300],'fully_ready':False}
         result=supervise(observations,previous,utcnow())
         try:
+            from .supreme_autonomous_governor import SupremeAutonomousGovernor
+            governor = SupremeAutonomousGovernor(data.parent)
+            governor_res = governor.run_cycle()
+            result['supreme_governor'] = governor_res.to_dict()
+        except Exception as e:
+            result['supreme_governor'] = {'error': str(e)[:300]}
+        try:
             with urlopen('http://127.0.0.1:8765/api/component-health',timeout=10) as r:result['components']=json.load(r)
         except Exception as e:result['components']={'state':'unavailable','error':str(e)[:300],'checks':[]}
         try:

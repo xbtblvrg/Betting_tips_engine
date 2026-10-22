@@ -48,7 +48,7 @@ def assess_existing_stakes(records, current_by_id, settings, now,
             # One immutable first issuance per contract, not one per ticket.
             # Duplicated/manual receipt payloads cannot establish this amount.
             issued = (original_issuances or {}).get(tip_id)
-            if not isinstance(issued, bool) and isinstance(issued, (float, int)) and math.isfinite(issued) and 1 <= issued <= 5:
+            if not isinstance(issued, bool) and isinstance(issued, (float, int)) and math.isfinite(issued) and 0.5 <= issued <= 8:
                 row['original_stake'] = issued
             if not now < parse_time(original['start']) <= now + timedelta(hours=48):
                 raise ValueError('The recorded match is outside the current pregame 48-hour window.')
@@ -70,8 +70,8 @@ def assess_existing_stakes(records, current_by_id, settings, now,
             related = count - 1  # Exclude this exact contract, not its whole event.
             remaining = remaining_budget(settings, max(0., committed - row['recorded_stake']))
             sizing = size_recommendation(current, settings, remaining, related)
-            if not 1 <= sizing['amount'] <= min(5., settings['max_bet']):
-                raise ValueError('Current sizing does not support a USD1 minimum ticket.')
+            if not 0.5 <= sizing['amount'] <= min(8., settings['max_bet']):
+                raise ValueError('Current sizing does not support a USD0.50 minimum ticket.')
             row.update(eligible=True, reason='Fresh exact contract and current sizing calculation verified.',
                 target_stake=sizing['amount'], difference=round(sizing['amount'] - row['recorded_stake'], 2),
                 quote_at=current['quote_at'], valid_until=current['valid_until'], odds=current['reference_odds'],

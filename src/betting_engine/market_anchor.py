@@ -188,7 +188,7 @@ def contract_anchors(markets, quotes):
         'exact_total': {'over', 'exact', 'under'},
         'overtime_alias': {'draw', 'home_away'},
     }
-    for (_, _, kind, _), rows in groups.items():
+    for (_, _, kind, model_scope), rows in groups.items():
         base = kind.rsplit(':', 1)[-1]
         sides = expected.get(base)
         if base == 'winner_total':
@@ -211,7 +211,7 @@ def contract_anchors(markets, quotes):
             # Draw No Bet is a two-way contract whose draw outcome is a push.
             # Stake exposes it with moneyline-shaped sides, so the kind alone
             # cannot identify its conditional (push-free) pricing rule.
-            conditional = conditional_push_free_line(kind, rows[0][0].line) or 'draw no bet' in market_name
+            conditional = conditional_push_free_line(kind, rows[0][0].line) or 'draw no bet' in market_name or (len(sides) == 2 and model_scope != 'full_game' and kind.rsplit(':', 1)[-1] == 'moneyline')
             fair = conditional_devig_probabilities(odds) if conditional else devig_probabilities(odds)
         except (ValueError, ZeroDivisionError):
             continue

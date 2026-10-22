@@ -1,3 +1,10 @@
+## 2026-10-08 — 72h horizont élesítve, Top-up Reissue felvéve a fejlesztési tervbe
+
+Éles állapot:
+1. **72 órás horizont fül élesítve és működik:** A webes felületen megjelent a "Next 72 Hours" fül (68 kártya, köztük 39 MLS meccs), 294/294 frontend DOM teszt sikeres.
+2. **Kiadási méretezési hiba javítva:** A `governance.py` és `instructions.py` modulokban az `alpha_acceleration` és `capital_defense` beállítások reprodukálása javítva, a háttérdémon hibamentesen fut. A mai napon 153 érvényes ajánlás kiadva (0 shortfall).
+3. **Marked-as-placed Additional Bet / Top-up Reissue fejlesztési feladat rögzítve:** A felhasználó kérésére az állandó szerződésbe (`config/project_contract.json` R42 és `marked_placed_topup_reissue_backlog_20261008`), valamint a fejlesztési tervbe (`config/development_plan.json` `MARKED_PLACED_TOPUP_REISSUE`) rögzítettük a top-up szelvény kibocsátási specifikációt. A funkció a hétvégi éles megfigyelési időszak után kerül implementálásra.
+
 ## 2026-10-04 — NFL/NBA overtime útvonal élesítve
 
 Éles commit `1242f06`: pontos Yes/No piac → regulation draw/non-draw kifizetés, kétutas devig, változatlan modellvalidáció/kiadási feltételek, záróár és elszámolás. NFL-szezonfázis az archivált forrásból újraellenőrizve; előidény kizárva. Az azonos kifizetésű 1x2/Double Chance/Overtime ajánlatok a guard után egy kanonikus döntésre szűkülnek, a jobb aktuális ár megtartásával. Eredeti döntések/tétek változatlanok.

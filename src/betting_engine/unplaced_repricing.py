@@ -64,7 +64,7 @@ def reprice_unplaced(store, request_id, tip_ids, authorization):
             if limits:
                 available = min(available, limits['max_stake_per_event'] - event_stakes[gid] + 1.)
             sizing = size_recommendation(tip, settings, max(0., available), related)
-            if not 1 <= sizing['amount'] <= min(5., settings['max_bet']):
+            if not 0.5 <= sizing['amount'] <= min(8., settings['max_bet']):
                 raise ValueError('Authorized batch cannot retain every instruction within active exposure limits')
             tip.update(stake=sizing['amount'], stake_sizing=sizing)
             verify_publication(tip, now, settings)

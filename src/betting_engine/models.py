@@ -21,8 +21,9 @@ from .context import STAT_PRIORS
 
 FEATURES=('elo_difference','home_attack','home_defense','away_attack','away_defense','recent_margin_difference','home_rest','away_rest','rest_difference','home_games','away_games','neutral','playoff','league_scoring')
 # Explicit allowlist: neither odds nor lines nor market-derived ratings are input.
-PRIORS={'NBA':112.,'WNBA':80.,'MLB':4.5,'NHL':3.,'NFL':23.,'NCAAF':28.,'NCAAM':72.,'NCAAW':67.,'MLS':1.4}
-WINDOW={'NBA':20,'WNBA':15,'MLB':30,'NHL':20,'NFL':8,'NCAAF':8,'NCAAM':20,'NCAAW':20,'MLS':15}
+PRIORS={'NBA':112.,'WNBA':80.,'MLB':4.5,'NHL':3.,'NFL':23.,'NCAAF':28.,'NCAAM':72.,'NCAAW':67.,'MLS':1.4,'EPL':1.4,'UCL':1.45,'ATP':22.5,'WTA':21.0,'CHALLENGER':22.0}
+WINDOW={'NBA':20,'WNBA':15,'MLB':30,'NHL':20,'NFL':8,'NCAAF':8,'NCAAM':20,'NCAAW':20,'MLS':15,'EPL':15,'UCL':10,'ATP':15,'WTA':15,'CHALLENGER':15}
+HOME_ADVANTAGE={'NFL':48.,'NCAAF':80.,'NCAAM':70.,'NCAAW':70.,'NBA':60.,'WNBA':60.,'MLB':25.,'NHL':35.,'MLS':65.,'EPL':65.,'UCL':50.,'ATP':0.,'WTA':0.,'CHALLENGER':0.}
 PITCHER_FEATURES=('starter_earned_runs_per_nine','starter_whip','starter_strikeout_fraction','starter_walk_fraction','starter_home_run_fraction','starter_observed_batters','starter_known')
 
 # Fixed, reviewable hypotheses. Recipe selection belongs to the earlier
@@ -95,7 +96,8 @@ class FormState:
                 for key in ('for','against'):t[key]=self.base+(t[key]-self.base)*.5
                 t['margin']*=.5
                 for key,prior in STAT_PRIORS[self.league].items():t['stats'][key]=prior+(t['stats'][key]-prior)*.5
-        ph=1/(1+10**((a['elo']-h['elo']-(0 if g.neutral else 50))/400))
+        hfa = 0. if g.neutral else HOME_ADVANTAGE.get(self.league, 50.)
+        ph=1/(1+10**((a['elo']-h['elo']-hfa)/400))
         actual=1. if hs>ass else (0. if hs<ass else .5)
         k=20 if self.league!='NFL' else 32
         h['elo']+=k*(actual-ph);a['elo']-=k*(actual-ph)
@@ -156,11 +158,23 @@ class Forecast:
         if ':' in kind:raise ValueError('A full-game forecast cannot price a segment contract')
         if kind=='moneyline':
             p=self.home_probability if side=='home' else self.away_probability
-            return p,self.draw_probability
+            return min(1.0, max(0.0, float(p))), min(max(0.0, 1.0 - p), max(0.0, float(self.draw_probability)))
         home,away,weights=score_distribution(self.margin,self.total,self.residuals,self.home_probability,self.draw_probability,self.league)
         from .contracts import contract_value
+        if line is not None and round(float(line) * 2) != float(line) * 2 and kind in ('spreads', 'totals'):
+            from .contracts import decompose_quarter_line
+            l1, l2 = decompose_quarter_line(line)
+            v1 = contract_value(kind, side, l1, home, away)
+            v2 = contract_value(kind, side, l2, home, away)
+            win_frac = ((v1 > 0).astype(float) + (v2 > 0).astype(float)) / 2.0
+            push_frac = ((v1 == 0).astype(float) + (v2 == 0).astype(float)) / 2.0
+            p = min(1.0, max(0.0, float((weights * win_frac).sum())))
+            push = min(max(0.0, 1.0 - p), max(0.0, float((weights * push_frac).sum())))
+            return p, push
         value=contract_value(kind,side,line,home,away)
-        return float(weights[value>0].sum()),float(weights[value==0].sum())
+        p = min(1.0, max(0.0, float(weights[value>0].sum())))
+        push = min(max(0.0, 1.0 - p), max(0.0, float(weights[value==0].sum())))
+        return p, push
 
 def score_distribution(margin,total,residuals,home_probability,draw_probability,league):
     """Integer, nonnegative paired scores, reconciled to calibrated win mass.
@@ -171,7 +185,45 @@ def score_distribution(margin,total,residuals,home_probability,draw_probability,
     margins=margin+residuals[:,0];totals=total+residuals[:,1]
     home=np.maximum(0,np.rint((totals+margins)/2));away=np.maximum(0,np.rint((totals-margins)/2))
     weights=np.ones(len(home),dtype=float)
-    if league not in ('NFL', 'MLS'):
+    if league == 'NHL':
+        diff = home - away
+        h_lead1 = diff == 1
+        a_lead1 = diff == -1
+        h_lead2 = diff == 2
+        a_lead2 = diff == -2
+        tied = diff == 0
+        other = (~h_lead1) & (~a_lead1) & (~h_lead2) & (~a_lead2) & (~tied)
+        new_home, new_away, new_weights = [home[other]], [away[other]], [weights[other]]
+        if np.any(h_lead1):
+            h1, a1, w1 = home[h_lead1], away[h_lead1], weights[h_lead1]
+            new_home.append(h1 + 1); new_away.append(a1); new_weights.append(w1 * 0.2184)
+            new_home.append(h1 + 1); new_away.append(a1 + 1); new_weights.append(w1 * (0.0858 * 0.52))
+            new_home.append(h1); new_away.append(a1 + 2); new_weights.append(w1 * (0.0858 * 0.48))
+            new_home.append(h1); new_away.append(a1); new_weights.append(w1 * 0.6958)
+        if np.any(a_lead1):
+            h1, a1, w1 = home[a_lead1], away[a_lead1], weights[a_lead1]
+            new_home.append(h1); new_away.append(a1 + 1); new_weights.append(w1 * 0.2184)
+            new_home.append(h1 + 2); new_away.append(a1); new_weights.append(w1 * (0.0858 * 0.52))
+            new_home.append(h1 + 1); new_away.append(a1 + 1); new_weights.append(w1 * (0.0858 * 0.48))
+            new_home.append(h1); new_away.append(a1); new_weights.append(w1 * 0.6958)
+        if np.any(h_lead2):
+            h2, a2, w2 = home[h_lead2], away[h_lead2], weights[h_lead2]
+            new_home.append(h2 + 1); new_away.append(a2); new_weights.append(w2 * 0.24)
+            new_home.append(h2); new_away.append(a2 + 1); new_weights.append(w2 * 0.08)
+            new_home.append(h2); new_away.append(a2); new_weights.append(w2 * 0.68)
+        if np.any(a_lead2):
+            h2, a2, w2 = home[a_lead2], away[a_lead2], weights[a_lead2]
+            new_home.append(h2); new_away.append(a2 + 1); new_weights.append(w2 * 0.24)
+            new_home.append(h2 + 1); new_away.append(a2); new_weights.append(w2 * 0.08)
+            new_home.append(h2); new_away.append(a2); new_weights.append(w2 * 0.68)
+        if np.any(tied):
+            ht, at, wt = home[tied], away[tied], weights[tied]
+            new_home.append(ht + 1); new_away.append(at); new_weights.append(wt * 0.52)
+            new_home.append(ht); new_away.append(at + 1); new_weights.append(wt * 0.48)
+        home = np.concatenate(new_home)
+        away = np.concatenate(new_away)
+        weights = np.concatenate(new_weights)
+    elif league not in ('NFL', 'MLS', 'EPL', 'UCL'):
         ties=home==away;h0=home[ties];a0=away[ties]
         home=np.concatenate([home[~ties],h0+1,h0]);away=np.concatenate([away[~ties],a0,a0+1]);weights=np.concatenate([weights[~ties],np.full(len(h0),.5),np.full(len(h0),.5)])
     # Small explicit support regularizer for absent outcome classes, not invented observations.
@@ -255,7 +307,7 @@ class LeagueModel:
         fingerprint=hashlib.sha256(json.dumps([(g.id,g.start,g.home_score,g.away_score,g.context.get('box'),g.context.get('pitching_observations'),g.context.get('home_pitcher'),g.context.get('away_pitcher')) for g in allg],sort_keys=True).encode()).hexdigest()[:12]
         code_hash=hashlib.sha256(Path(__file__).read_bytes()+(Path(__file__).parent/'context.py').read_bytes()).hexdigest()
         self.version=f'{self.league}-sport-v4-{self.recipe}-{fingerprint}-{code_hash[:8]}'
-        self.report={'league':self.league,'version':self.version,'code_sha256':code_hash,'training_data_fingerprint':fingerprint,'trained_at':utcnow().isoformat(),'training_games':len(rows),'first_game':allg[0].start,'last_game':allg[-1].start,'test_from':str(d3),'partitions':{'train':int(train.sum()),'selection':int(tune.sum()),'calibration':int(cal.sum()),'test':int(test.sum())},'features':list(feature_names(self.league)),'box_coverage':sum(bool(g.context.get('box')) for g in allg)/len(allg),'pitching_observation_coverage':sum(bool(g.context.get('pitching_observations')) for g in allg)/len(allg),'odds_used':False,'model_family':'sport efficiency + team form ensemble + coherent empirical score distribution','ensemble_weight_logistic':self.weight,'ensemble_weights':self.weights,'selection_brier':tune_scores,'test':evaluation,'baseline':baseline,'brier_delta_ci95':[float(low),float(high)],'beats_constant_baseline':bool(high<0),'score_mae':{'margin':float(mean_absolute_error(scores[test,0],scoretest[:,0])),'total':float(mean_absolute_error(scores[test,1],scoretest[:,1]))},'profit_backtest':None,'limitations':['Csapatszintű modell; nincs még betanított sérülés-, lineup- és játékosperc-hatás.','A történeti sportadatok utólag javított állapotból származhatnak; teljes korabeli hírarchívum nincs.','A publikáló modell paraméterei az értékelésben használt befagyasztott paraméterek; a csapatállapot friss eredményekből frissül.','Nincs történeti, végrehajtható árakon igazolt fogadási hozam.'],'test_predictions':[{'game_id':g.id,'date':g.start,'p':float(p),'result':int(g.home_score>g.away_score)} for g,p in zip(testgames,ptest)]}
+        self.report={'league':self.league,'version':self.version,'code_sha256':code_hash,'training_data_fingerprint':fingerprint,'trained_at':utcnow().isoformat(),'training_games':len(rows),'first_game':allg[0].start,'last_game':allg[-1].start,'test_from':str(d3),'partitions':{'train':int(train.sum()),'selection':int(tune.sum()),'calibration':int(cal.sum()),'test':int(test.sum())},'features':list(feature_names(self.league)),'box_coverage':sum(bool(g.context.get('box')) for g in allg)/len(allg),'pitching_observation_coverage':sum(bool(g.context.get('pitching_observations')) for g in allg)/len(allg),'odds_used':False,'model_family':'sport efficiency + team form ensemble + coherent empirical score distribution','ensemble_weight_logistic':self.weight,'ensemble_weights':self.weights,'selection_brier':tune_scores,'test':evaluation,'baseline':baseline,'brier_delta_ci95':[float(low),float(high)],'beats_constant_baseline':bool(high<0),'score_mae':{'margin':float(mean_absolute_error(scores[test,0],scoretest[:,0])),'total':float(mean_absolute_error(scores[test,1],scoretest[:,1]))},'profit_backtest':None,'limitations':['Team-level model; injury, lineup and player-minute effects have not yet been trained.','Historical data may include later corrections. A complete archive of information available at each prediction time is not available.','Published forecasts use the same frozen parameters as the evaluation. Team form updates with new results.','Betting profitability has not been verified using historical executable odds.'],'test_predictions':[{'game_id':g.id,'date':g.start,'p':float(p),'result':int(g.home_score>g.away_score)} for g,p in zip(testgames,ptest)]}
         # A stronger odds-independent benchmark, computed on identical test events.
         testx=allx[test&not_tie];elo_p=1/(1+10**(-testx[:,0]-.125*(1-testx[:,11])))
         self.report['elo_baseline']=metrics(y[test&not_tie],elo_p)
@@ -264,7 +316,7 @@ class LeagueModel:
         self.report['beats_elo_brier']=evaluation['brier']<self.report['elo_baseline']['brier']
         # Deploy exactly the evaluated parameter fit; update observed team form separately.
         self.models=frozen;self.score_model=frozen_score
-        self.draw_rate=float(np.mean(scores[train|tune,0]==0)) if self.league in ('NFL', 'MLS') else 0.
+        self.draw_rate=float(np.mean(scores[train|tune,0]==0)) if self.league in ('NFL', 'MLS', 'EPL', 'UCL') else 0.
         # Synthetic, model-centered thresholds: probability diagnostics, NOT a betting ROI backtest.
         all_ptest=self.calibrator.predict_proba(logit(blend(frozen,allx[test])).reshape(-1,1))[:,1]
         market_y={k:[] for k in ('spreads','totals','home_total','away_total')};market_p={k:[] for k in market_y}
@@ -277,7 +329,7 @@ class LeagueModel:
                 threshold=float(np.floor(predicted)+.5)
                 market_p[kind].append(float(w[samples>threshold].sum()));market_y[kind].append(int(observed>threshold))
         self.report['score_market_diagnostics']={k:metrics(market_y[k],market_p[k]) for k in market_y}
-        self.report['score_market_diagnostics_note']='Saját pontbecslés körüli félpontos küszöbök; nem történeti book-vonalak és nem hozamteszt.'
+        self.report['score_market_diagnostics_note']='Half-point thresholds around model projections; these are not historical sportsbook lines or an ROI backtest.'
         self.report['deployment_policy']='same_frozen_parameters_as_evaluation'
         self.report['evaluation_status']='retrospective_development_evaluation; prospective validation pending'
         self.report['result_availability_policy']='max(game_start + 8h, next UTC midnight); resumed games excluded; source revision history unavailable'
@@ -288,13 +340,27 @@ class LeagueModel:
         x=self.state.features(g);ps={name:float(m.predict_proba(x[None,:])[0,1]) for name,m in self.models.items()}
         raw=sum(self.weights[name]*p for name,p in ps.items());p=float(self.calibrator.predict_proba(np.array([[float(logit(raw))]]))[0,1]);p=float(np.clip(p,.02,.98))
         mu=self.score_model.predict(x[None,:])[0];margin,total=map(float,mu)
-        warnings=['A sérülések és teljes kezdőcsapat kvantitatív korrekciója még hiányzik.']
-        if g.league=='MLB' and not all(g.context.get(side+'_pitcher') for side in ('home','away')):warnings.append('A kezdő dobó még nincs mindkét csapatnál megadva; a modell ligaátlagra húz vissza.')
-        if g.game_type=='preseason':warnings.append('Preseason: provisional extrapolation from regular/postseason team history; preseason calibration and rotations are unverified.')
+        from .injury_impact import calculate_injury_impact
         injury=g.context.get('injuries',{})
-        if injury.get('stale'):warnings.append('A sérüléslista több mint egy napos.')
-        if any(injury.get(side) for side in ('home','away')):warnings.append('A sérüléslistán szerepel játékos; a konkrét státusz a részletek között látható, az esélyt még nem korrigálja.')
-        if min(x[9],x[10])<math.log1p(15):warnings.append('Kevés csapatelőzmény, erős visszahúzás a ligaátlaghoz.')
-        if self.report.get('beats_elo_brier') is False:warnings.append('Az időrendi teszten az egyszerű Elo-becslés Brier-értéke jobb volt; a modellváltozat további ellenőrzést igényel.')
-        if not self.report['beats_constant_baseline']:warnings.append('A meccsgyőzelmi modell előnye a konstans alapmodellhez képest még nem egyértelmű.')
+        injury_adj=calculate_injury_impact(g.league,injury) if injury else None
+        warnings=[]
+        if injury_adj and injury_adj.get('has_impact'):
+            net_home_adv=float(injury_adj.get('net_home_advantage',0.0))
+            home_pen=float(injury_adj.get('home_penalty_points',0.0))
+            away_pen=float(injury_adj.get('away_penalty_points',0.0))
+            margin+=net_home_adv
+            total=max(1.0,total-(home_pen+away_pen)*0.5)
+            logit_mult={'NFL':0.12,'NCAAF':0.10,'NBA':0.08,'WNBA':0.09,'NHL':0.70,'MLB':0.50}.get(g.league,0.10)
+            raw_logit=float(logit(p))+(net_home_adv*logit_mult)
+            p=float(1/(1+math.exp(-raw_logit)))
+            p=float(np.clip(p,.02,.98))
+            warnings.append(f"Quantitative injury/lineup adjustment applied: Net home advantage delta = {net_home_adv:+.2f} pts/goals.")
+        elif any(injury.get(side) for side in ('home','away')):
+            warnings.append('Players appear on the injury report. Evaluated with minor/zero point delta.')
+        if g.league=='MLB' and not all(g.context.get(side+'_pitcher') for side in ('home','away')):warnings.append('One or both starting pitchers are unconfirmed. The model uses a league-average prior where needed.')
+        if g.game_type=='preseason':warnings.append('Preseason: provisional extrapolation from regular/postseason team history; preseason calibration and rotations are unverified.')
+        if injury.get('stale'):warnings.append('The injury report is more than one day old.')
+        if min(x[9],x[10])<math.log1p(15):warnings.append('Limited team history; estimates are strongly shrunk toward the league average.')
+        if self.report.get('beats_elo_brier') is False:warnings.append('The simple Elo baseline had a better Brier score on the chronological test. This model needs further validation.')
+        if not self.report['beats_constant_baseline']:warnings.append('The match-winner model has not clearly outperformed the constant-probability baseline.')
         return Forecast(g.id,g.league,p*(1-self.draw_rate),(1-p)*(1-self.draw_rate),self.draw_rate,(total+margin)/2,(total-margin)/2,margin,total,ps,float(max(ps.values())-min(ps.values())),dict(zip(feature_names(self.league),map(float,x))),self.version,warnings,self.residuals)

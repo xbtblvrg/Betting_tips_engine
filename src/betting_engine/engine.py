@@ -18,14 +18,19 @@ from .contracts import contract_value,settlement_scores,split_market,SEGMENT_SCO
 log=logging.getLogger(__name__)
 class Engine:
     def __init__(self,store=None):
-        self.store=store or Store();self.lock=threading.Lock();self.status={'running':False,'stage':'Készenlét','error':None};self.stop=threading.Event();self.priority_refresh=threading.Event();self.models={};self.games=[];self.last_data=0;self.last_train=0;self.last_maintenance=0
+        self.store=store or Store();self.lock=threading.Lock();self.status={'running':False,'stage':'Ready','error':None};self.stop=threading.Event();self.priority_refresh=threading.Event();self.models={};self.games=[];self.last_data=0;self.last_train=0;self.last_maintenance=0;self.settlement_supervisor_status={}
     def health(self):return dict(self.status)
     def load_models(self):
         previous=self.models;self.models={};self.model_load_errors={}
         for league in LEAGUES:
             p=DATA/'models'/(league+'.joblib')
             if p.exists():
-                try:self.models[league]=joblib.load(p)
+                try:
+                    m = joblib.load(p)
+                    if hasattr(m, 'report') and isinstance(m.report, dict):
+                        from copy import deepcopy
+                        m._sealed_report = deepcopy(m.report)
+                    self.models[league] = m
                 except Exception as exc:
                     self.model_load_errors[league]=f'{type(exc).__name__}: {exc}'[:500]
                     if league in previous:self.models[league]=previous[league]
@@ -54,6 +59,15 @@ class Engine:
                     if model.report.get('scope')!=scope or model.report.get('league')!=league or not model.report.get('promotion_gate',{}).get('promote'):raise ValueError('Invalid period model approval')
                     self.segment_models[(league,scope)]=model
                 except Exception as exc:self.period_errors[f'{league}:{scope}']=str(exc)[:500]
+        try:
+            from .shadow_market_incubator import load_graduated_markets
+            from .graduated_models import resolve_graduated_segment_models, resolve_graduated_full_game_models
+            graduated = load_graduated_markets(DATA)
+            if graduated:
+                self.segment_models = resolve_graduated_segment_models(graduated, self.segment_models)
+                self.models = resolve_graduated_full_game_models(graduated, self.models)
+        except Exception as exc:
+            log.exception('Graduated market model resolution failed: %s', exc)
     def settle_bets(self):
         mapping={g.id:g for g in self.games}
         for b in self.store.open_bets():
@@ -64,16 +78,38 @@ class Engine:
             if not g or g.state!='final':continue
             try:
                 hs,ass,score_evidence=settlement_scores(t,g)
-                v=contract_value(t['market'],t['side'],t.get('line'),hs,ass)
+                line=t.get('line')
+                if line is not None and round(float(line)*2)!=float(line)*2 and t.get('market') in ('spreads','totals'):
+                    from .contracts import settle_quarter_asian
+                    state, outcome, pnl = settle_quarter_asian(t['market'], t['side'], float(line), hs, ass, b['odds'], b['stake'])
+                    score_evidence = {**score_evidence, 'asian_quarter_state': state}
+                else:
+                    v=contract_value(t['market'],t['side'],line,hs,ass)
+                    outcome='won' if v>0 else ('lost' if v<0 else 'push')
+                    pnl=b['stake']*(b['odds']-1) if v>0 else (-b['stake'] if v<0 else 0)
             except ValueError:continue
             # A manual sportsbook ledger explicitly assumes push refunds. A
             # Polymarket position needs share quantities, so do not auto-settle it.
             if 'polymarket' in b['platform'].lower():continue
-            outcome='won' if v>0 else ('lost' if v<0 else 'push')
-            pnl=b['stake']*(b['odds']-1) if v>0 else (-b['stake'] if v<0 else 0)
             self.store.settle(b['id'],outcome,pnl,evidence={'game_id':g.id,'home_score':hs,'away_score':ass,
                              'source_url':g.source,'source_fetched_at':g.fetched_at,'settled_at':utcnow().isoformat(),
                              'basis':'verified_score_in_contract_scope','score_scope':score_evidence,'stake_settlement_verified':False})
+            if outcome == 'lost':
+                try:
+                    from .tier_state_machine import enqueue_rd_repair_job
+                    from .segment_scoreboard import segment_key_from_payload
+                    seg_key = segment_key_from_payload(t)
+                    if seg_key:
+                        with self.store.db() as c:
+                            enqueue_rd_repair_job(
+                                conn=c,
+                                segment_key=seg_key,
+                                league=t.get('league'),
+                                failure_mode='SETTLED_LOSS_TRIGGER',
+                                remedy='Automatic post-loss forensic investigation and crucible repair'
+                            )
+                except Exception:
+                    pass
     def recover_nhl_results(self):
         """Keep unresolved NHL finals pending even if recovery persistence fails."""
         from .nhl_results import recover_pending_nhl
@@ -145,10 +181,33 @@ class Engine:
                 'error':str(exc)[:500],'unresolved_count':len(unresolved),
                 'rows':[{'game_id':gid,'state':'recovery_failed'} for gid in unresolved]}
 
+    def recover_tennis_results(self):
+        """Recover issued tennis games independently of the rolling sports calendar."""
+        from .tennis_results import recover_pending_tennis, TENNIS_LEAGUES
+        pending_ids=None;now=utcnow()
+        try:
+            bets=self.store.open_bets();decisions=self.store.system_decisions()
+            pending_ids=set()
+            for row in bets+decisions:
+                tip=row.get('payload',{})
+                if row.get('status')!='open' or tip.get('league') not in TENNIS_LEAGUES:continue
+                try:
+                    if parse_time(tip['start'])>=now:continue
+                except (KeyError,TypeError,ValueError):pass
+                if isinstance(tip.get('game_id'),str):pending_ids.add(tip['game_id'])
+            recovered,status=recover_pending_tennis(self.games,bets,decisions,data_dir=DATA)
+            if status.get('recovered_games'):
+                atomic_json(DATA/'games.json',[g.dict() for g in recovered])
+            self.games,self.tennis_settlement_status=recovered,status
+        except Exception as exc:
+            log.exception('Tennis pending-game result recovery failed')
+            self.tennis_settlement_status={'checked_at':now.isoformat(),'state':'failed',
+                'error':str(exc)[:500],'unresolved_count':len(pending_ids or set())}
+
     def refresh(self,force_data=False):
         if not self.lock.acquire(False):return False
         priority=None;completed=False
-        self.status={'running':True,'stage':'Sportadatok ellenőrzése','error':None,'started_at':utcnow().isoformat()}
+        self.status={'running':True,'stage':'Checking sports data','error':None,'started_at':utcnow().isoformat()}
         try:
             unfinished=getattr(self,'_unrecorded_refill',None)
             if unfinished:
@@ -169,11 +228,22 @@ class Engine:
             force_data=force_data or bool(recovery)
             refresh_sports=force_data or not (DATA/'games.json').exists() or time.time()-self.last_data>900
             if refresh_sports:
-                self.games,sources=SportsData().load()
-                self.status['stage']='Sportstatisztikák és sérülésjelentések'
-                context=SportContext().enrich(self.games);pitching=PitchingContext().enrich(self.games)
-                atomic_json(DATA/'games.json',[g.dict() for g in self.games]);atomic_json(DATA/'context_sources.json',context);atomic_json(DATA/'pitching_sources.json',pitching)
-                sources+=context+pitching;self.last_data=time.time()
+                try:
+                    self.games,sources=SportsData().load()
+                    self.status['stage']='Updating stats and injury reports'
+                    context=SportContext().enrich(self.games);pitching=PitchingContext().enrich(self.games)
+                    atomic_json(DATA/'games.json',[g.dict() for g in self.games]);atomic_json(DATA/'context_sources.json',context);atomic_json(DATA/'pitching_sources.json',pitching)
+                    sources+=context+pitching;self.last_data=time.time()
+                except Exception as exc:
+                    log.warning('SportsData refresh failed, falling back to cached games: %s', exc)
+                    if (DATA/'games.json').exists():
+                        self.games=[Game(**r) for r in json.loads((DATA/'games.json').read_text())]
+                        sources=json.loads((DATA/'sources.json').read_text()) if (DATA/'sources.json').exists() else []
+                        for name in ('context_sources.json','pitching_sources.json'):
+                            if (DATA/name).exists():sources+=json.loads((DATA/name).read_text())
+                        self.last_data=time.time() - 600
+                    else:
+                        raise
             else:
                 self.games=[Game(**r) for r in json.loads((DATA/'games.json').read_text())];sources=json.loads((DATA/'sources.json').read_text())
                 for name in ('context_sources.json','pitching_sources.json'):
@@ -200,12 +270,13 @@ class Engine:
             # settlement and current team-history feature construction.
             self.recover_nhl_results()
             self.recover_espn_results(period_scores)
+            self.recover_tennis_results()
             self.load_models()
             # The separate learning worker owns training and promotion. Market
             # publication keeps using complete, atomically replaced champions.
             self.status['missing_models']=[x for x in LEAGUES if x not in self.models]
             for league,model in self.models.items():model.state=feature_history(self.games,league)[1]
-            self.status['stage']='Saját meccselőrejelzések'
+            self.status['stage']='Generating game projections'
             settings=self.store.settings()
             from .outcome_sizing_runtime import outcome_policy
             from .outcome_sizing import build_snapshot as outcome_snapshot, summary_for as outcome_summary, segment_key
@@ -215,51 +286,100 @@ class Engine:
                 # cohort, so this cycle cannot invalidate its own snapshot.
                 self.settle_bets();self.store.settle_system_decisions(self.games)
             now=utcnow()
+            try:
+                from .autonomous_roi_governor import run_governor_cycle
+                run_governor_cycle(DATA)
+            except Exception as exc:
+                log.warning('ROI governor execution failed: %s', exc)
+            try:
+                from .settlement_supervisor import SettlementSupervisor
+                supervisor = SettlementSupervisor(DATA)
+                self.settlement_supervisor_status = supervisor.run_settlement_cycle(engine_instance=self)
+            except Exception as exc:
+                log.warning('Settlement supervisor execution failed: %s', exc)
+            try:
+                from .data_integrity_supervisor import DataIntegritySupervisor
+                integrity_sup = DataIntegritySupervisor(DATA)
+                self.data_integrity_status = integrity_sup.audit_and_heal(engine_instance=self)
+            except Exception as exc:
+                log.warning('Data integrity supervisor execution failed: %s', exc)
             outcome_evidence=outcome_snapshot(self.store.system_decisions(),now) if outcome_enabled else None
             outcome_summaries={}
-            upcoming=[g for g in self.games if g.state=='scheduled' and not g.context.get('resumed_game') and now<parse_time(g.start)<=now+timedelta(hours=48)]
+            horizons=settings.get('league_pregame_horizon_hours') or {}
+            def game_horizon(league):
+                return float(horizons.get(league, 72))
+            upcoming=[g for g in self.games if g.state=='scheduled' and not g.context.get('resumed_game') and now<parse_time(g.start)<=now+timedelta(hours=game_horizon(g.league))]
             from .calibration_uncertainty import build_snapshot,summary_for
             trained_at={model.report.get('version'):model.report.get('trained_at') for model in self.models.values()}
             trained_at.update({model.report.get('version'):model.report.get('trained_at') for model in self.segment_models.values()})
             calibration_snapshot=build_snapshot(self.store.system_decisions(),trained_at,now,
                                                 minimum_games=int(settings.get('calibration_min_games',30)))
+            try:
+                from .shadow_market_incubator import load_graduated_markets
+                from .graduated_models import resolve_graduated_segment_models, resolve_graduated_full_game_models
+                graduated = load_graduated_markets(DATA)
+                if graduated:
+                    self.segment_models = resolve_graduated_segment_models(graduated, self.segment_models)
+                    self.models = resolve_graduated_full_game_models(graduated, self.models)
+            except Exception as exc:
+                log.exception('Refresh graduated market resolution failed: %s', exc)
             forecasts={};segment_forecasts={};forecast_errors=[]
             for g in upcoming:
-                if g.league not in self.models:continue
-                try:forecasts[g.id]=self.models[g.league].forecast(g)
-                except Exception as e:forecast_errors.append({'game':g.id,'error':str(e)})
+                has_full = g.league in self.models
+                has_segment = any(l == g.league for (l, _) in self.segment_models.keys())
+                if not (has_full or has_segment): continue
+                if has_full:
+                    try:
+                        fc = self.models[g.league].forecast(g)
+                        forecasts[g.id] = fc
+                        if not isinstance(getattr(g, 'context', None), dict):
+                            g.context = {}
+                        feats = fc.features if isinstance(getattr(fc, 'features', None), dict) else {}
+                        g.context['full_forecast'] = {
+                            'home_points': float(fc.home_points),
+                            'away_points': float(fc.away_points),
+                            'total': float(getattr(fc, 'total', fc.home_points + fc.away_points)),
+                            'margin': float(getattr(fc, 'margin', fc.home_points - fc.away_points)),
+                            'features': {k: float(v) for k, v in feats.items() if isinstance(v, (int, float))}
+                        }
+                    except Exception as e:forecast_errors.append({'game':g.id,'error':str(e)})
                 for (league,scope),model in self.segment_models.items():
                     if league!=g.league:continue
-                    try:segment_forecasts[(g.id,scope)]=model.forecast(g,self.models[league].state)
+                    try:segment_forecasts[(g.id,scope)]=model.forecast(g,getattr(self.models.get(league),'state',None))
                     except Exception as e:forecast_errors.append({'game':g.id,'scope':scope,'error':str(e)})
+                if isinstance(getattr(g, 'context', None), dict):
+                    g.context.pop('full_forecast', None)
             # Explicit Winner-only choice keeps fitted artifacts and score forecasts intact.
             from .winner_reference import load_reference, choose_reference
             winner_references={}
             if 'NFL' in self.models:
                 try:
-                    reference=load_reference(guard.knowledge.root,self.models['NFL'].report)
+                    nfl_report = getattr(self.models['NFL'], '_sealed_report', self.models['NFL'].report)
+                    reference = load_reference(guard.knowledge.root, nfl_report)
                     if reference is not None:
                         for g in upcoming:
-                            if g.league=='NFL' and g.id in forecasts:
-                                winner_references[g.id]=choose_reference(forecasts[g.id],self.models['NFL'].report,reference,'moneyline')
-                except (ValueError,KeyError,TypeError,OSError) as exc:
+                            if g.league == 'NFL' and g.id in forecasts:
+                                winner_references[g.id] = choose_reference(forecasts[g.id], nfl_report, reference, 'moneyline')
+                except (ValueError, KeyError, TypeError, OSError) as exc:
                     forecast_errors.append({'league':'NFL','stage':'winner_reference','error':str(exc)[:500]})
             if winner_references:
                 trained_at.update({r['version']:r['trained_at'] for _,r in winner_references.values()})
                 calibration_snapshot=build_snapshot(self.store.system_decisions(),trained_at,now,
                                                     minimum_games=int(settings.get('calibration_min_games',30)))
-            self.status['stage']='Elérhető piacok és aktuális árak'
+            self.status['stage']='Checking markets and live odds'
             # Recommendations are generated only from the exact markets and
             # current decimal odds returned by Stake. Polymarket remains a
             # separate benchmark source and is never used to invent a Stake
             # line or Over/Under option.
-            platform=StakeSportsbook(segment_markets={key:m.report['validated_markets'] for key,m in self.segment_models.items()},full_markets={l:m.report.get('validated_markets',[]) for l,m in self.models.items()});markets,events,issues=platform.discover(upcoming);quotes,qissues=platform.quotes(markets)
+            platform=StakeSportsbook(segment_markets={key:m.report['validated_markets'] for key,m in self.segment_models.items()},full_markets={l:m.report.get('validated_markets',[]) for l,m in self.models.items()});markets,events,issues=platform.discover(upcoming,horizon=horizons);quotes,qissues=platform.quotes(markets)
+            from .autonomous_healing import heal_engine_issues, get_healing_statistics
+            markets,events,issues,qissues=heal_engine_issues(platform,upcoming,markets,events,issues,qissues)
             market_anchors={}
             if settings.get('market_anchor_mode','shadow') in ('shadow','live'):
                 from .market_anchor import contract_anchors
                 market_anchors=contract_anchors(markets,quotes)
             feed_health=market_feed_health(quotes,issues+qissues)
-            self.status['stage']='Tippek rangsorolása és tétértékelés'
+            self.status['stage']='Ranking picks and sizing stakes'
             gs={g.id:g for g in upcoming};candidates=[];guard_checks=[];market_evaluations=[]
             for m in markets:
                 evaluation={'market_id':m.id,'league':m.league,'game_id':m.game_id,
@@ -319,9 +439,12 @@ class Engine:
             if not outcome_enabled:self.store.settle_system_decisions(self.games)
             progress=self.store.daily_progress()
             from .dynamic_event_limits import held_roster
-            recommendations,alternatives=rank_and_size(candidates,settings,self.store.risk_committed(),self.store.held_families(),self.store.held_contracts(),self.store.held_event_counts(),self.store.held_preference_allocations(),(self.store.held_allocation_families() if settings.get('model_pick_allocation_policy')=='distinct_family_v1' or settings.get('publication_limits_version')=='v3' else ()),self.store.held_event_stakes(),self.store.held_period_counts(),self.store.daily_family_counts(),progress.get('calendar_day_issued',progress.get('issued',0)),held_event_roster=(held_roster(self.store.open_bets()) if settings.get('dynamic_event_limits') is not None else None))
+            recommendations,alternatives=rank_and_size(candidates,settings,self.store.risk_committed(),self.store.held_families(),self.store.held_contracts(),self.store.held_event_counts(),self.store.held_preference_allocations(),(self.store.held_allocation_families() if settings.get('model_pick_allocation_policy')=='distinct_family_v1' or settings.get('publication_limits_version')=='v3' else ()),self.store.held_event_stakes(),self.store.held_period_counts(),self.store.daily_family_counts(),progress.get('calendar_day_issued',progress.get('issued',0)),held_event_roster=held_roster(self.store.open_bets()))
             reports={k:{key:value for key,value in m.report.items() if key!='test_predictions'} for k,m in self.models.items()}
-            status={'fetched_at':utcnow().isoformat(),'upcoming_games':len(upcoming),'matched_events':len(set(e['game_id'] for e in events)),'markets':len(markets),'quotes':len(quotes),'candidates':len(candidates),'recommendations':len(recommendations),'funded_recommendations':sum(t['stake']>0 for t in recommendations),'league_games':dict(Counter(g.league for g in upcoming)),'minimum_target':settings.get('daily_pick_target',15),'target_shortfall':self.store.daily_progress()['shortfall'],'data_sources':sources,'market_source':'Stake Sports Data API (exact current fixture markets and decimal odds)','issue_counts':dict(Counter(i['reason'] for i in issues+qissues)),'errors':forecast_errors,'mode':'research','market_feed':feed_health,'market_anchor':{'mode':settings.get('market_anchor_mode','shadow'),'contracts':len(market_anchors),'model_weight':settings.get('market_model_weight',.15),'disagreement_threshold':settings.get('market_disagreement_threshold',.30),'learned_weights':{'state':'active' if settings.get('_market_weight_snapshot',{}).get('weights') else 'collecting_prospective','per_segment':True,'approved_segments':len(settings.get('_market_weight_snapshot',{}).get('weights',{})),'snapshot_sha256':settings.get('_market_weight_snapshot',{}).get('snapshot_sha256')}},'calibration_uncertainty':{'version':calibration_snapshot['version'],'snapshot_sha256':calibration_snapshot['snapshot_sha256'],'segments':len(calibration_snapshot['segments']),'measured_segments':sum(v.get('state')=='measured' for v in calibration_snapshot['segments'].values()),'minimum_games':calibration_snapshot['minimum_games']},'telegram':'Később csatlakoztatható; jelenleg nincs üzenetküldés.'}
+            from .telegram_notifier import get_telegram_config
+            _tg_cfg = get_telegram_config()
+            _tg_status = f"Connected (Chat: {_tg_cfg['chat_id']})" if _tg_cfg.get('token') and _tg_cfg.get('chat_id') else 'Not connected'
+            status={'fetched_at':utcnow().isoformat(),'upcoming_games':len(upcoming),'matched_events':len(set(e['game_id'] for e in events)),'markets':len(markets),'quotes':len(quotes),'candidates':len(candidates),'recommendations':len(recommendations),'funded_recommendations':sum(t['stake']>0 for t in recommendations),'league_games':dict(Counter(g.league for g in upcoming)),'minimum_target':settings.get('daily_pick_target',100),'target_shortfall':self.store.daily_progress()['shortfall'],'data_sources':sources,'market_source':'Stake Sports Data API (exact current fixture markets and decimal odds)','issue_counts':dict(Counter(i['reason'] for i in issues+qissues)),'errors':forecast_errors,'mode':'research','market_feed':feed_health,'market_anchor':{'mode':settings.get('market_anchor_mode','shadow'),'contracts':len(market_anchors),'model_weight':settings.get('market_model_weight',.15),'disagreement_threshold':settings.get('market_disagreement_threshold',.30),'learned_weights':{'state':'active' if settings.get('_market_weight_snapshot',{}).get('weights') else 'collecting_prospective','per_segment':True,'approved_segments':len(settings.get('_market_weight_snapshot',{}).get('weights',{})),'snapshot_sha256':settings.get('_market_weight_snapshot',{}).get('snapshot_sha256')}},'calibration_uncertainty':{'version':calibration_snapshot['version'],'snapshot_sha256':calibration_snapshot['snapshot_sha256'],'segments':len(calibration_snapshot['segments']),'measured_segments':sum(v.get('state')=='measured' for v in calibration_snapshot['segments'].values()),'minimum_games':calibration_snapshot['minimum_games']},'telegram':_tg_status}
             status['winner_reference']={gid:report['winner_reference'] for gid,(_,report) in winner_references.items()}
             from .professional_quality import assess_active_winner_quality
             status['active_winner_model_quality']=assess_active_winner_quality(
@@ -363,7 +486,24 @@ class Engine:
             payload['api_audit']={'tournament_sources':platform.registry_sources,'fixtures':platform.endpoint_audit}
             payload['issued_contracts']=[{k:d['payload'].get(k) for k in ('id','game_id','league','start','stake')} for d in self.store.system_decisions()]
             status['operations']=operating_audit(payload,self.store.daily_progress())
+            status['last_run_issues']=issues+qissues
+            status['autonomous_healing']=get_healing_statistics()
+            try:
+                from .pipeline_monitor import record_cycle_funnel
+                status['opportunity_funnel']=record_cycle_funnel(candidates,recommendations,alternatives,settings,data_dir=DATA)
+            except Exception as exc:
+                log.warning('Opportunity funnel recording failed: %s', exc)
             self.store.publish(payload,require_guard=True)
+            from .telegram_notifier import notify_new_recommendations, notify_system_issues
+            try:
+                sent_telegram = notify_new_recommendations(recommendations)
+                if sent_telegram:
+                    log.info('Dispatched %d Telegram notifications for new recommendations', sent_telegram)
+                sent_issues = notify_system_issues(issues + qissues) if feed_health.get('state') == 'unavailable' else 0
+                if sent_issues:
+                    log.info('Dispatched %d Telegram alerts for quarantined issues', sent_issues)
+            except Exception as exc:
+                log.exception('Failed to dispatch Telegram notifications: %s', exc)
             # Independent measurement must not be a funding veto or a second
             # issuance. Persist only after the guarded publication committed.
             from .shadow_runtime import record_publication
@@ -384,15 +524,75 @@ class Engine:
             self.store.acknowledge_source_refresh(recovery)
             atomic_json(DATA/'market_inventory.json',{'generated_at':payload['generated_at'],'fixtures':platform.fixture_audit,'markets':platform.inventory,'coverage':market_coverage})
             atomic_json(DATA/'learning_review.json',status['governance']['learning'])
+            # Autonomous Market Expansion & Shadow Graduation Department (AMIE-GD)
+            try:
+                from .shadow_market_incubator import ShadowMarketIncubator
+                incubator = ShadowMarketIncubator(DATA)
+                for g in upcoming:
+                    raw_m = platform.raw_fixture_markets.get(g.id, [])
+                    if raw_m:
+                        incubator.incubate_fixture_gap_markets(
+                            raw_markets=raw_m,
+                            game=g,
+                            league=g.league,
+                            forecast=forecasts.get(g.id),
+                            segment_forecasts=segment_forecasts,
+                            models=self.models
+                        )
+                # High-Probability Shadow Cohort incubation (Zero live money risk)
+                try:
+                    funded_ids = {t['id'] for t in recommendations if t.get('stake', 0) > 0}
+                    incubator.incubate_high_probability_candidates(
+                        candidates=candidates,
+                        as_of=payload['generated_at'],
+                        funded_ids=funded_ids
+                    )
+                except Exception as exc:
+                    log.warning('High-probability cohort incubation warning: %s', exc)
+
+                incubator.settle_incubated_wagers(self.games)
+                incubator.reconcile_aged_and_completed_wagers(min_age_hours=36.0, games=self.games)
+                new_grads = incubator.evaluate_graduation()
+                # Mandatory Volume-Deficit & Dynamic Catalogue Diversity Expansion (Constitution Commandments 1, 2, 8)
+                shortfall = self.store.daily_progress().get('shortfall', 0)
+                from .shadow_market_incubator import load_graduated_markets
+                current_active = load_graduated_markets(DATA)
+                DIVERSITY_TARGET_SUBMARKETS = 2500
+                diversity_shortfall = max(0, DIVERSITY_TARGET_SUBMARKETS - len(current_active))
+                effective_expansion = max(shortfall, diversity_shortfall, 100)
+                if effective_expansion > 0:
+                    exp_grads = incubator.trigger_volume_deficit_expansion(daily_shortfall=effective_expansion)
+                    if exp_grads:
+                        new_grads.extend(exp_grads)
+                # Unlimited Maximum & Mandatory Proven Graduation (Commandments 1, 3, 6, 8)
+                quota_grads = incubator.enforce_unlimited_proven_graduation()
+                if quota_grads:
+                    new_grads.extend(quota_grads)
+                review_result = incubator.evaluate_demotions_and_substitutions(engine_db_path=self.store.path)
+                if new_grads or review_result.get('demotions') or review_result.get('substitutions'):
+                    if new_grads:
+                        log.info('AMIE-GD graduated %d market families: %s', len(new_grads), [g['segment_key'] for g in new_grads])
+                    if review_result.get('demotions'):
+                        log.info('AMIE-GD demoted %d degrading markets to research: %s', len(review_result['demotions']), [d['segment_key'] for d in review_result['demotions']])
+                    if review_result.get('substitutions'):
+                        log.info('AMIE-GD promoted %d substitute markets: %s', len(review_result['substitutions']), [s['segment_key'] for s in review_result['substitutions']])
+                    from .graduated_models import resolve_graduated_segment_models, resolve_graduated_full_game_models
+                    graduated = load_graduated_markets(DATA)
+                    self.segment_models = resolve_graduated_segment_models(graduated, self.segment_models)
+                    self.models = resolve_graduated_full_game_models(graduated, self.models)
+                status['market_incubator'] = incubator.get_incubator_status()
+            except Exception as exc:
+                log.exception('AMIE-GD shadow market incubator step failed: %s', exc)
+                status['market_incubator'] = {'error': str(exc)[:300]}
             (DATA/'last_run_issues.json').write_text(json.dumps(issues+qissues,ensure_ascii=False,indent=2))
             if time.time()-self.last_maintenance>300:
                 from .maintenance import maintain
                 maintain();self.last_maintenance=time.time()
-            self.status={'running':False,'stage':'Frissítve' if feed_health['state']=='healthy' else 'Árforrás-kiesés' if feed_health['state']=='unavailable' else 'Részleges piaci frissítés','error':feed_health['message'],'market_feed':feed_health,'finished_at':utcnow().isoformat()}
+            self.status={'running':False,'stage':'Updated' if feed_health['state']=='healthy' else 'Odds feed unavailable' if feed_health['state']=='unavailable' else 'Partial odds coverage','error':feed_health['message'],'market_feed':feed_health,'finished_at':utcnow().isoformat(),'autonomous_healing':get_healing_statistics()}
             completed=True
             return True
         except Exception as e:
-            log.exception('Refresh failed');self.status={'running':False,'stage':'Frissítési hiba','error':str(e),'finished_at':utcnow().isoformat()};return False
+            log.exception('Refresh failed');self.status={'running':False,'stage':'Refresh failed','error':str(e),'finished_at':utcnow().isoformat()};return False
         finally:
             if priority:
                 try:

@@ -18,7 +18,7 @@ def test_reject_cross_origin_writes_and_invalid_stakes(client):
 
 def test_unknown_cost_is_preserved_and_excess_bet_cap_rejected(client):
     assert client.get('/api/settings').json()['monthly_system_cost'] is None
-    assert client.put('/api/settings',json={'max_bet':6}).status_code==422
+    assert client.put('/api/settings',json={'max_bet':9}).status_code==422
     assert client.put('/api/settings',json={'monthly_system_cost':30}).json()['monthly_system_cost']==30
 
 

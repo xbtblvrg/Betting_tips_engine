@@ -96,12 +96,15 @@ are reread here. A concurrent ticket cannot leave a stale allocation funded.
         # the actual USD amount and all exposure inputs remain identical.
         volatile = {'maximum_stake', 'note'}
         sizing_matches = (set(reproduced) | set(recorded)) - volatile
-        def comparable(sizing,key):
-            value=sizing.get(key)
-            if key=='outcome_adjustment' and isinstance(value,dict):
-                # The same effective remaining budget is diagnostic here;
-                # amount, base amount, factor and source must still replay.
-                value={k:v for k,v in value.items() if k not in ('caps','base_note')}
+        def comparable(sizing, key):
+            value = sizing.get(key)
+            if key == 'outcome_adjustment' and isinstance(value, dict):
+                # The effective remaining/event budget is diagnostic here;
+                # adjusted_amount, base_amount, policy, segment, and source must still replay.
+                return {k: v for k, v in value.items() if k not in ('caps', 'base_note', 'requested_amount', 'factor')}
+            if key == 'minimum_ticket_floor' and isinstance(value, dict):
+                # available_cap depends on residual event budget; floor amount and version must replay.
+                return {k: v for k, v in value.items() if k not in ('available_cap',)}
             return value
         if (any(comparable(reproduced,key) != comparable(recorded,key) for key in sizing_matches)
                 or reproduced['amount'] != tip['stake']):

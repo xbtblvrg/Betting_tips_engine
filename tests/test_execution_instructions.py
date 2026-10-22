@@ -11,7 +11,7 @@ from betting_engine.instructions import current_execution_review, instruction_re
 from test_governance import guard_case
 
 
-def reviewed_tip(*, probability=.72, odds=2., start=None, held=False, model_version='v', unit=1., cap=5.,
+def reviewed_tip(*, probability=.72, odds=2., start=None, held=False, model_version='v', unit=None, cap=None,
                  market_kind='moneyline', side='home', line=None):
     _, game, market, quote, forecast, report, settings = guard_case()
     if start is not None:
@@ -24,8 +24,10 @@ def reviewed_tip(*, probability=.72, odds=2., start=None, held=False, model_vers
     market.metadata['stake_odds'] = odds
     forecast.market_probability = lambda *args: (probability, 0.)
     forecast.model_version = report['version'] = model_version
-    settings['unit_stake'] = unit
-    settings['max_bet'] = cap
+    if unit is not None:
+        settings['unit_stake'] = unit
+    if cap is not None:
+        settings['max_bet'] = cap
     tip = candidate(game, market, quote, forecast, settings)
     tip['stake_evidence'] = {'fixture_slug': 'exact-fixture', 'market_name': market.description,
         'outcome_name': market.selection, 'decimal_odds': odds, 'fetched_at': quote.fetched_at}

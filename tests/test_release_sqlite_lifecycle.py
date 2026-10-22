@@ -166,7 +166,8 @@ after = count()
 assert after == before, (before, after)
 print(json.dumps({'iterations': 400, 'fd_before': before, 'fd_after': after, 'limit': limit}))
 '''
-    env = {**os.environ, 'PYTHONDONTWRITEBYTECODE': '1'}
+    src_dir = str(Path(__file__).resolve().parents[1] / 'src')
+    env = {**os.environ, 'PYTHONDONTWRITEBYTECODE': '1', 'PYTHONPATH': f"{src_dir}:{os.environ.get('PYTHONPATH', '')}".rstrip(':')}
     result = subprocess.run([sys.executable, '-c', script, str(tmp_path)], capture_output=True,
                             text=True, env=env, timeout=30)
     assert result.returncode == 0, result.stdout + result.stderr

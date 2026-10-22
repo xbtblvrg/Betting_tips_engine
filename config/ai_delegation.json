@@ -1,10 +1,16 @@
 {
-  "version": "2026-09-29.1",
+  "version": "2026-10-06.1",
   "enabled": true,
-  "primary": "codex",
-  "developer": "codex",
-  "final_reviewer": "codex",
+  "primary": "agy",
+  "developer": "agy",
+  "final_reviewer": "agy",
   "providers": {
+    "codex": {
+      "enabled": true,
+      "binary": "/Users/belavarga/.local/bin/codex",
+      "model": "gpt-6-astra",
+      "role": "secondary"
+    },
     "claude": {
       "enabled": true,
       "binary": "/Users/belavarga/.local/bin/claude",
@@ -14,7 +20,7 @@
     "agy": {
       "enabled": true,
       "binary": "/Users/belavarga/.local/bin/agy",
-      "role": "primary_fallback",
+      "role": "primary",
       "model": "gemini-3.8-flash-high"
     },
     "grok": {
@@ -25,7 +31,7 @@
       "reported_model": "grok-4.7-build"
     }
   },
-  "authority": "Advisory only; Codex retains implementation, validation, final review and release decisions.",
+  "authority": "Google Antigravity (agy) is the primary quant brain, lead developer and final supervisor; Codex serves as deputy and secondary. agy delegates bounded tasks to Codex in a controlled manner; agy retains implementation, validation, final review and release decisions.",
   "max_helper_seconds": 90,
   "max_successful_helpers_per_attempt": 2,
   "failure_retry_seconds": 3600,
@@ -34,11 +40,11 @@
   "parallel_advisory_streams": 2,
   "temporary_primary_exception": {
     "configuration": "config/provider_recovery.json",
-    "when": "Verified GPT unavailability after earned reset recovery where eligible",
+    "when": "Verified provider quota/unavailability recovery where eligible",
     "provider": "agy",
     "model": "gemini-3.8-flash-high",
-    "secondary_fallback_provider": "claude",
-    "secondary_fallback_model": "claude-opus-5-5",
-    "scope": "Isolated structured-edit candidate implementation/review only; standard helper calls remain advisory; final production review Codex."
+    "secondary_fallback_provider": "codex",
+    "secondary_fallback_model": "gpt-6-astra",
+    "scope": "Google Antigravity agy leads candidate implementation and review; helper/deputy calls remain advisory; final production review agy."
   }
 }

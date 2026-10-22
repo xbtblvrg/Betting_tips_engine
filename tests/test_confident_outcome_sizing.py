@@ -69,3 +69,54 @@ def test_positive_ev_underdog_earns_confidence_sizing():
     assert underdog_neg['amount'] == 1.0
     assert underdog_neg['outcome_adjustment']['probability_strength'] == 0.0
 
+
+def test_alpha_acceleration_and_capital_defense():
+    wins = [decision(i) for i in range(10)]
+    losses = [decision(i, 'lost') for i in range(10)]
+    
+    # Capital defense active: losing segment clamps strictly to $1.00
+    tip_loss = {**decision('new')['payload'], 'probability': .8,
+                'market_anchor': {'status': 'usable', 'model_probability': .8, 'market_probability': .8, 'disagreement_threshold': .3},
+                'input_readiness': {'passed': True, 'state': 'ready', 'checks': {'model_features': {'required': 10, 'missing': [], 'invalid': []}}}}
+    tip_loss['outcome_sizing_evidence'] = summary_for(build_snapshot(losses, AS_OF), tip_loss)
+    clamped = apply_adjustment({'amount': 1., 'maximum_stake': 5, 'event_discount': 1},
+                               tip_loss, {'outcome_sizing_policy': POLICY_V3, 'capital_defense': True}, 5)
+    assert clamped['amount'] == 1.0
+
+    # Alpha acceleration active: proven winning segment scales up to $2.50 - $5.00
+    tip_win = {**decision('new')['payload'], 'probability': .8,
+               'market_anchor': {'status': 'usable', 'model_probability': .8, 'market_probability': .8, 'disagreement_threshold': .3},
+               'input_readiness': {'passed': True, 'state': 'ready', 'checks': {'model_features': {'required': 10, 'missing': [], 'invalid': []}}}}
+    tip_win['outcome_sizing_evidence'] = summary_for(build_snapshot(wins, AS_OF), tip_win)
+    accelerated = apply_adjustment({'amount': 1., 'maximum_stake': 5, 'event_discount': 1},
+                                   tip_win, {'outcome_sizing_policy': POLICY_V3, 'alpha_acceleration': True}, 5)
+    assert accelerated['amount'] >= 2.50 and accelerated['amount'] <= 5.0
+
+
+def test_totals_and_preseason_defense_blocks_over_sizing():
+    wins = [decision(i, market='totals') for i in range(10)]
+    
+    # Totals market with winning history: under capital defense, must clamp to $1.00
+    tip_totals = {**decision('new', market='totals')['payload'], 'probability': .8,
+                  'market_anchor': {'status': 'usable', 'model_probability': .8, 'market_probability': .8, 'disagreement_threshold': .3},
+                  'input_readiness': {'passed': True, 'state': 'ready', 'checks': {'model_features': {'required': 10, 'missing': [], 'invalid': []}}}}
+    tip_totals['outcome_sizing_evidence'] = summary_for(build_snapshot(wins, AS_OF), tip_totals)
+    
+    totals_sized = apply_adjustment({'amount': 1., 'maximum_stake': 5, 'event_discount': 1},
+                                    tip_totals, {'outcome_sizing_policy': POLICY_V3, 'capital_defense': True, 'alpha_acceleration': True}, 5)
+    assert totals_sized['amount'] == 1.0
+    assert totals_sized['outcome_adjustment']['caps'].get('totals_defense_clamp') == 1.0
+
+    # Preseason match: must clamp to $1.00 even for moneyline with winning history
+    tip_preseason = {**decision('new')['payload'], 'probability': .8, 'game_type': 'preseason',
+                     'market_anchor': {'status': 'usable', 'model_probability': .8, 'market_probability': .8, 'disagreement_threshold': .3},
+                     'input_readiness': {'passed': True, 'state': 'ready', 'checks': {'model_features': {'required': 10, 'missing': [], 'invalid': []}}}}
+    tip_preseason['outcome_sizing_evidence'] = summary_for(build_snapshot([decision(i) for i in range(10)], AS_OF), tip_preseason)
+    
+    preseason_sized = apply_adjustment({'amount': 1., 'maximum_stake': 5, 'event_discount': 1},
+                                       tip_preseason, {'outcome_sizing_policy': POLICY_V3, 'alpha_acceleration': True}, 5)
+    assert preseason_sized['amount'] == 1.0
+    assert preseason_sized['outcome_adjustment']['caps'].get('preseason_clamp') == 1.0
+
+
+

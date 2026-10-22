@@ -1,0 +1,215 @@
+{
+  "task": "F0026",
+  "mode": "offline_experimental_candidate",
+  "public_bundle": {
+    "manifest_sha256": "e163ec9ac7f32e9c53a3efd37e967d6aaeff84a7f0bfefb779c3b8b694710904",
+    "verified_files": 24,
+    "copied_sources": 12,
+    "nfl_native_schema": [
+      {
+        "url": "https://github.com/nflverse/nflverse-data/releases/download/pbp/play_by_play_2026.parquet",
+        "source_sha256": "54876e2239cbd90787616329bd47ef1e738e246f104f2813ec0b4e110def1a91",
+        "observed_at": "2026-09-30T05:15:58.883885+00:00",
+        "rows": 8311,
+        "columns": 372,
+        "fields_inspected": [
+          "play_id",
+          "game_id",
+          "posteam",
+          "game_date",
+          "time",
+          "play_type",
+          "qb_kneel",
+          "qb_scramble",
+          "rusher_player_id",
+          "rushing_yards"
+        ],
+        "first_row": {
+          "play_id": 1.0,
+          "game_id": "2026_01_ARI_LAC",
+          "posteam": null,
+          "game_date": "2026-09-13",
+          "time": "15:00",
+          "play_type": null,
+          "qb_kneel": 0.0,
+          "qb_scramble": 0.0,
+          "rusher_player_id": null,
+          "rushing_yards": null
+        },
+        "used_for_fit": false,
+        "current_participation_verified": false
+      },
+      {
+        "url": "https://github.com/nflverse/nflverse-data/releases/download/pbp/play_by_play_2024.parquet",
+        "source_sha256": "3fd2896bc0b911b615142d2f1fabae54a4bbba5ab7b73b28187b118ef8af6a3b",
+        "observed_at": "2026-09-29T12:19:50.136894+00:00",
+        "rows": 49492,
+        "columns": 372,
+        "fields_inspected": [
+          "play_id",
+          "game_id",
+          "posteam",
+          "game_date",
+          "time",
+          "play_type",
+          "qb_kneel",
+          "qb_scramble",
+          "rusher_player_id",
+          "rushing_yards"
+        ],
+        "first_row": {
+          "play_id": 1.0,
+          "game_id": "2024_01_ARI_BUF",
+          "posteam": null,
+          "game_date": "2024-09-08",
+          "time": "15:00",
+          "play_type": null,
+          "qb_kneel": 0.0,
+          "qb_scramble": 0.0,
+          "rusher_player_id": null,
+          "rushing_yards": null
+        },
+        "used_for_fit": false,
+        "current_participation_verified": false
+      },
+      {
+        "url": "https://github.com/nflverse/nflverse-data/releases/download/pbp/play_by_play_2025.parquet",
+        "source_sha256": "c6ecedd6d678cc37ed316b23ef84ee1ec6abb69c514bb11868a7ebd5a367df29",
+        "observed_at": "2026-09-29T12:19:49.975954+00:00",
+        "rows": 48771,
+        "columns": 372,
+        "fields_inspected": [
+          "play_id",
+          "game_id",
+          "posteam",
+          "game_date",
+          "time",
+          "play_type",
+          "qb_kneel",
+          "qb_scramble",
+          "rusher_player_id",
+          "rushing_yards"
+        ],
+        "first_row": {
+          "play_id": 1.0,
+          "game_id": "2025_01_ARI_NO",
+          "posteam": null,
+          "game_date": "2025-09-07",
+          "time": "15:00",
+          "play_type": null,
+          "qb_kneel": 0.0,
+          "qb_scramble": 0.0,
+          "rusher_player_id": null,
+          "rushing_yards": null
+        },
+        "used_for_fit": false,
+        "current_participation_verified": false
+      }
+    ]
+  },
+  "history": {
+    "manifest_sha256": "37d168526d11216ed4b59d4614ba9aade02ef713e26efc4c0a5aeeeedbf34e51",
+    "verified_files": 4,
+    "total_rows": 550729,
+    "nfl_rows": 41697,
+    "rushing_yards": {
+      "integral": 41697,
+      "negative": 339,
+      "zero": 36741
+    },
+    "identity_namespaces": [
+      "nflverse-gsis"
+    ],
+    "stat_scopes": [
+      "full_game_including_overtime"
+    ],
+    "unknown_source_publication_rows": 41697,
+    "availability_note": "Retrospective collector observations do not authenticate pregame availability or current participation."
+  },
+  "model": {
+    "artifact_index_sha256": "02c1ac891e4f53a4f4273bd9c2d9ac97acbd3a39e81fb37cba3601bd6d10c907",
+    "model_sha256": "0d95d366e26bc6ea43cab7b42af12cc20904fa47e465ebae5c8da5bac5497fbb",
+    "plan_sha256": "0fdf48ddd3b9557ec86b515b6e79c5362e56cb514fc81a4ddfe6bbae430c7c6b",
+    "input_sha256": "d5624e9e4ab27f3050a7c80435cf9aa955d3c9334e043190b89232c33b9c2b5a",
+    "selected_recipe": "player_laplace",
+    "scale": 2.840967521187697,
+    "split_counts": {
+      "selection": {
+        "first_start": "2025-09-05T00:20:00+00:00",
+        "games": 285,
+        "last_start": "2026-02-08T23:30:00+00:00",
+        "rows": 19400
+      },
+      "test": {
+        "first_start": "2026-09-10T00:20:00+00:00",
+        "games": 48,
+        "last_start": "2026-09-29T00:15:00+00:00",
+        "rows": 3336
+      },
+      "train": {
+        "first_start": "2024-09-06T00:20:00+00:00",
+        "games": 285,
+        "last_start": "2025-02-09T23:30:00+00:00",
+        "rows": 18961
+      }
+    },
+    "validation_reasons": [
+      "retrospective_study_only",
+      "historical_availability_not_authenticated",
+      "identity_not_observed_before_fit_cutoff",
+      "observation_not_available_before_fit_cutoff",
+      "publication_time_unknown"
+    ],
+    "new_fit": false,
+    "discretization_validated": false,
+    "outer_test_used_to_select_or_tune": false
+  },
+  "knowledge_cards": {
+    "knowledge/cards/K01-valoszinuseg-ar-ev.md": "c3f0541824ecda19d7889d13aa9bd226c715cd91e8d4ec2e1919e8c8074d06db",
+    "knowledge/cards/K03-adat-ido-forras.md": "a71af120097072161a042f04257cb6f4ebc617e34ff43c19588ca313148b1d9a",
+    "knowledge/cards/K08-validacio.md": "951ffe80c87fd491bfeece567c31a86a78371087fcf8b16297422ecadd624bd3",
+    "knowledge/cards/K06-nfl.md": "fc4be2367d0c598825dcfd7e73205e1da06ba55611ef87df9a7835f42eddd111"
+  },
+  "production_supported": false,
+  "current_participation_verified": false,
+  "issued_instructions": 0,
+  "real_offers_evaluated": 0,
+  "measured_profit": null,
+  "source_publication_times_invented": false,
+  "helper_reviews": [],
+  "verification": {
+    "new_tests": {
+      "passed": 95,
+      "seconds": 16.24
+    },
+    "existing_python_api_tests": {
+      "passed": 362,
+      "seconds": 45.42,
+      "warnings": [
+        "Existing Starlette/httpx deprecation"
+      ]
+    },
+    "frontend_dom_tests": {
+      "passed": 40,
+      "seconds": 7.839657333
+    },
+    "initial_new_test_failure": "Symlink rejection test reused an obsolete index pin; corrected only the new test fixture. Final full new-file run passed.",
+    "independent_controller_review": "pending",
+    "live_publication": "not_accessed_or_verified"
+  },
+  "preservation": {
+    "original_files_checked": 299,
+    "original_test_files_checked": 99,
+    "changed_original_files": [],
+    "new_files": [
+      "docs/F0026_PLAYER_YARD_EVIDENCE.json",
+      "docs/F0026_PLAYER_YARD_PROBABILITY.md",
+      "src/betting_engine/player_yard_probability.py",
+      "tests/test_f0026_player_yard_probability.py"
+    ]
+  },
+  "implementation_sha256": {
+    "src/betting_engine/player_yard_probability.py": "8047f4f77609212aa7182262c2af67bdfff56686f135ced09a14e0c9527ba216",
+    "tests/test_f0026_player_yard_probability.py": "df2ebcec498ba40ae9e002a45b1bc749fe311b34982e37ef4c0e3ea9afc096b7"
+  }
+}

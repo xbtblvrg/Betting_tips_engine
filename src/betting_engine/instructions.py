@@ -88,7 +88,7 @@ def current_execution_review(tip, now, minimum_roi, sizing_settings=None):
             return _denied('invalid_values', 'The model, quote or allocation contains invalid values.')
         p, stress, push, odds = (tip[k] for k in ('probability', 'stress_probability', 'push_probability', 'reference_odds'))
         if (not 0 <= stress <= p <= 1 or not 0 <= push <= 1 or p + push > 1 + 1e-9 or odds <= 1
-                or (tip['stake'] != 0 and not 1 <= tip['stake'] <= 5)
+                or (tip['stake'] != 0 and not 0.5 <= tip['stake'] <= 8)
                 or (tip.get('line') is not None and not _finite(tip['line']))
                 or not tip.get('model_version') or guard.get('model', {}).get('version') != tip['model_version']):
             return _denied('invalid_values', 'The model, quote or allocation is inconsistent.')
@@ -169,9 +169,10 @@ def _original_budget(original, issued_at):
     if guard.get('passed') is not True or not fresh_quote(original, issued_at):
         raise ValueError('Original issuance was not reviewed while fresh')
     sizing = original['stake_sizing']
+    max_stake_cap = max(5.0, float((guard.get('sizing_settings') or {}).get('max_bet', 8.0)))
     if (sizing['version'] not in ('stress-kelly-unit-v1', 'stress-kelly-unit-v2', 'model-pick-unit-v1', 'model-pick-unit-v2', 'model-pick-unit-v3', 'probability-pick-unit-v1', 'probability-pick-unit-v3')
             or sizing['amount'] != original['stake'] or not _finite(sizing['maximum_stake'])
-            or not original['stake'] <= sizing['maximum_stake'] <= 5
+            or not original['stake'] <= sizing['maximum_stake'] <= max_stake_cap
             or any(not _finite(sizing[k]) or not _finite(original[k])
                    or not math.isclose(sizing[k], original[k], abs_tol=1e-9, rel_tol=0)
                    for k in ('stress_probability', 'push_probability', 'stress_roi'))
@@ -192,11 +193,16 @@ def _original_budget(original, issued_at):
         from .funding_policy import funding_basis,size_recommendation
         settings['family_selection_policy']=guard.get('family_selection_policy','stressed_value_v1')
         settings.update(minimum_roi=guard['minimum_roi'],recommendation_policy=guard.get('recommendation_policy','strict'),model_pick_sizing_policy=guard.get('model_pick_sizing_policy','unit_cap_v1'),model_pick_allocation_policy=guard.get('model_pick_allocation_policy','one_per_game_v1'))
-        for key in ('fallback_clv_gate','clv_min_games','outcome_sizing_policy','family_selection_policy','min_odds'):
+        for key in ('fallback_clv_gate','clv_min_games','outcome_sizing_policy','family_selection_policy','min_odds','capital_defense','alpha_acceleration'):
             if key in guard.get('sizing_settings', {}): settings[key]=guard['sizing_settings'][key]
         if (settings['recommendation_policy']!='strict' or 'funding_basis' in original) and original.get('funding_basis')!=funding_basis(original,{**settings,'max_bet':guard['sizing_settings']['max_bet']}):
             raise ValueError('Original funding policy does not reproduce')
-        reproduced=size_recommendation(original,settings,sizing['maximum_stake'],sizing['related_contracts'])
+        rem_cap=sizing['maximum_stake']
+        if settings.get('alpha_acceleration') and sizing.get('outcome_adjustment',{}).get('caps',{}).get('remaining') is not None:
+            rem_cap=max(rem_cap,sizing['outcome_adjustment']['caps']['remaining'])
+        if settings.get('alpha_acceleration') and guard.get('sizing_settings',{}).get('max_bet'):
+            settings['max_bet']=max(settings['max_bet'],guard['sizing_settings']['max_bet'])
+        reproduced=size_recommendation(original,settings,rem_cap,sizing['related_contracts'])
     else:
         reproduced = stake_assessment(original['stress_probability'], original['push_probability'],
             original['reference_odds'], settings, sizing['maximum_stake'], sizing['related_contracts'])
@@ -223,6 +229,11 @@ def instruction_review(record, current, now, minimum_roi, related_contracts=None
             return _denied('started', 'The match has started. This pregame instruction is historical.')
         if original.get('tracking_source') != 'auto_assumed_placed':
             return _denied('already_recorded', 'This manually recorded bet is not a new betting instruction.')
+        if original.get('league') == 'CHALLENGER':
+            return _denied('challenger_tour_quarantined', 'Challenger tennis is 100% quarantined to research. Capital is reserved for ATP, WTA, and major sports.')
+        if original.get('league') in ('ATP', 'WTA'):
+            if '/' in str(original.get('home', '')) or '/' in str(original.get('away', '')):
+                return _denied('doubles_unsupported', 'Doubles tennis matches are not supported by the single-player Markov model.')
         review = current_execution_review(current, now, minimum_roi, sizing_settings)
         if review['state'] in ('current', 'value_below_threshold') and parse_time(current['quote_at']) < parse_time(original['quote_at']):
             return _denied('assessment_stale', 'The current quote predates the issued instruction. A newer exact-selection check is required.')
@@ -244,7 +255,7 @@ def instruction_review(record, current, now, minimum_roi, related_contracts=None
                 or original.get('model_scope', 'full_game') != current.get('model_scope', 'full_game')):
             return _denied('contract_changed', 'The current selection does not match the original exact recorded contract.')
         amount = record.get('stake')
-        if (not _finite(amount) or not 1 <= amount <= 5 or not _finite(original.get('stake'))
+        if (not _finite(amount) or not 0.5 <= amount <= 8 or not _finite(original.get('stake'))
                 or original.get('stake') != amount or not _finite(record.get('odds'))
                 or record.get('odds') != original.get('reference_odds')):
             return _denied('original_stake_unverified', 'The original single issued stake and odds do not validate.')
@@ -266,7 +277,17 @@ def instruction_review(record, current, now, minimum_roi, related_contracts=None
         if policy!='strict' or current['decision_guard'].get('outcome_sizing_policy','legacy')!='legacy':
             from .funding_policy import size_recommendation
             settings={**settings,'minimum_roi':minimum_roi,'recommendation_policy':policy,'model_pick_sizing_policy':current['decision_guard'].get('model_pick_sizing_policy','unit_cap_v1'),'model_pick_allocation_policy':current['decision_guard'].get('model_pick_allocation_policy','one_per_game_v1'),'family_selection_policy':current['decision_guard'].get('family_selection_policy','stressed_value_v1')}
-            supported=size_recommendation(current,settings,sizing['maximum_stake'],related)
+            for key in ('capital_defense', 'alpha_acceleration'):
+                if key in current['decision_guard'].get('sizing_settings', {}):
+                    settings[key] = current['decision_guard']['sizing_settings'][key]
+                elif sizing_settings is not None and key in sizing_settings:
+                    settings[key] = sizing_settings[key]
+            rem_cap=sizing['maximum_stake']
+            if settings.get('alpha_acceleration') and sizing.get('outcome_adjustment',{}).get('caps',{}).get('remaining') is not None:
+                rem_cap=max(rem_cap,sizing['outcome_adjustment']['caps']['remaining'])
+            if settings.get('alpha_acceleration') and current['decision_guard'].get('sizing_settings',{}).get('max_bet'):
+                settings['max_bet']=max(settings['max_bet'],current['decision_guard']['sizing_settings']['max_bet'])
+            supported=size_recommendation(current,settings,rem_cap,related)
         else:
             supported = stake_assessment(current['stress_probability'], current['push_probability'],
                 current['reference_odds'], settings, sizing['maximum_stake'], related)

@@ -42,7 +42,16 @@ class PeriodForecast:
     def market_probability(self,kind,side,line=None):
         scope,base=split_market(kind)
         if scope!=self.scope:raise ValueError('Forecast and market scopes differ')
-        h,a,w=self.scores;v=contract_value(base,side,line,h,a)
+        h,a,w=self.scores
+        if line is not None and round(float(line) * 2) != float(line) * 2 and base in ('spreads', 'totals'):
+            from .contracts import decompose_quarter_line
+            l1, l2 = decompose_quarter_line(line)
+            v1 = contract_value(base, side, l1, h, a)
+            v2 = contract_value(base, side, l2, h, a)
+            win_frac = ((v1 > 0).astype(float) + (v2 > 0).astype(float)) / 2.0
+            push_frac = ((v1 == 0).astype(float) + (v2 == 0).astype(float)) / 2.0
+            return float((w * win_frac).sum()), float((w * push_frac).sum())
+        v=contract_value(base,side,line,h,a)
         return float(w[v>0].sum()),float(w[v==0].sum())
     def public(self):
         return {**{k:v for k,v in self.__dict__.items() if k!='scores'},'margin':self.margin,'total':self.total,'model_probabilities':self.model_probabilities}

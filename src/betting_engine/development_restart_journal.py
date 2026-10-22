@@ -1,6 +1,6 @@
-"""Experimental, offline engine-restart intent journal; no service execution.
+"""Experimental, offline service-restart intent journal; no service execution.
 
-The caller supplies observations in the existing engine health/publication schema.
+The caller supplies observations in the existing service health schemas.
 Only a newly committed observation can return a new intent. Reopening never
 replays a command. An unacknowledged intent is uncertain and consumes cooldown.
 This module neither imports a service controller nor authenticates observations.
@@ -16,9 +16,14 @@ import uuid
 
 from .development_acceptance import _Archive, _check, _digest, _time
 from .development_recovery_drill import _directory, _json, _sync, _write
+from . import development_engine_health as engine_health
+from .development_worker_health import (
+    SERVICES, worker_disabled, worker_problem, worker_progress_after,
+)
 
 
 VERSION = "offline-engine-restart-journal-v1"
+WORKER_VERSION = "offline-worker-restart-journal-v1"
 MAX_EVENTS = 10000
 MAX_OBSERVATION_BYTES = 256 * 1024
 FAILURE_THRESHOLD = 3
@@ -42,38 +47,26 @@ def _payload(value):
 
 
 def _engine_problem(health, now):
-    """Existing engine watchdog semantics, with strict timestamp validation."""
-    try:
-        state = (health or {}).get("engine", {})
-        if not isinstance(state, dict):
-            return "Invalid engine health"
-        if state.get("error") and not state.get("running"):
-            return "Engine refresh failed"
-        running = state.get("running", False)
-        if not isinstance(running, bool):
-            return "Invalid engine running flag"
-        stamp = state.get("started_at") if running else state.get("finished_at")
-        age = (_time(now) - _time(stamp)).total_seconds()
-        if age < 0:
-            return "Future engine progress timestamp"
-        if age > (900 if running else 300):
-            return "Stale engine progress"
-    except (TypeError, ValueError, AttributeError):
-        return "Missing or invalid engine progress"
-    return None
+    """Separate completed source failures from process failures."""
+    return engine_health.process_problem(health, now)
 
 
-def create_journal(parent, *, checkpoint_at, created_at=None):
+def create_journal(parent, *, checkpoint_at, created_at=None, service="engine"):
     """Create a new private scratch store. Retain the returned manifest pin.
 
-    The fixed checkpoint means: observe post-intent engine completion AND a
-    later fresh publication by this deadline. It is not a deployment deadline.
+    For engine, the checkpoint requires post-intent completion AND publication.
+    For other workers it means observed healthy post-intent heartbeat only;
+    it never certifies completed work, tests, review, or production recovery.
+    The service is pinned permanently; use separate handles for each worker.
     Caller-supplied times allow reproducible offline trials, not time attestation.
     """
+    _check(service == "engine" or service in SERVICES, "Unknown journal service")
     parent = Path(parent).absolute()
     _directory(parent)
     manifest = {"version": VERSION, "created_at": _now(created_at),
                 "checkpoint_at": _stamp(checkpoint_at), "trial_id": uuid.uuid4().hex}
+    if service != "engine":
+        manifest.update(version=WORKER_VERSION, service=service)
     root = parent / ("offline-restart-" + manifest["trial_id"])
     root.mkdir(mode=0o700)
     body = _json(manifest)
@@ -101,8 +94,13 @@ def create_journal(parent, *, checkpoint_at, created_at=None):
     return {"root": str(root), "manifest_sha256": pin}
 
 
-@contextmanager
-def _open(handle, *, write=False):
+def _validate_handle(handle):
+    """Validate pinned filesystem evidence without opening SQLite.
+
+    Dispatch callers can perform these checks before taking their OS lock.
+    Database identity and event checks still belong to the locked transaction:
+    reading SQLite itself may first require writable hot-journal recovery.
+    """
     root = Path(handle["root"]).absolute()
     _directory(root)
     _check(re.fullmatch(r"offline-restart-[0-9a-f]{32}", root.name), "Not a trial root")
@@ -112,8 +110,9 @@ def _open(handle, *, write=False):
     pending = root / ".commit-pending-manifest.json"
     _check(not pending.exists() and not pending.is_symlink(), "Uncertain manifest commit")
     manifest = archive.document("manifest.json")
-    _check(manifest.get("version") == VERSION and
-           root.name == "offline-restart-" + manifest.get("trial_id", ""), "Invalid manifest")
+    _check((manifest.get("version") == VERSION and "service" not in manifest or
+            manifest.get("version") == WORKER_VERSION and manifest.get("service") in SERVICES)
+           and root.name == "offline-restart-" + manifest.get("trial_id", ""), "Invalid manifest")
     _time(manifest["checkpoint_at"])
     _time(manifest["created_at"])
     path = root / "journal.sqlite3"
@@ -123,6 +122,12 @@ def _open(handle, *, write=False):
         if item.exists():
             info = item.stat()
             _check(stat.S_ISREG(info.st_mode) and info.st_nlink == 1, "Invalid journal file")
+    return root, manifest, path
+
+
+@contextmanager
+def _open(handle, *, write=False):
+    _, manifest, path = _validate_handle(handle)
     db = sqlite3.connect(path.as_uri() + ("?mode=rw" if write else "?mode=ro"),
                          uri=True, timeout=0)
     try:
@@ -181,20 +186,48 @@ def _attempts(events):
 
 
 def _report(manifest, events, now):
+    service = manifest.get("service", "engine")
     observations = [e for e in events if e["kind"] == "observation"]
     last = observations[-1] if observations else None
     age = (_time(now) - _time(last["at"])).total_seconds() if last else None
     fresh = age is not None and 0 <= age <= CHECK_INTERVAL
-    current_reason = _engine_problem(last["body"]["health"], now) if last else "No observation"
-    return {"version": VERSION, "as_of": now, "checkpoint_at": manifest["checkpoint_at"],
+    health = last["body"]["health"] if last else None
+    current_reason = _problem(service, health, now) if last else "No observation"
+    assessment = engine_health.assess(health, now) if service == "engine" and last else None
+    return {"version": manifest["version"], "service": service,
+            "recovery_scope": "engine_completion_and_publication" if service == "engine" else
+                              "worker_heartbeat_progress_only",
+            "workflow_completion_verified": False,
+            "as_of": now, "checkpoint_at": manifest["checkpoint_at"],
             "checkpoint_missed": _missed(manifest, events, now),
             "checkpoint_miss_recorded": any(e["kind"] == "checkpoint_missed" for e in events),
             "state": "unobserved" if last is None else "observation_stale" if not fresh else
-                     "degraded" if current_reason else "process_healthy",
+                     "degraded" if current_reason else "source_degraded" if
+                     assessment and assessment["market_feed"] else "process_disabled" if
+                     worker_disabled(service, health) else "process_healthy",
             "current_process_reason": current_reason,
+            "engine_assessment": assessment,
             "attempts": _attempts(events), "events": events,
             "new_intent": None, "production_ready": False, "full_engine_ready": False,
             "production_recovery_verified": False, "source_provenance": "caller_supplied_unverified"}
+
+
+def _problem(service, health, now):
+    return _engine_problem(health, now) if service == "engine" else worker_problem(service, health, now)
+
+
+def _engine_failure_streak(events):
+    # Legacy journals could count completed source warnings as process failures.
+    # Reassess only the trailing observation streak at its ORIGINAL clocks;
+    # preserve the old counters, reasons, outcomes and intent receipts verbatim.
+    failures = 0
+    for event in reversed(events):
+        if event["kind"] != "observation":
+            continue
+        if _engine_problem(event["body"]["health"], event["at"]) is None:
+            break
+        failures += 1
+    return failures
 
 
 def inspect_journal(handle, *, as_of=None):
@@ -205,44 +238,65 @@ def inspect_journal(handle, *, as_of=None):
         return _report(manifest, events, now)
 
 
-def record_observation(handle, health, publication=None, *, observed_at=None):
+def record_observation(handle, health, publication=None, *, observed_at=None,
+                       reserve_dispatch_capacity=False):
     """Commit evidence and possibly reserve one intent, without executing it.
 
     At least 60 seconds must separate checks. Three consecutive process failures
     reserve an intent; all outcomes, including unknown/failed, consume 900 seconds
     cooldown. A publication failure alone never requests a process restart.
+    Completed fresh source-degraded cycles reset the process failure streak but
+    retain their warning and cannot establish recovery. Original events persist.
+
+    Worker dispatchers request capacity for a reservation, outcome and possible
+    elapsed checkpoint before committing a new intent. Exhaustion rolls back
+    this entire observation; it must not spend a never-delivered cooldown.
+    Legacy journal-only callers retain their existing intent-only semantics.
     """
     now = _now(observed_at)
     health, health_hash = _payload(health)
     publication, publication_hash = _payload(publication)
     new_intent = None
     with _open(handle, write=True) as (db, manifest, events):
+        service = manifest.get("service", "engine")
+        _check(service == "engine" or publication is None,
+               "Worker journal does not consume engine publications")
         _chronology(manifest, events, now)
         previous = next((e for e in reversed(events) if e["kind"] == "observation"), None)
         _check(previous is None or (_time(now) - _time(previous["at"])).total_seconds() >= CHECK_INTERVAL,
                "Checks must be at least 60 seconds apart")
-        reason = _engine_problem(health, now)
-        failures = (previous["body"]["consecutive_failures"] if previous else 0) + 1 if reason else 0
+        reason = _problem(service, health, now)
+        restartable = not worker_disabled(service, health)
+        previous_failures = (_engine_failure_streak(events) if service == "engine" else
+                             previous["body"]["consecutive_failures"] if previous else 0)
+        failures = (previous_failures + 1
+                    if reason and restartable else 0)
         attempts = _attempts(events)
         latest = attempts[-1] if attempts else None
         _checkpoint(db, manifest, events, now)
-        _append(db, events, now, "observation", {
+        observation = {
             "health": health, "health_sha256": health_hash, "publication": publication,
-            "publication_sha256": publication_hash, "reason": reason, "consecutive_failures": failures})
-        if reason and failures >= FAILURE_THRESHOLD and (latest is None or
+            "publication_sha256": publication_hash, "reason": reason, "consecutive_failures": failures}
+        if service == "engine":
+            observation["engine_assessment"] = engine_health.assess(health, now)
+        _append(db, events, now, "observation", observation)
+        if reason and restartable and failures >= FAILURE_THRESHOLD and (latest is None or
                 (_time(now) - _time(latest["requested_at"])).total_seconds() >= COOLDOWN):
-            new_intent = {"id": uuid.uuid4().hex, "service": "engine", "reason": reason}
+            if reserve_dispatch_capacity:
+                # One intent plus the dispatch adapter's three reserved slots.
+                # This check remains inside the observation transaction, after
+                # its optional checkpoint, so neither can commit on failure.
+                _check(len(events) + 4 <= MAX_EVENTS,
+                       "Insufficient journal capacity for dispatch intent and outcome")
+            new_intent = {"id": uuid.uuid4().hex, "service": service, "reason": reason}
             _append(db, events, now, "restart_intent", new_intent)
         elif reason is None and latest and latest["recovery_observed_at"] is None:
             # A running heartbeat and an old cached publication do not prove recovery.
             try:
-                finished = _time(health["engine"]["finished_at"])
-                published = _time(publication["generated_at"])
-                requested = _time(latest["requested_at"])
-                recovered = (health["engine"].get("running") is False and
-                             requested < finished <= _time(now) and
-                             requested < published <= _time(now) and
-                             (_time(now) - published).total_seconds() <= 300)
+                if service != "engine":
+                    recovered = worker_progress_after(service, health, latest["requested_at"], now)
+                else:
+                    recovered = _engine_recovered(health, publication, latest, now)
             except (KeyError, ValueError, TypeError):
                 recovered = False
             if recovered:
@@ -254,6 +308,18 @@ def record_observation(handle, health, publication=None, *, observed_at=None):
     # This is deliberately outside the transaction. A commit error returns no intent.
     report["new_intent"] = new_intent
     return report
+
+
+def _engine_recovered(health, publication, latest, now):
+    if engine_health.feed_degradation(health):
+        return False
+    finished = _time(health["engine"]["finished_at"])
+    published = _time(publication["generated_at"])
+    requested = _time(latest["requested_at"])
+    return (health["engine"].get("running") is False and
+            requested < finished <= _time(now) and
+            requested < published <= _time(now) and
+            (_time(now) - published).total_seconds() <= 300)
 
 
 def record_outcome(handle, intent_id, outcome, *, error=None, observed_at=None):

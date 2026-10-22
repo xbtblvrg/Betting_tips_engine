@@ -1,0 +1,387 @@
+{
+  "input_bindings": {
+    "manifest_sha256": "826b5510d41766249ad452bdecec140f2865020b03958ecdad23eaaa3527cc5d",
+    "contract_file_sha256": "7f8659f86cfd6dbe1f2eb978d06f3b31179c0a35603e9e06bd409e1b5fffb41f",
+    "declared_generation": {
+      "available": {
+        "decision_history": true,
+        "nhl_settlement_sources": true,
+        "scoped_models": true,
+        "stake_sources": true,
+        "validation_sources": true
+      },
+      "components": {
+        "decision_history": "e6386e43054fd1c56a921e2d0badea1e776814f55cdbd5372b17381d6138c747",
+        "nhl_settlement_sources": "0d139716f7f1c8ba2edaf982279afa3ced454c41f73e0f7bb780337cdd46c9d3",
+        "scoped_models": "e7849a0f29486724a32c34c9964147b4e73bbcdecd0b39b36737a3ab38fa91d3",
+        "stake_sources": "2001ceaa89d59415d8caa123b09c87d87e35ff1eb2e902b527524c34ee4cfb55",
+        "validation_sources": "92db8afc02a6cc9969b31e497d0f5ddc7167340966583f5db0a80db510bb424c"
+      },
+      "sha256": "0a4ff0c80779c1614cb2b8d37dda4cdd99c31a5b790d9f577ab20dac2817b978"
+    },
+    "exported_at": "2026-10-01T08:55:40.478582+00:00",
+    "verified_files": 317,
+    "verified_source_responses": 392,
+    "source_bindings_sha256": "df06d45c4891ad5970c77af6beabb904c8bc00093eb0d56edd62027ea21c3911",
+    "claim": "Retrospective export; exported_at is not historical source availability."
+  },
+  "frozen_validation_observations": {
+    "state": "verified_bytes_only",
+    "catalogue_sha256": "3abe805bfc90db0e1bbd009dec3c0830a9872626f6a30bf0925fa964248656fb",
+    "export_sha256": "49bf87ac6403d9ce51bfdc395c218af057145b9bb11076da871bfbd3be7f9481",
+    "files": [
+      {
+        "bundle": "native-rush-v1",
+        "kind": "test",
+        "path": "tests/test_f0027_player_rush_reconciliation.py",
+        "sha256": "042b4e9994f5638d48142d6cc0729da42a129a0324d98b83b07d19b573729e10",
+        "bytes": 14598
+      },
+      {
+        "bundle": "native-rush-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/native-rush-v1/data/sports_source_evidence/manifest.json",
+        "sha256": "a2a27f6f53fb2ec189c082b61560ddbe79cd1e12ddf1dc730cdba8555fd8b6cd",
+        "bytes": 18605
+      },
+      {
+        "bundle": "native-rush-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/native-rush-v1/data/sports_source_evidence/raw/3fd2896bc0b911b615142d2f1fabae54a4bbba5ab7b73b28187b118ef8af6a3b.data",
+        "sha256": "3fd2896bc0b911b615142d2f1fabae54a4bbba5ab7b73b28187b118ef8af6a3b",
+        "bytes": 20597560
+      },
+      {
+        "bundle": "native-rush-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/native-rush-v1/data/sports_source_evidence/raw/54876e2239cbd90787616329bd47ef1e738e246f104f2813ec0b4e110def1a91.data",
+        "sha256": "54876e2239cbd90787616329bd47ef1e738e246f104f2813ec0b4e110def1a91",
+        "bytes": 3648488
+      },
+      {
+        "bundle": "native-rush-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/native-rush-v1/data/sports_source_evidence/raw/62ed371b726c2ed7bf3f97661cac6e02ea737bcaea8da110425b49006f267a1e.json",
+        "sha256": "747568a467fcf65c7b85cb3986fc7f55aac82e04a21494bf8ce1317e3b152775",
+        "bytes": 375
+      },
+      {
+        "bundle": "native-rush-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/native-rush-v1/data/sports_source_evidence/raw/730eefbce95deb69c5ad19f3f792ea3808992fbc1f5e1a5156ff6b696fc87ccb.json",
+        "sha256": "b28bebd1428ce80081f62e4aeb4b873446ce104d0def5150fa55dc77f5cabf21",
+        "bytes": 377
+      },
+      {
+        "bundle": "native-rush-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/native-rush-v1/data/sports_source_evidence/raw/894ffbf195e4836a8a8788936c8986cf40ca6f0bef0bf79d02c158bc1a91f7f8.json",
+        "sha256": "4c117157fb83965d35a253e893e486dd3aa046fdfc05770c59b40fd582323ac4",
+        "bytes": 375
+      },
+      {
+        "bundle": "native-rush-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/native-rush-v1/data/sports_source_evidence/raw/c6ecedd6d678cc37ed316b23ef84ee1ec6abb69c514bb11868a7ebd5a367df29.data",
+        "sha256": "c6ecedd6d678cc37ed316b23ef84ee1ec6abb69c514bb11868a7ebd5a367df29",
+        "bytes": 20337029
+      },
+      {
+        "bundle": "native-rush-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/native-rush-v1/data/players/source_evidence/raw/2a461becaa9adb3c93a3074a3a31f1e960162a50163371a2d34e28393b5fff10.data",
+        "sha256": "2a461becaa9adb3c93a3074a3a31f1e960162a50163371a2d34e28393b5fff10",
+        "bytes": 855077
+      },
+      {
+        "bundle": "native-rush-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/native-rush-v1/data/players/source_evidence/raw/847569d194ca3d96b5efcf91e6eac5e18780fc47568a713fd545a82d29d155c1.data",
+        "sha256": "847569d194ca3d96b5efcf91e6eac5e18780fc47568a713fd545a82d29d155c1",
+        "bytes": 849243
+      },
+      {
+        "bundle": "native-rush-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/native-rush-v1/data/players/source_evidence/raw/d2eb2f5e83691fc8225b98c98530bb82eb1fb5cd62d3c79bd8ce4ff9dcb8e265.data",
+        "sha256": "d2eb2f5e83691fc8225b98c98530bb82eb1fb5cd62d3c79bd8ce4ff9dcb8e265",
+        "bytes": 262020
+      },
+      {
+        "bundle": "native-rush-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/native-rush-v1/data/players/verified_history/runs/20260929T192751138800Z-d0ccf522fb5d/sources.json",
+        "sha256": "f5df9b70b6669b33b3239ac0fdf8493a94688aaf04ae1c72a668ac922e8c485d",
+        "bytes": 411670
+      },
+      {
+        "bundle": "native-shots-v1",
+        "kind": "test",
+        "path": "tests/test_f0025_player_shot_reconciliation.py",
+        "sha256": "b234d370110c283d3c0bb35846c5fed85cd81c02e34d11be53e790c0bf8c8098",
+        "bytes": 17481
+      },
+      {
+        "bundle": "native-shots-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/native-shots-v1/data/sports_source_evidence/manifest.json",
+        "sha256": "5ec906ea8b61b79d010f1cdecc851e3ba29c1a3df6f102643d120dce9ce27fd3",
+        "bytes": 18605
+      },
+      {
+        "bundle": "native-shots-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/native-shots-v1/data/sports_source_evidence/raw/1fa6a0c601c22f3d4171a0fc40ef7f0576ceccca8d881c3a94aee379be52aed4.data",
+        "sha256": "1fa6a0c601c22f3d4171a0fc40ef7f0576ceccca8d881c3a94aee379be52aed4",
+        "bytes": 133609
+      },
+      {
+        "bundle": "native-shots-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/native-shots-v1/data/sports_source_evidence/raw/2966d88fe2bdd2adad2953889593e102949b9f44b9b8ca25b31bc1ed4f6a2647.data",
+        "sha256": "2966d88fe2bdd2adad2953889593e102949b9f44b9b8ca25b31bc1ed4f6a2647",
+        "bytes": 125362
+      },
+      {
+        "bundle": "native-shots-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/native-shots-v1/data/sports_source_evidence/raw/4ede863855383cb95f495ec9ad3325c63c6e709fedc49b7786c1eaa4bb81a9a9.json",
+        "sha256": "d64683d205bb128575ced109fb70f78f32e3c45e92c537b14316b0ebe98c43b2",
+        "bytes": 347
+      },
+      {
+        "bundle": "native-shots-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/native-shots-v1/data/sports_source_evidence/raw/5c34b20a2bebdf19ed6d3c1b702e7669b06f8ea4551e1118b71dbbb40b2b33f9.data",
+        "sha256": "5c34b20a2bebdf19ed6d3c1b702e7669b06f8ea4551e1118b71dbbb40b2b33f9",
+        "bytes": 121161
+      },
+      {
+        "bundle": "native-shots-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/native-shots-v1/data/sports_source_evidence/raw/680924ee1c4fbfdfaf8c2da66aaa454b6f61a2bece7f8917822bf9521e60e698.json",
+        "sha256": "75d2ae360627422d730838d1f7f36b4cbff56db351f4ee00e943cc2088cb73b8",
+        "bytes": 347
+      },
+      {
+        "bundle": "native-shots-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/native-shots-v1/data/sports_source_evidence/raw/bb2b5cf55a89b1232c218f700b88d786dd07f64b4e87a367acbe9f78bbc710fa.json",
+        "sha256": "6b135c70e862145c9f6b588fc2b394287adbca68e23ede6f45f2a111c915ffca",
+        "bytes": 346
+      },
+      {
+        "bundle": "native-shots-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/native-shots-v1/data/sports_source_evidence/raw/bcc51302af00e89ed7a626a4c5ea6f8246f4a659fb11c00b3304483f58467939.json",
+        "sha256": "6c73e866d9dcfed406bc8bffe870511c64c8f1ceddd2bdcf319ff279c820faa4",
+        "bytes": 347
+      },
+      {
+        "bundle": "native-shots-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/native-shots-v1/data/sports_source_evidence/raw/bd31c037b1c94580c0ea6f524c82028a9748a6a48eab825d2243db23d7b2717f.json",
+        "sha256": "8947401c4aa084f12e26a8137d5174ad5db56f08f893c6926d15593b9fc00269",
+        "bytes": 347
+      },
+      {
+        "bundle": "native-shots-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/native-shots-v1/data/sports_source_evidence/raw/f7ed4ef5ca51f2a4630a3e9b7d5fe2de384bb07213caa27fbe99e3546131e6f1.data",
+        "sha256": "f7ed4ef5ca51f2a4630a3e9b7d5fe2de384bb07213caa27fbe99e3546131e6f1",
+        "bytes": 121343
+      },
+      {
+        "bundle": "native-shots-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/native-shots-v1/data/sports_source_evidence/raw/f8da543e62075b6767d478df012b6d61e4452facd835a2a903a1950c6f466d55.data",
+        "sha256": "f8da543e62075b6767d478df012b6d61e4452facd835a2a903a1950c6f466d55",
+        "bytes": 113002
+      },
+      {
+        "bundle": "lifecycle-outcomes-v1",
+        "kind": "test",
+        "path": "tests/test_e514cb13f60_lifecycle_replay.py",
+        "sha256": "d4402b2c24e4876e5329ff70b037586ffa218ae017ccfdbbff68d9c59fdcc969",
+        "bytes": 4436
+      },
+      {
+        "bundle": "lifecycle-outcomes-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/lifecycle-outcomes-v1/data/development_inputs/manifest.json",
+        "sha256": "0cb5f0d27b853a7c70f7fb76322ac2606eef112cd5afa8c64f3a6fc6018a5487",
+        "bytes": 246440
+      },
+      {
+        "bundle": "lifecycle-outcomes-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/lifecycle-outcomes-v1/data/development_inputs/system_decisions.json",
+        "sha256": "591e201741bd667f791147f251b6a638e6ed23f1df306a6d6166e03fe181c5c6",
+        "bytes": 2433165
+      },
+      {
+        "bundle": "lifecycle-outcomes-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/lifecycle-outcomes-v1/data/engineering-evidence-manifest.json",
+        "sha256": "138c87e8e3d56f5b654d3e077babe21ee04afefec4b5cf5defb536fde153e966",
+        "bytes": 5358
+      },
+      {
+        "bundle": "lifecycle-outcomes-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/lifecycle-outcomes-v1/data/engineering-evidence/27811dec3e1c1890038126faac18f7806010c7d45099701c37b041acca547480.json",
+        "sha256": "0c51928e3366ece085669908eb8420a8523b8789a05b449428ecd20a5900ceb2",
+        "bytes": 738
+      },
+      {
+        "bundle": "lifecycle-outcomes-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/lifecycle-outcomes-v1/data/engineering-evidence/63ffc7ecbcf43c3f7d1c3ed6252d3848a9d9221df641835e314ea2b0d2e0cf04.json",
+        "sha256": "fb13a87ab4b5d3ec84c3a800ed5c38126f2354518e06257f11ae21448f1ff4d6",
+        "bytes": 3871
+      },
+      {
+        "bundle": "lifecycle-outcomes-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/lifecycle-outcomes-v1/data/engineering-evidence/77d443b8f840957b01d817513a2d88ed0126e51127c2d675e10096f12ca91635.json",
+        "sha256": "5e000fe55921cf76c92cbd9831f311a92a6b14d89e5844adbafcf3bdfe7267c2",
+        "bytes": 5559
+      },
+      {
+        "bundle": "lifecycle-outcomes-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/lifecycle-outcomes-v1/data/engineering-evidence/7cddb2010e502d7b3deaa5c1dff5b413192bc6b9c28e2beba0773ae37e385948.json",
+        "sha256": "38e373330f3f909b73a758c9526e21e83c98f21613c82b8261ba0e836270f70b",
+        "bytes": 18133
+      },
+      {
+        "bundle": "lifecycle-outcomes-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/lifecycle-outcomes-v1/data/engineering-evidence/836f17f85230125e3f554218604ea7ff8b71c82ea5fc304732a505edd8b7bf0a.json",
+        "sha256": "0a3b0019f85d6496e30e0efcbc9645acbab00e5cc854341a38719314fd4fc726",
+        "bytes": 29129
+      },
+      {
+        "bundle": "lifecycle-outcomes-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/lifecycle-outcomes-v1/data/engineering-evidence/869cf7609383e2e9119ed8b2d5237109022b88fe98ed30cc88faeacd52ab7480.json",
+        "sha256": "81153545d007253b9b220bf17f5d0a5bcd140fbef6469f2dd948a8cb7850589f",
+        "bytes": 59977
+      },
+      {
+        "bundle": "lifecycle-outcomes-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/lifecycle-outcomes-v1/data/engineering-evidence/8fa407fe06f9b828975b66873941fb03deed31997a5d7ff0a149a597670110c1.json",
+        "sha256": "410c46ee5a80ffa10ddbdbf15bc9877bdc93d65807a22e449523451826a0e253",
+        "bytes": 29081
+      },
+      {
+        "bundle": "lifecycle-outcomes-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/lifecycle-outcomes-v1/data/engineering-evidence/901c899731dbaefef7e8c5bac6f135467c2c4431d5256e5b610bb32634423a64.json",
+        "sha256": "3f20f5130ce9229cb1479b3c57c2a9b26a7d48efdb57ffaf9f90499d78ee3dde",
+        "bytes": 11481
+      },
+      {
+        "bundle": "lifecycle-outcomes-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/lifecycle-outcomes-v1/data/engineering-evidence/90ec35c51ccc453111546acefc5131168784c1f6acf1e96bb368358ea3abf6cb.json",
+        "sha256": "dc9e1fbfd9fb6b8f8835f9295a15547139ecbdf59f39562f8d0c78169971fb55",
+        "bytes": 6823
+      },
+      {
+        "bundle": "lifecycle-outcomes-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/lifecycle-outcomes-v1/data/engineering-evidence/9a6f35634e3d0e8ba60c31bb1c0fb1c6aec845062df2b4b397b483fe9bcce47e.json",
+        "sha256": "cb63c7d75c277f133043e8995ee503418350a09dd6e7659b3eef297523fdb5ef",
+        "bytes": 23883
+      },
+      {
+        "bundle": "lifecycle-outcomes-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/lifecycle-outcomes-v1/data/engineering-evidence/a43b0ec243203ed1a7022e7e751d6c6f93c3d6b45a6cb38d8fc5f4faaf108a73.json",
+        "sha256": "91048f242351341214864327b6a5644330da99403db2fc9878e3217ccbb40bfe",
+        "bytes": 1297
+      },
+      {
+        "bundle": "lifecycle-outcomes-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/lifecycle-outcomes-v1/data/engineering-evidence/b5816a432264b72fae37d5c9921ed798a193a1ebad270033c0c638a73a651b58.json",
+        "sha256": "87db773014a57691c5a6a3e1d989036ab4b33a24451fcf6219cb1e5c6b058be1",
+        "bytes": 15613
+      },
+      {
+        "bundle": "lifecycle-outcomes-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/lifecycle-outcomes-v1/data/engineering-evidence/e0681fc2f364564c62d5e8686deb56dff1741d9d8d560628c322417d0d21eda5.json",
+        "sha256": "55b180c78a4216f64895dc9d5150c1b321f3092d54b4598abcc9ea8791231c93",
+        "bytes": 29014
+      },
+      {
+        "bundle": "lifecycle-outcomes-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/lifecycle-outcomes-v1/data/engineering-evidence/e152ca79c2e0e95db15b01bc7fdf409edcd3a89fd2497535468345b4d5899c31.json",
+        "sha256": "9bfd124cca05e37a88367a061ea9931da4f643d005b3f3bb269a781076462b23",
+        "bytes": 24774
+      },
+      {
+        "bundle": "lifecycle-outcomes-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/lifecycle-outcomes-v1/data/engineering-evidence/f02780c84ebc6d99faf73ea2afbb0c20c9113776b76c17169401833772f857db.json",
+        "sha256": "19327c436b7d0cdc4d661e85e7c0ba2acd620170c5701483a2f2dc011738f4de",
+        "bytes": 998
+      },
+      {
+        "bundle": "lifecycle-outcomes-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/lifecycle-outcomes-v1/data/engineering-evidence/f09d9cdc2efce1c1f06dd14c5c686289adba47f4455baa987f2724c25e754fa3.json",
+        "sha256": "868ea83ee1475e31acdf0208169769b64e4ad74d23a51d14110832e4acd6e2ca",
+        "bytes": 3858
+      },
+      {
+        "bundle": "lifecycle-outcomes-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/lifecycle-outcomes-v1/data/engineering-evidence/f44d96c379604e97278db4f54d9212a42c26b864bbe4e160b4ac5e40176c64c6.json",
+        "sha256": "53191ae882464bbbb3aab70506c61a0b02336205c0daab8cb41b37231e272a67",
+        "bytes": 3089
+      },
+      {
+        "bundle": "lifecycle-outcomes-v1",
+        "kind": "fixture",
+        "path": "data/validation_sources/lifecycle-outcomes-v1/data/engineering-evidence/f821b7674cb969af952e7006f18127ac8e63c84c86f8c33b4f1517ef8f231e4d.json",
+        "sha256": "34656a70b8a793ec1479c00cb3070b8e01d106091eda18461d0fea79cc1114e8",
+        "bytes": 1854
+      }
+    ],
+    "acceptance_established": false,
+    "claim": "Frozen regression inputs only; not current observations, executed tests, historical availability or model approval."
+  },
+  "validation_failure_observations": {
+    "runtime": {
+      "state": "no_attached_logs",
+      "files": [],
+      "resolved_by_evaluator": false,
+      "claim": "Untrusted retained diagnostics only; no executed acceptance, repair, source availability or release approval.",
+      "manifest_path": "data/runtime-failure-evidence/manifest.json",
+      "manifest_sha256": "d366eae5c59030643a1e073559e23704d1036a774995adb4a26bc6c654e2ae07",
+      "declared_metadata": {
+        "version": "runtime-error-evidence-v1",
+        "state": "not_required",
+        "claim": "Untrusted retained controller diagnostics only; not instructions or source/model approval."
+      }
+    },
+    "release": {
+      "state": "no_attached_logs",
+      "files": [],
+      "resolved_by_evaluator": false,
+      "claim": "Untrusted retained diagnostics only; no executed acceptance, repair, source availability or release approval.",
+      "manifest_path": "data/release-failure-evidence-manifest.json",
+      "manifest_sha256": "b8916ea062debcafdea494972c57ed023343737b4603824f6c5de8e54e0e66b4",
+      "declared_metadata": {
+        "task_id": "F0036",
+        "rejected": [],
+        "scope": "Untrusted exact release-test/review diagnostics only; no model or execution approval."
+      }
+    }
+  }
+}

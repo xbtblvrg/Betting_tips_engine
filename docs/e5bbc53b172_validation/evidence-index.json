@@ -1,0 +1,103 @@
+{
+  "task_id": "E5BBC53B172",
+  "due_at": "2026-10-02T00:04:28.263503+00:00",
+  "bounded_implementation_complete": true,
+  "production_release_complete": false,
+  "independent_review": "controller_pending",
+  "helper_reviews": [],
+  "commands": [
+    {
+      "command": "PYTHONPATH=src OMP_NUM_THREADS=1 /Users/belavarga/Betting_tips_engine/.venv/bin/python -m pytest -q",
+      "log": "python-full.log",
+      "exit_code": 0,
+      "result": "5468 passed, 5 subtests passed; one dependency deprecation warning",
+      "log_sha256": "2fba356de494f5f695c1d8af33a3682d1f604138d9f326962eecb23961a07418"
+    },
+    {
+      "command": "node --test tests/web.test.mjs",
+      "log": "dom-full.log",
+      "exit_code": 0,
+      "result": "216 passed",
+      "log_sha256": "930cae99c6455cfb40060905c1b8d091e8faba21407d3dca1d17da09400e988a"
+    },
+    {
+      "command": "PYTHONPATH=src OMP_NUM_THREADS=1 /Users/belavarga/Betting_tips_engine/.venv/bin/python -m pytest -q tests/test_e5bbc53b172_outcome_conflicts.py tests/test_d15*.py tests/test_e514cb13f60_exact_inventory_support.py tests/test_e514cb13f60_inventory_integration.py tests/test_e514cb13f60_lifecycle_replay.py",
+      "log": "python-targeted.log",
+      "exit_code": 0,
+      "result": "234 passed",
+      "log_sha256": "1882db72afebe0a890cb014e122326a1383d27e4bf13f30278e933c91b23ef8d"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/betting_engine/requirement_acceptance.py",
+      "sha256": "f883d466b898bb7c097876ef27f915c9adcd7cc8789fe110520bc528fac8f5f1",
+      "bytes": 50925
+    },
+    {
+      "path": "src/betting_engine/markets.py",
+      "sha256": "f6d9c74bd5507426690498664cdedc6dbecf3bb7f0381b3a24d1a15980119782",
+      "bytes": 37545
+    },
+    {
+      "path": "tests/test_e5bbc53b172_outcome_conflicts.py",
+      "sha256": "cf5c08450c00e3142fbd05a4f7c0055d2588287b67d6afe341f0cf838e6985b4",
+      "bytes": 5962
+    },
+    {
+      "path": "docs/E5BBC53B172_D15_INCREMENT.md",
+      "sha256": "37c7791dd42cae12557094f45ee935a83fc0321018f5d038fa90f487d147330d",
+      "bytes": 4839
+    },
+    {
+      "path": "data/rebase/conflicts.json",
+      "sha256": "84e5bb10f33ea2ef54f9b8546fcd4f89ca4fe4c9d18200276a390aebfdb74b4d",
+      "bytes": 267
+    },
+    {
+      "path": "data/engineering-evidence-manifest.json",
+      "sha256": "f73f6c11aabc232057081865dbfa60308c9e4392ad1f8340acb9adf8f5471b73",
+      "bytes": 437
+    },
+    {
+      "path": "data/development_inputs/manifest.json",
+      "sha256": "ae9a1d8bb5cbc1601878649b72e40d03d38d0a54e61880ae8d11be818f71f479",
+      "bytes": 255511
+    },
+    {
+      "path": "data/release-failure-evidence-manifest.json",
+      "sha256": "e830951c1005be450be3a27ba7c70dadd70163e63d9f508d59a6bfb5d37e7695",
+      "bytes": 153
+    },
+    {
+      "path": "data/runtime-failure-evidence/manifest.json",
+      "sha256": "d366eae5c59030643a1e073559e23704d1036a774995adb4a26bc6c654e2ae07",
+      "bytes": 181
+    },
+    {
+      "path": "knowledge/cards/K03-adat-ido-forras.md",
+      "sha256": "a71af120097072161a042f04257cb6f4ebc617e34ff43c19588ca313148b1d9a",
+      "bytes": 2638
+    },
+    {
+      "path": "knowledge/cards/K08-validacio.md",
+      "sha256": "951ffe80c87fd491bfeece567c31a86a78371087fcf8b16297422ecadd624bd3",
+      "bytes": 3730
+    },
+    {
+      "path": "docs/e5bbc53b172_validation/preexisting-integrity.json",
+      "sha256": "611a6aaaee214cf1fee94c7aeed992cb72c5717f9636e31cf3209c8df90ccb0f",
+      "bytes": 46453
+    },
+    {
+      "path": "docs/e5bbc53b172_validation/snapshot-observation.json",
+      "sha256": "68b3a352dcf635a4dfa9c7a6b7cc2f256ea746615801f87f0d373d9cc7438f25",
+      "bytes": 351055
+    }
+  ],
+  "remaining": [
+    "Controller independent review and trusted integration authority; no exact passive profile supplied.",
+    "Fresh local/Tailscale publication verification belongs to the release controller.",
+    "Snapshot issuance shortfall is three; broader market/model capabilities and profitability remain unproven."
+  ]
+}

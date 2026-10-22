@@ -1,0 +1,109 @@
+{
+  "task_id": "EA76D0E6B5C",
+  "bounded_increment": "NHL source identity and timestamp consistency integrated into the existing D12 shadow adapter",
+  "task_complete": true,
+  "candidate_only": true,
+  "production_eligible": false,
+  "production_gap_resolved": false,
+  "due_at": "2026-10-01T20:45:09.728834+00:00",
+  "registry_evidence_id": "190b48635547b44b7856162cfe11bce3509c649a32965b96a6232aded520292b",
+  "file_sha256": {
+    "AGENTS.md": "a783bbe1e6c2a04b066ca158c3039557dc713705c5f36d9058541c88bfca3772",
+    "config/project_contract.json": "d20b8cbec14462ea1bab68c5e2bfdb71fe37a91ba6c89d1790320f29c6bf9564",
+    "data/engineering-evidence/190b48635547b44b7856162cfe11bce3509c649a32965b96a6232aded520292b.json": "d748bfb82651c4d71c51d7b7ab8f5d164b74008cc75c39c1c57a57e84e8a7c4f",
+    "data/sports_source_evidence/manifest.json": "85f2a4b3844051d60c4a7a8299d35f6a49af196cfe9da3bee3b28ae8a99391e1",
+    "src/betting_engine/live_shadow.py": "3546c9d25643b5d370326b05a5f3e433b84017ef3d7ba6d395ae6423c67774e3",
+    "tests/test_d12_live_shadow.py": "a98278169119e2a31aa574131336120e8708856c7b8929a914b8bb69fd61f866",
+    "tests/test_ea76_d12_source_identity.py": "706f6cdc592441bcdd42e684efc29a058440584153c0cb0c9e967f05281cfc92",
+    "docs/EA76_D12_SOURCE_IDENTITY.md": "6d15ad97db83fc05a114fc57ad56222e22bcf1cc9130d4bfc13631512a245f91",
+    "knowledge/cards/K02-fuggetlen-modell.md": "5e6e27e58cbf466a05b733cbc5ac2aacf73552a789149c1f29fde1f9f35979f6",
+    "knowledge/cards/K03-adat-ido-forras.md": "a71af120097072161a042f04257cb6f4ebc617e34ff43c19588ca313148b1d9a",
+    "knowledge/cards/K08-validacio.md": "951ffe80c87fd491bfeece567c31a86a78371087fcf8b16297422ecadd624bd3",
+    "knowledge/cards/K10-piac-vegrehajtas.md": "ed6c2437d8592b5981d8247f938c7f4a3f0d6c2a2eabb8a085626416d2119a51"
+  },
+  "changed_preexisting_files": [
+    "src/betting_engine/live_shadow.py"
+  ],
+  "unchanged_preexisting_test_files": 70,
+  "observations": [
+    {
+      "provider_game_id": "2022030145",
+      "source_sha256": "1fa6a0c601c22f3d4171a0fc40ef7f0576ceccca8d881c3a94aee379be52aed4",
+      "url": "https://api-web.nhle.com/v1/gamecenter/2022030145/play-by-play",
+      "fetched_at": "2026-09-29T13:39:19.850242+00:00",
+      "available_at": "2026-09-29T13:39:19.850242+00:00",
+      "source_published_at": null,
+      "status": "finished",
+      "production_eligible": false
+    },
+    {
+      "provider_game_id": "2022020939",
+      "source_sha256": "f8da543e62075b6767d478df012b6d61e4452facd835a2a903a1950c6f466d55",
+      "url": "https://api-web.nhle.com/v1/gamecenter/2022020939/play-by-play",
+      "fetched_at": "2026-09-29T13:39:19.489021+00:00",
+      "available_at": "2026-09-29T13:39:19.489021+00:00",
+      "source_published_at": null,
+      "status": "finished",
+      "production_eligible": false
+    },
+    {
+      "provider_game_id": "2022020583",
+      "source_sha256": "5c34b20a2bebdf19ed6d3c1b702e7669b06f8ea4551e1118b71dbbb40b2b33f9",
+      "url": "https://api-web.nhle.com/v1/gamecenter/2022020583/play-by-play",
+      "fetched_at": "2026-09-29T13:39:19.161093+00:00",
+      "available_at": "2026-09-29T13:39:19.161093+00:00",
+      "source_published_at": null,
+      "status": "finished",
+      "production_eligible": false
+    },
+    {
+      "provider_game_id": "2022020543",
+      "source_sha256": "2966d88fe2bdd2adad2953889593e102949b9f44b9b8ca25b31bc1ed4f6a2647",
+      "url": "https://api-web.nhle.com/v1/gamecenter/2022020543/play-by-play",
+      "fetched_at": "2026-09-29T13:39:18.729663+00:00",
+      "available_at": "2026-09-29T13:39:18.729663+00:00",
+      "source_published_at": null,
+      "status": "finished",
+      "production_eligible": false
+    },
+    {
+      "provider_game_id": "2022020222",
+      "source_sha256": "f7ed4ef5ca51f2a4630a3e9b7d5fe2de384bb07213caa27fbe99e3546131e6f1",
+      "url": "https://api-web.nhle.com/v1/gamecenter/2022020222/play-by-play",
+      "fetched_at": "2026-09-29T13:39:18.153527+00:00",
+      "available_at": "2026-09-29T13:39:18.153527+00:00",
+      "source_published_at": null,
+      "status": "finished",
+      "production_eligible": false
+    }
+  ],
+  "validation": {
+    "pre_repair_existing_d12_passed": 106,
+    "pre_repair_new_regressions_failed": 32,
+    "pre_repair_new_regressions_passed": 5,
+    "post_repair_d12_and_new_passed": 144,
+    "post_repair_new_passed": 38,
+    "related_python_api_passed": 117,
+    "dom_passed": 40,
+    "warnings": [
+      "Existing Starlette/httpx deprecation warning"
+    ],
+    "controller_full_suites": "pending",
+    "independent_codex_review": "pending",
+    "live_publication": "not_run_not_authorized"
+  },
+  "helper_reviews": [
+    {
+      "id": "acceptance_checklist:grok",
+      "sha256": "5a2d89716d13dcab9a239746374942bbd78727eef466a06a456b477c836b7dea",
+      "disposition": "partly_used",
+      "reason": "Used provenance, immutable-record and honest integration checks. Rejected claims that candidate, freshness and deadline were unspecified; local evidence supplies them. Corrected the daily count to Budapest calendar-day issuance, separate from the rolling 48-hour horizon. Helper advice is not independent Codex approval."
+    }
+  ],
+  "remaining": [
+    "Controller full-suite validation and independent read-only Codex review.",
+    "Verified live observations and availability, latency measurements and exact Stake mapping.",
+    "Independently approved state-conditioned models and scope-specific settlement before separately authorized release.",
+    "Local and Tailscale live publication verification after authorized integration; D12 remains a production gap."
+  ]
+}

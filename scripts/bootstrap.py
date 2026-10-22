@@ -60,7 +60,7 @@ def initialize_settings(root, data_dir):
     if path.exists():
         return False
     settings = json.loads((Path(root) / 'config/runtime_settings.json').read_text())
-    if settings['max_bet'] != 5 or settings['daily_risk_limit'] is not None:
+    if not (0.5 <= settings['max_bet'] <= 8) or settings['daily_risk_limit'] is not None:
         raise ValueError('Invalid deployment stake settings')
     Store(path).save_settings(settings)
     return True

@@ -46,3 +46,15 @@ def test_unfunded_candidates_do_not_trigger_violations():
     ok, violations = check_portfolio_invariants(tips)
     assert ok is True
     assert len(violations) == 0
+
+
+def test_cross_market_moneyline_and_spreads_opposing_sides_blocked():
+    tips = [
+        {'id': 't1', 'game_id': 'g1', 'market': 'moneyline', 'side': 'home', 'stake': 2.0, 'execution_review': {'actionable': True}},
+        {'id': 't2', 'game_id': 'g1', 'market': 'spreads', 'side': 'away', 'line': 1.5, 'stake': 2.0, 'execution_review': {'actionable': True}},
+    ]
+    ok, violations = check_portfolio_invariants(tips)
+    assert ok is False
+    codes = [v['code'] for v in violations]
+    assert 'contradictory_opposing_sides' in codes
+

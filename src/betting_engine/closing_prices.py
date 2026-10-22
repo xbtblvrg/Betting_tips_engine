@@ -157,8 +157,10 @@ def _specifier_fields(value, scope, kind):
         if not re.fullmatch(r"[+-]?\d+(?:\.\d+)?", value):
             raise ValueError("invalid_handicap_specifier" if line_key == "hcp" else "line_mismatch")
         line = _number(value)
-        if not math.isfinite(float(line)) or line * 2 != (line * 2).to_integral_value():
+        if not math.isfinite(float(line)) or line * 4 != (line * 4).to_integral_value():
             # Quarter-line pricing requires a separate split-payoff contract.
+            raise ValueError("unsupported_split_line")
+        if scope != "full_game" and line * 2 != (line * 2).to_integral_value():
             raise ValueError("unsupported_split_line")
         return line
     return None

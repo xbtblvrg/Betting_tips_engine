@@ -5,7 +5,7 @@ traps ever reach the executable recommendations.
 """
 from typing import Dict, List, Any, Tuple
 from collections import defaultdict
-from .contracts import allocation_family, split_market
+from .contracts import allocation_family, split_market, is_opposing_contract
 
 
 class PortfolioInvariantViolation:
@@ -36,37 +36,31 @@ def check_portfolio_invariants(tips: List[Dict[str, Any]]) -> Tuple[bool, List[D
         if stake > 0 or review.get('actionable') is True:
             by_game[t.get('game_id')].append(t)
 
-    opposing_sides = {'home': 'away', 'away': 'home', 'over': 'under', 'under': 'over'}
-
     for gid, game_tips in by_game.items():
-        # 1. Family duplicate check
+        # 1. Family and market duplicate check
         family_counts: Dict[str, List[str]] = defaultdict(list)
         market_counts: Dict[str, List[str]] = defaultdict(list)
-        seen_sides: Dict[Tuple[str, str], Tuple[str, str]] = {}  # (scope, base) -> (side, tip_id)
 
         for t in game_tips:
             tid = t.get('id')
             fam = allocation_family(t)
             mkt = t.get('market')
-            side = t.get('side')
-            scope_base = split_market(mkt) if mkt else ('full_game', 'moneyline')
-            
             family_counts[fam].append(tid)
             market_counts[mkt].append(tid)
 
-            # Check opposing sides within the same scope and market base (e.g. over vs under, home vs away)
-            if side and side in opposing_sides:
-                key = (scope_base[0], scope_base[1])
-                opposing = opposing_sides[side]
-                if key in seen_sides and seen_sides[key][0] == opposing:
+        # 2. Check opposing sides using canonical is_opposing_contract
+        for i in range(len(game_tips)):
+            for j in range(i + 1, len(game_tips)):
+                t1 = game_tips[i]
+                t2 = game_tips[j]
+                if is_opposing_contract(t1, t2):
                     violations.append(PortfolioInvariantViolation(
                         code='contradictory_opposing_sides',
-                        message=f'Opposing sides ({side} vs {opposing}) detected on game {gid} in {scope_base}. Accidental hedge is mathematically prohibited.',
+                        message=f"Opposing sides ({t1.get('side')} vs {t2.get('side')}) detected on game {gid} between '{t1.get('selection') or t1.get('market')}' and '{t2.get('selection') or t2.get('market')}'. Accidental hedge is mathematically prohibited.",
                         game_id=gid,
-                        tip_ids=[seen_sides[key][1], tid]
+                        tip_ids=[t1.get('id'), t2.get('id')]
                     ))
-                else:
-                    seen_sides[key] = (side, tid)
+
 
         for fam, tids in family_counts.items():
             if len(tids) > 1:

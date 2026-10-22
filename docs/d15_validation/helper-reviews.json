@@ -1,0 +1,14 @@
+[
+  {
+    "id": "test_cases:claude",
+    "sha256": "9021e6665a121ad6550a6573bbd6c325504c9013839747499ef6a362215f0a0d",
+    "disposition": "partly_used",
+    "reason": "Used dynamic requirement, evidence-binding, duplicate/reprice, timezone, shortfall and read-only tests. Rejected 15 as the active target (current contract requires 20), the incorrect Budapest/UTC example, and automatic exclusion of historically issued mistaken decisions based on present-day guard checks. No percentage or profit claim is generated."
+  },
+  {
+    "id": "acceptance_checklist:agy",
+    "sha256": "4f2218d3c01be081aa57e9d2c65844cc86a5ae55e69db4ba36b51936585f0db2",
+    "disposition": "partly_used",
+    "reason": "Used explicit evidence states, read-only verification and exact-contract deduplication. Rejected claimed ambiguity about the day and target: the ledger specifies Budapest and minimum20. Statistical independence of same-game bets is not required for issuance counts; game clustering is reported separately. No helper approval or claimed test results were accepted."
+  }
+]

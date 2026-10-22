@@ -104,3 +104,12 @@ def test_coalesced_pending_job_cannot_bypass_backoff_when_bucket_changes(tmp_pat
  assert jobs[first]['attempts']==3 and jobs[first]['last_error']=='retry retained'
  assert jobs[second]['next_attempt']==delay
  assert choose_learning_job(list(jobs.values()),[{'kind':'shadow_evaluation'}]*3,now+timedelta(minutes=16))[0] is None
+
+
+def test_priority_one_market_catalog_is_aged_out_when_source_refresh_dominates():
+ now=utcnow()
+ rows=[row('market_catalog','catalog',now,minutes=35),row('source_refresh','source',now,minutes=5)]
+ history=[{'kind':'source_refresh'}]*3
+ selected,proof=choose_learning_job(rows,history,now)
+ assert selected['id']=='catalog'
+ assert proof['reason']=='aged_background_after_emergencies'

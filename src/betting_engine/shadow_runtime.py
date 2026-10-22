@@ -146,6 +146,9 @@ def evaluate_shadow(data_dir, *, games, as_of, store=None, max_trials=2, time_bu
         frozen_results = continuation['settlements']
         if _hash(frozen_results) != continuation.get('settlements_sha256'):
             raise ValueError('shadow_continuation_settlement_hash_mismatch')
+        with closing(journal._db()) as db:
+            valid_trials = {r[0] for r in db.execute('SELECT id FROM trials')}
+        trials = [t for t in trials if t in valid_trials]
     else:
         with closing(journal._db()) as db:
             cutoff = _time(as_of).isoformat()

@@ -4,7 +4,7 @@ import json
 from datetime import timedelta
 import pytest
 from betting_engine import outcome_feedback as feedback
-from tests.test_outcome_feedback import cohort, NOW
+from test_outcome_feedback import cohort, NOW
 
 
 def test_chunked_feedback_preserves_full_inputs_and_replays_idempotently(tmp_path,monkeypatch):
@@ -50,7 +50,7 @@ def test_chunk_archive_limit_cannot_publish_completed_evidence(tmp_path,monkeypa
     assert not (tmp_path/'data/outcome_feedback/latest.json').exists()
 
 def test_invalid_feedback_return_cannot_complete_learning_job(tmp_path,monkeypatch):
-    from tests.test_learning import worker
+    from test_learning import worker
     w=worker(tmp_path);w.run_once()
     job_id=w.enqueue('outcome_review','invalid-return')
     monkeypatch.setattr(feedback,'record_outcome_feedback',lambda *a,**kw:{'source_verified':False,'state':'evidence_invalid','error':'chunk_missing','proposals':[]})

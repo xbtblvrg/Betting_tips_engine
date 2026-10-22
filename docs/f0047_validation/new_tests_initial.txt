@@ -1,0 +1,43 @@
+...................F........F...                                         [100%]
+=================================== FAILURES ===================================
+_ test_stale_source_process_restarts_after_three_checks_and_respects_cooldown __
+
+handle = {'root': '/private/var/folders/bz/mmh6jc9n3db72lywcjm7qhkh0000gn/T/pytest-of-belavarga/pytest-2781/test_stale_source_p...c189cb87d3421ca0683e569096a7ea', 'manifest_sha256': '177505b841356232e06059e6a5991321908d71fac4375dfa6386ad7b9029c05d'}
+
+    def test_stale_source_process_restarts_after_three_checks_and_respects_cooldown(handle):
+        calls = []
+        def run(at):
+            return dispatch.dispatch_observation(handle, health(-301),
+                                                request_restart=calls.append, clock=lambda: stamp(at))
+        for at in (0, 60, 120, 180, 1019):
+            report = run(at)
+>       assert len(calls) == 1
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests/test_f0047_engine_source_supervision.py:112: AssertionError
+_ test_series_rollover_and_operator_view_keep_source_attention_and_worker_progress _
+
+tmp_path = PosixPath('/private/var/folders/bz/mmh6jc9n3db72lywcjm7qhkh0000gn/T/pytest-of-belavarga/pytest-2781/test_series_rollover_and_opera0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10bb83100>
+
+    def test_series_rollover_and_operator_view_keep_source_attention_and_worker_progress(tmp_path, monkeypatch):
+        monkeypatch.setattr(history, "MAX_CYCLES", 2)
+        handles = {s: journal.create_journal(tmp_path.resolve(), service=s, created_at=stamp(),
+                                            checkpoint_at=stamp(1000)) for s in ("engine", "learning")}
+        store = series.create_series(tmp_path.resolve(), handles, segments=2, created_at=stamp())
+        calls = []
+        for at in (0, 60, 120):
+            series.record_cycle(store, str(at), {"engine": health(at, message='<script>alert("x")</script>'),
+                                                 "learning": None},
+                                request_restart={s: calls.append for s in handles}, clock=lambda: stamp(at))
+        status = view.inspect_status(store, as_of=stamp(120))
+>       assert len(calls) == 1 and calls[0]["service"] == "learning"
+E       assert (0 == 1)
+E        +  where 0 = len([])
+
+tests/test_f0047_engine_source_supervision.py:210: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_f0047_engine_source_supervision.py::test_stale_source_process_restarts_after_three_checks_and_respects_cooldown
+FAILED tests/test_f0047_engine_source_supervision.py::test_series_rollover_and_operator_view_keep_source_attention_and_worker_progress
+2 failed, 30 passed in 0.45s

@@ -1,0 +1,26 @@
+{
+  "task_id": "E6BF9ACD30D",
+  "decision_export_sha256": "509ec5bd64a4bda24a0f00111448cd785742870ede3fd2f9c3ed77172bba5287",
+  "export_records": 179,
+  "export_truncated": false,
+  "analysis_time": "2026-10-01T14:54:39.816307+00:00",
+  "analysis_time_basis": "Export timestamp used only for replay scheduling, never historical availability or price observation.",
+  "cohorts": 21,
+  "evaluated_decisions": 126,
+  "not_yet_closed_decisions": 53,
+  "evaluation_statuses": {
+    "missing_closing_price": 126
+  },
+  "preserved_outcomes": {
+    "lost": 73,
+    "won": 50,
+    "push": 3
+  },
+  "supplied_capture_rows": 0,
+  "repeat_studies_idempotent": true,
+  "originals_and_summary_exact": true,
+  "source_export_unchanged": true,
+  "input_sqlite_unchanged": true,
+  "profit_established": false,
+  "live_source_verified": false
+}

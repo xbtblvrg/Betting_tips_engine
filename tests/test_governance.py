@@ -76,7 +76,7 @@ def test_guard_checks_navigation_against_the_exact_market_feed_group():
     (5,'features',['implied_odds'],'unapproved_model_features'),
     (5,'code_sha256',None,'model_provenance_missing'),
     (6,'daily_risk_limit',10,'daily_cap_conflicts_with_user_instruction'),
-    (6,'max_bet',6,'invalid_per_bet_cap'),
+    (6,'max_bet',9,'invalid_per_bet_cap'),
     (6,'auto_track_recommendations',False,'standing_auto_tracking_disabled'),
 ])
 def test_guard_blocks_invented_numbers_or_requirement_drift(target,key,value,error):

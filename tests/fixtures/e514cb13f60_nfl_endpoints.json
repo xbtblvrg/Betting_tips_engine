@@ -1,0 +1,131 @@
+{
+  "source": {
+    "archive_timestamp_independently_authenticated": false,
+    "availability_basis": "archived_observation",
+    "available_at": "2026-09-30T02:29:16.039057+00:00",
+    "blob_path": "raw/54876e2239cbd90787616329bd47ef1e738e246f104f2813ec0b4e110def1a91.data",
+    "bytes": 3648863,
+    "column_count": 372,
+    "current_participation_verified": false,
+    "family": "NFL/events",
+    "fetched_at": "2026-09-30T02:29:16.039057+00:00",
+    "format": "nfl_parquet",
+    "kind": "native_events",
+    "league": "NFL",
+    "metadata_path": "raw/894ffbf195e4836a8a8788936c8986cf40ca6f0bef0bf79d02c158bc1a91f7f8.json",
+    "metadata_sha256": "0bead581c24b416dba9624b71f33e368529ee9f8e9c65baba51ce0de33d800fd",
+    "row_count": 8311,
+    "season": 2026,
+    "sequence_completeness_verified": false,
+    "source_published_at": null,
+    "source_schema_recognized": true,
+    "source_sha256": "54876e2239cbd90787616329bd47ef1e738e246f104f2813ec0b4e110def1a91",
+    "state": "copied",
+    "url": "https://github.com/nflverse/nflverse-data/releases/download/pbp/play_by_play_2026.parquet"
+  },
+  "manifest_sha256": "e83d93aba62fa99f826499d429d8469378a5d484633b90dbef48267e8c4a8a90",
+  "projection": [
+    "game_id",
+    "play_id",
+    "home_team",
+    "away_team",
+    "qtr",
+    "quarter_end",
+    "total_home_score",
+    "total_away_score",
+    "desc"
+  ],
+  "scope": "Observed endpoint projection only; no historical availability or participation claim.",
+  "game": {
+    "id": "NFL:2026_01_ARI_LAC",
+    "league": "NFL",
+    "start": "2026-09-13T20:25:00+00:00",
+    "home": "Los Angeles Chargers",
+    "away": "Arizona Cardinals",
+    "home_id": "LAC",
+    "away_id": "ARI",
+    "home_abbr": "LAC",
+    "away_abbr": "ARI",
+    "state": "final",
+    "season": 2026,
+    "home_score": 14.0,
+    "away_score": 26.0,
+    "neutral": false,
+    "game_type": "regular",
+    "source": "https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv",
+    "fetched_at": "2026-09-30T02:28:00.113901+00:00",
+    "context": {
+      "box": {
+        "home": {
+          "yards_per_play": 5.254901960784314,
+          "yards_allowed_per_play": 5.458333333333333,
+          "passing_yards_per_attempt": 6.2,
+          "rushing_yards_per_attempt": 3.9,
+          "turnovers_per_play": 0.0392156862745098,
+          "third_down_fraction": 0.25,
+          "offensive_plays": 51.0
+        },
+        "away": {
+          "yards_per_play": 5.458333333333333,
+          "yards_allowed_per_play": 5.254901960784314,
+          "passing_yards_per_attempt": 7.3,
+          "rushing_yards_per_attempt": 3.4,
+          "turnovers_per_play": 0.0,
+          "third_down_fraction": 0.42857142857142855,
+          "offensive_plays": 72.0
+        }
+      },
+      "box_source": {
+        "url": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nfl_team_box/team_box_2026.parquet",
+        "sha256": "9cbb244c4804c05f2126b59a792e123aeca677e147bc5139b7c07c26b1611531",
+        "fetched_at": "2026-09-30T02:11:30.966725+00:00"
+      }
+    }
+  },
+  "endpoints": [
+    {
+      "game_id": "2026_01_ARI_LAC",
+      "play_id": 778.0,
+      "home_team": "LAC",
+      "away_team": "ARI",
+      "qtr": 1.0,
+      "quarter_end": 1.0,
+      "total_home_score": 7.0,
+      "total_away_score": 7.0,
+      "desc": "END QUARTER 1"
+    },
+    {
+      "game_id": "2026_01_ARI_LAC",
+      "play_id": 1952.0,
+      "home_team": "LAC",
+      "away_team": "ARI",
+      "qtr": 2.0,
+      "quarter_end": 1.0,
+      "total_home_score": 7.0,
+      "total_away_score": 13.0,
+      "desc": "END QUARTER 2"
+    },
+    {
+      "game_id": "2026_01_ARI_LAC",
+      "play_id": 3057.0,
+      "home_team": "LAC",
+      "away_team": "ARI",
+      "qtr": 3.0,
+      "quarter_end": 1.0,
+      "total_home_score": 14.0,
+      "total_away_score": 16.0,
+      "desc": "END QUARTER 3"
+    },
+    {
+      "game_id": "2026_01_ARI_LAC",
+      "play_id": 4193.0,
+      "home_team": "LAC",
+      "away_team": "ARI",
+      "qtr": 4.0,
+      "quarter_end": 0.0,
+      "total_home_score": 14.0,
+      "total_away_score": 26.0,
+      "desc": "END GAME"
+    }
+  ]
+}

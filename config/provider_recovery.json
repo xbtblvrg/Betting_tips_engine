@@ -11,6 +11,18 @@
   "probe_timeout_seconds": 60,
   "routes": [
     {
+      "id": "gemini-3.8-flash-high",
+      "provider": "agy",
+      "family": "gemini",
+      "model": "gemini-3.8-flash-high"
+    },
+    {
+      "id": "gemini-3.1-pro-high",
+      "provider": "agy",
+      "family": "gemini",
+      "model": "gemini-3.1-pro-high"
+    },
+    {
       "id": "gpt-6-astra",
       "provider": "codex",
       "family": "gpt",
@@ -67,18 +79,6 @@
       "reasoning_effort": "low"
     },
     {
-      "id": "gemini-3.8-flash-high",
-      "provider": "agy",
-      "family": "gemini",
-      "model": "gemini-3.8-flash-high"
-    },
-    {
-      "id": "gemini-3.1-pro-high",
-      "provider": "agy",
-      "family": "gemini",
-      "model": "gemini-3.1-pro-high"
-    },
-    {
       "id": "claude-opus-5-5",
       "provider": "claude",
       "family": "opus-5.5",
@@ -87,11 +87,12 @@
   ],
   "claude_binary": "/Users/belavarga/.local/bin/claude",
   "agy_binary": "/Users/belavarga/.local/bin/agy",
-  "release_review_requires_codex": true,
+  "release_review_requires_codex": false,
+  "release_review_requires_agy": true,
   "purchases_authorized": false,
   "sources": [
     "https://learn.chatgpt.com/docs/app-server",
     "https://learn.chatgpt.com/docs/developer-commands?surface=cli"
   ],
-  "ranking_basis": "Reviewed explicit coding-capability preference over exact account catalog; no alphabetical or newest-number inference. Only fresh catalog entries are eligible. GPT-6 Astra is preferred. AGY Gemini routes provide primary fallback when GPT routes are quota-exhausted. Claude Opus 5.5 is secondary fallback."
+  "ranking_basis": "User directive 2026-10-06: Google Antigravity agy (Gemini 3.8 Flash High / 3.1 Pro High) is the primary quant brain, developer and supervisor. Codex (GPT-6 Astra, etc.) serves as deputy and secondary fallback. Claude Opus 5.5 is tertiary fallback."
 }

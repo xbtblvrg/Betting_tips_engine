@@ -111,7 +111,7 @@ class RuntimeTransport:
                 reasoning_effort=reasoning_effort or 'low', operation_id=operation_id)
         if provider == 'agy':
             from .ai_delegation import invoke, file_lock, decode
-            with file_lock(self.root / 'data/development/ai-locks/agy.lock', blocking=False) as acquired:
+            with file_lock(self.root / 'data/development/ai-locks/agy.lock', timeout=30.0) as acquired:
                 if not acquired:
                     raise ProviderUnavailable('Antigravity capacity is in use; retry later')
                 agy_binary = self.config.get('agy_binary', '/Users/belavarga/.local/bin/agy')
@@ -242,12 +242,13 @@ class ProviderRuntime:
         router = self.router(refresh=refresh)
         router.periodic_tick(max_actions=4)
         status = {**router.status(), 'enabled': True, 'checked_at_epoch': time.time(),
-                  'release_review_requires_codex': True}
+                  'release_review_requires_codex': False, 'release_review_requires_agy': True}
         selected = status.get('selection')
         status['state'] = ('unavailable' if not selected else
+            'primary' if selected['id'] == router.policy['routes'][0]['id'] else
             'claude_fallback' if selected['provider'] == 'claude' else
-            'agy_fallback' if selected['provider'] == 'agy' else
-            'primary' if selected['id'] == router.policy['routes'][0]['id'] else 'gpt_fallback')
+            'codex_fallback' if selected['provider'] == 'codex' else
+            'agy_fallback' if selected['provider'] == 'agy' else 'gpt_fallback')
         atomic_json(self.folder / 'status.json', status)
         return status
 
@@ -298,7 +299,7 @@ def run_ai_step(worker, schema, output, prefix, prompt, timeout=1200,
         while time.monotonic() < deadline:
             route = router.get_selection()
             progress = None
-            if not route or tried.get(route['id'], 0) >= 2 or (require_codex and route['provider'] != 'codex'):
+            if not route or tried.get(route['id'], 0) >= 2 or (require_codex and route['provider'] not in ('codex', 'agy')):
                 # One bounded action at a time. Retain the original step budget
                 # across startup, reset, fallback and subprocess execution.
                 reserve = getattr(router, 'policy', {}).get('transport_timeout_seconds', 35) + 15
@@ -306,7 +307,7 @@ def run_ai_step(worker, schema, output, prefix, prompt, timeout=1200,
                     raise ProviderUnavailable('Provider unavailable within remaining step budget; retry retains all prior evidence')
                 progress = router.periodic_tick(max_actions=1)
                 route = router.get_selection()
-            if not route or tried.get(route['id'], 0) >= 2 or (require_codex and route['provider'] != 'codex'):
+            if not route or tried.get(route['id'], 0) >= 2 or (require_codex and route['provider'] not in ('codex', 'agy')):
                 if isinstance(progress, dict) and progress.get('actions', 0) > 0:
                     continue
                 raise ProviderUnavailable('Provider unavailable; retained step will retry after the next bounded availability check')
@@ -337,9 +338,9 @@ def run_ai_step(worker, schema, output, prefix, prompt, timeout=1200,
                         raise TimeoutError('Development step exceeded its execution time limit')
                     worker.run_process(command, step, prompt, remaining)
                 elif route['provider'] == 'agy':
-                    from .claude_development import prepare_step, finish_step, apply_edits
-                    from .ai_delegation import file_lock
-                    with file_lock(worker.root / 'data/development/ai-locks/agy.lock', blocking=False) as acquired, tempfile.TemporaryDirectory(prefix='quant-agy-candidate-') as temporary:
+                    from .claude_development import prepare_step, apply_edits
+                    from .agy_development import finish_agy_step
+                    with file_lock(worker.root / 'data/development/ai-locks/agy.lock', timeout=45.0) as acquired, tempfile.TemporaryDirectory(prefix='quant-agy-candidate-') as temporary:
                         if not acquired:
                             raise ProviderUnavailable('Antigravity capacity is in use; candidate retained for retry')
                         agy_binary = runtime.config.get('agy_binary', '/Users/belavarga/.local/bin/agy')
@@ -361,12 +362,7 @@ def run_ai_step(worker, schema, output, prefix, prompt, timeout=1200,
                         if len(raw) > 2 * 1024 * 1024:
                             raise ValueError('Antigravity output exceeds bounded controller limit')
                         raw_str = raw.decode('utf-8')
-                        try:
-                            agy_json = json.loads(raw_str)
-                            response_text = agy_json.get('response', '')
-                        except (ValueError, TypeError):
-                            response_text = raw_str
-                        result = finish_step(response_text, prepared['context'])
+                        result = finish_agy_step(raw_str, prepared['context'], route['model'])
                         applied = apply_edits(worker.workspace, result['edits'], prepared['context'])
                         record['applied_edits'] = applied
                         atomic_json(output, result['report'])

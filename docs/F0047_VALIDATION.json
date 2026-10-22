@@ -1,0 +1,101 @@
+{
+  "task": "F0047",
+  "scope": "offline supervision source/process failure distinction",
+  "task_implementation_complete": true,
+  "production_ready": false,
+  "independent_review_verified": false,
+  "live_recovery_verified": false,
+  "baseline_files": 906,
+  "baseline_files_unchanged": 903,
+  "baseline_test_files_unchanged": 369,
+  "changed_original_files": [
+    "src/betting_engine/development_restart_journal.py",
+    "src/betting_engine/development_supervision_history.py",
+    "src/betting_engine/development_supervision_view.py"
+  ],
+  "input_validation": {
+    "development_manifest": {
+      "sha256": "178834626c3cdca57f0b6f82201bac662d663852e88142d74cc1816650d5b957",
+      "bytes": 272035
+    },
+    "file_pins_verified": 346,
+    "source_pins_verified": 415,
+    "manifest_errors": [],
+    "truncation_field_declared": false,
+    "validation_pins_verified": 48,
+    "validation_bundle_declarations_match": true,
+    "validation_catalogue": {
+      "sha256": "b54253e4f3938511354ecc55b3b21037915a2e5939d082007b54ffac0a44df60",
+      "bytes": 12186
+    },
+    "errors": [],
+    "separate_sports_metadata_limitation": {
+      "path": "data/sports_source_evidence/raw/1fa6a0c601c22f3d4171a0fc40ef7f0576ceccca8d881c3a94aee379be52aed4.data",
+      "declared_bytes": 133955,
+      "actual_bytes": 133609,
+      "source_hash_matches": true,
+      "used_for": "schema-based negative heartbeat test only"
+    }
+  },
+  "commands": {
+    "python_api": "PYTHONPATH=src OMP_NUM_THREADS=1 /Users/belavarga/Betting_tips_engine/.venv/bin/python -m pytest -q tests/test_f0047_engine_source_supervision.py tests/test_f0046_supervision_view.py tests/test_f0045_supervision_series.py tests/test_f0042_supervision_history_recovery.py tests/test_f0040_supervision_cycle.py tests/test_f0038_worker_dispatch.py tests/test_f0028_restart_dispatch.py tests/test_f0028_restart_journal.py tests/test_f0029_worker_restart.py tests/test_f0029_dispatch_stall.py tests/test_f0029_advancing_heartbeat.py tests/test_f0029_worker_evidence_boundaries.py tests/test_f0022_recovery_drill.py tests/test_f0022_commit_durability.py tests/test_f0022_traversal_errors.py tests/test_f0028_acceptance_checkpoint.py tests/test_d14_development_acceptance.py tests/test_d14_nonfinite_evidence.py tests/test_e393159_candidate_audit.py tests/test_supervisor.py tests/test_supervisor_feed_recovery.py tests/test_release_supervision.py tests/test_api.py",
+    "frontend": "node --test tests/web.test.mjs"
+  },
+  "results": {
+    "python_api_passed": 673,
+    "new_regressions": 32,
+    "unchanged_related_cases": 641,
+    "frontend_dom_passed": 216
+  },
+  "files": {
+    "src/betting_engine/development_restart_journal.py": {
+      "sha256": "45fb6e0f1324b28cb3aa0621171e8dad0bd358dd7daed8cac3a5bf09905dd7ed",
+      "bytes": 15940
+    },
+    "src/betting_engine/development_supervision_history.py": {
+      "sha256": "2a3f899b664844575f378fe7435c8b859c80a5331fe489162876394d657bd823",
+      "bytes": 15056
+    },
+    "src/betting_engine/development_supervision_view.py": {
+      "sha256": "6ff90138c7fe3142a61794be324fbf53091c74caeb88bd113ea827d81e6ee664",
+      "bytes": 11073
+    },
+    "src/betting_engine/development_engine_health.py": {
+      "sha256": "cf61169b443e0b55d781889081cd5a119162a8f5d7c3e0e9c1a8ad97c113309d",
+      "bytes": 2968
+    },
+    "tests/test_f0047_engine_source_supervision.py": {
+      "sha256": "2b7ba1273cad84cc9de616e2184c92c1a61233a565025f2ba7ba20d51ab34504",
+      "bytes": 12666
+    },
+    "docs/F0047_ENGINE_SOURCE_SUPERVISION.md": {
+      "sha256": "1740d22db42044c9fed76882129a954877bf7c6e3edaa074431f8baf427b56b0",
+      "bytes": 7886
+    },
+    "docs/f0047_validation/python_final.txt": {
+      "sha256": "06154014cc1c6a0f6994a8c6f1890cf2bb749a18f4ed46ef826917ee29f99007",
+      "bytes": 1338
+    },
+    "docs/f0047_validation/python.txt": {
+      "sha256": "5220b6346f6466dc232a68fb0394612656266779826d7f9c3aee6345336cec75",
+      "bytes": 1338
+    },
+    "docs/f0047_validation/frontend_final.txt": {
+      "sha256": "9e1aef1a00d98a9a2963d055fdae56cde0564ceb411a83cde543b6fcd1dbdb8b",
+      "bytes": 43941
+    },
+    "docs/f0047_validation/new_tests_initial.txt": {
+      "sha256": "1a752ad39989a212c9ee2c93487458eff8e2281f6e51779e58909064b61a209d",
+      "bytes": 2755
+    },
+    "docs/f0047_validation/frontend.txt": {
+      "sha256": "f7b5980e923647d9e2f77fa95cbb8d4aed5b56bfa81e9364423047398a467f10",
+      "bytes": 43960
+    },
+    "docs/f0047_validation/new_tests_second.txt": {
+      "sha256": "8b984262d648855768cc6f04304d83bc3cd09139d34dfb10e0561d0055d5921f",
+      "bytes": 2026
+    }
+  },
+  "helper_reviews": []
+}

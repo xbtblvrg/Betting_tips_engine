@@ -1,0 +1,70 @@
+{
+  "task_id": "D15",
+  "run_id": "20261001T080355803623-D15",
+  "implementation_complete": true,
+  "production_ready": false,
+  "independent_review": "pending_controller",
+  "live_verification": "pending_controller",
+  "checks": [
+    {
+      "command": "PYTHONPATH=src OMP_NUM_THREADS=1 /Users/belavarga/Betting_tips_engine/.venv/bin/python -m pytest -q tests/test_d15_*.py tests/test_e514cb13f60_lifecycle_replay.py tests/test_stake_mlb_seed_ranges.py tests/test_stake_api_college.py",
+      "log": "docs/d15_validation/python-targeted.log",
+      "exit_code": 0,
+      "passed": 228,
+      "log_sha256": "6cbcffdbd70d6b24681ae5aded6ee4370ad56a2d11f77cea6aabf75bc4b52d47"
+    },
+    {
+      "command": "PYTHONPATH=src OMP_NUM_THREADS=1 /Users/belavarga/Betting_tips_engine/.venv/bin/python -m pytest -q",
+      "log": "docs/d15_validation/python-full.log",
+      "exit_code": 0,
+      "passed": 5156,
+      "subtests_passed": 5,
+      "log_sha256": "b47100b02c53b8b408a4f7f191563fca4b91fbda84300c38ffe0e3ee5ec97c46"
+    },
+    {
+      "command": "npm test",
+      "log": "docs/d15_validation/dom-full.log",
+      "exit_code": 255,
+      "state": "wrapper_exited_before_test_output",
+      "log_sha256": "66be6e1650acdbdd9b6a64de861dc7d7b0963e6050d1a4fc8f66c89680e821b4"
+    },
+    {
+      "command": "node --test tests/web.test.mjs",
+      "log": "docs/d15_validation/dom-direct.log",
+      "exit_code": 0,
+      "passed": 216,
+      "log_sha256": "41f9165782c82687730da5bc1f02486374857924d68f9586e01aebe68632eabb"
+    }
+  ],
+  "candidate_sources": {
+    "src/betting_engine/requirement_acceptance.py": "82480d88d265d78efe88d5e6a337fa5cb97a1e082de871df80fa0431f3db94ad",
+    "src/betting_engine/stake_api.py": "9d20a5823e40b0e24d68801b13525a2d31ab33d68afde3d977c834fd9bebc770",
+    "tests/test_d15_acceptance_recovery.py": "f24c9ddfcfbeec5ae9c47f35363aaa5f4deca9ce99185277fc45b98a3426b3ca",
+    "tests/test_d15_changed_input_recovery.py": "c794560afefef4fea94bb4dc4f978ffa53b5b60a76e221cb685c5ac16f811c9a",
+    "tests/test_d15_current_contract.py": "224fbc4c079f2b8e0e7db596aaed18f803ccab63e02752e838580d99e77940eb",
+    "tests/test_d15_failing_subclaims.py": "20bffa2d091024da732a01567f4ace66aca01fbf6d62a019d7d089a14d977c0a",
+    "tests/test_d15_frozen_validation_preparation.py": "6316f79a791669f289e056e548f08c7a9674db065fefd21999742b18b62c62e5",
+    "tests/test_d15_payoff_aliases.py": "97e91f54ae4104761065edda064364e26785746f40d33b3856710bf386ea1700",
+    "tests/test_d15_publication_chronology.py": "0152d407863f60f8d5f0d4a432dd9f1bda0bcf07360004674e9b3420e7a68e71",
+    "tests/test_d15_recovery_source_schemas.py": "e9866a0980dffd466c7486e8a9fad5ef41c53390ee8e1cb11e8147e5ce3f6045",
+    "tests/test_d15_registry_observations.py": "0957c544aeb81f376bd28677a9b64b417faa556c9aee3675406cd7f1bcf6f301",
+    "tests/test_d15_registry_rebase.py": "c8d943dd1aae0135fccd151793c39fe951230d7a3adbabf12c72772d501d4f5b",
+    "tests/test_d15_requirement_acceptance.py": "6c357095912bb6fd44d7012ed497dc36516c08c680fe6c73873ef4f603a83935",
+    "tests/test_d15_retained_failure_bindings.py": "a7971dfb5de1906b5fa0cb8c7a3cc17b0d0416e545b53f343f9f97388549066a",
+    "tests/test_d15_source_bindings.py": "3544e87e1761b33334db3752e44211f9f27f9a80855f9b11de37651adbdf50f1"
+  },
+  "documentation": {
+    "docs/d15_validation/preexisting-integrity.json": "97e15683022d3eb79ad1c96260f6f9266a55f3f032ee101edc88eceb889b474d",
+    "docs/d15_validation/input-verification.json": "d1ea8f388ba461fa2d9907935339822bc090dcfb4f22304b28d72ac56158ea85",
+    "docs/d15_validation/dom-full.log": "66be6e1650acdbdd9b6a64de861dc7d7b0963e6050d1a4fc8f66c89680e821b4",
+    "docs/d15_validation/dom-direct.log": "41f9165782c82687730da5bc1f02486374857924d68f9586e01aebe68632eabb",
+    "docs/d15_validation/snapshot-observation.json": "b642d6a22e99b320c0743cfe613d597e346823dae0d2c2c2459959e211327a92",
+    "docs/d15_validation/helper-reviews.json": "340f099b4c5cbc2581c0baa584c1148c850f366ffba545d020e938a27cc676ee",
+    "docs/d15_validation/recovery-pins.json": "c1e18e2acbac5944e3c65ec86e2022598a1701167f5976fbf6f852dfbd59ede9",
+    "docs/d15_validation/python-targeted.log": "6cbcffdbd70d6b24681ae5aded6ee4370ad56a2d11f77cea6aabf75bc4b52d47",
+    "docs/d15_validation/python-full.log": "b47100b02c53b8b408a4f7f191563fca4b91fbda84300c38ffe0e3ee5ec97c46",
+    "docs/D15_REQUIREMENT_ACCEPTANCE.md": "0daed95d22d9dd75920cd826c7db1af058866d97090aec6445ffcfc2d7751358"
+  },
+  "preexisting_test_changes": [],
+  "claim": "Local candidate checks only; no live release or profitability claim."
+}

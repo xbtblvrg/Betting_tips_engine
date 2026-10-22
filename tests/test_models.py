@@ -81,3 +81,70 @@ def test_elo_identity_recipe_is_explicit_and_odds_independent():
 @pytest.mark.parametrize('score',[float('nan'),float('inf'),-1,1.5])
 def test_nonfinite_or_impossible_score_rejected(score):
     with pytest.raises(ValueError):game('bad','2025-01-01',score,1)
+
+
+def test_nhl_empty_net_and_ot_mechanics():
+    from betting_engine.models import score_distribution
+    residuals = np.array([[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]])
+    h, a, w = score_distribution(0.5, 5.5, residuals, 0.55, 0.0, 'NHL')
+    assert np.all(h >= 0) and np.all(a >= 0)
+    assert not np.any(h == a), "NHL regular season score distribution must have zero ties"
+    assert w[h > a].sum() == pytest.approx(0.55)
+    assert w[a > h].sum() == pytest.approx(0.45)
+    assert w.sum() == pytest.approx(1.0)
+    # The empty net and OT mechanics must raise mean total goals above the raw 5.5 baseline
+    mean_goals = float((w * (h + a)).sum())
+    assert mean_goals > 5.5
+
+
+def test_nhl_2goal_lead_empty_net_mechanics():
+    from betting_engine.models import score_distribution
+    residuals = np.array([[0, 0]])  # Home leads by 2 (e.g. margin=2.0, total=6.0 -> 4-2)
+    h, a, w = score_distribution(2.0, 6.0, residuals, 0.80, 0.0, 'NHL')
+    # Because 2-goal lead empty net mechanics are active:
+    # There should be an outcome with h=5, a=2 (home scores empty netter, 3-goal lead)
+    assert np.any((h == 5) & (a == 2))
+    # There should be an outcome with h=4, a=3 (away scores 6v5 goal, 1-goal deficit)
+    assert np.any((h == 4) & (a == 3))
+    # NHL has zero ties
+    assert not np.any(h == a)
+    # Win masses match calibrated probabilities
+    assert w[h > a].sum() == pytest.approx(0.80)
+    assert w[a > h].sum() == pytest.approx(0.20)
+    assert w.sum() == pytest.approx(1.0)
+
+
+def test_forecast_quantitative_injury_lineup_adjustment():
+    from pathlib import Path
+    import joblib
+    model_path = Path("data/models/NFL.joblib")
+    if not model_path.exists():
+        pytest.skip("NFL model not available")
+    model = joblib.load(model_path)
+    base_game = Game(
+        "NFL:test_game_1", "NFL", "2026-10-25T17:00:00Z",
+        "Chicago Bears", "Green Bay Packers", "CHI", "GB", "CHI", "GB",
+        "scheduled", 2026, None, None,
+        game_type="regular", context={}
+    )
+    fc_base = model.forecast(base_game)
+
+    # With Starting QB OUT: 4.5 pt penalty
+    inj_game = Game(
+        "NFL:test_game_1", "NFL", "2026-10-25T17:00:00Z",
+        "Chicago Bears", "Green Bay Packers", "CHI", "GB", "CHI", "GB",
+        "scheduled", 2026, None, None,
+        game_type="regular", context={
+            "injuries": {
+                "home": [{"athlete_display_name": "Caleb Williams", "athlete_position": "QB", "status": "OUT"}]
+            }
+        }
+    )
+    fc_inj = model.forecast(inj_game)
+    assert fc_inj.margin < fc_base.margin
+    assert fc_inj.home_probability < fc_base.home_probability
+    assert fc_inj.total < fc_base.total
+    assert any("Quantitative injury/lineup adjustment applied" in w for w in fc_inj.warnings)
+
+
+

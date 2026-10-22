@@ -1,0 +1,100 @@
+{
+  "task_id": "F0036",
+  "scope": "Experimental candidate only; no independent review or release approval",
+  "validation": [
+    {
+      "command": "PYTHONPATH=src OMP_NUM_THREADS=1 /Users/belavarga/Betting_tips_engine/.venv/bin/python -m pytest -q tests/test_f0036_acceptance_history.py",
+      "result": "33 passed",
+      "exit_code": 0,
+      "log": {
+        "path": "docs/f0036_validation/python-targeted-final.log",
+        "sha256": "4714db9ae9e3a39e3b62f7861b380a4e8e5da8cbcd714f02e917077d8fa05ec4",
+        "bytes": 99
+      }
+    },
+    {
+      "command": "PYTHONPATH=src OMP_NUM_THREADS=1 /Users/belavarga/Betting_tips_engine/.venv/bin/python -m pytest -q",
+      "result": "5926 passed, 5 subtests passed, 1 dependency deprecation warning",
+      "exit_code": 0,
+      "log": {
+        "path": "docs/f0036_validation/python-full-final.log",
+        "sha256": "7fa20eb0c690fa60a762de086cf87f095c530ef27b5d0b0de91016508c8f2b0e",
+        "bytes": 7203
+      }
+    },
+    {
+      "command": "node --test tests/web.test.mjs",
+      "result": "216 passed",
+      "exit_code": 0,
+      "log": {
+        "path": "docs/f0036_validation/dom-full.log",
+        "sha256": "73289e198fd0d3c4cd9b80a4ae1cf4c1fa9312085ed3f50084f184467de24418",
+        "bytes": 43952
+      }
+    }
+  ],
+  "candidate_files": [
+    {
+      "path": "src/betting_engine/requirement_acceptance_history.py",
+      "sha256": "9078f64ff863bff102b632dcf17acbf8d77905d90a11e482482c19ff5ec828f2",
+      "bytes": 9225
+    },
+    {
+      "path": "tests/test_f0036_acceptance_history.py",
+      "sha256": "3804dcc05db9566f62999d3ef3daaed42a2aace0d4986da59505802bf67551ba",
+      "bytes": 10390
+    }
+  ],
+  "evidence": [
+    {
+      "path": "docs/F0036_ACCEPTANCE_HISTORY.md",
+      "sha256": "11f22e863a2649eb9261c4b833a572ac675c7bc8b0e4ff18f3d89cd94eecf01d",
+      "bytes": 6772
+    },
+    {
+      "path": "docs/f0036_validation/baseline.json",
+      "sha256": "229882d843dc49e7a7838e1317757b1d6b8cfdd172573210ae9d979d65ab47e8",
+      "bytes": 48075
+    },
+    {
+      "path": "docs/f0036_validation/history-fixture-observation.json",
+      "sha256": "548c239dfb4cb96b573533ebf26ceaed3b0a923289212aff1d2a717ab61b184a",
+      "bytes": 18683
+    },
+    {
+      "path": "docs/f0036_validation/integrity.json",
+      "sha256": "d2af5551ec0be5aa0e4545546b3701229f27954e302472e2d059f002e59bc682",
+      "bytes": 332
+    },
+    {
+      "path": "docs/f0036_validation/preparation.json",
+      "sha256": "bce7c36c153ca518db32859843187d37cee6ca8aff8f5b19c26f1b3f11dbe71b",
+      "bytes": 18731
+    },
+    {
+      "path": "docs/f0036_validation/requirement-audit.json",
+      "sha256": "fc8ed0d9012d467fe5dce3adbd99c19d1304353f9bc1ad86fb929b09a55f15c7",
+      "bytes": 352536
+    }
+  ],
+  "initial_logs": [
+    {
+      "path": "docs/f0036_validation/python-targeted.log",
+      "sha256": "8fdf17233d72b949f77d673ef3cba74ca1729611f4cc8e8781ef031a6bcf9bb5",
+      "bytes": 99
+    },
+    {
+      "path": "docs/f0036_validation/python-full.log",
+      "sha256": "d9bf1e708812d2960934c0a0e777abbcadd9abe2444512448c97f9c18e3d2a8d",
+      "bytes": 7203
+    }
+  ],
+  "helper_reviews": [],
+  "pending": [
+    "Independent controller review",
+    "Root-authorized integration profile",
+    "Authenticated operational snapshot retention",
+    "Fresh local and Tailscale release verification",
+    "All remaining M08 production acceptance"
+  ]
+}

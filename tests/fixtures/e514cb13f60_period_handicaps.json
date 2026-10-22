@@ -1,0 +1,299 @@
+{
+  "origin": "data/market_catalog/versions/20260929T194808998628Z/contracts.json",
+  "origin_sha256": "db8991c1287194a4d4855b6a8cf81ca63fa6e989dec7a2cec60bfc3c89ce5ec4",
+  "purpose": "Historical observed contract replay only; not current offers or model approval.",
+  "rows": [
+    {
+      "league": "NHL",
+      "fixture_id": "4eb1f210-9d3d-41e5-96f7-39f4d0c0c1e1",
+      "fixture": "Carolina Hurricanes - Florida Panthers",
+      "fixture_slug": "46728042-carolina-hurricanes-florida-panthers",
+      "start": "2026-09-29T21:00:00+00:00",
+      "market_id": "4519b0f4-d93a-4b41-91d9-ffeddb5a5ba8",
+      "market": "1st Period - Handicap",
+      "specifiers": "periodnr=1|hcp=-0.5",
+      "provider_section": "standard",
+      "tabs": [
+        {
+          "id": "b13a0949-ee48-4092-9a1a-aba38f3f45c6",
+          "name": "periods"
+        }
+      ],
+      "outcomes": [
+        {
+          "odds": 2.65,
+          "active": true,
+          "voidFactor": 0,
+          "id": "3c902d48-5540-4f65-b546-f6edbfd32b41",
+          "name": "Carolina Hurricanes (-0.5)"
+        },
+        {
+          "odds": 1.45,
+          "active": true,
+          "voidFactor": 0,
+          "id": "8fde834d-2bab-4bd1-a913-d367e469d309",
+          "name": "Florida Panthers (0.5)"
+        }
+      ],
+      "status": "active",
+      "raw_contract": {
+        "id": "4519b0f4-d93a-4b41-91d9-ffeddb5a5ba8",
+        "status": "active",
+        "specifiers": "periodnr=1|hcp=-0.5",
+        "extendedSpecifiers": "",
+        "updatedAt": 1790710756964,
+        "name": "1st Period - Handicap",
+        "outcomes": [
+          {
+            "odds": 2.65,
+            "active": true,
+            "voidFactor": 0,
+            "id": "3c902d48-5540-4f65-b546-f6edbfd32b41",
+            "name": "Carolina Hurricanes (-0.5)"
+          },
+          {
+            "odds": 1.45,
+            "active": true,
+            "voidFactor": 0,
+            "id": "8fde834d-2bab-4bd1-a913-d367e469d309",
+            "name": "Florida Panthers (0.5)"
+          }
+        ]
+      },
+      "source": {
+        "url": "https://odds-data.stake.com/odds/46728042-carolina-hurricanes-florida-panthers",
+        "fetched_at": "2026-09-29T19:48:04.927314+00:00",
+        "sha256": "83bebc19b706432c982719cbc418df3709fd3a8a2ea9412aa6a411d92131dada",
+        "archive": "stake_api_archive/83bebc19b706432c982719cbc418df3709fd3a8a2ea9412aa6a411d92131dada.json.gz"
+      },
+      "family": "score_contract",
+      "scope": "period_1",
+      "scope_basis": "title_explicit",
+      "dependencies": [
+        "scope_score_targets",
+        "scope_probability_model",
+        "exact_payoff_rule"
+      ],
+      "recognition_is_model_support": false
+    },
+    {
+      "league": "NHL",
+      "fixture_id": "4eb1f210-9d3d-41e5-96f7-39f4d0c0c1e1",
+      "fixture": "Carolina Hurricanes - Florida Panthers",
+      "fixture_slug": "46728042-carolina-hurricanes-florida-panthers",
+      "start": "2026-09-29T21:00:00+00:00",
+      "market_id": "23cb41ac-8fb4-4c74-abf8-6d43624ef07c",
+      "market": "2nd Period - Handicap",
+      "specifiers": "periodnr=2|hcp=-0.5",
+      "provider_section": "standard",
+      "tabs": [
+        {
+          "id": "b13a0949-ee48-4092-9a1a-aba38f3f45c6",
+          "name": "periods"
+        }
+      ],
+      "outcomes": [
+        {
+          "odds": 2.48,
+          "active": true,
+          "voidFactor": 0,
+          "id": "a456768b-0bbb-492d-bf53-d285d6e81168",
+          "name": "Carolina Hurricanes (-0.5)"
+        },
+        {
+          "odds": 1.49,
+          "active": true,
+          "voidFactor": 0,
+          "id": "abbe013f-def4-4f44-b0c7-acdba17f84cd",
+          "name": "Florida Panthers (0.5)"
+        }
+      ],
+      "status": "active",
+      "raw_contract": {
+        "id": "23cb41ac-8fb4-4c74-abf8-6d43624ef07c",
+        "status": "active",
+        "specifiers": "periodnr=2|hcp=-0.5",
+        "extendedSpecifiers": "",
+        "updatedAt": 1790710756964,
+        "name": "2nd Period - Handicap",
+        "outcomes": [
+          {
+            "odds": 2.48,
+            "active": true,
+            "voidFactor": 0,
+            "id": "a456768b-0bbb-492d-bf53-d285d6e81168",
+            "name": "Carolina Hurricanes (-0.5)"
+          },
+          {
+            "odds": 1.49,
+            "active": true,
+            "voidFactor": 0,
+            "id": "abbe013f-def4-4f44-b0c7-acdba17f84cd",
+            "name": "Florida Panthers (0.5)"
+          }
+        ]
+      },
+      "source": {
+        "url": "https://odds-data.stake.com/odds/46728042-carolina-hurricanes-florida-panthers",
+        "fetched_at": "2026-09-29T19:48:04.927314+00:00",
+        "sha256": "83bebc19b706432c982719cbc418df3709fd3a8a2ea9412aa6a411d92131dada",
+        "archive": "stake_api_archive/83bebc19b706432c982719cbc418df3709fd3a8a2ea9412aa6a411d92131dada.json.gz"
+      },
+      "family": "score_contract",
+      "scope": "period_2",
+      "scope_basis": "title_explicit",
+      "dependencies": [
+        "scope_score_targets",
+        "scope_probability_model",
+        "exact_payoff_rule"
+      ],
+      "recognition_is_model_support": false
+    },
+    {
+      "league": "NHL",
+      "fixture_id": "4eb1f210-9d3d-41e5-96f7-39f4d0c0c1e1",
+      "fixture": "Carolina Hurricanes - Florida Panthers",
+      "fixture_slug": "46728042-carolina-hurricanes-florida-panthers",
+      "start": "2026-09-29T21:00:00+00:00",
+      "market_id": "5d8a8c7a-4b14-4e47-86da-b8f48385bdf5",
+      "market": "3rd Period - Handicap",
+      "specifiers": "periodnr=3|hcp=-0.5",
+      "provider_section": "standard",
+      "tabs": [
+        {
+          "id": "b13a0949-ee48-4092-9a1a-aba38f3f45c6",
+          "name": "periods"
+        }
+      ],
+      "outcomes": [
+        {
+          "odds": 2.38,
+          "active": true,
+          "voidFactor": 0,
+          "id": "7debc084-989a-4a6a-bc98-379763d3a57c",
+          "name": "Carolina Hurricanes (-0.5)"
+        },
+        {
+          "odds": 1.53,
+          "active": true,
+          "voidFactor": 0,
+          "id": "a6d47883-07b0-4231-a549-df2f5aff5650",
+          "name": "Florida Panthers (0.5)"
+        }
+      ],
+      "status": "active",
+      "raw_contract": {
+        "id": "5d8a8c7a-4b14-4e47-86da-b8f48385bdf5",
+        "status": "active",
+        "specifiers": "periodnr=3|hcp=-0.5",
+        "extendedSpecifiers": "",
+        "updatedAt": 1790710756964,
+        "name": "3rd Period - Handicap",
+        "outcomes": [
+          {
+            "odds": 2.38,
+            "active": true,
+            "voidFactor": 0,
+            "id": "7debc084-989a-4a6a-bc98-379763d3a57c",
+            "name": "Carolina Hurricanes (-0.5)"
+          },
+          {
+            "odds": 1.53,
+            "active": true,
+            "voidFactor": 0,
+            "id": "a6d47883-07b0-4231-a549-df2f5aff5650",
+            "name": "Florida Panthers (0.5)"
+          }
+        ]
+      },
+      "source": {
+        "url": "https://odds-data.stake.com/odds/46728042-carolina-hurricanes-florida-panthers",
+        "fetched_at": "2026-09-29T19:48:04.927314+00:00",
+        "sha256": "83bebc19b706432c982719cbc418df3709fd3a8a2ea9412aa6a411d92131dada",
+        "archive": "stake_api_archive/83bebc19b706432c982719cbc418df3709fd3a8a2ea9412aa6a411d92131dada.json.gz"
+      },
+      "family": "score_contract",
+      "scope": "period_3",
+      "scope_basis": "title_explicit",
+      "dependencies": [
+        "scope_score_targets",
+        "scope_probability_model",
+        "exact_payoff_rule"
+      ],
+      "recognition_is_model_support": false
+    },
+    {
+      "league": "WNBA",
+      "fixture_id": "ebf0ef76-112f-476a-9fce-c95feb572865",
+      "fixture": "Indiana Fever - Las Vegas Aces",
+      "fixture_slug": "46937537-indiana-fever-las-vegas-aces",
+      "start": "2026-09-29T22:30:00+00:00",
+      "market_id": "7eef6e43-8aaf-451f-99cb-14512d543349",
+      "market": "1st Quarter - Handicap",
+      "specifiers": "quarternr=1|hcp=-0.5",
+      "provider_section": "standard",
+      "tabs": [
+        {
+          "id": "7acc1d75-4eeb-4126-b594-1360b841a1ad",
+          "name": "quarters"
+        }
+      ],
+      "outcomes": [
+        {
+          "odds": 1.93,
+          "active": true,
+          "voidFactor": 0,
+          "id": "0e193e3d-71f7-4c90-874a-3f048854c736",
+          "name": "Indiana Fever (-0.5)"
+        },
+        {
+          "odds": 1.78,
+          "active": true,
+          "voidFactor": 0,
+          "id": "c208e7a8-e7ce-4eb9-a3d1-32ac868604c6",
+          "name": "Las Vegas Aces (0.5)"
+        }
+      ],
+      "status": "active",
+      "raw_contract": {
+        "id": "7eef6e43-8aaf-451f-99cb-14512d543349",
+        "status": "active",
+        "specifiers": "quarternr=1|hcp=-0.5",
+        "extendedSpecifiers": "",
+        "updatedAt": 1790711175208,
+        "name": "1st Quarter - Handicap",
+        "outcomes": [
+          {
+            "odds": 1.93,
+            "active": true,
+            "voidFactor": 0,
+            "id": "0e193e3d-71f7-4c90-874a-3f048854c736",
+            "name": "Indiana Fever (-0.5)"
+          },
+          {
+            "odds": 1.78,
+            "active": true,
+            "voidFactor": 0,
+            "id": "c208e7a8-e7ce-4eb9-a3d1-32ac868604c6",
+            "name": "Las Vegas Aces (0.5)"
+          }
+        ]
+      },
+      "source": {
+        "url": "https://odds-data.stake.com/odds/46937537-indiana-fever-las-vegas-aces",
+        "fetched_at": "2026-09-29T19:48:04.482137+00:00",
+        "sha256": "e6b21840a9dc82a421bad3f891721daeee1287a2b9b405f321a08e5ae2e3681a",
+        "archive": "stake_api_archive/e6b21840a9dc82a421bad3f891721daeee1287a2b9b405f321a08e5ae2e3681a.json.gz"
+      },
+      "family": "score_contract",
+      "scope": "quarter_1",
+      "scope_basis": "title_explicit",
+      "dependencies": [
+        "scope_score_targets",
+        "scope_probability_model",
+        "exact_payoff_rule"
+      ],
+      "recognition_is_model_support": false
+    }
+  ]
+}

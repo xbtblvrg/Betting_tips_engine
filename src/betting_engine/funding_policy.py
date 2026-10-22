@@ -109,6 +109,17 @@ def funding_basis(tip, settings):
     min_odds_floor = settings.get('min_odds')
     if min_odds_floor is not None and odds < float(min_odds_floor):
         tier = 'unfunded'
+    is_challenger_event = (
+        tip.get('league') in ('CHALLENGER', 'ITF')
+        or 'challenger' in str(tip.get('tournament', '')).lower()
+        or 'challenger' in str(tip.get('fixture_name', '')).lower()
+        or 'challenger' in str((tip.get('stake_evidence') or {}).get('league_path', '')).lower()
+    )
+    if is_challenger_event:
+        tier = 'unfunded'
+    elif tip.get('league') in ('ATP', 'WTA'):
+        if '/' in str(tip.get('home', '')) or '/' in str(tip.get('away', '')):
+            tier = 'unfunded'
     model = tier == 'model_pick'
     probability_only = tier == 'probability_pick'
     probability = p if model else stress
@@ -304,7 +315,7 @@ def size_recommendation(tip, settings, remaining, related_count=0):
         # Explicit user-authorized minimum ticket, not a Kelly-derived edge.
         # Never spend a dollar the event/bankroll/per-ticket caps do not allow.
         basis = funding_basis(tip, settings)
-        cap = min(remaining, float(settings['max_bet']), 5.)
+        cap = min(remaining, float(settings.get('max_bet', 8.)))
         if settings.get('bankroll') is not None:
             cap = min(cap, float(settings['bankroll']) * float(settings['max_bankroll_fraction']))
         if basis['eligible'] and cap >= 1 and base['amount'] < 1:
@@ -320,5 +331,11 @@ def size_recommendation(tip, settings, remaining, related_count=0):
         raise ValueError('Outcome sizing evidence is missing or invalid')
     # Normalize unused budget to the effective base cap. Historical replay
     # supplies this same recorded cap, not today's portfolio or bankroll.
+    if settings.get('alpha_acceleration'):
+        effective_cap = min(float(settings.get('max_bet', 8.0)), remaining)
+        adjusted = apply_adjustment(base, tip, {**settings, 'max_bet': effective_cap}, effective_cap)
+        if 'maximum_stake' in adjusted:
+            adjusted['maximum_stake'] = effective_cap
+        return adjusted
     cap = base['maximum_stake']
     return apply_adjustment(base, tip, {**settings, 'max_bet': cap}, cap)

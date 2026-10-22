@@ -1,0 +1,119 @@
+{
+  "task_id": "F0040",
+  "scope": "Isolated candidate implementation and developer validation only; not independent review, installation or production recovery.",
+  "implementation": "Caller-driven coordination of explicit private engine/worker journals, per-service error isolation and read-only inspection.",
+  "candidate_files": {
+    "src/betting_engine/development_supervision_cycle.py": "622ddfaf4069614b8c5ba89ab338b6649fdbbcb22642218bd6bbff3e63b6d900",
+    "tests/test_f0040_supervision_cycle.py": "dededfcd6c7bb6c7884ff6d98478d9dd7faae87b2941f4b779dcdc0e8107c2c1",
+    "docs/F0040_SUPERVISION_CYCLE.md": "0e9e6d71ed5e32b319fa091bc3c7d0631e8f67ccfbeef4c2c20f5f485d6c77ae"
+  },
+  "input_verification": {
+    "development_manifest_sha256": "df23ec4fe73670f3eb0fca4876a7480cea575363b005f4003e603f621ed5e6c0",
+    "development_files_verified": 325,
+    "source_bodies_verified": 377,
+    "validation_files_verified": 44,
+    "catalogue_sha256": "b54253e4f3938511354ecc55b3b21037915a2e5939d082007b54ffac0a44df60",
+    "errors": [],
+    "truncation_declared": false,
+    "baseline_files": 783,
+    "nhl_keys": [
+      "id",
+      "season",
+      "gameType",
+      "limitedScoring",
+      "gameDate",
+      "venue",
+      "venueLocation",
+      "startTimeUTC",
+      "easternUTCOffset",
+      "venueUTCOffset",
+      "tvBroadcasts",
+      "gameState",
+      "gameScheduleState",
+      "periodDescriptor",
+      "awayTeam",
+      "homeTeam",
+      "shootoutInUse",
+      "otInUse",
+      "clock",
+      "displayPeriod",
+      "gameOutcome",
+      "plays",
+      "rosterSpots",
+      "regPeriods",
+      "summary"
+    ],
+    "plays": 332,
+    "play_keys": [
+      "eventId",
+      "periodDescriptor",
+      "timeInPeriod",
+      "timeRemaining",
+      "situationCode",
+      "homeTeamDefendingSide",
+      "typeCode",
+      "typeDescKey",
+      "sortOrder"
+    ]
+  },
+  "validation": {
+    "environment": {
+      "interpreter": "/Users/belavarga/Betting_tips_engine/.venv/bin/python",
+      "PYTHONPATH": "src",
+      "OMP_NUM_THREADS": "1"
+    },
+    "new_regressions": {
+      "path": "tests/test_f0040_supervision_cycle.py",
+      "passed": 34
+    },
+    "related_python_api": {
+      "passed": 530,
+      "failed": 0,
+      "duration_seconds": 15.92,
+      "warning": "Existing Starlette/httpx TestClient deprecation warning",
+      "test_files": [
+        "tests/test_f0040_supervision_cycle.py",
+        "tests/test_f0038_worker_dispatch.py",
+        "tests/test_f0028_restart_dispatch.py",
+        "tests/test_f0028_restart_journal.py",
+        "tests/test_f0029_worker_restart.py",
+        "tests/test_f0029_dispatch_stall.py",
+        "tests/test_f0029_advancing_heartbeat.py",
+        "tests/test_f0029_worker_evidence_boundaries.py",
+        "tests/test_supervisor.py",
+        "tests/test_supervisor_feed_recovery.py",
+        "tests/test_f0022_recovery_drill.py",
+        "tests/test_f0022_commit_durability.py",
+        "tests/test_f0022_traversal_errors.py",
+        "tests/test_f0028_acceptance_checkpoint.py",
+        "tests/test_d14_development_acceptance.py",
+        "tests/test_d14_nonfinite_evidence.py",
+        "tests/test_e393159_candidate_audit.py",
+        "tests/test_release_supervision.py",
+        "tests/test_api.py"
+      ]
+    },
+    "frontend_dom": {
+      "command": "node --test tests/web.test.mjs",
+      "passed": 216,
+      "failed": 0
+    },
+    "actual_process_exit": "Synthetic scratch child exits in learning callback; reopening retains engine success and learning uncertainty, then dispatches only development/release.",
+    "production_latency_measured": false,
+    "full_fixed_suites_run": false,
+    "independent_review_performed": false
+  },
+  "preservation": {
+    "original_files": 783,
+    "original_test_tree_files": 339,
+    "changed_original_files": [],
+    "method": "SHA-256 against pre-edit inventory; system Git unavailable due to Xcode license"
+  },
+  "remaining": [
+    "Controller full fixed suites and independent read-only review.",
+    "Separate root integration/policy authorization, observation provenance, bounded callbacks and pre-commit error retention.",
+    "Reconcile inherited experimental engine feed-degradation classification with protected supervisor before runtime integration.",
+    "Real-service recovery drill and fresh local/Tailscale publication; no production or live ledger access here."
+  ],
+  "helper_reviews": []
+}

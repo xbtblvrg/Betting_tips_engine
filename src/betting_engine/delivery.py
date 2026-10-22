@@ -43,7 +43,7 @@ def read_json(path, default=None):
         return {} if default is None else default
 
 
-def delivery_status(root, now=None):
+def delivery_status(root, now=None, include_progress=True):
     from .ai_delegation import status as ai_status
     root = Path(root); now = now or utcnow()
     plan = read_json(root / 'config/development_plan.json')
@@ -85,15 +85,16 @@ def delivery_status(root, now=None):
     # materially future-dated heartbeat still fails closed as stale.
     worker_state = 'disabled' if not enabled else 'stale' if not -5 <= age <= 180 else worker.get('state', 'not_started')
     overdue = [m['id'] for m in milestones if m['checkpoint_due']]
-    progress=development_progress(root,plan,state,worker,now)
+    from .development import parallel_limit
+    progress=development_progress(root,plan,state,worker,now) if include_progress else None
     return {'checked_at': now.isoformat(), 'plan_version': plan['version'],
-        'state': 'attention_required' if progress['attention_required'] or overdue or worker_state in ('failed', 'stale', 'blocked', 'retry_wait') else 'active' if enabled else 'not_started',
+        'state': 'attention_required' if ((progress['attention_required'] if progress else False) or overdue or worker_state in ('failed', 'stale', 'blocked', 'retry_wait')) else 'active' if enabled else 'not_started',
         'fully_ready': bool(milestones) and all(m['production_verified'] for m in milestones),
         'worker': {**worker, 'state': worker_state, 'heartbeat_age_seconds': round(age, 1) if age != float('inf') else None},
         'cadence_seconds': config.get('cadence_seconds'), 'max_run_seconds': config.get('max_run_seconds'),
         'queue_poll_seconds': config.get('queue_poll_seconds',60),
-        'max_parallel': progress['configured_slots'],
-        'resource_admission': progress['resource_admission'],
+        'max_parallel': progress['configured_slots'] if progress else parallel_limit(config),
+        'resource_admission': progress['resource_admission'] if progress else {},
         'progress':progress,
         'engineering_loop': state.get('engineering_loop_status'),
         'engineering_loop_error': state.get('engineering_loop_error'),

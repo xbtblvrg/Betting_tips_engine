@@ -30,6 +30,22 @@ def test_fuzzy_opponents_are_not_accepted():
     assert not team_matches('New York','New York Giants','NYG')
     assert not team_matches('Kings','Los Angeles Lakers','LAL')
 
+def test_ucl_team_matches():
+    assert team_matches('SK Slovan Bratislava', 'Slovan Bratislava')
+    assert team_matches('Stuttgart', 'VfB Stuttgart')
+    assert team_matches('FC Shakhtar Donetsk', 'Shakhtar Donetsk')
+    assert team_matches('Fenerbahce Istanbul', 'Fenerbahce')
+    assert team_matches('Real Betis', 'Real Betis')
+    assert team_matches('Porto', 'FC Porto')
+    assert team_matches('Roma', 'AS Roma')
+    assert team_matches('Feyenoord', 'Feyenoord Rotterdam')
+    assert team_matches('Bodo Glimt', 'Bodo/Glimt')
+    assert team_matches('Paris Saint Germain', 'Paris Saint-Germain')
+    # Reject cross-club false matches
+    assert not team_matches('Roma', 'Lazio')
+    assert not team_matches('Porto', 'Benfica')
+    assert not team_matches('Stuttgart', 'Bayern Munich')
+
 @pytest.mark.parametrize('title',['Second half','2nd inning','First 5 innings','Q3 winner','Regulation winner','Period 2'])
 def test_all_partial_game_periods_are_excluded(title):
     g,e,m=fixture();e['title']=title
@@ -51,8 +67,10 @@ def documented_feed(g,url,data):
     meta={'fetched_at':utcnow().isoformat(),'url':url,'sha256':'source'}
     if url.endswith('/sports'):return [{'slug':s,'enabled':True,'type':'sport'} for s in set(SPORTS.values())],meta
     if url.endswith('/tournaments'):
-        sport=url.split('/sports/')[1].split('/')[0]
-        return {'tournaments':[{'slug':slug,'name':l,'enabled':True} for l,slug in TOURNAMENTS.items() if SPORTS[l]==sport]},meta
+        parts=url.split('/sports/')[1].split('/')
+        sport=parts[0];cat=parts[1] if len(parts)>1 else 'usa'
+        from betting_engine.stake_api import TOURNAMENT_CATEGORIES
+        return {'tournaments':[{'slug':slug,'name':l,'enabled':True,'category':cat} for l,slug in TOURNAMENTS.items() if SPORTS[l]==sport and TOURNAMENT_CATEGORIES.get(l,'usa')==cat]},meta
     if '/schedule/' in url:return {'schedule':[{'fixtures':[fixture] if url.endswith('/nfl') else []}]},meta
     if url.endswith('/fixtures'):return {'fixtures':[fixture] if '/nfl/' in url else []},meta
     return {**data,'fixture':{**fixture,'startTime':fixture['date']}},meta
@@ -123,7 +141,7 @@ def test_discovery_queries_each_league_tournament_and_matches_both_team_orders()
     feed=Feed();markets,events,issues=StakeSportsbook(feed).discover([g])
     assert not issues and len(markets)==2 and len(events)==1
     assert any('/schedule/sport/american-football/usa/tournament/nfl' in url for url in feed.urls)
-    assert len([url for url in feed.urls if '/schedule/' in url])==6
+    assert len([url for url in feed.urls if '/schedule/' in url])==8
 
 def test_inventory_exposes_props_without_fabricating_a_model():
     from datetime import timedelta
@@ -182,3 +200,28 @@ def test_exact_fixture_start_conflict_is_quarantined_and_recovers_on_source_agre
     markets,events,issues=s.discover([g])
     assert len(markets)==2 and not issues
     assert 'start_conflict' not in s.fixture_audit[0] and s.fixture_audit[0]['active']
+
+
+def test_asian_quarter_line_parsing_and_contract_split():
+    s = StakeSportsbook()
+    # Full game accepts quarter lines
+    assert s._handicap_from_market({'specifiers': 'hcp=-0.25'}, 'full_game') == -0.25
+    assert s._handicap_from_market({'specifiers': 'hcp=0.75'}, 'full_game') == 0.75
+    assert s._total_from_market({'specifiers': 'total=2.25'}) == 2.25
+    # Period scopes reject quarter lines
+    assert s._handicap_from_market({'specifiers': 'hcp=-0.25'}, 'period_1') is None
+    assert s._handicap_from_market({'specifiers': 'hcp=-0.25'}, 'quarter_1') is None
+
+    from betting_engine.contracts import decompose_quarter_line, settle_quarter_asian
+    assert decompose_quarter_line('-0.25') == (-0.5, 0.0)
+    assert decompose_quarter_line('2.25') == (2.0, 2.5)
+
+    # Half win / half loss cashflows
+    state, res, profit = settle_quarter_asian('spreads', 'home', -0.25, 1, 0, 1.90, 2.0)
+    assert state == 'full_win' and res == 'won' and round(profit, 2) == 1.80
+
+    state, res, profit = settle_quarter_asian('spreads', 'home', -0.25, 0, 0, 1.90, 2.0)
+    assert state == 'half_loss' and res == 'lost' and round(profit, 2) == -1.00
+
+    state, res, profit = settle_quarter_asian('totals', 'over', 2.75, 2, 1, 2.0, 2.0)
+    assert state == 'half_win' and res == 'won' and round(profit, 2) == 1.00

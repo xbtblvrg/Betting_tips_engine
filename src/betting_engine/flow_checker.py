@@ -94,7 +94,7 @@ def assess_flow(dashboard, supervisor, previous, now, lifecycle=None):
     return {'checked_at':now.isoformat(),'publication_at':publication,'publication_version':dashboard.get('version'),'mode':'independent_read_only','state':'fulfilled' if not failures else 'attention_required','checks':checks,'failure_count':failures,'repairing_count':sum(r['status']=='under_repair' for r in checks),'fully_verified_multiple_cycles':not failures and all(r['consecutive_publications']>=2 for r in checks)}
 
 
-def read_lifecycle(data_dir, now, *, budget_seconds=3):
+def read_lifecycle(data_dir, now, *, budget_seconds=10):
     """Bounded, read-only original-decision/ticket reconciliation.
 
     A final game's unavailable scope result remains an explicit pending defect,

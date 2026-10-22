@@ -360,6 +360,34 @@ test('a failed placement save restores the current controls and permits one retr
  await w.happyDOM.close();
 });
 
+test('rapid checklist clicks are processed sequentially without connection loss or race conditions',async()=>{
+ const recs=Array.from({length:10},(_,i)=>({...tip,id:`tip-${i}`,start:new Date(Date.now()+(i+1)*3600000).toISOString()}));
+ const {w,d,writes}=await boot({recommendations:recs});
+ let activeConnections=0, maxConnections=0;
+ const originalFetch=w.fetch;
+ w.fetch=(path,options)=>{
+  if(path.endsWith('/checklist')){
+   activeConnections++;
+   maxConnections=Math.max(maxConnections,activeConnections);
+   return new Promise(r=>setTimeout(r,10)).then(()=>{
+    activeConnections--;
+    return originalFetch(path,options);
+   });
+  }
+  return originalFetch(path,options);
+ };
+ const promises=[];
+ for(let i=0;i<10;i++){
+  const input=d.querySelector(`[data-placement="tip-${i}"]`);
+  if(input){input.checked=true;promises.push(input.onchange());}
+ }
+ await Promise.all(promises);
+ assert.equal(maxConnections,1,'sequential placement queue must limit active HTTP checklist connections to 1');
+ assert.equal(writes.filter(r=>r[0].endsWith('/checklist')).length,10);
+ assert.notEqual(d.querySelector('#connection').textContent,'Connection Lost');
+ await w.happyDOM.close();
+});
+
 test('unfunded candidates never look like executable recommendations',async()=>{
  const {w,d}=await boot({recommendations:[tip,{...tip,id:'watch',stake:0,selection:'Watch candidate'}]});
  assert.equal(d.querySelectorAll('.tip-card').length,1);
@@ -419,6 +447,22 @@ test('Bet on Stake opens the recorded fixture and does not mark or submit a bet'
  await w.happyDOM.close();
 });
 
+test('on mobile devices Bet on Stake permits native navigation without intercepting to Mac Safari',async()=>{
+ const url='https://stake.com/sports/basketball/usa/nba/123-home-away';
+ const t={...tip,stake_market:{...tip.stake_market,event_url:url,bet_link_scope:'event'}};
+ const {w,d}=await boot({recommendations:[t]});
+ // Simulate mobile viewport
+ w.innerWidth=390;
+ const button=d.querySelector('.tip-card .stake-bet-button');
+ assert.ok(button);
+ let defaultPrevented=false;
+ const event=new w.MouseEvent('click',{bubbles:true,cancelable:true});
+ Object.defineProperty(event,'preventDefault',{value:()=>{defaultPrevented=true;}});
+ button.dispatchEvent(event);
+ assert.equal(defaultPrevented,false,'Native link navigation must not be prevented on mobile');
+ await w.happyDOM.close();
+});
+
 test('automation shows real recovery and abstract-only research status',async()=>{
  const {w,d}=await boot({automation:{supervisor:{state:'active',services:{engine:{state:'healthy'}}},research:{state:'active',indexed_papers:1,sources:{sports:{}},papers:[{title:'Model paper',url:'https://arxiv.org/abs/2609.12345v1',tags:['calibration'],reading_scope:'title_and_abstract_only',implementation_state:'not_implemented'}]}}});
  assert.match(d.querySelector('#automation-summary').textContent,/engine: healthy/);
@@ -427,13 +471,15 @@ test('automation shows real recovery and abstract-only research status',async()=
  await w.happyDOM.close();
 });
 
-test('unmarked old instruction loses its executable stake when current value falls',async()=>{
+test('unmarked old instruction remains ready to bet with original odds at issue when current odds change',async()=>{
  const t={...tip,selection:'Home',tracking_source:'auto_assumed_placed'};
  const b={id:1,tip_id:t.id,stake:1,odds:2,status:'open',created_at:new Date().toISOString(),payload:t,instruction_review:{state:'price_below_threshold',actionable:false,reason:'Current odds no longer meet the model threshold.'}};
  const {w,d}=await boot({recommendations:[{...tip,stake:0}],tracked_bets:[b]});
- assert.equal(d.querySelector('.tip-card'),null);assert.doesNotMatch(d.querySelector('#view-tips').textContent,/Recheck Required/);
- assert.match(d.querySelector('#history-table').textContent,/2.00/);assert.match(d.querySelector('#history-table').textContent,/Not a current instruction/);
- assert.match(d.querySelector('#stats').textContent,/Total Stake\$0.00/);
+ assert.ok(d.querySelector('.tip-card'));
+ assert.match(d.querySelector('.tip-card').textContent,/Original odds at issue: 2\.00/);
+ assert.match(d.querySelector('.tip-card').textContent,/Min odds:/);
+ assert.match(d.querySelector('#history-table').textContent,/2.00/);
+ assert.match(d.querySelector('#stats').textContent,/Total Stake\$1\.00/);
  await w.happyDOM.close();
 });
 
@@ -458,7 +504,7 @@ test('delivery view distinguishes candidate readiness and overdue production che
 
 
 test('main instructions fail closed without a current server review',async()=>{
- for(const patch of [{execution_review:null},{execution_review:{actionable:false}},{decision_guard:{passed:false}},{stake_market:{...tip.stake_market,availability_verified:false}},{reference_platform:'Historical Model'},{stress_roi:NaN},{stake:0.99},{stake:5.01}]){
+ for(const patch of [{execution_review:null},{execution_review:{actionable:false}},{decision_guard:{passed:false}},{stake_market:{...tip.stake_market,availability_verified:false}},{reference_platform:'Historical Model'},{stress_roi:NaN},{stake:0.49},{stake:8.01}]){
   const {w,d}=await boot({recommendations:[{...tip,...patch}]});
   assert.equal(d.querySelectorAll('#tips-grid .tip-card').length,0);
   assert.match(d.querySelector('#stats').textContent,/Total Stake\$0.00/);
@@ -514,6 +560,22 @@ test('probability and rank sorting use current reviewed terms of pending instruc
  const records=rows.map((t,i)=>({id:i+1,tip_id:t.id,stake:1,odds:2,status:'open',created_at:new Date().toISOString(),payload:{...t,probability:i?.6:.9,rank:i?2:1,tracking_source:'auto_assumed_placed'},instruction_review:tip.execution_review}));
  const {w,d}=await boot({recommendations:[],evaluated_candidates:rows,tracked_bets:records});
  for(const value of ['probability','rank']){const filter=d.querySelector('#sort-filter');filter.value=value;filter.dispatchEvent(new w.Event('change'));assert.deepEqual([...d.querySelectorAll('#tips-grid .tip-card')].map(el=>el.dataset.tipId),['b','a']);}
+ await w.happyDOM.close();
+});
+
+test('24h horizon sorts chronologically by default and preferred sorting prioritizes higher-conviction bets',async()=>{
+ const at=h=>new Date(Date.now()+h*3600000).toISOString();
+ const lowValueEarly={...tip,id:'early-low',start:at(1),stake:1.0,expected_roi:0.01};
+ const highValueLater={...tip,id:'later-high',start:at(5),stake:5.0,expected_roi:0.20};
+ const {w,d}=await boot({recommendations:[lowValueEarly,highValueLater]});
+ assert.deepEqual([...d.querySelectorAll('#tips-grid .tip-card')].map(el=>el.dataset.tipId),['early-low','later-high']);
+ d.querySelector('[data-horizon="24"]').click();
+ assert.deepEqual([...d.querySelectorAll('#tips-grid .tip-card')].map(el=>el.dataset.tipId),['early-low','later-high']);
+ d.querySelector('[data-horizon="48"]').click();
+ const filter=d.querySelector('#sort-filter');
+ filter.value='preferred';
+ filter.dispatchEvent(new w.Event('change'));
+ assert.deepEqual([...d.querySelectorAll('#tips-grid .tip-card')].map(el=>el.dataset.tipId),['later-high','early-low']);
  await w.happyDOM.close();
 });
 
@@ -600,25 +662,27 @@ test('changed history separates original issuance from revised execution and lat
  const {w,d,writes}=await boot({recommendations:[],tracked_bets:[record],evaluated_candidates:[current]});
  const panel=d.querySelector('#withdrawn-upcoming-section');assert.match(panel.textContent,/Odds: 1.90 · Stake: \$1.25/);assert.match(panel.textContent,/Observed odds: 1.70/);assert.match(panel.textContent,/14.0%/);assert.doesNotMatch(panel.textContent,/\$3.50/);assert.deepEqual(writes,[]);await w.happyDOM.close();
 });
-test('unqualified selections do not appear as cards in Betting Picks grid and stats header',async()=>{
+test('today issued selections remain in Betting Picks grid with original odds at issue',async()=>{
  const id='changed-pick';
  const changed={...tip,id,stake:1,reference_odds:2,created_at:new Date().toISOString(),tracking_source:'auto_assumed_placed',stake_market:{event_url:'https://stake.com/sports/basketball/usa/nba/events/g',tab:'Main'}};
  const record={id:7,tip_id:id,stake:1,odds:2,status:'open',created_at:changed.created_at,payload:changed,instruction_review:{actionable:false,reason:'Model no longer supports'}};
  const {w,d,writes}=await boot({recommendations:[],evaluated_candidates:[],tracked_bets:[record],status:{daily_progress:{issuance_rows:[{tip_id:id,issued_at:new Date().toISOString(),start:tip.start}]}}});
  const card=d.querySelector('.changed-card');assert.equal(card,null);
- assert.equal(d.querySelectorAll('.tip-card').length,0);
+ assert.equal(d.querySelectorAll('.tip-card').length,1);
+ assert.match(d.querySelector('.tip-card').textContent,/Original odds at issue: 2\.00/);
+ assert.match(d.querySelector('.tip-card').textContent,/Min odds:/);
  assert.doesNotMatch(d.querySelector('#tips-grid').textContent,/No bet anymore/);
  assert.doesNotMatch(d.querySelector('#stats').textContent,/Changed \/ No bet anymore/);
  assert.doesNotMatch(d.querySelector('#stats').textContent,/No longer recommended/);
  assert.deepEqual(writes,[]);await w.happyDOM.close();
 });
-test('started, marked, and unqualified daily records do not appear as cards in the main grid',async()=>{
+test('started and marked daily records do not appear as cards in the main grid while unplaced future records remain',async()=>{
  const futureId='future-changed',startedId='started-daily',markedId='marked-daily';
  const mk=(id,start)=>({id,tip_id:id,stake:1,odds:2,status:'open',created_at:new Date().toISOString(),payload:{...tip,id,start,tracking_source:'auto_assumed_placed'},instruction_review:{actionable:false,reason:'Model no longer supports'}});
  const marked=mk(markedId,start);const {w,d}=await boot({recommendations:[],evaluated_candidates:[],tracked_bets:[mk(futureId,start),mk(startedId,new Date(Date.now()-60000).toISOString()),marked],placement_marks:{[markedId]:new Date().toISOString()},status:{daily_progress:{issuance_rows:[{tip_id:futureId,issued_at:new Date().toISOString(),start},{tip_id:startedId,issued_at:new Date().toISOString(),start:new Date(Date.now()-60000).toISOString()},{tip_id:markedId,issued_at:new Date().toISOString(),start}]}}});
  assert.equal(d.querySelectorAll('.changed-card').length,0);
- assert.equal(d.querySelectorAll('.tip-card').length,0);
- assert.equal(d.querySelector('[data-tip-id="'+futureId+'"]'),null);
+ assert.equal(d.querySelectorAll('.tip-card').length,1);
+ assert.notEqual(d.querySelector('[data-tip-id="'+futureId+'"]'),null);
  assert.equal(d.querySelector('[data-tip-id="'+startedId+'"]'),null);
  assert.equal(d.querySelector('[data-tip-id="'+markedId+'"]'),null);
  await w.happyDOM.close();
@@ -633,3 +697,75 @@ test('live exact market inventory and independent flow evidence are displayed se
  assert.match(d.querySelector('#live-coverage-leagues').textContent,/NFL/);
  assert.deepEqual(writes,[]);await w.happyDOM.close();
 });
+
+test('72h horizon evaluates BET NOW vs WAIT and prioritizes BET NOW first',async()=>{
+ const farTime=new Date(Date.now()+60*3600000).toISOString();
+ const betNowTip={
+  ...tip,
+  id:'tip-bet-now',
+  game_id:'game-1',
+  start:farTime,
+  valid_until:farTime,
+  quote_at:new Date().toISOString(),
+  execution_review:{...tip.execution_review,valid_until:farTime,quote_at:new Date().toISOString()},
+  market:'full_game:spreads',
+  selection:'Red Bull New York -0.25',
+  expected_roi:.058,
+  stress_roi:.04,
+  reference_odds:2.1,
+  minimum_odds:1.80,
+  probability:.52,
+  stake:2.5
+ };
+ const waitTip={
+  ...tip,
+  id:'tip-wait',
+  game_id:'game-2',
+  start:farTime,
+  valid_until:farTime,
+  quote_at:new Date().toISOString(),
+  execution_review:{...tip.execution_review,valid_until:farTime,quote_at:new Date().toISOString()},
+  market:'full_game:totals',
+  selection:'Under 48.5',
+  side:'under',
+  expected_roi:.05,
+  stress_roi:.035,
+  reference_odds:1.85,
+  minimum_odds:1.80,
+  probability:.51,
+  stake:1
+ };
+ const {w,d}=await boot({recommendations:[waitTip,betNowTip]});
+ const tab72=d.querySelector('[data-horizon="72"]');
+ assert.ok(tab72);
+ tab72.click();
+ const cards=d.querySelectorAll('#tips-grid .tip-card');
+ assert.equal(cards.length,2);
+ assert.equal(cards[0].dataset.tipId,'tip-bet-now');
+ assert.match(cards[0].textContent,/BET NOW/);
+ assert.equal(cards[1].dataset.tipId,'tip-wait');
+ assert.match(cards[1].textContent,/WAIT/);
+ await w.happyDOM.close();
+});
+
+test('segment and period models render safely with missing partitions and incubator test schemas',async()=>{
+ const periodModels={
+  'ATP:period_2':{league:'ATP',scope:'period_2',model_family:'independent_poisson',status:'graduated_active',test:{brier:0.201,n:482}},
+  'WTA:period_2':{league:'WTA',scope:'period_2',model_family:'independent_poisson',status:'graduated_active',test:{brier:0.205,n:350}},
+  'MLS:half_2':{league:'MLS',scope:'half_2',model_family:'zero_inflated_bivariate_poisson',status:'graduated_active',test:{mean_brier:0.218,n:210}}
+ };
+ const segmentModels={
+  first5:{league:'MLB',scope:'innings_1_5',model_family:'negative_binomial',test:{joint_log_score:4.1,n:400},baseline:{joint_log_score:4.2}}
+ };
+ const {w,d}=await boot({period_models:periodModels,segment_models:segmentModels});
+ assert.match(d.querySelector('#period-models-table').textContent,/ATP \/ period 2/);
+ assert.match(d.querySelector('#period-models-table').textContent,/482 test/);
+ assert.match(d.querySelector('#period-models-table').textContent,/0\.2010/);
+ assert.match(d.querySelector('#period-models-table').textContent,/MLS \/ half 2/);
+ assert.match(d.querySelector('#period-models-table').textContent,/0\.2180/);
+ assert.match(d.querySelector('#segment-models-table').textContent,/MLB \/ innings 1 5/);
+ assert.match(d.querySelector('#segment-models-table').textContent,/400 test/);
+ assert.match(d.querySelector('#segment-models-table').textContent,/4\.1000/);
+ await w.happyDOM.close();
+});
+

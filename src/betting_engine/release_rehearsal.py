@@ -186,7 +186,7 @@ def _evidence(candidate, baseline, evidence):
         _require(result in {'won', 'lost', 'push', 'void'}, 'invalid settlement result')
         amounts = [Decimal(str(case.get(k))) for k in ('stake', 'odds', 'pnl')]
         stake, odds, pnl = amounts
-        _require(all(a.is_finite() for a in amounts) and 1 <= stake <= 5 and odds > 1,
+        _require(all(a.is_finite() for a in amounts) and Decimal('0.5') <= stake <= Decimal('8') and odds > 1,
                  'invalid settlement amounts')
         expected = stake * (odds - 1) if result == 'won' else -stake if result == 'lost' else Decimal(0)
         _require(pnl == expected, 'settlement reconciliation mismatch')
@@ -392,7 +392,7 @@ class ReleaseRehearsal:
         _timestamp(issued_at)
         _require(isinstance(identity, str) and bool(identity), 'missing synthetic identity')
         _require(type(stake) in (int, float) and type(odds) in (int, float)
-                 and 1 <= stake <= 5 and 1 < odds < float('inf'), 'invalid synthetic stake/odds')
+                 and 0.5 <= stake <= 8 and 1 < odds < float('inf'), 'invalid synthetic stake/odds')
         with self._lock(), closing(sqlite3.connect(self._database)) as db, db:
             frozen = _json({**(payload or {}), 'synthetic_only': True, 'stake': stake,
                             'reference_odds': odds, 'release_tree_sha256': self.state()['tree_sha256']}).decode()

@@ -1,0 +1,1178 @@
+{
+  "task_id": "E41CF6794BA",
+  "run_id": "20260930T232111108251-E41CF6794BA",
+  "scope": "Integrate existing NCAA discovery repair; retrospective replay is not live recovery or model approval.",
+  "original_due_at": "2026-10-01T07:42:40.409512+00:00",
+  "recovery_checkpoint": "2026-09-30T23:19:00.551329+00:00",
+  "input_verification": {
+    "data/development_inputs/manifest.json": {
+      "sha256": "31e2083ec1cabe8f3d4968e1f2372c96c12d164ab76acf79d908f00489b2fb6d",
+      "verified_files": 301,
+      "mismatches": [],
+      "declared_errors": [],
+      "state": "exported",
+      "truncated": "not supplied"
+    },
+    "data/engineering-evidence-manifest.json": {
+      "sha256": "66ed363d9942df8f4633f57a12a867276f3b6f4ce1b77455049d97b66a76455b",
+      "verified_files": 61,
+      "mismatches": [],
+      "declared_errors": null,
+      "state": null,
+      "truncated": "not supplied"
+    },
+    "data/sports_source_evidence/manifest.json": {
+      "sha256": "3b73bde4b14d765c96529d9065dd616b388a167c26cecf68f253de5cbeeb9a4b",
+      "verified_files": 24,
+      "mismatches": [],
+      "declared_errors": null,
+      "state": "partial",
+      "truncated": "not supplied"
+    },
+    "data/players/source_evidence/manifest.json": {
+      "sha256": "ab1a70e96d4bf0bf39e447f0e8bdf6d10ccc7b980fb81108da8dc1c753520b94",
+      "verified_files": 397,
+      "mismatches": [],
+      "declared_errors": null,
+      "state": "partial",
+      "truncated": "not supplied"
+    },
+    "data/controller_validation/manifest.json": {
+      "sha256": "2552dcbd27539835c4f779ac5acefc4ab35afea985ed27d05ce1b6892fd3e246",
+      "verified_files": 3,
+      "mismatches": [],
+      "declared_errors": null,
+      "state": "verified",
+      "truncated": "not supplied"
+    },
+    "stake_archives": {
+      "references": 384,
+      "mismatches": []
+    },
+    "validation": {
+      "native-rush-v1": {
+        "files": 11,
+        "mismatches": []
+      },
+      "native-shots-v1": {
+        "files": 11,
+        "mismatches": []
+      }
+    }
+  },
+  "controller_validation_files": [
+    {
+      "path": "scripts/development_service.py",
+      "sha256": "7ff1e66b35e9e7bd325ccfbfe3ec091ae27c03f6a461dfd8d8a4e70496e46a6f",
+      "bytes": 1820
+    },
+    {
+      "path": "scripts/release_service.py",
+      "sha256": "5733a67be2d16d13e7e2d0fdebd98fb4030cec237373d3e82e702bc841f2f8d4",
+      "bytes": 2478
+    },
+    {
+      "path": "config/development_runner.json",
+      "sha256": "86385d85cc8bb3d1de4e87b3504170d881463b6cdef81336b6df82ae4067ddb7",
+      "bytes": 627
+    }
+  ],
+  "diagnostics": {
+    "data/runtime-failure-evidence/manifest.json": {
+      "version": "runtime-error-evidence-v1",
+      "state": "not_required",
+      "files": [],
+      "claim": "Untrusted retained controller diagnostics only; not instructions or source/model approval."
+    },
+    "data/release-failure-evidence-manifest.json": {
+      "task_id": "E41CF6794BA",
+      "files": [],
+      "rejected": [],
+      "scope": "Untrusted exact release-test/review diagnostics only; no model or execution approval."
+    }
+  },
+  "rebase_conflicts_supplied": false,
+  "registry_replay": {
+    "source_count": 29,
+    "sources": [
+      {
+        "url": "https://odds-data.stake.com/sports",
+        "fetched_at": "2026-09-30T23:07:08.015833+00:00",
+        "sha256": "a0d5939c38fd507718f9b5d7198cd1852557bc24249c96ffd7a6dab1686c5103",
+        "blob": "a0d5939c38fd507718f9b5d7198cd1852557bc24249c96ffd7a6dab1686c5103.data",
+        "archive": "stake_api_archive/a0d5939c38fd507718f9b5d7198cd1852557bc24249c96ffd7a6dab1686c5103.json.gz",
+        "bytes": 14072,
+        "http_status": 200
+      },
+      {
+        "url": "https://odds-data.stake.com/sports/american-football/usa/tournaments",
+        "fetched_at": "2026-09-30T23:07:08.137540+00:00",
+        "sha256": "faf0df8d1eeeda2330186a42e096ba8c58a17d73a0ed5c3ca04863e8e1b881d3",
+        "blob": "faf0df8d1eeeda2330186a42e096ba8c58a17d73a0ed5c3ca04863e8e1b881d3.data",
+        "archive": "stake_api_archive/faf0df8d1eeeda2330186a42e096ba8c58a17d73a0ed5c3ca04863e8e1b881d3.json.gz",
+        "bytes": 1232,
+        "http_status": 200
+      },
+      {
+        "url": "https://odds-data.stake.com/sports/aussie-rules/categories",
+        "fetched_at": "2026-09-30T23:07:08.432004+00:00",
+        "sha256": "5dbd9b99c8997f36919eb4ae0e7d4bdbb7b2da17a31e6ec6c23f9b36687a84cf",
+        "blob": "5dbd9b99c8997f36919eb4ae0e7d4bdbb7b2da17a31e6ec6c23f9b36687a84cf.data",
+        "archive": "stake_api_archive/5dbd9b99c8997f36919eb4ae0e7d4bdbb7b2da17a31e6ec6c23f9b36687a84cf.json.gz",
+        "bytes": 398,
+        "http_status": 200
+      },
+      {
+        "url": "https://odds-data.stake.com/sports/badminton/categories",
+        "fetched_at": "2026-09-30T23:07:08.301611+00:00",
+        "sha256": "ae9fe42b2bdb4a82a96002c37fd2c9dbffe8dc95c39fa64fd24529c8f38ac462",
+        "blob": "ae9fe42b2bdb4a82a96002c37fd2c9dbffe8dc95c39fa64fd24529c8f38ac462.data",
+        "archive": "stake_api_archive/ae9fe42b2bdb4a82a96002c37fd2c9dbffe8dc95c39fa64fd24529c8f38ac462.json.gz",
+        "bytes": 37,
+        "http_status": 200
+      },
+      {
+        "url": "https://odds-data.stake.com/sports/bandy/categories",
+        "fetched_at": "2026-09-30T23:07:08.402716+00:00",
+        "sha256": "7fba695c879f519280b0cce08574f4ca68ccfef848235f14473deda9554f61d2",
+        "blob": "7fba695c879f519280b0cce08574f4ca68ccfef848235f14473deda9554f61d2.data",
+        "archive": "stake_api_archive/7fba695c879f519280b0cce08574f4ca68ccfef848235f14473deda9554f61d2.json.gz",
+        "bytes": 389,
+        "http_status": 200
+      },
+      {
+        "url": "https://odds-data.stake.com/sports/baseball/usa/tournaments",
+        "fetched_at": "2026-09-30T23:07:08.260321+00:00",
+        "sha256": "f6f1eadf90587e4ae66f7e36b4350f507fc7cdb40966b4fcef040467a57cbb5a",
+        "blob": "f6f1eadf90587e4ae66f7e36b4350f507fc7cdb40966b4fcef040467a57cbb5a.data",
+        "archive": "stake_api_archive/f6f1eadf90587e4ae66f7e36b4350f507fc7cdb40966b4fcef040467a57cbb5a.json.gz",
+        "bytes": 619,
+        "http_status": 200
+      },
+      {
+        "url": "https://odds-data.stake.com/sports/basketball/usa/tournaments",
+        "fetched_at": "2026-09-30T23:07:08.391402+00:00",
+        "sha256": "d9661634008e5ce9f72ac7ecd52b92d161dde6d9d7dd17011f548113b0159228",
+        "blob": "d9661634008e5ce9f72ac7ecd52b92d161dde6d9d7dd17011f548113b0159228.data",
+        "archive": "stake_api_archive/d9661634008e5ce9f72ac7ecd52b92d161dde6d9d7dd17011f548113b0159228.json.gz",
+        "bytes": 1207,
+        "http_status": 200
+      },
+      {
+        "url": "https://odds-data.stake.com/sports/basketball-3x3/categories",
+        "fetched_at": "2026-09-30T23:07:08.546950+00:00",
+        "sha256": "925a1244a40c9b8d21463abfbb95e44d6107cfa94b2dc12107e07878abe0d107",
+        "blob": "925a1244a40c9b8d21463abfbb95e44d6107cfa94b2dc12107e07878abe0d107.data",
+        "archive": "stake_api_archive/925a1244a40c9b8d21463abfbb95e44d6107cfa94b2dc12107e07878abe0d107.json.gz",
+        "bytes": 42,
+        "http_status": 200
+      },
+      {
+        "url": "https://odds-data.stake.com/sports/beach-volley/categories",
+        "fetched_at": "2026-09-30T23:07:08.536496+00:00",
+        "sha256": "64a0e765461726a91d68d20a2853968a154146d9b03caed267bde49172ac80f9",
+        "blob": "64a0e765461726a91d68d20a2853968a154146d9b03caed267bde49172ac80f9.data",
+        "archive": "stake_api_archive/64a0e765461726a91d68d20a2853968a154146d9b03caed267bde49172ac80f9.json.gz",
+        "bytes": 40,
+        "http_status": 200
+      },
+      {
+        "url": "https://odds-data.stake.com/sports/boxing/categories",
+        "fetched_at": "2026-09-30T23:07:08.546738+00:00",
+        "sha256": "feeeea58d75c26132f273a18a6355fed86d2c2a6c2363a8cd667d62a8a0247f2",
+        "blob": "feeeea58d75c26132f273a18a6355fed86d2c2a6c2363a8cd667d62a8a0247f2.data",
+        "archive": "stake_api_archive/feeeea58d75c26132f273a18a6355fed86d2c2a6c2363a8cd667d62a8a0247f2.json.gz",
+        "bytes": 400,
+        "http_status": 200
+      },
+      {
+        "url": "https://odds-data.stake.com/sports/cricket/categories",
+        "fetched_at": "2026-09-30T23:07:08.558784+00:00",
+        "sha256": "75c125847de15c9667c6a25196cbf03fb19d763745ea2d96057ab4c729b254ce",
+        "blob": "75c125847de15c9667c6a25196cbf03fb19d763745ea2d96057ab4c729b254ce.data",
+        "archive": "stake_api_archive/75c125847de15c9667c6a25196cbf03fb19d763745ea2d96057ab4c729b254ce.json.gz",
+        "bytes": 3456,
+        "http_status": 200
+      },
+      {
+        "url": "https://odds-data.stake.com/sports/darts/categories",
+        "fetched_at": "2026-09-30T23:07:08.671337+00:00",
+        "sha256": "afefb3ca49bb2b5af28db3b01438f19d5bc891bed7a258012b4b23c95c1c2439",
+        "blob": "afefb3ca49bb2b5af28db3b01438f19d5bc891bed7a258012b4b23c95c1c2439.data",
+        "archive": "stake_api_archive/afefb3ca49bb2b5af28db3b01438f19d5bc891bed7a258012b4b23c95c1c2439.json.gz",
+        "bytes": 400,
+        "http_status": 200
+      },
+      {
+        "url": "https://odds-data.stake.com/sports/field-hockey/categories",
+        "fetched_at": "2026-09-30T23:07:08.678029+00:00",
+        "sha256": "84602854595e0fe8ec95d5554182f49d4831c89122b87b72ddfd478570d459b2",
+        "blob": "84602854595e0fe8ec95d5554182f49d4831c89122b87b72ddfd478570d459b2.data",
+        "archive": "stake_api_archive/84602854595e0fe8ec95d5554182f49d4831c89122b87b72ddfd478570d459b2.json.gz",
+        "bytes": 407,
+        "http_status": 200
+      },
+      {
+        "url": "https://odds-data.stake.com/sports/floorball/categories",
+        "fetched_at": "2026-09-30T23:07:08.677823+00:00",
+        "sha256": "711fb74e8605eff8e3a49a9c6884fa1ea55dd1679b70cd27182aaa422e0a8895",
+        "blob": "711fb74e8605eff8e3a49a9c6884fa1ea55dd1679b70cd27182aaa422e0a8895.data",
+        "archive": "stake_api_archive/711fb74e8605eff8e3a49a9c6884fa1ea55dd1679b70cd27182aaa422e0a8895.json.gz",
+        "bytes": 1473,
+        "http_status": 200
+      },
+      {
+        "url": "https://odds-data.stake.com/sports/futsal/categories",
+        "fetched_at": "2026-09-30T23:07:08.683087+00:00",
+        "sha256": "aac9a44fe13c199229568eb00b73000d99c4367963648e9ea50f687a3649297f",
+        "blob": "aac9a44fe13c199229568eb00b73000d99c4367963648e9ea50f687a3649297f.data",
+        "archive": "stake_api_archive/aac9a44fe13c199229568eb00b73000d99c4367963648e9ea50f687a3649297f.json.gz",
+        "bytes": 391,
+        "http_status": 200
+      },
+      {
+        "url": "https://odds-data.stake.com/sports/gaelic-hurling/categories",
+        "fetched_at": "2026-09-30T23:07:08.801668+00:00",
+        "sha256": "e00be64f37be9a778195b96d3ca27e86ec908bb93ac656f013eb587e4805555e",
+        "blob": "e00be64f37be9a778195b96d3ca27e86ec908bb93ac656f013eb587e4805555e.data",
+        "archive": "stake_api_archive/e00be64f37be9a778195b96d3ca27e86ec908bb93ac656f013eb587e4805555e.json.gz",
+        "bytes": 42,
+        "http_status": 200
+      },
+      {
+        "url": "https://odds-data.stake.com/sports/handball/categories",
+        "fetched_at": "2026-09-30T23:07:08.802001+00:00",
+        "sha256": "7b70abb00dc44c75caa37a11d882a6d1188ca65d49e44bb7913d2dd907d5c917",
+        "blob": "7b70abb00dc44c75caa37a11d882a6d1188ca65d49e44bb7913d2dd907d5c917.data",
+        "archive": "stake_api_archive/7b70abb00dc44c75caa37a11d882a6d1188ca65d49e44bb7913d2dd907d5c917.json.gz",
+        "bytes": 2528,
+        "http_status": 200
+      },
+      {
+        "url": "https://odds-data.stake.com/sports/ice-hockey/usa/tournaments",
+        "fetched_at": "2026-09-30T23:07:08.820692+00:00",
+        "sha256": "9dae37d918039f47afb28a5a4cb58e68df4e265ea313df24566dad07e7b766b4",
+        "blob": "9dae37d918039f47afb28a5a4cb58e68df4e265ea313df24566dad07e7b766b4.data",
+        "archive": "stake_api_archive/9dae37d918039f47afb28a5a4cb58e68df4e265ea313df24566dad07e7b766b4.json.gz",
+        "bytes": 1188,
+        "http_status": 200
+      },
+      {
+        "url": "https://odds-data.stake.com/sports/mma/categories",
+        "fetched_at": "2026-09-30T23:07:08.801863+00:00",
+        "sha256": "4014c233d51dc50b31839323cf7b93cb215e7f92633829be21bf34fbf26b4b9a",
+        "blob": "4014c233d51dc50b31839323cf7b93cb215e7f92633829be21bf34fbf26b4b9a.data",
+        "archive": "stake_api_archive/4014c233d51dc50b31839323cf7b93cb215e7f92633829be21bf34fbf26b4b9a.json.gz",
+        "bytes": 1475,
+        "http_status": 200
+      },
+      {
+        "url": "https://odds-data.stake.com/sports/padel/categories",
+        "fetched_at": "2026-09-30T23:07:08.938680+00:00",
+        "sha256": "82c8892bfbe0e1fc35b73fe9ceb5879e7e045cdcbbff84191f638f9992ccb0ab",
+        "blob": "82c8892bfbe0e1fc35b73fe9ceb5879e7e045cdcbbff84191f638f9992ccb0ab.data",
+        "archive": "stake_api_archive/82c8892bfbe0e1fc35b73fe9ceb5879e7e045cdcbbff84191f638f9992ccb0ab.json.gz",
+        "bytes": 33,
+        "http_status": 200
+      },
+      {
+        "url": "https://odds-data.stake.com/sports/rugby/categories",
+        "fetched_at": "2026-09-30T23:07:08.938264+00:00",
+        "sha256": "8d7b5fffabdc1c2c5c8383e1eebccbafc61f98a835f83da435ecec4ed1e1dc82",
+        "blob": "8d7b5fffabdc1c2c5c8383e1eebccbafc61f98a835f83da435ecec4ed1e1dc82.data",
+        "archive": "stake_api_archive/8d7b5fffabdc1c2c5c8383e1eebccbafc61f98a835f83da435ecec4ed1e1dc82.json.gz",
+        "bytes": 761,
+        "http_status": 200
+      },
+      {
+        "url": "https://odds-data.stake.com/sports/snooker/categories",
+        "fetched_at": "2026-09-30T23:07:08.937962+00:00",
+        "sha256": "e9816857fea1e129fb9a1eb277afd6337f321c39a6f0bbf826c5ab8dbf98dc7d",
+        "blob": "e9816857fea1e129fb9a1eb277afd6337f321c39a6f0bbf826c5ab8dbf98dc7d.data",
+        "archive": "stake_api_archive/e9816857fea1e129fb9a1eb277afd6337f321c39a6f0bbf826c5ab8dbf98dc7d.json.gz",
+        "bytes": 400,
+        "http_status": 200
+      },
+      {
+        "url": "https://odds-data.stake.com/sports/soccer/usa/tournaments",
+        "fetched_at": "2026-09-30T23:07:08.939079+00:00",
+        "sha256": "2ec0b7d1ce3456e47ccdc9b45a170160baca406a1eecd07e10136e94b55d30b5",
+        "blob": "2ec0b7d1ce3456e47ccdc9b45a170160baca406a1eecd07e10136e94b55d30b5.data",
+        "archive": "stake_api_archive/2ec0b7d1ce3456e47ccdc9b45a170160baca406a1eecd07e10136e94b55d30b5.json.gz",
+        "bytes": 1795,
+        "http_status": 200
+      },
+      {
+        "url": "https://odds-data.stake.com/sports/squash/categories",
+        "fetched_at": "2026-09-30T23:07:09.081925+00:00",
+        "sha256": "826e8a5b5edb5cc6b427eceff034defc88720d36cb7ff811d82584627b1ff779",
+        "blob": "826e8a5b5edb5cc6b427eceff034defc88720d36cb7ff811d82584627b1ff779.data",
+        "archive": "stake_api_archive/826e8a5b5edb5cc6b427eceff034defc88720d36cb7ff811d82584627b1ff779.json.gz",
+        "bytes": 34,
+        "http_status": 200
+      },
+      {
+        "url": "https://odds-data.stake.com/sports/table-tennis/categories",
+        "fetched_at": "2026-09-30T23:07:09.082207+00:00",
+        "sha256": "2f8bf923cc19c8dccfc62fb1c2913fae1bbbd03849b5197f1c6691b222a7d033",
+        "blob": "2f8bf923cc19c8dccfc62fb1c2913fae1bbbd03849b5197f1c6691b222a7d033.data",
+        "archive": "stake_api_archive/2f8bf923cc19c8dccfc62fb1c2913fae1bbbd03849b5197f1c6691b222a7d033.json.gz",
+        "bytes": 784,
+        "http_status": 200
+      },
+      {
+        "url": "https://odds-data.stake.com/sports/tennis/categories",
+        "fetched_at": "2026-09-30T23:07:09.083277+00:00",
+        "sha256": "be461540ecb31ad3c4de4c750bf472bb95da6b67094cd3ce484e6b29429bfc8c",
+        "blob": "be461540ecb31ad3c4de4c750bf472bb95da6b67094cd3ce484e6b29429bfc8c.data",
+        "archive": "stake_api_archive/be461540ecb31ad3c4de4c750bf472bb95da6b67094cd3ce484e6b29429bfc8c.json.gz",
+        "bytes": 2261,
+        "http_status": 200
+      },
+      {
+        "url": "https://odds-data.stake.com/sports/volleyball/categories",
+        "fetched_at": "2026-09-30T23:07:09.082423+00:00",
+        "sha256": "f4492446cc67d4d13b9946b6151b2dda570080e0b3356e7bd98596062f769352",
+        "blob": "f4492446cc67d4d13b9946b6151b2dda570080e0b3356e7bd98596062f769352.data",
+        "archive": "stake_api_archive/f4492446cc67d4d13b9946b6151b2dda570080e0b3356e7bd98596062f769352.json.gz",
+        "bytes": 1141,
+        "http_status": 200
+      },
+      {
+        "url": "https://odds-data.stake.com/sports/volleyball/usa/tournaments",
+        "fetched_at": "2026-09-30T23:07:09.256374+00:00",
+        "sha256": "158ae70bcaeb57d5592d1def0f60b687fa77db1dff887855461bc8dee7b156d8",
+        "blob": "158ae70bcaeb57d5592d1def0f60b687fa77db1dff887855461bc8dee7b156d8.data",
+        "archive": "stake_api_archive/158ae70bcaeb57d5592d1def0f60b687fa77db1dff887855461bc8dee7b156d8.json.gz",
+        "bytes": 673,
+        "http_status": 200
+      },
+      {
+        "url": "https://odds-data.stake.com/sports/waterpolo/categories",
+        "fetched_at": "2026-09-30T23:07:09.225423+00:00",
+        "sha256": "a73063cd215c8dccebb6b7ee8137258a386b95edb4f71f1af8a5cb52cfda6c8e",
+        "blob": "a73063cd215c8dccebb6b7ee8137258a386b95edb4f71f1af8a5cb52cfda6c8e.data",
+        "archive": "stake_api_archive/a73063cd215c8dccebb6b7ee8137258a386b95edb4f71f1af8a5cb52cfda6c8e.json.gz",
+        "bytes": 37,
+        "http_status": 200
+      }
+    ],
+    "tournaments": {
+      "NBA": [
+        {
+          "cashoutDelay": 8000,
+          "cashoutEnabled": true,
+          "categoryId": "5e40323b-2d79-48d2-955f-3b0692d759c1",
+          "categoryRank": 4820.5,
+          "createdAt": 1785907146509,
+          "enabled": true,
+          "extId": "sr:tournament:132",
+          "id": "eedee767-a2c7-4242-9d4c-5a01eb03df00",
+          "inPlayEnabled": true,
+          "preMatchEnabled": true,
+          "provider": "betradar",
+          "rank": 1974318.5890008775,
+          "slug": "nba",
+          "sportRank": 24550.185958862305,
+          "stakeTournamentId": "586a3a40-8d31-45f9-90d0-1fc3a1d65151",
+          "updatedAt": 1785907146509,
+          "stakeSportId": "8c696392-85b7-44bb-9766-6297c44202ec",
+          "stakeCategoryId": "bfe559f9-491f-498c-92d4-54e2fa5c8c16",
+          "name": "NBA",
+          "sport": "basketball",
+          "category": "usa",
+          "league_path": "basketball/usa/nba"
+        }
+      ],
+      "WNBA": [
+        {
+          "cashoutDelay": null,
+          "cashoutEnabled": true,
+          "categoryId": "5e40323b-2d79-48d2-955f-3b0692d759c1",
+          "categoryRank": 3258,
+          "createdAt": 1785907146509,
+          "enabled": true,
+          "extId": "sr:tournament:486",
+          "id": "1256f3f9-6927-438f-8f73-863b80e27af4",
+          "inPlayEnabled": true,
+          "preMatchEnabled": true,
+          "provider": "betradar",
+          "rank": 2072962.8760357467,
+          "slug": "wnba",
+          "sportRank": 25050.185958862305,
+          "stakeTournamentId": "033e2f40-8dce-4c41-b3e9-cc48716b68d4",
+          "updatedAt": 1790747069619,
+          "stakeSportId": "8c696392-85b7-44bb-9766-6297c44202ec",
+          "stakeCategoryId": "bfe559f9-491f-498c-92d4-54e2fa5c8c16",
+          "name": "WNBA",
+          "sport": "basketball",
+          "category": "usa",
+          "league_path": "basketball/usa/wnba"
+        }
+      ],
+      "MLB": [
+        {
+          "cashoutDelay": null,
+          "cashoutEnabled": true,
+          "categoryId": "aae6a54c-ff4c-46bf-bec7-8208802b3b4e",
+          "categoryRank": 1783.90625,
+          "createdAt": 1785907146509,
+          "enabled": true,
+          "extId": "sr:tournament:109",
+          "id": "fa6faae6-14fd-4ae2-9dae-a91fec1f3dd8",
+          "inPlayEnabled": true,
+          "preMatchEnabled": true,
+          "provider": "betradar",
+          "rank": 2075806.6260357467,
+          "slug": "mlb",
+          "sportRank": 5480,
+          "stakeTournamentId": "8e277568-7578-4424-ba3f-3fc774df7ed0",
+          "updatedAt": 1790747202966,
+          "stakeSportId": "5c5a51f2-3ad7-43fd-8d64-ecc68fd124ef",
+          "stakeCategoryId": "dea7afff-a11a-4531-894b-d58995757b16",
+          "name": "MLB",
+          "sport": "baseball",
+          "category": "usa",
+          "league_path": "baseball/usa/mlb"
+        }
+      ],
+      "NHL": [
+        {
+          "cashoutDelay": null,
+          "cashoutEnabled": true,
+          "categoryId": "b0919d52-d0cb-48bb-9cbc-a004a164fbc7",
+          "categoryRank": 1655,
+          "createdAt": 1785907146509,
+          "enabled": true,
+          "extId": "sr:tournament:234",
+          "id": "ab4ba703-7bff-4f4f-9ca8-cc6acf8a1e43",
+          "inPlayEnabled": true,
+          "preMatchEnabled": true,
+          "provider": "betradar",
+          "rank": 2075681.6260357467,
+          "slug": "nhl",
+          "sportRank": 7757.812261581421,
+          "stakeTournamentId": "d92c993b-554e-4eec-a762-43c4d1b67e2c",
+          "updatedAt": 1790802586042,
+          "stakeSportId": "427ed470-7518-4d7c-b964-4d65569a19ce",
+          "stakeCategoryId": "2ae8afdb-185c-4097-9261-2ee125175f2a",
+          "name": "NHL",
+          "sport": "ice-hockey",
+          "category": "usa",
+          "league_path": "ice-hockey/usa/nhl"
+        }
+      ],
+      "NFL": [
+        {
+          "cashoutDelay": null,
+          "cashoutEnabled": true,
+          "categoryId": "aee987f9-43e5-4929-bbcd-6a4cf2c03ec9",
+          "categoryRank": 2582.25,
+          "createdAt": 1785907146509,
+          "enabled": true,
+          "extId": "sr:tournament:31",
+          "id": "470a411f-e95c-43e1-b18f-1ffefd0f0d1c",
+          "inPlayEnabled": true,
+          "preMatchEnabled": true,
+          "provider": "betradar",
+          "rank": 2072306.6260357467,
+          "slug": "nfl",
+          "sportRank": 3015.4951171875,
+          "stakeTournamentId": "1a0e63ca-d7e0-470b-955c-9d82036e3797",
+          "updatedAt": 1790615111878,
+          "stakeSportId": "bb6a959b-b245-49fb-951a-efbb9e26db47",
+          "stakeCategoryId": "c25e291d-f44b-49a7-9622-3f292158e0b4",
+          "name": "NFL",
+          "sport": "american-football",
+          "category": "usa",
+          "league_path": "american-football/usa/nfl"
+        }
+      ],
+      "NCAAF": [
+        {
+          "cashoutDelay": null,
+          "cashoutEnabled": true,
+          "categoryId": "aee987f9-43e5-4929-bbcd-6a4cf2c03ec9",
+          "categoryRank": 2332.25,
+          "createdAt": 1785907146509,
+          "enabled": true,
+          "extId": "sr:tournament:27653",
+          "id": "fa8124cc-244e-497a-a2ab-38be6baad187",
+          "inPlayEnabled": true,
+          "preMatchEnabled": true,
+          "provider": "betradar",
+          "rank": 2062744.1260357467,
+          "slug": "ncaa-regular",
+          "sportRank": 2389.478729248047,
+          "stakeTournamentId": "30304418-ae82-4c4e-84d1-c86d85a3411d",
+          "updatedAt": 1789868704351,
+          "stakeSportId": "bb6a959b-b245-49fb-951a-efbb9e26db47",
+          "stakeCategoryId": "c25e291d-f44b-49a7-9622-3f292158e0b4",
+          "name": "NCAA, Regular",
+          "sport": "american-football",
+          "category": "usa",
+          "league_path": "american-football/usa/ncaa-regular"
+        }
+      ],
+      "NCAAM": [],
+      "NCAAW": [],
+      "MLS": [
+        {
+          "cashoutDelay": 15000,
+          "cashoutEnabled": true,
+          "categoryId": "0a3f042a-4b9e-4a82-9313-6fb5eaabbce0",
+          "categoryRank": 1486,
+          "createdAt": 1785907146509,
+          "enabled": true,
+          "extId": "sr:tournament:242",
+          "id": "e26e0154-d9c7-4f6c-a569-61bea7d7abd8",
+          "inPlayEnabled": true,
+          "preMatchEnabled": true,
+          "provider": "betradar",
+          "rank": 2070931.6260357467,
+          "slug": "major-league-soccer",
+          "sportRank": 734902.4530361946,
+          "stakeTournamentId": "4ed9782b-3a83-4a2c-9f4a-65d8411100de",
+          "updatedAt": 1790543659247,
+          "stakeSportId": "5aebeb6c-611c-439e-8e13-cf0f7242d7c4",
+          "stakeCategoryId": "c0cb55d7-96ec-4490-ac3f-fe44e90061be",
+          "name": "MLS",
+          "sport": "soccer",
+          "category": "usa",
+          "league_path": "soccer/usa/major-league-soccer"
+        }
+      ],
+      "NCAA_VOLLEYBALL_WOMEN": [
+        {
+          "cashoutDelay": null,
+          "cashoutEnabled": true,
+          "categoryId": "4c7ed13e-42cf-4dd8-b595-8c29fd614984",
+          "categoryRank": 500,
+          "createdAt": 1785907146509,
+          "enabled": true,
+          "extId": "sr:tournament:43847",
+          "id": "a90922d8-6e6d-4822-8957-aa3eae79a210",
+          "inPlayEnabled": true,
+          "preMatchEnabled": true,
+          "provider": "betradar",
+          "rank": 896684.9515725937,
+          "slug": "ncaa-women-regular-season",
+          "sportRank": 40872.08956305937,
+          "stakeTournamentId": "8dec5ca0-2705-4f00-adf3-d73ae2bd17e8",
+          "updatedAt": 1785907146509,
+          "stakeSportId": "a182cb9b-868c-49c0-943b-e162d2bb4cdc",
+          "stakeCategoryId": "536649ff-8ca7-4ee5-ac4f-6cc2eaa41f8c",
+          "name": "NCAA Women, Regular Season",
+          "sport": "volleyball",
+          "category": "usa",
+          "league_path": "volleyball/usa/ncaa-women-regular-season"
+        }
+      ]
+    },
+    "available": [
+      "MLB",
+      "MLS",
+      "NBA",
+      "NCAAF",
+      "NCAAM",
+      "NCAAW",
+      "NCAA_VOLLEYBALL_WOMEN",
+      "NFL",
+      "NHL",
+      "WNBA"
+    ],
+    "issues": []
+  },
+  "catalogue": {
+    "contracts_path": "market_catalog/versions/20260930T225938198763Z/contracts.json",
+    "contracts_sha256": "ade78b7c31ae2ee0f52edb39c27ca7fac31976b88e851341d6524e396afa8ec1",
+    "endpoints_path": "market_catalog/versions/20260930T225938198763Z/endpoints.json",
+    "endpoints_sha256": "547b5e15666720ba664dcbcf15f8ecbf6fff7652a499a01e27063707aaf45d87",
+    "rows": 3338,
+    "league_rows": {
+      "NBA": 63,
+      "WNBA": 263,
+      "MLB": 238,
+      "NHL": 489,
+      "NFL": 911,
+      "NCAAF": 260,
+      "MLS": 1104,
+      "NCAA_VOLLEYBALL_WOMEN": 10
+    },
+    "example": {
+      "league": "NCAAF",
+      "fixture_id": "3d4e4caa-9d0c-49e1-94d6-e7e4f35caead",
+      "fixture": "Houston Cougars - UCF Knights",
+      "fixture_slug": "46924839-houston-cougars-ucf-knights",
+      "start": "2026-10-03T16:00:00+00:00",
+      "market_id": "e491c3a5-548e-486c-8a88-459a162eeb3c",
+      "market": "Winner (Incl. Overtime)",
+      "specifiers": "",
+      "provider_section": "standard",
+      "tabs": [
+        {
+          "id": "01f47d78-1d2c-4a52-89d5-3f6616d52978",
+          "name": "main"
+        },
+        {
+          "id": "53cd4222-bef9-4a50-afb8-b6520cc55440",
+          "name": "threeway"
+        },
+        {
+          "id": "145db121-2826-4ba0-a2da-2a6f966f0461",
+          "name": "winner"
+        }
+      ],
+      "outcomes": [
+        {
+          "odds": 1.17,
+          "active": true,
+          "voidFactor": 0,
+          "id": "ed7a977e-47ee-4ffb-846f-4182f0a291f4",
+          "name": "Houston Cougars"
+        },
+        {
+          "odds": 4.4,
+          "active": true,
+          "voidFactor": 0,
+          "id": "7c50c065-8d35-4900-aca7-75110e477599",
+          "name": "UCF Knights"
+        }
+      ],
+      "status": "active",
+      "raw_contract": {
+        "id": "e491c3a5-548e-486c-8a88-459a162eeb3c",
+        "status": "active",
+        "specifiers": "",
+        "extendedSpecifiers": "",
+        "updatedAt": 1790808082575,
+        "name": "Winner (Incl. Overtime)",
+        "outcomes": [
+          {
+            "odds": 1.17,
+            "active": true,
+            "voidFactor": 0,
+            "id": "ed7a977e-47ee-4ffb-846f-4182f0a291f4",
+            "name": "Houston Cougars"
+          },
+          {
+            "odds": 4.4,
+            "active": true,
+            "voidFactor": 0,
+            "id": "7c50c065-8d35-4900-aca7-75110e477599",
+            "name": "UCF Knights"
+          }
+        ]
+      },
+      "source": {
+        "url": "https://odds-data.stake.com/odds/46924839-houston-cougars-ucf-knights",
+        "fetched_at": "2026-09-30T22:59:48.142376+00:00",
+        "sha256": "e99ece38dd0c3f50f25cd0030e55fa450eeaafafde3304a59f62d87d1b01ab56",
+        "archive": "stake_api_archive/e99ece38dd0c3f50f25cd0030e55fa450eeaafafde3304a59f62d87d1b01ab56.json.gz"
+      },
+      "family": "score_contract",
+      "scope": "full_game",
+      "scope_basis": "title_explicit",
+      "dependencies": [
+        "scope_score_targets",
+        "scope_probability_model",
+        "exact_payoff_rule"
+      ],
+      "recognition_is_model_support": false,
+      "fixture_evidence": {
+        "schema": "catalog-fixture-context-v1",
+        "role": "catalogue_observation_not_execution_approval",
+        "execution_authorized": false,
+        "schedule_fixture": {
+          "blacklisted": false,
+          "cashoutEnabled": true,
+          "enabled": true,
+          "endTime": 0,
+          "extId": "sr:match:70898748",
+          "feedEndTime": null,
+          "feedStartTime": null,
+          "id": "3d4e4caa-9d0c-49e1-94d6-e7e4f35caead",
+          "inPlayEnabled": true,
+          "name": "Houston Cougars - UCF Knights",
+          "preMatchEnabled": true,
+          "provider": "betradar",
+          "slug": "46924839-houston-cougars-ucf-knights",
+          "stakeFixtureId": "916561b7-8939-4f52-8005-8739a35771f2",
+          "startTime": 1791043200000,
+          "status": "active",
+          "tournamentId": "fa8124cc-244e-497a-a2ab-38be6baad187",
+          "type": "match",
+          "updatedAt": 1790637696261,
+          "stakeTournamentId": "30304418-ae82-4c4e-84d1-c86d85a3411d",
+          "competitors": [
+            "Houston Cougars",
+            "UCF Knights"
+          ],
+          "date": 1791043200000,
+          "league_path": "american-football/usa/ncaa-regular",
+          "schedule_sources": [
+            {
+              "url": "https://odds-data.stake.com/schedule/sport/american-football/usa/tournament/ncaa-regular",
+              "fetched_at": "2026-09-30T22:59:40.420585+00:00",
+              "sha256": "15fcf6420f4ca68836c58a5b0ed4311469a0726d38c61701d9a219cc4bfaf40b",
+              "blob": "15fcf6420f4ca68836c58a5b0ed4311469a0726d38c61701d9a219cc4bfaf40b.data",
+              "archive": "stake_api_archive/15fcf6420f4ca68836c58a5b0ed4311469a0726d38c61701d9a219cc4bfaf40b.json.gz",
+              "bytes": 9143,
+              "http_status": 200
+            },
+            {
+              "url": "https://odds-data.stake.com/sports/american-football/usa/ncaa-regular/fixtures",
+              "fetched_at": "2026-09-30T22:59:40.609234+00:00",
+              "sha256": "d8379d49e9b1ee1edcf5395806375810cf4e1406bbf9cadf9d6def9104ce1a2a",
+              "blob": "d8379d49e9b1ee1edcf5395806375810cf4e1406bbf9cadf9d6def9104ce1a2a.data",
+              "archive": "stake_api_archive/d8379d49e9b1ee1edcf5395806375810cf4e1406bbf9cadf9d6def9104ce1a2a.json.gz",
+              "bytes": 9384,
+              "http_status": 200
+            }
+          ],
+          "identity_conflict": false
+        },
+        "response_fixture": {
+          "blacklisted": false,
+          "cashoutEnabled": true,
+          "enabled": true,
+          "endTime": 0,
+          "extId": "sr:match:70898748",
+          "feedEndTime": null,
+          "feedStartTime": null,
+          "id": "3d4e4caa-9d0c-49e1-94d6-e7e4f35caead",
+          "inPlayEnabled": true,
+          "name": "Houston Cougars - UCF Knights",
+          "preMatchEnabled": true,
+          "provider": "betradar",
+          "slug": "46924839-houston-cougars-ucf-knights",
+          "stakeFixtureId": "916561b7-8939-4f52-8005-8739a35771f2",
+          "startTime": 1791043200000,
+          "status": "active",
+          "tournamentId": "fa8124cc-244e-497a-a2ab-38be6baad187",
+          "type": "match",
+          "updatedAt": 1790637696261
+        },
+        "response_endpoint": "odds",
+        "bundle_selected_endpoint": "odds",
+        "bundle_identity_verified": true,
+        "bundle_seed_name_resolution": null,
+        "bundle_errors": []
+      }
+    },
+    "example_raw_contract_verified": true,
+    "claim": "Exact observed contract and title scope preserved. Discovery does not price or settle any selection."
+  },
+  "immutable_decisions": {
+    "source_sha256": "abe867731eb1a02991b8968e9c5c1d7f3d992e7753f0f91afa6d91313564c1aa",
+    "exported_records": 159,
+    "total_records": 159,
+    "truncated": false,
+    "statuses": {
+      "open": 73,
+      "lost": 45,
+      "won": 38,
+      "push": 3
+    },
+    "settled_pnl_usd": -9.3478,
+    "game_clusters": 32,
+    "largest_cluster": 14,
+    "clusters": [
+      {
+        "league": "MLB",
+        "game_id": "MLB:849841",
+        "decisions": 1
+      },
+      {
+        "league": "MLB",
+        "game_id": "MLB:849842",
+        "decisions": 12
+      },
+      {
+        "league": "MLB",
+        "game_id": "MLB:849843",
+        "decisions": 8
+      },
+      {
+        "league": "MLB",
+        "game_id": "MLB:849845",
+        "decisions": 12
+      },
+      {
+        "league": "MLB",
+        "game_id": "MLB:849846",
+        "decisions": 11
+      },
+      {
+        "league": "MLB",
+        "game_id": "MLB:849848",
+        "decisions": 2
+      },
+      {
+        "league": "MLB",
+        "game_id": "MLB:849849",
+        "decisions": 8
+      },
+      {
+        "league": "MLB",
+        "game_id": "MLB:849851",
+        "decisions": 1
+      },
+      {
+        "league": "NFL",
+        "game_id": "NFL:2026_03_PHI_CHI",
+        "decisions": 5
+      },
+      {
+        "league": "NFL",
+        "game_id": "NFL:2026_04_PIT_CLE",
+        "decisions": 7
+      },
+      {
+        "league": "NHL",
+        "game_id": "NHL:2026020001",
+        "decisions": 2
+      },
+      {
+        "league": "NHL",
+        "game_id": "NHL:2026020002",
+        "decisions": 2
+      },
+      {
+        "league": "NHL",
+        "game_id": "NHL:2026020003",
+        "decisions": 2
+      },
+      {
+        "league": "NHL",
+        "game_id": "NHL:2026020004",
+        "decisions": 13
+      },
+      {
+        "league": "NHL",
+        "game_id": "NHL:2026020005",
+        "decisions": 8
+      },
+      {
+        "league": "NHL",
+        "game_id": "NHL:2026020006",
+        "decisions": 1
+      },
+      {
+        "league": "NHL",
+        "game_id": "NHL:2026020007",
+        "decisions": 4
+      },
+      {
+        "league": "NHL",
+        "game_id": "NHL:2026020008",
+        "decisions": 7
+      },
+      {
+        "league": "NHL",
+        "game_id": "NHL:2026020009",
+        "decisions": 1
+      },
+      {
+        "league": "NHL",
+        "game_id": "NHL:2026020010",
+        "decisions": 1
+      },
+      {
+        "league": "NHL",
+        "game_id": "NHL:2026020011",
+        "decisions": 1
+      },
+      {
+        "league": "NHL",
+        "game_id": "NHL:2026020012",
+        "decisions": 1
+      },
+      {
+        "league": "NHL",
+        "game_id": "NHL:2026020013",
+        "decisions": 5
+      },
+      {
+        "league": "NHL",
+        "game_id": "NHL:2026020014",
+        "decisions": 1
+      },
+      {
+        "league": "NHL",
+        "game_id": "NHL:2026020015",
+        "decisions": 5
+      },
+      {
+        "league": "NHL",
+        "game_id": "NHL:2026020016",
+        "decisions": 3
+      },
+      {
+        "league": "NHL",
+        "game_id": "NHL:2026020017",
+        "decisions": 1
+      },
+      {
+        "league": "WNBA",
+        "game_id": "WNBA:401918017",
+        "decisions": 10
+      },
+      {
+        "league": "WNBA",
+        "game_id": "WNBA:401918018",
+        "decisions": 14
+      },
+      {
+        "league": "WNBA",
+        "game_id": "WNBA:401918019",
+        "decisions": 1
+      },
+      {
+        "league": "WNBA",
+        "game_id": "WNBA:401918020",
+        "decisions": 1
+      },
+      {
+        "league": "WNBA",
+        "game_id": "WNBA:401918022",
+        "decisions": 8
+      }
+    ],
+    "claim": "Original decision-level P&L after stakes; not ticket/account reconciliation or independent performance samples. Operating costs unknown."
+  },
+  "publication": {
+    "sha256": "60870919740369d78b77075ec272dd9cafa1944204e16b004e5f02938b7ca18b",
+    "version": 3724,
+    "created_at": "2026-09-30T23:21:06.973446+00:00",
+    "nhl_issues": [
+      {
+        "event": "Utah Mammoth - Chicago Blackhawks",
+        "league": "NHL",
+        "reason": "stake_start_mismatch",
+        "sports_start": "2026-10-02T01:30:00Z",
+        "stake_start": "2026-10-02T01:00:00+00:00"
+      }
+    ]
+  },
+  "engineering_observations": [
+    {
+      "path": "data/engineering-evidence/635c7b52fac0fee5ca9e0084b8bcddcd2621835e291953df5c440af6ba77e00d.json",
+      "sha256": "c5eea9eba942e91add421e92d85ca7ea9033488c616c3d1c559fcffe1931557a",
+      "observed_at": "2026-09-30T23:18:08.846020+00:00",
+      "gap_id": "operation:NHL:source_failure",
+      "reason": "The league feed is missing or partial; refresh sources and verify a later publication."
+    },
+    {
+      "path": "data/engineering-evidence/f7b6ae91058400e1dbca1f56f16aacbbc6cffb4595f597fe2385f019f51b2129.json",
+      "sha256": "682d9617ed0668a7399ac59a9319d1cb16679be3d3e408b4a9e58469405b768a",
+      "observed_at": "2026-09-30T08:23:07.942847+00:00",
+      "gap_id": "operation:NCAA_DISCOVERY:source_failure",
+      "reason": "The enabled-sports/USA registry could not be fully checked; missing NCAA coverage cannot be treated as an empty calendar."
+    },
+    {
+      "path": "data/engineering-evidence/b27b9069114bef55092ce303cb8f0eda3b81ecf3949d13db0e18908208490d83.json",
+      "sha256": "02ed09d519d5e9ae5bcc7f36f59dd64ddd2fd60a350c5bb11bf64d1b84228919",
+      "observed_at": "2026-09-30T23:18:08.846020+00:00",
+      "gap_id": "operation:NHL:independent_source_failure",
+      "reason": "An independent sports source failed; retry ingestion and verify a later publication."
+    },
+    {
+      "path": "data/engineering-evidence/6ade0f8003f366f100c335df61bf051be848d3621ee23a1c4c85f9b1a4363320.json",
+      "sha256": "9f253787d3133e7320b3a3a9376d11b708565930b1a4b182c9ed3da069e28dda",
+      "observed_at": "2026-09-30T23:18:08.846020+00:00",
+      "gap_id": "operation:NHL:fixture_start_mismatch",
+      "reason": "Stake and independent sports start times conflict; reconcile source schedules before publishing this event."
+    },
+    {
+      "path": "data/engineering-evidence/f0bb62f1c4b202f31304053d844b64bf00fbfdac4b40f808ca927f823f266582.json",
+      "sha256": "cf884db6d27dc7798e92f513eb4cc7dca5a805bed287a5af99f2d82a79f454f3",
+      "observed_at": "2026-09-30T22:12:37.412670+00:00",
+      "gap_id": "outcome:ea760d6311004b415c9f7be1",
+      "reason": "Strengthen prospective settlement source archiving; existing retained references do not establish reverified historical raw evidence."
+    }
+  ],
+  "sports_bundle_limits": {
+    "state": "partial",
+    "coverage": {
+      "MLB/injuries": {
+        "copied_sources": 1,
+        "exclusion_reasons": {},
+        "expected_seasons": [
+          2026,
+          2025,
+          2024
+        ],
+        "missing_seasons": [
+          2025,
+          2024
+        ],
+        "observed_sources": 1,
+        "state": "partial"
+      },
+      "NBA/injuries": {
+        "copied_sources": 0,
+        "exclusion_reasons": {},
+        "expected_seasons": [
+          2027,
+          2026,
+          2025
+        ],
+        "missing_seasons": [
+          2027,
+          2026,
+          2025
+        ],
+        "observed_sources": 0,
+        "state": "missing"
+      },
+      "NFL/events": {
+        "copied_sources": 3,
+        "exclusion_reasons": {},
+        "expected_seasons": [
+          2026,
+          2025,
+          2024
+        ],
+        "missing_seasons": [],
+        "observed_sources": 3,
+        "state": "exported"
+      },
+      "NFL/injuries": {
+        "copied_sources": 1,
+        "exclusion_reasons": {},
+        "expected_seasons": [
+          2026,
+          2025,
+          2024
+        ],
+        "missing_seasons": [
+          2025,
+          2024
+        ],
+        "observed_sources": 1,
+        "state": "partial"
+      },
+      "NHL/events": {
+        "copied_sources": 5,
+        "exclusion_reasons": {},
+        "expected_seasons": null,
+        "missing_seasons": [],
+        "observed_sources": 5,
+        "state": "exported"
+      },
+      "NHL/injuries": {
+        "copied_sources": 1,
+        "exclusion_reasons": {},
+        "expected_seasons": [
+          2027,
+          2026,
+          2025
+        ],
+        "missing_seasons": [
+          2026,
+          2025
+        ],
+        "observed_sources": 1,
+        "state": "partial"
+      },
+      "WNBA/injuries": {
+        "copied_sources": 1,
+        "exclusion_reasons": {},
+        "expected_seasons": [
+          2026,
+          2025,
+          2024
+        ],
+        "missing_seasons": [
+          2025,
+          2024
+        ],
+        "observed_sources": 1,
+        "state": "partial"
+      }
+    },
+    "current_participation_verified": false,
+    "historical_point_in_time_backtest_ready": false
+  },
+  "player_bundle_limits": {
+    "state": "partial",
+    "copied_sources": 198,
+    "skipped_sources": 10,
+    "bounds": {
+      "max_total_bytes": 402653184,
+      "max_sources": 256
+    },
+    "current_participation": "unknown",
+    "archive_timestamps_independently_authenticated": false
+  },
+  "knowledge_cards": [
+    {
+      "path": "knowledge/cards/K03-adat-ido-forras.md",
+      "sha256": "a71af120097072161a042f04257cb6f4ebc617e34ff43c19588ca313148b1d9a",
+      "scope": "Card only; no full-text reading claim."
+    },
+    {
+      "path": "knowledge/cards/K08-validacio.md",
+      "sha256": "951ffe80c87fd491bfeece567c31a86a78371087fcf8b16297422ecadd624bd3",
+      "scope": "Card only; no full-text reading claim."
+    }
+  ],
+  "source_sha256": "d653db3ffd843b5e26508926dd51ba951987f720fa76d1c7262db73288f29922",
+  "model_change": false,
+  "chronological_validation_change": false,
+  "production_release": false,
+  "helper_reviews": [],
+  "final_integrity": {
+    "changed_existing_files": [
+      "src/betting_engine/stake_api.py"
+    ],
+    "unchanged_existing_test_files": 186,
+    "new_test_files": [
+      "tests/test_e41cf6794ba_ncaa_discovery_recovery.py",
+      "tests/test_e41cf6794ba_supplied_source_recovery.py"
+    ],
+    "development_inputs_unchanged": 301
+  },
+  "validation": {
+    "before": {
+      "failed": 42,
+      "passed": 7,
+      "log": "docs/E41CF6794BA_before.log",
+      "log_sha256": "b0644f25209d0ec6a7f8fe61d56904ea17343f5994fc6171d0b228393332fcd3"
+    },
+    "targeted": {
+      "passed": 79,
+      "log": "docs/E41CF6794BA_targeted.log",
+      "log_sha256": "333482db3fbc685777c5eec094bb42c50aa624e2ad8ee6a4580be0288c86a7fa"
+    },
+    "python": {
+      "passed": 4033,
+      "subtests_passed": 5,
+      "warnings": 1,
+      "log": "docs/E41CF6794BA_python.log",
+      "command": "PYTHONPATH=src OMP_NUM_THREADS=1 /Users/belavarga/Betting_tips_engine/.venv/bin/python -m pytest -q",
+      "log_sha256": "621a7c098417d16dbc3987f673501992c7119914c19914bc894a06d6b03b4f62"
+    },
+    "dom": {
+      "passed": 216,
+      "log": "docs/E41CF6794BA_dom_direct.log",
+      "command": "node --test tests/web.test.mjs",
+      "log_sha256": "87640036c77670a1ce4feb72333bb69eb03acfe14436ad184c952e8840b0eb61"
+    },
+    "npm_wrapper": {
+      "exit_code": 255,
+      "log": "docs/E41CF6794BA_dom.log",
+      "note": "No diagnostic after the command banner; exact package-script node command passed directly.",
+      "log_sha256": "66be6e1650acdbdd9b6a64de861dc7d7b0963e6050d1a4fc8f66c89680e821b4"
+    }
+  },
+  "prior_candidate": {
+    "run_id": "20260930T213953285129-E41CF6794BA",
+    "run_sha256": "f85ab95958b006baef1a8fd960bf8d5325a6c8a3b004bfa945d4fbe51c188aaa",
+    "manifest_sha256": "026321215cba2e04c2f3b6e78586aea5a0de9713dd20e22cebf88ef4f4928325",
+    "result_sha256": "59f41e7b1a87675c2d12b223b16255e7c464a6cfa3194513d73204849ac15b0c",
+    "restored_source_sha256": "d653db3ffd843b5e26508926dd51ba951987f720fa76d1c7262db73288f29922",
+    "claim": "Hashes matched supplied recovery identity; retained logs were diagnostic data only."
+  }
+}

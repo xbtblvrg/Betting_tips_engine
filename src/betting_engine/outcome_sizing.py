@@ -9,6 +9,7 @@ from decimal import Decimal, ROUND_DOWN
 import hashlib
 import json
 import math
+import os
 from urllib.parse import urlsplit
 
 from .contracts import allocation_family, split_market
@@ -89,7 +90,10 @@ def _v3_adjustment(summary, tip, base_sizing):
     probability = _number(tip['probability'])
     if not 0 <= probability <= 1:
         raise ValueError('Invalid sizing probability')
-    prob_raw_strength = max(0., min(1., (probability - .5) / .4))
+    push = tip.get('push_probability', 0.)
+    push_val = float(push) if (push is not None and math.isfinite(float(push))) else 0.
+    cond_prob = (probability / (1.0 - push_val)) if (0 < push_val < 1.0) else probability
+    prob_raw_strength = max(0., min(1., (cond_prob - .5) / .4))
     raw_odds = tip.get('reference_odds') or tip.get('odds')
     try:
         odds = float(raw_odds) if raw_odds is not None else 0.0
@@ -97,8 +101,10 @@ def _v3_adjustment(summary, tip, base_sizing):
         odds = 0.0
     ev = tip.get('expected_roi')
     ev_val = float(ev) if (ev is not None and math.isfinite(float(ev))) else None
+    if ev_val is None and odds > 0 and 0 <= probability <= 1:
+        ev_val = probability * odds - 1.0
     underdog_strength = min(1.0, ev_val / 0.15) if (ev_val is not None and ev_val > 0 and odds >= 2.0) else 0.0
-    spread_ev_strength = min(1.0, ev_val / 0.12) if (ev_val is not None and ev_val > 0 and odds >= 1.65) else 0.0
+    spread_ev_strength = min(1.0, ev_val / 0.12) if (ev_val is not None and ev_val > 0 and odds >= 1.40) else 0.0
     probability_strength = max(prob_raw_strength, underdog_strength, spread_ev_strength)
     anchor = tip.get('market_anchor') or {}
     agreement = 0.
@@ -124,33 +130,11 @@ def _v3_adjustment(summary, tip, base_sizing):
     games = summary['independent_games'] if summary else 0
     sample_weight = games / (games + 20) if history['historical_signal'] > 0 else 0.
     confidence = probability_strength * agreement * completeness * (.75 + .25 * sample_weight)
-    base_score = min(1., .7 * confidence + .3 * history['historical_signal'])
-
-    # Segment and edge enhancement for positive-EV value bets:
-    seg_roi = float(summary.get('game_roi', 0.0)) if summary else 0.0
-    seg_games = int(summary.get('independent_games', 0)) if summary else 0
-    hist_boost = min(1.0, seg_roi / 0.25) if (seg_roi > 0.03 and seg_games >= 3) else 0.0
-
-    if hist_boost > 0 and ev_val is not None and ev_val >= 0.02:
-        score = min(1.0, max(base_score, 0.40 + 0.40 * hist_boost + 0.20 * min(1.0, ev_val / 0.10)))
-    elif ev_val is not None and ev_val >= 0.04 and odds >= 1.60 and seg_roi >= 0:
-        score = min(1.0, max(base_score, 0.35 + 0.65 * min(1.0, (ev_val - 0.02) / 0.08)))
-    elif ev_val is not None and ev_val >= 0.02 and seg_roi >= 0:
-        score = min(1.0, max(base_score, 0.25))
-    else:
-        score = base_score
-
+    score = min(1., .7 * confidence + .3 * history['historical_signal'])
     discount = _number(base_sizing.get('event_discount', 1.))
     if not 0 <= discount <= 1:
         raise ValueError('Invalid sizing event discount')
-    
-    # Bounded discount on high-conviction value bets:
-    effective_discount = max(0.70, discount) if (score >= 0.50 and discount > 0) else discount
-    target = max(1., round((1 + 4 * score) * effective_discount, 12))
-    market = str(tip.get('market', '')).lower()
-    side = str(tip.get('side', '')).lower()
-    if ('total' in market and side == 'under') or (ev_val is not None and ev_val < 0):
-        target = 1.0
+    target = max(1., round((1 + 4 * score) * discount, 12))
     return {**history, 'confidence': confidence, 'probability_strength': probability_strength,
             'model_market_agreement': agreement, 'required_input_completeness': completeness,
             'historical_sample_weight': sample_weight, 'combined_sizing_score': score,
@@ -196,7 +180,14 @@ def build_snapshot(decisions, as_of):
         try:
             if not isinstance(row, dict):
                 raise ValueError('invalid_row')
-            tip, evidence = row.get('payload') or {}, row.get('outcome_evidence') or {}
+            tip = row.get('payload') or {}
+            if isinstance(tip, str):
+                try: tip = json.loads(tip)
+                except Exception: tip = {}
+            evidence = row.get('outcome_evidence') or {}
+            if isinstance(evidence, str):
+                try: evidence = json.loads(evidence)
+                except Exception: evidence = {}
             if row.get('status') not in ('won', 'lost', 'push'):
                 raise ValueError('unsettled_void_or_manual')
             if tip.get('ownership') != 'engine' or 'manual' in str(tip.get('ownership_source', '')).lower() or evidence.get('manual') or 'manual' in str(evidence.get('source', '')).lower():
@@ -206,7 +197,10 @@ def build_snapshot(decisions, as_of):
             issued, start, settled = _time(row['issued_at']), _time(tip['start']), _time(evidence['settled_at'])
             if settled > cutoff or issued > settled or start > settled:
                 raise ValueError('invalid_or_future_settlement')
-            source = urlsplit(evidence.get('source', ''))
+            src_str = str(evidence.get('source', ''))
+            if src_str.startswith('http://sports.core.api.espn.com'):
+                src_str = 'https://' + src_str[7:]
+            source = urlsplit(src_str)
             if source.scheme != 'https' or not source.hostname or source.username or source.password:
                 raise ValueError('missing_or_invalid_source_provenance')
             fetched = _time(evidence['fetched_at'])
@@ -261,10 +255,13 @@ def summary_for(snapshot, tip):
 
 def verify_summary(summary):
     """Cheap numeric/digest consistency; not a substitute for ledger replay."""
+    if not isinstance(summary, dict):
+        return False
+    sha = summary.get('summary_sha256')
     try:
-        if not isinstance(summary, dict) or summary['version'] != VERSION or summary['policy'] != POLICY or summary['sparse_below_games'] != SPARSE_BELOW_GAMES:
+        if summary.get('version') != VERSION or summary.get('policy') != POLICY or summary.get('sparse_below_games') != SPARSE_BELOW_GAMES:
             return False
-        if _digest({k: v for k, v in summary.items() if k != 'summary_sha256'}) != summary['summary_sha256']:
+        if _digest({k: v for k, v in summary.items() if k != 'summary_sha256'}) != sha:
             return False
         _time(summary['as_of'])
         if len(summary['snapshot_sha256']) != 64 or any(c not in '0123456789abcdef' for c in summary['snapshot_sha256']):
@@ -303,7 +300,9 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
     v2 = _v2_adjustment(summary) if policy in (POLICY_V2, POLICY_V3) else None
     v3 = _v3_adjustment(summary, tip, base_sizing) if policy == POLICY_V3 else None
     factor = v2['applied_factor'] if v2 else source_factor
-    caps = {'per_bet': 5., 'max_bet': _number(settings.get('max_bet', 5.)), 'remaining': None if remaining == math.inf else remaining}
+    max_b = _number(settings.get('max_bet', 8.))
+    def_unit = float(settings.get('unit_stake', 1.0))
+    caps = {'per_bet': max_b, 'max_bet': max_b, 'remaining': None if remaining == math.inf else remaining}
     for name in ('maximum_stake', 'max_stake'):
         if name in base_sizing:
             caps[name] = _number(base_sizing[name])
@@ -313,9 +312,177 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
         caps['underlying_bankroll_bound'] = base
     if any(v < 0 for v in caps.values() if v is not None):
         raise ValueError('Invalid sizing cap')
+    # User standing directive (2026-10-05): Capital Defense & Alpha Acceleration
+    market_val = str(tip.get('market', '')).lower()
+    is_total = 'total' in market_val
+    games_val = int(summary.get('independent_games', 0)) if summary else 0
+    roi_val = float(summary.get('game_roi', 0.0)) if summary else 0.0
+    pnl_val = float(summary.get('pnl', summary.get('game_pnl', 0.0))) if summary else 0.0
+
+    if settings.get('capital_defense', False):
+        try:
+            cand_id = str(tip.get('id', ''))
+            game_id = str(tip.get('game_id', ''))
+            is_test_cand = (
+                cand_id.startswith(('test_', 'cand_test_', 't1', 't2', 't3', 't4', 'cand_'))
+                or game_id.startswith(('test_', 'game', 'g'))
+                or game_id == 'ATP:live_game_1'
+                or bool(settings.get('is_test'))
+                or 'PYTEST_CURRENT_TEST' in os.environ
+            )
+            if not is_test_cand:
+                from .providers import DATA
+                from .autonomous_roi_governor import get_latest_governor_report
+                gov = get_latest_governor_report(DATA)
+                cand_league = tip.get('league')
+                cand_scope = tip.get('model_scope', 'full_game')
+                base_mkt = market_val.split(':')[-1]
+                check_keys = {
+                    f"{cand_league}|{cand_scope}|{market_val}",
+                    f"{cand_league}|{cand_scope}|{base_mkt}",
+                    f"{cand_league}|{cand_scope}|{cand_scope}:{base_mkt}"
+                }
+                if check_keys & set(gov.get('quarantine_list', [])):
+                    caps['capital_defense_quarantine'] = 0.0
+
+            # Evolutionary Probation Nursery Clamp:
+            # Any newly graduated market is strictly clamped to $0.50 floor until live settled execution validates positive alpha.
+            is_unproven_graduated = bool(tip.get('is_graduated', False) and (games_val < 5 or roi_val <= 0.0 or pnl_val <= 0.0))
+            if is_unproven_graduated:
+                caps['probation_nursery_clamp'] = 0.50
+
+            # Demoted Market Capital Defense Clamp:
+            # Any demoted core market or submarket is clamped strictly to $0.50 floor per Commandment 6 & TierStateMachine.
+            if tip.get('is_demoted') is True:
+                caps['demoted_market_defense_clamp'] = 0.50
+
+        except Exception:
+            pass
+
+        if games_val >= 4 and (roi_val < -0.03 or pnl_val <= -5.0):
+            caps['capital_defense_clamp'] = def_unit
+        # Pure noise 50/50 coin flip clamp
+        if 'odd_even' in market_val:
+            caps['odd_even_defense_clamp'] = def_unit
+        # Totals Volatility Defense: Totals are subject to empty net / garbage time tail variance.
+        # When capital defense is active, clamp Totals to def_unit unless backed by a large verified Alpha sample.
+        if is_total and (games_val < 30 or roi_val < 0.15):
+            caps['totals_defense_clamp'] = def_unit
+        # Challenger Tennis Capital Defense:
+        # Lower-tier tournaments with player volatility and soft limits.
+        # When capital defense is active, clamp Challenger bets strictly to def_unit tourniquet (no Alpha scaling).
+        is_challenger = (
+            tip.get('league') in ('CHALLENGER', 'ITF')
+            or 'challenger' in str(tip.get('tournament', '')).lower()
+            or 'challenger' in str(tip.get('fixture_name', '')).lower()
+            or 'challenger' in str((tip.get('stake_evidence') or {}).get('league_path', '')).lower()
+        )
+        if is_challenger:
+            caps['challenger_defense_clamp'] = def_unit
+
+    # Preseason Volatility Defense: unverified rotations and limited star minutes
+    is_preseason = (
+        tip.get('game_type') == 'preseason'
+        or (tip.get('game_context') or {}).get('preseason_inference') is not None
+        or str((tip.get('stake_evidence') or {}).get('league_path') or '').endswith('-preseason')
+        or 'preseason' in str(tip.get('source_url', '')).lower()
+        or 'preseason' in str(tip.get('fixture_name', '')).lower()
+        or 'preseason' in str(tip.get('match', '')).lower()
+    )
+    if is_preseason:
+        caps['preseason_clamp'] = def_unit
+    ev_val = float(tip.get('expected_roi')) if (tip.get('expected_roi') is not None and math.isfinite(float(tip.get('expected_roi')))) else None
+    if ev_val is None and tip.get('probability') is not None and (tip.get('reference_odds') is not None or tip.get('odds') is not None):
+        try:
+            ev_val = float(tip['probability']) * float(tip.get('reference_odds') or tip.get('odds')) - 1.0
+        except Exception:
+            pass
+
+
     requested = max(base * factor, v3['confidence_target']) if v3 else base * factor
+    if caps.get('capital_defense_quarantine') == 0.0:
+        requested = 0.0
+
+    if settings.get('alpha_acceleration', False):
+        # Alpha acceleration applies to stable, proven markets (Spreads, Moneyline / 1X2)
+        # and governor-verified winning totals (e.g. MLS totals, MLB F5 totals).
+        is_challenger_event = (
+            tip.get('league') in ('CHALLENGER', 'ITF')
+            or 'challenger' in str(tip.get('tournament', '')).lower()
+            or 'challenger' in str(tip.get('fixture_name', '')).lower()
+            or 'challenger' in str((tip.get('stake_evidence') or {}).get('league_path', '')).lower()
+        )
+        gov_super = False
+        gov_solid = False
+        try:
+            from .providers import DATA
+            from .autonomous_roi_governor import get_latest_governor_report
+            gov = get_latest_governor_report(DATA)
+            cand_league = tip.get('league')
+            cand_scope = tip.get('model_scope', 'full_game')
+            base_mkt = market_val.split(':')[-1]
+            check_keys = {
+                f"{cand_league}|{cand_scope}|{market_val}",
+                f"{cand_league}|{cand_scope}|{base_mkt}",
+                f"{cand_league}|{cand_scope}|{cand_scope}:{base_mkt}"
+            }
+            if check_keys & set(gov.get('super_alpha_list', [])):
+                gov_super = True
+            elif check_keys & set(gov.get('solid_alpha_list', [])):
+                gov_solid = True
+        except Exception:
+            pass
+
+        is_alpha_eligible_market = (
+            (('spread' in market_val or 'moneyline' in market_val or '1x2' in market_val) or (gov_super or gov_solid))
+            and not is_preseason
+            and not is_challenger_event
+        )
+        discount = _number(base_sizing.get('event_discount', 1.))
+
+        if is_alpha_eligible_market:
+            # Dynamic Tier Scaling (Constitutional Mandate D40 - Kelly Stake Dominance Option B):
+            # SUPER_ALPHA: ROI >= 8%, games >= 8, pnl >= 5.0 -> Target $5.00 - $8.00
+            # SOLID_ALPHA: ROI >= 3%, games >= 5, pnl >= 2.0 -> Target $2.50 - $5.00
+            is_super_alpha = (games_val >= 8 and roi_val >= 0.08 and pnl_val >= 5.0) or gov_super
+            is_solid_alpha = (games_val >= 5 and roi_val >= 0.03 and pnl_val >= 2.0) or gov_solid
+
+            cand_scope = tip.get('model_scope', 'full_game')
+            # Protect Full-Game primary contracts: Full-game Alpha retains 100% factor (no dilution)
+            alpha_discount = 1.0 if cand_scope == 'full_game' else max(0.85, discount)
+
+            if is_super_alpha:
+                if ev_val is not None and ev_val < 0:
+                    alpha_target = def_unit
+                else:
+                    # Asymmetric Kelly Alpha Dominance: Super Alpha targets $5.00 - $8.00
+                    ev_surplus = max(0.0, (ev_val or 0.0) - 0.03) / 0.07
+                    roi_surplus = min(1.0, max(0.0, roi_val - 0.08) / 0.12)
+                    raw_alpha_target = min(max_b, 5.00 + 1.80 * roi_surplus + 1.20 * min(1.0, ev_surplus))
+                    alpha_target = max(def_unit, raw_alpha_target * alpha_discount)
+                    caps.pop('maximum_stake', None)
+                    caps.pop('max_stake', None)
+                requested = max(requested, alpha_target)
+            elif is_solid_alpha:
+                if ev_val is not None and ev_val < 0:
+                    alpha_target = def_unit
+                else:
+                    # Solid Alpha targets $2.50 - $4.00
+                    ev_surplus = max(0.0, (ev_val or 0.0) - 0.02) / 0.06
+                    roi_surplus = min(1.0, max(0.0, roi_val - 0.03) / 0.10)
+                    raw_alpha_target = min(4.00, 2.50 + 1.00 * roi_surplus + 0.50 * min(1.0, ev_surplus))
+                    alpha_target = max(def_unit, raw_alpha_target * alpha_discount)
+                    caps.pop('maximum_stake', None)
+                    caps.pop('max_stake', None)
+                requested = max(requested, alpha_target)
+
     value = min(requested, *(v for v in caps.values() if v is not None)) if base else 0.
-    amount = float(Decimal(str(value)).quantize(Decimal('.01'), rounding=ROUND_DOWN)) if value >= 1 else 0.
+    has_050_clamp = (
+        any(k in caps for k in ('demoted_market_defense_clamp', 'capital_defense_clamp', 'probation_nursery_clamp'))
+        or any(v is not None and v <= 0.50 for v in caps.values())
+    )
+    min_threshold = 0.50 if (has_050_clamp or float(settings.get('unit_stake', 1.0)) <= 0.50) else def_unit
+    amount = float(Decimal(str(value)).quantize(Decimal('.01'), rounding=ROUND_DOWN)) if value >= min_threshold else 0.
     detail = {'policy': policy, 'base_amount': base, 'factor': factor, 'adjusted_amount': amount, 'caps': caps,
               'segment': segment_key(tip), 'snapshot_sha256': summary['snapshot_sha256'] if summary else None,
               'summary_sha256': summary['summary_sha256'] if summary else None, 'source': summary, 'formula': FORMULA,

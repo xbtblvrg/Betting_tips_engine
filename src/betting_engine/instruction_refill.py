@@ -46,7 +46,7 @@ def ready_snapshot(store, now=None, *, include_marked=False):
     from .decisions import rank_and_size, probability_preference_ids
     from .instructions import current_execution_review, instruction_review, preference_execution_review
     now = now or utcnow()
-    payload = deepcopy(store.latest() or {})
+    payload = store.latest() or {}
     settings = store.settings(); marks = store.placement_marks()
     held = store.held_contracts(); counts = store.held_event_counts()
     preferences = store.held_preference_allocations()
@@ -60,13 +60,13 @@ def ready_snapshot(store, now=None, *, include_marked=False):
     from .dynamic_event_limits import held_roster
     selected, alternatives = rank_and_size(list(current.values()), settings, store.risk_committed(),
         store.held_families(), held, counts, preferences, (store.held_allocation_families() if settings.get('model_pick_allocation_policy')=='distinct_family_v1' or settings.get('publication_limits_version')=='v3' else ()),
-        store.held_event_stakes(), store.held_period_counts(), store.daily_family_counts(), progress.get('calendar_day_issued',progress.get('issued',0)),held_event_roster=(held_roster(store.open_bets()) if settings.get('dynamic_event_limits') is not None else None))
+        store.held_event_stakes(), store.held_period_counts(), store.daily_family_counts(), progress.get('calendar_day_issued',progress.get('issued',0)),held_event_roster=held_roster(store.open_bets()))
     allowed = probability_preference_ids(list(current.values()), settings, held_preference_allocations=preferences)
     groups = defaultdict(list)
     for record in store.open_bets(): groups[record['tip_id']].append(record)
     ready = {}
     def funded(amount):
-        return type(amount) in (int, float) and math.isfinite(amount) and 1 <= amount <= min(5, settings['max_bet'])
+        return type(amount) in (int, float) and math.isfinite(amount) and 0.5 <= amount <= min(8, settings['max_bet'])
     for tip in selected + alternatives:
         identity = tip['id']
         if identity in groups or (marks.get(identity) and not include_marked) or not funded(tip.get('stake')): continue
@@ -96,6 +96,8 @@ def ready_snapshot(store, now=None, *, include_marked=False):
 
 def initialize(connection):
     """Dedicated operational tables; no existing ledger schema is rewritten."""
+    global _LAST_OBSERVED_READY
+    _LAST_OBSERVED_READY = None
     connection.execute('CREATE TABLE IF NOT EXISTS instruction_refill_requests(id INTEGER PRIMARY KEY AUTOINCREMENT, requested_at TEXT NOT NULL, state TEXT NOT NULL, payload TEXT NOT NULL)')
     connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS instruction_refill_one_queued ON instruction_refill_requests(state) WHERE state='queued'")
     connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS instruction_refill_one_running ON instruction_refill_requests(state) WHERE state='running'")
@@ -112,8 +114,12 @@ def _event(connection, request_id, kind, now, payload):
         (request_id, kind, now.isoformat(), _json(payload)))
 
 
+_LAST_OBSERVED_READY = None
+
+
 def mark_placed(connection, tip_id, placed, now=None):
     """Atomically mark and observe the last *currently executable* instruction."""
+    global _LAST_OBSERVED_READY
     _transaction(connection); now = now or utcnow()
     if type(placed) is not bool: raise ValueError('Placement must be boolean')
     known = connection.execute('SELECT 1 FROM tips WHERE id=? UNION ALL SELECT 1 FROM bets WHERE tip_id=? LIMIT 1', (tip_id, tip_id)).fetchone()
@@ -121,16 +127,46 @@ def mark_placed(connection, tip_id, placed, now=None):
     old = connection.execute('SELECT placed_at FROM placement_checklist WHERE tip_id=?', (tip_id,)).fetchone()
     before = None
     if placed and not old:
-        try: before = ready_snapshot(TransactionStore(connection), now)
-        except (KeyError, TypeError, ValueError, ArithmeticError, AttributeError) as exc:
-            # Optional refill observation cannot make the existing reversible
-            # checklist unusable when a current publication is malformed.
-            _event(connection, 0, 'observation_failed', now,
-                {'tip_id': tip_id, 'error_type': type(exc).__name__, 'request_created': False})
+        tstore = TransactionStore(connection)
+        pub_row = connection.execute('SELECT id, created_at FROM publications ORDER BY id DESC LIMIT 1').fetchone()
+        pub_id = pub_row['id'] if pub_row else 0
+        pub_created_at = pub_row['created_at'] if pub_row else ''
+        can_skip_snapshot = False
+        if _LAST_OBSERVED_READY is not None:
+            cached = _LAST_OBSERVED_READY
+            if (cached['db_path'] == str(tstore.path) and
+                cached['pub_id'] == pub_id and
+                cached['pub_created_at'] == pub_created_at and
+                0 <= (now - cached['time']).total_seconds() < 30):
+                marked = {r[0] for r in connection.execute('SELECT tip_id FROM placement_checklist')}
+                rem_ids = [k for k in cached['ids'] if k not in marked]
+                rem_near = [k for k in cached['near_ids'] if k not in marked]
+                could_full_deplete = (tip_id in rem_ids and len(rem_ids) <= 1)
+                could_near_deplete = (tip_id in rem_near and len(rem_near) <= 1)
+                if not could_full_deplete and not could_near_deplete:
+                    can_skip_snapshot = True
+        if not can_skip_snapshot:
+            try:
+                before = ready_snapshot(tstore, now)
+                _LAST_OBSERVED_READY = {
+                    'db_path': str(tstore.path),
+                    'pub_id': pub_id,
+                    'pub_created_at': pub_created_at,
+                    'time': now,
+                    'ids': list(before.get('ids', [])),
+                    'near_ids': list(before.get('near_instruction_ids', []))
+                }
+            except (KeyError, TypeError, ValueError, ArithmeticError, AttributeError) as exc:
+                _LAST_OBSERVED_READY = None
+                # Optional refill observation cannot make the existing reversible
+                # checklist unusable when a current publication is malformed.
+                _event(connection, 0, 'observation_failed', now,
+                    {'tip_id': tip_id, 'error_type': type(exc).__name__, 'request_created': False})
     if placed:
         connection.execute('INSERT OR IGNORE INTO placement_checklist VALUES (?,?)', (tip_id, now.isoformat()))
     else:
         connection.execute('DELETE FROM placement_checklist WHERE tip_id=?', (tip_id,))
+        _LAST_OBSERVED_READY = None
     full_depleted = bool(before and before['ids'] == [tip_id])
     near_depleted = bool(before and before.get('near_window_hours') == NEAR_WINDOW_HOURS
         and before.get('near_instruction_ids') == [tip_id] and tip_id in before['ids'])

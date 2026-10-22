@@ -74,7 +74,7 @@ const invalid=[
  ['over configured max',p=>p.settings.max_bet=2],
  ['over basis maximum',p=>p.recommendations[0].funding_basis.maximum_stake=2],
  ['nonfinite stake',p=>p.recommendations[0].stake=NaN],
- ['below minimum',p=>p.recommendations[0].stake=.99]
+ ['below minimum',p=>p.recommendations[0].stake=.49]
 ];
 for(const [name,mutate]of invalid)test('v3 main instruction rejects '+name,async t=>{const p=allTierSnapshot();mutate(p);const {d}=await boot(t,p);assert.equal(d.querySelectorAll('.tip-card').length,0)});
 test('v2 probability remains capped at one dollar and legacy receipt labels remain intact',async t=>{

@@ -143,7 +143,7 @@ def build_live_coverage(publication, catalog, decisions=(), feedback_tip_ids=(),
             for consumer, observed in consumers.items():
                 evidence[_key(tip)]['learning_' + consumer] += int(observed)
             evidence[_key(tip)]['learning_all'] += int(all(consumers.values()))
-            if basis['eligible'] and 1 <= size['amount'] <= min(5, settings['max_bet']):
+            if basis['eligible'] and 0.5 <= size['amount'] <= min(8, settings['max_bet']):
                 qualifying[_key(tip)] += 1
         except (KeyError, TypeError, ValueError, ArithmeticError):
             continue
@@ -151,7 +151,7 @@ def build_live_coverage(publication, catalog, decisions=(), feedback_tip_ids=(),
     if current:
         ready = _execution_counts(publication.get('recommendations', []) + publication.get('alternatives', []),
                                   publication.get('evaluated_candidates', []), publication.get('tracked_bets', []),
-                                  publication.get('placement_marks', {}), {'max_bet': 5, **settings}, {}, now,
+                                  publication.get('placement_marks', {}), {'max_bet': 8, **settings}, {}, now,
                                   include_ready_ids=True)['ready_tip_ids']
         tip_index = {t['id']: t for t in publication.get('recommendations', []) + publication.get('alternatives', [])}
         tip_index.update({b['tip_id']: b['payload'] for b in publication.get('tracked_bets', [])})
@@ -295,15 +295,24 @@ def export_markdown(report, path):
 
 def read_decisions(connection):
     """Read only compact immutable fields; never materialize multi-MB guard trees."""
-    sql = """SELECT family,tip_id,issued_at,status,pnl,outcome_evidence,
-      EXISTS(SELECT 1 FROM bets WHERE bets.tip_id=system_decisions.tip_id
-        AND json_extract(bets.payload,'$.tracking_source')='auto_assumed_placed') assumed_placement_recorded,
+    assumed = {row[0] for row in connection.execute("SELECT tip_id FROM bets WHERE json_extract(payload,'$.tracking_source')='auto_assumed_placed'")}
+    cursor = connection.cursor()
+    cursor.execute("""SELECT family,tip_id,issued_at,status,pnl,outcome_evidence,
       json_object('id',tip_id,'league',json_extract(payload,'$.league'),
       'stake',json_extract(payload,'$.stake'),
       'stake_market',json_extract(payload,'$.stake_market'),
       'stake_evidence',json_object('market_name',json_extract(payload,'$.stake_evidence.market_name')),
-      'market',json_extract(payload,'$.market')) payload FROM system_decisions"""
-    return [dict(row) for row in connection.execute(sql)]
+      'market',json_extract(payload,'$.market')) payload FROM system_decisions""")
+    cols = [d[0] for d in cursor.description]
+    results = []
+    for row in cursor.fetchall():
+        d = dict(zip(cols, row))
+        d['assumed_placement_recorded'] = 1 if d['tip_id'] in assumed else 0
+        results.append(d)
+    return results
+
+
+_feedback_cache = {}
 
 
 def feedback_ids(data_dir):
@@ -315,6 +324,9 @@ def feedback_ids(data_dir):
     if not path.exists():
         return [], 'No successful feedback receipt'
     try:
+        mtime = path.stat().st_mtime
+        if data_dir in _feedback_cache and _feedback_cache[data_dir][0] == mtime:
+            return _feedback_cache[data_dir][1], _feedback_cache[data_dir][2]
         state = json.loads(path.read_text())
         ref = state['latest_review']
         def read(reference, folder):
@@ -343,6 +355,7 @@ def feedback_ids(data_dir):
             ids.extend(row['tip_id'] for row in records['rows'] if row.get('tip_id'))
         if not chunks:
             ids = [row['tip_id'] for row in review.get('inputs', {}).get('decisions', []) if row.get('tip_id')]
+        _feedback_cache[data_dir] = (mtime, ids, ref['sha256'])
         return ids, ref['sha256']
     except (OSError, ValueError, KeyError, TypeError) as exc:
         return [], str(exc)

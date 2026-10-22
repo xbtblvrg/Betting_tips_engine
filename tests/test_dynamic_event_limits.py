@@ -36,7 +36,7 @@ def rank(tips,config=None,held=None):
 def test_default_off_and_invalid_active_configuration():
     assert policy(DEFAULT_SETTINGS) is None
     assert 'dynamic_event_limits' not in publication_limit_receipt(DEFAULT_SETTINGS)
-    for config in [settings(max_bet=6),settings(daily_risk_limit=20),settings(publication_limits_version='v1'),
+    for config in [settings(max_bet=9),settings(daily_risk_limit=20),settings(publication_limits_version='v1'),
                    settings(dynamic_event_limits={**DEFAULT_POLICY,'max_multiplier':3})]:
         with pytest.raises(ValueError):policy(config)
     with pytest.raises(ValueError,match='complete held'):rank_and_size([tip('a')],settings())

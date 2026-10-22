@@ -1,7 +1,7 @@
 """Explicit settlement scope and scalar/vector payoff conditions."""
 import math
 BASE_MARKETS=('moneyline','spreads','totals','home_total','away_total','three_way',
-              'winner_total','exact_total','exact_score')
+              'winner_total','exact_total','exact_score','total_sets')
 SEGMENT_SCOPES=('inning_1','innings_1_5')
 PERIOD_SCOPES=('quarter_1','quarter_2','quarter_3','quarter_4','half_1','half_2','half_2_ot','quarter_4_ot','period_1','period_2','period_3','regulation')
 SCORE_SCOPES=SEGMENT_SCOPES+PERIOD_SCOPES
@@ -13,7 +13,7 @@ DERIVED_SCORE_MARKETS=('odd_even','both_score','double_chance')
 SCORE_MARKETS=BASE_MARKETS+DERIVED_SCORE_MARKETS
 SUPPORTED=BASE_MARKETS+tuple(f'{scope}:{kind}' for scope in SCORE_SCOPES for kind in SCORE_MARKETS)
 PRICING_VERSION='scoped-contracts-v5'
-NO_FULL_GAME_DRAW=('NBA','WNBA','MLB','NHL','NCAAF','NCAAM','NCAAW')
+NO_FULL_GAME_DRAW=('NBA','WNBA','MLB','NHL','NCAAF','NCAAM','NCAAW','ATP','WTA','CHALLENGER')
 
 def split_market(kind):
     if ':' not in kind:return 'full_game',kind
@@ -118,12 +118,12 @@ def contract_value(kind,side,line,home,away):
             raise ValueError('Invalid exact-score side')
         if expected_home<0 or expected_away<0:raise ValueError('Invalid exact-score value')
         return ((home==expected_home) & (away==expected_away))*2-1
-    if kind in ('moneyline','spreads'):
+    if kind in ('moneyline','spreads','set_handicap'):
         if side not in ('home','away'):raise ValueError('Invalid team side')
-        return (home-away)*(1 if side=='home' else -1)+(float(line) if kind=='spreads' else 0)
-    if kind in ('totals','home_total','away_total'):
+        return (home-away)*(1 if side=='home' else -1)+(float(line) if kind in ('spreads','set_handicap') else 0)
+    if kind in ('totals','home_total','away_total','total_sets'):
         if side not in ('over','under'):raise ValueError('Invalid total side')
-        score=home+away if kind=='totals' else home if kind=='home_total' else away
+        score=home+away if kind in ('totals','total_sets') else home if kind=='home_total' else away
         return (score-float(line))*(1 if side=='over' else -1)
     raise ValueError('Unsupported settlement contract')
 
@@ -143,10 +143,110 @@ def settlement_scores(tip,game):
             # Preserve the exact final-response hash/archive in both original
             # decision outcomes and ticket outcomes, without changing scores.
             evidence['official_result']=dict(game.context['official_result'])
+        if game.league in ('ATP', 'WTA', 'CHALLENGER'):
+            if tip.get('market') in ('moneyline', 'total_sets', 'set_handicap') and 'sets_home' in game.context and 'sets_away' in game.context:
+                return float(game.context['sets_home']), float(game.context['sets_away']), evidence
+            if 'games_home' in game.context and 'games_away' in game.context:
+                return float(game.context['games_home']), float(game.context['games_away']), evidence
         return game.home_score,game.away_score,evidence
+    if game.league in ('ATP', 'WTA', 'CHALLENGER') and scope.startswith('period_'):
+        try:
+            set_idx = int(scope.split('_', 1)[1]) - 1
+            set_scores = game.context.get('set_scores') or []
+            if 0 <= set_idx < len(set_scores):
+                s_home, s_away = set_scores[set_idx]
+                evidence = {'scope': scope, 'source': game.source, 'fetched_at': game.fetched_at, 'set_index': set_idx + 1, 'set_score': [s_home, s_away]}
+                if isinstance(game.context.get('official_result'), dict):
+                    evidence['official_result'] = dict(game.context['official_result'])
+                return float(s_home), float(s_away), evidence
+        except (ValueError, IndexError):
+            pass
     row=game.context.get('segment_scores',{}).get(scope)
     if not row or row.get('complete') is not True:raise ValueError('Verified completed segment scores unavailable')
     evidence={'scope':scope,'source':row['source'],'fetched_at':row['fetched_at'],'source_sha256':row['source_sha256']}
     if isinstance(row.get('final_summary_source'),dict):
         evidence['final_summary_source']=dict(row['final_summary_source'])
     return row['home'],row['away'],evidence
+
+
+def decompose_quarter_line(line):
+    val = float(line)
+    lower = math.floor(val * 2.0) / 2.0
+    return (lower, lower + 0.5)
+
+
+def settle_quarter_asian(market, side, line, home, away, odds, stake):
+    l1, l2 = decompose_quarter_line(line)
+    profit = 0.0
+    states = []
+    for l in (l1, l2):
+        if market == 'spreads':
+            diff = (home - away if side == 'home' else away - home) + l
+        else:
+            diff = (home + away - l) * (1 if side == 'over' else -1)
+        if diff > 0:
+            states.append('win')
+            profit += (stake / 2.0) * (odds - 1.0)
+        elif diff == 0:
+            states.append('push')
+        else:
+            states.append('loss')
+            profit -= stake / 2.0
+    state_map = {
+        ('win', 'win'): ('full_win', 'won'),
+        ('push', 'win'): ('half_win', 'won'),
+        ('win', 'push'): ('half_win', 'won'),
+        ('push', 'push'): ('push', 'push'),
+        ('loss', 'push'): ('half_loss', 'lost'),
+        ('push', 'loss'): ('half_loss', 'lost'),
+        ('loss', 'loss'): ('full_loss', 'lost'),
+    }
+    state, result = state_map.get(tuple(states), ('push', 'push'))
+    return state, result, profit
+
+
+def is_opposing_contract(t1, t2):
+    """Detect contradictory / opposing selections on the same fixture.
+
+    Prevents holding or funding opposing sides (e.g. Home vs Away on moneyline/handicap/three_way,
+    Over vs Under on totals/team totals, Yes vs No on both_score, Odd vs Even) without an explicit
+    joint arbitrage strategy.
+    """
+    if t1.get('game_id') != t2.get('game_id'):
+        return False
+    try:
+        s1, b1 = split_market(t1.get('market', ''))
+        s2, b2 = split_market(t2.get('market', ''))
+    except Exception:
+        s1, b1 = 'full_game', t1.get('market', '')
+        s2, b2 = 'full_game', t2.get('market', '')
+    if s1 != s2:
+        return False
+    side1 = t1.get('side')
+    side2 = t2.get('side')
+    if not side1 or not side2:
+        return False
+
+    winner_bases = ('moneyline', 'three_way', 'spreads')
+    if b1 in winner_bases and b2 in winner_bases:
+        if {side1, side2} == {'home', 'away'}:
+            return True
+
+    if b1 == 'totals' and b2 == 'totals':
+        if {side1, side2} == {'over', 'under'}:
+            return True
+
+    if b1.endswith('_total') and b2 == b1:
+        if {side1, side2} == {'over', 'under'}:
+            return True
+
+    if b1 in ('both_score', 'both_teams_to_score') and b2 in ('both_score', 'both_teams_to_score'):
+        if {side1, side2} == {'yes', 'no'}:
+            return True
+
+    if b1 == 'odd_even' and b2 == b1:
+        if {side1, side2} == {'odd', 'even'}:
+            return True
+
+    return False
+

@@ -10,11 +10,11 @@ def event(start='2026-10-03T22:00:00Z', id='1'):
 def test_projection_is_spoiler_free_and_window_is_exact(tmp_path):
  events=[event(NOW.isoformat(),'now'),event((NOW+timedelta(hours=24)).isoformat(),'edge'),event((NOW+timedelta(hours=24,seconds=1)).isoformat(),'late')]
  refresh(tmp_path,NOW,lambda _: {'events':events});r=view(tmp_path,NOW)
- assert len(r['games'])==5 and all(g['id'].endswith(':edge') for g in r['games'])
- assert r['games'][0]['line']=='MLB 12:00 Away @ Home'
+ assert len(r['games'])==len(LEAGUES) and all(g['id'].endswith(':edge') for g in r['games'])
+ assert any(g['line']=='MLB 12:00 Away @ Home' for g in r['games'])
  assert all(set(g)=={'id','league','start','away','home','season_type','line'} for g in r['games'])
  assert view(tmp_path,NOW+timedelta(minutes=31))['no_games']==[]
- assert len(view(tmp_path,NOW+timedelta(minutes=31))['unavailable'])==5
+ assert len(view(tmp_path,NOW+timedelta(minutes=31))['unavailable'])==len(LEAGUES)
 
 def test_empty_success_differs_from_failure(tmp_path):
  def fetch(url):
@@ -48,7 +48,7 @@ def test_duplicate_conflict_fails_source_instead_of_overwriting(tmp_path):
  e=event();other=deepcopy(e);other['competitions'][0]['date']='2026-10-03T23:00:00Z'
  assert len(extract({'events':[e,e]},'NHL',NOW))==1
  refresh(tmp_path,NOW,lambda _: {'events':[e,other]})
- assert len(view(tmp_path,NOW)['unavailable'])==5
+ assert len(view(tmp_path,NOW)['unavailable'])==len(LEAGUES)
 
 def test_must_watch_does_not_change_chronological_list(tmp_path):
  early=event('2026-10-03T12:00:00Z','early');early['season']['type']=2
@@ -58,9 +58,9 @@ def test_must_watch_does_not_change_chronological_list(tmp_path):
  assert '00:00' in r['must_watch']['line']
 
 def test_missing_or_malformed_source_never_claims_empty(tmp_path):
- assert len(view(tmp_path,NOW)['unavailable'])==5
+ assert len(view(tmp_path,NOW)['unavailable'])==len(LEAGUES)
  refresh(tmp_path,NOW,lambda _: {})
- assert len(view(tmp_path,NOW)['unavailable'])==5
+ assert len(view(tmp_path,NOW)['unavailable'])==len(LEAGUES)
 
 def test_string_postseason_is_prioritized(tmp_path):
  early=event('2026-10-03T12:00:00Z','early');early['season']['type']=2

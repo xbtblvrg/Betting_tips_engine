@@ -6,6 +6,7 @@ import gzip
 import hashlib
 import json
 from pathlib import Path
+import os
 import sqlite3
 import subprocess
 import sys
@@ -284,8 +285,10 @@ from betting_engine.statistics_worker import main
 sys.argv=['worker',sys.argv[2],sys.argv[3],sys.argv[4],'{}']
 main()
 '''
+    src_dir = str(Path(__file__).resolve().parents[1] / 'src')
+    env = {**os.environ, 'PYTHONPATH': f"{src_dir}:{os.environ.get('PYTHONPATH', '')}".rstrip(':')}
     completed = subprocess.run([sys.executable, '-c', script, str(project), str(path), str(data), str(output)],
-                               capture_output=True, text=True, timeout=12)
+                               capture_output=True, text=True, env=env, timeout=12)
     assert completed.returncode == 0, completed.stderr
     assert json.loads((output / 'response.json').read_text())['ticket_ledger']['summary']['pnl'] == 3
     assert fingerprints(project) == before

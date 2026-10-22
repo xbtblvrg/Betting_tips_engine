@@ -86,3 +86,35 @@ def test_study_selects_on_earlier_data_then_compares_only_selected_recipe(tmp_pa
     # Completed studies are reused; no repeated search of the same outcomes.
     result2=experiments.run_study('NBA',tmp_path)
     assert result2==result and len(comparisons)==1
+
+
+def test_promotion_gate_dual_track_rolling_season_eval():
+    from datetime import datetime, timedelta, timezone
+    from types import SimpleNamespace
+    from betting_engine.train import promotion_gate
+
+    base_date = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    dates = [(base_date + timedelta(days=i)).isoformat() for i in range(160)]
+
+    champ_preds, chall_preds = [], []
+    for i in range(160):
+        gid = f'NFL:g_{i}'
+        y = 1.0 if (i % 2 == 0) else 0.0
+        if i < 110:
+            p_champ = 0.8 if y == 1.0 else 0.2
+            p_chall = 0.6 if y == 1.0 else 0.4
+        else:
+            p_champ = 0.5 if y == 1.0 else 0.5
+            p_chall = 0.85 if y == 1.0 else 0.15
+        champ_preds.append({'game_id': gid, 'date': dates[i], 'result': y, 'p': p_champ})
+        chall_preds.append({'game_id': gid, 'date': dates[i], 'result': y, 'p': p_chall})
+
+    champion = SimpleNamespace(league='NFL', report={'league': 'NFL', 'test_predictions': champ_preds, 'score_mae': {'margin': 5.0, 'total': 8.0}})
+    challenger = SimpleNamespace(league='NFL', report={'league': 'NFL', 'test_predictions': chall_preds, 'score_mae': {'margin': 5.1, 'total': 8.1}})
+
+    res = promotion_gate(champion, challenger)
+    assert res['promote'] is True
+    assert 'Rolling 50-game recent season Brier outperformance' in res['reason']
+    assert res['rolling_evaluation']['window_size'] == 50
+    assert res['rolling_evaluation']['mean_brier_diff'] < -0.05
+

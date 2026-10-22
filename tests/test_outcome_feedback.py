@@ -11,7 +11,7 @@ from betting_engine.outcome_feedback import (record_outcome_feedback, read_outco
     snapshot_outcomes, outcome_generation, settled_inputs, VERSION)
 from betting_engine.io_utils import atomic_json
 from betting_engine.storage import Store
-from tests.test_engineering_loop import run as intake, registry
+from test_engineering_loop import run as intake, registry
 
 NOW = datetime(2026, 9, 30, 21, tzinfo=timezone.utc)
 
@@ -193,7 +193,7 @@ def test_snapshot_triggers_reconciliation_but_excludes_open_offer_churn(tmp_path
 
 
 def test_versioned_learning_job_runs_despite_old_hour_completed(tmp_path,monkeypatch):
-    from tests.test_learning import worker
+    from test_learning import worker
     import betting_engine.learning as module
     monkeypatch.setattr(module,'utcnow',lambda:NOW)
     w=worker(tmp_path);old=w.enqueue('outcome_review',NOW.strftime('%Y-%m-%dT%H')+':old')

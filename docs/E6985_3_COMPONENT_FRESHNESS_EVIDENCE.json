@@ -1,0 +1,338 @@
+{
+  "bounded_candidate_implementation_complete": true,
+  "candidate_sha256": {
+    "src/betting_engine/component_health.py": "5a7ee535488c904ffa73a94f81bc4f0e7553823c6d6df564b9f80d03202b19ce",
+    "tests/test_e6985_3_component_freshness.py": "974b440258172a3c4fec90d0eb01ebc317dd69125e6da9b5b850b87c92e37da3"
+  },
+  "deadline_moved": false,
+  "due_at": "2026-09-30T00:05:33.938012+00:00",
+  "engineering_pins": [
+    {
+      "bytes": 84,
+      "evidence_sha256": "2ae800b3e60420249de95255e6905d6e519a97959c9b0e6c7c4b6dc1fd29e354",
+      "path": "data/engineering-evidence/2ae800b3e60420249de95255e6905d6e519a97959c9b0e6c7c4b6dc1fd29e354.json",
+      "sha256": "8b767fb605f1bf9e8b9c73861dc528547c2d7d1c15c357a26529d732e41177d0"
+    },
+    {
+      "bytes": 562,
+      "evidence_sha256": "52387f343871263aa430bb7b8c4ec80d038cd081a026ac7aae8af89fbcd758df",
+      "path": "data/engineering-evidence/52387f343871263aa430bb7b8c4ec80d038cd081a026ac7aae8af89fbcd758df.json",
+      "sha256": "4666a6546415bb6381ed9bf87dde06ba800f2a68def1d6db6f506464294225b8"
+    },
+    {
+      "bytes": 265,
+      "evidence_sha256": "547caad8ba724024c9d249a3f009d0ccc58099a52b7013328fce65224398c2a1",
+      "path": "data/engineering-evidence/547caad8ba724024c9d249a3f009d0ccc58099a52b7013328fce65224398c2a1.json",
+      "sha256": "b23ff0cdcbec161362cc31d0d465e0d685842b42bdf2d07d706676b9cc2efec1"
+    },
+    {
+      "bytes": 478,
+      "evidence_sha256": "5a1b43f59fb8f3f032e639cf23fca58fe3dcc318c76d6e4586a6b64ef835d9bd",
+      "path": "data/engineering-evidence/5a1b43f59fb8f3f032e639cf23fca58fe3dcc318c76d6e4586a6b64ef835d9bd.json",
+      "sha256": "197687914f9b92b80720be109b1d030fe201de01a8c58b0bbca6a59ee7e0302c"
+    },
+    {
+      "bytes": 780,
+      "evidence_sha256": "ba122b1e61c5b08b4986e7444c2bedc2c7b68c8633832fa7a735353c088b2384",
+      "path": "data/engineering-evidence/ba122b1e61c5b08b4986e7444c2bedc2c7b68c8633832fa7a735353c088b2384.json",
+      "sha256": "fd96907ac6e3ece60211e6ca325a43c0bab652870b95c3f3133e98170df2e79c"
+    }
+  ],
+  "helper_reviews": [],
+  "immutable_decision_snapshot": {
+    "basis": "Original system-decision outcomes, not individual tickets or account-verified returns. Related selections are not independent samples; operating costs unknown.",
+    "distinct_games": 34,
+    "game_clusters": {
+      "MLB:849841": {
+        "decisions": 1,
+        "pnl": "-1.0",
+        "resolved": 1
+      },
+      "MLB:849842": {
+        "decisions": 12,
+        "pnl": "0",
+        "resolved": 0
+      },
+      "MLB:849843": {
+        "decisions": 8,
+        "pnl": "0.7100000000000001",
+        "resolved": 8
+      },
+      "MLB:849845": {
+        "decisions": 12,
+        "pnl": "-4.1229999999999997",
+        "resolved": 12
+      },
+      "MLB:849846": {
+        "decisions": 11,
+        "pnl": "0",
+        "resolved": 0
+      },
+      "MLB:849848": {
+        "decisions": 2,
+        "pnl": "0",
+        "resolved": 0
+      },
+      "MLB:849849": {
+        "decisions": 8,
+        "pnl": "1.14000000000000006",
+        "resolved": 8
+      },
+      "MLB:849851": {
+        "decisions": 1,
+        "pnl": "-1.05",
+        "resolved": 1
+      },
+      "NCAAF:401871049": {
+        "decisions": 1,
+        "pnl": "0",
+        "resolved": 0
+      },
+      "NFL:2026_03_PHI_CHI": {
+        "decisions": 5,
+        "pnl": "6.0800000000000003",
+        "resolved": 5
+      },
+      "NFL:2026_04_PIT_CLE": {
+        "decisions": 7,
+        "pnl": "0",
+        "resolved": 0
+      },
+      "NHL:2026020001": {
+        "decisions": 2,
+        "pnl": "1.1899999999999999",
+        "resolved": 2
+      },
+      "NHL:2026020002": {
+        "decisions": 2,
+        "pnl": "1.2200000000000002",
+        "resolved": 2
+      },
+      "NHL:2026020003": {
+        "decisions": 2,
+        "pnl": "-2.0",
+        "resolved": 2
+      },
+      "NHL:2026020004": {
+        "decisions": 13,
+        "pnl": "0.2216000000000000",
+        "resolved": 13
+      },
+      "NHL:2026020005": {
+        "decisions": 8,
+        "pnl": "-8.34",
+        "resolved": 8
+      },
+      "NHL:2026020006": {
+        "decisions": 1,
+        "pnl": "0",
+        "resolved": 0
+      },
+      "NHL:2026020007": {
+        "decisions": 4,
+        "pnl": "0",
+        "resolved": 0
+      },
+      "NHL:2026020008": {
+        "decisions": 7,
+        "pnl": "0",
+        "resolved": 0
+      },
+      "NHL:2026020009": {
+        "decisions": 1,
+        "pnl": "0",
+        "resolved": 0
+      },
+      "NHL:2026020010": {
+        "decisions": 1,
+        "pnl": "0",
+        "resolved": 0
+      },
+      "NHL:2026020011": {
+        "decisions": 1,
+        "pnl": "0",
+        "resolved": 0
+      },
+      "NHL:2026020012": {
+        "decisions": 1,
+        "pnl": "0",
+        "resolved": 0
+      },
+      "NHL:2026020013": {
+        "decisions": 5,
+        "pnl": "0",
+        "resolved": 0
+      },
+      "NHL:2026020014": {
+        "decisions": 1,
+        "pnl": "0",
+        "resolved": 0
+      },
+      "NHL:2026020015": {
+        "decisions": 5,
+        "pnl": "0",
+        "resolved": 0
+      },
+      "NHL:2026020016": {
+        "decisions": 3,
+        "pnl": "0",
+        "resolved": 0
+      },
+      "NHL:2026020017": {
+        "decisions": 1,
+        "pnl": "0",
+        "resolved": 0
+      },
+      "NHL:2026020019": {
+        "decisions": 1,
+        "pnl": "0",
+        "resolved": 0
+      },
+      "WNBA:401918017": {
+        "decisions": 10,
+        "pnl": "7.8135999999999996",
+        "resolved": 10
+      },
+      "WNBA:401918018": {
+        "decisions": 14,
+        "pnl": "-11.2099999999999997",
+        "resolved": 14
+      },
+      "WNBA:401918019": {
+        "decisions": 1,
+        "pnl": "0",
+        "resolved": 0
+      },
+      "WNBA:401918020": {
+        "decisions": 1,
+        "pnl": "0",
+        "resolved": 0
+      },
+      "WNBA:401918022": {
+        "decisions": 8,
+        "pnl": "0",
+        "resolved": 0
+      }
+    },
+    "issued_at_max": "2026-10-01T00:01:54.186239+00:00",
+    "issued_at_min": "2026-09-28T20:30:58.597053+00:00",
+    "pnl_after_stakes_usd_rounded": "-9.3478",
+    "pnl_records": 86,
+    "records": 161,
+    "statuses": {
+      "lost": 45,
+      "open": 75,
+      "push": 3,
+      "won": 38
+    },
+    "truncated": false
+  },
+  "independent_review_completed": false,
+  "input_sha256": {
+    "AGENTS.md": "0b7a31d5a940bbeb143cdf315ef7f6532ca2346753d7a47f9c5f6091731804ab",
+    "config/project_contract.json": "7f8659f86cfd6dbe1f2eb978d06f3b31179c0a35603e9e06bd409e1b5fffb41f",
+    "data/development_inputs/manifest.json": "7e2b9d5689935c20a62fd8459949c95990a63bca617cca483c8f1151fc10fb58",
+    "data/development_inputs/publication.json": "a51bb925a2c9b6aaf0fea7b2fb31d86149a250de262d4bd8d03708b513abc723",
+    "data/development_inputs/system_decisions.json": "3dffa46897f1acbd5fd659cc8ba902440ef05ea2ca4fc6b1aea6eff588971233",
+    "data/engineering-evidence-manifest.json": "ea18ee690c80bfb12752df19737a65c80c6829c55e547fad6fbe02223f6c49bb",
+    "data/market_catalog/latest.json": "909f37c578a422c335d86ac456323d75eebcc452575a9e25a29d71abd72c3802",
+    "data/market_catalog/versions/20260930T233240364558Z/contracts.json": "54779d419f976b2cdb178684dba76b88c184d2285ad6a7049601087fef7c387e",
+    "data/market_catalog/versions/20260930T233240364558Z/endpoints.json": "dc21f1531601c382505bb6989d966f5b49538f7b2d1e02492d2ceb4313a632f3",
+    "data/rebase/conflicts.json": "8f1bff9018455862d51023f9b9d1cd8ddec1bcbcc2d6286972f77145390e5052",
+    "data/sports_source_evidence/manifest.json": "c726b3b45df737a593d5e884301d778070b268a6d6883e6e634b0f8c1194c81e",
+    "data/validation_sources/export.json": "ced6ae7221133d4b2b6053928db18da1d27c79d63939f111258a2601cf3c12f0",
+    "knowledge/cards/K03-adat-ido-forras.md": "a71af120097072161a042f04257cb6f4ebc617e34ff43c19588ca313148b1d9a",
+    "knowledge/cards/K08-validacio.md": "951ffe80c87fd491bfeece567c31a86a78371087fcf8b16297422ecadd624bd3",
+    "tests/test_d12_live_shadow.py": "b71286b3d80ec9382f8363657405fda748731c4b9013b5aaf97a37afb8ea2ef5"
+  },
+  "passive_discovery_enabled": false,
+  "prior_attempt_evidence": {
+    "release_diagnostic_files": 0,
+    "requested_candidate_directory_present": false,
+    "runtime_manifest_state": "not_required"
+  },
+  "production_deployed": false,
+  "rebase_resolution": "Retained upstream frozen test fixture paths byte-for-byte; candidate changed only three paths back to mutable data.",
+  "release_profile": "no_exact_profile",
+  "retrospective_replay": {
+    "as_of": "2026-10-01T00:06:21.404177+00:00",
+    "catalogue": {
+      "component": "Full market catalogue",
+      "detail": "107/107 fixtures fetched; 214 responses. Last check: 2026-09-30T23:32:56.255912+00:00 Catalogue evidence is stale.",
+      "freshness": {
+        "age_seconds": 2005.148265,
+        "maximum_age_seconds": 1800,
+        "observed_at": "2026-09-30T23:32:56.255912+00:00",
+        "state": "stale",
+        "timestamp_field": "checked_at"
+      },
+      "issues": [],
+      "state": "degraded"
+    },
+    "clock_basis": "Frozen export observation time for replay only; not current evidence or source availability",
+    "independent_sources": {
+      "component": "Independent sports sources",
+      "detail": "NHL/2027, NCAAF/injuries, NHL/2027/period scores",
+      "publication_freshness": {
+        "age_seconds": 30.783332,
+        "maximum_age_seconds": 300,
+        "observed_at": "2026-10-01T00:05:50.620845+00:00",
+        "state": "fresh",
+        "timestamp_field": "generated_at"
+      },
+      "source_failures": [
+        {
+          "error": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/nhl_schedules/nhl_schedule_2027.csv: HTTPStatusError",
+          "ok": false,
+          "source": "NHL/2027"
+        },
+        {
+          "error": "College availability data is not yet an implemented model input.",
+          "ok": false,
+          "source": "NCAAF/injuries",
+          "state": "not_integrated"
+        },
+        {
+          "error": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/nhl_scoring/scoring_2027.parquet: HTTPStatusError",
+          "league": "NHL",
+          "ok": false,
+          "season": 2027,
+          "source": "NHL/2027/period scores"
+        }
+      ],
+      "state": "degraded"
+    },
+    "publication_generated_at": "2026-10-01T00:05:50.620845+00:00"
+  },
+  "scope": "Publication-bound component health; no source/model/funding activation",
+  "source_gap_resolved": false,
+  "source_limitations": {
+    "copied_public_sources": 12,
+    "current_participation_verified": false,
+    "historical_point_in_time_backtest_ready": false,
+    "ncaaf_injury_sources": 0
+  },
+  "task_id": "E6985CA1F4D-3",
+  "tests": {
+    "broader_python_api": 523,
+    "existing_candidate_and_rebase": 149,
+    "failed": 0,
+    "frontend_dom": 216,
+    "new_regression_cases": 18,
+    "targeted_component_registry": 70,
+    "warning": "Existing Starlette httpx TestClient deprecation"
+  },
+  "verification": {
+    "catalogue_endpoint_bodies": 214,
+    "changed_preexisting_source_test_config_files": [
+      "src/betting_engine/component_health.py"
+    ],
+    "development_files": 303,
+    "engineering_files": 5,
+    "frozen_validation_bundles": 2,
+    "hash_errors": [],
+    "manifest_errors": [],
+    "preexisting_test_files_unchanged": 207,
+    "sports_source_files": 24
+  }
+}

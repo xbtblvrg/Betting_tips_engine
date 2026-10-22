@@ -13,115 +13,163 @@
     "D01": {
       "kind": "passive_utility",
       "files": [
+        "docs/PLAYER_HISTORY.md",
+        "src/betting_engine/player_archive.py",
+        "src/betting_engine/player_archive_sources.py",
         "src/betting_engine/player_history.py",
-        "tests/test_player_history.py",
-        "docs/PLAYER_HISTORY.md"
+        "src/betting_engine/player_runtime.py",
+        "tests/test_player_history.py"
       ]
     },
     "D03": {
       "kind": "passive_utility",
       "files": [
+        "docs/PARTICIPATION.md",
         "src/betting_engine/participation.py",
-        "tests/test_participation.py",
-        "docs/PARTICIPATION.md"
+        "tests/test_participation.py"
       ]
     },
     "D04": {
       "kind": "passive_utility",
       "files": [
+        "docs/PLAYER_PROP_CONTRACTS.md",
         "src/betting_engine/player_prop_contracts.py",
+        "src/betting_engine/player_runtime.py",
         "tests/test_player_prop_contracts.py",
-        "docs/PLAYER_PROP_CONTRACTS.md"
+        "tests/test_runtime_player_identity.py"
       ]
     },
     "D05": {
       "kind": "passive_utility",
       "files": [
+        "docs/PLAYER_PROP_CONTRACTS.md",
         "src/betting_engine/player_prop_settlement.py",
-        "tests/test_player_prop_settlement.py",
-        "docs/PLAYER_PROP_CONTRACTS.md"
+        "tests/test_player_prop_settlement.py"
       ]
     },
     "D07": {
       "kind": "passive_utility",
       "files": [
+        "docs/SHADOW_ECONOMICS_D07.md",
         "src/betting_engine/shadow_economics.py",
         "tests/test_shadow_economics.py",
-        "tests/test_shadow_economics_audit.py",
-        "docs/SHADOW_ECONOMICS_D07.md"
+        "tests/test_shadow_economics_audit.py"
       ]
     },
     "D08": {
       "kind": "passive_utility",
       "files": [
-        "src/betting_engine/asian_payoff.py",
-        "tests/test_asian_payoff.py",
-        "docs/ASIAN_PAYOFF.md",
-        "docs/D08_DEVELOPER_AUDIT.md"
+        "docs/D08_ASIAN_QUARTER.md",
+        "src/betting_engine/asian_quarter.py",
+        "tests/test_d08_asian_quarter.py"
       ]
     },
     "D09": {
       "kind": "passive_utility",
       "files": [
+        "docs/D09_DEVELOPER_AUDIT.md",
+        "docs/EVENT_SEQUENCE.md",
         "src/betting_engine/event_sequence.py",
         "tests/test_event_sequence.py",
-        "tests/test_event_sequence_audit.py",
-        "docs/EVENT_SEQUENCE.md",
-        "docs/D09_DEVELOPER_AUDIT.md"
+        "tests/test_event_sequence_audit.py"
       ]
     },
     "D10": {
       "kind": "passive_utility",
       "files": [
+        "docs/D10_NCAA_OBLIGATIONS.md",
         "src/betting_engine/ncaa_obligations.py",
-        "tests/test_ncaa_obligations.py",
-        "docs/NCAA_OBLIGATIONS.md",
-        "docs/D10_DEVELOPER_AUDIT.md"
+        "tests/test_d10_ncaa_obligations.py"
       ]
     },
     "D11": {
       "kind": "passive_utility",
       "files": [
-        "src/betting_engine/sgm_contract.py",
-        "tests/test_sgm_contract.py",
+        "docs/D11_DEVELOPER_AUDIT.md",
         "docs/SGM_CONTRACT.md",
-        "docs/D11_DEVELOPER_AUDIT.md"
+        "src/betting_engine/sgm_contract.py",
+        "src/betting_engine/sgm_contracts.py",
+        "tests/test_d11_sgm_contracts.py",
+        "tests/test_d11_sgm_joint_consistency.py",
+        "tests/test_d11_sgm_nfl_scope.py",
+        "tests/test_d11_sgm_precision.py",
+        "tests/test_d11_sgm_quote_level_binding.py",
+        "tests/test_sgm_contract.py"
       ]
     },
     "D12": {
       "kind": "passive_utility",
       "files": [
-        "src/betting_engine/live_state.py",
-        "tests/test_live_state.py",
+        "docs/D12_DEVELOPER_AUDIT.md",
         "docs/LIVE_STATE.md",
-        "docs/D12_DEVELOPER_AUDIT.md"
+        "src/betting_engine/live_shadow.py",
+        "src/betting_engine/live_state.py",
+        "tests/fixtures/d12_origin/model_evidence/NBA.joblib",
+        "tests/fixtures/d12_origin/model_evidence/NBA.json",
+        "tests/fixtures/d12_origin/model_evidence/manifest.json",
+        "tests/fixtures/d12_origin/sports_source_evidence/manifest.json",
+        "tests/fixtures/d12_origin/sports_source_evidence/raw/1fa6a0c601c22f3d4171a0fc40ef7f0576ceccca8d881c3a94aee379be52aed4.data",
+        "tests/fixtures/d12_origin/sports_source_evidence/raw/2966d88fe2bdd2adad2953889593e102949b9f44b9b8ca25b31bc1ed4f6a2647.data",
+        "tests/fixtures/d12_origin/sports_source_evidence/raw/4ede863855383cb95f495ec9ad3325c63c6e709fedc49b7786c1eaa4bb81a9a9.json",
+        "tests/fixtures/d12_origin/sports_source_evidence/raw/5c34b20a2bebdf19ed6d3c1b702e7669b06f8ea4551e1118b71dbbb40b2b33f9.data",
+        "tests/fixtures/d12_origin/sports_source_evidence/raw/680924ee1c4fbfdfaf8c2da66aaa454b6f61a2bece7f8917822bf9521e60e698.json",
+        "tests/fixtures/d12_origin/sports_source_evidence/raw/bb2b5cf55a89b1232c218f700b88d786dd07f64b4e87a367acbe9f78bbc710fa.json",
+        "tests/fixtures/d12_origin/sports_source_evidence/raw/bcc51302af00e89ed7a626a4c5ea6f8246f4a659fb11c00b3304483f58467939.json",
+        "tests/fixtures/d12_origin/sports_source_evidence/raw/bd31c037b1c94580c0ea6f524c82028a9748a6a48eab825d2243db23d7b2717f.json",
+        "tests/fixtures/d12_origin/sports_source_evidence/raw/f7ed4ef5ca51f2a4630a3e9b7d5fe2de384bb07213caa27fbe99e3546131e6f1.data",
+        "tests/fixtures/d12_origin/sports_source_evidence/raw/f8da543e62075b6767d478df012b6d61e4452facd835a2a903a1950c6f466d55.data",
+        "tests/test_d12_live_shadow.py",
+        "tests/test_d12_recovery_quote_lifetime.py",
+        "tests/test_live_state.py"
       ]
     },
     "D13": {
       "kind": "passive_utility",
       "files": [
-        "src/betting_engine/release_rehearsal.py",
-        "tests/test_release_rehearsal.py",
+        "docs/D13_DEVELOPER_AUDIT.md",
         "docs/RELEASE_REHEARSAL.md",
-        "docs/D13_DEVELOPER_AUDIT.md"
+        "src/betting_engine/release_rehearsal.py",
+        "tests/fixtures/d13_component_gap.json",
+        "tests/fixtures/d13_history_manifest.json",
+        "tests/test_d13_release_recovery.py",
+        "tests/test_d13_release_rehearsal.py",
+        "tests/test_release_rehearsal.py"
       ]
     },
     "D14": {
       "kind": "passive_utility",
       "files": [
+        "docs/D14_DEVELOPMENT_ACCEPTANCE.md",
         "src/betting_engine/development_acceptance.py",
-        "tests/test_development_acceptance.py",
-        "docs/DEVELOPMENT_ACCEPTANCE.md",
-        "docs/D14_DEVELOPER_AUDIT.md"
+        "tests/test_d14_development_acceptance.py",
+        "tests/test_d14_nonfinite_evidence.py"
       ]
     },
     "D15": {
       "kind": "passive_utility",
       "files": [
-        "src/betting_engine/requirement_acceptance.py",
-        "tests/test_requirement_acceptance.py",
+        "docs/D15_DEVELOPER_AUDIT.md",
+        "docs/D15_REQUIREMENT_ACCEPTANCE.md",
         "docs/REQUIREMENT_ACCEPTANCE.md",
-        "docs/D15_DEVELOPER_AUDIT.md"
+        "docs/d15_validation/dom-direct.log",
+        "docs/d15_validation/dom-full.log",
+        "docs/d15_validation/evidence-index.json",
+        "docs/d15_validation/helper-reviews.json",
+        "docs/d15_validation/input-verification.json",
+        "docs/d15_validation/preexisting-integrity.json",
+        "docs/d15_validation/python-full.log",
+        "docs/d15_validation/python-targeted.log",
+        "docs/d15_validation/recovery-pins.json",
+        "docs/d15_validation/snapshot-observation.json",
+        "src/betting_engine/requirement_acceptance.py",
+        "src/betting_engine/stake_api.py",
+        "tests/test_d15_acceptance_recovery.py",
+        "tests/test_d15_failing_subclaims.py",
+        "tests/test_d15_payoff_aliases.py",
+        "tests/test_d15_publication_chronology.py",
+        "tests/test_d15_requirement_acceptance.py",
+        "tests/test_d15_source_bindings.py",
+        "tests/test_requirement_acceptance.py"
       ]
     },
     "D16": {
@@ -301,6 +349,616 @@
         "daily_risk_limit": null
       },
       "root_integration_required": true
+    },
+    "F0047": {
+      "kind": "passive_utility",
+      "files": [
+        "docs/F0047_ENGINE_SOURCE_SUPERVISION.md",
+        "docs/F0047_VALIDATION.json",
+        "docs/f0047_validation/frontend.txt",
+        "docs/f0047_validation/frontend_final.txt",
+        "docs/f0047_validation/new_tests_initial.txt",
+        "docs/f0047_validation/new_tests_second.txt",
+        "docs/f0047_validation/python.txt",
+        "docs/f0047_validation/python_final.txt",
+        "src/betting_engine/development_engine_health.py",
+        "src/betting_engine/development_restart_journal.py",
+        "src/betting_engine/development_supervision_history.py",
+        "src/betting_engine/development_supervision_view.py",
+        "tests/test_f0047_engine_source_supervision.py"
+      ]
+    },
+    "E6985CA1F4D-2": {
+      "kind": "passive_utility",
+      "files": [
+        "src/betting_engine/context.py",
+        "tests/test_e6985_nhl_box_download_recovery.py",
+        "tests/test_e6985_nhl_recovery_integration.py"
+      ]
+    },
+    "E6BF9ACD30D": {
+      "kind": "passive_utility",
+      "files": [
+        "docs/E6BF9ACD30D_COMBINED_DOM.log",
+        "docs/E6BF9ACD30D_COMBINED_PYTHON.log",
+        "docs/E6BF9ACD30D_COMBINED_RECOVERY.md",
+        "docs/E6BF9ACD30D_COMBINED_REPLAY.json",
+        "docs/E6BF9ACD30D_COMBINED_VALIDATION.json",
+        "src/betting_engine/closing_runtime.py",
+        "src/betting_engine/requirement_acceptance.py",
+        "tests/test_e6bf9acd30d_attachment_inventory.py",
+        "tests/test_e6bf9acd30d_closing_lifecycle.py"
+      ]
+    },
+    "D17": {
+      "kind": "passive_utility",
+      "files": [
+        "src/betting_engine/closing_prices.py",
+        "src/betting_engine/captured_price_evaluation.py",
+        "src/betting_engine/closing_runtime.py",
+        "src/betting_engine/learning.py",
+        "tests/test_closing_integration_repairs.py"
+      ]
+    },
+    "F0027": {
+      "kind": "passive_utility",
+      "files": [
+        "docs/F0027_PLAYER_RUSH_EVIDENCE.json",
+        "docs/F0027_PLAYER_RUSH_RECONCILIATION.md",
+        "src/betting_engine/player_rush_reconciliation.py",
+        "tests/test_f0027_player_rush_reconciliation.py",
+        "tests/test_f0027_rush_reproducibility.py"
+      ]
+    },
+    "E6985CA1F4D-3": {
+      "kind": "passive_utility",
+      "files": [
+        "docs/E6985_3_COMPONENT_FRESHNESS.md",
+        "docs/E6985_3_COMPONENT_FRESHNESS_EVIDENCE.json",
+        "src/betting_engine/component_health.py",
+        "tests/test_e6985_3_component_freshness.py"
+      ]
+    },
+    "F0036": {
+      "kind": "passive_utility",
+      "files": [
+        "docs/F0036_ACCEPTANCE_HISTORY.md",
+        "docs/f0036_validation/baseline.json",
+        "docs/f0036_validation/dom-full.log",
+        "docs/f0036_validation/evidence-index.json",
+        "docs/f0036_validation/history-fixture-observation.json",
+        "docs/f0036_validation/integrity.json",
+        "docs/f0036_validation/preparation.json",
+        "docs/f0036_validation/python-full-final.log",
+        "docs/f0036_validation/python-full.log",
+        "docs/f0036_validation/python-targeted-final.log",
+        "docs/f0036_validation/python-targeted.log",
+        "docs/f0036_validation/requirement-audit.json",
+        "src/betting_engine/requirement_acceptance_history.py",
+        "tests/test_f0036_acceptance_history.py"
+      ]
+    },
+    "E514CB13F60": {
+      "kind": "passive_utility",
+      "files": [
+        "docs/E514CB13F60_dom_validation.txt",
+        "docs/E514CB13F60_python_validation.txt",
+        "docs/E514CB13F60_rebase_audit.json",
+        "docs/E514CB13F60_rebase_repair.md",
+        "docs/E514CB13F60_targeted_validation.txt",
+        "src/betting_engine/market_catalog.py",
+        "src/betting_engine/market_inventory_identity.py",
+        "src/betting_engine/markets.py",
+        "src/betting_engine/period_contracts.py",
+        "tests/fixtures/e514cb13f60_categorical_identity.json",
+        "tests/fixtures/e514cb13f60_current_periods.json",
+        "tests/fixtures/e514cb13f60_nfl_endpoints.json",
+        "tests/fixtures/e514cb13f60_period_handicaps.json",
+        "tests/fixtures/e514cb13f60_scope_identity.json",
+        "tests/test_e514cb13f60_categorical_identity.py",
+        "tests/test_e514cb13f60_current_catalog.py",
+        "tests/test_e514cb13f60_exact_inventory_support.py",
+        "tests/test_e514cb13f60_frozen_integration.py",
+        "tests/test_e514cb13f60_inventory_integration.py",
+        "tests/test_e514cb13f60_lifecycle_replay.py",
+        "tests/test_e514cb13f60_period_contracts.py",
+        "tests/test_e514cb13f60_rebase_primary_markets.py",
+        "tests/test_e514cb13f60_recovery_isolation.py",
+        "tests/test_e514cb13f60_scope_identity.py",
+        "tests/test_e514cb13f60_source_settlement.py"
+      ]
+    },
+    "E9F6E689481": {
+      "kind": "passive_utility",
+      "files": [
+        "docs/E9F6E689481_D31_ARCHIVE_BOUNDS.md",
+        "docs/E9F6E689481_EVIDENCE.json",
+        "docs/e9f6e689481_validation/before.log",
+        "docs/e9f6e689481_validation/dom.log",
+        "docs/e9f6e689481_validation/python.log",
+        "docs/e9f6e689481_validation/targeted.log",
+        "src/betting_engine/experimental_publication_retention.py",
+        "tests/test_e9f6e689481_archive_bounds.py"
+      ]
+    },
+    "F0040": {
+      "kind": "passive_utility",
+      "files": [
+        "docs/F0040_SUPERVISION_CYCLE.md",
+        "docs/F0040_VALIDATION.json",
+        "src/betting_engine/development_supervision_cycle.py",
+        "tests/test_f0040_supervision_cycle.py"
+      ]
+    },
+    "D06": {
+      "kind": "passive_utility",
+      "files": [
+        "docs/D06_PLAYER_MODEL_STUDY.md",
+        "docs/d06_player_model_study_evidence/MLB_hitting_hits/player_nb-selection-model.json",
+        "docs/d06_player_model_study_evidence/MLB_hitting_hits/player_poisson-selection-model.json",
+        "docs/d06_player_model_study_evidence/MLB_hitting_hits/player_poisson-test-model.json",
+        "docs/d06_player_model_study_evidence/MLB_hitting_hits/player_poisson-test-predictions.jsonl.gz",
+        "docs/d06_player_model_study_evidence/MLB_hitting_hits/pooled_poisson-selection-model.json",
+        "docs/d06_player_model_study_evidence/MLB_hitting_hits/pooled_poisson-test-model.json",
+        "docs/d06_player_model_study_evidence/MLB_hitting_hits/pooled_poisson-test-predictions.jsonl.gz",
+        "docs/d06_player_model_study_evidence/MLB_hitting_hits/selection-lock.json",
+        "docs/d06_player_model_study_evidence/MLB_pitching_strikeOuts/player_nb-selection-model.json",
+        "docs/d06_player_model_study_evidence/MLB_pitching_strikeOuts/player_nb-test-model.json",
+        "docs/d06_player_model_study_evidence/MLB_pitching_strikeOuts/player_nb-test-predictions.jsonl.gz",
+        "docs/d06_player_model_study_evidence/MLB_pitching_strikeOuts/player_poisson-selection-model.json",
+        "docs/d06_player_model_study_evidence/MLB_pitching_strikeOuts/pooled_poisson-selection-model.json",
+        "docs/d06_player_model_study_evidence/MLB_pitching_strikeOuts/pooled_poisson-test-model.json",
+        "docs/d06_player_model_study_evidence/MLB_pitching_strikeOuts/pooled_poisson-test-predictions.jsonl.gz",
+        "docs/d06_player_model_study_evidence/MLB_pitching_strikeOuts/selection-lock.json",
+        "docs/d06_player_model_study_evidence/NBA_player_points/player_nb-selection-model.json",
+        "docs/d06_player_model_study_evidence/NBA_player_points/player_nb-test-model.json",
+        "docs/d06_player_model_study_evidence/NBA_player_points/player_nb-test-predictions.jsonl.gz",
+        "docs/d06_player_model_study_evidence/NBA_player_points/player_poisson-selection-model.json",
+        "docs/d06_player_model_study_evidence/NBA_player_points/pooled_poisson-selection-model.json",
+        "docs/d06_player_model_study_evidence/NBA_player_points/pooled_poisson-test-model.json",
+        "docs/d06_player_model_study_evidence/NBA_player_points/pooled_poisson-test-predictions.jsonl.gz",
+        "docs/d06_player_model_study_evidence/NBA_player_points/selection-lock.json",
+        "docs/d06_player_model_study_evidence/NFL_player_rushing_yards/player_laplace-selection-model.json",
+        "docs/d06_player_model_study_evidence/NFL_player_rushing_yards/player_laplace-test-model.json",
+        "docs/d06_player_model_study_evidence/NFL_player_rushing_yards/player_laplace-test-predictions.jsonl.gz",
+        "docs/d06_player_model_study_evidence/NFL_player_rushing_yards/player_normal-selection-model.json",
+        "docs/d06_player_model_study_evidence/NFL_player_rushing_yards/pooled_normal-selection-model.json",
+        "docs/d06_player_model_study_evidence/NFL_player_rushing_yards/pooled_normal-test-model.json",
+        "docs/d06_player_model_study_evidence/NFL_player_rushing_yards/pooled_normal-test-predictions.jsonl.gz",
+        "docs/d06_player_model_study_evidence/NFL_player_rushing_yards/selection-lock.json",
+        "docs/d06_player_model_study_evidence/NHL_player_shots_on_goal/player_nb-selection-model.json",
+        "docs/d06_player_model_study_evidence/NHL_player_shots_on_goal/player_nb-test-model.json",
+        "docs/d06_player_model_study_evidence/NHL_player_shots_on_goal/player_nb-test-predictions.jsonl.gz",
+        "docs/d06_player_model_study_evidence/NHL_player_shots_on_goal/player_poisson-selection-model.json",
+        "docs/d06_player_model_study_evidence/NHL_player_shots_on_goal/pooled_poisson-selection-model.json",
+        "docs/d06_player_model_study_evidence/NHL_player_shots_on_goal/pooled_poisson-test-model.json",
+        "docs/d06_player_model_study_evidence/NHL_player_shots_on_goal/pooled_poisson-test-predictions.jsonl.gz",
+        "docs/d06_player_model_study_evidence/NHL_player_shots_on_goal/selection-lock.json",
+        "docs/d06_player_model_study_evidence/WNBA_player_points/player_nb-selection-model.json",
+        "docs/d06_player_model_study_evidence/WNBA_player_points/player_nb-test-model.json",
+        "docs/d06_player_model_study_evidence/WNBA_player_points/player_nb-test-predictions.jsonl.gz",
+        "docs/d06_player_model_study_evidence/WNBA_player_points/player_poisson-selection-model.json",
+        "docs/d06_player_model_study_evidence/WNBA_player_points/pooled_poisson-selection-model.json",
+        "docs/d06_player_model_study_evidence/WNBA_player_points/pooled_poisson-test-model.json",
+        "docs/d06_player_model_study_evidence/WNBA_player_points/pooled_poisson-test-predictions.jsonl.gz",
+        "docs/d06_player_model_study_evidence/WNBA_player_points/selection-lock.json",
+        "docs/d06_player_model_study_evidence/artifacts.json",
+        "docs/d06_player_model_study_evidence/inputs/K02-fuggetlen-modell.md",
+        "docs/d06_player_model_study_evidence/inputs/K03-adat-ido-forras.md",
+        "docs/d06_player_model_study_evidence/inputs/K08-validacio.md",
+        "docs/d06_player_model_study_evidence/inputs/game-identities.json",
+        "docs/d06_player_model_study_evidence/inputs/manifest.json",
+        "docs/d06_player_model_study_evidence/inputs/observations.parquet",
+        "docs/d06_player_model_study_evidence/inputs/player_history.py",
+        "docs/d06_player_model_study_evidence/inputs/player_model_study.py",
+        "docs/d06_player_model_study_evidence/inputs/quarantine.json",
+        "docs/d06_player_model_study_evidence/inputs/sources.json",
+        "docs/d06_player_model_study_evidence/plan.json",
+        "docs/d06_player_model_study_evidence/report.json",
+        "docs/d06_player_model_study_evidence/row-audit.jsonl.gz",
+        "src/betting_engine/player_model_study.py",
+        "tests/test_d06_player_model_study.py"
+      ]
+    },
+    "D32": {
+      "kind": "passive_utility",
+      "files": [
+        "docs/D32_REFILL_INTAKE_RECOVERY.md",
+        "docs/d32_validation/frontend.log",
+        "docs/d32_validation/legacy_reproduction.log",
+        "docs/d32_validation/pytest.log",
+        "src/betting_engine/engine.py",
+        "src/betting_engine/instruction_refill.py"
+      ]
+    },
+    "D24": {
+      "kind": "passive_utility",
+      "files": [
+        "src/betting_engine/nhl_results.py",
+        "src/betting_engine/contracts.py",
+        "src/betting_engine/providers.py",
+        "src/betting_engine/engine.py",
+        "tests/test_nhl_result_recovery.py",
+        "tests/test_nhl_engine_recovery.py"
+      ]
+    },
+    "F0023": {
+      "kind": "passive_utility",
+      "files": [
+        "data/directive-20260930/install-manifest.json",
+        "data/directive-20260930/integration-review.json",
+        "data/directive-20260930/root-independent-review.json",
+        "data/directive-20260930/python-final.log",
+        "data/directive-20260930/dom-final.log",
+        "data/directive-20260930/live-endpoints.json",
+        "data/directive-20260930/live-ledger-verification.json",
+        "src/betting_engine/player_prop_probability.py",
+        "src/betting_engine/player_prop_evidence_bundle.py",
+        "tests/test_f0023_player_prop_probability.py",
+        "tests/test_f0023_evidence_bundle.py",
+        "data/directive-20260930/props-coupled-stage-integration-manifest.json"
+      ]
+    },
+    "F0045": {
+      "kind": "passive_utility",
+      "files": [
+        "docs/F0045_SUPERVISION_ROLLOVER.md",
+        "docs/F0045_VALIDATION.json",
+        "docs/f0045_validation/dom.log",
+        "docs/f0045_validation/python.log",
+        "src/betting_engine/development_supervision_series.py",
+        "tests/test_f0045_supervision_series.py"
+      ]
+    },
+    "ECDB59355F3": {
+      "kind": "passive_utility",
+      "files": [
+        "src/betting_engine/player_prop_contracts.py",
+        "tests/test_runtime_player_identity.py"
+      ]
+    },
+    "D19": {
+      "kind": "passive_utility",
+      "files": [
+        "src/betting_engine/training_evidence.py",
+        "src/betting_engine/train.py",
+        "src/betting_engine/experiments.py",
+        "src/betting_engine/college.py",
+        "src/betting_engine/segments.py",
+        "src/betting_engine/period_models.py",
+        "src/betting_engine/development_evidence.py"
+      ]
+    },
+    "E41CF6794BA": {
+      "kind": "passive_utility",
+      "files": [
+        "docs/E41CF6794BA_before.log",
+        "docs/E41CF6794BA_dom.log",
+        "docs/E41CF6794BA_dom_direct.log",
+        "docs/E41CF6794BA_python.log",
+        "docs/E41CF6794BA_source_evidence.json",
+        "docs/E41CF6794BA_source_recovery.md",
+        "docs/E41CF6794BA_targeted.log",
+        "src/betting_engine/stake_api.py",
+        "tests/test_e41cf6794ba_ncaa_discovery_recovery.py",
+        "tests/test_e41cf6794ba_supplied_source_recovery.py"
+      ]
+    },
+    "D39": {
+      "kind": "passive_utility",
+      "files": [
+        "src/betting_engine/schedule.py",
+        "src/betting_engine/web/app.js"
+      ]
+    },
+    "F0024": {
+      "kind": "passive_utility",
+      "files": [
+        "data/directive-20260930/install-manifest.json",
+        "data/directive-20260930/integration-review.json",
+        "data/directive-20260930/root-independent-review.json",
+        "data/directive-20260930/python-final.log",
+        "data/directive-20260930/dom-final.log",
+        "data/directive-20260930/live-endpoints.json",
+        "data/directive-20260930/live-ledger-verification.json",
+        "src/betting_engine/player_prop_offer_evaluation.py",
+        "tests/test_f0024_player_prop_offer_evaluation.py",
+        "data/directive-20260930/props-coupled-stage-integration-manifest.json"
+      ]
+    },
+    "F0025": {
+      "kind": "passive_utility",
+      "files": [
+        "src/betting_engine/player_shot_reconciliation.py",
+        "tests/test_f0025_player_shot_reconciliation.py",
+        "docs/F0025_PLAYER_SHOT_RECONCILIATION.md",
+        "docs/F0025_PLAYER_SHOT_EVIDENCE.json"
+      ]
+    },
+    "D02": {
+      "kind": "passive_utility",
+      "files": [
+        "src/betting_engine/closing_prices.py",
+        "tests/test_d02_closing_response_conflicts.py"
+      ]
+    },
+    "E6985CA1F4D": {
+      "kind": "passive_utility",
+      "files": [
+        "src/betting_engine/catalog_evidence.py",
+        "src/betting_engine/market_catalog.py",
+        "src/betting_engine/component_health.py",
+        "tests/test_runtime_catalog_evidence.py"
+      ]
+    },
+    "D38": {
+      "kind": "passive_utility",
+      "files": [
+        "src/betting_engine/statistics.py",
+        "src/betting_engine/web/app.js"
+      ]
+    },
+    "F0029": {
+      "kind": "passive_utility",
+      "files": [
+        "docs/F0029_VALIDATION.json",
+        "docs/F0029_WORKER_RESTART.md",
+        "docs/f0029_validation/dom.log",
+        "docs/f0029_validation/python.log",
+        "src/betting_engine/development_restart_dispatch.py",
+        "src/betting_engine/development_restart_journal.py",
+        "src/betting_engine/development_worker_health.py",
+        "tests/test_f0029_advancing_heartbeat.py",
+        "tests/test_f0029_dispatch_stall.py",
+        "tests/test_f0029_worker_evidence_boundaries.py",
+        "tests/test_f0029_worker_restart.py"
+      ]
+    },
+    "E1418030607": {
+      "kind": "passive_utility",
+      "files": [
+        "docs/E1418030607_D32_ACKNOWLEDGEMENT.md",
+        "docs/e1418030607_validation/before.log",
+        "docs/e1418030607_validation/focused.log",
+        "docs/e1418030607_validation/focused_initial.log",
+        "docs/e1418030607_validation/frontend.log",
+        "docs/e1418030607_validation/pytest.log",
+        "src/betting_engine/instruction_refill.py",
+        "tests/test_e1418030607_refill_acknowledgement.py"
+      ]
+    },
+    "D22": {
+      "kind": "passive_utility",
+      "files": [
+        "src/betting_engine/server.py",
+        "src/betting_engine/dashboard_process.py",
+        "src/betting_engine/dashboard_worker.py",
+        "src/betting_engine/dashboard_payload.py",
+        "src/betting_engine/web/app.js",
+        "tests/test_dashboard_process.py",
+        "tests/test_development_http.py",
+        "tests/web_refresh_cases.mjs"
+      ]
+    },
+    "D20": {
+      "kind": "passive_utility",
+      "files": [
+        "docs/D20_PUNTER_BEFORE.txt",
+        "docs/D20_PUNTER_DOM_TESTS.txt",
+        "docs/D20_PUNTER_NATIVE_TESTS.txt",
+        "docs/D20_PUNTER_PYTHON_TESTS.txt",
+        "docs/D20_PUNTER_RECOVERY.md",
+        "docs/D20_PUNTER_RECOVERY_INPUTS.json",
+        "docs/D20_PUNTER_SOURCE_REPLAY.json",
+        "docs/D20_PUNTER_VALIDATION.json",
+        "src/betting_engine/native_event_sequence.py",
+        "tests/test_d20_archive_isolation.py",
+        "tests/test_d20_correction_availability.py",
+        "tests/test_d20_correction_schema_121517.py",
+        "tests/test_d20_defensive_identity_recovery.py",
+        "tests/test_d20_manifest_boundary.py",
+        "tests/test_d20_missing_role_team.py",
+        "tests/test_d20_native_marker_consistency.py",
+        "tests/test_d20_native_phase_recovery.py",
+        "tests/test_d20_nhl_opposing_roles.py",
+        "tests/test_d20_nhl_turnover_penalty_identity.py",
+        "tests/test_d20_passer_identity_recovery.py",
+        "tests/test_d20_possession_indicator_recovery.py",
+        "tests/test_d20_publication_provenance.py",
+        "tests/test_d20_punter_identity_recovery.py",
+        "tests/test_d20_recovered_goal_credit_and_terminal.py",
+        "tests/test_d20_recovered_native.py",
+        "tests/test_d20_recovered_scoring_identity.py",
+        "tests/test_d20_recovered_terminal_chronology.py",
+        "tests/test_d20_required_identity_schema.py",
+        "tests/test_d20_return_team_recovery.py",
+        "tests/test_d20_review_recovery.py",
+        "tests/test_d20_scoring_schema_recovery.py",
+        "tests/test_d20_touchdown_marker_recovery.py"
+      ]
+    },
+    "D31": {
+      "kind": "passive_utility",
+      "files": [
+        "docs/D31_EVIDENCE.json",
+        "docs/D31_LIFECYCLE_INTEGRITY.md",
+        "docs/d31_validation/dom.log",
+        "docs/d31_validation/full-python.log",
+        "docs/d31_validation/race-before-fix.log",
+        "docs/d31_validation/targeted.log",
+        "src/betting_engine/experimental_lifecycle.py",
+        "src/betting_engine/experimental_publication_retention.py",
+        "tests/test_d31_baseline_defects.py",
+        "tests/test_d31_lifecycle_integrity.py",
+        "tests/test_d31_lifecycle_retention_roundtrip.py",
+        "tests/test_d31_publication_retention.py",
+        "tests/test_d31_retention_review_recovery.py",
+        "tests/test_d31_review_132639_recovery.py",
+        "tests/test_d31_settlement_receipt_race.py"
+      ]
+    },
+    "E0E8DAE97EE": {
+      "kind": "passive_utility",
+      "files": [
+        "docs/E0E8DAE97EE_D11_REPAIR.md",
+        "src/betting_engine/sgm_contracts.py",
+        "tests/test_e0e8dae97ee_sgm_decimal_context.py"
+      ]
+    },
+    "E393159E9AC": {
+      "kind": "passive_utility",
+      "files": [
+        "docs/E393159_D14_CANDIDATE_AUDIT.md",
+        "src/betting_engine/development_candidate_audit.py",
+        "tests/test_e393159_candidate_audit.py"
+      ]
+    },
+    "E5BBC53B172": {
+      "kind": "passive_utility",
+      "files": [
+        "docs/E5BBC53B172_D15_INCREMENT.md",
+        "docs/e5bbc53b172_validation/dom-full.log",
+        "docs/e5bbc53b172_validation/evidence-index.json",
+        "docs/e5bbc53b172_validation/preexisting-integrity.json",
+        "docs/e5bbc53b172_validation/python-full.log",
+        "docs/e5bbc53b172_validation/python-targeted.log",
+        "docs/e5bbc53b172_validation/snapshot-observation.json",
+        "src/betting_engine/requirement_acceptance.py",
+        "tests/test_e5bbc53b172_outcome_conflicts.py"
+      ]
+    },
+    "E8B9BF9FBBA": {
+      "kind": "passive_utility",
+      "files": [
+        "docs/E8B9BF9FBBA_D06_EVIDENCE.json",
+        "docs/E8B9BF9FBBA_D06_REPAIR.md",
+        "src/betting_engine/player_model_study.py",
+        "tests/test_e8b9_d06_identity.py"
+      ]
+    },
+    "EA6FF4D60DB": {
+      "kind": "passive_utility",
+      "files": [
+        "docs/EA6FF4D60DB_REPLAY.md",
+        "src/betting_engine/player_archive_sources.py",
+        "tests/test_ea6ff4_player_replay.py"
+      ]
+    },
+    "EA76D0E6B5C": {
+      "kind": "passive_utility",
+      "files": [
+        "docs/EA76_D12_SOURCE_IDENTITY.md",
+        "docs/EA76_D12_SOURCE_IDENTITY_EVIDENCE.json",
+        "src/betting_engine/live_shadow.py",
+        "tests/test_ea76_d12_source_identity.py"
+      ]
+    },
+    "EB71DF62487": {
+      "kind": "passive_utility",
+      "files": [
+        "docs/EB71DF62487_D13_DELTA_AUDIT.md",
+        "docs/EB71DF62487_SOURCE_MANIFEST.json",
+        "src/betting_engine/release_acceptance_delta.py",
+        "tests/test_eb71df62487_acceptance_delta.py"
+      ]
+    },
+    "F0013": {
+      "kind": "passive_utility",
+      "files": [
+        "docs/F0013_SUMMARY_AUDIT.json",
+        "docs/F0013_SUMMARY_DOM.log",
+        "docs/F0013_SUMMARY_FOCUSED.log",
+        "docs/F0013_SUMMARY_INPUTS.json",
+        "docs/F0013_SUMMARY_PYTHON.log",
+        "docs/F0013_SUMMARY_RECOVERY.md",
+        "docs/F0013_SUMMARY_REPLAY.json",
+        "src/betting_engine/validation_log_rehearsal.py",
+        "tests/test_f0013_summary_recovery.py",
+        "tests/test_f0013_validation_log_rehearsal.py"
+      ]
+    },
+    "F0016": {
+      "kind": "passive_utility",
+      "files": [
+        "docs/F0016_INJURY_CONTEXT.md",
+        "docs/F0016_INJURY_CONTEXT_EVIDENCE.json",
+        "src/betting_engine/player_injury_context.py",
+        "tests/test_f0016_injury_context.py"
+      ]
+    },
+    "F0022": {
+      "kind": "passive_utility",
+      "files": [
+        "docs/F0022_RECOVERY_DRILL.md",
+        "src/betting_engine/development_recovery_drill.py",
+        "tests/test_f0022_commit_durability.py",
+        "tests/test_f0022_recovery_drill.py",
+        "tests/test_f0022_traversal_errors.py"
+      ]
+    },
+    "F0026": {
+      "kind": "passive_utility",
+      "files": [
+        "docs/F0026_PLAYER_YARD_EVIDENCE.json",
+        "docs/F0026_PLAYER_YARD_PROBABILITY.md",
+        "src/betting_engine/player_yard_probability.py",
+        "tests/test_f0026_player_yard_probability.py"
+      ]
+    },
+    "F0028": {
+      "kind": "passive_utility",
+      "files": [
+        "docs/F0028_ACCEPTANCE_CHECKPOINT.md",
+        "docs/F0028_ACCEPTANCE_CHECKPOINT_EVIDENCE.json",
+        "src/betting_engine/development_acceptance_checkpoint.py",
+        "tests/test_f0028_acceptance_checkpoint.py"
+      ]
+    },
+    "F0038": {
+      "kind": "passive_utility",
+      "files": [
+        "docs/F0038_RESERVATION_EVIDENCE.json",
+        "docs/F0038_RESERVATION_PREFLIGHT.md",
+        "docs/f0038_reservation_validation/before.log",
+        "docs/f0038_reservation_validation/dom.log",
+        "docs/f0038_reservation_validation/focused.log",
+        "docs/f0038_reservation_validation/original_test_hashes.json",
+        "docs/f0038_reservation_validation/python.log",
+        "src/betting_engine/development_worker_dispatch.py",
+        "tests/test_f0038_reservation_preflight.py"
+      ]
+    },
+    "F0042": {
+      "kind": "passive_utility",
+      "files": [
+        "docs/F0042_CYCLE_CHRONOLOGY.md",
+        "docs/F0042_CYCLE_CHRONOLOGY_VALIDATION.json",
+        "docs/f0042_chronology_validation/before.log",
+        "docs/f0042_chronology_validation/dom.log",
+        "docs/f0042_chronology_validation/python.log",
+        "src/betting_engine/development_supervision_history.py",
+        "tests/test_f0042_cycle_chronology.py"
+      ]
+    },
+    "F0046": {
+      "kind": "passive_utility",
+      "files": [
+        "docs/F0046_SUPERVISION_VIEW.md",
+        "docs/F0046_VALIDATION.json",
+        "docs/f0046_validation/frontend.txt",
+        "docs/f0046_validation/new_tests.txt",
+        "docs/f0046_validation/new_tests_initial.txt",
+        "docs/f0046_validation/python.txt",
+        "src/betting_engine/development_supervision_view.py",
+        "tests/test_f0046_supervision_view.py"
+      ]
+    },
+    "ROOTVALIDATION30": {
+      "kind": "passive_utility",
+      "files": [
+        "src/betting_engine/requirement_acceptance.py",
+        "tests/test_d25_validation_documents.py"
+      ]
     }
   },
   "review_new_passive_utilities": true

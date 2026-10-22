@@ -1,0 +1,22 @@
+..................F..                                                    [100%]
+=================================== FAILURES ===================================
+______________ test_disabled_worker_is_distinct_from_unconfigured ______________
+
+tmp_path = PosixPath('/private/var/folders/bz/mmh6jc9n3db72lywcjm7qhkh0000gn/T/pytest-of-belavarga/pytest-2756/test_disabled_worker_is_distin0')
+
+    def test_disabled_worker_is_distinct_from_unconfigured(tmp_path):
+        handles = {'learning': journal.create_journal(tmp_path.resolve(), service='learning',
+                   created_at=stamp(), checkpoint_at=stamp(100))}
+        store = series.create_series(tmp_path.resolve(), handles, created_at=stamp())
+        run((store, handles), 0, {'learning': {'enabled': False}})
+        report = view.inspect_status(store, as_of=stamp())
+>       assert report['services']['learning']['report']['state'] == 'process_disabled'
+E       AssertionError: assert 'degraded' == 'process_disabled'
+E         
+E         - process_disabled
+E         + degraded
+
+tests/test_f0046_supervision_view.py:270: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_f0046_supervision_view.py::test_disabled_worker_is_distinct_from_unconfigured
+1 failed, 20 passed in 0.84s

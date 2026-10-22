@@ -1,6 +1,6 @@
 """Public source adapters with immutable response archive and explicit provenance."""
 from __future__ import annotations
-import csv, io, json, hashlib, time, os, logging
+import csv, io, json, hashlib, time, os, logging, re
 from pathlib import Path
 from datetime import timedelta, datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -16,19 +16,47 @@ if not DATA.is_absolute():DATA = ROOT / DATA
 log = logging.getLogger(__name__)
 logging.getLogger('httpx').setLevel(logging.WARNING)
 
+import socket
+_orig_getaddrinfo = socket.getaddrinfo
+_STAKE_EDGE_IPS = ('104.18.40.167', '172.64.147.89', '104.18.40.134', '172.64.147.122')
+_BLOCKED_STAKE_IPS = {'104.18.37.229', '172.64.150.27'}
+
+def _stake_dns_resolver(host, port, family=0, type=0, proto=0, flags=0):
+    try:
+        res = _orig_getaddrinfo(host, port, family, type, proto, flags)
+        if host in ('odds-data.stake.com', 'stake.com'):
+            current_ips = {r[4][0] for r in res if len(r) >= 5 and isinstance(r[4], tuple)}
+            if current_ips.issubset(_BLOCKED_STAKE_IPS):
+                fallback = []
+                for ip in _STAKE_EDGE_IPS:
+                    fallback.extend(_orig_getaddrinfo(ip, port, family, type, proto, flags))
+                return fallback
+        return res
+    except Exception:
+        if host in ('odds-data.stake.com', 'stake.com'):
+            fallback = []
+            for ip in _STAKE_EDGE_IPS:
+                fallback.extend(_orig_getaddrinfo(ip, port, family, type, proto, flags))
+            return fallback
+        raise
+
+if socket.getaddrinfo is not _stake_dns_resolver:
+    socket.getaddrinfo = _stake_dns_resolver
+
 class SourceError(RuntimeError): pass
 
 class Fetcher:
     def __init__(self, root=DATA):
         self.root=Path(root)/'raw'; self.root.mkdir(parents=True,exist_ok=True)
-        self.client=httpx.Client(timeout=50, follow_redirects=True, headers={'User-Agent':'BettingResearch/0.2'})
+        limits = httpx.Limits(max_keepalive_connections=20, max_connections=40, keepalive_expiry=30.0)
+        self.client=httpx.Client(timeout=httpx.Timeout(25.0, connect=10.0, read=20.0, write=10.0), limits=limits, follow_redirects=True, headers={'User-Agent':'BettingResearch/0.2'})
     def get(self,url,ttl=3600):
         key=hashlib.sha256(url.encode()).hexdigest(); m=self.root/(key+'.json')
         previous=json.loads(m.read_text()) if m.exists() else None
         if previous and time.time()-previous['epoch'] < ttl:
             return (self.root/previous['blob']).read_bytes(),previous
         error=None
-        for attempt in range(2):
+        for attempt in range(3):
             try:
                 r=self.client.get(url);r.raise_for_status();b=r.content
                 sha=hashlib.sha256(b).hexdigest(); blob=sha+'.data'
@@ -40,7 +68,7 @@ class Fetcher:
                 error=e
                 # One ordinary retry for transient network/server errors. No auth bypass.
                 if isinstance(e,httpx.HTTPStatusError) and e.response.status_code in (401,403):break
-                time.sleep(.3)
+                time.sleep(0.2 * (2 ** attempt))
         raise SourceError(f'{url.split("?")[0]}: {type(error).__name__}') from error
     def json(self,url,ttl=3600):
         b,m=self.get(url,ttl);return json.loads(b),m
@@ -58,12 +86,14 @@ def validate_batch(games):
     if len(finals)>=50:
         scores={(g.home_score,g.away_score) for g in finals}
         if len(scores)<5:
-            raise SourceError('Adatminőségi kizárás: gyanúsan állandó eredmények egy teljes adatcsomagban')
+            raise SourceError('Data quality rejection: suspiciously uniform scores across a complete dataset')
     return games
 
 NFL_NAMES={'ARI':'Arizona Cardinals','ATL':'Atlanta Falcons','BAL':'Baltimore Ravens','BUF':'Buffalo Bills','CAR':'Carolina Panthers','CHI':'Chicago Bears','CIN':'Cincinnati Bengals','CLE':'Cleveland Browns','DAL':'Dallas Cowboys','DEN':'Denver Broncos','DET':'Detroit Lions','GB':'Green Bay Packers','HOU':'Houston Texans','IND':'Indianapolis Colts','JAX':'Jacksonville Jaguars','KC':'Kansas City Chiefs','LA':'Los Angeles Rams','LAC':'Los Angeles Chargers','LV':'Las Vegas Raiders','MIA':'Miami Dolphins','MIN':'Minnesota Vikings','NE':'New England Patriots','NO':'New Orleans Saints','NYG':'New York Giants','NYJ':'New York Jets','PHI':'Philadelphia Eagles','PIT':'Pittsburgh Steelers','SEA':'Seattle Seahawks','SF':'San Francisco 49ers','TB':'Tampa Bay Buccaneers','TEN':'Tennessee Titans','WAS':'Washington Commanders','OAK':'Las Vegas Raiders','SD':'Los Angeles Chargers','STL':'Los Angeles Rams'}
 NHL_NAMES={'ANA':'Anaheim Ducks','BOS':'Boston Bruins','BUF':'Buffalo Sabres','CAR':'Carolina Hurricanes','CBJ':'Columbus Blue Jackets','CGY':'Calgary Flames','CHI':'Chicago Blackhawks','COL':'Colorado Avalanche','DAL':'Dallas Stars','DET':'Detroit Red Wings','EDM':'Edmonton Oilers','FLA':'Florida Panthers','LAK':'Los Angeles Kings','MIN':'Minnesota Wild','MTL':'Montreal Canadiens','NJD':'New Jersey Devils','NSH':'Nashville Predators','NYI':'New York Islanders','NYR':'New York Rangers','OTT':'Ottawa Senators','PHI':'Philadelphia Flyers','PIT':'Pittsburgh Penguins','SEA':'Seattle Kraken','SJS':'San Jose Sharks','STL':'St. Louis Blues','TBL':'Tampa Bay Lightning','TOR':'Toronto Maple Leafs','UTA':'Utah Mammoth','VAN':'Vancouver Canucks','VGK':'Vegas Golden Knights','WPG':'Winnipeg Jets','WSH':'Washington Capitals','ARI':'Arizona Coyotes'}
 MLS_TEAMS=('18418','20906','9720','21300','182','184','183','193','18267','185','6077','20232','187','18966','17362','18986','189','17606','12011','10739','9723','4771','190','22529','191','9726','186','21812','7318','9727')
+EPL_TEAMS=('306','331','337','349','357','359','360','361','362','363','364','366','367','368','370','373','382','384','388','393')
+UCL_TEAMS=('887','104','359','362','1068','83','132','2980','124','570','2572','437','436','142','432','110','4411','175','166','364','382','360','114','148','160','11420','244','86','21922','493','494','521','2250','134','510','102')
 
 class SportsData:
     def __init__(self,fetcher=None):self.fetcher=fetcher or Fetcher()
@@ -203,6 +233,40 @@ class SportsData:
                     found[g.id]=g
         games=validate_batch(list(found.values()))
         return games,{'url':f'https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/teams/[all]/schedule?season={season}','fetched_at':max(m['fetched_at'] for m in metas),'sha256':hashlib.sha256(''.join(sorted(m['sha256'] for m in metas)).encode()).hexdigest()}
+    def soccer_official_season(self,league,season):
+        if league not in ('EPL','UCL'):raise ValueError(f'Unsupported soccer league: {league}')
+        espn_path='soccer/eng.1' if league=='EPL' else 'soccer/uefa.champions'
+        teams=EPL_TEAMS if league=='EPL' else UCL_TEAMS
+        found={};metas=[]
+        def get_team(team):
+            url=f'https://site.api.espn.com/apis/site/v2/sports/{espn_path}/teams/{team}/schedule?season={season}'
+            return self.fetcher.json(url,86400*7 if season<utcnow().year else 3600)
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            for d,m in pool.map(get_team,teams):
+                metas.append(m)
+                for e in d.get('events',[]):
+                    competitions=e.get('competitions') or []
+                    if len(competitions)!=1:continue
+                    c=competitions[0]
+                    status=(c.get('status') or e.get('status') or {}).get('type',{})
+                    if status.get('state')!='post' or status.get('completed') is not True:continue
+                    start=c.get('date') or e.get('date')
+                    if not start:continue
+                    competitors=c.get('competitors') or []
+                    home=[t for t in competitors if t.get('homeAway')=='home']
+                    away=[t for t in competitors if t.get('homeAway')=='away']
+                    if len(home)!=1 or len(away)!=1:continue
+                    h,a=home[0],away[0]
+                    ht,at=h.get('team',{}),a.get('team',{})
+                    hs=num((h.get('score') or {}).get('value')) if isinstance(h.get('score'),dict) else num(h.get('score'))
+                    ass=num((a.get('score') or {}).get('value')) if isinstance(a.get('score'),dict) else num(a.get('score'))
+                    if hs is None or ass is None:continue
+                    st_name=str(e.get('seasonType',{}).get('name') or '').lower()
+                    g_type='playoff' if 'playoff' in st_name or 'cup' in st_name else 'regular'
+                    g=Game(id=f'{league}:{e["id"]}',league=league,start=start,home=ht.get('displayName',''),away=at.get('displayName',''),home_id=str(ht.get('id','')),away_id=str(at.get('id','')),home_abbr=ht.get('abbreviation',''),away_abbr=at.get('abbreviation',''),state='final',season=season,home_score=hs,away_score=ass,neutral=bool(c.get('neutralSite',False)),game_type=g_type,source=m['url'],fetched_at=m['fetched_at'])
+                    found[g.id]=g
+        games=validate_batch(list(found.values()))
+        return games,{'url':f'https://site.api.espn.com/apis/site/v2/sports/{espn_path}/teams/[all]/schedule?season={season}','fetched_at':max(m['fetched_at'] for m in metas),'sha256':hashlib.sha256(''.join(sorted(m['sha256'] for m in metas)).encode()).hexdigest()}
     def mls_current(self):
         now=utcnow();games={};metas=[]
         for offset in (-1,0,1,2,3,4,5,6):
@@ -217,7 +281,7 @@ class SportsData:
                 status=(c.get('status') or event.get('status') or {}).get('type',{})
                 if status.get('state') not in ('pre','in') or c.get('timeValid') is False:continue
                 start=c.get('date') or event.get('date')
-                if not start or not now<parse_time(start)<=now+timedelta(hours=48):continue
+                if not start or not now<parse_time(start)<=now+timedelta(hours=72):continue
                 competitors=c.get('competitors') or []
                 home=[r for r in competitors if r.get('homeAway')=='home']
                 away=[r for r in competitors if r.get('homeAway')=='away']
@@ -228,7 +292,155 @@ class SportsData:
                 g=Game(id='MLS:'+str(event['id']),league='MLS',start=start,home=h['displayName'],away=a['displayName'],home_id=str(h['id']),away_id=str(a['id']),home_abbr=h.get('abbreviation',''),away_abbr=a.get('abbreviation',''),state='scheduled',season=int(event.get('season',{}).get('year',now.year)),neutral=bool(c.get('neutralSite',False)),game_type=phase,source=url,fetched_at=meta['fetched_at'])
                 games[g.id]=g
         return list(games.values()),{'url':metas[1]['url'],'fetched_at':max(m['fetched_at'] for m in metas),'sha256':hashlib.sha256(''.join(m['sha256'] for m in metas).encode()).hexdigest()}
+    def soccer_current(self, league):
+        espn_path = 'soccer/eng.1' if league == 'EPL' else 'soccer/uefa.champions'
+        now = utcnow(); games = {}; metas = []
+        for offset in (-1, 0, 1, 2, 3, 4, 5, 6):
+            day = (now + timedelta(days=offset)).strftime('%Y%m%d')
+            url = f'https://site.api.espn.com/apis/site/v2/sports/{espn_path}/scoreboard?dates={day}&limit=1000'
+            try:
+                payload, meta = self.fetcher.json(url, 900); metas.append(meta)
+            except Exception:
+                continue
+            if not isinstance(payload.get('events'), list): continue
+            for event in payload['events']:
+                competitions = event.get('competitions') or []
+                if len(competitions) != 1: continue
+                c = competitions[0]
+                status = (c.get('status') or event.get('status') or {}).get('type', {})
+                if status.get('state') not in ('pre', 'in') or c.get('timeValid') is False: continue
+                start = c.get('date') or event.get('date')
+                if not start or not now < parse_time(start) <= now + timedelta(hours=72): continue
+                competitors = c.get('competitors') or []
+                home = [r for r in competitors if r.get('homeAway') == 'home']
+                away = [r for r in competitors if r.get('homeAway') == 'away']
+                if len(home) != 1 or len(away) != 1: continue
+                h, a = home[0]['team'], away[0]['team']
+                g = Game(id=f'{league}:{event["id"]}', league=league, start=start, home=h['displayName'], away=a['displayName'], home_id=str(h['id']), away_id=str(a['id']), home_abbr=h.get('abbreviation',''), away_abbr=a.get('abbreviation',''), state='scheduled', season=int(event.get('season',{}).get('year', now.year)), neutral=bool(c.get('neutralSite', False)), game_type='regular', source=url, fetched_at=meta['fetched_at'])
+                games[g.id] = g
+        meta = metas[0] if metas else {'url': f'https://site.api.espn.com/apis/site/v2/sports/{espn_path}', 'fetched_at': now.isoformat(), 'sha256': hashlib.sha256(b'').hexdigest()}
+        return list(games.values()), meta
+    def tennis_current(self, league):
+        from .stake_api import tournaments, league_fixtures
+        now = utcnow()
+        t_map, available, sources, issues = tournaments(self.fetcher)
+        slugs = t_map.get(league, [])
+        if not slugs:
+            return [], {'url': f'https://odds-data.stake.com/sports/tennis/{league.lower()}', 'fetched_at': now.isoformat(), 'sha256': hashlib.sha256(b'').hexdigest()}
+        fixtures, f_sources, f_issues, ok = league_fixtures(self.fetcher, league, slugs)
+        games = {}
+        for f in fixtures:
+            status = f.get('status')
+            if status not in (None, 'active'): continue
+            if not f.get('enabled') or not f.get('preMatchEnabled') or f.get('blacklisted') or f.get('identity_conflict'): continue
+            stamp = f.get('date')
+            try:
+                start_dt = datetime.fromtimestamp(float(stamp)/1000, tz=timezone.utc)
+            except (ValueError, TypeError, OSError):
+                continue
+            if not now < start_dt <= now + timedelta(hours=72):
+                continue
+            parts = re.split(r'\s+[-–—]\s+', str(f.get('name') or ''), maxsplit=1)
+            if len(parts) != 2:
+                continue
+            home_raw, away_raw = parts[0].strip(), parts[1].strip()
+            if not home_raw or not away_raw:
+                continue
+            t_text = (str(f.get('league_path', '')) + ' ' + str(f.get('name', ''))).lower()
+            if '/' in home_raw or '/' in away_raw or 'doubles' in t_text or ' doubles' in (f.get('slug') or '').lower():
+                continue
+            if any(x in t_text for x in ('clay', 'palermo', 'braga', 'antofagasta')):
+                surface = 'clay'
+            elif any(x in t_text for x in ('grass', 'wimbledon', 'halle', 'queens')):
+                surface = 'grass'
+            elif any(x in t_text for x in ('indoor', 'paris', 'basel')):
+                surface = 'indoor_hard'
+            else:
+                surface = 'hard'
+            gid = f"{league}:{f['id']}"
+            source_url = f.get('schedule_sources', [{}])[0].get('url', f"https://odds-data.stake.com/sports/tennis/{league.lower()}")
+            fetched_at = max((s.get('fetched_at') for s in f.get('schedule_sources', []) if s.get('fetched_at')), default=now.isoformat())
+            g = Game(
+                id=gid,
+                league=league,
+                start=start_dt.isoformat(),
+                home=home_raw,
+                away=away_raw,
+                home_id=f"{gid}:A",
+                away_id=f"{gid}:B",
+                home_abbr=home_raw[:3].upper(),
+                away_abbr=away_raw[:3].upper(),
+                state='scheduled',
+                season=now.year,
+                neutral=True,
+                game_type='regular',
+                source=source_url,
+                fetched_at=fetched_at,
+                context={
+                    'surface': surface,
+                    'tournament': f.get('league_path', ''),
+                    'tennis': True,
+                    'stake_fixture_id': f['id'],
+                }
+            )
+            games[gid] = g
+        sha = hashlib.sha256(''.join(sorted(s.get('sha256', '') for s in f_sources)).encode()).hexdigest()
+        meta = {
+            'url': f'https://odds-data.stake.com/sports/tennis/{league.lower()}',
+            'fetched_at': max((s.get('fetched_at') for s in f_sources), default=now.isoformat()),
+            'sha256': sha
+        }
+        return list(games.values()), meta
+    def tennis_archive_games(self):
+        arch_p = DATA / 'tennis_results_archive.json'
+        games = []
+        now = utcnow()
+        if arch_p.exists():
+            try:
+                data = json.loads(arch_p.read_text())
+                for gid, row in data.items():
+                    league = row.get('league', 'ATP')
+                    if league not in LEAGUES:
+                        continue
+                    games.append(Game(
+                        id=gid,
+                        league=league,
+                        start=row.get('verified_at', now.isoformat()),
+                        home=row.get('p1', ''),
+                        away=row.get('p2', ''),
+                        home_id=row.get('p1', ''),
+                        away_id=row.get('p2', ''),
+                        home_abbr='',
+                        away_abbr='',
+                        state='final',
+                        season=now.year,
+                        home_score=float(row.get('games_home', row.get('games1', 0))),
+                        away_score=float(row.get('games_away', row.get('games2', 0))),
+                        neutral=True,
+                        game_type='regular',
+                        source=row.get('source', 'tennis_archive'),
+                        fetched_at=row.get('verified_at', now.isoformat()),
+                        context={
+                            'set_scores': row.get('set_scores', []),
+                            'sets_home': row.get('sets_home', row.get('sets1', 0)),
+                            'sets_away': row.get('sets_away', row.get('sets2', 0)),
+                            'tennis': True,
+                        }
+                    ))
+            except Exception as exc:
+                log.warning('Could not load tennis archive: %s', exc)
+        meta = {'url': 'file://data/tennis_results_archive.json', 'fetched_at': now.isoformat(), 'sha256': hashlib.sha256(b'tennis_archive').hexdigest()}
+        return games, meta
     def load(self,leagues=LEAGUES):
+        games={}
+        history_path = DATA / 'games.json'
+        if history_path.exists():
+            try:
+                for r in json.loads(history_path.read_text()):
+                    if r.get('state') == 'final':
+                        games[r['id']] = Game(**r)
+            except Exception as exc:
+                log.warning('Could not pre-seed historical games: %s', exc)
         jobs={};year=utcnow().year
         for league in leagues:
             if league in ('NBA','WNBA','NHL'):
@@ -239,8 +451,19 @@ class SportsData:
                 for s in range(2023,year+1):jobs[f'MLB/{s}']=(self.mlb,(s,))
             elif league=='NFL':jobs['NFL/all']=(self.nfl,())
             elif league=='MLS':
-                for s in range(2023,year+1):jobs[f'MLS/{s}']=(self.mls_official_season,(s,))
+                has_history = any(g.league=='MLS' and g.state=='final' for g in games.values())
+                start_season = year if has_history else 2023
+                for s in range(start_season,year+1):jobs[f'MLS/{s}']=(self.mls_official_season,(s,))
                 jobs['MLS/current']=(self.mls_current,())
+            elif league in ('EPL', 'UCL'):
+                has_history = any(g.league==league and g.state=='final' for g in games.values())
+                start_season = year if has_history else 2023
+                for s in range(start_season, year + 1):
+                    jobs[f'{league}/{s}'] = (self.soccer_official_season, (league, s))
+                jobs[f'{league}/current'] = (self.soccer_current, (league,))
+            elif league in ('ATP', 'WTA'):
+                jobs[f'{league}/current']=(self.tennis_current,(league,))
+                jobs['Tennis/archive'] = (self.tennis_archive_games, ())
             elif league.startswith('NCAA'):
                 from .college import season,current
                 for s in range(2020 if league=='NCAAF' else 2023,year+1+(league!='NCAAF')):
@@ -253,8 +476,8 @@ class SportsData:
             # The league schedule is forward-looking by hockey date. Keep the
             # preceding week so yesterday's final games survive UTC rollover.
             jobs['NHL/recent']=(self.nhl_current,((utcnow().date()-timedelta(days=7)).isoformat(),))
-        games={};status=[]
-        with ThreadPoolExecutor(max_workers=4) as pool:
+        status=[]
+        with ThreadPoolExecutor(max_workers=6) as pool:
             futures={pool.submit(fn,*args):key for key,(fn,args) in jobs.items()}
             for f in as_completed(futures):
                 key=futures[f]

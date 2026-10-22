@@ -6,5 +6,5 @@ def market_feed_health(quotes,issues):
         'stake_fixture_endpoint_error','stake_seed_identity_unresolved','stake_endpoint_market_difference')]
     if not failures:return {'state':'healthy','error_count':0,'message':None}
     state='partial' if quotes else 'unavailable'
-    message='Az árforrás részben elérhető; a piaci lefedettség hiányos.' if quotes else 'Az árforrás nem elérhető; nincs friss, ellenőrzött piaci ajánlás.'
+    message='The odds feed is partially available. Market coverage is incomplete.' if quotes else 'The odds feed is unavailable. No fresh, verified market recommendations are available.'
     return {'state':state,'error_count':len(failures),'message':message}

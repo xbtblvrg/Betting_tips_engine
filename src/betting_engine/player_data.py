@@ -166,7 +166,10 @@ def refresh_players(data_dir=DATA,historical=False,fetcher=None):
             rows,rejected=parse_rows(league,table.to_pylist(),meta,games)
             write_partition(folder/f'{league}-{year}.parquet',rows)
             return {'league':league,'season':year,'rows':len(rows),'rejected':rejected,'ok':bool(rows),**{k:meta[k] for k in ('url','sha256','fetched_at')}}
-        except Exception as e:return {'league':league,'season':year,'ok':False,'error':str(e)[:300]}
+        except Exception as e:
+            if year > utcnow().year and ('404' in str(e) or 'Not Found' in str(e) or 'HTTPStatusError' in str(e)):
+                return {'league':league,'season':year,'ok':True,'rows':0,'unreleased_future_season':True}
+            return {'league':league,'season':year,'ok':False,'error':str(e)[:300]}
     sources.extend(ThreadPoolExecutor(max_workers=4).map(fetch_standard,[p for p in years if p[0]!='MLB']))
     for league,year in years:
         if league!='MLB':continue

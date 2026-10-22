@@ -1,0 +1,126 @@
+{
+  "task": "E514CB13F60",
+  "scope": "Bounded period identity and inventory candidate integration; no production activation",
+  "original_due_at": "2026-10-01T18:32:44.723365+00:00",
+  "recovery_due_at": "2026-10-01T00:00:44.447997+00:00",
+  "recovery_deadline_missed_before_dispatch": true,
+  "restored_run": "20261001T000817049604-E514CB13F60",
+  "restored_manifest_sha256": "b2cdb9ad8635758ea8aa8a73bb574f54e4fb90ac8addac1e8e468af56aa1ecc7",
+  "restored_files": {
+    "src/betting_engine/markets.py": "52dee9a27af0711751ae0d5bd3baa8015b6ac4196a08ceedec747d302425f98f",
+    "src/betting_engine/market_catalog.py": "2d6859154bb4ea7b48cb14bde38a844d011c395c4c2ce76db39263f4091a9f19",
+    "src/betting_engine/period_contracts.py": "e382db789049e7758e69b4eae4f97616d206f98d15c600838174122c3127f926",
+    "src/betting_engine/market_inventory_identity.py": "1db4333059d8731463d5bbc3b9607777db22c08c2ba65484db6d15c49cc30bcf",
+    "tests/test_e514cb13f60_exact_inventory_support.py": "96efc04b426f62799cfffbea23dcb2d6343d35daa61cbb50462eafa36a6654f9",
+    "tests/test_e514cb13f60_period_contracts.py": "9985e563bf5c0e4ea23f353b24093ad9887c258a5c2bc6a7b92ae0f2111db256",
+    "tests/test_e514cb13f60_inventory_integration.py": "f782c8b74bbc9b15c75e9abd191641f6b2a75a1d7c0bd8d5045ce4dcd56e05b2",
+    "tests/test_e514cb13f60_categorical_identity.py": "d6d7c97295418ee12ec6ae3d73520443b90d63f106496073763eed61b6f5dc13",
+    "tests/test_e514cb13f60_recovery_isolation.py": "1cf9766c1cb56035d08d2324201267982fef18d78d3bbec41eddd6e663359df9",
+    "tests/test_e514cb13f60_lifecycle_replay.py": "03a58e9a6f283635ab76bd487b3b3aebb2df6322f773ad2dce6b50b4d2c2537f",
+    "tests/test_e514cb13f60_frozen_integration.py": "4294f7255a8e7749ee7a303c81a0215e31331ef3c8291e3640fd8ac24b69ad06",
+    "tests/test_e514cb13f60_current_catalog.py": "ebd95a2370c9750a74670eb635fb9dca81cf38a75412b378de727cc1c2f378f8",
+    "tests/test_e514cb13f60_rebase_primary_markets.py": "867377f6fe61b49b87acdc7d752ff10fa16ae6ef66b8287c44072c9cf4c81a12",
+    "tests/test_e514cb13f60_source_settlement.py": "0ad83c2a02b368026e4b3889041a5a63a540d4a0bb5c27bdc41ee23d41b99955",
+    "tests/test_e514cb13f60_scope_identity.py": "6fd53d8e3ff211f066433362eeffd26829a071a3bf8af478c1dacf14805d4af7",
+    "tests/fixtures/e514cb13f60_nfl_endpoints.json": "9dfaebb2595fa406b635c1ce2d32a0465cb63bf504928be455604577bd47c2eb",
+    "tests/fixtures/e514cb13f60_categorical_identity.json": "0c6c810d9c9f013dfcd89b88efe49f6a82ad567d8dc270b33bdc73ca2bc1ddfe",
+    "tests/fixtures/e514cb13f60_current_periods.json": "f32684e1533963048163ca5aa6bb1e9690e0386dcbc24ae06e0df7a0272fd8cd",
+    "tests/fixtures/e514cb13f60_period_handicaps.json": "f8072ad853d8ceb304f2bd4d521687aba793328f1a6bf4b6727eb61c2a824cc6",
+    "tests/fixtures/e514cb13f60_scope_identity.json": "f3483972421c22e13e5826653842e2925137a40b0727ec825aedf18c9caac093"
+  },
+  "changed_existing_files": {
+    "src/betting_engine/market_catalog.py": {
+      "before": "630902663ea84b0f2502b57b5fcd044923079750fafc60f425750eb7c9d882b1",
+      "after": "2d6859154bb4ea7b48cb14bde38a844d011c395c4c2ce76db39263f4091a9f19"
+    },
+    "src/betting_engine/markets.py": {
+      "before": "bf0bcdbedaea9ab0ad8a98c4061ca04db5cf847a3a75d260c22b9d57eba60d99",
+      "after": "52dee9a27af0711751ae0d5bd3baa8015b6ac4196a08ceedec747d302425f98f"
+    }
+  },
+  "existing_test_files_unchanged": 214,
+  "existing_python_tests_unchanged": 172,
+  "rebase_conflicts_file": "absent",
+  "root_recovery_package": "absent",
+  "input_verification": {
+    "manifest_sha256": "fdf327ffe5969b7dc552031f89fd3c8bae0b95337e174d2141faaefa007bf280",
+    "file_hashes_verified": 310,
+    "decompressed_source_bindings_verified": 386,
+    "errors": [],
+    "decision_records": 162,
+    "decision_export_truncated": false,
+    "engineering_file_hashes_verified": 18,
+    "validation_bundle_file_hashes_verified": 22
+  },
+  "diagnostics": {
+    "runtime": "not_required",
+    "release_failure_files": []
+  },
+  "publication": {
+    "version": 3791,
+    "generated_at": "2026-10-01T00:26:44.934763+00:00",
+    "non_mlb_scoped_forecasts_replayed": 93,
+    "scoped_candidates_replayed": {
+      "NHL": 309,
+      "NFL": 82,
+      "WNBA": 4
+    },
+    "current_execution_evidence": false
+  },
+  "unchanged_model_reports": {
+    "NHL:period_1": {
+      "report_sha256": "b29f3e36a6e37fbdf46acf42b948ad4fff221218d6dd20615be5dc1f46b900ff",
+      "partitions": {
+        "train": 3380,
+        "selection": 1082,
+        "test": 1130
+      },
+      "mean_test_brier": 0.1908496762129122,
+      "fit_through": "2024-12-29T22:30:00Z",
+      "test_from": "2025-11-13"
+    },
+    "NFL:quarter_4": {
+      "report_sha256": "ca2bfbc02365eea64b38afa9b64d907de95d7c34661e6dd1c8208e768ec0a75b",
+      "partitions": {
+        "train": 1062,
+        "selection": 340,
+        "test": 339
+      },
+      "mean_test_brier": 0.2175549495435502,
+      "fit_through": "2023-12-19T01:15:00+00:00",
+      "test_from": "2025-01-19"
+    },
+    "WNBA:quarter_1": {
+      "report_sha256": "f26f66b1477efce19b69069a7c33b8cc0db49abf0655860f4cd5214bef727a93",
+      "partitions": {
+        "train": 672,
+        "selection": 229,
+        "test": 273
+      },
+      "mean_test_brier": 0.18148840139229955,
+      "fit_through": "2025-07-17T00:00Z",
+      "test_from": "2026-06-02"
+    }
+  },
+  "lifecycle_replay": {
+    "adverse_diagnostics": 8,
+    "distinct_original_decisions": 14,
+    "distinct_games": 4,
+    "pnl_after_stakes_usd": -13.85,
+    "operating_costs": "unknown",
+    "claim": "Selected adverse sample, not overall performance or independent per-ticket observations"
+  },
+  "missing_settlement_archives": [
+    "data/nhl_settlement/sources/7f7e94b305d7f15bb0bd57e04374c0774954b13fcfcc5dfe37f6228d43b0a83b.json",
+    "data/nhl_settlement/sources/e096e864b60af3bd354cedb4ffe864115606a201ae57d69e317a5bb6f5d0b837.json"
+  ],
+  "model_fit_or_promotion": false,
+  "independent_review": "pending controller",
+  "live_publication_verification": "pending trusted root; not authorized in this workspace",
+  "validation_logs": {
+    "docs/E514CB13F60_targeted_validation.txt": "a9b0fc4c52c31f9ba7283477afe7ed74e85083004f9e6814aa0515355cbfbbc3",
+    "docs/E514CB13F60_python_validation.txt": "f5ed054247bfc971e0f1dd7362ec5aefeaa7f4a407ac27beab39c2a6103bd138",
+    "docs/E514CB13F60_dom_validation.txt": "7860645d60905a268ba5ba95321ec03269e2dc354bb84e0a1b37c6bb92957bf8"
+  },
+  "helper_reviews": []
+}

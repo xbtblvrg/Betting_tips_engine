@@ -11,10 +11,12 @@ from .domain import utcnow
 BASE='https://odds-data.stake.com'
 COLLEGE=('NCAAF','NCAAM','NCAAW')
 SPORTS={'NBA':'basketball','WNBA':'basketball','MLB':'baseball','NHL':'ice-hockey','NFL':'american-football',
-        'NCAAF':'american-football','NCAAM':'basketball','NCAAW':'basketball','MLS':'soccer'}
-TOURNAMENTS={'NBA':'nba','WNBA':'wnba','MLB':'mlb','NHL':'nhl','NFL':'nfl','MLS':'major-league-soccer'}
+        'NCAAF':'american-football','NCAAM':'basketball','NCAAW':'basketball','MLS':'soccer','EPL':'soccer','UCL':'soccer',
+        'ATP':'tennis','WTA':'tennis'}
+TOURNAMENTS={'NBA':'nba','WNBA':'wnba','MLB':'mlb','NHL':'nhl','NFL':'nfl','MLS':'major-league-soccer','EPL':'premier-league','UCL':'uefa-champions-league'}
+TOURNAMENT_CATEGORIES={'EPL':'england','UCL':'international-clubs'}
 # Exact observed official tournament aliases; never substring-match NBA esports.
-TOURNAMENT_ALIASES={('basketball','nba-preseason'):'NBA'}
+TOURNAMENT_ALIASES={('basketball','nba-preseason'):'NBA',('soccer','premier-league'):'EPL',('soccer','uefa-champions-league'):'UCL'}
 ALL_LEAGUES=tuple(SPORTS)
 
 def meta_ref(meta):
@@ -41,6 +43,13 @@ def college_league(sport,t):
     # not opt it into a different sport's probability or settlement model.
     return 'NCAA_'+sport.upper().replace('-','_')+('_WOMEN' if re.search(r'\bwomen(?:s)?\b',text) else '')
 
+def tennis_league(sport, t):
+    if sport != 'tennis': return None
+    text = (str(t.get('name', '')) + ' ' + str(t.get('slug', '')) + ' ' + str(t.get('category', ''))).lower()
+    if 'wta' in text or 'women' in text: return 'WTA'
+    if 'challenger' in text or 'itf' in text: return None  # Fully quarantined: no fixtures or bets generated
+    return 'ATP'
+
 def tournaments(fetcher):
     result={l:[] for l in ALL_LEAGUES};issues=[];sources=[];available=set()
     sports=set(SPORTS.values())
@@ -53,6 +62,32 @@ def tournaments(fetcher):
     except Exception as e:issues.append({'league':'NCAA_DISCOVERY','reason':'stake_sports_registry_error','detail':str(e)[:300]})
     def fetch(sport):
         refs=[]
+        if sport == 'tennis':
+            t_rows = []
+            for cat in ('atp', 'wta', 'challenger'):
+                url = f'{BASE}/sports/tennis/{cat}/tournaments'
+                try:
+                    j, m = archived_json(fetcher, url, 900)
+                    if isinstance(j.get('tournaments'), list):
+                        for row in j['tournaments']:
+                            t_rows.append({**row, 'category': cat})
+                        refs.append(meta_ref(m))
+                except Exception:
+                    pass
+            return sport, t_rows, refs, None
+        if sport == 'soccer':
+            t_rows = []
+            for cat in ('usa', 'england', 'international-clubs'):
+                url = f'{BASE}/sports/soccer/{cat}/tournaments'
+                try:
+                    j, m = archived_json(fetcher, url, 900)
+                    if isinstance(j.get('tournaments'), list):
+                        for row in j['tournaments']:
+                            t_rows.append({**row, 'category': cat})
+                        refs.append(meta_ref(m))
+                except Exception:
+                    pass
+            return sport, t_rows, refs, None
         # Core USA endpoints are known. Other sports first need a verified USA
         # category; a network error must never be reported as no NCAA offering.
         if sport not in SPORTS.values():
@@ -76,17 +111,23 @@ def tournaments(fetcher):
         available.update(l for l,s in SPORTS.items() if s==sport)
         for t in rows:
             if not t.get('enabled'):continue
-            league=college_league(sport,t) or TOURNAMENT_ALIASES.get((sport,t.get('slug'))) or next((l for l,s in TOURNAMENTS.items() if SPORTS[l]==sport and s==t.get('slug')),None)
+            t_text = (str(t.get('name', '')) + ' ' + str(t.get('slug', '')) + ' ' + str(t.get('category', ''))).lower()
+            if any(term in t_text for term in ('esport', 'cyber', 'simulated', 'srl', 'virtual', 'interactive', '2k', 'ea-sports', 'fifa')):
+                continue
+            league=college_league(sport,t) or tennis_league(sport,t) or TOURNAMENT_ALIASES.get((sport,t.get('slug'))) or next((l for l,s in TOURNAMENTS.items() if SPORTS[l]==sport and s==t.get('slug')),None)
             if league:
                 slug=t.get('slug','')
-                if not re.fullmatch(r'[a-z0-9-]+',slug):continue
-                result.setdefault(league,[]).append({**t,'sport':sport,'category':'usa','league_path':f'{sport}/usa/{slug}'})
+                cat=t.get('category') or TOURNAMENT_CATEGORIES.get(league, 'usa')
+                result.setdefault(league,[]).append({**t,'sport':sport,'category':cat,'league_path':f'{sport}/{cat}/{slug}'})
                 available.add(league)
     return result,available,sources,issues
 
 def _fixture(row):
     if not isinstance(row,dict) or not row.get('id') or not row.get('slug'):raise ValueError('Invalid fixture identity')
     if not re.fullmatch(r'[a-zA-Z0-9-]+',row['slug']):raise ValueError('Invalid fixture slug')
+    fix_text = (str(row.get('slug', '')) + ' ' + str(row.get('name', ''))).lower()
+    if any(term in fix_text for term in ('esport', 'cyber', 'simulated', 'srl', 'virtual', 'interactive', '2k', 'fifa')):
+        raise ValueError('Simulated/eSports fixture quarantined')
     stamp=row.get('date',row.get('startTime'))
     datetime.fromtimestamp(float(stamp)/1000,timezone.utc)
     return {**row,'date':stamp}
@@ -95,16 +136,28 @@ def _title_teams(name):
     parts=tuple(x.strip().casefold() for x in re.split(r'\s+[-–—]\s+',str(name or '')))
     return parts if len(parts)==2 and all(parts) else ()
 
+def _is_bracket_placeholder(name):
+    text = str(name or '').lower()
+    return bool(re.search(r'\b(?:r\d+p\d+|qf\d*|sf\d*|wqf\d*|tbd|tba|qualifier|finalist|semi-?finalist|quarter-?finalist|winner\s+(?:match\s*)?\d+|seed\s*\d+|bracket\s*\d*|round\s*of\s*\d+)\b', text) or any(k in text for k in ('r16p', 'r64p', 'r32p', 'r128p')))
+
+
 def _seed_team(name):
-    match=re.fullmatch(r'(?:al|nl)\s+(?:seed\s+[1-6]|([1-6])/([1-6]))',name,re.I)
-    return bool(match and (match.group(1) is None or match.group(1)!=match.group(2)))
+    clean = str(name or '').strip()
+    match=re.fullmatch(r'(?:al|nl)\s+(?:seed\s+[1-6]|([1-6])/([1-6]))',clean,re.I)
+    if bool(match and (match.group(1) is None or match.group(1)!=match.group(2))):
+        return True
+    if re.fullmatch(r'(?:qf|sf|f|r|wqf)\d*|tbd|tba|qualifier(?:\s*\d+)?|finalist(?:\s*\d+)?|winner\s+(?:match\s*)?\d+|seed\s*\d+', clean, re.I):
+        return True
+    return False
 
 def seed_title(name):
-    """Recognize observed MLB seed slots without assigning them a team."""
-    return any(_seed_team(part) for part in _title_teams(name))
+    """Recognize observed MLB and bracket seed slots without assigning them a team."""
+    return _is_bracket_placeholder(name) or any(_seed_team(part) for part in _title_teams(name))
 
-def _seed_titles_compatible(*names):
-    pairs=[_title_teams(name) for name in names]
+def _seed_titles_compatible(old_name, r_name):
+    if _is_bracket_placeholder(old_name) != _is_bracket_placeholder(r_name):
+        return True
+    pairs=[_title_teams(name) for name in (old_name, r_name)]
     if not all(pairs) or not any(_seed_team(part) for pair in pairs for part in pair):return False
     complete={tuple(sorted(pair)) for pair in pairs if not any(_seed_team(part) for part in pair)}
     known={part for pair in pairs for part in pair if not _seed_team(part)}
@@ -114,10 +167,12 @@ def _seed_titles_compatible(*names):
 
 def league_fixtures(fetcher,league,registry=None):
     """Union schedule and tournament fixture list; conflicts remain blocked."""
-    registry=registry if registry is not None else [{'slug':TOURNAMENTS[league],'sport':SPORTS[league],'league_path':f'{SPORTS[league]}/usa/{TOURNAMENTS[league]}'}]
+    cat=TOURNAMENT_CATEGORIES.get(league, 'usa')
+    registry=registry if registry is not None else [{'slug':TOURNAMENTS[league],'sport':SPORTS[league],'category':cat,'league_path':f'{SPORTS[league]}/{cat}/{TOURNAMENTS[league]}'}]
     merged={};sources=[];issues=[];success=0
     for t in registry:
-        urls=[f'{BASE}/schedule/sport/{t["sport"]}/usa/tournament/{t["slug"]}',f'{BASE}/sports/{t["sport"]}/usa/{t["slug"]}/fixtures']
+        category=t.get('category') or cat
+        urls=[f'{BASE}/schedule/sport/{t["sport"]}/{category}/tournament/{t["slug"]}',f'{BASE}/sports/{t["sport"]}/{category}/{t["slug"]}/fixtures']
         for url in urls:
             try:
                 j,m=archived_json(fetcher,url,60)
@@ -138,9 +193,12 @@ def league_fixtures(fetcher,league,registry=None):
                         # the exact start. Retain the discrepancy and require the
                         # latter endpoints plus an independent sports-game join.
                         different_names=old.get('name')!=r.get('name')
-                        seed_resolution=league=='MLB' and different_names and _seed_titles_compatible(old.get('name'),r.get('name'))
+                        seed_resolution=league in ('MLB', 'ATP', 'WTA') and different_names and _seed_titles_compatible(old.get('name'),r.get('name'))
                         conflict=old['slug']!=r['slug'] or (different_names and not seed_resolution) or abs(delta)>3600000
-                        if seed_resolution:r['seed_name_resolution_required']={'schedule_name':old.get('name'),'fixture_name':r.get('name')}
+                        if seed_resolution:
+                            real_name = r.get('name') if not seed_title(r.get('name')) else old.get('name')
+                            r['name'] = real_name
+                            r['seed_name_resolution_required']={'schedule_name':old.get('name'),'fixture_name':r.get('name')}
                         r['schedule_sources']=old['schedule_sources']+r['schedule_sources']
                         if delta:r['schedule_time_comparison']={'schedule_date':old['date'],'fixture_start':r['date'],'difference_seconds':delta/1000,'chosen':'fixture_list_startTime'}
                         r['identity_conflict']=old.get('identity_conflict',False) or conflict
@@ -177,6 +235,27 @@ def market_keys(payload):
     swish={(str(section),str(r.get('id')),str(r.get('marketName'))) for section,rows in (payload.get('swishMarkets') or {}).items() if isinstance(rows,list) for r in rows if isinstance(r,dict)}
     return standard|swish
 
+def _normalize_name_tokens(name: str):
+    return {w for w in re.findall(r'[a-zA-Z]{2,}', name.lower())}
+
+def _player_names_match(a: str, b: str):
+    if a.strip().casefold() == b.strip().casefold():
+        return True
+    toks_a = _normalize_name_tokens(a)
+    toks_b = _normalize_name_tokens(b)
+    if not toks_a or not toks_b:
+        return False
+    intersect = toks_a & toks_b
+    longest_common = max((len(t) for t in intersect), default=0)
+    return longest_common >= 4 or len(intersect) >= min(len(toks_a), len(toks_b))
+
+def _pair_matches(expected_pair, outcome_pair):
+    if len(expected_pair) != 2 or len(outcome_pair) != 2:
+        return False
+    t1, t2 = expected_pair
+    o1, o2 = outcome_pair
+    return (_player_names_match(t1, o1) and _player_names_match(t2, o2)) or (_player_names_match(t1, o2) and _player_names_match(t2, o1))
+
 def fixture_bundle(fetcher,fixture):
     responses={};errors=[]
     for endpoint in ('fixtures','odds'):
@@ -197,9 +276,14 @@ def fixture_bundle(fetcher,fixture):
         titles=[n for n in resolution.values() if not seed_title(n)]
         expected={tuple(sorted(_title_teams(n))) for n in titles}
         pairs={tuple(sorted(str(o.get('name','')).strip().casefold() for o in r['outcomes']))
-               for _,r in market_records(payload) if r.get('name')=='Winner (Incl. Extra Innings)' and r.get('status') in (None,'active')
+               for _,r in market_records(payload) if r.get('name') in ('Winner (Incl. Extra Innings)', 'Winner', 'Match Winner') and r.get('status') in (None,'active')
                and len(r.get('outcomes') or [])==2 and all(o.get('active') is True and o.get('status') in (None,'active') for o in r['outcomes'])}
-        identity_verified=(_seed_titles_compatible(*resolution.values()) and len(expected)==1 and pairs==expected
+        pair_match = pairs == expected or (len(expected) == 1 and bool(pairs) and all(_pair_matches(next(iter(expected)), p) for p in pairs))
+        if not expected and len(pairs) == 1:
+            p = next(iter(pairs))
+            if len(p) == 2 and p[0] != p[1] and not any(_is_bracket_placeholder(x) for x in p):
+                pair_match = True
+        identity_verified=(_seed_titles_compatible(*resolution.values()) and (len(expected)<=1) and pair_match
                            and all(len(pair)==2 and pair[0]!=pair[1] for pair in pairs))
         if not identity_verified:errors.append({'reason':'stake_seed_identity_unresolved','detail':'Schedule placeholders and named fixture require a matching active full-game Winner pair.'})
     if not identity.get('enabled') or not identity.get('preMatchEnabled') or identity.get('status') not in (None,'active') or identity.get('blacklisted'):

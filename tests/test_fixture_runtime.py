@@ -5,7 +5,7 @@ import tarfile
 
 import pytest
 
-from tests.fixture_runtime import extract_public_inputs
+from fixture_runtime import extract_public_inputs
 
 
 def fixture(tmp_path, name='public/source.json'):

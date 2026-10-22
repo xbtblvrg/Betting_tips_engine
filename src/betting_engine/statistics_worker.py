@@ -43,7 +43,7 @@ class _StatisticsKeyRenderer(DashboardRenderer):
 
 class StatisticsRenderer:
     """Bounded, concurrent per-cohort builds; never a completed-response cache."""
-    def __init__(self,timeout=10.,max_waiters=12,max_children=3):
+    def __init__(self,timeout=30.,max_waiters=12,max_children=3):
         if (isinstance(timeout,bool) or not isinstance(timeout,(int,float)) or
                 not math.isfinite(timeout) or timeout<=0):
             raise ValueError('Statistics timeout must be finite and positive')

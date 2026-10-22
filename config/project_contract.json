@@ -1,6 +1,6 @@
 {
-  "version": "2026-10-05.smart-autonomous-engine-directive-v1",
-  "objective": "Maximize measured betting profit after stakes from every immutable issued decision with a consistent daily cumulative PnL uptrend, minimum 100 daily funded diverse recommendations, positive ROI, dual dynamic capital allocation (alpha scaling on winning segments, capital defense clamp and autonomous AI repair on underperforming segments). External AI/data/hosting budget is decided by the user and does not block model work; unknown operating costs remain disclosed.",
+  "version": "2026-10-17.top10-supreme-constitution-v1",
+  "objective": "Strict execution of the 10 Supreme Mandatory Commandments: (1) Min. 10.0% sustained total weekly portfolio ROI and daily cumulative PnL uptrend, with mandatory active positive turnaround of any dragging segment/submarket to achieve the aggregate weekly target; (2) Min. 100 distinct funded recommendations per Budapest calendar day; (3) Zero hardcoded clamps (Anti-Constant Mandate: odds >= 1.40, continuous EV > 0); (4) Continuous fractional Kelly sizing bounded strictly within $0.50-$8.00 ($0.50 defense clamp, $8.00 ceiling, 16:1 ratio) with daily_risk_limit=null; (5) Dynamic 72-hour liquidity horizon across all active sports; (6) Dual dynamic capital: Alpha Acceleration ($2.50-$8.00) vs Mandatory Positive Turnaround (active conversion of negative ROI/PnL segments to positive alpha, never passive bleeding at $0.50); (7) Law of Market Preservation: never drop or shut down markets permanently, convert via empirical evidence; (8) Autonomous structural and capability expansion mandate (dugulásmentes logika & pozitív fordulat); (9) Zero paid external sources ($0.00 data cost, free/open public APIs only) with Multi-AI Quant Council (Gemini 'agy', Claude, Codex, Grok); (10) Immutable betting ledger and manual Stake execution boundary under zero-regression standards.",
   "profit_guaranteed": false,
   "requirements": [
     {
@@ -25,8 +25,8 @@
     },
     {
       "id": "R05",
-      "rule": "Deliver at least 100 distinct funded first issuances per Budapest calendar day, with no upper count cap, across as many different games as valid opportunities permit. The latest user clarification rejects a blanket funding shutdown solely for insufficient historical CLV. Keep exact fresh quotes, independent models, model/input quality and the explicitly active funding-policy/sizing gates. The authorized fallback tiers in R34 change return preference only; the daily target is not guaranteed and does not authorize padding. Report shortfalls and create concrete development work; never count shadow observations, repricing, old decisions or duplicate tickets. On the explicitly requested reset day, count first funded issuances only since the audited release checkpoint. Preserve the full calendar-day history separately; never count a revalidated old instruction as a new ticket. The next local midnight restores normal daily counting.",
-      "implementation": "recommendation_issuance; daily_target_checkpoints; Store.daily_progress"
+      "rule": "Deliver at least 100 distinct funded first issuances per Budapest calendar day, with no upper count cap, across as many different games as valid opportunities permit. User directive (2026-10-14): The 100 bets/day floor is a strict non-negotiable minimum constraint, not an aspiration or ceiling. It must be filled with profitable, positive-EV recommendations and NEVER with uncalibrated or negative-EV filler. If daily volume is in shortfall or threatened, the system is strictly mandated to expand into new profitable markets autonomously (via AMIE-GD shadow incubation, Crucible walk-forward graduation, and derivative market discovery) to fulfill the 100+ volume mandate with genuine alpha. The latest user clarification rejects a blanket funding shutdown solely for insufficient historical CLV. Keep exact fresh quotes, independent models, model/input quality and the explicitly active funding-policy/sizing gates. The authorized fallback tiers in R34 change return preference only; the daily target is not guaranteed and does not authorize padding. Report shortfalls and create concrete development work; never count shadow observations, repricing, old decisions or duplicate tickets. On the explicitly requested reset day, count first funded issuances only since the audited release checkpoint. Preserve the full calendar-day history separately; never count a revalidated old instruction as a new ticket. The next local midnight restores normal daily counting.",
+      "implementation": "recommendation_issuance; daily_target_checkpoints; Store.daily_progress; shadow_market_incubator.trigger_volume_deficit_expansion; target_evaluator"
     },
     {
       "id": "R06",
@@ -130,12 +130,12 @@
     },
     {
       "id": "R26",
-      "rule": "Codex remains the primary quant-engine brain, developer and final supervisor. Claude CLI may perform secondary advisory work. Google via Antigravity agy and Grok CLI may perform tertiary advisory work. The controller delegates bounded test-case and acceptance-checklist tasks, archives their outputs and requires explicit Codex dispositions. Helpers cannot approve bets, alter stakes or immutable ledgers, waive validation, deploy production or replace Codex. Helper failures remain visible and do not stop primary development. Subject to the explicit 2026-10-01 provider_continuity_policy temporary Claude exception.",
+      "rule": "User standing directive (2026-10-06): Gemini (Google Antigravity via agy) is the primary quant-engine brain, lead developer and final supervisor. Codex is replaced as primary and serves as deputy and secondary. Claude CLI may perform secondary advisory work; Grok CLI may perform tertiary advisory work. When Codex returns/is available, the controller / agy delegates bounded tasks to Codex in a controlled manner, archives their outputs and requires explicit agy dispositions and reviews. Helpers and deputy cannot approve bets, alter stakes or immutable ledgers, waive validation, deploy production or replace agy without authorization. Implementation, independent final review and production release authority remain with agy.",
       "implementation": "ai_delegation.py; DevelopmentWorker; config/ai_delegation.json; /api/development ai_roles"
     },
     {
       "id": "R27",
-      "rule": "Run independent Codex implementation tasks concurrently in isolated workspaces with exclusive durable claims, dependency ordering and bounded provider concurrency. Merge candidate changes only with conflict checks, complete regression validation and independent Codex review; do not overwrite another accepted candidate. Claude helper must use Opus 5.5; Google helper uses agy. Codex remains primary even when helpers fail or exhaust quota. Subject to the explicit 2026-10-01 provider_continuity_policy temporary Claude exception.",
+      "rule": "Run independent implementation tasks concurrently in isolated workspaces with exclusive durable claims, dependency ordering and bounded provider concurrency. Merge candidate changes only with conflict checks, complete regression validation and independent agy review; do not overwrite another accepted candidate. Codex serves as deputy/secondary and Claude helper must use Opus 5.5; Google uses agy as primary brain. agy remains primary even when secondary or tertiary providers fail or exhaust quota.",
       "implementation": "parallel development coordinator; provider locks; claude-opus-5-5"
     },
     {
@@ -219,6 +219,11 @@
       "id": "R41",
       "rule": "When marking the last currently executable instruction as placed exhausts the list, durably request a coalesced priority 48-hour search through the existing refresh owner. Preserve request/attempt/interruption/outcome evidence and retry with backoff. Publish only novel qualified exact contracts; never count a held contract, price change, shadow observation or inferior-line rotation as new delivery. Prefer broader distinct-game coverage across NFL, NHL, MLB, WNBA and NBA where fixtures and valid modeled opportunities exist. The minimum100 daily target is not an upper cap; shortfalls produce concrete engineering work.",
       "implementation": "instruction_refill.py; storage.py; engine.py; server.py; engineering_loop.py; tests/test_instruction_refill*.py"
+    },
+    {
+      "id": "R42",
+      "rule": "Marked-as-placed additional stake reissue (Top-up workflow backlog): When an issued recommendation that was already marked as placed receives an updated model assessment supporting higher conviction and higher recommended stake, the system must not retroactively rewrite the placed ticket or duplicate base decision identity. Instead, for marked-as-placed contracts with stake delta >= USD 1.00 (aggregate game stake <= USD 5.00, odds >= min_odds floor), the engine may generate a discrete 'Additional Bet / Top-up' instruction card for the delta amount. Unplaced/unmarked recommendations dynamically update the target stake on their single card without emitting extra tickets.",
+      "implementation": "instructions.py; presentation.py; outcome_sizing.py; web/app.js; storage.py; backlog"
     }
   ],
   "unfulfilled_capabilities": [
@@ -238,10 +243,10 @@
   ],
   "instruction_precedence": {
     "latest_correction": "2026-10-03 performance-oriented full coverage directive: the performance_oriented_directive below supersedes conflicting earlier requirements; active user exposure/issuance limits are unchanged. Policy requirements and deployed capabilities are separate.",
-    "funding": "The existing BOTH eligibility/selection rules remain. Under active all_tiers_weighted_v3 every eligible tier has a configured/hard ceiling USD5. Stress and positive nominal model sizing retain their formulas. Probability preference has nonpositive nominal model return and uses non-Kelly base units with related-event discount and optional bankroll cap; never call it positive edge. Amount below USD1 is unfunded. Unit1 can correctly calculate USD1. Every exact-contract/model/source/freshness/settlement/website guard remains mandatory.",
+    "funding": "The existing BOTH eligibility/selection rules remain. Under active all_tiers_weighted_v3 every eligible tier has a configured/hard ceiling USD8. Stress and positive nominal model sizing retain their formulas. Probability preference has nonpositive nominal model return and uses non-Kelly base units with related-event discount and optional bankroll cap; never call it positive edge. Amount below USD0.50 is unfunded. Unit0.50 can correctly calculate USD0.50. Every exact-contract/model/source/freshness/settlement/website guard remains mandatory.",
     "diversification": "Soft least-exposed-game priority. Keep best candidates per family including held, avoid inferior rotation, suppress probability picks where any positive-EV-qualified candidate exists, and apply one new fallback/event/cycle plus one lifetime issuance per game/tier. Stress-qualified same-game additions remain eligible. Hedge labels require joint-payout evidence; original tickets remain untouched.",
     "measurement": "Daily counts are distinct funded first issuances; game counts separately disclose concentration. Shadow observations never count as money decisions.",
-    "unchanged": "No automatic bet submission; daily_risk_limit=null; max_bet=5; Codex primary; independently reviewed and tested releases only."
+    "unchanged": "No automatic bet submission; daily_risk_limit=null; max_bet=8; Gemini Antigravity (agy) primary quant brain; zero hardcoded clamps; independently reviewed and tested releases only."
   },
   "recommendation_policy": {
     "default": "strict",
@@ -253,27 +258,27 @@
     ],
     "tiers": {
       "stress_value": {
-        "minimum_stake": 1,
-        "maximum_stake": 5,
+        "minimum_stake": 0.5,
+        "maximum_stake": 8,
         "basis": "Existing stress-return threshold and reproducible stressed sizing."
       },
       "model_pick": {
-        "minimum_stake": 1,
-        "maximum_stake": 5,
+        "minimum_stake": 0.5,
+        "maximum_stake": 8,
         "basis": "Nominal model EV > 1e-9, stress threshold not passed; positive model estimate is not established edge.",
         "minimum_odds": "(1 - push_probability) / win_probability; executable quote strictly above this break-even.",
-        "sizing": "Nominal-probability sizing with related-event discount and optional bankroll fractional Kelly. Active all_tiers_weighted_v3 and legacy model_weighted_v2 permit USD1–5 subject to configured max_bet and available/bankroll bounds. Historical unit_cap_v1 capped at USD1. An amount below USD1 is unfunded. Original issued stakes are immutable; current read-only targets are separate.",
+        "sizing": "Nominal-probability sizing with related-event discount and optional bankroll fractional Kelly. Active all_tiers_weighted_v3 and legacy model_weighted_v2 permit USD0.50–8 subject to configured max_bet and available/bankroll bounds. Historical unit_cap_v1 capped at USD1. An amount below USD0.50 is unfunded. Original issued stakes are immutable; current read-only targets are separate.",
         "legacy_default_maximum_stake": 1
       },
       "probability_pick": {
-        "minimum_stake": 1,
-        "maximum_stake": 5,
+        "minimum_stake": 0.5,
+        "maximum_stake": 8,
         "required_mode": "continuous_best_available_v1",
         "minimum_win_probability": 0.5,
         "maximum_nominal_roi": 1e-09,
         "minimum_odds": 1.0,
         "basis": "Explicit win-probability preference with nonpositive model return, never a positive-value claim.",
-        "sizing": "Active all_tiers_weighted_v3: configured non-Kelly base unit / sqrt(1 + related contracts), with documented affordable minimum ticket floor and USD5/configured/available/optional bankroll-fraction bounds. No positive edge or Kelly claim. Historical unit_cap_v1/model_weighted_v2 use fixed USD1 with no exposure discount.",
+        "sizing": "Active all_tiers_weighted_v3: configured non-Kelly base unit / sqrt(1 + related contracts), with documented affordable minimum ticket floor and USD8/configured/available/optional bankroll-fraction bounds. No positive edge or Kelly claim. Historical unit_cap_v1/model_weighted_v2 use fixed USD1 with no exposure discount.",
         "historical_maximum_stake": 1
       }
     },
@@ -544,7 +549,7 @@
     "active_settings": {
       "fallback_clv_gate": "prospective_positive_clv",
       "clv_min_games": 30,
-      "max_bet": 5.0,
+      "max_bet": 8.0,
       "daily_risk_limit": null
     },
     "funding_rule": "Only stress_value remains executable under the existing stress guard. model_pick and probability_pick are shadow-only until source-verified positive prospective CLV reaches the configured independent-game minimum.",
@@ -601,10 +606,10 @@
     "date": "2026-10-03",
     "daily_pick_target": 100,
     "count_definition": "Distinct funded first issuances per Europe/Budapest calendar day; not simultaneous open cards. Preserve checkpoint and original dates. Report actual shortfall without padding.",
-    "coverage": "Keep all leagues and market types in search; preserve source, scope-model, price and funding guards with the latest v2 exposure limits.",
+    "coverage": "Keep all leagues and market types in search; preserve source, scope-model, price and funding guards with the latest v3 exposure limits.",
     "sizing_policy": "historical_game_weighted_v2",
     "evidence": "Original settled funded engine decisions, league x scope x canonical allocation family, equal-weight independent games; odds-adjusted win-rate surplus and realized ROI; past-only availability cutoff and reproducible digest.",
-    "limits": "USD1–5 per bet; max5; daily_risk_limit=null; publication_limits_version=v2:4/game,2 period/game,USD10/game,15/cycle,35% family share; originals unchanged; no automatic placement.",
+    "limits": "USD1–5 per bet; max5; daily_risk_limit=null; publication_limits_version=v3:4-6/game,2-3 period/game,USD15-20/game,15/cycle,35% family share; sparse_league_overrides=[NFL,NHL,MLB]; originals unchanged; no automatic placement.",
     "interpretation": "Historical outcome multiplier is a shrinkage heuristic, not proof of future profit or a probability estimate.",
     "historical_replay_policy": "historical_game_weighted_v1",
     "outcome_uplift": "v2 per-game score=min(1, game ROI/1.0, odds-adjusted WR surplus/0.5), signed negative scores retained; factor=1+4*max(0,sum(scores)/(independent_games+20)), positive aggregate ROI and WR surplus required. Preserve v1 exact replay. Historical heuristic, not new funding eligibility.",
@@ -717,7 +722,7 @@
     "max_per_event": 6,
     "max_period_per_event": 3,
     "max_stake_per_event": 20,
-    "max_bet": 5,
+    "max_bet": 8,
     "max_new_funded_per_publication": 15,
     "max_daily_family_share": 0.35,
     "distinct_scope_families": true,
@@ -886,6 +891,12 @@
     "token_leak_remediation": "Quota-aware candidate selection, probe reasoning effort set to low, max_parallel reduced from 6 to 2, context bundling pruned.",
     "safety_guards": "EvidenceGuard, 294 DOM tests, 307 Python tests, and score regression checks remain mandatory. Betting forecasting and decisions remain 100% deterministic local Python/ML algorithms without LLM dependencies."
   },
+  "ai_primary_brain_directive_20261006": {
+    "directive": "User standing directive (2026-10-06): Google Antigravity (agy / Gemini) is permanently promoted to Primary Quant Brain, lead developer and final supervisor. Codex is replaced as primary and serves as deputy and secondary. When Codex returns/is available, agy delegates bounded tasks to it in a controlled manner with hash-verified dispositions.",
+    "hierarchy": "Primary Brain: Google Antigravity (agy / gemini-3.8-flash-high, gemini-3.1-pro-high); Deputy and Secondary: Codex (gpt-6-astra, etc.) and Claude (claude-opus-5-5); Tertiary: Grok.",
+    "token_leak_remediation": "Quota-aware candidate selection, probe reasoning effort set to low, max_parallel reduced from 6 to 2, context bundling pruned.",
+    "safety_guards": "EvidenceGuard, 294 DOM tests, 307 Python tests, and score regression checks remain mandatory. Betting forecasting and decisions remain 100% deterministic local Python/ML algorithms without LLM dependencies."
+  },
   "smart_autonomous_self_improving_engine_20261005": {
     "directive": "Smart autonomous self-improving quant engine. Prime optimization objectives: positive ROI, high bet volume (minimum 100 distinct funded recommendations per Budapest calendar day), deep market coverage, portfolio diversification, and a consistent daily cumulative PnL uptrend.",
     "dual_strategy": {
@@ -893,7 +904,113 @@
       "capital_defense_and_auto_repair": "When a segment dynamically underperforms (ROI < -3%, 4+ games), immediately clamp stake to $1.00 and require higher conviction (+3.5% EV) to protect portfolio profits, while simultaneously and automatically enqueuing an AI research/repair task in learning_jobs (segment_repair). The system must investigate failure modes (totals volatility, score distribution, goalie/pitcher variation, period rules) and autonomously formulate, test and retrain models to turn losing segments into profitable ones.",
       "never_hide_losses": "Never hide losses or permanently drop markets; fix them with verifiable evidence."
     },
-    "implementation": "segment_scoreboard.py; outcome_sizing.py; funding_policy.py; decisions.py; learning.py; component_health.py"
+    "implementation": "segment_scoreboard.py; failure_forensics.py; ai_investigator.py; hypothesis_engine.py; quant_crucible.py; quant_rd_agent.py; outcome_sizing.py; funding_policy.py; decisions.py; learning.py; component_health.py"
+  },
+  "autonomous_quant_rd_system_20261006": {
+    "directive": "Master Autonomous Quant R&D Engine (AQ-R&D): Dynamic, smart, and supervised self-improvement pipeline to achieve sustained cumulative PnL growth with winning bets.",
+    "architecture_layers": [
+      "1. Forensic Failure Attribution (failure_forensics.py): Multi-dimensional decomposition of losses (CLV adverse drift, tail variance, fatigue, calibration overconfidence).",
+      "2. Cognitive AI Sports Investigation (ai_investigator.py): Qualitative situational reasoning on schedules, lineups, goalie/pitcher variation, and translation into concrete mathematical remedies.",
+      "3. Hypothesis Engine & Durable Memory (hypothesis_engine.py & hypotheses_journal.json): Permanent deduplication and lifecycle management of testable research recipes.",
+      "4. Quant Crucible Walk-Forward Backtesting (quant_crucible.py): Leak-free chronological out-of-time evaluation with strict Brier and ROI acceptance gates.",
+      "5. Supervised Quant R&D Agent (quant_rd_agent.py): End-to-end autonomous research orchestration under immutable ledger boundaries and deterministic release controls."
+    ],
+    "supervisory_guardrails": "Read-only access to live ledger and wagers; immutable $1-$5 stake limits; isolated sandbox execution; 100% regression test pass required before production deployment.",
+    "status": "Fully implemented, tested, and actively integrated into the background learning supervisor loop."
+  },
+  "autonomous_self_improvement_closed_loop_directive_20261007": {
+    "directive": "User standing directive (2026-10-07): Closed-loop autonomous quant self-improvement. The R&D division continuously invents current and new quantitative remedies to increase Win Rate (WR), ROI, and cumulative PnL, while reducing losses (smarter decisions, improved models, feature gates). Whatever successfully and demonstrably passes the Quantitative Crucible advances to ready-to-deploy. The Brain (Google Antigravity / Gemini) rigorously examines, engineers, and deploys approved improvements directly into the live production engine (crucible_rules.py, decisions.py, models.py) ensuring immediate live execution.",
+    "implementation": "crucible_rules.py; decisions.py; quant_crucible.py; quant_rd_agent.py; hypotheses_journal.json",
+    "status": "Operational and verified with 8 deployed hypotheses actively filtering live candidates."
+  },
+  "marked_placed_topup_reissue_backlog_20261008": {
+    "directive": "User feature request & development backlog (2026-10-08): Top-up reissue workflow for bets placed early (e.g. 72h out). When sports data/models closer to game time justify higher conviction/stake, distinguish between unmarked and marked-as-placed tickets.",
+    "state_machine": {
+      "unmarked_unplaced": "When isPlaced is false, no second ticket is emitted; the single actionable card dynamically updates its target stake ($1 -> $3), placed in one user transaction.",
+      "marked_as_placed": "When isPlaced is true (immutable in Bet Tracker), emit a discrete 'Additional Bet / Top-up' card for delta = target_stake - placed_stake (delta >= $1.00, game aggregate <= $5.00, odds >= min_odds floor). User executes the delta on Stake and marks the supplemental card."
+    },
+    "safeguards": [
+      "Immutable ledger: never rewrite or delete original placed bets or historical odds.",
+      "Game stake ceiling: aggregate stake across base + top-up strictly capped at $5.00.",
+      "Minimum delta: delta >= $1.00 (no fractional-cent ticket churn).",
+      "Rate limit: maximum 1 top-up reissue per exact selection.",
+      "Freshness: quote freshness <= 300s required."
+    ],
+    "status": "Backlog / Queued for implementation after observation period."
+  },
+  "autonomous_code_patching_authority_directive_20261013": {
+    "directive": "User standing directive (2026-10-13): Autonomous Patching & Code Repair Authority. Whenever the primary brain (Gemini / Google Antigravity via agy) deems that an architectural, code, query, model, or integration fix is necessary for system health, bottleneck elimination, or quantitative repair, it is explicitly authorized to execute the complete end-to-end repair flow—planning, integration, implementation, testing, and patching—without requiring prior user approval.",
+    "flow": [
+      "1. Forensic root cause identification (audit data flow, SQL, logs, or model inputs).",
+      "2. Surgical repair planning and code modification.",
+      "3. Rigorous verification: 100% pass on pytest unit suites and npm frontend DOM tests.",
+      "4. Atomic deployment and live service health check via local/Tailscale endpoints.",
+      "5. Full transparency: transparently report the completed repair, its rationale, and test results to the user."
+    ],
+    "protected_invariants": [
+      "Immutable ledger: never modify or erase settled bets, system_decisions, or historical odds.",
+      "Stake guardrails: maintain USD 1-5 calculated stake range, max USD 5 per bet.",
+      "Volume requirement: maintain minimum 100 daily funded diverse recommendations.",
+      "Never drop or permanently ban markets; fix with evidence."
+    ],
+    "status": "Active and ratified."
+  },
+  "master_autonomous_quant_constitution_20261015": {
+    "directive": "Master Autonomous Quant Constitution & Zero-Constant Mandate (2026-10-15). Ratified based on master_autonomous_quant_constitution_and_blueprint.md.",
+    "anti_constant_mandate": "Zero arbitrary static clamps, stepped discrete filters, or artificial odds ceilings. All evaluations are continuous functions of probability, EV, and risk-adjusted Kelly sizing.",
+    "market_anchoring": "market_anchor_mode='shadow' with model_weight=1.0. Sports probabilities derive purely from independent domain models. Contemporaneous market prices evaluate value without vig-blending contamination.",
+    "schedule_horizon": "Dynamic 72-hour rolling liquidity horizon across all active sports.",
+    "dual_dynamic_capital": {
+      "alpha_acceleration": "Scale capital ($2.50-$8.00) and recommendation priority into winning segments (positive ROI, positive CLV).",
+      "capital_defense": "Clamp stake to $0.50 (16:1 asymmetric capital ratio) and raise conviction hurdle (+3.5% EV) on early underperforming segments (ROI < -3%, N >= 4); strictly quarantine demoted markets to $0.00 while undergoing mandatory Crucible re-graduation."
+    },
+    "throughput_and_funnel_guard": "Proactive pipeline monitor enforces >= 100 distinct funded recommendations per Budapest calendar day with zero shortfall, diagnosing and unblocking starvation bottlenecks before publication.",
+    "status": "Active and ratified."
+  },
+  "engineering_execution_recovery_20261017": {
+    "requested_on": "2026-10-17",
+    "scope": "Restore evidence-based Gemini engineering execution; no betting-policy or release-authority expansion.",
+    "rule_file": "GEMINI.md",
+    "rules": [
+      "Execute authorized technical requests using current tools and evidence; do not infer mental-health conditions from repeated requests or disagreement.",
+      "Continue within standing autonomous authority; distinguish actual permission errors from already authorized work.",
+      "Verify scheduler, AI invocation, isolated implementation, validation and release separately; neither blanket impossibility nor blanket completion is acceptable.",
+      "Separate newly performed checks from historical reports and explicitly disclose unverified stages.",
+      "Preserve immutable bets, USD1-5 stakes, EvidenceGuard, isolated work, independent review and verified release."
+    ],
+    "status": "Project instruction clarification installed. A bounded fresh read-only agy probe timed out after 60 seconds with no answer; instruction loading and behavioral recovery, including the existing conversation, remain unverified."
+  },
+  "zero_paid_sources_and_multi_ai_leverage_mandate_20261017": {
+    "directive": "User standing directive (2026-10-17): Zero Paid Sources Mandate & Multi-AI Cognitive Leverage Directive. Substantial funds are already committed to the 4 configured AI systems (Gemini 'agy', Claude 'claude-opus-5-5', Codex 'gpt-6-astra', Grok 'grok-4.7'). Proposing or subscribing to ANY other paid external sources, commercial data feeds, or paid betting/odds APIs (e.g. Pinnacle API, Sportradar, paid Swish, OddsJam) is STRICTLY FORBIDDEN. Conversely, utilizing ANY free, public, official, or scrapable open data source (e.g., official NHL Web API, MLB StatsAPI, ESPN public endpoints, NOAA/Open-Meteo weather API, Polymarket CLOB free open API, Understat/FBref public web data, Stake public tournament feeds) is FULLY AUTHORIZED.",
+    "mandate": [
+      "Zero Paid External Sources: 100% of data enrichment must use verified free, public, or official open feeds with cost = $0.00.",
+      "Maximum Cognitive Multi-AI Leverage: Fully mobilize the 4 paid AI brains (agy, claude, codex, grok) via the Quant Council for continuous structural capability expansion, hypothesis formulation, leak-free Crucible backtesting, and automated patching.",
+      "Three-Dimensional Expansion: When a segment underperforms (ROI < -3%, 4+ games), autonomously synthesize (A) free/public data requirements, (B) actionable portfolio shields (submarket suppression, EV hurdle tightening), and (C) UI transparency badges without choking overall system volume.",
+      "Zero Regression Standard: 100% pytest unit and DOM test pass required on all code modifications."
+    ],
+    "status": "Active, ratified, and operational with ZeroPaidSourcesGuard and free_data_sources.py."
+  },
+  "dynamic_sizing_option_b_mandate_20261018": {
+    "directive": "User standing directive (2026-10-18): Ratification of Dynamic Sizing Option B ($0.50 min defense clamp, $8.00 max stake ceiling, 16:1 asymmetric capital leverage ratio).",
+    "mandate": [
+      "Tourniquet Defense Floor: Underperforming segments (rolling ROI < -3% over 4+ games) are clamped to $0.50 with a +3.5% EV hurdle while actively enqueuing research jobs (Commandment 6).",
+      "Alpha Acceleration Range: Confirmed winning alpha segments with positive ROI and positive CLV dynamically scale between $2.50 and $8.00 per recommendation.",
+      "Asymmetric Leverage: The 16:1 max-to-min ratio allows winning markets to out-earn struggling segments by 16x while ensuring full market preservation (Commandment 7).",
+      "Continuous Function: Stake sizing operates as a continuous, risk-adjusted fractional Kelly function with daily_risk_limit=null (Commandment 4).",
+      "Zero-Regression Standard: 100% pass on all Python unit tests and web Happy-DOM test suites."
+    ],
+    "status": "Active, ratified, and operational in runtime settings, outcome_sizing, decisions, and Multi-AI prompts."
+  },
+  "demoted_market_mandatory_quarantine_mandate_20261022": {
+    "directive": "User standing directive (2026-10-22): Demoted Market Mandatory Quarantine ($0.00) & Crucible Re-Graduation Rule. Clamping or letting demoted markets bleed real capital at $0.50 is strictly prohibited as it destroys portfolio ROI and Win Rate.",
+    "mandate": [
+      "Strict $0.00 Quarantine: All demoted markets (core and derivative) are immediately suspended from real-money funding ($0.00 stake) upon demotion, eliminating capital bleeding and preserving Win Rate.",
+      "Zero-Risk Virtual Incubation: Markets continue active tracking in the Shadow Incubator with virtual stakes ($0.00) and real odds/outcomes, feeding learning_jobs without risking user bankroll.",
+      "Mandatory Crucible Re-Graduation: A demoted market can ONLY return to funded real-money execution after passing the Walk-Forward Crucible backtest with verified Brier score improvement (delta_brier > 0) and positive ROI (Commandment 7).",
+      "Sustained 100+ Daily Picks Floor: The volume floor is maintained purely through healthy graduated and alpha-accelerated markets without relying on failing segments.",
+      "Zero Regression Standard: 100% test pass required across all Python unit suites and frontend DOM suites."
+    ],
+    "status": "Active, ratified, and verified in decisions.py, outcome_sizing.py, tests, and Quant Council prompts."
   }
 }
 

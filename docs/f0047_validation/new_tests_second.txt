@@ -1,0 +1,30 @@
+............................F...                                         [100%]
+=================================== FAILURES ===================================
+_ test_series_rollover_and_operator_view_keep_source_attention_and_worker_progress _
+
+tmp_path = PosixPath('/private/var/folders/bz/mmh6jc9n3db72lywcjm7qhkh0000gn/T/pytest-of-belavarga/pytest-2782/test_series_rollover_and_opera0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x107b2f950>
+
+    def test_series_rollover_and_operator_view_keep_source_attention_and_worker_progress(tmp_path, monkeypatch):
+        monkeypatch.setattr(history, "MAX_CYCLES", 2)
+        handles = {s: journal.create_journal(tmp_path.resolve(), service=s, created_at=stamp(),
+                                            checkpoint_at=stamp(1000)) for s in ("engine", "learning")}
+        store = series.create_series(tmp_path.resolve(), handles, segments=2, created_at=stamp())
+        calls = []
+        for at in (0, 60, 120):
+            series.record_cycle(store, str(at), {"engine": health(at, message='<script>alert("x")</script>'),
+                                                 "learning": None},
+                                request_restart={s: lambda name, i: calls.append((name, i)) for s in handles},
+                                clock=lambda: stamp(at))
+        status = view.inspect_status(store, as_of=stamp(120))
+        assert len(calls) == 1 and calls[0][0] == "learning"
+        assert status["attention_required"]
+        assert status["services"]["engine"]["report"]["state"] == "source_degraded"
+        assert status["history"]["cycle_count"] == 3
+>       assert status["history"]["cycles"][-1]["segment"] == 1
+E       assert 2 == 1
+
+tests/test_f0047_engine_source_supervision.py:217: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_f0047_engine_source_supervision.py::test_series_rollover_and_operator_view_keep_source_attention_and_worker_progress
+1 failed, 31 passed in 4.69s

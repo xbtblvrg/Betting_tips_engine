@@ -12,6 +12,7 @@ from datetime import timedelta
 import fcntl
 import hashlib
 import json
+import logging
 import math
 import os
 import re
@@ -28,6 +29,8 @@ from .io_utils import atomic_bytes, atomic_json
 from .development import DevelopmentWorker, tree_manifest, COPY_DIRS, COPY_FILES, PROTECTED
 from .parallel_development import _read_acceptance
 from .delivery import task_release_verified, verify_release_receipt
+
+log = logging.getLogger(__name__)
 
 VERSION = 'root-guarded-engine-release-v1'
 TERMINAL = ('installed_utility', 'rolled_back', 'blocked', 'abandoned', 'manual_attention')
@@ -1026,7 +1029,7 @@ class LiveBackend:
                 'This profile is bounded contract/evidence and decision-chain plumbing; it does not approve a new statistical model, '
                 'claim realized profit, or bypass the later live publication and ledger checks. The coordinator records those checks '
                 'after this review, so do not reject merely because the pre-deployment journal has no checks or live observation yet. '
-                'Accept only a guarded production change with no bypass of freshness, evidence, exposure or USD1-5 controls. '
+                'Accept only a guarded production change with no bypass of freshness, evidence, exposure or $0.50-$8.00 controls. '
                 'Set guarded_engine_review, production_enablement, clv_gate_unchanged, ledger_immutable and auto_betting_disabled '
                 'to true when the changed source preserves those controls; reject only a violated control, an unbounded file, '
                 'or an unapproved model/settlement activation. Fixtures do not prove realized profit or market edge.\n')
@@ -1069,6 +1072,16 @@ class LiveBackend:
 
     def pause(self, seconds):
         time.sleep(seconds)
+
+    def post_deploy_reload(self, root, installed_paths):
+        has_engine_code = any(str(p).startswith('src/betting_engine/') for p in installed_paths)
+        if has_engine_code:
+            try:
+                import os, subprocess
+                subprocess.run(['launchctl', 'kickstart', '-k', f'gui/{os.getuid()}/hu.belavarga.betting-quant-engine'],
+                               capture_output=True, timeout=15)
+            except Exception as exc:
+                log.warning('Post-deploy engine reload warning: %s', exc)
 
 
 class ReleaseCoordinator:
@@ -1602,6 +1615,8 @@ class ReleaseCoordinator:
                 atomic_bytes(target, body)
             journal.update(state='verifying', deployed_at=utcnow().isoformat()); self.write_journal(journal)
             self.set_phase('verifying')
+            if hasattr(self.backend, 'post_deploy_reload'):
+                self.backend.post_deploy_reload(self.root, [r['path'] for r in records])
             live = self.verify_live(journal, policy)
             expected = {**source_before, **{r['path']: r['after_sha256'] for r in records}}
             # production_manifest intentionally omits docs; check every installed byte separately.

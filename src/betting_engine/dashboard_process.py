@@ -19,7 +19,7 @@ import time
 
 log=logging.getLogger(__name__)
 
-MAX_RESPONSE_BYTES=64*1024*1024
+MAX_RESPONSE_BYTES=128*1024*1024
 
 class DashboardUnavailable(RuntimeError):
     pass
@@ -39,7 +39,7 @@ class DashboardRenderer:
     worker_module='betting_engine.dashboard_worker'
     worker_args=()
 
-    def __init__(self,timeout=12.,max_waiters=16):
+    def __init__(self,timeout=35.,max_waiters=16):
         self.timeout=timeout
         self.max_waiters=max_waiters
         self._task=None

@@ -46,17 +46,23 @@ def _scoped_values(specifiers, scope, line_key=None):
     values = {}
     for field in specifiers.split('|') if specifiers else []:
         key, sep, value = field.partition('=')
-        if not sep or key in values or key not in (line_key, 'periodnr', 'quarternr', 'inningnr'):
+        if not sep or key in values or key not in (line_key, 'periodnr', 'quarternr', 'inningnr', 'setnr', 'halfnr'):
             raise ValueError('Unknown or duplicate score specifier')
         values[key] = value
-    expected = None
-    if re.fullmatch(r'period_[123]', scope):
-        expected = ('periodnr', scope[-1])
-    elif re.fullmatch(r'quarter_[1234](?:_ot)?', scope):
-        expected = ('quarternr', scope.split('_')[1])
-    elif scope == 'inning_1':
-        expected = ('inningnr', '1')
-    for key in ('periodnr', 'quarternr', 'inningnr'):
-        if key in values and (key, values[key]) != expected:
+    for key in ('periodnr', 'quarternr', 'inningnr', 'setnr', 'halfnr'):
+        if key not in values:
+            continue
+        expected = None
+        if key == 'periodnr' and re.fullmatch(r'period_[123]', scope):
+            expected = scope[-1]
+        elif key == 'quarternr' and re.fullmatch(r'quarter_[1234](?:_ot)?', scope):
+            expected = scope.split('_')[1]
+        elif key == 'inningnr' and scope == 'inning_1':
+            expected = '1'
+        elif key == 'setnr' and re.fullmatch(r'period_[123]', scope):
+            expected = scope[-1]
+        elif key == 'halfnr' and re.fullmatch(r'half_[12](?:_ot)?', scope):
+            expected = scope.split('_')[1]
+        if expected is None or values[key] != expected:
             raise ValueError('Score specifier contradicts named scope')
     return values

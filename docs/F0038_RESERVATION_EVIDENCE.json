@@ -1,0 +1,113 @@
+{
+  "task_id": "F0038",
+  "run_id": "20261001T174607481500-F0038",
+  "claim": "Candidate developer evidence only; no release receipt, independent review, production recovery or model approval.",
+  "finding": {
+    "id": "F0038:accepted_drift",
+    "run_id": "20261001T131100867578-F0038",
+    "evidence_sha256": "290e3b0996fab0eb029f2efc12fecea7ecce5a7ad7f307a84d2ce602d8cd6658",
+    "due_at": "2026-10-01T17:50:59.083393+00:00",
+    "controller_reconciliation": "pending"
+  },
+  "recovery_source": {
+    "run_id": "20261001T173756487986-F0038",
+    "run_json_sha256": "d04262452585888f0fe73b21ff20aec0e480f06793f1798f00e3c5e47ad5d546",
+    "pin_verified": true,
+    "finding": "No implementation change; a report alone is not a completed task",
+    "candidate_module": "not supplied; previous retained files contain tests/docs"
+  },
+  "implementation": {
+    "path": "src/betting_engine/development_worker_dispatch.py",
+    "before_sha256": "ab6b5fe772af41ea0be3d8b5b617dd5cb2a591a400a667b5bcdf8501e43caed6",
+    "after_sha256": "6cf6f39e54a5d91418cb064172c5ecf6b3f4875bbfcf5ecfcfe158c440bc8155",
+    "behavior": "Validate synchronous reservation dependency and exact positional call shape before observations, journal access or restart callbacks."
+  },
+  "preparation": {
+    "development_manifest_sha256": "6eec14eabc79ecfd9d094adb3498683a3004ecd51cdb81e536caadfcab6883e9",
+    "development_files_verified": 346,
+    "errors": [],
+    "source_error_or_truncation_flags": [],
+    "frozen_validation_files_verified": 44,
+    "frozen_test_pins_verified": 4,
+    "root_declarations_match_export": true,
+    "missing_optional_paths": [
+      "data/task_diagnostics/manifest.json",
+      "data/root-recovery-package.json",
+      "data/rebase/conflicts.json"
+    ],
+    "task_declares_root_recovery_targets": false,
+    "runtime_diagnostics": "not_required",
+    "release_failure_files": [],
+    "source_scope": "Retrospective input bytes only; no historical availability or current sports participation claim."
+  },
+  "validation": [
+    {
+      "command": "PYTHONPATH=src OMP_NUM_THREADS=1 /Users/belavarga/Betting_tips_engine/.venv/bin/python -m pytest -q tests/test_f0038_reservation_preflight.py",
+      "log": "docs/f0038_reservation_validation/before.log",
+      "result": "30 failed in 0.99s before implementation; negative control",
+      "exit_code": 1,
+      "sha256": "c3572bbcf9fd02d64f55c183ba843ca18a0cf30c650a7530e997f19bc4250362"
+    },
+    {
+      "command": "PYTHONPATH=src OMP_NUM_THREADS=1 /Users/belavarga/Betting_tips_engine/.venv/bin/python -m pytest -q tests/test_f0038*.py tests/test_f0028*.py tests/test_f0029*.py",
+      "log": "docs/f0038_reservation_validation/focused.log",
+      "result": "794 passed in 7.67s",
+      "exit_code": 0,
+      "sha256": "baa03a9eb63c58650f127b51c8c3abc0425d6e234c3b6158012fa3b05eb45bcc"
+    },
+    {
+      "command": "PYTHONPATH=src OMP_NUM_THREADS=1 /Users/belavarga/Betting_tips_engine/.venv/bin/python -m pytest -q",
+      "log": "docs/f0038_reservation_validation/python.log",
+      "result": "7853 passed, 1 Starlette/httpx deprecation warning, 5 subtests passed in 137.61s",
+      "exit_code": 0,
+      "sha256": "3c83fe881b6bf8a5fe8e055f0bf71db70a74506f0a0ce9bd2740ef7bffc4bd7d"
+    },
+    {
+      "command": "node --test tests/web.test.mjs",
+      "log": "docs/f0038_reservation_validation/dom.log",
+      "result": "216 passed; no failures or skips",
+      "exit_code": 0,
+      "sha256": "40eb6c3dbf0eb4968ff7952468649843767f16eb7d2b78771f04fd44b58ad06f"
+    }
+  ],
+  "preservation": {
+    "changed_preexisting_paths": [
+      "src/betting_engine/development_worker_dispatch.py"
+    ],
+    "existing_test_tree_files_unchanged": 369,
+    "original_test_hashes": "docs/f0038_reservation_validation/original_test_hashes.json",
+    "original_test_hashes_sha256": "cb56d43282089e0b7c278e6da1ce522d146845cc27002f47d71492058b21a728",
+    "all_other_preexisting_src_docs_config_files_unchanged": true,
+    "AGENTS.md": "a5167b28c86d72c227643ac13760222e490bccbca839956232e6efe6b087cde9",
+    "config/project_contract.json": "3aa8ce719277790d58d6f1030cff8b5e85a49366645ead3633c7751a8d8d532f",
+    "config/validation_sources.json": "b54253e4f3938511354ecc55b3b21037915a2e5939d082007b54ffac0a44df60",
+    "data/development_inputs/system_decisions.json": "228ab2edbd351d7ed997f03fc505718d6a2212c589c539ead9f7abf0a4358081"
+  },
+  "new_regression": {
+    "path": "tests/test_f0038_reservation_preflight.py",
+    "sha256": "907b5094227ee06433f75c9c9b3586588820370fa2180f931bbf3641f416a776",
+    "cases": 30,
+    "drill_scope": "Three synthetic workers; dependency rejection, new process exit after durable reservation, read-only reopen, no uncertain-intent replay, checkpoint miss retention and fixed cooldown."
+  },
+  "knowledge_cards": {
+    "knowledge/cards/K03-adat-ido-forras.md": "a71af120097072161a042f04257cb6f4ebc617e34ff43c19588ca313148b1d9a",
+    "knowledge/cards/K08-validacio.md": "951ffe80c87fd491bfeece567c31a86a78371087fcf8b16297422ecadd624bd3"
+  },
+  "documentation": {
+    "path": "docs/F0038_RESERVATION_PREFLIGHT.md",
+    "sha256": "8bd558c9d03a082911025e2fbaf6c575179a108d263a943a00e6afd99a4ff732"
+  },
+  "helper_reviews": [
+    {
+      "id": "acceptance_checklist:grok",
+      "sha256": "0336d92a99b0cef3826ec26a9b0245287092474f3f118e5de0946e35ad3b60a2",
+      "disposition": "partly_used",
+      "reason": "Used byte preservation, durable attempt/checkpoint tests, offline recovery drill and independent-review boundaries. Rejected the blanket assertion that implementation bytes and a behavior oracle are absent: the current adapter and existing regressions are supplied. The prior run contains no replacement module. The drift citation is not a source hash; uncertain requests are never replayed and no production recovery or betting result is claimed."
+    }
+  ],
+  "remaining": [
+    "Controller full validation, independent Codex review and accepted-snapshot reconciliation.",
+    "Separately authorized root integration/release; no exact passive profile or discovery authorization exists.",
+    "Live service recovery and publication verification; broader M01 remains open."
+  ]
+}

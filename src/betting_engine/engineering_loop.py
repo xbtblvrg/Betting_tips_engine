@@ -53,8 +53,8 @@ MISSION = ('Improve the engine that finds the strongest independently modeled, '
     'fresh exact Stake betting instructions. Deliver smart autonomous self-improving '
     'quant progress: positive ROI, minimum 100 daily funded recommendations, broad '
     'diversified coverage, and a consistent daily cumulative PnL uptrend. Accelerate capital '
-    'into winning alpha segments while defending capital ($1 clamp) and auto-repairing '
-    'underperforming segments into profit. Prioritize Winner (moneyline), Handicap and Total '
+    '($2.50-$8.00) into winning alpha segments while defending capital ($0.50 clamp, 16:1 ratio) '
+    'and auto-repairing underperforming segments into profit. Prioritize Winner (moneyline), Handicap and Total '
     'while retaining other observed markets. Evaluate decisions against immutable bet lifecycle '
     'and outcome evidence, clustering related selections by game and preserving chronological '
     'validation. No guaranteed winners, fabricated edge, quota padding, invented bankroll, or relaxed gates.')
@@ -718,6 +718,7 @@ def sync_engineering_loop(root, plan, state=None, *, payload=None, operations=No
             transition = 'created' if first else 'reopened' if prior.get('state') == 'resolved' else 'observed'
             if observation.get('due_at') and parse_time(observation['due_at'])<parse_time(prior['due_at']):
                 prior['due_at']=observation['due_at']
+            previous_digest = prior.get('evidence_sha256')
             prior.update({k: v for k, v in observation.items() if k not in ('evidence', 'observed_at','first_seen','due_at')})
             prior.update(state='open', last_seen=now.isoformat(), last_observed_at=stamp,
                 observations=prior['observations'] + 1, evidence_sha256=digest,
@@ -725,8 +726,9 @@ def sync_engineering_loop(root, plan, state=None, *, payload=None, operations=No
             prior['contract_keys'] = sorted(set(prior['contract_keys']) | set(observation['evidence'].get('contract_keys', [])))
             if prior['bucket'] == 'source' and prior['observations'] >= 3:
                 prior['priority'] = 0
-            events.append({'at': now.isoformat(), 'gap_id': identity, 'event': transition,
-                'evidence_sha256': digest, 'due_at': prior['due_at']})
+            if first or transition in ('created', 'reopened') or previous_digest != digest:
+                events.append({'at': now.isoformat(), 'gap_id': identity, 'event': transition,
+                    'evidence_sha256': digest, 'due_at': prior['due_at']})
         # A root-only, source-bound requirement receipt may close a validation
         # gap after explicit acceptance; an old receipt cannot close a regression.
         from .delivery import verify_release_receipt
@@ -767,7 +769,15 @@ def sync_engineering_loop(root, plan, state=None, *, payload=None, operations=No
             deadline_rule='Fixed delivery targets from first detection; missed targets stay overdue. No automatic postponement or completion claim.',
             reassessment_seconds=60, task_focus=focus)
         if events:
-            with (folder / 'engineering-events.jsonl').open('a') as handle:
+            events_path = folder / 'engineering-events.jsonl'
+            if events_path.exists() and events_path.stat().st_size > 16 * 1024 * 1024:
+                try:
+                    lines = events_path.read_text(errors='ignore').splitlines()
+                    if len(lines) > 5000:
+                        events_path.write_text('\n'.join(lines[-5000:]) + '\n')
+                except Exception:
+                    pass
+            with events_path.open('a') as handle:
                 for event in events:
                     handle.write(json.dumps(event, sort_keys=True) + '\n')
                 handle.flush()

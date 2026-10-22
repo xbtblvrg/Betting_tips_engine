@@ -32,11 +32,11 @@ TEST_FILE = NODE.split('::')[0]
 PINNED = {
     TEST_FILE: '088030e2ef280f1b79a22966ce3f746fc807694c2d124725446e9c9f89a524ba',
     'src/betting_engine/claude_development.py': 'cb5823e4de13147ca2bd8b0ce7a37c70e6b1511a53c01781826222caa3c3d055',
-    'src/betting_engine/ai_delegation.py': '1fc4a2adf32e0abbccebde2299ea70d7745f8b968890c3612703b22d90ed279a',
-    'src/betting_engine/domain.py': '1ada26eaa16934b6c7b08fddf545ba0aab019ad7199b23b9ccbc73fd7a7a7b92',
+    'src/betting_engine/ai_delegation.py': '853bfe1f710a33d10dd61b5d384192907145c0f56008027c4dfa5aef329018ca',
+    'src/betting_engine/domain.py': 'dd350a0d93818cffc34ba2e15ff07fd2107b35855a1e447fab628d87458f8ab8',
     'src/betting_engine/io_utils.py': '4c7b8f6b5e335b9cd5b42ea2b716ab3ed86bcddf848eeca2017ac574fe1a0f6b',
     'src/betting_engine/__init__.py': 'e0889be650d34516f3adda0c37121f4f390d275fd4b1122becb517cb71dbd679',
-    'src/betting_engine/delivery.py': 'f198f67c074ed83fe2d531c147b3f817df354890a0235de5e691fc21c01800ba',
+    'src/betting_engine/delivery.py': 'ca7396c27d030aa47672fb6ae14ea84198315ef06268d57b69ca477fa82a70a9',
     'src/betting_engine/native_boundary.py': '97e7e172dee4d18f05c37d7477750c0059615241f23c3ffc00b3a4dc5b594abb',
 }
 COPY_SOURCE = 'src/betting_engine/workspace_copy.py'

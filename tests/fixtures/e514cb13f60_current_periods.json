@@ -1,0 +1,1404 @@
+{
+  "catalogue_path": "data/market_catalog/versions/20260929T233611306188Z/contracts.json",
+  "catalogue_sha256": "61a653c6d666270ed475c58b98167217b6614c6e934949e8f7e5e7f054c82831",
+  "games_sha256": "d51f9e597cdc3f0773cc7fb1342bccc7b5825ee7d01d5c4feccfc99779108d50",
+  "scope": "Recorded observations; no live availability or model approval. Original complete selected rows and matched supplied games.",
+  "cases": [
+    {
+      "row": {
+        "league": "WNBA",
+        "fixture_id": "ebf0ef76-112f-476a-9fce-c95feb572865",
+        "fixture": "Indiana Fever - Las Vegas Aces",
+        "fixture_slug": "46937537-indiana-fever-las-vegas-aces",
+        "start": "2026-09-29T22:30:00+00:00",
+        "market_id": "5c1737ce-feaf-4c38-be71-1c928bdab0ed",
+        "market": "2nd Half - Handicap (Incl. Overtime)",
+        "specifiers": "hcp=0.5",
+        "provider_section": "standard",
+        "tabs": [
+          {
+            "id": "370ec02d-f2d5-44be-9970-81b363430753",
+            "name": "half"
+          }
+        ],
+        "outcomes": [
+          {
+            "odds": 1.8,
+            "active": true,
+            "voidFactor": 0,
+            "id": "87be3c80-fe84-4c3d-a3cc-5af361114e3a",
+            "name": "Indiana Fever (0.5)"
+          },
+          {
+            "odds": 1.95,
+            "active": true,
+            "voidFactor": 0,
+            "id": "e1b9d5ac-d082-4d78-86ef-2403355b9d23",
+            "name": "Las Vegas Aces (-0.5)"
+          }
+        ],
+        "status": "active",
+        "raw_contract": {
+          "id": "5c1737ce-feaf-4c38-be71-1c928bdab0ed",
+          "status": "active",
+          "specifiers": "hcp=0.5",
+          "extendedSpecifiers": "",
+          "updatedAt": 1790724882952,
+          "name": "2nd Half - Handicap (Incl. Overtime)",
+          "outcomes": [
+            {
+              "odds": 1.8,
+              "active": true,
+              "voidFactor": 0,
+              "id": "87be3c80-fe84-4c3d-a3cc-5af361114e3a",
+              "name": "Indiana Fever (0.5)"
+            },
+            {
+              "odds": 1.95,
+              "active": true,
+              "voidFactor": 0,
+              "id": "e1b9d5ac-d082-4d78-86ef-2403355b9d23",
+              "name": "Las Vegas Aces (-0.5)"
+            }
+          ]
+        },
+        "source": {
+          "url": "https://odds-data.stake.com/odds/46937537-indiana-fever-las-vegas-aces",
+          "fetched_at": "2026-09-29T23:36:15.981023+00:00",
+          "sha256": "50ad461988e3479d62051ef060dee7a4f1787c2e5ac2a62561d52552cc6f5d33",
+          "archive": "stake_api_archive/50ad461988e3479d62051ef060dee7a4f1787c2e5ac2a62561d52552cc6f5d33.json.gz"
+        },
+        "family": "score_contract",
+        "scope": "half_2_ot",
+        "scope_basis": "title_explicit",
+        "dependencies": [
+          "scope_score_targets",
+          "scope_probability_model",
+          "exact_payoff_rule"
+        ],
+        "recognition_is_model_support": false
+      },
+      "game": {
+        "id": "WNBA:401918018",
+        "league": "WNBA",
+        "start": "2026-09-29T22:30Z",
+        "home": "Indiana Fever",
+        "away": "Las Vegas Aces",
+        "home_id": "5",
+        "away_id": "17",
+        "home_abbr": "IND",
+        "away_abbr": "LV",
+        "state": "scheduled",
+        "season": 2026,
+        "home_score": null,
+        "away_score": null,
+        "neutral": false,
+        "game_type": "playoff",
+        "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_wnba_schedules/wnba_schedule_2026.csv",
+        "fetched_at": "2026-09-29T23:25:33.386266+00:00",
+        "context": {
+          "injuries": {
+            "home": [
+              {
+                "athlete_id": "4065760",
+                "athlete_display_name": "Tyasha Harris",
+                "athlete_position": "G",
+                "status": "Out",
+                "injury_date": "2026-09-26T19:21Z",
+                "short_comment": "Harris (leg) will miss the rest of the season, WNBA reporter Kareem Copeland reports.",
+                "detail_return_date": "2027-05-01",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_wnba_injuries/injuries_2026.parquet",
+                "fetched_at": "2026-09-29T23:27:33.113548+00:00"
+              },
+              {
+                "athlete_id": "4432831",
+                "athlete_display_name": "Aliyah Boston",
+                "athlete_position": "C",
+                "status": "Day-To-Day",
+                "injury_date": "2026-09-28T21:11Z",
+                "short_comment": "Boston (lower leg) is listed as probable for Game 2 of the first round of the playoffs against the Aces on Tuesday.",
+                "detail_return_date": "2026-09-29",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_wnba_injuries/injuries_2026.parquet",
+                "fetched_at": "2026-09-29T23:27:33.113548+00:00"
+              },
+              {
+                "athlete_id": "4433403",
+                "athlete_display_name": "Caitlin Clark",
+                "athlete_position": "G",
+                "status": "Day-To-Day",
+                "injury_date": "2026-09-28T21:08Z",
+                "short_comment": "Clark (back) is listed as probable for Game 2 of the first round of the playoffs against the Aces on Tuesday.",
+                "detail_return_date": "2026-09-29",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_wnba_injuries/injuries_2026.parquet",
+                "fetched_at": "2026-09-29T23:27:33.113548+00:00"
+              }
+            ],
+            "away": [
+              {
+                "athlete_id": "4281190",
+                "athlete_display_name": "Dana Evans",
+                "athlete_position": "G",
+                "status": "Out",
+                "injury_date": "2026-09-28T21:07Z",
+                "short_comment": "Evans (knee) is out for Tuesday's Game 2 against the Fever.",
+                "detail_return_date": "2026-10-01",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_wnba_injuries/injuries_2026.parquet",
+                "fetched_at": "2026-09-29T23:27:33.113548+00:00"
+              },
+              {
+                "athlete_id": "4398776",
+                "athlete_display_name": "NaLyssa Smith",
+                "athlete_position": "F",
+                "status": "Out",
+                "injury_date": "2026-08-27T19:29Z",
+                "short_comment": "The Aces announced Thursday that Smith will be sidelined for the rest of the season after suffering a non-contact left leg injury during Sunday's game versus the Tempo, per Chelsea Leite of TSN.",
+                "detail_return_date": "2027-05-01",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_wnba_injuries/injuries_2026.parquet",
+                "fetched_at": "2026-09-29T23:27:33.113548+00:00"
+              }
+            ],
+            "snapshot_date": "2026-09-29",
+            "stale": false,
+            "quantitative_model_input": false
+          }
+        }
+      }
+    },
+    {
+      "row": {
+        "league": "WNBA",
+        "fixture_id": "ebf0ef76-112f-476a-9fce-c95feb572865",
+        "fixture": "Indiana Fever - Las Vegas Aces",
+        "fixture_slug": "46937537-indiana-fever-las-vegas-aces",
+        "start": "2026-09-29T22:30:00+00:00",
+        "market_id": "53d879ab-b368-4006-ada1-f1d4c150090e",
+        "market": "3rd Quarter - Handicap",
+        "specifiers": "quarternr=3|hcp=0.5",
+        "provider_section": "standard",
+        "tabs": [
+          {
+            "id": "7acc1d75-4eeb-4126-b594-1360b841a1ad",
+            "name": "quarters"
+          }
+        ],
+        "outcomes": [
+          {
+            "odds": 1.8,
+            "active": true,
+            "voidFactor": 0,
+            "id": "70655e2a-74cc-423e-8faf-38a106d73ef9",
+            "name": "Indiana Fever (0.5)"
+          },
+          {
+            "odds": 1.85,
+            "active": true,
+            "voidFactor": 0,
+            "id": "2cc630d7-b0e1-4d2a-9400-f25cd2406a1b",
+            "name": "Las Vegas Aces (-0.5)"
+          }
+        ],
+        "status": "active",
+        "raw_contract": {
+          "id": "53d879ab-b368-4006-ada1-f1d4c150090e",
+          "status": "active",
+          "specifiers": "quarternr=3|hcp=0.5",
+          "extendedSpecifiers": "",
+          "updatedAt": 1790724882952,
+          "name": "3rd Quarter - Handicap",
+          "outcomes": [
+            {
+              "odds": 1.8,
+              "active": true,
+              "voidFactor": 0,
+              "id": "70655e2a-74cc-423e-8faf-38a106d73ef9",
+              "name": "Indiana Fever (0.5)"
+            },
+            {
+              "odds": 1.85,
+              "active": true,
+              "voidFactor": 0,
+              "id": "2cc630d7-b0e1-4d2a-9400-f25cd2406a1b",
+              "name": "Las Vegas Aces (-0.5)"
+            }
+          ]
+        },
+        "source": {
+          "url": "https://odds-data.stake.com/odds/46937537-indiana-fever-las-vegas-aces",
+          "fetched_at": "2026-09-29T23:36:15.981023+00:00",
+          "sha256": "50ad461988e3479d62051ef060dee7a4f1787c2e5ac2a62561d52552cc6f5d33",
+          "archive": "stake_api_archive/50ad461988e3479d62051ef060dee7a4f1787c2e5ac2a62561d52552cc6f5d33.json.gz"
+        },
+        "family": "score_contract",
+        "scope": "quarter_3",
+        "scope_basis": "title_explicit",
+        "dependencies": [
+          "scope_score_targets",
+          "scope_probability_model",
+          "exact_payoff_rule"
+        ],
+        "recognition_is_model_support": false
+      },
+      "game": {
+        "id": "WNBA:401918018",
+        "league": "WNBA",
+        "start": "2026-09-29T22:30Z",
+        "home": "Indiana Fever",
+        "away": "Las Vegas Aces",
+        "home_id": "5",
+        "away_id": "17",
+        "home_abbr": "IND",
+        "away_abbr": "LV",
+        "state": "scheduled",
+        "season": 2026,
+        "home_score": null,
+        "away_score": null,
+        "neutral": false,
+        "game_type": "playoff",
+        "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_wnba_schedules/wnba_schedule_2026.csv",
+        "fetched_at": "2026-09-29T23:25:33.386266+00:00",
+        "context": {
+          "injuries": {
+            "home": [
+              {
+                "athlete_id": "4065760",
+                "athlete_display_name": "Tyasha Harris",
+                "athlete_position": "G",
+                "status": "Out",
+                "injury_date": "2026-09-26T19:21Z",
+                "short_comment": "Harris (leg) will miss the rest of the season, WNBA reporter Kareem Copeland reports.",
+                "detail_return_date": "2027-05-01",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_wnba_injuries/injuries_2026.parquet",
+                "fetched_at": "2026-09-29T23:27:33.113548+00:00"
+              },
+              {
+                "athlete_id": "4432831",
+                "athlete_display_name": "Aliyah Boston",
+                "athlete_position": "C",
+                "status": "Day-To-Day",
+                "injury_date": "2026-09-28T21:11Z",
+                "short_comment": "Boston (lower leg) is listed as probable for Game 2 of the first round of the playoffs against the Aces on Tuesday.",
+                "detail_return_date": "2026-09-29",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_wnba_injuries/injuries_2026.parquet",
+                "fetched_at": "2026-09-29T23:27:33.113548+00:00"
+              },
+              {
+                "athlete_id": "4433403",
+                "athlete_display_name": "Caitlin Clark",
+                "athlete_position": "G",
+                "status": "Day-To-Day",
+                "injury_date": "2026-09-28T21:08Z",
+                "short_comment": "Clark (back) is listed as probable for Game 2 of the first round of the playoffs against the Aces on Tuesday.",
+                "detail_return_date": "2026-09-29",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_wnba_injuries/injuries_2026.parquet",
+                "fetched_at": "2026-09-29T23:27:33.113548+00:00"
+              }
+            ],
+            "away": [
+              {
+                "athlete_id": "4281190",
+                "athlete_display_name": "Dana Evans",
+                "athlete_position": "G",
+                "status": "Out",
+                "injury_date": "2026-09-28T21:07Z",
+                "short_comment": "Evans (knee) is out for Tuesday's Game 2 against the Fever.",
+                "detail_return_date": "2026-10-01",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_wnba_injuries/injuries_2026.parquet",
+                "fetched_at": "2026-09-29T23:27:33.113548+00:00"
+              },
+              {
+                "athlete_id": "4398776",
+                "athlete_display_name": "NaLyssa Smith",
+                "athlete_position": "F",
+                "status": "Out",
+                "injury_date": "2026-08-27T19:29Z",
+                "short_comment": "The Aces announced Thursday that Smith will be sidelined for the rest of the season after suffering a non-contact left leg injury during Sunday's game versus the Tempo, per Chelsea Leite of TSN.",
+                "detail_return_date": "2027-05-01",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_wnba_injuries/injuries_2026.parquet",
+                "fetched_at": "2026-09-29T23:27:33.113548+00:00"
+              }
+            ],
+            "snapshot_date": "2026-09-29",
+            "stale": false,
+            "quantitative_model_input": false
+          }
+        }
+      }
+    },
+    {
+      "row": {
+        "league": "WNBA",
+        "fixture_id": "69e493ed-c985-4e3a-b9a5-32891c2ba56f",
+        "fixture": "New York Liberty - Minnesota Lynx",
+        "fixture_slug": "46937536-new-york-liberty-minnesota-lynx",
+        "start": "2026-09-30T00:30:00+00:00",
+        "market_id": "1eb08b1f-962a-4074-b8c5-7f2b4ebff777",
+        "market": "1st Half - Asian Handicap",
+        "specifiers": "hcp=0.5",
+        "provider_section": "standard",
+        "tabs": [
+          {
+            "id": "370ec02d-f2d5-44be-9970-81b363430753",
+            "name": "half"
+          }
+        ],
+        "outcomes": [
+          {
+            "odds": 2.05,
+            "active": true,
+            "voidFactor": 0,
+            "id": "16e41e17-e0a7-4000-8a7a-65d2ec380029",
+            "name": "New York Liberty (0.5)"
+          },
+          {
+            "odds": 1.75,
+            "active": true,
+            "voidFactor": 0,
+            "id": "bc28d922-94e1-446f-b42c-caabc0ed14eb",
+            "name": "Minnesota Lynx (-0.5)"
+          }
+        ],
+        "status": "active",
+        "raw_contract": {
+          "id": "1eb08b1f-962a-4074-b8c5-7f2b4ebff777",
+          "status": "active",
+          "specifiers": "hcp=0.5",
+          "extendedSpecifiers": "",
+          "updatedAt": 1790724624553,
+          "name": "1st Half - Asian Handicap",
+          "outcomes": [
+            {
+              "odds": 2.05,
+              "active": true,
+              "voidFactor": 0,
+              "id": "16e41e17-e0a7-4000-8a7a-65d2ec380029",
+              "name": "New York Liberty (0.5)"
+            },
+            {
+              "odds": 1.75,
+              "active": true,
+              "voidFactor": 0,
+              "id": "bc28d922-94e1-446f-b42c-caabc0ed14eb",
+              "name": "Minnesota Lynx (-0.5)"
+            }
+          ]
+        },
+        "source": {
+          "url": "https://odds-data.stake.com/odds/46937536-new-york-liberty-minnesota-lynx",
+          "fetched_at": "2026-09-29T23:35:22.203731+00:00",
+          "sha256": "0e920feb5f5e11fbd8edd12baef03fdd6db130b5ee4499829e8d3d7092f2973f",
+          "archive": "stake_api_archive/0e920feb5f5e11fbd8edd12baef03fdd6db130b5ee4499829e8d3d7092f2973f.json.gz"
+        },
+        "family": "score_contract",
+        "scope": "half_1",
+        "scope_basis": "title_explicit",
+        "dependencies": [
+          "scope_score_targets",
+          "scope_probability_model",
+          "exact_payoff_rule"
+        ],
+        "recognition_is_model_support": false
+      },
+      "game": {
+        "id": "WNBA:401918017",
+        "league": "WNBA",
+        "start": "2026-09-30T00:30Z",
+        "home": "New York Liberty",
+        "away": "Minnesota Lynx",
+        "home_id": "9",
+        "away_id": "8",
+        "home_abbr": "NY",
+        "away_abbr": "MIN",
+        "state": "scheduled",
+        "season": 2026,
+        "home_score": null,
+        "away_score": null,
+        "neutral": false,
+        "game_type": "playoff",
+        "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_wnba_schedules/wnba_schedule_2026.csv",
+        "fetched_at": "2026-09-29T23:25:33.386266+00:00",
+        "context": {
+          "injuries": {
+            "home": [
+              {
+                "athlete_id": "4281929",
+                "athlete_display_name": "Satou Sabally",
+                "athlete_position": "F",
+                "status": "Out",
+                "injury_date": "2026-09-29T18:00Z",
+                "short_comment": "out",
+                "detail_return_date": "2027-05-01",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_wnba_injuries/injuries_2026.parquet",
+                "fetched_at": "2026-09-29T23:27:33.113548+00:00"
+              },
+              {
+                "athlete_id": "4398589",
+                "athlete_display_name": "Elizabeth Balogun",
+                "athlete_position": "G",
+                "status": "Out",
+                "injury_date": "2026-09-22T21:05Z",
+                "short_comment": "Balogun (not with team) is out for Wednesday's game against the Dream.",
+                "detail_return_date": "2027-05-01",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_wnba_injuries/injuries_2026.parquet",
+                "fetched_at": "2026-09-29T23:27:33.113548+00:00"
+              }
+            ],
+            "away": [
+              {
+                "athlete_id": "5208984",
+                "athlete_display_name": "Elena Buenavida",
+                "athlete_position": "G",
+                "status": "Out",
+                "injury_date": "2026-09-24T23:30Z",
+                "short_comment": "Buenavida (coach's decision) is out for Thursday's game against the Fever.",
+                "detail_return_date": "2027-05-01",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_wnba_injuries/injuries_2026.parquet",
+                "fetched_at": "2026-09-29T23:27:33.113548+00:00"
+              },
+              {
+                "athlete_id": "5278237",
+                "athlete_display_name": "Anastasiia Olairi Kosu",
+                "athlete_position": "F",
+                "status": "Out",
+                "injury_date": "2026-09-28T21:13Z",
+                "short_comment": "Kosu (foot) has been ruled out for Tuesday's Game 2 of the first round of the playoffs against the Liberty.",
+                "detail_return_date": "2026-10-01",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_wnba_injuries/injuries_2026.parquet",
+                "fetched_at": "2026-09-29T23:27:33.113548+00:00"
+              }
+            ],
+            "snapshot_date": "2026-09-29",
+            "stale": false,
+            "quantitative_model_input": false
+          }
+        }
+      }
+    },
+    {
+      "row": {
+        "league": "WNBA",
+        "fixture_id": "69e493ed-c985-4e3a-b9a5-32891c2ba56f",
+        "fixture": "New York Liberty - Minnesota Lynx",
+        "fixture_slug": "46937536-new-york-liberty-minnesota-lynx",
+        "start": "2026-09-30T00:30:00+00:00",
+        "market_id": "e6a76d24-4b91-46fa-b474-ff7aa59fd4eb",
+        "market": "1st Quarter - Handicap",
+        "specifiers": "quarternr=1|hcp=-0.5",
+        "provider_section": "standard",
+        "tabs": [
+          {
+            "id": "7acc1d75-4eeb-4126-b594-1360b841a1ad",
+            "name": "quarters"
+          }
+        ],
+        "outcomes": [
+          {
+            "odds": 2.15,
+            "active": true,
+            "voidFactor": 0,
+            "id": "5803192c-2ac2-481d-b68d-018e0dd3c994",
+            "name": "New York Liberty (-0.5)"
+          },
+          {
+            "odds": 1.64,
+            "active": true,
+            "voidFactor": 0,
+            "id": "4abe36ce-9152-4f40-baea-d7c533d6972a",
+            "name": "Minnesota Lynx (0.5)"
+          }
+        ],
+        "status": "active",
+        "raw_contract": {
+          "id": "e6a76d24-4b91-46fa-b474-ff7aa59fd4eb",
+          "status": "active",
+          "specifiers": "quarternr=1|hcp=-0.5",
+          "extendedSpecifiers": "",
+          "updatedAt": 1790724624553,
+          "name": "1st Quarter - Handicap",
+          "outcomes": [
+            {
+              "odds": 2.15,
+              "active": true,
+              "voidFactor": 0,
+              "id": "5803192c-2ac2-481d-b68d-018e0dd3c994",
+              "name": "New York Liberty (-0.5)"
+            },
+            {
+              "odds": 1.64,
+              "active": true,
+              "voidFactor": 0,
+              "id": "4abe36ce-9152-4f40-baea-d7c533d6972a",
+              "name": "Minnesota Lynx (0.5)"
+            }
+          ]
+        },
+        "source": {
+          "url": "https://odds-data.stake.com/odds/46937536-new-york-liberty-minnesota-lynx",
+          "fetched_at": "2026-09-29T23:35:22.203731+00:00",
+          "sha256": "0e920feb5f5e11fbd8edd12baef03fdd6db130b5ee4499829e8d3d7092f2973f",
+          "archive": "stake_api_archive/0e920feb5f5e11fbd8edd12baef03fdd6db130b5ee4499829e8d3d7092f2973f.json.gz"
+        },
+        "family": "score_contract",
+        "scope": "quarter_1",
+        "scope_basis": "title_explicit",
+        "dependencies": [
+          "scope_score_targets",
+          "scope_probability_model",
+          "exact_payoff_rule"
+        ],
+        "recognition_is_model_support": false
+      },
+      "game": {
+        "id": "WNBA:401918017",
+        "league": "WNBA",
+        "start": "2026-09-30T00:30Z",
+        "home": "New York Liberty",
+        "away": "Minnesota Lynx",
+        "home_id": "9",
+        "away_id": "8",
+        "home_abbr": "NY",
+        "away_abbr": "MIN",
+        "state": "scheduled",
+        "season": 2026,
+        "home_score": null,
+        "away_score": null,
+        "neutral": false,
+        "game_type": "playoff",
+        "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_wnba_schedules/wnba_schedule_2026.csv",
+        "fetched_at": "2026-09-29T23:25:33.386266+00:00",
+        "context": {
+          "injuries": {
+            "home": [
+              {
+                "athlete_id": "4281929",
+                "athlete_display_name": "Satou Sabally",
+                "athlete_position": "F",
+                "status": "Out",
+                "injury_date": "2026-09-29T18:00Z",
+                "short_comment": "out",
+                "detail_return_date": "2027-05-01",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_wnba_injuries/injuries_2026.parquet",
+                "fetched_at": "2026-09-29T23:27:33.113548+00:00"
+              },
+              {
+                "athlete_id": "4398589",
+                "athlete_display_name": "Elizabeth Balogun",
+                "athlete_position": "G",
+                "status": "Out",
+                "injury_date": "2026-09-22T21:05Z",
+                "short_comment": "Balogun (not with team) is out for Wednesday's game against the Dream.",
+                "detail_return_date": "2027-05-01",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_wnba_injuries/injuries_2026.parquet",
+                "fetched_at": "2026-09-29T23:27:33.113548+00:00"
+              }
+            ],
+            "away": [
+              {
+                "athlete_id": "5208984",
+                "athlete_display_name": "Elena Buenavida",
+                "athlete_position": "G",
+                "status": "Out",
+                "injury_date": "2026-09-24T23:30Z",
+                "short_comment": "Buenavida (coach's decision) is out for Thursday's game against the Fever.",
+                "detail_return_date": "2027-05-01",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_wnba_injuries/injuries_2026.parquet",
+                "fetched_at": "2026-09-29T23:27:33.113548+00:00"
+              },
+              {
+                "athlete_id": "5278237",
+                "athlete_display_name": "Anastasiia Olairi Kosu",
+                "athlete_position": "F",
+                "status": "Out",
+                "injury_date": "2026-09-28T21:13Z",
+                "short_comment": "Kosu (foot) has been ruled out for Tuesday's Game 2 of the first round of the playoffs against the Liberty.",
+                "detail_return_date": "2026-10-01",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_wnba_injuries/injuries_2026.parquet",
+                "fetched_at": "2026-09-29T23:27:33.113548+00:00"
+              }
+            ],
+            "snapshot_date": "2026-09-29",
+            "stale": false,
+            "quantitative_model_input": false
+          }
+        }
+      }
+    },
+    {
+      "row": {
+        "league": "MLB",
+        "fixture_id": "41e212ba-13e6-4827-989a-74ab3ddd4498",
+        "fixture": "New York Yankees - Boston Red Sox",
+        "fixture_slug": "46939427-al-seed-4-al-seed-5",
+        "start": "2026-09-30T00:00:00+00:00",
+        "market_id": "24ee158c-e4e1-466c-9471-ae4187e8c1cd",
+        "market": "Innings 1 to 5 - Handicap",
+        "specifiers": "hcp=-0.5",
+        "provider_section": "standard",
+        "tabs": [
+          {
+            "id": "d52b8153-767d-46ec-b9f3-992f88da6f98",
+            "name": "innings 1 to 5"
+          }
+        ],
+        "outcomes": [
+          {
+            "odds": 2.06,
+            "active": true,
+            "voidFactor": 0,
+            "id": "bf5a52c1-c480-4ad2-b976-38b5cf0eecdc",
+            "name": "New York Yankees (-0.5)"
+          },
+          {
+            "odds": 1.77,
+            "active": true,
+            "voidFactor": 0,
+            "id": "8a34e927-12b7-439f-886c-6f37e21bff2e",
+            "name": "Boston Red Sox (0.5)"
+          }
+        ],
+        "status": "active",
+        "raw_contract": {
+          "id": "24ee158c-e4e1-466c-9471-ae4187e8c1cd",
+          "status": "active",
+          "specifiers": "hcp=-0.5",
+          "extendedSpecifiers": "",
+          "updatedAt": 1790724808829,
+          "name": "Innings 1 to 5 - Handicap",
+          "outcomes": [
+            {
+              "odds": 2.06,
+              "active": true,
+              "voidFactor": 0,
+              "id": "bf5a52c1-c480-4ad2-b976-38b5cf0eecdc",
+              "name": "New York Yankees (-0.5)"
+            },
+            {
+              "odds": 1.77,
+              "active": true,
+              "voidFactor": 0,
+              "id": "8a34e927-12b7-439f-886c-6f37e21bff2e",
+              "name": "Boston Red Sox (0.5)"
+            }
+          ]
+        },
+        "source": {
+          "url": "https://odds-data.stake.com/odds/46939427-al-seed-4-al-seed-5",
+          "fetched_at": "2026-09-29T23:35:22.081983+00:00",
+          "sha256": "7234a27fa64200e4cbe113998a9e1a84d911bdaa83b5adc60b1b453554c8d2aa",
+          "archive": "stake_api_archive/7234a27fa64200e4cbe113998a9e1a84d911bdaa83b5adc60b1b453554c8d2aa.json.gz"
+        },
+        "family": "score_contract",
+        "scope": "innings_1_5",
+        "scope_basis": "title_explicit",
+        "dependencies": [
+          "scope_score_targets",
+          "scope_probability_model",
+          "exact_payoff_rule"
+        ],
+        "recognition_is_model_support": false
+      },
+      "game": {
+        "id": "MLB:849851",
+        "league": "MLB",
+        "start": "2026-09-30T00:00:00Z",
+        "home": "New York Yankees",
+        "away": "Boston Red Sox",
+        "home_id": "147",
+        "away_id": "111",
+        "home_abbr": "",
+        "away_abbr": "",
+        "state": "scheduled",
+        "season": 2026,
+        "home_score": null,
+        "away_score": null,
+        "neutral": false,
+        "game_type": "playoff",
+        "source": "https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=2026-01-01&endDate=2026-12-31&hydrate=probablePitcher",
+        "fetched_at": "2026-09-29T23:25:27.935712+00:00",
+        "context": {
+          "home_pitcher": {
+            "id": 693645,
+            "fullName": "Cam Schlittler",
+            "link": "/api/v1/people/693645"
+          },
+          "away_pitcher": {
+            "id": 801139,
+            "fullName": "Payton Tolle",
+            "link": "/api/v1/people/801139"
+          },
+          "venue": "Yankee Stadium",
+          "scheduled_innings": 9,
+          "resumed_game": false,
+          "injuries": {
+            "home": [
+              {
+                "athlete_id": "33192",
+                "athlete_display_name": "Aaron Judge",
+                "athlete_position": "RF",
+                "status": "10-Day-IL",
+                "injury_date": "2026-09-29T14:02Z",
+                "short_comment": "Judge (calf) is not on the Yankees' roster for their AL Wild Card Series against the Red Sox, Jack Curry of YES Network reports.",
+                "detail_return_date": "2026-10-03",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+                "fetched_at": "2026-09-29T23:27:29.135897+00:00"
+              },
+              {
+                "athlete_id": "34068",
+                "athlete_display_name": "Fernando Cruz",
+                "athlete_position": "RP",
+                "status": "60-Day-IL",
+                "injury_date": "2026-09-25T23:17Z",
+                "short_comment": "The Yankees transferred Cruz (elbow) to the 60-day injured list Friday.",
+                "detail_return_date": "2026-10-24",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+                "fetched_at": "2026-09-29T23:27:29.135897+00:00"
+              },
+              {
+                "athlete_id": "41085",
+                "athlete_display_name": "Clarke Schmidt",
+                "athlete_position": "SP",
+                "status": "15-Day-IL",
+                "injury_date": "2026-09-24T19:38Z",
+                "short_comment": "Schmidt could be shut down for the season if he's unable to pitch Thursday, MLB.com reports.",
+                "detail_return_date": "2026-10-06",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+                "fetched_at": "2026-09-29T23:27:29.135897+00:00"
+              },
+              {
+                "athlete_id": "41178",
+                "athlete_display_name": "Ryan Weathers",
+                "athlete_position": "SP",
+                "status": "15-Day-IL",
+                "injury_date": "2026-09-29T15:28Z",
+                "short_comment": "Weathers (forearm) is not on the Yankees' AL Wild Card Series roster versus the Red Sox, Brendan Kuty of The Athletic reports.",
+                "detail_return_date": "2026-10-03",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+                "fetched_at": "2026-09-29T23:27:29.135897+00:00"
+              },
+              {
+                "athlete_id": "4717832",
+                "athlete_display_name": "Kervin Castro",
+                "athlete_position": "RP",
+                "status": "60-Day-IL",
+                "injury_date": "2026-08-26T20:37Z",
+                "short_comment": "The Yankees transferred Castro (elbow) from the 15-day injured list to the 60-day IL on Wednesday.",
+                "detail_return_date": "2027-02-01",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+                "fetched_at": "2026-09-29T23:27:29.135897+00:00"
+              }
+            ],
+            "away": [
+              {
+                "athlete_id": "33654",
+                "athlete_display_name": "Tyron Guerrero",
+                "athlete_position": "RP",
+                "status": "15-Day-IL",
+                "injury_date": "2026-09-27T17:11Z",
+                "short_comment": "The Red Sox placed Guerrero on the 15-day injured list Sunday, retroactive to Sept. 24, with a right shoulder strain.",
+                "detail_return_date": "2026-10-19",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+                "fetched_at": "2026-09-29T23:27:29.135897+00:00"
+              },
+              {
+                "athlete_id": "39963",
+                "athlete_display_name": "Eli White",
+                "athlete_position": "CF",
+                "status": "60-Day-IL",
+                "injury_date": "2026-09-27T17:23Z",
+                "short_comment": "The Red Sox transferred White (foot) to the 60-day injured list Sunday.",
+                "detail_return_date": "2027-02-01",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+                "fetched_at": "2026-09-29T23:27:29.135897+00:00"
+              },
+              {
+                "athlete_id": "41180",
+                "athlete_display_name": "Triston Casas",
+                "athlete_position": "1B",
+                "status": "60-Day-IL",
+                "injury_date": "2026-08-06T14:52Z",
+                "short_comment": "Casas (abdomen/knee) underwent arthroscopic surgery on his left wrist Thursday.",
+                "detail_return_date": "2027-02-01",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+                "fetched_at": "2026-09-29T23:27:29.135897+00:00"
+              },
+              {
+                "athlete_id": "41194",
+                "athlete_display_name": "Anthony Seigler",
+                "athlete_position": "2B",
+                "status": "10-Day-IL",
+                "injury_date": "2026-09-13T17:41Z",
+                "short_comment": "The Red Sox placed Seigler on the 10-day injured list Sunday due to right wrist inflammation.",
+                "detail_return_date": "2026-09-29",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+                "fetched_at": "2026-09-29T23:27:29.135897+00:00"
+              },
+              {
+                "athlete_id": "41277",
+                "athlete_display_name": "Kutter Crawford",
+                "athlete_position": "SP",
+                "status": "60-Day-IL",
+                "injury_date": "2026-09-07T03:03Z",
+                "short_comment": "Crawford (forearm) is expected to remain on the injured list for the rest of the season, Jen McCaffrey of The Athletic reports.",
+                "detail_return_date": "2027-02-01",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+                "fetched_at": "2026-09-29T23:27:29.135897+00:00"
+              },
+              {
+                "athlete_id": "41405",
+                "athlete_display_name": "Johan Oviedo",
+                "athlete_position": "SP",
+                "status": "60-Day-IL",
+                "injury_date": "2026-09-18T12:57Z",
+                "short_comment": "Ovideo (elbow) allowed one run on two hits and one walk while striking out four for Triple-A Worcester on Thursday.",
+                "detail_return_date": "2026-09-29",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+                "fetched_at": "2026-09-29T23:27:29.135897+00:00"
+              },
+              {
+                "athlete_id": "41569",
+                "athlete_display_name": "Zack Kelly",
+                "athlete_position": "RP",
+                "status": "60-Day-IL",
+                "injury_date": "2026-07-21T17:29Z",
+                "short_comment": "The Red Sox recalled Kelly (elbow) from Triple-A Worcester and placed him on the 60-day injured list Tuesday, Tim Healey of The Boston Globe reports.",
+                "detail_return_date": "2026-09-29",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+                "fetched_at": "2026-09-29T23:27:29.135897+00:00"
+              },
+              {
+                "athlete_id": "42360",
+                "athlete_display_name": "Curtis Mead",
+                "athlete_position": "3B",
+                "status": "10-Day-IL",
+                "injury_date": "2026-09-23T13:20Z",
+                "short_comment": "Red Sox manager Chad Tracy indicated Tuesday that Mead (wrist) is a long shot to be available for the postseason, Chris Cotillo of MassLive.com reports.",
+                "detail_return_date": "2026-10-23",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+                "fetched_at": "2026-09-29T23:27:29.135897+00:00"
+              },
+              {
+                "athlete_id": "4872598",
+                "athlete_display_name": "Masataka Yoshida",
+                "athlete_position": "DH",
+                "status": "10-Day-IL",
+                "injury_date": "2026-08-18T21:28Z",
+                "short_comment": "Interim manager Chad Tracy revealed Tuesday that Yoshida has a \"significant\" left hamstring injury that will keep him out until close to the end of the season, at minimum, Tim Healey of The Boston Globe reports.",
+                "detail_return_date": "2026-09-29",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+                "fetched_at": "2026-09-29T23:27:29.135897+00:00"
+              },
+              {
+                "athlete_id": "4917925",
+                "athlete_display_name": "Justin Slaten",
+                "athlete_position": "RP",
+                "status": "60-Day-IL",
+                "injury_date": "2026-09-29T14:32Z",
+                "short_comment": "The Red Sox transferred Slaten (elbow) to the 60-day injured list Tuesday, Gabrielle Starr of the Boston Herald reports.",
+                "detail_return_date": "2027-02-01",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+                "fetched_at": "2026-09-29T23:27:29.135897+00:00"
+              },
+              {
+                "athlete_id": "5132012",
+                "athlete_display_name": "Mickey Gasper",
+                "athlete_position": "DH",
+                "status": "10-Day-IL",
+                "injury_date": "2026-09-27T17:02Z",
+                "short_comment": "The Red Sox placed Gasper on the 10-day injured list Sunday, retroactive to Sept. 26, with a right biceps strain.",
+                "detail_return_date": "2026-10-24",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+                "fetched_at": "2026-09-29T23:27:29.135897+00:00"
+              },
+              {
+                "athlete_id": "5201569",
+                "athlete_display_name": "Kristian Campbell",
+                "athlete_position": "OF",
+                "status": "Day-To-Day",
+                "injury_date": "2026-09-10T20:43Z",
+                "short_comment": "Campbell was placed on the 7-day injured list at Triple-A Worcester on Thursday with a left foot contusion, Chris Cotillo of MassLive.com reports.",
+                "detail_return_date": "2026-09-29",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+                "fetched_at": "2026-09-29T23:27:29.135897+00:00"
+              },
+              {
+                "athlete_id": "5265014",
+                "athlete_display_name": "Eduardo Rivera",
+                "athlete_position": "SP",
+                "status": "60-Day-IL",
+                "injury_date": "2026-09-01T15:59Z",
+                "short_comment": "The Red Sox recalled Rivera from Triple-A Worcester and placed him on the 60-day injured list Tuesday due to a lumbar strain.",
+                "detail_return_date": "2027-02-01",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_mlb_injuries/injuries_2026.parquet",
+                "fetched_at": "2026-09-29T23:27:29.135897+00:00"
+              }
+            ],
+            "snapshot_date": "2026-09-29",
+            "stale": false,
+            "quantitative_model_input": false
+          },
+          "pitching_observations": []
+        }
+      }
+    },
+    {
+      "row": {
+        "league": "NHL",
+        "fixture_id": "e94d45c2-c15f-4071-b663-676d4508af4a",
+        "fixture": "Toronto Maple Leafs - Montreal Canadiens",
+        "fixture_slug": "46728043-toronto-maple-leafs-montreal-canadiens",
+        "start": "2026-09-29T23:00:00+00:00",
+        "market_id": "c83d3e58-d5e5-4fad-9672-9e7eda128cff",
+        "market": "1st Period - Handicap",
+        "specifiers": "periodnr=1|hcp=-1.5",
+        "provider_section": "standard",
+        "tabs": [
+          {
+            "id": "b13a0949-ee48-4092-9a1a-aba38f3f45c6",
+            "name": "periods"
+          }
+        ],
+        "outcomes": [
+          {
+            "odds": 3.6,
+            "active": true,
+            "voidFactor": 0,
+            "id": "68667095-4cec-4b68-a379-370196f2016f",
+            "name": "Toronto Maple Leafs (-1.5)"
+          },
+          {
+            "odds": 1.22,
+            "active": true,
+            "voidFactor": 0,
+            "id": "a210617e-36e9-493a-a4f8-6c0b9a10bdf0",
+            "name": "Montreal Canadiens (1.5)"
+          }
+        ],
+        "status": "active",
+        "raw_contract": {
+          "id": "c83d3e58-d5e5-4fad-9672-9e7eda128cff",
+          "status": "active",
+          "specifiers": "periodnr=1|hcp=-1.5",
+          "extendedSpecifiers": "",
+          "updatedAt": 1790724956418,
+          "name": "1st Period - Handicap",
+          "outcomes": [
+            {
+              "odds": 3.6,
+              "active": true,
+              "voidFactor": 0,
+              "id": "68667095-4cec-4b68-a379-370196f2016f",
+              "name": "Toronto Maple Leafs (-1.5)"
+            },
+            {
+              "odds": 1.22,
+              "active": true,
+              "voidFactor": 0,
+              "id": "a210617e-36e9-493a-a4f8-6c0b9a10bdf0",
+              "name": "Montreal Canadiens (1.5)"
+            }
+          ]
+        },
+        "source": {
+          "url": "https://odds-data.stake.com/odds/46728043-toronto-maple-leafs-montreal-canadiens",
+          "fetched_at": "2026-09-29T23:36:17.119337+00:00",
+          "sha256": "732d9a62e69bb6aeba88f8cfe97f98248bbe4c779fa82d396524100fc851f39b",
+          "archive": "stake_api_archive/732d9a62e69bb6aeba88f8cfe97f98248bbe4c779fa82d396524100fc851f39b.json.gz"
+        },
+        "family": "score_contract",
+        "scope": "period_1",
+        "scope_basis": "title_explicit",
+        "dependencies": [
+          "scope_score_targets",
+          "scope_probability_model",
+          "exact_payoff_rule"
+        ],
+        "recognition_is_model_support": false
+      },
+      "game": {
+        "id": "NHL:2026020002",
+        "league": "NHL",
+        "start": "2026-09-29T23:00:00Z",
+        "home": "Toronto Maple Leafs",
+        "away": "Montreal Canadiens",
+        "home_id": "TOR",
+        "away_id": "MTL",
+        "home_abbr": "TOR",
+        "away_abbr": "MTL",
+        "state": "live",
+        "season": 2027,
+        "home_score": null,
+        "away_score": null,
+        "neutral": false,
+        "game_type": "regular",
+        "source": "https://api-web.nhle.com/v1/schedule/2026-09-29",
+        "fetched_at": "2026-09-29T23:25:47.146306+00:00",
+        "context": {}
+      }
+    },
+    {
+      "row": {
+        "league": "NHL",
+        "fixture_id": "60fa877e-b2ce-40e3-bf28-1690becc03e5",
+        "fixture": "Boston Bruins - New York Rangers",
+        "fixture_slug": "46728047-boston-bruins-new-york-rangers",
+        "start": "2026-09-30T00:00:00+00:00",
+        "market_id": "bde518ea-40a4-4a52-98b0-44374b509f63",
+        "market": "2nd Period - Handicap",
+        "specifiers": "periodnr=2|hcp=0.5",
+        "provider_section": "standard",
+        "tabs": [
+          {
+            "id": "b13a0949-ee48-4092-9a1a-aba38f3f45c6",
+            "name": "periods"
+          }
+        ],
+        "outcomes": [
+          {
+            "odds": 1.46,
+            "active": true,
+            "voidFactor": 0,
+            "id": "e2edcd23-9628-4b4e-9a58-603eeec75b3c",
+            "name": "Boston Bruins (0.5)"
+          },
+          {
+            "odds": 2.6,
+            "active": true,
+            "voidFactor": 0,
+            "id": "7c364c14-d013-4c10-88b8-bf9b484d955f",
+            "name": "New York Rangers (-0.5)"
+          }
+        ],
+        "status": "active",
+        "raw_contract": {
+          "id": "bde518ea-40a4-4a52-98b0-44374b509f63",
+          "status": "active",
+          "specifiers": "periodnr=2|hcp=0.5",
+          "extendedSpecifiers": "",
+          "updatedAt": 1790724653733,
+          "name": "2nd Period - Handicap",
+          "outcomes": [
+            {
+              "odds": 1.46,
+              "active": true,
+              "voidFactor": 0,
+              "id": "e2edcd23-9628-4b4e-9a58-603eeec75b3c",
+              "name": "Boston Bruins (0.5)"
+            },
+            {
+              "odds": 2.6,
+              "active": true,
+              "voidFactor": 0,
+              "id": "7c364c14-d013-4c10-88b8-bf9b484d955f",
+              "name": "New York Rangers (-0.5)"
+            }
+          ]
+        },
+        "source": {
+          "url": "https://odds-data.stake.com/odds/46728047-boston-bruins-new-york-rangers",
+          "fetched_at": "2026-09-29T23:35:23.996821+00:00",
+          "sha256": "a9a429d14a0027130a3ed8ff770fef012c94cd4f5cc4a662f0ef2752f41b1ba4",
+          "archive": "stake_api_archive/a9a429d14a0027130a3ed8ff770fef012c94cd4f5cc4a662f0ef2752f41b1ba4.json.gz"
+        },
+        "family": "score_contract",
+        "scope": "period_2",
+        "scope_basis": "title_explicit",
+        "dependencies": [
+          "scope_score_targets",
+          "scope_probability_model",
+          "exact_payoff_rule"
+        ],
+        "recognition_is_model_support": false
+      },
+      "game": {
+        "id": "NHL:2026020003",
+        "league": "NHL",
+        "start": "2026-09-30T00:00:00Z",
+        "home": "Boston Bruins",
+        "away": "New York Rangers",
+        "home_id": "BOS",
+        "away_id": "NYR",
+        "home_abbr": "BOS",
+        "away_abbr": "NYR",
+        "state": "scheduled",
+        "season": 2027,
+        "home_score": null,
+        "away_score": null,
+        "neutral": false,
+        "game_type": "regular",
+        "source": "https://api-web.nhle.com/v1/schedule/2026-09-29",
+        "fetched_at": "2026-09-29T23:25:47.146306+00:00",
+        "context": {
+          "injuries": {
+            "home": [
+              {
+                "athlete_id": "3988803",
+                "athlete_display_name": "Charlie McAvoy",
+                "athlete_position": "D",
+                "status": "Suspension",
+                "injury_date": "2026-09-21T05:14Z",
+                "short_comment": "McAvoy logged an even-strength goal on three shots and four PIM in a game-high 28:35 of ice time during Sunday's 3-2 shootout win over the Capitals in preseason play.",
+                "detail_return_date": "2026-10-13",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nhl_injuries/injuries_2027.parquet",
+                "fetched_at": "2026-09-29T23:27:31.522816+00:00"
+              },
+              {
+                "athlete_id": "5080221",
+                "athlete_display_name": "Matthew Poitras",
+                "athlete_position": "C",
+                "status": "Injured Reserve",
+                "injury_date": "2026-09-27T18:16Z",
+                "short_comment": "Poitras (lower body) was placed on injured reserve by the Bruins on Sunday, per Conor Ryan of The Boston Globe.",
+                "detail_return_date": "2026-10-05",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nhl_injuries/injuries_2027.parquet",
+                "fetched_at": "2026-09-29T23:27:31.522816+00:00"
+              }
+            ],
+            "away": [
+              {
+                "athlete_id": "4874915",
+                "athlete_display_name": "Vincent Iorio",
+                "athlete_position": "D",
+                "status": "Injured Reserve",
+                "injury_date": "2026-09-29T01:37Z",
+                "short_comment": "ir",
+                "detail_return_date": "",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nhl_injuries/injuries_2027.parquet",
+                "fetched_at": "2026-09-29T23:27:31.522816+00:00"
+              },
+              {
+                "athlete_id": "5080232",
+                "athlete_display_name": "Adam Sykora",
+                "athlete_position": "LW",
+                "status": "Injured Reserve",
+                "injury_date": "2026-09-29T01:35Z",
+                "short_comment": "ir",
+                "detail_return_date": "2027-01-25",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nhl_injuries/injuries_2027.parquet",
+                "fetched_at": "2026-09-29T23:27:31.522816+00:00"
+              },
+              {
+                "athlete_id": "5136624",
+                "athlete_display_name": "Aidan Thompson",
+                "athlete_position": "C",
+                "status": "Injured Reserve",
+                "injury_date": "2026-09-29T16:39Z",
+                "short_comment": "ir-nr",
+                "detail_return_date": "2026-10-01",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nhl_injuries/injuries_2027.parquet",
+                "fetched_at": "2026-09-29T23:27:31.522816+00:00"
+              }
+            ],
+            "snapshot_date": "2026-09-29",
+            "stale": false,
+            "quantitative_model_input": false
+          }
+        }
+      }
+    },
+    {
+      "row": {
+        "league": "NHL",
+        "fixture_id": "60fa877e-b2ce-40e3-bf28-1690becc03e5",
+        "fixture": "Boston Bruins - New York Rangers",
+        "fixture_slug": "46728047-boston-bruins-new-york-rangers",
+        "start": "2026-09-30T00:00:00+00:00",
+        "market_id": "42d0aec0-561f-4543-be56-bf99b1e53d3e",
+        "market": "3rd Period - Handicap",
+        "specifiers": "periodnr=3|hcp=0.5",
+        "provider_section": "standard",
+        "tabs": [
+          {
+            "id": "b13a0949-ee48-4092-9a1a-aba38f3f45c6",
+            "name": "periods"
+          }
+        ],
+        "outcomes": [
+          {
+            "odds": 1.49,
+            "active": true,
+            "voidFactor": 0,
+            "id": "791bf429-2e69-4d99-bdb5-fdf669c1bd0e",
+            "name": "Boston Bruins (0.5)"
+          },
+          {
+            "odds": 2.5,
+            "active": true,
+            "voidFactor": 0,
+            "id": "cd11a940-a799-45d4-9cce-26cf2e9e5e22",
+            "name": "New York Rangers (-0.5)"
+          }
+        ],
+        "status": "active",
+        "raw_contract": {
+          "id": "42d0aec0-561f-4543-be56-bf99b1e53d3e",
+          "status": "active",
+          "specifiers": "periodnr=3|hcp=0.5",
+          "extendedSpecifiers": "",
+          "updatedAt": 1790724653733,
+          "name": "3rd Period - Handicap",
+          "outcomes": [
+            {
+              "odds": 1.49,
+              "active": true,
+              "voidFactor": 0,
+              "id": "791bf429-2e69-4d99-bdb5-fdf669c1bd0e",
+              "name": "Boston Bruins (0.5)"
+            },
+            {
+              "odds": 2.5,
+              "active": true,
+              "voidFactor": 0,
+              "id": "cd11a940-a799-45d4-9cce-26cf2e9e5e22",
+              "name": "New York Rangers (-0.5)"
+            }
+          ]
+        },
+        "source": {
+          "url": "https://odds-data.stake.com/odds/46728047-boston-bruins-new-york-rangers",
+          "fetched_at": "2026-09-29T23:35:23.996821+00:00",
+          "sha256": "a9a429d14a0027130a3ed8ff770fef012c94cd4f5cc4a662f0ef2752f41b1ba4",
+          "archive": "stake_api_archive/a9a429d14a0027130a3ed8ff770fef012c94cd4f5cc4a662f0ef2752f41b1ba4.json.gz"
+        },
+        "family": "score_contract",
+        "scope": "period_3",
+        "scope_basis": "title_explicit",
+        "dependencies": [
+          "scope_score_targets",
+          "scope_probability_model",
+          "exact_payoff_rule"
+        ],
+        "recognition_is_model_support": false
+      },
+      "game": {
+        "id": "NHL:2026020003",
+        "league": "NHL",
+        "start": "2026-09-30T00:00:00Z",
+        "home": "Boston Bruins",
+        "away": "New York Rangers",
+        "home_id": "BOS",
+        "away_id": "NYR",
+        "home_abbr": "BOS",
+        "away_abbr": "NYR",
+        "state": "scheduled",
+        "season": 2027,
+        "home_score": null,
+        "away_score": null,
+        "neutral": false,
+        "game_type": "regular",
+        "source": "https://api-web.nhle.com/v1/schedule/2026-09-29",
+        "fetched_at": "2026-09-29T23:25:47.146306+00:00",
+        "context": {
+          "injuries": {
+            "home": [
+              {
+                "athlete_id": "3988803",
+                "athlete_display_name": "Charlie McAvoy",
+                "athlete_position": "D",
+                "status": "Suspension",
+                "injury_date": "2026-09-21T05:14Z",
+                "short_comment": "McAvoy logged an even-strength goal on three shots and four PIM in a game-high 28:35 of ice time during Sunday's 3-2 shootout win over the Capitals in preseason play.",
+                "detail_return_date": "2026-10-13",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nhl_injuries/injuries_2027.parquet",
+                "fetched_at": "2026-09-29T23:27:31.522816+00:00"
+              },
+              {
+                "athlete_id": "5080221",
+                "athlete_display_name": "Matthew Poitras",
+                "athlete_position": "C",
+                "status": "Injured Reserve",
+                "injury_date": "2026-09-27T18:16Z",
+                "short_comment": "Poitras (lower body) was placed on injured reserve by the Bruins on Sunday, per Conor Ryan of The Boston Globe.",
+                "detail_return_date": "2026-10-05",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nhl_injuries/injuries_2027.parquet",
+                "fetched_at": "2026-09-29T23:27:31.522816+00:00"
+              }
+            ],
+            "away": [
+              {
+                "athlete_id": "4874915",
+                "athlete_display_name": "Vincent Iorio",
+                "athlete_position": "D",
+                "status": "Injured Reserve",
+                "injury_date": "2026-09-29T01:37Z",
+                "short_comment": "ir",
+                "detail_return_date": "",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nhl_injuries/injuries_2027.parquet",
+                "fetched_at": "2026-09-29T23:27:31.522816+00:00"
+              },
+              {
+                "athlete_id": "5080232",
+                "athlete_display_name": "Adam Sykora",
+                "athlete_position": "LW",
+                "status": "Injured Reserve",
+                "injury_date": "2026-09-29T01:35Z",
+                "short_comment": "ir",
+                "detail_return_date": "2027-01-25",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nhl_injuries/injuries_2027.parquet",
+                "fetched_at": "2026-09-29T23:27:31.522816+00:00"
+              },
+              {
+                "athlete_id": "5136624",
+                "athlete_display_name": "Aidan Thompson",
+                "athlete_position": "C",
+                "status": "Injured Reserve",
+                "injury_date": "2026-09-29T16:39Z",
+                "short_comment": "ir-nr",
+                "detail_return_date": "2026-10-01",
+                "snapshot_date": "2026-09-29",
+                "source": "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nhl_injuries/injuries_2027.parquet",
+                "fetched_at": "2026-09-29T23:27:31.522816+00:00"
+              }
+            ],
+            "snapshot_date": "2026-09-29",
+            "stale": false,
+            "quantitative_model_input": false
+          }
+        }
+      }
+    }
+  ]
+}

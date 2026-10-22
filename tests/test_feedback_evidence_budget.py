@@ -16,7 +16,7 @@ import pytest
 import betting_engine.outcome_feedback as feedback
 from betting_engine.outcome_feedback import record_outcome_feedback, read_outcome_feedback
 from betting_engine.io_utils import atomic_json
-from tests.test_outcome_feedback import cohort, NOW
+from test_outcome_feedback import cohort, NOW
 
 
 def merged(*parts):

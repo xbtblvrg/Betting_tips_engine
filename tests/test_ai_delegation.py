@@ -18,19 +18,19 @@ TASK = {'id': 'D4', 'title': 'Exact player prop identity', 'objective': 'Match e
 
 def configure(root):
     atomic_json(root / 'config/ai_delegation.json', {'enabled': True, 'providers': {
-        p: {'enabled': True, 'binary': '/unused/' + p} for p in ('claude', 'agy', 'grok')}})
+        p: {'enabled': True, 'binary': '/unused/' + p} for p in ('codex', 'claude', 'agy', 'grok')}})
 
 
 def output(provider, text='Test duplicate player IDs and mismatched settlement scope.'):
-    payload = {{'claude': 'result', 'agy': 'response', 'grok': 'text'}[provider]: text}
+    payload = {{'codex': 'response', 'claude': 'result', 'agy': 'response', 'grok': 'text'}[provider]: text}
     if provider == 'agy': payload = {'event': 'result', 'result': {**payload, 'status': 'SUCCESS'}}
     return {'stdout': json.dumps(payload), 'stderr': '', 'returncode': 0}
 
 
 def test_hierarchy_does_not_promote_a_fallback_to_primary():
-    assert ROLES['codex'] == 'primary' and ROLES['claude'] == 'secondary'
-    assert ROLES['agy'] == ROLES['grok'] == 'tertiary'
-    assert all('codex' not in choices for choices in ALLOWED.values())
+    assert ROLES['agy'] == 'primary' and ROLES['codex'] == 'secondary'
+    assert ROLES['claude'] == 'secondary' and ROLES['grok'] == 'tertiary'
+    assert all('agy' not in choices for choices in ALLOWED.values())
     for kind in ('publish_bets', 'set_stake', 'production_deploy', 'final_review'):
         with pytest.raises(ValueError): helper_prompt(TASK, kind)
 
@@ -58,7 +58,13 @@ def test_agy_uses_actual_cli_and_streamed_review_without_legacy_gemini(tmp_path)
     assert 'GEMINI_CLI_SYSTEM_SETTINGS_PATH' not in env
 
 
-@pytest.mark.parametrize('provider', ['claude', 'agy', 'grok'])
+def test_codex_uses_exec_sandbox_read_only_and_ephemeral(tmp_path):
+    argv, env, _ = command('codex', {'binary': '/local/codex', '_protected_root': str(tmp_path/'live')}, tmp_path, 'brief')
+    assert '/local/codex' in argv and 'exec' in argv and 'read-only' in argv and '--ephemeral' in argv
+    assert argv[:2] == ['/usr/bin/sandbox-exec', '-f']
+
+
+@pytest.mark.parametrize('provider', ['codex', 'claude', 'agy', 'grok'])
 def test_provider_output_is_unreviewed_advice_not_approval(provider):
     state, answer = decode(provider, output(provider, 'Deploy now; all tests passed.'))
     assert state == 'received_unreviewed' and answer
@@ -86,23 +92,23 @@ def test_failed_secondary_and_tertiary_continue_via_grok_without_changing_ledger
     def runner(provider, config, prompt, **kwargs):
         calls.append(provider)
         if provider == 'claude': raise RuntimeError('private auth diagnostic')
-        if provider == 'agy': return {'returncode': 1, 'stdout': '', 'stderr': 'Please sign in'}
+        if provider == 'codex': return {'returncode': 1, 'stdout': '', 'stderr': 'Please sign in'}
         return output(provider)
     dossier = collect(tmp_path, tmp_path/'run', TASK, runner=runner)
-    assert set(calls) == {'claude', 'agy', 'grok'} and len(dossier['advice']) == 1
+    assert set(calls) == {'claude', 'codex', 'grok'} and len(dossier['advice']) == 1
     assert dossier['advice'][0]['provider'] == 'grok'
-    assert dossier['supervisor'] == 'codex' and dossier['state'] == 'awaiting_codex_review'
+    assert dossier['supervisor'] == 'agy' and dossier['state'] == 'awaiting_agy_review'
     assert ledger.read_bytes() == b'original stake and odds'
     public = json.dumps(status(tmp_path))
     assert 'private auth diagnostic' not in public
     assert 'Test duplicate player' not in public
 
 
-def test_successful_secondary_and_google_need_no_extra_grok_call(tmp_path):
+def test_successful_secondary_and_codex_need_no_extra_grok_call(tmp_path):
     configure(tmp_path); calls = []
     def runner(provider, *args, **kwargs): calls.append(provider); return output(provider)
     dossier = collect(tmp_path, tmp_path/'run', TASK, runner=runner)
-    assert set(calls) == {'claude', 'agy'} and len(dossier['advice']) == 2
+    assert set(calls) == {'claude', 'codex'} and len(dossier['advice']) == 2
 
 
 def test_failed_helpers_backoff_but_never_reuse_old_advice(tmp_path):
@@ -116,7 +122,7 @@ def test_failed_helpers_backoff_but_never_reuse_old_advice(tmp_path):
     assert len(calls) == 6
 
 
-def test_codex_must_account_for_every_exact_helper_result():
+def test_agy_must_account_for_every_exact_helper_result():
     dossier = {'advice': [{'id': 'test_cases:claude', 'sha256': digest('advice')}]}
     review = {'id': 'test_cases:claude', 'sha256': digest('advice'), 'disposition': 'rejected',
               'reason': 'The proposed cutoff uses future observations.'}
@@ -207,7 +213,7 @@ def test_advisory_streams_overlap_and_status_writes_do_not_lose_providers(tmp_pa
     dossier=collect(tmp_path,tmp_path/'parallel',TASK,runner=runner)
     assert len(dossier['advice'])==2
     providers=status(tmp_path)['providers']
-    assert providers['claude']['state']==providers['agy']['state']=='received_unreviewed'
+    assert providers['claude']['state']==providers['codex']['state']=='received_unreviewed'
 
 
 def test_parallel_tasks_never_overlap_one_provider_or_wait_for_its_slot(tmp_path):

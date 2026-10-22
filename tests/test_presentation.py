@@ -100,3 +100,43 @@ def test_stake_regulation_and_soccer_market_names():
     tip_custom = {'league': 'NHL', 'market': 'three_way', 'reference_contract_description': '1x2'}
     assert market_name('NHL', 'three_way', tip_custom) == '1x2'
 
+
+def test_tennis_presentation_and_stake_market():
+    from src.betting_engine.presentation import market_name, stake_market, english_payload
+
+    # Market names should be tennis-specific and not include overtime
+    assert market_name('ATP', 'moneyline') == 'Winner'
+    assert market_name('WTA', 'spreads') == 'Game Handicap'
+    assert market_name('CHALLENGER', 'totals') == 'Total Games'
+
+    # Stake market details for ATP
+    tip = {
+        'id': 'tennis-tip-1',
+        'league': 'ATP',
+        'market': 'spreads',
+        'side': 'home',
+        'line': -3.5,
+        'selection': 'Jannik Sinner -3.5',
+        'home': 'Jannik Sinner',
+        'away': 'Carlos Alcaraz',
+        'reference_platform': 'Stake.com',
+        'reference_url': 'https://stake.com/sports/tennis/atp/sinner-vs-alcaraz',
+        'stake_evidence': {
+            'league_path': 'tennis/atp',
+            'market_groups': [{'name': 'Main'}]
+        }
+    }
+    sm = stake_market(tip)
+    assert sm['name'] == 'Game Handicap'
+    assert sm['league_url'] == 'https://stake.com/sports/tennis/atp'
+    assert sm['event_url'] == 'https://stake.com/sports/tennis/atp/sinner-vs-alcaraz'
+    assert 'retires before match completion' in sm['scope_note']
+    assert sm['tab'] == 'Main'
+
+    # English payload transforms
+    payload = english_payload(tip)
+    assert payload['market_display'] == 'Game Handicap'
+    assert payload['selection'] == 'Jannik Sinner -3.5'
+    assert payload['stake_market']['event_url'] == 'https://stake.com/sports/tennis/atp/sinner-vs-alcaraz'
+
+

@@ -1,5 +1,6 @@
 """Prospective CLV gate for non-stress fallback tiers."""
-from src.betting_engine.funding_policy import funding_basis
+from betting_engine.funding_policy import funding_basis
+
 
 
 def tip(prob=.60, stress=.50, odds=1.80, evidence=None):
