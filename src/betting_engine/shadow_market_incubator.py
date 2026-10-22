@@ -1828,9 +1828,9 @@ class ShadowMarketIncubator:
             brier_mkt_list = [r[7] for r in records if r[7] is not None]
             req_list = [r[8] for r in records]
 
-            # Dynamic sample requirement: maximum of individual dynamic requirements or 20
+            # Dynamic sample requirement: minimum 25 samples
             avg_odds = float(np.mean(odds_list)) if odds_list else 2.0
-            n_min_dynamic = max(20, int(math.ceil(20.0 * math.sqrt(max(0.1, avg_odds - 1.0)))))
+            n_min_dynamic = max(25, int(math.ceil(25.0 * math.sqrt(max(0.1, avg_odds - 1.0)))))
 
             if n_samples < n_min_dynamic:
                 continue  # Insufficient sample power
@@ -1854,18 +1854,17 @@ class ShadowMarketIncubator:
 
             # -----------------------------------------------------------------
             # DYNAMIC CRUCIBLE GRADUATION CONDITIONS:
-            # 1. Sample Size >= dynamic N_min
-            # 2. Simulated ROI >= +3.0% (for high_probability) or +3.5% (for gap_market)
-            # 3. Model Calibration: Brier Model < 0.245 or Delta Brier > 0.001
+            # 1. Sample Size >= dynamic N_min (strictly >= 25)
+            # 2. Simulated ROI >= +3.0%
+            # 3. Model Calibration: Delta Brier strictly > 0.0005
             # 4. Drawdown Discipline: Max Drawdown < 20%
-            # 5. For high_probability cohort: Win Rate >= 55.0%
             # -----------------------------------------------------------------
             if cohort_val == 'high_probability':
-                passed = (roi >= 0.030 and win_rate >= 0.55 and n_samples >= n_min_dynamic and (brier_model < 0.245 or delta_brier > 0.0) and max_dd < 0.20)
+                passed = (roi >= 0.030 and win_rate >= 0.55 and n_samples >= n_min_dynamic and delta_brier > 0.0005 and max_dd < 0.20)
             elif cohort_val == 'core_challenger':
                 passed = (roi >= 0.030 and delta_brier > 0.001 and n_samples >= n_min_dynamic and max_dd < 0.20)
             else:
-                passed = (roi >= 0.035 and delta_brier > 0.002 and max_dd < 0.15)
+                passed = (roi >= 0.035 and delta_brier > 0.002 and n_samples >= n_min_dynamic and max_dd < 0.15)
 
             if passed:
                 # GRADUATION APPROVED!
@@ -2014,13 +2013,13 @@ class ShadowMarketIncubator:
                         continue
 
                 n_samples = c_data['n']
-                if n_samples < 15:
+                if n_samples < 25:
                     continue
 
                 total_stake = c_data['staked']
                 total_pnl = c_data['pnl']
                 roi = (total_pnl / total_stake) if total_stake > 0 else 0.0
-                if total_pnl <= 0.0 or roi < 0.02:
+                if total_pnl <= 0.0 or roi < 0.03:
                     continue
 
                 cumsum = np.cumsum(c_data['pnls'])
@@ -2499,9 +2498,9 @@ class ShadowMarketIncubator:
             brier_model_list = [r[6] for r in records if r[6] is not None]
             brier_mkt_list = [r[7] for r in records if r[7] is not None]
 
-            # In deficit expansion mode, adaptive dynamic sample power: N_min >= max(15, ceil(15 * sqrt(O - 1)))
+            # In deficit expansion mode, adaptive dynamic sample power: N_min >= max(25, ceil(25 * sqrt(O - 1)))
             avg_odds = float(np.mean(odds_list)) if odds_list else 2.0
-            n_min_adaptive = max(15, int(math.ceil(15.0 * math.sqrt(max(0.1, avg_odds - 1.0)))))
+            n_min_adaptive = max(25, int(math.ceil(25.0 * math.sqrt(max(0.1, avg_odds - 1.0)))))
 
             if n_samples < n_min_adaptive:
                 continue

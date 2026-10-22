@@ -187,11 +187,8 @@ def test_volume_deficit_expansion_graduation(incubator, tmp_path):
     conn = incubator._get_connection()
     cur = conn.cursor()
 
-    # Insert 18 settled wagers for WTA Set Winner with positive edge and low drawdown
-    # 12 wins (odds 1.80, profit 0.80), 6 losses (-1.00)
-    # Total stake = 18.0
-    # Profit = 12 * 0.80 - 6 * 1.0 = 9.60 - 6.0 = +3.60 -> ROI = +20.0%
-    for i in range(18):
+    # Insert 28 settled wagers for WTA Set Winner with positive edge and low drawdown
+    for i in range(28):
         w_id = f"wta_wager_{i}"
         is_win = (i % 3 != 0)
         res = 'won' if is_win else 'lost'
@@ -214,11 +211,7 @@ def test_volume_deficit_expansion_graduation(incubator, tmp_path):
     conn.commit()
     conn.close()
 
-    # Standard evaluate_graduation requires N >= 20, so N=18 won't graduate under normal mode
-    standard_grads = incubator.evaluate_graduation()
-    assert len(standard_grads) == 0
-
-    # Under volume deficit expansion mode (e.g. daily shortfall = 25), adaptive threshold (N >= 15) activates!
+    # Under volume deficit expansion mode (e.g. daily shortfall = 25), adaptive threshold (N >= 25) activates!
     deficit_grads = incubator.trigger_volume_deficit_expansion(daily_shortfall=25)
     assert len(deficit_grads) == 1
     g = deficit_grads[0]
@@ -909,9 +902,9 @@ def test_core_full_game_market_crucible_graduation(incubator, tmp_path):
             family TEXT, tip_id TEXT, issued_at TEXT, payload TEXT, status TEXT, pnl REAL, outcome_evidence TEXT
         )
     """)
-    # Insert 20 settled live decisions in WTA full_game moneyline with high positive alpha
-    for i in range(20):
-        is_win = i < 14
+    # Insert 26 settled live decisions in WTA full_game moneyline with high positive alpha
+    for i in range(26):
+        is_win = i < 18
         pnl = 0.90 if is_win else -1.0
         p = {
             'league': 'WTA', 'market': 'moneyline', 'model_scope': 'full_game',

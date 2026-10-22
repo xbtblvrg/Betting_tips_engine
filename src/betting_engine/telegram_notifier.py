@@ -12,7 +12,7 @@ import logging
 import time
 import urllib.request
 import urllib.error
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from zoneinfo import ZoneInfo
@@ -336,8 +336,24 @@ def notify_system_issues(issues: List[Dict[str, Any]]) -> int:
     return 0
 
 
+GRADUATIONS_PERSISTENCE_PATH = ROOT_DIR / "data" / "notified_graduations.json"
+
+
 def notify_rd_graduation(league: str, segment: str, sample_size: int, roi_pct: float, win_rate_pct: float) -> bool:
     """Dispatches real-time Telegram notification when a quarantined segment graduates from Shadow Incubator."""
+    # Deduplication to avoid spamming the user on recurring expansion cycles
+    notified = {}
+    if GRADUATIONS_PERSISTENCE_PATH.exists():
+        try:
+            notified = json.loads(GRADUATIONS_PERSISTENCE_PATH.read_text(encoding="utf-8"))
+        except Exception:
+            notified = {}
+
+    now_ts = datetime.now(timezone.utc).timestamp()
+    last_notified = notified.get(segment, 0)
+    if now_ts - last_notified < 86400:  # 24 hours silence for repeated alerts on the same segment
+        return False
+
     text = (
         f"🎓 <b>[AUTONOMOUS CRUCIBLE GRADUATION]</b>\n\n"
         f"🏆 <b>League:</b> {league}\n"
@@ -347,7 +363,15 @@ def notify_rd_graduation(league: str, segment: str, sample_size: int, roi_pct: f
         f"🧪 <b>Verified Wagers:</b> {sample_size} meccs\n\n"
         f"🛡️ <i>Tőkevédelmi karantén feloldva! Piac visszadiplomázott az éles ajánlásokba ($0.50-$8.00 tétsáv).</i>"
     )
-    return send_telegram_message(text)
+    res = send_telegram_message(text)
+    if res:
+        notified[segment] = now_ts
+        try:
+            GRADUATIONS_PERSISTENCE_PATH.parent.mkdir(parents=True, exist_ok=True)
+            GRADUATIONS_PERSISTENCE_PATH.write_text(json.dumps(notified, indent=2), encoding="utf-8")
+        except Exception:
+            pass
+    return res
 
 
 def notify_council_session(session_id: str, league: str, segment: str, trigger_reason: str, synthesis_decision: str) -> bool:
