@@ -564,6 +564,16 @@ class ShadowMarketIncubator:
         side = contract.side or 'home'
         line = contract.line
 
+        # Guard: Never price non-score/non-point statistical props with score/point models
+        raw_lower = (contract.raw_market_name or '').lower()
+        if any(p in raw_lower for p in (
+            'corner', 'corners', 'booking', 'bookings', 'card', 'cards',
+            'penalty', 'penalties', 'foul', 'fouls', 'throw in', 'throw-in',
+            'free kick', 'goal kick', 'offside', 'offsides', 'tackle', 'tackles',
+            'shot', 'shots', 'save', 'saves', 'touchdown', 'touchdowns'
+        )):
+            return None
+
         # Family 1 & 5: Asian Lines, American & Multi-Sport Derivatives
         if contract.family in ('asian_lines', 'american_derivatives'):
             # Check if soccer model is available

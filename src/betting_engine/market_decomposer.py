@@ -104,6 +104,21 @@ def decompose_market(market_record: Dict[str, Any], league: str, fixture_id: str
     elif 'incl. overtime' in s or 'including overtime' in s:
         scope = 'full_game'
 
+    # Non-Score / Statistical Prop Exclusion Filter:
+    # Game/half score and point models MUST NEVER price non-score/non-point statistical props
+    # (e.g. corners, cards, bookings, touchdowns, fouls, shots, rebounds, strikeouts).
+    PROP_EXCLUSIONS = (
+        'corner', 'corners', 'booking', 'bookings', 'card', 'cards',
+        'penalty', 'penalties', 'foul', 'fouls', 'throw in', 'throw-in',
+        'free kick', 'goal kick', 'offside', 'offsides', 'tackle', 'tackles',
+        'shot', 'shots', 'save', 'saves', 'touchdown', 'touchdowns',
+        'rebound', 'rebounds', 'assist', 'assists', 'steal', 'steals',
+        'turnover', 'turnovers', 'block', 'blocks', 'strikeout', 'strikeouts',
+        'hit', 'hits', 'error', 'errors', 'home run', 'homerun'
+    )
+    if any(p in s for p in PROP_EXCLUSIONS):
+        return []
+
     contracts = []
 
     # Family 1: Asian Lines (Handicaps and Totals)

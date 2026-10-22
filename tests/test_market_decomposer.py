@@ -163,3 +163,28 @@ def test_decompose_expanded_derivatives():
     assert c_dr[0].family == 'tennis_sets'
     assert c_dr[0].sub_family == 'double_result'
 
+
+def test_decompose_excludes_statistical_props():
+    """Verify that statistical props (corners, bookings, cards, touchdowns) are strictly excluded from score totals."""
+    # Corners in soccer
+    m_corners = {
+        'name': '1st Half - Total Corners',
+        'outcomes': [{'name': 'Under 4.5', 'odds': 1.88}, {'name': 'Over 4.5', 'odds': 1.95}]
+    }
+    assert decompose_market(m_corners, league='EPL', fixture_id='epl_1') == []
+
+    # Bookings / cards in soccer
+    m_bookings = {
+        'name': 'Total Bookings',
+        'outcomes': [{'name': 'Under 4.5', 'odds': 1.68}, {'name': 'Over 4.5', 'odds': 2.10}]
+    }
+    assert decompose_market(m_bookings, league='MLS', fixture_id='mls_1') == []
+
+    # Touchdowns in NFL
+    m_td = {
+        'name': 'Total touchdowns (incl. overtime)',
+        'outcomes': [{'name': 'Over 5.5', 'odds': 1.62}, {'name': 'Under 5.5', 'odds': 2.20}]
+    }
+    assert decompose_market(m_td, league='NFL', fixture_id='nfl_1') == []
+
+
