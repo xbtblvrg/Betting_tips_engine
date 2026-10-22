@@ -236,3 +236,91 @@ class WeatherService:
             "source": "open-meteo"
         }
 
+    def get_weather(
+        self,
+        lat: float,
+        lon: float,
+        game_time: Optional[Any] = None,
+        outfield_azimuth: Optional[float] = None
+    ) -> Dict[str, Any]:
+        """Direct latitude/longitude meteorological conditions lookup for free data sources."""
+        now = datetime.now(timezone.utc)
+        cache_key = f"direct_{round(lat, 3)}_{round(lon, 3)}.json"
+        cache_file = self.cache_dir / cache_key
+        data = None
+
+        if cache_file.exists():
+            try:
+                cached = json.loads(cache_file.read_text(encoding="utf-8"))
+                cached_at = datetime.fromisoformat(cached.get("fetched_at", ""))
+                if (now - cached_at).total_seconds() < CACHE_TTL_SECONDS:
+                    data = cached.get("payload")
+            except Exception:
+                pass
+
+        if data is None:
+            url = (
+                f"https://api.open-meteo.com/v1/forecast?"
+                f"latitude={lat}&longitude={lon}&"
+                f"current=temperature_2m,wind_speed_10m,wind_direction_10m,precipitation&"
+                f"hourly=temperature_2m,wind_speed_10m,wind_direction_10m,precipitation&"
+                f"wind_speed_unit=mph&timezone=UTC&forecast_days=3"
+            )
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "BettingQuantEngine/1.0"})
+                with urllib.request.urlopen(req, timeout=4.0) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    cache_file.write_text(json.dumps({"fetched_at": now.isoformat(), "payload": data}), encoding="utf-8")
+            except Exception as exc:
+                return {
+                    "wind_speed_mph": 0.0,
+                    "wind_gusts_mph": 0.0,
+                    "wind_bearing": "neutral",
+                    "wind_direction_deg": 0.0,
+                    "temperature_c": 20.0,
+                    "temperature_f": 68.0,
+                    "error": str(exc)[:200],
+                    "source": "open-meteo-fallback"
+                }
+
+        # Resolve observation
+        hourly = data.get("hourly", {})
+        hourly_times = hourly.get("time", [])
+        chosen_idx = None
+
+        if game_time and hourly_times:
+            try:
+                if isinstance(game_time, datetime):
+                    dt_utc = game_time.astimezone(timezone.utc)
+                else:
+                    dt = datetime.fromisoformat(str(game_time).replace("Z", "+00:00"))
+                    dt_utc = dt.astimezone(timezone.utc)
+                target_hour = dt_utc.strftime("%Y-%m-%dT%H:00")
+                if target_hour in hourly_times:
+                    chosen_idx = hourly_times.index(target_hour)
+            except Exception:
+                pass
+
+        if chosen_idx is not None and chosen_idx < len(hourly_times):
+            temp_c = float(hourly.get("temperature_2m", [20.0])[chosen_idx])
+            wind_mph = float(hourly.get("wind_speed_10m", [0.0])[chosen_idx])
+            wind_deg = float(hourly.get("wind_direction_10m", [0.0])[chosen_idx])
+        else:
+            current = data.get("current", {})
+            temp_c = float(current.get("temperature_2m", 20.0))
+            wind_mph = float(current.get("wind_speed_10m", 0.0))
+            wind_deg = float(current.get("wind_direction_10m", 0.0))
+
+        bearing = _classify_wind_bearing(wind_deg, outfield_azimuth)
+
+        return {
+            "wind_speed_mph": round(wind_mph, 1),
+            "wind_gusts_mph": round(wind_mph * 1.25, 1),
+            "wind_bearing": bearing,
+            "wind_direction_deg": round(wind_deg, 1),
+            "temperature_c": round(temp_c, 1),
+            "temperature_f": round(temp_c * 9.0 / 5.0 + 32.0, 1),
+            "source": "open-meteo"
+        }
+
+

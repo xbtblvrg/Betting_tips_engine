@@ -9,6 +9,7 @@ import os
 import json
 import math
 import logging
+import time
 import urllib.request
 import urllib.error
 from datetime import datetime
@@ -90,13 +91,25 @@ def send_telegram_message(text: str, parse_mode: str = "HTML") -> bool:
         data=data,
         headers={"Content-Type": "application/json"}
     )
-    try:
-        with urllib.request.urlopen(req, timeout=8.0) as resp:
-            res_json = json.loads(resp.read().decode("utf-8"))
-            return bool(res_json.get("ok"))
-    except Exception as e:
-        log.error("Failed to send Telegram message: %s", e)
-        return False
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=8.0) as resp:
+                res_json = json.loads(resp.read().decode("utf-8"))
+                return bool(res_json.get("ok"))
+        except urllib.error.HTTPError as e:
+            if e.code == 429:
+                # Rate limited: wait 1.5s and retry
+                time.sleep(1.5)
+                continue
+            log.warning("Telegram HTTP error %s: %s", e.code, e)
+            return False
+        except Exception as e:
+            if attempt < 2:
+                time.sleep(0.5)
+                continue
+            log.warning("Failed to send Telegram message: %s", e)
+            return False
+    return False
 
 
 def format_recommendation_message(tip: Dict[str, Any]) -> str:
