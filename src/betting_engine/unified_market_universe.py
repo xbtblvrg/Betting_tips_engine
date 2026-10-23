@@ -62,6 +62,11 @@ class UnifiedMarketProfile:
 class UnifiedMarketUniverse:
     """Single source of truth for the entire 461-market supported universe."""
 
+    _cached_roster: Optional[Dict[str, UnifiedMarketProfile]] = None
+    _cached_summary: Optional[Dict[str, Any]] = None
+    _cached_at: float = 0.0
+    _cache_ttl_seconds: float = 60.0
+
     def __init__(self, data_dir: Optional[Path | str] = None):
         self.data_dir = Path(data_dir or 'data')
         self.incubator_db_path = self.data_dir / 'shadow_incubator.sqlite3'
@@ -74,15 +79,21 @@ class UnifiedMarketUniverse:
         fam = (family or '').lower().strip()
         return f"{lg}|{sc}|{fam}"
 
-    def build_universe_roster(self) -> Dict[str, UnifiedMarketProfile]:
+    def build_universe_roster(self, force_refresh: bool = False) -> Dict[str, UnifiedMarketProfile]:
         """Assembles the complete 461-market roster with exact tier classifications."""
+        import time
+        now = time.time()
+        if not force_refresh and UnifiedMarketUniverse._cached_roster is not None:
+            if now - UnifiedMarketUniverse._cached_at < UnifiedMarketUniverse._cache_ttl_seconds:
+                return UnifiedMarketUniverse._cached_roster
+
         roster: Dict[str, UnifiedMarketProfile] = {}
 
         if not self.incubator_db_path.exists():
             return roster
 
         try:
-            with sqlite3.connect(self.incubator_db_path) as inc_conn:
+            with sqlite3.connect(f"file:{self.incubator_db_path}?mode=ro", uri=True, timeout=2.0) as inc_conn:
                 # 1. Ingest Graduated Markets (Tier 3 Candidates)
                 grad_rows = inc_conn.execute("""
                     SELECT segment_key, league, scope, family, sub_family,
@@ -155,10 +166,10 @@ class UnifiedMarketUniverse:
         # 3. Ingest active Core / Baseline Production markets not currently demoted
         if self.engine_db_path.exists():
             try:
-                with sqlite3.connect(self.engine_db_path) as eng_conn:
+                with sqlite3.connect(f"file:{self.engine_db_path}?mode=ro", uri=True, timeout=2.0) as eng_conn:
                     dec_rows = eng_conn.execute("""
-                        SELECT DISTINCT payload FROM system_decisions
-                        WHERE issued_at > datetime('now', '-7 days')
+                        SELECT payload FROM system_decisions
+                        ORDER BY issued_at DESC LIMIT 150
                     """).fetchall()
 
                     for (p_raw,) in dec_rows:
@@ -192,6 +203,8 @@ class UnifiedMarketUniverse:
             except Exception as exc:
                 logger.error("Error reading engine db for universe roster: %s", exc)
 
+        UnifiedMarketUniverse._cached_roster = roster
+        UnifiedMarketUniverse._cached_at = now
         return roster
 
     def get_market_tier(self, league: str, scope: str, family: str) -> MarketTier:
@@ -203,9 +216,15 @@ class UnifiedMarketUniverse:
         # Default unclassified markets start in Tier 1 R&D
         return MarketTier.RESEARCH_RND
 
-    def get_summary(self) -> Dict[str, Any]:
+    def get_summary(self, force_refresh: bool = False) -> Dict[str, Any]:
         """Provides high-level quantitative summary of the unified market universe."""
-        roster = self.build_universe_roster()
+        import time
+        now = time.time()
+        if not force_refresh and UnifiedMarketUniverse._cached_summary is not None:
+            if now - UnifiedMarketUniverse._cached_at < UnifiedMarketUniverse._cache_ttl_seconds:
+                return UnifiedMarketUniverse._cached_summary
+
+        roster = self.build_universe_roster(force_refresh=force_refresh)
         total_markets = len(roster)
         tier3 = [m for m in roster.values() if m.tier == int(MarketTier.PRODUCTION_GRADUATED)]
         tier2 = [m for m in roster.values() if m.tier == int(MarketTier.SHADOW_INCUBATOR)]
@@ -222,7 +241,7 @@ class UnifiedMarketUniverse:
             else:
                 lb['tier1'] += 1
 
-        return {
+        summary = {
             'total_supported_markets': total_markets,
             'tier_3_production_graduated_count': len(tier3),
             'tier_2_shadow_incubator_count': len(tier2),
@@ -231,3 +250,5 @@ class UnifiedMarketUniverse:
             'quarantined_capital_defense_ratio': (len(tier1) + len(tier2)) / max(1, total_markets),
             'leagues_breakdown': leagues_breakdown,
         }
+        UnifiedMarketUniverse._cached_summary = summary
+        return summary
