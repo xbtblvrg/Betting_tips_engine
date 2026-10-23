@@ -225,3 +225,24 @@ User update (2026-10-01), provider continuity: on a verified exhausted Codex wee
 Use the explicitly enabled `distinct_family_v1` Model Pick allocation policy from the requirement ledger. The legacy lifetime one-Model-Pick-per-game restriction must not suppress a separate, previously unfunded, model-qualified canonical family. Keep the best-current-family selection, original/equivalent contract exclusion, positive nominal EV, stress-failure disclosure, actual related-exposure sizing, and atomic publication checks. Different families are not automatically independent or a hedge. Probability-only limits and all source/model/quote/site guards remain intact. A depleted rolling twelve-hour instruction set requests a coalesced search even when later picks remain. Full player/sequence/joint support remains unfinished and must not be fabricated to fill the page.
 
 Under distinct_family_v1, reproduce funded stakes against all held and co-issued same-game contracts in the complete publication batch. Remove subminimum allocations without rotating to inferior alternatives, recompute the surviving roster, and verify it again atomically. Original issued stakes are never resized.
+
+
+## Autonomous 3-Tier Closed-Loop Model Progression & Demoted Market Recovery (2026-10-23)
+
+In accordance with Commandments 6 & 7 of `AGENTS.md` and `config/project_contract.json`:
+
+1. **Tier 1 — Autonomous R&D Historical Model Training & Tuning:**
+   - Underperforming / demoted markets ($0.00 quarantine) are never abandoned.
+   - The R&D pipeline (`historical_model_trainer.py`) automatically fits and tunes 5 candidate archetypes (`lightgbm_margin`, `poisson_overdispersion`, `logistic_clv_calibrated`, `empirical_bayes_shrinkage`, `negative_binomial_goals`) against 97,000+ historical settled matches.
+   - A model qualifies for forward evaluation only if it achieves out-of-sample $ROI_{oos} \ge +3.5\%$ and positive Brier skill ($\Delta Brier > 0$) on holdout historical data.
+
+2. **Tier 2 — Shadow Incubator Live Forward Validation:**
+   - The winning historical model is bound to the demoted market (`incubation_phase='incubating_with_new_model'`).
+   - It issues live shadow recommendations ($0.00 virtual stakes) on real upcoming fixtures across the 72-hour liquidity horizon.
+   - Real bankroll is completely protected while live accuracy, CLV, and execution validity are continuously measured.
+
+3. **Tier 3 — Crucible Re-Graduation to Real-Money Production:**
+   - Graduation to funded production ($0.50–$8.00 dynamic Kelly sizing) requires accumulating at least $N \ge 25$ live settled incubator matches with sustained positive ROI ($\ge +3.5\%$) and Brier skill.
+   - No market can graduate based on historical backtests alone, avoiding in-sample overfitting and sample bias.
+   - All 4 Quant AI brains (Gemini Antigravity, Claude, Codex, Grok) and supervisor daemons are strictly bound by this 3-tier lifecycle.
+

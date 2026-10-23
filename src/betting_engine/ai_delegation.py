@@ -60,6 +60,8 @@ def helper_prompt(task, kind):
         '20 distinct justified daily instructions for today and the next 48 hours, each $0.50-$8.00 and no fixed '
         'aggregate daily cap. Missing evidence must become actionable development, never fabricated edge, '
         'guaranteed wins, inflated counts or hidden losses. '
+        'UNIFIED CONSTITUTIONAL MANDATE: Minimum 100 distinct funded recommendations per Budapest day (700+/rolling week), min +10% weekly portfolio ROI target. '
+        'MANDATORY 3-TIER CLOSED-LOOP RECOVERY: Demoted markets MUST be trained and tuned on historical settled matches (97k+ games). Candidate models must prove out-of-sample positive ROI (>= +3.5%) and positive Brier skill BEFORE admission to the Shadow Incubator ($0.00). Only after accumulating N >= 25 live settled games with sustained profit does a candidate graduate to real money ($0.50-$8.00). '
         'Helper advice cannot waive tests, evidence checks or agy review.\nTASK BRIEF:\n' + json.dumps(brief))
 
 
