@@ -524,6 +524,15 @@ class SupremeAutonomousGovernor:
         if leaks_repaired > 0:
             actions.append({'action': 'alpha_leaks_repaired', 'audited': leaks_audited, 'repaired': leaks_repaired})
 
+        # 6b. Ensure 100% of demoted markets have active candidate tournament slates
+        try:
+            from .tournament_engine import ensure_demoted_tournaments_active
+            synced_cands = ensure_demoted_tournaments_active(data_dir=self.data_dir)
+            if synced_cands > 0:
+                actions.append({'action': 'ensure_demoted_tournaments', 'created_tournaments': synced_cands})
+        except Exception as e:
+            log.warning('Demoted tournaments sync error: %s', e)
+
         # 7. Enforce Prime Directives guard
         prime_guard = self.enforce_prime_directives_guard()
 

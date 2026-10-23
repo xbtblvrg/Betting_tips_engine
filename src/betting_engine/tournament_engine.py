@@ -465,3 +465,37 @@ class TournamentEngine:
 
         self.save_registry(reg)
         return champion
+
+
+def ensure_demoted_tournaments_active(
+    tournament_engine: Optional[TournamentEngine] = None,
+    data_dir: Path = DATA
+) -> int:
+    """Ensures 100% of demoted markets have active candidate tournament slates.
+    
+    Eliminates sequential queue bottlenecks so that all demoted segments actively
+    compete for Crucible re-graduation in parallel.
+    """
+    engine = tournament_engine or TournamentEngine(data_dir=data_dir)
+    incubator_db = data_dir / 'shadow_incubator.sqlite3'
+    if not incubator_db.exists():
+        return 0
+    try:
+        conn = sqlite3.connect(incubator_db)
+        rows = [r[0] for r in conn.execute("SELECT segment_key FROM demoted_markets").fetchall()]
+        conn.close()
+    except Exception:
+        return 0
+
+    from .model_generator import synthesize_candidate_slate
+    reg = engine.load_registry()
+    tourneys = set(reg.get('tournaments', {}).keys())
+
+    created = 0
+    for seg in rows:
+        canonical = normalize_segment_key(seg)
+        if canonical not in tourneys:
+            synthesize_candidate_slate(canonical, tournament_engine=engine)
+            tourneys.add(canonical)
+            created += 1
+    return created
