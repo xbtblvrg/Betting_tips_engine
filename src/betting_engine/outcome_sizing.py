@@ -351,10 +351,10 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
             if is_unproven_graduated:
                 caps['probation_nursery_clamp'] = 0.50
 
-            # Demoted Market Capital Defense Clamp:
-            # Any demoted core market or submarket is clamped strictly to $0.50 floor per Commandment 6 & TierStateMachine.
+            # Demoted Market Quarantine:
+            # Any demoted market is strictly suspended to $0.00 per Commandment 6 ($0.00 quarantine).
             if tip.get('is_demoted') is True:
-                caps['demoted_market_defense_clamp'] = 0.50
+                caps['demoted_market_defense_clamp'] = 0.00
 
         except Exception:
             pass

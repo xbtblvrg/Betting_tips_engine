@@ -2943,7 +2943,7 @@ class ShadowMarketIncubator:
         1. Evaluates all currently graduated markets on their live settled performance.
         2. Evaluates all Core Full-Game Markets across leagues on their live settled performance.
         3. If any market (graduated derivative or core full-game) deteriorates (rolling ROI < -3% or rolling PnL <= -$5.00 across 5+ live games):
-           - Demotes it to demoted_markets table and triggers CAPITAL_DEFENSE ($0.50 clamp, +3.5% EV hurdle).
+           - Demotes it to demoted_markets table and triggers quarantine ($0.00 stake, R&D investigation).
            - Enqueues an autonomous AI Quant R&D repair job in learning_jobs table.
            - Appends tier transition record to tier_transitions.jsonl.
            - Scans the incubator for the highest-performing alternative candidate in that league to substitute it.

@@ -240,7 +240,7 @@ def continuous_selection_priority_v4(tip, tier):
     if is_demoted:
         tip['is_demoted'] = True
         # Constitutional Commandment 6 & TierStateMachine:
-        # Demoted segments must clear minimum +3.5% EV hurdle (0.035) to receive live stake
+        # Demoted segments are demoted from ranking and quarantined ($0.00 stake) in candidate selection.
         if ev < 0.035:
             return (0, -999.0, p, stress_roi, False, str(tip.get('id', '')))
 
