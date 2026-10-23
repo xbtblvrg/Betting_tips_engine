@@ -980,6 +980,43 @@ class ShadowMarketIncubator:
                 except Exception:
                     pass
 
+                # Multi-Model Tournament Candidate Concurrent Paper-Trading
+                try:
+                    seg_key = f"{league}|{contract.scope}|{contract.family}"
+                    from .tournament_engine import TournamentEngine
+                    t_eng = getattr(self, '_tournament_engine', None)
+                    if t_eng is None:
+                        t_eng = TournamentEngine(self.data_dir)
+                        self._tournament_engine = t_eng
+                    candidates = t_eng.get_active_candidates(seg_key)
+                    for cand in candidates:
+                        ctx = game.context if (game and isinstance(getattr(game, 'context', None), dict)) else {}
+                        cand_prob, cand_ev = cand.evaluate_market(
+                            contract.family,
+                            contract.selection or '',
+                            contract.line,
+                            odds,
+                            ctx
+                        )
+                        if cand_ev >= 0.030:
+                            c_key = f"{key}:{cand.model_id}"
+                            c_wager_id = hashlib.sha256(c_key.encode()).hexdigest()[:24]
+                            cur.execute("""
+                                INSERT OR IGNORE INTO incubated_wagers (
+                                    id, fixture_id, game_id, league, scope, family, sub_family,
+                                    raw_market_name, selection, side, line, odds, model_prob, push_prob,
+                                    market_prob, ev, dynamic_sample_power_req, captured_at, status, metadata,
+                                    cohort, model_id, model_version
+                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, 'tournament_challenger', ?, ?)
+                            """, (
+                                c_wager_id, contract.fixture_id, game.id, league, contract.scope,
+                                contract.family, contract.sub_family, contract.raw_market_name,
+                                contract.selection or '', contract.side or 'home', contract.line, odds, cand_prob, 0.0,
+                                market_prob, cand_ev, sample_req, now_iso, meta_json, cand.model_id, cand.version
+                            ))
+                except Exception:
+                    pass
+
         conn.commit()
         conn.close()
         if game is not None and isinstance(getattr(game, 'context', None), dict):
@@ -1109,6 +1146,43 @@ class ShadowMarketIncubator:
                         'ev': round(ev, 4),
                         'cohort': cand_cohort
                     })
+            except Exception:
+                pass
+
+            # Multi-Model Tournament Candidate Concurrent Paper-Trading
+            try:
+                from .tournament_engine import TournamentEngine
+                t_eng = getattr(self, '_tournament_engine', None)
+                if t_eng is None:
+                    t_eng = TournamentEngine(self.data_dir)
+                    self._tournament_engine = t_eng
+                candidates = t_eng.get_active_candidates(c_seg)
+                g_obj = game_map.get(str(g_id)) if game_map else None
+                ctx = g_obj.context if (g_obj and isinstance(getattr(g_obj, 'context', None), dict)) else {}
+                for cand in candidates:
+                    cand_prob, cand_ev = cand.evaluate_market(
+                        family,
+                        str(selection),
+                        line,
+                        odds,
+                        ctx
+                    )
+                    if cand_ev >= 0.030:
+                        c_key = f"{key}:{cand.model_id}"
+                        c_wager_id = hashlib.sha256(c_key.encode()).hexdigest()[:24]
+                        cur.execute("""
+                            INSERT OR IGNORE INTO incubated_wagers (
+                                id, fixture_id, game_id, league, scope, family, sub_family,
+                                raw_market_name, selection, side, line, odds, model_prob, push_prob,
+                                market_prob, ev, dynamic_sample_power_req, captured_at, status, metadata,
+                                cohort, model_id, model_version
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, 'tournament_challenger', ?, ?)
+                        """, (
+                            c_wager_id, str(g_id), str(g_id), league, scope,
+                            family, sub_family, c.get('description', ''),
+                            str(selection), str(side), line, odds, cand_prob, 0.0,
+                            market_p, cand_ev, sample_req, now_iso, meta_json, cand.model_id, cand.version
+                        ))
             except Exception:
                 pass
 

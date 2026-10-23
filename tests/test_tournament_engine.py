@@ -160,3 +160,17 @@ def test_tournament_standings_and_crowning(temp_tournament_env):
     assert reg['champions'][segment]['champion_model_id'] == 'cand_damped_a'
     # Model B signature hash should now be in rejected list to prevent looping
     assert len(reg['rejected']) >= 1
+
+
+def test_active_candidates_retrieval(temp_tournament_env):
+    engine, _ = temp_tournament_env
+    segment = 'NHL|period_3|totals'
+    model = NegativeBinomialOverdispersionModel(model_id="cand_nb_active", league='NHL', scope='period_3', family='totals')
+    engine.register_candidate(segment, model)
+
+    active = engine.get_active_candidates(segment)
+    assert len(active) == 1
+    assert active[0].model_id == "cand_nb_active"
+    assert active[0].league == 'NHL'
+    assert active[0].scope == 'period_3'
+

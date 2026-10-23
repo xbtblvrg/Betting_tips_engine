@@ -195,6 +195,50 @@ class TournamentEngine:
         self.save_registry(reg)
         return True, []
 
+    def get_active_candidates(self, segment_key: str) -> List[BaseCandidateModel]:
+        """Returns instantiated active candidate models for a given segment key."""
+        reg = self.load_registry()
+        t_data = reg.get('tournaments', {}).get(segment_key)
+        if not t_data:
+            return []
+
+        from .sandbox_models.archetypes import (
+            NegativeBinomialOverdispersionModel,
+            SituationalFatigueModel,
+            OddsDampedKellyShrinkageModel,
+            BivariateCopulaHazardModel,
+        )
+
+        class_map = {
+            'NegativeBinomialOverdispersionModel': NegativeBinomialOverdispersionModel,
+            'SituationalFatigueModel': SituationalFatigueModel,
+            'OddsDampedKellyShrinkageModel': OddsDampedKellyShrinkageModel,
+            'BivariateCopulaHazardModel': BivariateCopulaHazardModel,
+        }
+
+        instances: List[BaseCandidateModel] = []
+        for cand_id, meta in t_data.get('candidates', {}).items():
+            if meta.get('status') not in ('incubating', 'qualified'):
+                continue
+            cls_name = meta.get('class_name')
+            cls_target = class_map.get(cls_name)
+            if not cls_target:
+                continue
+            try:
+                inst = cls_target(
+                    model_id=meta['model_id'],
+                    version=meta.get('version', '1.0.0'),
+                    league=meta.get('league', 'UNKNOWN'),
+                    scope=meta.get('scope', 'full_game'),
+                    family=meta.get('family', 'totals'),
+                    metadata=meta.get('metadata'),
+                )
+                instances.append(inst)
+            except Exception:
+                continue
+
+        return instances
+
     def evaluate_tournament(
         self,
         segment_key: str,
