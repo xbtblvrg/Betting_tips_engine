@@ -491,12 +491,20 @@ def refresh_verified_player_history(data_dir, output_dir, *, leagues=LEAGUES, se
     return manifest
 
 
-def _load_history_artifacts(output_dir):
+def _load_history_artifacts(output_dir, snapshot=None):
     root = Path(output_dir).resolve()
-    pointer = _json(_read(root / "latest.json", root, 8192))
+    if snapshot is not None:
+        if not isinstance(snapshot, dict):
+            raise ValueError("invalid_snapshot_reference")
+        pointer = snapshot
+    else:
+        pointer = _json(_read(root / "latest.json", root, 8192))
     run_id = pointer.get("run_id")
-    if not isinstance(run_id, str) or not re.fullmatch(r"\d{8}T\d{12}Z-[0-9a-f]{12}", run_id):
+    if not isinstance(run_id, str) or not re.fullmatch(r"\d{8}T\d{12}Z-[0-9a-f]{12}", run_id) or ".." in run_id:
         raise ValueError("invalid_run_reference")
+    manifest_sha = pointer.get("manifest_sha256")
+    if not isinstance(manifest_sha, str) or not re.fullmatch(r"[0-9a-f]{64}", manifest_sha):
+        raise ValueError("invalid_snapshot_reference")
     folder = root / "runs" / run_id
     if (root / "runs").is_symlink() or folder.is_symlink():
         raise ValueError("unsafe_run_directory")
@@ -519,12 +527,13 @@ def _load_history_artifacts(output_dir):
     return bodies, manifest
 
 
-def load_verified_player_history(output_dir):
+def load_verified_player_history(output_dir, snapshot=None):
     """Verify the complete durable receipt before exposing any D01 input rows."""
-    bodies, manifest = _load_history_artifacts(output_dir)
+    bodies, manifest = _load_history_artifacts(output_dir, snapshot=snapshot)
     table = pq.read_table(pa.BufferReader(bodies["observations.parquet"]))
     if len(table) != manifest["observation_count"] or table.schema != _schema():
         raise ValueError("history_row_count_or_schema_mismatch")
+    return table.to_pylist(), manifest
     return table.to_pylist(), manifest
 
 
@@ -614,11 +623,11 @@ def export_verified_player_sources(data_dir, history_dir, destination, *, max_to
     return report
 
 
-def build_verified_player_features(output_dir, *, identity_namespace, **query):
+def build_verified_player_features(output_dir, *, identity_namespace, snapshot=None, **query):
     """D01 integration; future inputs are excluded by their actual availability."""
     if NAMESPACES.get(query.get("league")) != identity_namespace:
         raise ValueError("player_identity_namespace_mismatch")
-    rows, manifest = load_verified_player_history(output_dir)
+    rows, manifest = load_verified_player_history(output_dir, snapshot=snapshot)
     selected = [row for row in rows if row["league"] == query.get("league") and row["player_id"] == query.get("player_id")]
     result = build_player_history(selected, **query)
     return {"features": result, "archive_run_id": manifest["run_id"], "archive_state": manifest["state"],

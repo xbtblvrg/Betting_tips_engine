@@ -129,3 +129,45 @@ def test_evaluate_market_away_side_and_team_name_resolution():
     p_away_spread, _ = model.evaluate_market('spreads', 'Calgary Flames +1.5', 1.5, 1.95, ctx, side='away')
     assert p_away_spread > p_away  # With +1.5 goals, cover probability should exceed outright win prob
 
+
+def test_team_total_and_derivative_evaluation():
+    scores = {
+        (2, 1): 0.4,
+        (1, 0): 0.3,
+        (0, 0): 0.1,
+        (0, 2): 0.2,
+    }
+    dist = DiscreteDistribution.from_scores(scores)
+
+    # Home total over 1.5: (2, 1) has home=2 > 1.5 -> prob = 0.4
+    assert math.isclose(dist.team_total_prob(1.5, 'over', 'home'), 0.4, abs_tol=1e-3)
+    # Home total under 1.5: (1, 0), (0, 0), (0, 2) has home < 1.5 -> prob = 0.6
+    assert math.isclose(dist.team_total_prob(1.5, 'under', 'home'), 0.6, abs_tol=1e-3)
+
+    # Away total over 0.5: (2, 1) away=1, (0, 2) away=2 -> prob = 0.6
+    assert math.isclose(dist.team_total_prob(0.5, 'over', 'away'), 0.6, abs_tol=1e-3)
+    # Away total under 0.5: (1, 0), (0, 0) -> prob = 0.4
+    assert math.isclose(dist.team_total_prob(0.5, 'under', 'away'), 0.4, abs_tol=1e-3)
+
+    # BTTS (both score): (2, 1) has h>0 and a>0 -> prob = 0.4
+    assert math.isclose(dist.both_score_prob('yes'), 0.4, abs_tol=1e-3)
+    assert math.isclose(dist.both_score_prob('no'), 0.6, abs_tol=1e-3)
+
+    # Double chance:
+    # 1X (h >= a): (2, 1) h>a, (1, 0) h>a, (0, 0) h=a -> prob = 0.4 + 0.3 + 0.1 = 0.8
+    assert math.isclose(dist.double_chance_prob('1x'), 0.8, abs_tol=1e-3)
+    # X2 (a >= h): (0, 0) h=a, (0, 2) a>h -> prob = 0.1 + 0.2 = 0.3
+    assert math.isclose(dist.double_chance_prob('x2'), 0.3, abs_tol=1e-3)
+    # 12 (h != a): (2, 1), (1, 0), (0, 2) -> prob = 0.4 + 0.3 + 0.2 = 0.9
+    assert math.isclose(dist.double_chance_prob('12'), 0.9, abs_tol=1e-3)
+
+    # Candidate model evaluate_market integration
+    model = NegativeBinomialOverdispersionModel(league='EPL', scope='full_game', family='totals')
+    ctx = {'home_expected': 2.0, 'away_expected': 1.0}
+
+    p_ht_over, _ = model.evaluate_market('home_total', 'Arsenal Over 1.5', 1.5, 1.85, ctx, side='over')
+    p_tot_over, _ = model.evaluate_market('totals', 'Over 1.5', 1.5, 1.30, ctx, side='over')
+    # Full game total over 1.5 should be strictly greater than just home total over 1.5
+    assert p_tot_over > p_ht_over
+
+

@@ -392,12 +392,29 @@ class TournamentEngine:
     def crown_champion(self, segment_key: str) -> Optional[CandidateStanding]:
         """Identifies and crowns the champion candidate model if one qualifies."""
         standings = self.evaluate_tournament(segment_key)
+        reg = self.load_registry()
+        t_cands = reg.get('tournaments', {}).get(segment_key, {}).get('candidates', {})
+        rejected_list = reg.setdefault('rejected', [])
+
+        has_change = False
+        for s in standings:
+            if s.status == 'rejected':
+                c_data = t_cands.get(s.model_id, {})
+                if c_data.get('status') != 'rejected':
+                    c_data['status'] = 'rejected'
+                    has_change = True
+                sig_hash = c_data.get('signature_hash')
+                if sig_hash and sig_hash not in rejected_list:
+                    rejected_list.append(sig_hash)
+                    has_change = True
+
         qualified = [s for s in standings if s.is_qualified]
         if not qualified:
+            if has_change:
+                self.save_registry(reg)
             return None
 
         champion = qualified[0]  # Highest scorecard S
-        reg = self.load_registry()
         reg.setdefault('champions', {})[segment_key] = {
             'champion_model_id': champion.model_id,
             'version': champion.version,
@@ -409,20 +426,9 @@ class TournamentEngine:
         }
 
         # Update candidate statuses in tournament registry
-        t_cands = reg.get('tournaments', {}).get(segment_key, {}).get('candidates', {})
         if champion.model_id in t_cands:
             t_cands[champion.model_id]['status'] = 'champion'
             t_cands[champion.model_id]['crowned_at'] = datetime.now(timezone.utc).isoformat()
-
-        # Blacklist rejected candidates from looping and mark their status
-        rejected_list = reg.setdefault('rejected', [])
-        for s in standings:
-            if s.status == 'rejected':
-                c_data = t_cands.get(s.model_id, {})
-                c_data['status'] = 'rejected'
-                sig_hash = c_data.get('signature_hash')
-                if sig_hash and sig_hash not in rejected_list:
-                    rejected_list.append(sig_hash)
 
         self.save_registry(reg)
         return champion

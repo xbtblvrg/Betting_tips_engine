@@ -990,7 +990,18 @@ class ShadowMarketIncubator:
                         self._tournament_engine = t_eng
                     candidates = t_eng.get_active_candidates(seg_key)
                     for cand in candidates:
-                        ctx = game.context if (game and isinstance(getattr(game, 'context', None), dict)) else {}
+                        ctx = dict(game.context) if (game and isinstance(getattr(game, 'context', None), dict)) else {}
+                        if game:
+                            if hasattr(game, 'home'):
+                                ctx.setdefault('home', game.home)
+                                ctx.setdefault('home_team', game.home)
+                            if hasattr(game, 'away'):
+                                ctx.setdefault('away', game.away)
+                                ctx.setdefault('away_team', game.away)
+                            if hasattr(game, 'home_abbr'):
+                                ctx.setdefault('home_abbr', game.home_abbr)
+                            if hasattr(game, 'away_abbr'):
+                                ctx.setdefault('away_abbr', game.away_abbr)
                         cand_prob, cand_ev = cand.evaluate_market(
                             contract.family,
                             contract.selection or '',
@@ -1159,7 +1170,18 @@ class ShadowMarketIncubator:
                     self._tournament_engine = t_eng
                 candidates = t_eng.get_active_candidates(c_seg)
                 g_obj = game_map.get(str(g_id)) if game_map else None
-                ctx = g_obj.context if (g_obj and isinstance(getattr(g_obj, 'context', None), dict)) else {}
+                ctx = dict(g_obj.context) if (g_obj and isinstance(getattr(g_obj, 'context', None), dict)) else {}
+                if g_obj:
+                    if hasattr(g_obj, 'home'):
+                        ctx.setdefault('home', g_obj.home)
+                        ctx.setdefault('home_team', g_obj.home)
+                    if hasattr(g_obj, 'away'):
+                        ctx.setdefault('away', g_obj.away)
+                        ctx.setdefault('away_team', g_obj.away)
+                    if hasattr(g_obj, 'home_abbr'):
+                        ctx.setdefault('home_abbr', g_obj.home_abbr)
+                    if hasattr(g_obj, 'away_abbr'):
+                        ctx.setdefault('away_abbr', g_obj.away_abbr)
                 for cand in candidates:
                     cand_prob, cand_ev = cand.evaluate_market(
                         family,

@@ -40,8 +40,10 @@ class NegativeBinomialOverdispersionModel(BaseCandidateModel):
         self.max_score = max_score
 
     def predict_distribution(self, game_context: Dict[str, Any]) -> DiscreteDistribution:
-        home_mu = float(game_context.get('home_expected') or game_context.get('home_points') or (2.8 if self.league == 'NHL' else 1.2))
-        away_mu = float(game_context.get('away_expected') or game_context.get('away_points') or (2.4 if self.league == 'NHL' else 1.1))
+        default_h = 110.0 if self.league in ('NBA', 'WNBA', 'NCAAM', 'NCAAW') else (24.0 if self.league in ('NFL', 'NCAAF') else (2.8 if self.league == 'NHL' else 1.2))
+        default_a = 106.0 if self.league in ('NBA', 'WNBA', 'NCAAM', 'NCAAW') else (21.0 if self.league in ('NFL', 'NCAAF') else (2.4 if self.league == 'NHL' else 1.1))
+        home_mu = float(game_context.get('home_expected') or game_context.get('home_points') or default_h)
+        away_mu = float(game_context.get('away_expected') or game_context.get('away_points') or default_a)
 
         scores = build_universal_score_lattice(
             home_mu,

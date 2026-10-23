@@ -595,6 +595,16 @@ class GraduatedUniversalSegmentModel:
         if getattr(self, 'champion_model', None) is not None:
             try:
                 c_dict = dict(context)
+                if hasattr(g, 'home'):
+                    c_dict.setdefault('home', g.home)
+                    c_dict.setdefault('home_team', g.home)
+                if hasattr(g, 'away'):
+                    c_dict.setdefault('away', g.away)
+                    c_dict.setdefault('away_team', g.away)
+                if hasattr(g, 'home_abbr'):
+                    c_dict.setdefault('home_abbr', g.home_abbr)
+                if hasattr(g, 'away_abbr'):
+                    c_dict.setdefault('away_abbr', g.away_abbr)
                 if self.league in ('NBA', 'WNBA', 'NCAAM', 'NCAAW'):
                     def_h, def_a = (110.0, 106.0) if self.league == 'NBA' else (80.0, 75.0)
                 elif self.league in ('NFL', 'NCAAF'):

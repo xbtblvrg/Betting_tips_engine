@@ -718,7 +718,9 @@ class Store:
                     loss=-(outcome*math.log(bounded)+(1-outcome)*math.log(1-bounded))
                 c.execute('INSERT OR IGNORE INTO bet_outcomes VALUES (?,?,?,?,?,?,?,?,?,?)',
                           (id,tip.get('league'),tip.get('market'),tip.get('model_version'),status,p,push,brier,loss,json.dumps(evidence)))
-            return updated
+        if updated:
+            self.invalidate_held_caches()
+        return updated
 
     def risk_committed(self):
         local=utcnow().astimezone(ZoneInfo(self.settings()['timezone']))

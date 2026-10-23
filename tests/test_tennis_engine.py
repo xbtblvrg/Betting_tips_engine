@@ -311,10 +311,12 @@ def test_tennis_league_model_forecast_with_real_players():
     from src.betting_engine.domain import Game
     from src.betting_engine.tennis_engine import TennisLeagueModel
 
+    from datetime import datetime, timezone, timedelta
+    future_start = (datetime.now(timezone.utc) + timedelta(hours=6)).isoformat()
     g = Game(
         id='ATP:test_medvedev_shimabukuro',
         league='ATP',
-        start='2026-10-23T10:00:00Z',
+        start=future_start,
         home='Daniil Medvedev',
         away='Sho Shimabukuro',
         home_id='Daniil Medvedev',
@@ -345,10 +347,12 @@ def test_tennis_unrated_bayesian_shrinkage():
     from src.betting_engine.domain import Game
     from src.betting_engine.tennis_engine import TennisLeagueModel
 
+    from datetime import datetime, timezone, timedelta
+    future_start = (datetime.now(timezone.utc) + timedelta(hours=6)).isoformat()
     g = Game(
         id='ATP:test_unrated_qualifiers',
         league='ATP',
-        start='2026-10-23T10:00:00Z',
+        start=future_start,
         home='Unknown Qualifier One',
         away='Unknown Qualifier Two',
         home_id='Unknown Qualifier One',

@@ -71,7 +71,7 @@ class OddsDampedKellyShrinkageModel(BaseCandidateModel):
 
         if eff_odds < 2.0:
             # Low odds: stronger shrinkage to prevent favorite traps
-            shrink_weight = self.damping_strength * (2.0 - eff_odds)
+            shrink_weight = max(0.0, min(0.8, self.damping_strength * (2.0 - eff_odds)))
             damped_prob = (1.0 - shrink_weight) * raw_prob + shrink_weight * implied_p
         else:
             # High odds: minimal shrinkage to retain alpha

@@ -179,6 +179,48 @@ class DiscreteDistribution:
         else:
             raise ValueError(f"Unknown moneyline side: {side}")
 
+    def team_total_prob(self, line: float, side: str = 'over', team: str = 'home') -> float:
+        """Calculates discrete probability for home or away team total points/goals."""
+        side = side.lower()
+        team = team.lower()
+        if team in ('home', '1', 'h'):
+            if side in ('over', 'o'):
+                p = sum(p for (h, _), p in self.scores.items() if h > line)
+            elif side in ('under', 'u'):
+                p = sum(p for (h, _), p in self.scores.items() if h < line)
+            else:
+                raise ValueError(f"Unknown total side: {side}")
+        elif team in ('away', '2', 'a'):
+            if side in ('over', 'o'):
+                p = sum(p for (_, a), p in self.scores.items() if a > line)
+            elif side in ('under', 'u'):
+                p = sum(p for (_, a), p in self.scores.items() if a < line)
+            else:
+                raise ValueError(f"Unknown total side: {side}")
+        else:
+            raise ValueError(f"Unknown team: {team}")
+        return max(0.01, min(0.99, round(p, 4)))
+
+    def both_score_prob(self, side: str = 'yes') -> float:
+        """Calculates discrete probability for both teams to score (BTTS)."""
+        side = side.lower()
+        p_yes = sum(p for (h, a), p in self.scores.items() if h > 0 and a > 0)
+        p = p_yes if side in ('yes', 'y') else (1.0 - p_yes)
+        return max(0.01, min(0.99, round(p, 4)))
+
+    def double_chance_prob(self, side: str = 'home_draw') -> float:
+        """Calculates discrete probability for double chance (1X, X2, 12)."""
+        side = side.lower()
+        if side in ('home_draw', '1x'):
+            p = sum(p for (h, a), p in self.scores.items() if h >= a)
+        elif side in ('away_draw', 'x2', '2x'):
+            p = sum(p for (h, a), p in self.scores.items() if a >= h)
+        elif side in ('home_away', '12'):
+            p = sum(p for (h, a), p in self.scores.items() if h != a)
+        else:
+            raise ValueError(f"Unknown double chance side: {side}")
+        return max(0.01, min(0.99, round(p, 4)))
+
 
 class BaseCandidateModel(ABC):
     """Abstract base contract for any sandboxed machine learning or quantitative model."""
@@ -230,7 +272,21 @@ class BaseCandidateModel(ABC):
         sel_lower = (selection or '').lower().strip()
         s_lower = (side or '').lower().strip()
 
-        if 'total' in m_lower or 'over' in sel_lower or 'under' in sel_lower:
+        if 'both_score' in m_lower or 'both_teams_score' in m_lower or 'btts' in m_lower:
+            tot_side = 'yes' if (s_lower in ('yes', 'y') or 'yes' in sel_lower) else 'no'
+            prob = dist.both_score_prob(tot_side)
+        elif 'double_chance' in m_lower:
+            dc_side = s_lower if s_lower in ('home_draw', '1x', 'away_draw', 'x2', '12', 'home_away') else ('1x' if '1x' in sel_lower or 'home' in sel_lower else 'x2')
+            prob = dist.double_chance_prob(dc_side)
+        elif 'home_total' in m_lower or (s_lower in ('home', '1') and 'total' in m_lower):
+            eff_line = float(line or 0.0)
+            tot_side = 'over' if (s_lower in ('over', 'o') or 'over' in sel_lower) else 'under'
+            prob = dist.team_total_prob(eff_line, side=tot_side, team='home')
+        elif 'away_total' in m_lower or (s_lower in ('away', '2') and 'total' in m_lower):
+            eff_line = float(line or 0.0)
+            tot_side = 'over' if (s_lower in ('over', 'o') or 'over' in sel_lower) else 'under'
+            prob = dist.team_total_prob(eff_line, side=tot_side, team='away')
+        elif 'total' in m_lower or 'over' in sel_lower or 'under' in sel_lower:
             eff_line = float(line or 0.0)
             tot_side = 'over' if (s_lower in ('over', 'o') or 'over' in sel_lower) else 'under'
             prob = dist.total_prob(eff_line, side=tot_side)
