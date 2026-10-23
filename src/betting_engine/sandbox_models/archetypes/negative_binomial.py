@@ -10,7 +10,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from scipy.stats import nbinom
 
-from ..base import BaseCandidateModel, DiscreteDistribution
+from ..base import BaseCandidateModel, DiscreteDistribution, build_universal_score_lattice
 
 
 class NegativeBinomialOverdispersionModel(BaseCandidateModel):
@@ -40,23 +40,13 @@ class NegativeBinomialOverdispersionModel(BaseCandidateModel):
         self.max_score = max_score
 
     def predict_distribution(self, game_context: Dict[str, Any]) -> DiscreteDistribution:
-        home_mu = float(game_context.get('home_expected') or game_context.get('home_points') or 1.2)
-        away_mu = float(game_context.get('away_expected') or game_context.get('away_points') or 1.1)
+        home_mu = float(game_context.get('home_expected') or game_context.get('home_points') or (2.8 if self.league == 'NHL' else 1.2))
+        away_mu = float(game_context.get('away_expected') or game_context.get('away_points') or (2.4 if self.league == 'NHL' else 1.1))
 
-        # Variance = mu + alpha * mu^2
-        # For scipy.stats.nbinom: n = 1 / alpha, p = n / (n + mu)
-        alpha = max(0.01, self.dispersion_alpha)
-        n_h = 1.0 / alpha
-        p_h = n_h / (n_h + home_mu)
-
-        n_a = 1.0 / alpha
-        p_a = n_a / (n_a + away_mu)
-
-        scores: Dict[Tuple[int, int], float] = {}
-        for h in range(self.max_score + 1):
-            prob_h = float(nbinom.pmf(h, n_h, p_h))
-            for a in range(self.max_score + 1):
-                prob_a = float(nbinom.pmf(a, n_a, p_a))
-                scores[(h, a)] = prob_h * prob_a
-
+        scores = build_universal_score_lattice(
+            home_mu,
+            away_mu,
+            dispersion_alpha=self.dispersion_alpha,
+            max_discrete_score=self.max_score if home_mu < 15.0 else None
+        )
         return DiscreteDistribution.from_scores(scores)

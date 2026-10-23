@@ -996,7 +996,8 @@ class ShadowMarketIncubator:
                             contract.selection or '',
                             contract.line,
                             odds,
-                            ctx
+                            ctx,
+                            side=contract.side
                         )
                         if cand_ev >= 0.030:
                             c_key = f"{key}:{cand.model_id}"
@@ -1165,7 +1166,8 @@ class ShadowMarketIncubator:
                         str(selection),
                         line,
                         odds,
-                        ctx
+                        ctx,
+                        side=str(side) if side else None
                     )
                     if cand_ev >= 0.030:
                         c_key = f"{key}:{cand.model_id}"
@@ -2375,6 +2377,18 @@ class ShadowMarketIncubator:
                     'quota_target': min_quota
                 }
 
+                # Evaluate Multi-Model Tournament Champions
+                try:
+                    from .tournament_engine import TournamentEngine
+                    t_eng = getattr(self, '_tournament_engine', None) or TournamentEngine(self.data_dir)
+                    champ = t_eng.crown_champion(cand['segment_key'])
+                    if champ:
+                        stats['champion_model_id'] = champ.model_id
+                        stats['champion_version'] = champ.version
+                        stats['tournament_scorecard_s'] = champ.scorecard_s
+                except Exception:
+                    pass
+
                 cur.execute("""
                     INSERT OR REPLACE INTO graduated_markets (
                         id, segment_key, league, scope, family, sub_family,
@@ -2629,6 +2643,18 @@ class ShadowMarketIncubator:
                     'volume_expansion_triggered': True,
                     'shortfall_context': daily_shortfall
                 }
+
+                # Evaluate Multi-Model Tournament Champions
+                try:
+                    from .tournament_engine import TournamentEngine
+                    t_eng = getattr(self, '_tournament_engine', None) or TournamentEngine(self.data_dir)
+                    champ = t_eng.crown_champion(segment_key)
+                    if champ:
+                        stats['champion_model_id'] = champ.model_id
+                        stats['champion_version'] = champ.version
+                        stats['tournament_scorecard_s'] = champ.scorecard_s
+                except Exception:
+                    pass
 
                 cur.execute("""
                     INSERT OR REPLACE INTO graduated_markets (

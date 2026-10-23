@@ -555,12 +555,10 @@ class GraduatedUniversalSegmentModel:
             try:
                 from .tournament_engine import TournamentEngine
                 t_eng = TournamentEngine()
-                candidates = t_eng.get_active_candidates(f"{league}|{scope}|{meta.get('family', 'totals')}")
-                for c in candidates:
-                    if c.model_id == champ_id:
-                        self.champion_model = c
-                        self.version = f"{c.model_id}:{c.version}"
-                        break
+                model_inst = t_eng.get_model_by_id(champ_id)
+                if model_inst:
+                    self.champion_model = model_inst
+                    self.version = f"{model_inst.model_id}:{model_inst.version}"
             except Exception:
                 pass
 
@@ -597,8 +595,18 @@ class GraduatedUniversalSegmentModel:
         if getattr(self, 'champion_model', None) is not None:
             try:
                 c_dict = dict(context)
-                c_dict['home_expected'] = (hp * scale) if hp else (110.0 * scale if self.league == 'NBA' else 2.8 * scale)
-                c_dict['away_expected'] = (ap * scale) if ap else (106.0 * scale if self.league == 'NBA' else 2.4 * scale)
+                if self.league in ('NBA', 'WNBA', 'NCAAM', 'NCAAW'):
+                    def_h, def_a = (110.0, 106.0) if self.league == 'NBA' else (80.0, 75.0)
+                elif self.league in ('NFL', 'NCAAF'):
+                    def_h, def_a = (24.0, 20.0) if self.league == 'NFL' else (28.0, 26.0)
+                elif self.league in ('MLB',):
+                    def_h, def_a = (4.5, 4.0)
+                elif self.league in ('NHL', 'NCAA_ICE_HOCKEY'):
+                    def_h, def_a = (3.0, 2.8)
+                else:
+                    def_h, def_a = (1.5, 1.2)
+                c_dict['home_expected'] = (hp * scale) if hp else (def_h * scale)
+                c_dict['away_expected'] = (ap * scale) if ap else (def_a * scale)
                 dist = self.champion_model.predict_distribution(c_dict)
                 features_dict = {
                     'home_points': dist.home_expected,

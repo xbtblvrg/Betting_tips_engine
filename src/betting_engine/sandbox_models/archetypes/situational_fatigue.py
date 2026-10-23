@@ -9,11 +9,11 @@ from typing import Any, Dict, Optional, Tuple
 
 from scipy.stats import poisson
 
-from ..base import BaseCandidateModel, DiscreteDistribution
+from ..base import BaseCandidateModel, DiscreteDistribution, build_universal_score_lattice
 
 
 class SituationalFatigueModel(BaseCandidateModel):
-    """Candidate model applying situational rest/fatigue penalties to Poisson scoring."""
+    """Candidate model applying situational rest/fatigue penalties to scoring expectations."""
 
     def __init__(
         self,
@@ -41,8 +41,10 @@ class SituationalFatigueModel(BaseCandidateModel):
         self.max_score = max_score
 
     def predict_distribution(self, game_context: Dict[str, Any]) -> DiscreteDistribution:
-        base_h = float(game_context.get('home_expected') or game_context.get('home_points') or 110.0)
-        base_a = float(game_context.get('away_expected') or game_context.get('away_points') or 106.0)
+        default_h = 110.0 if self.league in ('NBA', 'WNBA', 'NCAAM', 'NCAAW') else (24.0 if self.league in ('NFL', 'NCAAF') else 2.8)
+        default_a = 106.0 if self.league in ('NBA', 'WNBA', 'NCAAM', 'NCAAW') else (21.0 if self.league in ('NFL', 'NCAAF') else 2.4)
+        base_h = float(game_context.get('home_expected') or game_context.get('home_points') or default_h)
+        base_a = float(game_context.get('away_expected') or game_context.get('away_points') or default_a)
 
         # Contextual rest
         h_rest = int(game_context.get('home_rest_days', 1))
@@ -60,32 +62,12 @@ class SituationalFatigueModel(BaseCandidateModel):
         elif a_rest >= 3:
             a_factor += self.rest_bonus_pct
 
-        adj_h = max(10.0, base_h * h_factor)
-        adj_a = max(10.0, base_a * a_factor)
+        adj_h = max(0.2, base_h * h_factor)
+        adj_a = max(0.2, base_a * a_factor)
 
-        # In high-scoring sports like basketball, evaluate spread/total using Gaussian approximation around discrete margins
-        mean_diff = adj_h - adj_a
-        sigma_diff = math.sqrt(adj_h + adj_a) * 0.95
-
-        mean_total = adj_h + adj_a
-        sigma_total = math.sqrt(adj_h + adj_a) * 1.05
-
-        # Build discrete representation across representative bins
-        scores: Dict[Tuple[int, int], float] = {}
-        h_center = int(round(adj_h))
-        a_center = int(round(adj_a))
-        step = 2
-        radius = 16
-
-        total_weight = 0.0
-        for dh in range(-radius, radius + 1, step):
-            h_val = max(50, h_center + dh)
-            p_h = math.exp(-0.5 * ((h_val - adj_h) / (sigma_diff * 0.707)) ** 2)
-            for da in range(-radius, radius + 1, step):
-                a_val = max(50, a_center + da)
-                p_a = math.exp(-0.5 * ((a_val - adj_a) / (sigma_diff * 0.707)) ** 2)
-                w = p_h * p_a
-                scores[(h_val, a_val)] = w
-                total_weight += w
-
+        scores = build_universal_score_lattice(
+            adj_h,
+            adj_a,
+            max_discrete_score=8 if adj_h < 15.0 else None
+        )
         return DiscreteDistribution.from_scores(scores)

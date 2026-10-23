@@ -11,6 +11,92 @@ from datetime import datetime, timezone
 import math
 from typing import Any, Dict, List, Optional, Tuple
 
+import numpy as np
+from scipy.stats import norm, poisson, nbinom
+
+
+def build_universal_score_lattice(
+    home_mu: float,
+    away_mu: float,
+    dispersion_alpha: float = 0.0,
+    correlation_rho: float = 0.0,
+    zero_inflation_pi: float = 0.0,
+    max_discrete_score: Optional[int] = None,
+) -> Dict[Tuple[int, int], float]:
+    """Generates an adaptive discrete score matrix for any sport and scoring scale.
+    
+    Automatically selects between exact discrete counts (for Soccer/Hockey/Baseball)
+    and continuous Gaussian-lattice discretization (for Basketball/Football).
+    """
+    home_mu = max(0.2, float(home_mu))
+    away_mu = max(0.2, float(away_mu))
+    scores: Dict[Tuple[int, int], float] = {}
+
+    if home_mu < 15.0 and away_mu < 15.0:
+        lim_h = max_discrete_score or max(8, int(math.ceil(home_mu * 2.8)))
+        lim_a = max_discrete_score or max(8, int(math.ceil(away_mu * 2.8)))
+
+        if dispersion_alpha > 0.01:
+            n_h = 1.0 / dispersion_alpha
+            p_h = n_h / (n_h + home_mu)
+            n_a = 1.0 / dispersion_alpha
+            p_a = n_a / (n_a + away_mu)
+            pmf_h = [float(nbinom.pmf(h, n_h, p_h)) for h in range(lim_h + 1)]
+            pmf_a = [float(nbinom.pmf(a, n_a, p_a)) for a in range(lim_a + 1)]
+        else:
+            pmf_h = [float(poisson.pmf(h, home_mu)) for h in range(lim_h + 1)]
+            pmf_a = [float(poisson.pmf(a, away_mu)) for a in range(lim_a + 1)]
+
+        if zero_inflation_pi > 0.01:
+            pmf_h[0] = zero_inflation_pi + (1.0 - zero_inflation_pi) * pmf_h[0]
+            for i in range(1, len(pmf_h)):
+                pmf_h[i] *= (1.0 - zero_inflation_pi)
+            pmf_a[0] = zero_inflation_pi + (1.0 - zero_inflation_pi) * pmf_a[0]
+            for i in range(1, len(pmf_a)):
+                pmf_a[i] *= (1.0 - zero_inflation_pi)
+
+        if abs(correlation_rho) > 0.01:
+            cdf_h = np.clip(np.cumsum(pmf_h), 1e-5, 1.0 - 1e-5)
+            cdf_a = np.clip(np.cumsum(pmf_a), 1e-5, 1.0 - 1e-5)
+            rho = max(-0.7, min(0.7, correlation_rho))
+            det = 1.0 - rho ** 2
+            for h in range(lim_h + 1):
+                z_u = float(norm.ppf(cdf_h[h]))
+                for a in range(lim_a + 1):
+                    z_v = float(norm.ppf(cdf_a[a]))
+                    quad = (rho ** 2 * (z_u ** 2 + z_v ** 2) - 2.0 * rho * z_u * z_v) / (2.0 * det)
+                    c_dens = math.exp(max(-10.0, min(10.0, -quad)))
+                    scores[(h, a)] = pmf_h[h] * pmf_a[a] * c_dens
+        else:
+            for h in range(lim_h + 1):
+                for a in range(lim_a + 1):
+                    scores[(h, a)] = pmf_h[h] * pmf_a[a]
+    else:
+        is_bball = (home_mu > 50.0 or away_mu > 50.0)
+        step = 2 if is_bball else 1
+        radius = 18 if is_bball else 12
+        h_center = int(round(home_mu))
+        a_center = int(round(away_mu))
+        sigma_scale = math.sqrt(1.0 + dispersion_alpha * 2.0) if dispersion_alpha > 0.01 else 1.0
+        sigma_diff = math.sqrt(home_mu + away_mu) * 0.95 * sigma_scale
+        rho = max(-0.7, min(0.7, correlation_rho))
+        det = max(0.1, 1.0 - rho ** 2)
+
+        for dh in range(-radius, radius + 1, step):
+            h_val = h_center + dh
+            if h_val < 0:
+                continue
+            z_h = (h_val - home_mu) / (sigma_diff * 0.707)
+            for da in range(-radius, radius + 1, step):
+                a_val = a_center + da
+                if a_val < 0:
+                    continue
+                z_a = (a_val - away_mu) / (sigma_diff * 0.707)
+                quad = (z_h ** 2 + z_a ** 2 - 2.0 * rho * z_h * z_a) / (2.0 * det)
+                scores[(h_val, a_val)] = math.exp(max(-10.0, min(10.0, -quad)))
+
+    return scores
+
 
 @dataclass
 class DiscreteDistribution:
@@ -68,13 +154,15 @@ class DiscreteDistribution:
     def spread_prob(self, line: float, side: str = 'home') -> float:
         """Calculates discrete probability for handicap/spread.
         
-        line is expressed relative to home (e.g. -3.5 means home must win by 4+).
+        line is expressed relative to selected side (or relative to home).
+        For home: covers if (home - away + line) > 0.
+        For away: covers if (away - home + line) > 0.
         """
         side = side.lower()
         if side in ('home', '1', 'h'):
             p = sum(p for (h, a), p in self.scores.items() if (h - a + line) > 0)
         elif side in ('away', '2', 'a'):
-            p = sum(p for (h, a), p in self.scores.items() if (a - h - line) > 0)
+            p = sum(p for (h, a), p in self.scores.items() if (a - h + line) > 0)
         else:
             raise ValueError(f"Unknown spread side: {side}")
         return max(0.01, min(0.99, round(p, 4)))
@@ -130,6 +218,7 @@ class BaseCandidateModel(ABC):
         line: Optional[float],
         odds: float,
         game_context: Dict[str, Any],
+        side: Optional[str] = None,
     ) -> Tuple[float, float]:
         """Evaluates model win probability and mathematical expectation EV.
         
@@ -138,25 +227,54 @@ class BaseCandidateModel(ABC):
         """
         dist = self.predict_distribution(game_context)
         m_lower = market.lower()
-        sel_lower = selection.lower()
+        sel_lower = (selection or '').lower().strip()
+        s_lower = (side or '').lower().strip()
 
         if 'total' in m_lower or 'over' in sel_lower or 'under' in sel_lower:
             eff_line = float(line or 0.0)
-            side = 'over' if 'over' in sel_lower else 'under'
-            prob = dist.total_prob(eff_line, side=side)
+            tot_side = 'over' if (s_lower in ('over', 'o') or 'over' in sel_lower) else 'under'
+            prob = dist.total_prob(eff_line, side=tot_side)
         elif 'spread' in m_lower or 'handicap' in m_lower:
             eff_line = float(line or 0.0)
-            side = 'home' if ('home' in sel_lower or '1' in sel_lower) else 'away'
-            prob = dist.spread_prob(eff_line, side=side)
-        else:
-            if 'home' in sel_lower or '1' in sel_lower:
-                prob = dist.moneyline_prob('home')
-            elif 'away' in sel_lower or '2' in sel_lower:
-                prob = dist.moneyline_prob('away')
-            elif 'draw' in sel_lower or 'tie' in sel_lower or 'x' in sel_lower:
-                prob = dist.moneyline_prob('draw')
+            if s_lower in ('home', '1', 'h'):
+                spread_side = 'home'
+            elif s_lower in ('away', '2', 'a'):
+                spread_side = 'away'
             else:
+                home_team = str(game_context.get('home_team') or game_context.get('home') or '').lower()
+                away_team = str(game_context.get('away_team') or game_context.get('away') or '').lower()
+                tokens = set(sel_lower.split())
+                if home_team and home_team in sel_lower:
+                    spread_side = 'home'
+                elif away_team and away_team in sel_lower:
+                    spread_side = 'away'
+                elif 'home' in tokens or '1' in tokens:
+                    spread_side = 'home'
+                else:
+                    spread_side = 'away'
+            prob = dist.spread_prob(eff_line, side=spread_side)
+        else:
+            # Moneyline / Three-way / Match winner
+            if s_lower in ('draw', 'tie', 'x') or 'draw' in sel_lower or 'tie' in sel_lower:
+                prob = dist.moneyline_prob('draw')
+            elif s_lower in ('home', '1', 'h'):
                 prob = dist.moneyline_prob('home')
+            elif s_lower in ('away', '2', 'a'):
+                prob = dist.moneyline_prob('away')
+            else:
+                home_team = str(game_context.get('home_team') or game_context.get('home') or '').lower()
+                away_team = str(game_context.get('away_team') or game_context.get('away') or '').lower()
+                tokens = set(sel_lower.split())
+                if home_team and home_team in sel_lower:
+                    prob = dist.moneyline_prob('home')
+                elif away_team and away_team in sel_lower:
+                    prob = dist.moneyline_prob('away')
+                elif 'home' in tokens or '1' in tokens:
+                    prob = dist.moneyline_prob('home')
+                elif 'away' in tokens or '2' in tokens:
+                    prob = dist.moneyline_prob('away')
+                else:
+                    prob = dist.moneyline_prob('home')
 
         ev = round(prob * float(odds) - 1.0, 4)
         return prob, ev

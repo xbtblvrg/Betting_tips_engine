@@ -100,14 +100,25 @@ def synthesize_candidate_slate(
         )
         candidates.append(cand_epsilon)
 
-    results = []
+    if league in ('NBA', 'WNBA', 'NCAAM', 'NCAAW'):
+        h_exp, a_exp = (110.0, 106.0) if league == 'NBA' else (80.0, 75.0)
+    elif league in ('NFL', 'NCAAF'):
+        h_exp, a_exp = (24.0, 21.0) if league == 'NFL' else (28.0, 26.0)
+    elif league in ('MLB',):
+        h_exp, a_exp = 4.5, 4.2
+    elif league in ('ATP', 'WTA', 'CHALLENGER'):
+        h_exp, a_exp = 12.5, 11.5
+    else:  # NHL, MLS, EPL, UCL, etc.
+        h_exp, a_exp = 2.5, 2.2
+
     sample_ctx = {
-        'home_expected': 2.5 if league in ('NHL', 'MLS', 'EPL') else 110.0,
-        'away_expected': 2.2 if league in ('NHL', 'MLS', 'EPL') else 106.0,
+        'home_expected': h_exp,
+        'away_expected': a_exp,
         'home_rest_days': 1,
         'away_rest_days': 1,
     }
 
+    results = []
     for cand in candidates:
         success, errors = engine.register_candidate(segment_key, cand, sample_context=sample_ctx)
         results.append((cand, success, errors))

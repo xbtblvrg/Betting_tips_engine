@@ -27,6 +27,12 @@ def test_discrete_distribution_normalization_and_methods():
     # home win (1, 0): 1 - 0 - 0.5 = 0.5 > 0 -> prob = 0.3
     assert math.isclose(dist.spread_prob(-0.5, 'home'), 0.3, abs_tol=1e-3)
 
+    # Spread: line = +0.5 for away
+    # (0, 0): 0 - 0 + 0.5 > 0 (prob 0.2)
+    # (0, 1): 1 - 0 + 0.5 > 0 (prob 0.5)
+    # Total away +0.5 cover prob = 0.7
+    assert math.isclose(dist.spread_prob(0.5, 'away'), 0.7, abs_tol=1e-3)
+
 
 def test_negative_binomial_archetype_validation():
     model = NegativeBinomialOverdispersionModel(league='NHL', scope='period_3', family='totals')
@@ -91,4 +97,35 @@ def test_zero_inflated_poisson_archetype_validation():
     # 0-0 probability should be enhanced by zero-inflation
     p_0_0 = dist.scores.get((0, 0), 0.0)
     assert p_0_0 > 0.05
+
+    # Test high-scoring sport (e.g. NBA)
+    model_nba = ZeroInflatedPoissonModel(league='NBA', scope='full_game', family='totals', zero_inflation_pi=0.05)
+    context_nba = {'home_expected': 110.0, 'away_expected': 105.0}
+    passed_nba, errors_nba = validate_candidate_model(model_nba, context_nba)
+    assert passed_nba, f"NBA ZIP Validation failed: {errors_nba}"
+    dist_nba = model_nba.predict_distribution(context_nba)
+    assert dist_nba.home_expected > 90.0
+
+
+def test_evaluate_market_away_side_and_team_name_resolution():
+    model = NegativeBinomialOverdispersionModel(league='NHL', scope='full_game', family='spreads')
+    ctx = {
+        'home_expected': 3.5,
+        'away_expected': 2.0,
+        'home_team': 'Edmonton Oilers',
+        'away_team': 'Calgary Flames',
+    }
+
+    # Edmonton is favorite (3.5 vs 2.0). Away team (Calgary) has lower win prob
+    p_home, _ = model.evaluate_market('moneyline', 'Edmonton Oilers', None, 1.50, ctx, side='home')
+    p_away, _ = model.evaluate_market('moneyline', 'Calgary Flames', None, 2.70, ctx, side='away')
+
+    assert p_home > p_away
+    assert 0.01 <= p_home <= 0.99
+    assert 0.01 <= p_away <= 0.99
+    assert math.isclose(p_home + p_away + model.predict_distribution(ctx).p_draw, 1.0, abs_tol=1e-3)
+
+    # Away spread: +1.5
+    p_away_spread, _ = model.evaluate_market('spreads', 'Calgary Flames +1.5', 1.5, 1.95, ctx, side='away')
+    assert p_away_spread > p_away  # With +1.5 goals, cover probability should exceed outright win prob
 

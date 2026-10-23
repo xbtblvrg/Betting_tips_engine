@@ -10,7 +10,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from scipy.stats import poisson
 
-from ..base import BaseCandidateModel, DiscreteDistribution
+from ..base import BaseCandidateModel, DiscreteDistribution, build_universal_score_lattice
 
 
 class OddsDampedKellyShrinkageModel(BaseCandidateModel):
@@ -40,16 +40,16 @@ class OddsDampedKellyShrinkageModel(BaseCandidateModel):
         self.max_score = max_score
 
     def predict_distribution(self, game_context: Dict[str, Any]) -> DiscreteDistribution:
-        h_mu = float(game_context.get('home_expected') or game_context.get('home_points') or 2.8)
-        a_mu = float(game_context.get('away_expected') or game_context.get('away_points') or 2.2)
+        default_h = 110.0 if self.league in ('NBA', 'WNBA', 'NCAAM', 'NCAAW') else (24.0 if self.league in ('NFL', 'NCAAF') else 2.8)
+        default_a = 106.0 if self.league in ('NBA', 'WNBA', 'NCAAM', 'NCAAW') else (21.0 if self.league in ('NFL', 'NCAAF') else 2.4)
+        h_mu = float(game_context.get('home_expected') or game_context.get('home_points') or default_h)
+        a_mu = float(game_context.get('away_expected') or game_context.get('away_points') or default_a)
 
-        scores: Dict[Tuple[int, int], float] = {}
-        for h in range(self.max_score + 1):
-            p_h = float(poisson.pmf(h, h_mu))
-            for a in range(self.max_score + 1):
-                p_a = float(poisson.pmf(a, a_mu))
-                scores[(h, a)] = p_h * p_a
-
+        scores = build_universal_score_lattice(
+            h_mu,
+            a_mu,
+            max_discrete_score=self.max_score if h_mu < 15.0 else None
+        )
         return DiscreteDistribution.from_scores(scores)
 
     def evaluate_market(
@@ -59,8 +59,9 @@ class OddsDampedKellyShrinkageModel(BaseCandidateModel):
         line: Optional[float],
         odds: float,
         game_context: Dict[str, Any],
+        side: Optional[str] = None,
     ) -> Tuple[float, float]:
-        raw_prob, raw_ev = super().evaluate_market(market, selection, line, odds, game_context)
+        raw_prob, raw_ev = super().evaluate_market(market, selection, line, odds, game_context, side=side)
 
         # Apply continuous odds-dependent shrinkage:
         # If odds < 1.70, damp model probability towards implied probability 1/odds

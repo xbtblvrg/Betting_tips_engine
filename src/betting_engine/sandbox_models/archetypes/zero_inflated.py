@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from scipy.stats import poisson
 
-from ..base import BaseCandidateModel, DiscreteDistribution
+from ..base import BaseCandidateModel, DiscreteDistribution, build_universal_score_lattice
 
 
 class ZeroInflatedPoissonModel(BaseCandidateModel):
@@ -39,33 +39,15 @@ class ZeroInflatedPoissonModel(BaseCandidateModel):
         self.max_score = max_score
 
     def predict_distribution(self, game_context: Dict[str, Any]) -> DiscreteDistribution:
-        h_mu = float(game_context.get('home_expected') or game_context.get('home_points') or 1.4)
-        a_mu = float(game_context.get('away_expected') or game_context.get('away_points') or 1.1)
+        default_h = 110.0 if self.league in ('NBA', 'WNBA', 'NCAAM', 'NCAAW') else (24.0 if self.league in ('NFL', 'NCAAF') else 1.4)
+        default_a = 106.0 if self.league in ('NBA', 'WNBA', 'NCAAM', 'NCAAW') else (21.0 if self.league in ('NFL', 'NCAAF') else 1.1)
+        h_mu = float(game_context.get('home_expected') or game_context.get('home_points') or default_h)
+        a_mu = float(game_context.get('away_expected') or game_context.get('away_points') or default_a)
 
-        pi = self.zero_inflation_pi
-        scores: Dict[Tuple[int, int], float] = {}
-
-        # Marginal ZIP probabilities:
-        # P(0) = pi + (1 - pi) * exp(-mu)
-        # P(k) = (1 - pi) * (mu^k * exp(-mu) / k!)
-        h_probs = []
-        for h in range(self.max_score + 1):
-            if h == 0:
-                p_h = pi + (1.0 - pi) * math.exp(-h_mu)
-            else:
-                p_h = (1.0 - pi) * float(poisson.pmf(h, h_mu))
-            h_probs.append(p_h)
-
-        a_probs = []
-        for a in range(self.max_score + 1):
-            if a == 0:
-                p_a = pi + (1.0 - pi) * math.exp(-a_mu)
-            else:
-                p_a = (1.0 - pi) * float(poisson.pmf(a, a_mu))
-            a_probs.append(p_a)
-
-        for h in range(self.max_score + 1):
-            for a in range(self.max_score + 1):
-                scores[(h, a)] = h_probs[h] * a_probs[a]
-
+        scores = build_universal_score_lattice(
+            h_mu,
+            a_mu,
+            zero_inflation_pi=self.zero_inflation_pi,
+            max_discrete_score=self.max_score if h_mu < 15.0 and a_mu < 15.0 else None
+        )
         return DiscreteDistribution.from_scores(scores)

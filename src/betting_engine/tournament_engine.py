@@ -195,14 +195,8 @@ class TournamentEngine:
         self.save_registry(reg)
         return True, []
 
-    def get_active_candidates(self, segment_key: str) -> List[BaseCandidateModel]:
-        """Returns instantiated active candidate models for a given segment key."""
-        reg = self.load_registry()
-        t_data = reg.get('tournaments', {}).get(segment_key)
-        if not t_data:
-            return []
-
-        # Dynamically discover all candidate model classes in archetypes
+    def _get_class_map(self) -> Dict[str, type]:
+        """Dynamically discovers all candidate model classes in archetypes."""
         class_map = {}
         try:
             import importlib
@@ -215,13 +209,11 @@ class TournamentEngine:
                     if issubclass(item, BaseCandidateModel) and item is not BaseCandidateModel:
                         class_map[item_name] = item
         except Exception:
-            from .sandbox_models.archetypes import (
-                NegativeBinomialOverdispersionModel,
-                SituationalFatigueModel,
-                OddsDampedKellyShrinkageModel,
-                BivariateCopulaHazardModel,
-                ZeroInflatedPoissonModel,
-            )
+            from .sandbox_models.archetypes.negative_binomial import NegativeBinomialOverdispersionModel
+            from .sandbox_models.archetypes.situational_fatigue import SituationalFatigueModel
+            from .sandbox_models.archetypes.odds_damped_kelly import OddsDampedKellyShrinkageModel
+            from .sandbox_models.archetypes.bivariate_copula import BivariateCopulaHazardModel
+            from .sandbox_models.archetypes.zero_inflated import ZeroInflatedPoissonModel
             class_map = {
                 'NegativeBinomialOverdispersionModel': NegativeBinomialOverdispersionModel,
                 'SituationalFatigueModel': SituationalFatigueModel,
@@ -229,10 +221,47 @@ class TournamentEngine:
                 'BivariateCopulaHazardModel': BivariateCopulaHazardModel,
                 'ZeroInflatedPoissonModel': ZeroInflatedPoissonModel,
             }
+        return class_map
 
+    def get_model_by_id(self, model_id: str) -> Optional[BaseCandidateModel]:
+        """Looks up and instantiates any registered candidate model by its model_id."""
+        reg = self.load_registry()
+        target_meta = None
+        for t_data in reg.get('tournaments', {}).values():
+            if model_id in t_data.get('candidates', {}):
+                target_meta = t_data['candidates'][model_id]
+                break
+        if not target_meta:
+            return None
+
+        class_map = self._get_class_map()
+        cls_name = target_meta.get('class_name')
+        cls_target = class_map.get(cls_name)
+        if not cls_target:
+            return None
+        try:
+            return cls_target(
+                model_id=target_meta['model_id'],
+                version=target_meta.get('version', '1.0.0'),
+                league=target_meta.get('league', 'UNKNOWN'),
+                scope=target_meta.get('scope', 'full_game'),
+                family=target_meta.get('family', 'totals'),
+                metadata=target_meta.get('metadata'),
+            )
+        except Exception:
+            return None
+
+    def get_active_candidates(self, segment_key: str) -> List[BaseCandidateModel]:
+        """Returns instantiated active candidate models for a given segment key."""
+        reg = self.load_registry()
+        t_data = reg.get('tournaments', {}).get(segment_key)
+        if not t_data:
+            return []
+
+        class_map = self._get_class_map()
         instances: List[BaseCandidateModel] = []
         for cand_id, meta in t_data.get('candidates', {}).items():
-            if meta.get('status') not in ('incubating', 'qualified'):
+            if meta.get('status') not in ('incubating', 'qualified', 'champion'):
                 continue
             cls_name = meta.get('class_name')
             cls_target = class_map.get(cls_name)
@@ -310,7 +339,7 @@ class TournamentEngine:
                     dd = peak - cum_pnl
                     if dd > max_dd:
                         max_dd = dd
-                dd_pct = round(max_dd / max(10.0, turnover), 4)
+                dd_pct = round(max_dd / max(1.0, peak + turnover), 4)
 
                 score_s = calculate_crucible_scorecard(roi, n, delta_brier, dd_pct)
 
@@ -379,11 +408,18 @@ class TournamentEngine:
             'delta_brier': champion.delta_brier,
         }
 
-        # Blacklist rejected candidates from looping
+        # Update candidate statuses in tournament registry
+        t_cands = reg.get('tournaments', {}).get(segment_key, {}).get('candidates', {})
+        if champion.model_id in t_cands:
+            t_cands[champion.model_id]['status'] = 'champion'
+            t_cands[champion.model_id]['crowned_at'] = datetime.now(timezone.utc).isoformat()
+
+        # Blacklist rejected candidates from looping and mark their status
         rejected_list = reg.setdefault('rejected', [])
         for s in standings:
             if s.status == 'rejected':
-                c_data = reg.get('tournaments', {}).get(segment_key, {}).get('candidates', {}).get(s.model_id, {})
+                c_data = t_cands.get(s.model_id, {})
+                c_data['status'] = 'rejected'
                 sig_hash = c_data.get('signature_hash')
                 if sig_hash and sig_hash not in rejected_list:
                     rejected_list.append(sig_hash)

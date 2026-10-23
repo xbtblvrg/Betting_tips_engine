@@ -174,3 +174,19 @@ def test_active_candidates_retrieval(temp_tournament_env):
     assert active[0].league == 'NHL'
     assert active[0].scope == 'period_3'
 
+
+def test_get_model_by_id_retrieval(temp_tournament_env):
+    engine, _ = temp_tournament_env
+    segment = 'NBA|full_game|spreads'
+    model = OddsDampedKellyShrinkageModel(model_id="cand_lookup_test_1", league='NBA', scope='full_game', family='spreads')
+    engine.register_candidate(segment, model)
+
+    fetched = engine.get_model_by_id("cand_lookup_test_1")
+    assert fetched is not None
+    assert fetched.model_id == "cand_lookup_test_1"
+    assert fetched.league == 'NBA'
+    assert isinstance(fetched, OddsDampedKellyShrinkageModel)
+
+    # Non-existent ID returns None
+    assert engine.get_model_by_id("non_existent_id") is None
+

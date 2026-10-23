@@ -10,7 +10,7 @@ from typing import Any, Dict, Optional, Tuple
 import numpy as np
 from scipy.stats import norm, poisson
 
-from ..base import BaseCandidateModel, DiscreteDistribution
+from ..base import BaseCandidateModel, DiscreteDistribution, build_universal_score_lattice
 
 
 class BivariateCopulaHazardModel(BaseCandidateModel):
@@ -40,36 +40,15 @@ class BivariateCopulaHazardModel(BaseCandidateModel):
         self.max_score = max_score
 
     def predict_distribution(self, game_context: Dict[str, Any]) -> DiscreteDistribution:
-        h_mu = float(game_context.get('home_expected') or game_context.get('home_points') or 1.5)
-        a_mu = float(game_context.get('away_expected') or game_context.get('away_points') or 1.2)
+        default_h = 110.0 if self.league in ('NBA', 'WNBA', 'NCAAM', 'NCAAW') else (24.0 if self.league in ('NFL', 'NCAAF') else 1.5)
+        default_a = 106.0 if self.league in ('NBA', 'WNBA', 'NCAAM', 'NCAAW') else (21.0 if self.league in ('NFL', 'NCAAF') else 1.2)
+        h_mu = float(game_context.get('home_expected') or game_context.get('home_points') or default_h)
+        a_mu = float(game_context.get('away_expected') or game_context.get('away_points') or default_a)
 
-        # Precompute Poisson CDFs and PMFs
-        h_pmf = np.array([poisson.pmf(h, h_mu) for h in range(self.max_score + 1)])
-        a_pmf = np.array([poisson.pmf(a, a_mu) for a in range(self.max_score + 1)])
-
-        h_cdf = np.clip(np.cumsum(h_pmf), 1e-6, 1.0 - 1e-6)
-        a_cdf = np.clip(np.cumsum(a_pmf), 1e-6, 1.0 - 1e-6)
-
-        # Gaussian copula coupling
-        rho = self.correlation_rho
-        scores: Dict[Tuple[int, int], float] = {}
-
-        for h in range(self.max_score + 1):
-            u = h_cdf[h]
-            z_u = float(norm.ppf(u))
-            p_h = float(h_pmf[h])
-
-            for a in range(self.max_score + 1):
-                v = a_cdf[a]
-                z_v = float(norm.ppf(v))
-                p_a = float(a_pmf[a])
-
-                # Copula density adjustment: c(u, v) = (1 / sqrt(1 - rho^2)) * exp(...)
-                det = 1.0 - rho ** 2
-                quad = (rho ** 2 * (z_u ** 2 + z_v ** 2) - 2.0 * rho * z_u * z_v) / (2.0 * det)
-                copula_density = (1.0 / math.sqrt(max(0.01, det))) * math.exp(max(-10.0, min(10.0, -quad)))
-
-                joint_prob = p_h * p_a * copula_density
-                scores[(h, a)] = max(0.0, joint_prob)
-
+        scores = build_universal_score_lattice(
+            h_mu,
+            a_mu,
+            correlation_rho=self.correlation_rho,
+            max_discrete_score=self.max_score if h_mu < 15.0 else None
+        )
         return DiscreteDistribution.from_scores(scores)
