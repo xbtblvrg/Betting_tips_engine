@@ -67,6 +67,17 @@ def _stake_contract_key(market):
                       sort_keys=True, separators=(',', ':'), ensure_ascii=True)
 
 
+PROP_EXCLUSIONS = (
+    'corner', 'corners', 'booking', 'bookings', 'card', 'cards',
+    'penalty', 'penalties', 'foul', 'fouls', 'throw in', 'throw-in',
+    'free kick', 'goal kick', 'offside', 'offsides', 'tackle', 'tackles',
+    'shot', 'shots', 'save', 'saves', 'touchdown', 'touchdowns',
+    'rebound', 'rebounds', 'assist', 'assists', 'steal', 'steals',
+    'turnover', 'turnovers', 'block', 'blocks', 'strikeout', 'strikeouts',
+    'hit', 'hits', 'error', 'errors', 'home run', 'homerun'
+)
+
+
 def _stake_contract_rejection(market):
     outcomes = market.get('outcomes')
     if outcomes is not None and (not isinstance(outcomes, list) or any(not isinstance(o, dict) for o in outcomes)):
@@ -76,6 +87,9 @@ def _stake_contract_rejection(market):
     if (not isinstance(market.get('name'), str)
             or isinstance(market.get('id'), (dict, list))):
         return 'invalid_market_identity'
+    name_lower = str(market.get('name') or '').lower()
+    if any(p in name_lower for p in PROP_EXCLUSIONS):
+        return 'unsupported_statistical_prop'
     return None
 
 
@@ -554,7 +568,7 @@ class StakeSportsbook:
                                 except Exception: stats = {}
                             raw_names = stats.get('raw_market_names', []) if isinstance(stats, dict) else []
                             for rn in raw_names:
-                                if rn in full_derived:
+                                if rn in full_derived or any(p in rn.lower() for p in PROP_EXCLUSIONS):
                                     continue
                                 base = ('exact_total' if 'over-exact-under' in rn.lower() else
                                         'spreads' if 'handicap' in rn.lower() or 'spread' in rn.lower() else
@@ -582,7 +596,7 @@ class StakeSportsbook:
                                         try: stats = json.loads(stats)
                                         except Exception: stats = {}
                                     raw_names = stats.get('raw_market_names', []) if isinstance(stats, dict) else []
-                                    if name in raw_names:
+                                    if name in raw_names and not any(p in name.lower() for p in PROP_EXCLUSIONS):
                                         base = ('spreads' if 'handicap' in name.lower() or 'spread' in name.lower() else
                                                 'totals' if 'total' in name.lower() else
                                                 'moneyline' if 'winner' in name.lower() or '1x2' in name.lower() else
