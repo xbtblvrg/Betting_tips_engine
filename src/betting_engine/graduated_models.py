@@ -140,6 +140,19 @@ class GraduatedTennisSetModel:
         brier_model = stats.get('brier_model', 0.178)
         brier_mkt = stats.get('brier_market', 0.218)
 
+        self.champion_model = None
+        champ_id = stats.get('champion_model_id')
+        if champ_id:
+            try:
+                from .tournament_engine import TournamentEngine
+                t_eng = TournamentEngine()
+                model_inst = t_eng.get_model_by_id(champ_id)
+                if model_inst:
+                    self.champion_model = model_inst
+                    self.version = f"{model_inst.model_id}:{model_inst.version}"
+            except Exception:
+                pass
+
         self.report = {
             'league': league,
             'scope': scope,
@@ -197,6 +210,41 @@ class GraduatedTennisSetModel:
         warnings = []
         if fatigue_a > 0.03 or fatigue_b > 0.03:
             warnings.append('Player fatigue elevated; set variance gating active.')
+
+        # Champion Model Direct Inference if crowned by Tournament Engine
+        if getattr(self, 'champion_model', None) is not None:
+            try:
+                c_dict = dict(context)
+                if hasattr(g, 'home'):
+                    c_dict.setdefault('home', g.home)
+                    c_dict.setdefault('home_team', g.home)
+                if hasattr(g, 'away'):
+                    c_dict.setdefault('away', g.away)
+                    c_dict.setdefault('away_team', g.away)
+                c_dict.setdefault('surface', surface)
+                c_dict.setdefault('rating_diff', rating_diff)
+                c_dict.setdefault('fatigue_a', fatigue_a)
+                c_dict.setdefault('fatigue_b', fatigue_b)
+                dist = self.champion_model.predict_distribution(c_dict)
+                features_dict['champion_model'] = self.champion_model.model_id
+                return GraduatedTennisSetForecast(
+                    game_id=g.id,
+                    league=self.league,
+                    scope=self.scope,
+                    home_points=dist.home_expected,
+                    away_points=dist.away_expected,
+                    margin=round(dist.home_expected - dist.away_expected, 2),
+                    total=round(dist.home_expected + dist.away_expected, 2),
+                    scores=dist.scores,
+                    p_a_wins_set=dist.p_home,
+                    model_probabilities={'set_winner': dist.p_home},
+                    disagreement=0.02,
+                    features=features_dict,
+                    model_version=self.version,
+                    warnings=warnings
+                )
+            except Exception:
+                pass
 
         return GraduatedTennisSetForecast(
             game_id=g.id,
@@ -366,6 +414,19 @@ class GraduatedSoccerHalfModel:
         brier_model = stats.get('brier_model', 0.185)
         brier_mkt = stats.get('brier_market', 0.225)
 
+        self.champion_model = None
+        champ_id = stats.get('champion_model_id')
+        if champ_id:
+            try:
+                from .tournament_engine import TournamentEngine
+                t_eng = TournamentEngine()
+                model_inst = t_eng.get_model_by_id(champ_id)
+                if model_inst:
+                    self.champion_model = model_inst
+                    self.version = f"{model_inst.model_id}:{model_inst.version}"
+            except Exception:
+                pass
+
         self.report = {
             'league': league,
             'scope': scope,
@@ -428,6 +489,38 @@ class GraduatedSoccerHalfModel:
             else np.zeros(len(feature_names(self.league)))
         )
         features_dict = dict(zip(feature_names(self.league), map(float, feats)))
+
+        # Champion Model Direct Inference if crowned by Tournament Engine
+        if getattr(self, 'champion_model', None) is not None:
+            try:
+                c_dict = dict(context)
+                if hasattr(g, 'home'):
+                    c_dict.setdefault('home', g.home)
+                    c_dict.setdefault('home_team', g.home)
+                if hasattr(g, 'away'):
+                    c_dict.setdefault('away', g.away)
+                    c_dict.setdefault('away_team', g.away)
+                c_dict['home_expected'] = (hp * scale) if hp else (1.35 * scale)
+                c_dict['away_expected'] = (ap * scale) if ap else (1.15 * scale)
+                dist = self.champion_model.predict_distribution(c_dict)
+                features_dict['champion_model'] = self.champion_model.model_id
+                return GraduatedSoccerHalfForecast(
+                    game_id=g.id,
+                    league=self.league,
+                    scope=self.scope,
+                    home_points=dist.home_expected,
+                    away_points=dist.away_expected,
+                    margin=round(dist.home_expected - dist.away_expected, 2),
+                    total=round(dist.home_expected + dist.away_expected, 2),
+                    scores=dist.scores,
+                    model_probabilities={'three_way_home': dist.p_home, 'draw': dist.p_draw, 'away': dist.p_away},
+                    disagreement=0.02,
+                    features=features_dict,
+                    model_version=self.version,
+                    warnings=[]
+                )
+            except Exception:
+                pass
 
         return GraduatedSoccerHalfForecast(
             game_id=g.id,
