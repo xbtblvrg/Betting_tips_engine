@@ -75,11 +75,11 @@ Provide concrete betting instructions in English, using exact Stake terminology 
 
 Do not submit wagers automatically.
 
-### 7. Meet the continuous scanning and daily issuance requirements.
+### 7. Meet the continuous scanning and daily issuance requirements (Commandments 2 & 5).
 
-Scan the upcoming 48-hour offering on a target cadence of 60 seconds, and scan the complete returned catalogue every 15 minutes.
+Scan the upcoming 72-hour offering on a target cadence of 60 seconds, and scan the complete returned tournament catalogue every 15 minutes across all active sports.
 
-Work toward at least 20 distinct funded first issuances per Budapest calendar day, with no upper pick-count cap. Investigate any shortfall and assign concrete work to resolve it.
+Work strictly toward at least 100 distinct funded recommendations per Budapest calendar day (at least 700 per rolling week), with no upper pick-count cap. The 100 picks/day floor is a strict, non-negotiable minimum constraint. Investigate any daily shortfall and autonomously execute market discovery, shadow incubation, and model graduation to expand genuine positive-EV volume.
 
 Increase volume through better coverage, better data, and better models. Do not count watchlist entries, duplicate tickets, repricing, or previous issuances as new fulfillment. Preserve the validation requirements.
 
