@@ -176,7 +176,7 @@ def is_profitable_or_alpha(tip):
     cand_id = str(tip.get('id', ''))
     game_id = str(tip.get('game_id', ''))
     is_test_cand = cand_id.startswith(('test_', 'cand_test_', 't1', 't2', 't3', 't4', 'cand_')) or game_id.startswith(('test_', 'game')) or game_id in ('g', 'test', 'ATP:live_game_1')
-    if tip.get('is_demoted') or (not is_test_cand and (cand_segs & quarantine_list or cand_segs & c_defense or cand_segs & demoted_segs)):
+    if tip.get('is_demoted') or (cand_segs & quarantine_list or cand_segs & c_defense or cand_segs & demoted_segs):
         return False
 
     if is_super_alpha(tip):
@@ -236,7 +236,7 @@ def continuous_selection_priority_v4(tip, tier):
     game_id = str(tip.get('game_id', ''))
     is_test_cand = cand_id.startswith(('test_', 'cand_test_', 't1', 't2', 't3', 't4', 'cand_')) or game_id.startswith(('test_', 'game')) or game_id in ('g', 'test', 'ATP:live_game_1')
     demoted_segs = _get_demoted_segments()
-    is_demoted = bool(tip.get('is_demoted') or (not is_test_cand and any(s in demoted_segs for s in seg_candidates)))
+    is_demoted = bool(tip.get('is_demoted') or any(s in demoted_segs for s in seg_candidates))
     if is_demoted:
         tip['is_demoted'] = True
         # Constitutional Commandment 6 & TierStateMachine:
@@ -1020,7 +1020,7 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                 is_alpha_cand = bool(cand_segs & s_alpha)
                 is_core = is_core_market(c) and c.get('league') in ('NBA', 'WNBA', 'MLB', 'NFL', 'NHL', 'NCAAF', 'NCAAM', 'NCAAW', 'EPL', 'MLS', 'UCL', 'ATP', 'WTA')
                 demoted_segs = _get_demoted_segments()
-                is_demoted_cand = bool(c.get('is_demoted') or (not is_test_cand and bool(cand_segs & demoted_segs)))
+                is_demoted_cand = bool(c.get('is_demoted') or bool(cand_segs & demoted_segs))
                 is_cap_defense_cand = bool(settings.get('capital_defense', False)) and bool(cand_segs & c_defense) and not is_demoted_cand
                 grad_segs = _get_graduated_segments()
                 is_grad = not is_demoted_cand and (is_core or bool(c.get('is_graduated')) or bool(cand_segs & grad_segs))
