@@ -1002,15 +1002,16 @@
     "status": "Active, ratified, and operational in runtime settings, outcome_sizing, decisions, and Multi-AI prompts."
   },
   "demoted_market_mandatory_quarantine_mandate_20261022": {
-    "directive": "User standing directive (2026-10-22): Demoted Market Mandatory Quarantine ($0.00) & Crucible Re-Graduation Rule. Clamping or letting demoted markets bleed real capital at $0.50 is strictly prohibited as it destroys portfolio ROI and Win Rate.",
+    "directive": "User standing directive (2026-10-22, 2026-10-23): Demoted Market Mandatory Quarantine ($0.00), 3-Tier Closed-Loop Progression & Crucible Re-Graduation Rule. Clamping or letting demoted markets bleed real capital at $0.50 is strictly prohibited as it destroys portfolio ROI and Win Rate.",
     "mandate": [
       "Strict $0.00 Quarantine: All demoted markets (core and derivative) are immediately suspended from real-money funding ($0.00 stake) upon demotion, eliminating capital bleeding and preserving Win Rate.",
-      "Zero-Risk Virtual Incubation: Markets continue active tracking in the Shadow Incubator with virtual stakes ($0.00) and real odds/outcomes, feeding learning_jobs without risking user bankroll.",
-      "Mandatory Crucible Re-Graduation: A demoted market can ONLY return to funded real-money execution after passing the Walk-Forward Crucible backtest with verified Brier score improvement (delta_brier > 0) and positive ROI (Commandment 7).",
+      "Tier 1 (R&D Historical Training & Edge Discovery): The system systematically fits, trains, and backtests alternative mathematical model archetypes (Copula, NegBin, Fatigue, Kelly Damped, ZIP) on historical settled matches (97k+ games). Candidate models must prove out-of-sample positive ROI (>= +3.5%) and positive Brier skill BEFORE incubator admission.",
+      "Tier 2 (Shadow Incubator Live Forward Validation): Only historically proven candidate models are admitted to the Shadow Incubator, formally bound to the demoted market (incubation_phase='incubating_with_new_model'). The new model paper-trades upcoming live fixtures in real time with $0.00 virtual stakes.",
+      "Tier 3 (Production Live Re-Graduation): A demoted market can ONLY return to funded real-money execution after passing the Walk-Forward Crucible on N >= 25 live settled matches with verified positive ROI (>= +3.5%) and Brier skill (Commandment 7).",
       "Sustained 100+ Daily Picks Floor: The volume floor is maintained purely through healthy graduated and alpha-accelerated markets without relying on failing segments.",
       "Zero Regression Standard: 100% test pass required across all Python unit suites and frontend DOM suites."
     ],
-    "status": "Active, ratified, and verified in decisions.py, outcome_sizing.py, tests, and Quant Council prompts."
+    "status": "Active, ratified, and verified in decisions.py, outcome_sizing.py, historical_trainer.py, demoted_market_bridge.py, tests, and Quant Council prompts."
   }
 }
 

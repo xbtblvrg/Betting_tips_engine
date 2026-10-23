@@ -161,6 +161,7 @@ def council_prompt(brief: Dict[str, Any], kind: str) -> str:
         "and a strictly increasing cumulative net PnL uptrend across all portfolio segments. "
         "UNIFIED OPERATIONAL MANDATE: The engine must deliver a minimum of 700 distinct funded recommendations per week (min 100/day) with a sustained minimum +10.0% net ROI target. "
         "STAKE SIZING POLICY (OPTION B): Continuous risk-adjusted fractional Kelly bounded strictly within [$0.50, $8.00] ($2.50-$8.00 alpha acceleration on proven segments; $0.50 interim tourniquet on wobbling segments; $0.00 quarantine on demoted markets undergoing mandatory incubator re-graduation; 16:1 asymmetric capital ratio, null daily risk ceiling). "
+        "MANDATORY 3-TIER CLOSED-LOOP RECOVERY: Demoted markets MUST be trained and tuned on historical settled matches (97k+ games). Candidate models must prove out-of-sample positive ROI (>= +3.5%) and positive Brier skill BEFORE admission to the Shadow Incubator ($0.00). Only after accumulating N >= 25 live settled games with sustained profit does a candidate graduate to real money ($0.50-$8.00). "
         "Every proposed remedy must be immediately testable in our leak-free Walk-Forward Crucible backtest and directly increase cash profit within days. "
         "Provide at most 400 words of concrete quantitative advice.\nBRIEF:\n" + json.dumps(brief)
     )
