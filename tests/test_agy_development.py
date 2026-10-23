@@ -75,3 +75,21 @@ def test_finish_agy_step_decodes_markdown_fences_and_structured_output():
     assert res['report']['summary'] == 'Test summary'
     assert len(res['edits']) == 1
     assert res['edits'][0]['path'] == 'tests/test_foo.py'
+
+
+def test_finish_agy_step_handles_empty_or_malformed_as_provider_unavailable():
+    from betting_engine.agy_development import finish_agy_step
+    from betting_engine.provider_runtime import ProviderUnavailable
+    from betting_engine.claude_development import VERSION
+    context = {'version': VERSION, 'output_schema': {}, 'result_schema': {}}
+
+    # Empty response
+    empty_raw = json.dumps({'conversation_id': '123', 'status': 'SUCCESS', 'response': ''})
+    with pytest.raises(ProviderUnavailable, match='empty response'):
+        finish_agy_step(empty_raw, context, 'gemini-3.8-flash-high')
+
+    # Non-JSON response
+    malformed_raw = json.dumps({'conversation_id': '123', 'status': 'SUCCESS', 'response': 'Not json text'})
+    with pytest.raises(ProviderUnavailable, match='non-JSON output'):
+        finish_agy_step(malformed_raw, context, 'gemini-3.8-flash-high')
+
