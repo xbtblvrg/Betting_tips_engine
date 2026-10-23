@@ -89,13 +89,13 @@ def temp_incubator_db(tmp_path: Path):
         )
     """)
 
-    # Populate 30 historical settled wagers for NFL|full_game|spreads
+    # Populate 30 historical settled wagers for NFL|full_game|spreads with line=-1.5 (home expected margin +3.0)
     now_iso = datetime.now(timezone.utc).isoformat()
     for i in range(30):
-        # 60% win rate with odds 2.00 generates solid positive ROI
-        is_win = (i % 5 != 0)
+        # 75% win rate produces positive ROI on odds 2.05
+        is_win = (i % 4 != 0)
         res = 'won' if is_win else 'lost'
-        pnl_val = 1.0 if is_win else -1.0
+        pnl_val = 1.05 if is_win else -1.0
         conn.execute("""
             INSERT INTO incubated_wagers (
                 id, fixture_id, game_id, league, scope, family, sub_family,
@@ -104,8 +104,8 @@ def temp_incubator_db(tmp_path: Path):
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'settled', ?, ?, ?, ?)
         """, (
             f"wager_{i}", f"fix_{i}", f"game_{i}", "NFL", "full_game", "spreads", "spreads",
-            "Home -3.5", "home", -3.5, 2.00, 0.58, 0.50, 0.16,
-            f"2026-10-10T1{i%9}:00:00Z", res, pnl_val, 0.20, 0.25
+            "Home -1.5", "home", -1.5, 2.05, 0.62, 0.48, 0.20,
+            f"2026-10-10T1{i%9}:00:00Z", res, pnl_val, 0.18, 0.26
         ))
 
     # Add one demoted market in research_training phase
@@ -167,7 +167,7 @@ def test_incubator_status_exposes_model_and_edge(temp_incubator_db: Path, tmp_pa
     bridge = DemotedMarketIncubationBridge(data_dir=tmp_path, db_path=temp_incubator_db)
     bridge.synchronize_demoted_markets(max_train_per_run=10)
 
-    incubator = ShadowMarketIncubator(data_dir=tmp_path, db_path=temp_incubator_db)
+    incubator = ShadowMarketIncubator(data_dir=tmp_path)
     status = incubator.get_incubator_status()
     assert 'demoted_markets' in status
     assert len(status['demoted_markets']) == 1

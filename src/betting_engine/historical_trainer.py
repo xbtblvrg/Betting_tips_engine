@@ -126,7 +126,7 @@ class HistoricalCandidateTrainer:
     def train_and_screen_demoted_market(
         self,
         segment_key: str,
-        min_samples: int = 15,
+        min_samples: int = 8,
         min_roi: float = 0.035,
         min_delta_brier: float = -0.005,
         max_drawdown_limit: float = 0.25,
