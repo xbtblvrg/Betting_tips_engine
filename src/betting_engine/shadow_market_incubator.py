@@ -1886,6 +1886,18 @@ class ShadowMarketIncubator:
                     'raw_market_names': raw_market_names,
                 }
 
+                # Evaluate Multi-Model Tournament Champions
+                try:
+                    from .tournament_engine import TournamentEngine
+                    t_eng = TournamentEngine(self.data_dir)
+                    champ = t_eng.crown_champion(segment_key)
+                    if champ:
+                        stats['champion_model_id'] = champ.model_id
+                        stats['champion_version'] = champ.version
+                        stats['tournament_scorecard_s'] = champ.scorecard_s
+                except Exception:
+                    pass
+
                 cur.execute("""
                     INSERT OR REPLACE INTO graduated_markets (
                         id, segment_key, league, scope, family, sub_family,

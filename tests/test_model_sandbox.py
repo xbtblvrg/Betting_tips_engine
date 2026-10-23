@@ -1,0 +1,79 @@
+"""Unit tests for the autonomous sandbox model infrastructure and archetypes."""
+import math
+import pytest
+
+from betting_engine.sandbox_models.base import DiscreteDistribution, BaseCandidateModel
+from betting_engine.sandbox_models.validator import validate_candidate_model
+from betting_engine.sandbox_models.archetypes.negative_binomial import NegativeBinomialOverdispersionModel
+from betting_engine.sandbox_models.archetypes.situational_fatigue import SituationalFatigueModel
+from betting_engine.sandbox_models.archetypes.odds_damped_kelly import OddsDampedKellyShrinkageModel
+from betting_engine.sandbox_models.archetypes.bivariate_copula import BivariateCopulaHazardModel
+
+
+def test_discrete_distribution_normalization_and_methods():
+    scores = {(1, 0): 0.3, (0, 0): 0.2, (0, 1): 0.5}
+    dist = DiscreteDistribution.from_scores(scores)
+
+    assert math.isclose(dist.p_home, 0.3, abs_tol=1e-3)
+    assert math.isclose(dist.p_draw, 0.2, abs_tol=1e-3)
+    assert math.isclose(dist.p_away, 0.5, abs_tol=1e-3)
+
+    # Totals: line = 0.5
+    # (1, 0) sum=1 > 0.5, (0, 1) sum=1 > 0.5 -> total over = 0.8
+    assert math.isclose(dist.total_prob(0.5, 'over'), 0.8, abs_tol=1e-3)
+    assert math.isclose(dist.total_prob(0.5, 'under'), 0.2, abs_tol=1e-3)
+
+    # Spread: line = -0.5 for home
+    # home win (1, 0): 1 - 0 - 0.5 = 0.5 > 0 -> prob = 0.3
+    assert math.isclose(dist.spread_prob(-0.5, 'home'), 0.3, abs_tol=1e-3)
+
+
+def test_negative_binomial_archetype_validation():
+    model = NegativeBinomialOverdispersionModel(league='NHL', scope='period_3', family='totals')
+    context = {'home_expected': 1.1, 'away_expected': 0.9}
+
+    passed, errors = validate_candidate_model(model, context)
+    assert passed, f"Validation failed: {errors}"
+
+    prob, ev = model.evaluate_market('totals', 'over', 1.5, 2.10, context)
+    assert 0.01 <= prob <= 0.99
+    assert math.isclose(ev, round(prob * 2.10 - 1.0, 4))
+
+
+def test_situational_fatigue_archetype_validation():
+    model = SituationalFatigueModel(league='NBA', scope='full_game', family='spreads')
+    # Test with back-to-back for home team
+    context_b2b = {'home_expected': 112.0, 'away_expected': 110.0, 'home_rest_days': 0, 'away_rest_days': 2}
+    context_rested = {'home_expected': 112.0, 'away_expected': 110.0, 'home_rest_days': 3, 'away_rest_days': 0}
+
+    passed, errors = validate_candidate_model(model, context_b2b)
+    assert passed, f"Validation failed: {errors}"
+
+    dist_b2b = model.predict_distribution(context_b2b)
+    dist_rested = model.predict_distribution(context_rested)
+
+    # Home team should have higher expected points when rested than on b2b
+    assert dist_rested.home_expected > dist_b2b.home_expected
+
+
+def test_odds_damped_kelly_archetype_validation():
+    model = OddsDampedKellyShrinkageModel(league='NBA', scope='full_game', family='spreads')
+    context = {'home_expected': 115.0, 'away_expected': 105.0}
+
+    passed, errors = validate_candidate_model(model, context)
+    assert passed, f"Validation failed: {errors}"
+
+    # For heavy favorite (odds = 1.25), probability should shrink towards implied prob (1/1.25 = 0.8)
+    p_damped, ev_damped = model.evaluate_market('moneyline', 'home', None, 1.25, context)
+    assert 0.01 <= p_damped <= 0.99
+
+
+def test_bivariate_copula_archetype_validation():
+    model = BivariateCopulaHazardModel(league='MLS', scope='full_game', family='totals', correlation_rho=0.25)
+    context = {'home_expected': 1.6, 'away_expected': 1.2}
+
+    passed, errors = validate_candidate_model(model, context)
+    assert passed, f"Validation failed: {errors}"
+
+    dist = model.predict_distribution(context)
+    assert math.isclose(dist.p_home + dist.p_away + dist.p_draw, 1.0, abs_tol=1e-3)

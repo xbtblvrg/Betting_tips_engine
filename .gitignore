@@ -35,3 +35,5 @@ snapshots/
 output.json
 *.log
 quant_bot_online_forrasok_*
+var/
+

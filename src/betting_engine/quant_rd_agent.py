@@ -226,6 +226,20 @@ class SupervisedQuantRDAgent:
             except Exception as e:
                 append_rd_log('QUANT_COUNCIL_INFO', f"Quant council skipped/cached: {e}")
 
+            # 3.c Parallel Multi-Model Tournament Candidate Slate Generation
+            try:
+                from .model_generator import synthesize_candidate_slate
+                from .tournament_engine import TournamentEngine
+                t_engine = TournamentEngine(data_dir=DATA)
+                cands = synthesize_candidate_slate(segment_key, tournament_engine=t_engine)
+                append_rd_log(
+                    'TOURNAMENT_SLATE',
+                    f"Synthesized divergent 4-model candidate tournament slate for {segment_key} into Shadow Incubator.",
+                    extra={'segment': segment_key, 'candidates_count': len(cands)}
+                )
+            except Exception as e:
+                append_rd_log('TOURNAMENT_INFO', f"Tournament candidate synthesis notice: {e}")
+
             append_rd_log(
                 'COGNITIVE_AI',
                 f"Sports intelligence reasoning for {segment_key}: {diagnostic_report.primary_sports_mechanic}. Formulated {len(diagnostic_report.hypotheses)} mathematical candidate rules.",
