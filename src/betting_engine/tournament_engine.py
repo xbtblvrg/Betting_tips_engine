@@ -154,11 +154,33 @@ class TournamentEngine:
             return {'tournaments': {}, 'champions': {}, 'rejected': []}
 
     def save_registry(self, registry: Dict[str, Any]) -> None:
-        """Saves tournament registry atomically."""
+        """Saves tournament registry atomically with locking and candidate merge."""
         self.registry_file.parent.mkdir(parents=True, exist_ok=True)
-        tmp = self.registry_file.with_suffix('.tmp')
-        tmp.write_text(json.dumps(registry, indent=2, sort_keys=True), encoding='utf-8')
-        tmp.replace(self.registry_file)
+        lock_file = self.registry_file.with_suffix('.lock')
+        try:
+            import fcntl
+            with open(lock_file, 'w') as lf:
+                fcntl.flock(lf, fcntl.LOCK_EX)
+                if self.registry_file.exists():
+                    try:
+                        disk_reg = json.loads(self.registry_file.read_text(encoding='utf-8'))
+                        for t_key, t_val in disk_reg.get('tournaments', {}).items():
+                            if t_key not in registry.get('tournaments', {}):
+                                registry.setdefault('tournaments', {})[t_key] = t_val
+                            else:
+                                for c_id, c_val in t_val.get('candidates', {}).items():
+                                    if c_id not in registry['tournaments'][t_key].get('candidates', {}):
+                                        registry['tournaments'][t_key].setdefault('candidates', {})[c_id] = c_val
+                    except Exception:
+                        pass
+                tmp = self.registry_file.with_suffix('.tmp')
+                tmp.write_text(json.dumps(registry, indent=2, sort_keys=True), encoding='utf-8')
+                tmp.replace(self.registry_file)
+                fcntl.flock(lf, fcntl.LOCK_UN)
+        except Exception:
+            tmp = self.registry_file.with_suffix('.tmp')
+            tmp.write_text(json.dumps(registry, indent=2, sort_keys=True), encoding='utf-8')
+            tmp.replace(self.registry_file)
 
     def register_candidate(
         self,
@@ -254,13 +276,40 @@ class TournamentEngine:
         return None, None
 
     def get_model_by_id(self, model_id: str) -> Optional[BaseCandidateModel]:
-        """Looks up and instantiates any registered candidate model by its model_id."""
+        """Looks up and instantiates any registered candidate model by its model_id with DB fallback."""
         reg = self.load_registry()
         target_meta = None
         for t_data in reg.get('tournaments', {}).values():
             if model_id in t_data.get('candidates', {}):
                 target_meta = t_data['candidates'][model_id]
                 break
+
+        # Fail-safe fallback: look up directly from demoted_markets in DB if missing from JSON
+        if not target_meta and self.db_path.exists():
+            try:
+                conn = sqlite3.connect(str(self.db_path), timeout=5.0)
+                cur = conn.cursor()
+                row = cur.execute("""
+                    SELECT incubated_model_id, model_archetype, model_params, league, scope, family
+                    FROM demoted_markets
+                    WHERE incubated_model_id = ?
+                """, (model_id,)).fetchone()
+                conn.close()
+                if row:
+                    m_id, arch, p_json, lg, sc, fam = row
+                    params = json.loads(p_json) if p_json else {}
+                    target_meta = {
+                        'model_id': m_id,
+                        'class_name': arch,
+                        'league': lg,
+                        'scope': sc,
+                        'family': fam,
+                        'params': params,
+                        'metadata': {'params': params},
+                    }
+            except Exception:
+                pass
+
         if not target_meta:
             return None
 
