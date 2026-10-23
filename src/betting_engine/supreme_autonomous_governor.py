@@ -441,10 +441,10 @@ class SupremeAutonomousGovernor:
             conn = sqlite3.connect(engine_db, timeout=45.0)
             cur = conn.cursor()
 
-            # 1. Daily volume and stake bounds today
+            # 1. Daily volume and stake bounds today (funded recommendations)
             today_prefix = now.strftime('%Y-%m-%d')
             cur.execute(
-                "SELECT count(*), min(stake), max(stake), min(odds) FROM bets WHERE substr(created_at, 1, 10) = ?",
+                "SELECT count(*), min(stake), max(stake), min(odds) FROM bets WHERE substr(created_at, 1, 10) = ? AND status IN ('open', 'won', 'lost', 'push')",
                 (today_prefix,)
             )
             r = cur.fetchone()
