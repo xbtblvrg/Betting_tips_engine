@@ -502,8 +502,36 @@ class LearningWorker:
             self.enqueue('research_watch',f'{source["id"]}:{last or "initial"}',payload={'source':source},league=source.get('league'))
 
     def plan_player_evidence(self):
-        # Explicit user scope exclusion: Player props excluded from engine scope.
-        return
+        # A changed collector/catalogue generation triggers a separate durable
+        # job. Partial ingestion cannot prevent inspection of valid sources.
+        for kind, source in (('player_history_refresh', 'players/sources.json'), ('player_prop_audit', 'market_catalog/latest.json')):
+            path = self.data / source
+            if not path.exists():
+                continue
+            if kind == 'player_history_refresh' and not (self.data / 'games.json').exists():
+                continue
+            body = path.read_bytes()
+            source_hash = hashlib.sha256(body).hexdigest()
+            defer = None
+            with self.store.db() as c:
+                prior = c.execute("SELECT * FROM learning_jobs WHERE kind=? AND status IN ('queued','retry','running')", (kind,)).fetchall()
+                if any(row['status'] == 'running' for row in prior):
+                    continue
+                for row in prior:
+                    if json.loads(row['payload']).get('source_generation_sha256') == source_hash:
+                        continue
+                    if row['status'] == 'retry':
+                        defer = max(defer or row['next_attempt'], row['next_attempt'])
+                    c.execute("UPDATE learning_jobs SET status='superseded',updated_at=?,result=? WHERE id=?",
+                        (utcnow().isoformat(), json.dumps({'state': 'superseded', 'reason': 'A newer source generation is queued; original attempts retained.'}), row['id']))
+            job_id = self.enqueue(kind, source_hash, payload={'source_generation_sha256': source_hash,
+                'acceptance': 'Hash-verified independent evidence; unresolved rows remain explicit; no player-model approval.'})
+            with self.store.db() as c:
+                c.execute("UPDATE learning_jobs SET status=CASE WHEN attempts>0 THEN 'retry' ELSE 'queued' END,updated_at=? WHERE id=? AND status='superseded'",
+                    (utcnow().isoformat(), job_id))
+            if defer:
+                with self.store.db() as c:
+                    c.execute("UPDATE learning_jobs SET next_attempt=MAX(next_attempt,?) WHERE id=? AND status IN ('queued','retry')", (defer, job_id))
 
     def plan_operations(self):
         from .operations import operating_audit

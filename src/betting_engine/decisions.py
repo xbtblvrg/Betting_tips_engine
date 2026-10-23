@@ -85,14 +85,8 @@ def continuous_selection_priority_v3(tip, tier):
     market = str(tip.get('market', '')).lower()
     is_under = 'total' in market and side == 'under'
     under_drag = -0.10 if (is_under and ev < 0.03) else 0.0
-    # Continuous odds preference (Anti-Constant Mandate, Commandment 3):
-    if odds >= 1.40:
-        odds_pref = min(0.20, 0.05 + 0.12 * math.log(max(1.0, odds / 1.40)))
-    elif odds > 1.0:
-        odds_pref = -0.30 * (1.40 - odds) / 0.40
-    else:
-        odds_pref = 0.0
-    underdog_value_boost = min(0.35, ev * max(0.0, odds - 1.50) * 0.5) if (odds >= 1.50 and ev > 0) else 0.0
+    odds_pref = 0.15 if odds >= 2.00 else 0.10 if odds >= 1.60 else 0.05 if odds >= 1.40 else (-0.20 if odds > 0 else 0.0)
+    underdog_value_boost = min(0.35, ev * odds * 0.5) if (odds >= 2.00 and ev > 0) else 0.0
     score = (tier * 10.0) + (p * 2.0) + (min(1.0, max(-1.0, ev)) * 1.5) + (learned * 0.5) + (core * 0.2) + odds_pref + under_drag + underdog_value_boost
     return (int(tier > 0), score, p, stress_roi, is_core_market(tip), str(tip['id']))
 

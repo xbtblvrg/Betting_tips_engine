@@ -1924,14 +1924,21 @@ class ShadowMarketIncubator:
                     )
                     n_inc = len(records)
                     inc_pnl = sum(r[5] for r in records)
+                    matching_staked = sum(
+                        float(p.get('stake', 0.0) or 0.0) for p, _ in cached_live_rows
+                        if matches_live_decision_to_market(p, meta_check)
+                    )
+                    avg_live_stake = (matching_staked / len(matching_live)) if len(matching_live) > 0 else 1.0
+                    matching_units_pnl = matching_pnl / max(0.20, avg_live_stake)
+                    inc_units_pnl = inc_pnl / max(0.20, 1.0)
                     # Anti-Clog Statistical Significance:
                     # 1. Under 5 live games is stochastic noise.
                     # 2. Cumulative positive PnL in live (matching_pnl >= 0.0) contradicts demotion.
-                    # 3. Under 25 live games with minor drawdown (pnl > -$15) cannot override massive out-of-sample incubator proof (N >= 50, PnL >= $20).
+                    # 3. Under 25 live games with minor drawdown cannot override massive out-of-sample incubator proof (N >= 50, PnL >= +15 units).
                     if (
                         len(matching_live) < 5
                         or matching_pnl >= 0.0
-                        or (len(matching_live) < 25 and matching_pnl > -15.0 and n_inc >= 50 and inc_pnl >= 20.0)
+                        or (len(matching_live) < 25 and (matching_units_pnl > -10.0 or matching_pnl > -15.0) and n_inc >= 50 and (inc_units_pnl >= 15.0 or inc_pnl >= 20.0))
                     ):
                         is_false_demotion = True
 
@@ -2627,14 +2634,21 @@ class ShadowMarketIncubator:
                     )
                     n_inc = len(records)
                     inc_pnl = sum(r[5] for r in records)
+                    matching_staked = sum(
+                        float(p.get('stake', 0.0) or 0.0) for p, _ in cached_live_rows
+                        if matches_live_decision_to_market(p, meta_check)
+                    )
+                    avg_live_stake = (matching_staked / len(matching_live)) if len(matching_live) > 0 else 1.0
+                    matching_units_pnl = matching_pnl / max(0.20, avg_live_stake)
+                    inc_units_pnl = inc_pnl / max(0.20, 1.0)
                     # Anti-Clog Statistical Significance:
                     # 1. Under 5 live games is stochastic noise.
                     # 2. Cumulative positive PnL in live (matching_pnl >= 0.0) contradicts demotion.
-                    # 3. Under 25 live games with minor drawdown (pnl > -$15) cannot override massive out-of-sample incubator proof (N >= 50, PnL >= $20).
+                    # 3. Under 25 live games with minor drawdown cannot override massive out-of-sample incubator proof (N >= 50, PnL >= +15 units).
                     if (
                         len(matching_live) < 5
                         or matching_pnl >= 0.0
-                        or (len(matching_live) < 25 and matching_pnl > -15.0 and n_inc >= 50 and inc_pnl >= 20.0)
+                        or (len(matching_live) < 25 and (matching_units_pnl > -10.0 or matching_pnl > -15.0) and n_inc >= 50 and (inc_units_pnl >= 15.0 or inc_pnl >= 20.0))
                     ):
                         is_false_demotion = True
 
