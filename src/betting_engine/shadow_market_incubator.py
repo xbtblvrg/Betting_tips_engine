@@ -3091,8 +3091,12 @@ class ShadowMarketIncubator:
                         pass
 
                 total_live_pnl = sum(d['pnl'] for d in matching_decisions)
-                if (inc_n >= 50 and inc_pnl >= 20.0) or (len(matching_decisions) >= 50 and total_live_pnl >= 20.0):
-                    if rolling_pnl > -25.0 and total_live_pnl > 0.0:
+                total_live_staked = sum(float(d.get('stake', 0.0) or 0.0) for d in matching_decisions)
+                avg_total_stake = (total_live_staked / len(matching_decisions)) if len(matching_decisions) > 0 else 1.0
+                total_live_units = total_live_pnl / max(0.20, avg_total_stake)
+                inc_units = inc_pnl / max(0.20, 1.0)
+                if (inc_n >= 50 and (inc_units >= 15.0 or inc_pnl >= 20.0)) or (len(matching_decisions) >= 50 and (total_live_units >= 15.0 or total_live_pnl >= 20.0)):
+                    if (rolling_units_pnl > -15.0 or rolling_pnl > -25.0) and total_live_pnl > 0.0:
                         continue
 
                 # Scale-Invariant Dynamic Loss Evaluation (Anti-Constant Mandate, Commandment 3):
