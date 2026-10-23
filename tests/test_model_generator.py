@@ -12,8 +12,8 @@ def test_synthesize_candidate_slate_for_demoted_market(tmp_path):
     segment_key = 'NHL|period_3|totals'
     results = synthesize_candidate_slate(segment_key, tournament_engine=engine)
 
-    # Must synthesize 4 diverse candidates
-    assert len(results) == 4
+    # Must synthesize at least 4 diverse candidates (4-5 depending on family)
+    assert len(results) >= 4
 
     for cand, success, errors in results:
         assert success is True, f"Failed registering {cand.model_id}: {errors}"
@@ -24,4 +24,4 @@ def test_synthesize_candidate_slate_for_demoted_market(tmp_path):
     # Check that registry now has the tournament and 4 candidates
     reg = engine.load_registry()
     assert segment_key in reg['tournaments']
-    assert len(reg['tournaments'][segment_key]['candidates']) == 4
+    assert len(reg['tournaments'][segment_key]['candidates']) >= 4

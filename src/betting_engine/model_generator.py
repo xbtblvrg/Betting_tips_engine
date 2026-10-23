@@ -13,6 +13,7 @@ from .sandbox_models.archetypes.negative_binomial import NegativeBinomialOverdis
 from .sandbox_models.archetypes.situational_fatigue import SituationalFatigueModel
 from .sandbox_models.archetypes.odds_damped_kelly import OddsDampedKellyShrinkageModel
 from .sandbox_models.archetypes.bivariate_copula import BivariateCopulaHazardModel
+from .sandbox_models.archetypes.zero_inflated import ZeroInflatedPoissonModel
 from .tournament_engine import TournamentEngine
 
 
@@ -85,6 +86,19 @@ def synthesize_candidate_slate(
         correlation_rho=0.20,
     )
     candidates.append(cand_delta)
+
+    # 5. Candidate Epsilon: Zero-Inflated Poisson (ZIP)
+    # High utility for totals in soccer, hockey, or defense-dominated games
+    if family == 'totals' or league in ('MLS', 'EPL', 'UCL', 'NHL'):
+        cand_epsilon = ZeroInflatedPoissonModel(
+            model_id=f"{league.lower()}_{scope}_{family}_zip_{now_tag}",
+            version="1.0.0",
+            league=league,
+            scope=scope,
+            family=family,
+            zero_inflation_pi=0.12,
+        )
+        candidates.append(cand_epsilon)
 
     results = []
     sample_ctx = {

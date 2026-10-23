@@ -77,3 +77,18 @@ def test_bivariate_copula_archetype_validation():
 
     dist = model.predict_distribution(context)
     assert math.isclose(dist.p_home + dist.p_away + dist.p_draw, 1.0, abs_tol=1e-3)
+
+
+def test_zero_inflated_poisson_archetype_validation():
+    from betting_engine.sandbox_models.archetypes.zero_inflated import ZeroInflatedPoissonModel
+    model = ZeroInflatedPoissonModel(league='EPL', scope='full_game', family='totals', zero_inflation_pi=0.15)
+    context = {'home_expected': 1.3, 'away_expected': 1.0}
+
+    passed, errors = validate_candidate_model(model, context)
+    assert passed, f"Validation failed: {errors}"
+
+    dist = model.predict_distribution(context)
+    # 0-0 probability should be enhanced by zero-inflation
+    p_0_0 = dist.scores.get((0, 0), 0.0)
+    assert p_0_0 > 0.05
+

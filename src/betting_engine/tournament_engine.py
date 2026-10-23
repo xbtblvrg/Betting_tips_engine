@@ -202,19 +202,33 @@ class TournamentEngine:
         if not t_data:
             return []
 
-        from .sandbox_models.archetypes import (
-            NegativeBinomialOverdispersionModel,
-            SituationalFatigueModel,
-            OddsDampedKellyShrinkageModel,
-            BivariateCopulaHazardModel,
-        )
-
-        class_map = {
-            'NegativeBinomialOverdispersionModel': NegativeBinomialOverdispersionModel,
-            'SituationalFatigueModel': SituationalFatigueModel,
-            'OddsDampedKellyShrinkageModel': OddsDampedKellyShrinkageModel,
-            'BivariateCopulaHazardModel': BivariateCopulaHazardModel,
-        }
+        # Dynamically discover all candidate model classes in archetypes
+        class_map = {}
+        try:
+            import importlib
+            import inspect
+            import pkgutil
+            from .sandbox_models import archetypes as arch_pkg
+            for finder, mod_name, ispkg in pkgutil.iter_modules(arch_pkg.__path__):
+                mod = importlib.import_module(f'.sandbox_models.archetypes.{mod_name}', package='betting_engine')
+                for item_name, item in inspect.getmembers(mod, inspect.isclass):
+                    if issubclass(item, BaseCandidateModel) and item is not BaseCandidateModel:
+                        class_map[item_name] = item
+        except Exception:
+            from .sandbox_models.archetypes import (
+                NegativeBinomialOverdispersionModel,
+                SituationalFatigueModel,
+                OddsDampedKellyShrinkageModel,
+                BivariateCopulaHazardModel,
+                ZeroInflatedPoissonModel,
+            )
+            class_map = {
+                'NegativeBinomialOverdispersionModel': NegativeBinomialOverdispersionModel,
+                'SituationalFatigueModel': SituationalFatigueModel,
+                'OddsDampedKellyShrinkageModel': OddsDampedKellyShrinkageModel,
+                'BivariateCopulaHazardModel': BivariateCopulaHazardModel,
+                'ZeroInflatedPoissonModel': ZeroInflatedPoissonModel,
+            }
 
         instances: List[BaseCandidateModel] = []
         for cand_id, meta in t_data.get('candidates', {}).items():
