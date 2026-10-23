@@ -128,7 +128,7 @@ class HistoricalCandidateTrainer:
         segment_key: str,
         min_samples: int = 8,
         min_roi: float = 0.035,
-        min_delta_brier: float = -0.005,
+        min_delta_brier: float = 0.000,
         max_drawdown_limit: float = 0.25,
         train_split: float = 0.60
     ) -> Optional[CandidateTrainingResult]:
@@ -327,15 +327,6 @@ class HistoricalCandidateTrainer:
                 qualified_results.append(result)
 
         if not qualified_results:
-            # If none passed strict hurdles, check if any achieved positive ROI
-            positive = [r for r in all_results if r.oos_simulated_roi > 0.0 and r.oos_sample_size >= 5]
-            if positive:
-                positive.sort(key=lambda r: (r.oos_simulated_roi, r.scorecard_s), reverse=True)
-                top = positive[0]
-                # Mark as qualified research recovery candidate
-                top.is_qualified = True
-                top.failure_reasons.append("Provisionally approved with positive OOS ROI")
-                return top
             return None
 
         # Sort qualified champions by scorecard S descending
