@@ -131,9 +131,34 @@ def _init_db(db_path: Path = INCUBATOR_DB) -> sqlite3.Connection:
             rolling_pnl REAL NOT NULL,
             games INT NOT NULL,
             reason TEXT NOT NULL,
-            stats TEXT NOT NULL
+            stats TEXT NOT NULL,
+            incubated_model_id TEXT,
+            model_archetype TEXT,
+            model_params TEXT,
+            historical_roi REAL,
+            historical_brier_delta REAL,
+            historical_sample_size INT DEFAULT 0,
+            incubation_phase TEXT DEFAULT 'research_training',
+            admitted_to_incubator_at TEXT
         )
     """)
+    # Ensure migration columns for demoted_markets
+    cur = conn.cursor()
+    cur.execute("PRAGMA table_info(demoted_markets)")
+    dm_cols = {r[1] for r in cur.fetchall()}
+    for col_def in [
+        ('incubated_model_id', 'TEXT'),
+        ('model_archetype', 'TEXT'),
+        ('model_params', 'TEXT'),
+        ('historical_roi', 'REAL'),
+        ('historical_brier_delta', 'REAL'),
+        ('historical_sample_size', 'INT DEFAULT 0'),
+        ('incubation_phase', "TEXT DEFAULT 'research_training'"),
+        ('admitted_to_incubator_at', 'TEXT'),
+    ]:
+        if col_def[0] not in dm_cols:
+            conn.execute(f"ALTER TABLE demoted_markets ADD COLUMN {col_def[0]} {col_def[1]}")
+
     conn.execute("""
         CREATE TABLE IF NOT EXISTS incubator_diagnostic_repairs (
             id TEXT PRIMARY KEY,
@@ -3218,7 +3243,14 @@ class ShadowMarketIncubator:
 
         demoted_list = []
         try:
-            cur.execute("SELECT id, segment_key, league, scope, family, sub_family, demoted_at, rolling_roi, rolling_pnl, games, reason FROM demoted_markets")
+            cur.execute("""
+                SELECT id, segment_key, league, scope, family, sub_family,
+                       demoted_at, rolling_roi, rolling_pnl, games, reason,
+                       incubated_model_id, model_archetype, historical_roi,
+                       historical_brier_delta, historical_sample_size,
+                       incubation_phase, admitted_to_incubator_at
+                FROM demoted_markets
+            """)
             for dr in cur.fetchall():
                 demoted_list.append({
                     'id': dr[0],
@@ -3231,7 +3263,14 @@ class ShadowMarketIncubator:
                     'rolling_roi_pct': round(dr[7] * 100.0, 2),
                     'rolling_pnl': round(dr[8], 2),
                     'games': dr[9],
-                    'reason': dr[10]
+                    'reason': dr[10],
+                    'incubated_model_id': dr[11],
+                    'model_archetype': dr[12],
+                    'historical_roi_pct': round(dr[13] * 100.0, 1) if dr[13] is not None else None,
+                    'historical_brier_delta': round(dr[14], 5) if dr[14] is not None else None,
+                    'historical_sample_size': dr[15] or 0,
+                    'incubation_phase': dr[16] or 'research_training',
+                    'admitted_to_incubator_at': dr[17],
                 })
         except Exception:
             pass

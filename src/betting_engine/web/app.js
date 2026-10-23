@@ -1599,7 +1599,7 @@ function renderRD(rd){
   }
   if(incDemoted.length){
    gradHtml += `
-    <h4 style="margin-top:16px;margin-bottom:8px;color:#ef4444">⚠️ Demoted to Research / Re-Incubation (Probation & AI Repair)</h4>
+    <h4 style="margin-top:16px;margin-bottom:8px;color:#ef4444">⚠️ Demoted to Research / Re-Incubation (Probation & Autonomous Model Repair)</h4>
     <table class="table">
      <thead>
       <tr>
@@ -1607,27 +1607,37 @@ function renderRD(rd){
        <th>League</th>
        <th>Scope</th>
        <th>Demoted At</th>
-       <th>Drawdown Games</th>
-       <th>Rolling PnL</th>
-       <th>Rolling ROI</th>
-       <th>Forensic Reason</th>
-       <th>Probation Status</th>
+       <th>Prior Deficit</th>
+       <th>Assigned New Model</th>
+       <th>Proven Historical Edge</th>
+       <th>Incubation Status</th>
       </tr>
      </thead>
      <tbody>
-      ${incDemoted.map(d=>`
-       <tr>
-        <td><strong style="color:#ef4444">${esc(d.segment_key)}</strong></td>
-        <td><span class="badge warning">${esc(d.league)}</span></td>
-        <td>${esc(d.scope)}</td>
-        <td>${esc(when(d.demoted_at))}</td>
-        <td>${esc(d.games)} games</td>
-        <td style="color:#ef4444;font-family:var(--mono)">$${esc(d.rolling_pnl)}</td>
-        <td style="color:#ef4444;font-family:var(--mono)">${esc(d.rolling_roi_pct)}%</td>
-        <td><small>${esc(d.reason)}</small></td>
-        <td><span class="badge warning">Re-Training in R&D</span></td>
-       </tr>
-      `).join('')}
+      ${incDemoted.map(d=>{
+        const isInc = d.incubation_phase === 'incubating_with_new_model' && d.incubated_model_id;
+        const modelDisplay = isInc
+          ? `<strong style="color:#10b981">${esc(d.model_archetype || d.incubated_model_id)}</strong><br><small style="color:var(--muted);font-family:var(--mono)">${esc(d.incubated_model_id)}</small>`
+          : '<span class="badge muted">R&D Historical Fitting...</span>';
+        const edgeDisplay = (isInc && d.historical_roi_pct != null)
+          ? `<span style="color:#10b981;font-family:var(--mono);font-weight:600">+${esc(d.historical_roi_pct)}% ROI</span><br><small style="color:var(--muted)">(${esc(d.historical_sample_size)} OOS games)</small>`
+          : '<span style="color:var(--muted)">Evaluating...</span>';
+        const statusBadge = isInc
+          ? '<span class="badge positive">Incubating in Shadow ($0.00)</span>'
+          : '<span class="badge warning">R&D Model Search</span>';
+        return `
+         <tr>
+          <td><strong style="color:${isInc ? '#10b981' : '#ef4444'}">${esc(d.segment_key)}</strong></td>
+          <td><span class="badge ${isInc ? 'positive' : 'warning'}">${esc(d.league)}</span></td>
+          <td>${esc(d.scope)}</td>
+          <td>${esc(when(d.demoted_at))}</td>
+          <td style="color:#ef4444;font-family:var(--mono)">${esc(d.rolling_roi_pct)}% <small>($${esc(d.rolling_pnl)})</small></td>
+          <td>${modelDisplay}</td>
+          <td>${edgeDisplay}</td>
+          <td>${statusBadge}</td>
+         </tr>
+        `;
+      }).join('')}
      </tbody>
     </table>
    `;

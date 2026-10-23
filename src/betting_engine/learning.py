@@ -678,6 +678,13 @@ class LearningWorker:
                 graduated.extend(quota_grads)
             demotions = incubator.evaluate_demotions_and_substitutions(engine_db_path=self.store.path)
             incubator_repairs = incubator.diagnose_and_repair_stuck_incubator_markets()
+            bridge_res = {}
+            try:
+                from .demoted_market_bridge import DemotedMarketIncubationBridge
+                bridge = DemotedMarketIncubationBridge(data_dir=self.data)
+                bridge_res = bridge.synchronize_demoted_markets(max_train_per_run=10)
+            except Exception as e:
+                bridge_res = {'error': str(e)}
             with self.store.db() as c:
                 orch = AutonomousCapabilityOrchestrator(c, journal_path=self.data / 'research' / 'autonomous_evolution_journal.json')
                 evo_result = orch.run_supervised_evolution_cycle(max_segments=3)

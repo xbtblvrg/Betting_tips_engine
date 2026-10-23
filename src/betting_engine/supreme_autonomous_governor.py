@@ -533,6 +533,19 @@ class SupremeAutonomousGovernor:
         except Exception as e:
             log.warning('Demoted tournaments sync error: %s', e)
 
+        # 6c. Autonomous Historical Model Training & Demoted Market Binding
+        try:
+            from .demoted_market_bridge import DemotedMarketIncubationBridge
+            bridge = DemotedMarketIncubationBridge(data_dir=self.data_dir)
+            bridge_res = bridge.synchronize_demoted_markets(max_train_per_run=5)
+            if bridge_res.get('newly_admitted_count', 0) > 0:
+                actions.append({
+                    'action': 'demoted_markets_bound_to_new_models',
+                    'newly_admitted': bridge_res['newly_admitted_count'],
+                })
+        except Exception as e:
+            log.warning('Demoted markets bridge error: %s', e)
+
         # 7. Enforce Prime Directives guard
         prime_guard = self.enforce_prime_directives_guard()
 

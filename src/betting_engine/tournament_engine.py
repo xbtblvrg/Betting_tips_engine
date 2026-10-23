@@ -270,14 +270,18 @@ class TournamentEngine:
         if not cls_target:
             return None
         try:
-            return cls_target(
-                model_id=target_meta['model_id'],
-                version=target_meta.get('version', '1.0.0'),
-                league=target_meta.get('league', 'UNKNOWN'),
-                scope=target_meta.get('scope', 'full_game'),
-                family=target_meta.get('family', 'totals'),
-                metadata=target_meta.get('metadata'),
-            )
+            meta_dict = target_meta.get('metadata') or {}
+            params = meta_dict.get('params') or target_meta.get('params') or {}
+            kwargs = {
+                'model_id': target_meta['model_id'],
+                'version': target_meta.get('version', '1.0.0'),
+                'league': target_meta.get('league', 'UNKNOWN'),
+                'scope': target_meta.get('scope', 'full_game'),
+                'family': target_meta.get('family', 'totals'),
+                'metadata': meta_dict,
+            }
+            kwargs.update(params)
+            return cls_target(**kwargs)
         except Exception:
             return None
 
@@ -298,14 +302,18 @@ class TournamentEngine:
             if not cls_target:
                 continue
             try:
-                inst = cls_target(
-                    model_id=meta['model_id'],
-                    version=meta.get('version', '1.0.0'),
-                    league=meta.get('league', 'UNKNOWN'),
-                    scope=meta.get('scope', 'full_game'),
-                    family=meta.get('family', 'totals'),
-                    metadata=meta.get('metadata'),
-                )
+                meta_dict = meta.get('metadata') or {}
+                params = meta_dict.get('params') or meta.get('params') or {}
+                kwargs = {
+                    'model_id': meta['model_id'],
+                    'version': meta.get('version', '1.0.0'),
+                    'league': meta.get('league', 'UNKNOWN'),
+                    'scope': meta.get('scope', 'full_game'),
+                    'family': meta.get('family', 'totals'),
+                    'metadata': meta_dict,
+                }
+                kwargs.update(params)
+                inst = cls_target(**kwargs)
                 instances.append(inst)
             except Exception:
                 continue
