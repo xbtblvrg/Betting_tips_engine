@@ -73,6 +73,16 @@ def calculate_crucible_scorecard(
     return round(score, 6)
 
 
+def normalize_segment_key(segment_key: str) -> str:
+    """Normalizes segment keys to canonical league|scope|family representation."""
+    parts = str(segment_key).split('|')
+    if len(parts) >= 3:
+        league, scope, family = parts[0], parts[1], parts[2]
+        base_fam = family.split(':', 1)[1] if ':' in family else family
+        return f"{league}|{scope}|{base_fam}"
+    return str(segment_key)
+
+
 class TournamentEngine:
     """Orchestrates multi-model tournaments across market segments."""
 
@@ -163,10 +173,11 @@ class TournamentEngine:
         if not passed:
             return False, [f"Validation failed: {'; '.join(errors)}"]
 
+        canonical_key = normalize_segment_key(segment_key)
         reg = self.load_registry()
         tourneys = reg.setdefault('tournaments', {})
-        t_data = tourneys.setdefault(segment_key, {
-            'segment_key': segment_key,
+        t_data = tourneys.setdefault(canonical_key, {
+            'segment_key': canonical_key,
             'created_at': datetime.now(timezone.utc).isoformat(),
             'candidates': {},
             'status': 'active',
@@ -223,6 +234,25 @@ class TournamentEngine:
             }
         return class_map
 
+    def _find_tournament_data(self, reg: Dict[str, Any], segment_key: str) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
+        """Resolves tournament data across exact, normalized, and scoped alias keys."""
+        tourneys = reg.get('tournaments', {})
+        if segment_key in tourneys:
+            return segment_key, tourneys[segment_key]
+        norm = normalize_segment_key(segment_key)
+        if norm in tourneys:
+            return norm, tourneys[norm]
+        parts = str(segment_key).split('|')
+        if len(parts) >= 3:
+            lg, sc, fam = parts[0], parts[1], parts[2]
+            base_fam = fam.split(':', 1)[1] if ':' in fam else fam
+            scoped_fam = f"{sc}:{base_fam}"
+            if f"{lg}|{sc}|{scoped_fam}" in tourneys:
+                return f"{lg}|{sc}|{scoped_fam}", tourneys[f"{lg}|{sc}|{scoped_fam}"]
+            if f"{lg}|{sc}|{base_fam}" in tourneys:
+                return f"{lg}|{sc}|{base_fam}", tourneys[f"{lg}|{sc}|{base_fam}"]
+        return None, None
+
     def get_model_by_id(self, model_id: str) -> Optional[BaseCandidateModel]:
         """Looks up and instantiates any registered candidate model by its model_id."""
         reg = self.load_registry()
@@ -254,7 +284,7 @@ class TournamentEngine:
     def get_active_candidates(self, segment_key: str) -> List[BaseCandidateModel]:
         """Returns instantiated active candidate models for a given segment key."""
         reg = self.load_registry()
-        t_data = reg.get('tournaments', {}).get(segment_key)
+        _, t_data = self._find_tournament_data(reg, segment_key)
         if not t_data:
             return []
 
@@ -292,9 +322,10 @@ class TournamentEngine:
     ) -> List[CandidateStanding]:
         """Evaluates tournament standings for all competing candidates in a segment."""
         reg = self.load_registry()
-        t_data = reg.get('tournaments', {}).get(segment_key)
-        if not t_data:
+        eff_key, t_data = self._find_tournament_data(reg, segment_key)
+        if not t_data or not eff_key:
             return []
+        resolved_key = eff_key
 
         conn = sqlite3.connect(str(self.db_path), timeout=30.0)
         conn.row_factory = sqlite3.Row
@@ -364,7 +395,7 @@ class TournamentEngine:
                 standing = CandidateStanding(
                     model_id=cand_id,
                     version=cand_meta.get('version', '1.0.0'),
-                    segment_key=segment_key,
+                    segment_key=resolved_key,
                     sample_size=n,
                     wins=wins,
                     losses=losses,
@@ -393,7 +424,9 @@ class TournamentEngine:
         """Identifies and crowns the champion candidate model if one qualifies."""
         standings = self.evaluate_tournament(segment_key)
         reg = self.load_registry()
-        t_cands = reg.get('tournaments', {}).get(segment_key, {}).get('candidates', {})
+        eff_key, t_data = self._find_tournament_data(reg, segment_key)
+        canonical_key = eff_key or normalize_segment_key(segment_key)
+        t_cands = t_data.get('candidates', {}) if t_data else {}
         rejected_list = reg.setdefault('rejected', [])
 
         has_change = False
@@ -415,7 +448,7 @@ class TournamentEngine:
             return None
 
         champion = qualified[0]  # Highest scorecard S
-        reg.setdefault('champions', {})[segment_key] = {
+        reg.setdefault('champions', {})[canonical_key] = {
             'champion_model_id': champion.model_id,
             'version': champion.version,
             'crowned_at': datetime.now(timezone.utc).isoformat(),

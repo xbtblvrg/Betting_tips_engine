@@ -190,3 +190,21 @@ def test_get_model_by_id_retrieval(temp_tournament_env):
     # Non-existent ID returns None
     assert engine.get_model_by_id("non_existent_id") is None
 
+
+def test_segment_key_normalization_and_alias_resolution(temp_tournament_env):
+    engine, _ = temp_tournament_env
+    # Register with scoped family: ATP|period_1|period_1:spreads
+    model = NegativeBinomialOverdispersionModel(model_id="cand_alias_test", league='ATP', scope='period_1', family='spreads')
+    success, errors = engine.register_candidate('ATP|period_1|period_1:spreads', model)
+    assert success is True
+
+    # Both base and scoped queries must find the candidate
+    cands_base = engine.get_active_candidates('ATP|period_1|spreads')
+    cands_scoped = engine.get_active_candidates('ATP|period_1|period_1:spreads')
+
+    assert len(cands_base) == 1
+    assert len(cands_scoped) == 1
+    assert cands_base[0].model_id == "cand_alias_test"
+    assert cands_scoped[0].model_id == "cand_alias_test"
+
+
