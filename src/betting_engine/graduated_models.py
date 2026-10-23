@@ -549,6 +549,21 @@ class GraduatedUniversalSegmentModel:
         brier_model = stats.get('brier_model', 0.20)
         brier_mkt = stats.get('brier_market', 0.22)
 
+        self.champion_model = None
+        champ_id = stats.get('champion_model_id')
+        if champ_id:
+            try:
+                from .tournament_engine import TournamentEngine
+                t_eng = TournamentEngine()
+                candidates = t_eng.get_active_candidates(f"{league}|{scope}|{meta.get('family', 'totals')}")
+                for c in candidates:
+                    if c.model_id == champ_id:
+                        self.champion_model = c
+                        self.version = f"{c.model_id}:{c.version}"
+                        break
+            except Exception:
+                pass
+
         try:
             f_names = list(feature_names(league))
         except Exception:
@@ -577,6 +592,41 @@ class GraduatedUniversalSegmentModel:
         scale = 0.5 if 'half' in self.scope else (0.25 if 'quarter' in self.scope else (0.33 if 'period' in self.scope else 1.0))
         context = getattr(g, 'context', {}) or {}
         hp, ap, elo_diff = _extract_full_forecast_info(context)
+
+        # Champion Model Direct Inference if crowned by Tournament Engine
+        if getattr(self, 'champion_model', None) is not None:
+            try:
+                c_dict = dict(context)
+                c_dict['home_expected'] = (hp * scale) if hp else (110.0 * scale if self.league == 'NBA' else 2.8 * scale)
+                c_dict['away_expected'] = (ap * scale) if ap else (106.0 * scale if self.league == 'NBA' else 2.4 * scale)
+                dist = self.champion_model.predict_distribution(c_dict)
+                features_dict = {
+                    'home_points': dist.home_expected,
+                    'away_points': dist.away_expected,
+                    'champion_model': self.champion_model.model_id,
+                }
+                return GraduatedUniversalForecast(
+                    game_id=g.id,
+                    league=self.league,
+                    scope=self.scope,
+                    home_points=dist.home_expected,
+                    away_points=dist.away_expected,
+                    margin=round(dist.home_expected - dist.away_expected, 2),
+                    total=round(dist.home_expected + dist.away_expected, 2),
+                    scores=dist.scores,
+                    model_probabilities={
+                        'home': dist.p_home,
+                        'draw': dist.p_draw,
+                        'away': dist.p_away,
+                    },
+                    disagreement=0.02,
+                    features=features_dict,
+                    model_version=self.version,
+                    warnings=[]
+                )
+            except Exception:
+                pass
+
         has_full = hp is not None and ap is not None and hp > 0 and ap > 0
         rating_diff = float(context.get('rating_diff', 0.0) or 0.0)
         if rating_diff == 0.0 and elo_diff != 0.0:

@@ -491,3 +491,54 @@ def test_strict_graduation_and_capital_defense_hard_gate(monkeypatch):
     assert grad_rec['stake'] >= 0.50
     assert grad_rec['allocation_code'] == 'funded'
 
+
+def test_graduated_champion_model_inference():
+    """Verifies that a market graduated via tournament executes with the champion model directly."""
+    from betting_engine.tournament_engine import TournamentEngine
+    from betting_engine.sandbox_models.archetypes.odds_damped_kelly import OddsDampedKellyShrinkageModel
+    from betting_engine.graduated_models import GraduatedUniversalSegmentModel
+
+    t_engine = TournamentEngine()
+    segment_key = 'NBA|full_game|spreads'
+    champ_model = OddsDampedKellyShrinkageModel(
+        model_id='nba_champ_damped_test',
+        version='2.0.0',
+        league='NBA',
+        scope='full_game',
+        family='spreads',
+        damping_strength=0.30
+    )
+    t_engine.register_candidate(segment_key, champ_model)
+
+    meta = {
+        'league': 'NBA',
+        'scope': 'full_game',
+        'family': 'spreads',
+        'graduated_at': utcnow().isoformat(),
+        'stats': {
+            'sample_size': 35,
+            'roi': 0.12,
+            'champion_model_id': 'nba_champ_damped_test'
+        }
+    }
+
+    grad_model = GraduatedUniversalSegmentModel('NBA', 'full_game', meta)
+    assert grad_model.champion_model is not None
+    assert grad_model.champion_model.model_id == 'nba_champ_damped_test'
+
+    game = Game(
+        id='NBA:test_champ_1', league='NBA', start=utcnow().isoformat(),
+        home='Boston Celtics', away='Miami Heat', home_id='BOS', away_id='MIA',
+        home_abbr='BOS', away_abbr='MIA',
+        state='scheduled', game_type='regular', season=2026,
+        source='https://stake.com/sports/basketball/nba/boston-miami',
+        fetched_at=utcnow().isoformat(),
+        context={'home_expected': 114.0, 'away_expected': 106.0}
+    )
+
+    fc = grad_model.forecast(game)
+    assert fc.features.get('champion_model') == 'nba_champ_damped_test'
+    assert 'home' in fc.model_probabilities
+    assert 0.01 <= fc.model_probabilities['home'] <= 0.99
+
+
