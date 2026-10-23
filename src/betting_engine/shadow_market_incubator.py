@@ -989,6 +989,10 @@ class ShadowMarketIncubator:
                         t_eng = TournamentEngine(self.data_dir)
                         self._tournament_engine = t_eng
                     candidates = t_eng.get_active_candidates(seg_key)
+                    if not candidates and contract.sub_family and contract.sub_family != contract.family:
+                        candidates = t_eng.get_active_candidates(f"{league}|{contract.scope}|{contract.sub_family}")
+                    if not candidates and contract.raw_market_name:
+                        candidates = t_eng.get_active_candidates(f"{league}|{contract.scope}|{contract.raw_market_name}")
                     for cand in candidates:
                         ctx = dict(game.context) if (game and isinstance(getattr(game, 'context', None), dict)) else {}
                         if game:
@@ -1002,15 +1006,16 @@ class ShadowMarketIncubator:
                                 ctx.setdefault('home_abbr', game.home_abbr)
                             if hasattr(game, 'away_abbr'):
                                 ctx.setdefault('away_abbr', game.away_abbr)
+                        mkt_ident = f"{contract.family}:{contract.sub_family}" if (contract.sub_family and contract.sub_family != contract.family) else (contract.sub_family or contract.family)
                         cand_prob, cand_ev = cand.evaluate_market(
-                            contract.family,
+                            mkt_ident,
                             contract.selection or '',
                             contract.line,
                             odds,
                             ctx,
                             side=contract.side
                         )
-                        if cand_ev >= 0.030:
+                        if cand_ev > 0.0:
                             c_key = f"{key}:{cand.model_id}"
                             c_wager_id = hashlib.sha256(c_key.encode()).hexdigest()[:24]
                             cur.execute("""
@@ -1040,7 +1045,7 @@ class ShadowMarketIncubator:
         candidates: List[Dict[str, Any]],
         game_map: Optional[Dict[str, Game]] = None,
         as_of: Optional[str] = None,
-        max_batch_size: int = 30,
+        max_batch_size: int = 500,
         funded_ids: Optional[set] = None
     ) -> List[Dict[str, Any]]:
         """Incubates candidate selections with high win probability (P >= 0.55) but marginal/sub-threshold EV.
@@ -1102,8 +1107,9 @@ class ShadowMarketIncubator:
                 c['cohort'] = 'high_probability'
                 eligible.append(c)
 
-        # Rate cap per cycle to guarantee zero bottleneck
-        eligible = eligible[:max_batch_size]
+        # High capacity per cycle to guarantee zero bottleneck
+        if max_batch_size and len(eligible) > max_batch_size:
+            eligible = eligible[:max_batch_size]
 
         for c in eligible:
             g_id = c.get('game_id')
@@ -1169,6 +1175,10 @@ class ShadowMarketIncubator:
                     t_eng = TournamentEngine(self.data_dir)
                     self._tournament_engine = t_eng
                 candidates = t_eng.get_active_candidates(c_seg)
+                if not candidates and c_sub_seg != c_seg:
+                    candidates = t_eng.get_active_candidates(c_sub_seg)
+                if not candidates and c.get('market'):
+                    candidates = t_eng.get_active_candidates(f"{league}|{scope}|{c.get('market')}")
                 g_obj = game_map.get(str(g_id)) if game_map else None
                 ctx = dict(g_obj.context) if (g_obj and isinstance(getattr(g_obj, 'context', None), dict)) else {}
                 if g_obj:
@@ -1183,15 +1193,16 @@ class ShadowMarketIncubator:
                     if hasattr(g_obj, 'away_abbr'):
                         ctx.setdefault('away_abbr', g_obj.away_abbr)
                 for cand in candidates:
+                    mkt_ident = f"{family}:{sub_family}" if (sub_family and sub_family != family) else (sub_family or family or c.get('market', ''))
                     cand_prob, cand_ev = cand.evaluate_market(
-                        family,
+                        mkt_ident,
                         str(selection),
                         line,
                         odds,
                         ctx,
                         side=str(side) if side else None
                     )
-                    if cand_ev >= 0.030:
+                    if cand_ev > 0.0:
                         c_key = f"{key}:{cand.model_id}"
                         c_wager_id = hashlib.sha256(c_key.encode()).hexdigest()[:24]
                         cur.execute("""
