@@ -157,7 +157,7 @@ def audit_portfolio_and_sizing_invariants() -> dict:
         sel = p.get('selection')
         mkt = p.get('market')
         side = p.get('side')
-        if stake is not None and (stake < 0.50 or stake > 8.00):
+        if stake is not None and stake > 0 and (stake < 0.50 or stake > 8.00):
             stake_violations.append((stake, gid, p.get('league')))
         if gid and status == 'open':
             game_stakes[gid] = game_stakes.get(gid, 0.0) + (stake or 0.0)
