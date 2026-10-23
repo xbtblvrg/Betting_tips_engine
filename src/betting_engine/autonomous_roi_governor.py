@@ -141,6 +141,8 @@ class AutonomousROIGovernor:
             pnl = r[8] or 0.0
             roi = (pnl / st * 100) if st > 0 else 0.0
             wr = (w / (w + l) * 100) if (w + l) > 0 else 0.0
+            avg_st = (st / cnt) if cnt > 0 else 1.0
+            units_pnl = pnl / max(0.20, avg_st)
 
             # Dynamic Tier Classification
             tier = 'NEUTRAL'
@@ -166,30 +168,32 @@ class AutonomousROIGovernor:
                 action = 'Quarantined: odd/even coin-flip market suppressed'
                 toxic_quarantine.append(seg_key)
 
-            # A. Unified Market Universe Dynamic Loss Circuit Breaker (Symmetric across all markets):
-            # If net loss pnl <= -5.0 and roi < -10%, OR pnl <= -7.50 regardless of roi, OR wr < 25% with 6+ games:
+            # A. Unified Market Universe Dynamic Loss Circuit Breaker (Scale-Invariant in Risk Units):
+            # Evaluates risk in units of average stake (Anti-Constant Mandate, Commandment 3).
+            # If net loss in units <= -4.0 and roi < -10%, OR net loss <= -6.0 units regardless of roi,
+            # OR wr < 25% with 6+ games:
             # All markets (core or derivative) are quarantined immediately to protect portfolio bankroll.
-            elif (cnt >= 4 and ((pnl <= -5.0 and roi < -10.0) or pnl <= -7.50)) or (cnt >= 6 and (wr < 25.0 or roi < -30.0)):
+            elif (cnt >= 4 and ((units_pnl <= -4.0 and roi < -10.0) or units_pnl <= -6.0)) or (cnt >= 6 and (wr < 25.0 or roi < -30.0)):
                 tier = 'TOXIC_QUARANTINE'
                 stake_cap = 0.0
                 min_ev = 0.08
-                action = f'Quarantined: severe net loss (${pnl:+.2f}, {roi:+.1f}% ROI) triggered dynamic circuit breaker'
+                action = f'Quarantined: severe net loss ({units_pnl:.1f} units, ${pnl:+.2f}, {roi:+.1f}% ROI) triggered dynamic circuit breaker'
                 toxic_quarantine.append(seg_key)
 
-            # C. Capital Defense: ROI < -3% or PnL <= -$2.50 with 4+ games
+            # C. Capital Defense: ROI < -3% or units_pnl <= -2.5 units with 4+ games
             # Statistical Significance Safeguard (Commandments 6 & 7):
-            # Graduated markets with verified Crucible backing require meaningful sample (cnt >= 15, pnl <= -10.0)
+            # Graduated markets with verified Crucible backing require meaningful sample (cnt >= 15, units_pnl <= -8.0)
             # before being downgraded to Capital Defense.
             is_grad_seg = bool(seg_key in grad_markets or f"{league}|{scope}|{market}" in grad_markets)
             min_cnt_for_defense = 15 if is_grad_seg else 4
-            pnl_threshold_defense = -10.0 if is_grad_seg else -2.50
-            if is_grad_seg and pnl > pnl_threshold_defense:
+            units_threshold_defense = -8.0 if is_grad_seg else -2.5
+            if is_grad_seg and units_pnl > units_threshold_defense:
                 # Retain normal graduated standing without premature defense clamping
                 tier = 'GRADUATED_EXPLORATION'
                 stake_cap = 2.00
                 min_ev = 0.02
                 action = 'Graduated Market: Active verified alpha expectation'
-            elif cnt >= min_cnt_for_defense and (roi < -3.0 or pnl <= pnl_threshold_defense or (is_core_market and (wr < 25.0 or roi < -30.0))):
+            elif cnt >= min_cnt_for_defense and (roi < -3.0 or units_pnl <= units_threshold_defense or (is_core_market and (wr < 25.0 or roi < -30.0))):
                 tier = 'CAPITAL_DEFENSE'
                 stake_cap = 0.50
                 min_ev = 0.035

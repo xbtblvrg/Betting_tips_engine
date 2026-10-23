@@ -3043,6 +3043,8 @@ class ShadowMarketIncubator:
                 rolling_staked = sum(d['stake'] for d in recent)
                 rolling_pnl = sum(d['pnl'] for d in recent)
                 rolling_roi = (rolling_pnl / rolling_staked) if rolling_staked > 0 else 0.0
+                avg_stake = (rolling_staked / len(recent)) if len(recent) > 0 else 1.0
+                rolling_units_pnl = rolling_pnl / max(0.20, avg_stake)
 
                 # Statistical Significance Safeguard (Constitutional Commandments 6 & 7):
                 # A market with massive incubator backing (inc_n >= 50 and inc_pnl >= 20.0)
@@ -3078,7 +3080,10 @@ class ShadowMarketIncubator:
                     if rolling_pnl > -25.0 and total_live_pnl > 0.0:
                         continue
 
-                if (rolling_roi <= -0.03 and rolling_pnl <= -2.0) or (rolling_pnl <= -5.0 and rolling_roi < 0.0):
+                # Scale-Invariant Dynamic Loss Evaluation (Anti-Constant Mandate, Commandment 3):
+                # Demotes when market shows sustained loss in units of risk (<= -2.5 units with negative ROI,
+                # or <= -4.0 units regardless of ROI), scale-invariant across $0.50, $8.00, or larger future bankrolls.
+                if (rolling_roi <= -0.03 and rolling_units_pnl <= -2.5) or (rolling_units_pnl <= -4.0 and rolling_roi < 0.0):
                     is_core = meta.get('is_core', False)
                     demoted_entry = {
                         'segment_key': seg_key,
