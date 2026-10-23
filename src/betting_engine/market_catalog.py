@@ -14,6 +14,7 @@ from .markets import StakeSportsbook
 from .io_utils import atomic_json
 from .stake_api import ALL_LEAGUES,market_records
 from .catalog_evidence import fixture_context
+from .market_inventory_identity import inventory_key, specifier_rejection
 
 REQUESTED_TABS=('Main','Leaders','Same Game Multi','Player Props','Team/Match','Quick Picks','Half','Quarters','Specials')
 SCOPE_PATTERNS=(
@@ -54,7 +55,7 @@ def classify(m):
 def raw_inventory(payload,fixture,league,meta,audit=None,endpoint=None):
     groups={};raws={}
     for group,raw in market_records(payload):
-        key=(raw.get('id'),raw.get('name'),raw.get('specifiers'))
+        key=inventory_key(raw.get('id'),raw.get('name'),raw.get('specifiers'))
         raws[key]=raw
         tab={'id':group.get('id'),'name':group.get('name')}
         if tab not in groups.setdefault(key,[]):groups[key].append(tab)
@@ -65,6 +66,9 @@ def raw_inventory(payload,fixture,league,meta,audit=None,endpoint=None):
              'market_id':raw.get('id'),'market':raw.get('name'),'specifiers':raw.get('specifiers'),
              'provider_section':'standard','tabs':groups[key],'outcomes':raw.get('outcomes',[]),
              'status':raw.get('status'),'raw_contract':raw,'source':{k:meta[k] for k in ('url','fetched_at','sha256','archive') if k in meta}}
+        rej=specifier_rejection(raw.get('specifiers'))
+        if rej:
+            row['rejection_reason']=rej
         rows.append({**row,**classify(row)})
     for section,markets in (payload.get('swishMarkets') or {}).items():
         if not isinstance(markets,list):continue
@@ -132,11 +136,11 @@ def refresh_catalog(data_dir=DATA,fetcher=None,horizon_days=None):
             j,meta,audit,responses=fixture_bundle(fetcher,fixture)
             selected=raw_inventory(j,fixture,league,meta,audit,audit['selected_endpoint'])
             # Catalogue exact offers unique to the companion response as well.
-            seen={(r['provider_section'],r.get('market_id'),r.get('market'),r.get('specifiers')) for r in selected}
+            seen={(r['provider_section'], inventory_key(r.get('market_id'), r.get('market'), r.get('specifiers'))) for r in selected}
             for endpoint,(raw,m) in responses.items():
                 if endpoint==audit['selected_endpoint']:continue
                 for r in raw_inventory(raw,fixture,league,m,audit,endpoint):
-                    key=(r['provider_section'],r.get('market_id'),r.get('market'),r.get('specifiers'))
+                    key=(r['provider_section'], inventory_key(r.get('market_id'), r.get('market'), r.get('specifiers')))
                     if key not in seen:selected.append({**r,'companion_response_only':True});seen.add(key)
             return selected,{'league':league,'fixture_id':fixture['id'],**audit},None
         except Exception as exc:return [],None,{'league':league,'fixture':fixture.get('id'),'stage':'fixture_endpoints','error':str(exc)[:500]}
