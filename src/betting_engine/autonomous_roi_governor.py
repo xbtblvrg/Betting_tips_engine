@@ -166,26 +166,14 @@ class AutonomousROIGovernor:
                 action = 'Quarantined: odd/even coin-flip market suppressed'
                 toxic_quarantine.append(seg_key)
 
-            # A. Dynamic Weekly Loss Circuit Breaker:
-            # For non-core derivatives: pnl <= -5.0 and roi < -10%, OR pnl <= -7.50 regardless of roi.
-            # For core markets: severe loss (pnl <= -10.0 and roi < -12.0) triggers quarantine;
-            # moderate negative ROI (-3% to -12%) routes to Capital Defense ($1.00 clamp, +3.5% EV) per AGENTS.md.
-            elif cnt >= 4 and (
-                (not is_core_market and ((pnl <= -5.0 and roi < -10.0) or pnl <= -7.50))
-                or (is_core_market and pnl <= -10.0 and roi < -12.0)
-            ):
+            # A. Unified Market Universe Dynamic Loss Circuit Breaker (Symmetric across all markets):
+            # If net loss pnl <= -5.0 and roi < -10%, OR pnl <= -7.50 regardless of roi, OR wr < 25% with 6+ games:
+            # All markets (core or derivative) are quarantined immediately to protect portfolio bankroll.
+            elif (cnt >= 4 and ((pnl <= -5.0 and roi < -10.0) or pnl <= -7.50)) or (cnt >= 6 and (wr < 25.0 or roi < -30.0)):
                 tier = 'TOXIC_QUARANTINE'
                 stake_cap = 0.0
                 min_ev = 0.08
                 action = f'Quarantined: severe net loss (${pnl:+.2f}, {roi:+.1f}% ROI) triggered dynamic circuit breaker'
-                toxic_quarantine.append(seg_key)
-
-            # B. Volatile micro-market quarantine: volatile derivative with wr < 25% or roi < -30%
-            elif not is_core_market and cnt >= 6 and (wr < 25.0 or roi < -30.0):
-                tier = 'TOXIC_QUARANTINE'
-                stake_cap = 0.0
-                min_ev = 0.08
-                action = 'Quarantined: zero stake allocation until AI repair promoted'
                 toxic_quarantine.append(seg_key)
 
             # C. Capital Defense: ROI < -3% or PnL <= -$2.50 with 4+ games

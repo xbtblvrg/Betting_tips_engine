@@ -192,6 +192,12 @@ def market_incubator_status():
     from .providers import DATA
     return ShadowMarketIncubator(DATA).get_incubator_status()
 
+@app.get('/api/market-universe')
+def market_universe_status():
+    from .unified_market_universe import UnifiedMarketUniverse
+    from .providers import DATA
+    return UnifiedMarketUniverse(DATA).get_summary()
+
 @app.get('/api/roi-governor')
 def roi_governor_status():
     from .autonomous_roi_governor import get_latest_governor_report
