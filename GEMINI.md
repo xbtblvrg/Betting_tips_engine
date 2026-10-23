@@ -43,10 +43,11 @@ release authority or relax protected-data, model, testing, or publication gates.
 
 ## Preserve the existing boundaries
 
-Keep original issued bets and the immutable ledger intact, USD1–5 stakes,
-EvidenceGuard, source/model/quote validation, isolated development, independent
-review, and separately verified releases. Do not submit wagers. Profit and volume
-remain measured objectives, never guaranteed outcomes. Do not bypass application
+Keep original issued bets and the immutable ledger intact, continuous risk-adjusted
+$0.50–$8.00 dynamic stakes (Option B, daily_risk_limit=null), EvidenceGuard,
+source/model/quote validation, isolated development, independent review, and
+separately verified releases. Do not submit wagers. Profit and volume remain
+measured objectives, never guaranteed outcomes. Do not bypass application
 permissions or change global safety settings to satisfy this rule.
 
 If an older conversation repeats unsupported conclusions, start a fresh project
