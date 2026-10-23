@@ -442,10 +442,9 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
 
         if is_alpha_eligible_market:
             # Dynamic Tier Scaling (Constitutional Mandate D40 - Kelly Stake Dominance Option B):
-            # SUPER_ALPHA: ROI >= 8%, games >= 8, pnl >= 5.0 -> Target $5.00 - $8.00
-            # SOLID_ALPHA: ROI >= 3%, games >= 5, pnl >= 2.0 -> Target $2.50 - $5.00
-            is_super_alpha = (games_val >= 8 and roi_val >= 0.08 and pnl_val >= 5.0) or gov_super
-            is_solid_alpha = (games_val >= 5 and roi_val >= 0.03 and pnl_val >= 2.0) or gov_solid
+            # Scale-Invariant in Units of Stake (Super Alpha: >=4.0 units or >=$5.0; Solid Alpha: >=2.0 units or >=$2.0)
+            is_super_alpha = (games_val >= 8 and roi_val >= 0.08 and (pnl_val >= 5.0 or (pnl_val / max(0.2, def_unit) >= 4.0))) or gov_super
+            is_solid_alpha = (games_val >= 5 and roi_val >= 0.03 and (pnl_val >= 2.0 or (pnl_val / max(0.2, def_unit) >= 2.0))) or gov_solid
 
             cand_scope = tip.get('model_scope', 'full_game')
             # Protect Full-Game primary contracts: Full-game Alpha retains 100% factor (no dilution)

@@ -1098,7 +1098,8 @@ class ShadowMarketIncubator:
             p = float(c.get('probability', 0.0))
             ev = float(c.get('expected_roi', 0.0))
             odds = float(c.get('reference_odds', 0.0))
-            if odds < 1.20 or odds > 5.00:
+            # Anti-Constant Mandate (Commandment 3): Unlocks high-odds underdogs (odds up to 50.0)
+            if odds < 1.10 or odds > 50.00:
                 continue
             if p <= 0.05 or p >= 0.99:
                 continue

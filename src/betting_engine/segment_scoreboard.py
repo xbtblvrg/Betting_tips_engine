@@ -146,7 +146,9 @@ def compute_segment_scoreboard(conn: sqlite3.Connection) -> dict:
             rolling_games=rolling_games,
             rolling_pnl=rolling_pnl,
             rolling_roi=rolling_roi,
-            has_deployed_patch=has_deployed_patch
+            has_deployed_patch=has_deployed_patch,
+            staked=stake_val,
+            rolling_staked=rolling_stake
         )
         record.update(tier_info)
 

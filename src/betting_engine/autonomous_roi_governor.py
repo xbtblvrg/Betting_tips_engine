@@ -200,16 +200,16 @@ class AutonomousROIGovernor:
                 action = 'Capital defense clamp: $0.50 flat stake, +3.5% min EV hurdle'
                 capital_defense.append(seg_key)
 
-            # D. Super Alpha: Rolling ROI >= +12%, PnL >= +$4.00 with 8+ games (verified major markets only)
-            elif cnt >= 8 and roi >= 12.0 and pnl >= 4.00 and league not in ('CHALLENGER', 'ITF'):
+            # D. Super Alpha: Rolling ROI >= +12%, PnL >= +4 units (or >=+$4.00) with 8+ games (verified major markets only)
+            elif cnt >= 8 and roi >= 12.0 and (units_pnl >= 4.0 or pnl >= 4.00) and league not in ('CHALLENGER', 'ITF'):
                 tier = 'SUPER_ALPHA'
                 stake_cap = 8.00
                 min_ev = 0.015
                 action = 'Super Alpha Acceleration: maximum confidence scaling ($4.00–$8.00)'
                 super_alpha.append(seg_key)
 
-            # E. Solid Alpha: Rolling ROI >= +5%, PnL >= +$2.00 with 5+ games (verified major markets only)
-            elif cnt >= 5 and roi >= 5.0 and pnl >= 2.00 and league not in ('CHALLENGER', 'ITF'):
+            # E. Solid Alpha: Rolling ROI >= +5%, PnL >= +2 units (or >=+$2.00) with 5+ games (verified major markets only)
+            elif cnt >= 5 and roi >= 5.0 and (units_pnl >= 2.0 or pnl >= 2.00) and league not in ('CHALLENGER', 'ITF'):
                 tier = 'SOLID_ALPHA'
                 stake_cap = 3.50
                 min_ev = 0.010

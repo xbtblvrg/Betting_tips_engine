@@ -39,24 +39,26 @@ def classify_tier(
     rolling_games: int = 0,
     rolling_pnl: float = 0.0,
     rolling_roi: float = 0.0,
-    has_deployed_patch: bool = False
+    has_deployed_patch: bool = False,
+    staked: float = 0.0,
+    rolling_staked: float = 0.0
 ) -> Dict[str, Any]:
     """Classifies a market slice into its canonical tier and operational parameters.
     
     Preserves exact backward-compatibility with tier: ALPHA_BOOST / UNDERPERFORMING / EXPLORATION
-    while exposing granular sub_tier and dynamic scaling targets.
+    while exposing granular sub_tier and scale-invariant dynamic scaling targets.
 
-    Dual-Window Agile Unclamping:
-    If a segment has an active deployed repair patch (has_deployed_patch=True) and
-    its rolling cohort (rolling_games >= 5) proves positive return (rolling_roi >= +0.03, rolling_pnl > 0),
-    it is unseated from Capital Defense:
-    - If cumulative PnL > 0, it accelerates into Solid Alpha ($2.50-$3.50) or Super Alpha ($5.00-$8.00).
-    - If cumulative PnL <= 0, it enters Recovery Exploration ($1.00-$1.50) to safely protect bankroll
-      while proving sustained recovery before full alpha scaling.
+    Scale-Invariant Dynamic Risk Units (Anti-Constant Mandate, Commandment 3):
+    Evaluates progression and defense in units of average stake (Units = PnL / avg_stake).
     """
+    avg_st = (staked / games_count) if (staked > 0 and games_count > 0) else 1.0
+    units_pnl = pnl / max(0.20, avg_st)
+    avg_roll_st = (rolling_staked / rolling_games) if (rolling_staked > 0 and rolling_games > 0) else 1.0
+    units_roll_pnl = rolling_pnl / max(0.20, avg_roll_st)
+
     # 1. Post-Repair Rapid Acceleration Gate
     if has_deployed_patch and rolling_games >= 5 and rolling_roi >= 0.03 and rolling_pnl > 0.0:
-        if rolling_pnl >= 4.0 and rolling_roi >= 0.15 and rolling_games >= 5:
+        if (units_roll_pnl >= 4.0 or rolling_pnl >= 4.0) and rolling_roi >= 0.15 and rolling_games >= 5:
             return {
                 'tier': 'ALPHA_BOOST',
                 'sub_tier': 'SUPER_ALPHA',
@@ -77,8 +79,8 @@ def classify_tier(
                 'recovery_accelerated': True
             }
 
-    # 2. Capital Defense: triggered when ROI < -3% OR net cash loss <= -$5.00 with 4+ games
-    if (roi <= -0.03 or (pnl <= -5.0 and roi < 0.0)) and games_count >= 4:
+    # 2. Capital Defense: triggered when ROI < -3% OR net loss in risk units <= -4.0 with 4+ games
+    if (roi <= -0.03 or (units_pnl <= -4.0 and roi < 0.0) or (pnl <= -5.0 and roi < 0.0)) and games_count >= 4:
         return {
             'tier': 'UNDERPERFORMING',
             'sub_tier': 'CAPITAL_DEFENSE',
@@ -97,8 +99,8 @@ def classify_tier(
             'scaling_target': '$0.50 evolutionary probation floor',
             'action': 'Evolutionary Live Probation: strictly $0.50 floor until live settled games prove positive performance'
         }
-    elif pnl >= 2.0 and roi >= 0.03 and games_count >= 3:
-        if pnl >= 5.0 and roi >= 0.15 and games_count >= 5:
+    elif (units_pnl >= 2.0 or pnl >= 2.0) and roi >= 0.03 and games_count >= 3:
+        if (units_pnl >= 4.0 or pnl >= 5.0) and roi >= 0.12 and games_count >= 5:
             return {
                 'tier': 'ALPHA_BOOST',
                 'sub_tier': 'SUPER_ALPHA',
