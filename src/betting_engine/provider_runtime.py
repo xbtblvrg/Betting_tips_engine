@@ -14,6 +14,7 @@ from datetime import datetime
 
 from .delivery import read_json
 from .io_utils import atomic_json
+from .ai_delegation import file_lock
 
 
 class ProviderUnavailable(RuntimeError):
@@ -368,7 +369,6 @@ def run_ai_step(worker, schema, output, prefix, prompt, timeout=1200,
                         atomic_json(output, result['report'])
                 else:
                     from .claude_development import prepare_step, finish_step, apply_edits
-                    from .ai_delegation import file_lock
                     with file_lock(worker.root / 'data/development/ai-locks/claude.lock', blocking=False) as acquired, tempfile.TemporaryDirectory(prefix='quant-claude-candidate-') as temporary:
                         if not acquired:
                             raise ProviderUnavailable('Claude capacity is in use; candidate retained for retry')

@@ -239,3 +239,29 @@ def test_revoked_permissions_override_still_fresh_cached_catalog(tmp_path, monke
     assert router.policy['allow_temporary_claude'] is False
     assert [r['provider'] for r in router.policy['routes']] == ['codex']
     assert json.loads((folder / 'verified-policy.json').read_text()) == original
+
+
+def test_agy_route_execution(tmp_path, monkeypatch):
+    router, output, worker = setup_runtime(tmp_path, monkeypatch,
+        [{'id': 'agy', 'provider': 'agy', 'model': 'gemini-2.5-pro'}])
+    worker.readonly_input_paths = lambda: []
+    worker.current_task = {'task_id': 'D99', 'title': 'test'}
+    schema = tmp_path / 'schema.json'
+    schema.write_text('{}')
+
+    from betting_engine import agy_development, claude_development
+    monkeypatch.setattr(claude_development, 'prepare_step', lambda *a, **k: {
+        'stdin': '{"prompt": "hi"}', 'cwd': tmp_path, 'env': {}, 'context': {}})
+    monkeypatch.setattr(agy_development, 'finish_agy_step', lambda raw, ctx, model: {
+        'report': {'summary': 'agy test passed'}, 'edits': []})
+    monkeypatch.setattr(claude_development, 'apply_edits', lambda ws, edits, ctx: [])
+
+    def run(command, prefix, prompt, timeout, process_cwd=None, process_env=None):
+        Path(str(prefix) + '.stdout.log').write_text(json.dumps({'summary': 'agy success'}))
+    worker.run_process = run
+
+    receipt = runtime.run_ai_step(worker, schema, output, tmp_path / 'implementation', 'prompt', 10)
+    assert receipt['provider'] == 'agy'
+    assert receipt['state'] == 'completed'
+    assert json.loads(output.read_text()) == {'summary': 'agy test passed'}
+
