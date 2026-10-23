@@ -318,6 +318,7 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
     games_val = int(summary.get('independent_games', 0)) if summary else 0
     roi_val = float(summary.get('game_roi', 0.0)) if summary else 0.0
     pnl_val = float(summary.get('pnl', summary.get('game_pnl', 0.0))) if summary else 0.0
+    staked_val = float(summary.get('staked', summary.get('game_staked', 0.0))) if summary else 0.0
 
     if settings.get('capital_defense', False):
         try:
@@ -359,7 +360,9 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
         except Exception:
             pass
 
-        if games_val >= 4 and (roi_val < -0.03 or pnl_val <= -5.0):
+        avg_stake = staked_val / max(1, games_val) if games_val > 0 and staked_val > 0 else 1.0
+        units_loss = summary.get('units_pnl', pnl_val / max(0.5, avg_stake)) if summary else pnl_val
+        if games_val >= 4 and (roi_val < -0.03 or units_loss <= -4.0):
             caps['capital_defense_clamp'] = def_unit
         # Pure noise 50/50 coin flip clamp
         if 'odd_even' in market_val:

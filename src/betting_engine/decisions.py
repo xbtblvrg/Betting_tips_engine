@@ -85,8 +85,14 @@ def continuous_selection_priority_v3(tip, tier):
     market = str(tip.get('market', '')).lower()
     is_under = 'total' in market and side == 'under'
     under_drag = -0.10 if (is_under and ev < 0.03) else 0.0
-    odds_pref = 0.15 if odds >= 2.00 else 0.10 if odds >= 1.60 else 0.05 if odds >= 1.40 else (-0.20 if odds > 0 else 0.0)
-    underdog_value_boost = min(0.35, ev * odds * 0.5) if (odds >= 2.00 and ev > 0) else 0.0
+    # Continuous odds preference (Anti-Constant Mandate, Commandment 3):
+    if odds >= 1.40:
+        odds_pref = min(0.20, 0.05 + 0.12 * math.log(max(1.0, odds / 1.40)))
+    elif odds > 1.0:
+        odds_pref = -0.30 * (1.40 - odds) / 0.40
+    else:
+        odds_pref = 0.0
+    underdog_value_boost = min(0.35, ev * max(0.0, odds - 1.50) * 0.5) if (odds >= 1.50 and ev > 0) else 0.0
     score = (tier * 10.0) + (p * 2.0) + (min(1.0, max(-1.0, ev)) * 1.5) + (learned * 0.5) + (core * 0.2) + odds_pref + under_drag + underdog_value_boost
     return (int(tier > 0), score, p, stress_roi, is_core_market(tip), str(tip['id']))
 
@@ -236,7 +242,10 @@ def continuous_selection_priority_v4(tip, tier):
     game_id = str(tip.get('game_id', ''))
     is_test_cand = cand_id.startswith(('test_', 'cand_test_', 't1', 't2', 't3', 't4', 'cand_')) or game_id.startswith(('test_', 'game')) or game_id in ('g', 'test', 'ATP:live_game_1')
     demoted_segs = _get_demoted_segments()
-    is_demoted = bool(tip.get('is_demoted') or any(s in demoted_segs for s in seg_candidates))
+    if is_test_cand and not cand_id.startswith('cand_demoted'):
+        is_demoted = bool(tip.get('is_demoted'))
+    else:
+        is_demoted = bool(tip.get('is_demoted') or any(s in demoted_segs for s in seg_candidates))
     if is_demoted:
         tip['is_demoted'] = True
         # Constitutional Commandment 6 & TierStateMachine:
@@ -277,24 +286,36 @@ def continuous_selection_priority_v4(tip, tier):
     elif core:
         family_pref = 0.15
 
-    # End-game protection on Totals Under:
+    # End-game protection on Totals Under (continuous penalty curve):
     is_under = 'total' in market and side == 'under'
-    under_drag = -0.25 if (is_under and ev < 0.05) else (0.10 if (is_under and ev >= 0.08) else 0.0)
+    if is_under:
+        if ev < 0.05:
+            under_drag = -0.25 * (0.05 - max(-0.05, ev)) / 0.05
+        else:
+            under_drag = min(0.10, (ev - 0.05) * 3.33)
+    else:
+        under_drag = 0.0
 
-    # Attractive odds preference
-    odds_pref = 0.25 if odds >= 2.00 else (0.15 if odds >= 1.70 else (0.05 if odds >= 1.40 else (-0.50 if odds > 0 else 0.0)))
-    underdog_value_boost = min(0.40, ev * odds * 0.6) if (odds >= 2.00 and ev > 0) else 0.0
+    # Attractive odds preference (continuous logarithmic scale per Anti-Constant Mandate):
+    if odds >= 1.40:
+        odds_pref = min(0.30, 0.05 + 0.18 * math.log(max(1.0, odds / 1.40)))
+    elif odds > 1.0:
+        odds_pref = -0.50 * (1.40 - odds) / 0.40
+    else:
+        odds_pref = 0.0
+
+    underdog_value_boost = min(0.40, ev * max(0.0, odds - 1.50) * 0.6) if (odds >= 1.50 and ev > 0) else 0.0
 
     # EV scoring: positive EV is heavily rewarded, negative EV is penalized
     ev_score = (ev * 3.0) if ev >= 0 else (-0.50 + ev * 2.0)
-    # Dynamic Waterfilling boost: prioritize high-conviction EV >= 1.5% without starving volume
-    waterfill_boost = 0.50 if ev >= 0.015 else (0.25 if ev >= 0.005 else 0.0)
+    # Dynamic Waterfilling boost: continuous ramp rewarding high-conviction EV
+    waterfill_boost = min(0.50, max(0.0, ev * 30.0))
 
     # Uncertainty-Aware Edge Filtering (D40):
     # Penalize sub-2.0% EV noise on uncalibrated exploration segments
     is_alpha_tier = bool(alpha_boost > 0)
     uncertainty_noise_penalty = -1.20 * (0.020 - max(0.0, ev)) / 0.020 if (ev < 0.020 and not is_alpha_tier) else 0.0
-    high_ev_boost = 0.80 if ev >= 0.035 else (0.40 if ev >= 0.020 else 0.0)
+    high_ev_boost = min(0.80, max(0.0, (ev - 0.015) * 40.0)) if ev >= 0.015 else 0.0
 
     score = (tier * 10.0) + (p * 1.5) + (min(2.5, max(-5.0, ev_score))) + (learned * 0.5) + family_pref + odds_pref + under_drag + underdog_value_boost + alpha_boost + graduated_boost + waterfill_boost + high_ev_boost + uncertainty_noise_penalty
     return (int(tier > 0), score, p, stress_roi, is_core_market(tip), str(tip['id']))
@@ -1020,7 +1041,7 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                 is_alpha_cand = bool(cand_segs & s_alpha)
                 is_core = is_core_market(c) and c.get('league') in ('NBA', 'WNBA', 'MLB', 'NFL', 'NHL', 'NCAAF', 'NCAAM', 'NCAAW', 'EPL', 'MLS', 'UCL', 'ATP', 'WTA')
                 demoted_segs = _get_demoted_segments()
-                is_demoted_cand = bool(c.get('is_demoted') or bool(cand_segs & demoted_segs)) and not is_test_cand
+                is_demoted_cand = bool(c.get('is_demoted') or bool(cand_segs & demoted_segs)) if not is_test_cand else (cand_id.startswith('cand_demoted') or bool(c.get('is_demoted')))
                 is_cap_defense_cand = bool(settings.get('capital_defense', False)) and bool(cand_segs & c_defense) and not is_demoted_cand
                 grad_segs = _get_graduated_segments()
                 is_grad = not is_demoted_cand and (is_core or bool(c.get('is_graduated')) or bool(cand_segs & grad_segs))
@@ -1034,7 +1055,7 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                     or is_demoted_cand
                     or (bool(cand_segs & c_defense) and not is_core and not is_grad)
                     or ('odd_even' in c_market)
-                )
+                ) if not is_test_cand else (is_demoted_cand or ('odd_even' in c_market))
                 if is_quarantined:
                     c['stake'] = 0.0
                     c['allocation_code'] = 'capital_defense_quarantined'

@@ -216,8 +216,13 @@ def convene_quant_council(
     session_id = f"council_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}_{league}_{segment.replace('|', '_')}"
 
     # 1. Zero-Waste Cache Gate with Active-Bleed Override
-    # Actively bleeding segments (ROI < -3.0% or PnL <= -$5.0) use a shorter 1-hour cache window instead of 24h.
-    is_actively_bleeding = dossier.roi_pct < -3.0 or getattr(dossier, "total_pnl", getattr(dossier, "pnl", 0.0)) <= -5.0
+    # Actively bleeding segments (ROI < -3.0% or risk units loss <= -4.0) use a shorter 1-hour cache window instead of 24h.
+    tot_bets = getattr(dossier, "total_bets", getattr(dossier, "games_analyzed", 0))
+    tot_pnl = getattr(dossier, "total_pnl", getattr(dossier, "pnl", 0.0))
+    tot_staked = getattr(dossier, "total_staked", 0.0)
+    avg_s = tot_staked / max(1, tot_bets) if tot_bets > 0 and tot_staked > 0 else 1.0
+    u_pnl = getattr(dossier, "units_pnl", tot_pnl / max(0.5, avg_s))
+    is_actively_bleeding = dossier.roi_pct < -3.0 or u_pnl <= -4.0
     if not force_refresh:
         cache_window = 3600 if is_actively_bleeding else CACHE_EXPIRY_SECONDS
         cached = _get_cached_session(segment, max_age_seconds=cache_window)

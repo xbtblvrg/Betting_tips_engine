@@ -366,7 +366,12 @@ class LearningWorker:
             under = scoreboard.get('underperforming_segments', [])
             now_iso = now.isoformat()
             for seg in under:
-                if seg['games'] < 4 or seg['pnl'] >= 0 or (seg['roi_pct'] > -3.0 and seg['pnl'] > -5.0):
+                g = seg.get('games', 0)
+                pnl = seg.get('pnl', 0.0)
+                stk = seg.get('staked', 0.0)
+                avg_s = stk / max(1, g) if g > 0 and stk > 0 else 1.0
+                u_pnl = seg.get('units_pnl', pnl / max(0.5, avg_s))
+                if g < 4 or pnl >= 0 or (seg.get('roi_pct', 0.0) > -3.0 and u_pnl > -4.0):
                     continue
                 league = seg['league']
                 task_name = f"Repair underperforming segment {seg['segment']}"

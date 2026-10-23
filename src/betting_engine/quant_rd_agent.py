@@ -180,8 +180,13 @@ class SupervisedQuantRDAgent:
 
         for seg in underperforming:
             segment_key = seg['segment']
-            # Direct alignment with AGENTS.md directive: ROI < -3% or net cash loss <= -$5.00, and at least 4 games
-            if seg['games'] < 4 or (seg['roi_pct'] > -3.0 and seg['pnl'] > -5.0) or seg['pnl'] >= 0:
+            # Direct alignment with AGENTS.md directive: ROI < -3% or risk units loss <= -4.0, and at least 4 games
+            g = seg.get('games', 0)
+            pnl = seg.get('pnl', 0.0)
+            stk = seg.get('staked', 0.0)
+            avg_s = stk / max(1, g) if g > 0 and stk > 0 else 1.0
+            u_pnl = seg.get('units_pnl', pnl / max(0.5, avg_s))
+            if g < 4 or (seg.get('roi_pct', 0.0) > -3.0 and u_pnl > -4.0) or pnl >= 0:
                 continue
 
             append_rd_log(
@@ -323,7 +328,12 @@ class SupervisedQuantRDAgent:
             # When formulaic in-sample tuning is insufficient or cash leak is persistent,
             # synthesize and enact a 3-Dimensional Capability Expansion Plan.
             has_passing_gain = any(h.get('status') == 'PASSED' and h.get('roi_delta_pct', 0) > 0 for h in seg_detail['hypotheses_tested'])
-            if not has_passing_gain or seg.get('pnl', 0.0) <= -5.0 or seg.get('roi_pct', 0.0) < -3.0:
+            g = seg.get('games', 0)
+            pnl = seg.get('pnl', 0.0)
+            stk = seg.get('staked', 0.0)
+            avg_s = stk / max(1, g) if g > 0 and stk > 0 else 1.0
+            u_pnl = seg.get('units_pnl', pnl / max(0.5, avg_s))
+            if not has_passing_gain or u_pnl <= -4.0 or seg.get('roi_pct', 0.0) < -3.0:
                 try:
                     from .capability_expansion import synthesize_capability_expansion_plan, CapabilityPlanJournal
                     if self.cap_journal is not None:

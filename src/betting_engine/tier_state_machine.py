@@ -80,7 +80,7 @@ def classify_tier(
             }
 
     # 2. Capital Defense: triggered when ROI < -3% OR net loss in risk units <= -4.0 with 4+ games
-    if (roi <= -0.03 or (units_pnl <= -4.0 and roi < 0.0) or (pnl <= -5.0 and roi < 0.0)) and games_count >= 4:
+    if (roi <= -0.03 or (units_pnl <= -4.0 and roi < 0.0)) and games_count >= 4:
         return {
             'tier': 'UNDERPERFORMING',
             'sub_tier': 'CAPITAL_DEFENSE',

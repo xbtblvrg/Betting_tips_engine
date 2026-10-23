@@ -72,11 +72,16 @@ class AutonomousCapabilityOrchestrator:
             scoreboard.get('underperforming_segments', []),
             key=lambda s: (s.get('pnl', 0.0), s.get('roi_pct', 0.0))
         )
-        # Filter: at least 4 games and (ROI < -3.0% or PnL <= -$5.00)
-        actionable = [
-            s for s in underperforming
-            if s.get('games', 0) >= 4 and (s.get('roi_pct', 0.0) < -3.0 or s.get('pnl', 0.0) <= -5.0)
-        ]
+        # Filter: at least 4 games and (ROI < -3.0% or risk units loss <= -4.0)
+        actionable = []
+        for s in underperforming:
+            g = s.get('games', 0)
+            stk = s.get('staked', 0.0)
+            pnl = s.get('pnl', 0.0)
+            avg_s = stk / max(1, g) if g > 0 and stk > 0 else 1.0
+            u_pnl = s.get('units_pnl', pnl / max(0.5, avg_s))
+            if g >= 4 and (s.get('roi_pct', 0.0) < -3.0 or u_pnl <= -4.0):
+                actionable.append(s)
         return actionable[:max_segments]
 
     def execute_structural_repair_for_segment(

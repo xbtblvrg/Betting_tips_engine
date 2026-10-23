@@ -146,11 +146,16 @@ def execute_target_investigation_and_repair(conn: sqlite3.Connection, evaluation
     scoreboard = compute_segment_scoreboard(conn)
     underperforming = scoreboard.get('underperforming_segments', [])
 
-    # Filter to segments with genuine statistical drag
-    dragging = [
-        s for s in underperforming
-        if (s.get('games') or s.get('sample_size') or 0) >= 4 and ((s.get('roi_pct') or 0) < -3.0 or (s.get('pnl') or 0) < -5.0)
-    ]
+    # Filter to segments with genuine statistical drag (scale-invariant risk units)
+    dragging = []
+    for s in underperforming:
+        g = s.get('games') or s.get('sample_size') or 0
+        stk = s.get('staked', 0.0)
+        pnl = s.get('pnl', 0.0)
+        avg_s = stk / max(1, g) if g > 0 and stk > 0 else 1.0
+        u_pnl = s.get('units_pnl', pnl / max(0.5, avg_s))
+        if g >= 4 and ((s.get('roi_pct') or 0.0) < -3.0 or u_pnl <= -4.0):
+            dragging.append(s)
     # Sort worst first
     dragging.sort(key=lambda s: (s.get('pnl') or 0.0))
 
