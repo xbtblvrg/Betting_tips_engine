@@ -75,7 +75,6 @@ class AutonomousModelDiscoveryEngine:
         self.historical_trainer = historical_trainer or HistoricalCandidateTrainer(db_path=self.db_path)
         self.bridge = DemotedMarketIncubationBridge(
             db_path=self.db_path,
-            trainer=self.historical_trainer,
         )
 
     def list_available_archetypes(self) -> List[Dict[str, str]]:
