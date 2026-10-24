@@ -74,7 +74,10 @@ def send_telegram_message(text: str, parse_mode: str = "HTML") -> bool:
     """Sends a raw message to the configured Telegram chat."""
     import os
     if "PYTEST_CURRENT_TEST" in os.environ or os.environ.get("TEST_ENV") == "1":
-        return True
+        # If urlopen is explicitly mocked in a test, proceed so assertions can verify calls;
+        # otherwise bypass live network requests during test runs.
+        if not hasattr(urllib.request.urlopen, "mock_calls"):
+            return True
 
     cfg = get_telegram_config()
     token, chat_id = cfg.get("token"), cfg.get("chat_id")
