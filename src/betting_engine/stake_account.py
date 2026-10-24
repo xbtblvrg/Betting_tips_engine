@@ -752,6 +752,8 @@ def stage_betslip_in_safari(
                                 is_tennis = True
                             elif league.upper() in ("NBA", "WNBA", "NCAAB", "BASKETBALL"):
                                 is_basketball = True
+                            elif league.upper() in ("NFL", "NCAAF", "AMERICAN_FOOTBALL", "FOOTBALL"):
+                                is_football = True
                             elif league.upper() in ("MLB", "NPB", "BASEBALL"):
                                 is_baseball = True
                         ev = p_data.get("stake_evidence") or {}
