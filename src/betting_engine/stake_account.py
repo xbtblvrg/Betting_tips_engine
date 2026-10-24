@@ -649,25 +649,24 @@ def resolve_stake_market_tab(
     if is_baseball:
         if any(x in m or x in mn for x in ("innings_1_5", "first_five", "first_5", "innings 1 to 5")) or "innings 1 to 5" in grp_names:
             return "Innings 1 to 5"
-        if any(x in m or x in mn for x in ("inning_1", "first_inning", "inning", "innings")) or "innings" in grp_names:
+        mn_clean = mn.replace("extra innings", "").replace("extra-innings", "").replace("extra_innings", "")
+        if any(x in m or x in mn_clean for x in ("inning_1", "first_inning", "1st inning", "2nd inning")) or (("inning" in m or "inning" in mn_clean) and "extra" not in mn_clean):
             return "Innings"
+        if "main" in grp_names:
+            return "Popular"
         if any(x in m for x in ("runs", "home_total", "away_total")) or "runs" in grp_names:
             return "Runs"
-        if m == "spreads" or "handicap" in mn or "handicap" in grp_names:
-            return "Handicap"
-        if m == "totals" or "total" in mn or "total" in grp_names:
-            return "Total"
-        if any(x in grp_names for x in ("three way", "three_way", "1x2")):
-            return "Three Way"
         return "Popular"
 
     if is_ice_hockey:
         if any(p in m or p in mn for p in ("period_1", "period_2", "period_3", "periods")) or "periods" in grp_names:
             return "Periods"
-        if any(x in m for x in ("goals", "totals", "both_score", "home_total", "away_total")) or "goals" in grp_names:
+        if "main" in grp_names:
+            return "Popular"
+        if m in ("moneyline", "three_way", "spreads", "totals"):
+            return "Popular"
+        if any(x in m for x in ("goals", "both_score", "home_total", "away_total")) or "goals" in grp_names:
             return "Goals"
-        if m == "spreads" or "handicap" in mn or "handicap" in grp_names:
-            return "Handicap"
         return "Popular"
 
     if any(p in m or p in mn for p in ("period_1", "period_2", "period_3", "period_4", "periods")) or "periods" in grp_names:

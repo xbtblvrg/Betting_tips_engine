@@ -1046,6 +1046,29 @@ def test_resolve_stake_market_tab_nba_half_and_nfl_totals():
     )
     assert t5 == "Total"
 
+    # Full multi-sport audit covering Tennis, NBA, NFL, NHL, MLB, Soccer
+    multi_sport_cases = [
+        ("ATP", "spreads", "Game Handicap", [{"name": "games"}], "Games"),
+        ("ATP", "totals", "Total Games", [{"name": "games"}], "Games"),
+        ("WTA", "period_1:moneyline", "1st Set - Winner", [{"name": "sets"}], "Sets"),
+        ("NBA", "home_total", "Charlotte Hornets Total (Incl. Overtime)", [{"name": "main"}, {"name": "points"}], "Popular"),
+        ("NBA", "away_total", "Miami Heat Total (Incl. Overtime)", [{"name": "main"}, {"name": "points"}], "Popular"),
+        ("NBA", "quarter_3:totals", "3rd Quarter - Total", [{"name": "quarters"}], "Quarters"),
+        ("NHL", "moneyline", "Winner (Incl. Overtime and Penalties)", [{"name": "main"}], "Popular"),
+        ("NHL", "spreads", "Handicap (Puck Line)", [{"name": "main"}], "Popular"),
+        ("NHL", "totals", "Total (Incl. Overtime and Penalties)", [{"name": "main"}], "Popular"),
+        ("NHL", "period_1:totals", "1st Period - Total", [{"name": "periods"}], "Periods"),
+        ("EPL", "spreads", "Asian Handicap", [{"name": "asianlines"}], "Asian Lines"),
+        ("EPL", "totals", "Total Goals", [{"name": "goals"}], "Goals"),
+        ("MLB", "moneyline", "Winner (Incl. Extra Innings)", [{"name": "main"}], "Popular"),
+        ("MLB", "spreads", "Handicap (Incl. Extra Innings)", [{"name": "main"}], "Popular"),
+        ("MLB", "totals", "Total (Incl. Extra Innings)", [{"name": "main"}], "Popular"),
+        ("MLB", "innings_1_5:totals", "Innings 1 to 5 - Total", [{"name": "innings 1 to 5"}], "Innings 1 to 5"),
+        ("MLB", "inning_1:totals", "1st Inning - Total", [{"name": "innings"}], "Innings"),
+    ]
+    for lg, m, mn, grps, exp in multi_sport_cases:
+        assert resolve_stake_market_tab(lg, m, mn, grps) == exp, f"Failed for {lg} {m} ({mn})"
+
 
 def test_stage_betslip_verification_gate_rejects_full_game_slip_for_half_bet(monkeypatch):
     import subprocess
