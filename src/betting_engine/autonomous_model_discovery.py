@@ -135,6 +135,36 @@ class AutonomousModelDiscoveryEngine:
                 # Run historical training across the expanded archetype library
                 best_cand = self.historical_trainer.train_and_screen_demoted_market(segment_key)
                 if not best_cand:
+                    # If standard library has no edge, invoke autonomous Codex model synthesis
+                    try:
+                        from .codex_model_synthesizer import CodexModelSynthesizer
+                        synthesizer = CodexModelSynthesizer(self.data_dir)
+                        synth_rec = synthesizer.synthesize_and_screen_candidate(
+                            segment_key=segment_key,
+                            domain_problem=f"Standard archetypes failed out-of-sample backtest on {segment_key}. Requires novel mathematical formulation."
+                        )
+                        if synth_rec.crucible_passed and synth_rec.is_admitted_to_incubator:
+                            disc_id = f"disc_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}_{segment_key.replace('|', '_')}"
+                            record = ModelDiscoveryRecord(
+                                discovery_id=disc_id,
+                                timestamp=now_iso,
+                                segment_key=segment_key,
+                                league=league,
+                                scope=scope,
+                                family=family,
+                                winning_archetype=synth_rec.class_name,
+                                winning_model_id=synth_rec.model_id,
+                                historical_roi=synth_rec.oos_simulated_roi,
+                                historical_brier_delta=synth_rec.oos_delta_brier,
+                                historical_sample_size=synth_rec.oos_sample_size,
+                                historical_max_drawdown=synth_rec.oos_max_drawdown,
+                                parameters={'synthesizer': synth_rec.generator_provider, 'rationale': synth_rec.rationale},
+                                scientific_basis=f"Codex-synthesized mathematical formulation: {synth_rec.class_name}",
+                            )
+                            new_discoveries.append(record)
+                            self._log_discovery(record)
+                    except Exception:
+                        pass
                     continue
 
                 # Directly admit and bind champion to the demoted market in Tier 2
