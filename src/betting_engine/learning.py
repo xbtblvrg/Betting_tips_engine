@@ -151,12 +151,12 @@ class LearningWorker:
         self.plan_outcome_review(now)
         if (self.data / 'research').exists():
             self.plan_target_evaluation(now)
+            self.plan_daily_council_briefing(now)
         self.plan_anchor_weights(now)
         self.plan_segments()
         self.plan_underperforming_segments(now)
         self.coalesce_stale_jobs(now)
         self.plan_autonomous_submarket_expansion(now)
-        self.plan_daily_council_briefing(now)
         self.plan_market_expansion()
 
         self.plan_player_evidence()
