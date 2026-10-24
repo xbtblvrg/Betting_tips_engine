@@ -124,7 +124,15 @@ function toast(message,options={}){
  },options?.duration||5000);
 }
 async function api(path,options={}){const r=await fetch(path,{cache:'no-store',...options,headers:{'Content-Type':'application/json',...(options.headers||{})}});const d=await r.json();if(!r.ok){const msg=typeof d.detail==='string'?d.detail:typeof d.message==='string'?d.message:'Unable to save. Check the fields and try again.';const err=new Error(msg);err.data=d;throw err}return d}
-function currentTips(rows){return rows.filter(t=>!t.expired&&!t.withdrawn_at&&new Date(t.valid_until)>new Date()&&new Date(t.start)>new Date()&&Date.now()-new Date(t.quote_at)<=300000&&Date.now()-new Date(t.quote_at)>=-5000)}
+function isEngineActiveOrUpdating(){
+ const conn=document.querySelector('#connection')?.textContent||'';
+ return Boolean(data?.engine?.running || conn==='Updating…' || conn==='Evaluating Markets' || conn==='Syncing…');
+}
+function currentTips(rows){
+ const updating=isEngineActiveOrUpdating();
+ const maxAge=updating?900000:300000;
+ return rows.filter(t=>!t.expired&&!t.withdrawn_at&&(updating||new Date(t.valid_until)>new Date())&&new Date(t.start)>new Date()&&Date.now()-new Date(t.quote_at)<=maxAge&&Date.now()-new Date(t.quote_at)>=-5000);
+}
 function allCurrentSelections(){return currentTips([...(data?.recommendations||[]),...(data?.alternatives||[])])}
 function isBetRecommendation(t){return t.stake>0||!!t.tracked_bet||isPlaced(t)}
 function allEvaluated(){return currentTips(data?.evaluated_candidates||[...(data?.recommendations||[]),...(data?.alternatives||[])])}
@@ -1253,7 +1261,7 @@ function bindAutoBetRunner() {
  updateAutoRunStatusUI();
 }
 
-function expireInstructions(){if(!data||data.engine?.running)return;renderStakeSizing();const current=readyTips(),ids=new Set(current.map(t=>t.id));if($$('#tips-grid [data-tip-id]').some(el=>!ids.has(el.dataset.tipId))||(view==='tips'&&selectedTip&&$('#detail-dialog').open&&!current.some(t=>t.id===selectedTip.id&&instructionSignature(t)===selectedInstructionSignature)))renderTips()}
+function expireInstructions(){if(!data||isEngineActiveOrUpdating())return;renderStakeSizing();const current=readyTips(),ids=new Set(current.map(t=>t.id));if($$('#tips-grid [data-tip-id]').some(el=>!ids.has(el.dataset.tipId))||(view==='tips'&&selectedTip&&$('#detail-dialog').open&&!current.some(t=>t.id===selectedTip.id&&instructionSignature(t)===selectedInstructionSignature)))renderTips()}
 function emptyTipsMessage(){
  const status=data?.status||{},counts=status.execution_counts||{},alts=data?.alternatives||[],recs=data?.recommendations||[];
  const held=recs.filter(t=>t.allocation_code==='already_held').length;
@@ -1357,9 +1365,7 @@ function renderTips(){
  if(view==='tips'&&selectedTip&&$('#detail-dialog').open){const current=rows.find(t=>t.id===selectedTip.id);if(!current||instructionSignature(current)!==selectedInstructionSignature){$('#detail-dialog').close();selectedTip=null;selectedInstructionSignature=null;}}
  const readyMarkup=rows.map((t,index)=>pickCard(t,index)).join('');
  const hasExistingCards=$$('#tips-grid .tip-card').length>0;
- if(data?.engine?.running && !readyMarkup && hasExistingCards){
-  updateHorizonBadges();
-  renderStats();renderOpportunitySummary();renderTracked();renderAlternatives();renderEvaluated();
+ if(isEngineActiveOrUpdating() && !readyMarkup && hasExistingCards){
   return;
  }
  $('#tip-count').textContent=rows.length;
