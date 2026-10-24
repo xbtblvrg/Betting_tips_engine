@@ -120,12 +120,17 @@ class AutonomousROIGovernor:
 
         grad_markets = set()
         try:
-            from .shadow_market_incubator import load_graduated_markets
-            gm = load_graduated_markets(self.data_dir)
-            if gm:
-                grad_markets = set(gm.keys())
+            from .unified_market_universe import UnifiedMarketUniverse
+            roster = UnifiedMarketUniverse(self.data_dir).build_universe_roster()
+            grad_markets = {k for k, p in roster.items() if p.tier == 3}
         except Exception:
-            pass
+            try:
+                from .shadow_market_incubator import load_graduated_markets
+                gm = load_graduated_markets(self.data_dir)
+                if gm:
+                    grad_markets = set(gm.keys())
+            except Exception:
+                pass
 
         for r in rows:
             league = r[0] or 'UNKNOWN'
@@ -149,8 +154,6 @@ class AutonomousROIGovernor:
             stake_cap = 2.0
             min_ev = 0.02
             action = 'Standard unit sizing'
-
-            is_core_market = (scope == 'full_game' and any(k in str(market).lower() for k in ('spread', 'handicap', 'total', 'moneyline', '1x2', 'winner')))
 
             # Quarantined lower-tier circuits (Challenger/ITF) never receive betting allocation
             if league in ('CHALLENGER', 'ITF') or 'challenger' in league.lower() or 'challenger' in seg_key.lower():
@@ -182,7 +185,7 @@ class AutonomousROIGovernor:
 
             # C. Capital Defense: ROI < -3% or units_pnl <= -2.5 units with 4+ games
             # Statistical Significance Safeguard (Commandments 6 & 7):
-            # Graduated markets with verified Crucible backing require meaningful sample (cnt >= 15, units_pnl <= -8.0)
+            # Tier 3 Graduated markets with verified Crucible backing require meaningful sample (cnt >= 15, units_pnl <= -8.0)
             # before being downgraded to Capital Defense.
             is_grad_seg = bool(seg_key in grad_markets or f"{league}|{scope}|{market}" in grad_markets)
             min_cnt_for_defense = 15 if is_grad_seg else 4
@@ -193,7 +196,7 @@ class AutonomousROIGovernor:
                 stake_cap = 2.00
                 min_ev = 0.02
                 action = 'Graduated Market: Active verified alpha expectation'
-            elif cnt >= min_cnt_for_defense and (roi < -3.0 or units_pnl <= units_threshold_defense or (is_core_market and (wr < 25.0 or roi < -30.0))):
+            elif cnt >= min_cnt_for_defense and (roi < -3.0 or units_pnl <= units_threshold_defense):
                 tier = 'CAPITAL_DEFENSE'
                 stake_cap = 0.50
                 min_ev = 0.035

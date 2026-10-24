@@ -163,13 +163,13 @@ class UnifiedMarketUniverse:
         except Exception as exc:
             logger.error("Error reading incubator db for universe roster: %s", exc)
 
-        # 3. Ingest active Core / Baseline Production markets not currently demoted
+        # 3. Ingest active Baseline Production markets not currently demoted
         if self.engine_db_path.exists():
             try:
                 with sqlite3.connect(f"file:{self.engine_db_path}?mode=ro", uri=True, timeout=2.0) as eng_conn:
                     dec_rows = eng_conn.execute("""
                         SELECT payload FROM system_decisions
-                        ORDER BY issued_at DESC LIMIT 150
+                        ORDER BY issued_at DESC LIMIT 3000
                     """).fetchall()
 
                     for (p_raw,) in dec_rows:
@@ -213,8 +213,16 @@ class UnifiedMarketUniverse:
         roster = self.build_universe_roster()
         if canon in roster:
             return MarketTier(roster[canon].tier)
-        # Default unclassified markets start in Tier 1 R&D
-        return MarketTier.RESEARCH_RND
+        # Check if explicitly demoted in demoted_markets
+        try:
+            with sqlite3.connect(f"file:{self.incubator_db_path}?mode=ro", uri=True, timeout=2.0) as inc_conn:
+                row = inc_conn.execute("SELECT incubation_phase FROM demoted_markets WHERE segment_key = ?", (canon,)).fetchone()
+                if row:
+                    return MarketTier.SHADOW_INCUBATOR if row[0] == 'incubating_with_new_model' else MarketTier.RESEARCH_RND
+        except Exception:
+            pass
+        # Supported un-demoted production markets default to Tier 3
+        return MarketTier.PRODUCTION_GRADUATED
 
     def get_summary(self, force_refresh: bool = False) -> Dict[str, Any]:
         """Provides high-level quantitative summary of the unified market universe."""

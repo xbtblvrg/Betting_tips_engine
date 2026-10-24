@@ -112,28 +112,43 @@ def _get_graduated_segments():
     if now - _GRADUATED_CACHE['ts'] < 10.0 and _GRADUATED_CACHE['data'] is not None:
         return _GRADUATED_CACHE['data']
     try:
-        from .shadow_market_incubator import load_graduated_markets
-        grads = load_graduated_markets()
+        from .unified_market_universe import UnifiedMarketUniverse
+        roster = UnifiedMarketUniverse().build_universe_roster()
         _GRADUATED_CACHE['ts'] = now
-        _GRADUATED_CACHE['data'] = set(grads.keys()) if grads else set()
+        _GRADUATED_CACHE['data'] = {k for k, p in roster.items() if p.tier == 3}
         return _GRADUATED_CACHE['data']
     except Exception:
-        return set()
+        try:
+            from .shadow_market_incubator import load_graduated_markets
+            grads = load_graduated_markets()
+            _GRADUATED_CACHE['ts'] = now
+            _GRADUATED_CACHE['data'] = set(grads.keys()) if grads else set()
+            return _GRADUATED_CACHE['data']
+        except Exception:
+            return set()
 
 _DEMOTED_CACHE = {'ts': 0, 'data': None}
 
 def _get_demoted_segments():
+    import time
     now = time.time()
     if now - _DEMOTED_CACHE['ts'] < 10.0 and _DEMOTED_CACHE['data'] is not None:
         return _DEMOTED_CACHE['data']
     try:
-        from .shadow_market_incubator import get_demoted_segments
-        dem = get_demoted_segments()
+        from .unified_market_universe import UnifiedMarketUniverse
+        roster = UnifiedMarketUniverse().build_universe_roster()
         _DEMOTED_CACHE['ts'] = now
-        _DEMOTED_CACHE['data'] = dem if dem else set()
+        _DEMOTED_CACHE['data'] = {k for k, p in roster.items() if p.tier in (1, 2)}
         return _DEMOTED_CACHE['data']
     except Exception:
-        return set()
+        try:
+            from .shadow_market_incubator import get_demoted_segments
+            dem = get_demoted_segments()
+            _DEMOTED_CACHE['ts'] = now
+            _DEMOTED_CACHE['data'] = dem if dem else set()
+            return _DEMOTED_CACHE['data']
+        except Exception:
+            return set()
 
 def is_super_alpha(tip):
     if not isinstance(tip, dict):
