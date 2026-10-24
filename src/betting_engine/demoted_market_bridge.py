@@ -104,32 +104,42 @@ class DemotedMarketIncubationBridge:
             now_iso = datetime.now(timezone.utc).isoformat()
             params_json = json.dumps(champ_res.model_params)
 
-            conn = sqlite3.connect(str(self.db_path), timeout=30.0)
-            try:
-                conn.execute("""
-                    UPDATE demoted_markets
-                    SET incubated_model_id = ?,
-                        model_archetype = ?,
-                        model_params = ?,
-                        historical_roi = ?,
-                        historical_brier_delta = ?,
-                        historical_sample_size = ?,
-                        incubation_phase = 'incubating_with_new_model',
-                        admitted_to_incubator_at = ?
-                    WHERE id = ?
-                """, (
-                    champ_res.model_id,
-                    champ_res.model_archetype,
-                    params_json,
-                    champ_res.oos_simulated_roi,
-                    champ_res.oos_delta_brier,
-                    champ_res.oos_sample_size,
-                    now_iso,
-                    d_id
-                ))
-                conn.commit()
-            finally:
-                conn.close()
+            import time
+            for attempt in range(5):
+                try:
+                    conn = sqlite3.connect(str(self.db_path), timeout=60.0)
+                    try:
+                        conn.execute("PRAGMA busy_timeout = 60000")
+                        conn.execute("""
+                            UPDATE demoted_markets
+                            SET incubated_model_id = ?,
+                                model_archetype = ?,
+                                model_params = ?,
+                                historical_roi = ?,
+                                historical_brier_delta = ?,
+                                historical_sample_size = ?,
+                                incubation_phase = 'incubating_with_new_model',
+                                admitted_to_incubator_at = ?
+                            WHERE id = ?
+                        """, (
+                            champ_res.model_id,
+                            champ_res.model_archetype,
+                            params_json,
+                            champ_res.oos_simulated_roi,
+                            champ_res.oos_delta_brier,
+                            champ_res.oos_sample_size,
+                            now_iso,
+                            d_id
+                        ))
+                        conn.commit()
+                        break
+                    finally:
+                        conn.close()
+                except sqlite3.OperationalError as e:
+                    if "locked" in str(e) and attempt < 4:
+                        time.sleep(0.5 * (attempt + 1))
+                        continue
+                    raise
 
             # Record audit telemetry
             append_rd_log(

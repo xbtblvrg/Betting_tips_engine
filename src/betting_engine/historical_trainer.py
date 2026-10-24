@@ -109,16 +109,39 @@ class HistoricalCandidateTrainer:
         conn = sqlite3.connect(str(self.db_path), timeout=30.0)
         try:
             cur = conn.cursor()
-            rows = cur.execute("""
+            conditions = ["league = ?", "scope = ?", "status = 'settled'"]
+            params: List[Any] = [league, scope]
+
+            family_filters = []
+            # 1. Exact match on family or sub_family
+            family_filters.append("(family = ? OR sub_family = ?)")
+            params.extend([family, sub])
+
+            # 2. Canonical derivative submarket aliases
+            if family in ('both_score', 'both_teams_score') or base_fam in ('both_score', 'both_teams_score'):
+                family_filters.append("(family = 'bivariate_derivatives' AND sub_family IN ('both_teams_score', 'both_score'))")
+            elif family == 'double_chance' or base_fam == 'double_chance':
+                family_filters.append("(family = 'bivariate_derivatives' AND sub_family = 'double_chance')")
+            elif 'asian' in family or 'asian' in base_fam:
+                if 'total' in family or 'total' in base_fam:
+                    family_filters.append("(family = 'asian_lines' AND sub_family = 'asian_total')")
+                if 'handicap' in family or 'handicap' in base_fam or 'spread' in family or 'spread' in base_fam:
+                    family_filters.append("(family = 'asian_lines' AND sub_family = 'asian_handicap')")
+            elif family in ('home_total', 'away_total') or base_fam in ('home_total', 'away_total'):
+                target_side = 'home' if 'home' in family or 'home' in base_fam else 'away'
+                family_filters.append(f"(family = 'american_derivatives' AND (sub_family = ? OR (sub_family = 'team_total' AND (selection LIKE '%{target_side}%' OR side = '{target_side}'))))")
+                params.append(f"{target_side}_total")
+            elif family in ('spreads', 'totals', 'moneyline') or base_fam in ('spreads', 'totals', 'moneyline'):
+                family_filters.append("(family = 'american_derivatives' AND sub_family = ?)")
+                params.append(base_fam)
+
+            query = f"""
                 SELECT selection, line, odds, model_prob, market_prob, side, result, pnl, captured_at
                 FROM incubated_wagers
-                WHERE league = ? AND scope = ? AND (
-                    family = ? OR family = ? OR family = ? OR
-                    sub_family = ? OR sub_family = ? OR
-                    (family = 'american_derivatives' AND sub_family = ?)
-                ) AND status = 'settled'
+                WHERE {' AND '.join(conditions)} AND ({' OR '.join(family_filters)})
                 ORDER BY captured_at ASC
-            """, (league, scope, family, base_fam, sub, family, sub, base_fam)).fetchall()
+            """
+            rows = cur.execute(query, params).fetchall()
             return rows
         finally:
             conn.close()
@@ -184,7 +207,7 @@ class HistoricalCandidateTrainer:
             candidate_configs.append(('NegativeBinomialOverdispersionModel', m, {'dispersion_alpha': alpha}))
 
         # 3. Odds-Damped Kelly Shrinkage
-        for damping in [0.15, 0.35, 0.55, 0.75]:
+        for damping in [0.15, 0.35, 0.55, 0.75, 0.85, 0.90]:
             m = OddsDampedKellyShrinkageModel(
                 model_id=f"{league.lower()}_{scope}_{family}_damped_d{int(damping*100)}_{now_tag}",
                 version="1.1.0",
@@ -283,7 +306,8 @@ class HistoricalCandidateTrainer:
             avg_bm = sum_brier_m / oos_accepted
             avg_bmkt = sum_brier_mkt / oos_accepted
             delta_brier = round(avg_bmkt - avg_bm, 5)
-            dd_pct = round(max_dd / max(1.0, peak_pnl if peak_pnl > 0 else oos_accepted), 4)
+            turnover = oos_accepted * 1.0
+            dd_pct = round(max_dd / max(1.0, peak_pnl + turnover), 4)
 
             score_s = calculate_crucible_scorecard(oos_roi, oos_accepted, delta_brier, dd_pct)
 
