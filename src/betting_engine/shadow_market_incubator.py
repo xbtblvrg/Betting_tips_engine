@@ -307,7 +307,17 @@ def load_graduated_markets(data_dir: Path = DATA) -> Dict[str, Dict[str, Any]]:
                 d_rows = conn.execute("SELECT segment_key FROM demoted_markets").fetchall()
                 demoted_keys = {r[0] for r in d_rows}
                 if demoted_keys:
-                    conn.execute("DELETE FROM graduated_markets WHERE segment_key IN (SELECT segment_key FROM demoted_markets)")
+                    conn.execute("""
+                        DELETE FROM graduated_markets 
+                        WHERE segment_key IN (SELECT segment_key FROM demoted_markets)
+                           OR id IN (
+                               SELECT g.id FROM graduated_markets g
+                               JOIN demoted_markets d 
+                                 ON g.league = d.league 
+                                AND g.scope = d.scope 
+                                AND (g.family = d.family OR g.sub_family = d.sub_family OR g.family = d.sub_family OR g.sub_family = d.family)
+                           )
+                    """)
                     conn.commit()
             except Exception:
                 pass
@@ -2283,7 +2293,12 @@ class ShadowMarketIncubator:
                 ))
 
                 try:
-                    cur.execute("DELETE FROM demoted_markets WHERE segment_key = ?", (seg_key,))
+                    canon_k = f"{lg}|full_game|{fam}"
+                    cur.execute("""
+                        DELETE FROM demoted_markets 
+                        WHERE segment_key IN (?, ?) 
+                           OR (league = ? AND scope = 'full_game' AND (family = ? OR sub_family = ?))
+                    """, (seg_key, canon_k, lg, fam, fam))
                 except Exception:
                     pass
 
@@ -3197,14 +3212,21 @@ class ShadowMarketIncubator:
                         'games': len(recent)
                     }
                     demoted_keys.append(demoted_entry)
-                    if seg_key in current_graduated:
-                        del current_graduated[seg_key]
+                    canon_k = f"{league}|{scope}|{meta.get('family', '')}"
+                    sub_k = f"{league}|{scope}|{meta.get('family', '')}:{meta.get('sub_family', '')}" if meta.get('sub_family') else canon_k
+                    for k in (seg_key, canon_k, sub_k):
+                        if k in current_graduated:
+                            del current_graduated[k]
 
                     # Atomic DB persistence: delete from graduated_markets and track in demoted_markets
                     try:
                         conn_inc = self._get_connection()
                         cur_inc = conn_inc.cursor()
-                        cur_inc.execute("DELETE FROM graduated_markets WHERE segment_key = ?", (seg_key,))
+                        cur_inc.execute("""
+                            DELETE FROM graduated_markets 
+                            WHERE segment_key IN (?, ?, ?) 
+                               OR (league = ? AND scope = ? AND (family = ? OR sub_family = ?))
+                        """, (seg_key, canon_k, sub_k, league, scope, meta.get('family', ''), meta.get('sub_family', '')))
                         d_id = f"demote_{hashlib.sha256(f'{seg_key}:{now_iso}'.encode()).hexdigest()[:16]}"
                         cur_inc.execute("""
                             INSERT OR REPLACE INTO demoted_markets (
