@@ -315,7 +315,14 @@ def load_graduated_markets(data_dir: Path = DATA) -> Dict[str, Dict[str, Any]]:
                                JOIN demoted_markets d 
                                  ON g.league = d.league 
                                 AND g.scope = d.scope 
-                                AND (g.family = d.family OR g.sub_family = d.sub_family OR g.family = d.sub_family OR g.sub_family = d.family)
+                                AND (
+                                    g.segment_key = d.segment_key
+                                    OR ((d.sub_family IS NULL OR d.sub_family = '' OR d.sub_family = d.family) AND g.family = d.family)
+                                    OR (
+                                        d.sub_family IS NOT NULL AND d.sub_family != '' AND d.sub_family != d.family
+                                        AND (g.sub_family = d.sub_family OR g.segment_key = d.segment_key)
+                                    )
+                                )
                            )
                     """)
                     conn.commit()
@@ -1967,7 +1974,7 @@ class ShadowMarketIncubator:
                     continue
 
             # Probation check: if demoted previously, check if this specific market was demoted
-            demoted_at = demoted_map.get(segment_key)
+            demoted_at = demoted_map.get(segment_key) or demoted_map.get(sub_key)
             if not demoted_at and canonical_key in demoted_map:
                 demoted_sub = demoted_sub_map.get(canonical_key)
                 if not demoted_sub or demoted_sub == sub_family:
@@ -2702,7 +2709,7 @@ class ShadowMarketIncubator:
                     continue
 
             # Probation check: if demoted previously, check if the demotion was a cross-contamination false demotion
-            demoted_at = demoted_map.get(segment_key)
+            demoted_at = demoted_map.get(segment_key) or demoted_map.get(sub_key)
             if not demoted_at and canonical_key in demoted_map:
                 demoted_sub = demoted_sub_map.get(canonical_key)
                 if not demoted_sub or demoted_sub == sub_family:
@@ -3225,7 +3232,7 @@ class ShadowMarketIncubator:
                         cur_inc.execute("""
                             DELETE FROM graduated_markets 
                             WHERE segment_key IN (?, ?, ?) 
-                               OR (league = ? AND scope = ? AND (family = ? OR sub_family = ?))
+                               OR (league = ? AND scope = ? AND family = ? AND (sub_family = ? OR sub_family IS NULL OR sub_family = ''))
                         """, (seg_key, canon_k, sub_k, league, scope, meta.get('family', ''), meta.get('sub_family', '')))
                         d_id = f"demote_{hashlib.sha256(f'{seg_key}:{now_iso}'.encode()).hexdigest()[:16]}"
                         cur_inc.execute("""

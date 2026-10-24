@@ -245,16 +245,19 @@ class UnifiedMarketUniverse:
         UnifiedMarketUniverse._cached_at = now
         return roster
 
-    def get_market_tier(self, league: str, scope: str, family: str) -> MarketTier:
+    def get_market_tier(self, league: str, scope: str, family: str, sub_family: Optional[str] = None) -> MarketTier:
         """Returns the current operational tier for any market."""
         canon = self.get_canonical_key(league, scope, family)
+        sub_k = f"{(league or '').upper()}|{(scope or 'full_game').lower()}|{(family or '').lower()}:{(sub_family or '').lower()}" if (sub_family and sub_family != family) else canon
         roster = self.build_universe_roster()
+        if sub_k in roster:
+            return MarketTier(roster[sub_k].tier)
         if canon in roster:
             return MarketTier(roster[canon].tier)
         # Check if explicitly demoted in demoted_markets
         try:
             with sqlite3.connect(f"file:{self.incubator_db_path}?mode=ro", uri=True, timeout=2.0) as inc_conn:
-                row = inc_conn.execute("SELECT incubation_phase FROM demoted_markets WHERE segment_key = ?", (canon,)).fetchone()
+                row = inc_conn.execute("SELECT incubation_phase FROM demoted_markets WHERE segment_key IN (?, ?)", (sub_k, canon)).fetchone()
                 if row:
                     return MarketTier.SHADOW_INCUBATOR if row[0] == 'incubating_with_new_model' else MarketTier.RESEARCH_RND
         except Exception:
