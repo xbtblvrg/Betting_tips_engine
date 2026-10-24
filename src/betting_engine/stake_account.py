@@ -585,6 +585,7 @@ def resolve_stake_market_tab(
 
     is_tennis = (lg in ("ATP", "WTA", "CHALLENGER", "TENNIS")) or ("/tennis/" in url)
     is_basketball = (lg in ("NBA", "WNBA", "NCAAB", "BASKETBALL")) or ("/basketball/" in url)
+    is_football = (lg in ("NFL", "NCAAF", "AMERICAN_FOOTBALL", "FOOTBALL")) or ("/american-football/" in url)
     is_baseball = (lg in ("MLB", "NPB", "BASEBALL")) or ("/baseball/" in url)
     is_soccer = (lg in ("EPL", "UCL", "MLS", "SOCCER")) or ("/soccer/" in url)
     is_ice_hockey = (lg in ("NHL", "ICE_HOCKEY")) or ("/ice-hockey/" in url)
@@ -599,12 +600,25 @@ def resolve_stake_market_tab(
         return "Main"
 
     if is_basketball:
-        if any("asian" in g for g in grp_names) or "asian" in m or "asian" in mn:
-            return "Asian Lines"
+        if any(h in m or h in mn for h in ("half", "halftime")) or any(g in ("half", "halves", "1st2ndhalfmarkets") for g in grp_names):
+            return "Half"
         if any(q in m or q in mn for q in ("quarter", "period_1", "period_2", "period_3", "period_4")) or "quarters" in grp_names:
             return "Quarters"
-        if any(h in m or h in mn for h in ("half", "halftime")) or "half" in grp_names:
+        if any(t in m for t in ("home_total", "away_total", "team_total")):
+            return "Team/Match"
+        if m == "spreads" or "handicap" in mn or "handicap" in grp_names:
+            return "Handicap"
+        if m == "totals" or "total" in mn or "total" in grp_names or "totals" in grp_names:
+            return "Total"
+        if "points" in grp_names:
+            return "Points"
+        return "Main"
+
+    if is_football:
+        if any(h in m or h in mn for h in ("half", "halftime")) or any(g in ("half", "halves", "1st2ndhalfmarkets") for g in grp_names):
             return "Half"
+        if any(q in m or q in mn for q in ("quarter", "period_1", "period_2", "period_3", "period_4")) or "quarters" in grp_names:
+            return "Quarters"
         if any(t in m for t in ("home_total", "away_total", "team_total")):
             return "Team/Match"
         if m == "spreads" or "handicap" in mn or "handicap" in grp_names:
@@ -706,6 +720,10 @@ def stage_betslip_in_safari(
         (league and league.upper() in ("NBA", "WNBA", "NCAAB", "BASKETBALL"))
         or ("/basketball/" in clean_url.lower())
     )
+    is_football = bool(
+        (league and league.upper() in ("NFL", "NCAAF", "AMERICAN_FOOTBALL", "FOOTBALL"))
+        or ("/american-football/" in clean_url.lower())
+    )
     is_baseball = bool(
         (league and league.upper() in ("MLB", "NPB", "BASEBALL"))
         or ("/baseball/" in clean_url.lower())
@@ -760,7 +778,7 @@ def stage_betslip_in_safari(
                 period_prefix = "2nd set"
             elif "period_3" in market:
                 period_prefix = "3rd set"
-        elif is_basketball:
+        elif is_basketball or is_football:
             if "period_1" in market or "quarter_1" in market:
                 period_prefix = "1st quarter"
             elif "period_2" in market or "quarter_2" in market:
@@ -792,7 +810,7 @@ def stage_betslip_in_safari(
             m_set = re.search(r"(\d+(?:st|nd|rd|th)\s+set)", market_name, re.IGNORECASE)
             if m_set:
                 period_prefix = m_set.group(1).lower()
-        elif is_basketball:
+        elif is_basketball or is_football:
             m_quarter = re.search(r"(\d+(?:st|nd|rd|th)\s+(?:quarter|half))", market_name, re.IGNORECASE)
             if m_quarter:
                 period_prefix = m_quarter.group(1).lower()
@@ -824,32 +842,33 @@ def stage_betslip_in_safari(
                 market_name = "Total Sets"
         else:
             if market in ("period_3:totals", "quarter_3:totals"):
-                market_name = "3rd Quarter - Total" if is_basketball else "3rd Period - Total"
+                market_name = "3rd Quarter - Total" if (is_basketball or is_football) else "3rd Period - Total"
             elif market in ("period_2:totals", "quarter_2:totals"):
-                market_name = "2nd Quarter - Total" if is_basketball else "2nd Period - Total"
+                market_name = "2nd Quarter - Total" if (is_basketball or is_football) else "2nd Period - Total"
             elif market in ("period_1:totals", "quarter_1:totals"):
-                market_name = "1st Quarter - Total" if is_basketball else "1st Period - Total"
+                market_name = "1st Quarter - Total" if (is_basketball or is_football) else "1st Period - Total"
             elif market in ("period_4:totals", "quarter_4:totals"):
                 market_name = "4th Quarter - Total"
             elif market in ("period_3:three_way", "quarter_3:three_way"):
-                market_name = "3rd Quarter - 1x2" if is_basketball else "3rd Period - 1x2"
+                market_name = "3rd Quarter - 1x2" if (is_basketball or is_football) else "3rd Period - 1x2"
             elif market in ("period_2:three_way", "quarter_2:three_way"):
-                market_name = "2nd Quarter - 1x2" if is_basketball else "2nd Period - 1x2"
+                market_name = "2nd Quarter - 1x2" if (is_basketball or is_football) else "2nd Period - 1x2"
             elif market in ("period_1:three_way", "quarter_1:three_way"):
-                market_name = "1st Quarter - 1x2" if is_basketball else "1st Period - 1x2"
+                market_name = "1st Quarter - 1x2" if (is_basketball or is_football) else "1st Period - 1x2"
             elif market in ("period_4:three_way", "quarter_4:three_way"):
                 market_name = "4th Quarter - 1x2"
             elif market == "half_1:totals":
-                market_name = "1st Half - Total"
+                market_name = "1st Half - Asian Total" if is_basketball else "1st Half - Total"
             elif market == "half_2:totals":
-                market_name = "2nd Half - Total"
+                market_name = "2nd Half - Asian Total" if is_basketball else "2nd Half - Total"
             elif market == "half_1:three_way":
                 market_name = "1st Half - 1x2"
             elif market == "half_2:three_way":
                 market_name = "2nd Half - 1x2"
             elif market == "half_1:spreads":
-                market_name = "1st Half - Handicap"
+                market_name = "1st Half - Asian Handicap" if is_basketball else "1st Half - Handicap"
             elif market == "half_2:spreads":
+                market_name = "2nd Half - Asian Handicap" if is_basketball else "2nd Half - Handicap"
                 market_name = "2nd Half - Handicap"
 
     # Build line variants for robust matching
@@ -1301,26 +1320,52 @@ def stage_betslip_in_safari(
 
             const scored = candidates.map(c => {
                 let marketScore = 0;
-                if (mNorm && c.marketCtx.indexOf(mNorm) !== -1) {
+                const mCtx = (c.marketCtx || "").toLowerCase();
+
+                // Strict Period Isolation Guard
+                if (pNorm) {
+                    let periodMatch = false;
+                    if (pNorm.includes("1st half") && (mCtx.includes("1st half") || mCtx.includes("half 1") || mCtx.includes("first half") || mCtx.includes("halftime"))) {
+                        periodMatch = true;
+                    } else if (pNorm.includes("2nd half") && (mCtx.includes("2nd half") || mCtx.includes("half 2") || mCtx.includes("second half"))) {
+                        periodMatch = true;
+                    } else if (pNorm.includes("quarter") && mCtx.includes(pNorm)) {
+                        periodMatch = true;
+                    } else if (pNorm.includes("period") && mCtx.includes(pNorm)) {
+                        periodMatch = true;
+                    } else if (pNorm.includes("set") && mCtx.includes(pNorm)) {
+                        periodMatch = true;
+                    } else if (pNorm.includes("innings 1 to 5") && (mCtx.includes("innings 1 to 5") || mCtx.includes("first 5"))) {
+                        periodMatch = true;
+                    } else if (mCtx.includes(pNorm)) {
+                        periodMatch = true;
+                    }
+
+                    if (periodMatch) {
+                        marketScore += 160;
+                    } else {
+                        // Candidate is full-game (e.g. "incl. overtime") or wrong period -> DISQUALIFY!
+                        marketScore -= 2500;
+                    }
+                } else {
+                    // Full game contract: candidate must NOT belong to a partial period
+                    if (mCtx.includes("1st half") || mCtx.includes("2nd half") || mCtx.includes("quarter") || mCtx.includes("1st period") || mCtx.includes("2nd period") || mCtx.includes("3rd period") || mCtx.includes("1st set") || mCtx.includes("2nd set") || mCtx.includes("innings 1 to 5")) {
+                        marketScore -= 2500;
+                    }
+                }
+
+                if (mNorm && mCtx.includes(mNorm)) {
                     marketScore += 120;
-                } else if (pNorm && c.marketCtx.indexOf(pNorm) !== -1) {
+                } else if (pNorm && mCtx.includes(pNorm)) {
                     marketScore += 60;
-                    if (mNorm.indexOf("total") !== -1 && c.marketCtx.indexOf("total") !== -1) marketScore += 30;
-                    if (mNorm.indexOf("handicap") !== -1 && c.marketCtx.indexOf("handicap") !== -1) marketScore += 30;
-                    if ((mNorm.indexOf("1x2") !== -1 || mNorm.indexOf("winner") !== -1) && (c.marketCtx.indexOf("1x2") !== -1 || c.marketCtx.indexOf("winner") !== -1)) marketScore += 30;
+                    if (mNorm.indexOf("total") !== -1 && mCtx.indexOf("total") !== -1) marketScore += 30;
+                    if (mNorm.indexOf("handicap") !== -1 && mCtx.indexOf("handicap") !== -1) marketScore += 30;
+                    if ((mNorm.indexOf("1x2") !== -1 || mNorm.indexOf("winner") !== -1) && (mCtx.indexOf("1x2") !== -1 || mCtx.indexOf("winner") !== -1)) marketScore += 30;
                 } else if (mNorm || pNorm) {
-                    if (c.marketCtx.indexOf("1st period") !== -1 && pNorm.indexOf("1st") === -1) marketScore -= 50;
-                    if (c.marketCtx.indexOf("2nd period") !== -1 && pNorm.indexOf("2nd") === -1) marketScore -= 50;
-                    if (c.marketCtx.indexOf("3rd period") !== -1 && pNorm.indexOf("3rd") === -1) marketScore -= 50;
-                    if (c.marketCtx.indexOf("1st set") !== -1 && pNorm.indexOf("1st") === -1) marketScore -= 50;
-                    if (c.marketCtx.indexOf("2nd set") !== -1 && pNorm.indexOf("2nd") === -1) marketScore -= 50;
-                    if (c.marketCtx.indexOf("3rd set") !== -1 && pNorm.indexOf("3rd") === -1) marketScore -= 50;
-                    if (c.marketCtx.indexOf("1st half") !== -1 && pNorm.indexOf("1st") === -1 && mNorm.indexOf("1st half") === -1) marketScore -= 50;
-                    if (c.marketCtx.indexOf("2nd half") !== -1 && pNorm.indexOf("2nd") === -1 && mNorm.indexOf("2nd half") === -1) marketScore -= 50;
-                    if (c.marketCtx.indexOf("handicap") !== -1 && mNorm.indexOf("total") !== -1) marketScore -= 100;
-                    if (c.marketCtx.indexOf("total") !== -1 && mNorm.indexOf("handicap") !== -1) marketScore -= 100;
-                    if ((c.marketCtx.indexOf("winner") !== -1 || c.marketCtx.indexOf("1x2") !== -1 || c.marketCtx.indexOf("moneyline") !== -1) && (mNorm.indexOf("handicap") !== -1 || mNorm.indexOf("total") !== -1)) marketScore -= 100;
-                    if ((c.marketCtx.indexOf("handicap") !== -1 || c.marketCtx.indexOf("total") !== -1) && (mNorm.indexOf("winner") !== -1 || mNorm.indexOf("1x2") !== -1 || mNorm.indexOf("moneyline") !== -1)) marketScore -= 100;
+                    if (mCtx.indexOf("handicap") !== -1 && mNorm.indexOf("total") !== -1) marketScore -= 100;
+                    if (mCtx.indexOf("total") !== -1 && mNorm.indexOf("handicap") !== -1) marketScore -= 100;
+                    if ((mCtx.indexOf("winner") !== -1 || mCtx.indexOf("1x2") !== -1 || mCtx.indexOf("moneyline") !== -1) && (mNorm.indexOf("handicap") !== -1 || mNorm.indexOf("total") !== -1)) marketScore -= 100;
+                    if ((mCtx.indexOf("handicap") !== -1 || mCtx.indexOf("total") !== -1) && (mNorm.indexOf("winner") !== -1 || mNorm.indexOf("1x2") !== -1 || mNorm.indexOf("moneyline") !== -1)) marketScore -= 100;
                 }
 
                 // Odds Proximity Scoring: massive boost for exact/close odds, heavy penalty for wildly divergent odds
@@ -1346,14 +1391,17 @@ def stage_betslip_in_safari(
                 };
             });
 
-            scored.sort((a, b) => {
+            const validScored = scored.filter(s => s.totalScore > 0);
+            if (validScored.length === 0) return null;
+
+            validScored.sort((a, b) => {
                 if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;
                 if (b.marketScore !== a.marketScore) return b.marketScore - a.marketScore;
                 if (b.oddsScore !== a.oddsScore) return b.oddsScore - a.oddsScore;
                 return b.candidate.score - a.candidate.score;
             });
 
-            return scored[0].candidate.button;
+            return validScored[0].candidate.button;
         }
 
         function findOutcomeMatch(buttons) {
@@ -1561,6 +1609,7 @@ def stage_betslip_in_safari(
             const targetOdds = {json.dumps(odds)};
             const isTennis = {json.dumps(is_tennis)};
             const isBasketball = {json.dumps(is_basketball)};
+            const isFootball = {json.dumps(is_football)};
             const isBaseball = {json.dumps(is_baseball)};
             const isOver = targetNorm.indexOf("over") === 0;
             const isUnder = targetNorm.indexOf("under") === 0;
@@ -1586,7 +1635,23 @@ def stage_betslip_in_safari(
                 const hasLineMatch = lineVariants.length === 0 || lineVariants.some(v => singleBetText.includes(v));
                 const oddsMatch = !targetOdds || !singleBetOdds || (Math.abs(singleBetOdds - parseFloat(targetOdds)) / parseFloat(targetOdds) <= 0.20);
 
-                if (hasOutcomeMatch && hasLineMatch && oddsMatch) {{
+                let periodMatch = true;
+                if (periodPrefix) {{
+                    const pLow = periodPrefix.toLowerCase();
+                    periodMatch = singleBetText.includes(pLow) ||
+                        (pLow.includes("1st half") && (singleBetText.includes("1st half") || singleBetText.includes("half 1") || singleBetText.includes("first half"))) ||
+                        (pLow.includes("2nd half") && (singleBetText.includes("2nd half") || singleBetText.includes("half 2") || singleBetText.includes("second half"))) ||
+                        (pLow.includes("quarter") && singleBetText.includes("quarter")) ||
+                        (pLow.includes("period") && singleBetText.includes("period")) ||
+                        (pLow.includes("set") && singleBetText.includes("set")) ||
+                        (pLow.includes("innings 1 to 5") && (singleBetText.includes("innings 1 to 5") || singleBetText.includes("first 5")));
+                }} else {{
+                    if (singleBetText.includes("1st half") || singleBetText.includes("2nd half") || singleBetText.includes("quarter") || singleBetText.includes("1st period") || singleBetText.includes("2nd period") || singleBetText.includes("1st set") || singleBetText.includes("innings 1 to 5")) {{
+                        periodMatch = false;
+                    }}
+                }}
+
+                if (hasOutcomeMatch && hasLineMatch && oddsMatch && periodMatch) {{
                     alreadyInBetslip = true;
                 }}
             }}
@@ -1645,7 +1710,9 @@ def stage_betslip_in_safari(
                 const fallbackTabs = isTennis
                     ? ["Sets", "Games", "Popular", "All"]
                     : isBasketball
-                    ? ["Half", "Quarters", "Asian Lines", "Points", "Team/Match", "Handicap", "Total", "Popular", "All"]
+                    ? ["Half", "Quarters", "Handicap", "Total", "Points", "Team/Match", "Popular", "All"]
+                    : isFootball
+                    ? ["Half", "Quarters", "Handicap", "Total", "Points", "Team/Match", "Popular", "All"]
                     : isBaseball
                     ? ["Innings 1 to 5", "Innings", "Runs", "Handicap", "Popular", "All"]
                     : ["Half", "Goals", "Asian Lines", "Cards and Corners", "Popular", "All"];
@@ -1791,6 +1858,85 @@ def stage_betslip_in_safari(
                 }}
             }}
 
+            // PRE-SUBMISSION STRICT BETSLIP VERIFICATION GATE
+            const verifyBetCard = slipBets[0] || document.querySelector("#right-sidebar [data-testid='betslip-bet'], .betslip [data-testid='betslip-bet'], [data-testid='betslip-bet']");
+            if (verifyBetCard) {{
+                const cardText = (verifyBetCard.innerText || "").toLowerCase();
+
+                // 1. Period Verification Gate
+                if (periodPrefix) {{
+                    const pLow = periodPrefix.toLowerCase();
+                    const periodOk = cardText.includes(pLow) ||
+                        (pLow.includes("1st half") && (cardText.includes("1st half") || cardText.includes("half 1") || cardText.includes("first half") || cardText.includes("1. félidő"))) ||
+                        (pLow.includes("2nd half") && (cardText.includes("2nd half") || cardText.includes("half 2") || cardText.includes("second half") || cardText.includes("2. félidő"))) ||
+                        (pLow.includes("quarter") && cardText.includes("quarter")) ||
+                        (pLow.includes("period") && cardText.includes("period")) ||
+                        (pLow.includes("set") && cardText.includes("set")) ||
+                        (pLow.includes("innings 1 to 5") && (cardText.includes("innings 1 to 5") || cardText.includes("first 5")));
+                    if (!periodOk) {{
+                        try {{
+                            const resetBtn = document.querySelector("[data-testid='reset-betslip']");
+                            if (resetBtn) resetBtn.click();
+                            const rm = verifyBetCard.querySelector("[data-testid='betslip-bet-remove']");
+                            if (rm) rm.click();
+                        }} catch(e) {{}}
+                        return JSON.stringify({{
+                            status: "verification_failed",
+                            error: "Szelvény verifikációs hiba: A betslipben szereplő piac nem a kért időszakra (" + periodPrefix + ") vonatkozik! Betslip tartalom: '" + verifyBetCard.innerText.replace(/\\s+/g, ' ').slice(0, 80) + "'"
+                        }});
+                    }}
+                }} else {{
+                    if (cardText.includes("1st half") || cardText.includes("2nd half") || cardText.includes("quarter") || cardText.includes("1st period") || cardText.includes("2nd period") || cardText.includes("1st set") || cardText.includes("innings 1 to 5")) {{
+                        try {{
+                            const resetBtn = document.querySelector("[data-testid='reset-betslip']");
+                            if (resetBtn) resetBtn.click();
+                            const rm = verifyBetCard.querySelector("[data-testid='betslip-bet-remove']");
+                            if (rm) rm.click();
+                        }} catch(e) {{}}
+                        return JSON.stringify({{
+                            status: "verification_failed",
+                            error: "Szelvény verifikációs hiba: Teljes meccses ajánlás helyett részidős piac került a betslipbe! Betslip tartalom: '" + verifyBetCard.innerText.replace(/\\s+/g, ' ').slice(0, 80) + "'"
+                        }});
+                    }}
+                }}
+
+                // 2. Line Verification Gate
+                if (lineVariants && lineVariants.length > 0) {{
+                    const hasLine = lineVariants.some(v => matchesLine(cardText, v, isNegative));
+                    if (!hasLine) {{
+                        try {{
+                            const resetBtn = document.querySelector("[data-testid='reset-betslip']");
+                            if (resetBtn) resetBtn.click();
+                            const rm = verifyBetCard.querySelector("[data-testid='betslip-bet-remove']");
+                            if (rm) rm.click();
+                        }} catch(e) {{}}
+                        return JSON.stringify({{
+                            status: "verification_failed",
+                            error: "Szelvény verifikációs hiba: A betslipben lévő vonal nem egyezik az ajánlással (" + targetSel + ")! Betslip tartalom: '" + verifyBetCard.innerText.replace(/\\s+/g, ' ').slice(0, 80) + "'"
+                        }});
+                    }}
+                }}
+
+                // 3. Entity / Team Verification Gate
+                const entityText = targetSel.replace(/[+-]?\\d+(\\.\\d+)?/g, "").replace(/[()]/g, "").trim();
+                const entityWords = entityText.split(/\\s+/).filter(w => w.length > 1);
+                const lastName = entityWords.length > 0 ? entityWords[entityWords.length - 1] : "";
+                if (lastName && !cardText.includes(lastName.toLowerCase())) {{
+                    if (!targetNorm.startsWith("over") && !targetNorm.startsWith("under") && targetNorm !== "draw") {{
+                        try {{
+                            const resetBtn = document.querySelector("[data-testid='reset-betslip']");
+                            if (resetBtn) resetBtn.click();
+                            const rm = verifyBetCard.querySelector("[data-testid='betslip-bet-remove']");
+                            if (rm) rm.click();
+                        }} catch(e) {{}}
+                        return JSON.stringify({{
+                            status: "verification_failed",
+                            error: "Szelvény verifikációs hiba: A csapatnév ('" + lastName + "') nem egyezik a betslipben! Betslip tartalom: '" + verifyBetCard.innerText.replace(/\\s+/g, ' ').slice(0, 80) + "'"
+                        }});
+                    }}
+                }}
+            }}
+
             let input = document.querySelector("[data-testid='input-bet-amount']");
             if (!input) {{
                 input = document.querySelector(".betslip input[type='number'], .betslip input[type='text'], input[placeholder='0.00000000'], input[placeholder='0.00']");
@@ -1842,12 +1988,16 @@ def stage_betslip_in_safari(
 
     staked = False
     payout_val = None
+    verification_err = None
     for j in range(15):
         time.sleep(0.2)
         out = _eval_safari_js(set_stake_js, activate=True, timeout=5)
         if out and out != "NOT_FOUND":
             try:
                 res_stake = json.loads(out)
+                if res_stake.get("status") == "verification_failed":
+                    verification_err = res_stake.get("error", "Szelvény verifikációs hiba: A betslip tartalma nem egyezik az ajánlással.")
+                    break
                 if res_stake.get("status") == "ok":
                     staked = True
                     payout_val = res_stake.get("payout")
@@ -1855,6 +2005,18 @@ def stage_betslip_in_safari(
                         break
             except Exception:
                 pass
+
+    if verification_err:
+        if auto_close_on_fail:
+            _close_tab()
+        return {
+            "status": "error",
+            "placed": False,
+            "verification_failed": True,
+            "message": verification_err,
+            "closed": bool(auto_close_on_fail),
+            "event_url": clean_url,
+        }
 
     actual_place_delay = None
     if staked:

@@ -929,9 +929,9 @@ def test_resolve_stake_market_tab_derivatives():
     assert resolve_stake_market_tab("UCL", "away_total", "Arsenal Total", [{"name": "goals"}]) == "Goals"
     # Tennis total sets
     assert resolve_stake_market_tab("ATP", "total_sets", "Total Sets", [{"name": "sets"}]) == "Sets"
-    # NBA Asian lines
-    assert resolve_stake_market_tab("NBA", "half_1:totals", "1st Half - Asian Total", [{"name": "half"}]) == "Asian Lines"
-    assert resolve_stake_market_tab("NBA", "half_1:spreads", "1st Half - Asian Handicap", [{"name": "half"}]) == "Asian Lines"
+    # NBA half Asian markets (routed to 'Half' tab on Stake, NOT nonexistent 'Asian Lines')
+    assert resolve_stake_market_tab("NBA", "half_1:totals", "1st Half - Asian Total", [{"name": "half"}]) == "Half"
+    assert resolve_stake_market_tab("NBA", "half_1:spreads", "1st Half - Asian Handicap", [{"name": "half"}]) == "Half"
     # NBA quarter team totals & 3-way
     assert resolve_stake_market_tab("NBA", "quarter_1:away_total", "1st Quarter - Atlanta Hawks total", [{"name": "quarters"}]) == "Quarters"
     assert resolve_stake_market_tab("NBA", "quarter_1:three_way", "1st Quarter - 1x2", [{"name": "quarters"}]) == "Quarters"
@@ -991,6 +991,154 @@ def test_stage_betslip_js_contains_odds_scoring_and_betslip_reset(monkeypatch):
     assert "reset-betslip" in combined
     assert "betslip-bet-remove" in combined
     assert "remainingBets" in combined
+
+
+def test_resolve_stake_market_tab_nba_half_and_nfl_totals():
+    from betting_engine.stake_account import resolve_stake_market_tab
+
+    # NBA 1st Half Asian Handicap must resolve to 'Half', never 'Asian Lines'
+    t1 = resolve_stake_market_tab(
+        league="NBA",
+        market="half_1:spreads",
+        market_name="1st Half - Asian Handicap",
+        groups=[{"name": "half"}],
+        event_url="https://stake.com/sports/basketball/usa/nba/46992411-charlotte-hornets-miami-heat"
+    )
+    assert t1 == "Half"
+
+    # NBA 1st Half Asian Total must resolve to 'Half', never 'Asian Lines'
+    t2 = resolve_stake_market_tab(
+        league="NBA",
+        market="half_1:totals",
+        market_name="1st Half - Asian Total",
+        groups=[{"name": "half"}],
+        event_url="https://stake.com/sports/basketball/usa/nba/46992411-charlotte-hornets-miami-heat"
+    )
+    assert t2 == "Half"
+
+    # NBA Quarter market resolves to 'Quarters'
+    t3 = resolve_stake_market_tab(
+        league="NBA",
+        market="quarter_1:spreads",
+        market_name="1st Quarter - Handicap",
+        groups=[{"name": "quarters"}],
+        event_url="https://stake.com/sports/basketball/usa/nba/46992411-charlotte-hornets-miami-heat"
+    )
+    assert t3 == "Quarters"
+
+    # NFL Total must resolve to 'Total', NEVER 'Goals'
+    t4 = resolve_stake_market_tab(
+        league="NFL",
+        market="totals",
+        market_name="Total (Incl. Overtime)",
+        groups=[{"name": "total"}],
+        event_url="https://stake.com/sports/american-football/usa/nfl/46992412-panthers-broncos"
+    )
+    assert t4 == "Total"
+
+    # NCAAF Total must resolve to 'Total', NEVER 'Goals'
+    t5 = resolve_stake_market_tab(
+        league="NCAAF",
+        market="totals",
+        market_name="Total (Incl. Overtime)",
+        groups=[{"name": "total"}],
+        event_url="https://stake.com/sports/american-football/usa/ncaaf/46992413-army-navy"
+    )
+    assert t5 == "Total"
+
+
+def test_stage_betslip_verification_gate_rejects_full_game_slip_for_half_bet(monkeypatch):
+    import subprocess
+    from betting_engine.stake_account import stage_betslip_in_safari
+
+    call_idx = 0
+    def mock_run(cmd, *args, **kwargs):
+        nonlocal call_idx
+        call_idx += 1
+        class Res:
+            stderr = ""
+        r = Res()
+        if call_idx == 1:
+            r.stdout = "ALREADY_OPEN"
+        elif call_idx == 2:
+            r.stdout = json.dumps({"ready": True, "hasTarget": True, "tabActive": True, "outcomesCount": 8})
+        elif call_idx == 3:
+            r.stdout = json.dumps({"status": "clicked", "selection": "Charlotte Hornets (+3.5)", "current_odds": 1.90})
+        elif call_idx == 4:
+            # Simulate betslip holding full-game Handicap (Incl. Overtime) instead of 1st Half
+            r.stdout = json.dumps({
+                "status": "verification_failed",
+                "error": "Szelvény verifikációs hiba: A betslipben szereplő piac nem a kért időszakra (1st half) vonatkozik! Betslip tartalom: 'Charlotte Hornets - Miami Heat Handicap (Incl. Overtime) Charlotte Hornets (3.5)'"
+            })
+        else:
+            r.stdout = ""
+        return r
+
+    monkeypatch.setattr(subprocess, "run", mock_run)
+    res = stage_betslip_in_safari(
+        event_url="https://stake.com/sports/basketball/usa/nba/46992411-charlotte-hornets-miami-heat",
+        selection="Charlotte Hornets +3.5",
+        stake=1.50,
+        odds=1.90,
+        line=3.5,
+        league="NBA",
+        market="half_1:spreads",
+        market_name="1st Half - Asian Handicap",
+        auto_place=True,
+    )
+    assert res["status"] == "error"
+    assert res["placed"] is False
+    assert res.get("verification_failed") is True
+    assert "Szelvény verifikációs hiba" in res["message"]
+
+
+def test_stage_betslip_verification_gate_passes_matching_half_bet(monkeypatch):
+    import subprocess
+    from betting_engine.stake_account import stage_betslip_in_safari
+
+    call_idx = 0
+    def mock_run(cmd, *args, **kwargs):
+        nonlocal call_idx
+        call_idx += 1
+        class Res:
+            stderr = ""
+        r = Res()
+        if call_idx == 1:
+            r.stdout = "ALREADY_OPEN"
+        elif call_idx == 2:
+            r.stdout = json.dumps({"ready": True, "hasTarget": True, "tabActive": True, "outcomesCount": 8})
+        elif call_idx == 3:
+            r.stdout = json.dumps({"status": "clicked", "selection": "Charlotte Hornets (+3.5)", "current_odds": 1.90})
+        elif call_idx == 4:
+            # Simulate matching verification and success
+            r.stdout = json.dumps({"status": "ok", "stake": "1.50", "payout": "2.85000000"})
+        elif call_idx == 5:
+            # click_place_js
+            r.stdout = json.dumps({"status": "clicked", "button": "betSlip-place-bets-button"})
+        elif call_idx == 6:
+            # check_success_js
+            r.stdout = json.dumps({"state": "success"})
+        elif call_idx == 7:
+            r.stdout = "CLOSED"
+        else:
+            r.stdout = ""
+        return r
+
+    monkeypatch.setattr(subprocess, "run", mock_run)
+    res = stage_betslip_in_safari(
+        event_url="https://stake.com/sports/basketball/usa/nba/46992411-charlotte-hornets-miami-heat",
+        selection="Charlotte Hornets +3.5",
+        stake=1.50,
+        odds=1.90,
+        line=3.5,
+        league="NBA",
+        market="half_1:spreads",
+        market_name="1st Half - Asian Handicap",
+        auto_place=True,
+    )
+    assert res["status"] == "ok"
+    assert res["placed"] is True
+
 
 
 
