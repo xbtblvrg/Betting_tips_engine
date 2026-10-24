@@ -597,37 +597,41 @@ def resolve_stake_market_tab(
             return "Sets"
         if any(s in m or s in mn for s in ("spreads", "totals", "games", "game_handicap", "total_games")) or "games" in grp_names:
             return "Games"
-        return "Main"
+        return "Popular"
 
     if is_basketball:
         if any(h in m or h in mn for h in ("half", "halftime")) or any(g in ("half", "halves", "1st2ndhalfmarkets") for g in grp_names):
             return "Half"
         if any(q in m or q in mn for q in ("quarter", "period_1", "period_2", "period_3", "period_4")) or "quarters" in grp_names:
             return "Quarters"
-        if any(t in m for t in ("home_total", "away_total", "team_total")):
-            return "Team/Match"
-        if m == "spreads" or "handicap" in mn or "handicap" in grp_names:
-            return "Handicap"
-        if m == "totals" or "total" in mn or "total" in grp_names or "totals" in grp_names:
-            return "Total"
+        if "main" in grp_names:
+            return "Popular"
         if "points" in grp_names:
             return "Points"
-        return "Main"
+        if "teamandmatchprops" in grp_names:
+            return "Team/Match"
+        if any(t in m for t in ("home_total", "away_total", "team_total")):
+            return "Popular"
+        return "Popular"
 
     if is_football:
         if any(h in m or h in mn for h in ("half", "halftime")) or any(g in ("half", "halves", "1st2ndhalfmarkets") for g in grp_names):
             return "Half"
         if any(q in m or q in mn for q in ("quarter", "period_1", "period_2", "period_3", "period_4")) or "quarters" in grp_names:
             return "Quarters"
-        if any(t in m for t in ("home_total", "away_total", "team_total")):
-            return "Team/Match"
-        if m == "spreads" or "handicap" in mn or "handicap" in grp_names:
-            return "Handicap"
-        if m == "totals" or "total" in mn or "total" in grp_names or "totals" in grp_names:
+        if "total" in grp_names and not any(g in ("half", "quarters") for g in grp_names):
             return "Total"
+        if "handicap" in grp_names and not any(g in ("half", "quarters") for g in grp_names):
+            return "Handicap"
+        if "main" in grp_names:
+            return "Popular"
         if "points" in grp_names:
             return "Points"
-        return "Main"
+        if "teamandmatchprops" in grp_names:
+            return "Team/Match"
+        if any(t in m for t in ("home_total", "away_total", "team_total")):
+            return "Popular"
+        return "Popular"
 
     if is_soccer:
         if any(h in m or h in mn for h in ("half_1", "half_2", "half", "halftime")) or any(g in ("1st2ndhalfmarkets", "half", "halves") for g in grp_names):
@@ -640,7 +644,7 @@ def resolve_stake_market_tab(
             return "Cards and Corners"
         if m == "spreads" or "handicap" in mn or "handicap" in grp_names:
             return "Handicap"
-        return "Main"
+        return "Popular"
 
     if is_baseball:
         if any(x in m or x in mn for x in ("innings_1_5", "first_five", "first_5", "innings 1 to 5")) or "innings 1 to 5" in grp_names:
@@ -655,7 +659,7 @@ def resolve_stake_market_tab(
             return "Total"
         if any(x in grp_names for x in ("three way", "three_way", "1x2")):
             return "Three Way"
-        return "Main"
+        return "Popular"
 
     if is_ice_hockey:
         if any(p in m or p in mn for p in ("period_1", "period_2", "period_3", "periods")) or "periods" in grp_names:
@@ -664,7 +668,7 @@ def resolve_stake_market_tab(
             return "Goals"
         if m == "spreads" or "handicap" in mn or "handicap" in grp_names:
             return "Handicap"
-        return "Main"
+        return "Popular"
 
     if any(p in m or p in mn for p in ("period_1", "period_2", "period_3", "period_4", "periods")) or "periods" in grp_names:
         return "Periods"
@@ -674,7 +678,7 @@ def resolve_stake_market_tab(
         return "Goals"
     if "player props" in grp_names:
         return "Player Props"
-    return "Main"
+    return "Popular"
 
 
 def stage_betslip_in_safari(
@@ -1075,8 +1079,10 @@ def stage_betslip_in_safari(
             "all bets": ["tab-all", "all", "all bets"],
             "sets": ["tab-sets", "sets"],
             "games": ["tab-games", "games"],
-            "handicap": ["tab-handicap", "handicap", "spreads"],
-            "total": ["tab-total", "total", "totals"],
+            "handicap": ["tab-popular", "tab-main", "tab-handicap", "popular", "main", "handicap", "spreads"],
+            "spreads": ["tab-popular", "tab-main", "tab-handicap", "popular", "main", "handicap", "spreads"],
+            "total": ["tab-popular", "tab-main", "tab-total", "popular", "main", "total", "totals"],
+            "totals": ["tab-popular", "tab-main", "tab-total", "popular", "main", "total", "totals"],
             "cards and corners": ["tab-cardscorners", "cards and corners", "cards & corners"]
         };
 
@@ -1558,19 +1564,10 @@ def stage_betslip_in_safari(
                     }}
                 }}
 
-                // If not found after initial attempts, try candidate tabs for sport
-                if (!match && iterIndex >= 8) {{
-                    const candidateTabs = isTennis
-                        ? ["Sets", "Games", "Popular", "All"]
-                        : isBasketball
-                        ? ["Half", "Quarters", "Points", "Team/Match", "Popular", "All"]
-                        : isSoccer
-                        ? ["Half", "Goals", "Asian Lines", "Cards and Corners", "Popular", "All"]
-                        : isBaseball
-                        ? ["Innings 1 to 5", "Innings", "Runs", "Handicap", "Popular", "All"]
-                        : ["Periods", "Goals", "Handicap", "Popular", "All"];
-                    const altTab = candidateTabs[Math.floor((iterIndex - 8) / 4) % candidateTabs.length];
-                    const altBtn = findTabButton(altTab);
+                // If not found after giving targetTab plenty of time to mount (>= 25 polls ~4.5s), try fallback to All or Popular
+                if (!match && iterIndex >= 25) {{
+                    const fallbackTab = (targetTab && targetTab.toLowerCase() === "all") ? "Popular" : "All";
+                    const altBtn = findTabButton(fallbackTab);
                     if (altBtn && !isTabActive(altBtn)) {{
                         selectTab(altBtn);
                     }}
@@ -1776,27 +1773,15 @@ def stage_betslip_in_safari(
                 match = findOutcomeMatch(buttons);
             }}
 
-            // Fallback tab navigation if not found
+            // Fallback to 'All' or 'Popular' tab if not found on targetTab
             if (!match) {{
-                const fallbackTabs = isTennis
-                    ? ["Sets", "Games", "Popular", "All"]
-                    : isBasketball
-                    ? ["Half", "Quarters", "Points", "Team/Match", "Popular", "All"]
-                    : isFootball
-                    ? ["Half", "Quarters", "Handicap", "Total", "Points", "Team/Match", "Popular", "All"]
-                    : isBaseball
-                    ? ["Innings 1 to 5", "Innings", "Runs", "Handicap", "Popular", "All"]
-                    : ["Half", "Goals", "Asian Lines", "Cards and Corners", "Popular", "All"];
-                for (const fTab of fallbackTabs) {{
-                    if (targetTab && targetTab.toLowerCase() === fTab.toLowerCase()) continue;
-                    const fBtn = findTabButton(fTab);
-                    if (fBtn && !isTabActive(fBtn)) {{
-                        selectTab(fBtn);
-                        expandAllAccordions();
-                        buttons = getOutcomeButtons();
-                        match = findOutcomeMatch(buttons);
-                        if (match) break;
-                    }}
+                const fallbackTab = (targetTab && targetTab.toLowerCase() === "all") ? "Popular" : "All";
+                const fBtn = findTabButton(fallbackTab);
+                if (fBtn && !isTabActive(fBtn)) {{
+                    selectTab(fBtn);
+                    expandAllAccordions();
+                    buttons = getOutcomeButtons();
+                    match = findOutcomeMatch(buttons);
                 }}
             }}
 
