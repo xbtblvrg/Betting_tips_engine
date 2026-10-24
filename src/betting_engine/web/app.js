@@ -1028,17 +1028,34 @@ function updateAutoBetPanel() {
             <div style="background:#fff;border:1px solid #fde68a;border-radius:4px;padding:6px 10px;font-size:11px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
               <div style="flex:1;min-width:0;">
                 <strong style="color:#0f172a;">${esc(s.tip.away)} @ ${esc(s.tip.home)}</strong> (${esc(s.tip.league)}) — 
-                <span style="color:#0f766e;font-weight:600;">${esc(s.tip.selection)}</span> ($${num(instructionStake(s.tip))}): 
+                <span style="color:#475569;font-weight:600;">[${esc(s.tip.period || 'Full Game')} · ${esc((s.tip.stake_evidence && s.tip.stake_evidence.market_name) || s.tip.market_name || s.tip.market || 'Piac')}]</span>
+                <span style="color:#0f766e;font-weight:700;margin-left:4px;">${esc(s.tip.selection)}</span> ($${num(instructionStake(s.tip))}): 
                 <span style="color:#b91c1c;margin-left:4px;">${esc(s.reason)}</span>
               </div>
               <div style="display:flex;gap:6px;flex-shrink:0;">
                 <a href="${esc(url)}" target="_blank" rel="noopener noreferrer" class="button primary" style="padding:4px 8px;font-size:11px;background:#0f766e;border-color:#0f766e;color:#fff;text-decoration:none;">🔍 Megnyitás Stake-en ↗</a>
+                <button type="button" class="button ghost mark-skipped-placed-btn" data-tip-id="${esc(s.tip.id)}" style="padding:4px 8px;font-size:11px;color:#166534;border-color:#86efac;background:#f0fdf4;">✓ Kész</button>
               </div>
             </div>
           `;
         }).join('')}
       </div>
     `;
+    const markPlacedBtns = skippedBox.querySelectorAll('.mark-skipped-placed-btn');
+    markPlacedBtns.forEach(btn => {
+      btn.onclick = async (e) => {
+        e.preventDefault();
+        const tipId = btn.getAttribute('data-tip-id');
+        if (!tipId) return;
+        markTipBetDone(tipId);
+        updateTipBetDoneUI(tipId, 'done');
+        await setPlacement(tipId, true, { silent: true });
+        skippedAutoBetTips.delete(tipId);
+        updateAutoBetPanel();
+        renderTips();
+        toast('✓ Szelvény manuálisan késznek jelölve.');
+      };
+    });
     const clearBtn = $('#clear-skipped-bets-btn');
     if (clearBtn) {
       clearBtn.onclick = async (e) => {
