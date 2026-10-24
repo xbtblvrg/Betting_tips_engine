@@ -86,10 +86,10 @@ def normalize_segment_key(segment_key: str) -> str:
 class TournamentEngine:
     """Orchestrates multi-model tournaments across market segments."""
 
-    def __init__(self, data_dir: Path = DATA, db_path: Path = INCUBATOR_DB):
-        self.data_dir = data_dir
-        self.registry_file = data_dir / 'research' / 'tournament_registry.json'
-        self.db_path = db_path
+    def __init__(self, data_dir: Path = DATA, db_path: Optional[Path] = None):
+        self.data_dir = Path(data_dir or DATA)
+        self.registry_file = self.data_dir / 'research' / 'tournament_registry.json'
+        self.db_path = Path(db_path or (self.data_dir / 'shadow_incubator.sqlite3'))
         self._runtime_classes: Dict[str, type] = {}
         self._ensure_tables()
 
@@ -290,6 +290,10 @@ class TournamentEngine:
                 return f"{lg}|{sc}|{scoped_fam}", tourneys[f"{lg}|{sc}|{scoped_fam}"]
             if f"{lg}|{sc}|{base_fam}" in tourneys:
                 return f"{lg}|{sc}|{base_fam}", tourneys[f"{lg}|{sc}|{base_fam}"]
+            if f"{lg}|full_game|{scoped_fam}" in tourneys:
+                return f"{lg}|full_game|{scoped_fam}", tourneys[f"{lg}|full_game|{scoped_fam}"]
+            if f"{lg}|full_game|{base_fam}" in tourneys:
+                return f"{lg}|full_game|{base_fam}", tourneys[f"{lg}|full_game|{base_fam}"]
         return None, None
 
     def get_model_by_id(self, model_id: str) -> Optional[BaseCandidateModel]:

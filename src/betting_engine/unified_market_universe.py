@@ -101,9 +101,10 @@ class UnifiedMarketUniverse:
                     FROM graduated_markets
                 """).fetchall()
 
+                grad_keys_set = set()
                 for r in grad_rows:
                     seg_key, lg, sc, fam, sub_fam, n, roi, dbrier, stats_raw = r
-                    roster[seg_key] = UnifiedMarketProfile(
+                    prof = UnifiedMarketProfile(
                         segment_key=seg_key,
                         league=lg,
                         scope=sc,
@@ -120,6 +121,12 @@ class UnifiedMarketUniverse:
                         delta_brier=float(dbrier or 0.0),
                         phase_detail="Active production funded trading"
                     )
+                    roster[seg_key] = prof
+                    grad_keys_set.add(seg_key)
+                    if sub_fam and sub_fam != fam:
+                        sub_k = f"{lg}|{sc}|{fam}:{sub_fam}"
+                        roster[sub_k] = prof
+                        grad_keys_set.add(sub_k)
 
                 # 2. Ingest Demoted Markets (Tier 1 & Tier 2)
                 dem_rows = inc_conn.execute("""
@@ -132,6 +139,13 @@ class UnifiedMarketUniverse:
                 for r in dem_rows:
                     (seg_key, lg, sc, fam, sub_fam, r_roi, r_pnl, games,
                      phase, model_id, arch, h_roi, h_brier) = r
+
+                    canonical_k = self.get_canonical_key(lg, sc, fam)
+                    sub_k = f"{lg}|{sc}|{fam}:{sub_fam}" if (sub_fam and sub_fam != fam) else canonical_k
+
+                    # Constitutional Protection: Never demote an already-graduated market due to stale demoted_markets rows
+                    if seg_key in grad_keys_set or canonical_k in grad_keys_set or sub_k in grad_keys_set:
+                        continue
 
                     if phase == 'incubating_with_new_model':
                         tier = int(MarketTier.SHADOW_INCUBATOR)
