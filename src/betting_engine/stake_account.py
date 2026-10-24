@@ -608,7 +608,26 @@ def resolve_stake_market_tab(
             return "Goals"
         return "Popular"
 
-    if is_basketball or is_football:
+    if is_football:
+        if any(h in m or h in mn for h in ("half", "halftime")) or any(g in ("half", "halves", "1st2ndhalfmarkets") for g in grp_names):
+            return "Half"
+        if any(q in m or q in mn for q in ("quarter", "quarters", "period_1", "period_2", "period_3", "period_4")) or "quarters" in grp_names:
+            return "Quarters"
+        if "total" in grp_names and not any(g in ("half", "quarters") for g in grp_names):
+            return "Total"
+        if "handicap" in grp_names and not any(g in ("half", "quarters") for g in grp_names):
+            return "Handicap"
+        if "main" in grp_names:
+            return "Popular"
+        if "points" in grp_names:
+            return "Points"
+        if "teamandmatchprops" in grp_names:
+            return "Team/Match"
+        if any(t in m for t in ("home_total", "away_total", "team_total")):
+            return "Popular"
+        return "Popular"
+
+    if is_basketball:
         if any(h in m or h in mn for h in ("half", "halftime")) or any(g in ("half", "halves", "1st2ndhalfmarkets") for g in grp_names):
             return "Half"
         if any(q in m or q in mn for q in ("quarter", "quarters", "period_1", "period_2", "period_3", "period_4")) or "quarters" in grp_names:

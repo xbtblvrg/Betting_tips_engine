@@ -89,13 +89,6 @@ function inferStakeTab(t){
  if(grpNames.includes('asianlines')||m.includes('asian')||mn.includes('asian'))return 'Asian Lines';
  return 'Popular';
 }
- if(['MLS','EPL','UCL'].includes(lg)){
-  if(m.includes('half')||mn.includes('half'))return 'Half';
-  if(m.includes('totals')||m.includes('both_score')||mn.includes('goals'))return 'Goals';
-  return 'Popular';
- }
- return 'Popular';
-}
 function betInstructions(t){
  const kind=t.market.split(':').at(-1),scope=t.model_scope||'full_game';
  const market=t.market_display||marketName[t.market],mapping=t.stake_market||{},navigation=stakeNavigation(t),terms=view==='tips'&&pendingInstruction(t)?(t.current_assessment||t):t;

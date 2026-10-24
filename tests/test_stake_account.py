@@ -1210,6 +1210,67 @@ def test_stage_betslip_auto_extracts_line_from_selection(monkeypatch):
     assert any('"120.5"' in js for js in captured_js)
 
 
+def test_resolve_stake_market_tab_all_sports():
+    """Verify multi-sport tab resolution across all major sports and market families."""
+    from betting_engine.stake_account import resolve_stake_market_tab
+
+    cases = [
+        # Ice Hockey (NHL)
+        ("NHL", None, "2nd Period - Total", "Periods"),
+        ("NHL", "period_2:totals", "2nd Period - Total", "Periods"),
+        ("NHL", "period_1:three_way", "1st Period - 1x2", "Periods"),
+        ("NHL", "totals", "Total (Incl. Overtime)", "Popular"),
+        ("NHL", "spreads", "Handicap (Puck Line)", "Popular"),
+        ("NHL", "moneyline", "Winner (Incl. Overtime)", "Popular"),
+        ("NHL", "both_score", "Both Teams to Score", "Goals"),
+
+        # Tennis (ATP / WTA)
+        ("ATP", "period_1:moneyline", "1st Set - Winner", "Sets"),
+        ("WTA", "period_1:totals", "1st Set - Total Games", "Sets"),
+        ("ATP", "total_sets", "Total Sets", "Sets"),
+        ("ATP", "totals", "Total Games", "Games"),
+        ("WTA", "spreads", "Game Handicap", "Games"),
+        ("ATP", "moneyline", "Winner", "Popular"),
+
+        # Basketball (NBA / WNBA / NCAAB)
+        ("NBA", "half_1:spreads", "1st Half - Asian Handicap", "Half"),
+        ("NBA", "half_1:totals", "1st Half - Asian Total", "Half"),
+        ("NBA", "quarter_1:totals", "1st Quarter - Total", "Quarters"),
+        ("NBA", "quarter_2:three_way", "2nd Quarter - 1x2", "Quarters"),
+        ("NBA", "spreads", "Handicap (Incl. Overtime)", "Popular"),
+        ("NBA", "totals", "Total (Incl. Overtime)", "Popular"),
+        ("NBA", "home_total", "Cleveland Cavaliers Total (Incl. Overtime)", "Popular"),
+
+        # American Football (NFL / NCAAF)
+        ("NFL", "half_1:totals", "1st Half - Asian Total", "Half"),
+        ("NCAAF", "half_1:three_way", "1st Half - 1x2", "Half"),
+        ("NFL", "quarter_3:spreads", "3rd Quarter - Handicap", "Quarters"),
+        ("NFL", "quarter_1:totals", "1st Quarter - Total", "Quarters"),
+        ("NFL", "spreads", "Handicap (Incl. Overtime)", "Popular"),
+        ("NCAAF", "moneyline", "Winner (Incl. Overtime)", "Popular"),
+
+        # Soccer (MLS / EPL / UCL)
+        ("MLS", "half_1:spreads", "1st Half - Asian Handicap", "Half"),
+        ("MLS", "half_2:three_way", "2nd Half - 1x2", "Half"),
+        ("MLS", "spreads", "Asian Handicap", "Asian Lines"),
+        ("EPL", "totals", "Asian Total", "Asian Lines"),
+        ("MLS", "moneyline", "Draw No Bet", "Popular"),
+        ("EPL", "three_way", "1x2", "Popular"),
+        ("MLS", "both_score", "Both Teams to Score", "Goals"),
+
+        # Baseball (MLB)
+        ("MLB", "innings_1_5:spreads", "Innings 1 to 5 - Handicap", "Innings 1 to 5"),
+        ("MLB", "inning_1:totals", "1st Inning - Total", "Innings"),
+        ("MLB", "spreads", "Handicap (Incl. Extra Innings)", "Popular"),
+        ("MLB", "totals", "Total (Incl. Extra Innings)", "Popular"),
+    ]
+
+    for lg, m, mn, expected in cases:
+        actual = resolve_stake_market_tab(lg, m, mn)
+        assert actual == expected, f"Failed for {lg} | {m} | {mn}: got {actual}, expected {expected}"
+
+
+
 
 
 
