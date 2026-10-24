@@ -111,7 +111,7 @@ class HistoricalCandidateTrainer:
         base_fam = family.split(':', 1)[1] if ':' in family else family
         sub = sub_family or base_fam
 
-        conn = sqlite3.connect(str(self.db_path), timeout=30.0)
+        conn = sqlite3.connect(f"file:{self.db_path.resolve()}?mode=ro", uri=True, timeout=30.0)
         try:
             cur = conn.cursor()
             conditions = ["league = ?", "scope = ?", "status = 'settled'"]
@@ -158,7 +158,8 @@ class HistoricalCandidateTrainer:
         min_roi: float = 0.035,
         min_delta_brier: float = 0.000,
         max_drawdown_limit: float = 0.25,
-        train_split: float = 0.60
+        train_split: float = 0.60,
+        max_window_samples: int = 500,
     ) -> Optional[CandidateTrainingResult]:
         """Executes full chronological walk-forward training & out-of-sample Crucible validation."""
         parts = segment_key.split('|')
@@ -170,6 +171,10 @@ class HistoricalCandidateTrainer:
         wagers = self._fetch_settled_wagers(league, scope, family, sub_fam)
         if len(wagers) < min_samples:
             return None
+
+        # Focus walk-forward validation on modern regime (up to max_window_samples)
+        if len(wagers) > max_window_samples:
+            wagers = wagers[-max_window_samples:]
 
         # Chronological Split: 60% Train, 40% Holdout
         split_idx = max(5, int(len(wagers) * train_split))

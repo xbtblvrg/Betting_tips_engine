@@ -33,19 +33,37 @@ class DemotedMarketIncubationBridge:
         self.db_path = db_path or (data_dir / 'shadow_incubator.sqlite3')
         self.trainer = HistoricalCandidateTrainer(db_path=self.db_path)
         self.tournament_engine = TournamentEngine(data_dir=data_dir, db_path=self.db_path)
+        self._ensure_schema()
+
+    def _ensure_schema(self) -> None:
+        """Ensures last_screened_at column exists for fair round-robin scheduling."""
+        if not self.db_path.exists():
+            return
+        try:
+            with sqlite3.connect(str(self.db_path), timeout=10.0) as conn:
+                conn.execute("ALTER TABLE demoted_markets ADD COLUMN last_screened_at TEXT")
+        except (sqlite3.OperationalError, sqlite3.DatabaseError):
+            pass
 
     def synchronize_demoted_markets(self, max_train_per_run: int = 3) -> Dict[str, Any]:
         """Scans demoted markets, trains candidate models on historical data, and admits them into the incubator."""
         if not self.db_path.exists():
             return {'status': 'no_db', 'newly_admitted_count': 0}
 
-        conn = sqlite3.connect(str(self.db_path), timeout=30.0)
+        try:
+            conn = sqlite3.connect(f"file:{self.db_path.resolve()}?mode=ro", uri=True, timeout=10.0)
+        except sqlite3.OperationalError:
+            conn = sqlite3.connect(str(self.db_path), timeout=10.0)
+
         try:
             cur = conn.cursor()
             cur.execute("""
                 SELECT id, segment_key, league, scope, family, sub_family, rolling_roi, rolling_pnl, games, incubation_phase, incubated_model_id
                 FROM demoted_markets
-                ORDER BY CASE WHEN incubation_phase = 'incubating_with_new_model' THEN 1 ELSE 0 END, id ASC
+                ORDER BY 
+                    CASE WHEN incubation_phase = 'incubating_with_new_model' THEN 1 ELSE 0 END,
+                    COALESCE(last_screened_at, '') ASC,
+                    id ASC
             """)
             all_demoted = cur.fetchall()
         finally:
@@ -70,6 +88,13 @@ class DemotedMarketIncubationBridge:
                 break
 
             attempted_this_run += 1
+            now_iso = datetime.now(timezone.utc).isoformat()
+            try:
+                with sqlite3.connect(str(self.db_path), timeout=10.0, isolation_level=None) as update_conn:
+                    update_conn.execute("UPDATE demoted_markets SET last_screened_at = ? WHERE id = ?", (now_iso, d_id))
+            except Exception as e:
+                log.debug("Could not record last_screened_at for %s: %s", seg_key, e)
+
             # Run historical training & out-of-sample Crucible validation
             champ_res = self.trainer.train_and_screen_demoted_market(seg_key)
             if not champ_res or not champ_res.is_qualified:
@@ -155,9 +180,8 @@ class DemotedMarketIncubationBridge:
         import time
         for attempt in range(5):
             try:
-                conn = sqlite3.connect(str(self.db_path), timeout=60.0)
-                try:
-                    conn.execute("PRAGMA busy_timeout = 60000")
+                with sqlite3.connect(str(self.db_path), timeout=20.0, isolation_level=None) as conn:
+                    conn.execute("PRAGMA busy_timeout = 20000")
                     conn.execute("""
                         UPDATE demoted_markets
                         SET incubated_model_id = ?,
@@ -180,10 +204,7 @@ class DemotedMarketIncubationBridge:
                         seg_key,
                         d_id or seg_key,
                     ))
-                    conn.commit()
                     break
-                finally:
-                    conn.close()
             except sqlite3.OperationalError as e:
                 if "locked" in str(e) and attempt < 4:
                     time.sleep(0.5 * (attempt + 1))
