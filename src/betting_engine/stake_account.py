@@ -1802,6 +1802,8 @@ def stage_betslip_in_safari(
                         if (mLower.includes(ctx)) {{
                             if (lastName && !ctx.includes(lastName.toLowerCase())) return false;
                             if (periodPrefix && !ctx.includes(periodPrefix.toLowerCase())) return false;
+                            const diffWords = mLower.replace(ctx, "").replace(/total|overtime|incl|\\(|\\)/g, "").split(/\\s+/).filter(w => w.length > 2);
+                            if (diffWords.length > 0 && !diffWords.some(w => ctx.includes(w))) return false;
                             return true;
                         }}
                         return false;
@@ -1931,7 +1933,7 @@ def stage_betslip_in_safari(
             if (verifyBetCard) {{
                 const cardText = (verifyBetCard.innerText || "").toLowerCase().trim();
                 // If betslip card element exists but its text nodes are still mounting/hydrating, wait for next tick!
-                if (cardText.length < 5) {{
+                if (cardText.replace(/\\s+/g, "").length < 4) {{
                     return JSON.stringify({{ status: "waiting_card_text" }});
                 }}
 
