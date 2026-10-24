@@ -876,6 +876,14 @@ def stage_betslip_in_safari(
     # Build line variants for robust matching
     line_variants = []
     is_neg_line = False
+    if line is None and selection:
+        import re
+        m_line = re.search(r'([+-]?\d+(?:\.\d+)?)', selection)
+        if m_line:
+            try:
+                line = float(m_line.group(1))
+            except ValueError:
+                pass
     if line is not None:
         try:
             l_val = float(line)
@@ -1061,7 +1069,8 @@ def stage_betslip_in_safari(
             "quarters": ["tab-quarters", "tab-quarter", "quarters", "quarter"],
             "quarter": ["tab-quarters", "tab-quarter", "quarters", "quarter"],
             "points": ["tab-points", "points"],
-            "team/match": ["tab-teamandmatchprops", "team/match", "team & match", "tab-team-match"],
+            "team/match": ["tab-teamandmatchprops", "team/match", "team & match", "tab-team-match", "tab-team", "team"],
+            "team": ["tab-teamandmatchprops", "tab-team", "team", "team/match", "team & match"],
             "all": ["tab-all", "all", "all bets"],
             "all bets": ["tab-all", "all", "all bets"],
             "sets": ["tab-sets", "sets"],
@@ -1070,6 +1079,65 @@ def stage_betslip_in_safari(
             "total": ["tab-total", "total", "totals"],
             "cards and corners": ["tab-cardscorners", "cards and corners", "cards & corners"]
         };
+
+        function selectTab(tabBtn) {
+            if (!tabBtn) return false;
+            if (isTabActive(tabBtn)) return true;
+
+            // 1. Scroll container so button is in view
+            const scrollContainer = tabBtn.closest(".overflow-x-auto, [class*='scrollX'], [class*='tabs']");
+            if (scrollContainer) {
+                try {
+                    scrollContainer.scrollLeft = tabBtn.offsetLeft - 60;
+                } catch(e) {}
+            }
+            try {
+                tabBtn.scrollIntoView({ behavior: "instant", block: "nearest", inline: "center" });
+            } catch(e) {}
+
+            // 2. If tab is still out of view bounds, click Previous or Next arrow
+            try {
+                const rect = tabBtn.getBoundingClientRect();
+                if (rect.left < 300) {
+                    const prev = document.querySelector("button[aria-label='Previous'], button[data-testid='scroll-left']");
+                    if (prev && !prev.disabled) prev.click();
+                } else if (rect.right > 770) {
+                    const next = document.querySelector("button[aria-label='Next'], button[data-testid='scroll-right']");
+                    if (next && !next.disabled) next.click();
+                }
+            } catch(e) {}
+
+            // 3. Dispatch full event sequence for Bits-UI / Svelte / React
+            try { tabBtn.focus(); } catch(e) {}
+            const opts = { bubbles: true, cancelable: true, view: window };
+            try {
+                const pDown = new PointerEvent("pointerdown", Object.assign({}, opts, { pointerId: 1, pointerType: "mouse", button: 0, buttons: 1 }));
+                tabBtn.dispatchEvent(pDown);
+            } catch(e) {}
+            try {
+                const mDown = new MouseEvent("mousedown", Object.assign({}, opts, { button: 0, buttons: 1 }));
+                tabBtn.dispatchEvent(mDown);
+            } catch(e) {}
+            try {
+                const pUp = new PointerEvent("pointerup", Object.assign({}, opts, { pointerId: 1, pointerType: "mouse", button: 0, buttons: 0 }));
+                tabBtn.dispatchEvent(pUp);
+            } catch(e) {}
+            try {
+                const mUp = new MouseEvent("mouseup", Object.assign({}, opts, { button: 0, buttons: 0 }));
+                tabBtn.dispatchEvent(mUp);
+            } catch(e) {}
+            try {
+                const clickEv = new MouseEvent("click", Object.assign({}, opts, { button: 0 }));
+                tabBtn.dispatchEvent(clickEv);
+            } catch(e) {}
+            try { tabBtn.click(); } catch(e) {}
+            try { tabBtn.dispatchEvent(new KeyboardEvent("keydown", Object.assign({}, opts, { key: "Enter", code: "Enter" }))); } catch(e) {}
+            try { tabBtn.dispatchEvent(new KeyboardEvent("keyup", Object.assign({}, opts, { key: "Enter", code: "Enter" }))); } catch(e) {}
+            try { tabBtn.dispatchEvent(new KeyboardEvent("keydown", Object.assign({}, opts, { key: " ", code: "Space" }))); } catch(e) {}
+            try { tabBtn.dispatchEvent(new KeyboardEvent("keyup", Object.assign({}, opts, { key: " ", code: "Space" }))); } catch(e) {}
+
+            return isTabActive(tabBtn);
+        }
 
         function findTabButton(tabName) {
             if (!tabName) return null;
@@ -1472,7 +1540,8 @@ def stage_betslip_in_safari(
                 if (tabBtn) {{
                     tabActive = isTabActive(tabBtn);
                     if (!tabActive) {{
-                        tabBtn.click();
+                        selectTab(tabBtn);
+                        tabActive = isTabActive(tabBtn);
                     }}
                 }}
 
@@ -1494,7 +1563,7 @@ def stage_betslip_in_safari(
                     const candidateTabs = isTennis
                         ? ["Sets", "Games", "Popular", "All"]
                         : isBasketball
-                        ? ["Half", "Quarters", "Asian Lines", "Points", "Team/Match", "Popular", "All"]
+                        ? ["Half", "Quarters", "Points", "Team/Match", "Popular", "All"]
                         : isSoccer
                         ? ["Half", "Goals", "Asian Lines", "Cards and Corners", "Popular", "All"]
                         : isBaseball
@@ -1503,7 +1572,7 @@ def stage_betslip_in_safari(
                     const altTab = candidateTabs[Math.floor((iterIndex - 8) / 4) % candidateTabs.length];
                     const altBtn = findTabButton(altTab);
                     if (altBtn && !isTabActive(altBtn)) {{
-                        altBtn.click();
+                        selectTab(altBtn);
                     }}
                 }}
 
@@ -1694,7 +1763,7 @@ def stage_betslip_in_safari(
 
             let tabBtn = findTabButton(targetTab);
             if (tabBtn && !isTabActive(tabBtn)) {{
-                tabBtn.click();
+                selectTab(tabBtn);
             }}
 
             expandAccordions(marketName, periodPrefix);
@@ -1712,7 +1781,7 @@ def stage_betslip_in_safari(
                 const fallbackTabs = isTennis
                     ? ["Sets", "Games", "Popular", "All"]
                     : isBasketball
-                    ? ["Half", "Quarters", "Handicap", "Total", "Points", "Team/Match", "Popular", "All"]
+                    ? ["Half", "Quarters", "Points", "Team/Match", "Popular", "All"]
                     : isFootball
                     ? ["Half", "Quarters", "Handicap", "Total", "Points", "Team/Match", "Popular", "All"]
                     : isBaseball
@@ -1722,7 +1791,7 @@ def stage_betslip_in_safari(
                     if (targetTab && targetTab.toLowerCase() === fTab.toLowerCase()) continue;
                     const fBtn = findTabButton(fTab);
                     if (fBtn && !isTabActive(fBtn)) {{
-                        fBtn.click();
+                        selectTab(fBtn);
                         expandAllAccordions();
                         buttons = getOutcomeButtons();
                         match = findOutcomeMatch(buttons);
@@ -1738,7 +1807,14 @@ def stage_betslip_in_safari(
                     const mLower = marketName.toLowerCase().trim();
                     const sameMarketButtons = buttons.filter(b => {{
                         const ctx = getMarketContext(b);
-                        return ctx && (ctx.includes(mLower) || mLower.includes(ctx));
+                        if (!ctx) return false;
+                        if (ctx === mLower || ctx.includes(mLower)) return true;
+                        if (mLower.includes(ctx)) {{
+                            if (lastName && !ctx.includes(lastName.toLowerCase())) return false;
+                            if (periodPrefix && !ctx.includes(periodPrefix.toLowerCase())) return false;
+                            return true;
+                        }}
+                        return false;
                     }});
                     if (sameMarketButtons.length > 0) {{
                         const filterWord = (isOver || isUnder) ? (isOver ? "over" : "under") : (lastName ? lastName.toLowerCase() : null);

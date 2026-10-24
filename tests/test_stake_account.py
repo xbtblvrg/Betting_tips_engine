@@ -1140,6 +1140,54 @@ def test_stage_betslip_verification_gate_passes_matching_half_bet(monkeypatch):
     assert res["placed"] is True
 
 
+def test_stage_betslip_auto_extracts_line_from_selection(monkeypatch):
+    """Verify that when line is None, numeric line is auto-extracted from selection string."""
+    from betting_engine.stake_account import stage_betslip_in_safari
+    import subprocess
+    import json
+
+    captured_js = []
+    call_idx = 0
+
+    def mock_run(cmd, *args, **kwargs):
+        nonlocal call_idx
+        call_idx += 1
+        class Res:
+            stderr = ""
+        r = Res()
+        if len(cmd) > 3:
+            captured_js.append(cmd[3])
+        if call_idx == 1:
+            r.stdout = "ALREADY_OPEN"
+        elif call_idx == 2:
+            # Poll returns ready
+            r.stdout = json.dumps({"ready": True, "hasTarget": True, "tabActive": True, "outcomesCount": 6})
+        elif call_idx == 3:
+            r.stdout = json.dumps({"status": "clicked", "selection": "Under 120.5", "current_odds": 1.74})
+        elif call_idx == 4:
+            r.stdout = json.dumps({"status": "ok", "stake": "0.50", "payout": "0.87"})
+        else:
+            r.stdout = ""
+        return r
+
+    monkeypatch.setattr(subprocess, "run", mock_run)
+    res = stage_betslip_in_safari(
+        event_url="https://stake.com/sports/basketball/usa/nba/46992412-philadelphia-76ers-milwaukee-bucks",
+        selection="Under 120.5",
+        stake=0.50,
+        odds=1.74,
+        line=None,  # Intentionally omitted line
+        league="NBA",
+        market="home_total",
+        market_name="Philadelphia 76ers Total (Incl. Overtime)",
+        auto_place=False,
+    )
+    assert res["status"] == "ok"
+    # Ensure line variants were embedded in JS
+    assert any('"120.5"' in js for js in captured_js)
+
+
+
 
 
 
