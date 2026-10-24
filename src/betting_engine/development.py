@@ -1579,8 +1579,13 @@ class DevelopmentWorker:
             result.update(state='retry', error=str(exc)[:1200], failure_phase=self._failure_phase,
                 failure_class='provider_unavailable' if provider_wait else failure_class(str(exc), self._failure_phase))
             from .parallel_development import IntegrationConflict
-            delay = (max(30, self.config.get('queue_poll_seconds', 60)) if isinstance(exc, IntegrationConflict) or provider_wait
-                     else min(24 * 3600, 3600 * 2 ** min(row['attempts'] - 1, 5)))
+            configured_max = self.config.get('max_task_retry_backoff_seconds')
+            if configured_max is not None:
+                delay = (max(30, self.config.get('queue_poll_seconds', 60)) if isinstance(exc, IntegrationConflict) or provider_wait
+                         else min(configured_max, max(60, 60 * 2 ** min(row['attempts'] - 1, 4))))
+            else:
+                delay = (max(30, self.config.get('queue_poll_seconds', 60)) if isinstance(exc, IntegrationConflict) or provider_wait
+                         else min(24 * 3600, 3600 * 2 ** min(row['attempts'] - 1, 5)))
             row.update(state='retry', last_error=result['error'], next_attempt_at=(utcnow() + timedelta(seconds=delay)).isoformat())
         finally:
             # Preserve patches from unsuccessful and partial attempts as evidence.

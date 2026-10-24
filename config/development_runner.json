@@ -8,6 +8,7 @@
   "automatic_production_deployment": false,
   "enabled_at": "2026-09-29T14:26:10.023908+00:00",
   "queue_poll_seconds": 60,
+  "max_task_retry_backoff_seconds": 600,
   "max_parallel": 6,
   "scheduler_poll_seconds": 2,
   "engineering_poll_seconds": 60,

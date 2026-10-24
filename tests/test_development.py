@@ -263,3 +263,17 @@ def test_error_wakeup_reaches_real_intake_before_regular_poll(project, monkeypat
     worker.loop(once=True)
     assert observed == ['new controller failure']
     assert worker.state['tasks']['D1']['state'] == 'retry'
+
+
+def test_configured_max_task_retry_backoff_seconds_bounds_delay(project, monkeypatch):
+    from tests.test_audit_recovery import fake_process
+    from betting_engine.development import parse_time
+    root, plan = project
+    worker = DevelopmentWorker(root)
+    worker.config['max_task_retry_backoff_seconds'] = 300
+    worker.state['tasks']['D1'] = {'state': 'retry', 'attempts': 10}
+    monkeypatch.setattr(worker, 'run_process', fake_process(worker, review=False))
+    now = utcnow()
+    worker.attempt(plan['tasks'][0])
+    diff = (parse_time(worker.state['tasks']['D1']['next_attempt_at']) - now).total_seconds()
+    assert 0 < diff <= 305
