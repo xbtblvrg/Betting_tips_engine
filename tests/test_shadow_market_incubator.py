@@ -966,7 +966,8 @@ def test_candidate_models_receive_enriched_market_context(incubator):
     forecast = SimpleNamespace(
         home_points=3.85,
         away_points=2.65,
-        features={'home_rest': 2.0, 'away_rest': 0.0}
+        features={'home_rest': 2.0, 'away_rest': 0.0},
+        market_probability=lambda kind, side, line: (0.55, 0.0)
     )
 
     raw_markets = [{
@@ -995,6 +996,35 @@ def test_candidate_models_receive_enriched_market_context(incubator):
     assert len(c_wagers) > 0, "Candidate model should have generated incubated wagers"
     # Over 6.5 with mu = 3.85 + 2.65 = 6.50 should have a valid model probability
     assert c_wagers[0][1] > 0.0
+
+    # Test that incubate_high_probability_candidates also injects predicted points and context
+    c_cand = [{
+        'id': 'cand_101',
+        'game_id': 'NHL:999',
+        'league': 'NHL',
+        'market': 'totals',
+        'model_scope': 'full_game',
+        'market_family': 'totals',
+        'selection': 'Over 6.5',
+        'side': 'over',
+        'line': 6.5,
+        'reference_odds': 2.05,
+        'probability': 0.52,
+        'expected_roi': 0.015,
+        'predicted_home_points': 3.90,
+        'predicted_away_points': 2.70,
+        'description': 'Total Goals Over 6.5'
+    }]
+    incubator.incubate_high_probability_candidates(
+        candidates=c_cand,
+        game_map={'NHL:999': game}
+    )
+    conn = incubator._get_connection()
+    hp_wagers = conn.execute(
+        "SELECT model_id, model_prob, ev FROM incubated_wagers WHERE cohort = 'tournament_challenger' AND model_id = 'test_negbin_ctx'"
+    ).fetchall()
+    conn.close()
+    assert len(hp_wagers) >= 1
 
 
 
