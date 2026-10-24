@@ -37,38 +37,58 @@ function inferStakeTab(t){
  const groups=(t.stake_evidence&&t.stake_evidence.market_groups)||[];
  const grpNames=groups.map(g=>(g.name||'').toLowerCase());
 
- if(grpNames.includes('half')||grpNames.includes('1st2ndhalfmarkets')||m.includes('half')||mn.includes('half'))return 'Half';
- if(grpNames.includes('quarters')||m.includes('quarter')||m.includes('period_')||mn.includes('quarter'))return 'Quarters';
- if(grpNames.includes('sets')||m.includes('set')||mn.includes('set')||m==='total_sets')return 'Sets';
- if(grpNames.includes('games')||mn.includes('games')||mn.includes('total games')||mn.includes('game handicap'))return 'Games';
- if(grpNames.includes('asianlines')||m.includes('asian')||mn.includes('asian'))return 'Asian Lines';
- if(grpNames.includes('goals')||m.includes('goals')||mn.includes('goals')||m==='totals') {
-  if(['MLS','EPL','UCL','NHL'].includes(lg)) return 'Goals';
- }
- if(grpNames.includes('periods')||m.includes('period'))return 'Periods';
- if(grpNames.includes('innings 1 to 5')||m.includes('innings_1_5')||mn.includes('innings 1 to 5'))return 'Innings 1 to 5';
- if(grpNames.includes('innings')||m.includes('inning'))return 'Innings';
+ const isTennis=['ATP','WTA','CHALLENGER','TENNIS'].includes(lg);
+ const isBasketball=['NBA','WNBA','NCAAB','BASKETBALL'].includes(lg);
+ const isFootball=['NFL','NCAAF','AMERICAN_FOOTBALL','FOOTBALL'].includes(lg);
+ const isHockey=['NHL','ICE_HOCKEY'].includes(lg);
+ const isBaseball=['MLB','NPB','BASEBALL'].includes(lg);
+ const isSoccer=['EPL','UCL','MLS','SOCCER'].includes(lg);
 
- if(['NBA','WNBA','NCAAB','NFL','NCAAF'].includes(lg)){
+ if(isTennis){
+  if(m==='total_sets'||mn.includes('total sets')||grpNames.includes('sets')||m.includes('set')||mn.includes('set')||m.includes('period_'))return 'Sets';
+  if(grpNames.includes('games')||mn.includes('games')||mn.includes('total games')||mn.includes('game handicap')||m.includes('spreads')||m.includes('totals'))return 'Games';
+  return 'Popular';
+ }
+
+ if(isHockey){
+  if(grpNames.includes('periods')||m.includes('period')||mn.includes('period'))return 'Periods';
+  if(m==='three_way'||m==='moneyline'||m==='spreads'||m==='totals'||mn.includes('winner')||mn.includes('handicap')||mn.includes('puck line')||mn.includes('total (incl. overtime)'))return 'Popular';
+  if(grpNames.includes('goals')||m.includes('goals')||mn.includes('goals')||m.includes('both_score'))return 'Goals';
+  return 'Popular';
+ }
+
+ if(isBasketball||isFootball){
+  if(grpNames.includes('half')||grpNames.includes('1st2ndhalfmarkets')||m.includes('half')||mn.includes('half'))return 'Half';
+  if(grpNames.includes('quarters')||m.includes('quarter')||mn.includes('quarter')||m.includes('period_'))return 'Quarters';
   if(grpNames.includes('points')&&!grpNames.includes('main'))return 'Points';
   if(grpNames.includes('teamandmatchprops'))return 'Team/Match';
   return 'Popular';
  }
- if(['ATP','WTA','CHALLENGER'].includes(lg)){
-  if(m==='total_sets'||m.includes('set')||mn.includes('set'))return 'Sets';
-  if(['spreads','totals'].includes(m)||mn.includes('games')||mn.includes('total games')||mn.includes('game handicap'))return 'Games';
+
+ if(isBaseball){
+  if(grpNames.includes('innings 1 to 5')||m.includes('innings_1_5')||mn.includes('innings 1 to 5')||mn.includes('first 5'))return 'Innings 1 to 5';
+  const mnClean=mn.replace(/extra[-_ ]innings/g,'');
+  if(grpNames.includes('innings')||m.includes('inning')||mnClean.includes('inning'))return 'Innings';
+  if(grpNames.includes('runs')||m.includes('runs')||mn.includes('runs'))return 'Runs';
   return 'Popular';
  }
- if(lg==='NHL'){
-  if(m.includes('period')||mn.includes('period'))return 'Periods';
-  if(m.includes('goals')||mn.includes('goals'))return 'Goals';
+
+ if(isSoccer){
+  if(grpNames.includes('half')||grpNames.includes('1st2ndhalfmarkets')||m.includes('half')||mn.includes('half'))return 'Half';
+  if(grpNames.includes('asianlines')||m.includes('asian')||mn.includes('asian'))return 'Asian Lines';
+  if(grpNames.includes('cardscorners')||m.includes('card')||m.includes('corner')||mn.includes('card')||mn.includes('corner'))return 'Cards and Corners';
+  if(grpNames.includes('goals')||m.includes('goals')||mn.includes('goals')||m.includes('both_score')||mn.includes('goalscorer')||mn.includes('exact goals'))return 'Goals';
   return 'Popular';
  }
- if(lg==='MLB'){
-  if(m.includes('innings_1_5')||mn.includes('innings 1 to 5'))return 'Innings 1 to 5';
-  if(m.includes('inning'))return 'Innings';
-  return 'Popular';
- }
+
+ // Generic fallback
+ if(grpNames.includes('half')||grpNames.includes('1st2ndhalfmarkets')||m.includes('half')||mn.includes('half'))return 'Half';
+ if(grpNames.includes('quarters')||m.includes('quarter')||mn.includes('quarter'))return 'Quarters';
+ if(grpNames.includes('periods')||m.includes('period')||mn.includes('period'))return 'Periods';
+ if(grpNames.includes('sets')||m.includes('set')||mn.includes('set'))return 'Sets';
+ if(grpNames.includes('asianlines')||m.includes('asian')||mn.includes('asian'))return 'Asian Lines';
+ return 'Popular';
+}
  if(['MLS','EPL','UCL'].includes(lg)){
   if(m.includes('half')||mn.includes('half'))return 'Half';
   if(m.includes('totals')||m.includes('both_score')||mn.includes('goals'))return 'Goals';

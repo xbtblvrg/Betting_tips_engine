@@ -591,59 +591,36 @@ def resolve_stake_market_tab(
     is_ice_hockey = (lg in ("NHL", "ICE_HOCKEY")) or ("/ice-hockey/" in url)
 
     if is_tennis:
-        if m == "total_sets" or "total sets" in mn:
-            return "Sets"
-        if any(s in m or s in mn for s in ("period_1", "period_2", "period_3", "set_1", "set_2", "set_3", "set")) or "sets" in grp_names:
+        if m == "total_sets" or "total sets" in mn or any(s in m or s in mn for s in ("period_1", "period_2", "period_3", "set_1", "set_2", "set_3", "set")) or "sets" in grp_names:
             return "Sets"
         if any(s in m or s in mn for s in ("spreads", "totals", "games", "game_handicap", "total_games")) or "games" in grp_names:
             return "Games"
         return "Popular"
 
-    if is_basketball:
-        if any(h in m or h in mn for h in ("half", "halftime")) or any(g in ("half", "halves", "1st2ndhalfmarkets") for g in grp_names):
-            return "Half"
-        if any(q in m or q in mn for q in ("quarter", "period_1", "period_2", "period_3", "period_4")) or "quarters" in grp_names:
-            return "Quarters"
+    if is_ice_hockey:
+        if any(p in m or p in mn for p in ("period_1", "period_2", "period_3", "period", "periods")) or "periods" in grp_names:
+            return "Periods"
         if "main" in grp_names:
             return "Popular"
-        if "points" in grp_names:
-            return "Points"
-        if "teamandmatchprops" in grp_names:
-            return "Team/Match"
-        if any(t in m for t in ("home_total", "away_total", "team_total")):
+        if m in ("moneyline", "three_way", "spreads", "totals") or any(x in mn for x in ("winner", "handicap", "puck line", "total (incl. overtime)")):
             return "Popular"
-        return "Popular"
-
-    if is_football:
-        if any(h in m or h in mn for h in ("half", "halftime")) or any(g in ("half", "halves", "1st2ndhalfmarkets") for g in grp_names):
-            return "Half"
-        if any(q in m or q in mn for q in ("quarter", "period_1", "period_2", "period_3", "period_4")) or "quarters" in grp_names:
-            return "Quarters"
-        if "total" in grp_names and not any(g in ("half", "quarters") for g in grp_names):
-            return "Total"
-        if "handicap" in grp_names and not any(g in ("half", "quarters") for g in grp_names):
-            return "Handicap"
-        if "main" in grp_names:
-            return "Popular"
-        if "points" in grp_names:
-            return "Points"
-        if "teamandmatchprops" in grp_names:
-            return "Team/Match"
-        if any(t in m for t in ("home_total", "away_total", "team_total")):
-            return "Popular"
-        return "Popular"
-
-    if is_soccer:
-        if any(h in m or h in mn for h in ("half_1", "half_2", "half", "halftime")) or any(g in ("1st2ndhalfmarkets", "half", "halves") for g in grp_names):
-            return "Half"
-        if any("asian" in g for g in grp_names) or "asian" in m or "asian" in mn:
-            return "Asian Lines"
-        if any(g in ("goals", "totals") for g in grp_names) or any(x in m for x in ("totals", "both_score", "home_total", "away_total", "odd_even")) or any(x in mn for x in ("total", "goals", "score")):
+        if any(x in m for x in ("goals", "both_score", "home_total", "away_total")) or any(x in mn for x in ("team total", "both teams to score", "goals")) or "goals" in grp_names:
             return "Goals"
-        if any(g in ("cards", "corners") for g in grp_names) or any(x in m for x in ("cards", "corners")) or any(x in mn for x in ("card", "corner")):
-            return "Cards and Corners"
-        if m == "spreads" or "handicap" in mn or "handicap" in grp_names:
-            return "Handicap"
+        return "Popular"
+
+    if is_basketball or is_football:
+        if any(h in m or h in mn for h in ("half", "halftime")) or any(g in ("half", "halves", "1st2ndhalfmarkets") for g in grp_names):
+            return "Half"
+        if any(q in m or q in mn for q in ("quarter", "quarters", "period_1", "period_2", "period_3", "period_4")) or "quarters" in grp_names:
+            return "Quarters"
+        if "main" in grp_names:
+            return "Popular"
+        if "points" in grp_names:
+            return "Points"
+        if "teamandmatchprops" in grp_names:
+            return "Team/Match"
+        if any(t in m for t in ("home_total", "away_total", "team_total")):
+            return "Popular"
         return "Popular"
 
     if is_baseball:
@@ -658,20 +635,25 @@ def resolve_stake_market_tab(
             return "Runs"
         return "Popular"
 
-    if is_ice_hockey:
-        if any(p in m or p in mn for p in ("period_1", "period_2", "period_3", "periods")) or "periods" in grp_names:
-            return "Periods"
-        if "main" in grp_names:
-            return "Popular"
-        if m in ("moneyline", "three_way", "spreads", "totals"):
-            return "Popular"
-        if any(x in m for x in ("goals", "both_score", "home_total", "away_total")) or "goals" in grp_names:
+    if is_soccer:
+        if any(h in m or h in mn for h in ("half_1", "half_2", "half", "halftime")) or any(g in ("1st2ndhalfmarkets", "half", "halves") for g in grp_names):
+            return "Half"
+        if any("asian" in g for g in grp_names) or "asian" in m or "asian" in mn:
+            return "Asian Lines"
+        if any(g in ("cards", "corners") for g in grp_names) or any(x in m for x in ("cards", "corners")) or any(x in mn for x in ("card", "corner")):
+            return "Cards and Corners"
+        if any(g in ("goals", "totals") for g in grp_names) or any(x in m for x in ("both_score", "home_total", "away_total", "odd_even")) or any(x in mn for x in ("both teams to score", "exact goals", "goalscorer")):
             return "Goals"
         return "Popular"
 
-    if any(p in m or p in mn for p in ("period_1", "period_2", "period_3", "period_4", "periods")) or "periods" in grp_names:
+    # Generic fallbacks
+    if any(h in m or h in mn for h in ("half", "halftime")) or any(g in ("1st2ndhalfmarkets", "half", "halves") for g in grp_names):
+        return "Half"
+    if any(q in m or q in mn for q in ("quarter", "quarters")) or "quarters" in grp_names:
+        return "Quarters"
+    if any(p in m or p in mn for p in ("period_1", "period_2", "period_3", "period_4", "period", "periods")) or "periods" in grp_names:
         return "Periods"
-    if any("asian" in g for g in grp_names):
+    if any("asian" in g for g in grp_names) or "asian" in m or "asian" in mn:
         return "Asian Lines"
     if any(g in ("goals", "totals") for g in grp_names) or (m in ("totals", "odd_even")):
         return "Goals"
