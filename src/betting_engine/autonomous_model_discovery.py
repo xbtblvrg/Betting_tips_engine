@@ -66,14 +66,18 @@ class AutonomousModelDiscoveryEngine:
 
     def __init__(
         self,
+        data_dir: Optional[Path] = None,
         db_path: Optional[Path] = None,
         tournament_engine: Optional[TournamentEngine] = None,
         historical_trainer: Optional[HistoricalCandidateTrainer] = None,
     ):
-        self.db_path = db_path or INCUBATOR_DB
-        self.tournament_engine = tournament_engine or TournamentEngine()
+        from .providers import DATA
+        self.data_dir = Path(data_dir or DATA)
+        self.db_path = db_path or (self.data_dir / 'shadow_incubator.sqlite3')
+        self.tournament_engine = tournament_engine or TournamentEngine(data_dir=self.data_dir, db_path=self.db_path)
         self.historical_trainer = historical_trainer or HistoricalCandidateTrainer(db_path=self.db_path)
         self.bridge = DemotedMarketIncubationBridge(
+            data_dir=self.data_dir,
             db_path=self.db_path,
         )
 
@@ -144,6 +148,22 @@ class AutonomousModelDiscoveryEngine:
                             domain_problem=f"Standard archetypes failed out-of-sample backtest on {segment_key}. Requires novel mathematical formulation."
                         )
                         if synth_rec.crucible_passed and synth_rec.is_admitted_to_incubator:
+                            candidate_result = CandidateTrainingResult(
+                                segment_key=segment_key,
+                                model_id=synth_rec.model_id,
+                                model_archetype=synth_rec.class_name,
+                                model_params={'source_file': f"{synth_rec.model_id}.py"},
+                                in_sample_size=0,
+                                oos_sample_size=synth_rec.oos_sample_size,
+                                oos_win_rate=synth_rec.oos_win_rate,
+                                oos_simulated_roi=synth_rec.oos_simulated_roi,
+                                oos_delta_brier=synth_rec.oos_delta_brier,
+                                oos_max_drawdown=synth_rec.oos_max_drawdown,
+                                is_qualified=True,
+                                crucible_score=100.0,
+                            )
+                            self.bridge.admit_champion_to_market(d_id, segment_key, candidate_result)
+
                             disc_id = f"disc_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}_{segment_key.replace('|', '_')}"
                             record = ModelDiscoveryRecord(
                                 discovery_id=disc_id,
