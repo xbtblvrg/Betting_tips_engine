@@ -100,7 +100,7 @@ class AutonomousModelDiscoveryEngine:
         try:
             cur = conn.cursor()
             cur.execute("""
-                SELECT segment_key, league, scope, family, sub_family, rolling_roi, rolling_pnl, games, demoted_at
+                SELECT id, segment_key, league, scope, family, sub_family, rolling_roi, rolling_pnl, games, demoted_at
                 FROM demoted_markets
                 WHERE incubation_phase = 'research_training'
                 ORDER BY league, scope, family
@@ -129,10 +129,16 @@ class AutonomousModelDiscoveryEngine:
             league = market['league']
             scope = market['scope']
             family = market['family']
+            d_id = market.get('id')
 
             # Run historical training across the expanded archetype library
-            best_cand = self.historical_trainer.train_and_evaluate_candidates(segment_key)
+            best_cand = self.historical_trainer.train_and_screen_demoted_market(segment_key)
             if not best_cand:
+                continue
+
+            # Directly admit and bind champion to the demoted market in Tier 2
+            success = self.bridge.admit_champion_to_market(d_id, segment_key, best_cand)
+            if not success:
                 continue
 
             # Record successful edge discovery
@@ -146,20 +152,17 @@ class AutonomousModelDiscoveryEngine:
                 family=family,
                 winning_archetype=best_cand.model_archetype,
                 winning_model_id=best_cand.model_id,
-                historical_roi=best_cand.oos_roi,
-                historical_brier_delta=best_cand.oos_brier_delta,
+                historical_roi=best_cand.oos_simulated_roi,
+                historical_brier_delta=best_cand.oos_delta_brier,
                 historical_sample_size=best_cand.oos_sample_size,
                 historical_max_drawdown=best_cand.oos_max_drawdown,
-                parameters=best_cand.parameters,
+                parameters=best_cand.model_params,
                 scientific_basis=self.LITERATURE_TAXONOMY.get(
                     best_cand.model_archetype, 'Autonomous domain formulation'
                 ),
             )
             new_discoveries.append(record)
             self._log_discovery(record)
-
-            # Bind to Tier 2 Shadow Incubator
-            self.historical_trainer.bind_candidate_to_demoted_market(segment_key, best_cand)
 
         return new_discoveries
 
