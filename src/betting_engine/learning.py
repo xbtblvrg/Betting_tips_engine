@@ -712,12 +712,20 @@ class LearningWorker:
             demotions = incubator.evaluate_demotions_and_substitutions(engine_db_path=self.store.path)
             incubator_repairs = incubator.diagnose_and_repair_stuck_incubator_markets()
             bridge_res = {}
+            discovery_res = {}
             try:
                 from .demoted_market_bridge import DemotedMarketIncubationBridge
                 bridge = DemotedMarketIncubationBridge(data_dir=self.data)
                 bridge_res = bridge.synchronize_demoted_markets(max_train_per_run=10)
             except Exception as e:
                 bridge_res = {'error': str(e)}
+            try:
+                from .autonomous_model_discovery import AutonomousModelDiscoveryEngine
+                discovery_eng = AutonomousModelDiscoveryEngine(data_dir=self.data)
+                discovered = discovery_eng.run_discovery_cycle(max_markets=5)
+                discovery_res = {'discovered_count': len(discovered), 'discoveries': [d.to_dict() for d in discovered]}
+            except Exception as e:
+                discovery_res = {'error': str(e)}
             with self.store.db() as c:
                 orch = AutonomousCapabilityOrchestrator(c, journal_path=self.data / 'research' / 'autonomous_evolution_journal.json')
                 evo_result = orch.run_supervised_evolution_cycle(max_segments=3)
@@ -728,6 +736,8 @@ class LearningWorker:
                 'graduated_count': len(graduated),
                 'demotions_audit': demotions,
                 'incubator_repairs_count': len(incubator_repairs),
+                'bridge_sync': bridge_res,
+                'model_discovery': discovery_res,
                 'evolution_cycle': evo_result.to_dict() if hasattr(evo_result, 'to_dict') else evo_result,
                 'conclusion': f'Autonomous evolution cycle complete. {len(graduated)} new submarkets graduated, {len(incubator_repairs)} stuck incubator submarkets diagnosed and repaired.'
             }
