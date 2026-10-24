@@ -83,6 +83,9 @@ def normalize_segment_key(segment_key: str) -> str:
     return str(segment_key)
 
 
+_TABLES_ENSURED: Set[str] = set()
+
+
 class TournamentEngine:
     """Orchestrates multi-model tournaments across market segments."""
 
@@ -95,6 +98,9 @@ class TournamentEngine:
 
     def _ensure_tables(self) -> None:
         """Ensures incubator DB supports multi-tenant model tracking."""
+        db_key = str(self.db_path.resolve())
+        if db_key in _TABLES_ENSURED:
+            return
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         conn = sqlite3.connect(str(self.db_path), timeout=30.0)
         try:
@@ -142,6 +148,7 @@ class TournamentEngine:
                 conn.execute("ALTER TABLE incubated_wagers ADD COLUMN model_version TEXT DEFAULT 'v1.0'")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_incubated_model ON incubated_wagers(model_id, status)")
             conn.commit()
+            _TABLES_ENSURED.add(db_key)
         finally:
             conn.close()
 

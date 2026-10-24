@@ -554,10 +554,12 @@ class ShadowMarketIncubator:
     """Manages the lifecycle of unmodeled Stake gap markets from observation to graduation."""
 
     def __init__(self, data_dir: Path = DATA):
-        self.data_dir = data_dir
+        self.data_dir = Path(data_dir or DATA)
         self.db_path = self.data_dir / 'shadow_incubator.sqlite3'
         conn = _init_db(self.db_path)
         conn.close()
+        from .tournament_engine import TournamentEngine
+        self._tournament_engine = TournamentEngine(data_dir=self.data_dir, db_path=self.db_path)
         try:
             seed_historical_probability_picks(
                 engine_db_path=self.data_dir / 'engine.sqlite3',
@@ -565,6 +567,12 @@ class ShadowMarketIncubator:
             )
         except Exception:
             pass
+
+    def _get_tournament_engine(self):
+        if self._tournament_engine is None:
+            from .tournament_engine import TournamentEngine
+            self._tournament_engine = TournamentEngine(data_dir=self.data_dir, db_path=self.db_path)
+        return self._tournament_engine
 
     def _get_connection(self) -> sqlite3.Connection:
         try:
@@ -1011,11 +1019,7 @@ class ShadowMarketIncubator:
                 # Multi-Model Tournament Candidate Concurrent Paper-Trading
                 try:
                     seg_key = f"{league}|{contract.scope}|{contract.family}"
-                    from .tournament_engine import TournamentEngine
-                    t_eng = getattr(self, '_tournament_engine', None)
-                    if t_eng is None:
-                        t_eng = TournamentEngine(self.data_dir)
-                        self._tournament_engine = t_eng
+                    t_eng = self._get_tournament_engine()
                     candidates = t_eng.get_active_candidates(seg_key)
                     if not candidates and contract.sub_family and contract.sub_family != contract.family:
                         candidates = t_eng.get_active_candidates(f"{league}|{contract.scope}|{contract.sub_family}")
@@ -1232,11 +1236,7 @@ class ShadowMarketIncubator:
 
             # Multi-Model Tournament Candidate Concurrent Paper-Trading
             try:
-                from .tournament_engine import TournamentEngine
-                t_eng = getattr(self, '_tournament_engine', None)
-                if t_eng is None:
-                    t_eng = TournamentEngine(self.data_dir)
-                    self._tournament_engine = t_eng
+                t_eng = self._get_tournament_engine()
                 candidates = t_eng.get_active_candidates(c_seg)
                 if not candidates and c_sub_seg != c_seg:
                     candidates = t_eng.get_active_candidates(c_sub_seg)
@@ -2083,8 +2083,12 @@ class ShadowMarketIncubator:
                 # Evaluate Multi-Model Tournament Champions
                 try:
                     from .tournament_engine import TournamentEngine
-                    t_eng = TournamentEngine(self.data_dir)
+                    t_eng = getattr(self, '_tournament_engine', None) or TournamentEngine(self.data_dir)
                     champ = t_eng.crown_champion(segment_key)
+                    if not champ and sub_key and sub_key != segment_key:
+                        champ = t_eng.crown_champion(sub_key)
+                    if not champ and sub_family:
+                        champ = t_eng.crown_champion(f"{league}|{scope}|{sub_family}")
                     if champ:
                         stats['champion_model_id'] = champ.model_id
                         stats['champion_version'] = champ.version
@@ -2102,8 +2106,15 @@ class ShadowMarketIncubator:
                     now_iso, n_samples, roi, delta_brier, max_dd, win_rate, json.dumps(stats)
                 ))
                 try:
-                    cur.execute("DELETE FROM demoted_markets WHERE segment_key = ? OR segment_key = ?", (segment_key, canonical_key))
-                    cur.execute("DELETE FROM incubator_diagnostic_repairs WHERE segment_key = ? OR segment_key = ? OR segment_key = ?", (segment_key, canonical_key, sub_key))
+                    cur.execute("""
+                        DELETE FROM demoted_markets 
+                        WHERE segment_key IN (?, ?, ?) 
+                           OR (league = ? AND scope = ? AND (family = ? OR sub_family = ?))
+                    """, (segment_key, canonical_key, sub_key, league, scope, family, sub_family))
+                    cur.execute("""
+                        DELETE FROM incubator_diagnostic_repairs 
+                        WHERE segment_key IN (?, ?, ?)
+                    """, (segment_key, canonical_key, sub_key))
                 except Exception:
                     pass
 
@@ -2496,10 +2507,15 @@ class ShadowMarketIncubator:
                 }
 
                 # Evaluate Multi-Model Tournament Champions
+                cand_sub_key = f"{league}|{cand['scope']}|{cand['family']}:{cand['sub_family']}" if cand['sub_family'] else cand['segment_key']
                 try:
                     from .tournament_engine import TournamentEngine
                     t_eng = getattr(self, '_tournament_engine', None) or TournamentEngine(self.data_dir)
                     champ = t_eng.crown_champion(cand['segment_key'])
+                    if not champ and cand_sub_key != cand['segment_key']:
+                        champ = t_eng.crown_champion(cand_sub_key)
+                    if not champ and cand.get('sub_family'):
+                        champ = t_eng.crown_champion(f"{league}|{cand['scope']}|{cand['sub_family']}")
                     if champ:
                         stats['champion_model_id'] = champ.model_id
                         stats['champion_version'] = champ.version
@@ -2517,7 +2533,11 @@ class ShadowMarketIncubator:
                     now_iso, cand['n_samples'], cand['roi'], cand['delta_brier'], cand['max_dd'], cand['win_rate'], json.dumps(stats)
                 ))
                 try:
-                    cur.execute("DELETE FROM demoted_markets WHERE segment_key = ? OR segment_key = ?", (cand['segment_key'], cand['canonical_key']))
+                    cur.execute("""
+                        DELETE FROM demoted_markets 
+                        WHERE segment_key IN (?, ?, ?)
+                           OR (league = ? AND scope = ? AND (family = ? OR sub_family = ?))
+                    """, (cand['segment_key'], cand['canonical_key'], cand_sub_key, league, cand['scope'], cand['family'], cand['sub_family']))
                 except Exception:
                     pass
 
@@ -2774,6 +2794,10 @@ class ShadowMarketIncubator:
                     from .tournament_engine import TournamentEngine
                     t_eng = getattr(self, '_tournament_engine', None) or TournamentEngine(self.data_dir)
                     champ = t_eng.crown_champion(segment_key)
+                    if not champ and sub_key and sub_key != segment_key:
+                        champ = t_eng.crown_champion(sub_key)
+                    if not champ and sub_family:
+                        champ = t_eng.crown_champion(f"{league}|{scope}|{sub_family}")
                     if champ:
                         stats['champion_model_id'] = champ.model_id
                         stats['champion_version'] = champ.version
@@ -2791,8 +2815,15 @@ class ShadowMarketIncubator:
                     now_iso, n_samples, roi, delta_brier, max_dd, win_rate, json.dumps(stats)
                 ))
                 try:
-                    cur.execute("DELETE FROM demoted_markets WHERE segment_key = ? OR segment_key = ?", (segment_key, canonical_key))
-                    cur.execute("DELETE FROM incubator_diagnostic_repairs WHERE segment_key = ? OR segment_key = ? OR segment_key = ?", (segment_key, canonical_key, sub_key))
+                    cur.execute("""
+                        DELETE FROM demoted_markets 
+                        WHERE segment_key IN (?, ?, ?) 
+                           OR (league = ? AND scope = ? AND (family = ? OR sub_family = ?))
+                    """, (segment_key, canonical_key, sub_key, league, scope, family, sub_family))
+                    cur.execute("""
+                        DELETE FROM incubator_diagnostic_repairs 
+                        WHERE segment_key IN (?, ?, ?)
+                    """, (segment_key, canonical_key, sub_key))
                 except Exception:
                     pass
 
