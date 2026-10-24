@@ -15,9 +15,12 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from .providers import DATA
 from .sandbox_models.archetypes.bivariate_copula import BivariateCopulaHazardModel
+from .sandbox_models.archetypes.extreme_value_gumbel import ExtremeValueGumbelModel
+from .sandbox_models.archetypes.markov_chain_tennis import MarkovChainTennisModel
 from .sandbox_models.archetypes.negative_binomial import NegativeBinomialOverdispersionModel
 from .sandbox_models.archetypes.odds_damped_kelly import OddsDampedKellyShrinkageModel
 from .sandbox_models.archetypes.situational_fatigue import SituationalFatigueModel
+from .sandbox_models.archetypes.weibull_hazard import WeibullRenewalHazardModel
 from .sandbox_models.archetypes.zero_inflated import ZeroInflatedPoissonModel
 from .sandbox_models.base import BaseCandidateModel
 from .tournament_engine import calculate_crucible_scorecard, normalize_segment_key
@@ -243,6 +246,47 @@ class HistoricalCandidateTrainer:
                     zero_inflation_pi=pi,
                 )
                 candidate_configs.append(('ZeroInflatedPoissonModel', m, {'zero_inflation_pi': pi}))
+
+        # 6. Extreme Value Gumbel Model (for heavy tail blowouts / high odds underdogs)
+        for beta in [0.95, 1.35]:
+            m = ExtremeValueGumbelModel(
+                model_id=f"{league.lower()}_{scope}_{family}_gumbel_b{int(beta*100)}_{now_tag}",
+                version="1.1.0",
+                league=league,
+                scope=scope,
+                family=family,
+                tail_scale_beta=beta,
+                underdog_skew=0.10,
+            )
+            candidate_configs.append(('ExtremeValueGumbelModel', m, {'tail_scale_beta': beta, 'underdog_skew': 0.10}))
+
+        # 7. Markov Chain Tennis Model (for tennis set and game dynamics)
+        if league in ('ATP', 'WTA', 'CHALLENGER'):
+            for (sa, sb) in [(0.65, 0.61), (0.68, 0.60)]:
+                m = MarkovChainTennisModel(
+                    model_id=f"{league.lower()}_{scope}_{family}_tennis_mkv_a{int(sa*100)}_{now_tag}",
+                    version="1.1.0",
+                    league=league,
+                    scope=scope,
+                    family=family,
+                    serve_point_prob_a=sa,
+                    serve_point_prob_b=sb,
+                )
+                candidate_configs.append(('MarkovChainTennisModel', m, {'serve_point_prob_a': sa, 'serve_point_prob_b': sb}))
+
+        # 8. Weibull Renewal Hazard Model (for late period / accelerating hazards)
+        if 'period_3' in scope or 'half_2' in scope or league in ('NHL', 'MLS', 'EPL', 'UCL'):
+            for k in [1.25, 1.55]:
+                m = WeibullRenewalHazardModel(
+                    model_id=f"{league.lower()}_{scope}_{family}_weibull_k{int(k*100)}_{now_tag}",
+                    version="1.1.0",
+                    league=league,
+                    scope=scope,
+                    family=family,
+                    hazard_shape_k=k,
+                    trailing_boost_pct=0.20,
+                )
+                candidate_configs.append(('WeibullRenewalHazardModel', m, {'hazard_shape_k': k, 'trailing_boost_pct': 0.20}))
 
         # Evaluate candidate models out-of-sample on holdout
         qualified_results: List[CandidateTrainingResult] = []

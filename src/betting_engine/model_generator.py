@@ -14,6 +14,9 @@ from .sandbox_models.archetypes.situational_fatigue import SituationalFatigueMod
 from .sandbox_models.archetypes.odds_damped_kelly import OddsDampedKellyShrinkageModel
 from .sandbox_models.archetypes.bivariate_copula import BivariateCopulaHazardModel
 from .sandbox_models.archetypes.zero_inflated import ZeroInflatedPoissonModel
+from .sandbox_models.archetypes.extreme_value_gumbel import ExtremeValueGumbelModel
+from .sandbox_models.archetypes.markov_chain_tennis import MarkovChainTennisModel
+from .sandbox_models.archetypes.weibull_hazard import WeibullRenewalHazardModel
 from .tournament_engine import TournamentEngine
 
 
@@ -99,6 +102,45 @@ def synthesize_candidate_slate(
             zero_inflation_pi=0.12,
         )
         candidates.append(cand_epsilon)
+
+    # 6. Candidate Zeta: Extreme Value Gumbel (EVT)
+    # High utility for spreads, wide lines, and high-odds underdogs
+    cand_zeta = ExtremeValueGumbelModel(
+        model_id=f"{league.lower()}_{scope}_{family}_evt_{now_tag}",
+        version="1.0.0",
+        league=league,
+        scope=scope,
+        family=family,
+        tail_scale_beta=1.30,
+        underdog_skew=0.10,
+    )
+    candidates.append(cand_zeta)
+
+    # 7. Candidate Eta: Markov Chain Tennis Model
+    if league in ('ATP', 'WTA', 'CHALLENGER'):
+        cand_eta = MarkovChainTennisModel(
+            model_id=f"{league.lower()}_{scope}_{family}_tennis_mkv_{now_tag}",
+            version="1.0.0",
+            league=league,
+            scope=scope,
+            family=family,
+            serve_point_prob_a=0.65,
+            serve_point_prob_b=0.62,
+        )
+        candidates.append(cand_eta)
+
+    # 8. Candidate Theta: Weibull Renewal Hazard Model
+    if 'period_3' in scope or 'half_2' in scope or league in ('NHL', 'MLS', 'EPL', 'UCL'):
+        cand_theta = WeibullRenewalHazardModel(
+            model_id=f"{league.lower()}_{scope}_{family}_weibull_{now_tag}",
+            version="1.0.0",
+            league=league,
+            scope=scope,
+            family=family,
+            hazard_shape_k=1.35,
+            trailing_boost_pct=0.20,
+        )
+        candidates.append(cand_theta)
 
     if league in ('NBA', 'WNBA', 'NCAAM', 'NCAAW'):
         h_exp, a_exp = (110.0, 106.0) if league == 'NBA' else (80.0, 75.0)
