@@ -131,38 +131,42 @@ class AutonomousModelDiscoveryEngine:
             family = market['family']
             d_id = market.get('id')
 
-            # Run historical training across the expanded archetype library
-            best_cand = self.historical_trainer.train_and_screen_demoted_market(segment_key)
-            if not best_cand:
-                continue
+            try:
+                # Run historical training across the expanded archetype library
+                best_cand = self.historical_trainer.train_and_screen_demoted_market(segment_key)
+                if not best_cand:
+                    continue
 
-            # Directly admit and bind champion to the demoted market in Tier 2
-            success = self.bridge.admit_champion_to_market(d_id, segment_key, best_cand)
-            if not success:
-                continue
+                # Directly admit and bind champion to the demoted market in Tier 2
+                success = self.bridge.admit_champion_to_market(d_id, segment_key, best_cand)
+                if not success:
+                    continue
 
-            # Record successful edge discovery
-            disc_id = f"disc_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}_{segment_key.replace('|', '_')}"
-            record = ModelDiscoveryRecord(
-                discovery_id=disc_id,
-                timestamp=now_iso,
-                segment_key=segment_key,
-                league=league,
-                scope=scope,
-                family=family,
-                winning_archetype=best_cand.model_archetype,
-                winning_model_id=best_cand.model_id,
-                historical_roi=best_cand.oos_simulated_roi,
-                historical_brier_delta=best_cand.oos_delta_brier,
-                historical_sample_size=best_cand.oos_sample_size,
-                historical_max_drawdown=best_cand.oos_max_drawdown,
-                parameters=best_cand.model_params,
-                scientific_basis=self.LITERATURE_TAXONOMY.get(
-                    best_cand.model_archetype, 'Autonomous domain formulation'
-                ),
-            )
-            new_discoveries.append(record)
-            self._log_discovery(record)
+                # Record successful edge discovery
+                disc_id = f"disc_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}_{segment_key.replace('|', '_')}"
+                record = ModelDiscoveryRecord(
+                    discovery_id=disc_id,
+                    timestamp=now_iso,
+                    segment_key=segment_key,
+                    league=league,
+                    scope=scope,
+                    family=family,
+                    winning_archetype=best_cand.model_archetype,
+                    winning_model_id=best_cand.model_id,
+                    historical_roi=best_cand.oos_simulated_roi,
+                    historical_brier_delta=best_cand.oos_delta_brier,
+                    historical_sample_size=best_cand.oos_sample_size,
+                    historical_max_drawdown=best_cand.oos_max_drawdown,
+                    parameters=best_cand.model_params,
+                    scientific_basis=self.LITERATURE_TAXONOMY.get(
+                        best_cand.model_archetype, 'Autonomous domain formulation'
+                    ),
+                )
+                new_discoveries.append(record)
+                self._log_discovery(record)
+            except Exception:
+                # Isolate unexpected training failures and proceed with other candidate markets
+                continue
 
         return new_discoveries
 

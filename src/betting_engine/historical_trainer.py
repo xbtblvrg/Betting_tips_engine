@@ -136,7 +136,7 @@ class HistoricalCandidateTrainer:
                 target_side = 'home' if 'home' in family or 'home' in base_fam else 'away'
                 family_filters.append(f"(family = 'american_derivatives' AND (sub_family = ? OR (sub_family = 'team_total' AND (selection LIKE '%{target_side}%' OR side = '{target_side}'))))")
                 params.append(f"{target_side}_total")
-            elif family in ('spreads', 'totals', 'moneyline') or base_fam in ('spreads', 'totals', 'moneyline'):
+            elif family in ('spreads', 'totals', 'moneyline', 'three_way') or base_fam in ('spreads', 'totals', 'moneyline', 'three_way'):
                 family_filters.append("(family = 'american_derivatives' AND sub_family = ?)")
                 params.append(base_fam)
 

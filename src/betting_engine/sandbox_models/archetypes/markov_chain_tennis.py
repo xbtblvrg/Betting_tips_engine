@@ -110,3 +110,70 @@ class MarkovChainTennisModel(BaseCandidateModel):
                             scores[k] = scores.get(k, 0.0) + p1 * p2 * p3
 
         return DiscreteDistribution.from_scores(scores)
+
+    def evaluate_market(
+        self,
+        market: str,
+        selection: str,
+        line: Optional[float],
+        odds: float,
+        game_context: Dict[str, Any],
+        side: Optional[str] = None,
+    ) -> Tuple[float, float]:
+        """Evaluates tennis contracts using analytical set-win mechanics for moneyline."""
+        m_lower = market.lower()
+        sel_lower = (selection or '').lower().strip()
+        s_lower = (side or '').lower().strip()
+
+        # Extract serve win percentages
+        p_a = float(game_context.get('home_serve_win_pct') or self.serve_point_prob_a)
+        p_b = float(game_context.get('away_serve_win_pct') or self.serve_point_prob_b)
+
+        hold_a = _game_hold_prob(p_a)
+        hold_b = _game_hold_prob(p_b)
+        set_pmf = _set_score_distribution(hold_a, hold_b)
+        p_set_a = sum(p for (ga, gb), p in set_pmf.items() if ga > gb)
+        p_set_b = 1.0 - p_set_a
+
+        is_set_1 = (self.scope == 'period_1' or 'set_1' in self.scope or 'set 1' in m_lower or '1st set' in m_lower)
+
+        # Moneyline / match winner / set 1 winner: use exact analytical set-based probability
+        if 'moneyline' in m_lower or 'match_winner' in m_lower or 'head_to_head' in m_lower or ('spread' not in m_lower and 'total' not in m_lower and 'handicap' not in m_lower):
+            if is_set_1:
+                p_win_a = p_set_a
+                p_win_b = p_set_b
+            else:
+                # Best of 3 sets: P(A wins match) = p^2 * (3 - 2p)
+                p_win_a = (p_set_a ** 2) * (3.0 - 2.0 * p_set_a)
+                p_win_b = 1.0 - p_win_a
+
+            if s_lower in ('home', '1', 'h') or '1' in sel_lower or 'home' in sel_lower:
+                prob = p_win_a
+            elif s_lower in ('away', '2', 'a') or '2' in sel_lower or 'away' in sel_lower:
+                prob = p_win_b
+            else:
+                home_player = str(game_context.get('home_team') or game_context.get('home') or '').lower()
+                if home_player and home_player in sel_lower:
+                    prob = p_win_a
+                else:
+                    prob = p_win_b
+            ev = round(prob * float(odds) - 1.0, 4)
+            return prob, ev
+
+        elif 'tennis_sets' in m_lower or 'set_handicap' in m_lower:
+            # Set handicap (-1.5 sets or +1.5 sets)
+            p_2_0 = p_set_a ** 2
+            p_0_2 = p_set_b ** 2
+            eff_line = float(line or -1.5)
+            is_home = (s_lower in ('home', '1', 'h') or '1' in sel_lower)
+            if eff_line == -1.5:
+                prob = p_2_0 if is_home else (1.0 - p_2_0)
+            elif eff_line == 1.5:
+                prob = (1.0 - p_0_2) if is_home else p_0_2
+            else:
+                prob = p_set_a if is_home else p_set_b
+            ev = round(prob * float(odds) - 1.0, 4)
+            return prob, ev
+
+        # For game spreads and game totals, defer to the full discrete distribution
+        return super().evaluate_market(market, selection, line, odds, game_context, side=side)

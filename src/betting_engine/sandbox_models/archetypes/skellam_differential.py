@@ -64,10 +64,13 @@ class SkellamDifferentialModel(BaseCandidateModel):
         mu_h = max(0.2, float(game_context.get('home_expected') or game_context.get('home_points') or default_h))
         mu_a = max(0.2, float(game_context.get('away_expected') or game_context.get('away_points') or default_a))
 
+        lim_h = max(self.max_score, int(math.ceil(mu_h * 2.8)))
+        lim_a = max(self.max_score, int(math.ceil(mu_a * 2.8)))
+
         scores: Dict[Tuple[int, int], float] = {}
-        for h in range(self.max_score + 1):
+        for h in range(lim_h + 1):
             p_h = float(poisson.pmf(h, mu_h))
-            for a in range(self.max_score + 1):
+            for a in range(lim_a + 1):
                 p_a = float(poisson.pmf(a, mu_a))
                 prob = p_h * p_a
                 # Draw inflation adjustment (eta) for competitive matches

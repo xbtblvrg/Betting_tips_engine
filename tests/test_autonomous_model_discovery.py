@@ -148,3 +148,37 @@ def test_autonomous_model_discovery_scan_and_summary(temp_db: Path):
     assert summary['total_archetypes_in_library'] >= 10
     assert summary['tier1_unresolved_count'] == 1
     assert summary['tier2_incubating_count'] == 0
+
+
+def test_markov_tennis_analytical_moneyline():
+    """Verifies that MarkovChainTennisModel computes exact moneyline without phantom draw mass."""
+    from betting_engine.sandbox_models.archetypes.markov_chain_tennis import MarkovChainTennisModel
+    model = MarkovChainTennisModel(
+        model_id="test_tennis_mkv",
+        league="ATP",
+        scope="full_game",
+        family="moneyline",
+        serve_point_prob_a=0.64,
+        serve_point_prob_b=0.61,
+    )
+    p_home, ev_h = model.evaluate_market("ATP|full_game|moneyline", "Player A", None, 1.80, {}, side="home")
+    p_away, ev_a = model.evaluate_market("ATP|full_game|moneyline", "Player B", None, 2.10, {}, side="away")
+
+    assert round(p_home + p_away, 4) == 1.0000
+    assert p_home > 0.55
+    assert p_away < 0.45
+
+
+def test_skellam_dynamic_tail_expansion():
+    """Verifies that Skellam distribution expands score range dynamically for higher-scoring sports."""
+    model = SkellamDifferentialModel(
+        model_id="test_skellam_mlb",
+        league="MLB",
+        scope="full_game",
+        family="spreads",
+        draw_inflation_eta=0.0,
+    )
+    dist = model.predict_distribution({'home_expected': 4.5, 'away_expected': 4.2})
+    max_h = max(h for (h, _) in dist.scores.keys())
+    assert max_h >= 13  # High-scoring tail expanded beyond static 8
+    assert round(sum(dist.scores.values()), 4) == 1.0000
