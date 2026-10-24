@@ -6,7 +6,7 @@ import math
 from .decisions import minimum_odds, sportsbook_ev, stake_assessment
 from .decision_readiness import READINESS_VERSION
 from .domain import parse_time
-from .freshness import fresh_quote
+from .freshness import fresh_quote, MAX_QUOTE_AGE_SECONDS
 from .governance import evidence_digest, verify_publication, SEALED_FIELDS
 
 # Exact pre-readiness receipt format, retained only for original issued records.
@@ -25,7 +25,7 @@ def _finite(value):
     return not isinstance(value, bool) and isinstance(value, (int, float)) and math.isfinite(value)
 
 
-def current_execution_review(tip, now, minimum_roi, sizing_settings=None):
+def current_execution_review(tip, now, minimum_roi, sizing_settings=None, max_quote_age=MAX_QUOTE_AGE_SECONDS):
     """Validate the current sealed model/quote, without authorizing a new ticket.
 
     A zero allocation is valid for an already held exact contract. The caller
@@ -33,7 +33,7 @@ def current_execution_review(tip, now, minimum_roi, sizing_settings=None):
     No source fields or historical record are changed by this function.
     """
     try:
-        if not isinstance(tip, dict) or not fresh_quote(tip, now):
+        if not isinstance(tip, dict) or not fresh_quote(tip, now, max_age_seconds=max_quote_age):
             return _denied('quote_unavailable', 'No fresh active exact-selection quote is available.')
         if tip.get('reference_platform') != 'Stake.com':
             return _denied('market_unverified', 'The exact Stake market is not verified.')
@@ -219,7 +219,7 @@ def _original_budget(original, issued_at):
     return format_name
 
 
-def instruction_review(record, current, now, minimum_roi, related_contracts=None, sizing_settings=None):
+def instruction_review(record, current, now, minimum_roi, related_contracts=None, sizing_settings=None, max_quote_age=MAX_QUOTE_AGE_SECONDS):
     """Keep one original issued stake only while the exact current bet supports it."""
     try:
         original = record['payload']
@@ -234,7 +234,7 @@ def instruction_review(record, current, now, minimum_roi, related_contracts=None
         if original.get('league') in ('ATP', 'WTA'):
             if '/' in str(original.get('home', '')) or '/' in str(original.get('away', '')):
                 return _denied('doubles_unsupported', 'Doubles tennis matches are not supported by the single-player Markov model.')
-        review = current_execution_review(current, now, minimum_roi, sizing_settings)
+        review = current_execution_review(current, now, minimum_roi, sizing_settings, max_quote_age=max_quote_age)
         if review['state'] in ('current', 'value_below_threshold') and parse_time(current['quote_at']) < parse_time(original['quote_at']):
             return _denied('assessment_stale', 'The current quote predates the issued instruction. A newer exact-selection check is required.')
         if not review['actionable']:

@@ -330,14 +330,16 @@ def build_dashboard(store,health,data_dir):
     d['placement_marks']=store.placement_marks()
     now=utcnow()
     all_tips=d.get('evaluated_candidates') or d.get('recommendations',[])+d.get('alternatives',[])
-    from .freshness import fresh_quote
+    from .freshness import fresh_quote, MAX_QUOTE_AGE_SECONDS, ACTIVE_ENGINE_MAX_QUOTE_AGE_SECONDS
     from .instructions import current_execution_review,instruction_review,preference_execution_review
     from .timing_evaluator import evaluate_timing
     settings=store.settings()
+    engine_active = bool(health and health.get('running'))
+    max_quote_age = ACTIVE_ENGINE_MAX_QUOTE_AGE_SECONDS if engine_active else MAX_QUOTE_AGE_SECONDS
     for t in all_tips:
-        try:t['expired']=not fresh_quote(t,now)
+        try:t['expired']=not fresh_quote(t,now,max_age_seconds=max_quote_age)
         except (TypeError,ValueError,ArithmeticError):t['expired']=True
-        t['execution_review']=current_execution_review(t,now,settings['minimum_roi'],settings)
+        t['execution_review']=current_execution_review(t,now,settings['minimum_roi'],settings,max_quote_age=max_quote_age)
         t['timing_evaluation']=evaluate_timing(t,now)
         if t['expired']:t['stake']=0
     from .decisions import rank_and_size,probability_preference_ids
@@ -391,7 +393,7 @@ def build_dashboard(store,health,data_dir):
     for b in recorded:
         related=max(0,held_event_counts.get(b['payload'].get('game_id'),0)-1)
         current_tip=current_by_id.get(b['tip_id'])
-        rev=preference_execution_review(current_tip,instruction_review(b,current_tip,now,settings['minimum_roi'],related,settings),probability_ids)
+        rev=preference_execution_review(current_tip,instruction_review(b,current_tip,now,settings['minimum_roi'],related,settings,max_quote_age=max_quote_age),probability_ids)
         if rev.get('actionable'):
             gid=b['payload'].get('game_id')
             fam=allocation_family(b['payload'])

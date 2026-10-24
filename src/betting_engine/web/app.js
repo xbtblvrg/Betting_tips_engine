@@ -292,7 +292,9 @@ function executionReview(t){
  // must never turn missing or rejected server evidence into a betting instruction.
  if(!dashboardAvailable||!r?.actionable||!c.execution_review?.actionable||!currentTips([c]).length)return {actionable:false};
  const age=Date.now()-new Date(r.quote_at);
- if(!Number.isFinite(age)||age < -5000||age>300000||!(new Date(r.valid_until)>new Date()))return {actionable:false};
+ const updating=isEngineActiveOrUpdating();
+ const maxAge=updating?900000:300000;
+ if(!Number.isFinite(age)||age < -5000||age>maxAge||(!updating&&!(new Date(r.valid_until)>new Date())))return {actionable:false};
  if(c.reference_platform!=='Stake.com'||c.stake_market?.availability_verified!==true||c.decision_guard?.passed!==true)return {actionable:false};
  if(!Number.isFinite(c.probability)||c.probability<=0||c.probability>=1||!Number.isFinite(c.reference_odds)||c.reference_odds<=1)return {actionable:false};
  const policy=data?.settings?.recommendation_policy??'strict',basis=c.funding_basis,currentReview=c.execution_review;
@@ -390,8 +392,8 @@ function pendingInstruction(t){
  if(c.decision_guard&&c.decision_guard.passed===false)return false;
  const maxStakeCap=(t.funding_basis?.tier==='stress_value')?Math.max(t.funding_basis?.maximum_stake??5,data?.settings?.max_bet??8):(t.funding_basis?.maximum_stake??8);
  if(t.funding_basis?.maximum_stake!=null&&instructionStake(t)>maxStakeCap)return false;
- if(r.state==='quote_unavailable'||r.reason==='No fresh active exact-selection quote is available.')return false;
  if(isTodayIssued(t))return true;
+ if(!isEngineActiveOrUpdating()&&(r.state==='quote_unavailable'||r.reason==='No fresh active exact-selection quote is available.'))return false;
  if(r.state==='stake_reassessment_required'||r.reason==='Original numeric stake policy does not reproduce')return false;
  const rev=executionReview(t);
  if(rev.actionable===true)return true;
@@ -424,7 +426,10 @@ function readyTips(){return liveTips().filter(executableInstruction)}
 function stakeDisplay(t){return view==='tips'&&executableInstruction(t)?'Bet $'+num(instructionStake(t)):t.tracked_bet?'Recorded $'+num(t.tracked_bet.stake):'No new bet'}
 function trackingMarkup(t){if(view==='tips'&&pendingInstruction(t))return `<p class="panel-copy">Bet $${num(t.tracked_bet.stake)} once on this exact selection. If already placed, mark it as placed instead of repeating it.</p>`;return t.tracked_bet?`<p class="panel-copy">Original record: $${num(t.tracked_bet.stake)} at ${num(t.tracked_bet.odds)} on ${esc(when(t.tracked_bet.created_at))}. No additional bet is requested.</p>`:''}
 function renderStats(){
- const ready=visibleTips(readyTips()),visible=visibleTips(liveTips()),amount=ready.reduce((n,t)=>n+instructionStake(t),0),p=data?.status?.daily_progress||{};
+ const ready=visibleTips(readyTips());
+ const hasExistingCards=typeof document!=='undefined'&&$$('#tips-grid .tip-card').length>0;
+ if(isEngineActiveOrUpdating()&&ready.length===0&&hasExistingCards)return;
+ const visible=visibleTips(liveTips()),amount=ready.reduce((n,t)=>n+instructionStake(t),0),p=data?.status?.daily_progress||{};
  const filteredFirst=(p.issuance_rows?issuedRowsVisible(p.issuance_rows):[]).length || (!p.issuance_rows?(p.first_issued_today??p.issued??0):0);
  const marked=visible.filter(isPlaced).length;
  const perf=data?.performance||{};
