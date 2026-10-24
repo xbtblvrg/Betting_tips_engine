@@ -161,3 +161,21 @@ def test_format_recommendation_super_alpha_and_effective_min_odds():
     assert '+-' not in msg
 
 
+def test_notify_daily_council_briefing_format(monkeypatch):
+    from betting_engine.telegram_notifier import notify_daily_council_briefing
+    sent = []
+    monkeypatch.setattr('betting_engine.telegram_notifier.send_telegram_message', lambda msg: sent.append(msg) or True)
+
+    ok = notify_daily_council_briefing(
+        date_str="2026-10-24",
+        alpha_targets=["NFL|full_game|spreads", "WNBA|full_game|moneyline"],
+        summary="High conviction targets identified by Multi-AI Council."
+    )
+    assert ok is True
+    assert len(sent) == 1
+    assert "DAILY MULTI-AI QUANT COUNCIL BRIEFING - 2026-10-24" in sent[0]
+    assert "NFL|full_game|spreads" in sent[0]
+    assert "High conviction targets" in sent[0]
+
+
+
