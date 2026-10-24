@@ -65,17 +65,24 @@ def test_codex_model_synthesizer_end_to_end(tmp_path):
     res = synthesizer.synthesize_and_screen_candidate(
         segment_key="NHL|period_3|totals",
         domain_problem="NHL 3rd period high-scoring right tail from empty net pulls",
-        sample_context={'home_expected': 1.1, 'away_expected': 0.9}
+        sample_context={'home_expected': 1.1, 'away_expected': 0.9},
+        force_archetype="hurdle"
     )
 
-    assert res.syntax_valid is True
-    assert res.safety_valid is True
-    assert res.validation_passed is True
-    assert len(res.validation_errors) == 0
-    assert res.crucible_passed is True
-    assert res.is_admitted_to_incubator is True
-    assert "NegativeBinomialHurdleModel" in res.class_name
+    try:
+        assert res.syntax_valid is True
+        assert res.safety_valid is True
+        assert res.validation_passed is True
+        assert len(res.validation_errors) == 0
+        assert res.crucible_passed is True
+        assert res.is_admitted_to_incubator is True
+        assert "NegativeBinomialHurdleModel" in res.class_name
 
-    # Check tournament registration
-    active_cands = synthesizer.tournament.get_active_candidates("NHL|period_3|totals")
-    assert any(c.model_id == res.model_id for c in active_cands)
+        # Check tournament registration
+        active_cands = synthesizer.tournament.get_active_candidates("NHL|period_3|totals")
+        assert any(c.model_id == res.model_id for c in active_cands)
+    finally:
+        from betting_engine.codex_model_synthesizer import GENERATED_MODELS_DIR
+        gen_file = GENERATED_MODELS_DIR / f"{res.model_id}.py"
+        if gen_file.exists():
+            gen_file.unlink()

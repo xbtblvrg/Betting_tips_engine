@@ -90,6 +90,7 @@ class TournamentEngine:
         self.data_dir = data_dir
         self.registry_file = data_dir / 'research' / 'tournament_registry.json'
         self.db_path = db_path
+        self._runtime_classes: Dict[str, type] = {}
         self._ensure_tables()
 
     def _ensure_tables(self) -> None:
@@ -226,11 +227,13 @@ class TournamentEngine:
         }
 
         self.save_registry(reg)
+        if hasattr(self, '_runtime_classes'):
+            self._runtime_classes[model.__class__.__name__] = model.__class__
         return True, []
 
     def _get_class_map(self) -> Dict[str, type]:
-        """Dynamically discovers all candidate model classes in archetypes."""
-        class_map = {}
+        """Dynamically discovers all candidate model classes in archetypes and generated models."""
+        class_map = dict(getattr(self, '_runtime_classes', {}))
         try:
             import importlib
             import inspect
@@ -241,6 +244,20 @@ class TournamentEngine:
                 for item_name, item in inspect.getmembers(mod, inspect.isclass):
                     if issubclass(item, BaseCandidateModel) and item is not BaseCandidateModel:
                         class_map[item_name] = item
+
+            # Also discover synthesized classes from generated directory
+            gen_dir = Path(__file__).resolve().parent / 'sandbox_models' / 'generated'
+            if gen_dir.exists():
+                for py_file in gen_dir.glob('*.py'):
+                    if py_file.stem.startswith('__'):
+                        continue
+                    try:
+                        mod = importlib.import_module(f'.sandbox_models.generated.{py_file.stem}', package='betting_engine')
+                        for item_name, item in inspect.getmembers(mod, inspect.isclass):
+                            if issubclass(item, BaseCandidateModel) and item is not BaseCandidateModel:
+                                class_map[item_name] = item
+                    except Exception:
+                        pass
         except Exception:
             from .sandbox_models.archetypes.negative_binomial import NegativeBinomialOverdispersionModel
             from .sandbox_models.archetypes.situational_fatigue import SituationalFatigueModel

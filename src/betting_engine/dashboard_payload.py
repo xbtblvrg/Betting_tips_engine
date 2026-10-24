@@ -530,5 +530,9 @@ def build_dashboard(store,health,data_dir):
             res['stake_market'] = {k: sm[k] for k in ('event_url', 'tab', 'navigation_source', 'availability_verified') if k in sm}
         return res
     d['stake_reassessments'] = [_compact_reassessment(row) for row in d['stake_reassessments']]
+    from .daily_quant_council import load_daily_quant_strategy
+    daily_strat = load_daily_quant_strategy(data_dir)
+    if daily_strat:
+        d['daily_quant_council'] = daily_strat.to_dict()
     d = english_payload(d)
     return d

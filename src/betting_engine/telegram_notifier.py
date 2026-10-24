@@ -386,3 +386,18 @@ def notify_council_session(session_id: str, league: str, segment: str, trigger_r
     )
     return send_telegram_message(text)
 
+
+def notify_daily_council_briefing(date_str: str, alpha_targets: List[str], summary: str) -> bool:
+    """Dispatches Telegram alert for the Proactive Daily Multi-AI Quant Council Briefing."""
+    targets_str = ", ".join(f"<code>{t}</code>" for t in alpha_targets[:5]) if alpha_targets else "Portfolio-wide dynamic"
+    text = (
+        f"☀️ <b>[DAILY MULTI-AI QUANT COUNCIL BRIEFING - {date_str}]</b>\n\n"
+        f"🏛️ <b>Chair:</b> Gemini Antigravity (agy)\n"
+        f"🧠 <b>Council:</b> Claude Opus + Codex (GPT-6) + Grok 4.7\n\n"
+        f"🎯 <b>Priority Alpha Targets:</b>\n{targets_str}\n\n"
+        f"📝 <b>Strategic Directive:</b>\n{summary[:500]}\n\n"
+        f"⚡ <i>Dual Dynamic Capital: $2.50–$8.00 Alpha Scaling & $0.00 Incubator Quarantine aktív.</i>"
+    )
+    return send_telegram_message(text)
+
+

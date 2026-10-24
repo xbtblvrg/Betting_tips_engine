@@ -327,7 +327,7 @@ class {class_name}(BaseCandidateModel):
 
         # 1. Generate code via Codex (with algorithmic fallback)
         provider = "codex"
-        codex_res = self._query_codex_for_model_code(canonical_seg, domain_problem, ctx, model_id)
+        codex_res = None if force_archetype else self._query_codex_for_model_code(canonical_seg, domain_problem, ctx, model_id)
         if codex_res:
             source_code, class_name, rationale = codex_res
         else:

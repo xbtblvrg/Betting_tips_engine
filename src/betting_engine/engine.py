@@ -478,6 +478,15 @@ class Engine:
             status['segment_errors']=self.segment_errors
             status['period_errors']=self.period_errors
             status['model_load_errors']=self.model_load_errors
+            from .daily_quant_council import load_daily_quant_strategy
+            daily_strat = load_daily_quant_strategy(DATA)
+            if daily_strat:
+                payload['daily_quant_council'] = daily_strat.to_dict()
+                status['daily_quant_council'] = {
+                    'briefing_date': daily_strat.briefing_date,
+                    'alpha_targets': daily_strat.high_conviction_alpha_targets,
+                    'directive': daily_strat.chair_synthesis[:250]
+                }
             from .opportunities import inventory_snapshot
             payload['opportunity_inventory']=inventory_snapshot(platform.fixture_audit,platform.inventory,platform.schedule_counts,issues+qissues)
             from .operations import market_types,operating_audit

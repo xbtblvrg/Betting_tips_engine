@@ -156,6 +156,7 @@ class LearningWorker:
         self.plan_underperforming_segments(now)
         self.coalesce_stale_jobs(now)
         self.plan_autonomous_submarket_expansion(now)
+        self.plan_daily_council_briefing(now)
         self.plan_market_expansion()
 
         self.plan_player_evidence()
@@ -239,6 +240,25 @@ class LearningWorker:
                 'mandate': 'Mandatory Production Directive: Continually research, decompose, prove and graduate all positive-EV submarkets across all leagues with unlimited ceiling.'
             }
         )
+
+    def plan_daily_council_briefing(self, now):
+        """Plans proactive daily deliberation of the Multi-AI Quant Council."""
+        date_str = now.strftime('%Y-%m-%d')
+        strat_path = self.data / 'research' / 'daily_quant_strategy.json'
+        due = True
+        if strat_path.exists():
+            try:
+                c = json.loads(strat_path.read_text())
+                if c.get('briefing_date') == date_str:
+                    due = False
+            except Exception:
+                pass
+        if due:
+            self.enqueue(
+                'daily_council_briefing',
+                f'daily:{date_str}',
+                payload={'date': date_str, 'scheduled_for': now.isoformat()}
+            )
 
 
     def plan_anchor_weights(self, now):
@@ -746,6 +766,16 @@ class LearningWorker:
             incubator = ShadowMarketIncubator(self.data)
             repairs = incubator.diagnose_and_repair_stuck_incubator_markets()
             return {'executed_at': utcnow().isoformat(), 'repairs_count': len(repairs), 'repairs': repairs}
+        if job['kind']=='daily_council_briefing':
+            from .daily_quant_council import convene_daily_quant_council
+            directive = convene_daily_quant_council(store=self.store, data_dir=self.data)
+            return {
+                'executed_at': utcnow().isoformat(),
+                'status': 'success',
+                'briefing_date': directive.briefing_date,
+                'alpha_targets': directive.high_conviction_alpha_targets,
+                'directive': directive.to_dict()
+            }
         if job['kind']=='target_evaluation':
 
             from .target_evaluator import run_target_self_evaluation
