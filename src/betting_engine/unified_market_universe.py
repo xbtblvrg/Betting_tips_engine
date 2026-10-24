@@ -67,6 +67,13 @@ class UnifiedMarketUniverse:
     _cached_at: float = 0.0
     _cache_ttl_seconds: float = 60.0
 
+    @classmethod
+    def invalidate_cache(cls) -> None:
+        """Flushes the cached universe roster and high-level summary."""
+        cls._cached_roster = None
+        cls._cached_summary = None
+        cls._cached_at = 0.0
+
     def __init__(self, data_dir: Optional[Path | str] = None):
         self.data_dir = Path(data_dir or 'data')
         self.incubator_db_path = self.data_dir / 'shadow_incubator.sqlite3'
@@ -141,10 +148,16 @@ class UnifiedMarketUniverse:
                      phase, model_id, arch, h_roi, h_brier) = r
 
                     canonical_k = self.get_canonical_key(lg, sc, fam)
-                    sub_k = f"{lg}|{sc}|{fam}:{sub_fam}" if (sub_fam and sub_fam != fam) else canonical_k
+                    is_sub = bool(sub_fam and sub_fam != fam)
+                    sub_k = f"{lg}|{sc}|{fam}:{sub_fam}" if is_sub else canonical_k
 
-                    # Constitutional Protection: Never demote an already-graduated market due to stale demoted_markets rows
-                    if seg_key in grad_keys_set or canonical_k in grad_keys_set or sub_k in grad_keys_set:
+                    # Constitutional Protection: Never demote an already-graduated market due to stale demoted_markets rows.
+                    # A parent family key alone must NEVER override a specific demoted sub-family!
+                    already_graduated = (seg_key in grad_keys_set) or (sub_k in grad_keys_set)
+                    if not is_sub and canonical_k in grad_keys_set:
+                        already_graduated = True
+
+                    if already_graduated:
                         continue
 
                     if phase == 'incubating_with_new_model':
@@ -156,7 +169,7 @@ class UnifiedMarketUniverse:
                         tier_name = "RESEARCH_RND"
                         phase_detail = "Tier 1 R&D historical model tuning on 97k+ matches ($0.00)"
 
-                    roster[seg_key] = UnifiedMarketProfile(
+                    prof = UnifiedMarketProfile(
                         segment_key=seg_key,
                         league=lg,
                         scope=sc,
@@ -173,6 +186,15 @@ class UnifiedMarketUniverse:
                         delta_brier=float(h_brier or 0.0),
                         phase_detail=phase_detail
                     )
+                    roster[seg_key] = prof
+                    if is_sub:
+                        roster[sub_k] = prof
+                    if ':' in fam:
+                        base_f = fam.split(':')[-1]
+                        roster[self.get_canonical_key(lg, sc, base_f)] = prof
+                    if sub_fam and ':' in sub_fam:
+                        base_sf = sub_fam.split(':')[-1]
+                        roster[self.get_canonical_key(lg, sc, base_sf)] = prof
 
         except Exception as exc:
             logger.error("Error reading incubator db for universe roster: %s", exc)
@@ -194,8 +216,10 @@ class UnifiedMarketUniverse:
                             sc = 'full_game'
                         fam = p.get('market_family') or p.get('market') or ''
                         canon_key = self.get_canonical_key(lg, sc, fam)
+                        base_fam = fam.split(':')[-1] if ':' in fam else fam
+                        canon_base_key = self.get_canonical_key(lg, sc, base_fam)
 
-                        if canon_key not in roster:
+                        if canon_key not in roster and canon_base_key not in roster:
                             # Active un-demoted production baseline
                             roster[canon_key] = UnifiedMarketProfile(
                                 segment_key=canon_key,
