@@ -542,8 +542,10 @@ class Engine:
                 # High-Probability Shadow Cohort incubation (Zero live money risk)
                 try:
                     funded_ids = {t['id'] for t in recommendations if t.get('stake', 0) > 0}
+                    game_map = {g.id: g for g in upcoming}
                     incubator.incubate_high_probability_candidates(
                         candidates=candidates,
+                        game_map=game_map,
                         as_of=payload['generated_at'],
                         funded_ids=funded_ids
                     )

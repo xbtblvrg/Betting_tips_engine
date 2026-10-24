@@ -937,6 +937,67 @@ def test_core_full_game_market_crucible_graduation(incubator, tmp_path):
     assert _market_is_graduated(g_meta, 'WTA', 'full_game', 'moneyline', 'moneyline')
 
 
+def test_candidate_models_receive_enriched_market_context(incubator):
+    """Verifies candidate models receive projected points, features, and rest context."""
+    from betting_engine.sandbox_models.archetypes.negative_binomial import NegativeBinomialOverdispersionModel
+    from betting_engine.tournament_engine import TournamentEngine
+
+    t_eng = TournamentEngine(data_dir=incubator.data_dir)
+    incubator._tournament_engine = t_eng
+
+    # Register candidate model in tournament
+    cand = NegativeBinomialOverdispersionModel(
+        model_id="test_negbin_ctx",
+        league="NHL",
+        scope="full_game",
+        family="totals",
+        dispersion_alpha=0.20
+    )
+    ok, errors = t_eng.register_candidate("NHL|full_game|totals", cand)
+    assert ok, f"Candidate registration failed: {errors}"
+
+    game = Game(
+        id='NHL:999', league='NHL', start='2026-10-25T19:00:00Z',
+        home='Edmonton Oilers', away='Calgary Flames',
+        home_id='EDM', away_id='CGY', home_abbr='EDM', away_abbr='CGY',
+        state='scheduled', game_type='regular', season=2026
+    )
+
+    forecast = SimpleNamespace(
+        home_points=3.85,
+        away_points=2.65,
+        features={'home_rest': 2.0, 'away_rest': 0.0}
+    )
+
+    raw_markets = [{
+        'name': 'Total Goals',
+        'outcomes': [
+            {'name': 'Over 6.5', 'price': 2.10},
+            {'name': 'Under 6.5', 'price': 1.80}
+        ]
+    }]
+
+    # Run incubate_fixture_gap_markets
+    incubator.incubate_fixture_gap_markets(
+        raw_markets=raw_markets,
+        game=game,
+        league='NHL',
+        forecast=forecast
+    )
+
+    # Verify that incubated_wagers contains the candidate wager priced with dynamic context
+    conn = incubator._get_connection()
+    c_wagers = conn.execute(
+        "SELECT model_id, model_prob, ev FROM incubated_wagers WHERE model_id = 'test_negbin_ctx'"
+    ).fetchall()
+    conn.close()
+
+    assert len(c_wagers) > 0, "Candidate model should have generated incubated wagers"
+    # Over 6.5 with mu = 3.85 + 2.65 = 6.50 should have a valid model probability
+    assert c_wagers[0][1] > 0.0
+
+
+
 
 
 

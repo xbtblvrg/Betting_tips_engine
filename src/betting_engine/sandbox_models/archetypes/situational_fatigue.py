@@ -47,8 +47,8 @@ class SituationalFatigueModel(BaseCandidateModel):
         base_a = float(game_context.get('away_expected') or game_context.get('away_points') or default_a)
 
         # Contextual rest
-        h_rest = int(game_context.get('home_rest_days', 1))
-        a_rest = int(game_context.get('away_rest_days', 1))
+        h_rest = int(game_context.get('home_rest_days') if game_context.get('home_rest_days') is not None else game_context.get('home_rest', 1))
+        a_rest = int(game_context.get('away_rest_days') if game_context.get('away_rest_days') is not None else game_context.get('away_rest', 1))
 
         h_factor = 1.0
         if h_rest == 0:

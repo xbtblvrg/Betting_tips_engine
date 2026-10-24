@@ -89,13 +89,16 @@ def _init_db(db_path: Path = INCUBATOR_DB) -> sqlite3.Connection:
             brier_model REAL,
             brier_market REAL,
             metadata TEXT,
-            cohort TEXT NOT NULL DEFAULT 'gap_market'
+            cohort TEXT NOT NULL DEFAULT 'gap_market',
+            model_id TEXT,
+            model_version TEXT
         )
     """)
-    try:
-        conn.execute("ALTER TABLE incubated_wagers ADD COLUMN cohort TEXT DEFAULT 'gap_market'")
-    except Exception:
-        pass
+    for col in ('cohort TEXT DEFAULT \'gap_market\'', 'model_id TEXT', 'model_version TEXT'):
+        try:
+            conn.execute(f"ALTER TABLE incubated_wagers ADD COLUMN {col}")
+        except Exception:
+            pass
     conn.execute("CREATE INDEX IF NOT EXISTS idx_incubated_status ON incubated_wagers(status)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_incubated_cohort ON incubated_wagers(cohort, status)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_incubated_family ON incubated_wagers(league, scope, family, sub_family)")
@@ -1031,6 +1034,40 @@ class ShadowMarketIncubator:
                                 ctx.setdefault('home_abbr', game.home_abbr)
                             if hasattr(game, 'away_abbr'):
                                 ctx.setdefault('away_abbr', game.away_abbr)
+                        if forecast is not None:
+                            seg_fc = None
+                            if segment_forecasts and (game.id, contract.scope) in segment_forecasts:
+                                seg_fc = segment_forecasts[(game.id, contract.scope)]
+                            elif segment_forecasts and (contract.scope, contract.scope) in segment_forecasts:
+                                seg_fc = segment_forecasts[(contract.scope, contract.scope)]
+
+                            if seg_fc and hasattr(seg_fc, 'home_points') and hasattr(seg_fc, 'away_points'):
+                                ctx.setdefault('home_expected', float(seg_fc.home_points))
+                                ctx.setdefault('away_expected', float(seg_fc.away_points))
+                                ctx.setdefault('home_points', float(seg_fc.home_points))
+                                ctx.setdefault('away_points', float(seg_fc.away_points))
+                            elif hasattr(forecast, 'home_points') and hasattr(forecast, 'away_points'):
+                                sc = (contract.scope or '').lower()
+                                scale = (
+                                    0.45 if sc == 'half_1' else
+                                    0.55 if sc == 'half_2' else
+                                    0.50 if 'innings_1_5' in sc else
+                                    0.33 if ('period' in sc or 'third' in sc) else
+                                    0.25 if 'quarter' in sc else
+                                    1.0
+                                )
+                                ctx.setdefault('home_expected', float(forecast.home_points) * scale)
+                                ctx.setdefault('away_expected', float(forecast.away_points) * scale)
+                                ctx.setdefault('home_points', float(forecast.home_points) * scale)
+                                ctx.setdefault('away_points', float(forecast.away_points) * scale)
+
+                            if hasattr(forecast, 'features') and isinstance(forecast.features, dict):
+                                for fk, fv in forecast.features.items():
+                                    ctx.setdefault(fk, fv)
+                                if 'home_rest' in forecast.features:
+                                    ctx.setdefault('home_rest_days', forecast.features['home_rest'])
+                                if 'away_rest' in forecast.features:
+                                    ctx.setdefault('away_rest_days', forecast.features['away_rest'])
                         mkt_ident = f"{contract.family}:{contract.sub_family}" if (contract.sub_family and contract.sub_family != contract.family) else (contract.sub_family or contract.family)
                         cand_prob, cand_ev = cand.evaluate_market(
                             mkt_ident,
@@ -1207,6 +1244,9 @@ class ShadowMarketIncubator:
                     candidates = t_eng.get_active_candidates(f"{league}|{scope}|{c.get('market')}")
                 g_obj = game_map.get(str(g_id)) if game_map else None
                 ctx = dict(g_obj.context) if (g_obj and isinstance(getattr(g_obj, 'context', None), dict)) else {}
+                if isinstance(c.get('game_context'), dict):
+                    for k, v in c['game_context'].items():
+                        ctx.setdefault(k, v)
                 if g_obj:
                     if hasattr(g_obj, 'home'):
                         ctx.setdefault('home', g_obj.home)
@@ -1218,6 +1258,18 @@ class ShadowMarketIncubator:
                         ctx.setdefault('home_abbr', g_obj.home_abbr)
                     if hasattr(g_obj, 'away_abbr'):
                         ctx.setdefault('away_abbr', g_obj.away_abbr)
+                if c.get('home'):
+                    ctx.setdefault('home', c['home'])
+                    ctx.setdefault('home_team', c['home'])
+                if c.get('away'):
+                    ctx.setdefault('away', c['away'])
+                    ctx.setdefault('away_team', c['away'])
+                if c.get('predicted_home_points') is not None:
+                    ctx.setdefault('home_expected', float(c['predicted_home_points']))
+                    ctx.setdefault('home_points', float(c['predicted_home_points']))
+                if c.get('predicted_away_points') is not None:
+                    ctx.setdefault('away_expected', float(c['predicted_away_points']))
+                    ctx.setdefault('away_points', float(c['predicted_away_points']))
                 for cand in candidates:
                     mkt_ident = f"{family}:{sub_family}" if (sub_family and sub_family != family) else (sub_family or family or c.get('market', ''))
                     cand_prob, cand_ev = cand.evaluate_market(
