@@ -25,11 +25,11 @@ INCUBATOR_DB = DATA / 'shadow_incubator.sqlite3'
 class DemotedMarketIncubationBridge:
     """Orchestrates the binding of historically proven candidate models to demoted markets."""
 
-    def __init__(self, data_dir: Path = DATA, db_path: Path = INCUBATOR_DB):
+    def __init__(self, data_dir: Path = DATA, db_path: Optional[Path] = None):
         self.data_dir = data_dir
-        self.db_path = db_path
-        self.trainer = HistoricalCandidateTrainer(db_path=db_path)
-        self.tournament_engine = TournamentEngine(data_dir=data_dir, db_path=db_path)
+        self.db_path = db_path or (data_dir / 'shadow_incubator.sqlite3')
+        self.trainer = HistoricalCandidateTrainer(db_path=self.db_path)
+        self.tournament_engine = TournamentEngine(data_dir=data_dir, db_path=self.db_path)
 
     def synchronize_demoted_markets(self, max_train_per_run: int = 100) -> Dict[str, Any]:
         """Scans all demoted markets, trains candidate models on historical data, and admits them into the incubator."""
