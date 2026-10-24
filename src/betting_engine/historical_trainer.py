@@ -15,11 +15,13 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from .providers import DATA
 from .sandbox_models.archetypes.bivariate_copula import BivariateCopulaHazardModel
+from .sandbox_models.archetypes.dixon_coles_soccer import DixonColesSoccerModel
 from .sandbox_models.archetypes.extreme_value_gumbel import ExtremeValueGumbelModel
 from .sandbox_models.archetypes.markov_chain_tennis import MarkovChainTennisModel
 from .sandbox_models.archetypes.negative_binomial import NegativeBinomialOverdispersionModel
 from .sandbox_models.archetypes.odds_damped_kelly import OddsDampedKellyShrinkageModel
 from .sandbox_models.archetypes.situational_fatigue import SituationalFatigueModel
+from .sandbox_models.archetypes.skellam_differential import SkellamDifferentialModel
 from .sandbox_models.archetypes.weibull_hazard import WeibullRenewalHazardModel
 from .sandbox_models.archetypes.zero_inflated import ZeroInflatedPoissonModel
 from .sandbox_models.base import BaseCandidateModel
@@ -287,6 +289,33 @@ class HistoricalCandidateTrainer:
                     trailing_boost_pct=0.20,
                 )
                 candidate_configs.append(('WeibullRenewalHazardModel', m, {'hazard_shape_k': k, 'trailing_boost_pct': 0.20}))
+
+        # 9. Dixon-Coles Soccer Model (for low-scoring soccer dependence and home advantage)
+        if league in ('EPL', 'MLS', 'UCL'):
+            for rho in [-0.15, -0.08, 0.05]:
+                m = DixonColesSoccerModel(
+                    model_id=f"{league.lower()}_{scope}_{family}_dixon_r{int(rho*100)}_{now_tag}",
+                    version="1.1.0",
+                    league=league,
+                    scope=scope,
+                    family=family,
+                    low_score_rho=rho,
+                    home_advantage=1.12,
+                )
+                candidate_configs.append(('DixonColesSoccerModel', m, {'low_score_rho': rho, 'home_advantage': 1.12}))
+
+        # 10. Skellam Differential Model (for exact analytic spread and moneyline differentials)
+        if league in ('MLS', 'EPL', 'UCL', 'MLB', 'NHL'):
+            for eta in [0.0, 0.05, 0.10]:
+                m = SkellamDifferentialModel(
+                    model_id=f"{league.lower()}_{scope}_{family}_skellam_e{int(eta*100)}_{now_tag}",
+                    version="1.1.0",
+                    league=league,
+                    scope=scope,
+                    family=family,
+                    draw_inflation_eta=eta,
+                )
+                candidate_configs.append(('SkellamDifferentialModel', m, {'draw_inflation_eta': eta}))
 
         # Evaluate candidate models out-of-sample on holdout
         qualified_results: List[CandidateTrainingResult] = []

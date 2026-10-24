@@ -17,6 +17,8 @@ from .sandbox_models.archetypes.zero_inflated import ZeroInflatedPoissonModel
 from .sandbox_models.archetypes.extreme_value_gumbel import ExtremeValueGumbelModel
 from .sandbox_models.archetypes.markov_chain_tennis import MarkovChainTennisModel
 from .sandbox_models.archetypes.weibull_hazard import WeibullRenewalHazardModel
+from .sandbox_models.archetypes.dixon_coles_soccer import DixonColesSoccerModel
+from .sandbox_models.archetypes.skellam_differential import SkellamDifferentialModel
 from .tournament_engine import TournamentEngine
 
 
@@ -141,6 +143,31 @@ def synthesize_candidate_slate(
             trailing_boost_pct=0.20,
         )
         candidates.append(cand_theta)
+
+    # 9. Candidate Iota: Dixon-Coles Soccer Model
+    if league in ('EPL', 'MLS', 'UCL'):
+        cand_iota = DixonColesSoccerModel(
+            model_id=f"{league.lower()}_{scope}_{family}_dixon_{now_tag}",
+            version="1.0.0",
+            league=league,
+            scope=scope,
+            family=family,
+            low_score_rho=-0.10,
+            home_advantage=1.12,
+        )
+        candidates.append(cand_iota)
+
+    # 10. Candidate Kappa: Skellam Differential Model
+    if league in ('MLS', 'EPL', 'UCL', 'MLB', 'NHL'):
+        cand_kappa = SkellamDifferentialModel(
+            model_id=f"{league.lower()}_{scope}_{family}_skellam_{now_tag}",
+            version="1.0.0",
+            league=league,
+            scope=scope,
+            family=family,
+            draw_inflation_eta=0.05,
+        )
+        candidates.append(cand_kappa)
 
     if league in ('NBA', 'WNBA', 'NCAAM', 'NCAAW'):
         h_exp, a_exp = (110.0, 106.0) if league == 'NBA' else (80.0, 75.0)

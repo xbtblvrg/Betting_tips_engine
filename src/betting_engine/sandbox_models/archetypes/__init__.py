@@ -7,6 +7,8 @@ from .zero_inflated import ZeroInflatedPoissonModel
 from .extreme_value_gumbel import ExtremeValueGumbelModel
 from .markov_chain_tennis import MarkovChainTennisModel
 from .weibull_hazard import WeibullRenewalHazardModel
+from .dixon_coles_soccer import DixonColesSoccerModel
+from .skellam_differential import SkellamDifferentialModel
 
 __all__ = [
     'NegativeBinomialOverdispersionModel',
@@ -17,4 +19,6 @@ __all__ = [
     'ExtremeValueGumbelModel',
     'MarkovChainTennisModel',
     'WeibullRenewalHazardModel',
+    'DixonColesSoccerModel',
+    'SkellamDifferentialModel',
 ]
