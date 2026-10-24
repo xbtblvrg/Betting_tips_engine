@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from datetime import datetime, timezone
 import json
+import logging
 from pathlib import Path
 import sqlite3
 from typing import Any, Dict, List, Optional, Tuple
@@ -17,6 +18,8 @@ from .historical_trainer import HistoricalCandidateTrainer
 from .providers import DATA
 from .quant_rd_agent import append_rd_log
 from .tournament_engine import TournamentEngine, normalize_segment_key
+
+log = logging.getLogger(__name__)
 
 
 INCUBATOR_DB = DATA / 'shadow_incubator.sqlite3'
@@ -31,8 +34,8 @@ class DemotedMarketIncubationBridge:
         self.trainer = HistoricalCandidateTrainer(db_path=self.db_path)
         self.tournament_engine = TournamentEngine(data_dir=data_dir, db_path=self.db_path)
 
-    def synchronize_demoted_markets(self, max_train_per_run: int = 100) -> Dict[str, Any]:
-        """Scans all demoted markets, trains candidate models on historical data, and admits them into the incubator."""
+    def synchronize_demoted_markets(self, max_train_per_run: int = 3) -> Dict[str, Any]:
+        """Scans demoted markets, trains candidate models on historical data, and admits them into the incubator."""
         if not self.db_path.exists():
             return {'status': 'no_db', 'newly_admitted_count': 0}
 
@@ -42,6 +45,7 @@ class DemotedMarketIncubationBridge:
             cur.execute("""
                 SELECT id, segment_key, league, scope, family, sub_family, rolling_roi, rolling_pnl, games, incubation_phase, incubated_model_id
                 FROM demoted_markets
+                ORDER BY CASE WHEN incubation_phase = 'incubating_with_new_model' THEN 1 ELSE 0 END, id ASC
             """)
             all_demoted = cur.fetchall()
         finally:
@@ -53,6 +57,7 @@ class DemotedMarketIncubationBridge:
         newly_admitted = []
         already_incubating = 0
         still_researching = 0
+        attempted_this_run = 0
 
         for row in all_demoted:
             d_id, seg_key, league, scope, family, sub_fam, r_roi, r_pnl, g_count, phase, model_id = row
@@ -61,6 +66,10 @@ class DemotedMarketIncubationBridge:
                 already_incubating += 1
                 continue
 
+            if attempted_this_run >= max_train_per_run:
+                break
+
+            attempted_this_run += 1
             # Run historical training & out-of-sample Crucible validation
             champ_res = self.trainer.train_and_screen_demoted_market(seg_key)
             if not champ_res or not champ_res.is_qualified:
@@ -83,6 +92,7 @@ class DemotedMarketIncubationBridge:
             'newly_admitted_count': len(newly_admitted),
             'already_incubating_count': already_incubating,
             'still_researching_count': still_researching,
+            'attempted_this_run': attempted_this_run,
             'newly_admitted': newly_admitted,
         }
 
@@ -178,7 +188,8 @@ class DemotedMarketIncubationBridge:
                 if "locked" in str(e) and attempt < 4:
                     time.sleep(0.5 * (attempt + 1))
                     continue
-                raise
+                log.warning("Could not commit champion candidate model for %s: %s", seg_key, e)
+                return False
 
         # Record audit telemetry
         append_rd_log(
