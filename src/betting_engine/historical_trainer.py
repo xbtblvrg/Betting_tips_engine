@@ -36,23 +36,23 @@ class CandidateTrainingResult:
     segment_key: str
     model_id: str
     model_archetype: str
-    version: str
-    model_params: Dict[str, Any]
-    train_sample_size: int
-    oos_sample_size: int
-    total_samples: int
-    oos_wins: int
-    oos_losses: int
-    oos_pushes: int
-    oos_win_rate: float
-    oos_simulated_roi: float
-    oos_simulated_pnl: float
-    oos_brier_model: float
-    oos_brier_market: float
-    oos_delta_brier: float
-    oos_max_drawdown: float
-    scorecard_s: float
-    is_qualified: bool
+    version: str = "1.0.0"
+    model_params: Dict[str, Any] = field(default_factory=dict)
+    train_sample_size: int = 0
+    oos_sample_size: int = 0
+    total_samples: int = 0
+    oos_wins: int = 0
+    oos_losses: int = 0
+    oos_pushes: int = 0
+    oos_win_rate: float = 0.0
+    oos_simulated_roi: float = 0.0
+    oos_simulated_pnl: float = 0.0
+    oos_brier_model: float = 0.0
+    oos_brier_market: float = 0.0
+    oos_delta_brier: float = 0.0
+    oos_max_drawdown: float = 0.0
+    scorecard_s: float = 0.0
+    is_qualified: bool = True
     failure_reasons: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:

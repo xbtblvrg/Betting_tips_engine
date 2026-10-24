@@ -122,8 +122,15 @@ class DemotedMarketIncubationBridge:
         }
         init_kwargs.update(champ_res.model_params)
 
+        import inspect
         try:
-            candidate_instance = cls_target(**init_kwargs)
+            sig = inspect.signature(cls_target.__init__)
+            has_var_kwargs = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values())
+            if not has_var_kwargs:
+                filtered_kwargs = {k: v for k, v in init_kwargs.items() if k in sig.parameters}
+            else:
+                filtered_kwargs = init_kwargs
+            candidate_instance = cls_target(**filtered_kwargs)
         except Exception:
             return False
 

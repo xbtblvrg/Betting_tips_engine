@@ -153,14 +153,14 @@ class AutonomousModelDiscoveryEngine:
                                 model_id=synth_rec.model_id,
                                 model_archetype=synth_rec.class_name,
                                 model_params={'source_file': f"{synth_rec.model_id}.py"},
-                                in_sample_size=0,
+                                train_sample_size=0,
                                 oos_sample_size=synth_rec.oos_sample_size,
                                 oos_win_rate=synth_rec.oos_win_rate,
                                 oos_simulated_roi=synth_rec.oos_simulated_roi,
                                 oos_delta_brier=synth_rec.oos_delta_brier,
                                 oos_max_drawdown=synth_rec.oos_max_drawdown,
                                 is_qualified=True,
-                                crucible_score=100.0,
+                                scorecard_s=100.0,
                             )
                             self.bridge.admit_champion_to_market(d_id, segment_key, candidate_result)
 
