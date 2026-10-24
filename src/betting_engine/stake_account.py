@@ -1306,9 +1306,12 @@ def stage_betslip_in_safari(
             const isDraw = targetNorm === "draw" || targetNorm === "tie" || targetNorm === "x" || outcomeNorm === "draw" || outcomeNorm === "tie" || outcomeNorm === "x";
 
             // Extract entity words by stripping line numbers, parentheses, plus/minus
+            const clubStopwords = new Set(["fc", "sc", "cf", "afc", "ac", "sk", "fk", "bk", "club", "de"]);
             const entityText = targetSel.replace(/[+-]?\\d+(\\.\\d+)?/g, "").replace(/[()]/g, "").trim();
             const entityWords = entityText.split(/\\s+/).filter(w => w.length > 1);
-            const lastName = entityWords.length > 0 ? entityWords[entityWords.length - 1] : "";
+            const meaningfulWords = entityWords.filter(w => !clubStopwords.has(w.toLowerCase()));
+            const primaryName = meaningfulWords.length > 0 ? meaningfulWords[meaningfulWords.length - 1] : (entityWords.length > 0 ? entityWords[entityWords.length - 1] : "");
+            const lastName = primaryName;
 
             const candidates = [];
             for (const b of buttons) {
@@ -1680,9 +1683,11 @@ def stage_betslip_in_safari(
             const isBaseball = {json.dumps(is_baseball)};
             const isOver = targetNorm.indexOf("over") === 0;
             const isUnder = targetNorm.indexOf("under") === 0;
+            const clubStopwords = new Set(["fc", "sc", "cf", "afc", "ac", "sk", "fk", "bk", "club", "de"]);
             const entityText = targetSel.replace(/[+-]?\\d+(\\.\\d+)?/g, "").replace(/[()]/g, "").trim();
             const entityWords = entityText.split(/\\s+/).filter(w => w.length > 1);
-            const lastName = entityWords.length > 0 ? entityWords[entityWords.length - 1] : "";
+            const meaningfulWords = entityWords.filter(w => !clubStopwords.has(w.toLowerCase()));
+            const lastName = meaningfulWords.length > 0 ? meaningfulWords[meaningfulWords.length - 1] : (entityWords.length > 0 ? entityWords[entityWords.length - 1] : "");
 
             const existingInput = document.querySelector("[data-testid='input-bet-amount']");
             const betslipEl = document.querySelector("#right-sidebar") || document.querySelector("[data-testid='betslip-bet']") || document.querySelector(".betslip") || document.querySelector("[data-block-touch-pan]");
@@ -1923,7 +1928,11 @@ def stage_betslip_in_safari(
             // PRE-SUBMISSION STRICT BETSLIP VERIFICATION GATE
             const verifyBetCard = slipBets[0] || document.querySelector("#right-sidebar [data-testid='betslip-bet'], .betslip [data-testid='betslip-bet'], [data-testid='betslip-bet']");
             if (verifyBetCard) {{
-                const cardText = (verifyBetCard.innerText || "").toLowerCase();
+                const cardText = (verifyBetCard.innerText || "").toLowerCase().trim();
+                // If betslip card element exists but its text nodes are still mounting/hydrating, wait for next tick!
+                if (cardText.length < 5) {{
+                    return JSON.stringify({{ status: "waiting_card_text" }});
+                }}
 
                 // 1. Period Verification Gate
                 if (periodPrefix) {{
@@ -1980,10 +1989,13 @@ def stage_betslip_in_safari(
                 }}
 
                 // 3. Entity / Team Verification Gate
+                const clubStopwords = new Set(["fc", "sc", "cf", "afc", "ac", "sk", "fk", "bk", "club", "de"]);
                 const entityText = targetSel.replace(/[+-]?\\d+(\\.\\d+)?/g, "").replace(/[()]/g, "").trim();
                 const entityWords = entityText.split(/\\s+/).filter(w => w.length > 1);
-                const lastName = entityWords.length > 0 ? entityWords[entityWords.length - 1] : "";
-                if (lastName && !cardText.includes(lastName.toLowerCase())) {{
+                const meaningfulWords = entityWords.filter(w => !clubStopwords.has(w.toLowerCase()));
+                const primaryName = meaningfulWords.length > 0 ? meaningfulWords[meaningfulWords.length - 1] : (entityWords.length > 0 ? entityWords[entityWords.length - 1] : "");
+
+                if (meaningfulWords.length > 0 && !meaningfulWords.some(w => cardText.includes(w.toLowerCase()))) {{
                     if (!targetNorm.startsWith("over") && !targetNorm.startsWith("under") && targetNorm !== "draw") {{
                         try {{
                             const resetBtn = document.querySelector("[data-testid='reset-betslip']");
@@ -1993,7 +2005,7 @@ def stage_betslip_in_safari(
                         }} catch(e) {{}}
                         return JSON.stringify({{
                             status: "verification_failed",
-                            error: "Szelvény verifikációs hiba: A csapatnév ('" + lastName + "') nem egyezik a betslipben! Betslip tartalom: '" + verifyBetCard.innerText.replace(/\\s+/g, ' ').slice(0, 80) + "'"
+                            error: "Szelvény verifikációs hiba: A csapatnév ('" + primaryName + "') nem egyezik a betslipben! Betslip tartalom: '" + verifyBetCard.innerText.replace(/\\s+/g, ' ').slice(0, 80) + "'"
                         }});
                     }}
                 }}
@@ -2051,12 +2063,14 @@ def stage_betslip_in_safari(
     staked = False
     payout_val = None
     verification_err = None
-    for j in range(15):
+    for j in range(25):
         time.sleep(0.2)
         out = _eval_safari_js(set_stake_js, activate=True, timeout=5)
         if out and out != "NOT_FOUND":
             try:
                 res_stake = json.loads(out)
+                if res_stake.get("status") == "waiting_card_text":
+                    continue
                 if res_stake.get("status") == "verification_failed":
                     verification_err = res_stake.get("error", "Szelvény verifikációs hiba: A betslip tartalma nem egyezik az ajánlással.")
                     break
