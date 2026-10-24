@@ -37,13 +37,19 @@ def render(database,data_dir,health):
 
 def main():
     database,data_dir,output,health_json=sys.argv[1:]
-    payload=render(database,data_dir,json.loads(health_json))
+    health=json.loads(health_json)
+    payload=render(database,data_dir,health)
+    from .freshness import MAX_QUOTE_AGE_SECONDS, ACTIVE_ENGINE_MAX_QUOTE_AGE_SECONDS
+    engine_active = bool(health and health.get('running'))
+    max_quote_age = ACTIVE_ENGINE_MAX_QUOTE_AGE_SECONDS if engine_active else MAX_QUOTE_AGE_SECONDS
     deadlines=[]
     rows=[(t,t.get('execution_review',{})) for t in payload.get('recommendations',[]) if t.get('stake',0)>0]
     rows += [(b['payload'],b.get('instruction_review',{})) for b in payload.get('tracked_bets',[])]
     for tip,review in rows:
         if review.get('actionable'):
-            deadlines.extend((parse_time(review['quote_at']).timestamp()+300,parse_time(review['valid_until']).timestamp(),parse_time(tip['start']).timestamp()))
+            deadlines.extend((parse_time(review['quote_at']).timestamp()+max_quote_age,
+                              (parse_time(review['quote_at']).timestamp()+max_quote_age) if engine_active else parse_time(review['valid_until']).timestamp(),
+                              parse_time(tip['start']).timestamp()))
     body=json.dumps(payload,ensure_ascii=False,allow_nan=False,separators=(',',':')).encode('utf-8')
     if not 0<len(body)<=MAX_RESPONSE_BYTES:raise ValueError('Dashboard exceeds the response bound')
     folder=Path(output)

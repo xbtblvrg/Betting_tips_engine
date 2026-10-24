@@ -31,7 +31,7 @@ def evidence_digest(tip):
     return hashlib.sha256(json.dumps(fields,sort_keys=True,allow_nan=False).encode()).hexdigest()
 
 
-def verify_publication(tip,now,active_settings=None):
+def verify_publication(tip,now,active_settings=None,max_quote_age=MAX_QUOTE_AGE_SECONDS):
     from .stake_website_availability import website_availability_issue
     issue=website_availability_issue(tip)
     if issue:raise ValueError('Publication blocked: '+issue['code'])
@@ -77,8 +77,8 @@ def verify_publication(tip,now,active_settings=None):
     outcome=outcome_policy(guard)
     if outcome!=outcome_policy(tip) or outcome!=outcome_policy(guard.get('sizing_settings',{})) or (active_settings is not None and outcome!=outcome_policy(active_settings)):
         raise ValueError('Publication blocked: outcome sizing policy changed during review')
-    verify_evidence(tip,guard,now)
-    if not fresh_quote(tip,now):raise ValueError('Publication blocked: quote expired after evidence review')
+    verify_evidence(tip,guard,now,max_age_seconds=max_quote_age)
+    if not fresh_quote(tip,now,max_age_seconds=max_quote_age):raise ValueError('Publication blocked: quote expired after evidence review')
     stake=tip.get('stake',0)
     if not isinstance(stake,(float,int)) or not math.isfinite(stake) or (stake!=0 and not 0.5<=stake<=8):raise ValueError('Publication blocked: invalid stake')
     from .funding_policy import funding_basis,size_recommendation

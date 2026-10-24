@@ -12,7 +12,7 @@ def outcome_policy(settings):
     return policy
 
 
-def verify_evidence(tip, settings, now):
+def verify_evidence(tip, settings, now, max_age_seconds=300):
     """Check a receipt at review/issuance time; never substitute today's outcomes."""
     policy = outcome_policy(settings)
     if policy == 'legacy':
@@ -21,7 +21,7 @@ def verify_evidence(tip, settings, now):
     if not verify_summary(summary) or summary['segment'] != segment_key(tip):
         raise ValueError('Outcome sizing evidence is missing or invalid')
     age = (now - parse_time(summary['as_of'])).total_seconds()
-    if not 0 <= age <= 300:
+    if not -5 <= age <= max_age_seconds:
         raise ValueError('Outcome sizing evidence is future-dated or stale')
 
 
