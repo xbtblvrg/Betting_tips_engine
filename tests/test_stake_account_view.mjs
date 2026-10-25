@@ -960,7 +960,7 @@ test('Auto-Run 30m toggle switches to 24h horizon, triggers auto-bet, and enforc
   assert.strictEqual(toggle.checked, false, 'Stop button must disable and uncheck auto-run toggle');
 
   // Now test 300 open bets limit guard:
-  const {w: wLimit} = await bootStakeAccount(t, {
+  const {w: wLimit, writes: writesLimit} = await bootStakeAccount(t, {
     recommendations: [rec1],
     stake_account: {open_bets_count: 300}
   });
@@ -968,10 +968,12 @@ test('Auto-Run 30m toggle switches to 24h horizon, triggers auto-bet, and enforc
   const toggleLimit = docLimit.getElementById('auto-bet-interval-toggle');
   assert.ok(toggleLimit);
 
-  // Attempting to turn on when Stake limit is reached should immediately disable
+  // When Stake account has 300 open bets, enabling Auto-Run stays active and waits for capacity, without placing bets
   toggleLimit.checked = true;
   toggleLimit.onchange();
-  assert.strictEqual(toggleLimit.checked, false, 'Auto-Run 30m must immediately reject and uncheck if 300 bets limit is reached');
+  assert.strictEqual(toggleLimit.checked, true, 'Auto-Run 15m must remain active and wait for capacity when at 300 bets');
+  const stageCallsAtLimit = writesLimit.filter(w => w.path === '/api/stage-betslip');
+  assert.strictEqual(stageCallsAtLimit.length, 0, 'Must not place any bets when at 300 active bets limit');
 });
 
 test('Auto 1-Click Bet Runner autonomously executes Phase 2 adaptive fallback on moved line and places qualifying +EV alternative', async t => {
@@ -1077,6 +1079,181 @@ test('Auto 1-Click Bet Runner autonomously executes Phase 2 adaptive fallback on
   const skippedBox = doc.getElementById('auto-bet-skipped-section');
   assert.ok(skippedBox);
   assert.strictEqual(skippedBox.style.display, 'none', 'Skipped section should be hidden after adaptive resolution');
+});
+
+test('Auto-Run 15m hierarchical queuing prioritizes 24h horizon first, then 48h if slots remain', async t => {
+  const now = Date.now();
+  const time10h = new Date(now + 10 * 3600000).toISOString();
+  const time30h = new Date(now + 30 * 3600000).toISOString();
+
+  const rec24h = {
+    execution_review: {actionable: true, quote_at: new Date().toISOString(), valid_until: time10h},
+    decision_guard: {passed: true},
+    id: 'tip-hier-24h',
+    rank: 1,
+    game_id: 'g-24h',
+    league: 'NFL',
+    home: 'Falcons',
+    away: 'Saints',
+    market: 'spreads',
+    market_display: 'Handicap',
+    line: -3.5,
+    start: time10h,
+    valid_until: time10h,
+    stake_market: {
+      name: 'Handicap',
+      availability_verified: true,
+      availability_note: 'Verified.',
+      event_url: 'https://stake.com/sports/american-football/nfl/saints-falcons',
+      tab: 'Main'
+    },
+    selection: 'Falcons -3.5',
+    probability: 0.60,
+    minimum_odds: 1.85,
+    reference_odds: 1.95,
+    reference_price: 0.5,
+    reference_platform: 'Stake.com',
+    reference_url: 'https://stake.com/sports/american-football/nfl/saints-falcons',
+    source_url: 'https://example.com',
+    quote_at: new Date().toISOString(),
+    stake: 2.00,
+    stress_roi: 0.1,
+    expected_roi: 0.2,
+    reasons: ['24h pick'],
+    warnings: [],
+    model_version: 'test'
+  };
+
+  const rec48h = {
+    execution_review: {actionable: true, quote_at: new Date().toISOString(), valid_until: time30h},
+    decision_guard: {passed: true},
+    id: 'tip-hier-48h',
+    rank: 2,
+    game_id: 'g-48h',
+    league: 'NFL',
+    home: 'Packers',
+    away: 'Bears',
+    market: 'totals',
+    market_display: 'Total',
+    line: 44.5,
+    start: time30h,
+    valid_until: time30h,
+    stake_market: {
+      name: 'Total',
+      availability_verified: true,
+      availability_note: 'Verified.',
+      event_url: 'https://stake.com/sports/american-football/nfl/bears-packers',
+      tab: 'Main'
+    },
+    selection: 'Over 44.5',
+    probability: 0.58,
+    minimum_odds: 1.80,
+    reference_odds: 1.90,
+    reference_price: 0.5,
+    reference_platform: 'Stake.com',
+    reference_url: 'https://stake.com/sports/american-football/nfl/bears-packers',
+    source_url: 'https://example.com',
+    quote_at: new Date().toISOString(),
+    stake: 1.50,
+    stress_roi: 0.1,
+    expected_roi: 0.18,
+    reasons: ['48h pick'],
+    warnings: [],
+    model_version: 'test'
+  };
+
+  const {w, writes} = await bootStakeAccount(t, {
+    recommendations: [rec24h, rec48h],
+    stake_account: {open_bets_count: 100}
+  });
+
+  const doc = w.document;
+  const toggle = doc.getElementById('auto-bet-interval-toggle');
+  assert.ok(toggle);
+
+  // Turn on Auto-Run 15m
+  toggle.checked = true;
+  toggle.onchange();
+  await new Promise(r => setTimeout(r, 150));
+
+  const stageCalls = writes.filter(w => w.path === '/api/stage-betslip');
+  // Both 24h and 48h should be queued because slots (300 - 100 = 200) > 0 and 24h was fulfilled first
+  assert.strictEqual(stageCalls.length, 2, 'Both 24h and 48h bets should be placed when slots remain');
+  assert.strictEqual(JSON.parse(stageCalls[0].options.body).tip_id, 'tip-hier-24h', '24h tip must be submitted first');
+  assert.strictEqual(JSON.parse(stageCalls[1].options.body).tip_id, 'tip-hier-48h', '48h tip must be submitted second');
+});
+
+test('Auto-Run 15m halts and marks fatal error on genuine system error (e.g. login required)', async t => {
+  const future1 = new Date(Date.now() + 3600000).toISOString();
+  const rec1 = {
+    execution_review: {actionable: true, quote_at: new Date().toISOString(), valid_until: future1},
+    decision_guard: {passed: true},
+    id: 'tip-fatal-1',
+    rank: 1,
+    game_id: 'g-fatal-1',
+    league: 'NFL',
+    home: 'Bills',
+    away: 'Chiefs',
+    market: 'moneyline',
+    market_display: 'Winner',
+    start: future1,
+    valid_until: future1,
+    stake_market: {
+      name: 'Winner',
+      availability_verified: true,
+      availability_note: 'Verified.',
+      event_url: 'https://stake.com/sports/american-football/nfl/chiefs-bills-fatal',
+      tab: 'Main'
+    },
+    selection: 'Chiefs',
+    probability: 0.65,
+    minimum_odds: 1.80,
+    reference_odds: 1.95,
+    reference_price: 0.5,
+    reference_platform: 'Stake.com',
+    reference_url: 'https://stake.com/sports/american-football/nfl/chiefs-bills-fatal',
+    source_url: 'https://example.com',
+    quote_at: new Date().toISOString(),
+    stake: 2.50,
+    stress_roi: 0.1,
+    expected_roi: 0.2,
+    reasons: ['Edge detected'],
+    warnings: [],
+    model_version: 'test'
+  };
+
+  const {w} = await bootStakeAccount(t, {recommendations: [rec1]});
+  const origFetch = w.fetch;
+  w.fetch = async (path, options) => {
+    if (path.startsWith('/api/stage-betslip')) {
+      return {
+        ok: false,
+        status: 401,
+        json: async () => ({
+          status: 'error',
+          placed: false,
+          message: 'Bejelentkezés szükséges a Stake fiókodba a Safariban!'
+        })
+      };
+    }
+    return origFetch(path, options);
+  };
+
+  const doc = w.document;
+  const toggle = doc.getElementById('auto-bet-interval-toggle');
+  assert.ok(toggle);
+
+  toggle.checked = true;
+  toggle.onchange();
+  await new Promise(r => setTimeout(r, 120));
+
+  // Toggle must be disabled / unchecked on genuine fatal error
+  assert.strictEqual(toggle.checked, false, 'Auto-Run 15m must uncheck on genuine fatal error');
+
+  const descEl = doc.getElementById('auto-bet-desc');
+  assert.ok(descEl);
+  assert.match(descEl.innerHTML, /Auto-Run queued bets leállt hiba miatt/);
+  assert.match(descEl.innerHTML, /Bejelentkezés szükséges/);
 });
 
 
