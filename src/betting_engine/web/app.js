@@ -820,7 +820,7 @@ const skippedAutoBetTips = new Map();
 let isAutoRunEnabled = false;
 let autoRunCountdownTimer = null;
 let autoRunNextTriggerAt = null;
-const AUTO_RUN_INTERVAL_MS = 30 * 60 * 1000;
+const AUTO_RUN_INTERVAL_MS = 15 * 60 * 1000;
 
 function formatAutoRunTime(ms) {
  const totalSec = Math.max(0, Math.floor(ms / 1000));
@@ -834,10 +834,16 @@ function updateAutoRunStatusUI() {
  const statusEl = $('#auto-bet-interval-status');
  if (toggle && toggle.checked !== isAutoRunEnabled) toggle.checked = isAutoRunEnabled;
  if (!statusEl) return;
- if (isAutoRunEnabled && autoRunNextTriggerAt) {
+ if (isAutoRunEnabled) {
   statusEl.style.display = 'inline';
-  const remaining = autoRunNextTriggerAt - Date.now();
-  statusEl.textContent = formatAutoRunTime(remaining);
+  if (isAutoBetRunning) {
+   statusEl.textContent = '(Fut…)';
+   statusEl.style.color = '#0284c7';
+  } else if (autoRunNextTriggerAt) {
+   const remaining = autoRunNextTriggerAt - Date.now();
+   statusEl.textContent = formatAutoRunTime(remaining);
+   statusEl.style.color = '#047857';
+  }
  } else {
   statusEl.style.display = 'none';
   statusEl.textContent = '';
@@ -853,7 +859,7 @@ function disableAutoRun(reason = null) {
  }
  updateAutoRunStatusUI();
  if (reason) {
-  toast(`⚠️ Auto-Run 30m kikapcsolva: ${reason}`, { duration: 8000 });
+  toast(`⚠️ Auto-Run 15m leállt: ${reason}`, { duration: 12000 });
  }
 }
 
@@ -872,6 +878,10 @@ function scheduleNextAutoRun(delayMs = AUTO_RUN_INTERVAL_MS) {
     }
     return;
    }
+   if (isAutoBetRunning) {
+    updateAutoRunStatusUI();
+    return;
+   }
    const remaining = autoRunNextTriggerAt ? (autoRunNextTriggerAt - Date.now()) : 0;
    if (remaining <= 0) {
     await executeAutoRunCycle();
@@ -882,6 +892,70 @@ function scheduleNextAutoRun(delayMs = AUTO_RUN_INTERVAL_MS) {
  }
 }
 
+function getAutoRunHierarchicalQueue(currentOpenBets = 0) {
+ const maxCapacity = 300;
+ const availableSlots = Math.max(0, maxCapacity - currentOpenBets);
+ if (availableSlots <= 0) {
+  return { queue: [], limitReached: true, count24: 0, count48: 0, availableSlots: 0 };
+ }
+
+ const now = Date.now();
+ const max24 = now + 24 * 3600000;
+ const max48 = now + 48 * 3600000;
+
+ const allReady = readyTips().filter(t => !isPlaced(t) && !getBetDoneTips().has(t.id) && !skippedAutoBetTips.has(t.id));
+
+ const sortFn = (a, b) => {
+  const startOrder = new Date(a.start) - new Date(b.start);
+  if (startOrder) return startOrder;
+  const pDiff = tipPreference(b) - tipPreference(a);
+  if (pDiff) return pDiff;
+  return String(a.id).localeCompare(String(b.id));
+ };
+
+ const tips24 = allReady.filter(t => {
+  const s = new Date(t.start).getTime();
+  return s > now && s <= max24;
+ }).sort(sortFn);
+
+ const tips24Ids = new Set(tips24.map(t => t.id));
+
+ const tips48 = allReady.filter(t => {
+  const s = new Date(t.start).getTime();
+  return s > max24 && s <= max48 && !tips24Ids.has(t.id);
+ }).sort(sortFn);
+
+ const queue = [];
+ let slotsRemaining = availableSlots;
+
+ // 1. Priority: Next 24 Hours
+ for (const t of tips24) {
+  if (slotsRemaining <= 0) break;
+  queue.push(t);
+  slotsRemaining--;
+ }
+ const count24 = queue.length;
+ let count48 = 0;
+
+ // 2. Priority: Next 48 Hours (if slots still remain and 24h is satisfied)
+ if (slotsRemaining > 0) {
+  for (const t of tips48) {
+   if (slotsRemaining <= 0) break;
+   queue.push(t);
+   slotsRemaining--;
+   count48++;
+  }
+ }
+
+ return {
+  queue,
+  limitReached: false,
+  count24,
+  count48,
+  availableSlots
+ };
+}
+
 async function executeAutoRunCycle() {
  if (!isAutoRunEnabled) return;
  if (isAutoBetRunning) {
@@ -889,30 +963,44 @@ async function executeAutoRunCycle() {
   return;
  }
 
+ try {
+  if (typeof loadStakeAccount === 'function') {
+   await loadStakeAccount(true);
+  }
+ } catch (_) {}
+
  const openBetsCount = Number(stakeAccountData?.open_bets_count ?? data?.stake_account?.open_bets_count ?? 0);
- if (openBetsCount >= 300) {
-  disableAutoRun('A Stake elérte a maximális 300 nyitott fogadás limitet (300/300). Várni kell a meccsek kifutására.');
-  return;
- }
+ const { queue, limitReached, count24, count48, availableSlots } = getAutoRunHierarchicalQueue(openBetsCount);
 
- if (horizon !== '24') {
-  horizon = '24';
-  $$('[data-horizon]').forEach(x => x.classList.toggle('selected', x.dataset.horizon === '24'));
-  renderTips();
- }
-
- const queue = getActionableAutoBetQueue();
- if (!queue.length) {
-  toast('ℹ️ Auto-Run 30m: Nincs új megköthető szelvény a Next 24 Hours nézetben.', { duration: 4000 });
+ if (limitReached || availableSlots <= 0) {
+  toast('ℹ️ Auto-Run 15m: A Stake elérte a 300 aktív fogadási limitet (300/300). Várakozás a meccsek elszámolására a következő 15 perces ciklusig.', { duration: 6000 });
   scheduleNextAutoRun(AUTO_RUN_INTERVAL_MS);
   return;
  }
 
- toast(`🚀 Auto-Run 30m ciklus indul: ${queue.length} db Next 24 Hours szelvény megkötése a Stake-en…`);
+ if (!queue.length) {
+  toast('ℹ️ Auto-Run 15m: Nincs új megköthető szelvény a 24h/48h ablakban.', { duration: 4000 });
+  if (skippedAutoBetTips.size > 0 && openBetsCount < 300) {
+   try {
+    await startAutoBetQueue([], true);
+   } catch (_) {}
+  }
+  scheduleNextAutoRun(AUTO_RUN_INTERVAL_MS);
+  return;
+ }
+
+ const breakdownMsg = count48 > 0 ? `${count24} db 24h + ${count48} db 48h` : `${count24} db 24h`;
+ toast(`🚀 Auto-Run 15m ciklus indul: ${queue.length} db szelvény (${breakdownMsg}) megkötése a Stake-en…`);
+
  try {
   await startAutoBetQueue(queue);
  } catch (err) {
   console.error('Auto-Run cycle error:', err);
+  const fatal = isFatalAutoBetError(err, err?.data || null);
+  if (fatal.fatal) {
+   disableAutoRun(`Auto-Run queued bets leállt hiba miatt: ${fatal.message}`);
+   return;
+  }
  } finally {
   if (isAutoRunEnabled) {
    scheduleNextAutoRun(AUTO_RUN_INTERVAL_MS);
@@ -924,26 +1012,28 @@ async function enableAutoRun() {
  isAutoRunEnabled = true;
  updateAutoRunStatusUI();
 
+ try {
+  if (typeof loadStakeAccount === 'function') {
+   await loadStakeAccount(true);
+  }
+ } catch (_) {}
+
  const openBetsCount = Number(stakeAccountData?.open_bets_count ?? data?.stake_account?.open_bets_count ?? 0);
- if (openBetsCount >= 300) {
-  disableAutoRun('A Stake elérte a maximális 300 nyitott fogadás limitet (300/300).');
+ const { queue, limitReached, count24, count48 } = getAutoRunHierarchicalQueue(openBetsCount);
+
+ scheduleNextAutoRun(AUTO_RUN_INTERVAL_MS);
+
+ if (limitReached) {
+  toast('⏱️ Auto-Run 15m bekapcsolva! A Stake elérte a 300 nyitott fogadás limitet (300/300 bet). Az időzítő folyamatosan aktív marad: amint hely szabadul fel, az első 15 perces ciklusban azonnal beadja a 24h szelvényeket!', { duration: 10000 });
   return;
  }
 
- if (horizon !== '24') {
-  horizon = '24';
-  $$('[data-horizon]').forEach(x => x.classList.toggle('selected', x.dataset.horizon === '24'));
-  renderTips();
- }
-
- const queue = getActionableAutoBetQueue();
  if (queue.length > 0 && !isAutoBetRunning) {
-  toast(`⏱️ Auto-Run 30m bekapcsolva! Azonnali indítás ${queue.length} db Next 24 Hours szelvényre, majd 30 percenként.`);
-  scheduleNextAutoRun(AUTO_RUN_INTERVAL_MS);
+  const breakdownMsg = count48 > 0 ? `${count24} db 24h + ${count48} db 48h` : `${count24} db 24h`;
+  toast(`⏱️ Auto-Run 15m bekapcsolva! Azonnali indítás ${queue.length} db szelvényre (${breakdownMsg}), majd 15 percenként folyamatosan.`);
   await startAutoBetQueue(queue);
  } else {
-  toast('⏱️ Auto-Run 30m bekapcsolva! Következő automatikus futtatás 30 perc múlva a Next 24 Hours nézetre.');
-  scheduleNextAutoRun(AUTO_RUN_INTERVAL_MS);
+  toast('⏱️ Auto-Run 15m bekapcsolva! Nincs új szelvény a 24h/48h ablakban. Következő automatikus futtatás 15 perc múlva.');
  }
 }
 
@@ -952,15 +1042,8 @@ function isFatalAutoBetError(errOrMsg, res = null) {
  const msg = (typeof errOrMsg === 'string' ? errOrMsg : (errOrMsg?.message || '')).toLowerCase();
  const limitReached = Boolean(res?.limit_reached || errOrMsg?.data?.limit_reached || errOrMsg?.limit_reached);
 
- if (limitReached) {
-  return { fatal: true, type: 'limit_reached', message: 'Stake 300 aktív fogadási limit elérve (300/300 bet). Várni kell a meccsek kifutására.' };
- }
-
- if (
-  (msg.includes('300') && (msg.includes('aktív') || msg.includes('aktiv') || msg.includes('limit') || msg.includes('active') || msg.includes('nyitva'))) ||
-  msg.includes('maximum active') || msg.includes('max active') || msg.includes('too many active') || msg.includes('active bets limit') || msg.includes('maximum open')
- ) {
-  return { fatal: true, type: 'limit_reached', message: 'Stake 300 aktív fogadási limit elérve (300/300 bet). Várni kell a meccsek kifutására.' };
+ if (limitReached || (msg.includes('300') && (msg.includes('aktív') || msg.includes('aktiv') || msg.includes('limit') || msg.includes('active') || msg.includes('nyitva')))) {
+  return { fatal: false, type: 'limit_reached', message: 'Stake 300 aktív fogadási limit elérve (300/300 bet). Várakozás a meccsek elszámolására.' };
  }
 
  if (msg.includes('jelentkezz be a stake') || msg.includes('bejelentkezés szükséges') || msg.includes('login') || msg.includes('sign in') || msg.includes('session expired')) {
@@ -968,7 +1051,11 @@ function isFatalAutoBetError(errOrMsg, res = null) {
  }
 
  if (msg.includes('insufficient balance') || msg.includes('insufficient funds') || msg.includes('nincs elegendő egyenleg')) {
-  return { fatal: true, type: 'insufficient_funds', message: 'Nincs elegendő egyenleg a számlán!' };
+  return { fatal: true, type: 'insufficient_funds', message: 'Nincs elegendő egyenleg a számlán a fogadáshoz!' };
+ }
+
+ if (msg.includes('safari') && (msg.includes('not running') || msg.includes('nem fut') || msg.includes('cannot connect'))) {
+  return { fatal: true, type: 'safari_offline', message: 'A Safari böngésző nem érhető el vagy nem fut!' };
  }
 
  return { fatal: false };
@@ -990,9 +1077,6 @@ function updateAutoBetPanel() {
 
  if (countEl) countEl.textContent = String(queue.length);
  updateAutoRunStatusUI();
- if (openBetsCount >= 300 && isAutoRunEnabled) {
-  disableAutoRun('Stake 300 aktív fogadási limit elérve.');
- }
 
  if (isAutoBetRunning) {
   if (startBtn) startBtn.style.display = 'none';
@@ -1013,14 +1097,16 @@ function updateAutoBetPanel() {
   }
   if (stopBtn) stopBtn.style.display = 'none';
   if (descEl) {
-   if (lastAutoBetStatus?.error) {
+   if (lastAutoBetStatus?.fatal && lastAutoBetStatus?.error) {
+    descEl.innerHTML = `<span style="color:#ef4444;font-weight:700;">⚠️ Auto-Run queued bets leállt hiba miatt: ${esc(lastAutoBetStatus.error)}</span>`;
+   } else if (lastAutoBetStatus?.error && !lastAutoBetStatus?.limitReached) {
     descEl.innerHTML = `<span style="color:#ef4444;font-weight:600;">⚠️ Auto-Bet megállt: ${esc(lastAutoBetStatus.error)}</span>${lastAutoBetStatus.placedCount !== undefined ? ` · Megkötve: <strong>${lastAutoBetStatus.placedCount} db</strong> szelvény.` : ''}${lastAutoBetStatus.skippedCount ? ` · <span style="color:#b45309;font-weight:600;">Kihagyva: <strong>${lastAutoBetStatus.skippedCount} db</strong>.</span>` : ''}`;
+   } else if (openBetsCount >= 300 || lastAutoBetStatus?.limitReached) {
+    descEl.innerHTML = `<span style="color:#b45309;font-weight:600;">ℹ️ Stake limit (300/300 bet).</span> ${isAutoRunEnabled ? 'Auto-Run 15m aktív: várakozás a következő ciklusra a meccsek kifutásáig.' : 'Új fogadás csak a folyamatban lévő meccsek kifutása és elszámolása után köthető.'}`;
    } else if (lastAutoBetStatus?.completed) {
-    descEl.innerHTML = `<span style="color:#059669;font-weight:700;">✅ Auto-Bet kész!</span> Megkötve: <strong>${lastAutoBetStatus.placedCount} db</strong> szelvény.${lastAutoBetStatus.skippedCount > 0 ? ` · <span style="color:#b45309;font-weight:600;">⚠️ Kihagyva kézi vizsgálatra: <strong>${lastAutoBetStatus.skippedCount} db</strong>.</span>` : ''}`;
+    descEl.innerHTML = `<span style="color:#059669;font-weight:700;">✅ Ciklus kész!</span> Megkötve: <strong>${lastAutoBetStatus.placedCount} db</strong> szelvény.${lastAutoBetStatus.skippedCount > 0 ? ` · <span style="color:#b45309;font-weight:600;">⚠️ Kihagyva kézi vizsgálatra: <strong>${lastAutoBetStatus.skippedCount} db</strong>.</span>` : ''}`;
    } else if (lastAutoBetStatus?.stoppedByUser) {
     descEl.innerHTML = `<span style="color:#64748b;font-weight:600;">⏹ Auto-Bet leállítva a felhasználó által.</span> Megkötve: <strong>${lastAutoBetStatus.placedCount || 0} db</strong>${lastAutoBetStatus.skippedCount ? ` · Kihagyva: <strong>${lastAutoBetStatus.skippedCount} db</strong>` : ''}.`;
-   } else if (openBetsCount >= 300) {
-    descEl.innerHTML = `<span style="color:#ef4444;font-weight:600;">⚠️ Stake limit elérve (300/300 aktív fogadás).</span> Új fogadás csak a folyamatban lévő meccsek kifutása és elszámolása után köthető.`;
    } else if (queue.length === 0) {
     descEl.textContent = 'All visible instructions in this view have been placed or marked.';
    } else {
@@ -1114,14 +1200,14 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
  if (isAutoBetRunning) return;
  const openBetsCount = Number(stakeAccountData?.open_bets_count ?? data?.stake_account?.open_bets_count ?? 0);
  if (openBetsCount >= 300) {
-  toast('⚠️ Nem indítható: A Stake elérte a maximális 300 aktív fogadási limitet (300/300 bet nyitva). Várni kell a meccsek kifutására!', { duration: 15000 });
-  lastAutoBetStatus = { error: 'Stake 300 aktív fogadási limit elérve (300/300 bet). Várni kell a meccsek kifutására.', limitReached: true };
+  toast('ℹ️ A Stake elérte a maximális 300 aktív fogadási limitet (300/300 bet). Új szelvények leadása szünetel a következő ciklusig.', { duration: 8000 });
+  lastAutoBetStatus = { error: 'Stake 300 aktív fogadási limit elérve (300/300 bet). Várakozás a meccsek elszámolására.', limitReached: true };
   updateAutoBetPanel();
   return;
  }
 
  const queue = (overrideQueue && overrideQueue.length) ? [...overrideQueue] : [...getActionableAutoBetQueue()];
- if (!queue.length) {
+ if (!queue.length && !isAdaptiveDirect) {
   toast('Nincs megköthető nyitott szelvény az aktuális nézetben.');
   return;
  }
@@ -1129,7 +1215,9 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
  isAutoBetRunning = true;
  lastAutoBetStatus = null;
  updateAutoBetPanel();
- toast(`🚀 Auto 1-Click Bet indítása ${queue.length} szelvényre! Sorban megkötjük őket a Stake-en…`);
+ if (queue.length > 0) {
+  toast(`🚀 Auto 1-Click Bet indítása ${queue.length} szelvényre! Sorban megkötjük őket a Stake-en…`);
+ }
 
  const isTestEnv = typeof window !== 'undefined' && !!window.happyDOM;
  const pauseMs = isTestEnv ? 10 : 1500;
@@ -1146,6 +1234,13 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
 
    const t = queue[i];
    if (isPlaced(t) || getBetDoneTips().has(t.id)) continue;
+
+   // Pre-check open bets before submitting this ticket
+   const currentOpen = Number(stakeAccountData?.open_bets_count ?? data?.stake_account?.open_bets_count ?? 0) + placedCount;
+   if (currentOpen >= 300) {
+    toast(`⚠️ Stake 300 aktív fogadási limit elérve (${currentOpen}/300 bet). A további szelvények leadása szünetel a következő ciklusig.`, { duration: 8000 });
+    break;
+   }
 
    const stakeAmt = Number(instructionStake(t) || 0);
    const descEl = $('#auto-bet-desc');
@@ -1194,6 +1289,13 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
     }
 
     placingTipsSet.delete(t.id);
+
+    if (res && res.limit_reached) {
+     unmarkTipBetDone(t.id);
+     updateTipBetDoneUI(t.id, 'default', stakeAmt);
+     toast('⚠️ Stake 300 aktív fogadási limit elérve. A további szelvények leadása szünetel a következő ciklusig.', { duration: 8000 });
+     break;
+    }
 
     if (res.placed === true && res.status === 'ok') {
      markTipBetDone(t.id);
