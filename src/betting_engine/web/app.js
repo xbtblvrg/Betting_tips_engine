@@ -1112,11 +1112,7 @@ function getAutoRunHierarchicalQueue(currentOpenBets = 0) {
 
 async function executeAutoRunCycle() {
  if (!isAutoRunEnabled || isAutoRunCycleRunning || isAutoBetRunning) return;
- try {
-  const lastRan = Number(localStorage.getItem('quant_auto_run_last_ran') || 0);
-  if (Date.now() - lastRan < 10000) return;
-  localStorage.setItem('quant_auto_run_last_ran', String(Date.now()));
- } catch (_) {}
+ scheduleNextAutoRun(AUTO_RUN_INTERVAL_MS);
  isAutoRunCycleRunning = true;
  updateAutoRunStatusUI();
 
