@@ -855,6 +855,12 @@ function disableAutoRun(reason = null) {
  isAutoRunEnabled = false;
  isAutoRunCycleRunning = false;
  autoRunNextTriggerAt = null;
+ try {
+  if (typeof localStorage !== 'undefined') {
+   localStorage.setItem('quant_auto_run_15m', 'false');
+   localStorage.removeItem('quant_auto_run_next_trigger');
+  }
+ } catch (_) {}
  if (autoRunCountdownTimer) {
   clearInterval(autoRunCountdownTimer);
   autoRunCountdownTimer = null;
@@ -869,6 +875,12 @@ function disableAutoRun(reason = null) {
 function scheduleNextAutoRun(delayMs = AUTO_RUN_INTERVAL_MS) {
  if (!isAutoRunEnabled) return;
  autoRunNextTriggerAt = Date.now() + delayMs;
+ try {
+  if (typeof localStorage !== 'undefined') {
+   localStorage.setItem('quant_auto_run_15m', 'true');
+   localStorage.setItem('quant_auto_run_next_trigger', String(autoRunNextTriggerAt));
+  }
+ } catch (_) {}
  updateAutoRunStatusUI();
  if (!autoRunCountdownTimer) {
   const isTestEnv = typeof window !== 'undefined' && !!window.happyDOM;
@@ -938,6 +950,11 @@ function getAutoRunHierarchicalQueue(currentOpenBets = 0) {
 
 async function executeAutoRunCycle() {
  if (!isAutoRunEnabled || isAutoRunCycleRunning || isAutoBetRunning) return;
+ try {
+  const lastRan = Number(localStorage.getItem('quant_auto_run_last_ran') || 0);
+  if (Date.now() - lastRan < 10000) return;
+  localStorage.setItem('quant_auto_run_last_ran', String(Date.now()));
+ } catch (_) {}
  isAutoRunCycleRunning = true;
  updateAutoRunStatusUI();
 
@@ -997,6 +1014,11 @@ async function executeAutoRunCycle() {
 
 async function enableAutoRun() {
  isAutoRunEnabled = true;
+ try {
+  if (typeof localStorage !== 'undefined') {
+   localStorage.setItem('quant_auto_run_15m', 'true');
+  }
+ } catch (_) {}
  scheduleNextAutoRun(AUTO_RUN_INTERVAL_MS);
  updateAutoRunStatusUI();
 
@@ -1489,6 +1511,31 @@ function stopAutoBetQueue() {
  }
 }
 
+let autoRunInitialized = false;
+function initAutoRunFromStorage() {
+ if (autoRunInitialized) return;
+ autoRunInitialized = true;
+ try {
+  if (typeof localStorage !== 'undefined' && localStorage.getItem('quant_auto_run_15m') === 'true') {
+   isAutoRunEnabled = true;
+   const storedNext = Number(localStorage.getItem('quant_auto_run_next_trigger') || 0);
+   const now = Date.now();
+   if (storedNext > now && (storedNext - now) <= AUTO_RUN_INTERVAL_MS) {
+    scheduleNextAutoRun(storedNext - now);
+   } else {
+    scheduleNextAutoRun(AUTO_RUN_INTERVAL_MS);
+    const isTestEnv = typeof window !== 'undefined' && !!window.happyDOM;
+    setTimeout(() => {
+     if (isAutoRunEnabled && !isAutoRunCycleRunning && !isAutoBetRunning) {
+      executeAutoRunCycle();
+     }
+    }, isTestEnv ? 20 : 1000);
+   }
+   updateAutoRunStatusUI();
+  }
+ } catch (_) {}
+}
+
 function bindAutoBetRunner() {
  const startBtn = $('#auto-bet-start-btn');
  const stopBtn = $('#auto-bet-stop-btn');
@@ -1515,6 +1562,7 @@ function bindAutoBetRunner() {
    }
   };
  }
+ initAutoRunFromStorage();
  updateAutoRunStatusUI();
 }
 

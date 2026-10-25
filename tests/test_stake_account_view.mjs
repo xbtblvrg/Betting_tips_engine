@@ -6,7 +6,7 @@ import {Window} from 'happy-dom';
 const html = readFileSync('src/betting_engine/web/index.html', 'utf8');
 const script = readFileSync('src/betting_engine/web/app.js', 'utf8');
 
-async function bootStakeAccount(t, dashboardData = null) {
+async function bootStakeAccount(t, dashboardData = null, initialStorage = null) {
   const w = new Window({
     url: 'http://127.0.0.1:8765',
     settings: {
@@ -16,6 +16,11 @@ async function bootStakeAccount(t, dashboardData = null) {
     }
   });
   t.after(() => w.happyDOM.close());
+  if (initialStorage) {
+    for (const [k, v] of Object.entries(initialStorage)) {
+      w.localStorage.setItem(k, v);
+    }
+  }
   w.document.write(html);
   w.setInterval = () => 0;
   w.EventSource = class {
@@ -1352,6 +1357,51 @@ test('Auto-Run 15m re-evaluates and adapts skipped bets even when new 24h queue 
   assert.ok(skippedBox);
   assert.strictEqual(skippedBox.style.display, 'none', 'Skipped section should be hidden after adaptive resolution');
 });
+
+test('Auto-Run 15m persists state across page reloads via localStorage and restores countdown timer', async t => {
+  // Scenario 1: User toggles Auto-Run 15m on -> localStorage is populated
+  const {w: w1} = await bootStakeAccount(t);
+  const doc1 = w1.document;
+  const toggle1 = doc1.getElementById('auto-bet-interval-toggle');
+  const status1 = doc1.getElementById('auto-bet-interval-status');
+  assert.ok(toggle1);
+  assert.ok(status1);
+
+  // Turn it on
+  toggle1.checked = true;
+  toggle1.onchange();
+  await new Promise(r => setTimeout(r, 60));
+
+  assert.strictEqual(w1.localStorage.getItem('quant_auto_run_15m'), 'true', 'localStorage must have quant_auto_run_15m = true');
+  const nextTrigger = Number(w1.localStorage.getItem('quant_auto_run_next_trigger'));
+  assert.ok(nextTrigger > Date.now(), 'quant_auto_run_next_trigger must be stored and in the future');
+
+  // Scenario 2: User refreshes page (new window/page load with pre-existing localStorage)
+  const tenMinutesRemaining = Date.now() + 10 * 60 * 1000;
+  const {w: w2} = await bootStakeAccount(t, null, {
+    'quant_auto_run_15m': 'true',
+    'quant_auto_run_next_trigger': String(tenMinutesRemaining)
+  });
+  const doc2 = w2.document;
+  const toggle2 = doc2.getElementById('auto-bet-interval-toggle');
+  const status2 = doc2.getElementById('auto-bet-interval-status');
+
+  // Toggle must be checked immediately upon boot
+  assert.strictEqual(toggle2.checked, true, 'Toggle must be checked automatically on page reload');
+  assert.strictEqual(status2.style.display, 'inline', 'Status UI must be visible');
+  // Formatted string should be (10:00) or (09:59)
+  assert.match(status2.textContent, /\(09:59\)|\(10:00\)/, 'Status should display restored remaining time');
+
+  // Scenario 3: User turns it off -> localStorage is cleared to 'false'
+  toggle2.checked = false;
+  toggle2.onchange();
+  await new Promise(r => setTimeout(r, 40));
+
+  assert.strictEqual(w2.localStorage.getItem('quant_auto_run_15m'), 'false', 'localStorage must reflect turned off state');
+  assert.strictEqual(w2.localStorage.getItem('quant_auto_run_next_trigger'), null, 'quant_auto_run_next_trigger must be removed');
+  assert.strictEqual(status2.style.display, 'none', 'Status UI must be hidden when turned off');
+});
+
 
 
 
