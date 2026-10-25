@@ -607,6 +607,7 @@ def get_autorun_state_summary():
     autorun_placed_today = 0
     autorun_adapted_today = 0
     
+    conn = None
     try:
         conn = sqlite3.connect(engine.store.path, timeout=5.0)
         cur = conn.cursor()
@@ -668,9 +669,14 @@ def get_autorun_state_summary():
             open_bets_count = int(s.get("open_bets_count", 0))
         except Exception:
             pass
-        conn.close()
     except Exception:
         pass
+    finally:
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
     return {
         "status": "ok",
@@ -808,6 +814,7 @@ def stage_betslip_endpoint(data: StageBetslipRequest):
         return JSONResponse(english_payload(res), status_code=400)
 
     if res.get("placed") and data.auto_place and data.tip_id:
+        c_auto = None
         try:
             import sqlite3
             from datetime import datetime, timezone
@@ -839,9 +846,14 @@ def stage_betslip_endpoint(data: StageBetslipRequest):
                 "auto_runner"
             ))
             c_auto.commit()
-            c_auto.close()
         except Exception:
             pass
+        finally:
+            if c_auto:
+                try:
+                    c_auto.close()
+                except Exception:
+                    pass
 
     return english_payload(res)
 
