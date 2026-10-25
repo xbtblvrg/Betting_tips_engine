@@ -1270,6 +1270,61 @@ def test_resolve_stake_market_tab_all_sports():
         assert actual == expected, f"Failed for {lg} | {m} | {mn}: got {actual}, expected {expected}"
 
 
+def test_stage_betslip_never_activates_safari_window(monkeypatch):
+    """Verifies that all AppleScript scripts executed by stage_betslip never call 'activate',
+    preventing Safari from stealing focus or jumping into view when the user is working in other apps."""
+    import subprocess
+    from betting_engine.stake_account import stage_betslip_in_safari
+
+    intercepted_scripts = []
+    call_idx = 0
+
+    def mock_run(cmd, *args, **kwargs):
+        nonlocal call_idx
+        call_idx += 1
+        # Intercept the script text (usually cmd[2] for -e)
+        if len(cmd) >= 3 and cmd[1] == "-e":
+            intercepted_scripts.append(cmd[2])
+        class Res:
+            stderr = ""
+        r = Res()
+        if call_idx == 1:
+            r.stdout = "OPENED_NEW_TAB"
+        elif call_idx == 2:
+            r.stdout = json.dumps({"ready": True, "hasTarget": True, "tabActive": True, "outcomesCount": 8})
+        elif call_idx == 3:
+            r.stdout = json.dumps({"status": "clicked", "selection": "Over 2.5", "current_odds": 2.10})
+        elif call_idx == 4:
+            r.stdout = json.dumps({"status": "ok", "stake": "2.50", "payout": "5.25000000"})
+        elif call_idx == 5:
+            r.stdout = json.dumps({"status": "clicked"})
+        elif call_idx == 6:
+            r.stdout = json.dumps({"success": True, "status": "ok", "error": "Your bet has been placed!"})
+        else:
+            r.stdout = ""
+        return r
+
+    monkeypatch.setattr(subprocess, "run", mock_run)
+    res = stage_betslip_in_safari(
+        event_url="https://stake.com/sports/ice-hockey/usa/nhl/oilers-canucks",
+        selection="Over 2.5",
+        stake=2.50,
+        odds=2.10,
+        league="NHL",
+        auto_place=True,
+    )
+    assert res["status"] == "ok"
+    assert res["placed"] is True
+
+    # Assert that NO AppleScript ever contained the 'activate' keyword
+    assert len(intercepted_scripts) > 0
+    for script in intercepted_scripts:
+        # Check that 'activate' is not used as an AppleScript command
+        lines = [line.strip().lower() for line in script.split("\n")]
+        assert "activate" not in lines, f"Forbidden 'activate' command found in AppleScript:\n{script}"
+
+
+
 
 
 

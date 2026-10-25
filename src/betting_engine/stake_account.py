@@ -957,20 +957,34 @@ def stage_betslip_in_safari(
             
             if foundTab is not missing value then
                 set current tab of foundWindow to foundTab
-                activate
                 return "ALREADY_OPEN"
             end if
             
-            if (count of windows) > 0 then
-                tell front window
+            -- Locate target window containing stake.com or betting dashboard to avoid disturbing other windows
+            set targetWindow to missing value
+            repeat with w in windows
+                repeat with t in tabs of w
+                    set tUrl to (URL of t)
+                    if (tUrl contains "stake.com") or (tUrl contains "tail8a282e.ts.net") or (tUrl contains "127.0.0.1:8765") or (tUrl contains "localhost:8765") then
+                        set targetWindow to w
+                        exit repeat
+                    end if
+                end repeat
+                if targetWindow is not missing value then exit repeat
+            end repeat
+            
+            if targetWindow is missing value and (count of windows) > 0 then
+                set targetWindow to front window
+            end if
+            
+            if targetWindow is not missing value then
+                tell targetWindow
                     set newTab to make new tab with properties {URL:target_url}
                     set current tab to newTab
                 end tell
-                activate
                 return "OPENED_NEW_TAB"
             else
                 make new document with properties {URL:target_url}
-                activate
                 return "OPENED_NEW_DOC"
             end if
         end tell
@@ -995,9 +1009,6 @@ def stage_betslip_in_safari(
                         on error errMsg number errNum
                             set res to "JS_ERROR [" & errNum & "]: " & errMsg
                         end try
-                        if act is "1" then
-                            activate
-                        end if
                         return res
                     end if
                 end repeat
@@ -1010,7 +1021,7 @@ def stage_betslip_in_safari(
     def _eval_safari_js(code: str, activate: bool = False, timeout: int = 8) -> str:
         try:
             r = subprocess.run(
-                ["osascript", "-e", ascript_runner, code, slug_part, "1" if activate else "0", fixture_id],
+                ["osascript", "-e", ascript_runner, code, slug_part, "0", fixture_id],
                 capture_output=True,
                 text=True,
                 timeout=timeout,
@@ -2196,7 +2207,7 @@ def stage_betslip_in_safari(
     verification_err = None
     for j in range(25):
         time.sleep(0.2)
-        out = _eval_safari_js(set_stake_js, activate=True, timeout=5)
+        out = _eval_safari_js(set_stake_js, activate=False, timeout=5)
         if out and out != "NOT_FOUND":
             try:
                 res_stake = json.loads(out)
@@ -2309,7 +2320,7 @@ def stage_betslip_in_safari(
             clicked = False
             last_err = None
             for _ in range(25):
-                c_out = _eval_safari_js(click_place_js, activate=True, timeout=5)
+                c_out = _eval_safari_js(click_place_js, activate=False, timeout=5)
                 if c_out and c_out != "NOT_FOUND":
                     try:
                         c_data = json.loads(c_out)
