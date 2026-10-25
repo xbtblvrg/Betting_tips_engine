@@ -1382,25 +1382,32 @@ def test_stage_betslip_records_in_autorun_placements(monkeypatch):
     })
     monkeypatch.setattr("betting_engine.stake_account.stage_betslip_in_safari", mock_stage)
 
-    resp = client.post("/api/stage-betslip", json={
-        "tip_id": "test_autorun_tip_123",
-        "event_url": "https://stake.com/sports/soccer/epl/test-match",
-        "selection": "Arsenal -1.5",
-        "stake": 2.50,
-        "odds": 1.95,
-        "auto_place": True,
-        "adaptive_fallback": True,
-    })
-    assert resp.status_code == 200
-    res_data = resp.json()
-    assert res_data["status"] == "ok"
-    assert res_data["placed"] is True
+    try:
+        resp = client.post("/api/stage-betslip", json={
+            "tip_id": "test_autorun_tip_123",
+            "event_url": "https://stake.com/sports/soccer/epl/test-match",
+            "selection": "Arsenal -1.5",
+            "stake": 2.50,
+            "odds": 1.95,
+            "auto_place": True,
+            "adaptive_fallback": True,
+        })
+        assert resp.status_code == 200
+        res_data = resp.json()
+        assert res_data["status"] == "ok"
+        assert res_data["placed"] is True
 
-    # Verify that autorun summary now includes this placement
-    summary_resp = client.get("/api/autorun")
-    assert summary_resp.status_code == 200
-    s_data = summary_resp.json()
-    assert s_data["autorun_placed_today"] >= 1
+        # Verify that autorun summary now includes this placement
+        summary_resp = client.get("/api/autorun")
+        assert summary_resp.status_code == 200
+        s_data = summary_resp.json()
+        assert s_data["autorun_placed_today"] >= 1
+    finally:
+        import sqlite3
+        conn = sqlite3.connect("data/engine.sqlite3")
+        conn.execute("DELETE FROM autorun_placements WHERE tip_id = 'test_autorun_tip_123'")
+        conn.commit()
+        conn.close()
 
 
 

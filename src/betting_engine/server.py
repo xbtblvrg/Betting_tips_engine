@@ -785,7 +785,7 @@ def stage_betslip_endpoint(data: StageBetslipRequest):
     if res.get("status") == "error":
         return JSONResponse(english_payload(res), status_code=400)
 
-    if res.get("placed") and data.auto_place:
+    if res.get("placed") and data.auto_place and data.tip_id:
         try:
             import sqlite3
             from datetime import datetime, timezone
