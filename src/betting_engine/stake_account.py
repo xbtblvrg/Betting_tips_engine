@@ -1828,6 +1828,20 @@ def stage_betslip_in_safari(
                         if (otherLines.length > 0) {{
                             lineNote = " A Stake kínálatában a kért vonal (" + targetSel + ") helyett jelenleg ezek a vonalak érhetők el: " + otherLines.join(", ") + ".";
                         }}
+                    }} else if (isOver || isUnder || lineVariants.length > 0) {{
+                        const filterWord = (isOver || isUnder) ? (isOver ? "over" : "under") : (lastName ? lastName.toLowerCase() : null);
+                        const fallbackBtns = buttons.map(b => (b.getAttribute("aria-label") || b.innerText).replace(/\\s+/g, " ").trim())
+                            .filter(t => /\\d+\\.\\d+/.test(t) && !t.toLowerCase().includes("suspended"));
+                        const filtered = filterWord ? fallbackBtns.filter(t => t.toLowerCase().includes(filterWord)) : fallbackBtns;
+                        if (filtered.length > 0) {{
+                            matchedLines = filtered;
+                            const otherLines = Array.from(new Set(matchedLines)).filter(l => !lineVariants.some(v => l.includes(v))).slice(0, 6);
+                            if (otherLines.length > 0) {{
+                                lineNote = " A kért piac helyett a Stake-en ezek a vonalak érhetők el: " + otherLines.join(", ") + ".";
+                            }}
+                        }} else {{
+                            marketMissing = true;
+                        }}
                     }} else {{
                         marketMissing = true;
                     }}
@@ -2002,7 +2016,13 @@ def stage_betslip_in_safari(
     if "error" in res_click:
         if auto_close_on_fail:
             _close_tab()
-        return {"status": "error", "placed": False, "closed": bool(auto_close_on_fail), "message": res_click["error"], "available": res_click.get("available"), "available_candidates": res_click.get("available_candidates"), "event_url": clean_url}
+        err_msg = res_click["error"]
+        if adaptive_fallback:
+            if available_cands:
+                err_msg = f"Adaptív vizsgálat lefutott: {err_msg} (Nem található +EV feltételnek megfelelő alternatív vonal)."
+            else:
+                err_msg = f"Adaptív vizsgálat lefutott: {err_msg} (Nincs elérhető alternatív vonal a Stake felületén)."
+        return {"status": "error", "placed": False, "closed": bool(auto_close_on_fail), "message": err_msg, "available": res_click.get("available"), "available_candidates": res_click.get("available_candidates"), "event_url": clean_url}
 
     current_odds = res_click.get("current_odds")
     odds_warning = None

@@ -1347,16 +1347,14 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
    }
   }
 
-  // Phase 2: Autonomous Adaptive Re-evaluation of skipped tips with line movement
+  // Phase 2: Autonomous Adaptive Re-evaluation of all skipped tips
   adaptedCount = 0;
   if (isAutoBetRunning && skippedAutoBetTips.size > 0 && !fatalErr && !isAdaptiveDirect) {
    const stakeOpenBeforePhase2 = Number(stakeAccountData?.open_bets_count ?? data?.stake_account?.open_bets_count ?? 0);
    if (stakeOpenBeforePhase2 < 300) {
-    const toAdapt = [...skippedAutoBetTips.values()].filter(item => 
-     item.reason && (item.reason.includes('módosította a piacot') || item.reason.includes('vonalak érhetők el') || item.reason.includes('Nem található a kimenetel'))
-    );
+    const toAdapt = [...skippedAutoBetTips.values()].map(s => s.tip);
     if (toAdapt.length > 0) {
-     toast(`🔄 [2. Fázis: Adaptív pótlás] ${toAdapt.length} db módosult piacú szelvény újraértékelése (+EV)…`, { duration: 6000 });
+     toast(`🔄 [2. Fázis: Adaptív pótlás] ${toAdapt.length} db kihagyott piac újraértékelése (+EV)…`, { duration: 6000 });
      const descEl = $('#auto-bet-desc');
      for (let j = 0; j < toAdapt.length; j++) {
       if (!isAutoBetRunning) break;
@@ -1365,8 +1363,7 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
        toast('⚠️ Stake 300 limit elérve adaptív pótlás közben. Várakozás a következő ciklusra.');
        break;
       }
-      const sItem = toAdapt[j];
-      const t = sItem.tip;
+      const t = toAdapt[j];
       if (descEl) {
        descEl.textContent = `[2. Fázis: ${j + 1}/${toAdapt.length}] Adaptív újraértékelés: ${t.selection} — ${t.away} @ ${t.home}… (Siker: ${placedCount})`;
       }
