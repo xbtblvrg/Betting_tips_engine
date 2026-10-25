@@ -524,8 +524,30 @@ class StageBetslipRequest(BaseModel):
     min_place_delay: Optional[float] = 3.0
     max_place_delay: Optional[float] = 6.0
     auto_close_on_fail: bool = False
+    adaptive_fallback: bool = False
 
 StageBetslipRequest.model_rebuild()
+
+
+class ReevaluateSkippedTipRequest(BaseModel):
+    tip_id: str
+    candidates: list[dict] = Field(default_factory=list)
+    min_ev: Optional[float] = 0.03
+
+
+@app.post('/api/re-evaluate-skipped-tip')
+def reevaluate_skipped_tip_endpoint(data: ReevaluateSkippedTipRequest):
+    from .adaptive_fallback import evaluate_alternative_lines
+    res = evaluate_alternative_lines(
+        original_tip_id=data.tip_id,
+        candidate_lines=data.candidates,
+        store=engine.store,
+        engine=engine,
+        min_ev=data.min_ev or 0.03
+    )
+    if res.get("status") == "error":
+        return JSONResponse(english_payload(res), status_code=400)
+    return english_payload(res)
 
 
 
@@ -586,6 +608,7 @@ def stage_betslip_endpoint(data: StageBetslipRequest):
         min_place_delay=data.min_place_delay if data.min_place_delay is not None else 3.0,
         max_place_delay=data.max_place_delay if data.max_place_delay is not None else 6.0,
         auto_close_on_fail=data.auto_close_on_fail,
+        adaptive_fallback=data.adaptive_fallback,
     )
     if res.get("status") == "error":
         return JSONResponse(english_payload(res), status_code=400)

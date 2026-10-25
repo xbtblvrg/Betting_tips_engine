@@ -698,6 +698,7 @@ def stage_betslip_in_safari(
     min_place_delay: float = 3.0,
     max_place_delay: float = 6.0,
     auto_close_on_fail: bool = False,
+    adaptive_fallback: bool = False,
 ) -> Dict[str, Any]:
     """Stages a single bet in Safari on Stake.com, optionally auto-placing and closing tab.
 
@@ -706,6 +707,9 @@ def stage_betslip_in_safari(
     """
     if not event_url or not isinstance(event_url, str) or not event_url.startswith("https://stake.com/sports/"):
         return {"status": "error", "message": f"Invalid Stake sports event URL: {event_url}"}
+
+    orig_selection = selection
+    adapted_meta = None
 
     if not isinstance(stake, (int, float)) or stake <= 0 or stake > 50.0:
         return {"status": "error", "message": f"Invalid stake amount: {stake}. Must be between $0.01 and $50.00."}
@@ -1837,6 +1841,21 @@ def stage_betslip_in_safari(
                     }}
                 }}
 
+                let candList = [];
+                if (typeof matchedLines !== "undefined" && matchedLines.length > 0) {{
+                    candList = Array.from(new Set(matchedLines)).slice(0, 10).map(t => {{
+                        const nums = t.match(/\\b\\d+\\.\\d+\\b/g);
+                        const candOdds = (nums && nums.length > 0) ? parseFloat(nums[nums.length - 1]) : null;
+                        const lineMatch = t.match(/([+-]?\\d+\\.?\\d*)/);
+                        const candLine = lineMatch ? parseFloat(lineMatch[1]) : null;
+                        let cleanSel = t;
+                        if (candOdds !== null) {{
+                            cleanSel = cleanSel.replace(new RegExp('\\\\s+' + candOdds + '$'), '').trim();
+                        }}
+                        return {{ selection: cleanSel, line: candLine, odds: candOdds, raw: t }};
+                    }});
+                }}
+
                 let errorMsg = "Nem található a kimenetel gombja a felületen.";
                 if (marketMissing) {{
                     errorMsg = "A kért piac ('" + marketName + "') jelenleg nem érhető el vagy fel lett függesztve a Stake-en.";
@@ -1849,7 +1868,8 @@ def stage_betslip_in_safari(
                     market_missing: marketMissing,
                     targetNorm: targetNorm,
                     outcomeNorm: outcomeNorm,
-                    available: buttons.map(b => b.getAttribute("aria-label") || b.innerText).slice(0, 10)
+                    available: buttons.map(b => b.getAttribute("aria-label") || b.innerText).slice(0, 10),
+                    available_candidates: candList
                 }});
             }}
 
@@ -1892,9 +1912,66 @@ def stage_betslip_in_safari(
         return {"status": "error", "placed": False, "closed": bool(auto_close_on_fail), "message": f"Kimenetel kiválasztása sikertelen: {str(e)}", "event_url": clean_url}
 
     if "error" in res_click:
+        available_cands = res_click.get("available_candidates") or []
+        if adaptive_fallback and available_cands and tip_id:
+            try:
+                from .adaptive_fallback import evaluate_alternative_lines
+                from .storage import Store
+                store = Store()
+                eval_res = evaluate_alternative_lines(tip_id, available_cands, store=store)
+                if eval_res.get("has_eligible") and eval_res.get("best_candidate"):
+                    best = eval_res["best_candidate"]
+                    log.info(f"Adaptive fallback selected best alternative for {selection}: {best['selection']} @ {best['odds']} (EV: +{best['ev']*100:.1f}%)")
+                    selection = best["selection"]
+                    line = best.get("line")
+                    odds = best["odds"]
+                    if best.get("recommended_stake"):
+                        stake = best["recommended_stake"]
+                    adapted_meta = best
+
+                    # Click candidate button in Safari!
+                    cand_click_js = f"""
+                    (() => {{
+                        {helpers_js}
+                        const targetNorm = normalize({json.dumps(best['selection'])});
+                        const buttons = getOutcomeButtons();
+                        const match = buttons.find(b => {{
+                            const label = (b.getAttribute("aria-label") || b.innerText).replace(/\\s+/g, " ").trim();
+                            return normalize(label).includes(targetNorm) || label.toLowerCase().includes({json.dumps(best['selection'].lower())});
+                        }});
+                        if (!match) return JSON.stringify({{ error: "Adaptive candidate button not found: " + {json.dumps(best['selection'])} }});
+                        
+                        const remainingBets = Array.from(document.querySelectorAll("#right-sidebar [data-testid='betslip-bet'], [data-testid='betslip-bet']"));
+                        if (remainingBets.length > 0) {{
+                            const resetBtn = document.querySelector("[data-testid='reset-betslip']");
+                            if (resetBtn) {{ try {{ resetBtn.click(); }} catch(e) {{}} }}
+                        }}
+                        
+                        match.click();
+                        const btnText = (match.innerText || "").trim();
+                        const numbers = btnText.match(/\\d+\\.\\d+/g);
+                        const currentOdds = numbers && numbers.length > 0 ? parseFloat(numbers[numbers.length - 1]) : null;
+                        return JSON.stringify({{
+                            status: "clicked",
+                            selection: match.getAttribute("aria-label") || match.innerText,
+                            current_odds: currentOdds
+                        }});
+                    }})()
+                    """
+                    cand_res_str = _eval_safari_js(cand_click_js, activate=False, timeout=5)
+                    try:
+                        cand_click = json.loads(cand_res_str)
+                        if "error" not in cand_click:
+                            res_click = cand_click
+                    except Exception as e:
+                        log.warning(f"Error parsing adaptive click response: {e}")
+            except Exception as e:
+                log.warning(f"Adaptive fallback evaluation failed: {e}")
+
+    if "error" in res_click:
         if auto_close_on_fail:
             _close_tab()
-        return {"status": "error", "placed": False, "closed": bool(auto_close_on_fail), "message": res_click["error"], "available": res_click.get("available"), "event_url": clean_url}
+        return {"status": "error", "placed": False, "closed": bool(auto_close_on_fail), "message": res_click["error"], "available": res_click.get("available"), "available_candidates": res_click.get("available_candidates"), "event_url": clean_url}
 
     current_odds = res_click.get("current_odds")
     odds_warning = None
@@ -2377,18 +2454,24 @@ def stage_betslip_in_safari(
             if placed:
                 _close_tab()
 
-                return {
+                res_dict = {
                     "status": "ok",
                     "placed": True,
                     "closed": True,
                     "message": "Fogadás sikeresen megkötve a Stake-en és a fül bezárva!",
-                    "selection": res_click.get("selection"),
+                    "selection": res_click.get("selection") or selection,
                     "stake": stake,
                     "odds": current_odds or odds,
                     "payout": payout_val,
                     "event_url": clean_url,
                     "place_delay": actual_place_delay,
                 }
+                if adapted_meta:
+                    res_dict["adapted"] = True
+                    res_dict["original_selection"] = orig_selection
+                    res_dict["ev"] = adapted_meta.get("ev")
+                    res_dict["message"] = f"Adaptívan megkötve: {res_click.get('selection') or selection} @ {current_odds or odds} (Eredeti: {orig_selection}) · EV: +{(adapted_meta.get('ev') or 0)*100:.1f}%"
+                return res_dict
             else:
                 if auto_close_on_fail:
                     _close_tab()
@@ -2405,18 +2488,24 @@ def stage_betslip_in_safari(
                     "place_delay": actual_place_delay,
                 }
 
-        return {
+        res_dict = {
             "status": "ok",
             "placed": False,
             "closed": False,
             "message": "Szelvény sikeresen előkészítve a Safariban!",
-            "selection": res_click.get("selection"),
+            "selection": res_click.get("selection") or selection,
             "stake": stake,
             "odds": current_odds or odds,
             "payout": payout_val,
             "warning": odds_warning,
             "event_url": clean_url
         }
+        if adapted_meta:
+            res_dict["adapted"] = True
+            res_dict["original_selection"] = orig_selection
+            res_dict["ev"] = adapted_meta.get("ev")
+            res_dict["message"] = f"Adaptív szelvény előkészítve a Safariban: {res_click.get('selection') or selection} @ {current_odds or odds} (Eredeti: {orig_selection}) · EV: +{(adapted_meta.get('ev') or 0)*100:.1f}%"
+        return res_dict
     if auto_close_on_fail:
         _close_tab()
     return {"status": "error", "placed": False, "closed": bool(auto_close_on_fail), "message": "Nem sikerült kitölteni a tét összegét a szelvényen.", "event_url": clean_url}

@@ -974,6 +974,112 @@ test('Auto-Run 30m toggle switches to 24h horizon, triggers auto-bet, and enforc
   assert.strictEqual(toggleLimit.checked, false, 'Auto-Run 30m must immediately reject and uncheck if 300 bets limit is reached');
 });
 
+test('Auto 1-Click Bet Runner autonomously executes Phase 2 adaptive fallback on moved line and places qualifying +EV alternative', async t => {
+  const future1 = new Date(Date.now() + 3600000).toISOString();
+  const rec1 = {
+    execution_review: {actionable: true, quote_at: new Date().toISOString(), valid_until: future1},
+    decision_guard: {passed: true},
+    id: 'tip-adapt-1',
+    rank: 1,
+    game_id: 'game-adapt-1',
+    league: 'NBA',
+    home: '76ers',
+    away: 'Pistons',
+    market: 'totals',
+    market_display: 'Total (Incl. Overtime)',
+    start: future1,
+    valid_until: future1,
+    stake_market: {
+      name: 'Total (Incl. Overtime)',
+      availability_verified: true,
+      event_url: 'https://stake.com/sports/basketball/usa/nba/76ers-pistons',
+      tab: 'Main'
+    },
+    selection: 'Under 223.5',
+    line: 223.5,
+    probability: 0.54,
+    minimum_odds: 1.85,
+    reference_odds: 2.11,
+    reference_price: 0.5,
+    reference_platform: 'Stake.com',
+    reference_url: 'https://stake.com/sports/basketball/usa/nba/76ers-pistons',
+    source_url: 'https://example.com',
+    quote_at: new Date().toISOString(),
+    stake: 1.00,
+    stress_roi: 0.1,
+    expected_roi: 0.14,
+    label: 'Estimated Value',
+    reasons: ['Edge detected'],
+    warnings: [],
+    game_context: {},
+    model_version: 'test'
+  };
+
+  const {w, writes} = await bootStakeAccount(t, {recommendations: [rec1]});
+
+  const origFetch = w.fetch;
+  let callCount = 0;
+  w.fetch = async (path, options) => {
+    if (path.startsWith('/api/stage-betslip')) {
+      const body = JSON.parse(options.body || '{}');
+      callCount++;
+      // First pass: line moved, stage-betslip returns error with available candidates
+      if (!body.adaptive_fallback) {
+        return {
+          ok: false,
+          status: 400,
+          json: async () => ({
+            status: 'error',
+            placed: false,
+            message: 'A fogadóiroda módosította a piacot. A Stake kínálatában a kért vonal (under 223.5) helyett jelenleg ezek a vonalak érhetők el: Under 224.5, Under 225.5.',
+            available_candidates: [{selection: 'Under 224.5', line: 224.5, odds: 2.19}]
+          })
+        };
+      }
+      // Second pass: adaptive_fallback is true -> returns successful placement!
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          status: 'ok',
+          placed: true,
+          adapted: true,
+          original_selection: 'Under 223.5',
+          selection: 'Under 224.5',
+          odds: 2.19,
+          stake: 1.00,
+          ev: 0.2325,
+          message: 'Adaptívan megkötve: Under 224.5 @ 2.19 (Eredeti: Under 223.5) · EV: +23.3%'
+        })
+      };
+    }
+    return origFetch(path, options);
+  };
+
+  const doc = w.document;
+  const startBtn = doc.getElementById('auto-bet-start-btn');
+  startBtn.click();
+  await new Promise(r => setTimeout(r, 180));
+
+  // Phase 1 skipped, then Phase 2 placed adaptively -> 2 stage-betslip calls
+  assert.strictEqual(callCount, 2, 'Should invoke stage-betslip in Phase 1 and Phase 2');
+
+  // Tip should be marked placed in checklist
+  const checklistCalls = writes.filter(w => w.path.includes('/checklist') && w.path.includes('tip-adapt-1'));
+  assert.strictEqual(checklistCalls.length, 1, 'Adapted tip should be marked placed in checklist');
+  assert.strictEqual(JSON.parse(checklistCalls[0].options.body).placed, true);
+
+  // Queue count should be 0 after adaptive placement
+  const countBadge = doc.getElementById('auto-bet-queue-count');
+  assert.strictEqual(countBadge.textContent, '0', 'Queue should be 0 after adaptive resolution');
+
+  // Skipped box should be empty or hidden because it was resolved
+  const skippedBox = doc.getElementById('auto-bet-skipped-section');
+  assert.ok(skippedBox);
+  assert.strictEqual(skippedBox.style.display, 'none', 'Skipped section should be hidden after adaptive resolution');
+});
+
+
 
 
 

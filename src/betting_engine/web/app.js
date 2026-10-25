@@ -1037,6 +1037,7 @@ function updateAutoBetPanel() {
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:gap:6px;">
         <span style="font-weight:700;color:#92400e;font-size:12px;">⚠️ Kihagyott piacok kézi ellenőrzésre (${items.length} db):</span>
         <div style="display:flex;gap:6px;">
+          <button type="button" id="adaptive-retry-skipped-btn" class="button primary" style="padding:3px 8px;font-size:11px;background:#0d9488;border-color:#0d9488;color:#fff;">⚡ Adaptív pótlás (+EV)</button>
           <button type="button" id="clear-skipped-bets-btn" class="button ghost" style="padding:3px 8px;font-size:11px;color:#92400e;border-color:#f59e0b;background:#fef3c7;">🔄 Újrapróbálás</button>
         </div>
       </div>
@@ -1076,6 +1077,17 @@ function updateAutoBetPanel() {
         toast('✓ Szelvény manuálisan késznek jelölve.');
       };
     });
+    const adaptiveBtn = $('#adaptive-retry-skipped-btn');
+    if (adaptiveBtn) {
+      adaptiveBtn.onclick = async (e) => {
+        e.preventDefault();
+        if (isAutoBetRunning) return;
+        const toAdapt = [...skippedAutoBetTips.values()].map(s => s.tip);
+        if (!toAdapt.length) return;
+        toast(`⚡ Adaptív pótlás indítása ${toAdapt.length} db kihagyott piacra…`);
+        await startAutoBetQueue(toAdapt, true);
+      };
+    }
     const clearBtn = $('#clear-skipped-bets-btn');
     if (clearBtn) {
       clearBtn.onclick = async (e) => {
@@ -1098,7 +1110,7 @@ function updateAutoBetPanel() {
  }
 }
 
-async function startAutoBetQueue(overrideQueue = null) {
+async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false) {
  if (isAutoBetRunning) return;
  const openBetsCount = Number(stakeAccountData?.open_bets_count ?? data?.stake_account?.open_bets_count ?? 0);
  if (openBetsCount >= 300) {
@@ -1122,6 +1134,7 @@ async function startAutoBetQueue(overrideQueue = null) {
  const isTestEnv = typeof window !== 'undefined' && !!window.happyDOM;
  const pauseMs = isTestEnv ? 10 : 1500;
  let placedCount = 0;
+ let adaptedCount = 0;
  let fatalErr = null;
 
  try {
@@ -1167,7 +1180,8 @@ async function startAutoBetQueue(overrideQueue = null) {
         market: t.market || null,
         league: t.league || null,
         auto_place: true,
-        auto_close_on_fail: true
+        auto_close_on_fail: true,
+        adaptive_fallback: isAdaptiveDirect
        })
       });
       if (res && res.network_disconnected && netAttempts === 0 && !isTestEnv) {
@@ -1186,7 +1200,8 @@ async function startAutoBetQueue(overrideQueue = null) {
      updateTipBetDoneUI(t.id, 'done');
      await setPlacement(t.id, true, { silent: true });
      placedCount++;
-     toast(`✅ [${i + 1}/${queue.length}] Megkötve és rögzítve: ${t.selection} ($${num(res.stake || stakeAmt)})`);
+     const adaptTag = res.adapted ? ' [Adaptívan megkötve]' : '';
+     toast(`✅ [${i + 1}/${queue.length}]${adaptTag} Megkötve és rögzítve: ${res.selection || t.selection} ($${num(res.stake || stakeAmt)})`);
     } else {
      unmarkTipBetDone(t.id);
      const msg = res.message || res.error || 'A fogadás nem sikerült a Stake-en.';
@@ -1226,6 +1241,74 @@ async function startAutoBetQueue(overrideQueue = null) {
     await new Promise(r => setTimeout(r, pauseMs));
    }
   }
+
+  // Phase 2: Autonomous Adaptive Re-evaluation of skipped tips with line movement
+  adaptedCount = 0;
+  if (isAutoBetRunning && skippedAutoBetTips.size > 0 && !fatalErr && !isAdaptiveDirect) {
+   const toAdapt = [...skippedAutoBetTips.values()].filter(item => 
+    item.reason && (item.reason.includes('módosította a piacot') || item.reason.includes('vonalak érhetők el') || item.reason.includes('Nem található a kimenetel'))
+   );
+   if (toAdapt.length > 0) {
+    toast(`🔄 [2. Fázis: Adaptív pótlás] ${toAdapt.length} db módosult piacú szelvény újraértékelése (+EV)…`, { duration: 6000 });
+    const descEl = $('#auto-bet-desc');
+    for (let j = 0; j < toAdapt.length; j++) {
+     if (!isAutoBetRunning) break;
+     const sItem = toAdapt[j];
+     const t = sItem.tip;
+     if (descEl) {
+      descEl.textContent = `[2. Fázis: ${j + 1}/${toAdapt.length}] Adaptív újraértékelés: ${t.selection} — ${t.away} @ ${t.home}… (Siker: ${placedCount})`;
+     }
+     placingTipsSet.add(t.id);
+     updateTipBetDoneUI(t.id, 'placing');
+     try {
+      const terms = executionTerms(t);
+      const nav = stakeNavigation(t);
+      const resolvedTab = nav.tab || inferStakeTab(t) || 'Main';
+      const stakeAmt = Number(instructionStake(t) || 0) || 1.0;
+      const oddsVal = terms.reference_odds || t.reference_odds;
+      const res = await api('/api/stage-betslip', {
+       method: 'POST',
+       body: JSON.stringify({
+        tip_id: t.id,
+        event_url: nav.event_url || t.reference_url,
+        selection: t.selection,
+        line: t.line,
+        stake: stakeAmt > 0 ? stakeAmt : 2.50,
+        odds: oddsVal,
+        tab: resolvedTab,
+        outcome_name: (t.stake_evidence && t.stake_evidence.outcome_name) || (terms && terms.stake_evidence && terms.stake_evidence.outcome_name) || null,
+        market_name: (t.stake_evidence && t.stake_evidence.market_name) || (t.stake_market && t.stake_market.market_name) || null,
+        market: t.market || null,
+        league: t.league || null,
+        auto_place: true,
+        auto_close_on_fail: true,
+        adaptive_fallback: true
+       })
+      });
+      placingTipsSet.delete(t.id);
+      if (res.placed === true && res.status === 'ok') {
+       skippedAutoBetTips.delete(t.id);
+       markTipBetDone(t.id);
+       updateTipBetDoneUI(t.id, 'done');
+       await setPlacement(t.id, true, { silent: true });
+       placedCount++;
+       adaptedCount++;
+       toast(`⚡ [Adaptívan megkötve]: ${res.selection || t.selection} ($${num(res.stake || stakeAmt)}) — EV: +${res.ev ? (res.ev * 100).toFixed(1) : ''}%!`);
+      } else {
+       const msg = res.message || res.error || 'Nincs megfelelő +EV alternatíva';
+       skippedAutoBetTips.set(t.id, { tip: t, reason: msg, time: new Date().toISOString() });
+       updateTipBetDoneUI(t.id, 'skipped', stakeAmt, msg);
+      }
+     } catch (e) {
+      placingTipsSet.delete(t.id);
+      const msg = e.message || 'Nincs +EV alternatíva';
+      skippedAutoBetTips.set(t.id, { tip: t, reason: msg, time: new Date().toISOString() });
+      updateTipBetDoneUI(t.id, 'skipped', null, msg);
+     }
+     await new Promise(r => setTimeout(r, pauseMs));
+    }
+   }
+  }
  } finally {
   isAutoBetRunning = false;
    placingTipsSet.clear();
@@ -1233,6 +1316,7 @@ async function startAutoBetQueue(overrideQueue = null) {
    lastAutoBetStatus = {
     error: fatalErr.message,
     placedCount: placedCount,
+    adaptedCount: adaptedCount,
     skippedCount: skippedAutoBetTips.size,
     skippedList: [...skippedAutoBetTips.values()],
     limitReached: fatalErr.type === 'limit_reached'
@@ -1243,17 +1327,20 @@ async function startAutoBetQueue(overrideQueue = null) {
    }
   } else if (!isAutoBetRunning && lastAutoBetStatus?.stoppedByUser) {
    lastAutoBetStatus.placedCount = placedCount;
+   lastAutoBetStatus.adaptedCount = adaptedCount;
    lastAutoBetStatus.skippedCount = skippedAutoBetTips.size;
    lastAutoBetStatus.skippedList = [...skippedAutoBetTips.values()];
   } else {
    lastAutoBetStatus = {
     completed: true,
     placedCount: placedCount,
+    adaptedCount: adaptedCount,
     skippedCount: skippedAutoBetTips.size,
     skippedList: [...skippedAutoBetTips.values()]
    };
    if (placedCount > 0 || skippedAutoBetTips.size > 0) {
-    toast(`🎉 Auto-Bet befejezve! Megkötve: ${placedCount} db szelvény${skippedAutoBetTips.size > 0 ? ` · Kihagyva kézi vizsgálatra: ${skippedAutoBetTips.size} db` : ''}.`, { duration: 10000 });
+    const adaptText = adaptedCount > 0 ? ` (${adaptedCount} db adaptív pótlás)` : '';
+    toast(`🎉 Auto-Bet befejezve! Megkötve: ${placedCount} db szelvény${adaptText}${skippedAutoBetTips.size > 0 ? ` · Kihagyva kézi vizsgálatra: ${skippedAutoBetTips.size} db` : ''}.`, { duration: 10000 });
    }
   }
   updateAutoBetPanel();
