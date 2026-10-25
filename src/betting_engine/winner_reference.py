@@ -79,8 +79,16 @@ def replay(games, test_rows, cutoff):
 
 
 def metrics(rows):
-    return {'n': len(rows), 'brier': sum((r['p']-r['result'])**2 for r in rows)/len(rows),
-        'log_loss': -sum(r['result']*math.log(r['p'])+(1-r['result'])*math.log1p(-r['p']) for r in rows)/len(rows)}
+    if not rows:
+        return {'n': 0, 'brier': 0.0, 'log_loss': 0.0}
+    eps = 1e-15
+    brier = sum((r['p'] - r['result']) ** 2 for r in rows) / len(rows)
+    log_loss = -sum(
+        r['result'] * math.log(min(max(r['p'], eps), 1.0 - eps)) +
+        (1 - r['result']) * math.log1p(-min(max(r['p'], eps), 1.0 - eps))
+        for r in rows
+    ) / len(rows)
+    return {'n': len(rows), 'brier': brier, 'log_loss': log_loss}
 
 
 def validate_reference(evidence, champion):

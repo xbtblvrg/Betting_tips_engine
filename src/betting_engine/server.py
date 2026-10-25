@@ -108,7 +108,11 @@ def governance():
     d=engine.store.latest() or {}
     return english_payload({'generated_at':d.get('generated_at'),'governance':d.get('status',{}).get('governance',{}),'performance':engine.store.performance().get('system_decisions')})
 @app.get('/api/system-decisions')
-def system_decisions():return english_payload({'decisions':engine.store.system_decisions()})
+def system_decisions(limit: Optional[int] = Query(None, ge=1, le=10000)):
+    decisions = engine.store.system_decisions()
+    if limit is not None:
+        decisions = decisions[:limit]
+    return english_payload({'decisions': decisions})
 
 @app.get('/api/self-healing')
 def self_healing():

@@ -30,19 +30,20 @@ STATUS_PATH = DATA / 'settlement_supervisor_status.json'
 
 @dataclass
 class SettlementAuditItem:
-    bet_id: int
-    tip_id: str
-    league: str
-    market: str
-    selection: str
-    start: str
-    age_hours: float
-    status: str
+    bet_id: Optional[int] = None
+    tip_id: str = ""
+    league: str = "UNKNOWN"
+    market: str = "UNKNOWN"
+    selection: str = "UNKNOWN"
+    start: str = ""
+    age_hours: float = 0.0
+    status: str = "open"
     game_id: Optional[str] = None
     home: Optional[str] = None
     away: Optional[str] = None
     quarantined: bool = False
     quarantine_reason: Optional[str] = None
+    family: Optional[str] = None
 
 
 class SettlementSupervisor:
@@ -72,9 +73,22 @@ class SettlementSupervisor:
             ORDER BY id ASC
         """)
         rows = c.fetchall()
+
+        # Also query unplaced / orphaned open decisions in system_decisions
+        dec_rows = []
+        try:
+            c.execute("""
+                SELECT family, tip_id, payload, issued_at
+                FROM system_decisions
+                WHERE status = 'open'
+            """)
+            dec_rows = c.fetchall()
+        except Exception:
+            pass
         conn.close()
 
-        total_open = len(rows)
+        placed_tip_ids = {r[1] for r in rows if r[1]}
+        total_open = len(rows) + len([d for d in dec_rows if d[1] not in placed_tip_ids])
         past_due: List[SettlementAuditItem] = []
         future_bets: List[Dict[str, Any]] = []
 
@@ -117,6 +131,49 @@ class SettlementSupervisor:
                     'league': item.league,
                     'start': start_str,
                     'selection': item.selection,
+                })
+
+        for dec_r in dec_rows:
+            d_fam, d_tip, d_raw, d_issued = dec_r
+            if d_tip in placed_tip_ids:
+                continue
+            try:
+                d_tip_dict = json.loads(d_raw) if isinstance(d_raw, str) else (d_raw or {})
+            except Exception:
+                d_tip_dict = {}
+            start_str = d_tip_dict.get('start_time') or d_tip_dict.get('start') or d_issued
+            try:
+                start_dt = parse_time(start_str)
+                age_hours = (now - start_dt).total_seconds() / 3600.0
+            except Exception:
+                start_dt = now
+                age_hours = 0.0
+
+            d_item = SettlementAuditItem(
+                bet_id=None,
+                tip_id=d_tip or d_tip_dict.get('id', d_fam),
+                league=d_tip_dict.get('league', 'UNKNOWN'),
+                market=d_tip_dict.get('market', 'UNKNOWN'),
+                selection=d_tip_dict.get('side', d_tip_dict.get('selection', 'UNKNOWN')),
+                start=start_str,
+                age_hours=round(age_hours, 2),
+                status='open',
+                game_id=d_tip_dict.get('game_id'),
+                home=d_tip_dict.get('home'),
+                away=d_tip_dict.get('away'),
+                quarantined=age_hours >= 24.0,
+                quarantine_reason="Exceeded 24h horizon without score recovery" if age_hours >= 24.0 else None,
+                family=d_fam,
+            )
+
+            if age_hours >= horizon_hours:
+                past_due.append(d_item)
+            else:
+                future_bets.append({
+                    'bet_id': None,
+                    'league': d_item.league,
+                    'start': start_str,
+                    'selection': d_item.selection,
                 })
 
         return {
@@ -221,12 +278,13 @@ class SettlementSupervisor:
                         'supervisor': 'SettlementSupervisor_v1',
                     }
 
-                    # Settle ticket in bets table as push with 0.0 PnL
-                    c.execute("""
-                        UPDATE bets
-                        SET status = 'push', pnl = 0.0
-                        WHERE id = ? AND status = 'open'
-                    """, (bid,))
+                    if bid is not None:
+                        # Settle ticket in bets table as push with 0.0 PnL
+                        c.execute("""
+                            UPDATE bets
+                            SET status = 'push', pnl = 0.0
+                            WHERE id = ? AND status = 'open'
+                        """, (bid,))
 
                     # Settle matching system_decisions row as push with 0.0 PnL
                     c.execute("""
@@ -236,18 +294,27 @@ class SettlementSupervisor:
                     """, (json.dumps(evidence), item['tip_id']))
 
                     # Also try matching by family
-                    c.execute("""
-                        UPDATE system_decisions
-                        SET status = 'push', pnl = 0.0, outcome_evidence = ?
-                        WHERE json_extract(payload, '$.id') = ? AND status = 'open'
-                    """, (json.dumps(evidence), item['tip_id']))
+                    fam_key = item.get('family')
+                    if fam_key:
+                        c.execute("""
+                            UPDATE system_decisions
+                            SET status = 'push', pnl = 0.0, outcome_evidence = ?
+                            WHERE family = ? AND status = 'open'
+                        """, (json.dumps(evidence), fam_key))
+                    else:
+                        c.execute("""
+                            UPDATE system_decisions
+                            SET status = 'push', pnl = 0.0, outcome_evidence = ?
+                            WHERE json_extract(payload, '$.id') = ? AND status = 'open'
+                        """, (json.dumps(evidence), item['tip_id']))
 
-                    # Record outcome in bet_outcomes table for quantitative traceability
-                    c.execute("""
-                        INSERT OR IGNORE INTO bet_outcomes 
-                        (bet_id, league, market, model_version, result, probability, push_probability, brier, log_loss, evidence)
-                        VALUES (?, ?, ?, ?, 'push', NULL, 1.0, NULL, NULL, ?)
-                    """, (bid, league, item['market'], 'walkover_void_supervisor', json.dumps(evidence)))
+                    if bid is not None:
+                        # Record outcome in bet_outcomes table for quantitative traceability
+                        c.execute("""
+                            INSERT OR IGNORE INTO bet_outcomes 
+                            (bet_id, league, market, model_version, result, probability, push_probability, brier, log_loss, evidence)
+                            VALUES (?, ?, ?, ?, 'push', NULL, 1.0, NULL, NULL, ?)
+                        """, (bid, league, item['market'], 'walkover_void_supervisor', json.dumps(evidence)))
 
                     settled_details.append({
                         'bet_id': bid,

@@ -179,3 +179,52 @@ def test_api_settlement_supervisor():
     assert resp.status_code == 200
     data = resp.json()
     assert 'total_open' in data or 'checked_at' in data
+
+
+def test_supervisor_resolves_orphaned_unplaced_decisions(temp_env):
+    tmp_path, db_path = temp_env
+    supervisor = SettlementSupervisor(data_dir=tmp_path, db_path=db_path)
+
+    # Insert an unplaced decision that is 10 hours old (e.g. WTA walkover) with no row in bets table
+    now = datetime.now(timezone.utc)
+    old_time = (now - timedelta(hours=10)).isoformat()
+    old_decision = {
+        'id': 'orphan-wta-1',
+        'league': 'WTA',
+        'market': 'period_2:moneyline',
+        'side': 'away',
+        'start': old_time,
+        'game_id': 'WTA:orphan-game',
+        'home': 'Player X',
+        'away': 'Player Y',
+        'stake': 1.0,
+        'reference_odds': 2.10,
+    }
+    conn = sqlite3.connect(db_path)
+    c = conn.cursor()
+    c.execute("""
+        INSERT INTO system_decisions (family, tip_id, issued_at, payload, status)
+        VALUES ('contract:orphan-wta-1', 'orphan-wta-1', ?, ?, 'open')
+    """, (old_time, json.dumps(old_decision)))
+    conn.commit()
+    conn.close()
+
+    # Audit should see the orphaned decision as past due
+    audit = supervisor.audit_unsettled_bets(horizon_hours=4.0)
+    orphan_items = [x for x in audit['past_due_items'] if x['tip_id'] == 'orphan-wta-1']
+    assert len(orphan_items) == 1
+    assert orphan_items[0]['bet_id'] is None
+
+    # Resolve walkovers should settle the unplaced decision as push
+    res = supervisor.resolve_walkovers_and_cancellations(min_age_hours=4.0)
+    assert res['settled_walkovers'] >= 1
+
+    conn = sqlite3.connect(db_path)
+    c = conn.cursor()
+    c.execute("SELECT status, pnl, outcome_evidence FROM system_decisions WHERE tip_id = 'orphan-wta-1'")
+    row = c.fetchone()
+    assert row[0] == 'push'
+    assert row[1] == 0.0
+    ev = json.loads(row[2])
+    assert ev['basis'] == 'stake_rules_walkover_void_resolution'
+    conn.close()
