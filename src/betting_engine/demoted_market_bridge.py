@@ -40,7 +40,8 @@ class DemotedMarketIncubationBridge:
         if not self.db_path.exists():
             return
         try:
-            with sqlite3.connect(str(self.db_path), timeout=10.0) as conn:
+            with sqlite3.connect(str(self.db_path), timeout=30.0) as conn:
+                conn.execute("PRAGMA busy_timeout = 30000")
                 conn.execute("ALTER TABLE demoted_markets ADD COLUMN last_screened_at TEXT")
         except (sqlite3.OperationalError, sqlite3.DatabaseError):
             pass
@@ -51,9 +52,11 @@ class DemotedMarketIncubationBridge:
             return {'status': 'no_db', 'newly_admitted_count': 0}
 
         try:
-            conn = sqlite3.connect(f"file:{self.db_path.resolve()}?mode=ro", uri=True, timeout=10.0)
+            conn = sqlite3.connect(f"file:{self.db_path.resolve()}?mode=ro", uri=True, timeout=30.0)
+            conn.execute("PRAGMA busy_timeout = 30000")
         except sqlite3.OperationalError:
-            conn = sqlite3.connect(str(self.db_path), timeout=10.0)
+            conn = sqlite3.connect(str(self.db_path), timeout=30.0)
+            conn.execute("PRAGMA busy_timeout = 30000")
 
         try:
             cur = conn.cursor()
@@ -90,7 +93,8 @@ class DemotedMarketIncubationBridge:
             attempted_this_run += 1
             now_iso = datetime.now(timezone.utc).isoformat()
             try:
-                with sqlite3.connect(str(self.db_path), timeout=10.0, isolation_level=None) as update_conn:
+                with sqlite3.connect(str(self.db_path), timeout=30.0, isolation_level=None) as update_conn:
+                    update_conn.execute("PRAGMA busy_timeout = 30000")
                     update_conn.execute("UPDATE demoted_markets SET last_screened_at = ? WHERE id = ?", (now_iso, d_id))
             except Exception as e:
                 log.debug("Could not record last_screened_at for %s: %s", seg_key, e)
