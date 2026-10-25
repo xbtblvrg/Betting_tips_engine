@@ -25,11 +25,19 @@ from .statistics_worker import StatisticsRenderer
 statistics_renderer=StatisticsRenderer()
 
 def _get_git_commit() -> str:
-    import subprocess
+    root_dir = Path(__file__).resolve().parents[2]
     try:
-        return subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], text=True, stderr=subprocess.DEVNULL).strip()
+        head_file = root_dir / ".git" / "HEAD"
+        if head_file.exists():
+            ref = head_file.read_text().strip()
+            if ref.startswith("ref: "):
+                ref_path = root_dir / ".git" / ref[5:]
+                if ref_path.exists():
+                    return ref_path.read_text().strip()[:7]
+            return ref[:7]
     except Exception:
-        return "unknown"
+        pass
+    return "unknown"
 
 _GIT_COMMIT = _get_git_commit()
 _SERVER_START_TS = time.time()
