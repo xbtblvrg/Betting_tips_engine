@@ -584,10 +584,35 @@ def get_autorun_state_summary():
     earlier_count = 0
     by_league = {}
     open_bets_count = 0
+    autorun_placed_today = 0
+    autorun_adapted_today = 0
     
     try:
         conn = sqlite3.connect(engine.store.path, timeout=5.0)
         cur = conn.cursor()
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS autorun_placements (
+                tip_id TEXT PRIMARY KEY,
+                placed_at TEXT NOT NULL,
+                selection TEXT,
+                stake REAL,
+                odds REAL,
+                adapted INTEGER DEFAULT 0,
+                league TEXT,
+                source TEXT DEFAULT 'auto_runner'
+            )
+        ''')
+        cur.execute('SELECT placed_at, adapted FROM autorun_placements')
+        for placed_at_val, adapted_val in cur.fetchall():
+            try:
+                dt = datetime.fromisoformat(placed_at_val).astimezone(tz)
+                if dt.strftime("%Y-%m-%d") == today_str:
+                    autorun_placed_today += 1
+                    if adapted_val:
+                        autorun_adapted_today += 1
+            except Exception:
+                pass
+
         cur.execute('''
             SELECT pc.tip_id, pc.placed_at, t.payload 
             FROM placement_checklist pc 
@@ -638,6 +663,8 @@ def get_autorun_state_summary():
         "remaining_sec": remaining_sec,
         "last_status": _latest_autorun_heartbeat.get("last_status"),
         "last_cycle_placed": _latest_autorun_heartbeat.get("last_cycle_placed") or 0,
+        "autorun_placed_today": autorun_placed_today,
+        "autorun_adapted_today": autorun_adapted_today,
         "today_placed_count": today_placed_count,
         "windows": {
             "h24": w24_count,
@@ -757,6 +784,43 @@ def stage_betslip_endpoint(data: StageBetslipRequest):
     )
     if res.get("status") == "error":
         return JSONResponse(english_payload(res), status_code=400)
+
+    if res.get("placed") and data.auto_place:
+        try:
+            import sqlite3
+            from datetime import datetime, timezone
+            now_iso = datetime.now(timezone.utc).isoformat()
+            c_auto = sqlite3.connect(engine.store.path, timeout=5.0)
+            c_auto.execute('''
+                CREATE TABLE IF NOT EXISTS autorun_placements (
+                    tip_id TEXT PRIMARY KEY,
+                    placed_at TEXT NOT NULL,
+                    selection TEXT,
+                    stake REAL,
+                    odds REAL,
+                    adapted INTEGER DEFAULT 0,
+                    league TEXT,
+                    source TEXT DEFAULT 'auto_runner'
+                )
+            ''')
+            c_auto.execute('''
+                INSERT OR REPLACE INTO autorun_placements (tip_id, placed_at, selection, stake, odds, adapted, league, source)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                data.tip_id or "",
+                now_iso,
+                res.get("selection") or data.selection or "",
+                float(res.get("stake") or data.stake or 0.0),
+                float(res.get("odds") or data.odds or 0.0),
+                1 if res.get("adapted") else 0,
+                league or "",
+                "auto_runner"
+            ))
+            c_auto.commit()
+            c_auto.close()
+        except Exception:
+            pass
+
     return english_payload(res)
 
 

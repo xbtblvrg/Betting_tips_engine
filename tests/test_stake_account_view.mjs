@@ -44,6 +44,8 @@ async function bootStakeAccount(t, dashboardData = null, initialStorage = null) 
           next_trigger_at: Date.now() + 600000,
           remaining_sec: 600,
           last_status: '✅ Ciklus kész! Megkötve: 1 db szelvény.',
+          last_cycle_placed: 1,
+          autorun_placed_today: 27,
           today_placed_count: 186,
           windows: {h24: 110, h48: 34, earlier_today: 42},
           by_league: {NFL: 56, NBA: 79},
@@ -1434,6 +1436,10 @@ test('Auto-Run remote telemetry strip displays live runner status and window cou
   const runnerText = doc.getElementById('auto-run-telemetry-runner-text');
   assert.ok(runnerText);
   assert.match(runnerText.textContent, /Auto-Run: AKTÍV/);
+
+  const runnerPlacedVal = doc.getElementById('auto-run-runner-placed-val');
+  assert.ok(runnerPlacedVal);
+  assert.strictEqual(runnerPlacedVal.textContent, '27 db (utolsó: 1 db)');
 
   const todayVal = doc.getElementById('auto-run-today-count-val');
   assert.ok(todayVal);

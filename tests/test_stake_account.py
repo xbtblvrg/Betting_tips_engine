@@ -1332,6 +1332,9 @@ def test_api_autorun_endpoints():
     assert resp.status_code == 200
     data = resp.json()
     assert data["status"] == "ok"
+    assert "autorun_placed_today" in data
+    assert isinstance(data["autorun_placed_today"], int)
+    assert "autorun_adapted_today" in data
     assert "today_placed_count" in data
     assert "windows" in data
     assert "h24" in data["windows"]
@@ -1361,6 +1364,44 @@ def test_api_autorun_endpoints():
     data2 = resp2.json()
     assert data2["active"] is True
     assert data2["runner_id"] == "MacBook Pro (Safari)"
+
+
+def test_stage_betslip_records_in_autorun_placements(monkeypatch):
+    from unittest.mock import MagicMock
+    client = TestClient(app)
+
+    # Mock stage_betslip_in_safari to simulate successful placement
+    mock_stage = MagicMock(return_value={
+        "status": "ok",
+        "placed": True,
+        "closed": True,
+        "selection": "Arsenal -1.5",
+        "stake": 2.50,
+        "odds": 1.95,
+        "adapted": True,
+    })
+    monkeypatch.setattr("betting_engine.stake_account.stage_betslip_in_safari", mock_stage)
+
+    resp = client.post("/api/stage-betslip", json={
+        "tip_id": "test_autorun_tip_123",
+        "event_url": "https://stake.com/sports/soccer/epl/test-match",
+        "selection": "Arsenal -1.5",
+        "stake": 2.50,
+        "odds": 1.95,
+        "auto_place": True,
+        "adaptive_fallback": True,
+    })
+    assert resp.status_code == 200
+    res_data = resp.json()
+    assert res_data["status"] == "ok"
+    assert res_data["placed"] is True
+
+    # Verify that autorun summary now includes this placement
+    summary_resp = client.get("/api/autorun")
+    assert summary_resp.status_code == 200
+    s_data = summary_resp.json()
+    assert s_data["autorun_placed_today"] >= 1
+
 
 
 

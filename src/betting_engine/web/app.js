@@ -874,11 +874,17 @@ function updateAutoRunTelemetryUI(res) {
  const runnerText = $('#auto-run-telemetry-runner-text');
  const countdown = $('#auto-run-telemetry-countdown');
  const lastStatus = $('#auto-run-telemetry-last-status');
+ const runnerPlacedVal = $('#auto-run-runner-placed-val');
  const todayVal = $('#auto-run-today-count-val');
  const w24Val = $('#auto-run-w24-val');
  const w48Val = $('#auto-run-w48-val');
  const stakeVal = $('#auto-run-stake-val');
 
+ if (runnerPlacedVal) {
+  const runnerCount = res.autorun_placed_today ?? 0;
+  const lastCycle = (res.last_cycle_placed && res.last_cycle_placed > 0) ? ` (utolsó: ${res.last_cycle_placed} db)` : '';
+  runnerPlacedVal.textContent = `${runnerCount} db${lastCycle}`;
+ }
  if (todayVal) todayVal.textContent = `${res.today_placed_count ?? 0} db`;
  if (w24Val) w24Val.textContent = `${res.windows?.h24 ?? 0} db`;
  if (w48Val) w48Val.textContent = `${res.windows?.h48 ?? 0} db`;
@@ -923,7 +929,8 @@ function updateAutoRunTelemetryUI(res) {
    const descEl = $('#auto-bet-desc');
    if (descEl && !descEl.textContent.includes('Fogadás folyamatban') && !descEl.textContent.includes('leállt') && !descEl.textContent.includes('hiba')) {
     const cycleDesc = res.last_status ? `${res.last_status}. ` : '';
-    descEl.textContent = `⚡ Auto-Run aktívan fut a háttérben a Mac gépeden. ${cycleDesc}Következő ciklus: ${countdown?.textContent || ''}.`;
+    const runnerStats = res.autorun_placed_today != null ? `Eddig Auto-Runner által feladva: ${res.autorun_placed_today} db. ` : '';
+    descEl.textContent = `⚡ Auto-Run aktívan fut a háttérben a Mac gépeden. ${runnerStats}${cycleDesc}Következő ciklus: ${countdown?.textContent || ''}.`;
    }
   }
  } else {
