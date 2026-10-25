@@ -896,10 +896,8 @@ function scheduleNextAutoRun(delayMs = AUTO_RUN_INTERVAL_MS) {
 }
 
 function getAutoRunHierarchicalQueue(currentOpenBets = 0) {
- const maxCapacity = 300;
- const availableSlots = Math.max(0, maxCapacity - currentOpenBets);
- if (availableSlots <= 0) {
-  return { queue: [], limitReached: true, count24: 0, count48: 0, availableSlots: 0 };
+ if (currentOpenBets >= 300) {
+  return { queue: [], limitReached: true, count24: 0, count48: 0 };
  }
 
  const now = Date.now();
@@ -928,34 +926,13 @@ function getAutoRunHierarchicalQueue(currentOpenBets = 0) {
   return s > max24 && s <= max48 && !tips24Ids.has(t.id);
  }).sort(sortFn);
 
- const queue = [];
- let slotsRemaining = availableSlots;
-
- // 1. Priority: Next 24 Hours
- for (const t of tips24) {
-  if (slotsRemaining <= 0) break;
-  queue.push(t);
-  slotsRemaining--;
- }
- const count24 = queue.length;
- let count48 = 0;
-
- // 2. Priority: Next 48 Hours (if slots still remain and 24h is satisfied)
- if (slotsRemaining > 0) {
-  for (const t of tips48) {
-   if (slotsRemaining <= 0) break;
-   queue.push(t);
-   slotsRemaining--;
-   count48++;
-  }
- }
+ const queue = [...tips24, ...tips48];
 
  return {
   queue,
   limitReached: false,
-  count24,
-  count48,
-  availableSlots
+  count24: tips24.length,
+  count48: tips48.length
  };
 }
 
@@ -975,9 +952,9 @@ async function executeAutoRunCycle() {
 
  try {
   const openBetsCount = Number(stakeAccountData?.open_bets_count ?? data?.stake_account?.open_bets_count ?? 0);
-  const { queue, limitReached, count24, count48, availableSlots } = getAutoRunHierarchicalQueue(openBetsCount);
+  const { queue, limitReached, count24, count48 } = getAutoRunHierarchicalQueue(openBetsCount);
 
-  if (limitReached || availableSlots <= 0) {
+  if (limitReached || openBetsCount >= 300) {
    toast('ℹ️ Auto-Run 15m: A Stake elérte a 300 aktív fogadási limitet (300/300). Várakozás a meccsek elszámolására a következő 15 perces ciklusig.', { duration: 6000 });
    return;
   }
@@ -1248,10 +1225,10 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
    const t = queue[i];
    if (isPlaced(t) || getBetDoneTips().has(t.id)) continue;
 
-   // Pre-check open bets before submitting this ticket
-   const currentOpen = Number(stakeAccountData?.open_bets_count ?? data?.stake_account?.open_bets_count ?? 0) + placedCount;
-   if (currentOpen >= 300) {
-    toast(`⚠️ Stake 300 aktív fogadási limit elérve (${currentOpen}/300 bet). A további szelvények leadása szünetel a következő ciklusig.`, { duration: 8000 });
+   // Pre-check open bets before submitting this ticket (only check if Stake has 300 active bets)
+   const stakeOpen = Number(stakeAccountData?.open_bets_count ?? data?.stake_account?.open_bets_count ?? 0);
+   if (stakeOpen >= 300) {
+    toast(`⚠️ Stake 300 aktív fogadási limit elérve (${stakeOpen}/300 bet). A további szelvények leadása szünetel a következő ciklusig.`, { duration: 8000 });
     break;
    }
 
@@ -1373,8 +1350,8 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
   // Phase 2: Autonomous Adaptive Re-evaluation of skipped tips with line movement
   adaptedCount = 0;
   if (isAutoBetRunning && skippedAutoBetTips.size > 0 && !fatalErr && !isAdaptiveDirect) {
-   const currentOpenBeforePhase2 = Number(stakeAccountData?.open_bets_count ?? data?.stake_account?.open_bets_count ?? 0) + placedCount;
-   if (currentOpenBeforePhase2 < 300) {
+   const stakeOpenBeforePhase2 = Number(stakeAccountData?.open_bets_count ?? data?.stake_account?.open_bets_count ?? 0);
+   if (stakeOpenBeforePhase2 < 300) {
     const toAdapt = [...skippedAutoBetTips.values()].filter(item => 
      item.reason && (item.reason.includes('módosította a piacot') || item.reason.includes('vonalak érhetők el') || item.reason.includes('Nem található a kimenetel'))
     );
@@ -1383,8 +1360,8 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
      const descEl = $('#auto-bet-desc');
      for (let j = 0; j < toAdapt.length; j++) {
       if (!isAutoBetRunning) break;
-      const currentOpenInPhase2 = Number(stakeAccountData?.open_bets_count ?? data?.stake_account?.open_bets_count ?? 0) + placedCount;
-      if (currentOpenInPhase2 >= 300) {
+      const stakeOpenInPhase2 = Number(stakeAccountData?.open_bets_count ?? data?.stake_account?.open_bets_count ?? 0);
+      if (stakeOpenInPhase2 >= 300) {
        toast('⚠️ Stake 300 limit elérve adaptív pótlás közben. Várakozás a következő ciklusra.');
        break;
       }
@@ -1479,14 +1456,14 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
    lastAutoBetStatus.skippedCount = skippedAutoBetTips.size;
    lastAutoBetStatus.skippedList = [...skippedAutoBetTips.values()];
   } else {
-   const currentOpenAtEnd = Number(stakeAccountData?.open_bets_count ?? data?.stake_account?.open_bets_count ?? 0) + placedCount;
+   const stakeOpenAtEnd = Number(stakeAccountData?.open_bets_count ?? data?.stake_account?.open_bets_count ?? 0);
    lastAutoBetStatus = {
     completed: true,
     placedCount: placedCount,
     adaptedCount: adaptedCount,
     skippedCount: skippedAutoBetTips.size,
     skippedList: [...skippedAutoBetTips.values()],
-    limitReached: currentOpenAtEnd >= 300
+    limitReached: stakeOpenAtEnd >= 300
    };
    if (placedCount > 0 || skippedAutoBetTips.size > 0) {
     const adaptText = adaptedCount > 0 ? ` (${adaptedCount} db adaptív pótlás)` : '';
