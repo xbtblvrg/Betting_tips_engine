@@ -277,3 +277,42 @@ def test_configured_max_task_retry_backoff_seconds_bounds_delay(project, monkeyp
     worker.attempt(plan['tasks'][0])
     diff = (parse_time(worker.state['tasks']['D1']['next_attempt_at']) - now).total_seconds()
     assert 0 < diff <= 305
+
+
+def test_sync_disk_state_absorbs_external_governor_unblocks(project):
+    root, plan = project
+    worker = DevelopmentWorker(root)
+    # Memory has high attempts and future next_attempt_at
+    worker.state['tasks']['D1'] = {'state': 'retry', 'attempts': 202, 'next_attempt_at': '2099-01-01T00:00:00+00:00'}
+    
+    # External governor writes de-bloated attempts and immediate next_attempt_at to disk
+    atomic_json(worker.path, {
+        'tasks': {
+            'D1': {'state': 'retry', 'attempts': 1, 'next_attempt_at': '2026-10-25T12:00:00+00:00'}
+        }
+    })
+    
+    # Worker syncs disk state
+    worker._sync_disk_state()
+    assert worker.state['tasks']['D1']['attempts'] == 1
+    assert worker.state['tasks']['D1']['next_attempt_at'] == '2026-10-25T12:00:00+00:00'
+
+
+def test_choose_task_caps_attempts_penalty(project):
+    from betting_engine.development import choose_task
+    root, plan = project
+    state = {
+        'tasks': {
+            'T1': {'state': 'retry', 'attempts': 100, 'next_attempt_at': '2026-01-01T00:00:00+00:00'},
+            'T2': {'state': 'retry', 'attempts': 5, 'next_attempt_at': '2026-01-01T00:00:00+00:00'},
+        }
+    }
+    plan_data = {
+        'tasks': [
+            {'id': 'T1', 'priority': 10, 'due_at': '2026-01-01T00:00:00+00:00'},
+            {'id': 'T2', 'priority': 20, 'due_at': '2026-01-01T00:00:00+00:00'},
+        ]
+    }
+    # T1 has higher priority (10 < 20). Even with 100 attempts, attempts is capped at 5, so priority 10 wins.
+    chosen = choose_task(plan_data, state, now=utcnow())
+    assert chosen['id'] == 'T1'

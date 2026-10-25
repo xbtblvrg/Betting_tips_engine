@@ -939,7 +939,7 @@ def choose_task(plan, state, now=None):
     checkpoints={m['id']:parse_time(m['checkpoint_at']) for m in plan.get('milestones',[])}
     return min(choices, key=lambda t: (0 if checkpoints.get(t.get('milestone'),now+timedelta(days=1))<=now else 1,
         0 if t.get('due_at') and parse_time(t['due_at']) <= now else 1,
-        t['priority'], current.get(t['id'], {}).get('attempts', 0), t['id'])) if choices else None
+        t['priority'], min(5, current.get(t['id'], {}).get('attempts', 0)), t['id'])) if choices else None
 
 
 def expand_work(plan,state,root,occupied=()):
@@ -1013,8 +1013,30 @@ class DevelopmentWorker:
         self._engineering_due = now + max(10, self.config.get('engineering_poll_seconds', 60))
         return True
 
+    def _sync_disk_state(self):
+        """Absorb external controller/governor unblocks and de-bloated attempt counters."""
+        try:
+            if not self.path.exists(): return
+            disk_data = read_json(self.path)
+            disk_tasks = disk_data.get('tasks', {})
+            for tid, dinfo in disk_tasks.items():
+                if not isinstance(dinfo, dict) or tid in getattr(self, '_active', {}):
+                    continue
+                minfo = self.state.setdefault('tasks', {}).setdefault(tid, {})
+                if not isinstance(minfo, dict): continue
+                if dinfo.get('state') == 'retry':
+                    d_next = dinfo.get('next_attempt_at'); m_next = minfo.get('next_attempt_at')
+                    if d_next and (not m_next or d_next < m_next):
+                        minfo['next_attempt_at'] = d_next
+                    d_att = dinfo.get('attempts'); m_att = minfo.get('attempts')
+                    if d_att is not None and (m_att is None or d_att < m_att) and d_att >= 0:
+                        minfo['attempts'] = d_att
+        except Exception:
+            pass
+
     def save(self):
         with self._state_lock:
+            self._sync_disk_state()
             atomic_json(self.path, self.state)
 
     def fork(self):
@@ -1794,6 +1816,7 @@ PREVIOUS CANDIDATE (read-only repair evidence if present): {self.folder/'runs'/s
                             # Old serial next_run_at does not impose idle gaps
                             # between independent validated implementation jobs.
                             if enabled and due and (not once or not results):
+                                self._sync_disk_state()
                                 plan = self._expand_work(plan, set(futures.values()))
                                 plan = {**plan, 'tasks': [apply_task_focus(task, self._engineering_focus.get(task['id'], {})) for task in plan['tasks']]}
                                 while admission['allow_new'] and len(futures) < admission['allowed_slots']:
