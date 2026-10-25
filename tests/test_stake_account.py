@@ -1324,6 +1324,46 @@ def test_stage_betslip_never_activates_safari_window(monkeypatch):
         assert "activate" not in lines, f"Forbidden 'activate' command found in AppleScript:\n{script}"
 
 
+def test_api_autorun_endpoints():
+    client = TestClient(app)
+
+    # 1. GET /api/autorun
+    resp = client.get("/api/autorun")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "ok"
+    assert "today_placed_count" in data
+    assert "windows" in data
+    assert "h24" in data["windows"]
+    assert "h48" in data["windows"]
+    assert "open_bets_count" in data
+    assert data["limit"] == 300
+
+    # 2. POST /api/autorun/heartbeat
+    resp_hb = client.post("/api/autorun/heartbeat", json={
+        "enabled": True,
+        "next_trigger_at": 1792953742394,
+        "last_status": "✅ Ciklus kész! Megkötve: 2 db szelvény.",
+        "last_cycle_placed": 2,
+        "runner_id": "MacBook Pro (Safari)"
+    })
+    assert resp_hb.status_code == 200
+    hb_data = resp_hb.json()
+    assert hb_data["status"] == "ok"
+    assert hb_data["active"] is True
+    assert hb_data["runner_id"] == "MacBook Pro (Safari)"
+    assert hb_data["last_status"] == "✅ Ciklus kész! Megkötve: 2 db szelvény."
+    assert hb_data["last_cycle_placed"] == 2
+
+    # 3. GET /api/autorun reflects active heartbeat
+    resp2 = client.get("/api/autorun")
+    assert resp2.status_code == 200
+    data2 = resp2.json()
+    assert data2["active"] is True
+    assert data2["runner_id"] == "MacBook Pro (Safari)"
+
+
+
 
 
 

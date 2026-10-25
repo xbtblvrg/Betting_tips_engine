@@ -32,6 +32,26 @@ async function bootStakeAccount(t, dashboardData = null, initialStorage = null) 
     if (options?.method && options.method !== 'GET') {
       writes.push({path, options});
     }
+    if (path.startsWith('/api/autorun')) {
+      return {
+        ok: true,
+        json: async () => ({
+          status: 'ok',
+          active: true,
+          runner_enabled: true,
+          is_online: true,
+          runner_id: 'MacBook Pro (Safari)',
+          next_trigger_at: Date.now() + 600000,
+          remaining_sec: 600,
+          last_status: '✅ Ciklus kész! Megkötve: 1 db szelvény.',
+          today_placed_count: 186,
+          windows: {h24: 110, h48: 34, earlier_today: 42},
+          by_league: {NFL: 56, NBA: 79},
+          open_bets_count: 174,
+          limit: 300
+        })
+      };
+    }
     if (path.startsWith('/api/stake-account/history')) {
       return {
         ok: true,
@@ -1401,6 +1421,37 @@ test('Auto-Run 15m persists state across page reloads via localStorage and resto
   assert.strictEqual(w2.localStorage.getItem('quant_auto_run_next_trigger'), null, 'quant_auto_run_next_trigger must be removed');
   assert.strictEqual(status2.style.display, 'none', 'Status UI must be hidden when turned off');
 });
+
+test('Auto-Run remote telemetry strip displays live runner status and window counts on all devices', async t => {
+  const {w} = await bootStakeAccount(t);
+  const doc = w.document;
+
+  await new Promise(r => setTimeout(r, 60));
+
+  const strip = doc.getElementById('auto-run-telemetry-strip');
+  assert.ok(strip, 'auto-run-telemetry-strip must exist');
+
+  const runnerText = doc.getElementById('auto-run-telemetry-runner-text');
+  assert.ok(runnerText);
+  assert.match(runnerText.textContent, /Auto-Run: AKTÍV/);
+
+  const todayVal = doc.getElementById('auto-run-today-count-val');
+  assert.ok(todayVal);
+  assert.strictEqual(todayVal.textContent, '186 db');
+
+  const w24Val = doc.getElementById('auto-run-w24-val');
+  assert.ok(w24Val);
+  assert.strictEqual(w24Val.textContent, '110 db');
+
+  const w48Val = doc.getElementById('auto-run-w48-val');
+  assert.ok(w48Val);
+  assert.strictEqual(w48Val.textContent, '34 db');
+
+  const stakeVal = doc.getElementById('auto-run-stake-val');
+  assert.ok(stakeVal);
+  assert.strictEqual(stakeVal.textContent, '174 / 300');
+});
+
 
 
 

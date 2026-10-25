@@ -821,6 +821,8 @@ let isAutoRunEnabled = false;
 let isAutoRunCycleRunning = false;
 let autoRunCountdownTimer = null;
 let autoRunNextTriggerAt = null;
+let remoteAutoRunData = null;
+let lastHeartbeatSentAt = 0;
 const AUTO_RUN_INTERVAL_MS = 15 * 60 * 1000;
 
 function formatAutoRunTime(ms) {
@@ -830,24 +832,135 @@ function formatAutoRunTime(ms) {
  return `(${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')})`;
 }
 
+async function sendAutoRunHeartbeat(force = false) {
+ if (!isAutoRunEnabled && !force) return;
+ const now = Date.now();
+ if (!force && now - lastHeartbeatSentAt < 8000) return;
+ lastHeartbeatSentAt = now;
+ try {
+  const body = {
+   enabled: isAutoRunEnabled,
+   next_trigger_at: autoRunNextTriggerAt,
+   last_status: lastAutoBetStatus ? (lastAutoBetStatus.error ? `⚠️ ${lastAutoBetStatus.error}` : `✅ Ciklus kész! Megkötve: ${lastAutoBetStatus.placedCount || 0} db`) : null,
+   last_cycle_placed: lastAutoBetStatus?.placedCount || 0,
+   runner_id: 'MacBook Pro (Safari)'
+  };
+  const res = await api('/api/autorun/heartbeat', {
+   method: 'POST',
+   body: JSON.stringify(body)
+  });
+  if (res && res.status === 'ok') {
+   updateAutoRunTelemetryUI(res);
+  }
+ } catch (_) {}
+}
+
+async function fetchAutoRunTelemetry() {
+ try {
+  const res = await api('/api/autorun');
+  if (res && res.status === 'ok') {
+   updateAutoRunTelemetryUI(res);
+  }
+ } catch (_) {}
+}
+
+function updateAutoRunTelemetryUI(res) {
+ if (!res) return;
+ remoteAutoRunData = res;
+ const strip = $('#auto-run-telemetry-strip');
+ if (!strip) return;
+
+ const indicator = $('#auto-run-telemetry-indicator');
+ const runnerText = $('#auto-run-telemetry-runner-text');
+ const countdown = $('#auto-run-telemetry-countdown');
+ const lastStatus = $('#auto-run-telemetry-last-status');
+ const todayVal = $('#auto-run-today-count-val');
+ const w24Val = $('#auto-run-w24-val');
+ const w48Val = $('#auto-run-w48-val');
+ const stakeVal = $('#auto-run-stake-val');
+
+ if (todayVal) todayVal.textContent = `${res.today_placed_count ?? 0} db`;
+ if (w24Val) w24Val.textContent = `${res.windows?.h24 ?? 0} db`;
+ if (w48Val) w48Val.textContent = `${res.windows?.h48 ?? 0} db`;
+ if (stakeVal) stakeVal.textContent = `${res.open_bets_count ?? 0} / ${res.limit ?? 300}`;
+
+ const isActive = Boolean(res.active || (isAutoRunEnabled && isEngineActiveOrUpdating()));
+ if (isActive) {
+  strip.style.display = 'flex';
+  if (indicator) {
+   indicator.style.background = '#10b981';
+   indicator.style.color = '#ffffff';
+  }
+  if (runnerText) runnerText.textContent = `Auto-Run: AKTÍV (${res.runner_id || 'Mac Runner'})`;
+
+  let remMs = null;
+  const targetTrigger = isAutoRunEnabled ? autoRunNextTriggerAt : res.next_trigger_at;
+  if (targetTrigger) {
+   remMs = targetTrigger > 1e11 ? (targetTrigger - Date.now()) : (targetTrigger * 1000 - Date.now());
+  } else if (res.remaining_sec != null) {
+   remMs = res.remaining_sec * 1000;
+  }
+
+  if (countdown) {
+   if (remMs != null && remMs > 0) {
+    countdown.textContent = `(${formatAutoRunTime(remMs)} múlva)`;
+    countdown.style.display = 'inline';
+   } else {
+    countdown.textContent = '(Fut…)';
+    countdown.style.display = 'inline';
+   }
+  }
+
+  if (lastStatus) {
+   const statusText = isAutoRunEnabled && lastAutoBetStatus ? (lastAutoBetStatus.error ? `⚠️ ${lastAutoBetStatus.error}` : `✅ Ciklus kész! Megkötve: ${lastAutoBetStatus.placedCount || 0} db`) : res.last_status;
+   if (statusText) {
+    lastStatus.textContent = statusText;
+    lastStatus.style.display = 'inline';
+   }
+  }
+
+  if (!isAutoRunEnabled && !lastAutoBetStatus?.error) {
+   const descEl = $('#auto-bet-desc');
+   if (descEl && !descEl.textContent.includes('Fogadás folyamatban') && !descEl.textContent.includes('leállt') && !descEl.textContent.includes('hiba')) {
+    const cycleDesc = res.last_status ? `${res.last_status}. ` : '';
+    descEl.textContent = `⚡ Auto-Run aktívan fut a háttérben a Mac gépeden. ${cycleDesc}Következő ciklus: ${countdown?.textContent || ''}.`;
+   }
+  }
+ } else {
+  if (indicator) {
+   indicator.style.background = '#94a3b8';
+   indicator.style.color = '#ffffff';
+  }
+  if (runnerText) runnerText.textContent = 'Auto-Run: Készenlétben';
+  if (countdown) countdown.style.display = 'none';
+  if (lastStatus) {
+   lastStatus.textContent = res.today_placed_count ? `${res.today_placed_count} db szelvény feladva ma` : 'Nincs aktív futás';
+  }
+ }
+}
+
 function updateAutoRunStatusUI() {
  const toggle = $('#auto-bet-interval-toggle');
  const statusEl = $('#auto-bet-interval-status');
  if (toggle && toggle.checked !== isAutoRunEnabled) toggle.checked = isAutoRunEnabled;
- if (!statusEl) return;
- if (isAutoRunEnabled) {
-  statusEl.style.display = 'inline';
-  if (isAutoBetRunning || isAutoRunCycleRunning) {
-   statusEl.textContent = '(Fut…)';
-   statusEl.style.color = '#0284c7';
-  } else if (autoRunNextTriggerAt) {
-   const remaining = autoRunNextTriggerAt - Date.now();
-   statusEl.textContent = formatAutoRunTime(remaining);
-   statusEl.style.color = '#047857';
+ if (statusEl) {
+  if (isAutoRunEnabled) {
+   statusEl.style.display = 'inline';
+   if (isAutoBetRunning || isAutoRunCycleRunning) {
+    statusEl.textContent = '(Fut…)';
+    statusEl.style.color = '#0284c7';
+   } else if (autoRunNextTriggerAt) {
+    const remaining = autoRunNextTriggerAt - Date.now();
+    statusEl.textContent = formatAutoRunTime(remaining);
+    statusEl.style.color = '#047857';
+   }
+  } else {
+   statusEl.style.display = 'none';
+   statusEl.textContent = '';
   }
- } else {
-  statusEl.style.display = 'none';
-  statusEl.textContent = '';
+ }
+ if (remoteAutoRunData) {
+  updateAutoRunTelemetryUI(remoteAutoRunData);
  }
 }
 
@@ -865,6 +978,7 @@ function disableAutoRun(reason = null) {
   clearInterval(autoRunCountdownTimer);
   autoRunCountdownTimer = null;
  }
+ sendAutoRunHeartbeat(true);
  updateAutoRunStatusUI();
  if (reason) {
   const text = (reason.startsWith('⚠️') || reason.startsWith('Auto-Run')) ? (reason.startsWith('⚠️') ? reason : `⚠️ ${reason}`) : `⚠️ Auto-Run 15m leállt: ${reason}`;
@@ -882,6 +996,7 @@ function scheduleNextAutoRun(delayMs = AUTO_RUN_INTERVAL_MS) {
   }
  } catch (_) {}
  updateAutoRunStatusUI();
+ sendAutoRunHeartbeat(true);
  if (!autoRunCountdownTimer) {
   const isTestEnv = typeof window !== 'undefined' && !!window.happyDOM;
   const tickInterval = isTestEnv ? 50 : 1000;
@@ -902,6 +1017,7 @@ function scheduleNextAutoRun(delayMs = AUTO_RUN_INTERVAL_MS) {
     await executeAutoRunCycle();
    } else {
     updateAutoRunStatusUI();
+    sendAutoRunHeartbeat();
    }
   }, tickInterval);
  }
@@ -2803,7 +2919,7 @@ if(typeof window!=='undefined'&&window.addEventListener){
   const first=!data;appliedDashboardRequest=request;data=d;dashboardAvailable=true;
   try{
    check24hNewTickets(d,first);
-   render();syncStatisticsChrome();if(first)populateSettings();if(view==='ledger')renderLedger();if(view==='statistics')loadStatistics();if(view==='games')renderGames();if(view==='stake_account')loadStakeAccount();if(view==='rd')loadRD();
+   render();fetchAutoRunTelemetry();syncStatisticsChrome();if(first)populateSettings();if(view==='ledger')renderLedger();if(view==='statistics')loadStatistics();if(view==='games')renderGames();if(view==='stake_account')loadStakeAccount();if(view==='rd')loadRD();
   }catch(renderErr){
    reportClientError(renderErr);
   }
@@ -2967,7 +3083,7 @@ function applyTheme(theme){
   if(toggleBtn)toggleBtn.innerHTML='🌙 Dark';
  }
 }
-bindRDActions();bindStakeAccountActions();bindNotificationControls();initTheme();bindAutoBetRunner();
+bindRDActions();bindStakeAccountActions();bindNotificationControls();initTheme();bindAutoBetRunner();fetchAutoRunTelemetry();setInterval(fetchAutoRunTelemetry,8000);
 function tick(){$('#clock').textContent=new Intl.DateTimeFormat('en-GB',{weekday:'short',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',timeZone:'Europe/Budapest',timeZoneName:'short'}).format(new Date())}tick();setInterval(tick,30000);setInterval(expireInstructions,1000);load();const stream=new EventSource('/api/events');stream.addEventListener('update',()=>load());stream.onopen=()=>{if(data){const feedState=data.engine?.market_feed?.state,feedErr=data.engine?.error;$('#connection').textContent=data.engine?.running?'Evaluating Markets':feedState==='partial'?'Partial Coverage':(feedErr||feedState==='unavailable')?'Data Feed Error':'Live Monitoring';}};stream.onerror=()=>$('#connection').textContent='Reconnecting…';setInterval(load,15000);
 
 function contextMarkup(context={}){

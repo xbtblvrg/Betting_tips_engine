@@ -529,6 +529,151 @@ class StageBetslipRequest(BaseModel):
 StageBetslipRequest.model_rebuild()
 
 
+class AutoRunHeartbeatRequest(BaseModel):
+    enabled: bool = True
+    next_trigger_at: Optional[float] = None
+    last_status: Optional[str] = None
+    last_cycle_placed: Optional[int] = 0
+    runner_id: Optional[str] = "MacBook Pro (Safari)"
+
+AutoRunHeartbeatRequest.model_rebuild()
+
+_latest_autorun_heartbeat = {
+    "enabled": False,
+    "received_at": None,
+    "received_ts": 0,
+    "next_trigger_at": None,
+    "last_status": None,
+    "last_cycle_placed": 0,
+    "runner_id": "MacBook Pro (Safari)",
+}
+
+
+def get_autorun_state_summary():
+    import time
+    import sqlite3
+    import json
+    from datetime import datetime, timezone
+    from zoneinfo import ZoneInfo
+    
+    tz = ZoneInfo("Europe/Budapest")
+    now_utc = datetime.now(timezone.utc)
+    now_budapest = datetime.now(tz)
+    today_str = now_budapest.strftime("%Y-%m-%d")
+    
+    received_ts = _latest_autorun_heartbeat.get("received_ts") or 0
+    is_recent = (time.time() - received_ts) < 90
+    runner_enabled = bool(_latest_autorun_heartbeat.get("enabled"))
+    is_active = is_recent and runner_enabled
+    
+    next_trigger_at = _latest_autorun_heartbeat.get("next_trigger_at")
+    remaining_sec = None
+    if next_trigger_at:
+        try:
+            if next_trigger_at > 1e11:
+                diff_s = max(0, round((next_trigger_at - time.time() * 1000) / 1000))
+            else:
+                diff_s = max(0, round(next_trigger_at - time.time()))
+            remaining_sec = diff_s
+        except Exception:
+            pass
+
+    today_placed_count = 0
+    w24_count = 0
+    w48_count = 0
+    earlier_count = 0
+    by_league = {}
+    open_bets_count = 0
+    
+    try:
+        conn = sqlite3.connect(engine.store.path, timeout=5.0)
+        cur = conn.cursor()
+        cur.execute('''
+            SELECT pc.tip_id, pc.placed_at, t.payload 
+            FROM placement_checklist pc 
+            LEFT JOIN tips t ON pc.tip_id = t.id
+        ''')
+        for tip_id, placed_at, payload in cur.fetchall():
+            try:
+                dt = datetime.fromisoformat(placed_at).astimezone(tz)
+                if dt.strftime("%Y-%m-%d") == today_str:
+                    today_placed_count += 1
+                    data = json.loads(payload) if payload else {}
+                    lg = data.get("league") or "Other"
+                    by_league[lg] = by_league.get(lg, 0) + 1
+                    
+                    start_str = data.get("start")
+                    if start_str:
+                        start_dt = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
+                        diff_sec = (start_dt - now_utc).total_seconds()
+                        if 0 <= diff_sec <= 24 * 3600:
+                            w24_count += 1
+                        elif 24 * 3600 < diff_sec <= 48 * 3600:
+                            w48_count += 1
+                        else:
+                            earlier_count += 1
+                    else:
+                        earlier_count += 1
+            except Exception:
+                pass
+        
+        try:
+            from .stake_account import get_stake_account_summary
+            s = get_stake_account_summary(conn, root_dir=Path(__file__).resolve().parents[2], force_refresh=False)
+            open_bets_count = int(s.get("open_bets_count", 0))
+        except Exception:
+            pass
+        conn.close()
+    except Exception:
+        pass
+
+    return {
+        "status": "ok",
+        "active": is_active,
+        "runner_enabled": runner_enabled,
+        "is_online": is_recent,
+        "runner_id": _latest_autorun_heartbeat.get("runner_id") or "MacBook Pro (Safari)",
+        "last_heartbeat_at": _latest_autorun_heartbeat.get("received_at"),
+        "next_trigger_at": next_trigger_at,
+        "remaining_sec": remaining_sec,
+        "last_status": _latest_autorun_heartbeat.get("last_status"),
+        "last_cycle_placed": _latest_autorun_heartbeat.get("last_cycle_placed") or 0,
+        "today_placed_count": today_placed_count,
+        "windows": {
+            "h24": w24_count,
+            "h48": w48_count,
+            "earlier_today": earlier_count,
+        },
+        "by_league": by_league,
+        "open_bets_count": open_bets_count,
+        "limit": 300,
+    }
+
+
+@app.post('/api/autorun/heartbeat')
+def autorun_heartbeat_endpoint(data: AutoRunHeartbeatRequest):
+    global _latest_autorun_heartbeat
+    import time
+    from datetime import datetime, timezone
+    now_utc = datetime.now(timezone.utc)
+    _latest_autorun_heartbeat = {
+        "enabled": data.enabled,
+        "received_at": now_utc.isoformat(),
+        "received_ts": time.time(),
+        "next_trigger_at": data.next_trigger_at,
+        "last_status": data.last_status,
+        "last_cycle_placed": data.last_cycle_placed or 0,
+        "runner_id": data.runner_id or "MacBook Pro (Safari)",
+    }
+    return english_payload(get_autorun_state_summary())
+
+
+@app.get('/api/autorun')
+def get_autorun_endpoint():
+    return english_payload(get_autorun_state_summary())
+
+
+
 class ReevaluateSkippedTipRequest(BaseModel):
     tip_id: str
     candidates: list[dict] = Field(default_factory=list)
