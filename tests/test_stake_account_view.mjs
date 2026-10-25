@@ -1256,6 +1256,104 @@ test('Auto-Run 15m halts and marks fatal error on genuine system error (e.g. log
   assert.match(descEl.innerHTML, /Bejelentkezés szükséges/);
 });
 
+test('Auto-Run 15m re-evaluates and adapts skipped bets even when new 24h queue is empty', async t => {
+  const future1 = new Date(Date.now() + 3600000).toISOString();
+  const rec1 = {
+    execution_review: {actionable: true, quote_at: new Date().toISOString(), valid_until: future1},
+    decision_guard: {passed: true},
+    id: 'tip-skipped-adapt-1',
+    rank: 1,
+    game_id: 'g-adapt-1',
+    league: 'NHL',
+    home: 'Canucks',
+    away: 'Oilers',
+    market: 'totals',
+    market_display: 'Total (incl. overtime)',
+    start: future1,
+    valid_until: future1,
+    stake_market: {
+      name: 'Total (incl. overtime)',
+      availability_verified: true,
+      availability_note: 'Verified.',
+      event_url: 'https://stake.com/sports/ice-hockey/nhl/oilers-canucks-adapt',
+      tab: 'Popular'
+    },
+    selection: 'Under 6.5',
+    line: 6.5,
+    probability: 0.58,
+    minimum_odds: 1.85,
+    reference_odds: 1.95,
+    reference_price: 0.5,
+    reference_platform: 'Stake.com',
+    reference_url: 'https://stake.com/sports/ice-hockey/nhl/oilers-canucks-adapt',
+    source_url: 'https://example.com',
+    quote_at: new Date().toISOString(),
+    stake: 2.50,
+    stress_roi: 0.05,
+    expected_roi: 0.08,
+    reasons: ['Edge detected'],
+    warnings: [],
+    model_version: 'test'
+  };
+
+  const {w} = await bootStakeAccount(t, {recommendations: [rec1]});
+  const origFetch = w.fetch;
+  let stageCallCount = 0;
+  let lastBody = null;
+
+  w.fetch = async (path, options) => {
+    if (path.startsWith('/api/stage-betslip')) {
+      stageCallCount++;
+      const body = JSON.parse(options.body);
+      lastBody = body;
+      if (body.adaptive_fallback) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            status: 'ok',
+            placed: true,
+            selection: 'Under 6.0',
+            line: 6.0,
+            odds: 2.10,
+            stake: 2.50,
+            adapted: true,
+            ev: 0.065
+          })
+        };
+      }
+      return {
+        ok: false,
+        status: 400,
+        json: async () => ({
+          status: 'error',
+          placed: false,
+          message: 'A fogadóiroda módosította a piacot. A Stake kínálatában a kért vonal helyett jelenleg ezek a vonalak érhetők el: Under 6.0, Under 5.5.'
+        })
+      };
+    }
+    return origFetch(path, options);
+  };
+
+  const doc = w.document;
+  const toggle = doc.getElementById('auto-bet-interval-toggle');
+  assert.ok(toggle);
+
+  toggle.checked = true;
+  toggle.onchange();
+  await new Promise(r => setTimeout(r, 150));
+
+  // Should have attempted first time, failed, then Phase 2 adaptive fallback should have triggered and placed Under 6.0!
+  assert.ok(stageCallCount >= 2, `Should have called stage-betslip at least twice (initial + adaptive), got ${stageCallCount}`);
+  assert.strictEqual(lastBody.adaptive_fallback, true, 'Last call should have had adaptive_fallback enabled');
+
+  // Verify skipped box is hidden after adaptive resolution
+  const skippedBox = doc.getElementById('auto-bet-skipped-section');
+  assert.ok(skippedBox);
+  assert.strictEqual(skippedBox.style.display, 'none', 'Skipped section should be hidden after adaptive resolution');
+});
+
+
 
 
 

@@ -818,6 +818,7 @@ let isAutoBetRunning = false;
 let lastAutoBetStatus = null;
 const skippedAutoBetTips = new Map();
 let isAutoRunEnabled = false;
+let isAutoRunCycleRunning = false;
 let autoRunCountdownTimer = null;
 let autoRunNextTriggerAt = null;
 const AUTO_RUN_INTERVAL_MS = 15 * 60 * 1000;
@@ -836,7 +837,7 @@ function updateAutoRunStatusUI() {
  if (!statusEl) return;
  if (isAutoRunEnabled) {
   statusEl.style.display = 'inline';
-  if (isAutoBetRunning) {
+  if (isAutoBetRunning || isAutoRunCycleRunning) {
    statusEl.textContent = '(Fut…)';
    statusEl.style.color = '#0284c7';
   } else if (autoRunNextTriggerAt) {
@@ -852,6 +853,7 @@ function updateAutoRunStatusUI() {
 
 function disableAutoRun(reason = null) {
  isAutoRunEnabled = false;
+ isAutoRunCycleRunning = false;
  autoRunNextTriggerAt = null;
  if (autoRunCountdownTimer) {
   clearInterval(autoRunCountdownTimer);
@@ -859,7 +861,8 @@ function disableAutoRun(reason = null) {
  }
  updateAutoRunStatusUI();
  if (reason) {
-  toast(`⚠️ Auto-Run 15m leállt: ${reason}`, { duration: 12000 });
+  const text = (reason.startsWith('⚠️') || reason.startsWith('Auto-Run')) ? (reason.startsWith('⚠️') ? reason : `⚠️ ${reason}`) : `⚠️ Auto-Run 15m leállt: ${reason}`;
+  toast(text, { duration: 12000 });
  }
 }
 
@@ -878,7 +881,7 @@ function scheduleNextAutoRun(delayMs = AUTO_RUN_INTERVAL_MS) {
     }
     return;
    }
-   if (isAutoBetRunning) {
+   if (isAutoBetRunning || isAutoRunCycleRunning) {
     updateAutoRunStatusUI();
     return;
    }
@@ -957,51 +960,58 @@ function getAutoRunHierarchicalQueue(currentOpenBets = 0) {
 }
 
 async function executeAutoRunCycle() {
- if (!isAutoRunEnabled) return;
- if (isAutoBetRunning) {
-  scheduleNextAutoRun(60 * 1000);
-  return;
- }
+ if (!isAutoRunEnabled || isAutoRunCycleRunning || isAutoBetRunning) return;
+ isAutoRunCycleRunning = true;
+ updateAutoRunStatusUI();
 
  try {
+  if (typeof load === 'function') {
+   await load();
+  }
   if (typeof loadStakeAccount === 'function') {
    await loadStakeAccount(true);
   }
  } catch (_) {}
 
- const openBetsCount = Number(stakeAccountData?.open_bets_count ?? data?.stake_account?.open_bets_count ?? 0);
- const { queue, limitReached, count24, count48, availableSlots } = getAutoRunHierarchicalQueue(openBetsCount);
-
- if (limitReached || availableSlots <= 0) {
-  toast('ℹ️ Auto-Run 15m: A Stake elérte a 300 aktív fogadási limitet (300/300). Várakozás a meccsek elszámolására a következő 15 perces ciklusig.', { duration: 6000 });
-  scheduleNextAutoRun(AUTO_RUN_INTERVAL_MS);
-  return;
- }
-
- if (!queue.length) {
-  toast('ℹ️ Auto-Run 15m: Nincs új megköthető szelvény a 24h/48h ablakban.', { duration: 4000 });
-  if (skippedAutoBetTips.size > 0 && openBetsCount < 300) {
-   try {
-    await startAutoBetQueue([], true);
-   } catch (_) {}
-  }
-  scheduleNextAutoRun(AUTO_RUN_INTERVAL_MS);
-  return;
- }
-
- const breakdownMsg = count48 > 0 ? `${count24} db 24h + ${count48} db 48h` : `${count24} db 24h`;
- toast(`🚀 Auto-Run 15m ciklus indul: ${queue.length} db szelvény (${breakdownMsg}) megkötése a Stake-en…`);
-
  try {
-  await startAutoBetQueue(queue);
- } catch (err) {
-  console.error('Auto-Run cycle error:', err);
-  const fatal = isFatalAutoBetError(err, err?.data || null);
-  if (fatal.fatal) {
-   disableAutoRun(`Auto-Run queued bets leállt hiba miatt: ${fatal.message}`);
+  const openBetsCount = Number(stakeAccountData?.open_bets_count ?? data?.stake_account?.open_bets_count ?? 0);
+  const { queue, limitReached, count24, count48, availableSlots } = getAutoRunHierarchicalQueue(openBetsCount);
+
+  if (limitReached || availableSlots <= 0) {
+   toast('ℹ️ Auto-Run 15m: A Stake elérte a 300 aktív fogadási limitet (300/300). Várakozás a meccsek elszámolására a következő 15 perces ciklusig.', { duration: 6000 });
    return;
   }
+
+  if (!queue.length) {
+   if (skippedAutoBetTips.size > 0 && openBetsCount < 300) {
+    const toAdapt = [...skippedAutoBetTips.values()].map(s => s.tip);
+    if (toAdapt.length > 0) {
+     toast(`⚡ Auto-Run 15m: ${toAdapt.length} db kihagyott piac adaptív pótlással való újraértékelése (+EV)…`);
+     try {
+      await startAutoBetQueue(toAdapt, true);
+     } catch (_) {}
+    }
+   } else {
+    toast('ℹ️ Auto-Run 15m: Nincs új megköthető szelvény a 24h/48h ablakban.', { duration: 4000 });
+   }
+   return;
+  }
+
+  const breakdownMsg = count48 > 0 ? `${count24} db 24h + ${count48} db 48h` : `${count24} db 24h`;
+  toast(`🚀 Auto-Run 15m ciklus indul: ${queue.length} db szelvény (${breakdownMsg}) megkötése a Stake-en…`);
+
+  try {
+   await startAutoBetQueue(queue);
+  } catch (err) {
+   console.error('Auto-Run cycle error:', err);
+   const fatal = isFatalAutoBetError(err, err?.data || null);
+   if (fatal.fatal) {
+    disableAutoRun(`Auto-Run queued bets leállt hiba miatt: ${fatal.message}`);
+    return;
+   }
+  }
  } finally {
+  isAutoRunCycleRunning = false;
   if (isAutoRunEnabled) {
    scheduleNextAutoRun(AUTO_RUN_INTERVAL_MS);
   }
@@ -1013,6 +1023,9 @@ async function enableAutoRun() {
  updateAutoRunStatusUI();
 
  try {
+  if (typeof load === 'function') {
+   await load();
+  }
   if (typeof loadStakeAccount === 'function') {
    await loadStakeAccount(true);
   }
@@ -1299,6 +1312,8 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
     }
 
     if (res.placed === true && res.status === 'ok') {
+     skippedAutoBetTips.delete(t.id);
+     if (res.adapted) adaptedCount++;
      markTipBetDone(t.id);
      updateTipBetDoneUI(t.id, 'done');
      await setPlacement(t.id, true, { silent: true });
@@ -1479,6 +1494,11 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
    }
   }
   updateAutoBetPanel();
+  try {
+   if (typeof loadStakeAccount === 'function') {
+    loadStakeAccount(true).catch(() => {});
+   }
+  } catch (_) {}
  }
 }
 
@@ -1518,7 +1538,7 @@ function bindAutoBetRunner() {
     enableAutoRun();
    } else {
     disableAutoRun();
-    toast('⏹️ Auto-Run 30m kikapcsolva.');
+    toast('⏹️ Auto-Run 15m kikapcsolva.');
    }
   };
  }
