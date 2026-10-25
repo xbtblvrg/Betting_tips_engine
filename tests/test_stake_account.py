@@ -1341,6 +1341,8 @@ def test_api_autorun_endpoints():
     assert "h48" in data["windows"]
     assert "open_bets_count" in data
     assert data["limit"] == 300
+    assert "build_id" in data
+    assert "git_commit" in data
 
     # 2. POST /api/autorun/heartbeat
     resp_hb = client.post("/api/autorun/heartbeat", json={

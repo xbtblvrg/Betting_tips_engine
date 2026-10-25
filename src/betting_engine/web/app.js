@@ -864,8 +864,47 @@ async function fetchAutoRunTelemetry() {
  } catch (_) {}
 }
 
+let appClientBuildId = null;
+const appPageLoadedAt = Date.now();
+let isReloadScheduled = false;
+
+function checkAutoHygieneAndVersion(res) {
+ if (!res || isReloadScheduled || isAutoBetRunning || isAutoRunCycleRunning) return;
+ const isTestEnv = typeof window !== 'undefined' && !!window.happyDOM;
+ if (isTestEnv) return;
+
+ const serverBuild = res.build_id || res.git_commit;
+ if (serverBuild) {
+  if (!appClientBuildId) {
+   appClientBuildId = serverBuild;
+  } else if (appClientBuildId !== serverBuild) {
+   isReloadScheduled = true;
+   console.log(`[Quant Engine] New software build detected: ${serverBuild} (current: ${appClientBuildId}). Auto-refreshing UI seamlessly...`);
+   toast('🔄 Új szoftververzió érkezett! A felület automatikusan frissül…', { duration: 3000 });
+   setTimeout(() => {
+    window.location.reload();
+   }, 2000);
+   return;
+  }
+ }
+
+ const ageMs = Date.now() - appPageLoadedAt;
+ if (ageMs > 24 * 3600 * 1000) {
+  let remMs = null;
+  if (isAutoRunEnabled && autoRunNextTriggerAt) {
+   remMs = autoRunNextTriggerAt - Date.now();
+  }
+  if (remMs === null || remMs > 180000) {
+   isReloadScheduled = true;
+   console.log('[Quant Engine] 24h endurance hygiene refresh. Reloading clean state...');
+   window.location.reload();
+  }
+ }
+}
+
 function updateAutoRunTelemetryUI(res) {
  if (!res) return;
+ checkAutoHygieneAndVersion(res);
  remoteAutoRunData = res;
  const strip = $('#auto-run-telemetry-strip');
  if (!strip) return;

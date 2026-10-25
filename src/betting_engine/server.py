@@ -23,6 +23,18 @@ dashboard_renderer=DashboardRenderer()
 development_renderer=DevelopmentRenderer()
 from .statistics_worker import StatisticsRenderer
 statistics_renderer=StatisticsRenderer()
+
+def _get_git_commit() -> str:
+    import subprocess
+    try:
+        return subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], text=True, stderr=subprocess.DEVNULL).strip()
+    except Exception:
+        return "unknown"
+
+_GIT_COMMIT = _get_git_commit()
+_SERVER_START_TS = time.time()
+_SERVER_BUILD_ID = f"{_GIT_COMMIT}-{int(_SERVER_START_TS)}"
+
 @asynccontextmanager
 async def lifespan(app):
     thread=threading.Thread(target=engine.loop,daemon=True,name='quant-engine');thread.start()
@@ -674,6 +686,8 @@ def get_autorun_state_summary():
         "by_league": by_league,
         "open_bets_count": open_bets_count,
         "limit": 300,
+        "build_id": _SERVER_BUILD_ID,
+        "git_commit": _GIT_COMMIT,
     }
 
 
