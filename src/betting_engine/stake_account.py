@@ -8,6 +8,7 @@ live Safari session synchronization, and local betting ledger.
 from __future__ import annotations
 
 import json
+import logging
 import os
 from pathlib import Path
 import sqlite3
@@ -17,6 +18,8 @@ import time
 from typing import Any, Dict, Optional
 
 from .domain import utcnow
+
+log = logging.getLogger(__name__)
 
 
 def get_masked_token(token: Optional[str]) -> str:
@@ -1797,6 +1800,7 @@ def stage_betslip_in_safari(
             if (!match) {{
                 let lineNote = "";
                 let marketMissing = false;
+                let matchedLines = [];
                 if (marketName) {{
                     const mLower = marketName.toLowerCase().trim();
                     const sameMarketButtons = buttons.filter(b => {{
@@ -1814,7 +1818,7 @@ def stage_betslip_in_safari(
                     }});
                     if (sameMarketButtons.length > 0) {{
                         const filterWord = (isOver || isUnder) ? (isOver ? "over" : "under") : (lastName ? lastName.toLowerCase() : null);
-                        let matchedLines = sameMarketButtons.map(b => (b.getAttribute("aria-label") || b.innerText).replace(/\\s+/g, " ").trim())
+                        matchedLines = sameMarketButtons.map(b => (b.getAttribute("aria-label") || b.innerText).replace(/\\s+/g, " ").trim())
                             .filter(t => /\\d+\\.\\d+/.test(t) && !t.toLowerCase().includes("suspended"));
                         if (filterWord) {{
                             const filtered = matchedLines.filter(t => t.toLowerCase().includes(filterWord));
@@ -1829,7 +1833,7 @@ def stage_betslip_in_safari(
                     }}
                 }} else if (lineVariants.length > 0) {{
                     const filterWord = (isOver || isUnder) ? (isOver ? "over" : "under") : (lastName ? lastName.toLowerCase() : null);
-                    let matchedLines = buttons.map(b => (b.getAttribute("aria-label") || b.innerText).replace(/\\s+/g, " ").trim())
+                    matchedLines = buttons.map(b => (b.getAttribute("aria-label") || b.innerText).replace(/\\s+/g, " ").trim())
                         .filter(t => /\\d+\\.\\d+/.test(t) && !t.toLowerCase().includes("suspended"));
                     if (filterWord) {{
                         const filtered = matchedLines.filter(t => t.toLowerCase().includes(filterWord));
@@ -1842,7 +1846,7 @@ def stage_betslip_in_safari(
                 }}
 
                 let candList = [];
-                if (typeof matchedLines !== "undefined" && matchedLines.length > 0) {{
+                if (matchedLines && matchedLines.length > 0) {{
                     candList = Array.from(new Set(matchedLines)).slice(0, 10).map(t => {{
                         const nums = t.match(/\\b\\d+\\.\\d+\\b/g);
                         const candOdds = (nums && nums.length > 0) ? parseFloat(nums[nums.length - 1]) : null;
@@ -1929,15 +1933,42 @@ def stage_betslip_in_safari(
                         stake = best["recommended_stake"]
                     adapted_meta = best
 
+                    # Recompute line_variants for betslip verification
+                    if line is not None:
+                        try:
+                            l_val = float(line)
+                            is_neg_line = l_val < 0
+                            abs_val = abs(l_val)
+                            line_variants = [str(l_val), f"{l_val:g}", f"{abs_val:g}", str(abs_val)]
+                            if l_val.is_integer():
+                                line_variants.extend([str(int(l_val)), str(int(abs_val))])
+                            else:
+                                line_variants.extend([f"{l_val:.2f}", f"{abs_val:.2f}"])
+                            line_variants = list(dict.fromkeys(line_variants))
+                        except (ValueError, TypeError):
+                            line_variants = [str(line)]
+
                     # Click candidate button in Safari!
                     cand_click_js = f"""
                     (() => {{
                         {helpers_js}
                         const targetNorm = normalize({json.dumps(best['selection'])});
+                        const targetSel = {json.dumps(best['selection'].lower())};
+                        const bestLine = {json.dumps(best.get('line'))};
+                        const isNeg = {json.dumps(is_neg_line)};
                         const buttons = getOutcomeButtons();
                         const match = buttons.find(b => {{
                             const label = (b.getAttribute("aria-label") || b.innerText).replace(/\\s+/g, " ").trim();
-                            return normalize(label).includes(targetNorm) || label.toLowerCase().includes({json.dumps(best['selection'].lower())});
+                            const norm = normalize(label);
+                            if (norm.includes(targetNorm) || label.toLowerCase().includes(targetSel)) return true;
+                            if (bestLine !== null && bestLine !== undefined) {{
+                                if (matchesLine(label, String(bestLine), isNeg)) {{
+                                    if (targetNorm.startsWith("over") && !norm.includes("over")) return false;
+                                    if (targetNorm.startsWith("under") && !norm.includes("under")) return false;
+                                    return true;
+                                }}
+                            }}
+                            return false;
                         }});
                         if (!match) return JSON.stringify({{ error: "Adaptive candidate button not found: " + {json.dumps(best['selection'])} }});
                         
