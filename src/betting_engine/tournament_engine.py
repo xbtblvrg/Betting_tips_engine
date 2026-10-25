@@ -245,12 +245,22 @@ class TournamentEngine:
             import importlib
             import inspect
             import pkgutil
+            import sys
+            src_path = str(Path(__file__).resolve().parent.parent)
+            if src_path not in sys.path:
+                sys.path.insert(0, src_path)
+
+            pkg = __package__ or 'betting_engine'
             from .sandbox_models import archetypes as arch_pkg
             for finder, mod_name, ispkg in pkgutil.iter_modules(arch_pkg.__path__):
-                mod = importlib.import_module(f'.sandbox_models.archetypes.{mod_name}', package='betting_engine')
-                for item_name, item in inspect.getmembers(mod, inspect.isclass):
-                    if issubclass(item, BaseCandidateModel) and item is not BaseCandidateModel:
-                        class_map[item_name] = item
+                try:
+                    mod = importlib.import_module(f'.sandbox_models.archetypes.{mod_name}', package=pkg)
+                    for item_name, item in inspect.getmembers(mod, inspect.isclass):
+                        if (any(b.__name__ == 'BaseCandidateModel' for b in getattr(item, '__mro__', []))
+                                and item.__name__ != 'BaseCandidateModel'):
+                            class_map[item_name] = item
+                except Exception:
+                    pass
 
             # Also discover synthesized classes from generated directory
             gen_dir = Path(__file__).resolve().parent / 'sandbox_models' / 'generated'
@@ -259,13 +269,17 @@ class TournamentEngine:
                     if py_file.stem.startswith('__'):
                         continue
                     try:
-                        mod = importlib.import_module(f'.sandbox_models.generated.{py_file.stem}', package='betting_engine')
+                        mod = importlib.import_module(f'.sandbox_models.generated.{py_file.stem}', package=pkg)
                         for item_name, item in inspect.getmembers(mod, inspect.isclass):
-                            if issubclass(item, BaseCandidateModel) and item is not BaseCandidateModel:
+                            if (any(b.__name__ == 'BaseCandidateModel' for b in getattr(item, '__mro__', []))
+                                    and item.__name__ != 'BaseCandidateModel'):
                                 class_map[item_name] = item
                     except Exception:
                         pass
         except Exception:
+            pass
+
+        if not class_map:
             from .sandbox_models.archetypes.negative_binomial import NegativeBinomialOverdispersionModel
             from .sandbox_models.archetypes.situational_fatigue import SituationalFatigueModel
             from .sandbox_models.archetypes.odds_damped_kelly import OddsDampedKellyShrinkageModel
