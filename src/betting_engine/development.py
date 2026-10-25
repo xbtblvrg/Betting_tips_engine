@@ -1576,6 +1576,8 @@ class DevelopmentWorker:
         except Exception as exc:
             from .provider_runtime import ProviderUnavailable
             provider_wait = isinstance(exc, ProviderUnavailable)
+            if provider_wait and row.get('attempts', 0) > 0:
+                row['attempts'] = max(0, row['attempts'] - 1)
             result.update(state='retry', error=str(exc)[:1200], failure_phase=self._failure_phase,
                 failure_class='provider_unavailable' if provider_wait else failure_class(str(exc), self._failure_phase))
             from .parallel_development import IntegrationConflict

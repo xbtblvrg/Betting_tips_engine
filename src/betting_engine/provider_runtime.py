@@ -112,7 +112,7 @@ class RuntimeTransport:
                 reasoning_effort=reasoning_effort or 'low', operation_id=operation_id)
         if provider == 'agy':
             from .ai_delegation import invoke, file_lock, decode
-            with file_lock(self.root / 'data/development/ai-locks/agy.lock', timeout=30.0) as acquired:
+            with file_lock(self.root / 'data/development/ai-locks/agy.lock', timeout=60.0) as acquired:
                 if not acquired:
                     raise ProviderUnavailable('Antigravity capacity is in use; retry later')
                 agy_binary = self.config.get('agy_binary', '/Users/belavarga/.local/bin/agy')
@@ -341,7 +341,7 @@ def run_ai_step(worker, schema, output, prefix, prompt, timeout=1200,
                 elif route['provider'] == 'agy':
                     from .claude_development import prepare_step, apply_edits
                     from .agy_development import finish_agy_step
-                    with file_lock(worker.root / 'data/development/ai-locks/agy.lock', timeout=45.0) as acquired, tempfile.TemporaryDirectory(prefix='quant-agy-candidate-') as temporary:
+                    with file_lock(worker.root / 'data/development/ai-locks/agy.lock', timeout=180.0) as acquired, tempfile.TemporaryDirectory(prefix='quant-agy-candidate-') as temporary:
                         if not acquired:
                             raise ProviderUnavailable('Antigravity capacity is in use; candidate retained for retry')
                         agy_binary = runtime.config.get('agy_binary', '/Users/belavarga/.local/bin/agy')

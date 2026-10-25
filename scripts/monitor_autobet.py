@@ -19,15 +19,26 @@ def log(msg):
         pass
 
 def get_safari_autobet_status():
-    js_code = """
-    JSON.stringify({
-        desc: document.getElementById("auto-bet-desc") ? document.getElementById("auto-bet-desc").innerText : "",
-        stats: document.getElementById("auto-bet-stats") ? document.getElementById("auto-bet-stats").innerText : "",
-        title: document.getElementById("auto-bet-title") ? document.getElementById("auto-bet-title").innerText : "",
-        card: document.getElementById("skipped-bets-card") ? document.getElementById("skipped-bets-card").innerText : ""
-    })
-    """
-    ascript = f'tell application "Safari" to do JavaScript "{js_code.replace(chr(10), " ").replace(chr(34), chr(92)+chr(34))}" in tab 1 of window 1'
+    js_code = """(() => {
+        return JSON.stringify({
+            desc: document.getElementById("auto-bet-desc") ? document.getElementById("auto-bet-desc").innerText : "",
+            stats: document.getElementById("auto-bet-stats") ? document.getElementById("auto-bet-stats").innerText : "",
+            title: document.getElementById("auto-bet-title") ? document.getElementById("auto-bet-title").innerText : "",
+            card: document.getElementById("skipped-bets-card") ? document.getElementById("skipped-bets-card").innerText : ""
+        });
+    })()"""
+    ascript = f'''
+    tell application "Safari"
+        repeat with w in windows
+            repeat with t in tabs of w
+                if (URL of t contains "tail8a282e" or URL of t contains "8443") then
+                    return (do JavaScript {json.dumps(js_code)} in t)
+                end if
+            end repeat
+        end repeat
+        return "{{}}"
+    end tell
+    '''
     try:
         res = subprocess.run(["osascript", "-e", ascript], capture_output=True, text=True, timeout=8)
         raw = res.stdout.strip()
