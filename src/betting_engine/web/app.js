@@ -942,7 +942,7 @@ async function executeAutoRunCycle() {
  updateAutoRunStatusUI();
 
  try {
-  if (typeof load === 'function') {
+  if (!data && typeof load === 'function') {
    await load();
   }
   if (typeof loadStakeAccount === 'function') {
@@ -997,10 +997,11 @@ async function executeAutoRunCycle() {
 
 async function enableAutoRun() {
  isAutoRunEnabled = true;
+ scheduleNextAutoRun(AUTO_RUN_INTERVAL_MS);
  updateAutoRunStatusUI();
 
  try {
-  if (typeof load === 'function') {
+  if (!data && typeof load === 'function') {
    await load();
   }
   if (typeof loadStakeAccount === 'function') {
@@ -1010,8 +1011,6 @@ async function enableAutoRun() {
 
  const openBetsCount = Number(stakeAccountData?.open_bets_count ?? data?.stake_account?.open_bets_count ?? 0);
  const { queue, limitReached, count24, count48 } = getAutoRunHierarchicalQueue(openBetsCount);
-
- scheduleNextAutoRun(AUTO_RUN_INTERVAL_MS);
 
  if (limitReached) {
   toast('⏱️ Auto-Run 15m bekapcsolva! A Stake elérte a 300 nyitott fogadás limitet (300/300 bet). Az időzítő folyamatosan aktív marad: amint hely szabadul fel, az első 15 perces ciklusban azonnal beadja a 24h szelvényeket!', { duration: 10000 });
