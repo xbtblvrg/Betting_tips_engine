@@ -122,8 +122,16 @@ def invoke(provider, config, prompt, timeout=90, heartbeat=None):
             selector.register(stream, selectors.EVENT_READ, index)
         pending = memoryview((stdin or '').encode())
         if pending:
-            os.set_blocking(process.stdin.fileno(), False)
-            selector.register(process.stdin, selectors.EVENT_WRITE, 'input')
+            try:
+                count = os.write(process.stdin.fileno(), pending[:65536])
+                pending = pending[count:]
+            except (BlockingIOError, BrokenPipeError, OSError):
+                pass
+            if pending:
+                os.set_blocking(process.stdin.fileno(), False)
+                selector.register(process.stdin, selectors.EVENT_WRITE, 'input')
+            else:
+                process.stdin.close()
         else:
             process.stdin.close()
         started = time.monotonic(); state = None; last_heartbeat = -1; cleanup_errors = []
