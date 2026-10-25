@@ -2960,7 +2960,7 @@ function applyTheme(theme){
   if(toggleBtn)toggleBtn.innerHTML='🌙 Dark';
  }
 }
-bindRDActions();bindStakeAccountActions();bindNotificationControls();initTheme();
+bindRDActions();bindStakeAccountActions();bindNotificationControls();initTheme();bindAutoBetRunner();
 function tick(){$('#clock').textContent=new Intl.DateTimeFormat('en-GB',{weekday:'short',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',timeZone:'Europe/Budapest',timeZoneName:'short'}).format(new Date())}tick();setInterval(tick,30000);setInterval(expireInstructions,1000);load();const stream=new EventSource('/api/events');stream.addEventListener('update',()=>load());stream.onopen=()=>{if(data){const feedState=data.engine?.market_feed?.state,feedErr=data.engine?.error;$('#connection').textContent=data.engine?.running?'Evaluating Markets':feedState==='partial'?'Partial Coverage':(feedErr||feedState==='unavailable')?'Data Feed Error':'Live Monitoring';}};stream.onerror=()=>$('#connection').textContent='Reconnecting…';setInterval(load,15000);
 
 function contextMarkup(context={}){
