@@ -977,6 +977,9 @@ async function executeAutoRunCycle() {
   }
 
   if (!queue.length) {
+   for (const [id, item] of skippedAutoBetTips.entries()) {
+    if (new Date(item.tip.start) <= new Date()) skippedAutoBetTips.delete(id);
+   }
    if (skippedAutoBetTips.size > 0 && openBetsCount < 300) {
     const toAdapt = [...skippedAutoBetTips.values()].map(s => s.tip);
     if (toAdapt.length > 0) {
@@ -1244,7 +1247,7 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
    }
 
    const t = queue[i];
-   if (isPlaced(t) || getBetDoneTips().has(t.id)) continue;
+   if (isPlaced(t) || getBetDoneTips().has(t.id) || new Date(t.start) <= new Date()) continue;
 
    // Pre-check open bets before submitting this ticket (only check if Stake has 300 active bets)
    const stakeOpen = Number(stakeAccountData?.open_bets_count ?? data?.stake_account?.open_bets_count ?? 0);
@@ -1385,6 +1388,10 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
        break;
       }
       const t = toAdapt[j];
+      if (new Date(t.start) <= new Date() || isPlaced(t) || getBetDoneTips().has(t.id)) {
+       skippedAutoBetTips.delete(t.id);
+       continue;
+      }
       if (descEl) {
        descEl.textContent = `[2. Fázis: ${j + 1}/${toAdapt.length}] Adaptív újraértékelés: ${t.selection} — ${t.away} @ ${t.home}… (Siker: ${placedCount})`;
       }
