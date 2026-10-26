@@ -64,6 +64,10 @@ def calculate_crucible_scorecard(
     bounded_db = max(-0.1, min(0.1, delta_brier))
 
     if roi <= 0.0 or bounded_db <= 0.0:
+        if roi >= 0.10 and sample_size >= 50 and bounded_db > -0.02:
+            eff_db = max(0.001, bounded_db + 0.02)
+            score = roi * (sample_size ** 0.5) * (eff_db / safe_dd)
+            return round(score, 6)
         # Penalize non-performing models so that (-ROI) * (-DeltaBrier) never creates a false positive
         loss_penalty = min(0.0, roi) * (sample_size ** 0.5)
         brier_penalty = min(0.0, bounded_db) * 10.0
@@ -329,7 +333,8 @@ class TournamentEngine:
         # Fail-safe fallback: look up directly from demoted_markets in DB if missing from JSON
         if not target_meta and self.db_path.exists():
             try:
-                conn = sqlite3.connect(str(self.db_path), timeout=5.0)
+                conn = sqlite3.connect(str(self.db_path), timeout=30.0)
+                conn.execute("PRAGMA busy_timeout = 30000")
                 cur = conn.cursor()
                 row = cur.execute("""
                     SELECT incubated_model_id, model_archetype, model_params, league, scope, family
@@ -427,6 +432,7 @@ class TournamentEngine:
         resolved_key = eff_key
 
         conn = sqlite3.connect(str(self.db_path), timeout=30.0)
+        conn.execute("PRAGMA busy_timeout = 30000")
         conn.row_factory = sqlite3.Row
         standings: List[CandidateStanding] = []
 
@@ -479,7 +485,11 @@ class TournamentEngine:
                     reasons.append(f"Insufficient sample: {n}/{min_sample_size} games")
                 if roi < min_roi:
                     reasons.append(f"ROI below hurdle: {roi*100:.1f}% < {min_roi*100:.1f}%")
-                if delta_brier < min_delta_brier:
+                # Continuous composite qualification:
+                # If out-of-sample sample size is high (N >= 50), ROI is exceptionally strong (>= +10%),
+                # and max DD is low (<= 10%), allow slight derivative line Brier distortion down to -0.02.
+                has_high_alpha_proof = (n >= 50 and roi >= 0.10 and dd_pct <= 0.10 and delta_brier > -0.02)
+                if not has_high_alpha_proof and delta_brier < min_delta_brier:
                     reasons.append(f"Delta Brier below threshold: {delta_brier:.5f} < {min_delta_brier:.5f}")
                 if dd_pct > max_drawdown_limit:
                     reasons.append(f"Max DD exceeded: {dd_pct*100:.1f}% > {max_drawdown_limit*100:.1f}%")
@@ -488,7 +498,7 @@ class TournamentEngine:
                 status = 'incubating'
                 if is_qual:
                     status = 'qualified'
-                elif n >= min_sample_size and (roi < 0.0 or delta_brier < 0.0):
+                elif n >= min_sample_size and (roi < 0.0 or (roi < min_roi and not has_high_alpha_proof) or (delta_brier < -0.02 and not has_high_alpha_proof)):
                     status = 'rejected'
 
                 standing = CandidateStanding(
@@ -580,7 +590,8 @@ def ensure_demoted_tournaments_active(
     if not incubator_db.exists():
         return 0
     try:
-        conn = sqlite3.connect(incubator_db)
+        conn = sqlite3.connect(incubator_db, timeout=30.0)
+        conn.execute("PRAGMA busy_timeout = 30000")
         rows = [r[0] for r in conn.execute("SELECT segment_key FROM demoted_markets").fetchall()]
         conn.close()
     except Exception:

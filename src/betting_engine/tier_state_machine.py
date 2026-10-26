@@ -13,7 +13,10 @@ and identifies Alpha win drivers on promotions.
 from datetime import datetime, timezone
 import hashlib
 import json
+import logging
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 import sqlite3
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -235,7 +238,8 @@ def enqueue_rd_repair_job(
             pass
 
         return job_id
-    except Exception:
+    except Exception as exc:
+        log.warning("Failed to enqueue R&D repair job for %s: %s", segment_key, exc)
         return None
 
 

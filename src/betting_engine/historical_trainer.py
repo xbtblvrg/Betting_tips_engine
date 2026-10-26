@@ -142,8 +142,16 @@ class HistoricalCandidateTrainer:
 
             query = f"""
                 SELECT selection, line, odds, model_prob, market_prob, side, result, pnl, captured_at
-                FROM incubated_wagers
-                WHERE {' AND '.join(conditions)} AND ({' OR '.join(family_filters)})
+                FROM (
+                    SELECT selection, line, odds, model_prob, market_prob, side, result, pnl, captured_at,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY COALESCE(game_id, selection), line, side, date(captured_at)
+                               ORDER BY captured_at ASC
+                           ) as rn
+                    FROM incubated_wagers
+                    WHERE {' AND '.join(conditions)} AND ({' OR '.join(family_filters)})
+                )
+                WHERE rn = 1
                 ORDER BY captured_at ASC
             """
             rows = cur.execute(query, params).fetchall()

@@ -109,7 +109,7 @@ _GRADUATED_CACHE = {'ts': 0.0, 'data': None}
 def _get_graduated_segments():
     import time
     now = time.time()
-    if now - _GRADUATED_CACHE['ts'] < 10.0 and _GRADUATED_CACHE['data'] is not None:
+    if now - _GRADUATED_CACHE['ts'] < 60.0 and _GRADUATED_CACHE['data'] is not None:
         return _GRADUATED_CACHE['data']
     try:
         from .unified_market_universe import UnifiedMarketUniverse
@@ -127,12 +127,12 @@ def _get_graduated_segments():
         except Exception:
             return set()
 
-_DEMOTED_CACHE = {'ts': 0, 'data': None}
+_DEMOTED_CACHE = {'ts': 0.0, 'data': None}
 
 def _get_demoted_segments():
     import time
     now = time.time()
-    if now - _DEMOTED_CACHE['ts'] < 10.0 and _DEMOTED_CACHE['data'] is not None:
+    if now - _DEMOTED_CACHE['ts'] < 60.0 and _DEMOTED_CACHE['data'] is not None:
         return _DEMOTED_CACHE['data']
     try:
         from .unified_market_universe import UnifiedMarketUniverse
@@ -1049,20 +1049,26 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                 is_test_cand = cand_id.startswith(('test_', 'cand_test_', 't1', 't2', 't3', 't4', 'cand_')) or game_id.startswith(('test_', 'game')) or game_id == 'ATP:live_game_1' or bool(settings.get('is_test'))
                 is_alpha_cand = bool(cand_segs & s_alpha)
                 is_core = is_core_market(c) and c.get('league') in ('NBA', 'WNBA', 'MLB', 'NFL', 'NHL', 'NCAAF', 'NCAAM', 'NCAAW', 'EPL', 'MLS', 'UCL', 'ATP', 'WTA')
-                demoted_segs = _get_demoted_segments()
-                is_demoted_cand = bool(c.get('is_demoted') or bool(cand_segs & demoted_segs)) if not is_test_cand else (cand_id.startswith('cand_demoted') or bool(c.get('is_demoted')))
-                is_cap_defense_cand = bool(settings.get('capital_defense', False)) and bool(cand_segs & c_defense) and not is_demoted_cand
                 grad_segs = _get_graduated_segments()
-                is_grad = not is_demoted_cand and (is_core or bool(c.get('is_graduated')) or bool(cand_segs & grad_segs))
+                cand_is_grad = bool(c.get('is_graduated')) or bool(cand_segs & grad_segs)
+                demoted_segs = _get_demoted_segments() - grad_segs
+                is_demoted_cand = (bool(c.get('is_demoted')) or bool(cand_segs & demoted_segs)) if not is_test_cand else (cand_id.startswith('cand_demoted') or bool(c.get('is_demoted')))
+                if cand_is_grad:
+                    is_demoted_cand = False
+                quarantine_set = set(gov_status.get('quarantine_list', [])) - grad_segs
+                is_toxic_quarantined = (bool(cand_segs & quarantine_set) and not cand_is_grad) if not is_test_cand else False
+                is_cap_defense_cand = bool(settings.get('capital_defense', False)) and bool(cand_segs & c_defense) and not is_demoted_cand and not is_toxic_quarantined
+                is_grad = not is_demoted_cand and not is_toxic_quarantined and (
+                    cand_is_grad
+                    or (is_core and not bool(cand_segs & c_defense))
+                )
 
-                quarantine_set = set(gov_status.get('quarantine_list', []))
                 # Constitutional Mandate (Commandments 1, 6 & 7):
                 # Underperforming/negative segments must NOT bleed capital at $0.50.
-                # Any segment in quarantine, demoted (core or derivative), or capital defense derivative is suspended to $0.00.
+                # Any segment in quarantine, demoted (core or derivative), or toxic circuit breaker is suspended to $0.00.
                 is_quarantined = (
-                    (bool(cand_segs & quarantine_set) and not is_grad)
-                    or is_demoted_cand
-                    or (bool(cand_segs & c_defense) and not is_core and not is_grad)
+                    is_demoted_cand
+                    or is_toxic_quarantined
                     or ('odd_even' in c_market)
                 ) if not is_test_cand else (is_demoted_cand or ('odd_even' in c_market))
                 if is_quarantined:
@@ -1071,7 +1077,7 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                     c['allocation_reason'] = (
                         'Incubator Demoted Research: Market performance degraded. Real-money funding suspended ($0.00) while AI model undergoes mandatory investigation, retraining, and Crucible re-graduation in the Shadow Incubator.'
                         if is_demoted_cand else
-                        'Capital Defense Quarantine: Segment has unproven or negative ROI. Real-money funding suspended to protect portfolio capital while AI repair runs in incubator.'
+                        'Toxic Quarantine Circuit Breaker: Segment has severe net losses. Real-money funding suspended ($0.00) to protect portfolio capital.'
                     )
                     c['stake_note'] = c['allocation_reason']
                     c['alternative'] = True
@@ -1079,9 +1085,11 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                     continue
 
                 # Strict Graduation Gate:
-                # Only graduated markets, verified statistical Alpha, or test harness candidates are eligible for funded real-money issuance.
+                # Only graduated markets, healthy core baselines, verified statistical Alpha,
+                # active Capital Defense candidates (subject to EV hurdle + tourniquet), or test candidates
+                # are eligible for funded real-money issuance.
                 # All unproven exploration markets remain at $0.00 in the Shadow Incubator until statistical graduation.
-                if not (is_grad or is_alpha_cand or is_test_cand):
+                if not (is_grad or is_alpha_cand or is_cap_defense_cand or is_test_cand):
                     c['stake'] = 0.0
                     c['allocation_code'] = 'incubator_unproven_research'
                     c['allocation_reason'] = 'Incubator Unproven Research: Market has not yet graduated through the statistical Crucible. Real-money funding suspended until graduation.'

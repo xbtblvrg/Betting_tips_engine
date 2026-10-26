@@ -1,5 +1,5 @@
 """Durable publication, audit trail, manual bets and future notification outbox."""
-import json,sqlite3,hashlib,math
+import json,sqlite3,hashlib,math,logging
 from collections import Counter
 from contextlib import contextmanager
 from pathlib import Path
@@ -11,6 +11,8 @@ from .decisions import DEFAULT_SETTINGS,publication_limits
 from .contracts import contract_key,contract_value,settlement_scores,equivalent_contract_ids,split_market,allocation_family
 from .freshness import MAX_QUOTE_AGE_SECONDS
 from .snapshots import encode_publication,decode_publication
+
+log = logging.getLogger(__name__)
 
 class Store:
     def __init__(self,path=None):
@@ -354,7 +356,10 @@ class Store:
                 try:
                     hs,aws,score_evidence=settlement_scores(tip,game)
                     value=contract_value(tip['market'],tip['side'],tip.get('line'),hs,aws)
-                except ValueError:continue
+                except ValueError as exc:
+                    log.warning('Could not settle system decision %s on game %s (market=%s, side=%s, line=%s): %s',
+                                tip.get('id'), game.id, tip.get('market'), tip.get('side'), tip.get('line'), exc)
+                    continue
                 outcome='won' if value>0 else 'lost' if value<0 else 'push'
                 pnl=tip['stake']*(tip['reference_odds']-1) if value>0 else -tip['stake'] if value<0 else 0.
                 evidence={'home_score':hs,'away_score':aws,'score_scope':score_evidence,'source':game.source,'fetched_at':game.fetched_at,'settled_at':utcnow().isoformat(),'basis':'Original issued decision at published odds; not an account-verified return.'}

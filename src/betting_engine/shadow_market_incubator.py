@@ -1391,7 +1391,7 @@ class ShadowMarketIncubator:
                 pnl = profit
 
             # Settle American & Universal Derivatives and Core Markets
-            elif family in ('american_derivatives', 'spreads', 'totals', 'moneyline', 'three_way', 'home_total', 'away_total'):
+            elif family in ('american_derivatives', 'spreads', 'totals', 'moneyline', 'three_way', 'home_total', 'away_total', 'winner_total', 'odd_even'):
                 eff_line = float(line) if line is not None else 0.0
                 if sub_family in ('spreads', 'alternative_spread') or family == 'spreads':
                     diff = (h_s - a_s + eff_line) if side == 'home' else (a_s - h_s + eff_line)
@@ -1412,6 +1412,14 @@ class ShadowMarketIncubator:
                     else:
                         win_side = 'home' if h_s > a_s else 'away'
                         outcome_res = 'won' if win_side == side else 'lost'
+                elif sub_family == 'winner_total' or family == 'winner_total':
+                    parts = str(side).split('_', 1)
+                    if len(parts) == 2:
+                        winner_leg, total_leg = parts[0], parts[1]
+                        win_hit = (h_s > a_s) if winner_leg == 'home' else ((a_s > h_s) if winner_leg == 'away' else (h_s == a_s))
+                        tot = h_s + a_s
+                        tot_hit = (tot > eff_line) if total_leg == 'over' else (tot < eff_line)
+                        outcome_res = 'won' if (win_hit and tot_hit) else 'lost'
                 elif sub_family == 'winning_margin':
                     s_text = (str(selection) or side or '').lower()
                     is_home = (game.home and game.home.lower() in s_text) or 'home' in s_text or '1' in s_text
@@ -1450,7 +1458,7 @@ class ShadowMarketIncubator:
                 pnl = (stake * (odds - 1.0)) if outcome_res == 'won' else (0.0 if outcome_res == 'push' else -stake)
 
             # Settle Tennis Sets
-            elif family == 'tennis_sets':
+            elif family in ('tennis_sets', 'total_sets'):
                 sets_h = float(game.context.get('sets_home', 0))
                 sets_a = float(game.context.get('sets_away', 0))
                 games_h = float(game.context.get('games_home', home_score))
@@ -1459,10 +1467,11 @@ class ShadowMarketIncubator:
                 if sub_family == 'set_winner':
                     win_side = 'home' if sets_h > sets_a else 'away'
                     outcome_res = 'won' if win_side == side else 'lost'
-                elif sub_family == 'set_totals' and line is not None:
-                    tot_games = games_h + games_a
-                    hit = (tot_games > line) if side == 'over' else (tot_games < line)
-                    outcome_res = 'won' if hit else ('push' if tot_games == line else 'lost')
+                elif sub_family in ('set_totals', 'total_sets') or family == 'total_sets':
+                    tot_val = (sets_h + sets_a) if (family == 'total_sets' or sub_family == 'total_sets') else (games_h + games_a)
+                    eff_l = float(line) if line is not None else 2.5
+                    hit = (tot_val > eff_l) if side == 'over' else (tot_val < eff_l)
+                    outcome_res = 'won' if hit else ('push' if tot_val == eff_l else 'lost')
                 elif sub_family == 'set_handicap' and line is not None:
                     diff = (games_h - games_a + line) if side == 'home' else (games_a - games_h + line)
                     outcome_res = 'won' if diff > 0 else ('push' if diff == 0 else 'lost')
@@ -1487,11 +1496,11 @@ class ShadowMarketIncubator:
                 pnl = (stake * (odds - 1.0)) if outcome_res == 'won' else (0.0 if outcome_res == 'push' else -stake)
 
             # Settle Bivariate Derivatives
-            elif family == 'bivariate_derivatives':
-                if sub_family == 'both_teams_score':
+            elif family in ('bivariate_derivatives', 'double_chance', 'both_score', 'both_teams_score'):
+                if sub_family in ('both_teams_score', 'both_score') or family in ('both_score', 'both_teams_score'):
                     btts_hit = (home_score > 0 and away_score > 0)
                     outcome_res = 'won' if ((btts_hit and side == 'yes') or (not btts_hit and side == 'no')) else 'lost'
-                elif sub_family == 'double_chance':
+                elif sub_family == 'double_chance' or family == 'double_chance':
                     if side in ('1x', 'home_draw'):
                         hit = home_score >= away_score
                     elif side in ('x2', 'away_draw'):
@@ -1598,13 +1607,24 @@ class ShadowMarketIncubator:
 
         if games:
             for g in games:
-                game_data[g.id] = {
-                    'home_score': g.home_score,
-                    'away_score': g.away_score,
-                    'state': g.state,
-                    'start': g.start,
-                    'context': g.context or {},
-                }
+                if isinstance(g, dict):
+                    gid = g.get('id')
+                    if gid:
+                        game_data[gid] = {
+                            'home_score': g.get('home_score'),
+                            'away_score': g.get('away_score'),
+                            'state': g.get('state'),
+                            'start': g.get('start'),
+                            'context': g.get('context') or {},
+                        }
+                else:
+                    game_data[g.id] = {
+                        'home_score': getattr(g, 'home_score', None),
+                        'away_score': getattr(g, 'away_score', None),
+                        'state': getattr(g, 'state', None),
+                        'start': getattr(g, 'start', None),
+                        'context': getattr(g, 'context', None) or {},
+                    }
         else:
             games_file = self.data_dir / 'games.json'
             if games_file.exists():
@@ -1781,7 +1801,7 @@ class ShadowMarketIncubator:
                         pnl = profit
 
                     # Settle American & Universal Derivatives and Core Markets
-                    elif family in ('american_derivatives', 'spreads', 'totals', 'moneyline', 'three_way', 'home_total', 'away_total'):
+                    elif family in ('american_derivatives', 'spreads', 'totals', 'moneyline', 'three_way', 'home_total', 'away_total', 'winner_total', 'odd_even'):
                         eff_line = float(line) if line is not None else 0.0
                         if sub_family in ('spreads', 'alternative_spread') or family == 'spreads':
                             diff = (h_s - a_s + eff_line) if side == 'home' else (a_s - h_s + eff_line)
@@ -1802,10 +1822,21 @@ class ShadowMarketIncubator:
                             else:
                                 win_side = 'home' if h_s > a_s else 'away'
                                 outcome_res = 'won' if win_side == side else 'lost'
+                        elif sub_family == 'winner_total' or family == 'winner_total':
+                            parts = str(side).split('_', 1)
+                            if len(parts) == 2:
+                                winner_leg, total_leg = parts[0], parts[1]
+                                win_hit = (h_s > a_s) if winner_leg == 'home' else ((a_s > h_s) if winner_leg == 'away' else (h_s == a_s))
+                                tot = h_s + a_s
+                                tot_hit = (tot > eff_line) if total_leg == 'over' else (tot < eff_line)
+                                outcome_res = 'won' if (win_hit and tot_hit) else 'lost'
+                        elif sub_family == 'odd_even' or family == 'odd_even':
+                            tot = int(round(h_s + a_s))
+                            outcome_res = 'won' if ((tot % 2 == 1 and side == 'odd') or (tot % 2 == 0 and side == 'even')) else 'lost'
                         pnl = (stake * (odds - 1.0)) if outcome_res == 'won' else (0.0 if outcome_res == 'push' else -stake)
 
                     # Settle Tennis Sets
-                    elif family == 'tennis_sets':
+                    elif family in ('tennis_sets', 'total_sets'):
                         ctx = g_info.get('context') or {}
                         sets_h = float(ctx.get('sets_home', 0))
                         sets_a = float(ctx.get('sets_away', 0))
@@ -1815,10 +1846,11 @@ class ShadowMarketIncubator:
                         if sub_family == 'set_winner':
                             win_side = 'home' if sets_h > sets_a else 'away'
                             outcome_res = 'won' if win_side == side else 'lost'
-                        elif sub_family == 'set_totals' and line is not None:
-                            tot_games = games_h + games_a
-                            hit = (tot_games > line) if side == 'over' else (tot_games < line)
-                            outcome_res = 'won' if hit else ('push' if tot_games == line else 'lost')
+                        elif sub_family in ('set_totals', 'total_sets') or family == 'total_sets':
+                            tot_val = (sets_h + sets_a) if (family == 'total_sets' or sub_family == 'total_sets') else (games_h + games_a)
+                            eff_l = float(line) if line is not None else 2.5
+                            hit = (tot_val > eff_l) if side == 'over' else (tot_val < eff_l)
+                            outcome_res = 'won' if hit else ('push' if tot_val == eff_l else 'lost')
                         elif sub_family == 'set_handicap' and line is not None:
                             diff = (games_h - games_a + line) if side == 'home' else (games_a - games_h + line)
                             outcome_res = 'won' if diff > 0 else ('push' if diff == 0 else 'lost')
@@ -1826,11 +1858,11 @@ class ShadowMarketIncubator:
                         pnl = (stake * (odds - 1.0)) if outcome_res == 'won' else (0.0 if outcome_res == 'push' else -stake)
 
                     # Settle Bivariate Derivatives
-                    elif family == 'bivariate_derivatives':
-                        if sub_family == 'both_teams_score':
+                    elif family in ('bivariate_derivatives', 'double_chance', 'both_score', 'both_teams_score'):
+                        if sub_family in ('both_teams_score', 'both_score') or family in ('both_score', 'both_teams_score'):
                             btts_hit = (home_score > 0 and away_score > 0)
                             outcome_res = 'won' if ((btts_hit and side == 'yes') or (not btts_hit and side == 'no')) else 'lost'
-                        elif sub_family == 'double_chance':
+                        elif sub_family == 'double_chance' or family == 'double_chance':
                             if side in ('1x', 'home_draw'):
                                 hit = home_score >= away_score
                             elif side in ('x2', 'away_draw'):
@@ -1903,35 +1935,38 @@ class ShadowMarketIncubator:
         """Evaluates all settled shadow families against dynamic Crucible invariants and graduates winners."""
         now_iso = as_of or utcnow().isoformat()
         conn = self._get_connection()
-        cur = conn.cursor()
-
-        cur.execute("""
-            SELECT league, scope, family, sub_family, odds, pnl, brier_model, brier_market, dynamic_sample_power_req, raw_market_name, cohort, settled_at
-            FROM incubated_wagers
-            WHERE status = 'settled'
-            ORDER BY settled_at ASC
-        """)
-        rows = cur.fetchall()
-
-        # Demoted / probation map
-        demoted_map = {}
-        demoted_sub_map = {}
         try:
-            cur.execute("SELECT segment_key, demoted_at, sub_family FROM demoted_markets")
-            for sk, da, sf in cur.fetchall():
-                demoted_map[sk] = da
-                demoted_sub_map[sk] = sf
-        except Exception:
-            pass
+            cur = conn.cursor()
 
-        # Diagnostic recalibration map for stuck incubator markets
-        recalibrated_map = {}
-        try:
-            cur.execute("SELECT segment_key, recalibrated_at FROM incubator_diagnostic_repairs")
-            for sk, ra in cur.fetchall():
-                recalibrated_map[sk] = ra
-        except Exception:
-            pass
+            cur.execute("""
+                SELECT league, scope, family, sub_family, odds, pnl, brier_model, brier_market, dynamic_sample_power_req, raw_market_name, cohort, settled_at
+                FROM incubated_wagers
+                WHERE status = 'settled'
+                ORDER BY settled_at ASC
+            """)
+            rows = cur.fetchall()
+
+            # Demoted / probation map
+            demoted_map = {}
+            demoted_sub_map = {}
+            try:
+                cur.execute("SELECT segment_key, demoted_at, sub_family FROM demoted_markets")
+                for sk, da, sf in cur.fetchall():
+                    demoted_map[sk] = da
+                    demoted_sub_map[sk] = sf
+            except Exception:
+                pass
+
+            # Diagnostic recalibration map for stuck incubator markets
+            recalibrated_map = {}
+            try:
+                cur.execute("SELECT segment_key, recalibrated_at FROM incubator_diagnostic_repairs")
+                for sk, ra in cur.fetchall():
+                    recalibrated_map[sk] = ra
+            except Exception:
+                pass
+        finally:
+            conn.close()
 
         # Pre-load live decisions once to avoid repeated DB connections inside the loop
         cached_live_rows = []
@@ -2113,27 +2148,33 @@ class ShadowMarketIncubator:
                 except Exception:
                     pass
 
-                cur.execute("""
-                    INSERT OR REPLACE INTO graduated_markets (
-                        id, segment_key, league, scope, family, sub_family,
-                        graduated_at, sample_size, roi, delta_brier, max_drawdown, win_rate, stats
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    grad_id, segment_key, league, scope, family, sub_family,
-                    now_iso, n_samples, roi, delta_brier, max_dd, win_rate, json.dumps(stats)
-                ))
+                conn_grad = self._get_connection()
                 try:
-                    cur.execute("""
-                        DELETE FROM demoted_markets 
-                        WHERE segment_key IN (?, ?, ?) 
-                           OR (league = ? AND scope = ? AND (family = ? OR sub_family = ?))
-                    """, (segment_key, canonical_key, sub_key, league, scope, family, sub_family))
-                    cur.execute("""
-                        DELETE FROM incubator_diagnostic_repairs 
-                        WHERE segment_key IN (?, ?, ?)
-                    """, (segment_key, canonical_key, sub_key))
-                except Exception:
-                    pass
+                    cur_grad = conn_grad.cursor()
+                    cur_grad.execute("""
+                        INSERT OR REPLACE INTO graduated_markets (
+                            id, segment_key, league, scope, family, sub_family,
+                            graduated_at, sample_size, roi, delta_brier, max_drawdown, win_rate, stats
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        grad_id, segment_key, league, scope, family, sub_family,
+                        now_iso, n_samples, roi, delta_brier, max_dd, win_rate, json.dumps(stats)
+                    ))
+                    try:
+                        cur_grad.execute("""
+                            DELETE FROM demoted_markets 
+                            WHERE segment_key IN (?, ?, ?) 
+                               OR (league = ? AND scope = ? AND (family = ? OR sub_family = ?))
+                        """, (segment_key, canonical_key, sub_key, league, scope, family, sub_family))
+                        cur_grad.execute("""
+                            DELETE FROM incubator_diagnostic_repairs 
+                            WHERE segment_key IN (?, ?, ?)
+                        """, (segment_key, canonical_key, sub_key))
+                    except Exception:
+                        pass
+                    conn_grad.commit()
+                finally:
+                    conn_grad.close()
 
                 try:
                     from .telegram_notifier import notify_rd_graduation
@@ -2289,25 +2330,30 @@ class ShadowMarketIncubator:
                     'note': 'Core Domain Model Crucible graduation'
                 }
 
-                cur.execute("""
-                    INSERT OR REPLACE INTO graduated_markets (
-                        id, segment_key, league, scope, family, sub_family,
-                        graduated_at, sample_size, roi, delta_brier, max_drawdown, win_rate, stats
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    grad_id, seg_key, lg, 'full_game', fam, fam,
-                    now_iso, n_samples, roi, 0.003, max_dd, win_rate, json.dumps(stats)
-                ))
-
+                conn_core = self._get_connection()
                 try:
-                    canon_k = f"{lg}|full_game|{fam}"
-                    cur.execute("""
-                        DELETE FROM demoted_markets 
-                        WHERE segment_key IN (?, ?) 
-                           OR (league = ? AND scope = 'full_game' AND (family = ? OR sub_family = ?))
-                    """, (seg_key, canon_k, lg, fam, fam))
-                except Exception:
-                    pass
+                    cur_core = conn_core.cursor()
+                    cur_core.execute("""
+                        INSERT OR REPLACE INTO graduated_markets (
+                            id, segment_key, league, scope, family, sub_family,
+                            graduated_at, sample_size, roi, delta_brier, max_drawdown, win_rate, stats
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        grad_id, seg_key, lg, 'full_game', fam, fam,
+                        now_iso, n_samples, roi, 0.003, max_dd, win_rate, json.dumps(stats)
+                    ))
+                    try:
+                        canon_k = f"{lg}|full_game|{fam}"
+                        cur_core.execute("""
+                            DELETE FROM demoted_markets 
+                            WHERE segment_key IN (?, ?) 
+                               OR (league = ? AND scope = 'full_game' AND (family = ? OR sub_family = ?))
+                        """, (seg_key, canon_k, lg, fam, fam))
+                    except Exception:
+                        pass
+                    conn_core.commit()
+                finally:
+                    conn_core.close()
 
                 try:
                     from .telegram_notifier import notify_rd_graduation
@@ -2354,9 +2400,6 @@ class ShadowMarketIncubator:
                 except Exception:
                     pass
 
-        conn.commit()
-        conn.close()
-
         if graduated_records:
             save_graduated_markets(current_graduated, self.data_dir)
 
@@ -2389,22 +2432,25 @@ class ShadowMarketIncubator:
                 league_counts[l_name] = league_counts.get(l_name, 0) + 1
 
         conn = self._get_connection()
-        cur = conn.cursor()
-
-        cur.execute("""
-            SELECT league, scope, family, sub_family, odds, pnl, brier_model, brier_market, raw_market_name, cohort, settled_at
-            FROM incubated_wagers
-            WHERE status = 'settled'
-            ORDER BY settled_at ASC
-        """)
-        rows = cur.fetchall()
-
-        demoted_set = set()
         try:
-            cur.execute("SELECT segment_key FROM demoted_markets")
-            demoted_set = {r[0] for r in cur.fetchall()}
-        except Exception:
-            pass
+            cur = conn.cursor()
+
+            cur.execute("""
+                SELECT league, scope, family, sub_family, odds, pnl, brier_model, brier_market, raw_market_name, cohort, settled_at
+                FROM incubated_wagers
+                WHERE status = 'settled'
+                ORDER BY settled_at ASC
+            """)
+            rows = cur.fetchall()
+
+            demoted_set = set()
+            try:
+                cur.execute("SELECT segment_key FROM demoted_markets")
+                demoted_set = {r[0] for r in cur.fetchall()}
+            except Exception:
+                pass
+        finally:
+            conn.close()
 
         families: Dict[Tuple[str, str, str, str, str], List[Tuple]] = {}
         for r in rows:
@@ -2545,23 +2591,29 @@ class ShadowMarketIncubator:
                 except Exception:
                     pass
 
-                cur.execute("""
-                    INSERT OR REPLACE INTO graduated_markets (
-                        id, segment_key, league, scope, family, sub_family,
-                        graduated_at, sample_size, roi, delta_brier, max_drawdown, win_rate, stats
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    grad_id, cand['segment_key'], league, cand['scope'], cand['family'], cand['sub_family'],
-                    now_iso, cand['n_samples'], cand['roi'], cand['delta_brier'], cand['max_dd'], cand['win_rate'], json.dumps(stats)
-                ))
+                conn_quota = self._get_connection()
                 try:
-                    cur.execute("""
-                        DELETE FROM demoted_markets 
-                        WHERE segment_key IN (?, ?, ?)
-                           OR (league = ? AND scope = ? AND (family = ? OR sub_family = ?))
-                    """, (cand['segment_key'], cand['canonical_key'], cand_sub_key, league, cand['scope'], cand['family'], cand['sub_family']))
-                except Exception:
-                    pass
+                    cur_quota = conn_quota.cursor()
+                    cur_quota.execute("""
+                        INSERT OR REPLACE INTO graduated_markets (
+                            id, segment_key, league, scope, family, sub_family,
+                            graduated_at, sample_size, roi, delta_brier, max_drawdown, win_rate, stats
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        grad_id, cand['segment_key'], league, cand['scope'], cand['family'], cand['sub_family'],
+                        now_iso, cand['n_samples'], cand['roi'], cand['delta_brier'], cand['max_dd'], cand['win_rate'], json.dumps(stats)
+                    ))
+                    try:
+                        cur_quota.execute("""
+                            DELETE FROM demoted_markets 
+                            WHERE segment_key IN (?, ?, ?)
+                               OR (league = ? AND scope = ? AND (family = ? OR sub_family = ?))
+                        """, (cand['segment_key'], cand['canonical_key'], cand_sub_key, league, cand['scope'], cand['family'], cand['sub_family']))
+                    except Exception:
+                        pass
+                    conn_quota.commit()
+                finally:
+                    conn_quota.close()
 
                 try:
                     from .telegram_notifier import notify_rd_graduation
@@ -2609,9 +2661,6 @@ class ShadowMarketIncubator:
                     })
                 except Exception:
                     pass
-
-        conn.commit()
-        conn.close()
 
         if graduated_records:
             save_graduated_markets(current_graduated, self.data_dir)
@@ -2827,27 +2876,33 @@ class ShadowMarketIncubator:
                 except Exception:
                     pass
 
-                cur.execute("""
-                    INSERT OR REPLACE INTO graduated_markets (
-                        id, segment_key, league, scope, family, sub_family,
-                        graduated_at, sample_size, roi, delta_brier, max_drawdown, win_rate, stats
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    grad_id, segment_key, league, scope, family, sub_family,
-                    now_iso, n_samples, roi, delta_brier, max_dd, win_rate, json.dumps(stats)
-                ))
+                conn_grad = self._get_connection()
                 try:
-                    cur.execute("""
-                        DELETE FROM demoted_markets 
-                        WHERE segment_key IN (?, ?, ?) 
-                           OR (league = ? AND scope = ? AND (family = ? OR sub_family = ?))
-                    """, (segment_key, canonical_key, sub_key, league, scope, family, sub_family))
-                    cur.execute("""
-                        DELETE FROM incubator_diagnostic_repairs 
-                        WHERE segment_key IN (?, ?, ?)
-                    """, (segment_key, canonical_key, sub_key))
-                except Exception:
-                    pass
+                    cur_grad = conn_grad.cursor()
+                    cur_grad.execute("""
+                        INSERT OR REPLACE INTO graduated_markets (
+                            id, segment_key, league, scope, family, sub_family,
+                            graduated_at, sample_size, roi, delta_brier, max_drawdown, win_rate, stats
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        grad_id, segment_key, league, scope, family, sub_family,
+                        now_iso, n_samples, roi, delta_brier, max_dd, win_rate, json.dumps(stats)
+                    ))
+                    try:
+                        cur_grad.execute("""
+                            DELETE FROM demoted_markets 
+                            WHERE segment_key IN (?, ?, ?) 
+                               OR (league = ? AND scope = ? AND (family = ? OR sub_family = ?))
+                        """, (segment_key, canonical_key, sub_key, league, scope, family, sub_family))
+                        cur_grad.execute("""
+                            DELETE FROM incubator_diagnostic_repairs 
+                            WHERE segment_key IN (?, ?, ?)
+                        """, (segment_key, canonical_key, sub_key))
+                    except Exception:
+                        pass
+                    conn_grad.commit()
+                finally:
+                    conn_grad.close()
 
                 try:
                     from .telegram_notifier import notify_rd_graduation
@@ -3323,24 +3378,54 @@ class ShadowMarketIncubator:
     def get_incubator_status(self) -> Dict[str, Any]:
         """Provides real-time health and portfolio metrics for the Incubator Department."""
         conn = self._get_connection()
-        cur = conn.cursor()
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT status, COUNT(*) FROM incubated_wagers GROUP BY status")
+            status_counts_raw = cur.fetchall()
 
-        cur.execute("SELECT status, COUNT(*) FROM incubated_wagers GROUP BY status")
-        status_counts = dict(cur.fetchall())
+            cur.execute("SELECT cohort, status, COUNT(*) FROM incubated_wagers GROUP BY cohort, status")
+            cohort_counts_raw = cur.fetchall()
 
-        cur.execute("SELECT cohort, status, COUNT(*) FROM incubated_wagers GROUP BY cohort, status")
+            cur.execute("""
+                SELECT league, scope, family, sub_family, COUNT(*), SUM(CASE WHEN status='settled' THEN 1 ELSE 0 END),
+                       SUM(CASE WHEN status='settled' THEN pnl ELSE 0.0 END),
+                       AVG(CASE WHEN status='settled' THEN brier_market - brier_model ELSE NULL END)
+                FROM incubated_wagers
+                GROUP BY league, scope, family, sub_family
+            """)
+            family_rows = cur.fetchall()
+
+            cur.execute("SELECT id, segment_key, league, scope, family, sub_family, graduated_at, roi, delta_brier, sample_size FROM graduated_markets WHERE segment_key NOT IN (SELECT segment_key FROM demoted_markets)")
+            grad_rows = cur.fetchall()
+
+            demoted_rows = []
+            try:
+                cur.execute("""
+                    SELECT id, segment_key, league, scope, family, sub_family,
+                           demoted_at, rolling_roi, rolling_pnl, games, reason,
+                           incubated_model_id, model_archetype, historical_roi,
+                           historical_brier_delta, historical_sample_size,
+                           incubation_phase, admitted_to_incubator_at
+                    FROM demoted_markets
+                """)
+                demoted_rows = cur.fetchall()
+            except Exception:
+                pass
+
+            repair_rows = []
+            try:
+                cur.execute("SELECT id, segment_key, league, scope, family, sub_family, diagnosed_at, failure_mode, actionable_remedy, prior_roi, prior_pnl, sample_size FROM incubator_diagnostic_repairs")
+                repair_rows = cur.fetchall()
+            except Exception:
+                pass
+        finally:
+            conn.close()
+
+        status_counts = dict(status_counts_raw)
+
         cohort_counts = {}
-        for c_name, st, cnt in cur.fetchall():
+        for c_name, st, cnt in cohort_counts_raw:
             cohort_counts.setdefault(c_name or 'gap_market', {})[st] = cnt
-
-        cur.execute("""
-            SELECT league, scope, family, sub_family, COUNT(*), SUM(CASE WHEN status='settled' THEN 1 ELSE 0 END),
-                   SUM(CASE WHEN status='settled' THEN pnl ELSE 0.0 END),
-                   AVG(CASE WHEN status='settled' THEN brier_market - brier_model ELSE NULL END)
-            FROM incubated_wagers
-            GROUP BY league, scope, family, sub_family
-        """)
-        family_rows = cur.fetchall()
 
         families_summary = []
         for r in family_rows:
@@ -3360,8 +3445,6 @@ class ShadowMarketIncubator:
                 'status': 'incubating'
             })
 
-        cur.execute("SELECT id, segment_key, league, scope, family, sub_family, graduated_at, roi, delta_brier, sample_size FROM graduated_markets WHERE segment_key NOT IN (SELECT segment_key FROM demoted_markets)")
-        grad_rows = cur.fetchall()
         graduated_list = []
         for gr in grad_rows:
             graduated_list.append({
@@ -3378,61 +3461,44 @@ class ShadowMarketIncubator:
             })
 
         demoted_list = []
-        try:
-            cur.execute("""
-                SELECT id, segment_key, league, scope, family, sub_family,
-                       demoted_at, rolling_roi, rolling_pnl, games, reason,
-                       incubated_model_id, model_archetype, historical_roi,
-                       historical_brier_delta, historical_sample_size,
-                       incubation_phase, admitted_to_incubator_at
-                FROM demoted_markets
-            """)
-            for dr in cur.fetchall():
-                demoted_list.append({
-                    'id': dr[0],
-                    'segment_key': dr[1],
-                    'league': dr[2],
-                    'scope': dr[3],
-                    'family': dr[4],
-                    'sub_family': dr[5],
-                    'demoted_at': dr[6],
-                    'rolling_roi_pct': round(dr[7] * 100.0, 2),
-                    'rolling_pnl': round(dr[8], 2),
-                    'games': dr[9],
-                    'reason': dr[10],
-                    'incubated_model_id': dr[11],
-                    'model_archetype': dr[12],
-                    'historical_roi_pct': round(dr[13] * 100.0, 1) if dr[13] is not None else None,
-                    'historical_brier_delta': round(dr[14], 5) if dr[14] is not None else None,
-                    'historical_sample_size': dr[15] or 0,
-                    'incubation_phase': dr[16] or 'research_training',
-                    'admitted_to_incubator_at': dr[17],
-                })
-        except Exception:
-            pass
+        for dr in demoted_rows:
+            demoted_list.append({
+                'id': dr[0],
+                'segment_key': dr[1],
+                'league': dr[2],
+                'scope': dr[3],
+                'family': dr[4],
+                'sub_family': dr[5],
+                'demoted_at': dr[6],
+                'rolling_roi_pct': round(dr[7] * 100.0, 2),
+                'rolling_pnl': round(dr[8], 2),
+                'games': dr[9],
+                'reason': dr[10],
+                'incubated_model_id': dr[11],
+                'model_archetype': dr[12],
+                'historical_roi_pct': round(dr[13] * 100.0, 1) if dr[13] is not None else None,
+                'historical_brier_delta': round(dr[14], 5) if dr[14] is not None else None,
+                'historical_sample_size': dr[15] or 0,
+                'incubation_phase': dr[16] or 'research_training',
+                'admitted_to_incubator_at': dr[17],
+            })
 
         diagnostic_repairs_list = []
-        try:
-            cur.execute("SELECT id, segment_key, league, scope, family, sub_family, diagnosed_at, failure_mode, actionable_remedy, prior_roi, prior_pnl, sample_size FROM incubator_diagnostic_repairs")
-            for rep in cur.fetchall():
-                diagnostic_repairs_list.append({
-                    'id': rep[0],
-                    'segment_key': rep[1],
-                    'league': rep[2],
-                    'scope': rep[3],
-                    'family': rep[4],
-                    'sub_family': rep[5],
-                    'diagnosed_at': rep[6],
-                    'failure_mode': rep[7],
-                    'actionable_remedy': rep[8],
-                    'prior_roi_pct': round(rep[9] * 100.0, 2),
-                    'prior_pnl': round(rep[10], 2),
-                    'sample_size': rep[11]
-                })
-        except Exception:
-            pass
-
-        conn.close()
+        for rep in repair_rows:
+            diagnostic_repairs_list.append({
+                'id': rep[0],
+                'segment_key': rep[1],
+                'league': rep[2],
+                'scope': rep[3],
+                'family': rep[4],
+                'sub_family': rep[5],
+                'diagnosed_at': rep[6],
+                'failure_mode': rep[7],
+                'actionable_remedy': rep[8],
+                'prior_roi_pct': round(rep[9] * 100.0, 2),
+                'prior_pnl': round(rep[10], 2),
+                'sample_size': rep[11]
+            })
 
         return {
             'department': 'Autonomous Market Expansion & Shadow Graduation Department (AMIE-GD)',

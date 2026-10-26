@@ -1376,6 +1376,12 @@ def stage_betslip_in_safari(
                     } else if (isOver || isUnder || isYes || isNo || isOdd || isEven) {
                         score = 85;
                     } else {
+                        // Strict Entity Protection: If this is an entity market (e.g. team spread/handicap)
+                        // and neither the entity name nor last name matches, this button belongs to the OPPONENT!
+                        // Disqualify immediately to prevent betting on the wrong side.
+                        if (entityWords.length > 0 || lastName) {
+                            continue;
+                        }
                         score = 70;
                     }
                 } else {
@@ -2153,18 +2159,59 @@ def stage_betslip_in_safari(
                 }}
             }}
 
-            let input = document.querySelector("[data-testid='input-bet-amount']");
-            if (!input) {{
-                input = document.querySelector(".betslip input[type='number'], .betslip input[type='text'], input[placeholder='0.00000000'], input[placeholder='0.00']");
+            // Ensure betslip sidebar or drawer is expanded if collapsed
+            const betslipToggle = document.querySelector("[data-testid='betslip-toggle'], button[aria-label*='Betslip' i], button[aria-label*='betslip' i], [data-testid='sidebar-toggle'], button[data-analytics*='betslip']");
+            const hasBetslipInDom = !!document.querySelector("#right-sidebar, [data-testid='betslip'], .betslip, [data-testid='betslip-bet']");
+            if (betslipToggle && !hasBetslipInDom) {{
+                try {{ betslipToggle.click(); }} catch(e) {{}}
             }}
+
+            function findBetInput() {{
+                return document.querySelector("[data-testid='input-bet-amount']") ||
+                       document.querySelector("#right-sidebar input[type='number'], #right-sidebar input[type='text'], #right-sidebar input[inputmode='decimal']") ||
+                       document.querySelector(".betslip input[type='number'], .betslip input[type='text'], .betslip input[inputmode='decimal']") ||
+                       document.querySelector("[data-testid*='betslip'] input") ||
+                       document.querySelector("aside input[type='number'], aside input[type='text']") ||
+                       document.querySelector("input[placeholder='0.00000000'], input[placeholder='0.00'], input[placeholder='0']");
+            }}
+
+            let input = findBetInput();
             if (!input) {{
-                // Re-click outcome button using strict findOutcomeMatch if React / Svelte was hydrating during first click
+                // If betslip card element is already in the betslip, NEVER re-click the button (it would deselect)!
+                if (verifyBetCard) {{
+                    if (betslipToggle) {{ try {{ betslipToggle.click(); }} catch(e) {{}} }}
+                    return JSON.stringify({{ status: "waiting_input" }});
+                }}
+
+                // Check outcome button state before attempting any click
                 const buttons = getOutcomeButtons();
                 const match = findOutcomeMatch(buttons);
-                if (match) match.click();
-                input = document.querySelector("[data-testid='input-bet-amount']") || document.querySelector(".betslip input[type='number'], .betslip input[type='text'], input[placeholder='0.00000000'], input[placeholder='0.00']");
+                const isMatchActive = match && (
+                    match.getAttribute("aria-pressed") === "true" ||
+                    match.getAttribute("data-state") === "active" ||
+                    match.classList.contains("active") ||
+                    match.classList.contains("is-active") ||
+                    match.classList.contains("selected") ||
+                    match.closest("[aria-pressed='true']") !== null
+                );
+
+                if (isMatchActive) {{
+                    // Button is already pressed and outcome selected; do NOT re-click or it will deselect!
+                    if (betslipToggle) {{ try {{ betslipToggle.click(); }} catch(e) {{}} }}
+                    return JSON.stringify({{ status: "waiting_input" }});
+                }}
+
+                // Only if match is NOT active and has not been clicked yet in this session:
+                if (match && !window.__stake_outcome_reclicked) {{
+                    window.__stake_outcome_reclicked = true;
+                    try {{ match.click(); }} catch(e) {{}}
+                }}
+                
+                input = findBetInput();
+                if (!input) {{
+                    return JSON.stringify({{ status: "waiting_input", error: "A tét beviteli mező még nem jelent meg a szelvényen." }});
+                }}
             }}
-            if (!input) return JSON.stringify({{ error: "A tét beviteli mező nem jelent meg a szelvényen." }});
 
             input.focus();
             input.select();
@@ -2205,13 +2252,14 @@ def stage_betslip_in_safari(
     staked = False
     payout_val = None
     verification_err = None
+    last_stake_err = None
     for j in range(25):
         time.sleep(0.2)
         out = _eval_safari_js(set_stake_js, activate=False, timeout=5)
         if out and out != "NOT_FOUND":
             try:
                 res_stake = json.loads(out)
-                if res_stake.get("status") == "waiting_card_text":
+                if res_stake.get("status") in ("waiting_card_text", "waiting_input"):
                     continue
                 if res_stake.get("status") == "verification_failed":
                     verification_err = res_stake.get("error", "Szelvény verifikációs hiba: A betslip tartalma nem egyezik az ajánlással.")
@@ -2221,6 +2269,8 @@ def stage_betslip_in_safari(
                     payout_val = res_stake.get("payout")
                     if payout_val and payout_val != "0.00000000":
                         break
+                elif res_stake.get("error"):
+                    last_stake_err = res_stake.get("error")
             except Exception:
                 pass
 
@@ -2568,7 +2618,69 @@ def stage_betslip_in_safari(
             res_dict["ev"] = adapted_meta.get("ev")
             res_dict["message"] = f"Adaptív szelvény előkészítve a Safariban: {res_click.get('selection') or selection} @ {current_odds or odds} (Eredeti: {orig_selection}) · EV: +{(adapted_meta.get('ev') or 0)*100:.1f}%"
         return res_dict
+
+    if not staked and adaptive_fallback and tip_id:
+        log.info(f"Staking failed for {selection}. Evaluating alternative lines via adaptive fallback...")
+        scan_cands_js = f"""
+        (() => {{
+            try {{
+                {helpers_js}
+                const buttons = getOutcomeButtons();
+                const candList = buttons.map(b => {{
+                    const t = (b.getAttribute("aria-label") || b.innerText || "").replace(/\\s+/g, " ").trim();
+                    const nums = t.match(/\\b\\d+\\.\\d+\\b/g);
+                    const candOdds = (nums && nums.length > 0) ? parseFloat(nums[nums.length - 1]) : null;
+                    const lineMatch = t.match(/([+-]?\\d+\\.?\\d*)/);
+                    const candLine = lineMatch ? parseFloat(lineMatch[1]) : null;
+                    let cleanSel = t;
+                    if (candOdds !== null) {{
+                        cleanSel = cleanSel.replace(new RegExp('\\\\s+' + candOdds + '$'), '').trim();
+                    }}
+                    return {{ selection: cleanSel, line: candLine, odds: candOdds, raw: t }};
+                }});
+                return JSON.stringify({{ available_candidates: candList }});
+            }} catch(e) {{
+                return JSON.stringify({{ error: e.toString() }});
+            }}
+        }})()
+        """
+        c_str = _eval_safari_js(scan_cands_js, activate=False, timeout=5)
+        try:
+            c_data = json.loads(c_str)
+            page_cands = c_data.get("available_candidates") or []
+            if page_cands:
+                from .adaptive_fallback import evaluate_alternative_lines
+                from .storage import Store
+                eval_res = evaluate_alternative_lines(tip_id, page_cands, store=Store())
+                if eval_res.get("has_eligible") and eval_res.get("best_candidate"):
+                    best = eval_res["best_candidate"]
+                    log.info(f"Adaptive fallback found alternative line: {best['selection']} @ {best['odds']} (EV: +{best['ev']*100:.1f}%)")
+                    return stage_betslip_in_safari(
+                        event_url=event_url,
+                        selection=best["selection"],
+                        stake=best.get("recommended_stake") or stake,
+                        odds=best["odds"],
+                        min_odds=min_odds,
+                        tab=tab,
+                        line=best.get("line"),
+                        outcome_name=best.get("outcome_name"),
+                        tip_id=tip_id,
+                        market_name=market_name,
+                        market=market,
+                        league=league,
+                        auto_place=auto_place,
+                        min_place_delay=min_place_delay,
+                        max_place_delay=max_place_delay,
+                        auto_close_on_fail=auto_close_on_fail,
+                        adaptive_fallback=False
+                    )
+        except Exception as e:
+            log.warning(f"Adaptive fallback on stake error: {e}")
+
     if auto_close_on_fail:
         _close_tab()
-    return {"status": "error", "placed": False, "closed": bool(auto_close_on_fail), "message": "Nem sikerült kitölteni a tét összegét a szelvényen.", "event_url": clean_url}
+    err_msg = last_stake_err or "Nem sikerült kitölteni a tét összegét a szelvényen."
+    if adaptive_fallback:
+        err_msg = f"{err_msg} (Adaptív pótlás lefutott: nem található megfelelő +EV alternatív vonal)."
+    return {"status": "error", "placed": False, "closed": bool(auto_close_on_fail), "message": err_msg, "event_url": clean_url}
 

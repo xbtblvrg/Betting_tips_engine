@@ -1136,7 +1136,11 @@ async function executeAutoRunCycle() {
 
   if (!queue.length) {
    for (const [id, item] of skippedAutoBetTips.entries()) {
-    if (new Date(item.tip.start) <= new Date()) skippedAutoBetTips.delete(id);
+    if (new Date(item.tip.start) <= new Date() || (item.attempts && item.attempts >= 2)) {
+     skippedAutoBetTips.delete(id);
+     markTipBetDone(id);
+     setPlacement(id, true, { silent: true }).catch(() => {});
+    }
    }
    if (skippedAutoBetTips.size > 0 && openBetsCount < 300) {
     const toAdapt = [...skippedAutoBetTips.values()].map(s => s.tip);
@@ -1297,6 +1301,7 @@ function updateAutoBetPanel() {
         <div style="display:flex;gap:6px;">
           <button type="button" id="adaptive-retry-skipped-btn" class="button primary" style="padding:3px 8px;font-size:11px;background:#0d9488;border-color:#0d9488;color:#fff;">⚡ Adaptív pótlás (+EV)</button>
           <button type="button" id="clear-skipped-bets-btn" class="button ghost" style="padding:3px 8px;font-size:11px;color:#92400e;border-color:#f59e0b;background:#fef3c7;">🔄 Újrapróbálás</button>
+          <button type="button" id="dismiss-all-skipped-btn" class="button ghost" style="padding:3px 8px;font-size:11px;color:#166534;border-color:#86efac;background:#f0fdf4;">✓ Mind kész</button>
         </div>
       </div>
       <div style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;">
@@ -1358,6 +1363,22 @@ function updateAutoBetPanel() {
         renderTips();
         toast(`🔄 Újrapróbálás indítása ${toRetry.length} db kihagyott piacra...`);
         await startAutoBetQueue(toRetry);
+      };
+    }
+    const dismissAllBtn = $('#dismiss-all-skipped-btn');
+    if (dismissAllBtn) {
+      dismissAllBtn.onclick = async (e) => {
+        e.preventDefault();
+        const ids = [...skippedAutoBetTips.keys()];
+        for (const id of ids) {
+          markTipBetDone(id);
+          updateTipBetDoneUI(id, 'done');
+          await setPlacement(id, true, { silent: true });
+        }
+        skippedAutoBetTips.clear();
+        updateAutoBetPanel();
+        renderTips();
+        toast(`✓ ${ids.length} db kihagyott piac késznek jelölve.`);
       };
     }
    } else {

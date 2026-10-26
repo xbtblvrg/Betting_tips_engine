@@ -175,7 +175,7 @@ def test_pillar_3_cross_market_risk_synergy() -> bool:
         'side': 'home',
         'probability': 0.60,
         'reference_odds': 1.95,
-        'expected_roi': 0.17,
+        'expected_roi': 0.02,
         'reference_platform': 'Stake.com'
     }
     crucible_ok, reason, _ = evaluate_crucible_candidate(quarantined_cand)

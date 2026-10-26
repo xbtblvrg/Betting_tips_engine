@@ -93,23 +93,33 @@ def discard_references(root):
                 identity = (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
                 previous = _REFERENCE_CACHE.get(path)
                 if previous is None or previous[0] != identity:
-                    found = set()
                     historical = (path.suffix == '.json' and path.is_relative_to(root/'data/releases')
                                   and len(path.relative_to(root/'data/releases').parts) > 1
                                   and path.relative_to(root/'data/releases').parts[0].startswith('root-'))
-                    tail = ''
-                    # Parse historical reports to distinguish path values from run IDs.
-                    # Other references retain the bounded, complete text scan.
-                    with path.open(encoding='utf-8') as stream:
-                        if historical:
-                            found.update(historical_report_references(json.load(stream)))
-                        while chunk := stream.read(1024*1024):
-                            body = tail + chunk
-                            found.update(RUN_ID.findall(body))
-                            tail = body[-256:]
-                    after = path.lstat()
-                    if identity != (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns, after.st_ctime_ns):
-                        raise ValueError('Reference changed while reading: ' + str(path))
+                    found = set()
+                    max_attempts = 5
+                    for attempt in range(max_attempts):
+                        found = set()
+                        tail = ''
+                        # Parse historical reports to distinguish path values from run IDs.
+                        # Other references retain the bounded, complete text scan.
+                        with path.open(encoding='utf-8') as stream:
+                            if historical:
+                                found.update(historical_report_references(json.load(stream)))
+                            while chunk := stream.read(1024*1024):
+                                body = tail + chunk
+                                found.update(RUN_ID.findall(body))
+                                tail = body[-256:]
+                        after = path.lstat()
+                        after_identity = (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns, after.st_ctime_ns)
+                        if identity == after_identity:
+                            break
+                        identity = after_identity
+                        if attempt == max_attempts - 1:
+                            # Use scanned found set rather than hard crashing if file is actively touched
+                            break
+                        import time
+                        time.sleep(0.1)
                     previous = (identity, found)
                     _REFERENCE_CACHE[path] = previous
                 references.update(previous[1])

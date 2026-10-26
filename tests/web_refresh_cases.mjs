@@ -25,6 +25,7 @@ async function boot(t){
    pending.push({respond:(body=snapshot())=>{active--;resolve({ok:true,json:async()=>structuredClone(body)})},fail:()=>{active--;reject(Error('offline'))},respondWithJSON:json=>{active--;resolve({ok:true,json})}});
    fetchHook?.();return promise;
   }
+  if(path.startsWith('/api/autorun'))return Promise.resolve({ok:true,json:async()=>({})});
   writes.push({path,options});
   if(path.endsWith('/checklist')){
    const {placed}=JSON.parse(options.body);if(placed)marks.one=new Date().toISOString();else delete marks.one;

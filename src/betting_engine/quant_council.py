@@ -13,7 +13,10 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 import hashlib
 import json
+import logging
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 import sqlite3
 from typing import Any, Dict, List, Optional
 from concurrent.futures import ThreadPoolExecutor
@@ -263,17 +266,20 @@ def convene_quant_council(
 
         try:
             claude_advice = f_claude.result(timeout=50)
-        except Exception:
+        except Exception as exc:
+            log.warning("Quant Council Claude query failed: %s", exc)
             claude_advice = None
 
         try:
             codex_advice = f_codex.result(timeout=50)
-        except Exception:
+        except Exception as exc:
+            log.warning("Quant Council Codex query failed: %s", exc)
             codex_advice = None
 
         try:
             grok_advice = f_grok.result(timeout=50)
-        except Exception:
+        except Exception as exc:
+            log.warning("Quant Council Grok query failed: %s", exc)
             grok_advice = None
 
     # 4. Lead Quant Brain Synthesis (Antigravity / agy)

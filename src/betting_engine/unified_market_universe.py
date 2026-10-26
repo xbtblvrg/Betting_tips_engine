@@ -151,14 +151,11 @@ class UnifiedMarketUniverse:
                     is_sub = bool(sub_fam and sub_fam != fam)
                     sub_k = f"{lg}|{sc}|{fam}:{sub_fam}" if is_sub else canonical_k
 
-                    # Constitutional Protection: Never demote an already-graduated market due to stale demoted_markets rows.
-                    # A parent family key alone must NEVER override a specific demoted sub-family!
-                    already_graduated = (seg_key in grad_keys_set) or (sub_k in grad_keys_set)
-                    if not is_sub and canonical_k in grad_keys_set:
-                        already_graduated = True
-
-                    if already_graduated:
-                        continue
+                    # Demoted markets represent current failure/quarantine and strictly override
+                    # any historical graduation records (Constitutional Commandments 6 & 7).
+                    grad_keys_set.discard(seg_key)
+                    grad_keys_set.discard(sub_k)
+                    grad_keys_set.discard(canonical_k)
 
                     if phase == 'incubating_with_new_model':
                         tier = int(MarketTier.SHADOW_INCUBATOR)
@@ -211,9 +208,34 @@ class UnifiedMarketUniverse:
                     for (p_raw,) in dec_rows:
                         p = json.loads(p_raw)
                         lg = p.get('league', '').upper()
-                        sc = p.get('scope') or p.get('period') or 'full_game'
-                        if sc == 'Teljes mérkőzés':
+                        raw_sc = str(p.get('model_scope') or p.get('scope') or p.get('period') or 'full_game').lower().strip()
+                        if raw_sc in ('full game', 'full_game', 'teljes mérkőzés', 'match', 'game') or not raw_sc:
                             sc = 'full_game'
+                        elif '1st half' in raw_sc or 'half 1' in raw_sc or raw_sc == 'half_1':
+                            sc = 'half_1'
+                        elif '2nd half' in raw_sc or 'half 2' in raw_sc or raw_sc == 'half_2':
+                            sc = 'half_2'
+                        elif '1st quarter' in raw_sc or 'quarter 1' in raw_sc or raw_sc == 'quarter_1':
+                            sc = 'quarter_1'
+                        elif '2nd quarter' in raw_sc or 'quarter 2' in raw_sc or raw_sc == 'quarter_2':
+                            sc = 'quarter_2'
+                        elif '3rd quarter' in raw_sc or 'quarter 3' in raw_sc or raw_sc == 'quarter_3':
+                            sc = 'quarter_3'
+                        elif '4th quarter' in raw_sc or 'quarter 4' in raw_sc or raw_sc == 'quarter_4':
+                            sc = 'quarter_4'
+                        elif '1st period' in raw_sc or 'period 1' in raw_sc or raw_sc == 'period_1':
+                            sc = 'period_1'
+                        elif '2nd period' in raw_sc or 'period 2' in raw_sc or raw_sc == 'period_2':
+                            sc = 'period_2'
+                        elif '3rd period' in raw_sc or 'period 3' in raw_sc or raw_sc == 'period_3':
+                            sc = 'period_3'
+                        elif '1st inning' in raw_sc or 'inning 1' in raw_sc or raw_sc == 'inning_1':
+                            sc = 'inning_1'
+                        elif 'innings 1 to 5' in raw_sc or 'innings_1_5' in raw_sc:
+                            sc = 'innings_1_5'
+                        else:
+                            sc = raw_sc
+
                         fam = p.get('market_family') or p.get('market') or ''
                         canon_key = self.get_canonical_key(lg, sc, fam)
                         base_fam = fam.split(':')[-1] if ':' in fam else fam

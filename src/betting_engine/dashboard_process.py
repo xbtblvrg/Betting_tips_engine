@@ -39,7 +39,7 @@ class DashboardRenderer:
     worker_module='betting_engine.dashboard_worker'
     worker_args=()
 
-    def __init__(self,timeout=35.,max_waiters=16):
+    def __init__(self,timeout=60.,max_waiters=16):
         self.timeout=timeout
         self.max_waiters=max_waiters
         self._task=None
@@ -198,7 +198,7 @@ class DevelopmentRenderer(DashboardRenderer):
     worker_module='betting_engine.dashboard_process'
     worker_args=('--development',)
 
-    def __init__(self,timeout=8.,max_waiters=16):
+    def __init__(self,timeout=25.,max_waiters=16):
         super().__init__(timeout=timeout,max_waiters=max_waiters)
 
 

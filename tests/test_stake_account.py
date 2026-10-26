@@ -1412,6 +1412,54 @@ def test_stage_betslip_records_in_autorun_placements(monkeypatch):
         conn.close()
 
 
+def test_stage_betslip_strict_entity_protection(monkeypatch):
+    """Verify that stage_betslip_in_safari generates JS with entity protection disallowing opponent buttons."""
+    import subprocess
+    from betting_engine.stake_account import stage_betslip_in_safari
+
+    intercepted_codes = []
+    call_idx = 0
+    def mock_run(cmd, *args, **kwargs):
+        nonlocal call_idx
+        call_idx += 1
+        class Res:
+            stderr = ""
+        r = Res()
+        if call_idx == 1:
+            r.stdout = "ALREADY_OPEN"
+        elif call_idx == 2:
+            intercepted_codes.append(cmd[3])
+            r.stdout = json.dumps({"ready": True, "hasTarget": True, "tabActive": True, "outcomesCount": 8})
+        elif call_idx == 3:
+            intercepted_codes.append(cmd[3])
+            r.stdout = json.dumps({"status": "clicked", "selection": "Utah Jazz +1.5", "current_odds": 1.85})
+        elif call_idx == 4:
+            intercepted_codes.append(cmd[3])
+            r.stdout = json.dumps({"status": "ok", "stake": "1.00", "payout": "1.85000000"})
+        else:
+            r.stdout = "OK"
+        return r
+
+    monkeypatch.setattr(subprocess, "run", mock_run)
+
+    stage_betslip_in_safari(
+        event_url="https://stake.com/sports/basketball/usa/nba/test",
+        selection="Utah Jazz +1.5",
+        market_name="1st Half - Asian Handicap",
+        odds=1.85,
+        stake=1.0,
+        auto_place=False,
+        adaptive_fallback=False
+    )
+
+    combined_scripts = "\n".join(intercepted_codes)
+    assert "entityWords.length > 0 || lastName" in combined_scripts
+    assert "Strict Entity Protection" in combined_scripts
+
+
+
+
+
 
 
 

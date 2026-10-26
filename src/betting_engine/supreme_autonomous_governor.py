@@ -542,14 +542,32 @@ class SupremeAutonomousGovernor:
         try:
             from .demoted_market_bridge import DemotedMarketIncubationBridge
             bridge = DemotedMarketIncubationBridge(data_dir=self.data_dir)
-            bridge_res = bridge.synchronize_demoted_markets(max_train_per_run=3)
+            bridge_res = bridge.synchronize_demoted_markets(max_train_per_run=2)
             if bridge_res.get('newly_admitted_count', 0) > 0:
                 actions.append({
                     'action': 'demoted_markets_bound_to_new_models',
                     'newly_admitted': bridge_res['newly_admitted_count'],
                 })
+        except sqlite3.OperationalError:
+            log.debug("Demoted markets bridge deferred: database is currently busy.")
         except Exception as e:
             log.warning('Demoted markets bridge error: %s', e)
+
+        # 6d. Autonomous Crucible Re-Graduation Verification
+        try:
+            from .shadow_market_incubator import ShadowMarketIncubator
+            incubator = ShadowMarketIncubator(data_dir=self.data_dir)
+            new_grads = incubator.evaluate_graduation()
+            if new_grads:
+                actions.append({
+                    'action': 'crucible_graduated_markets',
+                    'count': len(new_grads),
+                    'graduated': [g['segment_key'] for g in new_grads],
+                })
+        except sqlite3.OperationalError:
+            log.debug("Crucible graduation check deferred: database is currently busy.")
+        except Exception as e:
+            log.warning('Crucible graduation check error: %s', e)
 
         # 7. Enforce Prime Directives guard
         prime_guard = self.enforce_prime_directives_guard()

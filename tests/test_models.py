@@ -1,4 +1,4 @@
-from datetime import datetime,timezone
+from datetime import datetime, timezone, timedelta
 import numpy as np
 import pytest
 from betting_engine.domain import Game
@@ -121,8 +121,9 @@ def test_forecast_quantitative_injury_lineup_adjustment():
     if not model_path.exists():
         pytest.skip("NFL model not available")
     model = joblib.load(model_path)
+    future_start = (datetime.now(timezone.utc) + timedelta(days=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
     base_game = Game(
-        "NFL:test_game_1", "NFL", "2026-10-25T17:00:00Z",
+        "NFL:test_game_1", "NFL", future_start,
         "Chicago Bears", "Green Bay Packers", "CHI", "GB", "CHI", "GB",
         "scheduled", 2026, None, None,
         game_type="regular", context={}
@@ -131,7 +132,7 @@ def test_forecast_quantitative_injury_lineup_adjustment():
 
     # With Starting QB OUT: 4.5 pt penalty
     inj_game = Game(
-        "NFL:test_game_1", "NFL", "2026-10-25T17:00:00Z",
+        "NFL:test_game_1", "NFL", future_start,
         "Chicago Bears", "Green Bay Packers", "CHI", "GB", "CHI", "GB",
         "scheduled", 2026, None, None,
         game_type="regular", context={

@@ -87,7 +87,10 @@ class Engine:
                     v=contract_value(t['market'],t['side'],line,hs,ass)
                     outcome='won' if v>0 else ('lost' if v<0 else 'push')
                     pnl=b['stake']*(b['odds']-1) if v>0 else (-b['stake'] if v<0 else 0)
-            except ValueError:continue
+            except ValueError as exc:
+                log.warning('Could not settle bet %s on game %s (market=%s, side=%s, line=%s): %s',
+                            b.get('id'), g.id, t.get('market'), t.get('side'), t.get('line'), exc)
+                continue
             # A manual sportsbook ledger explicitly assumes push refunds. A
             # Polymarket position needs share quantities, so do not auto-settle it.
             if 'polymarket' in b['platform'].lower():continue

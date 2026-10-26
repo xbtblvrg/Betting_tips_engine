@@ -1027,6 +1027,68 @@ def test_candidate_models_receive_enriched_market_context(incubator):
     assert len(hp_wagers) >= 1
 
 
+def test_reconcile_expanded_families_settlement(incubator):
+    conn = incubator._get_connection()
+    cur = conn.cursor()
+
+    # Insert test wagers across newly handled families
+    cur.execute("""
+        INSERT INTO incubated_wagers (
+            id, fixture_id, game_id, league, scope, family, sub_family, raw_market_name,
+            selection, side, line, odds, model_prob, market_prob, ev, dynamic_sample_power_req, captured_at, status
+        ) VALUES
+        ('w_dc_win', 'g1', 'g1', 'NHL', 'full_game', 'double_chance', 'double_chance', 'Double Chance', 'Away or Draw', 'away_draw', NULL, 1.80, 0.60, 0.55, 0.08, 25, '2026-10-25T10:00:00Z', 'open'),
+        ('w_dc_loss', 'g2', 'g2', 'NHL', 'full_game', 'double_chance', 'double_chance', 'Double Chance', 'Home or Draw', 'home_draw', NULL, 1.50, 0.70, 0.66, 0.05, 25, '2026-10-25T10:00:00Z', 'open'),
+        ('w_bts_win', 'g1', 'g1', 'EPL', 'full_game', 'both_score', 'both_score', 'Both Teams to Score', 'Yes', 'yes', NULL, 1.95, 0.55, 0.51, 0.07, 25, '2026-10-25T10:00:00Z', 'open'),
+        ('w_wt_win', 'g3', 'g3', 'WNBA', 'full_game', 'winner_total', 'winner_total', 'Winner & Total', 'Away & Under 153.5', 'away_under', 153.5, 4.70, 0.25, 0.21, 0.17, 25, '2026-10-25T10:00:00Z', 'open'),
+        ('w_ts_loss', 'g4', 'g4', 'WTA', 'full_game', 'total_sets', 'total_sets', 'Total Sets', 'Over 2.5', 'over', 2.5, 2.38, 0.45, 0.42, 0.07, 25, '2026-10-25T10:00:00Z', 'open'),
+        ('w_oe_win', 'g1', 'g1', 'NBA', 'full_game', 'odd_even', 'odd_even', 'Odd/Even', 'Even', 'even', NULL, 1.90, 0.52, 0.50, 0.04, 25, '2026-10-25T10:00:00Z', 'open')
+    """)
+    conn.commit()
+    conn.close()
+
+    mock_games = [
+        {'id': 'g1', 'league': 'NHL', 'state': 'final', 'home_score': 2, 'away_score': 2, 'context': {}},
+        {'id': 'g2', 'league': 'NHL', 'state': 'final', 'home_score': 1, 'away_score': 3, 'context': {}},
+        {'id': 'g3', 'league': 'WNBA', 'state': 'final', 'home_score': 62, 'away_score': 67, 'context': {}},
+        {'id': 'g4', 'league': 'WTA', 'state': 'final', 'home_score': 5, 'away_score': 13, 'context': {'sets_home': 0, 'sets_away': 2}},
+    ]
+
+    res = incubator.reconcile_aged_and_completed_wagers(min_age_hours=1.0, games=mock_games)
+    assert res['reconciled_with_scores'] == 6
+    assert res['total_settled'] == 6
+
+    conn = incubator._get_connection()
+    cur = conn.cursor()
+    settled = {r[0]: (r[1], r[2]) for r in cur.execute("SELECT id, result, pnl FROM incubated_wagers").fetchall()}
+    conn.close()
+
+    # g1 (2-2): away_draw wins
+    assert settled['w_dc_win'][0] == 'won'
+    assert round(settled['w_dc_win'][1], 2) == 0.80
+
+    # g2 (1-3): home_draw loses
+    assert settled['w_dc_loss'][0] == 'lost'
+    assert settled['w_dc_loss'][1] == -1.0
+
+    # g1 (2-2): both score wins
+    assert settled['w_bts_win'][0] == 'won'
+    assert round(settled['w_bts_win'][1], 2) == 0.95
+
+    # g3 (62-67, total 129 < 153.5): away & under wins
+    assert settled['w_wt_win'][0] == 'won'
+    assert round(settled['w_wt_win'][1], 2) == 3.70
+
+    # g4 (sets 0-2, total 2 < 2.5): over 2.5 sets loses
+    assert settled['w_ts_loss'][0] == 'lost'
+    assert settled['w_ts_loss'][1] == -1.0
+
+    # g1 (2+2 = 4, even): even wins
+    assert settled['w_oe_win'][0] == 'won'
+    assert round(settled['w_oe_win'][1], 2) == 0.90
+
+
+
 
 
 

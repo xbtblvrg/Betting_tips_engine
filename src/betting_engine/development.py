@@ -1036,7 +1036,6 @@ class DevelopmentWorker:
 
     def save(self):
         with self._state_lock:
-            self._sync_disk_state()
             atomic_json(self.path, self.state)
 
     def fork(self):
