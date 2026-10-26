@@ -2048,7 +2048,12 @@ class ShadowMarketIncubator:
 
                 if is_false_demotion:
                     try:
-                        cur.execute("DELETE FROM demoted_markets WHERE segment_key = ? OR (segment_key = ? AND sub_family = ?)", (segment_key, canonical_key, sub_family))
+                        conn_del = self._get_connection()
+                        try:
+                            conn_del.execute("DELETE FROM demoted_markets WHERE segment_key = ? OR (segment_key = ? AND sub_family = ?)", (segment_key, canonical_key, sub_family))
+                            conn_del.commit()
+                        finally:
+                            conn_del.close()
                         demoted_at = None
                     except Exception:
                         pass
@@ -2689,35 +2694,38 @@ class ShadowMarketIncubator:
         """
         now_iso = as_of or utcnow().isoformat()
         conn = self._get_connection()
-        cur = conn.cursor()
-
-        cur.execute("""
-            SELECT league, scope, family, sub_family, odds, pnl, brier_model, brier_market, dynamic_sample_power_req, raw_market_name, settled_at
-            FROM incubated_wagers
-            WHERE status = 'settled'
-            ORDER BY settled_at ASC
-        """)
-        rows = cur.fetchall()
-
-        # Demoted / probation map
-        demoted_map = {}
-        demoted_sub_map = {}
         try:
-            cur.execute("SELECT segment_key, demoted_at, sub_family FROM demoted_markets")
-            for sk, da, sf in cur.fetchall():
-                demoted_map[sk] = da
-                demoted_sub_map[sk] = sf
-        except Exception:
-            pass
+            cur = conn.cursor()
 
-        # Diagnostic recalibration map for stuck incubator markets
-        recalibrated_map = {}
-        try:
-            cur.execute("SELECT segment_key, recalibrated_at FROM incubator_diagnostic_repairs")
-            for sk, ra in cur.fetchall():
-                recalibrated_map[sk] = ra
-        except Exception:
-            pass
+            cur.execute("""
+                SELECT league, scope, family, sub_family, odds, pnl, brier_model, brier_market, dynamic_sample_power_req, raw_market_name, settled_at
+                FROM incubated_wagers
+                WHERE status = 'settled'
+                ORDER BY settled_at ASC
+            """)
+            rows = cur.fetchall()
+
+            # Demoted / probation map
+            demoted_map = {}
+            demoted_sub_map = {}
+            try:
+                cur.execute("SELECT segment_key, demoted_at, sub_family FROM demoted_markets")
+                for sk, da, sf in cur.fetchall():
+                    demoted_map[sk] = da
+                    demoted_sub_map[sk] = sf
+            except Exception:
+                pass
+
+            # Diagnostic recalibration map for stuck incubator markets
+            recalibrated_map = {}
+            try:
+                cur.execute("SELECT segment_key, recalibrated_at FROM incubator_diagnostic_repairs")
+                for sk, ra in cur.fetchall():
+                    recalibrated_map[sk] = ra
+            except Exception:
+                pass
+        finally:
+            conn.close()
 
         # Pre-load live decisions once to avoid repeated DB connections inside the loop
         cached_live_rows = []
@@ -2797,7 +2805,12 @@ class ShadowMarketIncubator:
 
                 if is_false_demotion:
                     try:
-                        cur.execute("DELETE FROM demoted_markets WHERE segment_key = ? OR (segment_key = ? AND sub_family = ?)", (segment_key, canonical_key, sub_family))
+                        conn_del = self._get_connection()
+                        try:
+                            conn_del.execute("DELETE FROM demoted_markets WHERE segment_key = ? OR (segment_key = ? AND sub_family = ?)", (segment_key, canonical_key, sub_family))
+                            conn_del.commit()
+                        finally:
+                            conn_del.close()
                         demoted_at = None
                     except Exception:
                         pass
@@ -2947,9 +2960,6 @@ class ShadowMarketIncubator:
                     })
                 except Exception:
                     pass
-
-        conn.commit()
-        conn.close()
 
         if graduated_records:
             save_graduated_markets(current_graduated, self.data_dir)
