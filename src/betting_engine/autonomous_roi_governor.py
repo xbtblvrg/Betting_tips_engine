@@ -183,8 +183,23 @@ class AutonomousROIGovernor:
                 action = f'Quarantined: severe net loss ({units_pnl:.1f} units, ${pnl:+.2f}, {roi:+.1f}% ROI) triggered dynamic circuit breaker'
                 toxic_quarantine.append(seg_key)
 
-            # C. Capital Defense: ROI < -3% or units_pnl <= -2.5 units with 4+ games
-            # Statistical Significance Safeguard (Commandments 6 & 7):
+            # B. Super Alpha: Rolling ROI >= +12%, PnL >= +4 units (or >=+$4.00) with 8+ games (verified major markets only)
+            elif cnt >= 8 and roi >= 12.0 and (units_pnl >= 4.0 or pnl >= 4.00) and league not in ('CHALLENGER', 'ITF'):
+                tier = 'SUPER_ALPHA'
+                stake_cap = 8.00
+                min_ev = 0.015
+                action = 'Super Alpha Acceleration: maximum confidence scaling ($4.00–$8.00)'
+                super_alpha.append(seg_key)
+
+            # C. Solid Alpha: Rolling ROI >= +5%, PnL >= +2 units (or >=+$2.00) with 5+ games (verified major markets only)
+            elif cnt >= 5 and roi >= 5.0 and (units_pnl >= 2.0 or pnl >= 2.00) and league not in ('CHALLENGER', 'ITF'):
+                tier = 'SOLID_ALPHA'
+                stake_cap = 3.50
+                min_ev = 0.010
+                action = 'Solid Alpha Acceleration: prioritized scaling ($2.50–$3.50)'
+                solid_alpha.append(seg_key)
+
+            # D. Capital Defense Safeguard on Graduated Markets vs Leaking Segments:
             # Tier 3 Graduated markets with verified Crucible backing require meaningful sample (cnt >= 15, units_pnl <= -8.0)
             # before being downgraded to Capital Defense.
             is_grad_seg = bool(seg_key in grad_markets or f"{league}|{scope}|{market}" in grad_markets)
@@ -202,22 +217,6 @@ class AutonomousROIGovernor:
                 min_ev = 0.035
                 action = 'Capital defense clamp: $0.50 flat stake, +3.5% min EV hurdle'
                 capital_defense.append(seg_key)
-
-            # D. Super Alpha: Rolling ROI >= +12%, PnL >= +4 units (or >=+$4.00) with 8+ games (verified major markets only)
-            elif cnt >= 8 and roi >= 12.0 and (units_pnl >= 4.0 or pnl >= 4.00) and league not in ('CHALLENGER', 'ITF'):
-                tier = 'SUPER_ALPHA'
-                stake_cap = 8.00
-                min_ev = 0.015
-                action = 'Super Alpha Acceleration: maximum confidence scaling ($4.00–$8.00)'
-                super_alpha.append(seg_key)
-
-            # E. Solid Alpha: Rolling ROI >= +5%, PnL >= +2 units (or >=+$2.00) with 5+ games (verified major markets only)
-            elif cnt >= 5 and roi >= 5.0 and (units_pnl >= 2.0 or pnl >= 2.00) and league not in ('CHALLENGER', 'ITF'):
-                tier = 'SOLID_ALPHA'
-                stake_cap = 3.50
-                min_ev = 0.010
-                action = 'Solid Alpha Acceleration: prioritized scaling ($2.50–$3.50)'
-                solid_alpha.append(seg_key)
 
             segments.append(SegmentMetric(
                 segment=seg_key,
@@ -253,6 +252,7 @@ class AutonomousROIGovernor:
                 'total_stake_usd': round(tot_stake, 2),
                 'net_pnl_usd': round(tot_pnl, 2),
                 'realized_roi_pct': round(portfolio_roi, 2),
+                'portfolio_roi_pct': round(portfolio_roi, 2),
                 'target_weekly_roi_pct': target_roi,
                 'roi_status': 'ON_TARGET' if portfolio_roi >= target_roi else ('RECOVERING' if portfolio_roi >= 0 else 'DEFENSE_ACTIVE'),
                 'gap_to_target_pct': round(gap_to_target, 2)

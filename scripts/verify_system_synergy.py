@@ -54,14 +54,23 @@ def test_pillar_1_pipeline_synergy() -> bool:
         WHERE payload LIKE '%outcome_sizing_evidence%' 
           AND status = 'open' 
           AND json_extract(payload, '$.league') IN ('NBA', 'MLS', 'NFL')
-        ORDER BY id DESC LIMIT 1
+        ORDER BY id DESC LIMIT 10
     """)
-    row = c.fetchone()
-    if not row:
-        c.execute("SELECT payload FROM bets WHERE payload LIKE '%outcome_sizing_evidence%' ORDER BY id DESC LIMIT 1")
-        row = c.fetchone()
-    cand = json.loads(row[0])
+    rows = c.fetchall()
+    if not rows:
+        c.execute("SELECT payload FROM bets WHERE payload LIKE '%outcome_sizing_evidence%' ORDER BY id DESC LIMIT 10")
+        rows = c.fetchall()
     conn.close()
+
+    cand = None
+    for r in rows:
+        candidate = json.loads(r[0])
+        passed, _, _ = evaluate_crucible_candidate(candidate)
+        if passed:
+            cand = candidate
+            break
+    if not cand and rows:
+        cand = json.loads(rows[0][0])
 
     # Step 1: Crucible Filter Gate
     crucible_passed, reject_reason, p_adj = evaluate_crucible_candidate(cand)
