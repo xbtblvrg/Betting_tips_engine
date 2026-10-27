@@ -126,6 +126,7 @@ class LearningWorker:
 
     def plan(self):
         now=utcnow()
+        self.plan_supreme_system_audit(now)
         if (self.data/'shadow_evidence.sqlite3').exists():
             self.plan_shadow(now)
         from .closing_runtime import closed_cohorts
@@ -259,6 +260,25 @@ class LearningWorker:
                 f'daily:{date_str}',
                 payload={'date': date_str, 'scheduled_for': now.isoformat()}
             )
+
+    def plan_supreme_system_audit(self, now):
+        """Plans periodic autonomous system audit and self-healing sweep every 15 minutes."""
+        with self.store.db() as c:
+            active = c.execute("SELECT id FROM learning_jobs WHERE kind='autonomous_system_audit' AND status IN ('queued','running','retry') LIMIT 1").fetchone()
+            last = c.execute("SELECT updated_at FROM learning_jobs WHERE kind='autonomous_system_audit' AND status='completed' ORDER BY updated_at DESC LIMIT 1").fetchone()
+        if active:
+            return active['id']
+        if last and now - parse_time(last['updated_at']) < timedelta(minutes=15):
+            return None
+        return self.enqueue(
+            'autonomous_system_audit',
+            f"audit:{now.strftime('%Y%m%d_%H%M')}",
+            payload={
+                'as_of': now.isoformat(),
+                'cadence_minutes': 15.0,
+                'mandate': 'Supreme Autonomous Self-Adaptive System Audit & Auto-Healing'
+            }
+        )
 
 
     def plan_anchor_weights(self, now):

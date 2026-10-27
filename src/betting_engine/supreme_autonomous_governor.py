@@ -63,6 +63,8 @@ class AutonomousSweepSummary:
     resolved_operating_gaps_count: int = 0
     resolved_operating_gaps: List[str] = field(default_factory=list)
     prime_directives_guard: Dict[str, Any] = field(default_factory=dict)
+    system_audit_findings_count: int = 0
+    system_audit_status: str = 'optimal'
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -595,6 +597,26 @@ class SupremeAutonomousGovernor:
         from .system_resource_governor import update_governor_status_file
         res_telemetry = update_governor_status_file()
 
+        # 8b. Supreme Autonomous System & Code Audit Sweep
+        audit_findings = []
+        audit_status = 'optimal'
+        try:
+            from .supreme_system_auditor import SupremeSystemAuditor
+            auditor = SupremeSystemAuditor(root=self.root, data_dir=self.data_dir)
+            audit_report = auditor.run_periodic_audit()
+            audit_findings = audit_report.get('findings', [])
+            audit_status = audit_report.get('status', 'optimal')
+            if audit_findings:
+                actions.append({
+                    'action': 'supreme_system_audit_sweep',
+                    'status': audit_status,
+                    'critical_count': audit_report.get('critical_count', 0),
+                    'findings_count': len(audit_findings),
+                    'healing_results': audit_report.get('healing_results', [])
+                })
+        except Exception as exc:
+            log.warning('Supreme system audit sweep error: %s', exc)
+
         summary = AutonomousSweepSummary(
             cycle_id=cycle_id,
             timestamp=utcnow().isoformat(),
@@ -609,13 +631,15 @@ class SupremeAutonomousGovernor:
             leaking_segments_audited=leaks_audited,
             leaking_segments_repaired=leaks_repaired,
             resource_governor_status=res_telemetry,
-            status='optimal' if counts.get('candidate_ready', 0) == 0 else 'active',
+            status='optimal' if counts.get('candidate_ready', 0) == 0 and audit_status == 'optimal' else 'active',
             actions_taken=actions,
             unblocked_retry_tasks_count=unblocked_count,
             unblocked_tasks=unblocked_tasks,
             resolved_operating_gaps_count=resolved_gaps_count,
             resolved_operating_gaps=resolved_gaps,
-            prime_directives_guard=prime_guard
+            prime_directives_guard=prime_guard,
+            system_audit_findings_count=len(audit_findings),
+            system_audit_status=audit_status
         )
 
         # Persist status and journal
