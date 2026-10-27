@@ -1,15 +1,15 @@
 # Live Stake market coverage
 
-Checked: 2026-10-27T18:31:42.814345+00:00
+Checked: 2026-10-27T19:49:06.177509+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
 | League | Observed titles | Activity unverified | Offered now | Complete 10/10 | Incomplete offered | Evaluated | Funding supported | Ready now | Issued today |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| NFL | 79 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 6 |
+| NFL | 80 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 6 |
 | NHL | 86 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 15 |
 | MLB | 56 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 5 |
-| NBA | 188 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 37 |
+| NBA | 188 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 38 |
 | WNBA | 18 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 |
 
 Current stages require outcome-level evidence; original issuance, settlement and feedback are explicitly historical. 10/10 records observed execution, not proven profitability or automatic model promotion.
@@ -150,7 +150,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | 3rd Quarter - Draw No Bet | standard | quarter_3 | catalogue_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 1 |
 | NBA | 3rd Quarter - Handicap | standard | quarter_3 | catalogue_only | 1/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | partial 8/12 | verified 10/10 | awaiting_measurement 10/11 | 2 |
 | NBA | 3rd Quarter - Odd/Even | standard | quarter_3 | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NBA | 3rd Quarter - Total | standard | quarter_3 | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | partial 17/22 | partial 19/21 | awaiting_measurement 21/22 | 1 |
+| NBA | 3rd Quarter - Total | standard | quarter_3 | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | partial 18/23 | partial 19/21 | awaiting_measurement 21/22 | 2 |
 | NBA | 3rd Quarter - Winning Margin | standard | quarter_3 | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | 4th Quarter - 1x2 | standard | quarter_4 | catalogue_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 6/6 | verified 5/5 | awaiting_measurement 5/6 | 1 |
 | NBA | 4th Quarter - Draw No Bet | standard | quarter_4 | catalogue_only | 1/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | partial 4/6 | verified 5/5 | awaiting_measurement 5/6 | 1 |
@@ -320,6 +320,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NFL | Odd/Even (Incl. Overtime) | standard | full_game | catalogue_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NFL | Philadelphia Eagles Total (Incl. Overtime) | standard | full_game | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 4/4 | verified 4/4 | awaiting_measurement 4/5 | 0 |
 | NFL | Pittsburgh Steelers Total (Incl. Overtime) | standard | full_game | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 3/3 | verified 3/3 | awaiting_measurement 3/4 | 0 |
+| NFL | San Francisco 49ers Total (Incl. Overtime) | standard | full_game | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Seattle Seahawks Total (Incl. Overtime) | standard | full_game | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NFL | Tampa Bay Buccaneers Total (Incl. Overtime) | standard | full_game | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 4/4 | verified 4/4 | awaiting_measurement 4/5 | 0 |
 | NFL | Tennessee Titans Total (Incl. Overtime) | standard | full_game | historical_only | 1/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | partial 1/2 | verified 2/2 | awaiting_measurement 2/3 | 0 |
