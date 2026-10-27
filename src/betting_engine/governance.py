@@ -353,6 +353,7 @@ class EvidenceGuard:
             if settings.get('crucible_rules_mode') == 'live':
                 from .crucible_rules import evaluate_crucible_candidate
                 cand_probe = {'league': game.league, 'market': market.kind, 'side': market.side, 'line': market.line,
+                              'model_scope': getattr(market, 'model_scope', None) or ('full_game' if ':' not in str(market.kind) else str(market.kind).split(':')[0]),
                               'probability': p, 'reference_odds': 1/quote.effective_cost, 'game_context': getattr(game, 'context', {}),
                               'home_points': getattr(forecast, 'home_points', None),
                               'away_points': getattr(forecast, 'away_points', None),

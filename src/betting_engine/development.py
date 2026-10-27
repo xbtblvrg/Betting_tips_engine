@@ -936,8 +936,44 @@ def choose_task(plan, state, now=None):
         if not task_due(row, now):
             continue
         choices.append(task)
+    
+    # Financial Prime Directive Alignment (Directive #1 & #8):
+    # When portfolio ROI is below 10.0% or active defense is engaged,
+    # prioritize development tasks that directly repair cash leaks, calibrate
+    # probability models, improve catalogues, or accelerate alpha.
+    roi_status = {}
+    try:
+        from .providers import DATA
+        roi_file = DATA / 'roi_governor_status.json'
+        if roi_file.exists():
+            roi_status = json.loads(roi_file.read_text(encoding='utf-8'))
+    except Exception:
+        pass
+
+    is_defense_active = (
+        roi_status.get('governance_state') == 'active_optimizing'
+        or roi_status.get('portfolio_metrics', {}).get('roi_status') == 'DEFENSE_ACTIVE'
+        or float(roi_status.get('portfolio_metrics', {}).get('realized_roi_pct', 10.0)) < 10.0
+    )
+
+    def task_roi_weight(t):
+        if not is_defense_active:
+            return 1
+        t_id = t.get('id', '')
+        t_title = t.get('title', '').lower()
+        t_obj = t.get('objective', '').lower()
+        # Tasks directly serving market turnaround, calibration, pricing, or alpha recovery
+        if any(kw in t_title or kw in t_obj for kw in (
+            'turnaround', 'calibration', 'repair', 'model', 'recovery',
+            'catalogue', 'probability', 'alpha', 'spread', 'total', 'crucible'
+        )):
+            return 0
+        return 1
+
     checkpoints={m['id']:parse_time(m['checkpoint_at']) for m in plan.get('milestones',[])}
-    return min(choices, key=lambda t: (0 if checkpoints.get(t.get('milestone'),now+timedelta(days=1))<=now else 1,
+    return min(choices, key=lambda t: (
+        task_roi_weight(t),
+        0 if checkpoints.get(t.get('milestone'),now+timedelta(days=1))<=now else 1,
         0 if t.get('due_at') and parse_time(t['due_at']) <= now else 1,
         t['priority'], min(5, current.get(t['id'], {}).get('attempts', 0)), t['id'])) if choices else None
 

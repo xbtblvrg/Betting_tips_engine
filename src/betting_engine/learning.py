@@ -198,7 +198,8 @@ class LearningWorker:
             last = c.execute("SELECT updated_at FROM learning_jobs WHERE kind='target_evaluation' AND status='completed' ORDER BY updated_at DESC LIMIT 1").fetchone()
         if active:
             return active['id']
-        if last and now - parse_time(last['updated_at']) < timedelta(hours=6):
+        cadence_hours = 1 if (DATA / 'roi_governor_status.json').exists() else 6
+        if last and now - parse_time(last['updated_at']) < timedelta(hours=cadence_hours):
             return None
         from .target_evaluator import TARGET_EVALUATION_VERSION
         return self.enqueue(
