@@ -46,7 +46,7 @@ class DemotedMarketIncubationBridge:
         except (sqlite3.OperationalError, sqlite3.DatabaseError):
             pass
 
-    def synchronize_demoted_markets(self, max_train_per_run: int = 3) -> Dict[str, Any]:
+    def synchronize_demoted_markets(self, max_train_per_run: int = 25) -> Dict[str, Any]:
         """Scans demoted markets, trains candidate models on historical data, and admits them into the incubator."""
         if not self.db_path.exists():
             return {'status': 'no_db', 'newly_admitted_count': 0}

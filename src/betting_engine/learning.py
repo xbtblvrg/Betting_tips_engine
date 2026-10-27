@@ -736,7 +736,7 @@ class LearningWorker:
             try:
                 from .demoted_market_bridge import DemotedMarketIncubationBridge
                 bridge = DemotedMarketIncubationBridge(data_dir=self.data)
-                bridge_res = bridge.synchronize_demoted_markets(max_train_per_run=10)
+                bridge_res = bridge.synchronize_demoted_markets(max_train_per_run=35)
             except Exception as e:
                 bridge_res = {'error': str(e)}
             try:

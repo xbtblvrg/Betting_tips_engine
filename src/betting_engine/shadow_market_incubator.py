@@ -3351,10 +3351,16 @@ class ShadowMarketIncubator:
                         """, (seg_key, canon_k, sub_k, league, scope, meta.get('family', ''), meta.get('sub_family', '')))
                         d_id = f"demote_{hashlib.sha256(f'{seg_key}:{now_iso}'.encode()).hexdigest()[:16]}"
                         cur_inc.execute("""
-                            INSERT OR REPLACE INTO demoted_markets (
+                            INSERT INTO demoted_markets (
                                 id, segment_key, league, scope, family, sub_family,
                                 demoted_at, rolling_roi, rolling_pnl, games, reason, stats
                             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            ON CONFLICT(segment_key) DO UPDATE SET
+                                rolling_roi = excluded.rolling_roi,
+                                rolling_pnl = excluded.rolling_pnl,
+                                games = excluded.games,
+                                reason = excluded.reason,
+                                stats = excluded.stats
                         """, (
                             d_id, seg_key, league, scope, meta.get('family', ''), meta.get('sub_family', ''),
                             now_iso, rolling_roi, rolling_pnl, len(recent),

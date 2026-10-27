@@ -542,7 +542,7 @@ class SupremeAutonomousGovernor:
         try:
             from .demoted_market_bridge import DemotedMarketIncubationBridge
             bridge = DemotedMarketIncubationBridge(data_dir=self.data_dir)
-            bridge_res = bridge.synchronize_demoted_markets(max_train_per_run=2)
+            bridge_res = bridge.synchronize_demoted_markets(max_train_per_run=25)
             if bridge_res.get('newly_admitted_count', 0) > 0:
                 actions.append({
                     'action': 'demoted_markets_bound_to_new_models',
