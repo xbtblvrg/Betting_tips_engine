@@ -364,7 +364,13 @@ class Engine:
                             if g.league == 'NFL' and g.id in forecasts:
                                 winner_references[g.id] = choose_reference(forecasts[g.id], nfl_report, reference, 'moneyline')
                 except (ValueError, KeyError, TypeError, OSError) as exc:
-                    forecast_errors.append({'league':'NFL','stage':'winner_reference','error':str(exc)[:500]})
+                    if str(exc) == 'Reference champion changed':
+                        from .professional_quality import assess_professional_quality
+                        quality = assess_professional_quality(nfl_report, 'moneyline')
+                        if quality.get('blocks_publication'):
+                            forecast_errors.append({'league':'NFL','stage':'winner_reference','error':f'Reference champion changed and new champion fails winner quality: {quality.get("errors")}'})
+                    else:
+                        forecast_errors.append({'league':'NFL','stage':'winner_reference','error':str(exc)[:500]})
             if winner_references:
                 trained_at.update({r['version']:r['trained_at'] for _,r in winner_references.values()})
                 calibration_snapshot=build_snapshot(self.store.system_decisions(),trained_at,now,

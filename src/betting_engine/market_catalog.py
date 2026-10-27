@@ -143,7 +143,7 @@ def refresh_catalog(data_dir=DATA,fetcher=None,horizon_days=None):
                     key=(r['provider_section'], inventory_key(r.get('market_id'), r.get('market'), r.get('specifiers')))
                     if key not in seen:selected.append({**r,'companion_response_only':True});seen.add(key)
             return selected,{'league':league,'fixture_id':fixture['id'],**audit},None
-        except Exception as exc:return [],None,{'league':league,'fixture':fixture.get('id'),'stage':'fixture_endpoints','error':str(exc)[:500]}
+        except Exception as exc:return [],None,{'league':league,'fixture':fixture.get('id'),'stage':'fixture_endpoints','reason':'stake_fixture_endpoint_error','error':str(exc)[:500]}
     for batch,audit,error in ThreadPoolExecutor(max_workers=6).map(fetch,fixtures):
         rows.extend(batch)
         if audit:

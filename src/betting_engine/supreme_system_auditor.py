@@ -281,9 +281,42 @@ class SupremeSystemAuditor:
             gen_at = pub.get('generated_at')
             age_s = (utcnow() - parse_time(gen_at)).total_seconds() if gen_at else float('inf')
 
+            # Load live operational artifacts if available
+            worker = {}
+            worker_path = self.data_dir / 'learning_worker.json'
+            if worker_path.exists():
+                try:
+                    worker = json.loads(worker_path.read_text())
+                except Exception:
+                    pass
+
+            catalog = {}
+            catalog_path = self.data_dir / 'market_catalog/latest.json'
+            if catalog_path.exists():
+                try:
+                    catalog = json.loads(catalog_path.read_text())
+                except Exception:
+                    pass
+
+            research = {}
+            research_path = self.data_dir / 'research/catalog.json'
+            if research_path.exists():
+                try:
+                    research = json.loads(research_path.read_text())
+                except Exception:
+                    pass
+
+            closing = {}
+            closing_path = self.data_dir / 'closing_capture.json'
+            if closing_path.exists():
+                try:
+                    closing = json.loads(closing_path.read_text())
+                except Exception:
+                    pass
+
             # Run component health audit
             now = utcnow()
-            comp_result = audit_components(pub, {}, {}, {}, now)
+            comp_result = audit_components(pub, worker, catalog, research, now, closing=closing)
             degraded_components = [
                 c for c in comp_result.get('checks', [])
                 if c.get('state') in ('degraded', 'invalid', 'missing')

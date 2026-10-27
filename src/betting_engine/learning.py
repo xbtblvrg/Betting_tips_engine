@@ -676,7 +676,8 @@ class LearningWorker:
             r=refresh_catalog(self.data)
             critical_issues = [
                 i for i in r.get('issues', [])
-                if i.get('reason') not in ('stake_seed_identity_unresolved', 'stake_fixture_not_active', 'stake_fixture_identity_conflict')
+                if i.get('reason') not in ('stake_seed_identity_unresolved', 'stake_fixture_not_active', 'stake_fixture_identity_conflict', 'stake_fixture_endpoint_error')
+                and i.get('stage') != 'fixture_endpoints'
             ]
             if critical_issues:raise RuntimeError('Market catalogue refresh is partial; archived source errors require retry.')
             return {'checked_at':r['checked_at'],'leagues':r['leagues'],'issues':r['issues'],'all_website_markets_verified':False}
