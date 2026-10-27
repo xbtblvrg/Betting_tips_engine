@@ -1053,8 +1053,8 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                 demoted_segs = _get_demoted_segments()
                 is_demoted_cand = (bool(c.get('is_demoted')) or bool(cand_segs & demoted_segs)) if not is_test_cand else (cand_id.startswith('cand_demoted') or bool(c.get('is_demoted')))
                 cand_is_grad = (bool(c.get('is_graduated')) or bool(cand_segs & grad_segs)) and not is_demoted_cand
-                quarantine_set = set(gov_status.get('quarantine_list', [])) if not cand_is_grad else set()
-                is_toxic_quarantined = (bool(cand_segs & quarantine_set) and not cand_is_grad) if not is_test_cand else False
+                quarantine_set = set(gov_status.get('quarantine_list', []))
+                is_toxic_quarantined = bool(cand_segs & quarantine_set) if not is_test_cand else False
                 is_cap_defense_cand = bool(settings.get('capital_defense', False)) and bool(cand_segs & c_defense) and not is_demoted_cand and not is_toxic_quarantined
                 is_grad = not is_demoted_cand and not is_toxic_quarantined and (
                     cand_is_grad
@@ -1145,6 +1145,19 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
             if selection_policy == CONTINUOUS_PROBABILITY_SELECTION_V4 and is_cap_defense_cand and amount > 0.50:
                 amount = 0.50
                 c['stake_note'] = (c.get('stake_note') or note or '') + ' Capped at $0.50 emergency capital defense tourniquet.'
+            elif selection_policy == CONTINUOUS_PROBABILITY_SELECTION_V4 and is_alpha_cand and amount > 0.0:
+                super_alphas = set(gov_status.get('super_alpha_list', []))
+                solid_alphas = set(gov_status.get('solid_alpha_list', []))
+                if cand_segs & super_alphas:
+                    target_alpha_stake = min(available, max(4.00, min(8.00, amount * 2.0)))
+                    if target_alpha_stake > amount:
+                        amount = target_alpha_stake
+                        c['stake_note'] = (c.get('stake_note') or note or '') + f' Super Alpha Acceleration: scaled to ${amount:.2f} based on verified positive ROI.'
+                elif cand_segs & solid_alphas:
+                    target_alpha_stake = min(available, max(2.50, min(3.50, amount * 1.5)))
+                    if target_alpha_stake > amount:
+                        amount = target_alpha_stake
+                        c['stake_note'] = (c.get('stake_note') or note or '') + f' Solid Alpha Acceleration: scaled to ${amount:.2f} based on verified positive ROI.'
             c['stake']=amount;c['stake_note']=c.get('stake_note') or (note if amount else 'Your remaining limit or fractional Kelly calculation does not support a stake of at least $1.');remaining-=amount
             if amount and limits_enabled and (event_stakes[c['game_id']]+amount>event_stake_cap+1e-9):
                 amount=0.;c['stake']=0.;c['allocation_code']='event_stake_limit';c['allocation_reason']=f'The ${event_stake_cap:.0f} per-game stake cap would be exceeded.'

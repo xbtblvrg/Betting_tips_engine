@@ -3242,124 +3242,119 @@ class ShadowMarketIncubator:
             log.warning("Could not assemble active segments for review: %s", e_mkt)
 
         # Check existing demoted segments to avoid repeating tier transitions
-        existing_demoted = set()
+        conn_d = self._get_connection()
         try:
-            conn_d = self._get_connection()
             cur_d = conn_d.cursor()
-            existing_demoted = {r[0] for r in cur_d.execute("SELECT segment_key FROM demoted_markets").fetchall()}
-            conn_d.close()
-        except Exception:
-            pass
+            try:
+                existing_demoted = {r[0] for r in cur_d.execute("SELECT segment_key FROM demoted_markets").fetchall()}
+            except Exception:
+                existing_demoted = set()
 
-        for seg_key, meta in list(markets_to_evaluate.items()):
-            league = meta.get('league')
-            scope = meta.get('scope')
-            if not league or not scope:
-                continue
+            for seg_key, meta in list(markets_to_evaluate.items()):
+                league = meta.get('league')
+                scope = meta.get('scope')
+                if not league or not scope:
+                    continue
 
-            # Strict market matching: only evaluate live decisions that belong to THIS market!
-            matching_decisions = [
-                d for d in live_decisions 
-                if matches_live_decision_to_market(d['payload'], meta)
-            ]
-            recent = matching_decisions[:20]
-            if len(recent) >= 5:
-                rolling_staked = sum(d['stake'] for d in recent)
-                rolling_pnl = sum(d['pnl'] for d in recent)
-                rolling_roi = (rolling_pnl / rolling_staked) if rolling_staked > 0 else 0.0
-                avg_stake = (rolling_staked / len(recent)) if len(recent) > 0 else 1.0
-                rolling_units_pnl = rolling_pnl / max(0.20, avg_stake)
+                # Strict market matching: only evaluate live decisions that belong to THIS market!
+                matching_decisions = [
+                    d for d in live_decisions 
+                    if matches_live_decision_to_market(d['payload'], meta)
+                ]
+                recent = matching_decisions[:20]
+                if len(recent) >= 5:
+                    rolling_staked = sum(d['stake'] for d in recent)
+                    rolling_pnl = sum(d['pnl'] for d in recent)
+                    rolling_roi = (rolling_pnl / rolling_staked) if rolling_staked > 0 else 0.0
+                    avg_stake = (rolling_staked / len(recent)) if len(recent) > 0 else 1.0
+                    rolling_units_pnl = rolling_pnl / max(0.20, avg_stake)
 
-                # Statistical Significance Safeguard (Constitutional Commandments 6 & 7):
-                # A market with massive incubator backing (inc_n >= 50 and inc_pnl >= 20.0)
-                # CANNOT be demoted on minor sample variance (< 25 games, or rolling_pnl > -15.0).
-                # The tier_state_machine automatically enforces Capital Defense ($0.50 clamp, +3.5% EV hurdle)
-                # during live drawdowns without discarding the market!
-                stats = meta.get('stats', {}) if isinstance(meta, dict) else {}
-                inc_n = stats.get('sample_size', 0)
-                inc_pnl = float(stats.get('total_pnl', stats.get('pnl', 0.0)) or 0.0)
-                if inc_n == 0 or inc_pnl <= 0.0:
-                    try:
-                        cur_q = self._get_connection().cursor()
-                        fam = meta.get('family', '')
-                        sub_fam = meta.get('sub_family', '')
-                        if sub_fam:
-                            q_row = cur_q.execute(
-                                "SELECT count(*), sum(pnl) FROM incubated_wagers WHERE league = ? AND scope = ? AND family = ? AND sub_family = ? AND status = 'settled'",
-                                (league, scope, fam, sub_fam)
-                            ).fetchone()
-                        else:
-                            q_row = cur_q.execute(
-                                "SELECT count(*), sum(pnl) FROM incubated_wagers WHERE league = ? AND scope = ? AND family = ? AND status = 'settled'",
-                                (league, scope, fam)
-                            ).fetchone()
-                        if q_row and q_row[0]:
-                            inc_n = q_row[0]
-                            inc_pnl = float(q_row[1] or 0.0)
-                    except Exception:
-                        pass
+                    # Statistical Significance Safeguard (Constitutional Commandments 6 & 7):
+                    # A market with massive incubator backing (inc_n >= 50 and inc_pnl >= 20.0)
+                    # CANNOT be demoted on minor sample variance (< 25 games, or rolling_pnl > -15.0).
+                    # The tier_state_machine automatically enforces Capital Defense ($0.50 clamp, +3.5% EV hurdle)
+                    # during live drawdowns without discarding the market!
+                    stats = meta.get('stats', {}) if isinstance(meta, dict) else {}
+                    inc_n = stats.get('sample_size', 0)
+                    inc_pnl = float(stats.get('total_pnl', stats.get('pnl', 0.0)) or 0.0)
+                    if inc_n == 0 or inc_pnl <= 0.0:
+                        try:
+                            fam = meta.get('family', '')
+                            sub_fam = meta.get('sub_family', '')
+                            if sub_fam:
+                                q_row = cur_d.execute(
+                                    "SELECT count(*), sum(pnl) FROM incubated_wagers WHERE league = ? AND scope = ? AND family = ? AND sub_family = ? AND status = 'settled'",
+                                    (league, scope, fam, sub_fam)
+                                ).fetchone()
+                            else:
+                                q_row = cur_d.execute(
+                                    "SELECT count(*), sum(pnl) FROM incubated_wagers WHERE league = ? AND scope = ? AND family = ? AND status = 'settled'",
+                                    (league, scope, fam)
+                                ).fetchone()
+                            if q_row and q_row[0]:
+                                inc_n = q_row[0]
+                                inc_pnl = float(q_row[1] or 0.0)
+                        except Exception:
+                            pass
 
-                total_live_pnl = sum(d['pnl'] for d in matching_decisions)
-                total_live_staked = sum(float(d.get('stake', 0.0) or 0.0) for d in matching_decisions)
-                avg_total_stake = (total_live_staked / len(matching_decisions)) if len(matching_decisions) > 0 else 1.0
-                total_live_units = total_live_pnl / max(0.20, avg_total_stake)
-                inc_units = inc_pnl / max(0.20, 1.0)
-                if (inc_n >= 50 and (inc_units >= 15.0 or inc_pnl >= 20.0)) or (len(matching_decisions) >= 50 and (total_live_units >= 15.0 or total_live_pnl >= 20.0)):
-                    if len(matching_decisions) < 25 and (rolling_units_pnl > -10.0 or rolling_pnl > -15.0 or total_live_pnl >= 0.0):
-                        continue
+                    total_live_pnl = sum(d['pnl'] for d in matching_decisions)
+                    total_live_staked = sum(float(d.get('stake', 0.0) or 0.0) for d in matching_decisions)
+                    avg_total_stake = (total_live_staked / len(matching_decisions)) if len(matching_decisions) > 0 else 1.0
+                    total_live_units = total_live_pnl / max(0.20, avg_total_stake)
+                    inc_units = inc_pnl / max(0.20, 1.0)
+                    if (inc_n >= 50 and (inc_units >= 15.0 or inc_pnl >= 20.0)) or (len(matching_decisions) >= 50 and (total_live_units >= 15.0 or total_live_pnl >= 20.0)):
+                        if len(matching_decisions) < 25 and (rolling_units_pnl > -10.0 or rolling_pnl > -15.0 or total_live_pnl >= 0.0):
+                            continue
 
-                # Scale-Invariant Dynamic Loss Evaluation (Anti-Constant Mandate, Commandment 3):
-                # Demotes when market shows sustained loss in units of risk (<= -2.5 units with negative ROI,
-                # or <= -4.0 units regardless of ROI), scale-invariant across $0.50, $8.00, or larger future bankrolls.
-                if (rolling_roi <= -0.03 and rolling_units_pnl <= -2.5) or (rolling_units_pnl <= -4.0 and rolling_roi < 0.0):
-                    is_core = meta.get('is_core', False)
-                    demoted_entry = {
-                        'segment_key': seg_key,
-                        'league': league,
-                        'scope': scope,
-                        'is_core': is_core,
-                        'rolling_roi_pct': round(rolling_roi * 100.0, 2),
-                        'rolling_pnl': round(rolling_pnl, 2),
-                        'games': len(recent)
-                    }
-                    demoted_keys.append(demoted_entry)
-                    canon_k = f"{league}|{scope}|{meta.get('family', '')}"
-                    sub_k = f"{league}|{scope}|{meta.get('family', '')}:{meta.get('sub_family', '')}" if meta.get('sub_family') else canon_k
-                    for k in (seg_key, canon_k, sub_k):
-                        if k in current_graduated:
-                            del current_graduated[k]
+                    # Scale-Invariant Dynamic Loss Evaluation (Anti-Constant Mandate, Commandment 3):
+                    # Demotes when market shows sustained loss in units of risk (<= -2.5 units with negative ROI,
+                    # or <= -4.0 units regardless of ROI), scale-invariant across $0.50, $8.00, or larger future bankrolls.
+                    if (rolling_roi <= -0.03 and rolling_units_pnl <= -2.5) or (rolling_units_pnl <= -4.0 and rolling_roi < 0.0):
+                        is_core = meta.get('is_core', False)
+                        demoted_entry = {
+                            'segment_key': seg_key,
+                            'league': league,
+                            'scope': scope,
+                            'is_core': is_core,
+                            'rolling_roi_pct': round(rolling_roi * 100.0, 2),
+                            'rolling_pnl': round(rolling_pnl, 2),
+                            'games': len(recent)
+                        }
+                        demoted_keys.append(demoted_entry)
+                        canon_k = f"{league}|{scope}|{meta.get('family', '')}"
+                        sub_k = f"{league}|{scope}|{meta.get('family', '')}:{meta.get('sub_family', '')}" if meta.get('sub_family') else canon_k
+                        for k in (seg_key, canon_k, sub_k):
+                            if k in current_graduated:
+                                del current_graduated[k]
 
-                    # Atomic DB persistence: delete from graduated_markets and track in demoted_markets
-                    try:
-                        conn_inc = self._get_connection()
-                        cur_inc = conn_inc.cursor()
-                        cur_inc.execute("""
-                            DELETE FROM graduated_markets 
-                            WHERE segment_key IN (?, ?, ?) 
-                               OR (league = ? AND scope = ? AND family = ? AND (sub_family = ? OR sub_family IS NULL OR sub_family = ''))
-                        """, (seg_key, canon_k, sub_k, league, scope, meta.get('family', ''), meta.get('sub_family', '')))
-                        d_id = f"demote_{hashlib.sha256(f'{seg_key}:{now_iso}'.encode()).hexdigest()[:16]}"
-                        cur_inc.execute("""
-                            INSERT INTO demoted_markets (
-                                id, segment_key, league, scope, family, sub_family,
-                                demoted_at, rolling_roi, rolling_pnl, games, reason, stats
-                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                            ON CONFLICT(segment_key) DO UPDATE SET
-                                rolling_roi = excluded.rolling_roi,
-                                rolling_pnl = excluded.rolling_pnl,
-                                games = excluded.games,
-                                reason = excluded.reason,
-                                stats = excluded.stats
-                        """, (
-                            d_id, seg_key, league, scope, meta.get('family', ''), meta.get('sub_family', ''),
-                            now_iso, rolling_roi, rolling_pnl, len(recent),
-                            f"Continuous Review: Rolling ROI {rolling_roi*100:.1f}%, PnL ${rolling_pnl:.2f} across {len(recent)} games",
-                            json.dumps({'rolling_roi': rolling_roi, 'rolling_pnl': rolling_pnl, 'games': len(recent), 'is_core': is_core})
-                        ))
-                        conn_inc.commit()
-                        conn_inc.close()
-                    except Exception as e_sql:
-                        log.warning("Could not persist demotion to sqlite: %s", e_sql)
+                        # Atomic DB persistence: delete from graduated_markets and track in demoted_markets
+                        try:
+                            cur_d.execute("""
+                                DELETE FROM graduated_markets 
+                                WHERE segment_key IN (?, ?, ?) 
+                                   OR (league = ? AND scope = ? AND family = ? AND (sub_family = ? OR sub_family IS NULL OR sub_family = ''))
+                            """, (seg_key, canon_k, sub_k, league, scope, meta.get('family', ''), meta.get('sub_family', '')))
+                            d_id = f"demote_{hashlib.sha256(f'{seg_key}:{now_iso}'.encode()).hexdigest()[:16]}"
+                            cur_d.execute("""
+                                INSERT INTO demoted_markets (
+                                    id, segment_key, league, scope, family, sub_family,
+                                    demoted_at, rolling_roi, rolling_pnl, games, reason, stats
+                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                ON CONFLICT(segment_key) DO UPDATE SET
+                                    rolling_roi = excluded.rolling_roi,
+                                    rolling_pnl = excluded.rolling_pnl,
+                                    games = excluded.games,
+                                    reason = excluded.reason,
+                                    stats = excluded.stats
+                            """, (
+                                d_id, seg_key, league, scope, meta.get('family', ''), meta.get('sub_family', ''),
+                                now_iso, rolling_roi, rolling_pnl, len(recent),
+                                f"Continuous Review: Rolling ROI {rolling_roi*100:.1f}%, PnL ${rolling_pnl:.2f} across {len(recent)} games",
+                                json.dumps({'rolling_roi': rolling_roi, 'rolling_pnl': rolling_pnl, 'games': len(recent), 'is_core': is_core})
+                            ))
+                            conn_d.commit()
+                        except Exception as e_sql:
+                            log.warning("Could not persist demotion to sqlite: %s", e_sql)
 
                     if seg_key not in existing_demoted:
                         prev_tier = 'CORE_DOMAIN_MODEL' if is_core else 'GRADUATED_EXPLORATION'
@@ -3415,6 +3410,11 @@ class ShadowMarketIncubator:
                             conn_main.close()
                         except Exception:
                             pass
+        finally:
+            try:
+                conn_d.close()
+            except Exception:
+                pass
 
         if demoted_keys:
             save_graduated_markets(current_graduated, self.data_dir)
