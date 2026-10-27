@@ -155,6 +155,10 @@ class AutonomousROIGovernor:
             min_ev = 0.02
             action = 'Standard unit sizing'
 
+            is_grad_seg = bool(seg_key in grad_markets or f"{league}|{scope}|{market}" in grad_markets)
+            min_cnt_for_defense = 15 if is_grad_seg else 4
+            units_threshold_defense = -8.0 if is_grad_seg else -2.5
+
             # Quarantined lower-tier circuits (Challenger/ITF) never receive betting allocation
             if league in ('CHALLENGER', 'ITF') or 'challenger' in league.lower() or 'challenger' in seg_key.lower():
                 tier = 'TOXIC_QUARANTINE'
@@ -202,10 +206,7 @@ class AutonomousROIGovernor:
             # D. Capital Defense Safeguard on Graduated Markets vs Leaking Segments:
             # Tier 3 Graduated markets with verified Crucible backing require meaningful sample (cnt >= 15, units_pnl <= -8.0)
             # before being downgraded to Capital Defense.
-            is_grad_seg = bool(seg_key in grad_markets or f"{league}|{scope}|{market}" in grad_markets)
-            min_cnt_for_defense = 15 if is_grad_seg else 4
-            units_threshold_defense = -8.0 if is_grad_seg else -2.5
-            if is_grad_seg and units_pnl > units_threshold_defense:
+            elif is_grad_seg and units_pnl > units_threshold_defense:
                 # Retain normal graduated standing without premature defense clamping
                 tier = 'GRADUATED_EXPLORATION'
                 stake_cap = 2.00
