@@ -300,7 +300,8 @@ def load_graduated_markets(data_dir: Path = DATA) -> Dict[str, Dict[str, Any]]:
     db_path = data_dir / 'shadow_incubator.sqlite3'
     if db_path.exists():
         try:
-            conn = sqlite3.connect(str(db_path), timeout=5.0)
+            conn = sqlite3.connect(str(db_path), timeout=30.0)
+            conn.execute("PRAGMA busy_timeout = 30000")
             # Demoted markets filter: ensure no demoted/probationary market lingers in memory or JSON
             demoted_keys = set()
             try:
@@ -370,7 +371,11 @@ def load_demoted_markets(data_dir: Path = DATA) -> Dict[str, Dict[str, Any]]:
     if not db_path.exists():
         return {}
     try:
-        conn = sqlite3.connect(str(db_path), timeout=5.0)
+        try:
+            conn = sqlite3.connect(f"file:{db_path.resolve()}?mode=ro", uri=True, timeout=30.0)
+        except sqlite3.OperationalError:
+            conn = sqlite3.connect(str(db_path), timeout=30.0)
+        conn.execute("PRAGMA busy_timeout = 30000")
         cur = conn.cursor()
         cur.execute("SELECT id, segment_key, league, scope, family, sub_family, demoted_at, rolling_roi, rolling_pnl, games, reason, stats FROM demoted_markets")
         rows = cur.fetchall()
@@ -594,6 +599,7 @@ class ShadowMarketIncubator:
     def _get_connection(self) -> sqlite3.Connection:
         try:
             conn = sqlite3.connect(str(self.db_path), timeout=30.0)
+            conn.execute("PRAGMA busy_timeout = 30000")
             conn.execute("SELECT 1")
             return conn
         except sqlite3.OperationalError:
