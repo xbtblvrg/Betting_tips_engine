@@ -24,6 +24,8 @@ class OddsDampedKellyShrinkageModel(BaseCandidateModel):
         scope: str = "full_game",
         family: str = "spreads",
         damping_strength: float = 0.20,
+        min_odds_hurdle: float = 1.40,
+        calibration_weight: float = 0.0,
         max_score: int = 15,
         metadata: Optional[Dict[str, Any]] = None,
     ):
@@ -34,9 +36,15 @@ class OddsDampedKellyShrinkageModel(BaseCandidateModel):
             scope=scope,
             family=family,
             required_features=['home_rating', 'away_rating'],
-            metadata=metadata or {'damping_strength': damping_strength},
+            metadata=metadata or {
+                'damping_strength': damping_strength,
+                'min_odds_hurdle': min_odds_hurdle,
+                'calibration_weight': calibration_weight,
+            },
         )
-        self.damping_strength = damping_strength
+        self.damping_strength = float(damping_strength)
+        self.min_odds_hurdle = float(min_odds_hurdle)
+        self.calibration_weight = max(0.0, min(0.95, float(calibration_weight)))
         self.max_score = max_score
 
     def predict_distribution(self, game_context: Dict[str, Any]) -> DiscreteDistribution:
@@ -61,21 +69,28 @@ class OddsDampedKellyShrinkageModel(BaseCandidateModel):
         game_context: Dict[str, Any],
         side: Optional[str] = None,
     ) -> Tuple[float, float]:
-        raw_prob, raw_ev = super().evaluate_market(market, selection, line, odds, game_context, side=side)
-
-        # Apply continuous odds-dependent shrinkage:
-        # If odds < 1.70, damp model probability towards implied probability 1/odds
-        # to prevent favorite over-allocation
         eff_odds = max(1.05, float(odds))
         implied_p = 1.0 / eff_odds
 
+        # If odds are below the configured hurdle, reject contract (negative EV)
+        if eff_odds < self.min_odds_hurdle:
+            return round(implied_p, 4), -0.05
+
+        raw_prob, raw_ev = super().evaluate_market(market, selection, line, odds, game_context, side=side)
+
+        # Apply continuous odds-dependent shrinkage:
+        # If odds < 2.00, damp model probability towards implied probability 1/odds
+        # to prevent favorite over-allocation traps
         if eff_odds < 2.0:
-            # Low odds: stronger shrinkage to prevent favorite traps
-            shrink_weight = max(0.0, min(0.8, self.damping_strength * (2.0 - eff_odds)))
+            shrink_weight = max(0.0, min(0.95, self.damping_strength * (2.0 - eff_odds)))
             damped_prob = (1.0 - shrink_weight) * raw_prob + shrink_weight * implied_p
         else:
             # High odds: minimal shrinkage to retain alpha
             damped_prob = raw_prob
+
+        # Apply global calibration shrinkage towards market consensus
+        if self.calibration_weight > 0.0:
+            damped_prob = (1.0 - self.calibration_weight) * damped_prob + self.calibration_weight * implied_p
 
         damped_prob = max(0.01, min(0.99, round(damped_prob, 4)))
         damped_ev = round(damped_prob * eff_odds - 1.0, 4)

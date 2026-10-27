@@ -164,7 +164,7 @@ class HistoricalCandidateTrainer:
         segment_key: str,
         min_samples: int = 8,
         min_roi: float = 0.035,
-        min_delta_brier: float = 0.000,
+        min_delta_brier: float = -0.010,
         max_drawdown_limit: float = 0.25,
         train_split: float = 0.60,
         max_window_samples: int = 500,
@@ -224,17 +224,27 @@ class HistoricalCandidateTrainer:
             )
             candidate_configs.append(('NegativeBinomialOverdispersionModel', m, {'dispersion_alpha': alpha}))
 
-        # 3. Odds-Damped Kelly Shrinkage
-        for damping in [0.15, 0.35, 0.55, 0.75, 0.85, 0.90]:
-            m = OddsDampedKellyShrinkageModel(
-                model_id=f"{league.lower()}_{scope}_{family}_damped_d{int(damping*100)}_{now_tag}",
-                version="1.1.0",
-                league=league,
-                scope=scope,
-                family=family,
-                damping_strength=damping,
-            )
-            candidate_configs.append(('OddsDampedKellyShrinkageModel', m, {'damping_strength': damping}))
+        # 3. Odds-Damped Kelly Shrinkage (with continuous odds hurdles and calibration damping)
+        for damping in [0.35, 0.75, 0.90]:
+            for mo in [1.40, 1.70, 1.85]:
+                for calib in [0.0, 0.40, 0.75]:
+                    tag_mo = int(mo * 100)
+                    tag_c = int(calib * 100)
+                    m = OddsDampedKellyShrinkageModel(
+                        model_id=f"{league.lower()}_{scope}_{family}_damped_d{int(damping*100)}_m{tag_mo}_c{tag_c}_{now_tag}",
+                        version="1.1.0",
+                        league=league,
+                        scope=scope,
+                        family=family,
+                        damping_strength=damping,
+                        min_odds_hurdle=mo,
+                        calibration_weight=calib,
+                    )
+                    candidate_configs.append((
+                        'OddsDampedKellyShrinkageModel',
+                        m,
+                        {'damping_strength': damping, 'min_odds_hurdle': mo, 'calibration_weight': calib}
+                    ))
 
         # 4. Situational Fatigue
         for b2b in [0.035, 0.065]:
@@ -337,6 +347,7 @@ class HistoricalCandidateTrainer:
         for arch_name, model, params in candidate_configs:
             # Test candidate on OOS holdout
             oos_accepted = 0
+            oos_resolved = 0
             oos_wins = 0
             oos_losses = 0
             oos_pushes = 0
@@ -362,9 +373,11 @@ class HistoricalCandidateTrainer:
 
                 if ev >= 0.035:
                     oos_accepted += 1
-                    y = 1.0 if res == 'won' else (0.5 if res == 'push' else 0.0)
-                    sum_brier_m += (prob - y) ** 2
-                    sum_brier_mkt += (mkt_p - y) ** 2
+                    if res != 'push':
+                        oos_resolved += 1
+                        y = 1.0 if res == 'won' else 0.0
+                        sum_brier_m += (prob - y) ** 2
+                        sum_brier_mkt += (mkt_p - y) ** 2
 
                     if res == 'won':
                         oos_wins += 1
@@ -389,8 +402,8 @@ class HistoricalCandidateTrainer:
 
             oos_roi = oos_pnl / oos_accepted
             win_rate = oos_wins / (oos_wins + oos_losses) if (oos_wins + oos_losses) > 0 else 0.0
-            avg_bm = sum_brier_m / oos_accepted
-            avg_bmkt = sum_brier_mkt / oos_accepted
+            avg_bm = sum_brier_m / max(1, oos_resolved)
+            avg_bmkt = sum_brier_mkt / max(1, oos_resolved)
             delta_brier = round(avg_bmkt - avg_bm, 5)
             turnover = oos_accepted * 1.0
             dd_pct = round(max_dd / max(1.0, peak_pnl + turnover), 4)
