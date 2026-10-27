@@ -78,7 +78,7 @@ def tournaments(fetcher):
 
     def fetch(sport):
         refs=[]
-        is_live=type(fetcher).__name__ not in ('Feed','Replay')
+        is_live=type(fetcher).__name__!='Replay' and not hasattr(fetcher,'rows')
         if is_live and sport=='tennis':
             t_rows=[]
             for cat in ('atp','wta','challenger'):

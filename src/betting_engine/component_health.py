@@ -51,7 +51,7 @@ def audit_components(payload,worker,catalog,research,now=None,closing=None):
     def add(component,state,detail):
         if component in PUBLICATION_COMPONENTS:
             if p_state != 'fresh':
-                if state in ('healthy', 'observed', 'no_fixtures'):
+                if state in ('healthy', 'observed', 'no_fixtures', 'stale'):
                     state = 'stale'
                 elif state != 'needs_implementation':
                     state = 'degraded'
