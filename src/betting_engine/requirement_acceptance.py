@@ -116,7 +116,7 @@ def _identity(payload):
 
 
 
-def _lifecycle(values, now):
+def _lifecycle(values, now, outcome_variants=None):
     """Describe original funded lifecycle evidence in issuance order, by game.
 
     Outcomes observed after as_of cannot become historical performance evidence.
@@ -124,13 +124,18 @@ def _lifecycle(values, now):
     operating profit. Missing outcome availability remains missing.
     """
     rows, clusters = [], {}
+    outcome_variants = outcome_variants or {}
     for issued, record, stake in values:
         payload = record['payload']
         outcome = record.get('outcome_evidence')
+        variants = outcome_variants.get(record['tip_id'], {})
+        conflict = len(variants) > 1
         accepted = False
         reason = 'outcome_evidence_missing'
         pnl = None
-        if isinstance(outcome, dict):
+        if conflict:
+            reason = 'conflicting_recorded_outcomes'
+        elif isinstance(outcome, dict):
             try:
                 fetched = _time(outcome.get('fetched_at'))
                 settled = _time(outcome.get('settled_at'))
@@ -150,8 +155,12 @@ def _lifecycle(values, now):
             cluster['observed_settled_decisions'] += 1
             cluster['recorded_pnl_after_stakes'] += pnl
         rows.append({'tip_id': record['tip_id'], 'game_id': game, 'issued_at': record['issued_at'],
-                     'original_payload_sha256': digest(payload), 'recorded_status': record.get('status'),
-                     'outcome_evidence_sha256': digest(outcome) if outcome is not None else None,
+                     'original_payload_sha256': digest(payload),
+                     'recorded_status': None if conflict else record.get('status'),
+                     'outcome_evidence_sha256': digest(outcome) if outcome is not None and not conflict else None,
+                     'conflicting_outcome_variants': [
+                         {'sha256': sha, 'observation': copy.deepcopy(variants[sha])}
+                         for sha in sorted(variants)] if conflict else [],
                      'outcome_state': reason, 'recorded_pnl_after_stakes': float(pnl) if accepted else None})
     for cluster in clusters.values():
         cluster['recorded_pnl_after_stakes'] = (float(cluster['recorded_pnl_after_stakes'])
@@ -188,6 +197,7 @@ def delivery_observations(export, *, as_of, first_day, checkpoint=None):
     identities = defaultdict(set)
     originals = defaultdict(set)
     issuance_times = defaultdict(set)
+    outcome_variants = defaultdict(dict)
     for index, record in enumerate(records):
         try:
             if not isinstance(record, dict):
@@ -215,6 +225,12 @@ def delivery_observations(export, *, as_of, first_day, checkpoint=None):
             if issued > now:
                 excluded['after_as_of'] += 1
                 continue
+            # Duplicate rows cannot choose a favorable outcome by input order.
+            # These are snapshot observations, not an ordered revision ledger;
+            # neither the export time nor a later result authorizes reconciliation.
+            observation = {key: copy.deepcopy(record.get(key))
+                           for key in ('status', 'pnl', 'outcome_evidence')}
+            outcome_variants[tip_id][digest(observation)] = observation
             parsed.append((issued, tip_id, index, identity, record, stake))
         except (ValueError, TypeError, KeyError) as exc:
             issues.append({'record_index': index, 'reason': str(exc)})
@@ -271,7 +287,8 @@ def delivery_observations(export, *, as_of, first_day, checkpoint=None):
             'target': DAILY_TARGET,
             'target_basis': 'Latest explicit minimum20 directive, applied to this observation window; not reconstructed historical policy or changed settings.',
             'complete_export': complete, 'issues': issues, 'excluded': dict(excluded),
-            'active_target': checkpoint_result, 'lifecycle': _lifecycle(unique.values(), now),
+            'active_target': checkpoint_result,
+            'lifecycle': _lifecycle(unique.values(), now, outcome_variants),
             'claim': 'Observed original issuance only; no account verification, future delivery or sustained fulfillment.'}
 
 
