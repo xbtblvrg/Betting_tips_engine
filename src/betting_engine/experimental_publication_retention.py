@@ -103,6 +103,9 @@ def _raw(value):
     raise ValueError('Unsupported publication storage type')
 
 
+MAX_ARCHIVE_PAYLOAD_BYTES = 32 * 1024 * 1024
+
+
 def _seal(publication_id, created_at, storage_type, raw):
     return hashlib.sha256(canonical({
         'publication_id': publication_id, 'created_at': created_at,
@@ -112,9 +115,21 @@ def _seal(publication_id, created_at, storage_type, raw):
 
 
 def _unpack(archive):
+    declared = archive.get('payload_bytes')
+    import sys
+    max_limit = getattr(sys.modules[__name__], 'MAX_ARCHIVE_PAYLOAD_BYTES', 32 * 1024 * 1024)
+    if type(declared) is not int or declared <= 0 or declared > max_limit:
+        raise ValueError('Invalid archive byte bound')
     try:
-        raw = gzip.decompress(archive['payload_gzip'])
-        if (len(raw) != archive['payload_bytes'] or
+        import io
+        with gzip.GzipFile(fileobj=io.BytesIO(archive['payload_gzip']), mode='rb') as gz:
+            raw = gz.read(declared + 1)
+            if len(raw) > declared:
+                raise ValueError('Archive exceeds declared byte bound')
+            extra = gz.read(1)
+            if extra:
+                raise ValueError('Archive exceeds declared byte bound')
+        if (len(raw) != declared or
                 hashlib.sha256(raw).hexdigest() != archive['payload_sha256'] or
                 _seal(archive['publication_id'], archive['created_at'],
                       archive['storage_type'], raw) != archive['record_sha256']):
@@ -125,6 +140,8 @@ def _unpack(archive):
         _publication_document(value)
         timestamp(archive['created_at'])
         return value
+    except ValueError:
+        raise
     except (OSError, EOFError, UnicodeError, KeyError) as error:
         raise ValueError('Unreadable publication archive') from error
 
@@ -269,6 +286,10 @@ def archive_before_prune(connection, *, cutoff, recorded_at, limit=20):
         for publication in eligible:
             pid, created, value = publication['id'], publication['created_at'], publication['payload']
             kind, raw = _raw(value)
+            import sys
+            max_limit = getattr(sys.modules[__name__], 'MAX_ARCHIVE_PAYLOAD_BYTES', 32 * 1024 * 1024)
+            if len(raw) > max_limit:
+                raise ValueError('Publication exceeds archive byte bound')
             seal = _seal(pid, created, kind, raw)
             connection.execute(f'INSERT OR IGNORE INTO {ARCHIVES} VALUES (?,?,?,?,?,?,?,?)',
                                (pid, created, kind, gzip.compress(raw, mtime=0), len(raw),

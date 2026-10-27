@@ -88,7 +88,8 @@ def _stake_contract_rejection(market):
             or isinstance(market.get('id'), (dict, list))):
         return 'invalid_market_identity'
     name_lower = str(market.get('name') or '').lower()
-    if any(p in name_lower for p in PROP_EXCLUSIONS):
+    cleaned = re.sub(r'\(incl\.\s*overtime\s*(?:and|&)\s*penalties\)', '', name_lower).strip()
+    if any(p in cleaned for p in PROP_EXCLUSIONS):
         return 'unsupported_statistical_prop'
     return None
 
@@ -484,6 +485,11 @@ class StakeSportsbook:
         result = []
         seen = set()
         groups_by_market={}
+        from .shadow_market_incubator import load_graduated_markets, get_demoted_segments
+        from .scope_markets import named_scopes
+        graduated = load_graduated_markets(DATA)
+        demoted_segments = get_demoted_segments(DATA)
+        named_scope_mapping = named_scopes(league, game.home, game.away)
         for group in payload.get('groups',[]):
             name=str(group.get('name') or '').strip()
             if not name:continue
@@ -550,9 +556,6 @@ class StakeSportsbook:
                             'Total Sets': 'total_sets',
                             'Set Handicap': 'set_handicap',
                         })
-                    from .shadow_market_incubator import load_graduated_markets, get_demoted_segments
-                    graduated = load_graduated_markets(DATA)
-                    demoted_segments = get_demoted_segments(DATA)
                     for meta in graduated.values():
                         if meta.get('league') == league and meta.get('scope') == 'full_game':
                             m_fam = meta.get('family')
@@ -570,10 +573,13 @@ class StakeSportsbook:
                             for rn in raw_names:
                                 if rn in full_derived or any(p in rn.lower() for p in PROP_EXCLUSIONS):
                                     continue
+                                if rn in named_scope_mapping:
+                                    continue
                                 base = ('exact_total' if 'over-exact-under' in rn.lower() else
                                         'spreads' if 'handicap' in rn.lower() or 'spread' in rn.lower() else
                                         'totals' if 'total' in rn.lower() else
-                                        'moneyline' if 'winner' in rn.lower() or '1x2' in rn.lower() else
+                                        'three_way' if '1x2' in rn.lower() else
+                                        'moneyline' if 'winner' in rn.lower() else
                                         'both_score' if 'both' in rn.lower() else
                                         'double_chance' if 'chance' in rn.lower() else 'moneyline')
                                 full_derived[rn] = base
@@ -586,8 +592,7 @@ class StakeSportsbook:
                         if is_demoted:
                             is_graduated = False
                     else:
-                        from .scope_markets import named_scopes
-                        mapping=named_scopes(league,game.home,game.away)
+                        mapping = dict(named_scope_mapping)
                         if name not in mapping:
                             for meta in graduated.values():
                                 if meta.get('league') == league and meta.get('scope') != 'full_game':
