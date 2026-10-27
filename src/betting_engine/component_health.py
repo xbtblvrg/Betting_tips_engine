@@ -2,13 +2,65 @@
 from copy import deepcopy
 from .domain import utcnow,parse_time
 
+PUBLICATION_COMPONENTS = {
+    'Recommendation publication', 'Independent sports sources', 'EvidenceGuard',
+    'Model forecasts', 'Inning and period models', 'Stake fixture endpoints',
+    'NCAA discovery', 'Market implementation',
+}
+
 def audit_components(payload,worker,catalog,research,now=None,closing=None):
     now=now or utcnow();checks=[]
-    def add(component,state,detail):checks.append(dict(component=component,state=state,detail=detail))
     def age(obj,key):
         try:return (now-parse_time(obj[key])).total_seconds()
         except (KeyError,ValueError,TypeError):return float('inf')
-    fresh=0<=age(payload,'generated_at')<=300
+
+    payload = payload or {}
+    worker = worker or {}
+    catalog = catalog or {}
+    research = research or {}
+
+    stamp = payload.get('generated_at')
+    if stamp is None:
+        p_state = 'missing'
+        p_age = None
+    elif not isinstance(stamp, str) or not stamp.strip():
+        p_state = 'invalid'
+        p_age = None
+    else:
+        try:
+            p_time = parse_time(stamp)
+            p_age = (now - p_time).total_seconds()
+            if p_age < 0:
+                p_state = 'future'
+            elif p_age <= 300:
+                p_state = 'fresh'
+            else:
+                p_state = 'stale'
+        except Exception:
+            p_state = 'invalid'
+            p_age = None
+
+    p_proof = {
+        'timestamp_field': 'generated_at',
+        'observed_at': stamp,
+        'age_seconds': p_age,
+        'maximum_age_seconds': 300,
+        'state': p_state,
+    }
+
+    def add(component,state,detail):
+        if component in PUBLICATION_COMPONENTS:
+            if p_state != 'fresh':
+                if state in ('healthy', 'observed', 'no_fixtures'):
+                    state = 'stale'
+                elif state != 'needs_implementation':
+                    state = 'degraded'
+                detail = f"Publication evidence is {p_state}. {detail}"
+            checks.append(dict(component=component,state=state,detail=detail,publication_freshness=deepcopy(p_proof)))
+        else:
+            checks.append(dict(component=component,state=state,detail=detail))
+
+    fresh = p_state == 'fresh'
     add('Recommendation publication','healthy' if fresh else 'stale','Latest committed publication: '+str(payload.get('generated_at','missing')))
     status=payload.get('status',{});sources=status.get('data_sources',[])
     failures=[s.get('source','unknown') for s in sources if not s.get('ok')]
@@ -56,14 +108,41 @@ def audit_components(payload,worker,catalog,research,now=None,closing=None):
     discovery=[e for e in payload.get('opportunity_inventory',{}).get('issues',[]) if e.get('league')=='NCAA_DISCOVERY']
     add('NCAA discovery','degraded' if discovery else 'healthy' if payload.get('api_audit') else 'missing',
         '; '.join(e.get('detail','Source error') for e in discovery) or 'Enabled sports and USA tournament registry checked.')
-    catalog_ok=0<=age(catalog,'checked_at')<=1800
-    add('Full market catalogue','healthy' if catalog_ok and not catalog.get('issues') else 'degraded',
-        f'{catalog.get("fixtures_fetched",0)}/{catalog.get("discovered_fixtures",0)} fixtures fetched; {catalog.get("complete_endpoint_responses",0)} responses. Last check: {catalog.get("checked_at","missing")}')
-    catalog_issues=catalog.get('issues') or []
-    checks[-1]['issues']=deepcopy(catalog_issues)
+    cat_stamp = catalog.get('checked_at') if isinstance(catalog, dict) else None
+    if cat_stamp is None:
+        cat_state = 'missing'
+    elif not isinstance(cat_stamp, str) or not cat_stamp.strip():
+        cat_state = 'invalid'
+    else:
+        try:
+            cat_time = parse_time(cat_stamp)
+            cat_age = (now - cat_time).total_seconds()
+            if cat_age < 0:
+                cat_state = 'future'
+            elif cat_age <= 1800:
+                cat_state = 'fresh'
+            else:
+                cat_state = 'stale'
+        except Exception:
+            cat_state = 'invalid'
+
+    cat_freshness = {
+        'timestamp_field': 'checked_at',
+        'observed_at': cat_stamp,
+        'maximum_age_seconds': 1800,
+        'state': cat_state,
+    }
+    catalog_issues = catalog.get('issues') or [] if isinstance(catalog, dict) else []
+    cat_detail = f'{catalog.get("fixtures_fetched",0)}/{catalog.get("discovered_fixtures",0)} fixtures fetched; {catalog.get("complete_endpoint_responses",0)} responses. Last check: {catalog.get("checked_at","missing")}'
+    if cat_state != 'fresh':
+        cat_detail = f'Catalogue evidence is {cat_state}. {cat_detail}'
+    cat_state_final = 'healthy' if cat_state == 'fresh' and not catalog_issues else 'degraded'
+    add('Full market catalogue', cat_state_final, cat_detail)
+    checks[-1]['freshness'] = cat_freshness
+    checks[-1]['issues'] = deepcopy(catalog_issues)
     if catalog_issues:
-        reasons=sorted({str(i.get('reason') or i.get('stage') or 'unspecified_catalogue_issue') for i in catalog_issues})
-        checks[-1]['detail']+=' Issues: '+', '.join(reasons)+'.'
+        reasons = sorted({str(i.get('reason') or i.get('stage') or 'unspecified_catalogue_issue') for i in catalog_issues})
+        checks[-1]['detail'] += ' Issues: ' + ', '.join(reasons) + '.'
     limit=7200 if worker.get('counts',{}).get('running') else 300
     add('Learning worker','healthy' if 0<=age(worker,'checked_at')<=limit and not worker.get('error') else 'stale',
         f'{worker.get("counts",{}).get("running",0)} running, {worker.get("counts",{}).get("retry",0)} retrying; {worker.get("error") or "durable job history retained"}')
