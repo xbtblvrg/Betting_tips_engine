@@ -150,11 +150,26 @@ class SupremeSystemAuditor:
             cur = conn.cursor()
 
             # Directive 2: Daily Volume Floor >= 100 picks / Budapest calendar day
-            today_prefix = now.strftime('%Y-%m-%d')
-            cur.execute(
-                "SELECT count(*), min(stake), max(stake), min(odds) FROM bets WHERE substr(created_at, 1, 10) = ? AND status IN ('open', 'won', 'lost', 'push')",
-                (today_prefix,)
-            )
+            try:
+                from zoneinfo import ZoneInfo
+                from datetime import time as dt_time
+                bp_tz = ZoneInfo('Europe/Budapest')
+                now_utc = now if (hasattr(now, 'tzinfo') and now.tzinfo) else now.replace(tzinfo=timezone.utc)
+                now_bp = now_utc.astimezone(bp_tz)
+                today_start_bp = datetime.combine(now_bp.date(), dt_time.min, tzinfo=bp_tz)
+                today_end_bp = datetime.combine(now_bp.date(), dt_time.max, tzinfo=bp_tz)
+                start_utc = today_start_bp.astimezone(timezone.utc).isoformat()
+                end_utc = today_end_bp.astimezone(timezone.utc).isoformat()
+                cur.execute(
+                    "SELECT count(*), min(stake), max(stake), min(odds) FROM bets WHERE created_at >= ? AND created_at <= ? AND status IN ('open', 'won', 'lost', 'push')",
+                    (start_utc, end_utc)
+                )
+            except Exception:
+                today_prefix = now.strftime('%Y-%m-%d')
+                cur.execute(
+                    "SELECT count(*), min(stake), max(stake), min(odds) FROM bets WHERE substr(created_at, 1, 10) = ? AND status IN ('open', 'won', 'lost', 'push')",
+                    (today_prefix,)
+                )
             vol_row = cur.fetchone()
             volume_count = vol_row[0] if vol_row and vol_row[0] is not None else 0
             invariants['directives']['d02_daily_volume'] = {
