@@ -79,10 +79,40 @@ class UnifiedMarketUniverse:
         self.incubator_db_path = self.data_dir / 'shadow_incubator.sqlite3'
         self.engine_db_path = self.data_dir / 'engine.sqlite3'
 
+    @staticmethod
+    def normalize_scope(scope: str) -> str:
+        """Normalizes human or raw scope strings into canonical scope keys."""
+        raw_sc = str(scope or 'full_game').lower().strip()
+        if raw_sc in ('full game', 'full_game', 'teljes mérkőzés', 'match', 'game', 'regulation time', 'regulation') or not raw_sc:
+            return 'full_game'
+        elif '1st half' in raw_sc or 'half 1' in raw_sc or raw_sc == 'half_1':
+            return 'half_1'
+        elif '2nd half' in raw_sc or 'half 2' in raw_sc or raw_sc == 'half_2':
+            return 'half_2'
+        elif '1st quarter' in raw_sc or 'quarter 1' in raw_sc or raw_sc == 'quarter_1':
+            return 'quarter_1'
+        elif '2nd quarter' in raw_sc or 'quarter 2' in raw_sc or raw_sc == 'quarter_2':
+            return 'quarter_2'
+        elif '3rd quarter' in raw_sc or 'quarter 3' in raw_sc or raw_sc == 'quarter_3':
+            return 'quarter_3'
+        elif '4th quarter' in raw_sc or 'quarter 4' in raw_sc or raw_sc == 'quarter_4':
+            return 'quarter_4'
+        elif '1st period' in raw_sc or 'period 1' in raw_sc or raw_sc == 'period_1':
+            return 'period_1'
+        elif '2nd period' in raw_sc or 'period 2' in raw_sc or raw_sc == 'period_2':
+            return 'period_2'
+        elif '3rd period' in raw_sc or 'period 3' in raw_sc or raw_sc == 'period_3':
+            return 'period_3'
+        elif '1st inning' in raw_sc or 'inning 1' in raw_sc or raw_sc == 'inning_1':
+            return 'inning_1'
+        elif 'innings 1 to 5' in raw_sc or 'innings_1_5' in raw_sc:
+            return 'innings_1_5'
+        return raw_sc.replace(' ', '_')
+
     def get_canonical_key(self, league: str, scope: str, family: str) -> str:
         """Normalizes league, scope, and market family into canonical segment key."""
         lg = (league or '').upper().strip()
-        sc = (scope or 'full_game').lower().strip()
+        sc = self.normalize_scope(scope)
         fam = (family or '').lower().strip()
         return f"{lg}|{sc}|{fam}"
 
@@ -196,10 +226,48 @@ class UnifiedMarketUniverse:
         except Exception as exc:
             logger.error("Error reading incubator db for universe roster: %s", exc)
 
-        # 3. Ingest active Baseline Production markets not currently demoted
+        # 3. Ingest active Baseline Production markets with actual settled performance
         if self.engine_db_path.exists():
             try:
                 with sqlite3.connect(f"file:{self.engine_db_path}?mode=ro", uri=True, timeout=2.0) as eng_conn:
+                    # Pre-calculate performance metrics for all markets across settled decisions
+                    perf_map: Dict[str, Dict[str, Any]] = {}
+                    try:
+                        rows_perf = eng_conn.execute("""
+                            SELECT 
+                                json_extract(payload, '$.league'),
+                                COALESCE(json_extract(payload, '$.model_scope'), json_extract(payload, '$.period')),
+                                json_extract(payload, '$.market'),
+                                COUNT(*),
+                                SUM(pnl),
+                                SUM(json_extract(payload, '$.stake'))
+                            FROM system_decisions
+                            WHERE status IN ('won', 'lost', 'push')
+                            GROUP BY 1, 2, 3
+                        """).fetchall()
+                        for lg_r, sc_r, fam_r, cnt_r, pnl_r, stake_r in rows_perf:
+                            if not lg_r or not fam_r:
+                                continue
+                            k = self.get_canonical_key(lg_r, sc_r, fam_r)
+                            pnl_v = float(pnl_r or 0.0)
+                            stk_v = float(stake_r or 1.0)
+                            avg_stk = stk_v / max(1, cnt_r)
+                            units_v = pnl_v / max(0.20, avg_stk)
+                            roi_v = (pnl_v / stk_v) if stk_v > 0 else 0.0
+                            stat = {
+                                'sample_size': int(cnt_r),
+                                'pnl': round(pnl_v, 2),
+                                'staked': round(stk_v, 2),
+                                'roi_pct': round(roi_v * 100.0, 2),
+                                'units': round(units_v, 2)
+                            }
+                            perf_map[k] = stat
+                            if ':' in str(fam_r):
+                                base_k = self.get_canonical_key(lg_r, sc_r, str(fam_r).split(':')[-1])
+                                perf_map.setdefault(base_k, stat)
+                    except Exception as e_perf:
+                        logger.warning("Could not pre-aggregate settled market performance: %s", e_perf)
+
                     dec_rows = eng_conn.execute("""
                         SELECT payload FROM system_decisions
                         ORDER BY issued_at DESC LIMIT 3000
@@ -208,33 +276,8 @@ class UnifiedMarketUniverse:
                     for (p_raw,) in dec_rows:
                         p = json.loads(p_raw)
                         lg = p.get('league', '').upper()
-                        raw_sc = str(p.get('model_scope') or p.get('scope') or p.get('period') or 'full_game').lower().strip()
-                        if raw_sc in ('full game', 'full_game', 'teljes mérkőzés', 'match', 'game') or not raw_sc:
-                            sc = 'full_game'
-                        elif '1st half' in raw_sc or 'half 1' in raw_sc or raw_sc == 'half_1':
-                            sc = 'half_1'
-                        elif '2nd half' in raw_sc or 'half 2' in raw_sc or raw_sc == 'half_2':
-                            sc = 'half_2'
-                        elif '1st quarter' in raw_sc or 'quarter 1' in raw_sc or raw_sc == 'quarter_1':
-                            sc = 'quarter_1'
-                        elif '2nd quarter' in raw_sc or 'quarter 2' in raw_sc or raw_sc == 'quarter_2':
-                            sc = 'quarter_2'
-                        elif '3rd quarter' in raw_sc or 'quarter 3' in raw_sc or raw_sc == 'quarter_3':
-                            sc = 'quarter_3'
-                        elif '4th quarter' in raw_sc or 'quarter 4' in raw_sc or raw_sc == 'quarter_4':
-                            sc = 'quarter_4'
-                        elif '1st period' in raw_sc or 'period 1' in raw_sc or raw_sc == 'period_1':
-                            sc = 'period_1'
-                        elif '2nd period' in raw_sc or 'period 2' in raw_sc or raw_sc == 'period_2':
-                            sc = 'period_2'
-                        elif '3rd period' in raw_sc or 'period 3' in raw_sc or raw_sc == 'period_3':
-                            sc = 'period_3'
-                        elif '1st inning' in raw_sc or 'inning 1' in raw_sc or raw_sc == 'inning_1':
-                            sc = 'inning_1'
-                        elif 'innings 1 to 5' in raw_sc or 'innings_1_5' in raw_sc:
-                            sc = 'innings_1_5'
-                        else:
-                            sc = raw_sc
+                        raw_sc = str(p.get('model_scope') or p.get('scope') or p.get('period') or 'full_game')
+                        sc = self.normalize_scope(raw_sc)
 
                         fam = p.get('market_family') or p.get('market') or ''
                         canon_key = self.get_canonical_key(lg, sc, fam)
@@ -242,23 +285,46 @@ class UnifiedMarketUniverse:
                         canon_base_key = self.get_canonical_key(lg, sc, base_fam)
 
                         if canon_key not in roster and canon_base_key not in roster:
-                            # Active un-demoted production baseline
+                            # Attach real settled performance
+                            stat = perf_map.get(canon_key) or perf_map.get(canon_base_key) or {}
+                            r_pnl = float(stat.get('pnl', 0.0))
+                            r_roi = float(stat.get('roi_pct', 0.0))
+                            n_samples = int(stat.get('sample_size', 10))
+                            r_units = float(stat.get('units', 0.0))
+
+                            # Scale-Invariant Performance Degradation Check (Directives 1, 6 & 7):
+                            # Any market with established negative expectation is classified as RESEARCH_RND ($0.00 stake)
+                            is_degraded = (n_samples >= 4) and (
+                                (r_roi <= -3.0 and r_units <= -2.5) or (r_units <= -4.0 and r_roi < 0.0)
+                            )
+
+                            if is_degraded:
+                                tier_val = int(MarketTier.RESEARCH_RND)
+                                tier_name_val = "RESEARCH_RND"
+                                stake_cap_val = 0.00
+                                phase_val = f"Live drawdown degradation ({r_roi:.1f}% ROI, ${r_pnl:.2f}, {r_units:.1f}u over {n_samples} games) - Quarantined ($0.00)"
+                            else:
+                                tier_val = int(MarketTier.PRODUCTION_GRADUATED)
+                                tier_name_val = "PRODUCTION_GRADUATED"
+                                stake_cap_val = 8.00
+                                phase_val = "Active production baseline trading"
+
                             roster[canon_key] = UnifiedMarketProfile(
                                 segment_key=canon_key,
                                 league=lg,
                                 scope=sc,
                                 family=fam,
                                 sub_family=fam,
-                                tier=int(MarketTier.PRODUCTION_GRADUATED),
-                                tier_name="PRODUCTION_GRADUATED",
-                                stake_cap=8.00,
+                                tier=tier_val,
+                                tier_name=tier_name_val,
+                                stake_cap=stake_cap_val,
                                 active_model_id=p.get('model_version'),
                                 model_archetype="DomainBaselineModel",
-                                rolling_roi_pct=0.0,
-                                rolling_pnl=0.0,
-                                sample_size=10,
+                                rolling_roi_pct=r_roi,
+                                rolling_pnl=r_pnl,
+                                sample_size=n_samples,
                                 delta_brier=0.015,
-                                phase_detail="Active production baseline trading"
+                                phase_detail=phase_val
                             )
             except Exception as exc:
                 logger.error("Error reading engine db for universe roster: %s", exc)
@@ -268,22 +334,42 @@ class UnifiedMarketUniverse:
         return roster
 
     def get_market_tier(self, league: str, scope: str, family: str, sub_family: Optional[str] = None) -> MarketTier:
-        """Returns the current operational tier for any market."""
-        canon = self.get_canonical_key(league, scope, family)
-        sub_k = f"{(league or '').upper()}|{(scope or 'full_game').lower()}|{(family or '').lower()}:{(sub_family or '').lower()}" if (sub_family and sub_family != family) else canon
+        """Returns the current operational tier for any market with multi-alias lookup."""
+        lg = (league or '').upper().strip()
+        sc = self.normalize_scope(scope)
+        fam = (family or '').lower().strip()
+        base_fam = fam.split(':')[-1] if ':' in fam else fam
+        sub_fam = (sub_family or '').lower().strip() if sub_family else ''
+
+        canon = self.get_canonical_key(lg, sc, fam)
+        base_canon = self.get_canonical_key(lg, sc, base_fam)
+
+        candidate_keys = [canon, base_canon]
+        if sub_fam and sub_fam != fam and sub_fam != base_fam:
+            candidate_keys.append(f"{lg}|{sc}|{fam}:{sub_fam}")
+            candidate_keys.append(f"{lg}|{sc}|{base_fam}:{sub_fam}")
+        if sc == 'full_game':
+            candidate_keys.append(f"{lg}|{fam}")
+            candidate_keys.append(f"{lg}|{base_fam}")
+
         roster = self.build_universe_roster()
-        if sub_k in roster:
-            return MarketTier(roster[sub_k].tier)
-        if canon in roster:
-            return MarketTier(roster[canon].tier)
+        for k in candidate_keys:
+            if k in roster:
+                return MarketTier(roster[k].tier)
+
         # Check if explicitly demoted in demoted_markets
         try:
             with sqlite3.connect(f"file:{self.incubator_db_path}?mode=ro", uri=True, timeout=2.0) as inc_conn:
-                row = inc_conn.execute("SELECT incubation_phase FROM demoted_markets WHERE segment_key IN (?, ?)", (sub_k, canon)).fetchone()
+                placeholders = ','.join('?' for _ in candidate_keys)
+                row = inc_conn.execute(
+                    f"SELECT incubation_phase FROM demoted_markets WHERE segment_key IN ({placeholders})",
+                    candidate_keys
+                ).fetchone()
                 if row:
                     return MarketTier.SHADOW_INCUBATOR if row[0] == 'incubating_with_new_model' else MarketTier.RESEARCH_RND
         except Exception:
             pass
+
         # Supported un-demoted production markets default to Tier 3
         return MarketTier.PRODUCTION_GRADUATED
 

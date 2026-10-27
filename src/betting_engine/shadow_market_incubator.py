@@ -1976,8 +1976,8 @@ class ShadowMarketIncubator:
                 conn_eng = sqlite3.connect(str(engine_db), timeout=5.0)
                 cur_eng = conn_eng.cursor()
                 cached_live_rows = [
-                    (json.loads(r[0]) if isinstance(r[0], str) else r[0], r[1])
-                    for r in cur_eng.execute("SELECT payload, pnl FROM system_decisions WHERE status IN ('won', 'lost', 'push') ORDER BY issued_at ASC").fetchall()
+                    (json.loads(r[0]) if isinstance(r[0], str) else r[0], float(r[1] or 0.0), str(r[2] or ''))
+                    for r in cur_eng.execute("SELECT payload, pnl, issued_at FROM system_decisions WHERE status IN ('won', 'lost', 'push') ORDER BY issued_at ASC").fetchall()
                 ]
                 conn_eng.close()
             except Exception:
@@ -2014,22 +2014,23 @@ class ShadowMarketIncubator:
                 demoted_sub = demoted_sub_map.get(canonical_key)
                 if not demoted_sub or demoted_sub == sub_family:
                     demoted_at = demoted_map.get(canonical_key)
+            original_demoted_at = demoted_at
             if demoted_at:
                 is_false_demotion = False
                 if cached_live_rows:
                     meta_check = {'league': league, 'scope': scope, 'family': family, 'sub_family': sub_family, 'segment_key': segment_key}
                     matching_live = [
-                        p for p, pnl in cached_live_rows
+                        p for p, pnl, iss in cached_live_rows
                         if matches_live_decision_to_market(p, meta_check)
                     ]
                     matching_pnl = sum(
-                        pnl for p, pnl in cached_live_rows
+                        pnl for p, pnl, iss in cached_live_rows
                         if matches_live_decision_to_market(p, meta_check)
                     )
                     n_inc = len(records)
                     inc_pnl = sum(r[5] for r in records)
                     matching_staked = sum(
-                        float(p.get('stake', 0.0) or 0.0) for p, _ in cached_live_rows
+                        float(p.get('stake', 0.0) or 0.0) for p, _, _ in cached_live_rows
                         if matches_live_decision_to_market(p, meta_check)
                     )
                     avg_live_stake = (matching_staked / len(matching_live)) if len(matching_live) > 0 else 1.0
@@ -2116,6 +2117,25 @@ class ShadowMarketIncubator:
                 passed = (roi >= 0.030 and delta_brier > 0.001 and n_samples >= n_min_dynamic and max_dd < 0.20)
             else:
                 passed = (roi >= 0.035 and delta_brier > 0.002 and n_samples >= n_min_dynamic and max_dd < 0.15)
+
+            # Constitutional Invariant (Commandments 1, 6 & 7):
+            # A market with negative live settled PnL (>= 5 games) cannot graduate into production.
+            # If the market was previously demoted, only evaluate live decisions strictly AFTER demotion.
+            if passed and cached_live_rows:
+                meta_grad = {'league': league, 'scope': scope, 'family': family, 'sub_family': sub_family, 'segment_key': segment_key}
+                eff_dem_at = demoted_at or original_demoted_at
+                if eff_dem_at:
+                    eval_live = [
+                        (p, pnl) for p, pnl, iss in cached_live_rows
+                        if matches_live_decision_to_market(p, meta_grad) and str(iss) > eff_dem_at
+                    ]
+                else:
+                    eval_live = [
+                        (p, pnl) for p, pnl, iss in cached_live_rows
+                        if matches_live_decision_to_market(p, meta_grad)
+                    ]
+                if len(eval_live) >= 5 and sum(pnl for _, pnl in eval_live) < 0.0:
+                    passed = False
 
             if passed:
                 # GRADUATION APPROVED!
@@ -2246,7 +2266,7 @@ class ShadowMarketIncubator:
                 'league': '', 'family': ''
             })
 
-            for p, pnl in cached_live_rows:
+            for p, pnl, *rest in cached_live_rows:
                 dec_scope = p.get('model_scope') or p.get('scope') or ('full_game' if ':' not in str(p.get('market', '')) else p.get('market', '').split(':')[0])
                 if dec_scope != 'full_game':
                     continue
@@ -2735,8 +2755,8 @@ class ShadowMarketIncubator:
                 conn_eng = sqlite3.connect(str(engine_db), timeout=5.0)
                 cur_eng = conn_eng.cursor()
                 cached_live_rows = [
-                    (json.loads(r[0]) if isinstance(r[0], str) else r[0], r[1])
-                    for r in cur_eng.execute("SELECT payload, pnl FROM system_decisions WHERE status IN ('won', 'lost', 'push') ORDER BY issued_at ASC").fetchall()
+                    (json.loads(r[0]) if isinstance(r[0], str) else r[0], float(r[1] or 0.0), str(r[2] or ''))
+                    for r in cur_eng.execute("SELECT payload, pnl, issued_at FROM system_decisions WHERE status IN ('won', 'lost', 'push') ORDER BY issued_at ASC").fetchall()
                 ]
                 conn_eng.close()
             except Exception:
@@ -2776,17 +2796,17 @@ class ShadowMarketIncubator:
                 if cached_live_rows:
                     meta_check = {'league': league, 'scope': scope, 'family': family, 'sub_family': sub_family, 'segment_key': segment_key}
                     matching_live = [
-                        p for p, pnl in cached_live_rows
+                        p for p, pnl, iss in cached_live_rows
                         if matches_live_decision_to_market(p, meta_check)
                     ]
                     matching_pnl = sum(
-                        pnl for p, pnl in cached_live_rows
+                        pnl for p, pnl, iss in cached_live_rows
                         if matches_live_decision_to_market(p, meta_check)
                     )
                     n_inc = len(records)
                     inc_pnl = sum(r[5] for r in records)
                     matching_staked = sum(
-                        float(p.get('stake', 0.0) or 0.0) for p, _ in cached_live_rows
+                        float(p.get('stake', 0.0) or 0.0) for p, _, _ in cached_live_rows
                         if matches_live_decision_to_market(p, meta_check)
                     )
                     avg_live_stake = (matching_staked / len(matching_live)) if len(matching_live) > 0 else 1.0
@@ -3178,7 +3198,35 @@ class ShadowMarketIncubator:
             from .contracts import allocation_family
             for d in live_decisions:
                 p = d.get('payload', {})
-                dec_scope = p.get('model_scope') or p.get('scope') or ('full_game' if ':' not in str(p.get('market', '')) else p.get('market', '').split(':')[0])
+                raw_scope = str(p.get('model_scope') or p.get('scope') or p.get('period') or 'full_game')
+                dec_scope = raw_scope.lower().strip()
+                if dec_scope in ('full game', 'teljes mérkőzés', 'match', 'game', 'regulation time', 'regulation'):
+                    dec_scope = 'full_game'
+                elif '1st half' in dec_scope or 'half 1' in dec_scope:
+                    dec_scope = 'half_1'
+                elif '2nd half' in dec_scope or 'half 2' in dec_scope:
+                    dec_scope = 'half_2'
+                elif '1st quarter' in dec_scope or 'quarter 1' in dec_scope:
+                    dec_scope = 'quarter_1'
+                elif '2nd quarter' in dec_scope or 'quarter 2' in dec_scope:
+                    dec_scope = 'quarter_2'
+                elif '3rd quarter' in dec_scope or 'quarter 3' in dec_scope:
+                    dec_scope = 'quarter_3'
+                elif '4th quarter' in dec_scope or 'quarter 4' in dec_scope:
+                    dec_scope = 'quarter_4'
+                elif '1st period' in dec_scope or 'period 1' in dec_scope:
+                    dec_scope = 'period_1'
+                elif '2nd period' in dec_scope or 'period 2' in dec_scope:
+                    dec_scope = 'period_2'
+                elif '3rd period' in dec_scope or 'period 3' in dec_scope:
+                    dec_scope = 'period_3'
+                elif '1st inning' in dec_scope or 'inning 1' in dec_scope:
+                    dec_scope = 'inning_1'
+                elif 'innings 1 to 5' in dec_scope:
+                    dec_scope = 'innings_1_5'
+                else:
+                    dec_scope = dec_scope.replace(' ', '_')
+
                 lg = p.get('league')
                 if not lg:
                     continue
@@ -3186,16 +3234,18 @@ class ShadowMarketIncubator:
                 if any(matches_live_decision_to_market(p, g) for g in current_graduated.values()):
                     continue
                 base_fam = allocation_family(p)
-                mkt = str(p.get('market', ''))
+                mkt = str(p.get('market', '')).lower()
                 base_mkt = mkt.split(':')[-1] if ':' in mkt else mkt
                 is_core = (dec_scope == 'full_game')
-                seg_k = f"{lg}|{dec_scope}|{base_mkt}" if not is_core else f"{lg}|full_game|{base_fam}"
+
+                # Add specific market segment
+                seg_k = f"{lg}|{dec_scope}|{base_mkt}"
                 if seg_k not in markets_to_evaluate:
                     markets_to_evaluate[seg_k] = {
                         'league': lg,
                         'scope': dec_scope,
                         'family': base_fam,
-                        'sub_family': base_mkt if not is_core else base_fam,
+                        'sub_family': base_mkt,
                         'segment_key': seg_k,
                         'is_core': is_core
                     }

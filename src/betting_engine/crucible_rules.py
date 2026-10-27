@@ -220,6 +220,17 @@ def evaluate_crucible_candidate(
 
         if not str(candidate.get('id', '')).startswith('test_'):
             try:
+                # Demoted markets quarantine check (Commandments 6 & 7: Strictly quarantined $0.00)
+                try:
+                    from .decisions import _get_demoted_segments
+                    dem_segs = _get_demoted_segments()
+                    matched_dem = ({seg_key, alt_key, alt_key2} & dem_segs)
+                    if matched_dem:
+                        hit_key = next(iter(matched_dem))
+                        return False, f"crucible_filter_gate:demoted_market_quarantine:{hit_key}", None
+                except Exception:
+                    pass
+
                 from .autonomous_roi_governor import get_latest_governor_report
                 gov = get_latest_governor_report(DATA)
                 q_set = set(gov.get('quarantine_list', []))
