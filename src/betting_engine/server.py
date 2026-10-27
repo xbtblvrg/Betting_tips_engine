@@ -248,6 +248,22 @@ def supreme_governor_run():
     res = governor.run_cycle()
     return english_payload(res.to_dict())
 
+@app.get('/api/supreme-system-audit')
+def supreme_system_audit_status():
+    from .supreme_system_auditor import load_supreme_system_audit, SupremeSystemAuditor
+    status = load_supreme_system_audit()
+    if status is None:
+        auditor = SupremeSystemAuditor()
+        status = auditor.run_periodic_audit()
+    return english_payload(status)
+
+@app.post('/api/supreme-system-audit/run')
+def supreme_system_audit_run():
+    from .supreme_system_auditor import SupremeSystemAuditor
+    auditor = SupremeSystemAuditor()
+    res = auditor.run_full_system_audit(include_pytest=True)
+    return english_payload(res)
+
 @app.get('/api/settlement-supervisor')
 def settlement_supervisor_status():
     from .settlement_supervisor import SettlementSupervisor

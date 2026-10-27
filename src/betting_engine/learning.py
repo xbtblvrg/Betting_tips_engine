@@ -263,6 +263,8 @@ class LearningWorker:
 
     def plan_supreme_system_audit(self, now):
         """Plans periodic autonomous system audit and self-healing sweep every 15 minutes."""
+        if not (self.data / 'engine.sqlite3').exists():
+            return None
         with self.store.db() as c:
             active = c.execute("SELECT id FROM learning_jobs WHERE kind='autonomous_system_audit' AND status IN ('queued','running','retry') LIMIT 1").fetchone()
             last = c.execute("SELECT updated_at FROM learning_jobs WHERE kind='autonomous_system_audit' AND status='completed' ORDER BY updated_at DESC LIMIT 1").fetchone()
@@ -796,6 +798,15 @@ class LearningWorker:
                 'alpha_targets': directive.high_conviction_alpha_targets,
                 'directive': directive.to_dict()
             }
+        if job['kind']=='autonomous_system_audit':
+            from .supreme_system_auditor import SupremeSystemAuditor
+            auditor = SupremeSystemAuditor(root=self.data.parent, data_dir=self.data)
+            return auditor.run_full_system_audit(include_pytest=True)
+        if job['kind']=='autonomous_code_healing':
+            payload = json.loads(job['payload']) if isinstance(job['payload'], str) else (job['payload'] or {})
+            from .supreme_system_auditor import SupremeSystemAuditor
+            auditor = SupremeSystemAuditor(root=self.data.parent, data_dir=self.data)
+            return auditor.execute_autonomous_code_healing(payload)
         if job['kind']=='target_evaluation':
 
             from .target_evaluator import run_target_self_evaluation
