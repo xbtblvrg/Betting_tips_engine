@@ -292,22 +292,22 @@ class UnifiedMarketUniverse:
                             n_samples = int(stat.get('sample_size', 10))
                             r_units = float(stat.get('units', 0.0))
 
-                            # Scale-Invariant Performance Degradation Check (Directives 1, 6 & 7):
-                            # Any market with established negative expectation is classified as RESEARCH_RND ($0.00 stake)
-                            is_degraded = (n_samples >= 4) and (
-                                (r_roi <= -3.0 and r_units <= -2.5) or (r_units <= -4.0 and r_roi < 0.0)
-                            )
+                            # Zero Tolerance for Capital Drag (Constitutional Directives 1, 6 & 7):
+                            # Any market with established or nascent negative expectation (PnL < 0.0 or ROI < 0.0)
+                            # is strictly quarantined in RESEARCH_RND ($0.00 stake) so Tier 3 contains ONLY
+                            # and exclusively proven profitable markets.
+                            is_degraded = (n_samples >= 1) and (r_pnl < 0.0 or r_roi < 0.0)
 
                             if is_degraded:
                                 tier_val = int(MarketTier.RESEARCH_RND)
                                 tier_name_val = "RESEARCH_RND"
                                 stake_cap_val = 0.00
-                                phase_val = f"Live drawdown degradation ({r_roi:.1f}% ROI, ${r_pnl:.2f}, {r_units:.1f}u over {n_samples} games) - Quarantined ($0.00)"
+                                phase_val = f"Negative expectation ({r_roi:.1f}% ROI, ${r_pnl:.2f}, {r_units:.1f}u over {n_samples} games) - Quarantined ($0.00)"
                             else:
                                 tier_val = int(MarketTier.PRODUCTION_GRADUATED)
                                 tier_name_val = "PRODUCTION_GRADUATED"
                                 stake_cap_val = 8.00
-                                phase_val = "Active production baseline trading"
+                                phase_val = "Active production proven profitable trading"
 
                             roster[canon_key] = UnifiedMarketProfile(
                                 segment_key=canon_key,
