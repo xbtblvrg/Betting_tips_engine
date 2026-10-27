@@ -300,33 +300,16 @@ def load_graduated_markets(data_dir: Path = DATA) -> Dict[str, Dict[str, Any]]:
     db_path = data_dir / 'shadow_incubator.sqlite3'
     if db_path.exists():
         try:
-            conn = sqlite3.connect(str(db_path), timeout=30.0)
-            conn.execute("PRAGMA busy_timeout = 30000")
+            try:
+                conn = sqlite3.connect(f"file:{db_path.resolve()}?mode=ro", uri=True, timeout=5.0)
+            except sqlite3.OperationalError:
+                conn = sqlite3.connect(str(db_path), timeout=5.0)
+            conn.execute("PRAGMA busy_timeout = 5000")
             # Demoted markets filter: ensure no demoted/probationary market lingers in memory or JSON
             demoted_keys = set()
             try:
                 d_rows = conn.execute("SELECT segment_key FROM demoted_markets").fetchall()
                 demoted_keys = {r[0] for r in d_rows}
-                if demoted_keys:
-                    conn.execute("""
-                        DELETE FROM graduated_markets 
-                        WHERE segment_key IN (SELECT segment_key FROM demoted_markets)
-                           OR id IN (
-                               SELECT g.id FROM graduated_markets g
-                               JOIN demoted_markets d 
-                                 ON g.league = d.league 
-                                AND g.scope = d.scope 
-                                AND (
-                                    g.segment_key = d.segment_key
-                                    OR ((d.sub_family IS NULL OR d.sub_family = '' OR d.sub_family = d.family) AND g.family = d.family)
-                                    OR (
-                                        d.sub_family IS NOT NULL AND d.sub_family != '' AND d.sub_family != d.family
-                                        AND (g.sub_family = d.sub_family OR g.segment_key = d.segment_key)
-                                    )
-                                )
-                           )
-                    """)
-                    conn.commit()
             except Exception:
                 pass
 

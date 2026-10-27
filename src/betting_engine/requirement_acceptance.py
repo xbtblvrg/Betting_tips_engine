@@ -697,8 +697,11 @@ def engineering_observations(root, *, as_of):
     gap_ids = []
     available_gap_ids = []
     for observation in observations:
-        gap = observation['diagnostic'].get('gap')
-        if isinstance(gap, dict) and isinstance(gap.get('id'), str):
+        diagnostic = observation['diagnostic']
+        gap = diagnostic.get('gap')
+        if diagnostic.get('kind') == 'source_bound_production_receipt':
+            gap_ids.append('')
+        elif isinstance(gap, dict) and isinstance(gap.get('id'), str) and gap['id']:
             gap_ids.append(gap['id'])
             if observation['temporal_state'] == 'observed_by_cutoff':
                 available_gap_ids.append(gap['id'])

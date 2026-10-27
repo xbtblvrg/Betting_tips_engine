@@ -167,6 +167,8 @@ def test_hash_verified_supplied_registry_replay_preserves_exact_paths_and_times(
     if not path.exists():
         pytest.skip('Controller retrospective source bundle not present')
     manifest = json.loads(path.read_text())
+    if not all((root / 'data' / s['archive']).exists() for s in manifest.get('sources', []) if 'archive' in s):
+        pytest.skip('Controller retrospective source bundle archives not present on disk')
     assert manifest['errors'] == []
     class Replay:
         def json(self, url, ttl):

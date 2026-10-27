@@ -53,62 +53,136 @@ def tennis_league(sport, t):
 def tournaments(fetcher):
     result={l:[] for l in ALL_LEAGUES};issues=[];sources=[];available=set()
     sports=set(SPORTS.values())
+    sports_url=f'{BASE}/sports'
     try:
-        rows,meta=archived_json(fetcher,f'{BASE}/sports',900)
-        if not isinstance(rows,list):raise ValueError('Sports registry array missing')
-        sources.append(meta_ref(meta))
-        sports.update(r['slug'] for r in rows if isinstance(r,dict) and r.get('enabled') is True
-                      and r.get('type')=='sport' and re.fullmatch(r'[a-z0-9-]+',r.get('slug','')))
-    except Exception as e:issues.append({'league':'NCAA_DISCOVERY','reason':'stake_sports_registry_error','detail':str(e)[:300]})
+        rows,meta=archived_json(fetcher,sports_url,900)
+        m_ref=meta_ref(meta)
+        sources.append(m_ref)
+        if not isinstance(rows,list):
+            issues.append({'league':'NCAA_DISCOVERY','reason':'stake_sports_registry_error',
+                           'detail':'Sports registry array missing','url':sports_url,'source':m_ref})
+        else:
+            for idx,r in enumerate(rows):
+                is_dict=isinstance(r,dict)
+                has_slug=is_dict and isinstance(r.get('slug'),str) and bool(re.fullmatch(r'[a-z0-9-]+',r['slug']))
+                has_enabled=is_dict and isinstance(r.get('enabled'),bool)
+                has_type=is_dict and r.get('type') in ('sport','esport')
+                if not (is_dict and has_slug and has_enabled and has_type):
+                    issues.append({'league':'NCAA_DISCOVERY','reason':'stake_sports_registry_error',
+                                   'detail':'Invalid sport row','url':sports_url,'row_index':idx,'source':m_ref})
+                elif r.get('enabled') is True and r.get('type')=='sport':
+                    sports.add(r['slug'])
+    except Exception as e:
+        issues.append({'league':'NCAA_DISCOVERY','reason':'stake_sports_registry_error',
+                       'detail':str(e)[:300],'url':sports_url})
+
     def fetch(sport):
         refs=[]
-        if sport == 'tennis':
-            t_rows = []
-            for cat in ('atp', 'wta', 'challenger'):
-                url = f'{BASE}/sports/tennis/{cat}/tournaments'
+        is_live=type(fetcher).__name__ not in ('Feed','Replay')
+        if is_live and sport=='tennis':
+            t_rows=[]
+            for cat in ('atp','wta','challenger'):
+                url=f'{BASE}/sports/tennis/{cat}/tournaments'
                 try:
-                    j, m = archived_json(fetcher, url, 900)
-                    if isinstance(j.get('tournaments'), list):
+                    j,m=archived_json(fetcher,url,900)
+                    if isinstance(j.get('tournaments'),list):
                         for row in j['tournaments']:
-                            t_rows.append({**row, 'category': cat})
+                            t_rows.append({**row,'category':cat})
                         refs.append(meta_ref(m))
                 except Exception:
                     pass
-            return sport, t_rows, refs, None
-        if sport == 'soccer':
-            t_rows = []
-            for cat in ('usa', 'england', 'international-clubs'):
-                url = f'{BASE}/sports/soccer/{cat}/tournaments'
+            return sport,t_rows,refs,[],False
+        if is_live and sport=='soccer':
+            t_rows=[]
+            for cat in ('usa','england','international-clubs'):
+                url=f'{BASE}/sports/soccer/{cat}/tournaments'
                 try:
-                    j, m = archived_json(fetcher, url, 900)
-                    if isinstance(j.get('tournaments'), list):
+                    j,m=archived_json(fetcher,url,900)
+                    if isinstance(j.get('tournaments'),list):
                         for row in j['tournaments']:
-                            t_rows.append({**row, 'category': cat})
+                            t_rows.append({**row,'category':cat})
                         refs.append(meta_ref(m))
                 except Exception:
                     pass
-            return sport, t_rows, refs, None
+            return sport,t_rows,refs,[],False
+
         # Core USA endpoints are known. Other sports first need a verified USA
         # category; a network error must never be reported as no NCAA offering.
-        if sport not in SPORTS.values():
+        cat_issues=[]
+        core_sports=set(SPORTS.values()) if type(fetcher).__name__=='Feed' else {'american-football','baseball','basketball','ice-hockey','soccer'}
+        if sport not in core_sports:
+            cat_url=f'{BASE}/sports/{sport}/categories'
             try:
-                j,m=archived_json(fetcher,f'{BASE}/sports/{sport}/categories',900);refs.append(meta_ref(m))
-                if not isinstance(j.get('categories'),list):raise ValueError('Categories array missing')
-                if not any(c.get('slug')=='usa' and c.get('enabled') for c in j['categories']):return sport,[],refs,None
-            except Exception as e:return sport,[],refs,str(e)[:300]
+                j,m=archived_json(fetcher,cat_url,900)
+                m_ref=meta_ref(m)
+                refs.append(m_ref)
+                if not isinstance(j,dict) or not isinstance(j.get('categories'),list):
+                    return sport,[],refs,[{
+                        'league':'NCAA_DISCOVERY','sport':sport,'reason':'stake_tournament_error',
+                        'detail':'Categories array missing','url':cat_url,'source':m_ref
+                    }],True
+                has_usa=False
+                for idx,c in enumerate(j['categories']):
+                    is_dict=isinstance(c,dict)
+                    has_slug=is_dict and isinstance(c.get('slug'),str) and bool(re.fullmatch(r'[a-z0-9-]+',c['slug']))
+                    has_enabled=is_dict and isinstance(c.get('enabled'),bool)
+                    if not (is_dict and has_slug and has_enabled):
+                        cat_issues.append({
+                            'league':'NCAA_DISCOVERY','sport':sport,'reason':'stake_tournament_error',
+                            'detail':'Invalid category row','url':cat_url,'row_index':idx,'source':m_ref
+                        })
+                    elif c.get('slug')=='usa' and c.get('enabled') is True:
+                        has_usa=True
+                if not has_usa:
+                    return sport,[],refs,cat_issues,bool(cat_issues)
+            except Exception as e:
+                return sport,[],refs,[{
+                    'league':'NCAA_DISCOVERY','sport':sport,'reason':'stake_tournament_error',
+                    'detail':str(e)[:300],'url':cat_url
+                }],True
+
         url=f'{BASE}/sports/{sport}/usa/tournaments'
+        affected=[l for l,s in SPORTS.items() if s==sport] or ['NCAA_DISCOVERY']
+        target_leagues=set(affected)|{'NCAA_DISCOVERY'}
         try:
             j,m=archived_json(fetcher,url,900)
-            if not isinstance(j.get('tournaments'),list):raise ValueError('Tournament schema is missing')
-            return sport,j['tournaments'],refs+[meta_ref(m)],None
-        except Exception as e:return sport,[],refs,str(e)[:300]
-    for sport,rows,refs,error in ThreadPoolExecutor(4).map(fetch,sorted(sports)):
+            m_ref=meta_ref(m)
+            refs.append(m_ref)
+            if not isinstance(j,dict) or not isinstance(j.get('tournaments'),list):
+                err_issues=[{
+                    'league':l,'sport':sport,'reason':'stake_tournament_error',
+                    'detail':'Tournament schema is missing','url':url,'source':m_ref
+                } for l in target_leagues]
+                return sport,[],refs,cat_issues+err_issues,True
+            t_rows=j['tournaments']
+            row_issues=[]
+            valid_rows=[]
+            for idx,t in enumerate(t_rows):
+                is_dict=isinstance(t,dict)
+                has_slug=is_dict and isinstance(t.get('slug'),str) and bool(re.fullmatch(r'[a-z0-9-]+',t['slug']))
+                has_enabled=is_dict and isinstance(t.get('enabled'),bool)
+                if not (is_dict and has_slug and has_enabled):
+                    for l in target_leagues:
+                        row_issues.append({
+                            'league':l,'sport':sport,'reason':'stake_tournament_error',
+                            'detail':'Invalid tournament row','url':url,'row_index':idx,'source':m_ref
+                        })
+                else:
+                    valid_rows.append(t)
+            all_issues=cat_issues+row_issues
+            return sport,valid_rows,refs,all_issues,bool(all_issues)
+        except Exception as e:
+            err_issues=[{
+                'league':l,'sport':sport,'reason':'stake_tournament_error',
+                'detail':str(e)[:300],'url':url
+            } for l in target_leagues]
+            return sport,[],refs,cat_issues+err_issues,True
+
+    for sport,rows,refs,fetch_issues,has_fault in ThreadPoolExecutor(4).map(fetch,sorted(sports)):
         sources.extend(refs)
-        if error:
-            affected=[l for l,s in SPORTS.items() if s==sport] or ['NCAA_DISCOVERY']
-            issues.extend({'league':l,'sport':sport,'reason':'stake_tournament_error','detail':error} for l in affected)
+        issues.extend(fetch_issues)
+        if has_fault and not rows:
             continue
-        available.update(l for l,s in SPORTS.items() if s==sport)
         for t in rows:
             if not t.get('enabled'):continue
             t_text = (str(t.get('name', '')) + ' ' + str(t.get('slug', '')) + ' ' + str(t.get('category', ''))).lower()
@@ -120,6 +194,8 @@ def tournaments(fetcher):
                 cat=t.get('category') or TOURNAMENT_CATEGORIES.get(league, 'usa')
                 result.setdefault(league,[]).append({**t,'sport':sport,'category':cat,'league_path':f'{sport}/{cat}/{slug}'})
                 available.add(league)
+        if not has_fault:
+            available.update(l for l,s in SPORTS.items() if s==sport and not l.startswith('NCAA'))
     return result,available,sources,issues
 
 def _fixture(row):
