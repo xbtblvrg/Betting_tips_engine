@@ -1510,8 +1510,18 @@ def stage_betslip_in_safari(
                         periodMatch = true;
                     } else if (pNorm.includes("2nd half") && (mCtx.includes("2nd half") || mCtx.includes("half 2") || mCtx.includes("second half"))) {
                         periodMatch = true;
-                    } else if (pNorm.includes("quarter") && mCtx.includes(pNorm)) {
-                        periodMatch = true;
+                    } else if (pNorm.includes("quarter")) {
+                        if (pNorm.includes("1st") && (mCtx.includes("1st quarter") || (mCtx.includes("quarter") && !mCtx.includes("2nd") && !mCtx.includes("3rd") && !mCtx.includes("4th")))) {
+                            periodMatch = true;
+                        } else if (pNorm.includes("2nd") && (mCtx.includes("2nd quarter") || mCtx.includes("quarter 2"))) {
+                            periodMatch = true;
+                        } else if (pNorm.includes("3rd") && (mCtx.includes("3rd quarter") || mCtx.includes("quarter 3"))) {
+                            periodMatch = true;
+                        } else if (pNorm.includes("4th") && (mCtx.includes("4th quarter") || mCtx.includes("quarter 4"))) {
+                            periodMatch = true;
+                        } else if (mCtx.includes(pNorm)) {
+                            periodMatch = true;
+                        }
                     } else if (pNorm.includes("period") && mCtx.includes(pNorm)) {
                         periodMatch = true;
                     } else if (pNorm.includes("set") && mCtx.includes(pNorm)) {
@@ -1901,6 +1911,7 @@ def stage_betslip_in_safari(
                 let lineNote = "";
                 let marketMissing = false;
                 let matchedLines = [];
+                let candList = [];
                 if (marketName) {{
                     const mLower = marketName.toLowerCase().trim();
                     const sameMarketButtons = buttons.filter(b => {{
@@ -1909,8 +1920,15 @@ def stage_betslip_in_safari(
                         if (ctx === mLower || ctx.includes(mLower)) return true;
                         if (mLower.includes(ctx)) {{
                             if (lastName && !ctx.includes(lastName.toLowerCase())) return false;
-                            if (periodPrefix && !ctx.includes(periodPrefix.toLowerCase())) return false;
-                            const diffWords = mLower.replace(ctx, "").replace(/total|overtime|incl|\(|\)/g, "").split(/\s+/).filter(w => w.length > 2);
+                            if (periodPrefix) {{
+                                const pLow = periodPrefix.toLowerCase();
+                                let pOk = ctx.includes(pLow);
+                                if (!pOk && pLow.includes("1st quarter") && ctx.includes("quarter") && !ctx.includes("2nd") && !ctx.includes("3rd") && !ctx.includes("4th")) {{
+                                    pOk = true;
+                                }}
+                                if (!pOk) return false;
+                            }}
+                            const diffWords = mLower.replace(ctx, "").replace(/total|overtime|incl|\(|\)|1st|2nd|3rd|4th|first|second|half|quarter/g, "").split(/\s+/).filter(w => w.length > 2);
                             if (diffWords.length > 0 && !diffWords.some(w => ctx.includes(w))) return false;
                             return true;
                         }}
@@ -2252,6 +2270,10 @@ def stage_betslip_in_safari(
                     const periodOk = cardText.includes(pLow) ||
                         (pLow.includes("1st half") && (cardText.includes("1st half") || cardText.includes("half 1") || cardText.includes("first half") || cardText.includes("1. félidő"))) ||
                         (pLow.includes("2nd half") && (cardText.includes("2nd half") || cardText.includes("half 2") || cardText.includes("second half") || cardText.includes("2. félidő"))) ||
+                        (pLow.includes("1st quarter") && (cardText.includes("1st quarter") || (cardText.includes("quarter") && !cardText.includes("2nd") && !cardText.includes("3rd") && !cardText.includes("4th")))) ||
+                        (pLow.includes("2nd quarter") && cardText.includes("2nd quarter")) ||
+                        (pLow.includes("3rd quarter") && cardText.includes("3rd quarter")) ||
+                        (pLow.includes("4th quarter") && cardText.includes("4th quarter")) ||
                         (pLow.includes("quarter") && cardText.includes("quarter")) ||
                         (pLow.includes("period") && cardText.includes("period")) ||
                         (pLow.includes("set") && cardText.includes("set")) ||

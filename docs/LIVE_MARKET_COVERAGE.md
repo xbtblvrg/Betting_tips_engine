@@ -1,6 +1,6 @@
 # Live Stake market coverage
 
-Checked: 2026-10-28T14:52:59.004806+00:00
+Checked: 2026-10-28T15:14:35.468469+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
@@ -9,7 +9,7 @@ Observed feed titles; not proof of complete Stake website coverage. Funding supp
 | NFL | 80 | 9 | 41 | 0 | 41 | 18 | 10 | 2 | 7 |
 | NHL | 61 | 15 | 46 | 0 | 46 | 19 | 14 | 5 | 24 |
 | MLB | 39 | 15 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| NBA | 189 | 36 | 153 | 0 | 153 | 95 | 92 | 7 | 251 |
+| NBA | 189 | 36 | 153 | 0 | 153 | 95 | 92 | 8 | 253 |
 | WNBA | 47 | 0 | 47 | 0 | 47 | 7 | 5 | 0 | 4 |
 
 Current stages require outcome-level evidence; original issuance, settlement and feedback are explicitly historical. 10/10 records observed execution, not proven profitability or automatic model promotion.
@@ -143,7 +143,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | Any team to win both halves | standard | regulation | offered_now | 0/10 | not_observed 0/24 | not_observed 0/24 | not_observed 0/24 | not_observed 0/24 | not_observed 0/24 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Atlanta Hawks Total (Incl. Overtime) | standard | full_game | offered_now | 7/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | partial 2/5 | not_observed 0/0 | awaiting_measurement 0/1 | 5 |
 | NBA | Atlanta Hawks Total Maximum Consecutive Points | standard | regulation | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NBA | Charlotte Hornets Total (Incl. Overtime) | standard | full_game | offered_now | 7/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | not_observed 0/1 | not_observed 0/0 | awaiting_measurement 0/1 | 1 |
+| NBA | Charlotte Hornets Total (Incl. Overtime) | standard | full_game | offered_now | 7/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | partial 1/2 | not_observed 0/0 | awaiting_measurement 0/1 | 2 |
 | NBA | Charlotte Hornets Total Maximum Consecutive Points | standard | regulation | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Chicago Bulls Total (Incl. Overtime) | standard | full_game | offered_now | 7/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | partial 3/5 | not_observed 0/0 | awaiting_measurement 0/1 | 5 |
 | NBA | Chicago Bulls Total Maximum Consecutive Points | standard | regulation | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
@@ -158,7 +158,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | Golden State Warriors Total (Incl. Overtime) | standard | full_game | offered_now | 8/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 2/2 | not_observed 0/0 | awaiting_measurement 0/1 | 2 |
 | NBA | Golden State Warriors Total Maximum Consecutive Points | standard | regulation | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Halftime/Fulltime | standard | regulation | offered_now | 0/10 | not_observed 0/108 | not_observed 0/108 | not_observed 0/108 | not_observed 0/108 | not_observed 0/108 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NBA | Handicap (Incl. Overtime) | standard | full_game | offered_now | 7/10 | verified 168/168 | verified 168/168 | verified 168/168 | verified 168/168 | verified 168/168 | verified 168/168 | verified 168/168 | partial 18/30 | not_observed 0/0 | awaiting_measurement 0/1 | 30 |
+| NBA | Handicap (Incl. Overtime) | standard | full_game | offered_now | 7/10 | verified 168/168 | verified 168/168 | verified 168/168 | verified 168/168 | verified 168/168 | verified 168/168 | verified 168/168 | partial 19/31 | not_observed 0/0 | awaiting_measurement 0/1 | 31 |
 | NBA | Handicap (including OT) & Total (including OT) | standard | regulation | offered_now | 0/10 | not_observed 0/48 | not_observed 0/48 | not_observed 0/48 | not_observed 0/48 | not_observed 0/48 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Highest Scoring Quarter | standard | regulation | offered_now | 0/10 | not_observed 0/60 | not_observed 0/60 | not_observed 0/60 | not_observed 0/60 | not_observed 0/60 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Highest scoring quarter - total | standard | regulation | offered_now | 0/10 | not_observed 0/24 | not_observed 0/24 | not_observed 0/24 | not_observed 0/24 | not_observed 0/24 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
