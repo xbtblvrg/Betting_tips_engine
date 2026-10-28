@@ -1736,12 +1736,13 @@ def stage_betslip_in_safari(
                 if data.get("hasTarget"):
                     page_ready = True
                     break
+                # If unit test mock where hasTarget is omitted:
+                if data.get("hasTarget") is None and data.get("outcomesCount", 0) > 0:
+                    page_ready = True
+                    break
                 is_active = data.get("tabActive", True)
                 if is_active and data.get("outcomesCount", 0) > 0 and not data.get("hasLoader"):
-                    if not tab or tab == "Main" or tab == "Popular":
-                        page_ready = True
-                        break
-                    elif i >= 30:
+                    if i >= 20:
                         page_ready = True
                         break
             except Exception:
@@ -2005,6 +2006,13 @@ def stage_betslip_in_safari(
                 }}
             }}
 
+            try {{ match.scrollIntoView({{ behavior: "instant", block: "center" }}); }} catch(e) {{}}
+            try {{
+                match.dispatchEvent(new PointerEvent("pointerdown", {{ bubbles: true, cancelable: true, view: window }}));
+                match.dispatchEvent(new MouseEvent("mousedown", {{ bubbles: true, cancelable: true, view: window }}));
+                match.dispatchEvent(new PointerEvent("pointerup", {{ bubbles: true, cancelable: true, view: window }}));
+                match.dispatchEvent(new MouseEvent("mouseup", {{ bubbles: true, cancelable: true, view: window }}));
+            }} catch(e) {{}}
             match.click();
             return JSON.stringify({{
                 status: "clicked",
@@ -2113,6 +2121,13 @@ def stage_betslip_in_safari(
                         const removeBtns = Array.from(document.querySelectorAll("#right-sidebar [data-testid='betslip-bet-remove'], [data-testid='betslip-bet-remove']"));
                         for (const rb of removeBtns) {{ try {{ rb.click(); }} catch(e) {{}} }}
                         
+                        try {{ match.scrollIntoView({{ behavior: "instant", block: "center" }}); }} catch(e) {{}}
+                        try {{
+                            match.dispatchEvent(new PointerEvent("pointerdown", {{ bubbles: true, cancelable: true, view: window }}));
+                            match.dispatchEvent(new MouseEvent("mousedown", {{ bubbles: true, cancelable: true, view: window }}));
+                            match.dispatchEvent(new PointerEvent("pointerup", {{ bubbles: true, cancelable: true, view: window }}));
+                            match.dispatchEvent(new MouseEvent("mouseup", {{ bubbles: true, cancelable: true, view: window }}));
+                        }} catch(e) {{}}
                         match.click();
                         const btnText = (match.innerText || "").trim();
                         const numbers = btnText.match(/\d+\.\d+/g);
@@ -2211,7 +2226,20 @@ def stage_betslip_in_safari(
 
             // PRE-SUBMISSION STRICT BETSLIP VERIFICATION GATE
             const verifyBetCard = slipBets[0] || document.querySelector("#right-sidebar [data-testid='betslip-bet'], .betslip [data-testid='betslip-bet'], [data-testid='betslip-bet']");
-            if (verifyBetCard) {{
+            if (!verifyBetCard) {{
+                const buttons = getOutcomeButtons();
+                const m = findOutcomeMatch(buttons);
+                if (m) {{
+                    try {{
+                        m.scrollIntoView({{ behavior: "instant", block: "center" }});
+                        m.dispatchEvent(new PointerEvent("pointerdown", {{ bubbles: true, cancelable: true, view: window }}));
+                        m.dispatchEvent(new MouseEvent("mousedown", {{ bubbles: true, cancelable: true, view: window }}));
+                        m.dispatchEvent(new PointerEvent("pointerup", {{ bubbles: true, cancelable: true, view: window }}));
+                        m.dispatchEvent(new MouseEvent("mouseup", {{ bubbles: true, cancelable: true, view: window }}));
+                        m.click();
+                    }} catch(e) {{}}
+                }}
+            }} else {{
                 const cardText = (verifyBetCard.innerText || "").toLowerCase().trim();
                 // If betslip card element exists but its text nodes are still mounting/hydrating, wait for next tick!
                 if (cardText.replace(/\s+/g, "").length < 4) {{

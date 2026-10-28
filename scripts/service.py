@@ -22,8 +22,11 @@ if action=='install':
     if network_path.exists():
         network=json.loads(network_path.read_text())
         config['EnvironmentVariables']['BETTING_ALLOWED_HOSTS']=','.join(network.get('allowed_hosts',[]))
-    PLIST.write_bytes(plistlib.dumps(config));subprocess.run(['launchctl','bootout',DOMAIN,str(PLIST)],capture_output=True)
-    subprocess.run(['launchctl','bootstrap',DOMAIN,str(PLIST)],check=True)
+    PLIST.write_bytes(plistlib.dumps(config))
+    r = subprocess.run(['launchctl','kickstart','-k',f'{DOMAIN}/{LABEL}'],capture_output=True)
+    if r.returncode != 0:
+        subprocess.run(['launchctl','bootout',DOMAIN,str(PLIST)],capture_output=True)
+        subprocess.run(['launchctl','bootstrap',DOMAIN,str(PLIST)],check=True)
     print('Telepítve és elindítva: http://127.0.0.1:8765')
 elif action=='stop':
     subprocess.run(['launchctl','bootout',DOMAIN,str(PLIST)],check=True);print('Leállítva. Az adatok megmaradtak.')
