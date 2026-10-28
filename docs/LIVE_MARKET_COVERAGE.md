@@ -1,6 +1,6 @@
 # Live Stake market coverage
 
-Checked: 2026-10-28T09:21:30.632722+00:00
+Checked: 2026-10-28T09:39:50.219985+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
@@ -9,7 +9,7 @@ Observed feed titles; not proof of complete Stake website coverage. Funding supp
 | NFL | 80 | 9 | 41 | 0 | 41 | 18 | 10 | 2 | 7 |
 | NHL | 61 | 15 | 46 | 0 | 46 | 19 | 15 | 4 | 22 |
 | MLB | 39 | 15 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| NBA | 173 | 36 | 137 | 0 | 137 | 83 | 80 | 50 | 230 |
+| NBA | 173 | 36 | 137 | 0 | 137 | 83 | 80 | 50 | 233 |
 | WNBA | 47 | 0 | 47 | 0 | 47 | 7 | 5 | 0 | 4 |
 
 Current stages require outcome-level evidence; original issuance, settlement and feedback are explicitly historical. 10/10 records observed execution, not proven profitability or automatic model promotion.
@@ -148,7 +148,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | Detroit Pistons Total (Incl. Overtime) | standard | full_game | offered_now | 8/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 1/1 | not_observed 0/0 | awaiting_measurement 0/1 | 1 |
 | NBA | Detroit Pistons Total Maximum Consecutive Points | standard | regulation | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Halftime/Fulltime | standard | regulation | offered_now | 0/10 | not_observed 0/90 | not_observed 0/90 | not_observed 0/90 | not_observed 0/90 | not_observed 0/90 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NBA | Handicap (Incl. Overtime) | standard | full_game | offered_now | 7/10 | verified 156/156 | verified 156/156 | verified 156/156 | verified 156/156 | verified 156/156 | verified 156/156 | verified 156/156 | partial 15/27 | not_observed 0/0 | awaiting_measurement 0/1 | 27 |
+| NBA | Handicap (Incl. Overtime) | standard | full_game | offered_now | 7/10 | verified 168/168 | verified 168/168 | verified 168/168 | verified 168/168 | verified 168/168 | verified 168/168 | verified 168/168 | partial 18/30 | not_observed 0/0 | awaiting_measurement 0/1 | 30 |
 | NBA | Handicap (including OT) & Total (including OT) | standard | regulation | offered_now | 0/10 | not_observed 0/40 | not_observed 0/40 | not_observed 0/40 | not_observed 0/40 | not_observed 0/40 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Highest Scoring Quarter | standard | regulation | offered_now | 0/10 | not_observed 0/50 | not_observed 0/50 | not_observed 0/50 | not_observed 0/50 | not_observed 0/50 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Highest scoring quarter - total | standard | regulation | offered_now | 0/10 | not_observed 0/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
@@ -182,7 +182,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | Team to win all quarters | standard | regulation | offered_now | 0/10 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Toronto Raptors Total (Incl. Overtime) | standard | full_game | offered_now | 7/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | not_observed 0/1 | not_observed 0/0 | awaiting_measurement 0/1 | 1 |
 | NBA | Toronto Raptors Total Maximum Consecutive Points | standard | regulation | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NBA | Total (Incl. Overtime) | standard | full_game | offered_now | 3/10 | partial 141/156 | verified 156/156 | partial 141/156 | partial 141/156 | partial 141/156 | verified 141/141 | verified 141/141 | partial 27/39 | not_observed 0/0 | awaiting_measurement 0/1 | 39 |
+| NBA | Total (Incl. Overtime) | standard | full_game | offered_now | 3/10 | partial 147/168 | verified 168/168 | partial 147/168 | partial 147/168 | partial 147/168 | verified 147/147 | verified 147/147 | partial 27/39 | not_observed 0/0 | awaiting_measurement 0/1 | 39 |
 | NBA | Total (Over-Exact-Under) | standard | regulation | offered_now | 0/10 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Utah Jazz Total (Incl. Overtime) | standard | full_game | offered_now | 7/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | not_observed 0/1 | not_observed 0/0 | awaiting_measurement 0/1 | 1 |
 | NBA | Utah Jazz Total Maximum Consecutive Points | standard | regulation | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
