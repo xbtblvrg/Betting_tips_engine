@@ -263,17 +263,16 @@ class SupremeAutonomousGovernor:
                         pass
 
                 last_err = str(tinfo.get('last_error') or '')
-                # Known transient / controller errors that have been resolved:
-                can_unblock = is_future or (
+                # Known transient controller errors that have been resolved and can be safely unblocked
+                # when backed off into the future:
+                is_transient = (
                     'Declared validation sources unavailable' in last_err
                     or 'Only ordered verified GPT routes' in last_err
                     or 'Antigravity capacity is in use' in last_err
                     or 'No such file or directory: \'.workspace-copy-' in last_err
-                    or 'Development step exceeded its execution time limit' in last_err
                     or 'Expecting value: line 1 column 1' in last_err
-                    or 'Missing or oversized runtime evidence' in last_err
-                    or 'Task remains incomplete' in last_err
                 )
+                can_unblock = is_future and is_transient
 
                 if can_unblock:
                     tinfo['next_attempt_at'] = now_iso
