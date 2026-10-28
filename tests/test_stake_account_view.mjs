@@ -32,6 +32,52 @@ async function bootStakeAccount(t, dashboardData = null, initialStorage = null) 
     if (options?.method && options.method !== 'GET') {
       writes.push({path, options});
     }
+    if (path.startsWith('/api/autorun/logs')) {
+      return {
+        ok: true,
+        json: async () => ({
+          status: 'ok',
+          total: 1,
+          logs: [
+            {
+              cycle_id: 'cycle_123',
+              stage: 'STAGE_COMPLETE',
+              severity: 'INFO',
+              target_selection: 'Lakers ML',
+              status_message: 'Placed bet successfully',
+              created_at: '2026-10-28T12:00:00Z',
+              details: { placed: true }
+            }
+          ],
+          events: [
+            {
+              cycle_id: 'cycle_123',
+              stage: 'STAGE_COMPLETE',
+              severity: 'INFO',
+              target_selection: 'Lakers ML',
+              status_message: 'Placed bet successfully',
+              created_at: '2026-10-28T12:00:00Z',
+              details: { placed: true }
+            }
+          ]
+        })
+      };
+    }
+    if (path.startsWith('/api/autorun/diagnostics')) {
+      return {
+        ok: true,
+        json: async () => ({
+          status: 'ok',
+          total_events: 10,
+          total_cycles: 2,
+          placed_count: 8,
+          error_count: 2,
+          remediation_recommendations: [
+            { error_code: 'LINE_DRIFT_NO_EV', occurrence_count: 2, recommendation: 'Bookmaker shifted line' }
+          ]
+        })
+      };
+    }
     if (path.startsWith('/api/autorun')) {
       return {
         ok: true,
@@ -1456,6 +1502,47 @@ test('Auto-Run remote telemetry strip displays live runner status and window cou
   const stakeVal = doc.getElementById('auto-run-stake-val');
   assert.ok(stakeVal);
   assert.strictEqual(stakeVal.textContent, '174 / 300');
+});
+
+test('Auto-Runner diagnostic logs dialog opens, renders telemetry table, and closes', async t => {
+  const {w} = await bootStakeAccount(t);
+  const doc = w.document;
+  const logsBtn = doc.getElementById('auto-bet-logs-btn');
+  assert.ok(logsBtn, 'auto-bet-logs-btn must exist in DOM');
+
+  const dialog = doc.getElementById('autorun-logs-dialog');
+  assert.ok(dialog, 'autorun-logs-dialog must exist in DOM');
+  assert.strictEqual(dialog.open, false);
+
+  // Click logs button
+  logsBtn.click();
+  await new Promise(r => setTimeout(r, 60));
+
+  assert.strictEqual(dialog.open, true);
+
+  // Check KPI bar rendered
+  const kpiBar = doc.getElementById('autorun-kpi-bar');
+  assert.ok(kpiBar);
+  assert.match(kpiBar.textContent, /Megkötve/);
+  assert.match(kpiBar.textContent, /8 db/);
+
+  // Check AI Remediation box rendered
+  const remBox = doc.getElementById('autorun-remediation-box');
+  assert.ok(remBox);
+  assert.match(remBox.textContent, /AI Hibadiagnosztika/);
+  assert.match(remBox.textContent, /LINE_DRIFT_NO_EV/);
+
+  // Check Logs Table rendered
+  const tbody = doc.getElementById('autorun-logs-tbody');
+  assert.ok(tbody);
+  assert.match(tbody.textContent, /Lakers ML/);
+  assert.match(tbody.textContent, /SIKER/);
+
+  // Close dialog via close button
+  const closeBtn = doc.getElementById('autorun-logs-close-btn');
+  assert.ok(closeBtn);
+  closeBtn.click();
+  assert.strictEqual(dialog.open, false);
 });
 
 

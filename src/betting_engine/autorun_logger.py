@@ -43,6 +43,22 @@ class AutoRunErrorCode:
     UNKNOWN_ERROR = "UNKNOWN_ERROR"
 
 
+ERROR_CODE_REMEDIATION: Dict[str, str] = {
+    AutoRunErrorCode.MARKET_NOT_FOUND: "Verify Stake accordion naming and tabs. Expand market groups or verify fixture URL.",
+    AutoRunErrorCode.MARKET_SUSPENDED: "Market is temporarily suspended by bookmaker. Skip and re-evaluate on next scan.",
+    AutoRunErrorCode.OUTCOME_NOT_FOUND: "Target outcome name was not matched among buttons in market section. Review entity matching.",
+    AutoRunErrorCode.LINE_DRIFT_NO_EV: "Bookmaker shifted line beyond positive mathematical expectation (+3.0% hurdle). No action needed unless fresh odds yield +EV.",
+    AutoRunErrorCode.BETSLIP_VERIFICATION_FAILED: "Betslip content did not match target selection or line. Review matchesLine logic or entity naming.",
+    AutoRunErrorCode.INPUT_FIELD_MISSING: "Stake betslip input field not found or interactive. Verify DOM state or active wager count.",
+    AutoRunErrorCode.STAKE_LIMIT_300: "Stake active wager capacity reached (300/300). System must pause execution until settled games clear.",
+    AutoRunErrorCode.LOGIN_REQUIRED: "Stake session expired or logged out. User must authenticate in Safari.",
+    AutoRunErrorCode.NETWORK_DISCONNECTED: "Stake reported network disconnected. Re-attempt with exponential backoff.",
+    AutoRunErrorCode.PAGE_LOAD_TIMEOUT: "Safari page load timed out. Check network or Stake responsiveness.",
+    AutoRunErrorCode.STAKE_REJECTED: "Stake rejected wager submission (e.g. odds changed or limits exceeded).",
+    AutoRunErrorCode.UNKNOWN_ERROR: "Inspect detailed error logs and stack trace in autorun.jsonl.",
+}
+
+
 def _get_db_path(store: Any = None) -> Path:
     if store and hasattr(store, "path") and store.path:
         return Path(store.path)
@@ -124,18 +140,10 @@ def log_autorun_event(
 
     # Generate smart AI remediation hint if error_code is provided without hint
     if error_code and not ai_remediation_hint:
-        if error_code == AutoRunErrorCode.MARKET_NOT_FOUND:
+        if error_code == AutoRunErrorCode.MARKET_NOT_FOUND and (market_name or market):
             ai_remediation_hint = f"Verify Stake accordion naming for market '{market_name or market}'. Check if league '{league}' has custom accordion names."
-        elif error_code == AutoRunErrorCode.LINE_DRIFT_NO_EV:
-            ai_remediation_hint = "Bookmaker shifted line beyond positive mathematical expectation (+3.0% hurdle). No action needed unless model forecast can be refreshed."
-        elif error_code == AutoRunErrorCode.BETSLIP_VERIFICATION_FAILED:
-            ai_remediation_hint = "Betslip content did not match target selection or line. Review matchesLine logic or entity naming."
-        elif error_code == AutoRunErrorCode.STAKE_LIMIT_300:
-            ai_remediation_hint = "Stake active wager capacity reached (300/300). System must pause execution until settled games clear."
-        elif error_code == AutoRunErrorCode.LOGIN_REQUIRED:
-            ai_remediation_hint = "Stake session expired or logged out. User must authenticate in Safari."
-        elif error_code == AutoRunErrorCode.NETWORK_DISCONNECTED:
-            ai_remediation_hint = "Stake reported network disconnected. Re-attempt with exponential backoff."
+        else:
+            ai_remediation_hint = ERROR_CODE_REMEDIATION.get(error_code, "Review event details in autorun.jsonl")
 
     event_record = {
         "logged_at": logged_at_iso,
@@ -330,18 +338,32 @@ def get_autorun_diagnostics(hours: float = 24.0, store: Any = None) -> Dict[str,
             log.debug(f"Error computing autorun diagnostics: {e}")
 
     # Build top issues list sorted by occurrence
+    remediation_recommendations = []
     for err_code, count in sorted(error_counts.items(), key=lambda x: x[1], reverse=True):
         top_issues.append({"error_code": err_code, "count": count})
+        hint = ERROR_CODE_REMEDIATION.get(err_code, "Review event details in autorun.jsonl")
+        remediation_recommendations.append({
+            "error_code": err_code,
+            "occurrence_count": count,
+            "recommendation": hint,
+        })
+
+    error_count = sum(error_counts.values())
 
     return {
+        "status": "ok",
         "timeframe_hours": hours,
         "total_events": total_events,
+        "total_cycles": len(total_cycles),
         "total_cycles_run": len(total_cycles),
         "total_placed": total_placed,
+        "placed_count": total_placed,
         "total_adapted": total_adapted,
         "total_skipped": total_skipped,
+        "error_count": error_count,
         "error_counts": error_counts,
         "top_issues": top_issues,
         "actionable_recommendations": actionable_recommendations[:10],
+        "remediation_recommendations": remediation_recommendations[:10],
         "log_file": str(JSONL_LOG_PATH),
     }

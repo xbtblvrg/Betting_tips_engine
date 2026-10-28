@@ -82,3 +82,53 @@ def test_autorun_logger_event_creation_and_query():
         assert diag["total_skipped"] == 1
         assert diag["error_counts"].get(AutoRunErrorCode.LINE_DRIFT_NO_EV) == 1
         assert len(diag["actionable_recommendations"]) >= 1
+
+
+def test_autorun_api_endpoints():
+    from fastapi.testclient import TestClient
+    from src.betting_engine.server import app
+
+    client = TestClient(app)
+
+    # 1. Log an event via API
+    resp = client.post(
+        "/api/autorun/log",
+        json={
+            "cycle_id": "test_api_cycle_42",
+            "stage": "STAGE_START",
+            "severity": "INFO",
+            "tip_id": "tip_api_123",
+            "selection": "Los Angeles Lakers ML",
+            "line": 0.0,
+            "odds": 1.95,
+            "stake": 2.50,
+            "market": "moneyline",
+            "market_name": "Winner (Incl. Overtime)",
+            "league": "NBA",
+            "status": "in_progress",
+            "message": "Initiating stage for Lakers ML",
+            "run_type": "api_test",
+        },
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "ok"
+    assert data["event"]["cycle_id"] == "test_api_cycle_42"
+
+    # 2. Query logs via API
+    resp_logs = client.get("/api/autorun/logs?cycle_id=test_api_cycle_42")
+    assert resp_logs.status_code == 200
+    logs_data = resp_logs.json()
+    assert logs_data["status"] == "ok"
+    events = logs_data["events"]
+    assert len(events) >= 1
+    assert any(e["cycle_id"] == "test_api_cycle_42" for e in events)
+
+    # 3. Query diagnostics via API
+    resp_diag = client.get("/api/autorun/diagnostics?hours=1")
+    assert resp_diag.status_code == 200
+    diag_data = resp_diag.json()
+    assert diag_data["status"] == "ok"
+    assert "total_events" in diag_data
+    assert "remediation_recommendations" in diag_data
+

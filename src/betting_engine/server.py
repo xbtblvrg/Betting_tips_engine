@@ -802,14 +802,15 @@ def autorun_log_endpoint(data: AutoRunLogEventRequest):
 def autorun_logs_endpoint(limit: int = 100, cycle_id: Optional[str] = None, severity: Optional[str] = None, tip_id: Optional[str] = None):
     from .autorun_logger import get_autorun_logs
     records = get_autorun_logs(limit=limit, cycle_id=cycle_id, severity=severity, tip_id=tip_id, store=engine.store)
-    return english_payload({"status": "ok", "total": len(records), "logs": records})
+    return english_payload({"status": "ok", "total": len(records), "logs": records, "events": records})
 
 
 @app.get('/api/autorun/diagnostics')
 def autorun_diagnostics_endpoint(hours: float = 24.0):
     from .autorun_logger import get_autorun_diagnostics
     diag = get_autorun_diagnostics(hours=hours, store=engine.store)
-    return english_payload({"status": "ok", "diagnostics": diag})
+    payload = {"status": "ok", "diagnostics": diag, **diag}
+    return english_payload(payload)
 
 
 

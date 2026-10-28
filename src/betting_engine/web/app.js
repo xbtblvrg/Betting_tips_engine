@@ -1696,6 +1696,22 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
     toast(`🎉 Ciklus befejezve! Megkötve: ${placedCount} db szelvény${adaptText}${skippedAutoBetTips.size > 0 ? ` · Kihagyva kézi vizsgálatra: ${skippedAutoBetTips.size} db` : ''}.`, { duration: 8000 });
    }
   }
+  api('/api/autorun/log', {
+   method: 'POST',
+   body: JSON.stringify({
+    event_type: 'CYCLE_FINISH',
+    severity: fatalErr ? 'ERROR' : 'INFO',
+    cycle_id: currentCycleId,
+    run_type: isAdaptiveDirect ? 'adaptive_direct' : 'queue',
+    details: {
+     placed_count: placedCount,
+     adapted_count: adaptedCount,
+     skipped_count: skippedAutoBetTips.size,
+     fatal: !!fatalErr,
+     error: fatalErr ? fatalErr.message : null
+    }
+   })
+  }).catch(() => {});
   updateAutoBetPanel();
   try {
    if (typeof loadStakeAccount === 'function') {
@@ -1772,6 +1788,219 @@ function bindAutoBetRunner() {
  }
  initAutoRunFromStorage();
  updateAutoRunStatusUI();
+ initAutoRunLogsModal();
+}
+
+let currentAutoRunFilter = 'all';
+
+async function fetchAndRenderAutoRunLogs(filter = currentAutoRunFilter) {
+ currentAutoRunFilter = filter;
+ const tbody = $('#autorun-logs-tbody');
+ const countText = $('#autorun-log-count-text');
+ const kpiBar = $('#autorun-kpi-bar');
+ const remediationBox = $('#autorun-remediation-box');
+ if (!tbody) return;
+
+ try {
+  const [logsRes, diagRes] = await Promise.all([
+   api('/api/autorun/logs?limit=100').catch(() => ({ status: 'error', events: [] })),
+   api('/api/autorun/diagnostics').catch(() => ({ status: 'error' }))
+  ]);
+
+  if (kpiBar && diagRes && diagRes.status === 'ok') {
+   const totalEvents = diagRes.total_events || 0;
+   const placed = diagRes.placed_count || 0;
+   const errors = diagRes.error_count || 0;
+   const cycles = diagRes.total_cycles || 0;
+   const errRate = totalEvents > 0 ? ((errors / totalEvents) * 100).toFixed(1) + '%' : '0.0%';
+
+   kpiBar.innerHTML = `
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px;">
+     <div style="font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;">Ciklusok</div>
+     <div style="font-size:16px;font-weight:700;color:#0f172a;margin-top:2px;">${cycles} db</div>
+    </div>
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:8px 12px;">
+     <div style="font-size:10px;color:#166534;font-weight:600;text-transform:uppercase;">Megkötve</div>
+     <div style="font-size:16px;font-weight:700;color:#15803d;margin-top:2px;">${placed} db</div>
+    </div>
+    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:8px 12px;">
+     <div style="font-size:10px;color:#991b1b;font-weight:600;text-transform:uppercase;">Hibák / Skippelt</div>
+     <div style="font-size:16px;font-weight:700;color:#dc2626;margin-top:2px;">${errors} db</div>
+    </div>
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px;">
+     <div style="font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;">Hibaarány</div>
+     <div style="font-size:16px;font-weight:700;color:${errors > 0 ? '#b91c1c' : '#15803d'};margin-top:2px;">${errRate}</div>
+    </div>
+    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:8px 12px;">
+     <div style="font-size:10px;color:#1e40af;font-weight:600;text-transform:uppercase;">Összes esemény</div>
+     <div style="font-size:16px;font-weight:700;color:#2563eb;margin-top:2px;">${totalEvents} db</div>
+    </div>
+   `;
+  }
+
+  if (remediationBox) {
+   const recs = diagRes?.remediation_recommendations || [];
+   if (recs.length > 0) {
+    remediationBox.style.display = 'block';
+    remediationBox.style.background = '#fef2f2';
+    remediationBox.style.borderColor = '#fecaca';
+    remediationBox.innerHTML = `
+     <div style="display:flex;align-items:flex-start;gap:8px;">
+      <span style="font-size:18px;">🤖</span>
+      <div style="flex:1;">
+       <strong style="color:#991b1b;font-size:12px;">AI Hibadiagnosztika &amp; Javítási Teendők (${recs.length} minta észlelve):</strong>
+       <ul style="margin:6px 0 0 0;padding-left:18px;font-size:11px;color:#7f1d1d;line-height:1.4;">
+        ${recs.map(r => `<li><strong>[${esc(r.error_code)}] (${r.occurrence_count}x):</strong> ${esc(r.recommendation)}</li>`).join('')}
+       </ul>
+      </div>
+     </div>
+    `;
+   } else {
+    remediationBox.style.display = 'block';
+    remediationBox.style.background = '#f0fdf4';
+    remediationBox.style.borderColor = '#bbf7d0';
+    remediationBox.innerHTML = `
+     <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:#166534;">
+      <span style="font-size:16px;">✅</span>
+      <strong>Normál telemetria:</strong> Nincs aktív kritikus hiba vagy elakadás az Auto-Runner folyamatban.
+     </div>
+    `;
+   }
+  }
+
+  const events = logsRes.events || [];
+  let filtered = events;
+  if (filter === 'error') {
+   filtered = events.filter(e => e.severity === 'ERROR' || e.severity === 'WARNING' || e.error_code);
+  } else if (filter === 'placed') {
+   filtered = events.filter(e => e.stage === 'STAGE_COMPLETE' || (e.details && e.details.placed) || e.event_type === 'BET_PLACED');
+  } else if (filter === 'adaptive') {
+   filtered = events.filter(e => e.stage === 'ADAPTIVE_EVALUATION' || (e.details && e.details.adapted));
+  }
+
+  if (countText) {
+   countText.textContent = `Megjelenítve: ${filtered.length} / ${events.length} esemény`;
+  }
+
+  if (!filtered.length) {
+   tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:#94a3b8;">Nincs megjeleníthető esemény ebben a szűrésben.</td></tr>`;
+   return;
+  }
+
+  tbody.innerHTML = filtered.map(ev => {
+   const d = ev.details || {};
+   const timeStr = ev.created_at ? ev.created_at.replace('T', ' ').slice(0, 19) : '—';
+   
+   let stageBadge = `<span class="badge" style="background:#e2e8f0;color:#334155;font-size:10px;padding:2px 6px;">${esc(ev.stage || ev.event_type)}</span>`;
+   if (ev.severity === 'ERROR') {
+    stageBadge = `<span class="badge" style="background:#fee2e2;color:#991b1b;font-size:10px;padding:2px 6px;font-weight:700;">⛔ ${esc(ev.stage || ev.event_type)}</span>`;
+   } else if (ev.severity === 'WARNING') {
+    stageBadge = `<span class="badge" style="background:#fef3c7;color:#92400e;font-size:10px;padding:2px 6px;font-weight:700;">⚠️ ${esc(ev.stage || ev.event_type)}</span>`;
+   } else if (ev.stage === 'STAGE_COMPLETE' || d.placed) {
+    stageBadge = `<span class="badge" style="background:#dcfce7;color:#166534;font-size:10px;padding:2px 6px;font-weight:700;">✅ SIKER</span>`;
+   } else if (ev.stage === 'ADAPTIVE_EVALUATION') {
+    stageBadge = `<span class="badge" style="background:#e0e7ff;color:#3730a3;font-size:10px;padding:2px 6px;font-weight:700;">⚡ ADAPTÍV</span>`;
+   }
+
+   const targetText = ev.target_selection ? `<strong>${esc(ev.target_selection)}</strong>${ev.league ? `<br><small style="color:#64748b;">${esc(ev.league)} · ${esc(ev.market_name || '')}</small>` : ''}` : '—';
+
+   let oddsText = '—';
+   if (ev.reference_odds || ev.live_odds) {
+    oddsText = `<span style="font-family:var(--mono);">${ev.reference_odds ? Number(ev.reference_odds).toFixed(2) : '—'}</span> → <strong style="font-family:var(--mono);">${ev.live_odds ? Number(ev.live_odds).toFixed(2) : '—'}</strong>`;
+    if (d.live_ev !== undefined) {
+     const evPct = (d.live_ev * 100).toFixed(1);
+     oddsText += `<br><small style="color:${d.live_ev >= 0 ? '#166534' : '#991b1b'};font-weight:600;">EV: ${d.live_ev >= 0 ? '+' : ''}${evPct}%</small>`;
+    }
+   }
+
+   let diagHtml = `<div>${esc(ev.status_message || '')}</div>`;
+   if (ev.error_code) {
+    diagHtml += `<div style="margin-top:3px;"><span class="badge" style="background:#fee2e2;color:#991b1b;font-size:9px;padding:1px 5px;font-family:var(--mono);font-weight:700;">${esc(ev.error_code)}</span></div>`;
+   }
+   if (ev.ai_remediation_hint) {
+    diagHtml += `<div style="margin-top:4px;font-size:10px;color:#7f1d1d;background:#fff1f2;padding:4px 6px;border-radius:4px;border-left:2px solid #e11d48;">💡 <em>${esc(ev.ai_remediation_hint)}</em></div>`;
+   }
+   if (d.adapted && d.selected_candidate) {
+    diagHtml += `<div style="margin-top:4px;font-size:10px;color:#1e40af;background:#eff6ff;padding:4px 6px;border-radius:4px;border-left:2px solid #3b82f6;">🎯 Kiválasztott alternatíva: <strong>${esc(d.selected_candidate.selection)}</strong> @ ${Number(d.selected_candidate.odds).toFixed(2)}</div>`;
+   }
+
+   return `
+    <tr style="border-bottom:1px solid #f1f5f9;">
+     <td style="padding:6px 10px;font-family:var(--mono);white-space:nowrap;color:#64748b;">${esc(timeStr)}</td>
+     <td style="padding:6px 10px;white-space:nowrap;">${stageBadge}</td>
+     <td style="padding:6px 10px;">${targetText}</td>
+     <td style="padding:6px 10px;white-space:nowrap;">${oddsText}</td>
+     <td style="padding:6px 10px;">${diagHtml}</td>
+    </tr>
+   `;
+  }).join('');
+
+ } catch (err) {
+  tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:#dc2626;">Hiba a naplók lekérése közben: ${esc(err.message)}</td></tr>`;
+ }
+}
+
+function initAutoRunLogsModal() {
+ const btn = $('#auto-bet-logs-btn');
+ const dialog = $('#autorun-logs-dialog');
+ const closeBtn = $('#autorun-logs-close-btn');
+ const refreshBtn = $('#autorun-logs-refresh-btn');
+ const filterBtnsContainer = $('#autorun-filter-btns');
+
+ if (btn && dialog) {
+  btn.onclick = (e) => {
+   e.preventDefault();
+   fetchAndRenderAutoRunLogs('all');
+   if (typeof dialog.showModal === 'function') {
+    dialog.showModal();
+   } else {
+    dialog.open = true;
+   }
+  };
+ }
+
+ if (closeBtn && dialog) {
+  closeBtn.onclick = (e) => {
+   e.preventDefault();
+   if (typeof dialog.close === 'function') {
+    dialog.close();
+   } else {
+    dialog.open = false;
+   }
+  };
+ }
+
+ if (dialog) {
+  dialog.onclick = (e) => {
+   if (e.target === dialog) {
+    if (typeof dialog.close === 'function') {
+     dialog.close();
+    } else {
+     dialog.open = false;
+    }
+   }
+  };
+ }
+
+ if (refreshBtn) {
+  refreshBtn.onclick = (e) => {
+   e.preventDefault();
+   fetchAndRenderAutoRunLogs(currentAutoRunFilter);
+  };
+ }
+
+ if (filterBtnsContainer) {
+  filterBtnsContainer.querySelectorAll('button[data-filter]').forEach(b => {
+   b.onclick = (e) => {
+    e.preventDefault();
+    const filter = b.getAttribute('data-filter') || 'all';
+    filterBtnsContainer.querySelectorAll('button').forEach(btnEl => {
+     btnEl.className = btnEl === b ? 'button primary' : 'button ghost';
+    });
+    fetchAndRenderAutoRunLogs(filter);
+   };
+  });
+ }
 }
 
 function expireInstructions(){if(!data||isEngineActiveOrUpdating())return;renderStakeSizing();const current=readyTips(),ids=new Set(current.map(t=>t.id));if($$('#tips-grid [data-tip-id]').some(el=>!ids.has(el.dataset.tipId))||(view==='tips'&&selectedTip&&$('#detail-dialog').open&&!current.some(t=>t.id===selectedTip.id&&instructionSignature(t)===selectedInstructionSignature)))renderTips()}
