@@ -280,6 +280,20 @@ class UnifiedMarketUniverse:
             except Exception as exc:
                 logger.error("Error reading engine db for universe settled performance: %s", exc)
 
+        # Synchronize existing roster profiles (including graduated) with live settled performance
+        for k_perf, stat in perf_map.items():
+            if k_perf in roster:
+                prof = roster[k_perf]
+                prof.rolling_pnl = stat['pnl']
+                prof.rolling_roi_pct = stat['roi_pct']
+                prof.sample_size = stat['sample_size']
+                # If degraded on 4+ games or severe loss on 2+ games, apply Capital Defense tourniquet ($0.50 clamp)
+                if (stat['sample_size'] >= 4 and (stat['pnl'] < 0.0 or stat['roi_pct'] < -3.0)) or (stat['sample_size'] >= 2 and stat['pnl'] <= -1.0 and stat['roi_pct'] <= -50.0):
+                    prof.stake_cap = 0.50
+                    prof.phase_detail = f"Capital Defense Tourniquet ({stat['roi_pct']:+.1f}% ROI, ${stat['pnl']:+.2f} over {stat['sample_size']} games) - $0.50 clamp"
+                elif stat['sample_size'] >= 2 and stat['pnl'] >= 1.0 and stat['roi_pct'] >= 10.0:
+                    prof.phase_detail = f"Alpha Acceleration ({stat['roi_pct']:+.1f}% ROI, ${stat['pnl']:+.2f} over {stat['sample_size']} games) - $8.00 cap"
+
         def _register_market_candidate(lg: str, sc: str, fam: str, model_id: Optional[str], archetype: str) -> None:
             lg_clean = (lg or '').upper().strip()
             sc_norm = self.normalize_scope(sc)

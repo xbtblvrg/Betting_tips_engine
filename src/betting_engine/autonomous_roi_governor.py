@@ -175,8 +175,7 @@ class AutonomousROIGovernor:
                 action = 'Quarantined: odd/even coin-flip market suppressed'
                 toxic_quarantine.append(seg_key)
 
-            # A. Unified Market Universe Dynamic Loss Circuit Breaker (Scale-Invariant in Risk Units):
-            # Evaluates risk in units of average stake (Anti-Constant Mandate, Commandment 3).
+            # A. Dynamic Loss Circuit Breaker (Scale-Invariant in Risk Units - Commandment 6):
             # If net loss in units <= -4.0 and roi < -10%, OR net loss <= -6.0 units regardless of roi,
             # OR wr < 25% with 6+ games:
             # All markets (core or derivative) are quarantined immediately to protect portfolio bankroll.
@@ -187,37 +186,40 @@ class AutonomousROIGovernor:
                 action = f'Quarantined: severe net loss ({units_pnl:.1f} units, ${pnl:+.2f}, {roi:+.1f}% ROI) triggered dynamic circuit breaker'
                 toxic_quarantine.append(seg_key)
 
-            # B. Super Alpha: Rolling ROI >= +12%, PnL >= +4 units (or >=+$4.00) with 8+ games (verified major markets only)
-            elif cnt >= 8 and roi >= 12.0 and (units_pnl >= 4.0 or pnl >= 4.00) and league not in ('CHALLENGER', 'ITF'):
+            # B. Super Alpha: Rolling ROI >= +12%, PnL >= +3 units (or >=+$3.00) with 5+ games (verified major markets only)
+            elif cnt >= 5 and roi >= 12.0 and (units_pnl >= 3.0 or pnl >= 3.00) and league not in ('CHALLENGER', 'ITF'):
                 tier = 'SUPER_ALPHA'
                 stake_cap = 8.00
                 min_ev = 0.015
                 action = 'Super Alpha Acceleration: maximum confidence scaling ($4.00–$8.00)'
                 super_alpha.append(seg_key)
 
-            # C. Solid Alpha: Rolling ROI >= +5%, PnL >= +2 units (or >=+$2.00) with 5+ games (verified major markets only)
-            elif cnt >= 5 and roi >= 5.0 and (units_pnl >= 2.0 or pnl >= 2.00) and league not in ('CHALLENGER', 'ITF'):
+            # C. Solid Alpha: Rolling ROI >= +5%, PnL >= +1 unit (or >=+$1.00) with 2+ games
+            elif ((cnt >= 2 and roi >= 15.0 and (units_pnl >= 1.0 or pnl >= 1.00))
+                  or (cnt >= 4 and roi >= 5.0 and (units_pnl >= 1.5 or pnl >= 1.50))) and league not in ('CHALLENGER', 'ITF'):
                 tier = 'SOLID_ALPHA'
                 stake_cap = 3.50
                 min_ev = 0.010
                 action = 'Solid Alpha Acceleration: prioritized scaling ($2.50–$3.50)'
                 solid_alpha.append(seg_key)
 
-            # D. Capital Defense Safeguard on Graduated Markets vs Leaking Segments:
-            # Tier 3 Graduated markets with verified Crucible backing require meaningful sample (cnt >= 15, units_pnl <= -8.0)
-            # before being downgraded to Capital Defense.
-            elif is_grad_seg and units_pnl > units_threshold_defense:
-                # Retain normal graduated standing without premature defense clamping
-                tier = 'GRADUATED_EXPLORATION'
-                stake_cap = 2.00
-                min_ev = 0.02
-                action = 'Graduated Market: Active verified alpha expectation'
-            elif cnt >= min_cnt_for_defense and (roi < -3.0 or units_pnl <= units_threshold_defense):
+            # D. Capital Defense ($0.50 Tourniquet - Commandment 6):
+            # When a segment or submarket first wobbles (rolling ROI < -3% or negative rolling PnL over 4+ games,
+            # or 2+ games with 0% win rate and loss <= -$1.00), the $0.50 stake clamp and EV hurdle (+3.5%) act as
+            # an interim emergency liquidity tourniquet to prevent negative drag.
+            elif (cnt >= 4 and (roi < -3.0 or pnl < 0.0)) or (cnt >= 2 and wr == 0.0 and pnl <= -1.0):
                 tier = 'CAPITAL_DEFENSE'
                 stake_cap = 0.50
                 min_ev = 0.035
                 action = 'Capital defense clamp: $0.50 flat stake, +3.5% min EV hurdle'
                 capital_defense.append(seg_key)
+
+            elif is_grad_seg:
+                # Retain normal graduated standing without defense clamping if healthy
+                tier = 'GRADUATED_EXPLORATION'
+                stake_cap = 2.00
+                min_ev = 0.02
+                action = 'Graduated Market: Active verified alpha expectation'
 
             segments.append(SegmentMetric(
                 segment=seg_key,

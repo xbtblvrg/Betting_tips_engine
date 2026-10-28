@@ -564,10 +564,18 @@ class SupremeAutonomousGovernor:
         except Exception as e:
             log.warning('Demoted markets bridge error: %s', e)
 
-        # 6d. Autonomous Crucible Re-Graduation Verification
+        # 6d. Autonomous Crucible Re-Graduation Verification & Closed-Loop Performance Review
         try:
             from .shadow_market_incubator import ShadowMarketIncubator
             incubator = ShadowMarketIncubator(data_dir=self.data_dir)
+            # Evaluate demotions for leaking markets to prevent cash drag (Commandment 6 & 7)
+            review_res = incubator.evaluate_demotions_and_substitutions(engine_db_path=self.data_dir / 'engine.sqlite3')
+            if review_res.get('demotions'):
+                actions.append({
+                    'action': 'closed_loop_market_demotions',
+                    'count': len(review_res['demotions']),
+                    'demotions': review_res['demotions']
+                })
             new_grads = incubator.evaluate_graduation()
             if new_grads:
                 actions.append({
