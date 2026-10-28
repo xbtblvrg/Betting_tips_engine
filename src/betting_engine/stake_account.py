@@ -1056,8 +1056,7 @@ def stage_betslip_in_safari(
                     if (tUrl contains slug) or (fix_id is not "" and tUrl contains fix_id) then
                         set res to ""
                         try
-                            set myResult to (do JavaScript js in t)
-                            set res to myResult
+                            set res to (do JavaScript js in t)
                         on error errMsg number errNum
                             set res to "JS_ERROR [" & errNum & "]: " & errMsg
                         end try
@@ -1078,8 +1077,12 @@ def stage_betslip_in_safari(
                 text=True,
                 timeout=timeout,
             )
-            return r.stdout.strip()
-        except Exception:
+            out = r.stdout.strip()
+            if r.stderr.strip():
+                log.warning(f"[_eval_safari_js] stderr: {r.stderr.strip()}")
+            return out
+        except Exception as e:
+            log.warning(f"[_eval_safari_js] exception: {e}")
             return ""
 
     script_close_tab = """
@@ -1845,8 +1848,6 @@ def stage_betslip_in_safari(
                     current_odds: currentOdds
                 }});
             }}
-                }});
-            }}
 
             // Clear any prior bets completely so we never accumulate multiple bets!
             if (existingBets.length > 0) {{
@@ -2020,6 +2021,7 @@ def stage_betslip_in_safari(
     try:
         res_click = json.loads(res_str)
     except Exception as e:
+        log.warning(f"Failed to parse stage_js response: {res_str!r} - {e}")
         if auto_close_on_fail:
             _close_tab()
         return {"status": "error", "placed": False, "closed": bool(auto_close_on_fail), "message": f"Kimenetel kiválasztása sikertelen: {str(e)}", "event_url": clean_url}
@@ -2357,13 +2359,15 @@ def stage_betslip_in_safari(
     payout_val = None
     verification_err = None
     last_stake_err = None
-    for j in range(25):
+    for j in range(35):
         time.sleep(0.2)
         out = _eval_safari_js(set_stake_js, activate=False, timeout=5)
         if out and out != "NOT_FOUND":
             try:
                 res_stake = json.loads(out)
                 if res_stake.get("status") in ("waiting_card_text", "waiting_input"):
+                    if res_stake.get("error"):
+                        last_stake_err = res_stake.get("error")
                     continue
                 if res_stake.get("status") == "verification_failed":
                     verification_err = res_stake.get("error", "Szelvény verifikációs hiba: A betslip tartalma nem egyezik az ajánlással.")
