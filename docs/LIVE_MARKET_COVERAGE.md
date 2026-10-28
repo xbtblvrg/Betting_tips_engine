@@ -1,15 +1,15 @@
 # Live Stake market coverage
 
-Checked: 2026-10-28T15:14:35.468469+00:00
+Checked: 2026-10-28T15:33:33.673139+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
 | League | Observed titles | Activity unverified | Offered now | Complete 10/10 | Incomplete offered | Evaluated | Funding supported | Ready now | Issued today |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| NFL | 80 | 9 | 41 | 0 | 41 | 18 | 10 | 2 | 7 |
+| NFL | 81 | 9 | 42 | 0 | 42 | 18 | 10 | 2 | 7 |
 | NHL | 61 | 15 | 46 | 0 | 46 | 19 | 14 | 5 | 24 |
 | MLB | 39 | 15 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| NBA | 189 | 36 | 153 | 0 | 153 | 95 | 92 | 8 | 253 |
+| NBA | 189 | 36 | 153 | 0 | 153 | 95 | 92 | 5 | 253 |
 | WNBA | 47 | 0 | 47 | 0 | 47 | 7 | 5 | 0 | 4 |
 
 Current stages require outcome-level evidence; original issuance, settlement and feedback are explicitly historical. 10/10 records observed execution, not proven profitability or automatic model promotion.
@@ -311,6 +311,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NFL | Total (Incl. Overtime) | standard | full_game | offered_now | 7/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Total field goals made (incl. overtime) | standard | full_game | offered_now | 4/10 | partial 1/2 | verified 2/2 | partial 1/2 | partial 1/2 | partial 1/2 | verified 1/1 | verified 1/1 | verified 1/1 | not_observed 0/0 | awaiting_measurement 0/1 | 1 |
 | NFL | Total touchdowns (incl. overtime) | standard | full_game | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NFL | Total turnovers (incl. overtime) | standard | full_game | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Washington Commanders Total (Incl. Overtime) | standard | full_game | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Will There be Overtime | standard | regulation | offered_now | 3/10 | partial 1/2 | verified 2/2 | partial 1/2 | partial 1/2 | partial 1/2 | verified 1/1 | verified 1/1 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Winner (Incl. Overtime) | standard | full_game | offered_now | 7/10 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |

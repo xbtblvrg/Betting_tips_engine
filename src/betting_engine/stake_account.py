@@ -900,7 +900,7 @@ def stage_betslip_in_safari(
             elif market in ("period_2:totals", "quarter_2:totals"):
                 market_name = "2nd Quarter - Total" if (is_basketball or is_football) else "2nd Period - Total"
             elif market in ("period_1:totals", "quarter_1:totals"):
-                market_name = "1st Quarter - Total" if (is_basketball or is_football) else "1st Period - Total"
+                market_name = "Quarter - Total" if is_basketball else ("1st Quarter - Total" if is_football else "1st Period - Total")
             elif market in ("period_4:totals", "quarter_4:totals"):
                 market_name = "4th Quarter - Total"
             elif market in ("period_3:three_way", "quarter_3:three_way"):
@@ -908,9 +908,25 @@ def stage_betslip_in_safari(
             elif market in ("period_2:three_way", "quarter_2:three_way"):
                 market_name = "2nd Quarter - 1x2" if (is_basketball or is_football) else "2nd Period - 1x2"
             elif market in ("period_1:three_way", "quarter_1:three_way"):
-                market_name = "1st Quarter - 1x2" if (is_basketball or is_football) else "1st Period - 1x2"
+                market_name = "Quarter - 1x2" if is_basketball else ("1st Quarter - 1x2" if is_football else "1st Period - 1x2")
             elif market in ("period_4:three_way", "quarter_4:three_way"):
                 market_name = "4th Quarter - 1x2"
+            elif market in ("period_1:moneyline", "quarter_1:moneyline"):
+                market_name = "Quarter - Draw No Bet" if is_basketball else ("1st Quarter - Draw No Bet" if is_football else "1st Period - Draw No Bet")
+            elif market in ("period_2:moneyline", "quarter_2:moneyline"):
+                market_name = "2nd Quarter - Draw No Bet" if (is_basketball or is_football) else "2nd Period - Draw No Bet"
+            elif market in ("period_3:moneyline", "quarter_3:moneyline"):
+                market_name = "3rd Quarter - Draw No Bet" if (is_basketball or is_football) else "3rd Period - Draw No Bet"
+            elif market in ("period_4:moneyline", "quarter_4:moneyline"):
+                market_name = "4th Quarter - Draw No Bet" if (is_basketball or is_football) else "4th Period - Draw No Bet"
+            elif market in ("period_1:spreads", "quarter_1:spreads"):
+                market_name = "Quarter - Handicap" if is_basketball else ("1st Quarter - Handicap" if is_football else "1st Period - Handicap")
+            elif market in ("period_2:spreads", "quarter_2:spreads"):
+                market_name = "2nd Quarter - Handicap" if (is_basketball or is_football) else "2nd Period - Handicap"
+            elif market in ("period_3:spreads", "quarter_3:spreads"):
+                market_name = "3rd Quarter - Handicap" if (is_basketball or is_football) else "3rd Period - Handicap"
+            elif market in ("period_4:spreads", "quarter_4:spreads"):
+                market_name = "4th Quarter - Handicap" if (is_basketball or is_football) else "4th Period - Handicap"
             elif market == "half_1:totals":
                 market_name = "1st Half - Asian Total" if is_basketball else "1st Half - Total"
             elif market == "half_2:totals":
@@ -1050,17 +1066,22 @@ def stage_betslip_in_safari(
     ascript_runner = """
     on run {js, slug, act, fix_id}
         tell application "Safari"
+            set finalRes to ""
             repeat with w in windows
                 repeat with t in tabs of w
                     set tUrl to (URL of t)
                     if (tUrl contains slug) or (fix_id is not "" and tUrl contains fix_id) then
-                        set res to ""
                         try
-                            set res to (do JavaScript js in t)
+                            set jsRes to (do JavaScript js in t)
+                            if jsRes is not missing value then
+                                set finalRes to (jsRes as string)
+                            end if
                         on error errMsg number errNum
-                            set res to "JS_ERROR [" & errNum & "]: " & errMsg
+                            if errNum is not -2753 then
+                                set finalRes to "JS_ERROR [" & errNum & "]: " & errMsg
+                            end if
                         end try
-                        return res
+                        return finalRes
                     end if
                 end repeat
             end repeat
@@ -1296,7 +1317,7 @@ def stage_betslip_in_safari(
                 if (curr.className && (curr.className.indexOf("accordion") !== -1 || (curr.getAttribute("data-testid") && curr.getAttribute("data-testid").indexOf("market") !== -1) || curr.className.indexOf("market") !== -1)) {
                     const h = curr.querySelector(".header, [class*='header'], [class*='title'], h2, h3, h4");
                     if (h && h.innerText) {
-                        const line = h.innerText.toLowerCase().split(/[\\r\\n]+/)[0].trim();
+                        const line = h.innerText.toLowerCase().split(/[\r\n]+/)[0].trim();
                         if (line && !line.includes("sports") && !line.includes("stake") && !line.includes("casino") && !line.includes("promotions") && !line.includes("support")) {
                             texts.push(line);
                         }
@@ -1309,7 +1330,7 @@ def stage_betslip_in_safari(
                 while (prev && prev !== document.body) {
                     const h = prev.querySelector(".header, [class*='header'], [class*='title'], h2, h3, h4");
                     if (h && h.innerText) {
-                        const line = h.innerText.toLowerCase().split(/[\\r\\n]+/)[0].trim();
+                        const line = h.innerText.toLowerCase().split(/[\r\n]+/)[0].trim();
                         if (line && !line.includes("sports") && !line.includes("stake") && !line.includes("casino")) {
                             texts.push(line);
                             break;
@@ -1346,9 +1367,9 @@ def stage_betslip_in_safari(
                         match = true;
                     }
                 }
-                else if (pNorm && hText.indexOf(pNorm) !== -1) {
+                else if (pNorm && (hText.indexOf(pNorm) !== -1 || (pNorm.includes("1st quarter") && hText.includes("quarter") && !hText.includes("2nd") && !hText.includes("3rd") && !hText.includes("4th")))) {
                     if (mNorm.indexOf("total") !== -1 && hText.indexOf("total") !== -1 && mNorm !== "total sets") match = true;
-                    else if ((mNorm.indexOf("1x2") !== -1 || mNorm.indexOf("winner") !== -1) && (hText.indexOf("1x2") !== -1 || hText.indexOf("winner") !== -1)) match = true;
+                    else if ((mNorm.indexOf("1x2") !== -1 || mNorm.indexOf("winner") !== -1 || mNorm.indexOf("draw no bet") !== -1) && (hText.indexOf("1x2") !== -1 || hText.indexOf("winner") !== -1 || hText.indexOf("draw no bet") !== -1)) match = true;
                     else if (mNorm.indexOf("handicap") !== -1 && hText.indexOf("handicap") !== -1) match = true;
                     else match = true;
                 }
@@ -1547,11 +1568,11 @@ def stage_betslip_in_safari(
 
                 if (mNorm && mCtx.includes(mNorm)) {
                     marketScore += 120;
-                } else if (pNorm && mCtx.includes(pNorm)) {
+                } else if (pNorm && (mCtx.includes(pNorm) || (pNorm.includes("1st quarter") && mCtx.includes("quarter") && !mCtx.includes("2nd") && !mCtx.includes("3rd") && !mCtx.includes("4th")))) {
                     marketScore += 60;
                     if (mNorm.indexOf("total") !== -1 && mCtx.indexOf("total") !== -1) marketScore += 30;
                     if (mNorm.indexOf("handicap") !== -1 && mCtx.indexOf("handicap") !== -1) marketScore += 30;
-                    if ((mNorm.indexOf("1x2") !== -1 || mNorm.indexOf("winner") !== -1) && (mCtx.indexOf("1x2") !== -1 || mCtx.indexOf("winner") !== -1)) marketScore += 30;
+                    if ((mNorm.indexOf("1x2") !== -1 || mNorm.indexOf("winner") !== -1 || mNorm.indexOf("draw no bet") !== -1) && (mCtx.indexOf("1x2") !== -1 || mCtx.indexOf("winner") !== -1 || mCtx.indexOf("draw no bet") !== -1)) marketScore += 30;
                 } else if (mNorm || pNorm) {
                     if (mCtx.indexOf("handicap") !== -1 && mNorm.indexOf("total") !== -1) marketScore -= 100;
                     if (mCtx.indexOf("total") !== -1 && mNorm.indexOf("handicap") !== -1) marketScore -= 100;
@@ -1607,7 +1628,12 @@ def stage_betslip_in_safari(
                     const h = acc.querySelector(".header, [class*='header'], [class*='title'], h2, h3, h4");
                     if (!h || !h.innerText) continue;
                     const hText = h.innerText.toLowerCase().split(/[\r\n]+/)[0].trim();
-                    if (hText === mNorm || hText.indexOf(mNorm) !== -1 || mNorm.indexOf(hText) !== -1) {
+                    let isAccMatch = (hText === mNorm || hText.indexOf(mNorm) !== -1 || mNorm.indexOf(hText) !== -1);
+                    if (!isAccMatch && mNorm && mNorm.includes("1st quarter") && hText.includes("quarter") && !hText.includes("2nd") && !hText.includes("3rd") && !hText.includes("4th")) {
+                        const mSuffix = mNorm.replace("1st quarter", "").replace(/[-–—]/g, "").trim();
+                        if (!mSuffix || hText.includes(mSuffix)) isAccMatch = true;
+                    }
+                    if (isAccMatch) {
                         // Ensure accordion is open
                         const isOpen = acc.className.indexOf("is-open") !== -1 || !!acc.querySelector(".content.is-open");
                         if (!isOpen) {
