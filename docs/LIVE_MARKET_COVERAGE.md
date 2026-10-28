@@ -1,13 +1,13 @@
 # Live Stake market coverage
 
-Checked: 2026-10-28T22:31:34.055052+00:00
+Checked: 2026-10-28T22:49:14.410711+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
 | League | Observed titles | Activity unverified | Offered now | Complete 10/10 | Incomplete offered | Evaluated | Funding supported | Ready now | Issued today |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | NFL | 81 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 8 |
-| NHL | 61 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 19 |
+| NHL | 61 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 20 |
 | MLB | 39 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 12 |
 | NBA | 192 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 146 |
 | WNBA | 59 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 7 |
@@ -334,7 +334,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NHL | 1st Period - Both Teams to Score | standard | period_1 | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 1st Period - Double Chance | standard | period_1 | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 1st Period - Draw No Bet | standard | period_1 | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NHL | 1st Period - Handicap | standard | period_1 | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NHL | 1st Period - Handicap | standard | period_1 | catalogue_only | 1/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | not_observed 0/0 | awaiting_measurement 0/1 | 1 |
 | NHL | 1st Period - Last Team to Score | standard | period_1 | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 1st Period - Odd/Even | standard | period_1 | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 1st Period - Total | standard | period_1 | catalogue_only | 1/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 2/2 | not_observed 0/0 | awaiting_measurement 0/1 | 2 |
