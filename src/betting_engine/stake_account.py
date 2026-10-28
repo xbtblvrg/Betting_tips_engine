@@ -1105,21 +1105,26 @@ def stage_betslip_in_safari(
         except Exception:
             pass
 
-    helpers_js = """
+    helpers_js = r"""
         function normalize(s) {
             if (!s) return "";
-            return s.toLowerCase().replace(/[+()]/g, " ").replace(/\\s+/g, " ").trim();
+            return s.toLowerCase().replace(/[+()]/g, " ").replace(/\s+/g, " ").trim();
         }
 
         function extractButtonCandidate(b) {
             if (!b) return null;
             const aria = (b.getAttribute("aria-label") || "").trim();
             const inner = (b.innerText || "").trim();
-            const oddsMatch = inner.match(/\\b\\d+\\.\\d+\\b/g);
+            const oddsMatch = inner.match(/\b\d+\.\d+\b/g);
             const candOdds = (oddsMatch && oddsMatch.length > 0) ? parseFloat(oddsMatch[oddsMatch.length - 1]) : null;
-            const lineMatch = (aria || inner).match(/([+-]?\\d+\\.?\\d*)/);
+            
+            let lineMatch = (aria || inner).match(/\(([+-]?\d+\.?\d*)\)/);
+            if (!lineMatch) lineMatch = (aria || inner).match(/(?:over|under|o|u)\s*([+-]?\d+\.?\d*)/i);
+            if (!lineMatch) lineMatch = inner.match(/^([+-]?\d+\.?\d*)/);
+            if (!lineMatch) lineMatch = (aria || inner).match(/([+-]?\d+\.?\d*)/);
             const candLine = lineMatch ? parseFloat(lineMatch[1]) : null;
-            const lines = inner.split(/[\\r\\n]+/).map(s => s.trim()).filter(Boolean);
+            
+            const lines = inner.split(/[\r\n]+/).map(s => s.trim()).filter(Boolean);
             const sel = aria || (lines.length > 1 ? lines[0] : inner);
             return {
                 selection: sel,
@@ -1131,10 +1136,10 @@ def stage_betslip_in_safari(
 
         function matchesLine(text, v, isNeg) {
             if (!text || !v) return false;
-            const clean = " " + text.toLowerCase().replace(/[+()]/g, " ").replace(/\\n/g, " ") + " ";
+            const clean = " " + text.toLowerCase().replace(/[+()]/g, " ").replace(/\n/g, " ") + " ";
             const target = isNeg ? (" -" + v + " ") : (" " + v + " ");
             if (clean.includes(target)) return true;
-            const tokens = clean.split(/\\s+/).filter(Boolean);
+            const tokens = clean.split(/\s+/).filter(Boolean);
             return tokens.includes(isNeg ? ("-" + v) : v);
         }
 
@@ -1145,7 +1150,7 @@ def stage_betslip_in_safari(
             if (btn.getAttribute("aria-selected") === "true") return true;
             if (btn.getAttribute("data-state") === "off" || btn.getAttribute("aria-checked") === "false" || btn.getAttribute("aria-selected") === "false") return false;
             const cls = (btn.className || "").trim();
-            const tokens = cls.split(/\\s+/);
+            const tokens = cls.split(/\s+/);
             if (tokens.includes("active") || tokens.includes("is-active") || tokens.includes("selected")) return true;
             return false;
         }
@@ -1322,7 +1327,7 @@ def stage_betslip_in_safari(
             for (const acc of accordions) {
                 const h = acc.querySelector(".header, [class*='header'], [class*='title'], h2, h3, h4");
                 if (!h || !h.innerText) continue;
-                const hText = h.innerText.toLowerCase().split(/[\\r\\n]+/)[0].trim();
+                const hText = h.innerText.toLowerCase().split(/[\r\n]+/)[0].trim();
                 if (hText.includes("soccer") || hText.includes("basketball") || hText.includes("tennis") || hText.includes("baseball") || hText.includes("all sports") || hText.includes("promotions") || hText.includes("casino") || hText.includes("support") || hText.includes("trending games")) {
                     continue;
                 }
@@ -1333,7 +1338,7 @@ def stage_betslip_in_safari(
                 else if (mNorm && (mNorm.includes("winner") || mNorm.includes("moneyline") || mNorm.includes("1x2") || mNorm.includes("three_way") || mNorm.includes("3-way")) && (hText.includes("winner") || hText.includes("1x2") || hText.includes("3-way") || hText.includes("three way"))) match = true;
                 else if (mNorm && mNorm.includes("handicap") && hText.includes("handicap")) match = true;
                 else if (mNorm && mNorm.includes("total") && hText.includes("total") && mNorm !== "total sets") {
-                    const mWords = mNorm.split(/\\s+/).filter(w => w.length > 2 && w !== "total" && w !== "team");
+                    const mWords = mNorm.split(/\s+/).filter(w => w.length > 2 && w !== "total" && w !== "team");
                     if (mWords.length === 0 || mWords.some(w => hText.includes(w))) {
                         match = true;
                     }
@@ -1363,7 +1368,7 @@ def stage_betslip_in_safari(
             for (const acc of accordions) {
                 const h = acc.querySelector(".header, [class*='header'], [class*='title'], h2, h3, h4");
                 if (!h || !h.innerText) continue;
-                const hText = h.innerText.toLowerCase().split(/[\\r\\n]+/)[0].trim();
+                const hText = h.innerText.toLowerCase().split(/[\r\n]+/)[0].trim();
                 if (hText.includes("soccer") || hText.includes("basketball") || hText.includes("tennis") || hText.includes("baseball") || hText.includes("all sports") || hText.includes("promotions") || hText.includes("casino") || hText.includes("support") || hText.includes("trending games")) {
                     continue;
                 }
@@ -1396,8 +1401,8 @@ def stage_betslip_in_safari(
 
             // Extract entity words by stripping line numbers, parentheses, plus/minus
             const clubStopwords = new Set(["fc", "sc", "cf", "afc", "ac", "sk", "fk", "bk", "club", "de"]);
-            const entityText = targetSel.replace(/[+-]?\\d+(\\.\\d+)?/g, "").replace(/[()]/g, "").trim();
-            const entityWords = entityText.split(/\\s+/).filter(w => w.length > 1);
+            const entityText = targetSel.replace(/[+-]?\d+(\.\d+)?/g, "").replace(/[()]/g, "").trim();
+            const entityWords = entityText.split(/\s+/).filter(w => w.length > 1);
             const meaningfulWords = entityWords.filter(w => !clubStopwords.has(w.toLowerCase()));
             const primaryName = meaningfulWords.length > 0 ? meaningfulWords[meaningfulWords.length - 1] : (entityWords.length > 0 ? entityWords[entityWords.length - 1] : "");
             const lastName = primaryName;
@@ -1472,7 +1477,7 @@ def stage_betslip_in_safari(
 
                 if (score > 0) {
                     const btnText = (b.innerText || "").trim();
-                    const numbers = btnText.match(/\\d+\\.\\d+/g);
+                    const numbers = btnText.match(/\d+\.\d+/g);
                     const btnOdds = numbers && numbers.length > 0 ? parseFloat(numbers[numbers.length - 1]) : null;
                     const marketCtx = getMarketContext(b);
                     candidates.push({
@@ -1588,7 +1593,7 @@ def stage_betslip_in_safari(
                 for (const acc of accordions) {
                     const h = acc.querySelector(".header, [class*='header'], [class*='title'], h2, h3, h4");
                     if (!h || !h.innerText) continue;
-                    const hText = h.innerText.toLowerCase().split(/[\\r\\n]+/)[0].trim();
+                    const hText = h.innerText.toLowerCase().split(/[\r\n]+/)[0].trim();
                     if (hText === mNorm || hText.indexOf(mNorm) !== -1 || mNorm.indexOf(hText) !== -1) {
                         // Ensure accordion is open
                         const isOpen = acc.className.indexOf("is-open") !== -1 || !!acc.querySelector(".content.is-open");
@@ -1617,7 +1622,7 @@ def stage_betslip_in_safari(
 
     # Step 2: Poll until page loaded and outcome buttons visible
     def _make_poll_js(iter_idx: int) -> str:
-        return f"""
+        return rf"""
         (() => {{
             try {{
                 {helpers_js}
@@ -1757,7 +1762,7 @@ def stage_betslip_in_safari(
         return {"status": "error", "placed": False, "closed": bool(auto_close_on_fail), "message": "A Stake oldal betöltése vagy a piacok keresése időtúllépés miatt meghiúsult (a Stake splash képernyő nem fejeződött be időben)."}
 
     # Step 3: Clear prior bet, switch tab, find & click outcome
-    stage_js = f"""
+    stage_js = rf"""
     (() => {{
         try {{
             {helpers_js}
@@ -1779,8 +1784,8 @@ def stage_betslip_in_safari(
             const isOver = targetNorm.indexOf("over") === 0;
             const isUnder = targetNorm.indexOf("under") === 0;
             const clubStopwords = new Set(["fc", "sc", "cf", "afc", "ac", "sk", "fk", "bk", "club", "de"]);
-            const entityText = targetSel.replace(/[+-]?\\d+(\\.\\d+)?/g, "").replace(/[()]/g, "").trim();
-            const entityWords = entityText.split(/\\s+/).filter(w => w.length > 1);
+            const entityText = targetSel.replace(/[+-]?\d+(\.\d+)?/g, "").replace(/[()]/g, "").trim();
+            const entityWords = entityText.split(/\s+/).filter(w => w.length > 1);
             const meaningfulWords = entityWords.filter(w => !clubStopwords.has(w.toLowerCase()));
             const lastName = meaningfulWords.length > 0 ? meaningfulWords[meaningfulWords.length - 1] : (entityWords.length > 0 ? entityWords[entityWords.length - 1] : "");
 
@@ -1795,7 +1800,7 @@ def stage_betslip_in_safari(
             let alreadyInBetslip = false;
             if (existingBets.length === 1 && existingInput) {{
                 const singleBetText = existingBets[0].innerText.toLowerCase();
-                const singleBetOddsMatch = singleBetText.match(/\\d+\\.\\d+/g);
+                const singleBetOddsMatch = singleBetText.match(/\d+\.\d+/g);
                 const singleBetOdds = singleBetOddsMatch ? parseFloat(singleBetOddsMatch[singleBetOddsMatch.length - 1]) : null;
 
                 const hasOutcomeMatch = (outcomeNorm && singleBetText.includes(outcomeNorm)) || singleBetText.includes(targetNorm);
@@ -1832,12 +1837,14 @@ def stage_betslip_in_safari(
                     match = findOutcomeMatch(getOutcomeButtons());
                 }}
                 const btnText = match ? (match.innerText || "").trim() : "";
-                const numbers = btnText.match(/\\d+\\.\\d+/g);
+                const numbers = btnText.match(/\d+\.\d+/g);
                 const currentOdds = numbers && numbers.length > 0 ? parseFloat(numbers[numbers.length - 1]) : (targetOdds ? parseFloat(targetOdds) : null);
                 return JSON.stringify({{
                     status: "clicked",
                     selection: match ? (match.getAttribute("aria-label") || match.innerText) : (outcomeTarget || targetSel),
                     current_odds: currentOdds
+                }});
+            }}
                 }});
             }}
 
@@ -1901,7 +1908,7 @@ def stage_betslip_in_safari(
                         if (mLower.includes(ctx)) {{
                             if (lastName && !ctx.includes(lastName.toLowerCase())) return false;
                             if (periodPrefix && !ctx.includes(periodPrefix.toLowerCase())) return false;
-                            const diffWords = mLower.replace(ctx, "").replace(/total|overtime|incl|\\(|\\)/g, "").split(/\\s+/).filter(w => w.length > 2);
+                            const diffWords = mLower.replace(ctx, "").replace(/total|overtime|incl|\(|\)/g, "").split(/\s+/).filter(w => w.length > 2);
                             if (diffWords.length > 0 && !diffWords.some(w => ctx.includes(w))) return false;
                             return true;
                         }}
@@ -1981,7 +1988,7 @@ def stage_betslip_in_safari(
 
             // Check current odds on button
             const btnText = (match.innerText || "").trim();
-            const numbers = btnText.match(/\\d+\\.\\d+/g);
+            const numbers = btnText.match(/\d+\.\d+/g);
             const currentOdds = numbers && numbers.length > 0 ? parseFloat(numbers[numbers.length - 1]) : null;
 
             // Before clicking match: ensure betslip is empty so we never accumulate multiple bets!
@@ -2069,7 +2076,7 @@ def stage_betslip_in_safari(
                             line_variants = [str(line)]
 
                     # Click candidate button in Safari!
-                    cand_click_js = f"""
+                    cand_click_js = rf"""
                     (() => {{
                         {helpers_js}
                         const targetNorm = normalize({json.dumps(best['selection'])});
@@ -2080,7 +2087,7 @@ def stage_betslip_in_safari(
                         const match = buttons.find(b => {{
                             const aria = (b.getAttribute("aria-label") || "").trim();
                             const inner = (b.innerText || "").trim();
-                            const label = (aria || inner).replace(/\\s+/g, " ").trim();
+                            const label = (aria || inner).replace(/\s+/g, " ").trim();
                             const norm = normalize(label);
                             if (bestLine !== null && bestLine !== undefined) {{
                                 if (matchesLine(label, String(bestLine), isNeg)) {{
@@ -2106,7 +2113,7 @@ def stage_betslip_in_safari(
                         
                         match.click();
                         const btnText = (match.innerText || "").trim();
-                        const numbers = btnText.match(/\\d+\\.\\d+/g);
+                        const numbers = btnText.match(/\d+\.\d+/g);
                         const currentOdds = numbers && numbers.length > 0 ? parseFloat(numbers[numbers.length - 1]) : null;
                         return JSON.stringify({{
                             status: "clicked",
@@ -2174,7 +2181,7 @@ def stage_betslip_in_safari(
     # Step 4: Inject stake amount into betslip input
     time.sleep(0.35)
 
-    set_stake_js = f"""
+    set_stake_js = rf"""
     (() => {{
         try {{
             {helpers_js}
@@ -2205,7 +2212,7 @@ def stage_betslip_in_safari(
             if (verifyBetCard) {{
                 const cardText = (verifyBetCard.innerText || "").toLowerCase().trim();
                 // If betslip card element exists but its text nodes are still mounting/hydrating, wait for next tick!
-                if (cardText.replace(/\\s+/g, "").length < 4) {{
+                if (cardText.replace(/\s+/g, "").length < 4) {{
                     return JSON.stringify({{ status: "waiting_card_text" }});
                 }}
 
@@ -2228,7 +2235,7 @@ def stage_betslip_in_safari(
                         }} catch(e) {{}}
                         return JSON.stringify({{
                             status: "verification_failed",
-                            error: "Szelvény verifikációs hiba: A betslipben szereplő piac nem a kért időszakra (" + periodPrefix + ") vonatkozik! Betslip tartalom: '" + verifyBetCard.innerText.replace(/\\s+/g, ' ').slice(0, 80) + "'"
+                            error: "Szelvény verifikációs hiba: A betslipben szereplő piac nem a kért időszakra (" + periodPrefix + ") vonatkozik! Betslip tartalom: '" + verifyBetCard.innerText.replace(/\s+/g, ' ').slice(0, 80) + "'"
                         }});
                     }}
                 }} else {{
@@ -2241,7 +2248,7 @@ def stage_betslip_in_safari(
                         }} catch(e) {{}}
                         return JSON.stringify({{
                             status: "verification_failed",
-                            error: "Szelvény verifikációs hiba: Teljes meccses ajánlás helyett részidős piac került a betslipbe! Betslip tartalom: '" + verifyBetCard.innerText.replace(/\\s+/g, ' ').slice(0, 80) + "'"
+                            error: "Szelvény verifikációs hiba: Teljes meccses ajánlás helyett részidős piac került a betslipbe! Betslip tartalom: '" + verifyBetCard.innerText.replace(/\s+/g, ' ').slice(0, 80) + "'"
                         }});
                     }}
                 }}
@@ -2258,15 +2265,15 @@ def stage_betslip_in_safari(
                         }} catch(e) {{}}
                         return JSON.stringify({{
                             status: "verification_failed",
-                            error: "Szelvény verifikációs hiba: A betslipben lévő vonal nem egyezik az ajánlással (" + targetSel + ")! Betslip tartalom: '" + verifyBetCard.innerText.replace(/\\s+/g, ' ').slice(0, 80) + "'"
+                            error: "Szelvény verifikációs hiba: A betslipben lévő vonal nem egyezik az ajánlással (" + targetSel + ")! Betslip tartalom: '" + verifyBetCard.innerText.replace(/\s+/g, ' ').slice(0, 80) + "'"
                         }});
                     }}
                 }}
 
                 // 3. Entity / Team Verification Gate
                 const clubStopwords = new Set(["fc", "sc", "cf", "afc", "ac", "sk", "fk", "bk", "club", "de"]);
-                const entityText = targetSel.replace(/[+-]?\\d+(\\.\\d+)?/g, "").replace(/[()]/g, "").trim();
-                const entityWords = entityText.split(/\\s+/).filter(w => w.length > 1);
+                const entityText = targetSel.replace(/[+-]?\d+(\.\d+)?/g, "").replace(/[()]/g, "").trim();
+                const entityWords = entityText.split(/\s+/).filter(w => w.length > 1);
                 const meaningfulWords = entityWords.filter(w => !clubStopwords.has(w.toLowerCase()));
                 const primaryName = meaningfulWords.length > 0 ? meaningfulWords[meaningfulWords.length - 1] : (entityWords.length > 0 ? entityWords[entityWords.length - 1] : "");
 
@@ -2280,7 +2287,7 @@ def stage_betslip_in_safari(
                         }} catch(e) {{}}
                         return JSON.stringify({{
                             status: "verification_failed",
-                            error: "Szelvény verifikációs hiba: A csapatnév ('" + primaryName + "') nem egyezik a betslipben! Betslip tartalom: '" + verifyBetCard.innerText.replace(/\\s+/g, ' ').slice(0, 80) + "'"
+                            error: "Szelvény verifikációs hiba: A csapatnév ('" + primaryName + "') nem egyezik a betslipben! Betslip tartalom: '" + verifyBetCard.innerText.replace(/\s+/g, ' ').slice(0, 80) + "'"
                         }});
                     }}
                 }}
@@ -2304,40 +2311,10 @@ def stage_betslip_in_safari(
 
             let input = findBetInput();
             if (!input) {{
-                // If betslip card element is already in the betslip, NEVER re-click the button (it would deselect)!
-                if (verifyBetCard) {{
-                    if (betslipToggle) {{ try {{ betslipToggle.click(); }} catch(e) {{}} }}
-                    return JSON.stringify({{ status: "waiting_input" }});
+                if (betslipToggle && !hasBetslipInDom) {{
+                    try {{ betslipToggle.click(); }} catch(e) {{}}
                 }}
-
-                // Check outcome button state before attempting any click
-                const buttons = getOutcomeButtons();
-                const match = findOutcomeMatch(buttons);
-                const isMatchActive = match && (
-                    match.getAttribute("aria-pressed") === "true" ||
-                    match.getAttribute("data-state") === "active" ||
-                    match.classList.contains("active") ||
-                    match.classList.contains("is-active") ||
-                    match.classList.contains("selected") ||
-                    match.closest("[aria-pressed='true']") !== null
-                );
-
-                if (isMatchActive) {{
-                    // Button is already pressed and outcome selected; do NOT re-click or it will deselect!
-                    if (betslipToggle) {{ try {{ betslipToggle.click(); }} catch(e) {{}} }}
-                    return JSON.stringify({{ status: "waiting_input" }});
-                }}
-
-                // Only if match is NOT active and has not been clicked yet in this session:
-                if (match && !window.__stake_outcome_reclicked) {{
-                    window.__stake_outcome_reclicked = true;
-                    try {{ match.click(); }} catch(e) {{}}
-                }}
-                
-                input = findBetInput();
-                if (!input) {{
-                    return JSON.stringify({{ status: "waiting_input", error: "A tét beviteli mező még nem jelent meg a szelvényen." }});
-                }}
+                return JSON.stringify({{ status: "waiting_input", error: "A tét beviteli mező még nem jelent meg a szelvényen." }});
             }}
 
             input.focus();
@@ -2442,7 +2419,7 @@ def stage_betslip_in_safari(
             sleep_time = actual_place_delay if not os.environ.get("PYTEST_CURRENT_TEST") else min(actual_place_delay, 0.005)
             time.sleep(sleep_time)
 
-            click_place_js = """
+            click_place_js = r"""
             (() => {
                 try {
                     // 1. Auto-accept odds changes if prompt appears
@@ -2468,7 +2445,7 @@ def stage_betslip_in_safari(
                     if (!btn) {
                         const buttons = Array.from(betslip.querySelectorAll("button"));
                         btn = buttons.find(b => {
-                            const t = (b.innerText || "").replace(/\\s+/g, " ").trim().toLowerCase();
+                            const t = (b.innerText || "").replace(/\s+/g, " ").trim().toLowerCase();
                             const id = (b.getAttribute("data-testid") || "").toLowerCase();
                             return id.includes("place-bet") || id.includes("place-bets") || id.includes("submit-bet") || 
                                    t.includes("place bet") || t.includes("place single bet") || 
@@ -2559,18 +2536,18 @@ def stage_betslip_in_safari(
                 }
 
             # Fast feedback check (up to 5s)
-            check_success_js = """
+            check_success_js = r"""
             (() => {
                 try {
                     const sidebar = document.querySelector("#right-sidebar") || document.querySelector("[data-testid='betslip-bet']")?.closest("aside, [class*='sidebar']") || document.querySelector(".betslip, [data-testid='betslip'], [class*='betslip']") || document.body;
-                    const sidebarTxt = (sidebar ? sidebar.innerText : "").replace(/\\s+/g, " ").toLowerCase();
-                    const bodyTxt = (document.body ? document.body.innerText : "").replace(/\\s+/g, " ").toLowerCase();
+                    const sidebarTxt = (sidebar ? sidebar.innerText : "").replace(/\s+/g, " ").toLowerCase();
+                    const bodyTxt = (document.body ? document.body.innerText : "").replace(/\s+/g, " ").toLowerCase();
 
                     // 1. Collect ALL alert, toast, snackbar, and modal elements across the whole page:
                     const alertEls = Array.from(document.querySelectorAll(
                         "[role='alert'], [data-testid*='toast'], [class*='toast'], [class*='alert'], [class*='snackbar'], [class*='notification'], [class*='modal'], [class*='dialog'], [class*='variant-danger'], [class*='variant-error'], [data-testid*='error'], .toast"
                     ));
-                    const alertTexts = alertEls.map(el => (el.innerText || "").replace(/\\s+/g, " ").trim().toLowerCase()).filter(Boolean);
+                    const alertTexts = alertEls.map(el => (el.innerText || "").replace(/\s+/g, " ").trim().toLowerCase()).filter(Boolean);
                     const combinedAlertText = alertTexts.join(" ");
 
                     // 2. Check positive success evidence FIRST:
@@ -2823,7 +2800,7 @@ def stage_betslip_in_safari(
 
     if not staked and adaptive_fallback and tip_id:
         log.info(f"Staking failed for {selection}. Evaluating alternative lines via adaptive fallback...")
-        scan_cands_js = f"""
+        scan_cands_js = rf"""
         (() => {{
             try {{
                 {helpers_js}
