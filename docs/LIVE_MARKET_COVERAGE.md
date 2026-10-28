@@ -1,15 +1,15 @@
 # Live Stake market coverage
 
-Checked: 2026-10-28T08:04:48.390882+00:00
+Checked: 2026-10-28T08:24:31.552636+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
 | League | Observed titles | Activity unverified | Offered now | Complete 10/10 | Incomplete offered | Evaluated | Funding supported | Ready now | Issued today |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | NFL | 80 | 9 | 41 | 0 | 41 | 18 | 10 | 2 | 7 |
-| NHL | 61 | 15 | 46 | 0 | 46 | 19 | 14 | 4 | 21 |
+| NHL | 61 | 15 | 46 | 0 | 46 | 19 | 15 | 4 | 22 |
 | MLB | 39 | 15 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| NBA | 173 | 36 | 137 | 0 | 137 | 83 | 80 | 50 | 229 |
+| NBA | 173 | 36 | 137 | 0 | 137 | 83 | 80 | 50 | 230 |
 | WNBA | 47 | 0 | 47 | 0 | 47 | 7 | 5 | 0 | 4 |
 
 Current stages require outcome-level evidence; original issuance, settlement and feedback are explicitly historical. 10/10 records observed execution, not proven profitability or automatic model promotion.
@@ -141,7 +141,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | Chicago Bulls Total Maximum Consecutive Points | standard | regulation | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Cleveland Cavaliers Total (Incl. Overtime) | standard | full_game | offered_now | 7/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | partial 3/4 | not_observed 0/0 | awaiting_measurement 0/1 | 4 |
 | NBA | Cleveland Cavaliers Total Maximum Consecutive Points | standard | regulation | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NBA | Dallas Mavericks Total (Incl. Overtime) | standard | full_game | offered_now | 7/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | not_observed 0/2 | not_observed 0/0 | awaiting_measurement 0/1 | 2 |
+| NBA | Dallas Mavericks Total (Incl. Overtime) | standard | full_game | offered_now | 7/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | partial 1/3 | not_observed 0/0 | awaiting_measurement 0/1 | 3 |
 | NBA | Dallas Mavericks Total Maximum Consecutive Points | standard | regulation | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Denver Nuggets Total (Incl. Overtime) | standard | full_game | offered_now | 7/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | partial 1/4 | not_observed 0/0 | awaiting_measurement 0/1 | 4 |
 | NBA | Denver Nuggets Total Maximum Consecutive Points | standard | regulation | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
@@ -328,7 +328,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NHL | 2nd Period - Handicap | standard | period_2 | offered_now | 7/10 | verified 8/8 | verified 8/8 | verified 8/8 | verified 8/8 | verified 8/8 | verified 8/8 | verified 8/8 | not_observed 0/3 | not_observed 0/0 | awaiting_measurement 0/1 | 3 |
 | NHL | 2nd Period - Last Team to Score | standard | period_2 | offered_now | 0/10 | not_observed 0/12 | not_observed 0/12 | not_observed 0/12 | not_observed 0/12 | not_observed 0/12 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 2nd Period - Odd/Even | standard | period_2 | offered_now | 1/10 | not_observed 0/8 | verified 8/8 | not_observed 0/8 | not_observed 0/8 | not_observed 0/8 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NHL | 2nd Period - Total | standard | period_2 | offered_now | 7/10 | verified 8/8 | verified 8/8 | verified 8/8 | verified 8/8 | verified 8/8 | verified 8/8 | verified 8/8 | not_observed 0/2 | not_observed 0/0 | awaiting_measurement 0/1 | 2 |
+| NHL | 2nd Period - Total | standard | period_2 | offered_now | 7/10 | verified 8/8 | verified 8/8 | verified 8/8 | verified 8/8 | verified 8/8 | verified 8/8 | verified 8/8 | partial 1/3 | not_observed 0/0 | awaiting_measurement 0/1 | 3 |
 | NHL | 3rd Period - 1st Goal | standard | period_3 | offered_now | 0/10 | not_observed 0/12 | not_observed 0/12 | not_observed 0/12 | not_observed 0/12 | not_observed 0/12 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 3rd Period - 1x2 | standard | period_3 | offered_now | 1/10 | not_observed 0/12 | verified 12/12 | not_observed 0/12 | not_observed 0/12 | not_observed 0/12 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 3rd Period - Both Teams to Score | standard | period_3 | offered_now | 1/10 | not_observed 0/8 | verified 8/8 | not_observed 0/8 | not_observed 0/8 | not_observed 0/8 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
@@ -342,15 +342,15 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NHL | Calgary Flames Total | standard | regulation | offered_now | 1/10 | not_observed 0/6 | verified 6/6 | not_observed 0/6 | not_observed 0/6 | not_observed 0/6 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Colorado Avalanche Total | standard | regulation | offered_now | 3/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Correct Score | standard | regulation | offered_now | 0/10 | not_observed 0/148 | not_observed 0/148 | not_observed 0/148 | not_observed 0/148 | not_observed 0/148 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NHL | Double Chance | standard | regulation | offered_now | 1/10 | not_observed 0/12 | verified 12/12 | partial 2/12 | partial 2/12 | not_observed 0/12 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NHL | Double Chance | standard | regulation | offered_now | 1/10 | not_observed 0/12 | verified 12/12 | partial 3/12 | partial 3/12 | not_observed 0/12 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Edmonton Oilers Total | standard | regulation | offered_now | 3/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Handicap (Incl. Overtime and Penalties) | standard | full_game | offered_now | 1/10 | not_observed 0/24 | verified 24/24 | partial 6/24 | partial 6/24 | not_observed 0/24 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Last Goal | standard | regulation | offered_now | 0/10 | not_observed 0/12 | not_observed 0/12 | not_observed 0/12 | not_observed 0/12 | not_observed 0/12 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | New Jersey Devils Total | standard | regulation | offered_now | 1/10 | not_observed 0/6 | verified 6/6 | partial 2/6 | partial 2/6 | not_observed 0/6 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Odd/Even (Incl. Overtime and Penalties) | standard | full_game | offered_now | 1/10 | not_observed 0/8 | verified 8/8 | not_observed 0/8 | not_observed 0/8 | not_observed 0/8 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Philadelphia Flyers Total | standard | regulation | offered_now | 1/10 | not_observed 0/6 | verified 6/6 | not_observed 0/6 | not_observed 0/6 | not_observed 0/6 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NHL | Seattle Kraken Total | standard | regulation | offered_now | 3/10 | partial 1/2 | verified 2/2 | partial 1/2 | partial 1/2 | partial 1/2 | verified 1/1 | verified 1/1 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NHL | Toronto Maple Leafs Total | standard | regulation | offered_now | 1/10 | not_observed 0/2 | verified 2/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NHL | Seattle Kraken Total | standard | regulation | offered_now | 3/10 | partial 4/6 | verified 6/6 | partial 4/6 | partial 4/6 | partial 4/6 | verified 4/4 | verified 4/4 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NHL | Toronto Maple Leafs Total | standard | regulation | offered_now | 1/10 | not_observed 0/6 | verified 6/6 | not_observed 0/6 | not_observed 0/6 | not_observed 0/6 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Total (Incl. Overtime and Penalties) | standard | full_game | offered_now | 1/10 | not_observed 0/40 | verified 40/40 | not_observed 0/40 | not_observed 0/40 | not_observed 0/40 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Washington Capitals Total | standard | regulation | offered_now | 3/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Winner (Incl. Overtime and Penalties) | standard | full_game | offered_now | 7/10 | verified 8/8 | verified 8/8 | verified 8/8 | verified 8/8 | verified 8/8 | verified 8/8 | verified 8/8 | not_observed 0/3 | not_observed 0/0 | awaiting_measurement 0/1 | 3 |
