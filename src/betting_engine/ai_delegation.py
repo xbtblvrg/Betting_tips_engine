@@ -214,7 +214,13 @@ def decode(provider, result, expected_model=None):
             if len(finals) != 1 or finals[0].get('status') != 'SUCCESS': return 'invalid_output', None
             payload = finals[0]
         else:
-            payload = json.loads(result['stdout'])
+            try:
+                payload = json.loads(result['stdout'])
+            except (ValueError, json.JSONDecodeError):
+                if provider == 'codex' and result.get('stdout', '').strip():
+                    payload = {'response': result['stdout'].strip()}
+                else:
+                    raise
         if not isinstance(payload, dict) or payload.get('is_error') or payload.get('error'):
             return 'provider_error', None
         if expected_model:
