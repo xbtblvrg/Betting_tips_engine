@@ -1457,6 +1457,58 @@ def test_stage_betslip_strict_entity_protection(monkeypatch):
     assert "Strict Entity Protection" in combined_scripts
 
 
+def test_stage_betslip_deep_auto_heal_and_dom_snapshot(monkeypatch, tmp_path):
+    """Verify that stage_betslip_in_safari includes Deep Auto-Heal scanning and captures dom_snapshot on error."""
+    import subprocess
+    from betting_engine.stake_account import stage_betslip_in_safari
+
+    intercepted_codes = []
+    call_idx = 0
+    def mock_run(cmd, *args, **kwargs):
+        nonlocal call_idx
+        call_idx += 1
+        class Res:
+            stderr = ""
+        r = Res()
+        if call_idx == 1:
+            r.stdout = "ALREADY_OPEN"
+        elif call_idx == 2:
+            intercepted_codes.append(cmd[3])
+            r.stdout = json.dumps({"ready": True, "hasTarget": True, "tabActive": True, "outcomesCount": 8})
+        elif call_idx == 3:
+            intercepted_codes.append(cmd[3])
+            r.stdout = json.dumps({
+                "error": "Nem található a kimenetel gombja a felületen.",
+                "market_missing": True,
+                "dom_snapshot": {
+                    "tabs": ["Popular", "Quarters", "Half"],
+                    "accordions": ["Winner", "Handicap", "Quarter - Draw No Bet"],
+                    "buttons_count": 42
+                }
+            })
+        else:
+            r.stdout = "OK"
+        return r
+
+    monkeypatch.setattr(subprocess, "run", mock_run)
+
+    res = stage_betslip_in_safari(
+        event_url="https://stake.com/sports/basketball/usa/nba/test",
+        selection="Utah Jazz",
+        market_name="1st Quarter - Draw No Bet",
+        odds=2.85,
+        stake=0.5,
+        auto_place=False,
+        adaptive_fallback=False
+    )
+
+    combined_scripts = "\n".join(intercepted_codes)
+    assert "Deep Auto-Heal Pass" in combined_scripts
+    assert "domSnapshot" in combined_scripts
+    assert res["status"] == "error"
+
+
+
 
 
 

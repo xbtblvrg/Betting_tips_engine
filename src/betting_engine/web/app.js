@@ -1653,6 +1653,113 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
     }
    }
   }
+
+  // Phase 3: Autonomous Adaptive Repeat Cycle (Auto-Healing Loop)
+  const maxRepeatPasses = isTestEnv ? 0 : 2;
+  let repeatPass = 0;
+  while (isAutoBetRunning && skippedAutoBetTips.size > 0 && !fatalErr && repeatPass < maxRepeatPasses) {
+   repeatPass++;
+   const stakeOpenInRepeat = Number(stakeAccountData?.open_bets_count ?? data?.stake_account?.open_bets_count ?? 0);
+   if (stakeOpenInRepeat >= 300) {
+    toast(`⚠️ Stake 300 aktív fogadási limit elérve az ismétlési fázisban (${stakeOpenInRepeat}/300). Folyamat leáll a következő ciklusig.`);
+    break;
+   }
+
+   const remainingTips = [...skippedAutoBetTips.values()]
+    .map(s => s.tip)
+    .filter(t => new Date(t.start) > new Date() && !isPlaced(t) && !getBetDoneTips().has(t.id));
+
+   if (remainingTips.length === 0) break;
+
+   toast(`🔄 [${repeatPass + 1}. kör: Adaptív újrapróbálás & Önjavítás] ${remainingTips.length} db még nem kötött szelvény újabb feldolgozása a Safariban…`, { duration: 6000 });
+   const descEl = $('#auto-bet-desc');
+   if (descEl) {
+    descEl.textContent = `[Ismétlési kör ${repeatPass}/${maxRepeatPasses}] ${remainingTips.length} szelvény adaptív önjavítása… (Eddig megkötve: ${placedCount})`;
+   }
+
+   // Short human pause before repeat pass
+   if (!isTestEnv) {
+    await new Promise(r => setTimeout(r, 2500));
+   }
+
+   for (let k = 0; k < remainingTips.length; k++) {
+    if (!isAutoBetRunning) break;
+    const t = remainingTips[k];
+    if (new Date(t.start) <= new Date() || isPlaced(t) || getBetDoneTips().has(t.id)) {
+     skippedAutoBetTips.delete(t.id);
+     continue;
+    }
+
+    if (descEl) {
+     descEl.textContent = `[Ismétlés ${k + 1}/${remainingTips.length}] Szelvény feladása: ${t.selection} — ${t.away} @ ${t.home}…`;
+    }
+
+    placingTipsSet.add(t.id);
+    updateTipBetDoneUI(t.id, 'placing');
+
+    try {
+     const terms = executionTerms(t);
+     const nav = stakeNavigation(t);
+     const resolvedTab = nav.tab || inferStakeTab(t) || 'Main';
+     const stakeAmt = Number(instructionStake(t) || 0) || 1.0;
+     const oddsVal = terms.reference_odds || t.reference_odds;
+
+     const res = await api('/api/stage-betslip', {
+      method: 'POST',
+      body: JSON.stringify({
+       tip_id: t.id,
+       cycle_id: currentCycleId,
+       run_type: `adaptive_repeat_pass_${repeatPass}`,
+       event_url: nav.event_url || t.reference_url,
+       selection: t.selection,
+       line: t.line,
+       stake: stakeAmt > 0 ? stakeAmt : 2.50,
+       odds: oddsVal,
+       tab: resolvedTab,
+       outcome_name: (t.stake_evidence && t.stake_evidence.outcome_name) || (terms && terms.stake_evidence && terms.stake_evidence.outcome_name) || null,
+       market_name: (t.stake_evidence && (t.stake_evidence.market_name || t.stake_evidence.name)) || (t.stake_market && (t.stake_market.name || t.stake_market.market_name)) || t.market_display || t.reference_contract_description || null,
+       market: t.market || null,
+       league: t.league || null,
+       auto_place: true,
+       auto_close_on_fail: true,
+       adaptive_fallback: true
+      })
+     });
+
+     placingTipsSet.delete(t.id);
+
+     if (res && res.limit_reached) {
+      unmarkTipBetDone(t.id);
+      updateTipBetDoneUI(t.id, 'skipped', stakeAmt, 'Stake 300 limit elérve');
+      break;
+     }
+
+     if (res && res.placed === true && res.status === 'ok') {
+      skippedAutoBetTips.delete(t.id);
+      markTipBetDone(t.id);
+      updateTipBetDoneUI(t.id, 'done');
+      await setPlacement(t.id, true, { silent: true });
+      placedCount++;
+      adaptedCount++;
+      const healedTag = res.healed ? ' [Önjavítva]' : (res.adapted ? ' [Adaptívan]' : '');
+      toast(`⚡${healedTag} Sikerült! Megkötve: ${res.selection || t.selection} ($${num(res.stake || stakeAmt)})`);
+     } else {
+      const msg = res?.message || res?.error || 'Nem sikerült az elhelyezés';
+      skippedAutoBetTips.set(t.id, { tip: t, reason: msg, time: new Date().toISOString() });
+      updateTipBetDoneUI(t.id, 'skipped', stakeAmt, msg);
+     }
+    } catch (err) {
+     placingTipsSet.delete(t.id);
+     const msg = err.message || 'Hiba az ismétlés során';
+     skippedAutoBetTips.set(t.id, { tip: t, reason: msg, time: new Date().toISOString() });
+     updateTipBetDoneUI(t.id, 'skipped', null, msg);
+    }
+
+    if (k < remainingTips.length - 1 && !isTestEnv) {
+     await new Promise(r => setTimeout(r, pauseMs));
+    }
+   }
+  }
  } finally {
   isAutoBetRunning = false;
   placingTipsSet.clear();

@@ -1933,6 +1933,46 @@ def stage_betslip_in_safari(
                 }}
             }}
 
+            // Deep Auto-Heal Pass: If still not matched, scan all secondary accordions on the page
+            let isHealed = false;
+            if (!match && (targetOdds || periodPrefix)) {{
+                const sidebars = Array.from(document.querySelectorAll("#left-sidebar, #right-sidebar, aside"));
+                const allAccs = Array.from(document.querySelectorAll(".main-content [class*='accordion'], [class*='accordion']"))
+                    .filter(a => !sidebars.some(s => s.contains(a)));
+                for (const acc of allAccs) {{
+                    const h = acc.querySelector(".header, [class*='header'], [class*='title'], h2, h3, h4");
+                    if (!h || !h.innerText) continue;
+                    const hText = h.innerText.toLowerCase().split(/[\r\n]+/)[0].trim();
+                    if (hText.includes("soccer") || hText.includes("basketball") || hText.includes("tennis") || hText.includes("promotions") || hText.includes("casino") || hText.includes("support") || hText.includes("trending")) continue;
+
+                    if (periodPrefix) {{
+                        const pLow = periodPrefix.toLowerCase();
+                        let pMatches = hText.includes(pLow);
+                        if (!pMatches && pLow.includes("1st quarter") && hText.includes("quarter") && !hText.includes("2nd") && !hText.includes("3rd") && !hText.includes("4th")) pMatches = true;
+                        if (!pMatches && pLow.includes("1st half") && (hText.includes("1st half") || hText.includes("half 1") || hText.includes("first half"))) pMatches = true;
+                        if (!pMatches && pLow.includes("2nd half") && (hText.includes("2nd half") || hText.includes("half 2") || hText.includes("second half"))) pMatches = true;
+                        if (!pMatches) continue;
+                    }}
+
+                    const isOpen = acc.className.indexOf("is-open") !== -1 || !!acc.querySelector(".content.is-open");
+                    if (!isOpen) {{
+                        try {{
+                            h.dispatchEvent(new MouseEvent("click", {{ bubbles: true, cancelable: true, view: window }}));
+                            h.click();
+                        }} catch(e) {{}}
+                    }}
+                    const accBtns = getOutcomeButtons(acc);
+                    if (accBtns.length > 0) {{
+                        const accMatch = scoreAndSelectOutcome(accBtns);
+                        if (accMatch) {{
+                            match = accMatch;
+                            isHealed = true;
+                            break;
+                        }}
+                    }}
+                }}
+            }}
+
             if (!match) {{
                 let lineNote = "";
                 let marketMissing = false;
@@ -2022,13 +2062,20 @@ def stage_betslip_in_safari(
                     errorMsg = "A fogadóiroda módosította a piacot." + lineNote;
                 }}
 
+                const domSnapshot = {{
+                    tabs: Array.from(document.querySelectorAll("[role='tab'], button[class*='tab']")).map(b => (b.innerText||"").trim()).filter(t => t.length > 0 && t.length < 35).slice(0, 15),
+                    accordions: Array.from(document.querySelectorAll(".main-content [class*='accordion'] .header, [class*='accordion'] [class*='header'], [class*='accordion'] [class*='title'], [class*='accordion'] h2, [class*='accordion'] h3, [class*='accordion'] h4")).map(h => (h.innerText||"").split(/[\r\n]+/)[0].trim()).filter(Boolean).slice(0, 25),
+                    buttons_count: buttons.length
+                }};
+
                 return JSON.stringify({{
                     error: errorMsg,
                     market_missing: marketMissing,
                     targetNorm: targetNorm,
                     outcomeNorm: outcomeNorm,
                     available: buttons.map(b => b.getAttribute("aria-label") || b.innerText).slice(0, 10),
-                    available_candidates: candList
+                    available_candidates: candList,
+                    dom_snapshot: domSnapshot
                 }});
             }}
 
@@ -2061,7 +2108,8 @@ def stage_betslip_in_safari(
             return JSON.stringify({{
                 status: "clicked",
                 selection: match.getAttribute("aria-label") || match.innerText,
-                current_odds: currentOdds
+                current_odds: currentOdds,
+                healed: isHealed
             }});
         }} catch(e) {{
             return JSON.stringify({{ error: e.toString() }});
@@ -2231,13 +2279,61 @@ def stage_betslip_in_safari(
                 message=err_msg,
                 error_code=err_code,
                 error_details=res_click.get("error"),
-                payload={"available": res_click.get("available"), "available_candidates": available_cands},
+                payload={
+                    "available": res_click.get("available"),
+                    "available_candidates": available_cands,
+                    "dom_snapshot": res_click.get("dom_snapshot"),
+                },
                 run_type=run_type,
             )
+            # Enqueue autonomous repair job for Antigravity on technical selector / accordion failure
+            if tip_id and err_code in (AutoRunErrorCode.OUTCOME_NOT_FOUND, AutoRunErrorCode.MARKET_NOT_FOUND):
+                try:
+                    db_path = Path(__file__).resolve().parent.parent.parent / "data" / "engine.sqlite3"
+                    if db_path.exists():
+                        with sqlite3.connect(db_path) as job_conn:
+                            j_cur = job_conn.cursor()
+                            job_id = f"repair_{tip_id}_{int(time.time()*1000)}"
+                            j_payload = json.dumps({
+                                "tip_id": tip_id,
+                                "event_url": clean_url,
+                                "league": league,
+                                "market": market,
+                                "market_name": market_name,
+                                "selection": selection,
+                                "odds": odds,
+                                "dom_snapshot": res_click.get("dom_snapshot"),
+                                "error": err_msg
+                            }, ensure_ascii=False)
+                            j_cur.execute("""
+                                INSERT OR IGNORE INTO learning_jobs (id, kind, league, status, created_at, updated_at, next_attempt, attempts, payload)
+                                VALUES (?, 'autorun_selector_repair', ?, 'queued', datetime('now'), datetime('now'), datetime('now'), 0, ?)
+                            """, (job_id, league or "UNKNOWN", j_payload))
+                            job_conn.commit()
+                except Exception as ex:
+                    log.debug(f"Could not enqueue autorun_selector_repair: {ex}")
         return {"status": "error", "placed": False, "closed": bool(auto_close_on_fail), "message": err_msg, "available": res_click.get("available"), "available_candidates": res_click.get("available_candidates"), "event_url": clean_url}
 
     current_odds = res_click.get("current_odds")
     odds_warning = None
+    is_healed = bool(res_click.get("healed"))
+    if is_healed and log_autorun_event:
+        log_autorun_event(
+            cycle_id=cid,
+            stage="AUTO_HEAL",
+            severity="INFO",
+            tip_id=tip_id,
+            league=league,
+            selection=selection,
+            line=line,
+            odds=current_odds or odds,
+            stake=stake,
+            market=market,
+            market_name=market_name,
+            status="healed",
+            message=f"Deep Auto-Heal successfully located and staged outcome in Safari: {selection} @ {current_odds or odds}",
+            run_type=run_type,
+        )
 
     # Step 4: Inject stake amount into betslip input
     time.sleep(0.35)
@@ -2786,6 +2882,8 @@ def stage_betslip_in_safari(
                     res_dict["original_selection"] = orig_selection
                     res_dict["ev"] = adapted_meta.get("ev")
                     res_dict["message"] = f"Adaptívan megkötve: {res_click.get('selection') or selection} @ {current_odds or odds} (Eredeti: {orig_selection}) · EV: +{(adapted_meta.get('ev') or 0)*100:.1f}%"
+                if is_healed:
+                    res_dict["healed"] = True
                 if log_autorun_event:
                     log_autorun_event(
                         cycle_id=cid,
@@ -2858,6 +2956,8 @@ def stage_betslip_in_safari(
             res_dict["original_selection"] = orig_selection
             res_dict["ev"] = adapted_meta.get("ev")
             res_dict["message"] = f"Adaptív szelvény előkészítve a Safariban: {res_click.get('selection') or selection} @ {current_odds or odds} (Eredeti: {orig_selection}) · EV: +{(adapted_meta.get('ev') or 0)*100:.1f}%"
+        if is_healed:
+            res_dict["healed"] = True
         if log_autorun_event:
             log_autorun_event(
                 cycle_id=cid,
