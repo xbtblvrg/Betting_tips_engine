@@ -227,11 +227,11 @@ class UnifiedMarketUniverse:
             logger.error("Error reading incubator db for universe roster: %s", exc)
 
         # 3. Ingest active Baseline Production markets with actual settled performance
+        perf_map: Dict[str, Dict[str, Any]] = {}
         if self.engine_db_path.exists():
             try:
                 with sqlite3.connect(f"file:{self.engine_db_path}?mode=ro", uri=True, timeout=2.0) as eng_conn:
                     # Pre-calculate performance metrics for all markets across settled decisions
-                    perf_map: Dict[str, Dict[str, Any]] = {}
                     try:
                         rows_perf = eng_conn.execute("""
                             SELECT 
@@ -267,67 +267,134 @@ class UnifiedMarketUniverse:
                                 perf_map.setdefault(base_k, stat)
                     except Exception as e_perf:
                         logger.warning("Could not pre-aggregate settled market performance: %s", e_perf)
+            except Exception as exc:
+                logger.error("Error reading engine db for universe settled performance: %s", exc)
 
+        def _register_market_candidate(lg: str, sc: str, fam: str, model_id: Optional[str], archetype: str) -> None:
+            lg_clean = (lg or '').upper().strip()
+            sc_norm = self.normalize_scope(sc)
+            fam_clean = (fam or '').lower().strip()
+            canon_key = self.get_canonical_key(lg_clean, sc_norm, fam_clean)
+            base_fam = fam_clean.split(':')[-1] if ':' in fam_clean else fam_clean
+            canon_base_key = self.get_canonical_key(lg_clean, sc_norm, base_fam)
+
+            if canon_key in roster or canon_base_key in roster:
+                return
+
+            stat = perf_map.get(canon_key) or perf_map.get(canon_base_key) or {}
+            r_pnl = float(stat.get('pnl', 0.0))
+            r_roi = float(stat.get('roi_pct', 0.0))
+            n_samples = int(stat.get('sample_size', 10))
+            r_units = float(stat.get('units', 0.0))
+
+            # Zero Tolerance for Capital Drag (Constitutional Directives 1, 6 & 7):
+            # Any market with established or nascent negative expectation (PnL < 0.0 or ROI < 0.0)
+            # is strictly quarantined in RESEARCH_RND ($0.00 stake) so Tier 3 contains ONLY
+            # and exclusively proven profitable markets.
+            is_degraded = (n_samples >= 1) and (r_pnl < 0.0 or r_roi < 0.0)
+
+            if is_degraded:
+                tier_val = int(MarketTier.RESEARCH_RND)
+                tier_name_val = "RESEARCH_RND"
+                stake_cap_val = 0.00
+                phase_val = f"Negative expectation ({r_roi:.1f}% ROI, ${r_pnl:.2f}, {r_units:.1f}u over {n_samples} games) - Quarantined ($0.00)"
+            else:
+                tier_val = int(MarketTier.PRODUCTION_GRADUATED)
+                tier_name_val = "PRODUCTION_GRADUATED"
+                stake_cap_val = 8.00
+                phase_val = "Active production wired model trading"
+
+            roster[canon_key] = UnifiedMarketProfile(
+                segment_key=canon_key,
+                league=lg_clean,
+                scope=sc_norm,
+                family=fam_clean,
+                sub_family=fam_clean,
+                tier=tier_val,
+                tier_name=tier_name_val,
+                stake_cap=stake_cap_val,
+                active_model_id=model_id,
+                model_archetype=archetype,
+                rolling_roi_pct=r_roi,
+                rolling_pnl=r_pnl,
+                sample_size=n_samples,
+                delta_brier=0.015,
+                phase_detail=phase_val
+            )
+
+        # 4. Ingest all wired markets from approved model metadata JSON files
+        # Full game models
+        models_dir = self.data_dir / 'models'
+        if models_dir.exists():
+            for p in models_dir.glob('*.json'):
+                try:
+                    with open(p) as f_m:
+                        d = json.load(f_m)
+                        m_lg = p.stem.upper()
+                        m_ver = d.get('version', f'{m_lg}-v1')
+                        for m_fam in d.get('validated_markets', []):
+                            _register_market_candidate(m_lg, 'full_game', m_fam, m_ver, 'DomainFullGameModel')
+                except Exception:
+                    pass
+
+        # Period models
+        period_models_dir = self.data_dir / 'period_models'
+        if period_models_dir.exists():
+            for p in period_models_dir.glob('*.json'):
+                if 'latest' in p.name or 'audit' in p.name:
+                    continue
+                try:
+                    with open(p) as f_pm:
+                        d = json.load(f_pm)
+                        stem = p.stem
+                        if '-' in stem:
+                            p_lg, p_sc = stem.split('-', 1)
+                            p_ver = d.get('version', f'{p_lg}-{p_sc}-v1')
+                            for m_fam in d.get('validated_markets', []):
+                                _register_market_candidate(p_lg, p_sc, m_fam, p_ver, 'EmpiricalPeriodModel')
+                except Exception:
+                    pass
+
+        # Segment models
+        segment_models_dir = self.data_dir / 'segment_models'
+        if segment_models_dir.exists():
+            for p in segment_models_dir.glob('*.json'):
+                if 'latest' in p.name or 'audit' in p.name:
+                    continue
+                try:
+                    with open(p) as f_sm:
+                        d = json.load(f_sm)
+                        stem = p.stem
+                        if '-' in stem:
+                            s_lg, s_sc = stem.split('-', 1)
+                            s_ver = d.get('version', f'{s_lg}-{s_sc}-v1')
+                            for m_fam in d.get('validated_markets', []):
+                                _register_market_candidate(s_lg, s_sc, m_fam, s_ver, 'EmpiricalSegmentModel')
+                except Exception:
+                    pass
+
+        # 5. Ingest all distinct baseline production markets ever issued in system_decisions
+        if self.engine_db_path.exists():
+            try:
+                with sqlite3.connect(f"file:{self.engine_db_path}?mode=ro", uri=True, timeout=2.0) as eng_conn:
                     dec_rows = eng_conn.execute("""
-                        SELECT payload FROM system_decisions
-                        ORDER BY issued_at DESC LIMIT 3000
+                        SELECT DISTINCT 
+                            json_extract(payload, '$.league'),
+                            COALESCE(json_extract(payload, '$.model_scope'), json_extract(payload, '$.period'), 'full_game'),
+                            json_extract(payload, '$.market'),
+                            json_extract(payload, '$.model_version')
+                        FROM system_decisions
                     """).fetchall()
 
-                    for (p_raw,) in dec_rows:
-                        p = json.loads(p_raw)
-                        lg = p.get('league', '').upper()
-                        raw_sc = str(p.get('model_scope') or p.get('scope') or p.get('period') or 'full_game')
-                        sc = self.normalize_scope(raw_sc)
-
-                        fam = p.get('market_family') or p.get('market') or ''
-                        canon_key = self.get_canonical_key(lg, sc, fam)
-                        base_fam = fam.split(':')[-1] if ':' in fam else fam
-                        canon_base_key = self.get_canonical_key(lg, sc, base_fam)
-
-                        if canon_key not in roster and canon_base_key not in roster:
-                            # Attach real settled performance
-                            stat = perf_map.get(canon_key) or perf_map.get(canon_base_key) or {}
-                            r_pnl = float(stat.get('pnl', 0.0))
-                            r_roi = float(stat.get('roi_pct', 0.0))
-                            n_samples = int(stat.get('sample_size', 10))
-                            r_units = float(stat.get('units', 0.0))
-
-                            # Zero Tolerance for Capital Drag (Constitutional Directives 1, 6 & 7):
-                            # Any market with established or nascent negative expectation (PnL < 0.0 or ROI < 0.0)
-                            # is strictly quarantined in RESEARCH_RND ($0.00 stake) so Tier 3 contains ONLY
-                            # and exclusively proven profitable markets.
-                            is_degraded = (n_samples >= 1) and (r_pnl < 0.0 or r_roi < 0.0)
-
-                            if is_degraded:
-                                tier_val = int(MarketTier.RESEARCH_RND)
-                                tier_name_val = "RESEARCH_RND"
-                                stake_cap_val = 0.00
-                                phase_val = f"Negative expectation ({r_roi:.1f}% ROI, ${r_pnl:.2f}, {r_units:.1f}u over {n_samples} games) - Quarantined ($0.00)"
-                            else:
-                                tier_val = int(MarketTier.PRODUCTION_GRADUATED)
-                                tier_name_val = "PRODUCTION_GRADUATED"
-                                stake_cap_val = 8.00
-                                phase_val = "Active production proven profitable trading"
-
-                            roster[canon_key] = UnifiedMarketProfile(
-                                segment_key=canon_key,
-                                league=lg,
-                                scope=sc,
-                                family=fam,
-                                sub_family=fam,
-                                tier=tier_val,
-                                tier_name=tier_name_val,
-                                stake_cap=stake_cap_val,
-                                active_model_id=p.get('model_version'),
-                                model_archetype="DomainBaselineModel",
-                                rolling_roi_pct=r_roi,
-                                rolling_pnl=r_pnl,
-                                sample_size=n_samples,
-                                delta_brier=0.015,
-                                phase_detail=phase_val
+                    for lg_d, sc_d, fam_d, mver_d in dec_rows:
+                        if lg_d and fam_d:
+                            _register_market_candidate(
+                                lg_d, sc_d, fam_d,
+                                mver_d or 'system_decision_baseline',
+                                'DomainBaselineModel'
                             )
             except Exception as exc:
-                logger.error("Error reading engine db for universe roster: %s", exc)
+                logger.error("Error reading engine db for distinct universe decisions: %s", exc)
 
         UnifiedMarketUniverse._cached_roster = roster
         UnifiedMarketUniverse._cached_at = now
