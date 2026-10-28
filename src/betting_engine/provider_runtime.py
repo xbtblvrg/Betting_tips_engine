@@ -280,6 +280,27 @@ def start_monitor(root, stop):
     return thread
 
 
+def extract_task_preferred_paths(task: Any) -> List[str]:
+    if not isinstance(task, dict):
+        return []
+    preferred = set()
+    text = ' '.join([
+        str(task.get('id', '')),
+        str(task.get('title', '')),
+        str(task.get('objective', '')),
+        str(task.get('acceptance', '')),
+        str(task.get('last_error', ''))
+    ])
+    for match in re.findall(r'[\w/.-]+\.py\b', text):
+        clean = match.strip('./')
+        if not clean.startswith('src/'):
+            clean = f"src/betting_engine/{clean}" if not clean.startswith('betting_engine/') else f"src/{clean}"
+        preferred.add(clean)
+    for p in task.get('preferred_paths', []):
+        preferred.add(p)
+    return sorted(list(preferred))
+
+
 def run_ai_step(worker, schema, output, prefix, prompt, timeout=1200,
                 sandbox='workspace-write', require_codex=False):
     """Resume a quota-interrupted step in-place, with separate provider evidence."""
@@ -349,7 +370,8 @@ def run_ai_step(worker, schema, output, prefix, prompt, timeout=1200,
                             getattr(worker, 'current_task', {}), prompt, read_json(schema),
                             readonly=sandbox == 'read-only', binary=agy_binary,
                             protected_paths=(*__import__('betting_engine.development', fromlist=['PROTECTED']).PROTECTED,
-                                *(name for name in worker.readonly_input_paths() if name != '.git')))
+                                *(name for name in worker.readonly_input_paths() if name != '.git')),
+                            preferred_paths=extract_task_preferred_paths(getattr(worker, 'current_task', {})))
                         agy_cmd = [agy_binary, '-p', prepared['stdin'],
                             '--model', route['model'], '--output-format', 'json',
                             '--sandbox', '--disable-slash-commands']
@@ -376,7 +398,8 @@ def run_ai_step(worker, schema, output, prefix, prompt, timeout=1200,
                             getattr(worker, 'current_task', {}), prompt, read_json(schema),
                             readonly=sandbox == 'read-only', binary=runtime.config['claude_binary'],
                             protected_paths=(*__import__('betting_engine.development', fromlist=['PROTECTED']).PROTECTED,
-                                *(name for name in worker.readonly_input_paths() if name != '.git')))
+                                *(name for name in worker.readonly_input_paths() if name != '.git')),
+                            preferred_paths=extract_task_preferred_paths(getattr(worker, 'current_task', {})))
                         remaining = deadline - time.monotonic()
                         if remaining <= 0:
                             raise TimeoutError('Development step exceeded its execution time limit')

@@ -514,6 +514,16 @@ class SupremeAutonomousGovernor:
         if unblocked_count > 0:
             actions.append({'action': 'unblock_stale_retry_tasks', 'count': unblocked_count, 'tasks': unblocked_tasks})
 
+        # 3b. Autonomous AI Retry & Blocker Resolution (Overarching Self-Healing)
+        try:
+            from .autonomous_retry_resolver import AutonomousRetryResolver
+            resolver = AutonomousRetryResolver(root=self.root)
+            res_count, res_actions = resolver.resolve_stuck_tasks()
+            if res_count > 0:
+                actions.append({'action': 'autonomous_retry_resolution', 'count': res_count, 'resolutions': [a.to_dict() for a in res_actions]})
+        except Exception as e:
+            log.warning('Autonomous retry resolver error: %s', e)
+
         # 4. Resolve operational gaps
         resolved_gaps_count, resolved_gaps = self.resolve_operating_gaps()
         if resolved_gaps_count > 0:
