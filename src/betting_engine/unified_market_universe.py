@@ -114,6 +114,16 @@ class UnifiedMarketUniverse:
         lg = (league or '').upper().strip()
         sc = self.normalize_scope(scope)
         fam = (family or '').lower().strip()
+        # Strip redundant scope prefix from family if present (e.g. 'quarter_1:spreads' -> 'spreads')
+        if ':' in fam:
+            prefix, rest = fam.split(':', 1)
+            norm_p = self.normalize_scope(prefix)
+            if norm_p == sc or (norm_p != 'full_game' and sc == 'full_game'):
+                sc = norm_p
+                fam = rest
+            elif prefix in ('quarter_1', 'quarter_2', 'quarter_3', 'quarter_4', 'half_1', 'half_2', 'period_1', 'period_2', 'period_3', 'regulation', 'inning_1', 'innings_1_5'):
+                sc = norm_p
+                fam = rest
         return f"{lg}|{sc}|{fam}"
 
     def build_universe_roster(self, force_refresh: bool = False) -> Dict[str, UnifiedMarketProfile]:
@@ -449,14 +459,43 @@ class UnifiedMarketUniverse:
                 return UnifiedMarketUniverse._cached_summary
 
         roster = self.build_universe_roster(force_refresh=force_refresh)
-        total_markets = len(roster)
-        tier3 = [m for m in roster.values() if m.tier == int(MarketTier.PRODUCTION_GRADUATED)]
-        tier2 = [m for m in roster.values() if m.tier == int(MarketTier.SHADOW_INCUBATOR)]
-        tier1 = [m for m in roster.values() if m.tier == int(MarketTier.RESEARCH_RND)]
+        # Deduplicate profiles so alias keys do not inflate counts
+        unique_profiles = {m.segment_key: m for m in roster.values()}
+        total_markets = len(unique_profiles)
+        tier3 = [m for m in unique_profiles.values() if m.tier == int(MarketTier.PRODUCTION_GRADUATED)]
+        tier2 = [m for m in unique_profiles.values() if m.tier == int(MarketTier.SHADOW_INCUBATOR)]
+        tier1 = [m for m in unique_profiles.values() if m.tier == int(MarketTier.RESEARCH_RND)]
+
+        # Determine actively offered markets in current live schedule
+        active_offered_keys: Set[str] = set()
+        offered_by_league: Dict[str, int] = {}
+        if self.engine_db_path.exists():
+            try:
+                with sqlite3.connect(f"file:{self.engine_db_path}?mode=ro", uri=True, timeout=1.0) as eng_conn:
+                    rows = eng_conn.execute("""
+                        SELECT DISTINCT 
+                            json_extract(payload, '$.league'),
+                            COALESCE(json_extract(payload, '$.model_scope'), json_extract(payload, '$.period'), 'full_game'),
+                            json_extract(payload, '$.market')
+                        FROM system_decisions
+                        WHERE status = 'open'
+                    """).fetchall()
+                    for lg_o, sc_o, fam_o in rows:
+                        if lg_o and fam_o:
+                            k_o = self.get_canonical_key(lg_o, sc_o, fam_o)
+                            base_fam = fam_o.split(':')[-1] if ':' in fam_o else fam_o
+                            k_base = self.get_canonical_key(lg_o, sc_o, base_fam)
+                            target_k = k_o if k_o in unique_profiles else k_base if k_base in unique_profiles else None
+                            if target_k:
+                                active_offered_keys.add(target_k)
+                                lg_up = lg_o.upper()
+                                offered_by_league[lg_up] = offered_by_league.get(lg_up, 0) + 1
+            except Exception:
+                pass
 
         leagues_breakdown: Dict[str, Dict[str, int]] = {}
-        for m in roster.values():
-            lb = leagues_breakdown.setdefault(m.league, {'tier1': 0, 'tier2': 0, 'tier3': 0, 'total': 0})
+        for m in unique_profiles.values():
+            lb = leagues_breakdown.setdefault(m.league, {'tier1': 0, 'tier2': 0, 'tier3': 0, 'total': 0, 'offered_now': 0})
             lb['total'] += 1
             if m.tier == 3:
                 lb['tier3'] += 1
@@ -465,6 +504,10 @@ class UnifiedMarketUniverse:
             else:
                 lb['tier1'] += 1
 
+        for lg_key, cnt in offered_by_league.items():
+            if lg_key in leagues_breakdown:
+                leagues_breakdown[lg_key]['offered_now'] = cnt
+
         summary = {
             'total_supported_markets': total_markets,
             'tier_3_production_graduated_count': len(tier3),
@@ -472,6 +515,8 @@ class UnifiedMarketUniverse:
             'tier_1_research_rnd_count': len(tier1),
             'active_capital_eligible_ratio': len(tier3) / max(1, total_markets),
             'quarantined_capital_defense_ratio': (len(tier1) + len(tier2)) / max(1, total_markets),
+            'active_offered_on_stake_count': len(active_offered_keys),
+            'active_offered_ratio': round(len(active_offered_keys) / max(1, total_markets), 4),
             'leagues_breakdown': leagues_breakdown,
         }
         UnifiedMarketUniverse._cached_summary = summary
