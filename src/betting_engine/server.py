@@ -561,8 +561,34 @@ class StageBetslipRequest(BaseModel):
     max_place_delay: Optional[float] = 6.0
     auto_close_on_fail: bool = False
     adaptive_fallback: bool = False
+    cycle_id: Optional[str] = None
+    run_type: Optional[str] = "auto_runner"
 
 StageBetslipRequest.model_rebuild()
+
+
+class AutoRunLogEventRequest(BaseModel):
+    cycle_id: Optional[str] = None
+    stage: str
+    severity: Optional[str] = "INFO"
+    tip_id: Optional[str] = None
+    game_id: Optional[str] = None
+    league: Optional[str] = None
+    selection: Optional[str] = None
+    line: Optional[float] = None
+    odds: Optional[float] = None
+    stake: Optional[float] = None
+    market: Optional[str] = None
+    market_name: Optional[str] = None
+    status: Optional[str] = None
+    message: Optional[str] = ""
+    error_code: Optional[str] = None
+    error_details: Optional[str] = None
+    ai_remediation_hint: Optional[str] = None
+    payload: Optional[dict] = Field(default_factory=dict)
+    run_type: Optional[str] = "auto_runner"
+
+AutoRunLogEventRequest.model_rebuild()
 
 
 class AutoRunHeartbeatRequest(BaseModel):
@@ -744,6 +770,48 @@ def get_autorun_endpoint():
     return english_payload(get_autorun_state_summary())
 
 
+@app.post('/api/autorun/log')
+def autorun_log_endpoint(data: AutoRunLogEventRequest):
+    from .autorun_logger import log_autorun_event
+    rec = log_autorun_event(
+        cycle_id=data.cycle_id or "",
+        stage=data.stage,
+        severity=data.severity or "INFO",
+        tip_id=data.tip_id,
+        game_id=data.game_id,
+        league=data.league,
+        selection=data.selection,
+        line=data.line,
+        odds=data.odds,
+        stake=data.stake,
+        market=data.market,
+        market_name=data.market_name,
+        status=data.status,
+        message=data.message or "",
+        error_code=data.error_code,
+        error_details=data.error_details,
+        ai_remediation_hint=data.ai_remediation_hint,
+        payload=data.payload,
+        run_type=data.run_type or "auto_runner",
+        store=engine.store
+    )
+    return english_payload({"status": "ok", "event": rec})
+
+
+@app.get('/api/autorun/logs')
+def autorun_logs_endpoint(limit: int = 100, cycle_id: Optional[str] = None, severity: Optional[str] = None, tip_id: Optional[str] = None):
+    from .autorun_logger import get_autorun_logs
+    records = get_autorun_logs(limit=limit, cycle_id=cycle_id, severity=severity, tip_id=tip_id, store=engine.store)
+    return english_payload({"status": "ok", "total": len(records), "logs": records})
+
+
+@app.get('/api/autorun/diagnostics')
+def autorun_diagnostics_endpoint(hours: float = 24.0):
+    from .autorun_logger import get_autorun_diagnostics
+    diag = get_autorun_diagnostics(hours=hours, store=engine.store)
+    return english_payload({"status": "ok", "diagnostics": diag})
+
+
 
 class ReevaluateSkippedTipRequest(BaseModel):
     tip_id: str
@@ -832,6 +900,8 @@ def stage_betslip_endpoint(data: StageBetslipRequest):
         max_place_delay=data.max_place_delay if data.max_place_delay is not None else 6.0,
         auto_close_on_fail=data.auto_close_on_fail,
         adaptive_fallback=data.adaptive_fallback,
+        cycle_id=data.cycle_id,
+        run_type=data.run_type or "auto_runner",
     )
     if res.get("status") == "error":
         return JSONResponse(english_payload(res), status_code=400)

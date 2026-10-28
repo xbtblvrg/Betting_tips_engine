@@ -1414,11 +1414,27 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
   toast(`🚀 Auto 1-Click Bet indítása ${queue.length} szelvényre! Sorban megkötjük őket a Stake-en…`);
  }
 
+ const currentCycleId = 'cycle_' + Date.now();
  const isTestEnv = typeof window !== 'undefined' && !!window.happyDOM;
  const pauseMs = isTestEnv ? 10 : 1500;
  let placedCount = 0;
  let adaptedCount = 0;
  let fatalErr = null;
+
+ api('/api/autorun/log', {
+  method: 'POST',
+  body: JSON.stringify({
+   event_type: 'CYCLE_START',
+   severity: 'INFO',
+   cycle_id: currentCycleId,
+   run_type: isAdaptiveDirect ? 'adaptive_direct' : 'queue',
+   details: {
+    queue_length: queue.length,
+    is_adaptive_direct: isAdaptiveDirect,
+    open_bets_count: openBetsCount
+   }
+  })
+ }).catch(() => {});
 
  try {
   for (let i = 0; i < queue.length; i++) {
@@ -1459,6 +1475,8 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
        method: 'POST',
        body: JSON.stringify({
         tip_id: t.id,
+        cycle_id: currentCycleId,
+        run_type: isAdaptiveDirect ? 'adaptive_direct' : 'queue',
         event_url: nav.event_url || t.reference_url,
         selection: t.selection,
         line: t.line,
@@ -1588,6 +1606,8 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
         method: 'POST',
         body: JSON.stringify({
          tip_id: t.id,
+         cycle_id: currentCycleId,
+         run_type: 'adaptive_phase2',
          event_url: nav.event_url || t.reference_url,
          selection: t.selection,
          line: t.line,

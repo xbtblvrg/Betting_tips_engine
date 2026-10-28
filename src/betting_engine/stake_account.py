@@ -702,17 +702,58 @@ def stage_betslip_in_safari(
     max_place_delay: float = 6.0,
     auto_close_on_fail: bool = False,
     adaptive_fallback: bool = False,
+    cycle_id: Optional[str] = None,
+    run_type: str = "auto_runner",
 ) -> Dict[str, Any]:
     """Stages a single bet in Safari on Stake.com, optionally auto-placing and closing tab.
 
     Navigates to the fixture URL, selects the matching outcome, and sets the recommended stake amount.
     Optionally clicks Place Bet (after a human-like delay), waits for confirmation, and closes the tab.
     """
+    try:
+        from .autorun_logger import log_autorun_event, AutoRunErrorCode
+    except Exception:
+        log_autorun_event = None
+        AutoRunErrorCode = None
+
+    cid = cycle_id or f"run_{int(time.time()*1000)}"
+
     if not event_url or not isinstance(event_url, str) or not event_url.startswith("https://stake.com/sports/"):
+        if log_autorun_event:
+            log_autorun_event(
+                cycle_id=cid,
+                stage="VALIDATE_URL",
+                severity="ERROR",
+                tip_id=tip_id,
+                selection=selection,
+                status="error",
+                message=f"Invalid Stake sports event URL: {event_url}",
+                error_code="INVALID_EVENT_URL",
+                run_type=run_type,
+            )
         return {"status": "error", "message": f"Invalid Stake sports event URL: {event_url}"}
 
     orig_selection = selection
     adapted_meta = None
+
+    if log_autorun_event:
+        log_autorun_event(
+            cycle_id=cid,
+            stage="STAGE_START",
+            severity="INFO",
+            tip_id=tip_id,
+            league=league,
+            selection=selection,
+            line=line,
+            odds=odds,
+            stake=stake,
+            market=market,
+            market_name=market_name,
+            status="staging",
+            message=f"Starting betslip staging for {selection} ($ {stake:.2f})",
+            payload={"event_url": event_url, "auto_place": auto_place, "adaptive_fallback": adaptive_fallback},
+            run_type=run_type,
+        )
 
     if not isinstance(stake, (int, float)) or stake <= 0 or stake > 50.0:
         return {"status": "error", "message": f"Invalid stake amount: {stake}. Must be between $0.01 and $50.00."}
@@ -1987,6 +2028,24 @@ def stage_betslip_in_safari(
                 if eval_res.get("has_eligible") and eval_res.get("best_candidate"):
                     best = eval_res["best_candidate"]
                     log.info(f"Adaptive fallback selected best alternative for {selection}: {best['selection']} @ {best['odds']} (EV: +{best['ev']*100:.1f}%)")
+                    if log_autorun_event:
+                        log_autorun_event(
+                            cycle_id=cid,
+                            stage="ADAPTIVE_EVALUATION",
+                            severity="INFO",
+                            tip_id=best.get("tip_id") or tip_id,
+                            league=league,
+                            selection=best["selection"],
+                            line=best.get("line"),
+                            odds=best["odds"],
+                            stake=best.get("recommended_stake") or stake,
+                            market=market,
+                            market_name=market_name,
+                            status="adapted",
+                            message=f"Adaptive fallback selected alternative: {best['selection']} @ {best['odds']} (EV: +{best['ev']*100:.1f}%)",
+                            payload={"original_selection": orig_selection, "ev": best.get("ev"), "all_evals": eval_res.get("evaluations", [])},
+                            run_type=run_type,
+                        )
                     selection = best["selection"]
                     line = best.get("line")
                     odds = best["odds"]
@@ -2084,6 +2143,29 @@ def stage_betslip_in_safari(
                 err_msg = f"Adaptív vizsgálat lefutott: {err_msg} (Nem található +EV feltételnek megfelelő alternatív vonal)."
             else:
                 err_msg = f"Adaptív vizsgálat lefutott: {err_msg} (Nincs elérhető alternatív vonal a Stake felületén)."
+        if log_autorun_event:
+            err_code = AutoRunErrorCode.LINE_DRIFT_NO_EV if available_cands else AutoRunErrorCode.OUTCOME_NOT_FOUND
+            if res_click.get("market_missing"):
+                err_code = AutoRunErrorCode.MARKET_NOT_FOUND
+            log_autorun_event(
+                cycle_id=cid,
+                stage="LINE_EVAL",
+                severity="WARN",
+                tip_id=tip_id,
+                league=league,
+                selection=selection,
+                line=line,
+                odds=odds,
+                stake=stake,
+                market=market,
+                market_name=market_name,
+                status="skipped",
+                message=err_msg,
+                error_code=err_code,
+                error_details=res_click.get("error"),
+                payload={"available": res_click.get("available"), "available_candidates": available_cands},
+                run_type=run_type,
+            )
         return {"status": "error", "placed": False, "closed": bool(auto_close_on_fail), "message": err_msg, "available": res_click.get("available"), "available_candidates": res_click.get("available_candidates"), "event_url": clean_url}
 
     current_odds = res_click.get("current_odds")
@@ -2320,6 +2402,25 @@ def stage_betslip_in_safari(
                 pass
 
     if verification_err:
+        if log_autorun_event:
+            log_autorun_event(
+                cycle_id=cid,
+                stage="VERIFY_BETSLIP",
+                severity="ERROR",
+                tip_id=tip_id,
+                league=league,
+                selection=selection,
+                line=line,
+                odds=odds,
+                stake=stake,
+                market=market,
+                market_name=market_name,
+                status="error",
+                message=verification_err,
+                error_code=AutoRunErrorCode.BETSLIP_VERIFICATION_FAILED,
+                error_details=verification_err,
+                run_type=run_type,
+            )
         if auto_close_on_fail:
             _close_tab()
         return {
@@ -2628,15 +2729,53 @@ def stage_betslip_in_safari(
                     res_dict["original_selection"] = orig_selection
                     res_dict["ev"] = adapted_meta.get("ev")
                     res_dict["message"] = f"Adaptívan megkötve: {res_click.get('selection') or selection} @ {current_odds or odds} (Eredeti: {orig_selection}) · EV: +{(adapted_meta.get('ev') or 0)*100:.1f}%"
+                if log_autorun_event:
+                    log_autorun_event(
+                        cycle_id=cid,
+                        stage="PLACE_BET",
+                        severity="INFO",
+                        tip_id=tip_id,
+                        league=league,
+                        selection=res_dict["selection"],
+                        line=line,
+                        odds=res_dict["odds"],
+                        stake=res_dict["stake"],
+                        market=market,
+                        market_name=market_name,
+                        status="placed",
+                        message=res_dict["message"],
+                        payload={"payout": payout_val, "adapted": bool(adapted_meta), "place_delay": actual_place_delay},
+                        run_type=run_type,
+                    )
                 return res_dict
             else:
                 if auto_close_on_fail:
                     _close_tab()
+                err_msg = "A Stake nem igazolta vissza a fogadás megkötését (nem érkezett sikeres szelvény visszaigazolás)." + (" A fül bezárva." if auto_close_on_fail else " A fül nyitva maradt az ellenőrzéshez.")
+                if log_autorun_event:
+                    log_autorun_event(
+                        cycle_id=cid,
+                        stage="PLACE_BET",
+                        severity="ERROR",
+                        tip_id=tip_id,
+                        league=league,
+                        selection=selection,
+                        line=line,
+                        odds=odds,
+                        stake=stake,
+                        market=market,
+                        market_name=market_name,
+                        status="error",
+                        message=err_msg,
+                        error_code=AutoRunErrorCode.STAKE_REJECTED,
+                        error_details="No success toast/ticket received within confirmation window",
+                        run_type=run_type,
+                    )
                 return {
                     "status": "error",
                     "placed": False,
                     "closed": bool(auto_close_on_fail),
-                    "message": "A Stake nem igazolta vissza a fogadás megkötését (nem érkezett sikeres szelvény visszaigazolás)." + (" A fül bezárva." if auto_close_on_fail else " A fül nyitva maradt az ellenőrzéshez."),
+                    "message": err_msg,
                     "selection": res_click.get("selection"),
                     "stake": stake,
                     "odds": current_odds or odds,
@@ -2662,6 +2801,24 @@ def stage_betslip_in_safari(
             res_dict["original_selection"] = orig_selection
             res_dict["ev"] = adapted_meta.get("ev")
             res_dict["message"] = f"Adaptív szelvény előkészítve a Safariban: {res_click.get('selection') or selection} @ {current_odds or odds} (Eredeti: {orig_selection}) · EV: +{(adapted_meta.get('ev') or 0)*100:.1f}%"
+        if log_autorun_event:
+            log_autorun_event(
+                cycle_id=cid,
+                stage="STAGE_COMPLETE",
+                severity="INFO",
+                tip_id=tip_id,
+                league=league,
+                selection=res_dict["selection"],
+                line=line,
+                odds=res_dict["odds"],
+                stake=res_dict["stake"],
+                market=market,
+                market_name=market_name,
+                status="staged",
+                message=res_dict["message"],
+                payload={"payout": payout_val, "adapted": bool(adapted_meta)},
+                run_type=run_type,
+            )
         return res_dict
 
     if not staked and adaptive_fallback and tip_id:
@@ -2734,5 +2891,24 @@ def stage_betslip_in_safari(
     err_msg = last_stake_err or "Nem sikerült kitölteni a tét összegét a szelvényen."
     if adaptive_fallback:
         err_msg = f"{err_msg} (Adaptív pótlás lefutott: nem található megfelelő +EV alternatív vonal)."
+    if log_autorun_event:
+        log_autorun_event(
+            cycle_id=cid,
+            stage="STAKE_ERROR",
+            severity="ERROR",
+            tip_id=tip_id,
+            league=league,
+            selection=selection,
+            line=line,
+            odds=odds,
+            stake=stake,
+            market=market,
+            market_name=market_name,
+            status="error",
+            message=err_msg,
+            error_code=AutoRunErrorCode.INPUT_FIELD_MISSING if not last_stake_err else AutoRunErrorCode.UNKNOWN_ERROR,
+            error_details=last_stake_err,
+            run_type=run_type,
+        )
     return {"status": "error", "placed": False, "closed": bool(auto_close_on_fail), "message": err_msg, "event_url": clean_url}
 
