@@ -3356,60 +3356,60 @@ class ShadowMarketIncubator:
                         except Exception as e_sql:
                             log.warning("Could not persist demotion to sqlite: %s", e_sql)
 
-                    if seg_key not in existing_demoted:
-                        prev_tier = 'CORE_DOMAIN_MODEL' if is_core else 'GRADUATED_EXPLORATION'
-                        new_tier = 'CAPITAL_DEFENSE' if is_core else 'PROBATION_RESEARCH'
-                        failure_mode = 'CORE_DOMAIN_MODEL_DRAWDOWN' if is_core else 'LIVE_DRAWDOWN_DRIFT'
-                        diag_msg = (
-                            f"Continuous Core Market Review: {seg_key} degraded in live execution "
-                            f"(Rolling ROI {rolling_roi*100:.1f}%, PnL ${rolling_pnl:.2f} over {len(recent)} games). "
-                            f"Relegated to incubator research & clamped to Capital Defense ($0.50)."
-                            if is_core else
-                            f"Continuous Review Demotion: {seg_key} degraded in live execution "
-                            f"(Rolling ROI {rolling_roi*100:.1f}%, PnL ${rolling_pnl:.2f} over {len(recent)} games). "
-                            f"Relegated to incubator research."
-                        )
-                        remedy_msg = (
-                            "Clamped to $0.50 floor + 3.5% min EV hurdle under Capital Defense; enqueued for Multi-AI Quant Council challenger model formulation."
-                            if is_core else
-                            "Replaced in live lineup; enqueued for Quant Council forensic investigation."
-                        )
-
-                        try:
-                            from .tier_state_machine import append_tier_transition, enqueue_rd_repair_job
-                            append_tier_transition({
-                                'id': f"demote_{hashlib.sha256(f'{seg_key}:{now_iso}'.encode()).hexdigest()[:16]}",
-                                'timestamp': now_iso,
-                                'segment': seg_key,
-                                'league': league,
-                                'scope': scope,
-                                'family': meta.get('family'),
-                                'previous_tier': prev_tier,
-                                'new_tier': new_tier,
-                                'transition_type': 'DEMOTION_TO_RESEARCH',
-                                'pnl': rolling_pnl,
-                                'roi_pct': round(rolling_roi * 100.0, 2),
-                                'games': len(recent),
-                                'wins': sum(1 for d in recent if d['status'] == 'won'),
-                                'losses': sum(1 for d in recent if d['status'] == 'lost'),
-                                'diagnostic_reason': diag_msg,
-                                'rd_actionable_remedy': remedy_msg,
-                                'failure_mode': failure_mode
-                            })
-                            conn_main = sqlite3.connect(db_file, timeout=10.0)
-                            enqueue_rd_repair_job(
-                                conn=conn_main,
-                                segment_key=seg_key,
-                                league=league,
-                                prev_tier=prev_tier,
-                                new_tier=new_tier,
-                                failure_mode=failure_mode,
-                                remedy=remedy_msg,
-                                stats={'pnl': rolling_pnl, 'roi_pct': round(rolling_roi * 100.0, 2), 'games': len(recent), 'is_core': is_core}
+                        if seg_key not in existing_demoted:
+                            prev_tier = 'CORE_DOMAIN_MODEL' if is_core else 'GRADUATED_EXPLORATION'
+                            new_tier = 'CAPITAL_DEFENSE' if is_core else 'PROBATION_RESEARCH'
+                            failure_mode = 'CORE_DOMAIN_MODEL_DRAWDOWN' if is_core else 'LIVE_DRAWDOWN_DRIFT'
+                            diag_msg = (
+                                f"Continuous Core Market Review: {seg_key} degraded in live execution "
+                                f"(Rolling ROI {rolling_roi*100:.1f}%, PnL ${rolling_pnl:.2f} over {len(recent)} games). "
+                                f"Relegated to incubator research & clamped to Capital Defense ($0.50)."
+                                if is_core else
+                                f"Continuous Review Demotion: {seg_key} degraded in live execution "
+                                f"(Rolling ROI {rolling_roi*100:.1f}%, PnL ${rolling_pnl:.2f} over {len(recent)} games). "
+                                f"Relegated to incubator research."
                             )
-                            conn_main.close()
-                        except Exception:
-                            pass
+                            remedy_msg = (
+                                "Clamped to $0.50 floor + 3.5% min EV hurdle under Capital Defense; enqueued for Multi-AI Quant Council challenger model formulation."
+                                if is_core else
+                                "Replaced in live lineup; enqueued for Quant Council forensic investigation."
+                            )
+
+                            try:
+                                from .tier_state_machine import append_tier_transition, enqueue_rd_repair_job
+                                append_tier_transition({
+                                    'id': f"demote_{hashlib.sha256(f'{seg_key}:{now_iso}'.encode()).hexdigest()[:16]}",
+                                    'timestamp': now_iso,
+                                    'segment': seg_key,
+                                    'league': league,
+                                    'scope': scope,
+                                    'family': meta.get('family'),
+                                    'previous_tier': prev_tier,
+                                    'new_tier': new_tier,
+                                    'transition_type': 'DEMOTION_TO_RESEARCH',
+                                    'pnl': rolling_pnl,
+                                    'roi_pct': round(rolling_roi * 100.0, 2),
+                                    'games': len(recent),
+                                    'wins': sum(1 for d in recent if d['status'] == 'won'),
+                                    'losses': sum(1 for d in recent if d['status'] == 'lost'),
+                                    'diagnostic_reason': diag_msg,
+                                    'rd_actionable_remedy': remedy_msg,
+                                    'failure_mode': failure_mode
+                                })
+                                conn_main = sqlite3.connect(db_file, timeout=10.0)
+                                enqueue_rd_repair_job(
+                                    conn=conn_main,
+                                    segment_key=seg_key,
+                                    league=league,
+                                    prev_tier=prev_tier,
+                                    new_tier=new_tier,
+                                    failure_mode=failure_mode,
+                                    remedy=remedy_msg,
+                                    stats={'pnl': rolling_pnl, 'roi_pct': round(rolling_roi * 100.0, 2), 'games': len(recent), 'is_core': is_core}
+                                )
+                                conn_main.close()
+                            except Exception:
+                                pass
         finally:
             try:
                 conn_d.close()
