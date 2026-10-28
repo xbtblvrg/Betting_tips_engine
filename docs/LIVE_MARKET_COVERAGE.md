@@ -1,6 +1,6 @@
 # Live Stake market coverage
 
-Checked: 2026-10-28T20:53:56.296359+00:00
+Checked: 2026-10-28T21:12:20.325773+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
@@ -9,7 +9,7 @@ Observed feed titles; not proof of complete Stake website coverage. Funding supp
 | NFL | 81 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 8 |
 | NHL | 61 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 18 |
 | MLB | 39 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 12 |
-| NBA | 191 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 138 |
+| NBA | 192 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 138 |
 | WNBA | 59 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 7 |
 
 Current stages require outcome-level evidence; original issuance, settlement and feedback are explicitly historical. 10/10 records observed execution, not proven profitability or automatic model promotion.
@@ -130,6 +130,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | 2nd Quarter - Total | standard | quarter_2 | catalogue_only | 1/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 2/2 | not_observed 0/0 | awaiting_measurement 0/1 | 2 |
 | NBA | 2nd Quarter - Winning Margin | standard | quarter_2 | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | 3rd Quarter - 1x2 | standard | quarter_3 | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NBA | 3rd Quarter - Draw No Bet | standard | quarter_3 | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | 3rd Quarter - Handicap | standard | quarter_3 | catalogue_only | 1/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | not_observed 0/0 | awaiting_measurement 0/1 | 1 |
 | NBA | 3rd Quarter - Odd/Even | standard | quarter_3 | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | 3rd Quarter - Total | standard | quarter_3 | catalogue_only | 1/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 3/3 | not_observed 0/0 | awaiting_measurement 0/1 | 3 |
