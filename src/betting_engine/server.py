@@ -784,8 +784,15 @@ def stage_betslip_endpoint(data: StageBetslipRequest):
                 ev = tip_row.get('stake_evidence') or {}
                 if not outcome_name and ev.get('outcome_name'):
                     outcome_name = ev.get('outcome_name')
-                if not market_name and ev.get('market_name'):
-                    market_name = ev.get('market_name')
+                if not market_name:
+                    market_name = (
+                        ev.get('market_name')
+                        or ev.get('name')
+                        or (tip_row.get('stake_market') or {}).get('name')
+                        or (tip_row.get('stake_market') or {}).get('market_name')
+                        or tip_row.get('market_display')
+                        or tip_row.get('reference_contract_description')
+                    )
                 if not market and tip_row.get('market'):
                     market = tip_row.get('market')
                 if not tab or tab == 'Main':

@@ -717,9 +717,10 @@ function bindStageBetslipButtons(){
       min_odds: minOddsVal,
       tab: resolvedTab,
       outcome_name: (t.stake_evidence && t.stake_evidence.outcome_name) || (terms && terms.stake_evidence && terms.stake_evidence.outcome_name) || null,
-      market_name: (t.stake_evidence && t.stake_evidence.market_name) || (t.stake_market && t.stake_market.market_name) || null,
+      market_name: (t.stake_evidence && (t.stake_evidence.market_name || t.stake_evidence.name)) || (t.stake_market && (t.stake_market.name || t.stake_market.market_name)) || t.market_display || t.reference_contract_description || null,
       market: t.market || null,
-      league: t.league || null
+      league: t.league || null,
+      adaptive_fallback: true
      })
     });
     
@@ -784,9 +785,10 @@ function bindOneClickBetButtons(){
       odds: oddsVal,
       tab: resolvedTab,
       outcome_name: (t.stake_evidence && t.stake_evidence.outcome_name) || (terms && terms.stake_evidence && terms.stake_evidence.outcome_name) || null,
-      market_name: (t.stake_evidence && t.stake_evidence.market_name) || (t.stake_market && t.stake_market.market_name) || null,
+      market_name: (t.stake_evidence && (t.stake_evidence.market_name || t.stake_evidence.name)) || (t.stake_market && (t.stake_market.name || t.stake_market.market_name)) || t.market_display || t.reference_contract_description || null,
       market: t.market || null,
       league: t.league || null,
+      adaptive_fallback: true,
       auto_place: true,
       auto_close_on_fail: true
      })
@@ -1464,7 +1466,7 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
         odds: oddsVal,
         tab: resolvedTab,
         outcome_name: (t.stake_evidence && t.stake_evidence.outcome_name) || (terms && terms.stake_evidence && terms.stake_evidence.outcome_name) || null,
-        market_name: (t.stake_evidence && t.stake_evidence.market_name) || (t.stake_market && t.stake_market.market_name) || null,
+        market_name: (t.stake_evidence && (t.stake_evidence.market_name || t.stake_evidence.name)) || (t.stake_market && (t.stake_market.name || t.stake_market.market_name)) || t.market_display || t.reference_contract_description || null,
         market: t.market || null,
         league: t.league || null,
         auto_place: true,
@@ -1593,7 +1595,7 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
          odds: oddsVal,
          tab: resolvedTab,
          outcome_name: (t.stake_evidence && t.stake_evidence.outcome_name) || (terms && terms.stake_evidence && terms.stake_evidence.outcome_name) || null,
-         market_name: (t.stake_evidence && t.stake_evidence.market_name) || (t.stake_market && t.stake_market.market_name) || null,
+         market_name: (t.stake_evidence && (t.stake_evidence.market_name || t.stake_evidence.name)) || (t.stake_market && (t.stake_market.name || t.stake_market.market_name)) || t.market_display || t.reference_contract_description || null,
          market: t.market || null,
          league: t.league || null,
          auto_place: true,

@@ -882,7 +882,18 @@ def stage_betslip_in_safari(
                 market_name = "1st Half - Asian Handicap" if is_basketball else "1st Half - Handicap"
             elif market == "half_2:spreads":
                 market_name = "2nd Half - Asian Handicap" if is_basketball else "2nd Half - Handicap"
-                market_name = "2nd Half - Handicap"
+            elif market in ("totals", "full_game:totals"):
+                market_name = "Total (Incl. Overtime)" if (is_basketball or is_football or is_hockey) else ("Total Runs" if is_baseball else "Total")
+            elif market in ("spreads", "full_game:spreads"):
+                market_name = "Handicap (Incl. Overtime)" if (is_basketball or is_football or is_hockey) else ("Run Line" if is_baseball else "Handicap")
+            elif market in ("moneyline", "full_game:moneyline"):
+                market_name = "Winner (Incl. Overtime)" if (is_basketball or is_football or is_hockey) else "Winner"
+            elif market in ("three_way", "full_game:three_way"):
+                market_name = "1x2"
+            elif market in ("home_total", "full_game:home_total"):
+                market_name = f"{home_team} Total (Incl. Overtime)" if (home_team and (is_basketball or is_football or is_hockey)) else "Total"
+            elif market in ("away_total", "full_game:away_total"):
+                market_name = f"{away_team} Total (Incl. Overtime)" if (away_team and (is_basketball or is_football or is_hockey)) else "Total"
 
     # Build line variants for robust matching
     line_variants = []
@@ -1057,6 +1068,24 @@ def stage_betslip_in_safari(
         function normalize(s) {
             if (!s) return "";
             return s.toLowerCase().replace(/[+()]/g, " ").replace(/\\s+/g, " ").trim();
+        }
+
+        function extractButtonCandidate(b) {
+            if (!b) return null;
+            const aria = (b.getAttribute("aria-label") || "").trim();
+            const inner = (b.innerText || "").trim();
+            const oddsMatch = inner.match(/\\b\\d+\\.\\d+\\b/g);
+            const candOdds = (oddsMatch && oddsMatch.length > 0) ? parseFloat(oddsMatch[oddsMatch.length - 1]) : null;
+            const lineMatch = (aria || inner).match(/([+-]?\\d+\\.?\\d*)/);
+            const candLine = lineMatch ? parseFloat(lineMatch[1]) : null;
+            const lines = inner.split(/[\\r\\n]+/).map(s => s.trim()).filter(Boolean);
+            const sel = aria || (lines.length > 1 ? lines[0] : inner);
+            return {
+                selection: sel,
+                line: candLine,
+                odds: candOdds,
+                raw: aria ? (aria + " " + (candOdds || "")) : inner
+            };
         }
 
         function matchesLine(text, v, isNeg) {
@@ -1773,6 +1802,10 @@ def stage_betslip_in_safari(
 
             // Clear any prior bets completely so we never accumulate multiple bets!
             if (existingBets.length > 0) {{
+                const singleTab = document.querySelector("[data-testid='betslip-tab-single']");
+                if (singleTab && (singleTab.getAttribute("aria-selected") !== "true" && !singleTab.classList.contains("active"))) {{
+                    try {{ singleTab.click(); }} catch(e) {{}}
+                }}
                 const resetBtn = document.querySelector("[data-testid='reset-betslip']") ||
                     Array.from(document.querySelectorAll("#right-sidebar button, button")).find(b => {{
                         const t = (b.innerText || "").toLowerCase();
@@ -1835,24 +1868,26 @@ def stage_betslip_in_safari(
                     }});
                     if (sameMarketButtons.length > 0) {{
                         const filterWord = (isOver || isUnder) ? (isOver ? "over" : "under") : (lastName ? lastName.toLowerCase() : null);
-                        matchedLines = sameMarketButtons.map(b => (b.getAttribute("aria-label") || b.innerText).replace(/\\s+/g, " ").trim())
-                            .filter(t => /\\d+\\.\\d+/.test(t) && !t.toLowerCase().includes("suspended"));
+                        let cands = sameMarketButtons.map(extractButtonCandidate).filter(c => c && c.odds !== null && !c.selection.toLowerCase().includes("suspended"));
                         if (filterWord) {{
-                            const filtered = matchedLines.filter(t => t.toLowerCase().includes(filterWord));
-                            if (filtered.length > 0) matchedLines = filtered;
+                            const filtered = cands.filter(c => c.selection.toLowerCase().includes(filterWord));
+                            if (filtered.length > 0) cands = filtered;
                         }}
-                        const otherLines = Array.from(new Set(matchedLines)).filter(l => !lineVariants.some(v => l.includes(v))).slice(0, 6);
+                        candList = cands;
+                        const otherLines = Array.from(new Set(cands.map(c => c.selection))).filter(l => !lineVariants.some(v => l.includes(v))).slice(0, 6);
                         if (otherLines.length > 0) {{
                             lineNote = " A Stake kínálatában a kért vonal (" + targetSel + ") helyett jelenleg ezek a vonalak érhetők el: " + otherLines.join(", ") + ".";
                         }}
                     }} else if (isOver || isUnder || lineVariants.length > 0) {{
                         const filterWord = (isOver || isUnder) ? (isOver ? "over" : "under") : (lastName ? lastName.toLowerCase() : null);
-                        const fallbackBtns = buttons.map(b => (b.getAttribute("aria-label") || b.innerText).replace(/\\s+/g, " ").trim())
-                            .filter(t => /\\d+\\.\\d+/.test(t) && !t.toLowerCase().includes("suspended"));
-                        const filtered = filterWord ? fallbackBtns.filter(t => t.toLowerCase().includes(filterWord)) : fallbackBtns;
-                        if (filtered.length > 0) {{
-                            matchedLines = filtered;
-                            const otherLines = Array.from(new Set(matchedLines)).filter(l => !lineVariants.some(v => l.includes(v))).slice(0, 6);
+                        let cands = buttons.map(extractButtonCandidate).filter(c => c && c.odds !== null && !c.selection.toLowerCase().includes("suspended"));
+                        if (filterWord) {{
+                            const filtered = cands.filter(c => c.selection.toLowerCase().includes(filterWord));
+                            if (filtered.length > 0) cands = filtered;
+                        }}
+                        if (cands.length > 0) {{
+                            candList = cands;
+                            const otherLines = Array.from(new Set(cands.map(c => c.selection))).filter(l => !lineVariants.some(v => l.includes(v))).slice(0, 6);
                             if (otherLines.length > 0) {{
                                 lineNote = " A kért piac helyett a Stake-en ezek a vonalak érhetők el: " + otherLines.join(", ") + ".";
                             }}
@@ -1864,31 +1899,26 @@ def stage_betslip_in_safari(
                     }}
                 }} else if (lineVariants.length > 0) {{
                     const filterWord = (isOver || isUnder) ? (isOver ? "over" : "under") : (lastName ? lastName.toLowerCase() : null);
-                    matchedLines = buttons.map(b => (b.getAttribute("aria-label") || b.innerText).replace(/\\s+/g, " ").trim())
-                        .filter(t => /\\d+\\.\\d+/.test(t) && !t.toLowerCase().includes("suspended"));
+                    let cands = buttons.map(extractButtonCandidate).filter(c => c && c.odds !== null && !c.selection.toLowerCase().includes("suspended"));
                     if (filterWord) {{
-                        const filtered = matchedLines.filter(t => t.toLowerCase().includes(filterWord));
-                        if (filtered.length > 0) matchedLines = filtered;
+                        const filtered = cands.filter(c => c.selection.toLowerCase().includes(filterWord));
+                        if (filtered.length > 0) cands = filtered;
                     }}
-                    const otherLines = Array.from(new Set(matchedLines)).filter(l => !lineVariants.some(v => l.includes(v))).slice(0, 6);
+                    candList = cands;
+                    const otherLines = Array.from(new Set(cands.map(c => c.selection))).filter(l => !lineVariants.some(v => l.includes(v))).slice(0, 6);
                     if (otherLines.length > 0) {{
                         lineNote = " A Stake kínálatában a kért vonal (" + targetSel + ") helyett jelenleg ezek a vonalak érhetők el: " + otherLines.join(", ") + ".";
                     }}
                 }}
 
-                let candList = [];
-                if (matchedLines && matchedLines.length > 0) {{
-                    candList = Array.from(new Set(matchedLines)).slice(0, 10).map(t => {{
-                        const nums = t.match(/\\b\\d+\\.\\d+\\b/g);
-                        const candOdds = (nums && nums.length > 0) ? parseFloat(nums[nums.length - 1]) : null;
-                        const lineMatch = t.match(/([+-]?\\d+\\.?\\d*)/);
-                        const candLine = lineMatch ? parseFloat(lineMatch[1]) : null;
-                        let cleanSel = t;
-                        if (candOdds !== null) {{
-                            cleanSel = cleanSel.replace(new RegExp('\\\\s+' + candOdds + '$'), '').trim();
-                        }}
-                        return {{ selection: cleanSel, line: candLine, odds: candOdds, raw: t }};
-                    }});
+                if (candList && candList.length > 0) {{
+                    const seenC = new Set();
+                    candList = candList.filter(c => {{
+                        const key = c.selection + "_" + c.line + "_" + c.odds;
+                        if (seenC.has(key)) return false;
+                        seenC.add(key);
+                        return true;
+                    }}).slice(0, 10);
                 }}
 
                 let errorMsg = "Nem található a kimenetel gombja a felületen.";
@@ -1989,25 +2019,31 @@ def stage_betslip_in_safari(
                         const isNeg = {json.dumps(is_neg_line)};
                         const buttons = getOutcomeButtons();
                         const match = buttons.find(b => {{
-                            const label = (b.getAttribute("aria-label") || b.innerText).replace(/\\s+/g, " ").trim();
+                            const aria = (b.getAttribute("aria-label") || "").trim();
+                            const inner = (b.innerText || "").trim();
+                            const label = (aria || inner).replace(/\\s+/g, " ").trim();
                             const norm = normalize(label);
-                            if (norm.includes(targetNorm) || label.toLowerCase().includes(targetSel)) return true;
                             if (bestLine !== null && bestLine !== undefined) {{
                                 if (matchesLine(label, String(bestLine), isNeg)) {{
-                                    if (targetNorm.startsWith("over") && !norm.includes("over")) return false;
-                                    if (targetNorm.startsWith("under") && !norm.includes("under")) return false;
+                                    if (targetNorm.startsWith("over") && !norm.includes("over") && !label.toLowerCase().includes("over")) return false;
+                                    if (targetNorm.startsWith("under") && !norm.includes("under") && !label.toLowerCase().includes("under")) return false;
                                     return true;
                                 }}
+                                return false;
                             }}
+                            if (norm.includes(targetNorm) || label.toLowerCase().includes(targetSel)) return true;
                             return false;
                         }});
                         if (!match) return JSON.stringify({{ error: "Adaptive candidate button not found: " + {json.dumps(best['selection'])} }});
                         
-                        const remainingBets = Array.from(document.querySelectorAll("#right-sidebar [data-testid='betslip-bet'], [data-testid='betslip-bet']"));
-                        if (remainingBets.length > 0) {{
-                            const resetBtn = document.querySelector("[data-testid='reset-betslip']");
-                            if (resetBtn) {{ try {{ resetBtn.click(); }} catch(e) {{}} }}
+                        const singleTab = document.querySelector("[data-testid='betslip-tab-single']");
+                        if (singleTab && (singleTab.getAttribute("aria-selected") !== "true" && !singleTab.classList.contains("active"))) {{
+                            try {{ singleTab.click(); }} catch(e) {{}}
                         }}
+                        const resetBtn = document.querySelector("[data-testid='reset-betslip']");
+                        if (resetBtn) {{ try {{ resetBtn.click(); }} catch(e) {{}} }}
+                        const removeBtns = Array.from(document.querySelectorAll("#right-sidebar [data-testid='betslip-bet-remove'], [data-testid='betslip-bet-remove']"));
+                        for (const rb of removeBtns) {{ try {{ rb.click(); }} catch(e) {{}} }}
                         
                         match.click();
                         const btnText = (match.innerText || "").trim();
@@ -2031,6 +2067,15 @@ def stage_betslip_in_safari(
                 log.warning(f"Adaptive fallback evaluation failed: {e}")
 
     if "error" in res_click:
+        cleanup_js = """
+        (() => {
+            const resetBtn = document.querySelector("[data-testid='reset-betslip']");
+            if (resetBtn) { try { resetBtn.click(); } catch(e) {} }
+            const removeBtns = Array.from(document.querySelectorAll("#right-sidebar [data-testid='betslip-bet-remove'], [data-testid='betslip-bet-remove']"));
+            for (const rb of removeBtns) { try { rb.click(); } catch(e) {} }
+        })()
+        """
+        _eval_safari_js(cleanup_js, activate=False, timeout=3)
         if auto_close_on_fail:
             _close_tab()
         err_msg = res_click["error"]
@@ -2626,19 +2671,15 @@ def stage_betslip_in_safari(
             try {{
                 {helpers_js}
                 const buttons = getOutcomeButtons();
-                const candList = buttons.map(b => {{
-                    const t = (b.getAttribute("aria-label") || b.innerText || "").replace(/\\s+/g, " ").trim();
-                    const nums = t.match(/\\b\\d+\\.\\d+\\b/g);
-                    const candOdds = (nums && nums.length > 0) ? parseFloat(nums[nums.length - 1]) : null;
-                    const lineMatch = t.match(/([+-]?\\d+\\.?\\d*)/);
-                    const candLine = lineMatch ? parseFloat(lineMatch[1]) : null;
-                    let cleanSel = t;
-                    if (candOdds !== null) {{
-                        cleanSel = cleanSel.replace(new RegExp('\\\\s+' + candOdds + '$'), '').trim();
-                    }}
-                    return {{ selection: cleanSel, line: candLine, odds: candOdds, raw: t }};
-                }});
-                return JSON.stringify({{ available_candidates: candList }});
+                const candList = buttons.map(extractButtonCandidate).filter(c => c && c.odds !== null && !c.selection.toLowerCase().includes("suspended"));
+                const seenC = new Set();
+                const uniqueCands = candList.filter(c => {{
+                    const key = c.selection + "_" + c.line + "_" + c.odds;
+                    if (seenC.has(key)) return false;
+                    seenC.add(key);
+                    return true;
+                }}).slice(0, 10);
+                return JSON.stringify({{ available_candidates: uniqueCands }});
             }} catch(e) {{
                 return JSON.stringify({{ error: e.toString() }});
             }}
@@ -2676,6 +2717,17 @@ def stage_betslip_in_safari(
                     )
         except Exception as e:
             log.warning(f"Adaptive fallback on stake error: {e}")
+
+    # Ensure betslip is reset on failure so abandoned coupons never pile up
+    cleanup_fail_js = """
+    (() => {
+        const resetBtn = document.querySelector("[data-testid='reset-betslip']");
+        if (resetBtn) { try { resetBtn.click(); } catch(e) {} }
+        const removeBtns = Array.from(document.querySelectorAll("#right-sidebar [data-testid='betslip-bet-remove'], [data-testid='betslip-bet-remove']"));
+        for (const rb of removeBtns) { try { rb.click(); } catch(e) {} }
+    })()
+    """
+    _eval_safari_js(cleanup_fail_js, activate=False, timeout=3)
 
     if auto_close_on_fail:
         _close_tab()
