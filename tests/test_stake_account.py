@@ -1508,6 +1508,52 @@ def test_stage_betslip_deep_auto_heal_and_dom_snapshot(monkeypatch, tmp_path):
     assert res["status"] == "error"
 
 
+def test_autorun_selector_repair_learning_and_override(tmp_path):
+    from betting_engine.stake_account import (
+        process_autorun_selector_repair,
+        resolve_stake_market_tab,
+        load_dynamic_selector_mappings,
+    )
+
+    fake_payload = {
+        "tip_id": "tip_nba_quarter_test_123",
+        "league": "NBA",
+        "market": "quarter_1:draw_no_bet",
+        "market_name": "1st Quarter - Draw No Bet",
+        "selection": "Utah Jazz",
+        "odds": 2.85,
+        "dom_snapshot": {
+            "tabs": ["Main", "Halves", "Quarters", "Player Props"],
+            "accordions": ["Quarter - Draw No Bet", "Quarter - Handicap", "Quarter - Total"],
+            "buttons_count": 42
+        },
+        "error": "Outcome not found"
+    }
+
+    res = process_autorun_selector_repair(fake_payload, data_dir=tmp_path)
+    assert res["status"] == "repaired"
+    assert res["learned_tab"] == "Quarters"
+    assert res["learned_accordion"] == "Quarter - Draw No Bet"
+    assert res["modified"] is True
+
+    # Verify saved mapping
+    saved = load_dynamic_selector_mappings(data_dir=tmp_path)
+    assert saved["tab_overrides"]["NBA:quarter_1:draw_no_bet"] == "Quarters"
+    assert saved["accordion_aliases"]["1st quarter - draw no bet"] == "Quarter - Draw No Bet"
+
+    # Verify resolve_stake_market_tab can use learned mapping
+    # Mock default data dir to tmp_path
+    import betting_engine.stake_account as sa
+    orig_fn = sa.load_dynamic_selector_mappings
+    try:
+        sa.load_dynamic_selector_mappings = lambda data_dir=None: saved
+        resolved = resolve_stake_market_tab(league="NBA", market="quarter_1:draw_no_bet")
+        assert resolved == "Quarters"
+    finally:
+        sa.load_dynamic_selector_mappings = orig_fn
+
+
+
 
 
 

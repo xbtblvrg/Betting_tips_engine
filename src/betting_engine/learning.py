@@ -19,7 +19,7 @@ FEEDBACK_AGE_SLA_SECONDS = 300
 FEEDBACK_KINDS = frozenset(('outcome_review', 'closing_evaluation'))
 RECOVERY_KINDS = frozenset(('model_restore', 'segment_restore', 'period_restore'))
 PRIORITY = {'source_refresh':0, 'model_restore':0, 'segment_restore':0, 'period_restore':0,
-    'outcome_review':1, 'closing_evaluation':1, 'shadow_evaluation':1, 'market_catalog':1, 'autonomous_submarket_expansion':1,
+    'outcome_review':1, 'closing_evaluation':1, 'shadow_evaluation':1, 'market_catalog':1, 'autonomous_submarket_expansion':1, 'autorun_selector_repair':1,
     'controlled_retrain':2, 'segment_retrain':2, 'period_retrain':2, 'segment_repair':2, 'target_evaluation':2, 'anchor_weight_learning':2, 'opportunity_funnel_repair':2,
     'player_history_refresh':2, 'player_prop_audit':2, 'player_data_refresh':3, 'model_search':3,
     'research_watch':4}
@@ -809,6 +809,13 @@ class LearningWorker:
             from .supreme_system_auditor import SupremeSystemAuditor
             auditor = SupremeSystemAuditor(root=self.data.parent, data_dir=self.data)
             return auditor.execute_autonomous_code_healing(payload)
+        if job['kind']=='autorun_selector_repair':
+            from .stake_account import process_autorun_selector_repair
+            return process_autorun_selector_repair(
+                job_payload=job['payload'],
+                data_dir=self.data,
+                store=self.store
+            )
         if job['kind']=='target_evaluation':
 
             from .target_evaluator import run_target_self_evaluation

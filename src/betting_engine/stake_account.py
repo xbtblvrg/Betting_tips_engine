@@ -572,6 +572,167 @@ def update_stake_account_config(conn: sqlite3.Connection, base_bankroll: float, 
     return get_stake_account_summary(conn, root_dir=root_dir)
 
 
+def load_dynamic_selector_mappings(data_dir: Optional[Path] = None) -> Dict[str, Any]:
+    """Load dynamic learned selector mappings from disk."""
+    if data_dir is None:
+        data_dir = Path(__file__).resolve().parent.parent.parent / "data"
+    map_file = data_dir / "stake_selector_mappings.json"
+    if map_file.exists():
+        try:
+            return json.loads(map_file.read_text(encoding="utf-8"))
+        except Exception:
+            return {}
+    return {}
+
+
+def save_dynamic_selector_mappings(mappings: Dict[str, Any], data_dir: Optional[Path] = None) -> None:
+    """Save dynamic learned selector mappings atomically to disk."""
+    if data_dir is None:
+        data_dir = Path(__file__).resolve().parent.parent.parent / "data"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    map_file = data_dir / "stake_selector_mappings.json"
+    tmp_file = data_dir / f"stake_selector_mappings.tmp.{int(time.time() * 1000)}"
+    try:
+        tmp_file.write_text(json.dumps(mappings, indent=2, ensure_ascii=False), encoding="utf-8")
+        tmp_file.replace(map_file)
+    except Exception as e:
+        log.warning(f"Could not save dynamic selector mappings: {e}")
+        if tmp_file.exists():
+            try:
+                tmp_file.unlink()
+            except Exception:
+                pass
+
+
+def process_autorun_selector_repair(
+    job_payload: Union[str, Dict[str, Any]],
+    data_dir: Optional[Path] = None,
+    store: Optional[Any] = None,
+) -> Dict[str, Any]:
+    """Autonomous AI worker to analyze failed Stake DOM snapshots, deduce correct tab/accordions, and persist mappings."""
+    if isinstance(job_payload, str):
+        try:
+            payload = json.loads(job_payload)
+        except Exception:
+            payload = {}
+    else:
+        payload = job_payload or {}
+
+    tip_id = payload.get("tip_id")
+    league = (payload.get("league") or "").upper()
+    market = (payload.get("market") or "").lower()
+    market_name = (payload.get("market_name") or "").lower()
+    selection = payload.get("selection") or ""
+    dom_snapshot = payload.get("dom_snapshot") or {}
+    tabs = dom_snapshot.get("tabs") or []
+    accordions = dom_snapshot.get("accordions") or []
+
+    learned_tab = None
+    learned_accordion = None
+
+    # Step 1: Analyze available tabs from snapshot
+    if "quarter" in market or "quarter" in market_name:
+        for t in tabs:
+            if "quarter" in t.lower():
+                learned_tab = t
+                break
+    elif "half" in market or "half" in market_name:
+        for t in tabs:
+            if "hal" in t.lower():
+                learned_tab = t
+                break
+    elif "period" in market or "period" in market_name or league in ("NHL", "NCAA"):
+        for t in tabs:
+            if "period" in t.lower():
+                learned_tab = t
+                break
+    elif "set" in market or "set" in market_name or league in ("ATP", "WTA"):
+        for t in tabs:
+            if "set" in t.lower():
+                learned_tab = t
+                break
+
+    # Step 2: Analyze available accordions from snapshot
+    keywords = []
+    if "draw no bet" in market_name or "draw_no_bet" in market:
+        keywords.append("draw no bet")
+    if "handicap" in market_name or "spread" in market:
+        keywords.append("handicap")
+        keywords.append("spread")
+    if "total" in market_name or "total" in market:
+        keywords.append("total")
+    if "winner" in market_name or "moneyline" in market or "1x2" in market:
+        keywords.append("1x2")
+        keywords.append("winner")
+        keywords.append("moneyline")
+
+    for acc in accordions:
+        acc_low = acc.lower()
+        if any(kw in acc_low for kw in keywords):
+            if ("quarter" in market or "quarter" in market_name) and "quarter" in acc_low:
+                learned_accordion = acc
+                break
+            elif ("half" in market or "half" in market_name) and "half" in acc_low:
+                learned_accordion = acc
+                break
+            elif not learned_accordion:
+                learned_accordion = acc
+
+    # Step 3: Persist learned mappings
+    existing = load_dynamic_selector_mappings(data_dir=data_dir)
+    if "tab_overrides" not in existing:
+        existing["tab_overrides"] = {}
+    if "accordion_aliases" not in existing:
+        existing["accordion_aliases"] = {}
+
+    modified = False
+    if learned_tab and league and market:
+        key = f"{league}:{market}"
+        if existing["tab_overrides"].get(key) != learned_tab:
+            existing["tab_overrides"][key] = learned_tab
+            modified = True
+
+    if learned_accordion and market_name:
+        if existing["accordion_aliases"].get(market_name) != learned_accordion:
+            existing["accordion_aliases"][market_name] = learned_accordion
+            modified = True
+
+    if modified:
+        existing["updated_at"] = utcnow().isoformat() if "utcnow" in globals() else time.strftime("%Y-%m-%dT%H:%M:%SZ")
+        save_dynamic_selector_mappings(existing, data_dir=data_dir)
+
+    # Step 4: Log autonomous repair event
+    try:
+        from .autorun_logger import log_autorun_event
+        log_autorun_event(
+            cycle_id="ai_autonomous_learning",
+            stage="AI_SELECTOR_REPAIR",
+            severity="INFO",
+            tip_id=tip_id,
+            league=league,
+            selection=selection,
+            market=market,
+            market_name=market_name,
+            status="repaired" if (learned_tab or learned_accordion) else "analyzed",
+            message=f"AI Autonomous selector repair: Deduced tab='{learned_tab}', accordion='{learned_accordion}' from DOM snapshot.",
+            payload={"learned_tab": learned_tab, "learned_accordion": learned_accordion, "modified": modified},
+            run_type="ai_worker",
+            store=store,
+        )
+    except Exception as ex:
+        log.debug(f"Could not log AI_SELECTOR_REPAIR event: {ex}")
+
+    return {
+        "status": "repaired" if (learned_tab or learned_accordion) else "analyzed",
+        "tip_id": tip_id,
+        "league": league,
+        "market": market,
+        "learned_tab": learned_tab,
+        "learned_accordion": learned_accordion,
+        "modified": modified,
+    }
+
+
 def resolve_stake_market_tab(
     league: Optional[str] = None,
     market: Optional[str] = None,
@@ -584,6 +745,14 @@ def resolve_stake_market_tab(
     m = (market or "").lower()
     mn = (market_name or "").lower()
     url = (event_url or "").lower()
+
+    # Dynamic learned tab overrides
+    dyn = load_dynamic_selector_mappings()
+    tab_overrides = dyn.get("tab_overrides", {})
+    if f"{lg}:{m}" in tab_overrides:
+        return tab_overrides[f"{lg}:{m}"]
+    if f"{lg}:{mn}" in tab_overrides:
+        return tab_overrides[f"{lg}:{mn}"]
     grp_names = [str(g.get("name", "")).lower() for g in (groups or []) if isinstance(g, dict)] if groups else []
 
     is_tennis = (lg in ("ATP", "WTA", "CHALLENGER", "TENNIS")) or ("/tennis/" in url)

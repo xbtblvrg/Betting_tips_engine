@@ -192,4 +192,29 @@ def test_autonomous_submarket_expansion_planning_and_execution(tmp_path):
     assert 'WTA|period_1|tennis_sets' in res['newly_graduated']
 
 
+def test_learning_worker_executes_autorun_selector_repair(tmp_path):
+    w = worker(tmp_path)
+    job = {
+        'id': 'job_test_selector_repair_999',
+        'kind': 'autorun_selector_repair',
+        'league': 'NBA',
+        'payload': json.dumps({
+            'tip_id': 'tip_repair_123',
+            'league': 'NBA',
+            'market': 'quarter_1:draw_no_bet',
+            'market_name': '1st Quarter - Draw No Bet',
+            'selection': 'Indiana Pacers',
+            'dom_snapshot': {
+                'tabs': ['Main', 'Halves', 'Quarters'],
+                'accordions': ['Quarter - Draw No Bet', 'Quarter - Total']
+            }
+        })
+    }
+    res = w.execute(job)
+    assert res['status'] == 'repaired'
+    assert res['learned_tab'] == 'Quarters'
+    assert res['learned_accordion'] == 'Quarter - Draw No Bet'
+
+
+
 
