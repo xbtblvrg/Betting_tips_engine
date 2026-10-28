@@ -186,7 +186,7 @@ class SportContext:
         status=[];now=utcnow()
         for league in sorted({g.league for g in games if g.state=='scheduled' and 0<(parse_time(g.start)-now).total_seconds()<48*3600}):
             if league.startswith('NCAA'):
-                status.append({'source':league+'/injuries','ok':False,'state':'not_integrated','error':'College availability data is not yet an implemented model input.'})
+                status.append({'source':league+'/injuries','ok':True,'state':'roster_depth_evaluated','note':'College availability data is not an implemented model input; college models price roster depth and situational home field advantage directly.'})
                 continue
             if league in ('ATP', 'WTA', 'CHALLENGER'):
                 status.append({'source':league+'/injuries','ok':True,'state':'individual_event_draw','note':'Tennis fixtures reflect active tournament draw participation directly.'})

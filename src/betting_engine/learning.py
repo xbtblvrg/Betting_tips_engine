@@ -875,8 +875,8 @@ class LearningWorker:
             try:
                 return evaluate_game(self.store,self.data,payload['game_id'],payload['start'])
             except ValueError as err:
-                if 'grace period' in str(err) or 'cohort' in str(err):
-                    return {'status': 'expired_grace_period', 'game_id': payload.get('game_id'), 'start': payload.get('start'), 'conclusion': str(err)}
+                if 'grace period' in str(err) or 'cohort' in str(err) or 'immutable_issuance_conflict' in str(err):
+                    return {'status': 'conflict_or_grace_period', 'game_id': payload.get('game_id'), 'start': payload.get('start'), 'conclusion': str(err)}
                 raise
         if job['kind']=='outcome_review':
             from .outcome_feedback import snapshot_outcomes, record_outcome_feedback

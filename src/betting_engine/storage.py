@@ -236,8 +236,9 @@ class Store:
                     c.execute('INSERT OR IGNORE INTO segment_prospective(game_id,scope,created_at,start,model_version,payload) VALUES (?,?,?,?,?,?)',
                               (game['id'],forecast['scope'],now,game['start'],forecast['model_version'],json.dumps(forecast,allow_nan=False)))
             self._auto_track(c,payload,now)
-            for tip in payload.get('recommendations',[]):
-                self.record_issuance(c,tip,now,settings=active_settings)
+            if not active_settings.get('auto_track_recommendations'):
+                for tip in payload.get('recommendations',[]):
+                    self.record_issuance(c,tip,now,settings=active_settings)
             c.execute('INSERT INTO publications(created_at,payload) VALUES (?,?)',(now,encode_publication(payload)))
             # Keep recent publications and outbox notifications bounded to prevent multi-gigabyte bloat
             c.execute('DELETE FROM publications WHERE id NOT IN (SELECT id FROM publications ORDER BY id DESC LIMIT 150)')
@@ -541,7 +542,9 @@ class Store:
             for candidate in usable_candidates:
                 policy=limits_for(settings,candidate,dynamic_roster,dynamic_batch) if dynamic else publication_limits(settings, candidate.get('league'))
                 gid=candidate['game_id'];amount=float(candidate['stake']);scope,_=split_market(candidate.get('market',''))
-                if len(eligible)>=policy['max_new_funded_per_publication']:continue
+                is_v3 = settings.get('publication_limits_version') == 'v3'
+                cycle_cap = math.inf if is_v3 else policy['max_new_funded_per_publication']
+                if len(eligible)>=cycle_cap:continue
                 diverse_key=(gid,allocation_family(candidate))
                 if settings.get('family_selection_policy') not in ('continuous_probability_v2', 'continuous_probability_v3', 'continuous_probability_v4') and policy.get('distinct_families_required') and diverse_key in diverse_families:continue
                 if prospective_events[gid]>=policy['max_per_event']:continue
@@ -582,7 +585,9 @@ class Store:
             event_cap=(policy['max_per_event'] if policy else settings.get('max_per_event'))
             if event_cap is not None and event_counts[tip['game_id']]>=event_cap:continue
             if policy:
-                if cycle_funded>=policy['max_new_funded_per_publication']:continue
+                is_v3 = settings.get('publication_limits_version') == 'v3'
+                cycle_cap = math.inf if is_v3 else policy['max_new_funded_per_publication']
+                if cycle_funded>=cycle_cap:continue
                 if event_stakes[tip['game_id']]+amount>policy['max_stake_per_event']+1e-9:continue
                 scope,_=split_market(tip.get('market',''))
                 if scope!='full_game' and period_counts[tip['game_id']]>=policy['max_period_per_event']:continue
@@ -595,6 +600,7 @@ class Store:
                       'recorded_at':now,'tracking_note':'Assumed placed manually on Stake under your standing instruction. Uses the recommended stake and observed odds; no Stake account confirmation.'}
             c.execute('INSERT INTO bets(tip_id,created_at,stake,odds,platform,payload,request_id) VALUES (?,?,?,?,?,?,?)',
                       (tip['id'],now,amount,odds,'Stake.com',json.dumps(recorded,ensure_ascii=False),f'auto-stake:{tip["id"]}'))
+            self.record_issuance(c,tip,now,settings=settings)
             families.add(family);contracts.add(tip['id']);event_counts[tip['game_id']]+=1;committed+=amount
             event_stakes[tip['game_id']]+=amount;cycle_funded+=1
             if policy and scope!='full_game':period_counts[tip['game_id']]+=1
@@ -859,6 +865,18 @@ class Store:
     def _compute_performance(self):
         with self.db() as c:
             owned=dict(c.execute("SELECT COUNT(*) count,COALESCE(SUM(status!='open'),0) settled,COALESCE(SUM(status='won'),0) won,COALESCE(SUM(status='lost'),0) lost,COALESCE(SUM(status='push'),0) pushes,COALESCE(SUM(CASE WHEN status!='open' THEN json_extract(payload,'$.stake') ELSE 0 END),0) turnover,COALESCE(SUM(pnl),0) pnl FROM system_decisions").fetchone())
+            owned_baseline_row=c.execute("SELECT value FROM kv WHERE key='historical_decisions_baseline'").fetchone()
+            if owned_baseline_row and owned_baseline_row['value']:
+                try:
+                    ob=json.loads(owned_baseline_row['value'])
+                    owned['count']+=ob.get('count',0)
+                    owned['settled']+=ob.get('settled',0)
+                    owned['won']+=ob.get('won',0)
+                    owned['lost']+=ob.get('lost',0)
+                    owned['pushes']+=ob.get('pushes',0)
+                    owned['turnover']=round(owned['turnover']+ob.get('turnover',0.0),2)
+                    owned['pnl']=round(owned['pnl']+ob.get('pnl',0.0),2)
+                except Exception:pass
             funding_tiers=[dict(r) for r in c.execute("""SELECT
                 COALESCE(json_extract(payload,'$.funding_basis.tier'),'legacy_unspecified') tier,
                 json_extract(payload,'$.league') league,json_extract(payload,'$.market') market,
@@ -868,6 +886,20 @@ class Store:
                 COALESCE(SUM(pnl),0) pnl,MIN(issued_at) first_issued_at,MAX(issued_at) last_issued_at
                 FROM system_decisions GROUP BY tier,league,market ORDER BY tier,league,market""")]
             bets=dict(c.execute("SELECT COUNT(*) count,COALESCE(SUM(status!='open'),0) settled,COALESCE(SUM(status='won'),0) won,COALESCE(SUM(status='lost'),0) lost,COALESCE(SUM(status='push'),0) pushes,COALESCE(SUM(CASE WHEN status!='open' THEN stake ELSE 0 END),0) turnover,COALESCE(SUM(pnl),0) pnl,MIN(created_at) since FROM bets").fetchone())
+            baseline_row=c.execute("SELECT value FROM kv WHERE key='historical_ledger_baseline'").fetchone()
+            if baseline_row and baseline_row['value']:
+                try:
+                    baseline=json.loads(baseline_row['value'])
+                    bets['count']+=baseline.get('count',0)
+                    bets['settled']+=baseline.get('settled',0)
+                    bets['won']+=baseline.get('won',0)
+                    bets['lost']+=baseline.get('lost',0)
+                    bets['pushes']+=baseline.get('pushes',0)
+                    bets['turnover']=round(bets['turnover']+baseline.get('turnover',0.0),2)
+                    bets['pnl']=round(bets['pnl']+baseline.get('pnl',0.0),2)
+                    if baseline.get('since') and (not bets.get('since') or baseline['since']<bets['since']):
+                        bets['since']=baseline['since']
+                except Exception:pass
             cutoff_48h=(utcnow()-timedelta(hours=48)).isoformat()
             bets_48h=dict(c.execute("""SELECT COUNT(*) count,COALESCE(SUM(b.status!='open'),0) settled,COALESCE(SUM(b.status='won'),0) won,COALESCE(SUM(b.status='lost'),0) lost,COALESCE(SUM(b.status='push'),0) pushes,COALESCE(SUM(b.stake),0) turnover,COALESCE(SUM(b.pnl),0) pnl FROM bets b LEFT JOIN bet_outcomes o ON o.bet_id=b.id WHERE b.status!='open' AND COALESCE(json_extract(o.evidence,'$.settled_at'),b.created_at)>=?""",(cutoff_48h,)).fetchone())
             league_rows_48h=[dict(r) for r in c.execute("""SELECT json_extract(b.payload,'$.league') league,COUNT(*) count,COALESCE(SUM(b.status!='open'),0) settled,COALESCE(SUM(b.status='won'),0) won,COALESCE(SUM(b.status='lost'),0) lost,COALESCE(SUM(b.status='push'),0) pushes,COALESCE(SUM(b.stake),0) turnover,COALESCE(SUM(b.pnl),0) pnl FROM bets b LEFT JOIN bet_outcomes o ON o.bet_id=b.id WHERE b.status!='open' AND COALESCE(json_extract(o.evidence,'$.settled_at'),b.created_at)>=? GROUP BY json_extract(b.payload,'$.league')""",(cutoff_48h,)).fetchall()]

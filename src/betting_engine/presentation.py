@@ -116,7 +116,7 @@ def market_name(league,market,tip=None):
         if market=='total_sets':return 'Total Sets'
         return {'spreads':'Game Handicap','totals':'Total Games','moneyline':'Winner','total_sets':'Total Sets'}.get(market,market)
     base={'moneyline':'Winner','spreads':'Handicap','totals':'Total','home_total':'Home Team Total','away_total':'Away Team Total','odd_even':'Odd/Even','both_score':'Both Teams to Score','double_chance':'Double Chance','winner_total':'1x2 & Total','exact_total':'Total (Over-Exact-Under)','exact_score':'Correct Score','total_sets':'Total Sets'}.get(market,market)
-    if tip and market in ('home_total','away_total'):base=tip[market.split('_')[0]]+' Total'
+    if tip and market in ('home_total','away_total') and tip.get(market.split('_')[0]):base=str(tip[market.split('_')[0]])+' Total'
     if league not in STAKE_LEAGUE_PATHS:return base
     scope={'MLB':'Extra Innings','NHL':'Overtime and Penalties'}.get(league,'Overtime')
     return f'{base} (Incl. {scope})'

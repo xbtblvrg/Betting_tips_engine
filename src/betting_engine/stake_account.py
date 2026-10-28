@@ -66,23 +66,25 @@ def ensure_stake_balance_history_table(conn: sqlite3.Connection) -> None:
     if count == 0:
         cur.execute("SELECT value FROM kv WHERE key = 'stake_live_sync'")
         row = cur.fetchone()
-        curr_bal = 724.87
-        avail_bal = 457.45
-        open_exp = 267.42
-        open_count = 122
+        if not row:
+            return  # Do not insert artificial phantom baselines; wait for genuine safari sync
+
+        curr_bal = 0.0
+        avail_bal = 0.0
+        open_exp = 0.0
+        open_count = 0
         balances_json = "{}"
         by_league_json = "{}"
-        if row:
-            try:
-                cached = json.loads(row[0])
-                curr_bal = float(cached.get("total_balance", curr_bal))
-                avail_bal = float(cached.get("available_balance", avail_bal))
-                open_exp = float(cached.get("open_exposure", open_exp))
-                open_count = int(cached.get("open_bets_count", open_count))
-                balances_json = json.dumps(cached.get("balances", {}))
-                by_league_json = json.dumps(cached.get("by_league", {}))
-            except Exception:
-                pass
+        try:
+            cached = json.loads(row[0])
+            curr_bal = float(cached.get("total_balance", curr_bal))
+            avail_bal = float(cached.get("available_balance", avail_bal))
+            open_exp = float(cached.get("open_exposure", open_exp))
+            open_count = int(cached.get("open_bets_count", open_count))
+            balances_json = json.dumps(cached.get("balances", {}))
+            by_league_json = json.dumps(cached.get("by_league", {}))
+        except Exception:
+            pass
 
         pnl_rows = []
         try:
@@ -949,6 +951,12 @@ def stage_betslip_in_safari(
         (league and league.upper() in ("MLB", "NPB", "BASEBALL"))
         or ("/baseball/" in clean_url.lower())
     )
+    is_hockey = bool(
+        (league and league.upper() in ("NHL", "HOCKEY", "ICE_HOCKEY"))
+        or ("/ice-hockey/" in clean_url.lower())
+    )
+    home_team = ""
+    away_team = ""
 
     # Enrich from database if outcome_name, tab, market_name or market is missing
     if tip_id:
@@ -967,6 +975,8 @@ def stage_betslip_in_safari(
                         srow = scur.fetchone()
                     if srow:
                         p_data = json.loads(srow[0])
+                        home_team = p_data.get("home", "")
+                        away_team = p_data.get("away", "")
                         if not league and p_data.get("league"):
                             league = p_data.get("league")
                             if league.upper() in ("WTA", "ATP", "CHALLENGER"):
@@ -977,6 +987,8 @@ def stage_betslip_in_safari(
                                 is_football = True
                             elif league.upper() in ("MLB", "NPB", "BASEBALL"):
                                 is_baseball = True
+                            elif league.upper() in ("NHL", "HOCKEY", "ICE_HOCKEY"):
+                                is_hockey = True
                         ev = p_data.get("stake_evidence") or {}
                         if not outcome_name and ev.get("outcome_name"):
                             outcome_name = ev.get("outcome_name")

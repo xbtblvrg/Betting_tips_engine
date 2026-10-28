@@ -214,7 +214,7 @@ def _title_teams(name):
 
 def _is_bracket_placeholder(name):
     text = str(name or '').lower()
-    return bool(re.search(r'\b(?:r\d+p\d+|qf\d*|sf\d*|wqf\d*|tbd|tba|qualifier|finalist|semi-?finalist|quarter-?finalist|winner\s+(?:match\s*)?\d+|seed\s*\d+|bracket\s*\d*|round\s*of\s*\d+)\b', text) or any(k in text for k in ('r16p', 'r64p', 'r32p', 'r128p')))
+    return bool(re.search(r'\b(?:r\d+p\d+|qf\d*|sf\d*|wqf\d*|tbd|tba|qualifier|finalist|semi-?finalist|quarter-?finalist|winner\s+(?:match\s*)?\d+|seed\s*\d+|bracket\s*\d*|round\s*of\s*\d+|(?:american|national)\s+league\s+champion|(?:al|nl)\s+champion|conference\s+champion|division\s+champion)\b', text) or any(k in text for k in ('r16p', 'r64p', 'r32p', 'r128p')))
 
 
 def _seed_team(name):
