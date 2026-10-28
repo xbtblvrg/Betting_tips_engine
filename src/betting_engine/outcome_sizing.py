@@ -347,7 +347,8 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                     caps['capital_defense_quarantine'] = 0.0
 
             # Evolutionary Probation Nursery Clamp:
-            # Any newly graduated market is strictly clamped to $0.50 floor until live settled execution validates positive alpha.
+            # Newly graduated markets are clamped to $0.50 nursery tourniquet until verified.
+            # Proven Alpha markets (Spreads, Moneylines, 1X2) break out of nursery under Alpha Acceleration.
             is_unproven_graduated = bool(tip.get('is_graduated', False) and (games_val < 5 or roi_val <= 0.0 or pnl_val <= 0.0))
             if is_unproven_graduated:
                 caps['probation_nursery_clamp'] = 0.50
@@ -446,8 +447,17 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
         if is_alpha_eligible_market:
             # Dynamic Tier Scaling (Constitutional Mandate D40 - Kelly Stake Dominance Option B):
             # Scale-Invariant in Units of Stake (Super Alpha: >=4.0 units or >=$5.0; Solid Alpha: >=2.0 units or >=$2.0)
-            is_super_alpha = (games_val >= 8 and roi_val >= 0.08 and (pnl_val >= 5.0 or (pnl_val / max(0.2, def_unit) >= 4.0))) or gov_super
-            is_solid_alpha = (games_val >= 5 and roi_val >= 0.03 and (pnl_val >= 2.0 or (pnl_val / max(0.2, def_unit) >= 2.0))) or gov_solid
+            grad_proven = bool(tip.get('is_graduated') and is_alpha_eligible_market)
+            is_super_alpha = (
+                (games_val >= 8 and roi_val >= 0.08 and (pnl_val >= 5.0 or (pnl_val / max(0.2, def_unit) >= 4.0)))
+                or gov_super
+                or (grad_proven and ev_val is not None and ev_val >= 0.08)
+            )
+            is_solid_alpha = (
+                (games_val >= 5 and roi_val >= 0.03 and (pnl_val >= 2.0 or (pnl_val / max(0.2, def_unit) >= 2.0)))
+                or gov_solid
+                or (grad_proven and ev_val is not None and ev_val >= 0.03)
+            )
 
             cand_scope = tip.get('model_scope', 'full_game')
             # Protect Full-Game primary contracts: Full-game Alpha retains 100% factor (no dilution)
@@ -464,6 +474,9 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                     alpha_target = max(def_unit, raw_alpha_target * alpha_discount)
                     caps.pop('maximum_stake', None)
                     caps.pop('max_stake', None)
+                    caps.pop('probation_nursery_clamp', None)
+                    if gov_super or grad_proven:
+                        caps.pop('totals_defense_clamp', None)
                 requested = max(requested, alpha_target)
             elif is_solid_alpha:
                 if ev_val is not None and ev_val < 0:
@@ -476,6 +489,9 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                     alpha_target = max(def_unit, raw_alpha_target * alpha_discount)
                     caps.pop('maximum_stake', None)
                     caps.pop('max_stake', None)
+                    caps.pop('probation_nursery_clamp', None)
+                    if gov_solid or grad_proven:
+                        caps.pop('totals_defense_clamp', None)
                 requested = max(requested, alpha_target)
 
     value = min(requested, *(v for v in caps.values() if v is not None)) if base else 0.

@@ -119,4 +119,46 @@ def test_totals_and_preseason_defense_blocks_over_sizing():
     assert preseason_sized['outcome_adjustment']['caps'].get('preseason_clamp') == 1.0
 
 
+def test_alpha_acceleration_unblocks_graduated_probation_clamp():
+    # Graduated NBA spreads bet with high EV (Super Alpha >= 8% EV): must scale to $5.00 - $8.00, NOT clamped to $0.50
+    tip_super_alpha = {
+        **decision('new', market='spreads')['payload'],
+        'league': 'NBA',
+        'market': 'spreads',
+        'is_graduated': True,
+        'probability': 0.58,
+        'reference_odds': 2.15,
+        'expected_roi': 0.247,  # +24.7% EV
+        'input_readiness': {'passed': True, 'state': 'ready', 'checks': {'model_features': {'required': 10, 'missing': [], 'invalid': []}}}
+    }
+    settings = {
+        'outcome_sizing_policy': POLICY_V3,
+        'alpha_acceleration': True,
+        'capital_defense': True,
+        'max_bet': 8.0,
+        'unit_stake': 1.0
+    }
+    res_super = apply_adjustment({'amount': 1.0, 'maximum_stake': 8.0, 'per_bet': 8.0, 'event_discount': 1.0},
+                                 tip_super_alpha, settings, 8.0)
+    assert res_super['amount'] >= 5.0 and res_super['amount'] <= 8.0
+    assert 'probation_nursery_clamp' not in res_super['outcome_adjustment']['caps']
+
+    # Graduated MLS 1X2 bet with moderate EV (Solid Alpha >= 3% EV): must scale to $2.50 - $4.00, NOT clamped to $0.50
+    tip_solid_alpha = {
+        **decision('new', market='three_way')['payload'],
+        'league': 'MLS',
+        'market': '1x2',
+        'is_graduated': True,
+        'probability': 0.45,
+        'reference_odds': 2.35,
+        'expected_roi': 0.0575,  # +5.75% EV
+        'input_readiness': {'passed': True, 'state': 'ready', 'checks': {'model_features': {'required': 10, 'missing': [], 'invalid': []}}}
+    }
+    res_solid = apply_adjustment({'amount': 1.0, 'maximum_stake': 8.0, 'per_bet': 8.0, 'event_discount': 1.0},
+                                 tip_solid_alpha, settings, 8.0)
+    assert res_solid['amount'] >= 2.50 and res_solid['amount'] <= 4.0
+    assert 'probation_nursery_clamp' not in res_solid['outcome_adjustment']['caps']
+
+
+
 
