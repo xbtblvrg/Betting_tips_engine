@@ -1665,6 +1665,10 @@ def stage_betslip_in_safari(
                             texts.push(line);
                         }
                     }
+                    const activeSub = curr.querySelector("button.is-active, button[class*='active'], button[class*='selected'], [aria-selected='true']");
+                    if (activeSub && activeSub.innerText) {
+                        texts.push(activeSub.innerText.toLowerCase().trim());
+                    }
                 }
                 curr = curr.parentElement;
             }
@@ -1727,6 +1731,23 @@ def stage_betslip_in_safari(
                             h.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
                             h.click();
                         } catch(e) {}
+                    }
+                    const targetScope = (pPrefix || mName || "").toLowerCase();
+                    let targetSub = null;
+                    if (targetScope.includes("1st")) targetSub = "1st";
+                    else if (targetScope.includes("2nd")) targetSub = "2nd";
+                    else if (targetScope.includes("3rd")) targetSub = "3rd";
+                    else if (targetScope.includes("4th")) targetSub = "4th";
+
+                    if (targetSub) {
+                        const subButtons = Array.from(acc.querySelectorAll("button, [role='tab']"));
+                        const subBtn = subButtons.find(b => (b.innerText || "").trim().toLowerCase() === targetSub || (b.getAttribute("aria-label") || "").toLowerCase().includes(targetSub));
+                        if (subBtn && !subBtn.className.includes("is-active") && !subBtn.className.includes("selected")) {
+                            try {
+                                subBtn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
+                                subBtn.click();
+                            } catch(e) {}
+                        }
                     }
                 }
             }
@@ -1890,8 +1911,16 @@ def stage_betslip_in_safari(
                         } else if (mCtx.includes(pNorm)) {
                             periodMatch = true;
                         }
-                    } else if (pNorm.includes("period") && mCtx.includes(pNorm)) {
-                        periodMatch = true;
+                    } else if (pNorm.includes("period")) {
+                        if (pNorm.includes("1st") && (mCtx.includes("1st period") || mCtx.includes("period 1") || (mCtx.includes("period") && mCtx.includes("1st")))) {
+                            periodMatch = true;
+                        } else if (pNorm.includes("2nd") && (mCtx.includes("2nd period") || mCtx.includes("period 2") || (mCtx.includes("period") && mCtx.includes("2nd")))) {
+                            periodMatch = true;
+                        } else if (pNorm.includes("3rd") && (mCtx.includes("3rd period") || mCtx.includes("period 3") || (mCtx.includes("period") && mCtx.includes("3rd")))) {
+                            periodMatch = true;
+                        } else if (mCtx.includes(pNorm)) {
+                            periodMatch = true;
+                        }
                     } else if (pNorm.includes("set") && mCtx.includes(pNorm)) {
                         periodMatch = true;
                     } else if (pNorm.includes("innings 1 to 5") && (mCtx.includes("innings 1 to 5") || mCtx.includes("first 5"))) {
