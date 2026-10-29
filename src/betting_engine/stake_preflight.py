@@ -161,17 +161,17 @@ def match_stake_feed_contract(
 
                 # Check period match
                 if target_period is not None:
-                    spec_p = re.search(r"periodnr=(\d+)", spec)
+                    spec_p = re.search(r"(?:periodnr|setnr)=(\d+)", spec)
                     has_p = False
                     if spec_p and int(spec_p.group(1)) == target_period:
                         has_p = True
-                    elif f"{target_period}st {target_scope_type}" in m_name_lower:
+                    elif f"{target_period}st {target_scope_type}" in m_name_lower or (target_scope_type == "period" and f"{target_period}st set" in m_name_lower):
                         has_p = True
-                    elif f"{target_period}nd {target_scope_type}" in m_name_lower:
+                    elif f"{target_period}nd {target_scope_type}" in m_name_lower or (target_scope_type == "period" and f"{target_period}nd set" in m_name_lower):
                         has_p = True
-                    elif f"{target_period}rd {target_scope_type}" in m_name_lower:
+                    elif f"{target_period}rd {target_scope_type}" in m_name_lower or (target_scope_type == "period" and f"{target_period}rd set" in m_name_lower):
                         has_p = True
-                    elif f"{target_period}th {target_scope_type}" in m_name_lower:
+                    elif f"{target_period}th {target_scope_type}" in m_name_lower or (target_scope_type == "period" and f"{target_period}th set" in m_name_lower):
                         has_p = True
                     elif target_scope_type == "quarter" and f"{target_period} quarter" in m_name_lower:
                         has_p = True
@@ -181,8 +181,8 @@ def match_stake_feed_contract(
                     if not has_p:
                         continue
                 else:
-                    # Full game: avoid period/quarter/half markets
-                    if "periodnr=" in spec or any(k in m_name_lower for k in ["1st", "2nd", "3rd", "4th", "half"]):
+                    # Full game: avoid period/quarter/half/set markets
+                    if "periodnr=" in spec or "setnr=" in spec or any(k in m_name_lower for k in ["1st", "2nd", "3rd", "4th", "half", "set"]):
                         continue
 
                 # Check market type match
@@ -211,7 +211,9 @@ def match_stake_feed_contract(
                     if match_outcome_text(selection, o_name, line):
                         # Determine proper tab name
                         tab = "Popular"
-                        if target_period is not None:
+                        if (league or "").upper() in ("WTA", "ATP") or "set" in m_name_lower or "setnr=" in spec:
+                            tab = "Sets"
+                        elif target_period is not None:
                             if target_scope_type == "period":
                                 tab = "Periods"
                             elif target_scope_type == "quarter":

@@ -180,3 +180,44 @@ def test_preflight_verify_contract_live_mock(monkeypatch):
         selection="Under 13.5",
     )
     assert res_not_found["status"] == "market_not_found"
+
+
+def test_tennis_sets_preflight(monkeypatch):
+    sample_tennis_feed = {
+        "groups": [
+            {
+                "name": "sets",
+                "markets": [
+                    [
+                        {
+                            "name": "2nd Set - Winner",
+                            "specifiers": "setnr=2",
+                            "outcomes": [
+                                {"id": "out-1", "name": "Player A", "odds": 1.45, "active": True},
+                                {"id": "out-2", "name": "Player B", "odds": 2.65, "active": True},
+                            ],
+                        }
+                    ]
+                ],
+            }
+        ]
+    }
+    monkeypatch.setattr(
+        "betting_engine.stake_preflight.fetch_stake_fixture_odds",
+        lambda slug: sample_tennis_feed,
+    )
+
+    res = preflight_verify_contract(
+        event_url="https://stake.com/sports/tennis/wta/tournament/47015978-slug",
+        market="period_2:moneyline",
+        selection="Player B",
+        expected_odds=2.60,
+        league="WTA",
+    )
+    assert res["status"] == "ok"
+    assert res["exact_tab"] == "Sets"
+    assert res["exact_accordion"] == "2nd Set - Winner"
+    assert res["exact_outcome_id"] == "out-2"
+    assert res["exact_outcome_name"] == "Player B"
+    assert res["live_odds"] == 2.65
+
