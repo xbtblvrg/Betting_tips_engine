@@ -345,6 +345,8 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                 }
                 if check_keys & set(gov.get('quarantine_list', [])):
                     caps['capital_defense_quarantine'] = 0.0
+                if check_keys & set(gov.get('capital_defense_list', [])):
+                    caps['capital_defense_clamp'] = def_unit
 
             # Evolutionary Probation Nursery Clamp:
             # Newly graduated markets are clamped to $0.50 nursery tourniquet until verified.
@@ -448,15 +450,19 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
             # Dynamic Tier Scaling (Constitutional Mandate D40 - Kelly Stake Dominance Option B):
             # Scale-Invariant in Units of Stake (Super Alpha: >=4.0 units or >=$5.0; Solid Alpha: >=2.0 units or >=$2.0)
             grad_proven = bool(tip.get('is_graduated') and is_alpha_eligible_market)
-            is_super_alpha = (
+            has_defense = (
+                any(k in caps for k in ('demoted_market_defense_clamp', 'capital_defense_clamp', 'capital_defense_quarantine', 'probation_nursery_clamp'))
+                or bool(check_keys & set(gov.get('capital_defense_list', [])))
+            )
+            is_super_alpha = not has_defense and (
                 (games_val >= 8 and roi_val >= 0.08 and (pnl_val >= 5.0 or (pnl_val / max(0.2, def_unit) >= 4.0)))
                 or gov_super
-                or (grad_proven and ev_val is not None and ev_val >= 0.08)
+                or (grad_proven and ev_val is not None and ev_val >= 0.08 and roi_val >= 0.0 and pnl_val >= 0.0)
             )
-            is_solid_alpha = (
+            is_solid_alpha = not has_defense and (
                 (games_val >= 5 and roi_val >= 0.03 and (pnl_val >= 2.0 or (pnl_val / max(0.2, def_unit) >= 2.0)))
                 or gov_solid
-                or (grad_proven and ev_val is not None and ev_val >= 0.03)
+                or (grad_proven and ev_val is not None and ev_val >= 0.03 and roi_val >= 0.0 and pnl_val >= 0.0)
             )
 
             cand_scope = tip.get('model_scope', 'full_game')

@@ -1023,6 +1023,8 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
             c['allocation_code']='event_limit';c['allocation_reason']='The per-game allocation is already committed to recorded bets.'
             c['stake_note']='The per-game limit is already allocated to recorded bets.'
         elif tier(c)>0 and new_funded<cycle_cap:
+            is_cap_defense_cand = False
+            is_alpha_cand = False
             # Task D40: Uncertainty-Aware Dynamic EV Hurdle & Volume Backstop
             if selection_policy == CONTINUOUS_PROBABILITY_SELECTION_V4:
                 c_ev = float(c.get('expected_roi', 0.0) or 0.0)
@@ -1142,10 +1144,10 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                     c['stake_note'] = (note or '') + f" Capped by {shield.get('rule_id')}: {shield.get('reason')}"
             except Exception:
                 pass
-            if selection_policy == CONTINUOUS_PROBABILITY_SELECTION_V4 and is_cap_defense_cand and amount > 0.50:
+            if is_cap_defense_cand and amount > 0.50:
                 amount = 0.50
                 c['stake_note'] = (c.get('stake_note') or note or '') + ' Capped at $0.50 emergency capital defense tourniquet.'
-            elif selection_policy == CONTINUOUS_PROBABILITY_SELECTION_V4 and is_alpha_cand and amount > 0.0:
+            elif is_alpha_cand and amount > 0.0:
                 super_alphas = set(gov_status.get('super_alpha_list', []))
                 solid_alphas = set(gov_status.get('solid_alpha_list', []))
                 if cand_segs & super_alphas:

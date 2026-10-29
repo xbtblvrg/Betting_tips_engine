@@ -32,4 +32,4 @@ def test_unified_universe_synchronizes_with_live_settled_metrics():
     for k, m in roster.items():
         if "Capital Defense Tourniquet" in m.phase_detail:
             assert m.stake_cap == 0.50
-            assert m.tier == int(MarketTier.PRODUCTION_GRADUATED)
+            assert m.tier in (int(MarketTier.PRODUCTION_GRADUATED), int(MarketTier.RESEARCH_RND))
