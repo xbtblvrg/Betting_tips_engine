@@ -890,6 +890,7 @@ def stage_betslip_in_safari(
     adaptive_fallback: bool = False,
     cycle_id: Optional[str] = None,
     run_type: str = "auto_runner",
+    enable_preflight: bool = True,
 ) -> Dict[str, Any]:
     """Stages a single bet in Safari on Stake.com, optionally auto-placing and closing tab.
 
@@ -1017,6 +1018,89 @@ def stage_betslip_in_safari(
                             tab = resolve_stake_market_tab(league, market, market_name, ev.get("market_groups", []), clean_url)
         except Exception:
             pass
+
+    model_prob = None
+    if tip_id and "p_data" in locals() and p_data:
+        try:
+            if p_data.get("probability") is not None:
+                model_prob = float(p_data["probability"])
+            if not min_odds and p_data.get("minimum_odds") is not None:
+                min_odds = float(p_data["minimum_odds"])
+        except Exception:
+            pass
+
+    # Phase 0: High-Speed Pre-Flight Odds & Guaranteed Market Verification
+    exact_tab = None
+    exact_accordion = None
+    exact_outcome_name = None
+    exact_outcome_id = None
+    live_odds_feed = None
+
+    if enable_preflight and clean_url and market and selection:
+        try:
+            from .stake_preflight import preflight_verify_contract
+            pf_res = preflight_verify_contract(
+                event_url=clean_url,
+                market=market,
+                selection=selection,
+                line=line,
+                expected_odds=odds,
+                min_odds=min_odds,
+                model_probability=model_prob,
+                league=league,
+            )
+            pf_status = pf_res.get("status")
+            if pf_status == "ok":
+                exact_tab = pf_res.get("exact_tab")
+                exact_accordion = pf_res.get("exact_accordion")
+                exact_outcome_name = pf_res.get("exact_outcome_name")
+                exact_outcome_id = pf_res.get("exact_outcome_id")
+                live_odds_feed = pf_res.get("live_odds")
+                if exact_tab:
+                    tab = exact_tab
+                if exact_accordion:
+                    market_name = exact_accordion
+                if exact_outcome_name:
+                    outcome_name = exact_outcome_name
+                log.info(f"Pre-flight targeting confirmed: tab='{tab}', accordion='{market_name}', outcome='{outcome_name}', odds={live_odds_feed}")
+            elif pf_status == "skip_drift":
+                if log_autorun_event:
+                    log_autorun_event(
+                        cycle_id=cid,
+                        stage="PREFLIGHT",
+                        severity="WARN",
+                        tip_id=tip_id,
+                        league=league,
+                        selection=selection,
+                        line=line,
+                        odds=odds,
+                        stake=stake,
+                        market=market,
+                        market_name=market_name,
+                        status="skipped",
+                        message=pf_res.get("reason", "Preflight odds drift beyond positive EV"),
+                        error_code=AutoRunErrorCode.LINE_DRIFT_NO_EV if AutoRunErrorCode else "LINE_DRIFT_NO_EV",
+                        payload={"pf_res": pf_res, "event_url": clean_url},
+                        run_type=run_type,
+                    )
+                return {
+                    "status": "skipped",
+                    "error_code": "LINE_DRIFT_NO_EV",
+                    "message": pf_res.get("reason", "Preflight odds drift beyond positive EV"),
+                    "event_url": clean_url,
+                    "selection": selection,
+                    "odds": odds,
+                    "stake": stake,
+                    "live_odds": pf_res.get("live_odds"),
+                    "ev": pf_res.get("ev"),
+                }
+            elif pf_status in ("market_not_found", "skip_suspended"):
+                # If market not found in feed or feed suspended, fall back to Safari DOM 
+                # to guarantee zero false-negative skips ("a jelenlegi rendszert erositse, nehogy rosszul suljon el")
+                log.debug(f"Pre-flight {pf_status}: {pf_res.get('reason')}. Falling back to Safari DOM.")
+            # If pf_status == 'fallback_to_dom', continue smoothly into Safari DOM!
+        except Exception as e:
+            log.debug(f"Preflight exception, falling back to DOM: {e}")
 
     # Infer period / set prefix and market name if not fully set
     period_prefix = ""
@@ -1392,6 +1476,8 @@ def stage_betslip_in_safari(
             "asian lines": ["tab-asianlines", "asian lines", "tab-asian-lines"],
             "asian": ["tab-asianlines", "asian lines", "tab-asian-lines"],
             "goals": ["tab-goals", "goals"],
+            "periods": ["tab-periods", "tab-period", "periods", "period"],
+            "period": ["tab-periods", "tab-period", "periods", "period"],
             "quarters": ["tab-quarters", "tab-quarter", "quarters", "quarter"],
             "quarter": ["tab-quarters", "tab-quarter", "quarters", "quarter"],
             "points": ["tab-points", "points"],
@@ -1547,13 +1633,14 @@ def stage_betslip_in_safari(
             return texts.join(" ");
         }
 
-        function expandAccordions(mName, pPrefix, accAlias) {
+        function expandAccordions(mName, pPrefix, accAlias, exAcc) {
             const sidebars = Array.from(document.querySelectorAll("#left-sidebar, #right-sidebar, aside"));
             const accordions = Array.from(document.querySelectorAll(".main-content [class*='accordion'], [class*='accordion']"))
                 .filter(a => !sidebars.some(s => s.contains(a)));
             const mNorm = (mName || "").toLowerCase().trim();
             const aNorm = (accAlias || "").toLowerCase().trim();
             const pNorm = (pPrefix || "").toLowerCase().trim();
+            const eNorm = (exAcc || "").toLowerCase().trim();
             for (const acc of accordions) {
                 const h = acc.querySelector(".header, [class*='header'], [class*='title'], h2, h3, h4");
                 if (!h || !h.innerText) continue;
@@ -1562,7 +1649,8 @@ def stage_betslip_in_safari(
                     continue;
                 }
                 let match = false;
-                if (!mNorm && !pNorm && !aNorm) match = true;
+                if (eNorm && (hText.indexOf(eNorm) !== -1 || eNorm.indexOf(hText) !== -1)) match = true;
+                else if (!mNorm && !pNorm && !aNorm && !eNorm) match = true;
                 else if (aNorm && (hText.indexOf(aNorm) !== -1 || aNorm.indexOf(hText) !== -1)) match = true;
                 else if (mNorm && (hText.indexOf(mNorm) !== -1 || mNorm.indexOf(hText) !== -1)) match = true;
                 else if (mNorm === "total sets" && hText.includes("total sets")) match = true;
@@ -1826,9 +1914,11 @@ def stage_betslip_in_safari(
         function findOutcomeMatch(buttons) {
             const mNorm = (marketName || "").toLowerCase().trim();
             const aNorm = (typeof accordionAlias !== 'undefined' && accordionAlias) ? accordionAlias.toLowerCase().trim() : "";
+            const exactNorm = (typeof exactAccordion !== 'undefined' && exactAccordion) ? exactAccordion.toLowerCase().trim() : "";
+            const exactOutName = (typeof exactOutcomeName !== 'undefined' && exactOutcomeName) ? exactOutcomeName.toLowerCase().trim() : "";
 
-            // 1. Direct Search inside exact matching Market Accordion first if marketName or alias is known
-            if (mNorm || aNorm) {
+            // 1. Direct Search inside exact matching Market Accordion first if exactNorm, marketName or alias is known
+            if (exactNorm || mNorm || aNorm) {
                 const sidebars = Array.from(document.querySelectorAll("#left-sidebar, #right-sidebar, aside"));
                 const accordions = Array.from(document.querySelectorAll(".main-content [class*='accordion'], [class*='accordion']"))
                     .filter(a => !sidebars.some(s => s.contains(a)));
@@ -1836,7 +1926,10 @@ def stage_betslip_in_safari(
                     const h = acc.querySelector(".header, [class*='header'], [class*='title'], h2, h3, h4");
                     if (!h || !h.innerText) continue;
                     const hText = h.innerText.toLowerCase().split(/[\r\n]+/)[0].trim();
-                    let isAccMatch = (mNorm && (hText === mNorm || hText.indexOf(mNorm) !== -1 || mNorm.indexOf(hText) !== -1));
+                    let isAccMatch = (exactNorm && (hText === exactNorm || hText.indexOf(exactNorm) !== -1 || exactNorm.indexOf(hText) !== -1));
+                    if (!isAccMatch && mNorm && (hText === mNorm || hText.indexOf(mNorm) !== -1 || mNorm.indexOf(hText) !== -1)) {
+                        isAccMatch = true;
+                    }
                     if (!isAccMatch && aNorm && (hText === aNorm || hText.indexOf(aNorm) !== -1 || aNorm.indexOf(hText) !== -1)) {
                         isAccMatch = true;
                     }
@@ -1855,6 +1948,14 @@ def stage_betslip_in_safari(
                         }
                         const accButtons = getOutcomeButtons(acc);
                         if (accButtons.length > 0) {
+                            if (exactOutName) {
+                                for (const btn of accButtons) {
+                                    const bText = (btn.innerText || "").toLowerCase().replace(/[\r\n]+/g, " ").trim();
+                                    if (bText.indexOf(exactOutName) !== -1 || exactOutName.indexOf(bText) !== -1) {
+                                        return btn;
+                                    }
+                                }
+                            }
                             const accMatch = scoreAndSelectOutcome(accButtons);
                             if (accMatch) return accMatch;
                         }
@@ -1886,6 +1987,9 @@ def stage_betslip_in_safari(
                 const targetTab = {json.dumps(tab or "")};
                 const marketName = {json.dumps(market_name or "")};
                 const accordionAlias = {json.dumps(accordion_alias or "")};
+                const exactAccordion = {json.dumps(exact_accordion or "")};
+                const exactOutcomeName = {json.dumps(exact_outcome_name or "")};
+                const exactOutcomeId = {json.dumps(exact_outcome_id or "")};
                 const periodPrefix = {json.dumps(period_prefix or "")};
                 const targetOdds = {json.dumps(odds)};
                 const isTennis = {json.dumps(is_tennis)};
@@ -1907,7 +2011,7 @@ def stage_betslip_in_safari(
                 let match = null;
                 let buttons = [];
                 if (tabActive) {{
-                    expandAccordions(marketName, periodPrefix, accordionAlias);
+                    expandAccordions(marketName, periodPrefix, accordionAlias, exactAccordion);
                     buttons = getOutcomeButtons();
                     match = findOutcomeMatch(buttons);
                     if (!match) {{
@@ -2028,6 +2132,9 @@ def stage_betslip_in_safari(
             const targetTab = {json.dumps(tab or "")};
             const marketName = {json.dumps(market_name or "")};
             const accordionAlias = {json.dumps(accordion_alias or "")};
+            const exactAccordion = {json.dumps(exact_accordion or "")};
+            const exactOutcomeName = {json.dumps(exact_outcome_name or "")};
+            const exactOutcomeId = {json.dumps(exact_outcome_id or "")};
             const periodPrefix = {json.dumps(period_prefix or "")};
             const targetOdds = {json.dumps(odds)};
             const isTennis = {json.dumps(is_tennis)};
@@ -2124,7 +2231,7 @@ def stage_betslip_in_safari(
                 selectTab(tabBtn);
             }}
 
-            expandAccordions(marketName, periodPrefix, accordionAlias);
+            expandAccordions(marketName, periodPrefix, accordionAlias, exactAccordion);
 
             let buttons = getOutcomeButtons();
             let match = findOutcomeMatch(buttons);
