@@ -179,46 +179,49 @@ class AutonomousRetryResolver:
                 # Diagnosis 3: Upstream Missing Live Sports / Weather / Starters Observation
                 if any(kw in last_error.lower() for kw in ('starter', 'lineup', 'weather', 'espn observation', 'external source missing')):
                     # This task is waiting on real external observations that require an autonomous ingestion job
-                    job_id = self.enqueue_learning_job(
-                        job_kind='upstream_sports_sensor_synthesis',
-                        task_id=tid,
-                        league=str(tinfo.get('league') or 'SYSTEM'),
-                        payload_dict={'last_error': last_error, 'attempts': attempts}
-                    )
-                    # Set a durable 6-hour backoff to prevent continuous loop thrashing while research executes
+                    if not tinfo.get('upstream_research_job'):
+                        job_id = self.enqueue_learning_job(
+                            job_kind='upstream_sports_sensor_synthesis',
+                            task_id=tid,
+                            league=str(tinfo.get('league') or 'SYSTEM'),
+                            payload_dict={'last_error': last_error, 'attempts': attempts}
+                        )
+                        tinfo['upstream_research_job'] = job_id
+                        action = ResolutionAction(
+                            task_id=tid,
+                            action_type='upstream_prerequisite_dispatched',
+                            root_cause='Task requires verified real-world external observations',
+                            remedy_applied=f"Enqueued learning_job {job_id} for Multi-AI Council, applied 6h cooldown"
+                        )
+                        actions.append(action)
+                        self.log_action(action)
+                    # Maintain durable 6-hour backoff to prevent continuous loop thrashing while research executes
                     tinfo['next_attempt_at'] = (now + timedelta(hours=6)).isoformat()
-                    tinfo['upstream_research_job'] = job_id
                     modified = True
-                    action = ResolutionAction(
-                        task_id=tid,
-                        action_type='upstream_prerequisite_dispatched',
-                        root_cause='Task requires verified real-world external observations',
-                        remedy_applied=f"Enqueued learning_job {job_id} for Multi-AI Council, applied 6h cooldown"
-                    )
-                    actions.append(action)
-                    self.log_action(action)
                     continue
 
                 # Diagnosis 4: High-Attempt Circuit Breaker (attempts >= 5 with unclassified error)
                 if attempts >= 5:
-                    job_id = self.enqueue_learning_job(
-                        job_kind='high_retry_task_root_cause_analysis',
-                        task_id=tid,
-                        league=str(tinfo.get('league') or 'SYSTEM'),
-                        payload_dict={'last_error': last_error, 'attempts': attempts}
-                    )
+                    if not tinfo.get('circuit_breaker_job'):
+                        job_id = self.enqueue_learning_job(
+                            job_kind='high_retry_task_root_cause_analysis',
+                            task_id=tid,
+                            league=str(tinfo.get('league') or 'SYSTEM'),
+                            payload_dict={'last_error': last_error, 'attempts': attempts}
+                        )
+                        tinfo['circuit_breaker_engaged'] = True
+                        tinfo['circuit_breaker_job'] = job_id
+                        action = ResolutionAction(
+                            task_id=tid,
+                            action_type='circuit_breaker_engaged',
+                            root_cause=f'Task reached {attempts} unsuccessful attempts ({last_error[:100]})',
+                            remedy_applied=f"Circuit breaker engaged, enqueued RCA job {job_id}, applied 12h cooldown"
+                        )
+                        actions.append(action)
+                        self.log_action(action)
+                    # Maintain 12-hour circuit breaker cooldown
                     tinfo['next_attempt_at'] = (now + timedelta(hours=12)).isoformat()
-                    tinfo['circuit_breaker_engaged'] = True
-                    tinfo['circuit_breaker_job'] = job_id
                     modified = True
-                    action = ResolutionAction(
-                        task_id=tid,
-                        action_type='circuit_breaker_engaged',
-                        root_cause=f'Task reached {attempts} unsuccessful attempts ({last_error[:100]})',
-                        remedy_applied=f"Circuit breaker engaged, enqueued RCA job {job_id}, applied 12h cooldown"
-                    )
-                    actions.append(action)
-                    self.log_action(action)
                     continue
 
             if modified:
