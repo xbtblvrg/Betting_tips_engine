@@ -843,7 +843,9 @@ async function sendAutoRunHeartbeat(force = false) {
   const body = {
    enabled: isAutoRunEnabled,
    next_trigger_at: autoRunNextTriggerAt,
-   last_status: lastAutoBetStatus ? (lastAutoBetStatus.error ? `⚠️ ${lastAutoBetStatus.error}` : `✅ Ciklus kész! Megkötve: ${lastAutoBetStatus.placedCount || 0} db`) : null,
+   last_status: (isAutoBetRunning || isAutoRunCycleRunning)
+    ? '⚡ Fogadás folyamatban a Safariban…'
+    : (lastAutoBetStatus ? (lastAutoBetStatus.error ? `⚠️ ${lastAutoBetStatus.error}` : `✅ Ciklus kész! Megkötve: ${lastAutoBetStatus.placedCount || 0} db`) : null),
    last_cycle_placed: lastAutoBetStatus?.placedCount || 0,
    runner_id: 'MacBook Pro (Safari)'
   };
@@ -1058,6 +1060,7 @@ function scheduleNextAutoRun(delayMs = AUTO_RUN_INTERVAL_MS) {
    }
    if (isAutoBetRunning || isAutoRunCycleRunning) {
     updateAutoRunStatusUI();
+    sendAutoRunHeartbeat();
     return;
    }
    const remaining = autoRunNextTriggerAt ? (autoRunNextTriggerAt - Date.now()) : 0;
