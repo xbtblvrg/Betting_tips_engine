@@ -1,16 +1,16 @@
 # Live Stake market coverage
 
-Checked: 2026-10-29T08:40:05.952399+00:00
+Checked: 2026-10-29T09:39:42.393588+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
 | League | Observed titles | Activity unverified | Offered now | Complete 10/10 | Incomplete offered | Evaluated | Funding supported | Ready now | Issued today |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| NFL | 77 | 1 | 46 | 0 | 46 | 18 | 12 | 5 | 0 |
+| NFL | 77 | 1 | 46 | 0 | 46 | 17 | 12 | 5 | 0 |
 | NHL | 65 | 5 | 60 | 0 | 60 | 24 | 12 | 0 | 38 |
 | MLB | 9 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | NBA | 81 | 3 | 26 | 0 | 26 | 15 | 15 | 0 | 26 |
-| WNBA | 61 | 0 | 61 | 0 | 61 | 11 | 7 | 1 | 2 |
+| WNBA | 61 | 0 | 61 | 0 | 61 | 12 | 8 | 2 | 2 |
 
 Current stages require outcome-level evidence; original issuance, settlement and feedback are explicitly historical. 10/10 records observed execution, not proven profitability or automatic model promotion.
 
@@ -132,7 +132,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NFL | 3rd Quarter - 1x2 | standard | quarter_3 | offered_now | 1/10 | not_observed 0/3 | verified 3/3 | not_observed 0/3 | not_observed 0/3 | not_observed 0/3 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 3rd Quarter - Draw No Bet | standard | quarter_3 | offered_now | 1/10 | not_observed 0/2 | verified 2/2 | partial 1/2 | partial 1/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 3rd Quarter - Handicap | standard | quarter_3 | offered_now | 4/10 | partial 3/6 | verified 6/6 | partial 3/6 | partial 3/6 | partial 3/6 | verified 3/3 | verified 3/3 | verified 1/1 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NFL | 3rd Quarter - Total | standard | quarter_3 | offered_now | 3/10 | partial 1/6 | verified 6/6 | partial 1/6 | partial 1/6 | partial 1/6 | verified 1/1 | verified 1/1 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NFL | 3rd Quarter - Total | standard | quarter_3 | offered_now | 1/10 | not_observed 0/6 | verified 6/6 | not_observed 0/6 | not_observed 0/6 | not_observed 0/6 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 4th Quarter - 1x2 | standard | quarter_4 | offered_now | 1/10 | not_observed 0/3 | verified 3/3 | not_observed 0/3 | not_observed 0/3 | not_observed 0/3 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 4th Quarter - Draw No Bet | standard | quarter_4 | offered_now | 1/10 | not_observed 0/2 | verified 2/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 4th Quarter - Draw No Bet (incl. Overtime) | standard | quarter_4_ot | offered_now | 1/10 | not_observed 0/2 | verified 2/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
@@ -306,6 +306,6 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | WNBA | Williams, Gabby total points (incl. overtime) | standard | full_game | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | WNBA | Williams, Gabby total rebounds (incl. overtime) | standard | full_game | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | WNBA | Winner & Total (Incl. Overtime) | standard | full_game | offered_now | 7/10 | verified 4/4 | verified 4/4 | verified 4/4 | verified 4/4 | verified 4/4 | verified 4/4 | verified 4/4 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| WNBA | Winner (Incl. Overtime) | standard | full_game | offered_now | 2/10 | not_observed 0/2 | verified 2/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | verified 1/1 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| WNBA | Winner (Incl. Overtime) | standard | full_game | offered_now | 4/10 | partial 1/2 | verified 2/2 | partial 1/2 | partial 1/2 | partial 1/2 | verified 1/1 | verified 1/1 | verified 1/1 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | WNBA | Winning Margin (Incl. Overtime) | standard | full_game | offered_now | 0/10 | not_observed 0/6 | not_observed 0/6 | not_observed 0/6 | not_observed 0/6 | not_observed 0/6 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | WNBA | Zandalasini, Cecilia total points (incl. overtime) | standard | full_game | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
