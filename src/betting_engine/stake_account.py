@@ -1063,6 +1063,24 @@ def stage_betslip_in_safari(
                 if exact_outcome_name:
                     outcome_name = exact_outcome_name
                 log.info(f"Pre-flight targeting confirmed: tab='{tab}', accordion='{market_name}', outcome='{outcome_name}', odds={live_odds_feed}")
+                if log_autorun_event:
+                    log_autorun_event(
+                        cycle_id=cid,
+                        stage="PREFLIGHT",
+                        severity="INFO",
+                        tip_id=tip_id,
+                        league=league,
+                        selection=selection,
+                        line=line,
+                        odds=odds,
+                        stake=stake,
+                        market=market,
+                        market_name=market_name,
+                        status="verified",
+                        message=f"Pre-flight targeting verified: tab='{tab}', accordion='{market_name}', outcome='{outcome_name}', live_odds={live_odds_feed}" + (f" (EV: {pf_res.get('ev')*100:+.2f}%)" if pf_res.get('ev') is not None else ""),
+                        payload={"pf_res": pf_res, "event_url": clean_url},
+                        run_type=run_type,
+                    )
             elif pf_status == "skip_drift":
                 if log_autorun_event:
                     log_autorun_event(
@@ -1095,10 +1113,44 @@ def stage_betslip_in_safari(
                     "ev": pf_res.get("ev"),
                 }
             elif pf_status in ("market_not_found", "skip_suspended"):
-                # If market not found in feed or feed suspended, fall back to Safari DOM 
-                # to guarantee zero false-negative skips ("a jelenlegi rendszert erositse, nehogy rosszul suljon el")
                 log.debug(f"Pre-flight {pf_status}: {pf_res.get('reason')}. Falling back to Safari DOM.")
-            # If pf_status == 'fallback_to_dom', continue smoothly into Safari DOM!
+                if log_autorun_event:
+                    log_autorun_event(
+                        cycle_id=cid,
+                        stage="PREFLIGHT",
+                        severity="INFO",
+                        tip_id=tip_id,
+                        league=league,
+                        selection=selection,
+                        line=line,
+                        odds=odds,
+                        stake=stake,
+                        market=market,
+                        market_name=market_name,
+                        status="fallback",
+                        message=f"Pre-flight {pf_status}: {pf_res.get('reason')}. Falling back to Safari DOM.",
+                        payload={"pf_res": pf_res, "event_url": clean_url},
+                        run_type=run_type,
+                    )
+            elif pf_status == "fallback_to_dom":
+                if log_autorun_event:
+                    log_autorun_event(
+                        cycle_id=cid,
+                        stage="PREFLIGHT",
+                        severity="INFO",
+                        tip_id=tip_id,
+                        league=league,
+                        selection=selection,
+                        line=line,
+                        odds=odds,
+                        stake=stake,
+                        market=market,
+                        market_name=market_name,
+                        status="fallback",
+                        message=f"Pre-flight feed fallback: {pf_res.get('reason')}. Using standard Safari DOM.",
+                        payload={"pf_res": pf_res, "event_url": clean_url},
+                        run_type=run_type,
+                    )
         except Exception as e:
             log.debug(f"Preflight exception, falling back to DOM: {e}")
 
