@@ -938,7 +938,9 @@ class LearningWorker:
                 recent=[dict(r) for r in c.execute("SELECT j.kind,a.status,a.started_at FROM learning_attempts a JOIN learning_jobs j ON a.job_id=j.id ORDER BY a.id DESC LIMIT ?",(HIGH_PRIORITY_BUDGET,))]
                 job,admission=choose_learning_job(rows,recent,parse_time(now))
                 if job:
-                    c.execute("UPDATE learning_jobs SET status='running',attempts=attempts+1,updated_at=? WHERE id=?",(now,job['id']))
+                    is_cont = job['kind'] == 'shadow_evaluation' and bool(job.get('result') and 'continuation_required' in str(job['result']))
+                    att_inc = 0 if is_cont else 1
+                    c.execute("UPDATE learning_jobs SET status='running',attempts=attempts+?,updated_at=? WHERE id=?",(att_inc,now,job['id']))
                     attempt=c.execute("INSERT INTO learning_attempts(job_id,started_at,status) VALUES (?,?,'running')",(job['id'],now)).lastrowid
             atomic_json(self.data/'learning_admission.json',{'checked_at':now,**admission})
             atomic_json(self.data/'learning_worker.json',self.snapshot())
