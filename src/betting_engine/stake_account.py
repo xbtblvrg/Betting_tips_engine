@@ -2261,9 +2261,14 @@ def stage_betslip_in_safari(
                     errorMsg = "A fogadóiroda módosította a piacot." + lineNote;
                 }}
 
+                const sidebars = Array.from(document.querySelectorAll("#left-sidebar, #right-sidebar, aside"));
                 const domSnapshot = {{
-                    tabs: Array.from(document.querySelectorAll("[role='tab'], button[class*='tab']")).map(b => (b.innerText||"").trim()).filter(t => t.length > 0 && t.length < 35).slice(0, 15),
-                    accordions: Array.from(document.querySelectorAll(".main-content [class*='accordion'] .header, [class*='accordion'] [class*='header'], [class*='accordion'] [class*='title'], [class*='accordion'] h2, [class*='accordion'] h3, [class*='accordion'] h4")).map(h => (h.innerText||"").split(/[\r\n]+/)[0].trim()).filter(Boolean).slice(0, 25),
+                    tabs: Array.from(document.querySelectorAll("[role='tab'], button[class*='tab']"))
+                        .filter(t => !sidebars.some(s => s.contains(t)))
+                        .map(b => (b.innerText||"").trim()).filter(t => t.length > 0 && t.length < 35).slice(0, 15),
+                    accordions: Array.from(document.querySelectorAll(".main-content [class*='accordion'] .header, .main-content [class*='accordion'] [class*='header'], .main-content [class*='accordion'] [class*='title'], .main-content [class*='accordion'] h2, .main-content [class*='accordion'] h3, .main-content [class*='accordion'] h4"))
+                        .filter(h => !sidebars.some(s => s.contains(h)))
+                        .map(h => (h.innerText||"").split(/[\r\n]+/)[0].trim()).filter(Boolean).slice(0, 30),
                     buttons_count: buttons.length
                 }};
 
