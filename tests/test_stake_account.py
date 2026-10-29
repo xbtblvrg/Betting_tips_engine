@@ -1505,6 +1505,7 @@ def test_stage_betslip_deep_auto_heal_and_dom_snapshot(monkeypatch, tmp_path):
     combined_scripts = "\n".join(intercepted_codes)
     assert "Deep Auto-Heal Pass" in combined_scripts
     assert "domSnapshot" in combined_scripts
+    assert "accordionAlias" in combined_scripts
     assert res["status"] == "error"
 
 
@@ -1551,6 +1552,26 @@ def test_autorun_selector_repair_learning_and_override(tmp_path):
         assert resolved == "Quarters"
     finally:
         sa.load_dynamic_selector_mappings = orig_fn
+
+    # Verify NHL period accordion learning
+    nhl_payload = {
+        "tip_id": "tip_nhl_period_test_456",
+        "league": "NHL",
+        "market": "period_2:totals",
+        "market_name": "2nd Period - Total",
+        "selection": "Under 1.5",
+        "odds": 1.95,
+        "dom_snapshot": {
+            "tabs": ["Popular", "Periods", "Goals"],
+            "accordions": ["Winner", "Handicap", "2nd Period - Total"],
+            "buttons_count": 30
+        },
+        "error": "Market not found"
+    }
+    nhl_res = process_autorun_selector_repair(nhl_payload, data_dir=tmp_path)
+    assert nhl_res["status"] == "repaired"
+    assert nhl_res["learned_tab"] == "Periods"
+    assert nhl_res["learned_accordion"] == "2nd Period - Total"
 
 
 

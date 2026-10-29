@@ -658,15 +658,27 @@ def process_autorun_selector_repair(
     keywords = []
     if "draw no bet" in market_name or "draw_no_bet" in market:
         keywords.append("draw no bet")
+        keywords.append("tie no bet")
     if "handicap" in market_name or "spread" in market:
         keywords.append("handicap")
         keywords.append("spread")
+        keywords.append("puck line")
+        keywords.append("run line")
     if "total" in market_name or "total" in market:
         keywords.append("total")
     if "winner" in market_name or "moneyline" in market or "1x2" in market:
         keywords.append("1x2")
         keywords.append("winner")
         keywords.append("moneyline")
+    if "field goal" in market_name or "field_goal" in market:
+        keywords.append("field goal")
+    if "touchdown" in market_name or "touchdown" in market:
+        keywords.append("touchdown")
+    if "both teams to score" in market_name or "both_score" in market or "btts" in market:
+        keywords.append("both teams to score")
+        keywords.append("both to score")
+    if "double chance" in market_name or "double_chance" in market:
+        keywords.append("double chance")
 
     for acc in accordions:
         acc_low = acc.lower()
@@ -675,6 +687,9 @@ def process_autorun_selector_repair(
                 learned_accordion = acc
                 break
             elif ("half" in market or "half" in market_name) and "half" in acc_low:
+                learned_accordion = acc
+                break
+            elif ("period" in market or "period" in market_name) and "period" in acc_low:
                 learned_accordion = acc
                 break
             elif not learned_accordion:
@@ -1133,6 +1148,15 @@ def stage_betslip_in_safari(
             elif market in ("away_total", "full_game:away_total"):
                 market_name = f"{away_team} Total (Incl. Overtime)" if (away_team and (is_basketball or is_football or is_hockey)) else "Total"
 
+    # Dynamic learned accordion aliases
+    dyn_selectors = load_dynamic_selector_mappings()
+    acc_aliases = dyn_selectors.get("accordion_aliases", {})
+    accordion_alias = ""
+    if market_name:
+        accordion_alias = acc_aliases.get(market_name.lower().strip()) or acc_aliases.get(market_name.strip()) or ""
+    if not accordion_alias and market:
+        accordion_alias = acc_aliases.get(market.lower().strip()) or ""
+
     # Build line variants for robust matching
     line_variants = []
     is_neg_line = False
@@ -1523,11 +1547,12 @@ def stage_betslip_in_safari(
             return texts.join(" ");
         }
 
-        function expandAccordions(mName, pPrefix) {
+        function expandAccordions(mName, pPrefix, accAlias) {
             const sidebars = Array.from(document.querySelectorAll("#left-sidebar, #right-sidebar, aside"));
             const accordions = Array.from(document.querySelectorAll(".main-content [class*='accordion'], [class*='accordion']"))
                 .filter(a => !sidebars.some(s => s.contains(a)));
             const mNorm = (mName || "").toLowerCase().trim();
+            const aNorm = (accAlias || "").toLowerCase().trim();
             const pNorm = (pPrefix || "").toLowerCase().trim();
             for (const acc of accordions) {
                 const h = acc.querySelector(".header, [class*='header'], [class*='title'], h2, h3, h4");
@@ -1537,7 +1562,8 @@ def stage_betslip_in_safari(
                     continue;
                 }
                 let match = false;
-                if (!mNorm && !pNorm) match = true;
+                if (!mNorm && !pNorm && !aNorm) match = true;
+                else if (aNorm && (hText.indexOf(aNorm) !== -1 || aNorm.indexOf(hText) !== -1)) match = true;
                 else if (mNorm && (hText.indexOf(mNorm) !== -1 || mNorm.indexOf(hText) !== -1)) match = true;
                 else if (mNorm === "total sets" && hText.includes("total sets")) match = true;
                 else if (mNorm && (mNorm.includes("winner") || mNorm.includes("moneyline") || mNorm.includes("1x2") || mNorm.includes("three_way") || mNorm.includes("3-way")) && (hText.includes("winner") || hText.includes("1x2") || hText.includes("3-way") || hText.includes("three way"))) match = true;
@@ -1799,9 +1825,10 @@ def stage_betslip_in_safari(
 
         function findOutcomeMatch(buttons) {
             const mNorm = (marketName || "").toLowerCase().trim();
+            const aNorm = (typeof accordionAlias !== 'undefined' && accordionAlias) ? accordionAlias.toLowerCase().trim() : "";
 
-            // 1. Direct Search inside exact matching Market Accordion first if marketName is known
-            if (mNorm) {
+            // 1. Direct Search inside exact matching Market Accordion first if marketName or alias is known
+            if (mNorm || aNorm) {
                 const sidebars = Array.from(document.querySelectorAll("#left-sidebar, #right-sidebar, aside"));
                 const accordions = Array.from(document.querySelectorAll(".main-content [class*='accordion'], [class*='accordion']"))
                     .filter(a => !sidebars.some(s => s.contains(a)));
@@ -1809,7 +1836,10 @@ def stage_betslip_in_safari(
                     const h = acc.querySelector(".header, [class*='header'], [class*='title'], h2, h3, h4");
                     if (!h || !h.innerText) continue;
                     const hText = h.innerText.toLowerCase().split(/[\r\n]+/)[0].trim();
-                    let isAccMatch = (hText === mNorm || hText.indexOf(mNorm) !== -1 || mNorm.indexOf(hText) !== -1);
+                    let isAccMatch = (mNorm && (hText === mNorm || hText.indexOf(mNorm) !== -1 || mNorm.indexOf(hText) !== -1));
+                    if (!isAccMatch && aNorm && (hText === aNorm || hText.indexOf(aNorm) !== -1 || aNorm.indexOf(hText) !== -1)) {
+                        isAccMatch = true;
+                    }
                     if (!isAccMatch && mNorm && mNorm.includes("1st quarter") && hText.includes("quarter") && !hText.includes("2nd") && !hText.includes("3rd") && !hText.includes("4th")) {
                         const mSuffix = mNorm.replace("1st quarter", "").replace(/[-–—]/g, "").trim();
                         if (!mSuffix || hText.includes(mSuffix)) isAccMatch = true;
@@ -1855,6 +1885,7 @@ def stage_betslip_in_safari(
                 const isNegative = {json.dumps(is_neg_line)};
                 const targetTab = {json.dumps(tab or "")};
                 const marketName = {json.dumps(market_name or "")};
+                const accordionAlias = {json.dumps(accordion_alias or "")};
                 const periodPrefix = {json.dumps(period_prefix or "")};
                 const targetOdds = {json.dumps(odds)};
                 const isTennis = {json.dumps(is_tennis)};
@@ -1876,7 +1907,7 @@ def stage_betslip_in_safari(
                 let match = null;
                 let buttons = [];
                 if (tabActive) {{
-                    expandAccordions(marketName, periodPrefix);
+                    expandAccordions(marketName, periodPrefix, accordionAlias);
                     buttons = getOutcomeButtons();
                     match = findOutcomeMatch(buttons);
                     if (!match) {{
@@ -1996,6 +2027,7 @@ def stage_betslip_in_safari(
             const isNegative = {json.dumps(is_neg_line)};
             const targetTab = {json.dumps(tab or "")};
             const marketName = {json.dumps(market_name or "")};
+            const accordionAlias = {json.dumps(accordion_alias or "")};
             const periodPrefix = {json.dumps(period_prefix or "")};
             const targetOdds = {json.dumps(odds)};
             const isTennis = {json.dumps(is_tennis)};
@@ -2092,7 +2124,7 @@ def stage_betslip_in_safari(
                 selectTab(tabBtn);
             }}
 
-            expandAccordions(marketName, periodPrefix);
+            expandAccordions(marketName, periodPrefix, accordionAlias);
 
             let buttons = getOutcomeButtons();
             let match = findOutcomeMatch(buttons);
@@ -2161,11 +2193,13 @@ def stage_betslip_in_safari(
                 let candList = [];
                 if (marketName) {{
                     const mLower = marketName.toLowerCase().trim();
+                    const aLower = (typeof accordionAlias !== 'undefined' && accordionAlias) ? accordionAlias.toLowerCase().trim() : "";
                     const sameMarketButtons = buttons.filter(b => {{
                         const ctx = getMarketContext(b);
                         if (!ctx) return false;
                         if (ctx === mLower || ctx.includes(mLower)) return true;
-                        if (mLower.includes(ctx)) {{
+                        if (aLower && (ctx === aLower || ctx.includes(aLower))) return true;
+                        if (mLower.includes(ctx) || (aLower && aLower.includes(ctx))) {{
                             if (lastName && !ctx.includes(lastName.toLowerCase())) return false;
                             if (periodPrefix) {{
                                 const pLow = periodPrefix.toLowerCase();
@@ -2192,22 +2226,6 @@ def stage_betslip_in_safari(
                         const otherLines = Array.from(new Set(cands.map(c => c.selection))).filter(l => !lineVariants.some(v => l.includes(v))).slice(0, 6);
                         if (otherLines.length > 0) {{
                             lineNote = " A Stake kínálatában a kért vonal (" + targetSel + ") helyett jelenleg ezek a vonalak érhetők el: " + otherLines.join(", ") + ".";
-                        }}
-                    }} else if (isOver || isUnder || lineVariants.length > 0) {{
-                        const filterWord = (isOver || isUnder) ? (isOver ? "over" : "under") : (lastName ? lastName.toLowerCase() : null);
-                        let cands = buttons.map(extractButtonCandidate).filter(c => c && c.odds !== null && !c.selection.toLowerCase().includes("suspended"));
-                        if (filterWord) {{
-                            const filtered = cands.filter(c => c.selection.toLowerCase().includes(filterWord));
-                            if (filtered.length > 0) cands = filtered;
-                        }}
-                        if (cands.length > 0) {{
-                            candList = cands;
-                            const otherLines = Array.from(new Set(cands.map(c => c.selection))).filter(l => !lineVariants.some(v => l.includes(v))).slice(0, 6);
-                            if (otherLines.length > 0) {{
-                                lineNote = " A kért piac helyett a Stake-en ezek a vonalak érhetők el: " + otherLines.join(", ") + ".";
-                            }}
-                        }} else {{
-                            marketMissing = true;
                         }}
                     }} else {{
                         marketMissing = true;
