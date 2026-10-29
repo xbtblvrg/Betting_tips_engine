@@ -288,11 +288,17 @@ class UnifiedMarketUniverse:
                 prof.rolling_roi_pct = stat['roi_pct']
                 prof.sample_size = stat['sample_size']
                 # If degraded on 4+ games or severe loss on 2+ games, apply Capital Defense tourniquet ($0.50 clamp)
+                # only if currently graduated in production; demoted markets in Tier 1 R&D / Tier 2 Shadow Incubator strictly remain $0.00 (Commandment 6).
                 if (stat['sample_size'] >= 4 and (stat['pnl'] < 0.0 or stat['roi_pct'] < -3.0)) or (stat['sample_size'] >= 2 and stat['pnl'] <= -1.0 and stat['roi_pct'] <= -50.0):
-                    prof.stake_cap = 0.50
-                    prof.phase_detail = f"Capital Defense Tourniquet ({stat['roi_pct']:+.1f}% ROI, ${stat['pnl']:+.2f} over {stat['sample_size']} games) - $0.50 clamp"
+                    if prof.tier == int(MarketTier.PRODUCTION_GRADUATED):
+                        prof.stake_cap = 0.50
+                        prof.phase_detail = f"Capital Defense Tourniquet ({stat['roi_pct']:+.1f}% ROI, ${stat['pnl']:+.2f} over {stat['sample_size']} games) - $0.50 clamp"
+                    else:
+                        prof.stake_cap = 0.00
+                        prof.phase_detail = f"Quarantined Demoted Market ({stat['roi_pct']:+.1f}% ROI, ${stat['pnl']:+.2f} over {stat['sample_size']} games) - $0.00 virtual stakes"
                 elif stat['sample_size'] >= 2 and stat['pnl'] >= 1.0 and stat['roi_pct'] >= 10.0:
-                    prof.phase_detail = f"Alpha Acceleration ({stat['roi_pct']:+.1f}% ROI, ${stat['pnl']:+.2f} over {stat['sample_size']} games) - $8.00 cap"
+                    if prof.tier == int(MarketTier.PRODUCTION_GRADUATED):
+                        prof.phase_detail = f"Alpha Acceleration ({stat['roi_pct']:+.1f}% ROI, ${stat['pnl']:+.2f} over {stat['sample_size']} games) - $8.00 cap"
 
         def _register_market_candidate(lg: str, sc: str, fam: str, model_id: Optional[str], archetype: str) -> None:
             lg_clean = (lg or '').upper().strip()
