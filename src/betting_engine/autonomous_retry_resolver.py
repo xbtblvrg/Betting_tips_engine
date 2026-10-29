@@ -87,12 +87,21 @@ class AutonomousRetryResolver:
         payload_dict: Dict[str, Any]
     ) -> str:
         """Enqueues an autonomous learning/research job for the Multi-AI Quant Council."""
-        job_id = hashlib.sha256(f"{job_kind}:{task_id}:{utcnow().isoformat()}".encode()).hexdigest()[:24]
         now_iso = utcnow().isoformat()
+        job_id = hashlib.sha256(f"{job_kind}:{task_id}:{now_iso}".encode()).hexdigest()[:24]
         try:
             if self.engine_db.exists():
                 conn = sqlite3.connect(self.engine_db, timeout=45.0)
                 cur = conn.cursor()
+                # Deduplication: do not enqueue if an active job already exists for this task
+                cur.execute(
+                    "SELECT id FROM learning_jobs WHERE kind = ? AND status IN ('queued', 'running', 'retry') AND payload LIKE ?",
+                    (job_kind, f'%"task_id": "{task_id}"%')
+                )
+                if cur.fetchone():
+                    conn.close()
+                    return ""
+
                 payload = json.dumps({
                     'task_id': task_id,
                     'job_kind': job_kind,
@@ -137,7 +146,8 @@ class AutonomousRetryResolver:
                 attempts = tinfo.get('attempts', 0)
                 last_error = str(tinfo.get('last_error') or '')
 
-                if state != 'retry' and attempts < 2:
+                # Only inspect active incomplete tasks in 'retry' state with multiple failed attempts
+                if state != 'retry' or attempts < 2:
                     continue
 
                 # Diagnosis 1: Missing Source in Controller Bundle (e.g. D25 reference_polymarket.py)

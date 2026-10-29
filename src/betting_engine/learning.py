@@ -948,7 +948,8 @@ class LearningWorker:
                     result=self.execute(job);raw=json.dumps(result,allow_nan=False);stamp=utcnow().isoformat()
                     with self.store.db() as c:
                         if job['kind']=='shadow_evaluation' and result.get('continuation_required'):
-                            c.execute("UPDATE learning_jobs SET status='retry',result=?,last_error=NULL,updated_at=?,next_attempt=? WHERE id=?",(raw,stamp,stamp,job['id']))
+                            # Paginated continuation is not a failure; reset attempts so watchdogs do not treat it as a stuck retry loop
+                            c.execute("UPDATE learning_jobs SET status='retry',attempts=0,result=?,last_error=NULL,updated_at=?,next_attempt=? WHERE id=?",(raw,stamp,stamp,job['id']))
                             c.execute("UPDATE learning_attempts SET status='partial',result=?,finished_at=? WHERE id=?",(raw,stamp,attempt))
                         else:
                             c.execute("UPDATE learning_jobs SET status='completed',result=?,last_error=NULL,updated_at=? WHERE id=?",(raw,stamp,job['id']))
