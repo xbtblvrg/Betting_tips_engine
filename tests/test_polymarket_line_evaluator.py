@@ -48,6 +48,10 @@ def test_continuous_spread_monotonicity():
     assert p_easier > p_exact > p_harder
     assert pytest.approx(p_exact, abs=1e-3) == base_prob
 
+    # Invariant: Complementarity P(Fav covers L) + P(Underdog covers -L) == 1.0
+    p_dog = evaluator.evaluate_spread("NBA", base_line, base_prob, "home", -1.5, "underdog")
+    assert pytest.approx(p_easier + p_dog, abs=1e-3) == 1.0
+
 
 def test_contract_valuation_ev_hurdle():
     """Verifies that EV is mathematically accurate: EV = P * (1 / Price) - 1.0."""

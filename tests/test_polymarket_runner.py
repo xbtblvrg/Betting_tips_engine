@@ -21,6 +21,37 @@ def runner_env(tmp_path):
     settler = PolymarketOutcomeSettler(db_path=db_path, log_path=log_path)
     runner = PolymarketAutonomousRunner(executor=executor, settler=settler, db_path=db_path, state_file=state_path)
 
+    # Seed mock domain tips in test DB
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("CREATE TABLE IF NOT EXISTS tips (id TEXT PRIMARY KEY, first_seen TEXT NOT NULL, last_seen TEXT NOT NULL, fingerprint TEXT NOT NULL, payload TEXT NOT NULL);")
+        now = "2026-11-01T12:00:00Z"
+        chiefs_bills_tip = {
+            "id": "tip_chiefs_bills",
+            "league": "NFL",
+            "home": "Kansas City Chiefs",
+            "away": "Buffalo Bills",
+            "model_scope": "full_game",
+            "market": "totals",
+            "predicted_home_points": 27.0,
+            "predicted_away_points": 24.0,
+            "line": 47.5,
+            "probability": 0.55,
+        }
+        lions_bears_tip = {
+            "id": "tip_lions_bears",
+            "league": "NFL",
+            "home": "Detroit Lions",
+            "away": "Chicago Bears",
+            "model_scope": "full_game",
+            "market": "totals",
+            "predicted_home_points": 30.0,
+            "predicted_away_points": 24.0,
+            "line": 48.5,
+            "probability": 0.65,
+        }
+        conn.execute("INSERT OR REPLACE INTO tips VALUES (?, ?, ?, ?, ?)", ("tip_cb", now, now, "fp_cb", json.dumps(chiefs_bills_tip)))
+        conn.execute("INSERT OR REPLACE INTO tips VALUES (?, ?, ?, ?, ?)", ("tip_lb", now, now, "fp_lb", json.dumps(lions_bears_tip)))
+
     return {
         "runner": runner,
         "executor": executor,

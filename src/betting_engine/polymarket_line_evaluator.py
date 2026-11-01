@@ -160,21 +160,23 @@ class ContinuousLineEvaluator:
             sigma = sigma * 0.50
 
         # 1. Normalize to baseline covering probability
-        is_base_fav = base_side.lower() in ("home", "favorite", "yes", "1")
-        p_base = base_prob
-        p_base = max(0.01, min(0.99, p_base))
+        is_base_fav = base_side.lower() in ("home", "favorite", "fav", "yes", "1")
+        p_base_fav = base_prob if is_base_fav else (1.0 - base_prob)
+        p_base_fav = max(0.01, min(0.99, p_base_fav))
 
         # z-score
-        z_base = norm_inv(1.0 - p_base)
+        z_base = norm_inv(1.0 - p_base_fav)
 
         # Covering margin: Margin > -Line.
         # Required hurdle change: Delta_Hurdle = -target_line - (-base_line) = -(target_line - base_line)
-        # Therefore: delta_z = -(target_line - base_line) / sigma
+        # Therefore: delta_z = -(target_line - eff_base_line) / max(0.1, sigma)
         delta_z = -(target_line - eff_base_line) / max(0.1, sigma)
         z_target = z_base + delta_z
 
         p_target = 1.0 - norm_cdf(z_target)
-        return max(0.01, min(0.99, round(p_target, 4)))
+        is_target_fav = target_side.lower() in ("home", "favorite", "fav", "yes", "1")
+        final_prob = p_target if is_target_fav else (1.0 - p_target)
+        return max(0.01, min(0.99, round(final_prob, 4)))
 
     def calculate_valuation(
         self,

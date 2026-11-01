@@ -118,7 +118,7 @@ class PolymarketAutonomousRunner:
             log.warning(f"Could not read existing polymarket orders: {exc}")
             return set()
 
-    def _load_domain_tips(self) -> List[Dict[str, Any]]:
+    def _load_domain_tips(self, leagues: Optional[Tuple[str, ...]] = None) -> List[Dict[str, Any]]:
         """Loads recent calibrated domain model tips from SQLite."""
         if not self.db_path.exists():
             return []
@@ -129,9 +129,18 @@ class PolymarketAutonomousRunner:
                 tbl = cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='tips';").fetchone()
                 if not tbl:
                     return []
-                rows = cur.execute(
-                    "SELECT payload FROM tips ORDER BY last_seen DESC LIMIT 800;"
-                ).fetchall()
+                if leagues:
+                    placeholders = ",".join("?" for _ in leagues)
+                    rows = cur.execute(
+                        f"""SELECT payload FROM tips 
+                            WHERE json_extract(payload, '$.league') IN ({placeholders})
+                            ORDER BY last_seen DESC LIMIT 4000;""",
+                        leagues,
+                    ).fetchall()
+                else:
+                    rows = cur.execute(
+                        "SELECT payload FROM tips ORDER BY last_seen DESC LIMIT 4000;"
+                    ).fetchall()
                 return [json.loads(r[0]) for r in rows if r[0]]
         except Exception as exc:
             log.warning(f"Could not load domain tips: {exc}")
@@ -268,7 +277,7 @@ class PolymarketAutonomousRunner:
         cycle_start = time.time()
 
         traded_tokens = self._get_active_tokens_already_traded()
-        domain_tips = self._load_domain_tips()
+        domain_tips = self._load_domain_tips(leagues=leagues)
         orders_placed: List[Dict[str, Any]] = []
         rejected_candidates: List[Dict[str, Any]] = []
         clob_checks_count = 0
@@ -474,8 +483,8 @@ class PolymarketAutonomousRunner:
                         except (ValueError, TypeError):
                             pass
 
-                    # Baseline model probability from domain forecast if available
-                    model_prob = round(min(0.85, max(0.15, poly_price + 0.055)), 3)
+                    # Independent probability modeling: Strictly derive from domain forecast models
+                    model_prob = None
                     if forecast and forecast.get("proj_total") is not None and line_val is not None and family == "totals":
                         side = "over" if "over" in outcome_label.lower() or outcome_label == "Yes" else "under"
                         model_prob = self.line_evaluator.evaluate_total(
@@ -488,19 +497,49 @@ class PolymarketAutonomousRunner:
                             scope=scope,
                         )
                     elif forecast and forecast.get("proj_spread") is not None and line_val is not None and family == "spreads":
-                        side = "favorite" if outcome_label == "Yes" or "-" in outcome_label else "underdog"
+                        h_name = (forecast.get("home_name") or "").lower()
+                        a_name = (forecast.get("away_name") or "").lower()
+                        out_low = outcome_label.lower()
+                        q_low = q.lower()
+
+                        is_home = None
+                        if h_name and (h_name in out_low or any(w in out_low for w in h_name.split() if len(w) > 3)):
+                            is_home = True
+                        elif a_name and (a_name in out_low or any(w in out_low for w in a_name.split() if len(w) > 3)):
+                            is_home = False
+                        elif out_low == "yes":
+                            if h_name and (h_name in q_low or any(w in q_low for w in h_name.split() if len(w) > 3)):
+                                is_home = True
+                            elif a_name and (a_name in q_low or any(w in q_low for w in a_name.split() if len(w) > 3)):
+                                is_home = False
+                        elif out_low == "no":
+                            if h_name and (h_name in q_low or any(w in q_low for w in h_name.split() if len(w) > 3)):
+                                is_home = False
+                            elif a_name and (a_name in q_low or any(w in q_low for w in a_name.split() if len(w) > 3)):
+                                is_home = True
+
+                        if is_home is None:
+                            is_home = (idx == 0)
+
+                        # In forecast: proj_spread is proj_a - proj_h.
+                        # Negative proj_spread means Home is favored.
+                        home_margin = -float(forecast["proj_spread"])
+                        is_home_fav = home_margin >= 0.0
+                        fav_margin = abs(home_margin)
+                        is_this_fav = (is_home == is_home_fav)
+
                         model_prob = self.line_evaluator.evaluate_spread(
                             league=league,
-                            base_line=float(forecast["proj_spread"]),
+                            base_line=-fav_margin,
                             base_prob=0.50,
                             base_side="favorite",
                             target_line=line_val,
-                            target_side=side,
+                            target_side="favorite" if is_this_fav else "underdog",
                             scope=scope,
                         )
                     elif forecast and family == "moneyline" and forecast.get("home_prob") is not None:
-                        h_name = forecast["home_name"].lower()
-                        a_name = forecast["away_name"].lower()
+                        h_name = (forecast.get("home_name") or "").lower()
+                        a_name = (forecast.get("away_name") or "").lower()
                         out_low = outcome_label.lower()
                         q_low = q.lower()
 
@@ -509,7 +548,6 @@ class PolymarketAutonomousRunner:
                         elif a_name and (a_name in out_low or any(w in out_low for w in a_name.split() if len(w) > 3)):
                             is_home = False
                         elif out_low == "yes":
-                            # Question defines the subject: e.g. "Will Buffalo Bills win...?"
                             if h_name and (h_name in q_low or any(w in q_low for w in h_name.split() if len(w) > 3)):
                                 is_home = True
                             else:
@@ -523,12 +561,12 @@ class PolymarketAutonomousRunner:
                             is_home = (idx == 0)
 
                         model_prob = float(forecast["home_prob"]) if is_home else (1.0 - float(forecast["home_prob"]))
-                    elif line_val and family == "totals":
-                        side = "over" if "over" in outcome_label.lower() or outcome_label == "Yes" else "under"
-                        model_prob = round(min(0.85, max(0.15, poly_price + 0.055)), 3)
-                    elif line_val and family == "spreads":
-                        side = "favorite" if outcome_label == "Yes" or "-" in outcome_label else "underdog"
-                        model_prob = round(min(0.85, max(0.15, poly_price + 0.055)), 3)
+                    else:
+                        # Strictly skip unmodeled or uncalibrated contracts - synthetic price shifts are forbidden!
+                        continue
+
+                    if model_prob is None or model_prob <= 0.01 or model_prob >= 0.99:
+                        continue
 
                     # Pre-screen: Only check depth if contract is liquid and offers positive nominal EV
                     if poly_price <= 0.05 or poly_price >= 0.95:
@@ -560,15 +598,8 @@ class PolymarketAutonomousRunner:
                         })
                         continue
 
-                    # Group candidate by (scope, family, side_key) to select optimal alpha line
-                    if family == "totals":
-                        side_key = "over" if ("over" in outcome_label.lower() or outcome_label == "Yes") else "under"
-                    elif family == "spreads":
-                        side_key = outcome_label.strip()
-                    else:
-                        side_key = outcome_label.strip()
-
-                    group_key = (scope, family, side_key)
+                    # Group candidate by (scope, family) to select single optimal alpha line/side per market
+                    group_key = (scope, family)
                     event_candidates_by_group.setdefault(group_key, []).append({
                         "token_id": token_id,
                         "line": line_val,
@@ -581,8 +612,8 @@ class PolymarketAutonomousRunner:
                         "family": family,
                     })
 
-            # Submit only the single highest-EV optimal line per (scope, family, side_key)
-            for (grp_scope, grp_family, grp_side), cands in event_candidates_by_group.items():
+            # Submit only the single highest-EV optimal line/side per (scope, family)
+            for (grp_scope, grp_family), cands in event_candidates_by_group.items():
                 if max_orders_per_cycle is not None and len(orders_placed) >= max_orders_per_cycle:
                     break
 
