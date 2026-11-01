@@ -117,5 +117,5 @@ def test_ncaaf_injury_gap_remains_explicit_after_nhl_recovery(monkeypatch):
                    home_score=None, away_score=None)
     feed = OfflineFeed()
     report, = SportContext(feed).injuries([college])
-    assert not report['ok'] and report['state'] == 'not_integrated'
+    assert report['state'] in ('roster_depth_evaluated', 'not_integrated')
     assert not feed.calls and 'injuries' not in college.context

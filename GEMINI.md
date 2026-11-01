@@ -40,6 +40,12 @@ release authority or relax protected-data, model, testing, or publication gates.
 - Cite actual file locations and retained run evidence for findings. Report
   partial coverage and unverified claims honestly. Do not certify the whole
   system healthy from a limited inspection or an agent-written summary alone.
+- Enforce Anti-Tautological Verification (2026-10-29 User Directive): Do not
+  generate or accept tests that merely confirm that code returns what it was
+  written to return. Tests must validate against independent mathematical
+  invariants, domain goals, and ground truth (real scores, Brier calibration,
+  P&L, odds/probability axioms). Never weaken existing regression test suites to
+  mask flawed logic.
 
 ## Preserve the existing boundaries
 

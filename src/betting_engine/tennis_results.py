@@ -15,7 +15,7 @@ Sources:
 """
 from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta, date
 import hashlib
 import json
 import logging
@@ -166,17 +166,50 @@ def fetch_espn_linescores(c1: Dict[str, Any], c2: Dict[str, Any]) -> Tuple[int, 
     return sets1, sets2, games1, games2, set_pairs
 
 
-def fetch_tennisexplorer_results(days: Optional[Tuple[str, ...]] = None) -> List[Dict[str, Any]]:
+def fetch_tennisexplorer_results(days: Optional[Tuple[Any, ...]] = None) -> List[Dict[str, Any]]:
     """Fetch completed ATP, WTA, and Challenger matches from TennisExplorer."""
+    now = utcnow()
+    target_dates: List[Tuple[int, int, str]] = []
     if not days:
-        now = utcnow()
-        days = tuple(f"{(now.day - i):02d}" if (now.day - i) > 0 else f"{(now.day - i + 30):02d}" for i in range(5))
+        for i in range(5):
+            dt = now - timedelta(days=i)
+            target_dates.append((dt.year, dt.month, f"{dt.day:02d}"))
+    else:
+        for d in days:
+            if hasattr(d, 'year') and hasattr(d, 'month') and hasattr(d, 'day'):
+                target_dates.append((d.year, d.month, f"{d.day:02d}"))
+            elif isinstance(d, str) and '-' in d:
+                try:
+                    p_dt = parse_time(d)
+                    target_dates.append((p_dt.year, p_dt.month, f"{p_dt.day:02d}"))
+                except Exception:
+                    target_dates.append((now.year, now.month, d.zfill(2)))
+            elif isinstance(d, (int, str)):
+                try:
+                    d_int = int(d)
+                    if d_int > now.day and now.month > 1:
+                        m, y = now.month - 1, now.year
+                    elif d_int > now.day and now.month == 1:
+                        m, y = 12, now.year - 1
+                    else:
+                        m, y = now.month, now.year
+                    target_dates.append((y, m, f"{d_int:02d}"))
+                except Exception:
+                    pass
+
+    seen = set()
+    unique_dates = []
+    for dt_tup in target_dates:
+        if dt_tup not in seen:
+            seen.add(dt_tup)
+            unique_dates.append(dt_tup)
+
     results: List[Dict[str, Any]] = []
     pattern = re.compile(r'<tr id=\"r(\d+)\"[^>]*>(.*?)</tr>\s*<tr id=\"r\1b\"[^>]*>(.*?)</tr>', re.DOTALL)
 
     def _fetch_page(params):
-        mtype, day = params
-        url = f'https://www.tennisexplorer.com/matches/?type={mtype}&year=2026&month=10&day={day}'
+        mtype, (year, month, day) = params
+        url = f'https://www.tennisexplorer.com/matches/?type={mtype}&year={year}&month={month}&day={day}'
         try:
             req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
             with urllib.request.urlopen(req, timeout=5) as resp:
@@ -204,15 +237,27 @@ def fetch_tennisexplorer_results(days: Optional[Tuple[str, ...]] = None) -> List
             if sets1 == 0 and sets2 == 0:
                 continue
 
-            raw_s1 = re.findall(r'<td class=\"score\">([^<]*)</td>', row_a)
-            raw_s2 = re.findall(r'<td class=\"score\">([^<]*)</td>', row_b)
+            raw_s1 = re.findall(r'<td class=\"score\">(.*?)</td>', row_a)
+            raw_s2 = re.findall(r'<td class=\"score\">(.*?)</td>', row_b)
 
-            s1 = [int(re.sub(r'<[^>]+>', '', x).strip()) for x in raw_s1 if re.sub(r'<[^>]+>', '', x).strip().isdigit()]
-            s2 = [int(re.sub(r'<[^>]+>', '', x).strip()) for x in raw_s2 if re.sub(r'<[^>]+>', '', x).strip().isdigit()]
+            def _parse_score_cell(x: str) -> Optional[int]:
+                clean = re.sub(r'<sup\b[^>]*>.*?</sup>', '', x, flags=re.IGNORECASE)
+                clean = re.sub(r'<[^>]+>', '', clean).replace('&nbsp;', '').strip()
+                return int(clean) if clean.isdigit() else None
 
-            games1 = sum(s1) if s1 else (12 if sets1 > sets2 else 6)
-            games2 = sum(s2) if s2 else (6 if sets1 > sets2 else 12)
-            set_pairs = list(zip(s1, s2)) if len(s1) == len(s2) else []
+            s1 = [sc for x in raw_s1 if (sc := _parse_score_cell(x)) is not None]
+            s2 = [sc for x in raw_s2 if (sc := _parse_score_cell(x)) is not None]
+
+            is_walkover = False
+            if not s1 and not s2:
+                # Pre-match withdrawal / walkover: no games were played
+                is_walkover = True
+                games1, games2 = 0, 0
+                set_pairs = []
+            else:
+                games1 = sum(s1) if s1 else (12 if sets1 > sets2 else 6)
+                games2 = sum(s2) if s2 else (6 if sets1 > sets2 else 12)
+                set_pairs = list(zip(s1, s2)) if len(s1) == len(s2) else []
 
             league = 'WTA' if 'wta' in mtype else 'ATP'
             page_results.append({
@@ -223,16 +268,17 @@ def fetch_tennisexplorer_results(days: Optional[Tuple[str, ...]] = None) -> List
                 'p2': p2_match.group(1).strip(),
                 'w1': sets1 > sets2,
                 'w2': sets2 > sets1,
-                'sets1': sets1,
-                'sets2': sets2,
+                'sets1': sets1 if not is_walkover else 0,
+                'sets2': sets2 if not is_walkover else 0,
                 'games1': games1,
                 'games2': games2,
                 'set_scores': set_pairs,
+                'is_walkover': is_walkover,
                 'url': url,
             })
         return page_results
 
-    tasks = [(mtype, day) for day in days for mtype in ('atp-single', 'atp-doubles', 'wta-single', 'wta-doubles')]
+    tasks = [(mtype, dt_tup) for dt_tup in unique_dates for mtype in ('atp-single', 'atp-doubles', 'wta-single', 'wta-doubles')]
     with ThreadPoolExecutor(max_workers=4) as executor:
         for p_res in executor.map(_fetch_page, tasks):
             results.extend(p_res)
@@ -321,15 +367,15 @@ def recover_pending_tennis(
     archive = load_archive(data_dir) if data_dir else {}
 
     # 3. Fast parallel fetch of candidate tournament competitions
-    pending_days = set()
+    pending_dates = set()
     for pgame in pending_games.values():
         start_str = pgame.get('start')
         if start_str:
             try:
-                pending_days.add(f"{parse_time(start_str).day:02d}")
+                pending_dates.add(parse_time(start_str).date())
             except Exception:
                 pass
-    target_days = tuple(sorted(pending_days)) if pending_days else None
+    target_days = tuple(sorted(pending_dates)) if pending_dates else None
 
     espn_comps = fetch_espn_tennis_competitions()
     te_results = fetch_tennisexplorer_results(days=target_days)
@@ -345,8 +391,8 @@ def recover_pending_tennis(
         matched_res = None
         is_p1_home = True
 
-        # Check archive first (only if it contains verified non-empty set_scores)
-        if gid in archive and archive[gid].get('set_scores'):
+        # Check archive first (only if it contains verified non-empty set_scores or is a verified walkover)
+        if gid in archive and (archive[gid].get('set_scores') or archive[gid].get('is_walkover')):
             arch_data = archive[gid]
             matched_res = arch_data
             is_p1_home = arch_data.get('is_p1_home', True)
@@ -390,11 +436,19 @@ def recover_pending_tennis(
         if not matched_res:
             continue
 
+        is_walkover = bool(matched_res.get('is_walkover', False))
+
         # Extract home and away scores
         sets_home = matched_res['sets1'] if is_p1_home else matched_res['sets2']
         sets_away = matched_res['sets2'] if is_p1_home else matched_res['sets1']
         games_home = matched_res['games1'] if is_p1_home else matched_res['games2']
         games_away = matched_res['games2'] if is_p1_home else matched_res['games1']
+
+        if is_walkover:
+            sets_home = 0
+            sets_away = 0
+            games_home = 0
+            games_away = 0
 
         # Ensure scores are strictly valid nonnegative integers
         games_home = max(0, int(games_home))
@@ -402,8 +456,8 @@ def recover_pending_tennis(
         sets_home = max(0, int(sets_home))
         sets_away = max(0, int(sets_away))
 
-        # Tiebreak / draw check for tennis (cannot draw in sets)
-        if sets_home == sets_away and sets_home == 0:
+        # Tiebreak / draw check for tennis (cannot draw in sets unless walkover)
+        if not is_walkover and sets_home == sets_away and sets_home == 0:
             continue
 
         set_pairs = matched_res.get('set_scores', [])
@@ -411,7 +465,7 @@ def recover_pending_tennis(
             set_pairs = [(b, a) for (a, b) in set_pairs]
 
         official_result = {
-            'basis': 'verified_official_tennis_scores',
+            'basis': 'stake_rules_walkover_void_resolution' if is_walkover else 'verified_official_tennis_scores',
             'source': matched_res.get('source', 'espn_tennis_core_api'),
             'source_url': matched_res.get('url', ''),
             'fetched_at': now.isoformat(),
@@ -420,6 +474,7 @@ def recover_pending_tennis(
             'games_home': games_home,
             'games_away': games_away,
             'set_scores': set_pairs,
+            'is_walkover': is_walkover,
         }
 
         # Save into archive
@@ -430,13 +485,14 @@ def recover_pending_tennis(
             'sets_away': sets_away,
             'games_home': games_home,
             'games_away': games_away,
+            'is_walkover': is_walkover,
             'verified_at': now.isoformat(),
         }
 
         # Build or update Game domain object
         existing = recovered_map.get(gid)
         if existing:
-            existing.state = 'final'
+            existing.state = 'walkover' if is_walkover else 'final'
             existing.home_score = float(games_home)
             existing.away_score = float(games_away)
             existing.source = matched_res.get('url', existing.source)
@@ -447,6 +503,7 @@ def recover_pending_tennis(
                 'games_home': games_home,
                 'games_away': games_away,
                 'set_scores': set_pairs,
+                'is_walkover': is_walkover,
                 'tennis': True,
                 'official_result': official_result,
             })
@@ -463,7 +520,7 @@ def recover_pending_tennis(
                 away_id=f'{gid}:B',
                 home_abbr=home[:3].upper(),
                 away_abbr=away[:3].upper(),
-                state='final',
+                state='walkover' if is_walkover else 'final',
                 season=now.year,
                 home_score=float(games_home),
                 away_score=float(games_away),
@@ -477,6 +534,7 @@ def recover_pending_tennis(
                     'games_home': games_home,
                     'games_away': games_away,
                     'set_scores': set_pairs,
+                    'is_walkover': is_walkover,
                     'tennis': True,
                     'official_result': official_result,
                 }

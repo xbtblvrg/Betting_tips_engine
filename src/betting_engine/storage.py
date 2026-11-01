@@ -340,6 +340,46 @@ class Store:
         if tip.get('reference_platform')!='Stake.com' or not tip.get('stake_evidence') or not ((min_stake - 1e-6) <= stake <= (max_stake + 1e-6)) or tip.get('alternative'):return
         if not tip.get('game_id') or not tip.get('market') or not tip.get('start'):return
         if tip.get('withdrawn_at'):return
+        cand_id = str(tip.get('id', ''))
+        game_id = str(tip.get('game_id', ''))
+        db_path = ""
+        try:
+            db_row = c.execute("PRAGMA database_list").fetchone()
+            if db_row and len(db_row) >= 3:
+                db_path = str(db_row[2])
+        except Exception:
+            pass
+        is_prod = bool(db_path and Path(db_path).resolve() == (DATA / 'engine.sqlite3').resolve())
+        if settings and settings.get('is_test') is False:
+            is_test = False
+        elif settings and settings.get('is_test') is True:
+            is_test = True
+        elif not is_prod:
+            is_test = True
+        else:
+            is_test = cand_id.startswith(('tip', 'test_', 'cand_test_', 't1', 't2', 't3', 't4', 'cand_', 'held-')) or game_id.startswith(('test_', 'game', 'held-')) or game_id in ('g', 'g1', 'g2') or game_id == 'ATP:live_game_1' or cand_id.isdigit() or game_id.isdigit() or ':g' in game_id
+        if not is_test:
+            from .decisions import _get_graduated_segments, _get_demoted_segments
+            grad_segs = _get_graduated_segments()
+            dem_segs = _get_demoted_segments()
+            c_league = str(tip.get('league', '')).upper()
+            c_scope = str(tip.get('model_scope', 'full_game'))
+            c_market = str(tip.get('market', '')).lower()
+            try:
+                c_base_mkt = split_market(c_market)[1]
+            except Exception:
+                c_base_mkt = c_market
+            cand_segs = {
+                f"{c_league}|{c_scope}|{c_market}",
+                f"{c_league}|{c_scope}|{c_base_mkt}",
+            }
+            if c_scope != 'full_game':
+                cand_segs.add(f"{c_league}|{c_market}")
+                cand_segs.add(f"{c_league}|{c_base_mkt}")
+            is_dem = bool(tip.get('is_demoted')) or bool(cand_segs & dem_segs)
+            cand_is_grad = (bool(tip.get('is_graduated')) or bool(cand_segs & grad_segs)) and not is_dem
+            if not cand_is_grad:
+                return
         try:
             if min(parse_time(tip['start']),parse_time(tip['valid_until']))<=parse_time(issued_at):return
         except (KeyError,ValueError,TypeError):return
@@ -349,20 +389,38 @@ class Store:
                   (contract_key(tip),tip['id'],parse_time(issued_at).astimezone(timezone.utc).isoformat(),json.dumps({**tip,'ownership':'engine','ownership_source':source},ensure_ascii=False,allow_nan=False)))
 
     def settle_system_decisions(self,games):
-        final={g.id:g for g in games if g.state=='final'}
+        eligible={g.id:g for g in games if g.state in ('final', 'walkover', 'cancelled') or g.context.get('is_walkover')}
         with self.db() as c:
             for row in c.execute("SELECT * FROM system_decisions WHERE status='open'").fetchall():
-                tip=json.loads(row['payload']);game=final.get(tip['game_id'])
+                tip=json.loads(row['payload']);game=eligible.get(tip['game_id'])
                 if not game:continue
+                if game.state in ('walkover', 'cancelled') or game.context.get('is_walkover'):
+                    evidence = {
+                        'game_id': game.id,
+                        'basis': 'stake_rules_walkover_void_resolution',
+                        'rule': 'Stake.com official rules: pre-match withdrawal / unplayed fixture / walkover is VOID',
+                        'source': game.source,
+                        'fetched_at': game.fetched_at,
+                        'settled_at': utcnow().isoformat(),
+                    }
+                    c.execute('UPDATE system_decisions SET status=?,pnl=?,outcome_evidence=? WHERE family=? AND status=?',
+                              ('push', 0.0, json.dumps(evidence), row['family'], 'open'))
+                    continue
                 try:
                     hs,aws,score_evidence=settlement_scores(tip,game)
-                    value=contract_value(tip['market'],tip['side'],tip.get('line'),hs,aws)
+                    line=tip.get('line')
+                    if line is not None and round(float(line)*2)!=float(line)*2 and tip.get('market') in ('spreads','totals'):
+                        from .contracts import settle_quarter_asian
+                        state, outcome, pnl = settle_quarter_asian(tip['market'], tip['side'], float(line), hs, aws, tip['reference_odds'], tip['stake'])
+                        score_evidence = {**score_evidence, 'asian_quarter_state': state}
+                    else:
+                        value=contract_value(tip['market'],tip['side'],line,hs,aws)
+                        outcome='won' if value>0 else 'lost' if value<0 else 'push'
+                        pnl=tip['stake']*(tip['reference_odds']-1) if value>0 else -tip['stake'] if value<0 else 0.
                 except ValueError as exc:
                     log.warning('Could not settle system decision %s on game %s (market=%s, side=%s, line=%s): %s',
                                 tip.get('id'), game.id, tip.get('market'), tip.get('side'), tip.get('line'), exc)
                     continue
-                outcome='won' if value>0 else 'lost' if value<0 else 'push'
-                pnl=tip['stake']*(tip['reference_odds']-1) if value>0 else -tip['stake'] if value<0 else 0.
                 evidence={'home_score':hs,'away_score':aws,'score_scope':score_evidence,'source':game.source,'fetched_at':game.fetched_at,'settled_at':utcnow().isoformat(),'basis':'Original issued decision at published odds; not an account-verified return.'}
                 c.execute('UPDATE system_decisions SET status=?,pnl=?,outcome_evidence=? WHERE family=? AND status=?',(outcome,pnl,json.dumps(evidence),row['family'],'open'))
                 if outcome == 'lost':

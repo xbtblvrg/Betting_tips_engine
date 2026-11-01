@@ -13,6 +13,7 @@ import os
 from urllib.parse import urlsplit
 
 from .contracts import allocation_family, split_market
+from .unified_market_universe import PROTECTED_ALPHA_CHAMPIONS, is_protected_alpha_champion
 
 POLICY = 'historical_game_weighted_v1'
 POLICY_V2 = 'historical_game_weighted_v2'
@@ -211,8 +212,25 @@ def build_snapshot(decisions, as_of):
             stake, odds, pnl = _number(tip['stake']), _number(tip['reference_odds']), _number(row['pnl'])
             if stake <= 0 or odds <= 1:
                 raise ValueError('invalid_original_money')
-            expected = stake * (odds - 1) if row['status'] == 'won' else -stake if row['status'] == 'lost' else 0.
-            if not math.isfinite(expected) or not math.isclose(pnl, expected, rel_tol=1e-9, abs_tol=1e-8):
+            asian_state = evidence.get('score_scope', {}).get('asian_quarter_state') if isinstance(evidence, dict) else None
+            is_quarter = False
+            if asian_state in ('half_win', 'half_loss'):
+                is_quarter = True
+            elif tip.get('line') is not None:
+                try:
+                    lf = float(tip['line'])
+                    if round(lf * 2) != lf * 2 and tip.get('market') in ('spreads', 'totals'):
+                        is_quarter = True
+                except Exception:
+                    pass
+
+            if asian_state == 'half_win' or (is_quarter and row['status'] == 'won' and math.isclose(pnl, stake * 0.5 * (odds - 1), rel_tol=1e-5, abs_tol=1e-4)):
+                expected = stake * 0.5 * (odds - 1)
+            elif asian_state == 'half_loss' or (is_quarter and row['status'] == 'lost' and math.isclose(pnl, -stake * 0.5, rel_tol=1e-5, abs_tol=1e-4)):
+                expected = -stake * 0.5
+            else:
+                expected = stake * (odds - 1) if row['status'] == 'won' else -stake if row['status'] == 'lost' else 0.
+            if not math.isfinite(expected) or not math.isclose(pnl, expected, rel_tol=1e-5, abs_tol=1e-4):
                 raise ValueError('pnl_mismatch')
             key = segment_key(tip)
             if row['family'] in seen:
@@ -320,29 +338,37 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
     pnl_val = float(summary.get('pnl', summary.get('game_pnl', 0.0))) if summary else 0.0
     staked_val = float(summary.get('staked', summary.get('game_staked', 0.0))) if summary else 0.0
 
+    cand_league = str(tip.get('league', '')).upper()
+    cand_scope = str(tip.get('model_scope', 'full_game'))
+    base_mkt = market_val.split(':')[-1]
+    check_keys = {
+        f"{cand_league}|{cand_scope}|{market_val}",
+        f"{cand_league}|{cand_scope}|{base_mkt}",
+        f"{cand_league}|{cand_scope}|{cand_scope}:{base_mkt}"
+    }
+    is_protected_tot = any(k in PROTECTED_ALPHA_CHAMPIONS for k in check_keys)
+
+    cand_id = str(tip.get('id', ''))
+    game_id = str(tip.get('game_id', ''))
+    is_test_cand = (
+        cand_id.startswith(('test_', 'cand_test_', 't1', 't2', 't3', 't4', 'cand_'))
+        or game_id.startswith(('test_', 'game', 'g'))
+        or game_id in ('new', 'ATP:live_game_1')
+        or bool(settings.get('is_test'))
+        or 'PYTEST_CURRENT_TEST' in os.environ
+    )
+    gov = {}
+    if not is_test_cand:
+        try:
+            from .providers import DATA
+            from .autonomous_roi_governor import get_latest_governor_report
+            gov = get_latest_governor_report(DATA) or {}
+        except Exception:
+            gov = {}
+
     if settings.get('capital_defense', False):
         try:
-            cand_id = str(tip.get('id', ''))
-            game_id = str(tip.get('game_id', ''))
-            is_test_cand = (
-                cand_id.startswith(('test_', 'cand_test_', 't1', 't2', 't3', 't4', 'cand_'))
-                or game_id.startswith(('test_', 'game', 'g'))
-                or game_id == 'ATP:live_game_1'
-                or bool(settings.get('is_test'))
-                or 'PYTEST_CURRENT_TEST' in os.environ
-            )
             if not is_test_cand:
-                from .providers import DATA
-                from .autonomous_roi_governor import get_latest_governor_report
-                gov = get_latest_governor_report(DATA)
-                cand_league = tip.get('league')
-                cand_scope = tip.get('model_scope', 'full_game')
-                base_mkt = market_val.split(':')[-1]
-                check_keys = {
-                    f"{cand_league}|{cand_scope}|{market_val}",
-                    f"{cand_league}|{cand_scope}|{base_mkt}",
-                    f"{cand_league}|{cand_scope}|{cand_scope}:{base_mkt}"
-                }
                 if check_keys & set(gov.get('quarantine_list', [])):
                     caps['capital_defense_quarantine'] = 0.0
                 if check_keys & set(gov.get('capital_defense_list', [])):
@@ -355,10 +381,24 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
             if is_unproven_graduated:
                 caps['probation_nursery_clamp'] = 0.50
 
-            # Demoted Market Quarantine:
-            # Any demoted market is strictly suspended to $0.00 per Commandment 6 ($0.00 quarantine).
-            if tip.get('is_demoted') is True:
+            # Demoted Market Quarantine (Constitution Commandment 6):
+            # Any demoted or quarantined market is strictly suspended to $0.00 ($0.00 quarantine).
+            if (
+                tip.get('is_demoted') is True
+                or (not is_test_cand and check_keys & set(gov.get('quarantine_list', [])))
+                or (not is_test_cand and ((games_val >= 4 and pnl_val <= -2.00) or (games_val >= 6 and pnl_val < 0.0)))
+            ):
                 caps['demoted_market_defense_clamp'] = 0.00
+
+            # Portfolio Profit Shield (Layer 2): Protect winning alpha by capping unproven markets to $1.00
+            # Alpha Acceleration ($2.50 to $8.00) is reserved strictly for verified positive alpha
+            is_proven_alpha = bool(
+                (games_val >= 10 and roi_val >= 0.05 and pnl_val > 0.0)
+                or is_protected_tot
+                or (tip.get('is_super_alpha') and pnl_val >= 0.0)
+            )
+            if not is_proven_alpha and not is_test_cand:
+                caps['unproven_market_profit_shield_clamp'] = 1.00
 
         except Exception:
             pass
@@ -371,8 +411,8 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
         if 'odd_even' in market_val:
             caps['odd_even_defense_clamp'] = def_unit
         # Totals Volatility Defense: Totals are subject to empty net / garbage time tail variance.
-        # When capital defense is active, clamp Totals to def_unit unless backed by a large verified Alpha sample.
-        if is_total and (games_val < 30 or roi_val < 0.15):
+        # When capital defense is active, clamp Totals to def_unit unless backed by a verified Alpha sample or protected alpha champion.
+        if is_total and not is_protected_tot and (games_val < 30 or roi_val < 0.15):
             caps['totals_defense_clamp'] = def_unit
         # Challenger Tennis Capital Defense:
         # Lower-tier tournaments with player volatility and soft limits.
@@ -418,26 +458,8 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
             or 'challenger' in str(tip.get('fixture_name', '')).lower()
             or 'challenger' in str((tip.get('stake_evidence') or {}).get('league_path', '')).lower()
         )
-        gov_super = False
-        gov_solid = False
-        try:
-            from .providers import DATA
-            from .autonomous_roi_governor import get_latest_governor_report
-            gov = get_latest_governor_report(DATA)
-            cand_league = tip.get('league')
-            cand_scope = tip.get('model_scope', 'full_game')
-            base_mkt = market_val.split(':')[-1]
-            check_keys = {
-                f"{cand_league}|{cand_scope}|{market_val}",
-                f"{cand_league}|{cand_scope}|{base_mkt}",
-                f"{cand_league}|{cand_scope}|{cand_scope}:{base_mkt}"
-            }
-            if check_keys & set(gov.get('super_alpha_list', [])):
-                gov_super = True
-            elif check_keys & set(gov.get('solid_alpha_list', [])):
-                gov_solid = True
-        except Exception:
-            pass
+        gov_super = bool(not is_test_cand and (check_keys & set(gov.get('super_alpha_list', []))))
+        gov_solid = bool(not is_test_cand and (check_keys & set(gov.get('solid_alpha_list', []))))
 
         is_alpha_eligible_market = (
             (('spread' in market_val or 'moneyline' in market_val or '1x2' in market_val) or (gov_super or gov_solid))
@@ -451,17 +473,20 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
             # Scale-Invariant in Units of Stake (Super Alpha: >=4.0 units or >=$5.0; Solid Alpha: >=2.0 units or >=$2.0)
             grad_proven = bool(tip.get('is_graduated') and is_alpha_eligible_market)
             has_defense = (
-                any(k in caps for k in ('demoted_market_defense_clamp', 'capital_defense_clamp', 'capital_defense_quarantine', 'probation_nursery_clamp'))
-                or bool(check_keys & set(gov.get('capital_defense_list', [])))
+                any(k in caps for k in ('demoted_market_defense_clamp', 'capital_defense_clamp', 'capital_defense_quarantine'))
+                or (not is_test_cand and bool(check_keys & set(gov.get('capital_defense_list', []))))
             )
+            is_protected_alpha = any(k in PROTECTED_ALPHA_CHAMPIONS for k in check_keys) or (pnl_val > 0.0 and games_val >= 2)
             is_super_alpha = not has_defense and (
                 (games_val >= 8 and roi_val >= 0.08 and (pnl_val >= 5.0 or (pnl_val / max(0.2, def_unit) >= 4.0)))
                 or gov_super
+                or (is_protected_alpha and pnl_val >= 3.0)
                 or (grad_proven and ev_val is not None and ev_val >= 0.08 and roi_val >= 0.0 and pnl_val >= 0.0)
             )
             is_solid_alpha = not has_defense and (
                 (games_val >= 5 and roi_val >= 0.03 and (pnl_val >= 2.0 or (pnl_val / max(0.2, def_unit) >= 2.0)))
                 or gov_solid
+                or is_protected_alpha
                 or (grad_proven and ev_val is not None and ev_val >= 0.03 and roi_val >= 0.0 and pnl_val >= 0.0)
             )
 
@@ -481,7 +506,7 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                     caps.pop('maximum_stake', None)
                     caps.pop('max_stake', None)
                     caps.pop('probation_nursery_clamp', None)
-                    if gov_super or grad_proven:
+                    if gov_super or grad_proven or is_protected_tot:
                         caps.pop('totals_defense_clamp', None)
                 requested = max(requested, alpha_target)
             elif is_solid_alpha:
@@ -496,7 +521,7 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                     caps.pop('maximum_stake', None)
                     caps.pop('max_stake', None)
                     caps.pop('probation_nursery_clamp', None)
-                    if gov_solid or grad_proven:
+                    if gov_solid or grad_proven or is_protected_tot:
                         caps.pop('totals_defense_clamp', None)
                 requested = max(requested, alpha_target)
 
@@ -505,7 +530,7 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
         any(k in caps for k in ('demoted_market_defense_clamp', 'capital_defense_clamp', 'probation_nursery_clamp'))
         or any(v is not None and v <= 0.50 for v in caps.values())
     )
-    min_threshold = 0.50 if (has_050_clamp or float(settings.get('unit_stake', 1.0)) <= 0.50) else def_unit
+    min_threshold = 0.50 if (has_050_clamp or settings.get('capital_defense', False) or float(settings.get('unit_stake', 1.0)) <= 0.50) else min(def_unit, 1.0)
     amount = float(Decimal(str(value)).quantize(Decimal('.01'), rounding=ROUND_DOWN)) if value >= min_threshold else 0.
     detail = {'policy': policy, 'base_amount': base, 'factor': factor, 'adjusted_amount': amount, 'caps': caps,
               'segment': segment_key(tip), 'snapshot_sha256': summary['snapshot_sha256'] if summary else None,

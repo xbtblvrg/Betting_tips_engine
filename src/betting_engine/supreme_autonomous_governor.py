@@ -65,6 +65,8 @@ class AutonomousSweepSummary:
     prime_directives_guard: Dict[str, Any] = field(default_factory=dict)
     system_audit_findings_count: int = 0
     system_audit_status: str = 'optimal'
+    executive_inquiry_status: str = 'optimal'
+    profit_engine_status: str = 'optimal'
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -634,6 +636,41 @@ class SupremeAutonomousGovernor:
         except Exception as exc:
             log.warning('Supreme system audit sweep error: %s', exc)
 
+        # 8c. Autonomous Executive Inquisitor & User Persona Mirror Sweep
+        inquisitor_status = 'optimal'
+        try:
+            from .executive_inquisitor import AutonomousExecutiveInquisitor
+            inquisitor = AutonomousExecutiveInquisitor(root=self.root, data_dir=self.data_dir)
+            inq_res = inquisitor.run_inquisitor_cycle()
+            inquisitor_status = inq_res.get('overall_status', 'optimal')
+            actions.append({
+                'action': 'executive_inquisitor_sweep',
+                'overall_status': inquisitor_status,
+                'inquiries_count': inq_res.get('inquiries_count', 0),
+                'bottlenecks_detected': inq_res.get('bottlenecks_detected', 0),
+            })
+        except Exception as exc:
+            log.warning('Executive inquisitor sweep error: %s', exc)
+
+        # 8d. Superintelligent Profit Engine Full-Stack Optimization Sweep
+        profit_engine_status = 'optimal'
+        try:
+            from .superintelligent_profit_engine import SuperintelligentProfitEngine
+            profit_engine = SuperintelligentProfitEngine(root=self.root, data_dir=self.data_dir)
+            profit_res = profit_engine.run_full_profit_optimization_cycle()
+            profit_engine_status = profit_res.overall_profit_status
+            actions.append({
+                'action': 'superintelligent_profit_engine_sweep',
+                'overall_profit_status': profit_engine_status,
+                'portfolio_7d_roi_pct': profit_res.portfolio_7d_roi_pct,
+                'portfolio_7d_pnl_usd': profit_res.portfolio_7d_pnl_usd,
+                'active_alpha_segments_count': profit_res.active_alpha_segments_count,
+                'capital_defense_segments_count': profit_res.capital_defense_segments_count,
+                'profit_actions_count': len(profit_res.autonomous_profit_actions)
+            })
+        except Exception as exc:
+            log.warning('Superintelligent profit engine sweep error: %s', exc)
+
         summary = AutonomousSweepSummary(
             cycle_id=cycle_id,
             timestamp=utcnow().isoformat(),
@@ -656,7 +693,9 @@ class SupremeAutonomousGovernor:
             resolved_operating_gaps=resolved_gaps,
             prime_directives_guard=prime_guard,
             system_audit_findings_count=len(audit_findings),
-            system_audit_status=audit_status
+            system_audit_status=audit_status,
+            executive_inquiry_status=inquisitor_status,
+            profit_engine_status=profit_engine_status
         )
 
         # Persist status and journal

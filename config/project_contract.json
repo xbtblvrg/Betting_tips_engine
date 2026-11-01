@@ -1012,6 +1012,17 @@
       "Zero Regression Standard: 100% test pass required across all Python unit suites and frontend DOM suites."
     ],
     "status": "Active, ratified, and verified in decisions.py, outcome_sizing.py, historical_trainer.py, demoted_market_bridge.py, tests, and Quant Council prompts."
+  },
+  "anti_tautological_testing_and_objective_verification_mandate_20261029": {
+    "directive": "User Supreme Directive (2026-10-29): Anti-Tautological Testing & Objective-Oriented Functional Validation Mandate. Szigorúan tilos a kód önigazoló (tautologikus) tesztelése, ahol a teszt nem a valós célt, a helyes matematikai funkciót és a gazdasági eredményességet méri, hanem csupán azt ellenőrzi, hogy a kód azt csinálja-e, amit leírtunk, még akkor is, ha a logika hibás vagy hiányos.",
+    "mandate": [
+      "Objective & Goal-Oriented Verification: Tests must validate against independent mathematical invariants (e.g. EV = P * O - 1.0, probability axioms, non-negative variance, Kelly bounds, Brier calibration on real binary outcomes), never merely asserting that flawed code reproduces its own flawed output.",
+      "Ground-Truth External Fixtures: Performance and settlement must be tested against real, historical, and observed sports outcomes (ESPN, NHL, MLB, Stake verified scores) rather than synthetic, self-serving mocks that mask algorithmic bugs.",
+      "Frozen Regression Protection: Autonomous workers (Lanes 1-6) are strictly prohibited from weakening, mutating, or loosening existing milestone and regression tests to make broken logic pass. A failing test requires fixing the underlying code logic, never adapting the test to validate broken behavior.",
+      "Multi-AI Adversarial Stress-Testing: Grok (grok-4.7) and the Quant Council must continuously red-team logic against boundary conditions, trap lines, extreme odds (1.40 to 50.0), ties, pushes, and cash leaks.",
+      "Epistemic Rigor: A 100% green test suite is a necessary safety invariant, but never sufficient on its own to prove alpha or financial health; real-world live P&L, rolling ROI, and Brier skill against immutable ledger outcomes remain the supreme arbiters of truth."
+    ],
+    "status": "Active, ratified with User Supreme Approval (2026-10-29), recorded in project_contract.json, AGENTS.md, and Multi-AI controller instructions."
   }
 }
 

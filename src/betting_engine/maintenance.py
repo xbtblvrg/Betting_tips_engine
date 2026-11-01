@@ -12,11 +12,8 @@ def maintain(root=DATA):
 
     # 1. Prune raw cache
     if raw.is_dir():
-        for meta in raw.glob('*.json'):
-            try:
-                kept.add(json.loads(meta.read_text())['blob'])
-            except (ValueError, KeyError, OSError):
-                continue
+        import os
+        kept = {entry.name[:-5] + '.data' for entry in os.scandir(raw) if entry.name.endswith('.json')}
         blobs = [(p, p.stat()) for p in raw.glob('*.data')]
         total = sum(s.st_size for _, s in blobs)
         for path, stat in sorted(blobs, key=lambda x: x[1].st_mtime):

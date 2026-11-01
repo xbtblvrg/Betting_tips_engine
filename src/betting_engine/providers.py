@@ -53,8 +53,10 @@ class Fetcher:
     def get(self,url,ttl=3600):
         key=hashlib.sha256(url.encode()).hexdigest(); m=self.root/(key+'.json')
         previous=json.loads(m.read_text()) if m.exists() else None
-        if previous and time.time()-previous['epoch'] < ttl:
-            return (self.root/previous['blob']).read_bytes(),previous
+        if previous and time.time()-previous.get('epoch', 0) < ttl:
+            blob_path = self.root/previous.get('blob', '')
+            if blob_path.is_file():
+                return blob_path.read_bytes(),previous
         error=None
         for attempt in range(3):
             try:

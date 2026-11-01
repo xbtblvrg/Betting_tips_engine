@@ -164,6 +164,8 @@ def council_prompt(brief: Dict[str, Any], kind: str) -> str:
         "and a strictly increasing cumulative net PnL uptrend across all portfolio segments. "
         "UNIFIED OPERATIONAL MANDATE: The engine must deliver a minimum of 700 distinct funded recommendations per week (min 100/day) with a sustained minimum +10.0% net ROI target. "
         "STAKE SIZING POLICY (OPTION B): Continuous risk-adjusted fractional Kelly bounded strictly within [$0.50, $8.00] ($2.50-$8.00 alpha acceleration on proven segments; $0.50 interim tourniquet on wobbling segments; $0.00 quarantine on demoted markets undergoing mandatory incubator re-graduation; 16:1 asymmetric capital ratio, null daily risk ceiling). "
+        "ZERO HARDCODED CLAMPS & PURE INDEPENDENT MODELS: Continuous valuation for any contract with odds >= 1.40 and positive EV. Sports probabilities derive purely from domain models without blending bookmaker vig. "
+        "ZERO PAID EXTERNAL SOURCES: Strictly $0.00 external data cost; only free public official feeds (NHL Web API, MLB Stats API, Open-Meteo, ESPN Public, Polymarket CLOB). Proposing paid APIs is strictly forbidden. "
         "MANDATORY 3-TIER CLOSED-LOOP RECOVERY: Demoted markets MUST be trained and tuned on historical settled matches (97k+ games). Candidate models must prove out-of-sample positive ROI (>= +3.5%) and positive Brier skill BEFORE admission to the Shadow Incubator ($0.00). Only after accumulating N >= 25 live settled games with sustained profit does a candidate graduate to real money ($0.50-$8.00). "
         "Every proposed remedy must be immediately testable in our leak-free Walk-Forward Crucible backtest and directly increase cash profit within days. "
         "Provide at most 400 words of concrete quantitative advice.\nBRIEF:\n" + json.dumps(brief)
@@ -322,13 +324,13 @@ def convene_quant_council(
     elif version == 2:
         if "totals" in segment.lower() or "over" in segment.lower() or "under" in segment.lower():
             cat = "calibration_shrinkage"
-            formula = "market_consensus_shrinkage"
+            formula = "bayesian_empirical_prior_shrinkage"
         elif "spread" in segment.lower() or "handicap" in segment.lower():
-            cat = "filter_gate"
-            formula = "exclude_extreme_odds_and_b2b"
+            cat = "feature_addition"
+            formula = "situational_fatigue_and_variance_dampening"
         else:
             cat = "calibration_shrinkage"
-            formula = "isotonic_consensus_shrinkage"
+            formula = "isotonic_calibration_smoothing"
     elif version == 3:
         if "totals" in segment.lower() or "over" in segment.lower() or "under" in segment.lower():
             cat = "feature_addition"

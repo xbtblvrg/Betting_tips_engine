@@ -24,7 +24,9 @@ import math
 from pathlib import Path
 import re
 import sqlite3
-from typing import Any, Dict, List, Optional, Tuple
+import time
+from typing import Any, Dict, List, Optional, Set, Tuple
+from contextlib import closing
 
 import numpy as np
 
@@ -32,6 +34,7 @@ from .domain import Game, parse_time, utcnow
 from .io_utils import atomic_json
 from .market_decomposer import DecomposedContract, decompose_market
 from .providers import DATA
+from .unified_market_universe import PROTECTED_ALPHA_CHAMPIONS, is_protected_alpha_champion
 
 log = logging.getLogger(__name__)
 
@@ -40,28 +43,26 @@ GRADUATED_FILE = DATA / 'graduated_markets.json'
 MIN_LEAGUE_GRADUATED_QUOTA: int = 12
 
 _initialized_incubator_dbs: set[str] = set()
+_INCUBATOR_STATUS_CACHE: Optional[Dict[str, Any]] = None
+_INCUBATOR_STATUS_CACHE_TIME: float = 0.0
 
 
-def _init_db(db_path: Path = INCUBATOR_DB) -> sqlite3.Connection:
+def _init_db(db_path: Path = INCUBATOR_DB) -> Optional[sqlite3.Connection]:
     """Initializes the incubator SQLite database schema."""
     db_key = str(db_path.resolve())
+    if db_key in _initialized_incubator_dbs:
+        return None
     try:
         db_path.parent.mkdir(parents=True, exist_ok=True)
         conn = sqlite3.connect(str(db_path), timeout=30.0)
         conn.execute("SELECT 1")
     except sqlite3.OperationalError:
-        return sqlite3.connect(f"file:{db_path.resolve()}?immutable=1", uri=True)
-    if db_key in _initialized_incubator_dbs:
-        return conn
+        _initialized_incubator_dbs.add(db_key)
+        return None
     try:
         conn.execute("PRAGMA journal_mode=WAL")
     except sqlite3.OperationalError:
-        try:
-            conn.close()
-        except Exception:
-            pass
-        _initialized_incubator_dbs.add(db_key)
-        return sqlite3.connect(f"file:{db_path.resolve()}?immutable=1", uri=True)
+        pass
     conn.execute("""
         CREATE TABLE IF NOT EXISTS incubated_wagers (
             id TEXT PRIMARY KEY,
@@ -103,6 +104,8 @@ def _init_db(db_path: Path = INCUBATOR_DB) -> sqlite3.Connection:
     conn.execute("CREATE INDEX IF NOT EXISTS idx_incubated_cohort ON incubated_wagers(cohort, status)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_incubated_family ON incubated_wagers(league, scope, family, sub_family)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_incubated_game ON incubated_wagers(game_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_incubated_status_game ON incubated_wagers(status, game_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_incubated_graduation ON incubated_wagers(status, league, scope, family, sub_family, cohort)")
 
     conn.execute("""
         CREATE TABLE IF NOT EXISTS graduated_markets (
@@ -180,9 +183,12 @@ def _init_db(db_path: Path = INCUBATOR_DB) -> sqlite3.Connection:
             stats TEXT NOT NULL
         )
     """)
-    conn.commit()
+    try:
+        conn.commit()
+    finally:
+        conn.close()
     _initialized_incubator_dbs.add(db_key)
-    return conn
+    return None
 
 
 def seed_historical_probability_picks(
@@ -301,37 +307,89 @@ def load_graduated_markets(data_dir: Path = DATA) -> Dict[str, Dict[str, Any]]:
     if db_path.exists():
         try:
             try:
-                conn = sqlite3.connect(f"file:{db_path.resolve()}?mode=ro", uri=True, timeout=5.0)
+                conn_raw = sqlite3.connect(f"file:{db_path.resolve()}?mode=ro", uri=True, timeout=5.0)
             except sqlite3.OperationalError:
-                conn = sqlite3.connect(str(db_path), timeout=5.0)
-            conn.execute("PRAGMA busy_timeout = 5000")
-            # Demoted markets filter: ensure no demoted/probationary market lingers in memory or JSON
-            demoted_keys = set()
-            try:
-                d_rows = conn.execute("SELECT segment_key FROM demoted_markets").fetchall()
-                demoted_keys = {r[0] for r in d_rows}
-            except Exception:
-                pass
+                conn_raw = sqlite3.connect(str(db_path), timeout=5.0)
+            with closing(conn_raw) as conn:
+                conn.execute("PRAGMA busy_timeout = 5000")
+                # Demoted markets filter: ensure no demoted/probationary market lingers in memory or JSON
+                demoted_keys = set()
+                try:
+                    d_rows = conn.execute("SELECT segment_key FROM demoted_markets").fetchall()
+                    demoted_keys = {r[0] for r in d_rows}
+                except Exception:
+                    pass
 
-            had_demoted_in_data = False
-            for dk in list(demoted_keys):
-                if dk in data:
-                    del data[dk]
-                    had_demoted_in_data = True
+                had_demoted_in_data = False
+                for dk in list(demoted_keys):
+                    if dk in data:
+                        del data[dk]
+                        had_demoted_in_data = True
 
-            rows = conn.execute("SELECT id, segment_key, league, scope, family, sub_family, graduated_at, stats FROM graduated_markets").fetchall()
-            synced = False
-            for r in rows:
-                if r[1] not in data and r[1] not in demoted_keys:
-                    st = json.loads(r[7]) if r[7] else {}
-                    data[r[1]] = {
-                        'id': r[0], 'segment_key': r[1], 'league': r[2],
-                        'scope': r[3], 'family': r[4], 'sub_family': r[5],
-                        'graduated_at': r[6], 'initial_tier': 'EXPLORATION',
-                        'stats': st
-                    }
-                    synced = True
-            conn.close()
+                from .contracts import is_supported_stake_contract
+                rows = conn.execute("SELECT id, segment_key, league, scope, family, sub_family, graduated_at, stats FROM graduated_markets").fetchall()
+                # Demoted & Unsupported markets filter: ensure no demoted/probationary or phantom market lingers in SQLite
+                stale_keys_to_purge = [
+                    r[1] for r in rows
+                    if r[1] in demoted_keys or not is_supported_stake_contract(r[2], r[3], r[4], r[5])
+                ]
+                if stale_keys_to_purge:
+                    try:
+                        with closing(sqlite3.connect(str(db_path), timeout=5.0)) as conn_del:
+                            conn_del.execute("PRAGMA busy_timeout = 5000")
+                            placeholders = ','.join('?' for _ in stale_keys_to_purge)
+                            conn_del.execute(f"DELETE FROM graduated_markets WHERE segment_key IN ({placeholders})", stale_keys_to_purge)
+                            conn_del.commit()
+                    except Exception:
+                        pass
+
+                synced = False
+                for r in rows:
+                    if not is_supported_stake_contract(r[2], r[3], r[4], r[5]):
+                        continue
+                    if r[1] not in data and r[1] not in demoted_keys:
+                        st = json.loads(r[7]) if r[7] else {}
+                        data[r[1]] = {
+                            'id': r[0], 'segment_key': r[1], 'league': r[2],
+                            'scope': r[3], 'family': r[4], 'sub_family': r[5],
+                            'graduated_at': r[6], 'initial_tier': 'EXPLORATION',
+                            'stats': st
+                        }
+                        synced = True
+
+            # Bidirectional sync: If there are records in JSON that are not in SQLite and not demoted, insert into SQLite
+            db_keys = {r[1] for r in rows}
+            missing_in_db = [
+                v for k, v in data.items()
+                if k not in db_keys and k not in demoted_keys and isinstance(v, dict) and v.get('segment_key')
+                and is_supported_stake_contract(v.get('league', ''), v.get('scope', 'full_game'), v.get('family', ''), v.get('sub_family', ''))
+            ]
+            if missing_in_db:
+                try:
+                    with closing(sqlite3.connect(str(db_path), timeout=5.0)) as conn_w:
+                        conn_w.execute("PRAGMA busy_timeout = 5000")
+                        cur_w = conn_w.cursor()
+                        for item in missing_in_db:
+                            st_dict = item.get('stats', {})
+                            st_json = json.dumps(st_dict) if isinstance(st_dict, dict) else str(st_dict or '{}')
+                            n_s = item.get('sample_size') or (st_dict.get('sample_size') if isinstance(st_dict, dict) else 25) or 25
+                            roi_v = item.get('roi') or (st_dict.get('roi') if isinstance(st_dict, dict) else 0.035) or 0.035
+                            dbrier_v = item.get('delta_brier') or (st_dict.get('delta_brier') if isinstance(st_dict, dict) else 0.002) or 0.002
+                            max_dd_v = item.get('max_drawdown') or (st_dict.get('max_drawdown') if isinstance(st_dict, dict) else 0.10) or 0.10
+                            wr_v = item.get('win_rate') or (st_dict.get('win_rate') if isinstance(st_dict, dict) else 0.55) or 0.55
+                            cur_w.execute("""
+                                INSERT OR REPLACE INTO graduated_markets (
+                                    id, segment_key, league, scope, family, sub_family,
+                                    graduated_at, sample_size, roi, delta_brier, max_drawdown, win_rate, stats
+                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            """, (
+                                item.get('id', f"grad_{item['segment_key']}"), item['segment_key'], item.get('league', ''),
+                                item.get('scope', 'full_game'), item.get('family', ''), item.get('sub_family', item.get('family', '')),
+                                item.get('graduated_at', utcnow().isoformat()), n_s, roi_v, dbrier_v, max_dd_v, wr_v, st_json
+                            ))
+                        conn_w.commit()
+                except Exception as e_sync:
+                    log.warning("Could not sync json graduated markets to sqlite: %s", e_sync)
             if synced or had_demoted_in_data:
                 try:
                     atomic_json(path, data)
@@ -339,7 +397,11 @@ def load_graduated_markets(data_dir: Path = DATA) -> Dict[str, Dict[str, Any]]:
                     pass
         except Exception:
             pass
-    return data
+    from .contracts import is_supported_stake_contract
+    return {
+        k: v for k, v in data.items()
+        if is_supported_stake_contract(v.get('league', ''), v.get('scope', 'full_game'), v.get('family', ''), v.get('sub_family', ''))
+    }
 
 
 def save_graduated_markets(graduated: Dict[str, Dict[str, Any]], data_dir: Path = DATA) -> None:
@@ -488,7 +550,13 @@ def matches_live_decision_to_market(p: Dict[str, Any], meta: Dict[str, Any]) -> 
         return True
     if target_sub_family in ('moneyline', 'draw_no_bet') and ('moneyline' in m_lower or m_lower == 'winner'):
         return True
-    if target_sub_family in ('team_total', 'home_total', 'away_total'):
+    if target_sub_family == 'home_total':
+        if any(k in m_lower for k in ('home_total', 'regulation:home_total')):
+            return True
+    elif target_sub_family == 'away_total':
+        if any(k in m_lower for k in ('away_total', 'regulation:away_total')):
+            return True
+    elif target_sub_family == 'team_total':
         if any(k in m_lower for k in ('team_total', 'home_total', 'away_total', 'regulation:home_total', 'regulation:away_total')):
             return True
     if target_sub_family in ('both_teams_score', 'btts'):
@@ -562,7 +630,8 @@ class ShadowMarketIncubator:
         self.data_dir = Path(data_dir or DATA)
         self.db_path = self.data_dir / 'shadow_incubator.sqlite3'
         conn = _init_db(self.db_path)
-        conn.close()
+        if conn is not None:
+            conn.close()
         from .tournament_engine import TournamentEngine
         self._tournament_engine = TournamentEngine(data_dir=self.data_dir, db_path=self.db_path)
         try:
@@ -922,6 +991,104 @@ class ShadowMarketIncubator:
 
         return None
 
+    def _resolve_tournament_candidates(
+        self,
+        league: str,
+        scope: str,
+        family: str,
+        sub_family: Optional[str] = None,
+        raw_market_name: Optional[str] = None,
+        side: Optional[str] = None,
+        selection: Optional[str] = None,
+    ) -> List[Any]:
+        """Resolves active candidate models across all multi-sport canonical aliases.
+        
+        Eliminates pipeline clogs for:
+        1. 60-min regulation vs full_game markets (e.g. NHL regulation 3-way, NFL regulation)
+        2. Tennis set derivatives (e.g. set_totals -> total_sets)
+        3. Team totals (team_total -> home_total / away_total)
+        4. Compound family specifiers
+        """
+        try:
+            t_eng = self._get_tournament_engine()
+        except Exception:
+            return []
+
+        lg = (league or '').upper().strip()
+        sc = (scope or 'full_game').lower().strip()
+        fam = (family or '').lower().strip()
+        sub = (sub_family or fam).lower().strip()
+        raw = (raw_market_name or '').strip()
+        side_str = (side or '').lower().strip()
+        sel_str = (selection or '').lower().strip()
+
+        candidate_keys: List[str] = [
+            f"{lg}|{sc}|{fam}",
+            f"{lg}|{sc}|{sub}",
+            f"{lg}|{sc}|{fam}:{sub}"
+        ]
+
+        # 1. Regulation <-> Full Game equivalence (e.g. NHL 60-min 3-way, NFL regulation)
+        if sc == 'full_game':
+            candidate_keys.extend([
+                f"{lg}|regulation|{fam}",
+                f"{lg}|regulation|{sub}",
+                f"{lg}|regulation|{fam}:{sub}"
+            ])
+        elif sc == 'regulation':
+            candidate_keys.extend([
+                f"{lg}|full_game|{fam}",
+                f"{lg}|full_game|{sub}",
+                f"{lg}|full_game|{fam}:{sub}"
+            ])
+
+        # 2. Team totals aliasing (team_total -> home_total / away_total)
+        is_home = side_str in ('home', '1') or 'home' in sel_str or '1' in sel_str
+        is_away = side_str in ('away', '2') or 'away' in sel_str or '2' in sel_str
+        if fam in ('team_total', 'american_derivatives', 'totals') or sub in ('team_total', 'home_total', 'away_total') or 'team total' in raw.lower():
+            if is_home:
+                candidate_keys.extend([
+                    f"{lg}|{sc}|home_total",
+                    f"{lg}|regulation|home_total" if sc == 'full_game' else f"{lg}|full_game|home_total"
+                ])
+            elif is_away:
+                candidate_keys.extend([
+                    f"{lg}|{sc}|away_total",
+                    f"{lg}|regulation|away_total" if sc == 'full_game' else f"{lg}|full_game|away_total"
+                ])
+
+        # 3. Tennis sets aliasing (set_totals -> total_sets)
+        if lg in ('ATP', 'WTA', 'CHALLENGER'):
+            if fam in ('tennis_sets', 'set_totals') or sub in ('tennis_sets', 'set_totals') or 'total sets' in raw.lower():
+                candidate_keys.extend([
+                    f"{lg}|full_game|total_sets",
+                    f"{lg}|{sc}|total_sets",
+                    f"{lg}|{sc}|tennis_sets"
+                ])
+            if fam in ('set_handicap', 'spreads') or sub == 'set_handicap':
+                candidate_keys.append(f"{lg}|{sc}|set_handicap")
+            if fam in ('set_winner', 'moneyline') or sub == 'set_winner':
+                candidate_keys.append(f"{lg}|{sc}|set_winner")
+
+        # 4. Raw market title
+        if raw:
+            candidate_keys.append(f"{lg}|{sc}|{raw}")
+            if sc == 'full_game':
+                candidate_keys.append(f"{lg}|regulation|{raw}")
+
+        found_candidates: List[Any] = []
+        seen_model_ids: Set[str] = set()
+        for k in candidate_keys:
+            try:
+                for cand in t_eng.get_active_candidates(k):
+                    if cand.model_id not in seen_model_ids:
+                        seen_model_ids.add(cand.model_id)
+                        found_candidates.append(cand)
+            except Exception:
+                pass
+
+        return found_candidates
+
     def incubate_fixture_gap_markets(
         self,
         raw_markets: List[Dict[str, Any]],
@@ -935,26 +1102,30 @@ class ShadowMarketIncubator:
         """Inspects raw Stake markets, decomposes gap markets, prices them, and records shadow bets."""
         now_iso = as_of or utcnow().isoformat()
         conn = self._get_connection()
-        cur = conn.cursor()
-        new_wagers = []
+        try:
+            cur = conn.cursor()
+            new_wagers = []
 
-        if forecast is not None and game is not None:
-            if not isinstance(getattr(game, 'context', None), dict):
-                game.context = {}
-            feats = forecast.features if isinstance(getattr(forecast, 'features', None), dict) else {}
-            game.context['full_forecast'] = {
-                'home_points': float(forecast.home_points) if hasattr(forecast, 'home_points') else 0.0,
-                'away_points': float(forecast.away_points) if hasattr(forecast, 'away_points') else 0.0,
-                'features': {k: float(v) for k, v in feats.items() if isinstance(v, (int, float))}
-            }
+            if forecast is not None and game is not None:
+                if not isinstance(getattr(game, 'context', None), dict):
+                    game.context = {}
+                feats = forecast.features if isinstance(getattr(forecast, 'features', None), dict) else {}
+                game.context['full_forecast'] = {
+                    'home_points': float(forecast.home_points) if hasattr(forecast, 'home_points') else 0.0,
+                    'away_points': float(forecast.away_points) if hasattr(forecast, 'away_points') else 0.0,
+                    'features': {k: float(v) for k, v in feats.items() if isinstance(v, (int, float))}
+                }
 
-        for m_raw in raw_markets:
-            try:
-                contracts = decompose_market(m_raw, league, game.id)
-            except Exception:
-                continue
+            all_contracts = []
+            for m_raw in raw_markets:
+                try:
+                    c_list = decompose_market(m_raw, league, game.id)
+                    if c_list:
+                        all_contracts.extend(c_list)
+                except Exception:
+                    continue
 
-            for contract in contracts:
+            for contract in all_contracts:
                 odds = contract.odds
                 if odds <= 1.05 or odds >= 15.0:
                     continue
@@ -978,8 +1149,8 @@ class ShadowMarketIncubator:
                 if ev < dynamic_ev_hurdle:
                     continue
 
-                # Unique shadow wager ID
-                key = f"{game.id}:{contract.scope}:{contract.family}:{contract.sub_family}:{contract.selection}:{contract.line}:{odds}"
+                # Unique shadow wager ID (without odds to prevent duplicate wagers on minor odds changes)
+                key = f"base:{game.id}:{contract.scope}:{contract.family}:{contract.sub_family}:{contract.selection}:{contract.line}"
                 wager_id = hashlib.sha256(key.encode()).hexdigest()[:24]
 
                 # Dynamic sample power requirement
@@ -1024,13 +1195,15 @@ class ShadowMarketIncubator:
 
                 # Multi-Model Tournament Candidate Concurrent Paper-Trading
                 try:
-                    seg_key = f"{league}|{contract.scope}|{contract.family}"
-                    t_eng = self._get_tournament_engine()
-                    candidates = t_eng.get_active_candidates(seg_key)
-                    if not candidates and contract.sub_family and contract.sub_family != contract.family:
-                        candidates = t_eng.get_active_candidates(f"{league}|{contract.scope}|{contract.sub_family}")
-                    if not candidates and contract.raw_market_name:
-                        candidates = t_eng.get_active_candidates(f"{league}|{contract.scope}|{contract.raw_market_name}")
+                    candidates = self._resolve_tournament_candidates(
+                        league=league,
+                        scope=contract.scope,
+                        family=contract.family,
+                        sub_family=contract.sub_family,
+                        raw_market_name=contract.raw_market_name,
+                        side=contract.side,
+                        selection=contract.selection,
+                    )
                     for cand in candidates:
                         ctx = dict(game.context) if (game and isinstance(getattr(game, 'context', None), dict)) else {}
                         if game:
@@ -1106,8 +1279,12 @@ class ShadowMarketIncubator:
                 except Exception:
                     pass
 
-        conn.commit()
-        conn.close()
+            try:
+                conn.commit()
+            except Exception:
+                pass
+        finally:
+            conn.close()
         if game is not None and isinstance(getattr(game, 'context', None), dict):
             game.context.pop('full_forecast', None)
         return new_wagers
@@ -1126,187 +1303,195 @@ class ShadowMarketIncubator:
         """
         now_iso = as_of or utcnow().isoformat()
         conn = self._get_connection()
-        cur = conn.cursor()
-        new_wagers = []
-
-        funded = funded_ids or set()
-        demoted_set = set()
         try:
-            d_rows = cur.execute("SELECT segment_key FROM demoted_markets").fetchall()
-            demoted_set = {r[0] for r in d_rows}
-        except Exception:
-            pass
+            cur = conn.cursor()
+            new_wagers = []
 
-        eligible = []
-        for c in candidates:
-            if not isinstance(c, dict):
-                continue
-
-            p = float(c.get('probability', 0.0))
-            ev = float(c.get('expected_roi', 0.0))
-            odds = float(c.get('reference_odds', 0.0))
-            # Anti-Constant Mandate (Commandment 3): Unlocks high-odds underdogs (odds up to 50.0)
-            if odds < 1.10 or odds > 50.00:
-                continue
-            if p <= 0.05 or p >= 0.99:
-                continue
-
-            c_lg = c.get('league')
-            c_mkt = c.get('market', '')
-            c_scope = c.get('model_scope') or (c_mkt.split(':')[0] if ':' in c_mkt else 'full_game')
-            c_fam = c.get('market_family') or (c_mkt.split(':')[1] if ':' in c_mkt else c_mkt)
-            c_sub = c.get('sub_family') or c_fam
-            c_seg = f"{c_lg}|{c_scope}|{c_fam}"
-            c_sub_seg = f"{c_lg}|{c_scope}|{c_fam}:{c_sub}"
-
-            is_demoted = (
-                c_seg in demoted_set
-                or c_sub_seg in demoted_set
-                or f"{c_lg}|{c_scope}|{c_mkt}" in demoted_set
-            )
-
-            # If segment is in demoted_markets, incubate under core_challenger cohort for Crucible re-graduation
-            # even if live stake was clamped to 0.50 under Capital Defense
-            if is_demoted:
-                c['cohort'] = 'core_challenger'
-                eligible.append(c)
-                continue
-
-            if c.get('id') in funded or c.get('stake', 0.0) > 0:
-                continue  # Already funded in live portfolio; do not duplicate in shadow
-
-            # Standard high probability cohort: P >= 0.55 and marginal EV [-3.5%, +3.5%]
-            if p >= 0.55 and -0.035 <= ev < 0.035 and odds <= 3.50:
-                c['cohort'] = 'high_probability'
-                eligible.append(c)
-
-        # High capacity per cycle to guarantee zero bottleneck
-        if max_batch_size and len(eligible) > max_batch_size:
-            eligible = eligible[:max_batch_size]
-
-        for c in eligible:
-            g_id = c.get('game_id')
-            league = c.get('league')
-            market = c.get('market', '')
-            scope = c.get('model_scope') or (market.split(':')[0] if ':' in market else 'full_game')
-            family = c.get('market_family') or (market.split(':')[1] if ':' in market else market)
-            sub_family = c.get('sub_family') or family
-            selection = c.get('selection') or ''
-            side = c.get('side') or 'home'
-            line = c.get('line')
-            odds = float(c.get('reference_odds', 0.0))
-            p = float(c.get('probability', 0.0))
-            push = float(c.get('push_probability', 0.0))
-            ev = float(c.get('expected_roi', 0.0))
-            market_p = 1.0 / odds if odds > 0 else 0.5
-            sample_req = max(20, int(math.ceil(20.0 * math.sqrt(max(0.1, odds - 1.0)))))
-            cand_cohort = c.get('cohort', 'high_probability')
-
-            # Unique deterministic shadow wager ID
-            key = f"{cand_cohort}:{g_id}:{scope}:{family}:{sub_family}:{selection}:{line}:{odds:.3f}"
-            wager_id = hashlib.sha256(key.encode()).hexdigest()[:24]
-
-            meta_json = json.dumps({
-                'source': f'{cand_cohort}_cohort',
-                'raw_market_name': c.get('description', ''),
-                'metadata': c.get('metadata', {})
-            })
-
+            funded = funded_ids or set()
+            demoted_set = set()
             try:
-                cur.execute("""
-                    INSERT OR IGNORE INTO incubated_wagers (
-                        id, fixture_id, game_id, league, scope, family, sub_family,
-                        raw_market_name, selection, side, line, odds, model_prob, push_prob,
-                        market_prob, ev, dynamic_sample_power_req, captured_at, status, metadata, cohort
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)
-                """, (
-                    wager_id, str(g_id), str(g_id), league, scope,
-                    family, sub_family, c.get('description', ''),
-                    str(selection), str(side), line, odds, p, push,
-                    market_p, ev, sample_req, now_iso, meta_json, cand_cohort
-                ))
-                if cur.rowcount > 0:
-                    new_wagers.append({
-                        'id': wager_id,
-                        'league': league,
-                        'scope': scope,
-                        'family': family,
-                        'selection': selection,
-                        'odds': odds,
-                        'model_prob': round(p, 4),
-                        'ev': round(ev, 4),
-                        'cohort': cand_cohort
-                    })
+                d_rows = cur.execute("SELECT segment_key FROM demoted_markets").fetchall()
+                demoted_set = {r[0] for r in d_rows}
             except Exception:
                 pass
 
-            # Multi-Model Tournament Candidate Concurrent Paper-Trading
-            try:
-                t_eng = self._get_tournament_engine()
-                candidates = t_eng.get_active_candidates(c_seg)
-                if not candidates and c_sub_seg != c_seg:
-                    candidates = t_eng.get_active_candidates(c_sub_seg)
-                if not candidates and c.get('market'):
-                    candidates = t_eng.get_active_candidates(f"{league}|{scope}|{c.get('market')}")
-                g_obj = game_map.get(str(g_id)) if game_map else None
-                ctx = dict(g_obj.context) if (g_obj and isinstance(getattr(g_obj, 'context', None), dict)) else {}
-                if isinstance(c.get('game_context'), dict):
-                    for k, v in c['game_context'].items():
-                        ctx.setdefault(k, v)
-                if g_obj:
-                    if hasattr(g_obj, 'home'):
-                        ctx.setdefault('home', g_obj.home)
-                        ctx.setdefault('home_team', g_obj.home)
-                    if hasattr(g_obj, 'away'):
-                        ctx.setdefault('away', g_obj.away)
-                        ctx.setdefault('away_team', g_obj.away)
-                    if hasattr(g_obj, 'home_abbr'):
-                        ctx.setdefault('home_abbr', g_obj.home_abbr)
-                    if hasattr(g_obj, 'away_abbr'):
-                        ctx.setdefault('away_abbr', g_obj.away_abbr)
-                if c.get('home'):
-                    ctx.setdefault('home', c['home'])
-                    ctx.setdefault('home_team', c['home'])
-                if c.get('away'):
-                    ctx.setdefault('away', c['away'])
-                    ctx.setdefault('away_team', c['away'])
-                if c.get('predicted_home_points') is not None:
-                    ctx.setdefault('home_expected', float(c['predicted_home_points']))
-                    ctx.setdefault('home_points', float(c['predicted_home_points']))
-                if c.get('predicted_away_points') is not None:
-                    ctx.setdefault('away_expected', float(c['predicted_away_points']))
-                    ctx.setdefault('away_points', float(c['predicted_away_points']))
-                for cand in candidates:
-                    mkt_ident = f"{family}:{sub_family}" if (sub_family and sub_family != family) else (sub_family or family or c.get('market', ''))
-                    cand_prob, cand_ev = cand.evaluate_market(
-                        mkt_ident,
-                        str(selection),
-                        line,
-                        odds,
-                        ctx,
-                        side=str(side) if side else None
+            eligible = []
+            for c in candidates:
+                if not isinstance(c, dict):
+                    continue
+
+                p = float(c.get('probability', 0.0))
+                ev = float(c.get('expected_roi', 0.0))
+                odds = float(c.get('reference_odds', 0.0))
+                # Anti-Constant Mandate (Commandment 3): Unlocks high-odds underdogs (odds up to 50.0)
+                if odds < 1.10 or odds > 50.00:
+                    continue
+                if p <= 0.05 or p >= 0.99:
+                    continue
+
+                c_lg = c.get('league')
+                c_mkt = c.get('market', '')
+                c_scope = c.get('model_scope') or (c_mkt.split(':')[0] if ':' in c_mkt else 'full_game')
+                c_fam = c.get('market_family') or (c_mkt.split(':')[1] if ':' in c_mkt else c_mkt)
+                c_sub = c.get('sub_family') or c_fam
+                c_seg = f"{c_lg}|{c_scope}|{c_fam}"
+                c_sub_seg = f"{c_lg}|{c_scope}|{c_fam}:{c_sub}"
+
+                is_demoted = (
+                    c_seg in demoted_set
+                    or c_sub_seg in demoted_set
+                    or f"{c_lg}|{c_scope}|{c_mkt}" in demoted_set
+                )
+
+                # If segment is in demoted_markets, incubate under core_challenger cohort for Crucible re-graduation
+                # even if live stake was clamped to 0.50 under Capital Defense
+                if is_demoted:
+                    c['cohort'] = 'core_challenger'
+                    eligible.append(c)
+                    continue
+
+                if c.get('id') in funded or c.get('stake', 0.0) > 0:
+                    continue  # Already funded in live portfolio; do not duplicate in shadow
+
+                # Standard high probability cohort: P >= 0.55 and marginal EV [-3.5%, +3.5%] (continuous valuation, no odds ceiling)
+                if p >= 0.55 and -0.035 <= ev < 0.035:
+                    c['cohort'] = 'high_probability'
+                    eligible.append(c)
+
+            # High capacity per cycle to guarantee zero bottleneck
+            if max_batch_size and len(eligible) > max_batch_size:
+                eligible = eligible[:max_batch_size]
+
+            for c in eligible:
+                g_id = c.get('game_id')
+                league = c.get('league')
+                market = c.get('market', '')
+                scope = c.get('model_scope') or (market.split(':')[0] if ':' in market else 'full_game')
+                family = c.get('market_family') or (market.split(':')[1] if ':' in market else market)
+                sub_family = c.get('sub_family') or family
+                selection = c.get('selection') or ''
+                side = c.get('side') or 'home'
+                line = c.get('line')
+                odds = float(c.get('reference_odds', 0.0))
+                p = float(c.get('probability', 0.0))
+                push = float(c.get('push_probability', 0.0))
+                ev = float(c.get('expected_roi', 0.0))
+                market_p = 1.0 / odds if odds > 0 else 0.5
+                sample_req = max(20, int(math.ceil(20.0 * math.sqrt(max(0.1, odds - 1.0)))))
+                cand_cohort = c.get('cohort', 'high_probability')
+
+                # Unique deterministic shadow wager ID (without odds to prevent duplicate wagers on minor odds changes)
+                key = f"{cand_cohort}:{g_id}:{scope}:{family}:{sub_family}:{selection}:{line}"
+                wager_id = hashlib.sha256(key.encode()).hexdigest()[:24]
+
+                meta_json = json.dumps({
+                    'source': f'{cand_cohort}_cohort',
+                    'raw_market_name': c.get('description', ''),
+                    'metadata': c.get('metadata', {})
+                })
+
+                try:
+                    cur.execute("""
+                        INSERT OR IGNORE INTO incubated_wagers (
+                            id, fixture_id, game_id, league, scope, family, sub_family,
+                            raw_market_name, selection, side, line, odds, model_prob, push_prob,
+                            market_prob, ev, dynamic_sample_power_req, captured_at, status, metadata, cohort
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)
+                    """, (
+                        wager_id, str(g_id), str(g_id), league, scope,
+                        family, sub_family, c.get('description', ''),
+                        str(selection), str(side), line, odds, p, push,
+                        market_p, ev, sample_req, now_iso, meta_json, cand_cohort
+                    ))
+                    if cur.rowcount > 0:
+                        new_wagers.append({
+                            'id': wager_id,
+                            'league': league,
+                            'scope': scope,
+                            'family': family,
+                            'selection': selection,
+                            'odds': odds,
+                            'model_prob': round(p, 4),
+                            'ev': round(ev, 4),
+                            'cohort': cand_cohort
+                        })
+                except Exception:
+                    pass
+
+                # Multi-Model Tournament Candidate Concurrent Paper-Trading
+                try:
+                    t_candidates = self._resolve_tournament_candidates(
+                        league=league,
+                        scope=scope,
+                        family=family,
+                        sub_family=sub_family,
+                        raw_market_name=c.get('description') or c.get('market'),
+                        side=side,
+                        selection=selection,
                     )
-                    if cand_ev > 0.0:
-                        c_key = f"{key}:{cand.model_id}"
-                        c_wager_id = hashlib.sha256(c_key.encode()).hexdigest()[:24]
-                        cur.execute("""
-                            INSERT OR IGNORE INTO incubated_wagers (
-                                id, fixture_id, game_id, league, scope, family, sub_family,
-                                raw_market_name, selection, side, line, odds, model_prob, push_prob,
-                                market_prob, ev, dynamic_sample_power_req, captured_at, status, metadata,
-                                cohort, model_id, model_version
-                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, 'tournament_challenger', ?, ?)
-                        """, (
-                            c_wager_id, str(g_id), str(g_id), league, scope,
-                            family, sub_family, c.get('description', ''),
-                            str(selection), str(side), line, odds, cand_prob, 0.0,
-                            market_p, cand_ev, sample_req, now_iso, meta_json, cand.model_id, cand.version
-                        ))
+                    g_obj = game_map.get(str(g_id)) if game_map else None
+                    ctx = dict(g_obj.context) if (g_obj and isinstance(getattr(g_obj, 'context', None), dict)) else {}
+                    if isinstance(c.get('game_context'), dict):
+                        for k, v in c['game_context'].items():
+                            ctx.setdefault(k, v)
+                    if g_obj:
+                        if hasattr(g_obj, 'home'):
+                            ctx.setdefault('home', g_obj.home)
+                            ctx.setdefault('home_team', g_obj.home)
+                        if hasattr(g_obj, 'away'):
+                            ctx.setdefault('away', g_obj.away)
+                            ctx.setdefault('away_team', g_obj.away)
+                        if hasattr(g_obj, 'home_abbr'):
+                            ctx.setdefault('home_abbr', g_obj.home_abbr)
+                        if hasattr(g_obj, 'away_abbr'):
+                            ctx.setdefault('away_abbr', g_obj.away_abbr)
+                    if c.get('home'):
+                        ctx.setdefault('home', c['home'])
+                        ctx.setdefault('home_team', c['home'])
+                    if c.get('away'):
+                        ctx.setdefault('away', c['away'])
+                        ctx.setdefault('away_team', c['away'])
+                    if c.get('predicted_home_points') is not None:
+                        ctx.setdefault('home_expected', float(c['predicted_home_points']))
+                        ctx.setdefault('home_points', float(c['predicted_home_points']))
+                    if c.get('predicted_away_points') is not None:
+                        ctx.setdefault('away_expected', float(c['predicted_away_points']))
+                        ctx.setdefault('away_points', float(c['predicted_away_points']))
+                    for cand in t_candidates:
+                        mkt_ident = f"{family}:{sub_family}" if (sub_family and sub_family != family) else (sub_family or family or c.get('market', ''))
+                        cand_prob, cand_ev = cand.evaluate_market(
+                            mkt_ident,
+                            str(selection),
+                            line,
+                            odds,
+                            ctx,
+                            side=str(side) if side else None
+                        )
+                        if cand_ev > 0.0:
+                            c_key = f"{key}:{cand.model_id}"
+                            c_wager_id = hashlib.sha256(c_key.encode()).hexdigest()[:24]
+                            cur.execute("""
+                                INSERT OR IGNORE INTO incubated_wagers (
+                                    id, fixture_id, game_id, league, scope, family, sub_family,
+                                    raw_market_name, selection, side, line, odds, model_prob, push_prob,
+                                    market_prob, ev, dynamic_sample_power_req, captured_at, status, metadata,
+                                    cohort, model_id, model_version
+                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, 'tournament_challenger', ?, ?)
+                            """, (
+                                c_wager_id, str(g_id), str(g_id), league, scope,
+                                family, sub_family, c.get('description', ''),
+                                str(selection), str(side), line, odds, cand_prob, 0.0,
+                                market_p, cand_ev, sample_req, now_iso, meta_json, cand.model_id, cand.version
+                            ))
+                except Exception:
+                    pass
+
+            try:
+                conn.commit()
             except Exception:
                 pass
-
-        conn.commit()
-        conn.close()
+        finally:
+            conn.close()
         return new_wagers
 
     # -------------------------------------------------------------------------
@@ -1316,18 +1501,36 @@ class ShadowMarketIncubator:
     def settle_incubated_wagers(self, games: List[Game], as_of: Optional[str] = None) -> int:
         """Settles open shadow wagers for completed games, computing realized PnL and Brier scores."""
         now_iso = as_of or utcnow().isoformat()
-        conn = self._get_connection()
-        cur = conn.cursor()
-
-        cur.execute("SELECT id, game_id, league, scope, family, sub_family, selection, line, odds, model_prob, market_prob, side FROM incubated_wagers WHERE status = 'open'")
-        open_wagers = cur.fetchall()
-        if not open_wagers:
-            conn.close()
+        game_map = {g.id: g for g in games if getattr(g, 'state', None) == 'final' and getattr(g, 'home_score', None) is not None and getattr(g, 'away_score', None) is not None}
+        if not game_map:
             return 0
 
-        game_map = {g.id: g for g in games if g.state == 'final'}
+        conn = self._get_connection()
+        try:
+            cur = conn.cursor()
+
+            # Fast path: query only distinct open game_ids from the database, intersected with completed games
+            cur.execute("SELECT DISTINCT game_id FROM incubated_wagers WHERE status = 'open'")
+            open_gids = [r[0] for r in cur.fetchall() if r[0] in game_map]
+            if not open_gids:
+                return 0
+
+            # Query open wagers only for these completed games
+            open_wagers = []
+            for i in range(0, len(open_gids), 500):
+                batch_gids = open_gids[i:i + 500]
+                placeholders = ','.join(['?'] * len(batch_gids))
+                cur.execute(f"SELECT id, game_id, league, scope, family, sub_family, selection, line, odds, model_prob, market_prob, side FROM incubated_wagers WHERE status = 'open' AND game_id IN ({placeholders})", batch_gids)
+                open_wagers.extend(cur.fetchall())
+        finally:
+            conn.close()
+
+        if not open_wagers:
+            return 0
+
         settled_count = 0
         period_scores_cache = None
+        updates = []
 
         for row in open_wagers:
             w_id, g_id, league, scope, family, sub_family, selection, line, odds, model_p, mkt_p, side = row
@@ -1382,7 +1585,13 @@ class ShadowMarketIncubator:
             # Settle American & Universal Derivatives and Core Markets
             elif family in ('american_derivatives', 'spreads', 'totals', 'moneyline', 'three_way', 'home_total', 'away_total', 'winner_total', 'odd_even'):
                 eff_line = float(line) if line is not None else 0.0
-                if sub_family in ('spreads', 'alternative_spread') or family == 'spreads':
+                is_quarter = eff_line is not None and (round(eff_line * 2) != eff_line * 2)
+                if is_quarter and (sub_family in ('spreads', 'alternative_spread') or family == 'spreads' or sub_family in ('totals', 'alternative_total') or family == 'totals'):
+                    from .contracts import settle_quarter_asian
+                    m_type = 'spreads' if (sub_family in ('spreads', 'alternative_spread') or family == 'spreads') else 'totals'
+                    _, outcome_res, profit = settle_quarter_asian(m_type, side, eff_line, h_s, a_s, odds, stake)
+                    pnl = profit
+                elif sub_family in ('spreads', 'alternative_spread') or family == 'spreads':
                     diff = (h_s - a_s + eff_line) if side == 'home' else (a_s - h_s + eff_line)
                     outcome_res = 'won' if diff > 0 else ('push' if diff == 0 else 'lost')
                 elif sub_family in ('totals', 'alternative_total') or family == 'totals':
@@ -1561,16 +1770,25 @@ class ShadowMarketIncubator:
                 brier_model = (model_p - y) ** 2
                 brier_mkt = (mkt_p - y) ** 2
 
-                cur.execute("""
-                    UPDATE incubated_wagers
-                    SET status = 'settled', settled_at = ?, result = ?, pnl = ?,
-                        brier_model = ?, brier_market = ?
-                    WHERE id = ?
-                """, (now_iso, outcome_res, pnl, brier_model, brier_mkt, w_id))
+                updates.append((now_iso, outcome_res, pnl, brier_model, brier_mkt, w_id))
                 settled_count += 1
 
-        conn.commit()
-        conn.close()
+        if updates:
+            conn_u = self._get_connection()
+            try:
+                cur_u = conn_u.cursor()
+                for i in range(0, len(updates), 500):
+                    cur_u.executemany("""
+                        UPDATE incubated_wagers
+                        SET status = 'settled', settled_at = ?, result = ?, pnl = ?,
+                            brier_model = ?, brier_market = ?
+                        WHERE id = ?
+                    """, updates[i:i + 500])
+                    conn_u.commit()
+            except Exception:
+                pass
+            finally:
+                conn_u.close()
         return settled_count
 
     def reconcile_aged_and_completed_wagers(
@@ -1658,50 +1876,54 @@ class ShadowMarketIncubator:
         engine_db = self.data_dir / 'engine.sqlite3'
         if engine_db.exists():
             try:
-                conn_eng = sqlite3.connect(str(engine_db), timeout=15.0)
-                cur_eng = conn_eng.cursor()
-                cur_eng.execute("""
-                    SELECT DISTINCT json_extract(payload, '$.game_id'), 
-                                    json_extract(evidence, '$.home_score'), 
-                                    json_extract(evidence, '$.away_score'),
-                                    json_extract(payload, '$.start')
-                    FROM bet_outcomes bo
-                    JOIN bets b ON bo.bet_id = b.id
-                    WHERE json_extract(evidence, '$.home_score') IS NOT NULL
-                """)
-                for gid, hs, as_score, st in cur_eng.fetchall():
-                    if gid and (gid not in game_data or game_data[gid].get('home_score') is None):
-                        game_data[gid] = {
-                            'home_score': float(hs),
-                            'away_score': float(as_score),
-                            'state': 'final',
-                            'start': st,
-                            'context': {},
-                        }
-                conn_eng.close()
+                with closing(sqlite3.connect(str(engine_db), timeout=15.0)) as conn_eng:
+                    cur_eng = conn_eng.cursor()
+                    cur_eng.execute("""
+                        SELECT DISTINCT json_extract(payload, '$.game_id'), 
+                                        json_extract(evidence, '$.home_score'), 
+                                        json_extract(evidence, '$.away_score'),
+                                        json_extract(payload, '$.start')
+                        FROM bet_outcomes bo
+                        JOIN bets b ON bo.bet_id = b.id
+                        WHERE json_extract(evidence, '$.home_score') IS NOT NULL
+                    """)
+                    for gid, hs, as_score, st in cur_eng.fetchall():
+                        if gid and (gid not in game_data or game_data[gid].get('home_score') is None):
+                            game_data[gid] = {
+                                'home_score': float(hs),
+                                'away_score': float(as_score),
+                                'state': 'final',
+                                'start': st,
+                                'context': {},
+                            }
             except Exception:
                 pass
 
         # 2. Query open incubated wagers
         conn = self._get_connection()
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT id, game_id, league, scope, family, sub_family, selection, line, odds, model_prob, market_prob, side, captured_at
-            FROM incubated_wagers
-            WHERE status = 'open'
-        """)
-        open_wagers = cur.fetchall()
-        if not open_wagers:
+        try:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT id, game_id, league, scope, family, sub_family, selection, line, odds, model_prob, market_prob, side, captured_at, model_id
+                FROM incubated_wagers
+                WHERE status = 'open'
+            """)
+            open_wagers = cur.fetchall()
+        finally:
             conn.close()
+
+        if not open_wagers:
             return {'reconciled_with_scores': 0, 'voided_stale': 0, 'kept_open': 0, 'total_settled': 0}
 
         score_settled = 0
         voided_stale = 0
         kept_open = 0
         period_scores_cache = None
+        updates = []
+        settled_feedback_events = []
 
         for row in open_wagers:
-            wid, gid, league, scope, family, sub_family, selection, line, odds, model_p, mkt_p, side, captured_at = row
+            wid, gid, league, scope, family, sub_family, selection, line, odds, model_p, mkt_p, side, captured_at, m_id = row
             g_info = game_data.get(gid) or {}
 
             # Parse start or capture time to determine age
@@ -1891,15 +2113,44 @@ class ShadowMarketIncubator:
                     brier_model = (model_p - y) ** 2 if model_p is not None else None
                     brier_mkt = (mkt_p - y) ** 2 if mkt_p is not None else None
 
-                cur.execute("""
-                    UPDATE incubated_wagers
-                    SET status = 'settled', settled_at = ?, result = ?, pnl = ?,
-                        brier_model = ?, brier_market = ?
-                    WHERE id = ?
-                """, (now_iso, outcome_res, pnl, brier_model, brier_mkt, wid))
+                updates.append((now_iso, outcome_res, pnl, brier_model, brier_mkt, wid))
+                if m_id:
+                    settled_feedback_events.append((m_id, outcome_res, odds, pnl, model_p, mkt_p))
 
-        conn.commit()
-        conn.close()
+        if updates:
+            CHUNK_SIZE = 500
+            for i in range(0, len(updates), CHUNK_SIZE):
+                chunk = updates[i:i + CHUNK_SIZE]
+                for attempt in range(8):
+                    try:
+                        with closing(sqlite3.connect(str(self.db_path), timeout=60.0, isolation_level=None)) as conn_u:
+                            conn_u.execute("PRAGMA busy_timeout = 60000")
+                            conn_u.executemany("""
+                                UPDATE incubated_wagers
+                                SET status = 'settled', settled_at = ?, result = ?, pnl = ?,
+                                    brier_model = ?, brier_market = ?
+                                WHERE id = ?
+                            """, chunk)
+                            break
+                    except sqlite3.OperationalError as e_sql:
+                        if "locked" in str(e_sql) and attempt < 7:
+                            time.sleep(0.5 * (attempt + 1))
+                            continue
+                        log.warning("Could not persist settled wagers chunk: %s", e_sql)
+                        break
+                    except Exception as e_sql:
+                        log.warning("Could not persist settled wagers chunk: %s", e_sql)
+                        break
+
+            # Ingest live settlement outcomes into AI Reinforcement Learning Feedback Memory
+            if settled_feedback_events:
+                try:
+                    from .ai_feedback_loop import AIFeedbackLoopManager
+                    fb_mgr = AIFeedbackLoopManager(self.data_dir)
+                    for m_id, out_res, o_val, p_val, mod_p, mkt_p in settled_feedback_events:
+                        fb_mgr.record_settlement(m_id, out_res, o_val, p_val, model_prob=mod_p, market_prob=mkt_p)
+                except Exception as e_fb:
+                    log.debug("Settlement feedback ingestion error: %s", e_fb)
 
         total_settled = score_settled + voided_stale
         if total_settled > 0:
@@ -1927,22 +2178,27 @@ class ShadowMarketIncubator:
         try:
             cur = conn.cursor()
 
+            # Pre-filter candidates directly in SQLite: only families with N >= 10 can pass Crucible criteria
             cur.execute("""
-                SELECT league, scope, family, sub_family, odds, pnl, brier_model, brier_market, dynamic_sample_power_req, raw_market_name, cohort, settled_at
+                SELECT league, scope, family, sub_family, cohort,
+                       count(*), sum(pnl), avg(odds), avg(brier_model), avg(brier_market)
                 FROM incubated_wagers
                 WHERE status = 'settled'
-                ORDER BY settled_at ASC
+                GROUP BY league, scope, family, sub_family, cohort
+                HAVING count(*) >= 10
             """)
-            rows = cur.fetchall()
+            candidate_summaries = cur.fetchall()
 
-            # Demoted / probation map
+            # Demoted / probation map and historical out-of-sample sample size
             demoted_map = {}
             demoted_sub_map = {}
+            demoted_oos_map = {}
             try:
-                cur.execute("SELECT segment_key, demoted_at, sub_family FROM demoted_markets")
-                for sk, da, sf in cur.fetchall():
+                cur.execute("SELECT segment_key, demoted_at, sub_family, COALESCE(historical_sample_size, 0) FROM demoted_markets")
+                for sk, da, sf, h_n in cur.fetchall():
                     demoted_map[sk] = da
                     demoted_sub_map[sk] = sf
+                    demoted_oos_map[sk] = int(h_n or 0)
             except Exception:
                 pass
 
@@ -1962,284 +2218,277 @@ class ShadowMarketIncubator:
         engine_db = self.data_dir / 'engine.sqlite3'
         if engine_db.exists():
             try:
-                conn_eng = sqlite3.connect(str(engine_db), timeout=5.0)
-                cur_eng = conn_eng.cursor()
-                cached_live_rows = [
-                    (json.loads(r[0]) if isinstance(r[0], str) else r[0], float(r[1] or 0.0), str(r[2] or ''))
-                    for r in cur_eng.execute("SELECT payload, pnl, issued_at FROM system_decisions WHERE status IN ('won', 'lost', 'push') ORDER BY issued_at ASC").fetchall()
-                ]
-                conn_eng.close()
+                with closing(sqlite3.connect(str(engine_db), timeout=5.0)) as conn_eng:
+                    cur_eng = conn_eng.cursor()
+                    cached_live_rows = [
+                        (json.loads(r[0]) if isinstance(r[0], str) else r[0], float(r[1] or 0.0), str(r[2] or ''))
+                        for r in cur_eng.execute("SELECT payload, pnl, issued_at FROM system_decisions WHERE status IN ('won', 'lost', 'push') ORDER BY issued_at ASC").fetchall()
+                    ]
             except Exception:
                 cached_live_rows = []
-
-        # Group by canonical market family AND cohort
-        families: Dict[Tuple[str, str, str, str, str], List[Tuple]] = {}
-        for r in rows:
-            cohort_val = r[10] if len(r) > 10 and r[10] else 'gap_market'
-            key = (r[0], r[1], r[2], r[3], cohort_val)
-            families.setdefault(key, []).append(r)
 
         graduated_records = []
         current_graduated = load_graduated_markets(self.data_dir)
 
-        for (league, scope, family, sub_family, cohort_val), records in families.items():
-            canonical_key = f"{league}|{scope}|{family}"
-            sub_key = f"{league}|{scope}|{family}:{sub_family}" if (sub_family and sub_family != family) else canonical_key
+        conn_rec = self._get_connection()
+        try:
+            cur_rec = conn_rec.cursor()
+            for (league, scope, family, sub_family, cohort_val, n_cnt, pnl_sum, avg_o, b_mod, b_mkt) in candidate_summaries:
+                canonical_key = f"{league}|{scope}|{family}"
+                sub_key = f"{league}|{scope}|{family}:{sub_family}" if (sub_family and sub_family != family) else canonical_key
 
-            if canonical_key in current_graduated:
-                if current_graduated[canonical_key].get('sub_family') == sub_family:
-                    continue  # Already graduated
-                segment_key = sub_key
-                if segment_key in current_graduated:
-                    continue  # Already graduated
-            else:
-                segment_key = canonical_key
-                if sub_key in current_graduated:
-                    continue
-
-            # Probation check: if demoted previously, check if this specific market was demoted
-            demoted_at = demoted_map.get(segment_key) or demoted_map.get(sub_key)
-            if not demoted_at and canonical_key in demoted_map:
-                demoted_sub = demoted_sub_map.get(canonical_key)
-                if not demoted_sub or demoted_sub == sub_family:
-                    demoted_at = demoted_map.get(canonical_key)
-            original_demoted_at = demoted_at
-            if demoted_at:
-                is_false_demotion = False
-                if cached_live_rows:
-                    meta_check = {'league': league, 'scope': scope, 'family': family, 'sub_family': sub_family, 'segment_key': segment_key}
-                    matching_live = [
-                        p for p, pnl, iss in cached_live_rows
-                        if matches_live_decision_to_market(p, meta_check)
-                    ]
-                    matching_pnl = sum(
-                        pnl for p, pnl, iss in cached_live_rows
-                        if matches_live_decision_to_market(p, meta_check)
-                    )
-                    n_inc = len(records)
-                    inc_pnl = sum(r[5] for r in records)
-                    matching_staked = sum(
-                        float(p.get('stake', 0.0) or 0.0) for p, _, _ in cached_live_rows
-                        if matches_live_decision_to_market(p, meta_check)
-                    )
-                    avg_live_stake = (matching_staked / len(matching_live)) if len(matching_live) > 0 else 1.0
-                    matching_units_pnl = matching_pnl / max(0.20, avg_live_stake)
-                    inc_units_pnl = inc_pnl / max(0.20, 1.0)
-                    # Anti-Clog Statistical Significance:
-                    # 1. Under 5 live games is stochastic noise.
-                    # 2. Cumulative positive PnL in live (matching_pnl >= 0.0) contradicts demotion.
-                    # 3. Under 25 live games with minor drawdown cannot override massive out-of-sample incubator proof (N >= 50, PnL >= +15 units).
-                    if (
-                        len(matching_live) < 5
-                        or matching_pnl >= 0.0
-                        or (len(matching_live) < 25 and (matching_units_pnl > -10.0 or matching_pnl > -15.0) and n_inc >= 50 and (inc_units_pnl >= 15.0 or inc_pnl >= 20.0))
-                    ):
-                        is_false_demotion = True
-
-                if is_false_demotion:
-                    try:
-                        conn_del = self._get_connection()
-                        try:
-                            conn_del.execute("DELETE FROM demoted_markets WHERE segment_key = ? OR (segment_key = ? AND sub_family = ?)", (segment_key, canonical_key, sub_family))
-                            conn_del.commit()
-                        finally:
-                            conn_del.close()
-                        demoted_at = None
-                    except Exception:
-                        pass
-
-                if demoted_at:
-                    records = [r for r in records if len(r) > 11 and r[11] and str(r[11]) > demoted_at]
-                    if not records:
+                if canonical_key in current_graduated:
+                    if current_graduated[canonical_key].get('sub_family') == sub_family:
+                        continue  # Already graduated
+                    segment_key = sub_key
+                    if segment_key in current_graduated:
+                        continue  # Already graduated
+                else:
+                    segment_key = canonical_key
+                    if sub_key in current_graduated:
                         continue
 
-            # Diagnostic recalibration check for stuck incubator markets
-            sub_key = f"{league}|{scope}|{family}:{sub_family}" if sub_family else segment_key
-            recalibrated_at = recalibrated_map.get(segment_key) or recalibrated_map.get(canonical_key) or recalibrated_map.get(sub_key)
-            if recalibrated_at:
-                records = [r for r in records if len(r) > 11 and r[11] and str(r[11]) > recalibrated_at]
+                from .contracts import is_supported_stake_contract
+                if not is_supported_stake_contract(league, scope, family, sub_family):
+                    continue  # Theoretical/phantom archetype not currently offered pre-match by Stake
+
+                if pnl_sum <= 0:
+                    # If total lifetime PnL is non-positive, it can only graduate if filtered by recalibrated_at or demoted_at
+                    if not (recalibrated_map.get(canonical_key) or recalibrated_map.get(sub_key) or demoted_map.get(canonical_key) or demoted_map.get(sub_key)):
+                        continue
+
+                cur_rec.execute("""
+                    SELECT league, scope, family, sub_family, odds, pnl, brier_model, brier_market, dynamic_sample_power_req, raw_market_name, cohort, settled_at
+                    FROM incubated_wagers
+                    WHERE status = 'settled' AND league = ? AND scope = ? AND family = ? AND sub_family = ? AND cohort = ?
+                    ORDER BY settled_at ASC
+                """, (league, scope, family, sub_family, cohort_val))
+                records = cur_rec.fetchall()
                 if not records:
                     continue
 
+                # Probation check: if demoted previously, check if this specific market was demoted
+                demoted_at = demoted_map.get(segment_key) or demoted_map.get(sub_key)
+                if not demoted_at and canonical_key in demoted_map:
+                    demoted_sub = demoted_sub_map.get(canonical_key)
+                    if not demoted_sub or demoted_sub == sub_family:
+                        demoted_at = demoted_map.get(canonical_key)
+                original_demoted_at = demoted_at
+                if demoted_at:
+                    # Constitutional Invariant (Prime Directives 6 & 7):
+                    # Demoted markets cannot bypass quarantine. They must accumulate at least 25 wagers
+                    # strictly settled AFTER demotion before becoming eligible for graduation.
+                    records = [r for r in records if len(r) > 11 and r[11] and str(r[11]) > demoted_at]
+                    n_oos_check = demoted_oos_map.get(segment_key, demoted_oos_map.get(canonical_key, 0))
+                    is_ft = (len(records) >= 10 and (float(len(records)) + 0.20 * min(float(n_oos_check), 200.0)) >= 50.0 and n_oos_check >= 100)
+                    if len(records) < 25 and not is_ft:
+                        continue
 
-            n_samples = len(records)
-            odds_list = [r[4] for r in records]
-            pnl_list = [r[5] for r in records]
-            brier_model_list = [r[6] for r in records if r[6] is not None]
-            brier_mkt_list = [r[7] for r in records if r[7] is not None]
-            req_list = [r[8] for r in records]
+                # Diagnostic recalibration check for stuck incubator markets
+                sub_key = f"{league}|{scope}|{family}:{sub_family}" if sub_family else segment_key
+                recalibrated_at = recalibrated_map.get(segment_key) or recalibrated_map.get(canonical_key) or recalibrated_map.get(sub_key)
+                if recalibrated_at:
+                    records = [r for r in records if len(r) > 11 and r[11] and str(r[11]) > recalibrated_at]
+                    if not records:
+                        continue
 
-            # Dynamic sample requirement: minimum 25 samples
-            avg_odds = float(np.mean(odds_list)) if odds_list else 2.0
-            n_min_dynamic = max(25, int(math.ceil(25.0 * math.sqrt(max(0.1, avg_odds - 1.0)))))
 
-            if n_samples < n_min_dynamic:
-                continue  # Insufficient sample power
+                records.sort(key=lambda r: str(r[-1] or ''))
+                n_samples = len(records)
+                odds_list = [r[4] for r in records]
+                pnl_list = [r[5] for r in records]
+                brier_model_list = [r[6] for r in records if r[6] is not None]
+                brier_mkt_list = [r[7] for r in records if r[7] is not None]
+                req_list = [r[8] for r in records]
 
-            # Metrics
-            total_stake = float(n_samples)
-            total_pnl = float(sum(pnl_list))
-            roi = total_pnl / total_stake
-            win_count = sum(1 for p in pnl_list if p > 0)
-            win_rate = win_count / n_samples
+                # Dynamic sample requirement: minimum 25 samples
+                avg_odds = float(np.mean(odds_list)) if odds_list else 2.0
+                n_min_dynamic = max(25, int(math.ceil(25.0 * math.sqrt(max(0.1, avg_odds - 1.0)))))
 
-            brier_model = float(np.mean(brier_model_list)) if brier_model_list else 0.25
-            brier_mkt = float(np.mean(brier_mkt_list)) if brier_mkt_list else 0.25
-            delta_brier = brier_mkt - brier_model  # Positive = model is superior to market
+                # Fast-Track Composite Power Score (PUCA Architecture):
+                # Power = N_live + 0.20 * min(N_oos, 200) >= 50
+                # Allows low-cadence leagues (UCL, NFL halves) to graduate when:
+                # N_live >= 10, Power >= 50, ROI >= +3.5%, PnL > 0.0, Delta Brier > 0.0010, DD < 15%
+                n_oos = demoted_oos_map.get(segment_key, demoted_oos_map.get(canonical_key, 0))
+                composite_power = float(n_samples) + 0.20 * min(float(n_oos), 200.0)
+                is_fast_track_candidate = (
+                    n_samples >= 10 and
+                    composite_power >= 50.0 and
+                    n_oos >= 100
+                )
 
-            # Running Drawdown
-            cumsum = np.cumsum(pnl_list)
-            peaks = np.maximum.accumulate(cumsum)
-            drawdowns = (peaks - cumsum) / np.maximum(1.0, peaks + total_stake)
-            max_dd = float(np.max(drawdowns)) if len(drawdowns) > 0 else 0.0
+                if n_samples < n_min_dynamic and not is_fast_track_candidate:
+                    continue  # Insufficient sample power
 
-            # -----------------------------------------------------------------
-            # DYNAMIC CRUCIBLE GRADUATION CONDITIONS:
-            # 1. Sample Size >= dynamic N_min (strictly >= 25)
-            # 2. Simulated ROI >= +3.0%
-            # 3. Model Calibration: Delta Brier strictly > 0.0005
-            # 4. Drawdown Discipline: Max Drawdown < 20%
-            # -----------------------------------------------------------------
-            if cohort_val == 'high_probability':
-                passed = (roi >= 0.030 and win_rate >= 0.55 and n_samples >= n_min_dynamic and delta_brier > 0.0005 and max_dd < 0.20)
-            elif cohort_val == 'core_challenger':
-                passed = (roi >= 0.030 and delta_brier > 0.001 and n_samples >= n_min_dynamic and max_dd < 0.20)
-            else:
-                passed = (roi >= 0.035 and delta_brier > 0.002 and n_samples >= n_min_dynamic and max_dd < 0.15)
+                # Metrics
+                total_stake = float(n_samples)
+                total_pnl = float(sum(pnl_list))
+                roi = total_pnl / total_stake
+                win_count = sum(1 for p in pnl_list if p > 0)
+                win_rate = win_count / n_samples
 
-            # Constitutional Invariant (Commandments 1, 6 & 7):
-            # A market with negative live settled PnL (>= 5 games) cannot graduate into production.
-            # If the market was previously demoted, only evaluate live decisions strictly AFTER demotion.
-            if passed and cached_live_rows:
-                meta_grad = {'league': league, 'scope': scope, 'family': family, 'sub_family': sub_family, 'segment_key': segment_key}
-                eff_dem_at = demoted_at or original_demoted_at
-                if eff_dem_at:
-                    eval_live = [
-                        (p, pnl) for p, pnl, iss in cached_live_rows
-                        if matches_live_decision_to_market(p, meta_grad) and str(iss) > eff_dem_at
-                    ]
+                brier_model = float(np.mean(brier_model_list)) if brier_model_list else 0.25
+                brier_mkt = float(np.mean(brier_mkt_list)) if brier_mkt_list else 0.25
+                delta_brier = brier_mkt - brier_model  # Positive = model is superior to market
+
+                # Running Drawdown
+                cumsum = np.cumsum(pnl_list)
+                peaks = np.maximum.accumulate(cumsum)
+                drawdowns = (peaks - cumsum) / np.maximum(1.0, peaks + total_stake)
+                max_dd = float(np.max(drawdowns)) if len(drawdowns) > 0 else 0.0
+
+                # -----------------------------------------------------------------
+                # DYNAMIC CRUCIBLE GRADUATION CONDITIONS:
+                # 1. Fast-Track Composite Power Track:
+                #    N_live >= 10, Composite Power >= 50, ROI >= +3.5%, PnL > 0.0,
+                #    Delta Brier > 0.0010, Max DD < 15%
+                # 2. Standard Tracks: Sample Size >= dynamic N_min (strictly >= 25)
+                # -----------------------------------------------------------------
+                if is_fast_track_candidate and roi >= 0.035 and total_pnl > 0.0 and delta_brier > 0.0010 and max_dd < 0.15:
+                    passed = True
+                    cohort_val = 'fast_track_composite'
+                elif cohort_val == 'high_probability':
+                    passed = (roi >= 0.030 and win_rate >= 0.55 and n_samples >= n_min_dynamic and delta_brier > 0.0005 and max_dd < 0.20)
+                elif cohort_val == 'core_challenger':
+                    passed = (roi >= 0.030 and delta_brier > 0.001 and n_samples >= n_min_dynamic and max_dd < 0.20)
                 else:
-                    eval_live = [
-                        (p, pnl) for p, pnl, iss in cached_live_rows
-                        if matches_live_decision_to_market(p, meta_grad)
-                    ]
-                if len(eval_live) >= 5 and sum(pnl for _, pnl in eval_live) < 0.0:
-                    passed = False
+                    passed = (roi >= 0.035 and delta_brier > 0.002 and n_samples >= n_min_dynamic and max_dd < 0.15)
 
-            if passed:
-                # GRADUATION APPROVED!
-                grad_id = f"grad_{hashlib.sha256(f'{segment_key}:{now_iso}'.encode()).hexdigest()[:16]}"
-                raw_market_names = sorted(list({r[9] for r in records if len(r) > 9 and r[9]}))
-                stats = {
-                    'cohort': cohort_val,
-                    'sample_size': n_samples,
-                    'n_min_dynamic': n_min_dynamic,
-                    'avg_odds': round(avg_odds, 3),
-                    'total_stake': total_stake,
-                    'total_pnl': round(total_pnl, 2),
-                    'roi': round(roi, 4),
-                    'win_rate': round(win_rate, 4),
-                    'delta_brier': round(delta_brier, 5),
-                    'brier_model': round(brier_model, 5),
-                    'brier_market': round(brier_mkt, 5),
-                    'max_drawdown': round(max_dd, 4),
-                    'raw_market_names': raw_market_names,
-                }
+                # Constitutional Invariant (Commandments 1, 6 & 7):
+                # A market with negative live settled PnL cannot graduate into production.
+                # If the market was previously demoted, only evaluate live decisions strictly AFTER demotion.
+                if passed and cached_live_rows:
+                    meta_grad = {'league': league, 'scope': scope, 'family': family, 'sub_family': sub_family, 'segment_key': segment_key}
+                    eff_dem_at = demoted_at or original_demoted_at
+                    if eff_dem_at:
+                        eval_live = [
+                            (p, pnl) for p, pnl, iss in cached_live_rows
+                            if matches_live_decision_to_market(p, meta_grad) and str(iss) > eff_dem_at
+                        ]
+                    else:
+                        eval_live = [
+                            (p, pnl) for p, pnl, iss in cached_live_rows
+                            if matches_live_decision_to_market(p, meta_grad)
+                        ]
+                    if eval_live and sum(pnl for _, pnl in eval_live) < 0.0:
+                        passed = False
 
-                # Evaluate Multi-Model Tournament Champions
-                try:
-                    from .tournament_engine import TournamentEngine
-                    t_eng = getattr(self, '_tournament_engine', None) or TournamentEngine(self.data_dir)
-                    champ = t_eng.crown_champion(segment_key)
-                    if not champ and sub_key and sub_key != segment_key:
-                        champ = t_eng.crown_champion(sub_key)
-                    if not champ and sub_family:
-                        champ = t_eng.crown_champion(f"{league}|{scope}|{sub_family}")
-                    if champ:
-                        stats['champion_model_id'] = champ.model_id
-                        stats['champion_version'] = champ.version
-                        stats['tournament_scorecard_s'] = champ.scorecard_s
-                except Exception:
-                    pass
+                if passed:
+                    # GRADUATION APPROVED!
+                    grad_id = f"grad_{hashlib.sha256(f'{segment_key}:{now_iso}'.encode()).hexdigest()[:16]}"
+                    raw_market_names = sorted(list({r[9] for r in records if len(r) > 9 and r[9]}))
+                    stats = {
+                        'cohort': cohort_val,
+                        'sample_size': n_samples,
+                        'n_min_dynamic': n_min_dynamic,
+                        'avg_odds': round(avg_odds, 3),
+                        'total_stake': total_stake,
+                        'total_pnl': round(total_pnl, 2),
+                        'roi': round(roi, 4),
+                        'win_rate': round(win_rate, 4),
+                        'delta_brier': round(delta_brier, 5),
+                        'brier_model': round(brier_model, 5),
+                        'brier_market': round(brier_mkt, 5),
+                        'max_drawdown': round(max_dd, 4),
+                        'raw_market_names': raw_market_names,
+                    }
 
-                conn_grad = self._get_connection()
-                try:
-                    cur_grad = conn_grad.cursor()
-                    cur_grad.execute("""
-                        INSERT OR REPLACE INTO graduated_markets (
-                            id, segment_key, league, scope, family, sub_family,
-                            graduated_at, sample_size, roi, delta_brier, max_drawdown, win_rate, stats
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (
-                        grad_id, segment_key, league, scope, family, sub_family,
-                        now_iso, n_samples, roi, delta_brier, max_dd, win_rate, json.dumps(stats)
-                    ))
+                    # Evaluate Multi-Model Tournament Champions
                     try:
-                        cur_grad.execute("""
-                            DELETE FROM demoted_markets 
-                            WHERE segment_key IN (?, ?, ?) 
-                               OR (league = ? AND scope = ? AND (family = ? OR sub_family = ?))
-                        """, (segment_key, canonical_key, sub_key, league, scope, family, sub_family))
-                        cur_grad.execute("""
-                            DELETE FROM incubator_diagnostic_repairs 
-                            WHERE segment_key IN (?, ?, ?)
-                        """, (segment_key, canonical_key, sub_key))
+                        from .tournament_engine import TournamentEngine
+                        t_eng = getattr(self, '_tournament_engine', None) or TournamentEngine(self.data_dir)
+                        champ = t_eng.crown_champion(segment_key)
+                        if not champ and sub_key and sub_key != segment_key:
+                            champ = t_eng.crown_champion(sub_key)
+                        if not champ and sub_family:
+                            champ = t_eng.crown_champion(f"{league}|{scope}|{sub_family}")
+                        if champ:
+                            stats['champion_model_id'] = champ.model_id
+                            stats['champion_version'] = champ.version
+                            stats['tournament_scorecard_s'] = champ.scorecard_s
                     except Exception:
                         pass
-                    conn_grad.commit()
-                finally:
-                    conn_grad.close()
 
-                try:
-                    from .telegram_notifier import notify_rd_graduation
-                    notify_rd_graduation(league, segment_key, n_samples, roi * 100.0, win_rate * 100.0)
-                except Exception:
-                    pass
+                    conn_grad = self._get_connection()
+                    try:
+                        cur_grad = conn_grad.cursor()
+                        cur_grad.execute("""
+                            INSERT OR REPLACE INTO graduated_markets (
+                                id, segment_key, league, scope, family, sub_family,
+                                graduated_at, sample_size, roi, delta_brier, max_drawdown, win_rate, stats
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (
+                            grad_id, segment_key, league, scope, family, sub_family,
+                            now_iso, n_samples, roi, delta_brier, max_dd, win_rate, json.dumps(stats)
+                        ))
+                        try:
+                            cur_grad.execute("""
+                                DELETE FROM demoted_markets 
+                                WHERE segment_key IN (?, ?, ?) 
+                                   OR (league = ? AND scope = ? AND (family = ? OR sub_family = ?))
+                            """, (segment_key, canonical_key, sub_key, league, scope, family, sub_family))
+                            cur_grad.execute("""
+                                DELETE FROM incubator_diagnostic_repairs 
+                                WHERE segment_key IN (?, ?, ?)
+                            """, (segment_key, canonical_key, sub_key))
+                        except Exception:
+                            pass
+                        conn_grad.commit()
+                    finally:
+                        conn_grad.close()
 
-                # High-probability & proven core challenger cohorts graduate to SOLID_ALPHA; gap markets start in PROBATION.
-                initial_tier = 'SOLID_ALPHA' if cohort_val in ('high_probability', 'core_challenger') and roi >= 0.03 else 'PROBATION'
-                grad_entry = {
+                    try:
+                        from .telegram_notifier import notify_rd_graduation
+                        notify_rd_graduation(league, segment_key, n_samples, roi * 100.0, win_rate * 100.0)
+                    except Exception:
+                        pass
 
-                    'id': grad_id,
-                    'segment_key': segment_key,
-                    'league': league,
-                    'scope': scope,
-                    'family': family,
-                    'sub_family': sub_family,
-                    'cohort': cohort_val,
-                    'graduated_at': now_iso,
-                    'initial_tier': initial_tier,
-                    'stats': stats
-                }
-                current_graduated[segment_key] = grad_entry
-                graduated_records.append(grad_entry)
+                    # High-probability & proven core challenger cohorts graduate to SOLID_ALPHA; gap markets start in PROBATION.
+                    initial_tier = 'SOLID_ALPHA' if cohort_val in ('high_probability', 'core_challenger') and roi >= 0.03 else 'PROBATION'
+                    grad_entry = {
 
-                # Record dynamic tier transition into tier_transitions.jsonl
-                try:
-                    from .tier_state_machine import append_tier_transition
-                    prev_t = 'CAPITAL_DEFENSE' if cohort_val == 'core_challenger' else 'SHADOW_INCUBATION'
-                    trans_t = 'CORE_CHALLENGER_GRADUATION' if cohort_val == 'core_challenger' else 'GRADUATION_PROMOTION'
-                    append_tier_transition({
-                        'id': f"trans_{grad_id}",
-                        'timestamp': now_iso,
-                        'segment': segment_key,
+                        'id': grad_id,
+                        'segment_key': segment_key,
                         'league': league,
                         'scope': scope,
                         'family': family,
-                        'previous_tier': prev_t,
-                        'new_tier': initial_tier,
-                        'transition_type': trans_t,
-                        'pnl': total_pnl,
-                        'roi_pct': round(roi * 100.0, 2),
-                        'games': n_samples,
-                        'wins': win_count,
-                        'losses': n_samples - win_count,
-                        'diagnostic_reason': f"Autonomous Crucible Graduation: {segment_key} passed all invariants (Cohort: {cohort_val}, ROI: +{roi*100:.1f}%, WinRate: {win_rate*100:.1f}%, Delta Brier: +{delta_brier:.4f}, N={n_samples})",
-                        'rd_actionable_remedy': f"Promote to live issuance in {initial_tier} tier ($0.50 evolutionary floor) under TierStateMachine oversight.",
-                        'failure_mode': 'NONE_GRADUATED'
-                    })
-                except Exception:
-                    pass
+                        'sub_family': sub_family,
+                        'cohort': cohort_val,
+                        'graduated_at': now_iso,
+                        'initial_tier': initial_tier,
+                        'stats': stats
+                    }
+                    current_graduated[segment_key] = grad_entry
+                    graduated_records.append(grad_entry)
+
+                    # Record dynamic tier transition into tier_transitions.jsonl
+                    try:
+                        from .tier_state_machine import append_tier_transition
+                        prev_t = 'CAPITAL_DEFENSE' if cohort_val == 'core_challenger' else 'SHADOW_INCUBATION'
+                        trans_t = 'CORE_CHALLENGER_GRADUATION' if cohort_val == 'core_challenger' else 'GRADUATION_PROMOTION'
+                        append_tier_transition({
+                            'id': f"trans_{grad_id}",
+                            'timestamp': now_iso,
+                            'segment': segment_key,
+                            'league': league,
+                            'scope': scope,
+                            'family': family,
+                            'previous_tier': prev_t,
+                            'new_tier': initial_tier,
+                            'transition_type': trans_t,
+                            'pnl': total_pnl,
+                            'roi_pct': round(roi * 100.0, 2),
+                            'games': n_samples,
+                            'wins': win_count,
+                            'losses': n_samples - win_count,
+                            'diagnostic_reason': f"Autonomous Crucible Graduation: {segment_key} passed all invariants (Cohort: {cohort_val}, ROI: +{roi*100:.1f}%, WinRate: {win_rate*100:.1f}%, Delta Brier: +{delta_brier:.4f}, N={n_samples})",
+                            'rd_actionable_remedy': f"Promote to live issuance in {initial_tier} tier ($0.50 evolutionary floor) under TierStateMachine oversight.",
+                            'failure_mode': 'NONE_GRADUATED'
+                        })
+                    except Exception:
+                        pass
+        finally:
+            conn_rec.close()
 
         # -------------------------------------------------------------
         # DUAL-TRACK CORE FULL-GAME MARKET GRADUATION
@@ -2450,12 +2699,14 @@ class ShadowMarketIncubator:
             cur = conn.cursor()
 
             cur.execute("""
-                SELECT league, scope, family, sub_family, odds, pnl, brier_model, brier_market, raw_market_name, cohort, settled_at
+                SELECT league, scope, family, sub_family, cohort,
+                       count(*), sum(pnl), avg(odds), avg(brier_model), avg(brier_market)
                 FROM incubated_wagers
                 WHERE status = 'settled'
-                ORDER BY settled_at ASC
-            """)
-            rows = cur.fetchall()
+                GROUP BY league, scope, family, sub_family, cohort
+                HAVING count(*) >= ? AND sum(pnl) > 0
+            """, (min_sample_size,))
+            candidate_summaries = cur.fetchall()
 
             demoted_set = set()
             try:
@@ -2466,215 +2717,232 @@ class ShadowMarketIncubator:
         finally:
             conn.close()
 
-        families: Dict[Tuple[str, str, str, str, str], List[Tuple]] = {}
-        for r in rows:
-            cohort_val = r[9] if len(r) > 9 and r[9] else 'gap_market'
-            key = (r[0], r[1], r[2], r[3], cohort_val)
-            families.setdefault(key, []).append(r)
+        # Pre-load live decisions to protect against graduating live losing markets
+        cached_live_rows = []
+        engine_db = self.data_dir / 'engine.sqlite3'
+        if engine_db.exists():
+            try:
+                with closing(sqlite3.connect(str(engine_db), timeout=5.0)) as conn_eng:
+                    cur_eng = conn_eng.cursor()
+                    cached_live_rows = [
+                        (json.loads(r[0]) if isinstance(r[0], str) else r[0], float(r[1] or 0.0), str(r[2] or ''))
+                        for r in cur_eng.execute("SELECT payload, pnl, issued_at FROM system_decisions WHERE status IN ('won', 'lost', 'push') ORDER BY issued_at ASC").fetchall()
+                    ]
+            except Exception:
+                cached_live_rows = []
 
         graduated_records = []
 
-        all_leagues = sorted(list(set(league_counts.keys()).union({r[0] for r in rows if r[0]}).union([
+        all_leagues = sorted(list(set(league_counts.keys()).union({r[0] for r in candidate_summaries if r[0]}).union([
             'NBA', 'WTA', 'ATP', 'MLB', 'NHL', 'NFL', 'NCAAF', 'EPL', 'MLS', 'UCL', 'WNBA', 'CHALLENGER'
         ])))
 
         allocated_keys = set(current_graduated.keys())
 
-        for league in all_leagues:
-            candidates = []
-            for (l_c, scope_c, fam_c, sub_c, cohort_c), records_c in families.items():
-                if l_c != league:
-                    continue
+        conn_rec = self._get_connection()
+        try:
+            cur_rec = conn_rec.cursor()
+            for league in all_leagues:
+                candidates = []
+                for (l_c, scope_c, fam_c, sub_c, cohort_c, n_c, tot_pnl_c, avg_o_c, avg_bm_c, avg_bmkt_c) in candidate_summaries:
+                    if l_c != league:
+                        continue
 
-                already_grad = False
-                for gk, gv in current_graduated.items():
-                    if (gv.get('league') == league and gv.get('scope') == scope_c and
-                        gv.get('family') == fam_c and gv.get('sub_family') == sub_c):
-                        already_grad = True
-                        break
-                if already_grad:
-                    continue
+                    already_grad = False
+                    for gk, gv in current_graduated.items():
+                        if (gv.get('league') == league and gv.get('scope') == scope_c and
+                            gv.get('family') == fam_c and gv.get('sub_family') == sub_c):
+                            already_grad = True
+                            break
+                    if already_grad:
+                        continue
 
-                canonical_c = f"{league}|{scope_c}|{fam_c}"
-                if canonical_c not in allocated_keys:
-                    seg_key_c = canonical_c
-                else:
-                    seg_key_c = f"{canonical_c}:{sub_c}"
+                    canonical_c = f"{league}|{scope_c}|{fam_c}"
+                    if canonical_c not in allocated_keys:
+                        seg_key_c = canonical_c
+                    else:
+                        seg_key_c = f"{canonical_c}:{sub_c}"
 
-                if seg_key_c in allocated_keys or seg_key_c in current_graduated:
-                    continue
-                if seg_key_c in demoted_set or canonical_c in demoted_set:
-                    continue
+                    if seg_key_c in allocated_keys or seg_key_c in current_graduated:
+                        continue
+                    if seg_key_c in demoted_set or canonical_c in demoted_set:
+                        continue
+                    if cached_live_rows:
+                        meta_c = {'league': league, 'scope': scope_c, 'family': fam_c, 'sub_family': sub_c, 'segment_key': seg_key_c}
+                        matching_live_c = [(p, pnl) for p, pnl, iss in cached_live_rows if matches_live_decision_to_market(p, meta_c)]
+                        if matching_live_c and sum(pnl for _, pnl in matching_live_c) < 0.0:
+                            continue
 
-                n_c = len(records_c)
-                if n_c < min_sample_size:
-                    continue
+                    from .contracts import is_supported_stake_contract
+                    if not is_supported_stake_contract(league, scope_c, fam_c, sub_c):
+                        continue
 
-                pnl_c = [r[5] for r in records_c]
-                tot_pnl_c = float(sum(pnl_c))
-                if tot_pnl_c <= 0:
-                    continue
+                    roi_c = tot_pnl_c / float(n_c)
+                    if roi_c < 0.030:
+                        continue
 
-                roi_c = tot_pnl_c / float(n_c)
-                if roi_c < 0.030:
-                    continue
+                    avg_bm_c = avg_bm_c if avg_bm_c is not None else 0.25
+                    avg_bmkt_c = avg_bmkt_c if avg_bmkt_c is not None else 0.25
+                    delta_b_c = avg_bmkt_c - avg_bm_c
+                    # Strict Anti-Overfitting: Delta Brier must demonstrate genuine calibration edge over closing lines
+                    if delta_b_c <= 0.0005:
+                        continue
 
-                odds_c = [r[4] for r in records_c]
-                avg_o_c = float(np.mean(odds_c)) if odds_c else 2.0
-                bm_c = [r[6] for r in records_c if r[6] is not None]
-                bmkt_c = [r[7] for r in records_c if r[7] is not None]
-                avg_bm_c = float(np.mean(bm_c)) if bm_c else 0.25
-                avg_bmkt_c = float(np.mean(bmkt_c)) if bmkt_c else 0.25
-                delta_b_c = avg_bmkt_c - avg_bm_c
-                # Strict Anti-Overfitting: Delta Brier must demonstrate genuine calibration edge over closing lines
-                if delta_b_c <= 0.0005:
-                    continue
+                    cur_rec.execute("""
+                        SELECT raw_market_name, pnl
+                        FROM incubated_wagers
+                        WHERE status = 'settled' AND league = ? AND scope = ? AND family = ? AND sub_family = ? AND cohort = ?
+                        ORDER BY settled_at ASC
+                    """, (league, scope_c, fam_c, sub_c, cohort_c))
+                    records_c = cur_rec.fetchall()
+                    pnl_c = [r[1] for r in records_c]
+                    cumsum_c = np.cumsum(pnl_c)
+                    peaks_c = np.maximum.accumulate(cumsum_c)
+                    drawdowns_c = (peaks_c - cumsum_c) / np.maximum(1.0, peaks_c + float(n_c))
+                    max_dd_c = float(np.max(drawdowns_c)) if len(drawdowns_c) > 0 else 0.0
+                    if max_dd_c >= 0.20:
+                        continue
 
-                cumsum_c = np.cumsum(pnl_c)
-                peaks_c = np.maximum.accumulate(cumsum_c)
-                drawdowns_c = (peaks_c - cumsum_c) / np.maximum(1.0, peaks_c + float(n_c))
-                max_dd_c = float(np.max(drawdowns_c)) if len(drawdowns_c) > 0 else 0.0
-                if max_dd_c >= 0.20:
-                    continue
+                    win_count_c = sum(1 for p in pnl_c if p > 0)
+                    win_rate_c = float(win_count_c) / float(n_c)
 
-                win_count_c = sum(1 for p in pnl_c if p > 0)
-                win_rate_c = float(win_count_c) / float(n_c)
+                    score_c = tot_pnl_c * min(2.0, max(0.1, roi_c)) * math.sqrt(n_c)
+                    allocated_keys.add(seg_key_c)
+                    candidates.append({
+                        'records': records_c,
+                        'segment_key': seg_key_c,
+                        'canonical_key': canonical_c,
+                        'scope': scope_c,
+                        'family': fam_c,
+                        'sub_family': sub_c,
+                        'cohort': cohort_c,
+                        'n_samples': n_c,
+                        'avg_odds': avg_o_c or 2.0,
+                        'total_stake': float(n_c),
+                        'total_pnl': tot_pnl_c,
+                        'roi': roi_c,
+                        'win_rate': win_rate_c,
+                        'delta_brier': delta_b_c,
+                        'brier_model': avg_bm_c,
+                        'brier_market': avg_bmkt_c,
+                        'max_dd': max_dd_c,
+                        'score': score_c
+                    })
 
-                score_c = tot_pnl_c * min(2.0, max(0.1, roi_c)) * math.sqrt(n_c)
-                allocated_keys.add(seg_key_c)
-                candidates.append({
-                    'records': records_c,
-                    'segment_key': seg_key_c,
-                    'canonical_key': canonical_c,
-                    'scope': scope_c,
-                    'family': fam_c,
-                    'sub_family': sub_c,
-                    'cohort': cohort_c,
-                    'n_samples': n_c,
-                    'avg_odds': avg_o_c,
-                    'total_stake': float(n_c),
-                    'total_pnl': tot_pnl_c,
-                    'roi': roi_c,
-                    'win_rate': win_rate_c,
-                    'delta_brier': delta_b_c,
-                    'brier_model': avg_bm_c,
-                    'brier_market': avg_bmkt_c,
-                    'max_dd': max_dd_c,
-                    'score': score_c
-                })
+                candidates.sort(key=lambda x: -x['score'])
+                # Zero Rationing & Unlimited Maximum: ALL proven candidates graduate!
+                for cand in candidates:
+                    c_seg = cand['segment_key']
+                    grad_id = f"grad_quota_{hashlib.sha256(f'{c_seg}:{now_iso}'.encode()).hexdigest()[:16]}"
+                    raw_market_names = sorted(list({r[0] for r in cand['records'] if r[0]}))
+                    stats = {
+                        'cohort': cand['cohort'],
+                        'sample_size': cand['n_samples'],
+                        'n_min_dynamic': 10,
+                        'avg_odds': round(cand['avg_odds'], 3),
+                        'total_stake': cand['total_stake'],
+                        'total_pnl': round(cand['total_pnl'], 2),
+                        'roi': round(cand['roi'], 4),
+                        'win_rate': round(cand['win_rate'], 4),
+                        'delta_brier': round(cand['delta_brier'], 5),
+                        'brier_model': round(cand['brier_model'], 5),
+                        'brier_market': round(cand['brier_market'], 5),
+                        'max_drawdown': round(cand['max_dd'], 4),
+                        'raw_market_names': raw_market_names,
+                        'quota_expansion_triggered': True,
+                        'unlimited_proven_graduation': True,
+                        'quota_target': min_quota
+                    }
 
-            candidates.sort(key=lambda x: -x['score'])
-            # Zero Rationing & Unlimited Maximum: ALL proven candidates graduate!
-            for cand in candidates:
-                c_seg = cand['segment_key']
-                grad_id = f"grad_quota_{hashlib.sha256(f'{c_seg}:{now_iso}'.encode()).hexdigest()[:16]}"
-                raw_market_names = sorted(list({r[8] for r in cand['records'] if len(r) > 8 and r[8]}))
-                stats = {
-                    'cohort': cand['cohort'],
-                    'sample_size': cand['n_samples'],
-                    'n_min_dynamic': 10,
-                    'avg_odds': round(cand['avg_odds'], 3),
-                    'total_stake': cand['total_stake'],
-                    'total_pnl': round(cand['total_pnl'], 2),
-                    'roi': round(cand['roi'], 4),
-                    'win_rate': round(cand['win_rate'], 4),
-                    'delta_brier': round(cand['delta_brier'], 5),
-                    'brier_model': round(cand['brier_model'], 5),
-                    'brier_market': round(cand['brier_market'], 5),
-                    'max_drawdown': round(cand['max_dd'], 4),
-                    'raw_market_names': raw_market_names,
-                    'quota_expansion_triggered': True,
-                    'unlimited_proven_graduation': True,
-                    'quota_target': min_quota
-                }
-
-                # Evaluate Multi-Model Tournament Champions
-                cand_sub_key = f"{league}|{cand['scope']}|{cand['family']}:{cand['sub_family']}" if cand['sub_family'] else cand['segment_key']
-                try:
-                    from .tournament_engine import TournamentEngine
-                    t_eng = getattr(self, '_tournament_engine', None) or TournamentEngine(self.data_dir)
-                    champ = t_eng.crown_champion(cand['segment_key'])
-                    if not champ and cand_sub_key != cand['segment_key']:
-                        champ = t_eng.crown_champion(cand_sub_key)
-                    if not champ and cand.get('sub_family'):
-                        champ = t_eng.crown_champion(f"{league}|{cand['scope']}|{cand['sub_family']}")
-                    if champ:
-                        stats['champion_model_id'] = champ.model_id
-                        stats['champion_version'] = champ.version
-                        stats['tournament_scorecard_s'] = champ.scorecard_s
-                except Exception:
-                    pass
-
-                conn_quota = self._get_connection()
-                try:
-                    cur_quota = conn_quota.cursor()
-                    cur_quota.execute("""
-                        INSERT OR REPLACE INTO graduated_markets (
-                            id, segment_key, league, scope, family, sub_family,
-                            graduated_at, sample_size, roi, delta_brier, max_drawdown, win_rate, stats
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (
-                        grad_id, cand['segment_key'], league, cand['scope'], cand['family'], cand['sub_family'],
-                        now_iso, cand['n_samples'], cand['roi'], cand['delta_brier'], cand['max_dd'], cand['win_rate'], json.dumps(stats)
-                    ))
+                    # Evaluate Multi-Model Tournament Champions
+                    cand_sub_key = f"{league}|{cand['scope']}|{cand['family']}:{cand['sub_family']}" if cand['sub_family'] else cand['segment_key']
                     try:
-                        cur_quota.execute("""
-                            DELETE FROM demoted_markets 
-                            WHERE segment_key IN (?, ?, ?)
-                               OR (league = ? AND scope = ? AND (family = ? OR sub_family = ?))
-                        """, (cand['segment_key'], cand['canonical_key'], cand_sub_key, league, cand['scope'], cand['family'], cand['sub_family']))
+                        from .tournament_engine import TournamentEngine
+                        t_eng = getattr(self, '_tournament_engine', None) or TournamentEngine(self.data_dir)
+                        champ = t_eng.crown_champion(cand['segment_key'])
+                        if not champ and cand_sub_key != cand['segment_key']:
+                            champ = t_eng.crown_champion(cand_sub_key)
+                        if not champ and cand.get('sub_family'):
+                            champ = t_eng.crown_champion(f"{league}|{cand['scope']}|{cand['sub_family']}")
+                        if champ:
+                            stats['champion_model_id'] = champ.model_id
+                            stats['champion_version'] = champ.version
+                            stats['tournament_scorecard_s'] = champ.scorecard_s
                     except Exception:
                         pass
-                    conn_quota.commit()
-                finally:
-                    conn_quota.close()
 
-                try:
-                    from .telegram_notifier import notify_rd_graduation
-                    notify_rd_graduation(league, cand['segment_key'], cand['n_samples'], cand['roi'] * 100.0, cand['win_rate'] * 100.0)
-                except Exception:
-                    pass
+                    conn_quota = self._get_connection()
+                    try:
+                        cur_quota = conn_quota.cursor()
+                        cur_quota.execute("""
+                            INSERT OR REPLACE INTO graduated_markets (
+                                id, segment_key, league, scope, family, sub_family,
+                                graduated_at, sample_size, roi, delta_brier, max_drawdown, win_rate, stats
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (
+                            grad_id, cand['segment_key'], league, cand['scope'], cand['family'], cand['sub_family'],
+                            now_iso, cand['n_samples'], cand['roi'], cand['delta_brier'], cand['max_dd'], cand['win_rate'], json.dumps(stats)
+                        ))
+                        try:
+                            cur_quota.execute("""
+                                DELETE FROM demoted_markets 
+                                WHERE segment_key IN (?, ?, ?)
+                                   OR (league = ? AND scope = ? AND (family = ? OR sub_family = ?))
+                            """, (cand['segment_key'], cand['canonical_key'], cand_sub_key, league, cand['scope'], cand['family'], cand['sub_family']))
+                        except Exception:
+                            pass
+                        conn_quota.commit()
+                    finally:
+                        conn_quota.close()
 
-                initial_tier = 'SOLID_ALPHA' if cand['cohort'] == 'high_probability' and cand['roi'] >= 0.03 else 'PROBATION'
-                grad_entry = {
-                    'id': grad_id,
-                    'segment_key': cand['segment_key'],
-                    'league': league,
-                    'scope': cand['scope'],
-                    'family': cand['family'],
-                    'sub_family': cand['sub_family'],
-                    'cohort': cand['cohort'],
-                    'graduated_at': now_iso,
-                    'initial_tier': initial_tier,
-                    'stats': stats
-                }
-                current_graduated[cand['segment_key']] = grad_entry
-                graduated_records.append(grad_entry)
-                league_counts[league] = league_counts.get(league, 0) + 1
+                    try:
+                        from .telegram_notifier import notify_rd_graduation
+                        notify_rd_graduation(league, cand['segment_key'], cand['n_samples'], cand['roi'] * 100.0, cand['win_rate'] * 100.0)
+                    except Exception:
+                        pass
 
-                try:
-                    from .tier_state_machine import append_tier_transition
-                    append_tier_transition({
-                        'id': f"trans_{grad_id}",
-                        'timestamp': now_iso,
-                        'segment': cand['segment_key'],
+                    initial_tier = 'SOLID_ALPHA' if cand['cohort'] == 'high_probability' and cand['roi'] >= 0.03 else 'PROBATION'
+                    grad_entry = {
+                        'id': grad_id,
+                        'segment_key': cand['segment_key'],
                         'league': league,
                         'scope': cand['scope'],
                         'family': cand['family'],
-                        'previous_tier': 'SHADOW_INCUBATION',
-                        'new_tier': initial_tier,
-                        'transition_type': 'GRADUATION_PROMOTION',
-                        'pnl': cand['total_pnl'],
-                        'roi_pct': round(cand['roi'] * 100.0, 2),
-                        'games': cand['n_samples'],
-                        'wins': int(cand['win_rate'] * cand['n_samples']),
-                        'losses': cand['n_samples'] - int(cand['win_rate'] * cand['n_samples']),
-                        'diagnostic_reason': f"Unlimited Proven Graduation: {cand['segment_key']} (ROI: +{cand['roi']*100:.1f}%, PnL: +${cand['total_pnl']:.2f}, N={cand['n_samples']})",
-                        'rd_actionable_remedy': f"Promote to live issuance in {initial_tier} tier ($0.50 evolutionary floor).",
-                        'failure_mode': 'NONE_GRADUATED'
-                    })
-                except Exception:
-                    pass
+                        'sub_family': cand['sub_family'],
+                        'cohort': cand['cohort'],
+                        'graduated_at': now_iso,
+                        'initial_tier': initial_tier,
+                        'stats': stats
+                    }
+                    current_graduated[cand['segment_key']] = grad_entry
+                    graduated_records.append(grad_entry)
+                    league_counts[league] = league_counts.get(league, 0) + 1
+
+                    try:
+                        from .tier_state_machine import append_tier_transition
+                        append_tier_transition({
+                            'id': f"trans_{grad_id}",
+                            'timestamp': now_iso,
+                            'segment': cand['segment_key'],
+                            'league': league,
+                            'scope': cand['scope'],
+                            'family': cand['family'],
+                            'previous_tier': 'SHADOW_INCUBATION',
+                            'new_tier': initial_tier,
+                            'transition_type': 'GRADUATION_PROMOTION',
+                            'pnl': cand['total_pnl'],
+                            'roi_pct': round(cand['roi'] * 100.0, 2),
+                            'games': cand['n_samples'],
+                            'wins': int(cand['win_rate'] * cand['n_samples']),
+                            'losses': cand['n_samples'] - int(cand['win_rate'] * cand['n_samples']),
+                            'diagnostic_reason': f"Unlimited Proven Graduation: {cand['segment_key']} (ROI: +{cand['roi']*100:.1f}%, PnL: +${cand['total_pnl']:.2f}, N={cand['n_samples']})",
+                            'rd_actionable_remedy': f"Promote to live issuance in {initial_tier} tier ($0.50 evolutionary floor).",
+                            'failure_mode': 'NONE_GRADUATED'
+                        })
+                    except Exception:
+                        pass
+        finally:
+            conn_rec.close()
 
         if graduated_records:
             save_graduated_markets(current_graduated, self.data_dir)
@@ -2707,21 +2975,25 @@ class ShadowMarketIncubator:
             cur = conn.cursor()
 
             cur.execute("""
-                SELECT league, scope, family, sub_family, odds, pnl, brier_model, brier_market, dynamic_sample_power_req, raw_market_name, settled_at
+                SELECT league, scope, family, sub_family,
+                       count(*), sum(pnl), avg(odds), avg(brier_model), avg(brier_market)
                 FROM incubated_wagers
                 WHERE status = 'settled'
-                ORDER BY settled_at ASC
+                GROUP BY league, scope, family, sub_family
+                HAVING count(*) >= 10
             """)
-            rows = cur.fetchall()
+            candidate_summaries = cur.fetchall()
 
-            # Demoted / probation map
+            # Demoted / probation map and historical out-of-sample sample size
             demoted_map = {}
             demoted_sub_map = {}
+            demoted_oos_map = {}
             try:
-                cur.execute("SELECT segment_key, demoted_at, sub_family FROM demoted_markets")
-                for sk, da, sf in cur.fetchall():
+                cur.execute("SELECT segment_key, demoted_at, sub_family, COALESCE(historical_sample_size, 0) FROM demoted_markets")
+                for sk, da, sf, h_n in cur.fetchall():
                     demoted_map[sk] = da
                     demoted_sub_map[sk] = sf
+                    demoted_oos_map[sk] = int(h_n or 0)
             except Exception:
                 pass
 
@@ -2741,234 +3013,233 @@ class ShadowMarketIncubator:
         engine_db = self.data_dir / 'engine.sqlite3'
         if engine_db.exists():
             try:
-                conn_eng = sqlite3.connect(str(engine_db), timeout=5.0)
-                cur_eng = conn_eng.cursor()
-                cached_live_rows = [
-                    (json.loads(r[0]) if isinstance(r[0], str) else r[0], float(r[1] or 0.0), str(r[2] or ''))
-                    for r in cur_eng.execute("SELECT payload, pnl, issued_at FROM system_decisions WHERE status IN ('won', 'lost', 'push') ORDER BY issued_at ASC").fetchall()
-                ]
-                conn_eng.close()
+                with closing(sqlite3.connect(str(engine_db), timeout=5.0)) as conn_eng:
+                    cur_eng = conn_eng.cursor()
+                    cached_live_rows = [
+                        (json.loads(r[0]) if isinstance(r[0], str) else r[0], float(r[1] or 0.0), str(r[2] or ''))
+                        for r in cur_eng.execute("SELECT payload, pnl, issued_at FROM system_decisions WHERE status IN ('won', 'lost', 'push') ORDER BY issued_at ASC").fetchall()
+                    ]
             except Exception:
                 cached_live_rows = []
-
-        families: Dict[Tuple[str, str, str, str], List[Tuple]] = {}
-        for r in rows:
-            key = (r[0], r[1], r[2], r[3])
-            families.setdefault(key, []).append(r)
 
         graduated_records = []
         current_graduated = load_graduated_markets(self.data_dir)
 
-        for (league, scope, family, sub_family), records in families.items():
-            canonical_key = f"{league}|{scope}|{family}"
-            sub_key = f"{league}|{scope}|{family}:{sub_family}" if (sub_family and sub_family != family) else canonical_key
+        conn_rec = self._get_connection()
+        try:
+            cur_rec = conn_rec.cursor()
+            for (league, scope, family, sub_family, n_cnt, pnl_sum, avg_o, b_mod, b_mkt) in candidate_summaries:
+                canonical_key = f"{league}|{scope}|{family}"
+                sub_key = f"{league}|{scope}|{family}:{sub_family}" if (sub_family and sub_family != family) else canonical_key
 
-            if canonical_key in current_graduated:
-                if current_graduated[canonical_key].get('sub_family') == sub_family:
-                    continue  # Already graduated
-                segment_key = sub_key
-                if segment_key in current_graduated:
-                    continue  # Already graduated
-            else:
-                segment_key = canonical_key
-                if sub_key in current_graduated:
-                    continue
-
-            # Probation check: if demoted previously, check if the demotion was a cross-contamination false demotion
-            demoted_at = demoted_map.get(segment_key) or demoted_map.get(sub_key)
-            if not demoted_at and canonical_key in demoted_map:
-                demoted_sub = demoted_sub_map.get(canonical_key)
-                if not demoted_sub or demoted_sub == sub_family:
-                    demoted_at = demoted_map.get(canonical_key)
-            if demoted_at:
-                is_false_demotion = False
-                if cached_live_rows:
-                    meta_check = {'league': league, 'scope': scope, 'family': family, 'sub_family': sub_family, 'segment_key': segment_key}
-                    matching_live = [
-                        p for p, pnl, iss in cached_live_rows
-                        if matches_live_decision_to_market(p, meta_check)
-                    ]
-                    matching_pnl = sum(
-                        pnl for p, pnl, iss in cached_live_rows
-                        if matches_live_decision_to_market(p, meta_check)
-                    )
-                    n_inc = len(records)
-                    inc_pnl = sum(r[5] for r in records)
-                    matching_staked = sum(
-                        float(p.get('stake', 0.0) or 0.0) for p, _, _ in cached_live_rows
-                        if matches_live_decision_to_market(p, meta_check)
-                    )
-                    avg_live_stake = (matching_staked / len(matching_live)) if len(matching_live) > 0 else 1.0
-                    matching_units_pnl = matching_pnl / max(0.20, avg_live_stake)
-                    inc_units_pnl = inc_pnl / max(0.20, 1.0)
-                    # Anti-Clog Statistical Significance:
-                    # 1. Under 5 live games is stochastic noise.
-                    # 2. Cumulative positive PnL in live (matching_pnl >= 0.0) contradicts demotion.
-                    # 3. Under 25 live games with minor drawdown cannot override massive out-of-sample incubator proof (N >= 50, PnL >= +15 units).
-                    if (
-                        len(matching_live) < 5
-                        or matching_pnl >= 0.0
-                        or (len(matching_live) < 25 and (matching_units_pnl > -10.0 or matching_pnl > -15.0) and n_inc >= 50 and (inc_units_pnl >= 15.0 or inc_pnl >= 20.0))
-                    ):
-                        is_false_demotion = True
-
-                if is_false_demotion:
-                    try:
-                        conn_del = self._get_connection()
-                        try:
-                            conn_del.execute("DELETE FROM demoted_markets WHERE segment_key = ? OR (segment_key = ? AND sub_family = ?)", (segment_key, canonical_key, sub_family))
-                            conn_del.commit()
-                        finally:
-                            conn_del.close()
-                        demoted_at = None
-                    except Exception:
-                        pass
-
-                if demoted_at:
-                    records = [r for r in records if len(r) > 10 and r[10] and str(r[10]) > demoted_at]
-                    if not records:
+                if canonical_key in current_graduated:
+                    if current_graduated[canonical_key].get('sub_family') == sub_family:
+                        continue  # Already graduated
+                    segment_key = sub_key
+                    if segment_key in current_graduated:
+                        continue  # Already graduated
+                else:
+                    segment_key = canonical_key
+                    if sub_key in current_graduated:
                         continue
 
-            sub_key = f"{league}|{scope}|{family}:{sub_family}" if sub_family else segment_key
-            n_samples = len(records)
-            odds_list = [r[4] for r in records]
-            pnl_list = [r[5] for r in records]
-            brier_model_list = [r[6] for r in records if r[6] is not None]
-            brier_mkt_list = [r[7] for r in records if r[7] is not None]
+                from .contracts import is_supported_stake_contract
+                if not is_supported_stake_contract(league, scope, family, sub_family):
+                    continue  # Theoretical/phantom archetype not currently offered pre-match by Stake
 
-            # In deficit expansion mode, adaptive dynamic sample power: N_min >= max(25, ceil(25 * sqrt(O - 1)))
-            avg_odds = float(np.mean(odds_list)) if odds_list else 2.0
-            n_min_adaptive = max(25, int(math.ceil(25.0 * math.sqrt(max(0.1, avg_odds - 1.0)))))
+                if pnl_sum <= 0:
+                    # If total lifetime PnL is non-positive, it can only graduate if filtered by recalibrated_at or demoted_at
+                    if not (recalibrated_map.get(canonical_key) or recalibrated_map.get(sub_key) or demoted_map.get(canonical_key) or demoted_map.get(sub_key)):
+                        continue
 
-            if n_samples < n_min_adaptive:
-                continue
+                cur_rec.execute("""
+                    SELECT league, scope, family, sub_family, odds, pnl, brier_model, brier_market, dynamic_sample_power_req, raw_market_name, settled_at
+                    FROM incubated_wagers
+                    WHERE status = 'settled' AND league = ? AND scope = ? AND family = ? AND sub_family = ?
+                    ORDER BY settled_at ASC
+                """, (league, scope, family, sub_family))
+                records = cur_rec.fetchall()
+                if not records:
+                    continue
 
-            total_stake = float(n_samples)
-            total_pnl = float(sum(pnl_list))
-            roi = total_pnl / total_stake if total_stake > 0 else 0.0
-            win_count = sum(1 for p in pnl_list if p > 0)
-            win_rate = win_count / n_samples if n_samples > 0 else 0.0
+                # Probation check: if demoted previously, check if the demotion was a cross-contamination false demotion
+                demoted_at = demoted_map.get(segment_key) or demoted_map.get(sub_key)
+                if not demoted_at and canonical_key in demoted_map:
+                    demoted_sub = demoted_sub_map.get(canonical_key)
+                    if not demoted_sub or demoted_sub == sub_family:
+                        demoted_at = demoted_map.get(canonical_key)
+                original_demoted_at = demoted_at
+                if demoted_at:
+                    # Constitutional Invariant (Prime Directives 6 & 7):
+                    # Demoted markets cannot bypass quarantine. Must accumulate at least 25 post-demotion wagers.
+                    records = [r for r in records if len(r) > 10 and r[10] and str(r[10]) > demoted_at]
+                    if len(records) < 25:
+                        continue
 
-            brier_model = float(np.mean(brier_model_list)) if brier_model_list else 0.25
-            brier_mkt = float(np.mean(brier_mkt_list)) if brier_mkt_list else 0.25
-            delta_brier = brier_mkt - brier_model
+                sub_key = f"{league}|{scope}|{family}:{sub_family}" if sub_family else segment_key
+                records.sort(key=lambda r: str(r[-1] or ''))
+                n_samples = len(records)
+                odds_list = [r[4] for r in records]
+                pnl_list = [r[5] for r in records]
+                brier_model_list = [r[6] for r in records if r[6] is not None]
+                brier_mkt_list = [r[7] for r in records if r[7] is not None]
 
-            cumsum = np.cumsum(pnl_list)
-            peaks = np.maximum.accumulate(cumsum)
-            drawdowns = (peaks - cumsum) / np.maximum(1.0, peaks + total_stake)
-            max_dd = float(np.max(drawdowns)) if len(drawdowns) > 0 else 0.0
+                # In deficit expansion mode, adaptive dynamic sample power: N_min >= max(25, ceil(25 * sqrt(O - 1)))
+                avg_odds = float(np.mean(odds_list)) if odds_list else 2.0
+                n_min_adaptive = max(25, int(math.ceil(25.0 * math.sqrt(max(0.1, avg_odds - 1.0)))))
 
-            # Strict Invariants:
-            # 1. Realized ROI >= +3.0%
-            # 2. Calibration Edge: delta_brier > 0.001
-            # 3. Max Drawdown < 15%
-            if roi >= 0.030 and delta_brier > 0.001 and max_dd < 0.15:
-                grad_id = f"grad_vol_{hashlib.sha256(f'{segment_key}:{now_iso}'.encode()).hexdigest()[:16]}"
-                raw_market_names = sorted(list({r[9] for r in records if len(r) > 9 and r[9]}))
-                stats = {
-                    'sample_size': n_samples,
-                    'n_min_adaptive': n_min_adaptive,
-                    'avg_odds': round(avg_odds, 3),
-                    'total_stake': total_stake,
-                    'total_pnl': round(total_pnl, 2),
-                    'roi': round(roi, 4),
-                    'win_rate': round(win_rate, 4),
-                    'delta_brier': round(delta_brier, 5),
-                    'brier_model': round(brier_model, 5),
-                    'brier_market': round(brier_mkt, 5),
-                    'max_drawdown': round(max_dd, 4),
-                    'raw_market_names': raw_market_names,
-                    'volume_expansion_triggered': True,
-                    'shortfall_context': daily_shortfall
-                }
+                if n_samples < n_min_adaptive:
+                    continue
 
-                # Evaluate Multi-Model Tournament Champions
-                try:
-                    from .tournament_engine import TournamentEngine
-                    t_eng = getattr(self, '_tournament_engine', None) or TournamentEngine(self.data_dir)
-                    champ = t_eng.crown_champion(segment_key)
-                    if not champ and sub_key and sub_key != segment_key:
-                        champ = t_eng.crown_champion(sub_key)
-                    if not champ and sub_family:
-                        champ = t_eng.crown_champion(f"{league}|{scope}|{sub_family}")
-                    if champ:
-                        stats['champion_model_id'] = champ.model_id
-                        stats['champion_version'] = champ.version
-                        stats['tournament_scorecard_s'] = champ.scorecard_s
-                except Exception:
-                    pass
+                total_stake = float(n_samples)
+                total_pnl = float(sum(pnl_list))
+                roi = total_pnl / total_stake if total_stake > 0 else 0.0
+                win_count = sum(1 for p in pnl_list if p > 0)
+                win_rate = win_count / n_samples if n_samples > 0 else 0.0
 
-                conn_grad = self._get_connection()
-                try:
-                    cur_grad = conn_grad.cursor()
-                    cur_grad.execute("""
-                        INSERT OR REPLACE INTO graduated_markets (
-                            id, segment_key, league, scope, family, sub_family,
-                            graduated_at, sample_size, roi, delta_brier, max_drawdown, win_rate, stats
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (
-                        grad_id, segment_key, league, scope, family, sub_family,
-                        now_iso, n_samples, roi, delta_brier, max_dd, win_rate, json.dumps(stats)
-                    ))
+                brier_model = float(np.mean(brier_model_list)) if brier_model_list else 0.25
+                brier_mkt = float(np.mean(brier_mkt_list)) if brier_mkt_list else 0.25
+                delta_brier = brier_mkt - brier_model
+
+                cumsum = np.cumsum(pnl_list)
+                peaks = np.maximum.accumulate(cumsum)
+                drawdowns = (peaks - cumsum) / np.maximum(1.0, peaks + total_stake)
+                max_dd = float(np.max(drawdowns)) if len(drawdowns) > 0 else 0.0
+
+                # Strict Invariants:
+                # 1. Realized ROI >= +3.0%
+                # 2. Calibration Edge: delta_brier > 0.001
+                # 3. Max Drawdown < 15%
+                # 4. Live PnL Invariant: cannot graduate if live settled decisions are negative
+                if roi >= 0.030 and delta_brier > 0.001 and max_dd < 0.15:
+                    if cached_live_rows:
+                        meta_vol = {'league': league, 'scope': scope, 'family': family, 'sub_family': sub_family, 'segment_key': segment_key}
+                        # Prime Directive 1 & 6: Never graduate a market with negative lifetime live PnL
+                        lifetime_live = [
+                            (p, pnl) for p, pnl, iss in cached_live_rows
+                            if matches_live_decision_to_market(p, meta_vol)
+                        ]
+                        if lifetime_live and sum(pnl for _, pnl in lifetime_live) < 0.0:
+                            continue
+
+                        eff_dem_at = demoted_at or original_demoted_at
+                        if eff_dem_at:
+                            eval_live = [
+                                (p, pnl) for p, pnl, iss in cached_live_rows
+                                if matches_live_decision_to_market(p, meta_vol) and str(iss) > eff_dem_at
+                            ]
+                        else:
+                            eval_live = lifetime_live
+                        if eval_live and sum(pnl for _, pnl in eval_live) < 0.0:
+                            continue
+                    grad_id = f"grad_vol_{hashlib.sha256(f'{segment_key}:{now_iso}'.encode()).hexdigest()[:16]}"
+                    raw_market_names = sorted(list({r[9] for r in records if len(r) > 9 and r[9]}))
+                    stats = {
+                        'sample_size': n_samples,
+                        'n_min_adaptive': n_min_adaptive,
+                        'avg_odds': round(avg_odds, 3),
+                        'total_stake': total_stake,
+                        'total_pnl': round(total_pnl, 2),
+                        'roi': round(roi, 4),
+                        'win_rate': round(win_rate, 4),
+                        'delta_brier': round(delta_brier, 5),
+                        'brier_model': round(brier_model, 5),
+                        'brier_market': round(brier_mkt, 5),
+                        'max_drawdown': round(max_dd, 4),
+                        'raw_market_names': raw_market_names,
+                        'volume_expansion_triggered': True,
+                        'shortfall_context': daily_shortfall
+                    }
+
+                    # Evaluate Multi-Model Tournament Champions
                     try:
-                        cur_grad.execute("""
-                            DELETE FROM demoted_markets 
-                            WHERE segment_key IN (?, ?, ?) 
-                               OR (league = ? AND scope = ? AND (family = ? OR sub_family = ?))
-                        """, (segment_key, canonical_key, sub_key, league, scope, family, sub_family))
-                        cur_grad.execute("""
-                            DELETE FROM incubator_diagnostic_repairs 
-                            WHERE segment_key IN (?, ?, ?)
-                        """, (segment_key, canonical_key, sub_key))
+                        from .tournament_engine import TournamentEngine
+                        t_eng = getattr(self, '_tournament_engine', None) or TournamentEngine(self.data_dir)
+                        champ = t_eng.crown_champion(segment_key)
+                        if not champ and sub_key and sub_key != segment_key:
+                            champ = t_eng.crown_champion(sub_key)
+                        if not champ and sub_family:
+                            champ = t_eng.crown_champion(f"{league}|{scope}|{sub_family}")
+                        if champ:
+                            stats['champion_model_id'] = champ.model_id
+                            stats['champion_version'] = champ.version
+                            stats['tournament_scorecard_s'] = champ.scorecard_s
                     except Exception:
                         pass
-                    conn_grad.commit()
-                finally:
-                    conn_grad.close()
 
-                try:
-                    from .telegram_notifier import notify_rd_graduation
-                    notify_rd_graduation(league, segment_key, n_samples, roi * 100.0, win_rate * 100.0)
-                except Exception:
-                    pass
+                    conn_grad = self._get_connection()
+                    try:
+                        cur_grad = conn_grad.cursor()
+                        cur_grad.execute("""
+                            INSERT OR REPLACE INTO graduated_markets (
+                                id, segment_key, league, scope, family, sub_family,
+                                graduated_at, sample_size, roi, delta_brier, max_drawdown, win_rate, stats
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (
+                            grad_id, segment_key, league, scope, family, sub_family,
+                            now_iso, n_samples, roi, delta_brier, max_dd, win_rate, json.dumps(stats)
+                        ))
+                        try:
+                            cur_grad.execute("""
+                                DELETE FROM demoted_markets 
+                                WHERE segment_key IN (?, ?, ?) 
+                                   OR (league = ? AND scope = ? AND (family = ? OR sub_family = ?))
+                            """, (segment_key, canonical_key, sub_key, league, scope, family, sub_family))
+                            cur_grad.execute("""
+                                DELETE FROM incubator_diagnostic_repairs 
+                                WHERE segment_key IN (?, ?, ?)
+                            """, (segment_key, canonical_key, sub_key))
+                        except Exception:
+                            pass
+                        conn_grad.commit()
+                    finally:
+                        conn_grad.close()
 
-                grad_entry = {
-                    'id': grad_id,
-                    'segment_key': segment_key,
-                    'league': league,
-                    'scope': scope,
-                    'family': family,
-                    'sub_family': sub_family,
-                    'graduated_at': now_iso,
-                    'initial_tier': 'PROBATION',
-                    'stats': stats
-                }
-                current_graduated[segment_key] = grad_entry
-                graduated_records.append(grad_entry)
+                    try:
+                        from .telegram_notifier import notify_rd_graduation
+                        notify_rd_graduation(league, segment_key, n_samples, roi * 100.0, win_rate * 100.0)
+                    except Exception:
+                        pass
 
-                try:
-                    from .tier_state_machine import append_tier_transition
-                    append_tier_transition({
-                        'id': f"trans_{grad_id}",
-                        'timestamp': now_iso,
-                        'segment': segment_key,
+                    grad_entry = {
+                        'id': grad_id,
+                        'segment_key': segment_key,
                         'league': league,
                         'scope': scope,
                         'family': family,
-                        'previous_tier': 'SHADOW_INCUBATION',
-                        'new_tier': 'PROBATION',
-                        'transition_type': 'VOLUME_DEFICIT_EXPANSION_GRADUATION',
-                        'pnl': total_pnl,
-                        'roi_pct': round(roi * 100.0, 2),
-                        'games': n_samples,
-                        'wins': win_count,
-                        'losses': n_samples - win_count,
-                        'diagnostic_reason': f"Mandatory Volume-Deficit Expansion: {segment_key} graduated (ROI: +{roi*100:.1f}%, Delta Brier: +{delta_brier:.4f}, N={n_samples}) to satisfy 100+ volume minimum.",
-                        'rd_actionable_remedy': "Promoted to live issuance in PROBATION tier ($0.50 evolutionary floor).",
-                        'failure_mode': 'NONE_GRADUATED'
-                    })
-                except Exception:
-                    pass
+                        'sub_family': sub_family,
+                        'graduated_at': now_iso,
+                        'initial_tier': 'PROBATION',
+                        'stats': stats
+                    }
+                    current_graduated[segment_key] = grad_entry
+                    graduated_records.append(grad_entry)
+
+                    try:
+                        from .tier_state_machine import append_tier_transition
+                        append_tier_transition({
+                            'id': f"trans_{grad_id}",
+                            'timestamp': now_iso,
+                            'segment': segment_key,
+                            'league': league,
+                            'scope': scope,
+                            'family': family,
+                            'previous_tier': 'SHADOW_INCUBATION',
+                            'new_tier': 'PROBATION',
+                            'transition_type': 'VOLUME_DEFICIT_EXPANSION_GRADUATION',
+                            'pnl': total_pnl,
+                            'roi_pct': round(roi * 100.0, 2),
+                            'games': n_samples,
+                            'wins': win_count,
+                            'losses': n_samples - win_count,
+                            'diagnostic_reason': f"Mandatory Volume-Deficit Expansion: {segment_key} graduated (ROI: +{roi*100:.1f}%, Delta Brier: +{delta_brier:.4f}, N={n_samples}) to satisfy 100+ volume minimum.",
+                            'rd_actionable_remedy': "Promoted to live issuance in PROBATION tier ($0.50 evolutionary floor).",
+                            'failure_mode': 'NONE_GRADUATED'
+                        })
+                    except Exception:
+                        pass
+        finally:
+            conn_rec.close()
 
         if graduated_records:
             save_graduated_markets(current_graduated, self.data_dir)
@@ -2990,142 +3261,148 @@ class ShadowMarketIncubator:
         now_iso = as_of or utcnow().isoformat()
         current_graduated = load_graduated_markets(self.data_dir)
         conn = self._get_connection()
-        cur = conn.cursor()
-
-        cur.execute("""
-            SELECT league, scope, family, sub_family, odds, pnl, brier_model, brier_market, dynamic_sample_power_req, raw_market_name, cohort, settled_at
-            FROM incubated_wagers
-            WHERE status = 'settled'
-            ORDER BY settled_at ASC
-        """)
-        rows = cur.fetchall()
-
-        # Group by canonical market tuple
-        families: Dict[Tuple[str, str, str, str], List[Tuple]] = {}
-        for r in rows:
-            key = (r[0], r[1], r[2], r[3])
-            families.setdefault(key, []).append(r)
-
-        repaired_records = []
-
-        for (league, scope, family, sub_family), records in families.items():
-            canonical_key = f"{league}|{scope}|{family}"
-            sub_key = f"{league}|{scope}|{family}:{sub_family}" if (sub_family and sub_family != family) else canonical_key
-
-            # Skip if already graduated
-            is_already_graduated = False
-            if sub_key in current_graduated:
-                is_already_graduated = True
-            elif canonical_key in current_graduated:
-                grad_sub = current_graduated[canonical_key].get('sub_family')
-                if grad_sub == sub_family or grad_sub is None or grad_sub == family:
-                    is_already_graduated = True
-
-            if is_already_graduated:
-                continue
-
-            segment_key = sub_key
-
-            n_samples = len(records)
-            if n_samples < min_samples:
-                continue
-
-            odds_list = [r[4] for r in records]
-            pnl_list = [r[5] for r in records]
-            brier_model_list = [r[6] for r in records if r[6] is not None]
-            brier_mkt_list = [r[7] for r in records if r[7] is not None]
-
-            total_stake = float(n_samples)
-            total_pnl = float(sum(pnl_list))
-            roi = total_pnl / total_stake if total_stake > 0 else 0.0
-            win_count = sum(1 for p in pnl_list if p > 0)
-            win_rate = win_count / n_samples
-
-            brier_model = float(np.mean(brier_model_list)) if brier_model_list else 0.25
-            brier_mkt = float(np.mean(brier_mkt_list)) if brier_mkt_list else 0.25
-            delta_brier = brier_mkt - brier_model
-
-            # Check if stuck / failing
-            if roi > 0.035 and delta_brier > 0.002:
-                continue  # In good standing, will graduate or evaluate normally
-
-            # Forensic Attribution
-            if family == 'asian_lines' and scope in ('half_1', 'half_2'):
-                failure_mode = 'SCOPE_TOTALS_MISMATCH'
-                actionable_remedy = f"Half-time goal scaling deployed: 45%/55% bivariate Poisson distribution applied to scope {scope}; window reset for out-of-sample graduation."
-            elif family == 'sequence_hazard' and scope != 'full_game':
-                failure_mode = 'SEQUENCE_HAZARD_SCOPE_MISMATCH'
-                actionable_remedy = f"Hazard rate scale attenuation applied for {scope} ({'0.45' if 'half' in scope else '0.25'}); zero-score probability recalibrated."
-            elif delta_brier < -0.01:
-                failure_mode = 'OVERCONFIDENCE_CALIBRATION_BIAS'
-                actionable_remedy = f"Probability shrinkage and tighter EV hurdle (+3.5%) applied; recalibration window set to prune prior overconfidence."
-            else:
-                failure_mode = 'VIG_EDGE_DEFICIT'
-                actionable_remedy = f"EV qualification hurdle increased to +3.5%; market relegated to high-conviction pricing only."
-
-            rep_id = f"repair_{hashlib.sha256(f'{segment_key}:{now_iso}'.encode()).hexdigest()[:16]}"
-            stats = {
-                'sample_size': n_samples,
-                'total_pnl': round(total_pnl, 2),
-                'roi': round(roi, 4),
-                'win_rate': round(win_rate, 4),
-                'delta_brier': round(delta_brier, 5),
-                'brier_model': round(brier_model, 5),
-                'brier_market': round(brier_mkt, 5),
-                'failure_mode': failure_mode,
-                'remedy': actionable_remedy
-            }
+        try:
+            cur = conn.cursor()
 
             cur.execute("""
-                INSERT OR REPLACE INTO incubator_diagnostic_repairs (
-                    id, segment_key, league, scope, family, sub_family,
-                    diagnosed_at, sample_size, prior_roi, prior_pnl, failure_mode,
-                    actionable_remedy, recalibrated_at, stats
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                rep_id, segment_key, league, scope, family, sub_family,
-                now_iso, n_samples, roi, total_pnl, failure_mode,
-                actionable_remedy, now_iso, json.dumps(stats)
-            ))
+                SELECT league, scope, family, sub_family, count(*), sum(pnl), avg(odds), avg(brier_model), avg(brier_market)
+                FROM incubated_wagers
+                WHERE status = 'settled'
+                GROUP BY league, scope, family, sub_family
+                HAVING count(*) >= ?
+            """, (min_samples,))
+            stuck_candidates = cur.fetchall()
 
-            repaired_records.append({
-                'id': rep_id,
-                'segment_key': segment_key,
-                'league': league,
-                'scope': scope,
-                'family': family,
-                'sub_family': sub_family,
-                'failure_mode': failure_mode,
-                'remedy': actionable_remedy,
-                'prior_roi_pct': round(roi * 100.0, 2),
-                'prior_pnl': round(total_pnl, 2),
-                'games': n_samples,
-                'recalibrated_at': now_iso
-            })
+            repaired_records = []
 
-            # Record in TierStateMachine / R&D logs if main engine DB exists
-            engine_db = self.data_dir / 'engine.sqlite3'
-            if engine_db.exists():
+            for (league, scope, family, sub_family, n_samples, total_pnl, avg_odds_agg, brier_mod_agg, brier_mkt_agg) in stuck_candidates:
+                canonical_key = f"{league}|{scope}|{family}"
+                sub_key = f"{league}|{scope}|{family}:{sub_family}" if (sub_family and sub_family != family) else canonical_key
+
+                # Skip if already graduated
+                is_already_graduated = False
+                if sub_key in current_graduated:
+                    is_already_graduated = True
+                elif canonical_key in current_graduated:
+                    grad_sub = current_graduated[canonical_key].get('sub_family')
+                    if grad_sub == sub_family or grad_sub is None or grad_sub == family:
+                        is_already_graduated = True
+
+                if is_already_graduated:
+                    continue
+
+                segment_key = sub_key
+                total_stake = float(n_samples)
+                roi = total_pnl / total_stake if total_stake > 0 else 0.0
+
+                brier_model = float(brier_mod_agg) if brier_mod_agg is not None else 0.25
+                brier_mkt = float(brier_mkt_agg) if brier_mkt_agg is not None else 0.25
+                delta_brier = brier_mkt - brier_model
+
+                # Check if stuck / failing
+                if roi > 0.035 and delta_brier > 0.002:
+                    continue  # In good standing, will graduate or evaluate normally
+
+                # Query specific records only for this stuck candidate
+                cur.execute("""
+                    SELECT league, scope, family, sub_family, odds, pnl, brier_model, brier_market, dynamic_sample_power_req, raw_market_name, cohort, settled_at
+                    FROM incubated_wagers
+                    WHERE status = 'settled' AND league = ? AND scope = ? AND family = ? AND sub_family = ?
+                    ORDER BY settled_at ASC
+                """, (league, scope, family, sub_family))
+                records = cur.fetchall()
+                if not records:
+                    continue
+
+                odds_list = [r[4] for r in records]
+                pnl_list = [r[5] for r in records]
+                brier_model_list = [r[6] for r in records if r[6] is not None]
+                brier_mkt_list = [r[7] for r in records if r[7] is not None]
+
+                win_count = sum(1 for p in pnl_list if p > 0)
+                win_rate = win_count / n_samples
+
+                # Forensic Attribution
+                if family == 'asian_lines' and scope in ('half_1', 'half_2'):
+                    failure_mode = 'SCOPE_TOTALS_MISMATCH'
+                    actionable_remedy = f"Half-time goal scaling deployed: 45%/55% bivariate Poisson distribution applied to scope {scope}; window reset for out-of-sample graduation."
+                elif family == 'sequence_hazard' and scope != 'full_game':
+                    failure_mode = 'SEQUENCE_HAZARD_SCOPE_MISMATCH'
+                    actionable_remedy = f"Hazard rate scale attenuation applied for {scope} ({'0.45' if 'half' in scope else '0.25'}); zero-score probability recalibrated."
+                elif delta_brier < -0.01:
+                    failure_mode = 'OVERCONFIDENCE_CALIBRATION_BIAS'
+                    actionable_remedy = f"Probability shrinkage and tighter EV hurdle (+3.5%) applied; recalibration window set to prune prior overconfidence."
+                else:
+                    failure_mode = 'VIG_EDGE_DEFICIT'
+                    actionable_remedy = f"EV qualification hurdle increased to +3.5%; market relegated to high-conviction pricing only."
+
+                rep_id = f"repair_{hashlib.sha256(f'{segment_key}:{now_iso}'.encode()).hexdigest()[:16]}"
+                stats = {
+                    'sample_size': n_samples,
+                    'total_pnl': round(total_pnl, 2),
+                    'roi': round(roi, 4),
+                    'win_rate': round(win_rate, 4),
+                    'delta_brier': round(delta_brier, 5),
+                    'brier_model': round(brier_model, 5),
+                    'brier_market': round(brier_mkt, 5),
+                    'failure_mode': failure_mode,
+                    'remedy': actionable_remedy
+                }
+
+                cur.execute("""
+                    INSERT OR REPLACE INTO incubator_diagnostic_repairs (
+                        id, segment_key, league, scope, family, sub_family,
+                        diagnosed_at, sample_size, prior_roi, prior_pnl, failure_mode,
+                        actionable_remedy, recalibrated_at, stats
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    rep_id, segment_key, league, scope, family, sub_family,
+                    now_iso, n_samples, roi, total_pnl, failure_mode,
+                    actionable_remedy, now_iso, json.dumps(stats)
+                ))
+
+                repaired_records.append({
+                    'id': rep_id,
+                    'segment_key': segment_key,
+                    'league': league,
+                    'scope': scope,
+                    'family': family,
+                    'sub_family': sub_family,
+                    'failure_mode': failure_mode,
+                    'remedy': actionable_remedy,
+                    'prior_roi_pct': round(roi * 100.0, 2),
+                    'prior_pnl': round(total_pnl, 2),
+                    'games': n_samples,
+                    'recalibrated_at': now_iso
+                })
+
+                # Record in TierStateMachine / R&D logs if main engine DB exists
+                engine_db = self.data_dir / 'engine.sqlite3'
+                if engine_db.exists():
+                    try:
+                        from .tier_state_machine import enqueue_rd_repair_job
+                        conn_main = sqlite3.connect(str(engine_db), timeout=5.0)
+                        enqueue_rd_repair_job(
+                            conn=conn_main,
+                            segment_key=segment_key,
+                            league=league,
+                            prev_tier='SHADOW_INCUBATION',
+                            new_tier='SHADOW_RECALIBRATION',
+                            failure_mode=failure_mode,
+                            remedy=actionable_remedy,
+                            stats={'pnl': total_pnl, 'roi_pct': round(roi * 100.0, 2), 'games': n_samples}
+                        )
+                        conn_main.close()
+                    except Exception:
+                        pass
+
                 try:
-                    from .tier_state_machine import enqueue_rd_repair_job
-                    conn_main = sqlite3.connect(str(engine_db), timeout=5.0)
-                    enqueue_rd_repair_job(
-                        conn=conn_main,
-                        segment_key=segment_key,
-                        league=league,
-                        prev_tier='SHADOW_INCUBATION',
-                        new_tier='SHADOW_RECALIBRATION',
-                        failure_mode=failure_mode,
-                        remedy=actionable_remedy,
-                        stats={'pnl': total_pnl, 'roi_pct': round(roi * 100.0, 2), 'games': n_samples}
-                    )
-                    conn_main.close()
+                    conn.commit()
                 except Exception:
                     pass
 
-        conn.commit()
-        conn.close()
-
+        finally:
+            conn.close()
         return repaired_records
 
     def evaluate_demotions_and_substitutions(
@@ -3250,6 +3527,24 @@ class ShadowMarketIncubator:
             except Exception:
                 existing_demoted = set()
 
+            # Pre-aggregate settled incubator stats once to avoid running 260+ separate queries in the loop
+            incubated_stats_cache: Dict[Tuple[str, str, str, str], Tuple[int, float]] = {}
+            try:
+                for row_agg in cur_d.execute("""
+                    SELECT league, scope, family, sub_family, count(*), sum(pnl)
+                    FROM incubated_wagers
+                    WHERE status = 'settled'
+                    GROUP BY league, scope, family, sub_family
+                """).fetchall():
+                    lg_a, sc_a, fa_a, sf_a, cnt_a, sum_a = row_agg
+                    incubated_stats_cache[(lg_a, sc_a, fa_a, sf_a)] = (int(cnt_a or 0), float(sum_a or 0.0))
+                    # Also index without sub_family for fallback
+                    incubated_stats_cache.setdefault((lg_a, sc_a, fa_a, ''), (0, 0.0))
+                    old_c, old_s = incubated_stats_cache[(lg_a, sc_a, fa_a, '')]
+                    incubated_stats_cache[(lg_a, sc_a, fa_a, '')] = (old_c + int(cnt_a or 0), old_s + float(sum_a or 0.0))
+            except Exception:
+                pass
+
             for seg_key, meta in list(markets_to_evaluate.items()):
                 league = meta.get('league')
                 scope = meta.get('scope')
@@ -3267,7 +3562,7 @@ class ShadowMarketIncubator:
                     rolling_pnl = sum(d['pnl'] for d in recent)
                     rolling_roi = (rolling_pnl / rolling_staked) if rolling_staked > 0 else 0.0
                     avg_stake = (rolling_staked / len(recent)) if len(recent) > 0 else 1.0
-                    rolling_units_pnl = rolling_pnl / max(0.20, avg_stake)
+                    rolling_units_pnl = rolling_pnl / max(1.0, avg_stake)
 
                     # Statistical Significance Safeguard (Constitutional Commandments 6 & 7):
                     # A market with massive incubator backing (inc_n >= 50 and inc_pnl >= 20.0)
@@ -3278,38 +3573,60 @@ class ShadowMarketIncubator:
                     inc_n = stats.get('sample_size', 0)
                     inc_pnl = float(stats.get('total_pnl', stats.get('pnl', 0.0)) or 0.0)
                     if inc_n == 0 or inc_pnl <= 0.0:
-                        try:
-                            fam = meta.get('family', '')
-                            sub_fam = meta.get('sub_family', '')
-                            if sub_fam:
-                                q_row = cur_d.execute(
-                                    "SELECT count(*), sum(pnl) FROM incubated_wagers WHERE league = ? AND scope = ? AND family = ? AND sub_family = ? AND status = 'settled'",
-                                    (league, scope, fam, sub_fam)
-                                ).fetchone()
-                            else:
-                                q_row = cur_d.execute(
-                                    "SELECT count(*), sum(pnl) FROM incubated_wagers WHERE league = ? AND scope = ? AND family = ? AND status = 'settled'",
-                                    (league, scope, fam)
-                                ).fetchone()
-                            if q_row and q_row[0]:
-                                inc_n = q_row[0]
-                                inc_pnl = float(q_row[1] or 0.0)
-                        except Exception:
-                            pass
+                        fam = meta.get('family', '')
+                        sub_fam = meta.get('sub_family', '')
+                        stat_tuple = incubated_stats_cache.get((league, scope, fam, sub_fam)) or incubated_stats_cache.get((league, scope, fam, ''))
+                        if stat_tuple and stat_tuple[0] > 0:
+                            inc_n = stat_tuple[0]
+                            inc_pnl = stat_tuple[1]
 
                     total_live_pnl = sum(d['pnl'] for d in matching_decisions)
                     total_live_staked = sum(float(d.get('stake', 0.0) or 0.0) for d in matching_decisions)
                     avg_total_stake = (total_live_staked / len(matching_decisions)) if len(matching_decisions) > 0 else 1.0
-                    total_live_units = total_live_pnl / max(0.20, avg_total_stake)
-                    inc_units = inc_pnl / max(0.20, 1.0)
-                    if (inc_n >= 50 and (inc_units >= 15.0 or inc_pnl >= 20.0)) or (len(matching_decisions) >= 50 and (total_live_units >= 15.0 or total_live_pnl >= 20.0)):
-                        if len(matching_decisions) < 25 and (rolling_units_pnl > -10.0 or rolling_pnl > -15.0 or total_live_pnl >= 0.0):
+                    total_live_units = total_live_pnl / max(1.0, avg_total_stake)
+                    inc_units = inc_pnl / max(1.0, 1.0)
+                    # Paper incubator stats can only shield a market against stochastic noise if all-time live PnL is non-negative
+                    if total_live_pnl >= 0.0 and ((inc_n >= 50 and (inc_units >= 15.0 or inc_pnl >= 20.0)) or (len(matching_decisions) >= 50 and (total_live_units >= 15.0 or total_live_pnl >= 20.0))):
+                        if len(matching_decisions) < 25 and (rolling_units_pnl > -10.0 or rolling_pnl > -15.0):
                             continue
 
+                    canon_k = f"{league}|{scope}|{meta.get('family', '')}"
+                    sub_k = f"{league}|{scope}|{meta.get('family', '')}:{meta.get('sub_family', '')}" if meta.get('sub_family') else canon_k
+
+                    # Anti-Constant & Variance-Aware Evaluation (Constitutional Directives 1, 3, 6 & 7):
+                    # 1. Protected Alpha Champions: Any market with established cumulative positive alpha
+                    #    (in PROTECTED_ALPHA_CHAMPIONS or total_live_pnl > 0.0) is shielded from demotion,
+                    #    unless experiencing severe, sustained multi-game breakdown (len(recent) >= 10 and rolling_pnl <= -10.0 and total_live_pnl < 0.0).
+                    # 2. Stochastic Noise Safeguard: A sample under 8 games is subject to normal binomial variance.
+                    #    Wobbling markets (rolling_roi < -3% over 4+ games) are managed by Capital Defense ($0.50 tourniquet)
+                    #    rather than jumping prematurely to $0.00 quarantine.
+                    # 3. Variance Z-Score Evaluation: Only demote when loss exceeds normal variance:
+                    #    z = rolling_pnl / sqrt(len(recent) * avg_stake * 1.95) <= -1.96 over 8+ games.
+                    is_protected = is_protected_alpha_champion(seg_key) or is_protected_alpha_champion(canon_k) or total_live_pnl > 0.0
+                    if is_protected:
+                        if not (len(recent) >= 10 and rolling_pnl <= -10.0 and total_live_pnl < 0.0):
+                            continue
+
+                    var_factor = math.sqrt(max(1.0, len(recent) * max(0.50, avg_stake) * 1.95))
+                    z_score = rolling_pnl / var_factor
+
+                    if len(recent) < 4:
+                        continue
+                    if len(recent) < 8 and rolling_units_pnl > -3.0 and rolling_pnl > -6.0:
+                        continue
+
                     # Scale-Invariant Dynamic Loss Evaluation (Anti-Constant Mandate, Commandment 3):
-                    # Demotes when market shows sustained loss in units of risk (<= -2.5 units with negative ROI,
-                    # or <= -4.0 units regardless of ROI), scale-invariant across $0.50, $8.00, or larger future bankrolls.
-                    if (rolling_roi <= -0.03 and rolling_units_pnl <= -2.5) or (rolling_units_pnl <= -4.0 and rolling_roi < 0.0):
+                    should_demote = (
+                        (len(recent) >= 8 and z_score <= -1.96 and rolling_roi <= -0.03)
+                        or (rolling_units_pnl <= -3.0 and rolling_roi < 0.0)
+                        or (rolling_pnl <= -6.0 and rolling_roi <= -0.05)
+                        or (len(recent) >= 4 and rolling_roi <= -0.15 and rolling_pnl <= -3.0)
+                        or (len(recent) >= 8 and rolling_roi <= -0.03 and rolling_units_pnl <= -2.5)
+                        or (len(matching_decisions) >= 4 and total_live_pnl <= -2.0 and rolling_roi < 0.0)
+                        or (total_live_pnl <= -4.0)
+                    )
+
+                    if should_demote:
                         is_core = meta.get('is_core', False)
                         demoted_entry = {
                             'segment_key': seg_key,
@@ -3321,40 +3638,57 @@ class ShadowMarketIncubator:
                             'games': len(recent)
                         }
                         demoted_keys.append(demoted_entry)
-                        canon_k = f"{league}|{scope}|{meta.get('family', '')}"
-                        sub_k = f"{league}|{scope}|{meta.get('family', '')}:{meta.get('sub_family', '')}" if meta.get('sub_family') else canon_k
-                        for k in (seg_key, canon_k, sub_k):
-                            if k in current_graduated:
-                                del current_graduated[k]
+                        grad_keys_to_del = [
+                            k for k, v in current_graduated.items()
+                            if k in (seg_key, canon_k, sub_k)
+                            or (isinstance(v, dict) and v.get('league') == league and v.get('scope') == scope and (
+                                v.get('family') in (meta.get('family'), meta.get('sub_family'))
+                                or v.get('sub_family') in (meta.get('family'), meta.get('sub_family'))
+                                or k.endswith(f":{meta.get('family')}")
+                                or k.endswith(f":{meta.get('sub_family')}")
+                            ))
+                        ]
+                        for k in grad_keys_to_del:
+                            del current_graduated[k]
 
                         # Atomic DB persistence: delete from graduated_markets and track in demoted_markets
-                        try:
-                            cur_d.execute("""
-                                DELETE FROM graduated_markets 
-                                WHERE segment_key IN (?, ?, ?) 
-                                   OR (league = ? AND scope = ? AND family = ? AND (sub_family = ? OR sub_family IS NULL OR sub_family = ''))
-                            """, (seg_key, canon_k, sub_k, league, scope, meta.get('family', ''), meta.get('sub_family', '')))
-                            d_id = f"demote_{hashlib.sha256(f'{seg_key}:{now_iso}'.encode()).hexdigest()[:16]}"
-                            cur_d.execute("""
-                                INSERT INTO demoted_markets (
-                                    id, segment_key, league, scope, family, sub_family,
-                                    demoted_at, rolling_roi, rolling_pnl, games, reason, stats
-                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                                ON CONFLICT(segment_key) DO UPDATE SET
-                                    rolling_roi = excluded.rolling_roi,
-                                    rolling_pnl = excluded.rolling_pnl,
-                                    games = excluded.games,
-                                    reason = excluded.reason,
-                                    stats = excluded.stats
-                            """, (
-                                d_id, seg_key, league, scope, meta.get('family', ''), meta.get('sub_family', ''),
-                                now_iso, rolling_roi, rolling_pnl, len(recent),
-                                f"Continuous Review: Rolling ROI {rolling_roi*100:.1f}%, PnL ${rolling_pnl:.2f} across {len(recent)} games",
-                                json.dumps({'rolling_roi': rolling_roi, 'rolling_pnl': rolling_pnl, 'games': len(recent), 'is_core': is_core})
-                            ))
-                            conn_d.commit()
-                        except Exception as e_sql:
-                            log.warning("Could not persist demotion to sqlite: %s", e_sql)
+                        d_id = f"demote_{hashlib.sha256(f'{seg_key}:{now_iso}'.encode()).hexdigest()[:16]}"
+                        for attempt in range(8):
+                            try:
+                                with closing(sqlite3.connect(str(self.db_path), timeout=60.0, isolation_level=None)) as conn_w:
+                                    conn_w.execute("PRAGMA busy_timeout = 60000")
+                                    conn_w.execute("""
+                                        DELETE FROM graduated_markets 
+                                        WHERE segment_key IN (?, ?, ?) 
+                                           OR (league = ? AND scope = ? AND family = ? AND (sub_family = ? OR sub_family IS NULL OR sub_family = ''))
+                                    """, (seg_key, canon_k, sub_k, league, scope, meta.get('family', ''), meta.get('sub_family', '')))
+                                    conn_w.execute("""
+                                        INSERT INTO demoted_markets (
+                                            id, segment_key, league, scope, family, sub_family,
+                                            demoted_at, rolling_roi, rolling_pnl, games, reason, stats
+                                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                        ON CONFLICT(segment_key) DO UPDATE SET
+                                            rolling_roi = excluded.rolling_roi,
+                                            rolling_pnl = excluded.rolling_pnl,
+                                            games = excluded.games,
+                                            reason = excluded.reason,
+                                            stats = excluded.stats
+                                    """, (
+                                        d_id, seg_key, league, scope, meta.get('family', ''), meta.get('sub_family', ''),
+                                        now_iso, rolling_roi, rolling_pnl, len(recent),
+                                        f"Continuous Review: Rolling ROI {rolling_roi*100:.1f}%, PnL ${rolling_pnl:.2f} across {len(recent)} games",
+                                        json.dumps({'rolling_roi': rolling_roi, 'rolling_pnl': rolling_pnl, 'games': len(recent), 'is_core': is_core})
+                                    ))
+                                    break
+                            except sqlite3.OperationalError as e_sql:
+                                if "locked" in str(e_sql) and attempt < 7:
+                                    time.sleep(0.5 * (attempt + 1))
+                                    continue
+                                log.warning("Could not persist demotion to sqlite: %s", e_sql)
+                                break
+                            except Exception as e_sql:
+                                log.warning("Could not persist demotion to sqlite: %s", e_sql)
+                                break
 
                         if seg_key not in existing_demoted:
                             prev_tier = 'CORE_DOMAIN_MODEL' if is_core else 'GRADUATED_EXPLORATION'
@@ -3411,10 +3745,7 @@ class ShadowMarketIncubator:
                             except Exception:
                                 pass
         finally:
-            try:
-                conn_d.close()
-            except Exception:
-                pass
+            conn_d.close()
 
         if demoted_keys:
             save_graduated_markets(current_graduated, self.data_dir)
@@ -3430,8 +3761,14 @@ class ShadowMarketIncubator:
     # 4. STATUS & TELEMETRY
     # -------------------------------------------------------------------------
 
-    def get_incubator_status(self) -> Dict[str, Any]:
+    def get_incubator_status(self, force_refresh: bool = False) -> Dict[str, Any]:
         """Provides real-time health and portfolio metrics for the Incubator Department."""
+        global _INCUBATOR_STATUS_CACHE, _INCUBATOR_STATUS_CACHE_TIME
+        now_t = time.time()
+        is_prod_db = (self.db_path.resolve() == INCUBATOR_DB.resolve()) if self.db_path.exists() else False
+        if is_prod_db and not force_refresh and _INCUBATOR_STATUS_CACHE is not None and (now_t - _INCUBATOR_STATUS_CACHE_TIME) < 15.0:
+            return _INCUBATOR_STATUS_CACHE
+
         conn = self._get_connection()
         try:
             cur = conn.cursor()
@@ -3555,7 +3892,7 @@ class ShadowMarketIncubator:
                 'sample_size': rep[11]
             })
 
-        return {
+        res_payload = {
             'department': 'Autonomous Market Expansion & Shadow Graduation Department (AMIE-GD)',
             'active_incubations': len(family_rows),
             'total_wagers_observed': sum(status_counts.values()),
@@ -3570,3 +3907,7 @@ class ShadowMarketIncubator:
             'diagnostic_repairs': diagnostic_repairs_list,
             'incubated_families': families_summary
         }
+        if is_prod_db:
+            _INCUBATOR_STATUS_CACHE = res_payload
+            _INCUBATOR_STATUS_CACHE_TIME = time.time()
+        return res_payload

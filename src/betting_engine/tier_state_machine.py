@@ -55,9 +55,9 @@ def classify_tier(
     Evaluates progression and defense in units of average stake (Units = PnL / avg_stake).
     """
     avg_st = (staked / games_count) if (staked > 0 and games_count > 0) else 1.0
-    units_pnl = pnl / max(0.20, avg_st)
+    units_pnl = pnl / max(1.0, avg_st)
     avg_roll_st = (rolling_staked / rolling_games) if (rolling_staked > 0 and rolling_games > 0) else 1.0
-    units_roll_pnl = rolling_pnl / max(0.20, avg_roll_st)
+    units_roll_pnl = rolling_pnl / max(1.0, avg_roll_st)
 
     # 1. Post-Repair Rapid Acceleration Gate
     if has_deployed_patch and rolling_games >= 5 and rolling_roi >= 0.03 and rolling_pnl > 0.0:

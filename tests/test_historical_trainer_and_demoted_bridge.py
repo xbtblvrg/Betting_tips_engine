@@ -175,3 +175,77 @@ def test_incubator_status_exposes_model_and_edge(temp_incubator_db: Path, tmp_pa
     assert dm['incubation_phase'] == 'incubating_with_new_model'
     assert dm['incubated_model_id'] is not None
     assert dm['historical_roi_pct'] is not None
+
+
+def test_screen_candidate_against_incumbent():
+    """Verifies that a challenger candidate only passes if it beats incumbent by >= 1.5% ROI and +0.001 Brier."""
+    trainer = HistoricalCandidateTrainer()
+    cand = CandidateTrainingResult(
+        segment_key='NBA|full_game|spreads',
+        model_id='challenger_model_1',
+        model_archetype='OddsDampedKellyShrinkageModel',
+        oos_simulated_roi=0.060,  # 6.0%
+        oos_delta_brier=0.0035,
+        oos_max_drawdown=0.10,
+    )
+
+    # 1. Beating a lower incumbent (3.0% ROI, 0.0010 Brier) -> Pass
+    passed, reasons = trainer.screen_candidate_against_incumbent(
+        candidate_result=cand,
+        incumbent_roi=0.030,
+        incumbent_delta_brier=0.0010,
+    )
+    assert passed is True
+    assert reasons == []
+
+    # 2. Failing against a high incumbent (5.5% ROI -> needs >= 7.0%) -> Reject
+    passed_fail, reasons_fail = trainer.screen_candidate_against_incumbent(
+        candidate_result=cand,
+        incumbent_roi=0.055,
+        incumbent_delta_brier=0.0010,
+    )
+    assert passed_fail is False
+    assert any("does not exceed incumbent" in r for r in reasons_fail)
+
+
+def test_fast_track_composite_power_graduation(temp_incubator_db: Path, tmp_path: Path):
+    """Verifies that a low-cadence market with N_live=12 and N_oos=200 graduates via Composite Power."""
+    # Insert 12 winning live wagers for UCL|full_game|totals
+    conn = sqlite3.connect(str(temp_incubator_db))
+    # Register historical OOS backing in demoted_markets
+    conn.execute("""
+        INSERT INTO demoted_markets (
+            id, segment_key, league, scope, family, sub_family,
+            demoted_at, rolling_roi, rolling_pnl, games, reason, stats,
+            historical_sample_size, historical_roi, historical_brier_delta, incubation_phase
+        ) VALUES (
+            'dem_ucl_1', 'UCL|full_game|totals', 'UCL', 'full_game', 'totals', 'totals',
+            '2026-10-01T00:00:00Z', -0.10, -2.0, 10, 'initial', '{}',
+            200, 0.08, 0.005, 'incubating_with_new_model'
+        )
+    """)
+
+    for i in range(12):
+        is_win = (i % 5 != 0)  # ~80% win rate
+        res = 'won' if is_win else 'lost'
+        pnl_val = 0.95 if is_win else -1.0
+        conn.execute("""
+            INSERT INTO incubated_wagers (
+                id, fixture_id, game_id, league, scope, family, sub_family,
+                selection, side, line, odds, model_prob, market_prob, ev,
+                captured_at, settled_at, status, result, pnl, brier_model, brier_market
+            ) VALUES (?, ?, ?, 'UCL', 'full_game', 'totals', 'totals',
+                'Over 2.5', 'home', 2.5, 1.95, 0.60, 0.49, 0.15,
+                '2026-10-20T10:00:00Z', '2026-10-20T12:00:00Z', 'settled', ?, ?, 0.18, 0.25)
+        """, (f"ucl_{i}", f"ucl_fix_{i}", f"ucl_g_{i}", res, pnl_val))
+    conn.commit()
+    conn.close()
+
+    incubator = ShadowMarketIncubator(data_dir=tmp_path)
+    grad_records = incubator.evaluate_graduation(as_of="2026-10-25T12:00:00Z")
+
+    # The UCL market should graduate via Fast-Track Composite Power (Power = 12 + 0.20*200 = 52 >= 50)
+    ucl_grads = [g for g in grad_records if g['segment_key'] == 'UCL|full_game|totals']
+    assert len(ucl_grads) == 1
+    assert ucl_grads[0]['stats']['cohort'] == 'fast_track_composite'
+    assert ucl_grads[0]['stats']['sample_size'] == 12

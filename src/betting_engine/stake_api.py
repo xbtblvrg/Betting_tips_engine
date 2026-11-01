@@ -12,7 +12,7 @@ BASE='https://odds-data.stake.com'
 COLLEGE=('NCAAF','NCAAM','NCAAW')
 SPORTS={'NBA':'basketball','WNBA':'basketball','MLB':'baseball','NHL':'ice-hockey','NFL':'american-football',
         'NCAAF':'american-football','NCAAM':'basketball','NCAAW':'basketball','MLS':'soccer','EPL':'soccer','UCL':'soccer',
-        'ATP':'tennis','WTA':'tennis'}
+        'ATP':'tennis','WTA':'tennis','CHALLENGER':'tennis'}
 TOURNAMENTS={'NBA':'nba','WNBA':'wnba','MLB':'mlb','NHL':'nhl','NFL':'nfl','MLS':'major-league-soccer','EPL':'premier-league','UCL':'uefa-champions-league'}
 TOURNAMENT_CATEGORIES={'EPL':'england','UCL':'international-clubs'}
 # Exact observed official tournament aliases; never substring-match NBA esports.
@@ -47,7 +47,8 @@ def tennis_league(sport, t):
     if sport != 'tennis': return None
     text = (str(t.get('name', '')) + ' ' + str(t.get('slug', '')) + ' ' + str(t.get('category', ''))).lower()
     if 'wta' in text or 'women' in text: return 'WTA'
-    if 'challenger' in text or 'itf' in text: return None  # Fully quarantined: no fixtures or bets generated
+    if 'challenger' in text or str(t.get('category', '')) == 'challenger': return 'CHALLENGER'
+    if 'itf' in text: return None  # Fully quarantined: no fixtures or bets generated
     return 'ATP'
 
 def tournaments(fetcher):
@@ -269,7 +270,7 @@ def league_fixtures(fetcher,league,registry=None):
                         # the exact start. Retain the discrepancy and require the
                         # latter endpoints plus an independent sports-game join.
                         different_names=old.get('name')!=r.get('name')
-                        seed_resolution=league in ('MLB', 'ATP', 'WTA') and different_names and _seed_titles_compatible(old.get('name'),r.get('name'))
+                        seed_resolution=league in ('MLB', 'ATP', 'WTA', 'CHALLENGER') and different_names and _seed_titles_compatible(old.get('name'),r.get('name'))
                         conflict=old['slug']!=r['slug'] or (different_names and not seed_resolution) or abs(delta)>3600000
                         if seed_resolution:
                             real_name = r.get('name') if not seed_title(r.get('name')) else old.get('name')

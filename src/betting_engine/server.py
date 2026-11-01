@@ -1,5 +1,13 @@
 from __future__ import annotations
 import asyncio,json,threading,os,time,logging
+try:
+    import resource
+    soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+    target = min(65536, hard if hard > 0 else 65536)
+    if soft < target:
+        resource.setrlimit(resource.RLIMIT_NOFILE, (target, hard))
+except Exception:
+    pass
 from contextlib import asynccontextmanager
 from pathlib import Path
 log=logging.getLogger(__name__)
@@ -222,6 +230,13 @@ def market_universe_status():
     from .providers import DATA
     return UnifiedMarketUniverse(DATA).get_summary()
 
+@app.get('/api/inventory')
+@app.get('/api/canonical-inventory')
+def canonical_system_inventory_status():
+    from .canonical_inventory import get_canonical_system_inventory
+    from .providers import DATA
+    return get_canonical_system_inventory(DATA)
+
 @app.get('/api/roi-governor')
 def roi_governor_status():
     from .autonomous_roi_governor import get_latest_governor_report
@@ -263,6 +278,60 @@ def supreme_system_audit_run():
     auditor = SupremeSystemAuditor()
     res = auditor.run_full_system_audit(include_pytest=True)
     return english_payload(res)
+
+@app.get('/api/executive-inquiry')
+def executive_inquiry_status():
+    from .executive_inquisitor import load_executive_inquisitor_status, AutonomousExecutiveInquisitor
+    status = load_executive_inquisitor_status()
+    if status is None:
+        inquisitor = AutonomousExecutiveInquisitor()
+        status = inquisitor.run_inquisitor_cycle()
+    return english_payload(status)
+
+@app.post('/api/executive-inquiry/run')
+def executive_inquiry_run():
+    from .executive_inquisitor import AutonomousExecutiveInquisitor
+    inquisitor = AutonomousExecutiveInquisitor()
+    res = inquisitor.run_inquisitor_cycle()
+    return english_payload(res)
+
+@app.get('/api/profit-engine')
+def profit_engine_status():
+    from .superintelligent_profit_engine import load_superintelligent_profit_status, SuperintelligentProfitEngine
+    status = load_superintelligent_profit_status()
+    if status is None:
+        engine_inst = SuperintelligentProfitEngine()
+        status = engine_inst.run_full_profit_optimization_cycle().to_dict()
+    return english_payload(status)
+
+@app.post('/api/profit-engine/optimize')
+def profit_engine_optimize():
+    from .superintelligent_profit_engine import SuperintelligentProfitEngine
+    engine_inst = SuperintelligentProfitEngine()
+    res = engine_inst.run_full_profit_optimization_cycle()
+    return english_payload(res.to_dict())
+
+@app.get('/api/quant-cockpit')
+def quant_cockpit_endpoint(days: int = 7):
+    from .quant_observability import LeadQuantObservabilityEngine
+    obs = LeadQuantObservabilityEngine()
+    return english_payload(obs.get_quant_cockpit_dossier(window_days=days))
+
+@app.get('/api/forensic-trace')
+def forensic_trace_endpoint(bet_id: str):
+    from .quant_observability import LeadQuantObservabilityEngine
+    obs = LeadQuantObservabilityEngine()
+    trace = obs.get_forensic_bet_trace(bet_id)
+    if not trace:
+        raise HTTPException(status_code=404, detail=f"Bet {bet_id} not found in immutable ledger")
+    return english_payload(trace)
+
+@app.get('/api/quant-logs')
+def quant_logs_endpoint(limit: int = 50, component: Optional[str] = None):
+    from .quant_observability import LeadQuantObservabilityEngine
+    obs = LeadQuantObservabilityEngine()
+    logs = obs.stream_unified_quant_logs(limit=limit, component=component)
+    return english_payload({'count': len(logs), 'events': logs})
 
 @app.get('/api/settlement-supervisor')
 def settlement_supervisor_status():
@@ -622,6 +691,16 @@ def get_autorun_state_summary():
     now_utc = datetime.now(timezone.utc)
     now_budapest = datetime.now(tz)
     today_str = now_budapest.strftime("%Y-%m-%d")
+
+    global _latest_autorun_heartbeat
+    if not _latest_autorun_heartbeat.get("received_ts"):
+        try:
+            from .providers import DATA
+            hb_file = DATA / 'autorun_heartbeat.json'
+            if hb_file.exists():
+                _latest_autorun_heartbeat = json.loads(hb_file.read_text(encoding='utf-8'))
+        except Exception:
+            pass
     
     received_ts = _latest_autorun_heartbeat.get("received_ts") or 0
     is_recent = (time.time() - received_ts) < 90
@@ -762,6 +841,12 @@ def autorun_heartbeat_endpoint(data: AutoRunHeartbeatRequest):
         "last_cycle_placed": data.last_cycle_placed or 0,
         "runner_id": data.runner_id or "MacBook Pro (Safari)",
     }
+    try:
+        from .io_utils import atomic_json
+        from .providers import DATA
+        atomic_json(DATA / 'autorun_heartbeat.json', _latest_autorun_heartbeat)
+    except Exception:
+        pass
     return english_payload(get_autorun_state_summary())
 
 

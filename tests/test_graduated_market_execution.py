@@ -413,6 +413,7 @@ def test_strict_graduation_and_capital_defense_hard_gate(monkeypatch):
     """
     import betting_engine.decisions
     monkeypatch.setattr(betting_engine.decisions, "_get_demoted_segments", lambda *a, **k: {'NHL|full_game|totals'})
+    monkeypatch.setattr(betting_engine.decisions, "_get_governor_status", lambda *a, **k: {'quarantine_list': [], 'capital_defense_list': []})
     from betting_engine.decisions import DEFAULT_SETTINGS
     settings = {
         **DEFAULT_SETTINGS,
@@ -540,5 +541,102 @@ def test_graduated_champion_model_inference():
     assert fc.features.get('champion_model') == 'nba_champ_damped_test'
     assert 'home' in fc.model_probabilities
     assert 0.01 <= fc.model_probabilities['home'] <= 0.99
+
+
+def test_unproven_and_demoted_markets_strictly_blocked_from_live_issuance(tmp_path):
+    """Enforces Constitutional Mandates 1, 6, and 7:
+
+    Zero unproven research or demoted markets can EVER be issued to live execution
+    or published in d['recommendations'].
+    """
+    from betting_engine.storage import Store
+    from betting_engine.dashboard_payload import build_dashboard
+    from betting_engine.decisions import _get_graduated_segments, _get_demoted_segments, DEFAULT_SETTINGS
+
+    grad_segs = _get_graduated_segments()
+    dem_segs = _get_demoted_segments()
+
+    # 1. Unproven market (e.g. UNKNOWN_SPORT or non-graduated market)
+    unproven_tip = {
+        'id': 'real_hash_unproven_1',
+        'game_id': 'ESPORTS:match_999',
+        'league': 'ESPORTS',
+        'market': 'totals',
+        'model_scope': 'full_game',
+        'selection': 'Over 2.5',
+        'start': '2026-11-01T12:00:00Z',
+        'valid_until': '2026-11-01T12:00:00Z',
+        'reference_platform': 'Stake.com',
+        'stake_evidence': {'edge': 0.05},
+        'stake': 2.50,
+        'reference_odds': 1.95,
+        'odds': 1.95,
+        'stress_roi': 0.10,
+        'expected_roi': 0.12,
+        'probability': 0.58,
+        'current_price': 1.95,
+        'market_family': 'totals',
+        'reasons': ['test'],
+        'execution_review': {'state': 'current', 'actionable': True, 'reason': 'ok'},
+    }
+
+    db_path = tmp_path / 'engine.sqlite3'
+    store = Store(str(db_path))
+
+    # Verification A: Store.record_issuance strictly drops unproven tips
+    with store.db() as c:
+        Store.record_issuance(c, unproven_tip, utcnow().isoformat(), settings={'is_test': False})
+        count = c.execute('SELECT COUNT(*) FROM recommendation_issuance WHERE tip_id=?', (unproven_tip['id'],)).fetchone()[0]
+        assert count == 0, 'Unproven market must NEVER be written to recommendation_issuance!'
+
+    # Verification B: In decisions.rank_and_size, unproven candidates receive stake=0 and alternative=True
+    unproven_cand = {
+        'id': 'real_hash_unproven_1',
+        'game_id': 'ESPORTS:match_999',
+        'league': 'ESPORTS',
+        'market': 'totals',
+        'selection': 'Over 2.5',
+        'reference_odds': 1.95,
+        'odds': 1.95,
+        'minimum_odds': 1.70,
+        'probability': 0.58,
+        'stress_probability': 0.55,
+        'push_probability': 0.0,
+        'stress_roi': 0.10,
+        'model_scope': 'full_game',
+    }
+    test_settings = {
+        **DEFAULT_SETTINGS,
+        'family_selection_policy': 'continuous_probability_v4',
+        'is_test': False,
+        'minimum_roi': 0.02,
+    }
+    chosen, alts = rank_and_size([unproven_cand], test_settings)
+    assert all(c.get('stake', 0) == 0.0 for c in chosen), 'Unproven market cannot receive positive stake!'
+    assert any(a['id'] == 'real_hash_unproven_1' and a.get('alternative') for a in alts)
+
+    # Verification C: In build_dashboard, unproven contract in held_contracts is strictly excluded from recommendations
+    # and safely retained in alternatives.
+    from datetime import timedelta
+    now = utcnow()
+    unproven_pub_tip = dict(unproven_tip)
+    unproven_pub_tip.update({
+        'start': (now + timedelta(hours=2)).isoformat(),
+        'valid_until': (now + timedelta(hours=2)).isoformat(),
+        'quote_at': now.isoformat(),
+        'stress_probability': 0.55,
+        'push_probability': 0.0,
+    })
+    store.publish({'evaluated_candidates': [unproven_pub_tip], 'recommendations': [], 'alternatives': [unproven_pub_tip], 'version': 1, 'games': [], 'models': {}})
+    with store.db() as c:
+        c.execute('INSERT INTO bets(tip_id, created_at, stake, odds, platform, status, pnl, payload) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                  (unproven_pub_tip['id'], now.isoformat(), 2.50, 1.95, 'Stake.com', 'open', 0.0, json.dumps(unproven_pub_tip)))
+
+    d = build_dashboard(store, {'running': True}, tmp_path)
+    rec_ids = [r['id'] for r in d.get('recommendations', [])]
+    assert unproven_pub_tip['id'] not in rec_ids, 'Unproven market must NEVER appear in recommendations!'
+    alt_ids = [a['id'] for a in d.get('alternatives', [])]
+    assert unproven_pub_tip['id'] in alt_ids, 'Unproven held contract must remain in alternatives!'
+
 
 

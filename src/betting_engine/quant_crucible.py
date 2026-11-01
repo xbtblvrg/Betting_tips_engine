@@ -59,15 +59,15 @@ def apply_hypothesis_simulation(
         side = payload.get('side', '').lower()
         if 'b2b' in rule and is_b2b and 'under' in rule and side == 'under':
             return None, False  # Filtered out (bet avoided)
-        if 'extreme_odds' in rule and odds > 2.60:
-            return None, False
         if 'draw_protection' in rule or 'three_way' in rule or 'away_draw' in rule:
             market = payload.get('market', '').lower()
             if ('three_way' in market or 'moneyline' in market) and side == 'away':
-                return None, False
+                ev = float(payload.get('expected_roi') or payload.get('ev') or 0.0)
+                if ev < 0.045:
+                    return None, False
         if ('volatility' in rule or 'extreme_volatility' in rule) and side == 'under':
             ev = float(payload.get('expected_roi') or payload.get('ev') or 0.0)
-            if odds > 2.25 or ev < 0.040:
+            if ev < 0.040:
                 return None, False
         if ('quarantine' in rule or 'quarantined' in rule) and not ('b2b' in rule):
             ev = float(payload.get('expected_roi') or payload.get('ev') or 0.0)
@@ -78,9 +78,9 @@ def apply_hypothesis_simulation(
 
     # 2. Calibration Shrinkage Simulations
     elif cat == 'calibration_shrinkage':
-        p_market = 1.0 / odds if odds > 1.0 else p_orig
-        # Shrink 85% model + 15% market consensus
-        p_adjusted = 0.85 * p_orig + 0.15 * p_market
+        # Pure independent Bayesian shrinkage toward uninformative prior (0.50), never bookmaker vig
+        p_prior = 0.50
+        p_adjusted = 0.88 * p_orig + 0.12 * p_prior
         return round(p_adjusted, 4), True
 
     # 3. Distribution Switch Simulations

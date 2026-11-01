@@ -231,34 +231,45 @@ class SportContext:
         now = utcnow()
         outdoor_games = [g for g in games if g.state == 'scheduled' and g.league in ('MLB', 'NFL', 'NCAAF')
                          and 0 < (parse_time(g.start) - now).total_seconds() < 48 * 3600]
-        enriched = 0
-        for g in outdoor_games:
+        def fetch_weather(g):
             try:
                 w = ws.get_venue_weather(g.league, g.home, g.start)
                 g.context['weather'] = w
-                enriched += 1
+                return 1
             except Exception:
-                pass
+                return 0
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            enriched = sum(pool.map(fetch_weather, outdoor_games))
         status.append({'source': 'open-meteo/stadium_weather', 'ok': True, 'games_enriched': enriched})
         return status
 
     def polymarket(self, games):
-        from .polymarket_service import PolymarketService
+        from .polymarket_service import PolymarketService, LEAGUE_SERIES
         ps = PolymarketService()
         status = []
         now = utcnow()
         upcoming = [g for g in games if g.state == 'scheduled'
                     and 0 < (parse_time(g.start) - now).total_seconds() < 72 * 3600]
-        enriched = 0
-        for g in upcoming:
+        relevant = [g for g in upcoming if g.league in LEAGUE_SERIES]
+        errors = []
+        def fetch_poly(g):
             try:
                 poly = ps.enrich_game_context(g)
                 if poly and poly.get('matched'):
                     g.context['polymarket'] = poly
-                    enriched += 1
-            except Exception:
-                pass
-        status.append({'source': 'polymarket/clob_reference', 'ok': True, 'games_enriched': enriched})
+                    return 1
+            except Exception as e:
+                errors.append(f"{g.league}:{getattr(g, 'id', 'unknown')}: {e}")
+            return 0
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            enriched = sum(pool.map(fetch_poly, relevant))
+        status.append({
+            'source': 'polymarket/clob_reference',
+            'ok': len(errors) == 0,
+            'games_enriched': enriched,
+            'games_relevant': len(relevant),
+            'errors': errors[:5] if errors else []
+        })
         return status
 
     def enrich(self,games):return self.enrich_boxes(games)+self.injuries(games)+self.weather(games)+self.polymarket(games)

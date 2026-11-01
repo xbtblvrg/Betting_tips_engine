@@ -75,7 +75,21 @@ class Engine:
             t=b['payload']
             if t.get('ledger_contract')!='sportsbook':continue
             g=mapping.get(t['game_id'])
-            if not g or g.state!='final':continue
+            if not g:continue
+            if g.state in ('walkover', 'cancelled') or g.context.get('is_walkover'):
+                if 'polymarket' in b['platform'].lower():continue
+                evidence = {
+                    'game_id': g.id,
+                    'basis': 'stake_rules_walkover_void_resolution',
+                    'rule': 'Stake.com official rules: pre-match withdrawal / unplayed fixture / walkover is VOID',
+                    'source_url': g.source,
+                    'source_fetched_at': g.fetched_at,
+                    'settled_at': utcnow().isoformat(),
+                    'stake_settlement_verified': False,
+                }
+                self.store.settle(b['id'], 'push', 0.0, evidence=evidence)
+                continue
+            if g.state!='final':continue
             try:
                 hs,ass,score_evidence=settlement_scores(t,g)
                 line=t.get('line')

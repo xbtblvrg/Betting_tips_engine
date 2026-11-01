@@ -21,14 +21,53 @@ between 'core' and 'gap' markets:
 """
 from __future__ import annotations
 from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
 from enum import IntEnum
+import hashlib
 import json
 import logging
+import math
 from pathlib import Path
 import sqlite3
 from typing import Any, Dict, List, Optional, Set, Tuple
+from contextlib import closing
+
+from .providers import DATA
 
 logger = logging.getLogger(__name__)
+
+# Canonical segment keys for empirically proven profitable markets that produce positive alpha.
+# These champions are protected from premature demotion or throttle while generating profit.
+PROTECTED_ALPHA_CHAMPIONS: Set[str] = {
+    "MLS|full_game|spreads",
+    "MLS|half_1|spreads",
+    "WTA|period_1|moneyline",
+    "WTA|period_2|moneyline",
+    "MLS|full_game|totals",
+    "MLS|half_2|spreads",
+    "MLB|innings_1_5|spreads",
+    "WTA|period_1|spreads",
+    "NBA|full_game|totals",
+    "ATP|full_game|moneyline",
+    "EPL|full_game|moneyline",
+    "EPL|half_1|spreads",
+    "NHL|full_game|spreads",
+    "WTA|full_game|moneyline",
+    "ATP|period_1|moneyline",
+}
+
+
+def is_protected_alpha_champion(canonical_key: str, stat: Optional[Dict[str, Any]] = None) -> bool:
+    """Checks whether a market is a protected alpha champion with positive track record."""
+    if stat and (float(stat.get('pnl', 0.0)) > 0.0 or float(stat.get('roi_pct', 0.0)) > 0.0):
+        return True
+    if canonical_key in PROTECTED_ALPHA_CHAMPIONS:
+        if stat is None:
+            return True
+        if int(stat.get('sample_size', 0)) > 0:
+            return float(stat.get('pnl', 0.0)) > 0.0 and float(stat.get('roi_pct', 0.0)) > 0.0
+        return False
+    return False
 
 
 class MarketTier(IntEnum):
@@ -54,6 +93,18 @@ class UnifiedMarketProfile:
     sample_size: int
     delta_brier: float
     phase_detail: str
+    owner: str = "Gemini Antigravity (agy)"
+    assigned_developer: str = "OpenAI Codex (gpt-6-astra) & HistoricalTrainer"
+    audit_adversary: str = "xAI Grok (grok-4.7)"
+
+    def __post_init__(self):
+        lg = (self.league or '').upper()
+        fam = (self.family or '').lower()
+        sc = str(self.scope or '').lower()
+        if lg in ('EPL', 'UCL', 'MLS', 'ATP', 'WTA') or 'half' in fam or 'set' in fam or 'half' in sc:
+            self.assigned_developer = "Claude (claude-opus-5-5) & HistoricalTrainer"
+        else:
+            self.assigned_developer = "OpenAI Codex (gpt-6-astra) & HistoricalTrainer"
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -65,6 +116,8 @@ class UnifiedMarketUniverse:
     _cached_roster: Optional[Dict[str, UnifiedMarketProfile]] = None
     _cached_summary: Optional[Dict[str, Any]] = None
     _cached_at: float = 0.0
+    _cached_dir: Optional[str] = None
+    _cached_summary_dir: Optional[str] = None
     _cache_ttl_seconds: float = 60.0
 
     @classmethod
@@ -72,6 +125,8 @@ class UnifiedMarketUniverse:
         """Flushes the cached universe roster and high-level summary."""
         cls._cached_roster = None
         cls._cached_summary = None
+        cls._cached_dir = None
+        cls._cached_summary_dir = None
         cls._cached_at = 0.0
 
     def __init__(self, data_dir: Optional[Path | str] = None):
@@ -114,16 +169,22 @@ class UnifiedMarketUniverse:
         lg = (league or '').upper().strip()
         sc = self.normalize_scope(scope)
         fam = (family or '').lower().strip()
-        # Strip redundant scope prefix from family if present (e.g. 'quarter_1:spreads' -> 'spreads')
-        if ':' in fam:
+        known_scopes = ('quarter_1', 'quarter_2', 'quarter_3', 'quarter_4', 'half_1', 'half_2', 'period_1', 'period_2', 'period_3', 'regulation', 'inning_1', 'innings_1_5')
+        while ':' in fam:
             prefix, rest = fam.split(':', 1)
             norm_p = self.normalize_scope(prefix)
-            if norm_p == sc or (norm_p != 'full_game' and sc == 'full_game'):
+            if norm_p in known_scopes or norm_p == sc:
                 sc = norm_p
                 fam = rest
-            elif prefix in ('quarter_1', 'quarter_2', 'quarter_3', 'quarter_4', 'half_1', 'half_2', 'period_1', 'period_2', 'period_3', 'regulation', 'inning_1', 'innings_1_5'):
-                sc = norm_p
+            elif prefix == rest.split(':')[0]:
                 fam = rest
+            elif prefix in ('american_derivatives', 'asian_lines', 'bivariate_derivatives', 'tennis_sets', 'sequence_hazard'):
+                fam = rest
+            else:
+                fam = rest.split(':')[-1]
+                break
+        if lg == 'NHL' and sc == 'full_game' and fam == 'three_way':
+            sc = 'regulation'
         return f"{lg}|{sc}|{fam}"
 
     def build_universe_roster(self, force_refresh: bool = False) -> Dict[str, UnifiedMarketProfile]:
@@ -131,8 +192,9 @@ class UnifiedMarketUniverse:
         import time
         now = time.time()
         if not force_refresh and UnifiedMarketUniverse._cached_roster is not None:
-            if now - UnifiedMarketUniverse._cached_at < UnifiedMarketUniverse._cache_ttl_seconds:
-                return UnifiedMarketUniverse._cached_roster
+            if getattr(UnifiedMarketUniverse, '_cached_dir', None) == str(self.data_dir):
+                if now - UnifiedMarketUniverse._cached_at < UnifiedMarketUniverse._cache_ttl_seconds:
+                    return UnifiedMarketUniverse._cached_roster
 
         roster: Dict[str, UnifiedMarketProfile] = {}
 
@@ -140,17 +202,46 @@ class UnifiedMarketUniverse:
             return roster
 
         try:
-            with sqlite3.connect(f"file:{self.incubator_db_path}?mode=ro", uri=True, timeout=2.0) as inc_conn:
+            with closing(sqlite3.connect(f"file:{self.incubator_db_path}?mode=ro", uri=True, timeout=2.0)) as inc_conn:
                 # 1. Ingest Graduated Markets (Tier 3 Candidates)
                 grad_rows = inc_conn.execute("""
                     SELECT segment_key, league, scope, family, sub_family,
-                           sample_size, roi, delta_brier, stats
+                           sample_size, roi, delta_brier, stats, graduated_at
                     FROM graduated_markets
                 """).fetchall()
 
                 grad_keys_set = set()
+                grad_at_map: Dict[str, str] = {}
+                from .contracts import is_supported_stake_contract
                 for r in grad_rows:
-                    seg_key, lg, sc, fam, sub_fam, n, roi, dbrier, stats_raw = r
+                    seg_key, lg, sc, fam, sub_fam, n, roi, dbrier, stats_raw, grad_at = r
+                    if not is_supported_stake_contract(lg, sc, fam, sub_fam):
+                        # Theoretical R&D archetype not offered on Stake feed -> keep in Tier 1 R&D
+                        prof = UnifiedMarketProfile(
+                            segment_key=seg_key,
+                            league=lg,
+                            scope=sc,
+                            family=fam,
+                            sub_family=sub_fam,
+                            tier=int(MarketTier.RESEARCH_RND),
+                            tier_name="RESEARCH_RND",
+                            stake_cap=0.00,
+                            active_model_id=f"rnd_{lg.lower()}_{sc}_{fam}",
+                            model_archetype="TheoreticalRndModel",
+                            rolling_roi_pct=float(roi * 100.0 if abs(roi) < 10.0 else roi),
+                            rolling_pnl=0.0,
+                            sample_size=0,
+                            delta_brier=float(dbrier or 0.0),
+                            phase_detail="Tier 1 R&D - Theoretical market archetype not currently offered pre-match by Stake feed ($0.00)"
+                        )
+                        roster[seg_key] = prof
+                        continue
+                    init_cap = 8.00 if is_protected_alpha_champion(seg_key) else 0.50
+                    init_phase = (
+                        "Protected Alpha Champion - Tier 3 Kelly"
+                        if is_protected_alpha_champion(seg_key)
+                        else "Newly Graduated Crucible Model - Live Probation ($0.50 floor)"
+                    )
                     prof = UnifiedMarketProfile(
                         segment_key=seg_key,
                         league=lg,
@@ -159,43 +250,54 @@ class UnifiedMarketUniverse:
                         sub_family=sub_fam,
                         tier=int(MarketTier.PRODUCTION_GRADUATED),
                         tier_name="PRODUCTION_GRADUATED",
-                        stake_cap=8.00,
+                        stake_cap=init_cap,
                         active_model_id=f"graduated_{lg.lower()}_{sc}_{fam}",
                         model_archetype="GraduatedCrucibleModel",
                         rolling_roi_pct=float(roi * 100.0 if abs(roi) < 10.0 else roi),
                         rolling_pnl=0.0,
-                        sample_size=int(n or 0),
+                        sample_size=0,
                         delta_brier=float(dbrier or 0.0),
-                        phase_detail="Active production funded trading"
+                        phase_detail=init_phase
                     )
                     roster[seg_key] = prof
                     grad_keys_set.add(seg_key)
+                    grad_at_map[seg_key] = grad_at or '1970-01-01'
                     if sub_fam and sub_fam != fam:
                         sub_k = f"{lg}|{sc}|{fam}:{sub_fam}"
                         roster[sub_k] = prof
                         grad_keys_set.add(sub_k)
+                        grad_at_map[sub_k] = grad_at or '1970-01-01'
 
                 # 2. Ingest Demoted Markets (Tier 1 & Tier 2)
+                # Timestamp Precedence: If demoted_at > graduated_at, demotion overrides old graduation!
                 dem_rows = inc_conn.execute("""
                     SELECT segment_key, league, scope, family, sub_family,
                            rolling_roi, rolling_pnl, games, incubation_phase,
-                           incubated_model_id, model_archetype, historical_roi, historical_brier_delta
+                           incubated_model_id, model_archetype, historical_roi, historical_brier_delta,
+                           demoted_at
                     FROM demoted_markets
                 """).fetchall()
 
                 for r in dem_rows:
                     (seg_key, lg, sc, fam, sub_fam, r_roi, r_pnl, games,
-                     phase, model_id, arch, h_roi, h_brier) = r
+                     phase, model_id, arch, h_roi, h_brier, dem_at) = r
 
                     canonical_k = self.get_canonical_key(lg, sc, fam)
                     is_sub = bool(sub_fam and sub_fam != fam)
                     sub_k = f"{lg}|{sc}|{fam}:{sub_fam}" if is_sub else canonical_k
 
-                    # Demoted markets represent current failure/quarantine and strictly override
-                    # any historical graduation records (Constitutional Commandments 6 & 7).
-                    grad_keys_set.discard(seg_key)
-                    grad_keys_set.discard(sub_k)
-                    grad_keys_set.discard(canonical_k)
+                    # Check timestamp precedence against graduated_markets
+                    grad_ts = grad_at_map.get(seg_key) or grad_at_map.get(canonical_k) or grad_at_map.get(sub_k)
+                    if grad_ts:
+                        dem_ts = dem_at or '1970-01-01'
+                        if dem_ts < grad_ts:
+                            # Re-graduation occurred AFTER demotion -> keep graduated!
+                            continue
+                        else:
+                            # Demotion occurred AFTER graduation (live drawdown) -> demote!
+                            grad_keys_set.discard(seg_key)
+                            grad_keys_set.discard(canonical_k)
+                            grad_keys_set.discard(sub_k)
 
                     if phase == 'incubating_with_new_model':
                         tier = int(MarketTier.SHADOW_INCUBATOR)
@@ -204,7 +306,7 @@ class UnifiedMarketUniverse:
                     else:
                         tier = int(MarketTier.RESEARCH_RND)
                         tier_name = "RESEARCH_RND"
-                        phase_detail = "Tier 1 R&D historical model tuning on 97k+ matches ($0.00)"
+                        phase_detail = f"Live Drawdown Demotion ({r_roi*100.0 if abs(r_roi) < 10.0 else r_roi:.1f}% ROI, ${r_pnl:.2f} over {games} games) - Quarantined ($0.00)" if games > 0 else "Tier 1 R&D historical model tuning on 97k+ matches ($0.00)"
 
                     prof = UnifiedMarketProfile(
                         segment_key=seg_key,
@@ -233,6 +335,24 @@ class UnifiedMarketUniverse:
                         base_sf = sub_fam.split(':')[-1]
                         roster[self.get_canonical_key(lg, sc, base_sf)] = prof
 
+                    # Demoted markets represent current failure/quarantine and strictly override
+                    # any historical graduation records (Constitutional Commandments 6 & 7).
+                    clean_fam = fam.split(':')[-1] if ':' in fam else fam
+                    clean_sub = sub_fam.split(':')[-1] if sub_fam and ':' in sub_fam else (sub_fam or fam)
+                    keys_to_demote = [
+                        k for k, p in roster.items()
+                        if p.league == lg and p.scope == sc and (
+                            p.family in (fam, sub_fam, clean_fam, clean_sub)
+                            or p.sub_family in (fam, sub_fam, clean_fam, clean_sub)
+                            or k.endswith(f":{clean_fam}")
+                            or k.endswith(f":{clean_sub}")
+                            or k in (seg_key, canonical_k, sub_k)
+                        )
+                    ]
+                    for k_ov in keys_to_demote:
+                        roster[k_ov] = prof
+                        grad_keys_set.discard(k_ov)
+
         except Exception as exc:
             logger.error("Error reading incubator db for universe roster: %s", exc)
 
@@ -240,65 +360,147 @@ class UnifiedMarketUniverse:
         perf_map: Dict[str, Dict[str, Any]] = {}
         if self.engine_db_path.exists():
             try:
-                with sqlite3.connect(f"file:{self.engine_db_path}?mode=ro", uri=True, timeout=2.0) as eng_conn:
+                with closing(sqlite3.connect(f"file:{self.engine_db_path}?mode=ro", uri=True, timeout=2.0)) as eng_conn:
                     # Pre-calculate performance metrics for all markets across settled decisions
+                    # Graduated markets are evaluated on decisions issued AFTER their graduation timestamp.
                     try:
                         rows_perf = eng_conn.execute("""
                             SELECT 
                                 json_extract(payload, '$.league'),
                                 COALESCE(json_extract(payload, '$.model_scope'), json_extract(payload, '$.period')),
                                 json_extract(payload, '$.market'),
-                                COUNT(*),
-                                SUM(pnl),
-                                SUM(json_extract(payload, '$.stake'))
+                                pnl,
+                                json_extract(payload, '$.stake'),
+                                issued_at
                             FROM system_decisions
                             WHERE status IN ('won', 'lost', 'push')
-                            GROUP BY 1, 2, 3
                         """).fetchall()
-                        for lg_r, sc_r, fam_r, cnt_r, pnl_r, stake_r in rows_perf:
+                        all_time_perf_map: Dict[str, Dict[str, Any]] = {}
+                        for lg_r, sc_r, fam_r, pnl_r, stake_r, iss_r in rows_perf:
                             if not lg_r or not fam_r:
                                 continue
                             k = self.get_canonical_key(lg_r, sc_r, fam_r)
-                            pnl_v = float(pnl_r or 0.0)
-                            stk_v = float(stake_r or 1.0)
-                            avg_stk = stk_v / max(1, cnt_r)
-                            units_v = pnl_v / max(0.20, avg_stk)
-                            roi_v = (pnl_v / stk_v) if stk_v > 0 else 0.0
-                            stat = {
-                                'sample_size': int(cnt_r),
-                                'pnl': round(pnl_v, 2),
-                                'staked': round(stk_v, 2),
-                                'roi_pct': round(roi_v * 100.0, 2),
-                                'units': round(units_v, 2)
-                            }
-                            perf_map[k] = stat
+                            base_k = None
                             if ':' in str(fam_r):
                                 base_k = self.get_canonical_key(lg_r, sc_r, str(fam_r).split(':')[-1])
-                                perf_map.setdefault(base_k, stat)
+
+                            pnl_v = float(pnl_r or 0.0)
+                            stk_v = float(stake_r or 1.0)
+
+                            # Track all-time settled performance across every decision
+                            at_stat = all_time_perf_map.setdefault(k, {'sample_size': 0, 'pnl': 0.0, 'staked': 0.0, 'roi_pct': 0.0, 'units': 0.0})
+                            at_stat['sample_size'] += 1
+                            at_stat['pnl'] += pnl_v
+                            at_stat['staked'] += stk_v
+                            if base_k:
+                                at_stat_b = all_time_perf_map.setdefault(base_k, {'sample_size': 0, 'pnl': 0.0, 'staked': 0.0, 'roi_pct': 0.0, 'units': 0.0})
+                                at_stat_b['sample_size'] += 1
+                                at_stat_b['pnl'] += pnl_v
+                                at_stat_b['staked'] += stk_v
+
+                            # Post-graduation filter: newly graduated models start fresh from graduation
+                            if k in grad_at_map:
+                                if str(iss_r) < str(grad_at_map[k]):
+                                    continue
+                            elif base_k and base_k in grad_at_map:
+                                if str(iss_r) < str(grad_at_map[base_k]):
+                                    continue
+
+                            stat = perf_map.setdefault(k, {'sample_size': 0, 'pnl': 0.0, 'staked': 0.0, 'roi_pct': 0.0, 'units': 0.0})
+                            stat['sample_size'] += 1
+                            stat['pnl'] += pnl_v
+                            stat['staked'] += stk_v
+
+                        # Compute derived metrics for both maps
+                        for d_m in (perf_map, all_time_perf_map):
+                            for k, stat in d_m.items():
+                                pnl_v = stat['pnl']
+                                stk_v = stat['staked']
+                                cnt_v = stat['sample_size']
+                                avg_stk = stk_v / max(1, cnt_v)
+                                stat['units'] = round(pnl_v / max(1.0, avg_stk), 2)
+                                stat['roi_pct'] = round((pnl_v / stk_v * 100.0) if stk_v > 0 else 0.0, 2)
+                                stat['pnl'] = round(pnl_v, 2)
+                                stat['staked'] = round(stk_v, 2)
+                                if ':' in k:
+                                    parts = k.split('|')
+                                    if len(parts) == 3 and ':' in parts[2]:
+                                        base_k = f"{parts[0]}|{parts[1]}|{parts[2].split(':')[-1]}"
+                                        d_m.setdefault(base_k, stat)
                     except Exception as e_perf:
                         logger.warning("Could not pre-aggregate settled market performance: %s", e_perf)
             except Exception as exc:
                 logger.error("Error reading engine db for universe settled performance: %s", exc)
 
         # Synchronize existing roster profiles (including graduated) with live settled performance
-        for k_perf, stat in perf_map.items():
-            if k_perf in roster:
-                prof = roster[k_perf]
-                prof.rolling_pnl = stat['pnl']
-                prof.rolling_roi_pct = stat['roi_pct']
-                prof.sample_size = stat['sample_size']
-                # If degraded on 4+ games or severe loss on 2+ games, apply Capital Defense tourniquet ($0.50 clamp)
-                # only if currently graduated in production; demoted markets in Tier 1 R&D / Tier 2 Shadow Incubator strictly remain $0.00 (Commandment 6).
-                if (stat['sample_size'] >= 4 and (stat['pnl'] < 0.0 or stat['roi_pct'] < -3.0)) or (stat['sample_size'] >= 2 and stat['pnl'] <= -1.0 and stat['roi_pct'] <= -50.0):
-                    if prof.tier == int(MarketTier.PRODUCTION_GRADUATED):
-                        prof.stake_cap = 0.50
-                        prof.phase_detail = f"Capital Defense Tourniquet ({stat['roi_pct']:+.1f}% ROI, ${stat['pnl']:+.2f} over {stat['sample_size']} games) - $0.50 clamp"
+        for k_perf, prof in roster.items():
+            if prof.tier == int(MarketTier.PRODUCTION_GRADUATED):
+                stat = perf_map.get(k_perf)
+                at_stat = all_time_perf_map.get(k_perf)
+
+                if stat and stat['sample_size'] > 0:
+                    prof.rolling_pnl = stat['pnl']
+                    prof.rolling_roi_pct = stat['roi_pct']
+                    prof.sample_size = stat['sample_size']
+
+                    is_protected = is_protected_alpha_champion(k_perf, stat)
+                    if is_protected and stat['pnl'] > 0.0 and stat['sample_size'] >= 2:
+                        prof.stake_cap = 8.00
+                        prof.phase_detail = f"Protected Alpha Champion ({stat['roi_pct']:+.1f}% ROI, ${stat['pnl']:+.2f} over {stat['sample_size']} games) - Tier 3 Kelly"
                     else:
+                        # Zero-Bleed Live Quarantine (Constitution Prime Directives 1, 6 & 7):
+                        # Only genuinely profitable markets are permitted in Tier 3 live funded execution.
+                        # Any market with established negative live performance is immediately quarantined to Tier 1 ($0.00).
+                        is_stat_degraded = (
+                            (stat['sample_size'] >= 4 and stat['pnl'] <= -2.00)
+                            or (stat['sample_size'] >= 3 and stat['pnl'] <= -1.50 and stat['roi_pct'] < -10.0)
+                            or (stat['sample_size'] >= 6 and stat['pnl'] < 0.0)
+                            or (stat['sample_size'] >= 2 and stat['pnl'] < 0.0 and stat['roi_pct'] <= -20.0)
+                            or (stat['pnl'] <= -4.00)
+                        )
+                        if is_stat_degraded:
+                            prof.tier = int(MarketTier.RESEARCH_RND)
+                            prof.tier_name = "RESEARCH_RND"
+                            prof.stake_cap = 0.00
+                            prof.phase_detail = f"Live Drawdown Demotion ({stat['roi_pct']:.1f}% ROI, ${stat['pnl']:.2f} over {stat['sample_size']} games) - Quarantined ($0.00)"
+                            grad_keys_set.discard(k_perf)
+                        elif stat['pnl'] < 0.0 or (is_protected and stat['pnl'] > 0.0 and stat['roi_pct'] < 0.0):
+                            prof.stake_cap = 0.50
+                            prof.phase_detail = f"Capital Defense Tourniquet ({stat['roi_pct']:+.1f}% ROI, ${stat['pnl']:+.2f} over {stat['sample_size']} games) - $0.50 clamp"
+                        elif stat['sample_size'] >= 2 and stat['pnl'] > 0.0:
+                            if stat['pnl'] >= 2.0 and stat['roi_pct'] >= 10.0:
+                                prof.stake_cap = 8.00
+                                prof.phase_detail = f"Alpha Acceleration ({stat['roi_pct']:+.1f}% ROI, ${stat['pnl']:+.2f} over {stat['sample_size']} games) - $8.00 cap"
+                            else:
+                                prof.stake_cap = 2.50
+                                prof.phase_detail = f"Active Profitable Live Model ({stat['roi_pct']:+.1f}% ROI, ${stat['pnl']:+.2f} over {stat['sample_size']} games) - Tier 3 Kelly"
+                        else:
+                            prof.stake_cap = 0.50
+                            prof.phase_detail = f"Live Probation ({stat['sample_size']} game, ${stat['pnl']:+.2f}) - $0.50 floor"
+                else:
+                    # No post-graduation live decisions yet (0 live settled games with new model)
+                    is_protected = is_protected_alpha_champion(k_perf, at_stat)
+                    if is_protected and at_stat and at_stat['pnl'] > 0.0 and at_stat['sample_size'] >= 2:
+                        prof.stake_cap = 8.00
+                        prof.rolling_pnl = at_stat['pnl']
+                        prof.rolling_roi_pct = at_stat['roi_pct']
+                        prof.sample_size = at_stat['sample_size']
+                        prof.phase_detail = f"Protected Alpha Champion ({at_stat['roi_pct']:+.1f}% ROI, ${at_stat['pnl']:+.2f} over {at_stat['sample_size']} games) - Tier 3 Kelly"
+                    elif at_stat and at_stat['pnl'] < 0.0:
+                        # Constitutional Invariant (Prime Directives 6 & 7):
+                        # Markets with established negative live PnL must be quarantined to Tier 2 ($0.00 virtual stakes).
+                        # Clamping or letting demoted/losing markets bleed real capital at $0.50 is strictly forbidden.
+                        prof.tier = int(MarketTier.SHADOW_INCUBATOR)
+                        prof.tier_name = "SHADOW_INCUBATOR"
                         prof.stake_cap = 0.00
-                        prof.phase_detail = f"Quarantined Demoted Market ({stat['roi_pct']:+.1f}% ROI, ${stat['pnl']:+.2f} over {stat['sample_size']} games) - $0.00 virtual stakes"
-                elif stat['sample_size'] >= 2 and stat['pnl'] >= 1.0 and stat['roi_pct'] >= 10.0:
-                    if prof.tier == int(MarketTier.PRODUCTION_GRADUATED):
-                        prof.phase_detail = f"Alpha Acceleration ({stat['roi_pct']:+.1f}% ROI, ${stat['pnl']:+.2f} over {stat['sample_size']} games) - $8.00 cap"
+                        prof.rolling_pnl = at_stat['pnl']
+                        prof.rolling_roi_pct = at_stat['roi_pct']
+                        prof.sample_size = at_stat['sample_size']
+                        prof.phase_detail = f"Shadow Incubator Quarantine - Established Live Loss (${at_stat['pnl']:+.2f} over {at_stat['sample_size']} games) - $0.00"
+                        grad_keys_set.discard(k_perf)
+                    else:
+                        prof.stake_cap = 0.50
+                        prof.phase_detail = "Newly Graduated Crucible Model - Live Probation ($0.50 floor)"
 
         def _register_market_candidate(lg: str, sc: str, fam: str, model_id: Optional[str], archetype: str) -> None:
             lg_clean = (lg or '').upper().strip()
@@ -314,25 +516,42 @@ class UnifiedMarketUniverse:
             stat = perf_map.get(canon_key) or perf_map.get(canon_base_key) or {}
             r_pnl = float(stat.get('pnl', 0.0))
             r_roi = float(stat.get('roi_pct', 0.0))
-            n_samples = int(stat.get('sample_size', 10))
+            n_samples = int(stat.get('sample_size', 0))
             r_units = float(stat.get('units', 0.0))
 
-            # Zero Tolerance for Capital Drag (Constitutional Directives 1, 6 & 7):
-            # Any market with established or nascent negative expectation (PnL < 0.0 or ROI < 0.0)
-            # is strictly quarantined in RESEARCH_RND ($0.00 stake) so Tier 3 contains ONLY
-            # and exclusively proven profitable markets.
-            is_degraded = (n_samples >= 1) and (r_pnl < 0.0 or r_roi < 0.0)
+            is_protected = is_protected_alpha_champion(canon_key, stat) or is_protected_alpha_champion(canon_base_key, stat)
 
-            if is_degraded:
+            # Total Market Universe Invariant (Constitution Prime Directives 1, 2, 6 & 7):
+            # Only demonstrably profitable markets are permitted in Tier 3 live funded execution ($0.50-$8.00).
+            # Bleeding markets and untraded silent markets are strictly assigned to Tier 1 R&D ($0.00)
+            # for candidate model synthesis, historical backtesting, and Crucible re-graduation!
+            if is_protected and r_pnl > 0.0 and n_samples >= 2:
+                tier_val = int(MarketTier.PRODUCTION_GRADUATED)
+                tier_name_val = "PRODUCTION_GRADUATED"
+                stake_cap_val = 8.00 if (r_pnl >= 2.0 or r_roi >= 10.0) else 2.50
+                phase_val = f"Alpha Acceleration ({r_roi:+.1f}% ROI, ${r_pnl:+.2f} over {n_samples} games) - Tier 3 Kelly"
+            elif n_samples >= 2 and r_pnl > 0.0:
+                tier_val = int(MarketTier.PRODUCTION_GRADUATED)
+                tier_name_val = "PRODUCTION_GRADUATED"
+                stake_cap_val = 8.00 if (r_pnl >= 2.0 or r_roi >= 10.0) else 2.50
+                phase_val = f"Active Profitable Live Model ({r_roi:+.1f}% ROI, ${r_pnl:+.2f} over {n_samples} games) - Tier 3 Kelly"
+            elif n_samples >= 1 and r_pnl < 0.0:
                 tier_val = int(MarketTier.RESEARCH_RND)
                 tier_name_val = "RESEARCH_RND"
                 stake_cap_val = 0.00
-                phase_val = f"Negative expectation ({r_roi:.1f}% ROI, ${r_pnl:.2f}, {r_units:.1f}u over {n_samples} games) - Quarantined ($0.00)"
-            else:
+                phase_val = f"Live Drawdown Demotion ({r_roi:.1f}% ROI, ${r_pnl:.2f} over {n_samples} games) - Quarantined ($0.00)"
+            elif n_samples == 1 and r_pnl >= 0.0:
                 tier_val = int(MarketTier.PRODUCTION_GRADUATED)
                 tier_name_val = "PRODUCTION_GRADUATED"
-                stake_cap_val = 8.00
-                phase_val = "Active production wired model trading"
+                stake_cap_val = 0.50
+                phase_val = "Initial Exploratory Live Model ($0.50 floor)"
+            else:
+                # n_samples == 0: Untraded / Silent Market in Active Universe
+                # Strictly assigned to Tier 1 R&D for AI model development and Crucible validation!
+                tier_val = int(MarketTier.RESEARCH_RND)
+                tier_name_val = "RESEARCH_RND"
+                stake_cap_val = 0.00
+                phase_val = "Tier 1 Silent Market Discovery R&D: Untraded in live execution ($0.00)"
 
             roster[canon_key] = UnifiedMarketProfile(
                 segment_key=canon_key,
@@ -406,7 +625,7 @@ class UnifiedMarketUniverse:
         # 5. Ingest all distinct baseline production markets ever issued in system_decisions
         if self.engine_db_path.exists():
             try:
-                with sqlite3.connect(f"file:{self.engine_db_path}?mode=ro", uri=True, timeout=2.0) as eng_conn:
+                with closing(sqlite3.connect(f"file:{self.engine_db_path}?mode=ro", uri=True, timeout=2.0)) as eng_conn:
                     dec_rows = eng_conn.execute("""
                         SELECT DISTINCT 
                             json_extract(payload, '$.league'),
@@ -426,8 +645,44 @@ class UnifiedMarketUniverse:
             except Exception as exc:
                 logger.error("Error reading engine db for distinct universe decisions: %s", exc)
 
+        # Auto-sync all degraded markets (Tier 1 & Tier 2) into demoted_markets SQL table
+        if self.data_dir.resolve() == DATA.resolve() and self.incubator_db_path.exists():
+            try:
+                with closing(sqlite3.connect(str(self.incubator_db_path), timeout=5.0)) as inc_conn:
+                    inc_conn.execute("PRAGMA busy_timeout = 5000")
+                    existing_dem = {r[0] for r in inc_conn.execute("SELECT segment_key FROM demoted_markets").fetchall()}
+                    now_str = datetime.now(timezone.utc).isoformat()
+                    to_insert = []
+                    for k, p in roster.items():
+                        if p.tier in (1, 2) and k not in existing_dem and k not in grad_keys_set:
+                            d_id = f"demote_{hashlib.sha256(f'{k}:{now_str}'.encode()).hexdigest()[:16]}"
+                            phase_name = 'incubating_with_new_model' if (p.tier == 2 and p.active_model_id) else 'research_training'
+                            to_insert.append((
+                                d_id, k, p.league, p.scope, p.family, p.sub_family or p.family,
+                                now_str, (p.rolling_roi_pct or 0.0) / 100.0, p.rolling_pnl or 0.0,
+                                p.sample_size or 0, f"Unified Universe Auto-Sync: {p.phase_detail}",
+                                json.dumps({'rolling_pnl': p.rolling_pnl, 'roi_pct': p.rolling_roi_pct, 'sample_size': p.sample_size}),
+                                phase_name
+                            ))
+                            existing_dem.add(k)
+                    if to_insert:
+                        inc_conn.execute("BEGIN IMMEDIATE")
+                        inc_conn.executemany("""
+                            INSERT OR IGNORE INTO demoted_markets (
+                                id, segment_key, league, scope, family, sub_family,
+                                demoted_at, rolling_roi, rolling_pnl, games, reason, stats, incubation_phase
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """, to_insert)
+                        dem_keys = [t[1] for t in to_insert]
+                        placeholders = ','.join('?' for _ in dem_keys)
+                        inc_conn.execute(f"DELETE FROM graduated_markets WHERE segment_key IN ({placeholders})", dem_keys)
+                        inc_conn.execute("COMMIT")
+            except Exception as e_sync:
+                logger.debug("Could not auto-sync degraded roster to demoted_markets: %s", e_sync)
+
         UnifiedMarketUniverse._cached_roster = roster
         UnifiedMarketUniverse._cached_at = now
+        UnifiedMarketUniverse._cached_dir = str(self.data_dir)
         return roster
 
     def get_market_tier(self, league: str, scope: str, family: str, sub_family: Optional[str] = None) -> MarketTier:
@@ -456,7 +711,7 @@ class UnifiedMarketUniverse:
 
         # Check if explicitly demoted in demoted_markets
         try:
-            with sqlite3.connect(f"file:{self.incubator_db_path}?mode=ro", uri=True, timeout=2.0) as inc_conn:
+            with closing(sqlite3.connect(f"file:{self.incubator_db_path}?mode=ro", uri=True, timeout=2.0)) as inc_conn:
                 placeholders = ','.join('?' for _ in candidate_keys)
                 row = inc_conn.execute(
                     f"SELECT incubation_phase FROM demoted_markets WHERE segment_key IN ({placeholders})",
@@ -475,8 +730,9 @@ class UnifiedMarketUniverse:
         import time
         now = time.time()
         if not force_refresh and UnifiedMarketUniverse._cached_summary is not None:
-            if now - UnifiedMarketUniverse._cached_at < UnifiedMarketUniverse._cache_ttl_seconds:
-                return UnifiedMarketUniverse._cached_summary
+            if getattr(UnifiedMarketUniverse, '_cached_summary_dir', None) == str(self.data_dir):
+                if now - UnifiedMarketUniverse._cached_at < UnifiedMarketUniverse._cache_ttl_seconds:
+                    return UnifiedMarketUniverse._cached_summary
 
         roster = self.build_universe_roster(force_refresh=force_refresh)
         # Deduplicate profiles so alias keys do not inflate counts
@@ -491,7 +747,7 @@ class UnifiedMarketUniverse:
         offered_by_league: Dict[str, int] = {}
         if self.engine_db_path.exists():
             try:
-                with sqlite3.connect(f"file:{self.engine_db_path}?mode=ro", uri=True, timeout=1.0) as eng_conn:
+                with closing(sqlite3.connect(f"file:{self.engine_db_path}?mode=ro", uri=True, timeout=1.0)) as eng_conn:
                     rows = eng_conn.execute("""
                         SELECT DISTINCT 
                             json_extract(payload, '$.league'),
@@ -540,4 +796,5 @@ class UnifiedMarketUniverse:
             'leagues_breakdown': leagues_breakdown,
         }
         UnifiedMarketUniverse._cached_summary = summary
+        UnifiedMarketUniverse._cached_summary_dir = str(self.data_dir)
         return summary

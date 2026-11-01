@@ -2149,12 +2149,28 @@ function polymarketBadge(t){
  if(edgeReason){
   const match=edgeReason.match(/\(\+([0-9.]+)%\s*edge\)/i);
   const edgeText=match?`+${match[1]}% Edge`:'Edge';
+  if(edgeReason.includes('Spread')){
+   return `<span class="badge polymarket-edge" title="${esc(edgeReason)}">🔮 Polymarket Spread ${edgeText}</span>`;
+  }
+  if(edgeReason.includes('Total')){
+   return `<span class="badge polymarket-edge" title="${esc(edgeReason)}">🔮 Polymarket Total ${edgeText}</span>`;
+  }
   return `<span class="badge polymarket-edge" title="${esc(edgeReason)}">🔮 Polymarket ${edgeText}</span>`;
  }
- if(poly&&poly.matched&&poly.has_moneyline){
+ const anchorReason=reasons.find(r=>typeof r==='string'&&r.includes('Polymarket Anchor'));
+ if(anchorReason){
+  if(anchorReason.includes('Spread')){
+   return `<span class="badge polymarket-matched" title="${esc(anchorReason)}">🔮 Polymarket Spread (Anchor)</span>`;
+  }
+  if(anchorReason.includes('Total')){
+   return `<span class="badge polymarket-matched" title="${esc(anchorReason)}">🔮 Polymarket Total (Anchor)</span>`;
+  }
+  return `<span class="badge polymarket-matched" title="${esc(anchorReason)}">🔮 Polymarket (Anchor)</span>`;
+ }
+ if(poly&&poly.matched){
   const marketKind=String(t.market||'').split(':').at(-1);
   const isMl=['moneyline','three_way','1x2','winner'].includes(marketKind);
-  if(isMl){
+  if(isMl&&poly.has_moneyline){
    const side=String(t.side||t.current_assessment?.side||'').toLowerCase();
    const polyProb=side==='home'?poly.true_prob_home:(side==='away'?poly.true_prob_away:(side==='draw'||side==='tie'?poly.true_prob_draw:null));
    const odds=Number(t.reference_odds||t.current_assessment?.reference_odds||t.execution_review?.odds||0);
@@ -2168,6 +2184,46 @@ function polymarketBadge(t){
     return `<span class="badge polymarket-matched" title="Polymarket True Prob: ${(polyProb*100).toFixed(1)}% vs Stake Implied: ${(implied*100).toFixed(1)}% (${diffStr} — no price edge, orderbook anchor)">🔮 Polymarket ${(polyProb*100).toFixed(0)}% (Anchor)</span>`;
    }
    return `<span class="badge polymarket-matched" title="Polymarket Orderbook Anchored: ${esc(poly.title||'Matched')}">🔮 Polymarket (Anchor)</span>`;
+  }
+  const isSpread=['spreads','asian_handicap'].includes(marketKind);
+  if(isSpread&&poly.has_spreads){
+   const lineVal=Number(t.line??t.current_assessment?.line);
+   if(!isNaN(lineVal)){
+    const sInfo=poly.spreads?.[String(lineVal)]||poly.spreads?.[lineVal];
+    if(sInfo){
+     const side=String(t.side||t.current_assessment?.side||'').toLowerCase();
+     const polyProb=side==='home'?sInfo.p_true_home:sInfo.p_true_away;
+     const odds=Number(t.reference_odds||t.current_assessment?.reference_odds||t.execution_review?.odds||0);
+     if(polyProb&&odds>1.0){
+      const implied=1.0/odds;
+      const edge=(polyProb-implied)*100;
+      if(edge>=0.5){
+       return `<span class="badge polymarket-edge" title="Polymarket Spread (${lineVal}) True Prob: ${(polyProb*100).toFixed(1)}% vs Stake Implied: ${(implied*100).toFixed(1)}% (+${edge.toFixed(1)}% EV Advantage)">🔮 Polymarket Spread +${edge.toFixed(1)}% Edge</span>`;
+      }
+      return `<span class="badge polymarket-matched" title="Polymarket Spread (${lineVal}) Consensus: ${(polyProb*100).toFixed(1)}%">🔮 Polymarket Spread (Anchor)</span>`;
+     }
+    }
+   }
+  }
+  const isTotal=['totals','asian_total'].includes(marketKind);
+  if(isTotal&&poly.has_totals){
+   const lineVal=Number(t.line??t.current_assessment?.line);
+   if(!isNaN(lineVal)){
+    const tInfo=poly.totals?.[String(lineVal)]||poly.totals?.[lineVal];
+    if(tInfo){
+     const side=String(t.side||t.current_assessment?.side||'').toLowerCase();
+     const polyProb=side==='over'?tInfo.p_true_over:tInfo.p_true_under;
+     const odds=Number(t.reference_odds||t.current_assessment?.reference_odds||t.execution_review?.odds||0);
+     if(polyProb&&odds>1.0){
+      const implied=1.0/odds;
+      const edge=(polyProb-implied)*100;
+      if(edge>=0.5){
+       return `<span class="badge polymarket-edge" title="Polymarket Total (${lineVal}) True Prob: ${(polyProb*100).toFixed(1)}% vs Stake Implied: ${(implied*100).toFixed(1)}% (+${edge.toFixed(1)}% EV Advantage)">🔮 Polymarket Total +${edge.toFixed(1)}% Edge</span>`;
+      }
+      return `<span class="badge polymarket-matched" title="Polymarket Total (${lineVal}) Consensus: ${(polyProb*100).toFixed(1)}%">🔮 Polymarket Total (Anchor)</span>`;
+     }
+    }
+   }
   }
  }
  return '';
@@ -3517,15 +3573,31 @@ function contextMarkup(context={}){
  const rows=['home','away'].flatMap(side=>(i[side]||[]).map(r=>({...r,side})));
  if(rows.length)html+='<h3>Injury Report · '+esc(i.snapshot_date)+'</h3><p>These statuses are not yet applied as numerical adjustments to the model.</p><ul>'+rows.map(r=>'<li><strong>'+esc(r.athlete_display_name)+'</strong> · '+esc(r.athlete_position)+' · '+esc(r.status)+'<br>'+esc(r.short_comment)+'</li>').join('')+'</ul>';
  const pm=context.polymarket;
- if(pm&&pm.matched&&pm.has_moneyline){
-  html+='<h3>Polymarket Orderbook Consensus</h3>'+
-   '<div class="polymarket-detail-card">'+
-   '<div class="polymarket-detail-card-title">🔮 Polymarket Consensus & Market Depth</div>'+
-   '<div class="polymarket-detail-card-body">'+
-   '<div><strong>Home Prob:</strong> '+(pm.true_prob_home!=null?(pm.true_prob_home*100).toFixed(1)+'%':'—')+(pm.true_prob_draw!=null?' · <strong>Draw Prob:</strong> '+(pm.true_prob_draw*100).toFixed(1)+'%':'')+' · <strong>Away Prob:</strong> '+(pm.true_prob_away!=null?(pm.true_prob_away*100).toFixed(1)+'%':'—')+'</div>'+
-   '<div><strong>Market Volume:</strong> '+(pm.total_volume?'$'+Math.round(pm.total_volume).toLocaleString():'Active')+' · <strong>Spread:</strong> '+(pm.spread!=null?(pm.spread*100).toFixed(1)+'%':'—')+'</div>'+
-   (pm.question?`<div style="font-size:11px;color:#94a3b8;margin-top:4px">${esc(pm.question)}</div>`:'')+
-   '</div></div>';
+ if(pm&&pm.matched){
+  let pmBody='';
+  if(pm.has_moneyline){
+   pmBody+='<div><strong>Moneyline:</strong> Home '+(pm.true_prob_home!=null?(pm.true_prob_home*100).toFixed(1)+'%':'—')+(pm.true_prob_draw!=null?' · Draw '+(pm.true_prob_draw*100).toFixed(1)+'%':'')+' · Away '+(pm.true_prob_away!=null?(pm.true_prob_away*100).toFixed(1)+'%':'—')+'</div>';
+  }
+  if(pm.has_spreads){
+   const sKeys=Object.keys(pm.spreads||{}).filter(k=>!k.startsWith('+')).slice(0,3);
+   if(sKeys.length){
+    pmBody+='<div style="margin-top:4px"><strong>Spreads:</strong> '+sKeys.map(k=>`${k}: Home ${(pm.spreads[k].p_true_home*100).toFixed(0)}% / Away ${(pm.spreads[k].p_true_away*100).toFixed(0)}%`).join(' · ')+'</div>';
+   }
+  }
+  if(pm.has_totals){
+   const tKeys=Object.keys(pm.totals||{}).slice(0,3);
+   if(tKeys.length){
+    pmBody+='<div style="margin-top:4px"><strong>Totals:</strong> '+tKeys.map(k=>`O/U ${k}: Over ${(pm.totals[k].p_true_over*100).toFixed(0)}% / Under ${(pm.totals[k].p_true_under*100).toFixed(0)}%`).join(' · ')+'</div>';
+   }
+  }
+  if(pmBody){
+   html+='<h3>Polymarket Orderbook Consensus</h3>'+
+    '<div class="polymarket-detail-card">'+
+    '<div class="polymarket-detail-card-title">🔮 Polymarket Consensus & Market Depth</div>'+
+    '<div class="polymarket-detail-card-body">'+pmBody+
+    (pm.question?`<div style="font-size:11px;color:#94a3b8;margin-top:4px">${esc(pm.question)}</div>`:'')+
+    '</div></div>';
+  }
  }
  return html;
 }

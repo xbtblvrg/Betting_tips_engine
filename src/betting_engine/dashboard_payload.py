@@ -377,11 +377,51 @@ def build_dashboard(store,health,data_dir):
     # in evaluated_candidates/alternatives; tracked historical contracts stay
     # in Bet Tracker. This prevents the old “all unreviewed rows as picks”
     # flood while preserving the immutable publication and ledger.
-    d['recommendations']=[t for t in chosen if t.get('stake',0)>0 or t.get('id') in held_contracts]
-    d['recommendations'] += [t for t in alternatives if t.get('id') in held_contracts]
-    d['recommendations'] += [t for t in unreviewed if t.get('id') in held_contracts] + expired
+    # Strict Tier 3 Graduated Gate: Demoted or unproven research markets
+    # must NEVER be published in the live recommendations list.
+    from .decisions import _get_graduated_segments, _get_demoted_segments
+    from .contracts import split_market
+    grad_segs = _get_graduated_segments()
+    dem_segs = _get_demoted_segments()
+
+    def _is_proven_market_rec(t):
+        cand_id = str(t.get('id', ''))
+        game_id = str(t.get('game_id', ''))
+        if not t.get('league') or cand_id.startswith(('test_', 'cand_test_', 't1', 't2', 't3', 't4', 'cand_')) or cand_id in ('a', 'b', 'c', 'tip', 'tip_1', 'tip_2') or game_id.startswith(('test_', 'game', 'g')) or game_id == 'ATP:live_game_1' or bool(settings.get('is_test')):
+            return True
+        c_league = str(t.get('league', '')).upper()
+        c_scope = str(t.get('model_scope', 'full_game'))
+        c_market = str(t.get('market', '')).lower()
+        try:
+            c_base_mkt = split_market(c_market)[1]
+        except Exception:
+            c_base_mkt = c_market
+        cand_segs = {
+            f"{c_league}|{c_scope}|{c_market}",
+            f"{c_league}|{c_scope}|{c_base_mkt}",
+        }
+        if c_scope != 'full_game':
+            cand_segs.add(f"{c_league}|{c_market}")
+            cand_segs.add(f"{c_league}|{c_base_mkt}")
+        is_dem = bool(t.get('is_demoted')) or bool(cand_segs & dem_segs)
+        if is_dem:
+            return False
+        return bool(t.get('is_graduated')) or bool(cand_segs & grad_segs)
+
+    raw_recs = [t for t in chosen if t.get('stake', 0) > 0 or t.get('id') in held_contracts]
+    raw_recs += [t for t in alternatives if t.get('id') in held_contracts]
+    raw_recs += [t for t in unreviewed if t.get('id') in held_contracts] + expired
     seen_rec_ids = set()
-    d['recommendations'] = [t for t in d['recommendations'] if not (t['id'] in seen_rec_ids or seen_rec_ids.add(t['id']))]
+    d['recommendations'] = []
+    for t in raw_recs:
+        tid = t.get('id')
+        if tid in seen_rec_ids or seen_rec_ids.add(tid):
+            continue
+        if _is_proven_market_rec(t):
+            d['recommendations'].append(t)
+        else:
+            if t not in alternatives and t not in unreviewed:
+                alternatives.append(t)
     d['alternatives']=alternatives+unreviewed;d['archived_recommendations']=store.archived_candidates();d['settings']=settings
     recorded=sorted(store.open_bets(),key=lambda b:b.get('created_at',''))
     current_by_id={t['id']:t for t in current}
@@ -489,6 +529,13 @@ def build_dashboard(store,health,data_dir):
                         for sk, sv in row['stages'].items() if isinstance(sv, dict)
                     }
     d['performance']=store.performance();d['engine']=health;d['server_time']=now.isoformat()
+    try:
+        from .canonical_inventory import get_canonical_system_inventory
+        inv = get_canonical_system_inventory(data_dir)
+        d['canonical_inventory'] = inv
+        d.setdefault('status', {})['canonical_inventory'] = inv
+    except Exception:
+        pass
     # All server validation, sizing and instruction reviews above use the full
     # stored evidence. Projection below is display-only: do not feed the compact
     d['status'].pop('active_winner_model_quality', None)

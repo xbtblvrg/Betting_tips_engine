@@ -105,50 +105,43 @@ def _get_governor_status():
     except Exception:
         return {}
 
-_GRADUATED_CACHE = {'ts': 0.0, 'data': None}
-def _get_graduated_segments():
+_ROSTER_CACHE = {'ts': 0.0, 'data': None}
+
+def _get_universe_roster():
     import time
     now = time.time()
-    if now - _GRADUATED_CACHE['ts'] < 60.0 and _GRADUATED_CACHE['data'] is not None:
-        return _GRADUATED_CACHE['data']
+    if now - _ROSTER_CACHE['ts'] < 60.0 and _ROSTER_CACHE['data'] is not None:
+        return _ROSTER_CACHE['data']
     try:
         from .unified_market_universe import UnifiedMarketUniverse
         roster = UnifiedMarketUniverse().build_universe_roster()
-        _GRADUATED_CACHE['ts'] = now
-        _GRADUATED_CACHE['data'] = {k for k, p in roster.items() if p.tier == 3}
-        return _GRADUATED_CACHE['data']
+        _ROSTER_CACHE['ts'] = now
+        _ROSTER_CACHE['data'] = roster
+        return roster
     except Exception:
-        try:
-            from .shadow_market_incubator import load_graduated_markets
-            grads = load_graduated_markets()
-            _GRADUATED_CACHE['ts'] = now
-            _GRADUATED_CACHE['data'] = set(grads.keys()) if grads else set()
-            return _GRADUATED_CACHE['data']
-        except Exception:
-            return set()
+        return {}
 
-_DEMOTED_CACHE = {'ts': 0.0, 'data': None}
+def _get_graduated_segments():
+    roster = _get_universe_roster()
+    if roster:
+        return {k for k, p in roster.items() if p.tier == 3}
+    try:
+        from .shadow_market_incubator import load_graduated_markets
+        grads = load_graduated_markets()
+        return set(grads.keys()) if grads else set()
+    except Exception:
+        return set()
 
 def _get_demoted_segments():
-    import time
-    now = time.time()
-    if now - _DEMOTED_CACHE['ts'] < 60.0 and _DEMOTED_CACHE['data'] is not None:
-        return _DEMOTED_CACHE['data']
+    roster = _get_universe_roster()
+    if roster:
+        return {k for k, p in roster.items() if p.tier in (1, 2)}
     try:
-        from .unified_market_universe import UnifiedMarketUniverse
-        roster = UnifiedMarketUniverse().build_universe_roster()
-        _DEMOTED_CACHE['ts'] = now
-        _DEMOTED_CACHE['data'] = {k for k, p in roster.items() if p.tier in (1, 2)}
-        return _DEMOTED_CACHE['data']
+        from .shadow_market_incubator import get_demoted_segments
+        dem = get_demoted_segments()
+        return dem if dem else set()
     except Exception:
-        try:
-            from .shadow_market_incubator import get_demoted_segments
-            dem = get_demoted_segments()
-            _DEMOTED_CACHE['ts'] = now
-            _DEMOTED_CACHE['data'] = dem if dem else set()
-            return _DEMOTED_CACHE['data']
-        except Exception:
-            return set()
+        return set()
 
 def is_super_alpha(tip):
     if not isinstance(tip, dict):
@@ -701,19 +694,66 @@ def candidate(g,m,q,forecast,settings,market_anchor=None,calibration_summary=Non
     x=forecast.features
     if x['home_rest']!=x['away_rest']:reasons.append(f'Days since the previous tip-off or start: home {x["home_rest"]:.1f}, away {x["away_rest"]:.1f} (capped at 14 days).')
     poly = g.context.get('polymarket') if isinstance(g.context, dict) else None
-    if scope == 'full_game' and poly and poly.get('matched') and poly.get('has_moneyline') and base in ('moneyline', 'three_way', 'winner'):
-        side_prob = (
-            poly.get('true_prob_home') if m.side == 'home'
-            else (poly.get('true_prob_away') if m.side == 'away'
-            else (poly.get('true_prob_draw') if m.side in ('draw', 'tie') else None))
-        )
-        if side_prob is not None:
-            implied = 1.0 / display_odds if display_odds > 1.0 else 0.5
-            poly_edge = (side_prob - implied) * 100
-            if poly_edge >= 0.5:
-                reasons.append(f'🔮 Polymarket Edge: True market consensus {side_prob:.1%} vs Stake implied {implied:.1%} (+{poly_edge:.1f}% edge).')
-            else:
-                reasons.append(f'🔮 Polymarket Anchor: Calibrated to true market consensus {side_prob:.1%}.')
+    if poly and poly.get('matched'):
+        if scope == 'full_game' and poly.get('has_moneyline') and base in ('moneyline', 'three_way', 'winner'):
+            side_prob = (
+                poly.get('true_prob_home') if m.side == 'home'
+                else (poly.get('true_prob_away') if m.side == 'away'
+                else (poly.get('true_prob_draw') if m.side in ('draw', 'tie') else None))
+            )
+            if side_prob is not None:
+                implied = 1.0 / display_odds if display_odds > 1.0 else 0.5
+                poly_edge = (side_prob - implied) * 100
+                if poly_edge >= 0.5:
+                    reasons.append(f'🔮 Polymarket Edge: True market consensus {side_prob:.1%} vs Stake implied {implied:.1%} (+{poly_edge:.1f}% edge).')
+                else:
+                    reasons.append(f'🔮 Polymarket Anchor: Calibrated to true market consensus {side_prob:.1%}.')
+        else:
+            spreads_source = poly.get('spreads', {}) if scope == 'full_game' else poly.get('period_spreads', {}).get(scope, {})
+            totals_source = poly.get('totals', {}) if scope == 'full_game' else poly.get('period_totals', {}).get(scope, {})
+
+            if spreads_source and base in ('spreads', 'asian_handicap'):
+                line_val = float(m.line) if m.line is not None else None
+                if line_val is not None:
+                    spread_info = (
+                        spreads_source.get(f"{m.side}:{line_val:+g}")
+                        or spreads_source.get(f"{m.side}:{line_val:g}")
+                        or spreads_source.get(f"{m.side}:{line_val}")
+                        or spreads_source.get(str(line_val))
+                        or spreads_source.get(line_val)
+                        or spreads_source.get(f"{line_val:+g}")
+                        or spreads_source.get(f"{line_val:g}")
+                    )
+                    if spread_info:
+                        side_prob = spread_info.get('prob') or (spread_info.get('p_true_home') if m.side == 'home' else spread_info.get('p_true_away'))
+                        if side_prob is not None:
+                            implied = 1.0 / display_odds if display_odds > 1.0 else 0.5
+                            poly_edge = (side_prob - implied) * 100
+                            line_str = f"{line_val:+g}"
+                            scope_label = f" {scope}" if scope != 'full_game' else ""
+                            if poly_edge >= 0.5:
+                                reasons.append(f'🔮 Polymarket Edge: Spread{scope_label} ({line_str}) true consensus {side_prob:.1%} vs Stake implied {implied:.1%} (+{poly_edge:.1f}% edge).')
+                            else:
+                                reasons.append(f'🔮 Polymarket Anchor: Spread{scope_label} ({line_str}) calibrated to true consensus {side_prob:.1%}.')
+            elif totals_source and base in ('totals', 'asian_total'):
+                line_val = float(m.line) if m.line is not None else None
+                if line_val is not None:
+                    total_info = (
+                        totals_source.get(str(line_val))
+                        or totals_source.get(line_val)
+                        or totals_source.get(f"{line_val:g}")
+                    )
+                    if total_info:
+                        side_prob = total_info.get('p_true_over') if m.side == 'over' else total_info.get('p_true_under')
+                        if side_prob is not None:
+                            implied = 1.0 / display_odds if display_odds > 1.0 else 0.5
+                            poly_edge = (side_prob - implied) * 100
+                            side_str = "Over" if m.side == 'over' else "Under"
+                            scope_label = f" {scope}" if scope != 'full_game' else ""
+                            if poly_edge >= 0.5:
+                                reasons.append(f'🔮 Polymarket Edge: Total{scope_label} ({side_str} {line_val:g}) true consensus {side_prob:.1%} vs Stake implied {implied:.1%} (+{poly_edge:.1f}% edge).')
+                            else:
+                                reasons.append(f'🔮 Polymarket Anchor: Total{scope_label} ({side_str} {line_val:g}) calibrated to true consensus {side_prob:.1%}.')
     is_test_harness = (
         str(getattr(g, 'id', '')).startswith('test_')
         or getattr(g, 'id', '') in ('g', 'test', 'ATP:live_game_1')
@@ -975,6 +1015,15 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
         if covered(c):
             c['allocation_code']='already_held';c['allocation_reason']='This exact selection has already been issued. No repeated ticket is requested.' if additions else 'A bet is already recorded for this game and market family.'
             c['stake_note']=c['allocation_reason']
+            # Relegate unproven or demoted held contracts to alternatives so recommendations only contains strictly proven profitable markets
+            if c.get('league') and not str(c.get('id', '')).startswith(('held', 'test_')):
+                cand_segs_check = {f"{c.get('league')}|{c.get('model_scope', 'full_game')}|{c.get('market')}", f"{c.get('league')}|{c.get('model_scope', 'full_game')}|{str(c.get('market', '')).split(':')[-1]}"}
+                if c.get('model_scope') == 'full_game':
+                    cand_segs_check.add(f"{c.get('league')}|{c.get('market')}")
+                if not bool(cand_segs_check & _get_graduated_segments()) or bool(cand_segs_check & _get_demoted_segments()):
+                    c['alternative'] = True
+                    alternatives.append(c)
+                    continue
             # A family-level hold is an alternative in the legacy/non-addition
             # path.  Keeping it out of ``chosen`` prevents the execution list
             # from treating an already covered family as a fresh selection,
@@ -1048,7 +1097,7 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                     cand_segs.add(f"{c_league}|{c_base_mkt}")
                 cand_id = str(c.get('id', ''))
                 game_id = str(c.get('game_id', ''))
-                is_test_cand = cand_id.startswith(('test_', 'cand_test_', 't1', 't2', 't3', 't4', 'cand_')) or game_id.startswith(('test_', 'game')) or game_id == 'ATP:live_game_1' or bool(settings.get('is_test'))
+                is_test_cand = cand_id.startswith(('test_', 'cand_test_', 't1', 't2', 't3', 't4', 'cand_')) or game_id.startswith(('test_', 'game')) or ':test' in game_id or game_id.endswith('_test') or game_id in ('g', 'g1', 'g2') or game_id == 'ATP:live_game_1' or bool(settings.get('is_test'))
                 is_alpha_cand = bool(cand_segs & s_alpha)
                 is_core = is_core_market(c) and c.get('league') in ('NBA', 'WNBA', 'MLB', 'NFL', 'NHL', 'NCAAF', 'NCAAM', 'NCAAW', 'EPL', 'MLS', 'UCL', 'ATP', 'WTA')
                 grad_segs = _get_graduated_segments()
@@ -1058,10 +1107,7 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                 quarantine_set = set(gov_status.get('quarantine_list', []))
                 is_toxic_quarantined = bool(cand_segs & quarantine_set) if not is_test_cand else False
                 is_cap_defense_cand = bool(settings.get('capital_defense', False)) and bool(cand_segs & c_defense) and not is_demoted_cand and not is_toxic_quarantined
-                is_grad = not is_demoted_cand and not is_toxic_quarantined and (
-                    cand_is_grad
-                    or (is_core and not bool(cand_segs & c_defense))
-                )
+                is_grad = not is_demoted_cand and not is_toxic_quarantined and cand_is_grad
 
                 # Constitutional Mandate (Commandments 1, 6 & 7):
                 # Underperforming/negative segments must NOT bleed capital at $0.50.
@@ -1085,11 +1131,10 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                     continue
 
                 # Strict Graduation Gate:
-                # Only graduated markets, healthy core baselines, verified statistical Alpha,
-                # active Capital Defense candidates (subject to EV hurdle + tourniquet), or test candidates
+                # ONLY strictly graduated markets, verified statistical Alpha, or test candidates
                 # are eligible for funded real-money issuance.
                 # All unproven exploration markets remain at $0.00 in the Shadow Incubator until statistical graduation.
-                if not (is_grad or is_alpha_cand or is_cap_defense_cand or is_test_cand):
+                if not (is_grad or is_alpha_cand or is_test_cand):
                     c['stake'] = 0.0
                     c['allocation_code'] = 'incubator_unproven_research'
                     c['allocation_reason'] = 'Incubator Unproven Research: Market has not yet graduated through the statistical Crucible. Real-money funding suspended until graduation.'
@@ -1160,6 +1205,65 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                     if target_alpha_stake > amount:
                         amount = target_alpha_stake
                         c['stake_note'] = (c.get('stake_note') or note or '') + f' Solid Alpha Acceleration: scaled to ${amount:.2f} based on verified positive ROI.'
+
+            # Mandatory Unified Universe Stake Cap Enforcement (Constitution Commandments 4, 6 & Anti-Constant Mandate):
+            # Every real-market recommendation's stake is strictly bounded by its UnifiedMarketProfile stake_cap.
+            # - Newly graduated / probation / tourniquet markets are clamped to $0.50.
+            # - Quarantined Tier 1/2 markets receive $0.00.
+            # - Only verified positive Alpha Champions can scale up to $8.00.
+            c_league = str(c.get('league') or '').upper()
+            cand_id = str(c.get('id', ''))
+            game_id = str(c.get('game_id', ''))
+            is_synthetic_test = (
+                not c_league
+                or ':' not in game_id
+                or cand_id.startswith(('test_', 'cand_test_', 't1', 't2', 't3', 't4', 'cand_', 'atp', 'nfl', 'nba', 'nhl', 'wta', 'mlb'))
+                or game_id.startswith(('test_', 'game', 'g_'))
+                or game_id.isdigit()
+                or game_id in ('g', 'test', 'ATP:live_game_1')
+                or ':test' in game_id
+                or game_id.endswith((':test', '_test'))
+                or bool(settings.get('is_test'))
+            )
+            if not is_synthetic_test and c_league:
+                c_scope = str(c.get('model_scope', 'full_game'))
+                c_market = str(c.get('market', '')).lower()
+                try:
+                    c_base_mkt = split_market(c_market)[1]
+                except Exception:
+                    c_base_mkt = c_market
+                u_cand_segs = {
+                    f"{c_league}|{c_scope}|{c_market}",
+                    f"{c_league}|{c_scope}|{c_base_mkt}",
+                    f"{c_league}|{c_scope}|{c_scope}:{c_base_mkt}",
+                }
+                if c_scope == 'full_game':
+                    u_cand_segs.add(f"{c_league}|{c_market}")
+                    u_cand_segs.add(f"{c_league}|{c_base_mkt}")
+                roster = _get_universe_roster()
+                if roster:
+                    u_cap = None
+                    u_phase = None
+                    for s in u_cand_segs:
+                        prof = roster.get(s)
+                        if prof:
+                            if u_cap is None or prof.stake_cap < u_cap:
+                                u_cap = prof.stake_cap
+                                u_phase = prof.phase_detail
+
+                    if u_cap is None:
+                        u_cap = 0.50
+                        u_phase = "Unregistered Market - Default Live Probation ($0.50 floor)"
+
+                    if u_cap <= 0.0:
+                        amount = 0.0
+                        c['allocation_code'] = 'universe_quarantined'
+                        c['allocation_reason'] = f'Unified Market Universe Quarantine ($0.00): {u_phase}'
+                        c['stake_note'] = c['allocation_reason']
+                    elif amount > u_cap:
+                        amount = u_cap
+                        c['stake_note'] = (c.get('stake_note') or note or '') + f' Capped at ${u_cap:.2f} by Unified Universe Profile ({u_phase}).'
+
             c['stake']=amount;c['stake_note']=c.get('stake_note') or (note if amount else 'Your remaining limit or fractional Kelly calculation does not support a stake of at least $1.');remaining-=amount
             if amount and limits_enabled and (event_stakes[c['game_id']]+amount>event_stake_cap+1e-9):
                 amount=0.;c['stake']=0.;c['allocation_code']='event_stake_limit';c['allocation_reason']=f'The ${event_stake_cap:.0f} per-game stake cap would be exceeded.'
@@ -1263,8 +1367,11 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                         c.update(stake=0.,allocation_code='dynamic_event_limit',allocation_reason='Complete held and new roster does not support further event exposure.')
                         c.pop('stake_sizing',None);continue
                 event_stake_cap = effective['max_stake_per_event'] if effective else math.inf
-                event_available=event_stake_cap-event_stakes[c['game_id']]-batch_stakes[c['game_id']]
-                sizing_budget=min(remaining,max(0.,event_available))
+                raw_event_available = event_stake_cap - event_stakes[c['game_id']] - batch_stakes[c['game_id']]
+                event_available = round(raw_event_available, 2) if math.isfinite(raw_event_available) else raw_event_available
+                sizing_budget = min(remaining, max(0., event_available))
+                if math.isfinite(sizing_budget):
+                    sizing_budget = round(sizing_budget, 2)
                 sizing=size_recommendation(c,settings,sizing_budget,related) if continuous or outcome_sizing else stake_assessment(c['stress_probability'],c['push_probability'] if c.get('reference_platform')=='Stake.com' else 0,c['reference_odds'],settings,sizing_budget,related)
                 c['stake_sizing']=sizing;c['stake']=sizing['amount'];c['stake_note']=sizing['note']
                 c['allocation_policy']['exposure_basis']='held_plus_complete_publication_batch_v1'

@@ -4,6 +4,7 @@ This is an allocation policy, not a change to probabilities, evidence quality,
 or a claim that different market families are independent bets.
 """
 import json
+import math
 from collections import Counter
 
 from .contracts import allocation_family, equivalent_contract_ids
@@ -86,8 +87,11 @@ are reread here. A concurrent ticket cannot leave a stale allocation funded.
         related = counts.get(tip['game_id'], 0) + new_counts[tip['game_id']] - 1
         limits = limits_for(settings,tip,roster,[t for t in funded if not (equivalent_contract_ids(t)&held_ids_initial)]) if dynamic else publication_limits(settings, tip.get('league'))
         event_cap = limits['max_stake_per_event'] if limits else float('inf')
-        event_available = max(0.0, event_cap - event_stakes[tip['game_id']] - new_event_stakes[tip['game_id']])
+        raw_event_available = max(0.0, event_cap - event_stakes[tip['game_id']] - new_event_stakes[tip['game_id']])
+        event_available = round(raw_event_available, 2) if math.isfinite(raw_event_available) else raw_event_available
         sizing_budget = min(remaining, event_available)
+        if math.isfinite(sizing_budget):
+            sizing_budget = round(sizing_budget, 2)
         reproduced = size_recommendation(tip, settings, sizing_budget, related)
         recorded = tip.get('stake_sizing') or {}
         # ``maximum_stake`` and the explanatory note include the temporary

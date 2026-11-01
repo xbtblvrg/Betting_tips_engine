@@ -305,20 +305,30 @@ def synthesize_capability_expansion_plan(
             impact_rationale='Unhedged 3-way moneyline bets suffer from uncalibrated draw drag (draws occur in 26-30% of matches).',
             status='available'
         ))
-        portfolio_rules.append(PortfolioShieldRule(
-            rule_id=f"rule_{clean_seg}_suppress_unhedged_away_ml",
-            action='suppress_derivative_submarket',
-            condition="side == 'away' and reference_odds > 2.50",
-            enacted=True,
-            rationale='Quarantine longshot away moneylines in 3-way soccer markets to prevent catastrophic draw erosion.'
-        ))
-        portfolio_rules.append(PortfolioShieldRule(
-            rule_id=f"rule_{clean_seg}_double_chance_preference",
-            action='tighten_ev_hurdle',
-            condition="min_ev >= 0.045",
-            enacted=True,
-            rationale='Require minimum +4.5% EV on all soccer outright markets.'
-        ))
+        is_3way_ml = market in ('moneyline', 'three_way') or market.endswith(':moneyline') or market.endswith(':three_way')
+        if is_3way_ml:
+            portfolio_rules.append(PortfolioShieldRule(
+                rule_id=f"rule_{clean_seg}_suppress_unhedged_away_ml",
+                action='suppress_derivative_submarket',
+                condition="side == 'away' and ev < 0.045",
+                enacted=True,
+                rationale='Quarantine low-edge away moneylines (EV < +4.5%) in 3-way soccer markets to prevent catastrophic draw erosion.'
+            ))
+            portfolio_rules.append(PortfolioShieldRule(
+                rule_id=f"rule_{clean_seg}_double_chance_preference",
+                action='tighten_ev_hurdle',
+                condition="min_ev >= 0.045",
+                enacted=True,
+                rationale='Require minimum +4.5% EV on all soccer outright markets.'
+            ))
+        elif 'total' in market:
+            portfolio_rules.append(PortfolioShieldRule(
+                rule_id=f"rule_{clean_seg}_tighten_totals_ev",
+                action='tighten_ev_hurdle',
+                condition="min_ev >= 0.040",
+                enacted=True,
+                rationale='Require minimum +4.0% EV on volatile soccer totals.'
+            ))
         ui_enhancements.append(UIEnhancement(
             feature_key='soccer_confirmed_xi_badge',
             label='Confirmed XI Verified',
@@ -455,6 +465,23 @@ def check_portfolio_shield(candidate: Dict[str, Any]) -> Optional[Dict[str, Any]
     elif ev is None:
         ev = 0.0
 
+    scope = candidate.get('model_scope', 'full_game')
+
+    # Protected Alpha Champions are immune from portfolio shield quarantine (Constitution Rules 6 & 8)
+    try:
+        from .unified_market_universe import is_protected_alpha_champion
+        canon_k = f"{league}|{scope}|{market}"
+        base_m = market.split(':')[-1] if market and ':' in market else market
+        base_canon_k = f"{league}|{scope}|{base_m}"
+        if is_protected_alpha_champion(canon_k) or is_protected_alpha_champion(base_canon_k):
+            return None
+    except Exception:
+        pass
+
+    is_3way_ml = market in ('moneyline', 'three_way') or (market and (market.endswith(':moneyline') or market.endswith(':three_way')))
+    is_totals = ('total' in str(market))
+    is_reg_puckline = (scope == 'regulation' and 'spreads' in str(market))
+
     for rule in get_active_portfolio_shield_rules():
         if rule.get('league') and rule['league'] != league:
             continue
@@ -465,30 +492,30 @@ def check_portfolio_shield(candidate: Dict[str, Any]) -> Optional[Dict[str, Any]
         rule_id = rule.get('rule_id', '')
         rationale = rule.get('rationale', '')
 
-        # 1. Volatile derivative suppression
+        # 1. Volatile derivative suppression (continuous EV-hurdle evaluation - Zero Hardcoded Clamps)
         if action == 'suppress_derivative_submarket':
-            if 'suppress_volatile_unders' in rule_id and side == 'under' and odds < 2.10:
+            if 'suppress_volatile_unders' in rule_id and is_totals and side == 'under' and ev < 0.040:
                 return {
                     'shielded': True,
                     'action': 'quarantine',
                     'rule_id': rule_id,
                     'reason': f"Portfolio Shield Active: {rationale}"
                 }
-            if 'suppress_unhedged_away_ml' in rule_id and side == 'away' and odds > 2.50:
+            if 'suppress_unhedged_away_ml' in rule_id and is_3way_ml and side == 'away' and ev < 0.045:
                 return {
                     'shielded': True,
                     'action': 'quarantine',
                     'rule_id': rule_id,
                     'reason': f"Portfolio Shield Active: {rationale}"
                 }
-            if 'favor_regulation_puckline' in rule_id and side == 'away' and abs(candidate.get('line', 0.0)) == 1.5:
+            if 'favor_regulation_puckline' in rule_id and is_reg_puckline and side == 'away' and abs(candidate.get('line', 0.0)) == 1.5:
                 return {
                     'shielded': True,
                     'action': 'quarantine',
                     'rule_id': rule_id,
                     'reason': f"Portfolio Shield Active: {rationale}"
                 }
-            if 'suppress_high_wind_overs' in rule_id and side == 'over':
+            if 'suppress_high_wind_overs' in rule_id and is_totals and side == 'over':
                 wind_mph = candidate.get('forecast_wind_mph')
                 if wind_mph is None and candidate.get('home'):
                     w = free_data_registry.weather.get_weather_for_team(candidate['home'], league or 'NFL')

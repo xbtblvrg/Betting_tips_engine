@@ -94,8 +94,11 @@ def get_default_segment_context(league: str, scope: str) -> Dict[str, Any]:
 class HistoricalCandidateTrainer:
     """Trains, tunes, and screens candidate model archetypes on historical settled games."""
 
-    def __init__(self, db_path: Path = INCUBATOR_DB):
-        self.db_path = db_path
+    def __init__(self, db_path: Path | str = INCUBATOR_DB):
+        p = Path(db_path) if isinstance(db_path, str) else db_path
+        if p.is_dir():
+            p = p / 'shadow_incubator.sqlite3'
+        self.db_path = p
 
     def _fetch_settled_wagers(
         self,
@@ -108,8 +111,14 @@ class HistoricalCandidateTrainer:
         if not self.db_path.exists():
             return []
 
-        base_fam = family.split(':', 1)[1] if ':' in family else family
-        sub = sub_family or base_fam
+        fam_clean = family.lower().strip()
+        sub_clean = (sub_family or '').lower().strip()
+        fam_tokens = [t.strip() for t in fam_clean.split(':') if t.strip()]
+        base_fam = fam_tokens[-1] if fam_tokens else fam_clean
+        sub = sub_clean or base_fam
+        outer_cat = fam_tokens[0] if (len(fam_tokens) > 1 and fam_tokens[0] in (
+            'american_derivatives', 'asian_lines', 'bivariate_derivatives', 'tennis_sets', 'sequence_hazard'
+        )) else None
 
         conn = sqlite3.connect(f"file:{self.db_path.resolve()}?mode=ro", uri=True, timeout=30.0)
         try:
@@ -119,26 +128,28 @@ class HistoricalCandidateTrainer:
 
             family_filters = []
             # 1. Exact match on family or sub_family
-            family_filters.append("(family = ? OR sub_family = ?)")
-            params.extend([family, sub])
+            family_filters.append("(family = ? OR sub_family = ? OR sub_family = ?)")
+            params.extend([outer_cat or fam_clean, sub, base_fam])
 
             # 2. Canonical derivative submarket aliases
-            if family in ('both_score', 'both_teams_score') or base_fam in ('both_score', 'both_teams_score'):
+            check_tokens = {fam_clean, base_fam, sub}
+            if any(t in ('both_score', 'both_teams_score') for t in check_tokens):
                 family_filters.append("(family = 'bivariate_derivatives' AND sub_family IN ('both_teams_score', 'both_score'))")
-            elif family == 'double_chance' or base_fam == 'double_chance':
+            elif any(t == 'double_chance' for t in check_tokens):
                 family_filters.append("(family = 'bivariate_derivatives' AND sub_family = 'double_chance')")
-            elif 'asian' in family or 'asian' in base_fam:
-                if 'total' in family or 'total' in base_fam:
+            elif any('asian' in t for t in check_tokens):
+                if any('total' in t for t in check_tokens):
                     family_filters.append("(family = 'asian_lines' AND sub_family = 'asian_total')")
-                if 'handicap' in family or 'handicap' in base_fam or 'spread' in family or 'spread' in base_fam:
+                if any('handicap' in t or 'spread' in t for t in check_tokens):
                     family_filters.append("(family = 'asian_lines' AND sub_family = 'asian_handicap')")
-            elif family in ('home_total', 'away_total') or base_fam in ('home_total', 'away_total'):
-                target_side = 'home' if 'home' in family or 'home' in base_fam else 'away'
+            elif any(t in ('home_total', 'away_total') for t in check_tokens):
+                target_side = 'home' if any('home' in t for t in check_tokens) else 'away'
                 family_filters.append(f"(family = 'american_derivatives' AND (sub_family = ? OR (sub_family = 'team_total' AND (selection LIKE '%{target_side}%' OR side = '{target_side}'))))")
                 params.append(f"{target_side}_total")
-            elif family in ('spreads', 'totals', 'moneyline', 'three_way') or base_fam in ('spreads', 'totals', 'moneyline', 'three_way'):
+            elif any(t in ('spreads', 'totals', 'moneyline', 'three_way') for t in check_tokens):
+                target_fam = next(t for t in (base_fam, sub, fam_clean) if t in ('spreads', 'totals', 'moneyline', 'three_way'))
                 family_filters.append("(family = 'american_derivatives' AND sub_family = ?)")
-                params.append(base_fam)
+                params.append(target_fam)
 
             query = f"""
                 SELECT selection, line, odds, model_prob, market_prob, side, result, pnl, captured_at
@@ -171,10 +182,27 @@ class HistoricalCandidateTrainer:
     ) -> Optional[CandidateTrainingResult]:
         """Executes full chronological walk-forward training & out-of-sample Crucible validation."""
         parts = segment_key.split('|')
-        league = parts[0] if len(parts) > 0 else 'UNKNOWN'
-        scope = parts[1] if len(parts) > 1 else 'full_game'
-        family = parts[2] if len(parts) > 2 else 'totals'
-        sub_fam = parts[3] if len(parts) > 3 else None
+        league = (parts[0] if len(parts) > 0 else 'UNKNOWN').upper().strip()
+        scope = (parts[1] if len(parts) > 1 else 'full_game').lower().strip()
+        family = (parts[2] if len(parts) > 2 else 'totals').lower().strip()
+        sub_fam = parts[3].lower().strip() if len(parts) > 3 else None
+
+        known_scopes = ('quarter_1', 'quarter_2', 'quarter_3', 'quarter_4', 'half_1', 'half_2', 'period_1', 'period_2', 'period_3', 'regulation', 'inning_1', 'innings_1_5')
+        while ':' in family:
+            prefix, rest = family.split(':', 1)
+            if prefix in known_scopes or prefix == scope:
+                scope = prefix
+                family = rest
+            elif prefix == rest.split(':')[0]:
+                family = rest
+            elif prefix in ('american_derivatives', 'asian_lines', 'bivariate_derivatives', 'tennis_sets', 'sequence_hazard'):
+                break
+            else:
+                family = rest.split(':')[-1]
+                break
+
+        if league == 'NHL' and scope == 'full_game' and family == 'three_way':
+            scope = 'regulation'
 
         wagers = self._fetch_settled_wagers(league, scope, family, sub_fam)
         if len(wagers) < min_samples:
@@ -455,3 +483,34 @@ class HistoricalCandidateTrainer:
         # Sort qualified champions by scorecard S descending
         qualified_results.sort(key=lambda r: r.scorecard_s, reverse=True)
         return qualified_results[0]
+
+    def screen_candidate_against_incumbent(
+        self,
+        candidate_result: CandidateTrainingResult,
+        incumbent_roi: float,
+        incumbent_delta_brier: float = 0.0,
+        min_roi_margin: float = 0.015,
+        min_brier_margin: float = 0.0010,
+    ) -> Tuple[bool, List[str]]:
+        """Champion-Challenger Tournament Rule:
+        A candidate model can only displace an active incumbent if it statistically outperforms:
+        1. ROI_challenger >= ROI_incumbent + 1.5%
+        2. DeltaBrier_challenger >= DeltaBrier_incumbent + 0.0010
+        3. Drawdown < 20%
+        """
+        reasons = []
+        if candidate_result.oos_simulated_roi < (incumbent_roi + min_roi_margin):
+            reasons.append(
+                f"Challenger ROI {candidate_result.oos_simulated_roi*100:.1f}% does not exceed incumbent "
+                f"({incumbent_roi*100:.1f}% + {min_roi_margin*100:.1f}%)"
+            )
+        if candidate_result.oos_delta_brier < (incumbent_delta_brier + min_brier_margin):
+            reasons.append(
+                f"Challenger Delta Brier {candidate_result.oos_delta_brier:.5f} does not exceed incumbent "
+                f"({incumbent_delta_brier:.5f} + {min_brier_margin:.5f})"
+            )
+        if candidate_result.oos_max_drawdown > 0.20:
+            reasons.append(f"Challenger max drawdown {candidate_result.oos_max_drawdown*100:.1f}% exceeds 20%")
+
+        passed = (len(reasons) == 0)
+        return passed, reasons

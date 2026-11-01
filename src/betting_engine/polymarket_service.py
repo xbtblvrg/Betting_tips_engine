@@ -10,6 +10,7 @@ from __future__ import annotations
 from datetime import datetime, timezone, timedelta
 import hashlib
 import json
+import logging
 import math
 import os
 from pathlib import Path
@@ -20,6 +21,8 @@ import urllib.request
 import urllib.error
 
 from .providers import DATA
+
+logger = logging.getLogger(__name__)
 
 POLYMARKET_CACHE_DIR = DATA / "cache" / "polymarket"
 
@@ -66,6 +69,39 @@ def _safe_float(val: Any, default: float = 0.0) -> float:
         return default
 
 
+def _detect_market_scope(mtype: str, q: str) -> Optional[str]:
+    """Classifies Polymarket market into full_game, period scope, or team_totals."""
+    mtype_lower = str(mtype or "").lower()
+    q_lower = str(q or "").lower()
+
+    if "team_total" in mtype_lower or "team total" in q_lower:
+        return "team_totals"
+
+    if mtype_lower in ("first_half_spreads", "first_half_totals", "first_half_moneyline") or re.search(r'\b(?:1h|1st half|first half)\b', q_lower):
+        return "half_1"
+    if mtype_lower in ("second_half_spreads", "second_half_totals", "second_half_moneyline") or re.search(r'\b(?:2h|2nd half|second half)\b', q_lower):
+        return "half_2"
+    if mtype_lower in ("q1_spreads", "q1_totals", "q1_moneyline") or re.search(r'\b(?:1q|q1|1st quarter|first quarter)\b', q_lower):
+        return "quarter_1"
+    if mtype_lower in ("q2_spreads", "q2_totals", "q2_moneyline") or re.search(r'\b(?:2q|q2|2nd quarter|second quarter)\b', q_lower):
+        return "quarter_2"
+    if mtype_lower in ("q3_spreads", "q3_totals", "q3_moneyline") or re.search(r'\b(?:3q|q3|3rd quarter|third quarter)\b', q_lower):
+        return "quarter_3"
+    if mtype_lower in ("q4_spreads", "q4_totals", "q4_moneyline") or re.search(r'\b(?:4q|q4|4th quarter|fourth quarter)\b', q_lower):
+        return "quarter_4"
+    if re.search(r'\b(?:p1|1st period|first period)\b', q_lower):
+        return "period_1"
+    if re.search(r'\b(?:p2|2nd period|second period)\b', q_lower):
+        return "period_2"
+    if re.search(r'\b(?:p3|3rd period|third period)\b', q_lower):
+        return "period_3"
+
+    if any(p in q_lower for p in ("quarter", "half", "period", "inning", "team total")):
+        return "other_period"
+
+    return "full_game"
+
+
 class PolymarketService:
     """Polymarket data service for R&D laboratory and quantitative shadow evaluation."""
 
@@ -84,7 +120,14 @@ class PolymarketService:
             with urllib.request.urlopen(req, timeout=self.timeout) as resp:
                 if resp.status == 200:
                     return json.loads(resp.read().decode("utf-8"))
-        except Exception:
+        except urllib.error.HTTPError as e:
+            logger.warning("Polymarket HTTP error %d fetching %s: %s", e.code, url, e.reason)
+            return None
+        except urllib.error.URLError as e:
+            logger.warning("Polymarket network error fetching %s: %s", url, e.reason)
+            return None
+        except Exception as e:
+            logger.warning("Polymarket unexpected error fetching %s: %s", url, e)
             return None
         return None
 
@@ -313,16 +356,31 @@ class PolymarketService:
 
         markets = matched_event.get("markets", [])
         ml_data: Dict[str, Any] = {}
+        spreads_data: Dict[str, Any] = {}
+        totals_data: Dict[str, Any] = {}
+        period_spreads: Dict[str, Dict[str, Any]] = {}
+        period_totals: Dict[str, Dict[str, Any]] = {}
 
         for m in markets:
             if not isinstance(m, dict):
                 continue
             q = str(m.get("question", "")).lower()
-            if re.search(r'\b(?:half|quarters?|innings?|periods?|regulation|f[135]|[12]h|q[1-4]|p[1-3])\b', q):
+            mtype = str(m.get("sportsMarketType", "")).lower()
+
+            scope = _detect_market_scope(mtype, q)
+            if scope in ("team_totals", "other_period"):
                 continue
-            mtype = m.get("sportsMarketType", "")
+
+            target_spreads = spreads_data if scope == "full_game" else period_spreads.setdefault(scope, {})
+            target_totals = totals_data if scope == "full_game" else period_totals.setdefault(scope, {})
+
             outcomes = m.get("outcomes", [])
             tokens = m.get("clobTokenIds", [])
+            outcome_prices = m.get("outcomePrices", [])
+            best_bid = m.get("bestBid")
+            best_ask = m.get("bestAsk")
+            volume = m.get("volumeNum") or m.get("volume") or 0.0
+
             if isinstance(outcomes, str):
                 try:
                     outcomes = json.loads(outcomes)
@@ -333,10 +391,15 @@ class PolymarketService:
                     tokens = json.loads(tokens)
                 except Exception:
                     pass
+            if isinstance(outcome_prices, str):
+                try:
+                    outcome_prices = json.loads(outcome_prices)
+                except Exception:
+                    pass
 
-            if len(outcomes) == 2 and len(tokens) == 2:
-                # 1. 2-way American markets (Team A vs Team B in outcomes)
-                if mtype == "moneyline" or "winner" in q:
+            if len(outcomes) == 2:
+                # 1. 2-way American markets (Team A vs Team B in outcomes) - Moneyline (Full Game only)
+                if scope == "full_game" and (mtype == "moneyline" or "winner" in q) and len(tokens) == 2:
                     for outcome_label, token in zip(outcomes, tokens):
                         norm_label = _normalize_name(outcome_label)
                         side = (
@@ -349,9 +412,9 @@ class PolymarketService:
                             if book:
                                 ml_data[side] = book
 
-                # 2. Binary question markets (Soccer 1X2 / Yes-No)
+                # 2. Binary question markets (Soccer 1X2 / Yes-No) - Moneyline (Full Game only)
                 norm_outcomes = [_normalize_name(o) for o in outcomes]
-                if "yes" in norm_outcomes and "no" in norm_outcomes:
+                if scope == "full_game" and "yes" in norm_outcomes and "no" in norm_outcomes and len(tokens) == 2:
                     yes_idx = norm_outcomes.index("yes")
                     yes_token = str(tokens[yes_idx])
                     norm_q = _normalize_name(q)
@@ -368,7 +431,153 @@ class PolymarketService:
                         if book:
                             ml_data[target_side] = book
 
+                # 3. Spreads Ladder (Full Game and Scoped Periods)
+                if ("spread" in mtype or "spread" in q or m.get("line") is not None and "total" not in mtype and "o/u" not in q):
+                    raw_line = m.get("line")
+                    if raw_line is None:
+                        line_match = re.search(r'\(([+-]?\d+(?:\.\d+)?)\)', q)
+                        if line_match:
+                            raw_line = line_match.group(1)
+                    if raw_line is not None:
+                        try:
+                            line_val = float(raw_line)
+                        except (ValueError, TypeError):
+                            line_val = None
+                        if line_val is not None:
+                            t1 = _normalize_name(outcomes[0])
+                            t2 = _normalize_name(outcomes[1])
+                            t1_home = (norm_home in t1 or t1 in norm_home) if norm_home else False
+                            t1_away = (norm_away in t1 or t1 in norm_away) if norm_away else False
+                            p1 = _safe_float(outcome_prices[0]) if len(outcome_prices) > 0 else 0.0
+                            p2 = _safe_float(outcome_prices[1]) if len(outcome_prices) > 1 else 0.0
+
+                            if t1_home:
+                                home_line = line_val
+                                away_line = -line_val
+                                p_home, p_away = p1, p2
+                            elif t1_away:
+                                home_line = -line_val
+                                away_line = line_val
+                                p_home, p_away = p2, p1
+                            else:
+                                home_line, away_line, p_home, p_away = None, None, 0.0, 0.0
+
+                            if home_line is not None and p_home > 0 and p_away > 0:
+                                tot_p = p_home + p_away
+                                true_p_home = round(p_home / tot_p, 4)
+                                true_p_away = round(p_away / tot_p, 4)
+                                spread_gap = abs(float(best_ask or 0.0) - float(best_bid or 0.0)) if (best_ask and best_bid) else 0.04
+                                vol_usd = float(volume or 0.0)
+                                w_depth = vol_usd / (vol_usd + 50.0) if vol_usd > 0 else 0.5
+                                w_tight = max(0.0, 1.0 - (spread_gap / 0.20))
+                                conf = round(float(w_depth * w_tight), 4)
+
+                                home_ask = float(best_ask) if (best_ask and t1_home) else round(p_home, 4)
+                                away_ask = float(best_ask) if (best_ask and t1_away) else round(p_away, 4)
+
+                                home_entry = {
+                                    "side": "home",
+                                    "line": home_line,
+                                    "home_line": home_line,
+                                    "away_line": away_line,
+                                    "prob": true_p_home,
+                                    "p_true_home": true_p_home,
+                                    "p_true_away": true_p_away,
+                                    "confidence": conf,
+                                    "volume_usd": vol_usd,
+                                    "best_bid": round(1.0 - away_ask, 4),
+                                    "best_ask": home_ask,
+                                    "market_id": m.get("id"),
+                                    "question": m.get("question"),
+                                    "scope": scope,
+                                }
+                                away_entry = {
+                                    "side": "away",
+                                    "line": away_line,
+                                    "home_line": home_line,
+                                    "away_line": away_line,
+                                    "prob": true_p_away,
+                                    "p_true_home": true_p_home,
+                                    "p_true_away": true_p_away,
+                                    "confidence": conf,
+                                    "volume_usd": vol_usd,
+                                    "best_bid": round(1.0 - home_ask, 4),
+                                    "best_ask": away_ask,
+                                    "market_id": m.get("id"),
+                                    "question": m.get("question"),
+                                    "scope": scope,
+                                }
+
+                                # Explicit side-indexed entries
+                                target_spreads[f"home:{home_line:+g}"] = home_entry
+                                target_spreads[f"home:{home_line:g}"] = home_entry
+                                target_spreads[f"home:{home_line}"] = home_entry
+
+                                target_spreads[f"away:{away_line:+g}"] = away_entry
+                                target_spreads[f"away:{away_line:g}"] = away_entry
+                                target_spreads[f"away:{away_line}"] = away_entry
+
+                                # Flat line entry for backward compatibility
+                                target_spreads[str(home_line)] = home_entry
+                                target_spreads[f"{home_line:+g}"] = home_entry
+                                target_spreads[f"{home_line:g}"] = home_entry
+                                if away_line != home_line:
+                                    target_spreads[str(away_line)] = away_entry
+                                    target_spreads[f"{away_line:+g}"] = away_entry
+                                    target_spreads[f"{away_line:g}"] = away_entry
+
+                # 4. Totals Ladder (Full Game and Scoped Periods)
+                if ("total" in mtype or "o/u" in q or "totals" in mtype):
+                    raw_line = m.get("line")
+                    if raw_line is None:
+                        line_match = re.search(r'o/u\s*([0-9]+(?:\.[0-9]+)?)', q)
+                        if line_match:
+                            raw_line = line_match.group(1)
+                    if raw_line is not None:
+                        try:
+                            line_val = float(raw_line)
+                        except (ValueError, TypeError):
+                            line_val = None
+                        if line_val is not None:
+                            p1 = _safe_float(outcome_prices[0]) if len(outcome_prices) > 0 else 0.0
+                            p2 = _safe_float(outcome_prices[1]) if len(outcome_prices) > 1 else 0.0
+                            is_over_first = "over" in str(outcomes[0]).lower()
+                            p_over = p1 if is_over_first else p2
+                            p_under = p2 if is_over_first else p1
+
+                            if p_over > 0 and p_under > 0:
+                                tot_p = p_over + p_under
+                                true_p_over = round(p_over / tot_p, 4)
+                                true_p_under = round(p_under / tot_p, 4)
+                                total_gap = abs(float(best_ask or 0.0) - float(best_bid or 0.0)) if (best_ask and best_bid) else 0.04
+                                vol_usd = float(volume or 0.0)
+                                w_depth = vol_usd / (vol_usd + 50.0) if vol_usd > 0 else 0.5
+                                w_tight = max(0.0, 1.0 - (total_gap / 0.20))
+                                conf = round(float(w_depth * w_tight), 4)
+
+                                ask_over = float(best_ask) if (best_ask and is_over_first) else round(p_over, 4)
+                                ask_under = float(best_ask) if (best_ask and not is_over_first) else round(p_under, 4)
+
+                                entry = {
+                                    "line": line_val,
+                                    "p_true_over": true_p_over,
+                                    "p_true_under": true_p_under,
+                                    "ask_over": ask_over,
+                                    "ask_under": ask_under,
+                                    "confidence": conf,
+                                    "volume_usd": vol_usd,
+                                    "best_bid": best_bid,
+                                    "best_ask": best_ask,
+                                    "market_id": m.get("id"),
+                                    "question": m.get("question"),
+                                    "scope": scope,
+                                }
+                                target_totals[str(line_val)] = entry
+                                target_totals[f"{line_val:g}"] = entry
+
         has_ml = "home" in ml_data and "away" in ml_data
+        has_spreads = bool(spreads_data)
+        has_totals = bool(totals_data)
         summary = {
             "matched": True,
             "event_id": str(matched_event.get("id")),
@@ -376,6 +585,12 @@ class PolymarketService:
             "slug": matched_event.get("slug"),
             "has_moneyline": has_ml,
             "moneyline": ml_data,
+            "has_spreads": has_spreads,
+            "spreads": spreads_data,
+            "has_totals": has_totals,
+            "totals": totals_data,
+            "period_spreads": period_spreads,
+            "period_totals": period_totals,
         }
 
         if has_ml:
@@ -410,7 +625,15 @@ class PolymarketService:
         return summary
 
     @staticmethod
-    def calculate_stale_edge(poly_prob: float, sportsbook_odds: float) -> Dict[str, Any]:
+    def calculate_dynamic_ev_hurdle(odds: float) -> float:
+        """Calculates continuous odds-adjusted alpha hurdle (Anti-Constant Mandate)."""
+        if odds <= 1.0:
+            return 0.05
+        variance_term = max(0.2, odds - 1.0)
+        return round(max(0.015, 0.030 / math.sqrt(variance_term)), 4)
+
+    @staticmethod
+    def calculate_stale_edge(poly_prob: float, sportsbook_odds: float, hurdle: Optional[float] = None) -> Dict[str, Any]:
         """Detect latency/stale-line arbitrage edge against sportsbook odds."""
         if poly_prob <= 0 or poly_prob >= 1 or sportsbook_odds <= 1.0:
             return {"is_stale": False, "edge_pct": 0.0, "expected_roi_pct": 0.0}
@@ -418,12 +641,14 @@ class PolymarketService:
         sportsbook_implied = 1.0 / sportsbook_odds
         edge = poly_prob - sportsbook_implied
         expected_roi = (poly_prob * sportsbook_odds) - 1.0
+        eff_hurdle = hurdle if hurdle is not None else 0.045
 
         return {
-            "is_stale": edge >= 0.045,  # +4.5% edge hurdle
+            "is_stale": edge >= eff_hurdle,
             "poly_probability": round(poly_prob, 4),
             "sportsbook_odds": round(sportsbook_odds, 3),
             "sportsbook_implied_prob": round(sportsbook_implied, 4),
             "edge_pct": round(edge * 100, 2),
             "expected_roi_pct": round(expected_roi * 100, 2),
+            "dynamic_hurdle_pct": round(eff_hurdle * 100, 2),
         }

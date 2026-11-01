@@ -251,6 +251,87 @@ class SupremeSystemAuditor:
 
         return invariants
 
+    def audit_anti_constant_and_code_limits(self) -> Dict[str, Any]:
+        """Audits Python codebase against Prime Directive 3 (Zero Hardcoded Clamps)
+        and verifies full league pipeline consistency between models, domain and feeds.
+        """
+        results: Dict[str, Any] = {
+            'status': 'optimal',
+            'static_odds_clamps': [],
+            'missing_pipeline_leagues': [],
+            'static_daily_limit': None,
+            'violations': []
+        }
+
+        # 1. League pipeline consistency: compare data/models with domain.py and stake_api.py
+        try:
+            from .domain import LEAGUES
+            from .stake_api import SPORTS
+            models_dir = self.data_dir / 'models'
+            model_leagues = set()
+            if models_dir.exists():
+                for p in models_dir.glob('*-*.json'):
+                    lg = p.name.split('-')[0].upper()
+                    if lg:
+                        model_leagues.add(lg)
+
+            # Check if any model league is missing from domain.py LEAGUES or stake_api.py SPORTS
+            for lg in sorted(model_leagues):
+                if lg not in LEAGUES and not any(k in lg for k in ('SPORT', 'SUMMARY', 'CALIBRATION', 'RECIPE', 'BENCHMARK')):
+                    viol = f"Model exists for league '{lg}', but league is missing from domain.py:LEAGUES!"
+                    results['missing_pipeline_leagues'].append(lg)
+                    results['violations'].append({
+                        'category': 'league_pipeline_gap',
+                        'error': viol,
+                        'league': lg,
+                        'target_file': 'domain.py'
+                    })
+                if lg not in SPORTS and not any(k in lg for k in ('SPORT', 'SUMMARY', 'CALIBRATION', 'RECIPE', 'BENCHMARK')):
+                    viol = f"Model exists for league '{lg}', but league is missing from stake_api.py:SPORTS!"
+                    results['missing_pipeline_leagues'].append(lg)
+                    results['violations'].append({
+                        'category': 'league_pipeline_gap',
+                        'error': viol,
+                        'league': lg,
+                        'target_file': 'stake_api.py'
+                    })
+        except Exception as exc:
+            log.warning('Error auditing league pipeline: %s', exc)
+
+        # 2. Source code scan for static odds ceilings in crucible and capability rules
+        try:
+            target_files = [
+                self.root / 'src/betting_engine/crucible_rules.py',
+                self.root / 'src/betting_engine/quant_crucible.py',
+                self.root / 'src/betting_engine/capability_expansion.py'
+            ]
+            for tf in target_files:
+                if not tf.exists():
+                    continue
+                content = tf.read_text(encoding='utf-8')
+                lines = content.split('\n')
+                for idx, line in enumerate(lines, 1):
+                    # Flag static odds ceilings like odds > 2.25, odds > 2.50, odds < 2.10
+                    if re.search(r'\bodds\s*>\s*2\.[0-9]+', line) or re.search(r'\bodds\s*<\s*2\.[0-9]+', line):
+                        # Exempt comments
+                        if line.strip().startswith('#'):
+                            continue
+                        viol = f"Static odds clamp detected in {tf.name}:{idx}: '{line.strip()}' violates Prime Directive 3 (Anti-Constant Mandate)!"
+                        results['static_odds_clamps'].append({'file': tf.name, 'line': idx, 'code': line.strip()})
+                        results['violations'].append({
+                            'category': 'anti_constant_violation',
+                            'error': viol,
+                            'file': str(tf),
+                            'line': idx
+                        })
+        except Exception as exc:
+            log.warning('Error auditing static odds clamps: %s', exc)
+
+        if results['violations']:
+            results['status'] = 'action_required'
+
+        return results
+
     def audit_database_integrity(self) -> Dict[str, Any]:
         """Runs SQLite PRAGMA integrity_check and foreign_key_check on all database files."""
         results = {}
@@ -351,7 +432,8 @@ class SupremeSystemAuditor:
     def synthesize_findings(self, code_audit: Dict[str, Any],
                             invariant_audit: Dict[str, Any],
                             health_audit: Dict[str, Any],
-                            db_audit: Dict[str, Any]) -> List[Dict[str, Any]]:
+                            db_audit: Dict[str, Any],
+                            code_limits_audit: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """Synthesizes all audit dimensions into prioritized, actionable findings."""
         findings = []
 
@@ -399,6 +481,18 @@ class SupremeSystemAuditor:
                 'evidence': comp.get('detail', ''),
                 'action': 'component_repair'
             })
+
+        # 5. Anti-Constant & Code Limits Violations (HIGH / CRITICAL)
+        if code_limits_audit:
+            for viol in code_limits_audit.get('violations', []):
+                findings.append({
+                    'id': f"LIMIT-{hashlib.sha256(str(viol).encode()).hexdigest()[:8]}",
+                    'category': viol.get('category', 'anti_constant_violation'),
+                    'severity': 'CRITICAL' if viol.get('category') == 'league_pipeline_gap' else 'HIGH',
+                    'description': viol.get('error', 'Code limit violation'),
+                    'evidence': str(viol),
+                    'action': 'autonomous_code_healing'
+                })
 
         return findings
 
@@ -461,8 +555,9 @@ class SupremeSystemAuditor:
         inv_audit = self.audit_constitutional_invariants()
         db_audit = self.audit_database_integrity()
         health_audit = self.audit_component_and_feed_health()
+        code_limits_audit = self.audit_anti_constant_and_code_limits()
 
-        findings = self.synthesize_findings(code_audit, inv_audit, health_audit, db_audit)
+        findings = self.synthesize_findings(code_audit, inv_audit, health_audit, db_audit, code_limits_audit)
         critical_count = sum(1 for f in findings if f.get('severity') == 'CRITICAL')
         high_count = sum(1 for f in findings if f.get('severity') == 'HIGH')
 
@@ -485,6 +580,7 @@ class SupremeSystemAuditor:
             'healing_results': healing_results,
             'code_and_tests': code_audit,
             'constitutional_invariants': inv_audit,
+            'anti_constant_and_code_limits': code_limits_audit,
             'database_integrity': db_audit,
             'component_and_feed_health': health_audit
         }

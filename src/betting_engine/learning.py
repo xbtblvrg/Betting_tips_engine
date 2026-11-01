@@ -19,7 +19,7 @@ FEEDBACK_AGE_SLA_SECONDS = 300
 FEEDBACK_KINDS = frozenset(('outcome_review', 'closing_evaluation'))
 RECOVERY_KINDS = frozenset(('model_restore', 'segment_restore', 'period_restore'))
 PRIORITY = {'source_refresh':0, 'model_restore':0, 'segment_restore':0, 'period_restore':0,
-    'outcome_review':1, 'closing_evaluation':1, 'shadow_evaluation':1, 'market_catalog':1, 'autonomous_submarket_expansion':1, 'autorun_selector_repair':1,
+    'outcome_review':1, 'closing_evaluation':1, 'shadow_evaluation':1, 'market_catalog':1, 'autonomous_system_audit':1, 'anti_constant_audit':1, 'autonomous_submarket_expansion':1, 'autorun_selector_repair':1,
     'controlled_retrain':2, 'segment_retrain':2, 'period_retrain':2, 'segment_repair':2, 'target_evaluation':2, 'anchor_weight_learning':2, 'opportunity_funnel_repair':2,
     'player_history_refresh':2, 'player_prop_audit':2, 'player_data_refresh':3, 'model_search':3,
     'research_watch':4}
@@ -816,10 +816,63 @@ class LearningWorker:
                 data_dir=self.data,
                 store=self.store
             )
+        if job['kind']=='autonomous_model_synthesis':
+            from .demoted_market_bridge import DemotedMarketIncubationBridge
+            bridge = DemotedMarketIncubationBridge(data_dir=self.data)
+            payload = json.loads(job['payload']) if isinstance(job['payload'], str) else (job['payload'] or {})
+            max_p = int(payload.get('max_markets') or 5)
+            res = bridge.synchronize_demoted_markets(max_train_per_run=max_p)
+            return {
+                'executed_at': utcnow().isoformat(),
+                'status': 'success',
+                'admitted_count': res.get('newly_admitted_count', 0),
+                'already_incubating': res.get('already_incubating_count', 0),
+                'still_researching': res.get('still_researching_count', 0),
+                'newly_admitted': res.get('newly_admitted', []),
+            }
         if job['kind']=='target_evaluation':
 
             from .target_evaluator import run_target_self_evaluation
             return run_target_self_evaluation(self.store, self.data)
+        if job['kind']=='research_gap':
+            payload = json.loads(job['payload']) if isinstance(job['payload'], str) else (job['payload'] or {})
+            league = payload.get('league') or job.get('league')
+            market = payload.get('market') or payload.get('raw_market_name') or ''
+            gap_id = payload.get('id') or job.get('id')
+
+            from .codex_model_synthesizer import CodexModelSynthesizer
+            synth = CodexModelSynthesizer(self.data)
+
+            fam = str(payload.get('provider_section') or 'totals')
+            if 'total' in market.lower():
+                fam = 'totals'
+            elif 'spread' in market.lower() or 'handicap' in market.lower():
+                fam = 'spreads'
+            elif 'winner' in market.lower() or 'moneyline' in market.lower() or '1x2' in market.lower():
+                fam = 'moneyline'
+            seg_key = f"{league}|full_game|{fam}"
+
+            rec = None
+            try:
+                rec = synth.synthesize_and_screen_candidate(seg_key, domain_problem=f"Coverage expansion for observed market: {market}")
+            except Exception as e:
+                pass
+
+            try:
+                with self.store.db() as c:
+                    if gap_id:
+                        c.execute("UPDATE operating_gaps SET status='resolved', resolved_at=? WHERE id=?", (utcnow().isoformat(), gap_id))
+            except Exception:
+                pass
+
+            return {
+                'executed_at': utcnow().isoformat(),
+                'status': 'resolved',
+                'gap_id': gap_id,
+                'league': league,
+                'market': market,
+                'candidate': rec.model_id if rec else None
+            }
         if job['kind']=='source_refresh':
             request=self.store.request_source_refresh(f'Automatic recovery for {job["league"]}')
             return {'request':request,'conclusion':'Source refresh requested. Resolution requires a later fresh publication; this action does not prove recovery.'}

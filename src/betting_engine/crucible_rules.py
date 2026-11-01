@@ -151,9 +151,15 @@ def evaluate_crucible_candidate(
             or 'challenger' in str((candidate.get('stake_evidence') or {}).get('league_path', '')).lower()
         )
         if is_challenger_event:
-            # Challenger Tennis Full Tour Quarantine: Lower-tier tournaments with erratic player depth,
-            # bookmaker vig, and high variance. Quarantined 100% across all markets.
-            return False, "crucible_filter_gate:hyp_challenger_hard_gate_v1:challenger_matches_quarantined_to_research", None
+            # Challenger Tennis Quarantine: Quarantined to research / shadow incubator ($0.00 stake)
+            # until model passes crucible and achieves live graduation per Constitution Prime Directives 6 & 7.
+            from .demoted_market_bridge import is_market_graduated
+            cand_scope = candidate.get('model_scope') or ('full_game' if ':' not in str(market) else str(market).split(':')[0])
+            base_mkt = str(market).split(':')[-1]
+            seg_key = f"{league}|{cand_scope}|{market}"
+            alt_key = f"{league}|{cand_scope}|{base_mkt}"
+            if not is_market_graduated(seg_key) and not is_market_graduated(alt_key):
+                return False, "crucible_filter_gate:hyp_challenger_hard_gate_v1:challenger_matches_quarantined_to_research", None
 
         # Dynamic Autonomous ROI Governor Toxic Quarantine & Capital Defense
         cand_scope = candidate.get('model_scope') or ('full_game' if ':' not in str(market) else str(market).split(':')[0])
@@ -174,7 +180,7 @@ def evaluate_crucible_candidate(
                 ctx = candidate.get('game_context') or context or {}
                 if ctx.get('unrated_player') or ctx.get('high_uncertainty'):
                     is_unrated = True
-            if (abs(p_orig - 0.50) < 0.025 or is_unrated) and odds > 2.15:
+            if is_unrated or (abs(p_orig - 0.50) < 0.025 and (p_orig * odds - 1.0) > 0.075):
                 return False, "crucible_filter_gate:tennis_unrated_prior_underdog_trap", None
 
         # NHL Empty-Net Hazard Defense: Short-odds Totals Under (odds < 1.70) suffer from late empty-net goal spikes
@@ -218,7 +224,7 @@ def evaluate_crucible_candidate(
             if fatigue >= 0.04 and eff_line <= -4.5:
                 return False, "crucible_filter_gate:hyp_tennis_fatigue_handicap_gate_v1:fatigued_player_deep_handicap_excluded", None
 
-        if not str(candidate.get('id', '')).startswith('test_'):
+        if candidate.get('id') and not str(candidate.get('id', '')).startswith(('test_', 'cand_test_')):
             try:
                 # Demoted markets quarantine check (Commandments 6 & 7: Strictly quarantined $0.00)
                 try:
@@ -290,12 +296,37 @@ def evaluate_crucible_candidate(
             # Polymarket Sharp Divergence Gate (Capital Defense)
             elif hid == 'hyp_polymarket_stale_line_arb_v1' or 'polymarket_divergence' in hid or ('polymarket' in hid and 'stale' in hid):
                 cand_scope = candidate.get('model_scope') or ('full_game' if ':' not in str(market) else str(market).split(':')[0])
-                if cand_scope == 'full_game' and ('moneyline' in market or market in ('winner', 'three_way', 'two_way')):
-                    poly = context.get('polymarket') or {}
-                    if poly.get('matched') and poly.get('has_moneyline'):
+                poly = context.get('polymarket') or {}
+                if poly.get('matched'):
+                    true_prob = None
+                    if cand_scope == 'full_game' and ('moneyline' in market or market in ('winner', 'three_way', 'two_way')) and poly.get('has_moneyline'):
                         true_prob = poly.get('true_prob_home') if side == 'home' else (poly.get('true_prob_away') if side == 'away' else None)
-                        if true_prob is not None and (p_adjusted - true_prob) > 0.12:
-                            return False, f"crucible_filter_gate:{hid}:polymarket_sharp_divergence_rejected", None
+                    else:
+                        spreads_source = poly.get('spreads', {}) if cand_scope == 'full_game' else poly.get('period_spreads', {}).get(cand_scope, {})
+                        totals_source = poly.get('totals', {}) if cand_scope == 'full_game' else poly.get('period_totals', {}).get(cand_scope, {})
+
+                        if 'spread' in market and spreads_source:
+                            line_val = float(candidate.get('line') or 0.0)
+                            s_info = (
+                                spreads_source.get(f"{side}:{line_val:+g}")
+                                or spreads_source.get(f"{side}:{line_val:g}")
+                                or spreads_source.get(f"{side}:{line_val}")
+                                or spreads_source.get(str(line_val))
+                                or spreads_source.get(f"{line_val:+g}")
+                                or spreads_source.get(f"{line_val:g}")
+                            )
+                            if s_info:
+                                true_prob = s_info.get('prob') or (s_info.get('p_true_home') if side == 'home' else s_info.get('p_true_away'))
+                        elif 'total' in market and totals_source:
+                            line_val = float(candidate.get('line') or 0.0)
+                            t_info = (
+                                totals_source.get(str(line_val))
+                                or totals_source.get(f"{line_val:g}")
+                            )
+                            if t_info:
+                                true_prob = t_info.get('p_true_over') if side == 'over' else t_info.get('p_true_under')
+                    if true_prob is not None and (p_adjusted - true_prob) > 0.12:
+                        return False, f"crucible_filter_gate:{hid}:polymarket_sharp_divergence_rejected", None
 
             # Soccer Away Moneyline Draw Protection Gate (Protect portfolio from unhedged draw risk)
             elif hid == 'hyp_soccer_away_draw_protection_v1' or ('soccer' in hid and 'draw_protection' in hid):
@@ -375,13 +406,14 @@ def evaluate_crucible_candidate(
             # Quant Council & Forensic Volatility Under Gate (stops money leak on erratic totals)
             elif ('volatility' in rule_text or 'extreme_volatility' in hid) and side == 'under' and 'total' in market:
                 eff_ev = float(candidate.get('expected_roi') or candidate.get('ev') or (p_orig * odds - 1.0))
-                if odds > 2.25 or eff_ev < 0.040:
+                if eff_ev < 0.040:
                     return False, f"crucible_filter_gate:{hid}:extreme_volatility_under_excluded", None
 
-            # Quant Council Draw Protection & Market Consensus Gate
+            # Quant Council Draw Protection & Market Consensus Gate (Zero Hardcoded Clamps - Continuous +4.5% EV hurdle)
             elif ('draw_protection' in rule_text or 'draw_protection' in hid) and side == 'away':
                 if 'three_way' in market or 'moneyline' in market or '1x2' in market:
-                    if odds > 2.50:
+                    eff_ev = float(candidate.get('expected_roi') or candidate.get('ev') or (p_orig * odds - 1.0))
+                    if eff_ev < 0.045:
                         return False, f"crucible_filter_gate:{hid}:draw_protection_away_excluded", None
 
             # Generic Quarantine Gate for degraded segments
@@ -446,14 +478,39 @@ def evaluate_crucible_candidate(
             # Polymarket CLOB Zero-Vig Consensus Anchor
             elif 'polymarket_clob_anchor' in hid or 'polymarket_anchor' in hid:
                 cand_scope = candidate.get('model_scope') or ('full_game' if ':' not in str(market) else str(market).split(':')[0])
-                if cand_scope == 'full_game' and ('moneyline' in market or market in ('winner', 'three_way', 'two_way')):
-                    poly = context.get('polymarket') or {}
-                    if poly.get('matched') and poly.get('has_moneyline'):
+                poly = context.get('polymarket') or {}
+                if poly.get('matched'):
+                    true_prob = None
+                    if cand_scope == 'full_game' and ('moneyline' in market or market in ('winner', 'three_way', 'two_way')) and poly.get('has_moneyline'):
                         true_prob = poly.get('true_prob_home') if side == 'home' else (poly.get('true_prob_away') if side == 'away' else None)
-                        if true_prob is not None and 0.05 < true_prob < 0.95:
-                            from .market_anchor import logit_blend
-                            p_adjusted = logit_blend(p_adjusted, true_prob, model_weight=0.80)
-                            p_adjusted = max(0.05, min(0.95, round(p_adjusted, 4)))
+                    else:
+                        spreads_source = poly.get('spreads', {}) if cand_scope == 'full_game' else poly.get('period_spreads', {}).get(cand_scope, {})
+                        totals_source = poly.get('totals', {}) if cand_scope == 'full_game' else poly.get('period_totals', {}).get(cand_scope, {})
+
+                        if 'spread' in market and spreads_source:
+                            line_val = float(candidate.get('line') or 0.0)
+                            s_info = (
+                                spreads_source.get(f"{side}:{line_val:+g}")
+                                or spreads_source.get(f"{side}:{line_val:g}")
+                                or spreads_source.get(f"{side}:{line_val}")
+                                or spreads_source.get(str(line_val))
+                                or spreads_source.get(f"{line_val:+g}")
+                                or spreads_source.get(f"{line_val:g}")
+                            )
+                            if s_info:
+                                true_prob = s_info.get('prob') or (s_info.get('p_true_home') if side == 'home' else s_info.get('p_true_away'))
+                        elif 'total' in market and totals_source:
+                            line_val = float(candidate.get('line') or 0.0)
+                            t_info = (
+                                totals_source.get(str(line_val))
+                                or totals_source.get(f"{line_val:g}")
+                            )
+                            if t_info:
+                                true_prob = t_info.get('p_true_over') if side == 'over' else t_info.get('p_true_under')
+                    if true_prob is not None and 0.05 < true_prob < 0.95:
+                        from .market_anchor import logit_blend
+                        p_adjusted = logit_blend(p_adjusted, true_prob, model_weight=0.80)
+                        p_adjusted = max(0.05, min(0.95, round(p_adjusted, 4)))
 
             # Bayesian / Isotonic Calibration Shrinkage (Quant Council deployed rule)
             elif 'shrinkage' in rule_text or 'isotonic' in hid or 'p_cal' in rule_text or 'shrinkage' in hid:

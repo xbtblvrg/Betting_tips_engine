@@ -82,11 +82,16 @@ def _query_member_for_daily(
 
     prompt = (
         f"You are an elite member of the Multi-AI Quant Council supervised by Google Antigravity (agy).\n"
+        f"COUNCIL ROLES: agy (lead architect & chair), Claude (sports domain mechanics & rest traps), Codex (mathematical kernels & calibration), Grok (adversarial red-team & stress testing).\n"
         f"ASSIGNMENT: {assignment}\n\n"
-        f"MANDATORY PRIME DIRECTIVE:\n"
+        f"MANDATORY PRIME DIRECTIVE & CONSTITUTION:\n"
         f"- Target minimum 10.0% weekly portfolio ROI and consistent daily cumulative PnL uptrend.\n"
-        f"- Daily volume floor: Minimum 100 funded recommendations per Budapest day across the 72-hour horizon.\n"
-        f"- Dual Dynamic Capital: Scale capital ($2.50–$8.00) on proven alpha segments; clamp wobbly segments at $0.50; strictly suspend real money ($0.00) on demoted incubator markets.\n\n"
+        f"- Daily volume floor: Minimum 100 funded recommendations per Budapest day across the 72-hour horizon (700+/rolling week).\n"
+        f"- Dual Dynamic Capital: Scale capital ($2.50–$8.00) on proven alpha segments; clamp wobbly segments at $0.50; strictly suspend real money ($0.00) on demoted incubator markets.\n"
+        f"- Pure Independent Models: Sports probabilities derive purely from domain models (market_anchor_mode='shadow', model_weight=1.0) without blending bookmaker vig.\n"
+        f"- Zero Hardcoded Clamps: Any contract with odds >= 1.40 and positive EV is eligible. High-odds contracts represent valid alpha.\n"
+        f"- Zero Paid External Sources: Strictly $0.00 external data cost; only free public official feeds (NHL Web API, MLB Stats API, Open-Meteo, ESPN Public, Polymarket CLOB).\n"
+        f"- 3-Tier Closed-Loop Progression: Demoted markets quarantined at $0.00 until passing historical backtest (ROI >= +3.5%, Brier skill, DD < 25%) and N >= 25 live shadow wagers.\n\n"
         f"TODAY'S PORTFOLIO BRIEF:\n{json.dumps(brief, indent=2)}\n\n"
         f"Provide at most 300 words of actionable, concrete quantitative advice."
     )
@@ -150,7 +155,7 @@ def convene_daily_quant_council(
     if incubator_db.exists():
         try:
             conn = sqlite3.connect(str(incubator_db), timeout=5.0)
-            rows = conn.execute("SELECT segment_key, failure_reason FROM demoted_markets ORDER BY id DESC LIMIT 15").fetchall()
+            rows = conn.execute("SELECT segment_key, reason FROM demoted_markets ORDER BY id DESC LIMIT 15").fetchall()
             demoted_segments = [r[0] for r in rows]
             conn.close()
         except Exception:

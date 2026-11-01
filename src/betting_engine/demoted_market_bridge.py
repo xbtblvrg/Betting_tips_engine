@@ -8,11 +8,13 @@ Shadow Incubator with active model tracking for Crucible re-graduation.
 from __future__ import annotations
 from dataclasses import asdict
 from datetime import datetime, timezone
+import hashlib
 import json
 import logging
 from pathlib import Path
 import sqlite3
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
+from contextlib import closing
 
 from .historical_trainer import HistoricalCandidateTrainer
 from .providers import DATA
@@ -28,9 +30,9 @@ INCUBATOR_DB = DATA / 'shadow_incubator.sqlite3'
 class DemotedMarketIncubationBridge:
     """Orchestrates the binding of historically proven candidate models to demoted markets."""
 
-    def __init__(self, data_dir: Path = DATA, db_path: Optional[Path] = None):
-        self.data_dir = data_dir
-        self.db_path = db_path or (data_dir / 'shadow_incubator.sqlite3')
+    def __init__(self, data_dir: Union[Path, str] = DATA, db_path: Optional[Union[Path, str]] = None):
+        self.data_dir = Path(data_dir) if isinstance(data_dir, str) else data_dir
+        self.db_path = Path(db_path) if db_path else (self.data_dir / 'shadow_incubator.sqlite3')
         self.trainer = HistoricalCandidateTrainer(db_path=self.db_path)
         self.tournament_engine = TournamentEngine(data_dir=data_dir, db_path=self.db_path)
         self._ensure_schema()
@@ -40,7 +42,7 @@ class DemotedMarketIncubationBridge:
         if not self.db_path.exists():
             return
         try:
-            with sqlite3.connect(str(self.db_path), timeout=30.0) as conn:
+            with closing(sqlite3.connect(str(self.db_path), timeout=30.0)) as conn:
                 conn.execute("PRAGMA busy_timeout = 30000")
                 conn.execute("ALTER TABLE demoted_markets ADD COLUMN last_screened_at TEXT")
         except (sqlite3.OperationalError, sqlite3.DatabaseError):
@@ -50,6 +52,20 @@ class DemotedMarketIncubationBridge:
         """Scans demoted markets, trains candidate models on historical data, and admits them into the incubator."""
         if not self.db_path.exists():
             return {'status': 'no_db', 'newly_admitted_count': 0}
+
+        # Only sync roster if demoted_markets table is empty to avoid expensive full-universe rebuilds
+        try:
+            with closing(sqlite3.connect(str(self.db_path), timeout=5.0)) as c_chk:
+                has_rows = bool(c_chk.execute("SELECT 1 FROM demoted_markets LIMIT 1").fetchone())
+        except Exception:
+            has_rows = False
+
+        if not has_rows and (self.data_dir.resolve() == DATA.resolve() or (self.data_dir / 'engine.sqlite3').exists()):
+            try:
+                from .unified_market_universe import UnifiedMarketUniverse
+                UnifiedMarketUniverse(self.data_dir).build_universe_roster(force_refresh=False)
+            except Exception as e_sync:
+                log.debug("Could not auto-sync roster to demoted_markets: %s", e_sync)
 
         try:
             conn = sqlite3.connect(f"file:{self.db_path.resolve()}?mode=ro", uri=True, timeout=30.0)
@@ -65,6 +81,14 @@ class DemotedMarketIncubationBridge:
                 FROM demoted_markets
                 ORDER BY 
                     CASE WHEN incubation_phase = 'incubating_with_new_model' THEN 1 ELSE 0 END,
+                    CASE 
+                        WHEN league IN ('NBA', 'NFL') THEN 0
+                        WHEN league = 'NHL' THEN 1
+                        WHEN league IN ('MLB', 'NCAAF', 'NCAAM', 'NCAAW') THEN 2
+                        WHEN league IN ('ATP', 'WTA', 'CHALLENGER') THEN 3
+                        ELSE 4
+                    END,
+                    CASE WHEN rolling_pnl < 0.0 THEN 0 ELSE 1 END,
                     COALESCE(last_screened_at, '') ASC,
                     id ASC
             """)
@@ -93,7 +117,7 @@ class DemotedMarketIncubationBridge:
             attempted_this_run += 1
             now_iso = datetime.now(timezone.utc).isoformat()
             try:
-                with sqlite3.connect(str(self.db_path), timeout=30.0, isolation_level=None) as update_conn:
+                with closing(sqlite3.connect(str(self.db_path), timeout=30.0, isolation_level=None)) as update_conn:
                     update_conn.execute("PRAGMA busy_timeout = 30000")
                     update_conn.execute("UPDATE demoted_markets SET last_screened_at = ? WHERE id = ?", (now_iso, d_id))
             except Exception as e:
@@ -101,6 +125,34 @@ class DemotedMarketIncubationBridge:
 
             # Run historical training & out-of-sample Crucible validation
             champ_res = self.trainer.train_and_screen_demoted_market(seg_key)
+            if not champ_res or not champ_res.is_qualified:
+                # Fallback to Autonomous Multi-AI Model Synthesizer
+                try:
+                    from .codex_model_synthesizer import CodexModelSynthesizer
+                    synthesizer = CodexModelSynthesizer(data_dir=self.data_dir)
+                    synth_rec = synthesizer.synthesize_and_screen_candidate(
+                        segment_key=seg_key,
+                        domain_problem=f"Standard archetypes failed out-of-sample backtest on {seg_key}. Requires novel mathematical formulation with positive alpha."
+                    )
+                    if synth_rec.crucible_passed and synth_rec.is_admitted_to_incubator:
+                        from .historical_trainer import CandidateTrainingResult
+                        champ_res = CandidateTrainingResult(
+                            segment_key=seg_key,
+                            model_id=synth_rec.model_id,
+                            model_archetype=synth_rec.class_name,
+                            model_params={'source_file': f"{synth_rec.model_id}.py", 'provider': synth_rec.generator_provider},
+                            train_sample_size=0,
+                            oos_sample_size=synth_rec.oos_sample_size,
+                            oos_win_rate=synth_rec.oos_win_rate,
+                            oos_simulated_roi=synth_rec.oos_simulated_roi,
+                            oos_delta_brier=synth_rec.oos_delta_brier,
+                            oos_max_drawdown=synth_rec.oos_max_drawdown,
+                            is_qualified=True,
+                            scorecard_s=100.0,
+                        )
+                except Exception as e_synth:
+                    log.debug("Autonomous synthesis on %s: %s", seg_key, e_synth)
+
             if not champ_res or not champ_res.is_qualified:
                 still_researching += 1
                 continue
@@ -181,11 +233,21 @@ class DemotedMarketIncubationBridge:
         now_iso = datetime.now(timezone.utc).isoformat()
         params_json = json.dumps(champ_res.model_params)
 
+        # Check if already graduated during training (e.g. concurrent engine cycle)
+        try:
+            with closing(sqlite3.connect(f"file:{self.db_path.resolve()}?mode=ro", uri=True, timeout=5.0)) as chk_conn:
+                is_grad = chk_conn.execute("SELECT 1 FROM graduated_markets WHERE segment_key = ?", (seg_key,)).fetchone()
+                if is_grad:
+                    log.info("Market %s already graduated to Tier 3 during candidate training.", seg_key)
+                    return True
+        except Exception:
+            pass
+
         import time
-        for attempt in range(5):
+        for attempt in range(8):
             try:
-                with sqlite3.connect(str(self.db_path), timeout=20.0, isolation_level=None) as conn:
-                    conn.execute("PRAGMA busy_timeout = 20000")
+                with closing(sqlite3.connect(str(self.db_path), timeout=60.0, isolation_level=None)) as conn:
+                    conn.execute("PRAGMA busy_timeout = 60000")
                     conn.execute("""
                         UPDATE demoted_markets
                         SET incubated_model_id = ?,
@@ -210,8 +272,8 @@ class DemotedMarketIncubationBridge:
                     ))
                     break
             except sqlite3.OperationalError as e:
-                if "locked" in str(e) and attempt < 4:
-                    time.sleep(0.5 * (attempt + 1))
+                if "locked" in str(e) and attempt < 7:
+                    time.sleep(1.0 * (attempt + 1))
                     continue
                 log.warning("Could not commit champion candidate model for %s: %s", seg_key, e)
                 return False
@@ -236,3 +298,39 @@ class DemotedMarketIncubationBridge:
             }
         )
         return True
+
+    def proactively_screen_market(
+        self,
+        segment_key: str,
+        incumbent_roi: Optional[float] = None,
+        incumbent_delta_brier: Optional[float] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Proactive Unified Crucible Architecture (PUCA):
+        Screens a market against all 10 candidate archetypes on historical settled wagers.
+        If an incumbent model exists, only approves if challenger outperforms by >= 1.5% ROI and positive Brier.
+        """
+        champ_res = self.trainer.train_and_screen_demoted_market(segment_key)
+        if not champ_res or not champ_res.is_qualified:
+            return None
+
+        if incumbent_roi is not None:
+            passed, reasons = self.trainer.screen_candidate_against_incumbent(
+                champ_res,
+                incumbent_roi=incumbent_roi,
+                incumbent_delta_brier=incumbent_delta_brier or 0.0,
+            )
+            if not passed:
+                log.debug("Challenger for %s failed incumbent screen: %s", segment_key, reasons)
+                return None
+
+        # Return discovered candidate credentials
+        return {
+            'segment_key': segment_key,
+            'model_id': champ_res.model_id,
+            'model_archetype': champ_res.model_archetype,
+            'model_params': champ_res.model_params,
+            'historical_roi': champ_res.oos_simulated_roi,
+            'historical_brier_delta': champ_res.oos_delta_brier,
+            'historical_sample_size': champ_res.oos_sample_size,
+            'scorecard_s': champ_res.scorecard_s,
+        }

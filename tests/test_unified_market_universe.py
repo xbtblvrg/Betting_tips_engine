@@ -67,3 +67,45 @@ def test_api_market_universe_endpoint():
     assert 'total_supported_markets' in data
     assert 'tier_3_production_graduated_count' in data
     assert 'leagues_breakdown' in data
+
+
+def test_protected_alpha_champions_preserved_in_tier3():
+    """Verifies that protected alpha champions remain in Tier 3 with their dynamic Kelly cap."""
+    from betting_engine.unified_market_universe import (
+        PROTECTED_ALPHA_CHAMPIONS,
+        is_protected_alpha_champion,
+    )
+    assert len(PROTECTED_ALPHA_CHAMPIONS) >= 10
+    assert "MLS|full_game|spreads" in PROTECTED_ALPHA_CHAMPIONS
+    assert "WTA|period_1|moneyline" in PROTECTED_ALPHA_CHAMPIONS
+    assert is_protected_alpha_champion("MLS|full_game|spreads") is True
+    assert is_protected_alpha_champion("RANDOM|full_game|market", {'pnl': 5.0}) is True
+    assert is_protected_alpha_champion("RANDOM|full_game|market", {'pnl': -2.0}) is False
+
+    universe = UnifiedMarketUniverse()
+    universe.invalidate_cache()
+    roster = universe.build_universe_roster()
+    
+    # Check MLS spreads profile
+    mls_prof = roster.get("MLS|full_game|spreads")
+    if mls_prof:
+        assert mls_prof.tier == int(MarketTier.PRODUCTION_GRADUATED)
+        assert mls_prof.stake_cap > 0.50
+
+
+def test_every_tier1_market_has_owner_and_developer():
+    """Verifies that 100% of markets in Tier 1 R&D have a designated owner and developer."""
+    universe = UnifiedMarketUniverse()
+    universe.invalidate_cache()
+    roster = universe.build_universe_roster()
+    t1 = [p for p in roster.values() if p.tier == int(MarketTier.RESEARCH_RND)]
+    assert len(t1) > 0, "There must be Tier 1 research markets being developed"
+    for p in t1:
+        assert p.owner == "Gemini Antigravity (agy)", f"Missing owner on {p.segment_key}"
+        assert p.assigned_developer in (
+            "Claude (claude-opus-5-5) & HistoricalTrainer",
+            "OpenAI Codex (gpt-6-astra) & HistoricalTrainer",
+        ), f"Missing assigned developer on {p.segment_key}"
+        assert p.audit_adversary == "xAI Grok (grok-4.7)", f"Missing audit adversary on {p.segment_key}"
+
+

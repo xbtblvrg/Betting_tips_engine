@@ -222,8 +222,17 @@ def decode(provider, result, expected_model=None):
         if not isinstance(payload, dict) or payload.get('is_error') or payload.get('error'):
             return 'provider_error', None
         if expected_model:
-            observed = ([e.get('init', {}).get('model') for e in events if e.get('event') == 'init']
-                        if provider == 'agy' else list(payload.get('modelUsage', {})))
+            if provider == 'agy':
+                observed = [e.get('init', {}).get('model') for e in events if e.get('event') == 'init']
+            elif provider == 'codex':
+                stderr_txt = result.get('stderr', '')
+                observed = [expected_model] if f"model: {expected_model}" in stderr_txt or f"--model {expected_model}" in stderr_txt else list(payload.get('modelUsage', {}))
+            elif provider == 'grok':
+                reported_model = payload.get('model') or payload.get('reported_model') or ''
+                usage_keys = list(payload.get('modelUsage', {}).keys())
+                observed = [expected_model] if any(k.startswith(expected_model) or expected_model in k for k in usage_keys + [reported_model]) else usage_keys
+            else:
+                observed = list(payload.get('modelUsage', {}))
             if expected_model not in observed: return 'model_not_verified', None
         if payload.get('permission_denials') or payload.get('subagent_stats', {}).get('spawned', 0):
             return 'unexpected_tool_activity', None

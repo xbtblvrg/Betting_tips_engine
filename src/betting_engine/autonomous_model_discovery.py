@@ -106,8 +106,18 @@ class AutonomousModelDiscoveryEngine:
             cur.execute("""
                 SELECT id, segment_key, league, scope, family, sub_family, rolling_roi, rolling_pnl, games, demoted_at
                 FROM demoted_markets
-                WHERE incubation_phase = 'research_training'
-                ORDER BY league, scope, family
+                WHERE incubation_phase = 'research_training' 
+                   OR (incubation_phase = 'incubating_with_new_model' AND (incubated_model_id IS NULL OR incubated_model_id = ''))
+                ORDER BY 
+                    CASE 
+                        WHEN league IN ('NBA', 'NFL') THEN 0
+                        WHEN league = 'NHL' THEN 1
+                        WHEN league IN ('MLB', 'NCAAF', 'NCAAM', 'NCAAW') THEN 2
+                        WHEN league IN ('ATP', 'WTA', 'CHALLENGER') THEN 3
+                        ELSE 4
+                    END,
+                    CASE WHEN rolling_pnl < 0.0 THEN 0 ELSE 1 END,
+                    scope, family
             """)
             rows = [dict(r) for r in cur.fetchall()]
             return rows

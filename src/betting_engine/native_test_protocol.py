@@ -32,7 +32,7 @@ TEST_FILE = NODE.split('::')[0]
 PINNED = {
     TEST_FILE: '088030e2ef280f1b79a22966ce3f746fc807694c2d124725446e9c9f89a524ba',
     'src/betting_engine/claude_development.py': 'fcd2f8a27527c81a31422223bb1ed3944db5e904da3a8dea5817cd2b38b2d1ca',
-    'src/betting_engine/ai_delegation.py': '41c38690fd712d24677fc51f2478d09729be8b9deacc15ad2682b45cc28bd428',
+    'src/betting_engine/ai_delegation.py': '67c5326f41281c7634f83538c960039f71fd1bccc973afecf719e8ec4627f611',
     'src/betting_engine/domain.py': 'dd350a0d93818cffc34ba2e15ff07fd2107b35855a1e447fab628d87458f8ab8',
     'src/betting_engine/io_utils.py': '4c7b8f6b5e335b9cd5b42ea2b716ab3ed86bcddf848eeca2017ac574fe1a0f6b',
     'src/betting_engine/__init__.py': 'e0889be650d34516f3adda0c37121f4f390d275fd4b1122becb517cb71dbd679',

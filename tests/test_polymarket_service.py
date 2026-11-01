@@ -150,3 +150,191 @@ def test_enrich_game_context_mock(monkeypatch, tmp_path):
     assert res["has_moneyline"] is True
     assert res["true_prob_home"] == 0.795
     assert res["true_prob_away"] == 0.205
+
+
+def test_enrich_game_context_spreads_and_totals(monkeypatch, tmp_path):
+    svc = PolymarketService(cache_dir=tmp_path)
+
+    fake_events = [
+        {
+            "id": "poly_event_multi",
+            "title": "Bills vs Ravens",
+            "slug": "bills-vs-ravens-2026",
+            "startTime": "2026-11-01T18:00:00Z",
+            "teams": [{"name": "Buffalo Bills"}, {"name": "Baltimore Ravens"}],
+            "markets": [
+                {
+                    "sportsMarketType": "moneyline",
+                    "question": "Bills vs Ravens",
+                    "outcomes": ["Bills", "Ravens"],
+                    "clobTokenIds": ["2001", "2002"],
+                },
+                {
+                    "sportsMarketType": "spreads",
+                    "question": "Spread: Bills (-3.5)",
+                    "line": -3.5,
+                    "outcomes": ["Bills", "Ravens"],
+                    "outcomePrices": ["0.465", "0.535"],
+                    "bestBid": 0.46,
+                    "bestAsk": 0.47,
+                    "volumeNum": 50000.0,
+                },
+                {
+                    "sportsMarketType": "totals",
+                    "question": "Bills vs. Ravens: O/U 54.5",
+                    "line": 54.5,
+                    "outcomes": ["Over", "Under"],
+                    "outcomePrices": ["0.495", "0.505"],
+                    "bestBid": 0.49,
+                    "bestAsk": 0.50,
+                    "volumeNum": 40000.0,
+                },
+            ],
+        }
+    ]
+
+    monkeypatch.setattr(svc, "get_open_events", lambda league: fake_events)
+
+    def mock_book(token_id):
+        if token_id == "2001":
+            return {"token_id": "2001", "best_bid": 0.58, "best_ask": 0.59, "midpoint": 0.585}
+        elif token_id == "2002":
+            return {"token_id": "2002", "best_bid": 0.41, "best_ask": 0.42, "midpoint": 0.415}
+        return None
+
+    monkeypatch.setattr(svc, "get_clob_book", mock_book)
+
+    game = {
+        "league": "NFL",
+        "home": "Buffalo Bills",
+        "away": "Baltimore Ravens",
+        "start": "2026-11-01T18:00:00Z",
+    }
+
+    res = svc.enrich_game_context(game)
+    assert res["matched"] is True
+    assert res["has_moneyline"] is True
+    assert res["has_spreads"] is True
+    assert res["has_totals"] is True
+
+    # Spreads assertions
+    assert "-3.5" in res["spreads"]
+    s = res["spreads"]["-3.5"]
+    assert s["home_line"] == -3.5
+    assert s["away_line"] == 3.5
+    assert s["p_true_home"] == 0.465
+    assert s["p_true_away"] == 0.535
+    assert s["confidence"] > 0.80
+
+    # Totals assertions
+    assert "54.5" in res["totals"]
+    tot = res["totals"]["54.5"]
+    assert tot["line"] == 54.5
+    assert tot["p_true_over"] == 0.495
+    assert tot["p_true_under"] == 0.505
+    assert tot["confidence"] > 0.80
+
+
+def test_calculate_dynamic_ev_hurdle():
+    # Anti-Constant Mandate: Continuous odds-adjusted hurdle
+    h1 = PolymarketService.calculate_dynamic_ev_hurdle(1.40)
+    h2 = PolymarketService.calculate_dynamic_ev_hurdle(1.90)
+    h3 = PolymarketService.calculate_dynamic_ev_hurdle(3.50)
+
+    assert h1 > h2 > h3  # Short favorites require tighter hurdle than long underdogs
+    assert 0.015 <= h3 <= 0.030
+    assert 0.025 <= h2 <= 0.040
+    assert 0.035 <= h1 <= 0.055
+
+    # Boundary conditions
+    assert PolymarketService.calculate_dynamic_ev_hurdle(1.0) == 0.05
+    assert PolymarketService.calculate_dynamic_ev_hurdle(0.5) == 0.05
+
+
+def test_scope_isolation_and_side_aware_spreads(monkeypatch, tmp_path):
+    svc = PolymarketService(cache_dir=tmp_path)
+
+    fake_events = [
+        {
+            "id": "poly_event_scope_test",
+            "title": "Cowboys vs Cardinals",
+            "slug": "cowboys-vs-cardinals-2026",
+            "startTime": "2026-11-01T18:00:00Z",
+            "teams": [{"name": "Dallas Cowboys"}, {"name": "Arizona Cardinals"}],
+            "markets": [
+                {
+                    "sportsMarketType": "spreads",
+                    "question": "Spread: Cowboys (-1.5)",
+                    "line": -1.5,
+                    "outcomes": ["Cowboys", "Cardinals"],
+                    "outcomePrices": ["0.70", "0.30"],
+                    "bestBid": 0.69,
+                    "bestAsk": 0.71,
+                    "volumeNum": 10000.0,
+                },
+                {
+                    "sportsMarketType": "spreads",
+                    "question": "4Q Spread: Cowboys (-2.5)",
+                    "line": -2.5,
+                    "outcomes": ["Cowboys", "Cardinals"],
+                    "outcomePrices": ["0.52", "0.48"],
+                    "bestBid": 0.51,
+                    "bestAsk": 0.53,
+                    "volumeNum": 5000.0,
+                },
+                {
+                    "sportsMarketType": "totals",
+                    "question": "Cowboys vs. Cardinals: O/U 42.5",
+                    "line": 42.5,
+                    "outcomes": ["Over", "Under"],
+                    "outcomePrices": ["0.55", "0.45"],
+                    "bestBid": 0.54,
+                    "bestAsk": 0.56,
+                    "volumeNum": 12000.0,
+                },
+                {
+                    "sportsMarketType": "team_totals",
+                    "question": "Cowboys Team Total: O/U 26.5",
+                    "line": 26.5,
+                    "outcomes": ["Over", "Under"],
+                    "outcomePrices": ["0.60", "0.40"],
+                    "bestBid": 0.59,
+                    "bestAsk": 0.61,
+                    "volumeNum": 4000.0,
+                },
+            ],
+        }
+    ]
+
+    monkeypatch.setattr(svc, "get_open_events", lambda league: fake_events)
+
+    game = {
+        "league": "NFL",
+        "home": "Dallas Cowboys",
+        "away": "Arizona Cardinals",
+        "start": "2026-11-01T18:00:00Z",
+    }
+
+    res = svc.enrich_game_context(game)
+    assert res["matched"] is True
+
+    # 1. Full-game spreads must contain Cowboys (-1.5) but NEVER 4Q Spread (-2.5)
+    assert "-1.5" in res["spreads"]
+    assert "home:-1.5" in res["spreads"]
+    assert "away:+1.5" in res["spreads"]
+    assert res["spreads"]["home:-1.5"]["prob"] == 0.70
+    assert res["spreads"]["away:+1.5"]["prob"] == 0.30
+
+    # Scope isolation: 4Q spread (-2.5) must NOT pollute full-game spreads
+    assert "-2.5" not in res["spreads"]
+    assert "home:-2.5" not in res["spreads"]
+
+    # 2. Period spreads must contain 4Q Spread under quarter_4
+    assert "quarter_4" in res["period_spreads"]
+    assert "home:-2.5" in res["period_spreads"]["quarter_4"]
+    assert res["period_spreads"]["quarter_4"]["home:-2.5"]["prob"] == 0.52
+
+    # 3. Full-game totals must contain 42.5 but NEVER Cowboys Team Total (26.5)
+    assert "42.5" in res["totals"]
+    assert res["totals"]["42.5"]["p_true_over"] == 0.55
+    assert "26.5" not in res["totals"]  # Team total strictly excluded!

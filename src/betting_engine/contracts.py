@@ -11,7 +11,7 @@ SCOPE_LABELS={'full_game':'Full Game','inning_1':'1st Inning','innings_1_5':'Inn
     'quarter_4_ot':'4th Quarter (Incl. Overtime)','period_1':'1st Period','period_2':'2nd Period','period_3':'3rd Period','regulation':'Regulation Time'}
 DERIVED_SCORE_MARKETS=('odd_even','both_score','double_chance')
 SCORE_MARKETS=BASE_MARKETS+DERIVED_SCORE_MARKETS
-SUPPORTED=BASE_MARKETS+tuple(f'{scope}:{kind}' for scope in SCORE_SCOPES for kind in SCORE_MARKETS)
+SUPPORTED=SCORE_MARKETS+tuple(f'{scope}:{kind}' for scope in SCORE_SCOPES for kind in SCORE_MARKETS)
 PRICING_VERSION='scoped-contracts-v5'
 NO_FULL_GAME_DRAW=('NBA','WNBA','MLB','NHL','NCAAF','NCAAM','NCAAW','ATP','WTA','CHALLENGER')
 
@@ -144,11 +144,19 @@ def settlement_scores(tip,game):
             # decision outcomes and ticket outcomes, without changing scores.
             evidence['official_result']=dict(game.context['official_result'])
         if game.league in ('ATP', 'WTA', 'CHALLENGER'):
+            if game.context.get('is_walkover') or game.state in ('walkover', 'cancelled'):
+                evidence['is_walkover'] = True
+                return 0.0, 0.0, evidence
             if tip.get('market') in ('moneyline', 'total_sets', 'set_handicap') and 'sets_home' in game.context and 'sets_away' in game.context:
                 return float(game.context['sets_home']), float(game.context['sets_away']), evidence
             if 'games_home' in game.context and 'games_away' in game.context:
                 return float(game.context['games_home']), float(game.context['games_away']), evidence
         return game.home_score,game.away_score,evidence
+    if game.league in ('ATP', 'WTA', 'CHALLENGER') and (game.context.get('is_walkover') or game.state in ('walkover', 'cancelled')):
+        evidence = {'scope': scope, 'source': game.source, 'fetched_at': game.fetched_at, 'is_walkover': True}
+        if isinstance(game.context.get('official_result'), dict):
+            evidence['official_result'] = dict(game.context['official_result'])
+        return 0.0, 0.0, evidence
     if game.league in ('ATP', 'WTA', 'CHALLENGER') and scope.startswith('period_'):
         try:
             set_idx = int(scope.split('_', 1)[1]) - 1
@@ -249,4 +257,38 @@ def is_opposing_contract(t1, t2):
             return True
 
     return False
+
+
+def is_supported_stake_contract(league: str, scope: str, family: str, sub_family: str = '') -> bool:
+    """Evaluates whether a given segment maps to an actionable, currently executable contract on Stake.
+
+    Prevents phantom or theoretical R&D models (e.g. highest_scoring_period, winning_margin,
+    generic team_total, last_to_score, btts_combo) from graduating into Tier 3 live betting if Stake's
+    sportsbook feed does not provide pre-match quotes for them.
+    """
+    lg = (league or '').upper().strip()
+    sc = (scope or 'full_game').lower().strip()
+    fam = (family or '').lower().strip()
+    sub = (sub_family or '').lower().strip() if sub_family else ''
+
+    base = sub if (sub and sub != fam) else fam
+    if ':' in base:
+        base = base.split(':')[-1]
+
+    # Normalize common Stake sportsbook aliases
+    if base in ('1x2',):
+        base = 'three_way'
+    elif base in ('winner', 'match_winner', 'draw_no_bet', 'set_winner'):
+        base = 'moneyline'
+    elif base in ('asian_lines', 'asian_line', 'asian_handicap', 'set_handicap', 'game_handicap', 'handicap'):
+        base = 'spreads'
+    elif base in ('asian_totals', 'asian_total', 'set_totals', 'total_games'):
+        base = 'totals'
+    elif base in ('both_teams_score', 'both_teams_to_score', 'btts'):
+        base = 'both_score'
+
+    # Match in SUPPORTED
+    kind = base if sc == 'full_game' else f'{sc}:{base}'
+    return kind in SUPPORTED
+
 

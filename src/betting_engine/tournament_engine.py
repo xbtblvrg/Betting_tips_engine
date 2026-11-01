@@ -10,7 +10,8 @@ import hashlib
 import json
 from pathlib import Path
 import sqlite3
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
+from contextlib import closing
 
 from .providers import DATA
 from .sandbox_models.base import BaseCandidateModel
@@ -81,9 +82,25 @@ def normalize_segment_key(segment_key: str) -> str:
     """Normalizes segment keys to canonical league|scope|family representation."""
     parts = str(segment_key).split('|')
     if len(parts) >= 3:
-        league, scope, family = parts[0], parts[1], parts[2]
-        base_fam = family.split(':', 1)[1] if ':' in family else family
-        return f"{league}|{scope}|{base_fam}"
+        league = parts[0].upper().strip()
+        scope = parts[1].lower().strip()
+        family = parts[2].lower().strip()
+        known_scopes = ('quarter_1', 'quarter_2', 'quarter_3', 'quarter_4', 'half_1', 'half_2', 'period_1', 'period_2', 'period_3', 'regulation', 'inning_1', 'innings_1_5')
+        while ':' in family:
+            prefix, rest = family.split(':', 1)
+            if prefix in known_scopes or prefix == scope:
+                scope = prefix
+                family = rest
+            elif prefix == rest.split(':')[0]:
+                family = rest
+            elif prefix in ('american_derivatives', 'asian_lines', 'bivariate_derivatives', 'tennis_sets', 'sequence_hazard'):
+                family = rest
+            else:
+                family = rest.split(':')[-1]
+                break
+        if league == 'NHL' and scope == 'full_game' and family == 'three_way':
+            scope = 'regulation'
+        return f"{league}|{scope}|{family}"
     return str(segment_key)
 
 
@@ -157,13 +174,20 @@ class TournamentEngine:
             conn.close()
 
     def load_registry(self) -> Dict[str, Any]:
-        """Loads tournament registry of active and historical candidates."""
+        """Loads tournament registry of active and historical candidates with mtime caching."""
         if not self.registry_file.exists():
             return {'tournaments': {}, 'champions': {}, 'rejected': []}
         try:
-            return json.loads(self.registry_file.read_text(encoding='utf-8'))
+            mtime = self.registry_file.stat().st_mtime
+            if getattr(self, '_cached_registry', None) is not None and getattr(self, '_cached_registry_mtime', 0) == mtime:
+                return self._cached_registry
+            data = json.loads(self.registry_file.read_text(encoding='utf-8'))
+            self._cached_registry = data
+            self._cached_registry_mtime = mtime
+            self._candidates_cache = {}
+            return data
         except Exception:
-            return {'tournaments': {}, 'champions': {}, 'rejected': []}
+            return getattr(self, '_cached_registry', {'tournaments': {}, 'champions': {}, 'rejected': []})
 
     def save_registry(self, registry: Dict[str, Any]) -> None:
         """Saves tournament registry atomically with locking and candidate merge."""
@@ -188,11 +212,23 @@ class TournamentEngine:
                 tmp = self.registry_file.with_suffix('.tmp')
                 tmp.write_text(json.dumps(registry, indent=2, sort_keys=True), encoding='utf-8')
                 tmp.replace(self.registry_file)
+                try:
+                    self._cached_registry = registry
+                    self._cached_registry_mtime = self.registry_file.stat().st_mtime
+                    self._candidates_cache = {}
+                except Exception:
+                    pass
                 fcntl.flock(lf, fcntl.LOCK_UN)
         except Exception:
             tmp = self.registry_file.with_suffix('.tmp')
             tmp.write_text(json.dumps(registry, indent=2, sort_keys=True), encoding='utf-8')
             tmp.replace(self.registry_file)
+            try:
+                self._cached_registry = registry
+                self._cached_registry_mtime = self.registry_file.stat().st_mtime
+                self._candidates_cache = {}
+            except Exception:
+                pass
 
     def register_candidate(
         self,
@@ -223,6 +259,23 @@ class TournamentEngine:
         sig_hash = hashlib.sha256(model_sig.encode('utf-8')).hexdigest()
         if sig_hash in reg.get('rejected', []):
             return False, ["Model signature is permanently blacklisted in tournament registry."]
+
+        # Deduplication check: if identical archetype and parameters already exist in this tournament, update or skip
+        cand_params = model.metadata.get('params') or getattr(model, 'params', None) or model.metadata or {}
+        cand_sig = (model.__class__.__name__, json.dumps(cand_params, sort_keys=True))
+        for existing_id, existing_meta in t_data.get('candidates', {}).items():
+            ex_cls = existing_meta.get('class_name')
+            ex_meta = existing_meta.get('metadata') or {}
+            ex_params = ex_meta.get('params') or existing_meta.get('params') or {}
+            ex_sig = (ex_cls, json.dumps(ex_params or ex_meta, sort_keys=True))
+            if ex_sig == cand_sig:
+                existing_meta['version'] = model.version
+                existing_meta['metadata'] = model.metadata
+                existing_meta['status'] = 'incubating'
+                self.save_registry(reg)
+                if hasattr(self, '_runtime_classes'):
+                    self._runtime_classes[model.__class__.__name__] = model.__class__
+                return True, []
 
         t_data['candidates'][cand_id] = {
             'model_id': model.model_id,
@@ -333,15 +386,14 @@ class TournamentEngine:
         # Fail-safe fallback: look up directly from demoted_markets in DB if missing from JSON
         if not target_meta and self.db_path.exists():
             try:
-                conn = sqlite3.connect(str(self.db_path), timeout=30.0)
-                conn.execute("PRAGMA busy_timeout = 30000")
-                cur = conn.cursor()
-                row = cur.execute("""
-                    SELECT incubated_model_id, model_archetype, model_params, league, scope, family
-                    FROM demoted_markets
-                    WHERE incubated_model_id = ?
-                """, (model_id,)).fetchone()
-                conn.close()
+                with closing(sqlite3.connect(str(self.db_path), timeout=30.0)) as conn:
+                    conn.execute("PRAGMA busy_timeout = 30000")
+                    cur = conn.cursor()
+                    row = cur.execute("""
+                        SELECT incubated_model_id, model_archetype, model_params, league, scope, family
+                        FROM demoted_markets
+                        WHERE incubated_model_id = ?
+                    """, (model_id,)).fetchone()
                 if row:
                     m_id, arch, p_json, lg, sc, fam = row
                     params = json.loads(p_json) if p_json else {}
@@ -377,20 +429,46 @@ class TournamentEngine:
                 'metadata': meta_dict,
             }
             kwargs.update(params)
-            return cls_target(**kwargs)
+
+            import inspect
+            sig = inspect.signature(cls_target.__init__)
+            has_var_kw = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values())
+            if not has_var_kw:
+                valid_keys = set(sig.parameters.keys()) - {'self'}
+                filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_keys}
+            else:
+                filtered_kwargs = kwargs
+
+            return cls_target(**filtered_kwargs)
         except Exception:
             return None
 
     def get_active_candidates(self, segment_key: str) -> List[BaseCandidateModel]:
-        """Returns instantiated active candidate models for a given segment key."""
+        """Returns instantiated active candidate models for a given segment key with instance caching."""
         reg = self.load_registry()
+        if not hasattr(self, '_candidates_cache') or self._candidates_cache is None:
+            self._candidates_cache = {}
+        if segment_key in self._candidates_cache:
+            return self._candidates_cache[segment_key]
+
         _, t_data = self._find_tournament_data(reg, segment_key)
         if not t_data:
+            self._candidates_cache[segment_key] = []
             return []
 
         class_map = self._get_class_map()
         instances: List[BaseCandidateModel] = []
-        for cand_id, meta in t_data.get('candidates', {}).items():
+        seen_archetypes: Dict[str, int] = {}
+        seen_signatures: Set[Tuple[str, str]] = set()
+
+        cand_items = list(t_data.get('candidates', {}).items())
+        status_rank = {'champion': 0, 'qualified': 1, 'incubating': 2}
+        cand_items.sort(key=lambda x: (
+            status_rank.get(x[1].get('status'), 3),
+            str(x[1].get('registered_at', ''))
+        ))
+
+        for cand_id, meta in cand_items:
             if meta.get('status') not in ('incubating', 'qualified', 'champion'):
                 continue
             cls_name = meta.get('class_name')
@@ -400,6 +478,17 @@ class TournamentEngine:
             try:
                 meta_dict = meta.get('metadata') or {}
                 params = meta_dict.get('params') or meta.get('params') or {}
+
+                # Anti-Clone: prevent running identical duplicate parameter sets
+                sig_params = json.dumps(params or meta_dict, sort_keys=True)
+                sig = (cls_name, sig_params)
+                if sig in seen_signatures:
+                    continue
+
+                # Diversity Cap: allow at most 2 distinct parameter variations per archetype
+                if seen_archetypes.get(cls_name, 0) >= 2:
+                    continue
+
                 kwargs = {
                     'model_id': meta['model_id'],
                     'version': meta.get('version', '1.0.0'),
@@ -411,9 +500,12 @@ class TournamentEngine:
                 kwargs.update(params)
                 inst = cls_target(**kwargs)
                 instances.append(inst)
+                seen_signatures.add(sig)
+                seen_archetypes[cls_name] = seen_archetypes.get(cls_name, 0) + 1
             except Exception:
                 continue
 
+        self._candidates_cache[segment_key] = instances
         return instances
 
     def evaluate_tournament(
@@ -432,11 +524,10 @@ class TournamentEngine:
         resolved_key = eff_key
 
         conn = sqlite3.connect(str(self.db_path), timeout=30.0)
-        conn.execute("PRAGMA busy_timeout = 30000")
-        conn.row_factory = sqlite3.Row
         standings: List[CandidateStanding] = []
-
         try:
+            conn.execute("PRAGMA busy_timeout = 30000")
+            conn.row_factory = sqlite3.Row
             for cand_id, cand_meta in t_data.get('candidates', {}).items():
                 cur = conn.cursor()
                 cur.execute("""
@@ -590,10 +681,9 @@ def ensure_demoted_tournaments_active(
     if not incubator_db.exists():
         return 0
     try:
-        conn = sqlite3.connect(incubator_db, timeout=30.0)
-        conn.execute("PRAGMA busy_timeout = 30000")
-        rows = [r[0] for r in conn.execute("SELECT segment_key FROM demoted_markets").fetchall()]
-        conn.close()
+        with closing(sqlite3.connect(str(incubator_db), timeout=30.0)) as conn:
+            conn.execute("PRAGMA busy_timeout = 30000")
+            rows = [r[0] for r in conn.execute("SELECT segment_key FROM demoted_markets").fetchall()]
     except Exception:
         return 0
 

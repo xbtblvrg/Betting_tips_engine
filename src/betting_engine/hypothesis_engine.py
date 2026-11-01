@@ -4,7 +4,7 @@ Persists, manages, and deduplicates quantitative research hypotheses across
 system restarts. Ensures that failed ideas are permanently remembered and never
 re-tested on the same historical data.
 """
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -23,12 +23,13 @@ class ResearchRecord:
     segment: str
     league: str
     category: str
-    title: str
-    rationale: str
-    proposed_formula_or_rule: str
-    status: str  # 'proposed', 'in_crucible', 'passed_crucible', 'rejected', 'in_shadow', 'deployed'
-    created_at: str
-    updated_at: str
+    title: str = ""
+    rationale: str = ""
+    proposed_formula_or_rule: str = ""
+    status: str = "proposed"  # 'proposed', 'in_crucible', 'passed_crucible', 'rejected', 'in_shadow', 'deployed'
+    created_at: str = ""
+    updated_at: str = ""
+    rule_text: Optional[str] = None
     experiments_count: int = 0
     best_brier_improvement: float = 0.0
     best_simulated_roi_delta: float = 0.0
@@ -37,6 +38,20 @@ class ResearchRecord:
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ResearchRecord":
+        known = {f.name for f in fields(cls)}
+        filtered = {k: v for k, v in data.items() if k in known}
+        if 'rule_text' in data and not filtered.get('proposed_formula_or_rule'):
+            filtered['proposed_formula_or_rule'] = str(data['rule_text'])
+        if not filtered.get('title'):
+            filtered['title'] = str(data.get('rule_text') or data.get('hypothesis_id') or '')
+        if not filtered.get('created_at'):
+            filtered['created_at'] = datetime.now(timezone.utc).isoformat()
+        if not filtered.get('updated_at'):
+            filtered['updated_at'] = filtered['created_at']
+        return cls(**filtered)
 
 
 class HypothesisJournal:
@@ -133,13 +148,13 @@ class HypothesisJournal:
     def get_all_hypotheses(self) -> List[ResearchRecord]:
         """Returns all registered hypotheses from the journal."""
         records = self.load().get('records', {})
-        return [ResearchRecord(**r) for r in records.values()]
+        return [ResearchRecord.from_dict(r) for r in records.values()]
 
     def get_pending_hypotheses(self) -> List[ResearchRecord]:
         """Returns hypotheses awaiting testing in the crucible."""
         records = self.load().get('records', {})
         return [
-            ResearchRecord(**r) for r in records.values()
+            ResearchRecord.from_dict(r) for r in records.values()
             if r.get('status') in ('proposed', 'in_crucible')
         ]
 

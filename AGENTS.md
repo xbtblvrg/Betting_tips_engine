@@ -65,6 +65,7 @@ must strictly comply with these directives without exception.
 - **Ledger Immutability:** Every funded recommendation is an immutable system record in `system_decisions` and `bets`. Losses, original accepted odds, and model snapshots can **never be deleted, overwritten, or retrospectively edited**.
 - **Execution Boundary:** The main recommendation list displays currently executable, server-reviewed instructions. The system tracks **assumed manual placement** (`assumed manual execution`); all bets are manually executed by the user on Stake. **Direct automated order submission is strictly prohibited and unauthorized.**
 - **Zero-Regression Engineering Standard:** All code, query, model, and pipeline modifications must pass **100% of Python unit test suites and frontend Happy-DOM tests** before atomic production activation.
+- **Anti-Tautological Testing Invariant:** Szigorúan tilos a kód önigazoló, körkörös tesztelése (amikor a teszt csupán azt ellenőrzi, hogy a kód azt csinálja-e, amit leírtunk, ahelyett hogy az objektív célt, a helyes matematikai funkciót és a gazdasági eredményességet mérné). A teszteknek független matematikai invariánsok ($EV = P \cdot O - 1.0$, valószínűségi axiómák, non-negatív variancia, Kelly-határok), valós kimenetelek (ESPN, NHL, MLB, Stake igazolt eredmények) és fagyasztott regressziós etalonok ellen kell validálniuk. A meglévő tesztek gyengítése vagy módosítása a hibás logika átengedése érdekében szigorúan tilos.
 
 ---
 

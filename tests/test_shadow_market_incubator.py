@@ -1088,6 +1088,79 @@ def test_reconcile_expanded_families_settlement(incubator):
     assert round(settled['w_oe_win'][1], 2) == 0.90
 
 
+def test_variance_aware_z_score_demotion_gate_and_protected_alpha_shield(incubator, tmp_path):
+    """Verifies that:
+    1. Low-sample noise (N=5, PnL=-1.5 units) does NOT trigger demotion to $0.00 quarantine.
+    2. Protected Alpha Champions (e.g. MLS spreads with positive historical PnL) are shielded.
+    3. Only severe breakdown (N=8 with z < -1.96 or severe losses <= -4.0 units) triggers demotion.
+    """
+    from src.betting_engine.shadow_market_incubator import save_graduated_markets, load_graduated_markets
+    
+    # 1. Register a standard graduated market and a protected alpha champion
+    std_key = 'NBA|quarter_1|totals'
+    alpha_key = 'MLS|full_game|spreads'
+    
+    fake_grad = {
+        std_key: {
+            'id': 'grad_std_1', 'segment_key': std_key, 'league': 'NBA', 'scope': 'quarter_1',
+            'family': 'totals', 'sub_family': 'totals', 'stats': {'sample_size': 30, 'roi': 0.05}
+        },
+        alpha_key: {
+            'id': 'grad_alpha_1', 'segment_key': alpha_key, 'league': 'MLS', 'scope': 'full_game',
+            'family': 'spreads', 'sub_family': 'spreads', 'stats': {'sample_size': 40, 'roi': 0.15}
+        }
+    }
+    save_graduated_markets(fake_grad, incubator.data_dir)
+    
+    eng_db = tmp_path / 'engine_var_test.sqlite3'
+    conn = sqlite3.connect(eng_db)
+    conn.execute("""
+        CREATE TABLE system_decisions (
+            id TEXT PRIMARY KEY,
+            payload TEXT,
+            status TEXT,
+            pnl REAL,
+            issued_at TEXT
+        )
+    """)
+    
+    # Low-sample noise for NBA quarter_1 totals: 5 games, 2 wins, 3 losses, net PnL = -1.1
+    pnl_sequence = [0.95, -1.0, -1.0, 0.95, -1.0]
+    for i, pnl_val in enumerate(pnl_sequence):
+        st = 'won' if pnl_val > 0 else 'lost'
+        p = json.dumps({'league': 'NBA', 'market': '1st Quarter - Total', 'stake': 1.0})
+        conn.execute("INSERT INTO system_decisions VALUES (?, ?, ?, ?, ?)",
+                     (f"d_nba_{i}", p, st, pnl_val, f"2026-10-25T10:0{i}:00Z"))
+                     
+    # Protected Alpha Champion (MLS spreads): has a minor 6-game drawdown (-4.5 units),
+    # but has a prior large winning track record in previous decisions (+20.0 units)
+    for i in range(10):
+        p = json.dumps({'league': 'MLS', 'market': 'spreads', 'stake': 2.0})
+        conn.execute("INSERT INTO system_decisions VALUES (?, ?, 'won', 1.90, ?)",
+                     (f"d_mls_prior_{i}", p, f"2026-10-20T10:0{i}:00Z"))
+    for i in range(6):
+        p = json.dumps({'league': 'MLS', 'market': 'spreads', 'stake': 2.0})
+        conn.execute("INSERT INTO system_decisions VALUES (?, ?, 'lost', -2.0, ?)",
+                     (f"d_mls_recent_{i}", p, f"2026-10-25T12:0{i}:00Z"))
+                     
+    conn.commit()
+    conn.close()
+
+    res = incubator.evaluate_demotions_and_substitutions(engine_db_path=eng_db)
+    
+    # Neither NBA (low sample noise N=5, pnl=-1.1) nor MLS (Protected Alpha Champion with net positive PnL)
+    # should be demoted to $0.00 quarantine!
+    demoted_keys = [d['segment_key'] for d in res['demotions']]
+    assert std_key not in demoted_keys, "Low sample variance (N=5, pnl=-1.1) must NOT be demoted"
+    assert alpha_key not in demoted_keys, "Protected Alpha Champion with net positive profit must NOT be demoted"
+    
+    # Both remain active in graduated markets
+    grads = load_graduated_markets(incubator.data_dir)
+    assert std_key in grads
+    assert alpha_key in grads
+
+
+
 
 
 

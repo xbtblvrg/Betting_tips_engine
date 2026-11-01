@@ -116,7 +116,15 @@ def funding_basis(tip, settings):
         or 'challenger' in str((tip.get('stake_evidence') or {}).get('league_path', '')).lower()
     )
     if is_challenger_event:
-        tier = 'unfunded'
+        try:
+            from .demoted_market_bridge import is_market_graduated
+            cand_mkt = str(tip.get('market', 'moneyline')).lower()
+            cand_scope = tip.get('model_scope', 'full_game')
+            seg_key = f"CHALLENGER|{cand_scope}|{cand_mkt}"
+            if not is_market_graduated(seg_key):
+                tier = 'unfunded'
+        except Exception:
+            tier = 'unfunded'
     elif tip.get('league') in ('ATP', 'WTA'):
         if '/' in str(tip.get('home', '')) or '/' in str(tip.get('away', '')):
             tier = 'unfunded'
@@ -128,7 +136,8 @@ def funding_basis(tip, settings):
         threshold = None  # No representable executable threshold; never serialize infinity.
     if probability_only:
         threshold = 1.0  # This explicit preference tier does not claim a value threshold.
-    cap = min(float(settings['max_bet']), 1. if (model and not weighted) or (probability_only and not all_tiers) else 5.) if tier != 'unfunded' else 0.
+    max_b = float(settings.get('max_bet', 8.0))
+    cap = min(max_b, 1. if (model and not weighted) or (probability_only and not all_tiers) else (5. if probability_only else max_b)) if tier != 'unfunded' else 0.
     note = ('Win-probability preference only, not a positive-value or Kelly allocation. Nominal model EV may be negative. '
             'Fixed unit at most $1; profit is unproven, with actual nominal and stressed EV retained.' if probability_only else
             'Positive nominal model EV only; the stress-value requirement fails. '
@@ -252,7 +261,7 @@ def _base_size_recommendation(tip, settings, remaining, related_count=0):
     probability_only = basis['tier'] == 'probability_pick'
     local_settings = dict(settings)
     if model or probability_only:
-        local_settings['max_bet'] = min(float(settings['max_bet']), 5. if weighted_model or all_tiers else 1.)
+        local_settings['max_bet'] = min(float(settings['max_bet']), float(settings['max_bet']) if all_tiers else 5. if weighted_model else 1.)
     probability = tip['probability'] if model or probability_only else tip['stress_probability']
     # Zero remaining prevents a below-threshold strict candidate from acquiring
     # a stake merely because the lower-level sizing heuristic sees positive EV.
