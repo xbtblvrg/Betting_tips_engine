@@ -327,3 +327,59 @@ def test_rd_prioritizer_gap_discovery(test_env):
             payload = json.loads(job["payload"])
             assert payload["priority_tag"] == "CRITICAL_URGENT_POLYMARKET"
             assert payload["league"] == "NHL"
+
+
+def test_polymarket_data_api_oracle_settlement(test_env, monkeypatch):
+    """Verifies direct on-chain / Polymarket Data API settlement without needing score evaluation."""
+    pe = test_env["executor"]
+    settler = test_env["settler"]
+    db_path = test_env["db_path"]
+
+    mock_book = {"asks": [{"price": "0.50", "size": "100.0"}]}
+
+    # Stage an order
+    order = pe.stage_and_submit_order(
+        league="NFL",
+        game_title="Chiefs vs Bills",
+        start_time="2026-11-01T23:00:00Z",
+        market_family="totals",
+        selection="Over 45.5",
+        side="over",
+        line=45.5,
+        token_id="tok_oracle_win",
+        model_prob=0.65,
+        requested_stake=4.00,
+        mock_book=mock_book,
+    )
+    assert order["ok"] is True
+
+    # Mock Polymarket Data API returning official position
+    mock_positions = {
+        "tok_oracle_win": {
+            "asset": "tok_oracle_win",
+            "curPrice": 1.0,
+            "redeemable": True,
+            "cashPnl": 4.00,
+            "realizedPnl": 4.00,
+            "percentPnl": 100.0,
+        }
+    }
+    monkeypatch.setattr(settler, "fetch_polymarket_positions", lambda: mock_positions)
+
+    # Settle WITHOUT providing mock_scores!
+    settle_res = settler.settle_orders()
+    assert settle_res["settled_count"] == 1
+    assert settle_res["won_count"] == 1
+
+    settled_item = settle_res["settled_orders"][0]
+    assert settled_item["status"] == "won"
+    assert settled_item["pnl"] == 4.00
+    assert settled_item["settlement_source"] == "polymarket_data_api_oracle"
+
+    # Verify SQLite record updated
+    with sqlite3.connect(db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute("SELECT * FROM polymarket_orders WHERE client_order_id = ?", (order["client_order_id"],)).fetchone()
+        assert row["status"] == "won"
+        assert row["pnl"] == 4.00
+
