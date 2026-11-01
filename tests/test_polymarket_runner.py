@@ -52,6 +52,19 @@ def runner_env(tmp_path):
         conn.execute("INSERT OR REPLACE INTO tips VALUES (?, ?, ?, ?, ?)", ("tip_cb", now, now, "fp_cb", json.dumps(chiefs_bills_tip)))
         conn.execute("INSERT OR REPLACE INTO tips VALUES (?, ?, ?, ?, ?)", ("tip_lb", now, now, "fp_lb", json.dumps(lions_bears_tip)))
 
+        # Seed proven live alpha settled bet in system_decisions so NFL totals is Tier 4
+        conn.execute(
+            """INSERT OR REPLACE INTO system_decisions (family, tip_id, issued_at, payload, status, pnl) 
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            ("NFL|full_game|totals", "tip_cb_settled", now, json.dumps({
+                "league": "NFL",
+                "model_scope": "full_game",
+                "market": "totals",
+                "stake": 5.0,
+                "game_id": "g_cb",
+            }), "won", 4.55)
+        )
+
     return {
         "runner": runner,
         "executor": executor,

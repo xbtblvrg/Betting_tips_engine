@@ -90,6 +90,7 @@ class PolymarketAutonomousRunner:
         min_ev_hurdle: float = 0.025,
         execution_window_hours: float = 72.0,
         min_pregame_minutes: float = 10.0,
+        require_tier_4: bool = True,
     ):
         self.db_path = Path(db_path) if db_path else (DATA / "engine.sqlite3")
         self.state_file = Path(state_file) if state_file else RUNNER_STATE_FILE
@@ -101,6 +102,7 @@ class PolymarketAutonomousRunner:
         self.min_ev_hurdle = min_ev_hurdle
         self.execution_window_hours = execution_window_hours
         self.min_pregame_minutes = min_pregame_minutes
+        self.require_tier_4 = require_tier_4
 
         self._running = False
         self._thread: Optional[threading.Thread] = None
@@ -509,6 +511,7 @@ class PolymarketAutonomousRunner:
                     scope=scope,
                     market_family=family,
                     line=line_val,
+                    require_tier_4=self.require_tier_4,
                 )
 
                 if not is_eligible:
