@@ -130,8 +130,8 @@ class PolymarketAutonomousRunner:
     def run_execution_cycle(
         self,
         leagues: Tuple[str, ...] = ("NBA", "NFL", "NHL"),
-        max_orders_per_cycle: int = 15,
-        max_clob_checks: int = 35,
+        max_orders_per_cycle: Optional[int] = None,
+        max_clob_checks: Optional[int] = None,
         mock_events: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
         """Executes a single end-to-end autonomous scan, evaluation, order placement and settlement cycle."""
@@ -216,14 +216,14 @@ class PolymarketAutonomousRunner:
             interleaved_events = qualifying_events
 
         for event in interleaved_events:
-            if len(orders_placed) >= max_orders_per_cycle or clob_checks_count >= max_clob_checks:
+            if max_orders_per_cycle is not None and len(orders_placed) >= max_orders_per_cycle:
+                break
+            if max_clob_checks is not None and clob_checks_count >= max_clob_checks:
                 break
 
             title = event.get("title", "")
             start_str = event.get("startTime") or event.get("startDate") or ""
             markets = event.get("markets", [])
-            game_orders_placed = 0
-            max_orders_per_game = 4
 
             # Match league
             league = event.get("_league")
@@ -252,7 +252,7 @@ class PolymarketAutonomousRunner:
             )
 
             for market in markets:
-                if len(orders_placed) >= max_orders_per_cycle or game_orders_placed >= max_orders_per_game:
+                if max_orders_per_cycle is not None and len(orders_placed) >= max_orders_per_cycle:
                     break
 
                 evaluated_markets_count += 1
@@ -377,7 +377,7 @@ class PolymarketAutonomousRunner:
                     if nominal_ev < self.min_ev_hurdle:
                         continue
 
-                    if clob_checks_count >= max_clob_checks:
+                    if max_clob_checks is not None and clob_checks_count >= max_clob_checks:
                         break
                     clob_checks_count += 1
 
@@ -419,7 +419,6 @@ class PolymarketAutonomousRunner:
                         order_res["token_id"] = token_id
                         orders_placed.append(order_res)
                         traded_tokens.add(token_id)
-                        game_orders_placed += 1
                         log.info(f"[AUTONOMOUS RUNNER] Placed Polymarket Order: {order_res.get('client_order_id')}")
 
         # 2. Trigger Outcome Settlement & Token Auto-Redemption
