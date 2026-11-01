@@ -79,12 +79,15 @@ class PolymarketOutcomeSettler:
         positions_map = self.fetch_polymarket_positions()
         redeemable_items = []
         for asset_id, p in positions_map.items():
-            if p.get("redeemable") is True or (float(p.get("curPrice", 0.0)) >= 0.99 and float(p.get("size", 0.0)) > 0):
+            cur_price = float(p.get("curPrice", 0.0))
+            size = float(p.get("size", 0.0))
+            # Only positions with positive value / winning payoff ($1.00 per share) are redeemable for cash
+            if size > 0 and (cur_price >= 0.99 or (p.get("redeemable") is True and cur_price > 0.01)):
                 redeemable_items.append({
                     "asset": asset_id,
                     "title": p.get("title", ""),
-                    "size": p.get("size", 0),
-                    "cur_price": p.get("curPrice", 0),
+                    "size": size,
+                    "cur_price": cur_price,
                     "cash_pnl": p.get("cashPnl", 0),
                 })
 
