@@ -27,10 +27,29 @@ PRIORITY = {'source_refresh':0, 'model_restore':0, 'segment_restore':0, 'period_
     'research_watch':4}
 
 
-def choose_learning_job(rows, recent_attempts, now=None):
+FAST_TRACK_KINDS = frozenset((
+    'autorun_selector_repair',
+    'polymarket_identification_repair',
+    'polymarket_taxonomy_repair',
+    'source_refresh',
+    'outcome_review',
+    'closing_evaluation',
+    'high_retry_task_root_cause_analysis',
+    'model_restore',
+    'segment_restore',
+    'period_restore',
+))
+
+
+def choose_learning_job(rows, recent_attempts, now=None, lane='all'):
     """Single-worker fairness; never make future-backoff work runnable."""
     now = now or utcnow()
-    runnable = [r for r in rows if r['status'] in ('queued','retry') and parse_time(r['next_attempt']) <= now]
+    if lane == 'fast':
+        runnable = [r for r in rows if r['status'] in ('queued','retry') and parse_time(r['next_attempt']) <= now and r['kind'] in FAST_TRACK_KINDS]
+    elif lane == 'deep':
+        runnable = [r for r in rows if r['status'] in ('queued','retry') and parse_time(r['next_attempt']) <= now and r['kind'] not in FAST_TRACK_KINDS]
+    else:
+        runnable = [r for r in rows if r['status'] in ('queued','retry') and parse_time(r['next_attempt']) <= now]
     if not runnable: return None, {'version':SCHEDULING_VERSION, 'reason':'no_due_work'}
     eligible_at = lambda r: max(parse_time(r['created_at']), parse_time(r['next_attempt']))
     ordinary = min(runnable, key=lambda r:(PRIORITY.get(r['kind'],5),eligible_at(r),r['id']))
@@ -1007,6 +1026,73 @@ class LearningWorker:
             }
         raise ValueError('No approved handler for this task')
 
+    def run_fast_track(self, max_jobs: int = 10) -> Dict[str, Any]:
+        """Express Lane: Dispatches lightweight operational tasks (selectors, aliases, reviews)
+        without waiting for long-running deep learning retrain jobs."""
+        lock_path = self.data / 'fast-track-worker.lock'
+        try:
+            lock_f = lock_path.open('a')
+            fcntl.flock(lock_f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except (BlockingIOError, OSError):
+            return {'busy': True, 'lane': 'fast_track', 'dispatched_count': 0}
+
+        try:
+            dispatched = []
+            now = utcnow()
+            now_iso = now.isoformat()
+
+            with self.store.db() as c:
+                rows = [dict(r) for r in c.execute(
+                    "SELECT * FROM learning_jobs WHERE status IN ('queued', 'retry') AND next_attempt <= ?",
+                    (now_iso,)
+                ).fetchall()]
+                recent = [dict(r) for r in c.execute(
+                    "SELECT j.kind, a.status, a.started_at FROM learning_attempts a JOIN learning_jobs j ON a.job_id=j.id ORDER BY a.id DESC LIMIT ?",
+                    (HIGH_PRIORITY_BUDGET,)
+                ).fetchall()]
+
+            for _ in range(max_jobs):
+                job, admission = choose_learning_job(rows, recent, now, lane='fast')
+                if not job:
+                    break
+
+                job_id = job['id']
+                with self.store.db() as c:
+                    cur_st = c.execute("SELECT status FROM learning_jobs WHERE id=?", (job_id,)).fetchone()
+                    if not cur_st or cur_st[0] not in ('queued', 'retry'):
+                        rows = [r for r in rows if r['id'] != job_id]
+                        continue
+                    c.execute("UPDATE learning_jobs SET status='running', attempts=attempts+1, updated_at=? WHERE id=?", (now_iso, job_id))
+                    attempt = c.execute("INSERT INTO learning_attempts(job_id, started_at, status) VALUES (?, ?, 'running')", (job_id, now_iso)).lastrowid
+
+                try:
+                    res = self.execute(job)
+                    raw = json.dumps(res, allow_nan=False)
+                    stamp = utcnow().isoformat()
+                    with self.store.db() as c:
+                        c.execute("UPDATE learning_jobs SET status='completed', result=?, last_error=NULL, updated_at=? WHERE id=?", (raw, stamp, job_id))
+                        c.execute("UPDATE learning_attempts SET status='completed', result=?, finished_at=? WHERE id=?", (raw, stamp, attempt))
+                    dispatched.append({'id': job_id, 'kind': job['kind'], 'status': 'completed'})
+                except Exception as exc:
+                    stamp = utcnow()
+                    delay = min(21600, 60 * 2 ** min(job.get('attempts', 0), 9))
+                    error = f"{type(exc).__name__}: {exc}"[:2000]
+                    with self.store.db() as c:
+                        c.execute("UPDATE learning_jobs SET status='retry', last_error=?, updated_at=?, next_attempt=? WHERE id=?",
+                                  (error, stamp.isoformat(), (stamp + timedelta(seconds=delay)).isoformat(), job_id))
+                        c.execute("UPDATE learning_attempts SET status='failed', error=?, finished_at=? WHERE id=?", (error, stamp.isoformat(), attempt))
+                    dispatched.append({'id': job_id, 'kind': job['kind'], 'status': 'retry', 'error': error})
+
+                rows = [r for r in rows if r['id'] != job_id]
+
+            return {'busy': False, 'lane': 'fast_track', 'dispatched_count': len(dispatched), 'dispatched': dispatched}
+        finally:
+            try:
+                fcntl.flock(lock_f, fcntl.LOCK_UN)
+                lock_f.close()
+            except Exception:
+                pass
+
     def run_once(self):
         # OS lock releases immediately on process death. Recovery never steals
         # work from a live worker, even if training takes longer than expected.
@@ -1018,6 +1104,8 @@ class LearningWorker:
                 c.execute("UPDATE learning_attempts SET status='interrupted',finished_at=?,error='Worker interrupted; task will retry' WHERE status='running'",(now,))
                 c.execute("UPDATE learning_jobs SET status='retry',next_attempt=?,updated_at=?,last_error='Worker interrupted; task will retry' WHERE status='running'",(now,now))
             self.plan()
+            # Express Fast-Track drain: run lightweight operational tasks first
+            self.run_fast_track(max_jobs=5)
             now=utcnow().isoformat()
             with self.store.db() as c:
                 c.execute('BEGIN IMMEDIATE')

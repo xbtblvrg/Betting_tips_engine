@@ -102,8 +102,8 @@ class DemotedMarketIncubationBridge:
         newly_admitted = []
         already_incubating = 0
         still_researching = 0
-        attempted_this_run = 0
 
+        to_screen = []
         for row in all_demoted:
             d_id, seg_key, league, scope, family, sub_fam, r_roi, r_pnl, g_count, phase, model_id = row
 
@@ -111,10 +111,13 @@ class DemotedMarketIncubationBridge:
                 already_incubating += 1
                 continue
 
-            if attempted_this_run >= max_train_per_run:
-                break
+            if len(to_screen) < max_train_per_run:
+                to_screen.append(row)
 
-            attempted_this_run += 1
+        attempted_this_run = len(to_screen)
+
+        def _screen_single_market(row):
+            d_id, seg_key, league, scope, family, sub_fam, r_roi, r_pnl, g_count, phase, model_id = row
             now_iso = datetime.now(timezone.utc).isoformat()
             try:
                 with closing(sqlite3.connect(str(self.db_path), timeout=30.0, isolation_level=None)) as update_conn:
@@ -153,20 +156,28 @@ class DemotedMarketIncubationBridge:
                 except Exception as e_synth:
                     log.debug("Autonomous synthesis on %s: %s", seg_key, e_synth)
 
-            if not champ_res or not champ_res.is_qualified:
-                still_researching += 1
-                continue
+            return d_id, seg_key, champ_res
 
-            success = self.admit_champion_to_market(d_id, seg_key, champ_res)
-            if success:
-                newly_admitted.append({
-                    'segment_key': seg_key,
-                    'model_id': champ_res.model_id,
-                    'model_archetype': champ_res.model_archetype,
-                    'historical_roi': champ_res.oos_simulated_roi,
-                    'historical_brier_delta': champ_res.oos_delta_brier,
-                    'historical_sample_size': champ_res.oos_sample_size,
-                })
+        from concurrent.futures import ThreadPoolExecutor
+        if to_screen:
+            with ThreadPoolExecutor(max_workers=min(4, len(to_screen))) as pool:
+                screened_results = list(pool.map(_screen_single_market, to_screen))
+
+            for d_id, seg_key, champ_res in screened_results:
+                if not champ_res or not champ_res.is_qualified:
+                    still_researching += 1
+                    continue
+
+                success = self.admit_champion_to_market(d_id, seg_key, champ_res)
+                if success:
+                    newly_admitted.append({
+                        'segment_key': seg_key,
+                        'model_id': champ_res.model_id,
+                        'model_archetype': champ_res.model_archetype,
+                        'historical_roi': champ_res.oos_simulated_roi,
+                        'historical_brier_delta': champ_res.oos_delta_brier,
+                        'historical_sample_size': champ_res.oos_sample_size,
+                    })
 
         return {
             'status': 'success',

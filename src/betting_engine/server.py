@@ -353,6 +353,12 @@ def quant_logs_endpoint(limit: int = 50, component: Optional[str] = None):
     logs = obs.stream_unified_quant_logs(limit=limit, component=component)
     return english_payload({'count': len(logs), 'events': logs})
 
+@app.post('/api/learning/run-fast-track')
+def learning_run_fast_track(max_jobs: int = 15):
+    from .learning import LearningWorker
+    worker = LearningWorker()
+    return english_payload(worker.run_fast_track(max_jobs=max_jobs))
+
 @app.get('/api/settlement-supervisor')
 def settlement_supervisor_status():
     from .settlement_supervisor import SettlementSupervisor
