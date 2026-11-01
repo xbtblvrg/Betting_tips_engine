@@ -116,17 +116,24 @@ class DemotedMarketIncubationBridge:
 
         attempted_this_run = len(to_screen)
 
-        def _screen_single_market(row):
-            d_id, seg_key, league, scope, family, sub_fam, r_roi, r_pnl, g_count, phase, model_id = row
+        # Batch touch last_screened_at in a single atomic transaction before parallel screening
+        if to_screen:
             now_iso = datetime.now(timezone.utc).isoformat()
             try:
-                with closing(sqlite3.connect(str(self.db_path), timeout=30.0, isolation_level=None)) as update_conn:
-                    update_conn.execute("PRAGMA busy_timeout = 30000")
-                    update_conn.execute("UPDATE demoted_markets SET last_screened_at = ? WHERE id = ?", (now_iso, d_id))
-            except Exception as e:
-                log.debug("Could not record last_screened_at for %s: %s", seg_key, e)
+                with closing(sqlite3.connect(str(self.db_path), timeout=30.0)) as touch_conn:
+                    touch_conn.execute("PRAGMA busy_timeout = 30000")
+                    touch_conn.execute(
+                        f"UPDATE demoted_markets SET last_screened_at = ? WHERE id IN ({','.join('?' for _ in to_screen)})",
+                        [now_iso] + [r[0] for r in to_screen]
+                    )
+                    touch_conn.commit()
+            except Exception as e_touch:
+                log.debug("Demoted markets batch touch error: %s", e_touch)
 
-            # Run historical training & out-of-sample Crucible validation
+        def _screen_single_market(row):
+            d_id, seg_key, league, scope, family, sub_fam, r_roi, r_pnl, g_count, phase, model_id = row
+
+            # Run historical training & out-of-sample Crucible validation (100% read-only)
             champ_res = self.trainer.train_and_screen_demoted_market(seg_key)
             if not champ_res or not champ_res.is_qualified:
                 # Fallback to Autonomous Multi-AI Model Synthesizer

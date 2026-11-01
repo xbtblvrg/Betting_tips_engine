@@ -1032,8 +1032,16 @@ class LearningWorker:
         lock_path = self.data / 'fast-track-worker.lock'
         try:
             lock_f = lock_path.open('a')
+        except OSError:
+            return {'busy': True, 'lane': 'fast_track', 'dispatched_count': 0}
+
+        try:
             fcntl.flock(lock_f, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except (BlockingIOError, OSError):
+            try:
+                lock_f.close()
+            except Exception:
+                pass
             return {'busy': True, 'lane': 'fast_track', 'dispatched_count': 0}
 
         try:
