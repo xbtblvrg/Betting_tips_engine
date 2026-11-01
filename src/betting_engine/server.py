@@ -398,7 +398,7 @@ def polymarket_trader_status():
     return english_payload(pe.get_trader_status())
 
 @app.get('/api/polymarket/trader/orders')
-def polymarket_trader_orders(limit: int = 50, status: Optional[str] = None):
+def polymarket_trader_orders(limit: int = 50, status: Optional[str] = None, mode: Optional[str] = None):
     from .providers import DATA
     import sqlite3
     db_p = DATA / 'engine.sqlite3'
@@ -409,16 +409,29 @@ def polymarket_trader_orders(limit: int = 50, status: Optional[str] = None):
                 conn.row_factory = sqlite3.Row
                 cur = conn.cursor()
                 query = "SELECT * FROM polymarket_orders"
+                clauses = []
                 params = []
                 if status:
-                    query += " WHERE status = ?"
+                    clauses.append("status = ?")
                     params.append(status)
+                if mode:
+                    clauses.append("COALESCE(execution_mode, 'shadow') = ?")
+                    params.append(mode)
+                if clauses:
+                    query += " WHERE " + " AND ".join(clauses)
                 query += " ORDER BY id DESC LIMIT ?"
                 params.append(limit)
                 orders = [dict(r) for r in cur.execute(query, params).fetchall()]
         except Exception as exc:
             log.warning(f"Error reading polymarket_orders: {exc}")
     return english_payload({'count': len(orders), 'orders': orders})
+
+@app.post('/api/polymarket/reset-shadow')
+def polymarket_reset_shadow():
+    from .polymarket_executor import PolymarketAutonomousExecutor
+    pe = PolymarketAutonomousExecutor()
+    res = pe.reset_shadow_portfolio()
+    return english_payload(res)
 
 @app.get('/api/polymarket/rd-priorities')
 def polymarket_rd_priorities():

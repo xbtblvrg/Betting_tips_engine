@@ -46,7 +46,39 @@ async function bootPolymarketDesk(t) {
           rejected_orders: 0,
           realized_pnl: 14.50,
           collateral_balance_usdc: 0.00,
+          shadow_trading: {
+            active: true,
+            status: 'ACTIVE_FORWARD_TESTING',
+            label: 'Live CLOB Paper Trading',
+            bets_count: 3,
+            exposure_usd: 12.50,
+            realized_pnl: 8.20,
+            settled_count: 5,
+            win_rate: 0.60,
+          },
+          live_trading: {
+            active: false,
+            status: 'STANDBY_LOW_COLLATERAL',
+            label: 'Polygon On-Chain Execution',
+            cash_balance_usdc: 0.00,
+            bets_count: 0,
+            exposure_usd: 0.00,
+            realized_pnl: 0.00,
+            settled_count: 0,
+            win_rate: 0.0,
+            proxy_address: '0xee888fa7b96007f7fa270988e92bddb0ae19ed10',
+          },
           updated_at: '2026-11-01T14:00:00Z',
+        }),
+      };
+    }
+    if (path === '/api/polymarket/reset-shadow') {
+      return {
+        ok: true,
+        json: async () => ({
+          ok: true,
+          deleted_count: 5,
+          message: 'Shadow portfolio successfully reset.'
         }),
       };
     }
@@ -161,7 +193,33 @@ test('Polymarket Desk tab button navigates to view-polymarket and loads telemetr
   assert.equal(balEl.textContent, '$0.00');
 
   const pnlEl = d.querySelector('#poly-realized-pnl');
-  assert.equal(pnlEl.textContent, '+$14.50');
+  assert.equal(pnlEl.textContent, '+$0.00');
+
+  // Check separate Shadow Desk telemetry
+  const shadowPnlEl = d.querySelector('#poly-shadow-pnl');
+  assert.equal(shadowPnlEl.textContent, '+$8.20');
+
+  const shadowBetsEl = d.querySelector('#poly-shadow-bets-count');
+  assert.equal(shadowBetsEl.textContent, '3');
+
+  const shadowExpEl = d.querySelector('#poly-shadow-exposure');
+  assert.equal(shadowExpEl.textContent, '$12.50');
+
+  const shadowWrEl = d.querySelector('#poly-shadow-winrate');
+  assert.match(shadowWrEl.textContent, /60\.0%/);
+
+  const shadowBadge = d.querySelector('#poly-shadow-status-badge');
+  assert.match(shadowBadge.textContent, /SHADOW ACTIVE/);
+
+  // Check separate Live Desk telemetry
+  const liveStatusBadge = d.querySelector('#poly-live-status-badge');
+  assert.match(liveStatusBadge.textContent, /STANDBY/);
+
+  const liveBetsEl = d.querySelector('#poly-live-bets-count');
+  assert.equal(liveBetsEl.textContent, '0');
+
+  const liveExpEl = d.querySelector('#poly-live-exposure');
+  assert.equal(liveExpEl.textContent, '$0.00');
 
   const ordersEl = d.querySelector('#poly-total-orders');
   assert.equal(ordersEl.textContent, '4');
@@ -175,8 +233,9 @@ test('Polymarket Desk tab button navigates to view-polymarket and loads telemetr
   assert.match(alertEl.textContent, /Low USDC Balance/);
   assert.match(alertEl.textContent, /0xee888fa7b96007f7fa270988e92bddb0ae19ed10/);
 
-  // Check orders table
+  // Check orders table with Mode badge
   const tbody = d.querySelector('#poly-orders-tbody');
+  assert.match(tbody.textContent, /LIVE/);
   assert.match(tbody.textContent, /Chiefs vs Bills/);
   assert.match(tbody.textContent, /Over 47.5/);
   assert.match(tbody.textContent, /\$5\.00/);
@@ -187,7 +246,7 @@ test('Polymarket Desk tab button navigates to view-polymarket and loads telemetr
   assert.match(mbody.textContent, /Tier 3 Proven/);
 });
 
-test('Polymarket Desk action buttons trigger runner cycle and auto-redeem API calls', async (t) => {
+test('Polymarket Desk action buttons trigger runner cycle, reset-shadow, and auto-redeem API calls', async (t) => {
   const { d, writes } = await bootPolymarketDesk(t);
 
   const polyNavBtn = d.querySelector('.nav-item[data-view="polymarket"]');
@@ -201,6 +260,14 @@ test('Polymarket Desk action buttons trigger runner cycle and auto-redeem API ca
   await new Promise(r => setTimeout(r, 60));
 
   assert.ok(writes.some(w => w.path === '/api/polymarket/runner/trigger'), 'Runner trigger endpoint must be called');
+
+  // Trigger reset-shadow
+  const resetBtn = d.querySelector('#poly-reset-shadow-btn');
+  assert.ok(resetBtn, 'Reset shadow button must exist');
+  resetBtn.click();
+  await new Promise(r => setTimeout(r, 60));
+
+  assert.ok(writes.some(w => w.path === '/api/polymarket/reset-shadow'), 'Reset shadow endpoint must be called');
 
   // Trigger redeem
   const redeemBtn = d.querySelector('#poly-settle-redeem-btn');

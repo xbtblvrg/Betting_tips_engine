@@ -3043,6 +3043,7 @@ let polymarketDeskData = null;
 let polymarketOrdersData = null;
 let polymarketPrioritiesData = null;
 let polymarketFlight = null;
+let polyOrderFilter = 'all';
 
 async function loadPolymarketDesk() {
  if (view !== 'polymarket') return;
@@ -3084,23 +3085,83 @@ function renderPolymarketDesk() {
   rBadge.className = d.relayer_configured ? 'badge positive' : 'badge muted';
  }
 
- const usdcBal = Number(d.collateral_balance_usdc || 0);
+ const shadow = d.shadow_trading || {};
+ const live = d.live_trading || {};
+
+ // 1. Shadow Paper Trading Desk Metrics
+ const shadowPnl = Number(shadow.realized_pnl != null ? shadow.realized_pnl : 0);
+ if ($('#poly-shadow-pnl')) {
+  $('#poly-shadow-pnl').textContent = (shadowPnl >= 0 ? '+$' : '-$') + Math.abs(shadowPnl).toFixed(2);
+  $('#poly-shadow-pnl').style.color = shadowPnl >= 0 ? 'var(--green)' : 'var(--red, #dc2626)';
+ }
+ if ($('#poly-shadow-winrate')) {
+  const wr = Number(shadow.win_rate != null ? shadow.win_rate : 0) * 100;
+  $('#poly-shadow-winrate').textContent = `Win Rate: ${wr.toFixed(1)}%`;
+ }
+ if ($('#poly-shadow-bets-count')) {
+  $('#poly-shadow-bets-count').textContent = String(shadow.bets_count != null ? shadow.bets_count : 0);
+ }
+ if ($('#poly-shadow-settled')) {
+  $('#poly-shadow-settled').textContent = `${shadow.settled_count || 0} settled`;
+ }
+ if ($('#poly-shadow-exposure')) {
+  const exp = Number(shadow.exposure_usd != null ? shadow.exposure_usd : 0);
+  $('#poly-shadow-exposure').textContent = '$' + exp.toFixed(2);
+ }
+ if ($('#poly-shadow-status-badge')) {
+  $('#poly-shadow-status-badge').textContent = 'SHADOW ACTIVE';
+  $('#poly-shadow-status-badge').className = 'badge';
+  $('#poly-shadow-status-badge').style.background = '#e0e7ff';
+  $('#poly-shadow-status-badge').style.color = '#3730a3';
+ }
+
+ // 2. Live On-Chain Desk Metrics
+ const usdcBal = Number(live.cash_balance_usdc != null ? live.cash_balance_usdc : (d.collateral_balance_usdc || 0));
  if ($('#poly-usdc-balance')) $('#poly-usdc-balance').textContent = '$' + usdcBal.toFixed(2);
  if ($('#poly-proxy-sub')) {
   const p = d.proxy_address || '';
   $('#poly-proxy-sub').textContent = p ? (p.slice(0, 6) + '...' + p.slice(-4)) : 'Polygon Mainnet';
  }
- if ($('#poly-realized-pnl')) {
-  const pnl = Number(d.realized_pnl || 0);
-  $('#poly-realized-pnl').textContent = (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2);
-  $('#poly-realized-pnl').style.color = pnl >= 0 ? 'var(--green)' : 'var(--red, #dc2626)';
+ if ($('#poly-proxy-address-full')) {
+  $('#poly-proxy-address-full').textContent = d.proxy_address || '0xee888fa7b96007f7fa270988e92bddb0ae19ed10';
  }
- if ($('#poly-total-orders')) $('#poly-total-orders').textContent = d.total_orders || 0;
+ 
+ const livePnl = Number(live.realized_pnl != null ? live.realized_pnl : (d.realized_pnl || 0));
+ if ($('#poly-realized-pnl')) {
+  $('#poly-realized-pnl').textContent = (livePnl >= 0 ? '+$' : '-$') + Math.abs(livePnl).toFixed(2);
+  $('#poly-realized-pnl').style.color = livePnl >= 0 ? 'var(--green)' : 'var(--red, #dc2626)';
+ }
+ if ($('#poly-live-winrate')) {
+  const wr = Number(live.win_rate != null ? live.win_rate : 0) * 100;
+  $('#poly-live-winrate').textContent = `Win Rate: ${wr.toFixed(1)}%`;
+ }
+ if ($('#poly-live-bets-count')) {
+  $('#poly-live-bets-count').textContent = String(live.bets_count != null ? live.bets_count : 0);
+ }
+ if ($('#poly-live-settled')) {
+  $('#poly-live-settled').textContent = `${live.settled_count || 0} settled`;
+ }
+ if ($('#poly-live-exposure')) {
+  const exp = Number(live.exposure_usd != null ? live.exposure_usd : 0);
+  $('#poly-live-exposure').textContent = '$' + exp.toFixed(2);
+ }
+ if ($('#poly-live-status-badge')) {
+  if (live.active) {
+   $('#poly-live-status-badge').textContent = 'LIVE FUNDED';
+   $('#poly-live-status-badge').className = 'badge positive';
+  } else {
+   $('#poly-live-status-badge').textContent = 'STANDBY ($0.00)';
+   $('#poly-live-status-badge').className = 'badge muted';
+  }
+ }
+
+ // Common / Top Bar & Aggregates
+ if ($('#poly-total-orders')) $('#poly-total-orders').textContent = String(d.total_orders != null ? d.total_orders : 0);
  if ($('#poly-orders-breakdown')) {
   $('#poly-orders-breakdown').textContent = `${d.filled_orders || 0} filled · ${d.open_orders || 0} open · ${d.rejected_orders || 0} rejected`;
  }
- if ($('#poly-proven-count')) $('#poly-proven-count').textContent = prio.proven_active_count ?? (prio.proven_markets?.length ?? 3);
- if ($('#poly-gaps-count')) $('#poly-gaps-count').textContent = prio.unproven_gaps_count ?? (prio.unproven_gaps?.length ?? 25);
+ if ($('#poly-proven-count')) $('#poly-proven-count').textContent = String(prio.proven_active_count ?? (prio.proven_markets?.length ?? 3));
+ if ($('#poly-gaps-count')) $('#poly-gaps-count').textContent = String(prio.unproven_gaps_count ?? (prio.unproven_gaps?.length ?? 25));
  if ($('#poly-orders-count-badge')) $('#poly-orders-count-badge').textContent = `${orders.length} Orders Recorded`;
 
  const alertBox = $('#poly-funding-alert');
@@ -3124,19 +3185,35 @@ function renderPolymarketDesk() {
   }
  }
 
+ // 3. Filtered Orders Table Rendering
  const tbody = $('#poly-orders-tbody');
  if (tbody) {
-  if (!orders.length) {
-   tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">No orders placed yet. Run an autonomous cycle or wait for pre-game trigger.</td></tr>';
+  const filtered = orders.filter(o => {
+   const mode = o.execution_mode || (o.dry_run || (o.order_id && o.order_id.startsWith('shadow_')) ? 'shadow' : 'live');
+   if (polyOrderFilter === 'shadow') return mode === 'shadow';
+   if (polyOrderFilter === 'live') return mode === 'live';
+   return true;
+  });
+
+  if (!filtered.length) {
+   const emptyMsg = polyOrderFilter === 'all'
+    ? 'No orders placed yet. Run an autonomous cycle or wait for pre-game trigger.'
+    : `No ${polyOrderFilter} orders recorded yet.`;
+   tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px">${emptyMsg}</td></tr>`;
   } else {
-   tbody.innerHTML = orders.map(o => {
+   tbody.innerHTML = filtered.map(o => {
     const timeStr = when(o.created_at || o.timestamp);
+    const mode = o.execution_mode || (o.dry_run || (o.order_id && o.order_id.startsWith('shadow_')) ? 'shadow' : 'live');
+    const modeBadge = mode === 'live'
+     ? '<span class="badge positive" style="font-size:10px;padding:2px 6px;">LIVE</span>'
+     : '<span class="badge" style="background:#e0e7ff;color:#3730a3;font-size:10px;padding:2px 6px;">SHADOW</span>';
     const stBadge = o.status === 'filled' || o.status === 'won' ? '<span class="badge positive">'+esc(o.status)+'</span>' :
                     o.status === 'open' ? '<span class="badge" style="background:#dbeafe;color:#1e40af">open</span>' :
                     o.status === 'lost' ? '<span class="badge" style="background:#fee2e2;color:#991b1b">lost</span>' :
                     '<span class="badge muted">'+esc(o.status || 'staged')+'</span>';
     const pnlStr = o.pnl != null ? ((o.pnl >= 0 ? '+$' : '-$') + Math.abs(o.pnl).toFixed(2)) : (o.tx_hash ? esc(o.tx_hash.slice(0, 8) + '...') : '—');
     return `<tr>
+     <td>${modeBadge}</td>
      <td>${timeStr}</td>
      <td><strong>${esc(o.league)}</strong> ${esc(o.game_title || '—')}</td>
      <td><strong>${esc(o.selection || o.market_family)}</strong></td>
@@ -3202,6 +3279,40 @@ function bindPolymarketActions() {
     trigBtn.textContent = '▶ Run Autonomous Cycle';
    }
   };
+ }
+
+ const resetBtn = $('#poly-reset-shadow-btn');
+ if (resetBtn && !resetBtn.dataset.bound) {
+  resetBtn.dataset.bound = 'true';
+  resetBtn.onclick = async () => {
+   resetBtn.disabled = true;
+   resetBtn.textContent = '⏳ Resetting...';
+   try {
+    const r = await fetch('/api/polymarket/reset-shadow', { method: 'POST' });
+    const res = await r.json();
+    toast(`Shadow Reset: ${res.deleted_count || 0} shadow orders cleared.`);
+    await loadPolymarketDesk();
+   } catch (err) {
+    toast('Reset failed: ' + err.message);
+   } finally {
+    resetBtn.disabled = false;
+    resetBtn.textContent = '↻ Reset Shadow Portfolio';
+   }
+  };
+ }
+
+ const filterBtnsWrap = $('#poly-orders-filter-btns');
+ if (filterBtnsWrap && !filterBtnsWrap.dataset.bound) {
+  filterBtnsWrap.dataset.bound = 'true';
+  filterBtnsWrap.querySelectorAll('button').forEach(btn => {
+   btn.onclick = () => {
+    polyOrderFilter = btn.dataset.filter || 'all';
+    filterBtnsWrap.querySelectorAll('button').forEach(b => {
+     b.className = b === btn ? 'button primary' : 'button ghost';
+    });
+    renderPolymarketDesk();
+   };
+  });
  }
 
  const redeemBtn = $('#poly-settle-redeem-btn');

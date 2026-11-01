@@ -179,12 +179,19 @@ class PolymarketAutonomousExecutor:
                         ai_remediation_hint TEXT,
                         created_at TEXT NOT NULL,
                         updated_at TEXT NOT NULL,
-                        settled_at TEXT
+                        settled_at TEXT,
+                        execution_mode TEXT NOT NULL DEFAULT 'shadow'
                     );
                     """
                 )
+                # Ensure execution_mode column exists in migrated tables
+                try:
+                    conn.execute("ALTER TABLE polymarket_orders ADD COLUMN execution_mode TEXT NOT NULL DEFAULT 'shadow';")
+                except Exception:
+                    pass
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_poly_orders_league ON polymarket_orders(league);")
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_poly_orders_status ON polymarket_orders(status);")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_poly_orders_mode ON polymarket_orders(execution_mode);")
         except Exception as exc:
             log.warning(f"Could not verify polymarket_orders table schema: {exc}")
 
@@ -620,6 +627,7 @@ class PolymarketAutonomousExecutor:
                 order_id=simulated_order_id,
                 status="filled",
                 tx_hash=simulated_tx,
+                execution_mode="shadow",
             )
             return {
                 "ok": True,
@@ -686,6 +694,7 @@ class PolymarketAutonomousExecutor:
                 order_id=poly_order_id,
                 status=status,
                 tx_hash=resp.get("transactionHash") if isinstance(resp, dict) else None,
+                execution_mode="live",
             )
 
             log.info(f"Polymarket Live Order Posted: {poly_order_id} (Status: {status})")
@@ -699,6 +708,7 @@ class PolymarketAutonomousExecutor:
                 "stake_usd": calibrated_stake,
                 "ev": preflight.ev,
                 "dry_run": False,
+                "execution_mode": "live",
             }
         except Exception as exc:
             err_msg = str(exc)
@@ -715,6 +725,7 @@ class PolymarketAutonomousExecutor:
                     order_id=simulated_order_id,
                     status="filled",
                     tx_hash=simulated_tx,
+                    execution_mode="shadow",
                 )
                 return {
                     "ok": True,
@@ -788,37 +799,73 @@ class PolymarketAutonomousExecutor:
         return synced
 
     def get_trader_status(self) -> Dict[str, Any]:
-        """Provides full real-time telemetry of the parallel Polymarket trading channel."""
+        """Provides full real-time telemetry of the parallel Polymarket trading channel,
+        strictly separating LIVE real-money trades from SHADOW paper trading mode."""
         total_orders = 0
         filled_orders = 0
         open_orders = 0
         rejected_orders = 0
         realized_pnl = 0.0
 
+        # Dedicated Shadow Paper Trading stats
+        shadow_bets_count = 0
+        shadow_exposure_usd = 0.0
+        shadow_realized_pnl = 0.0
+        shadow_settled_count = 0
+        shadow_won_count = 0
+
+        # Dedicated Live Real-Money stats
+        live_bets_count = 0
+        live_exposure_usd = 0.0
+        live_realized_pnl = 0.0
+        live_settled_count = 0
+        live_won_count = 0
+
         try:
             with sqlite3.connect(self.db_path, timeout=30) as conn:
                 conn.row_factory = sqlite3.Row
                 cur = conn.cursor()
-                counts = cur.execute(
-                    "SELECT status, count(*), COALESCE(SUM(pnl), 0.0) FROM polymarket_orders GROUP BY status"
+                rows = cur.execute(
+                    "SELECT status, COALESCE(execution_mode, 'shadow') as mode, stake_usd, pnl FROM polymarket_orders"
                 ).fetchall()
-                for c in counts:
-                    st = c[0]
-                    cnt = c[1]
-                    p = c[2]
-                    total_orders += cnt
+                for r in rows:
+                    st = r["status"]
+                    mode = r["mode"]
+                    stake = float(r["stake_usd"] or 0.0)
+                    p = float(r["pnl"] or 0.0) if r["pnl"] is not None else 0.0
+
+                    total_orders += 1
+                    if mode == "live":
+                        if st in ("filled", "open", "relayed", "signed"):
+                            live_bets_count += 1
+                            live_exposure_usd += stake
+                        elif st in ("won", "lost", "settled"):
+                            live_settled_count += 1
+                            live_realized_pnl += p
+                            if st == "won":
+                                live_won_count += 1
+                    else:
+                        if st in ("filled", "open", "relayed", "signed"):
+                            shadow_bets_count += 1
+                            shadow_exposure_usd += stake
+                        elif st in ("won", "lost", "settled"):
+                            shadow_settled_count += 1
+                            shadow_realized_pnl += p
+                            if st == "won":
+                                shadow_won_count += 1
+
                     if st == "filled":
-                        filled_orders += cnt
+                        filled_orders += 1
                     elif st in ("open", "relayed"):
-                        open_orders += cnt
+                        open_orders += 1
                     elif st == "rejected":
-                        rejected_orders += cnt
+                        rejected_orders += 1
                     if st in ("won", "lost", "settled"):
                         realized_pnl += p
         except Exception as exc:
             log.warning(f"Could not query trader stats: {exc}")
 
-        # Check balance
+        # Check balance on Polygon proxy wallet
         cash_balance = 0.0
         if self.client and not self.dry_run:
             try:
@@ -837,6 +884,8 @@ class PolymarketAutonomousExecutor:
             except Exception:
                 can_builder = False
 
+        live_active = (cash_balance > 0.05) and (not self.dry_run) and (self.client is not None)
+
         return {
             "channel": "polymarket_autonomous_parallel_executor",
             "active": True,
@@ -853,8 +902,46 @@ class PolymarketAutonomousExecutor:
             "rejected_orders": rejected_orders,
             "realized_pnl": round(realized_pnl, 2),
             "collateral_balance_usdc": round(cash_balance, 2),
+            # Dedicated Clean Separation: Shadow Paper Trading
+            "shadow_trading": {
+                "active": True,
+                "status": "ACTIVE_FORWARD_TESTING",
+                "label": "Live CLOB Paper Trading",
+                "bets_count": shadow_bets_count,
+                "exposure_usd": round(shadow_exposure_usd, 2),
+                "realized_pnl": round(shadow_realized_pnl, 2),
+                "settled_count": shadow_settled_count,
+                "win_rate": round(shadow_won_count / shadow_settled_count, 3) if shadow_settled_count > 0 else 0.0,
+            },
+            # Dedicated Clean Separation: Live Real-Money Trading
+            "live_trading": {
+                "active": live_active,
+                "status": "LIVE_FUNDED" if live_active else "STANDBY_LOW_COLLATERAL",
+                "label": "Polygon On-Chain Execution",
+                "cash_balance_usdc": round(cash_balance, 2),
+                "bets_count": live_bets_count,
+                "exposure_usd": round(live_exposure_usd, 2),
+                "realized_pnl": round(live_realized_pnl, 2),
+                "settled_count": live_settled_count,
+                "win_rate": round(live_won_count / live_settled_count, 3) if live_settled_count > 0 else 0.0,
+                "proxy_address": self.proxy_address,
+            },
             "updated_at": utcnow().isoformat(),
         }
+
+    def reset_shadow_portfolio(self) -> Dict[str, Any]:
+        """Cleans/resets shadow paper trading portfolio, preserving a fresh clean slate."""
+        try:
+            with sqlite3.connect(self.db_path, timeout=30) as conn:
+                deleted_cnt = conn.execute(
+                    "DELETE FROM polymarket_orders WHERE execution_mode = 'shadow' OR status IN ('rejected', 'staged');"
+                ).rowcount
+                conn.commit()
+            log.info(f"Reset Polymarket shadow portfolio: {deleted_cnt} records deleted.")
+            return {"ok": True, "deleted_count": deleted_cnt, "message": "Shadow portfolio successfully reset."}
+        except Exception as exc:
+            log.error(f"Failed to reset shadow portfolio: {exc}")
+            return {"ok": False, "error": str(exc)}
 
     def _record_order_event(
         self,
@@ -880,6 +967,7 @@ class PolymarketAutonomousExecutor:
         error_code: Optional[str] = None,
         error_detail: Optional[str] = None,
         ai_remediation_hint: Optional[str] = None,
+        execution_mode: str = "shadow",
     ):
         """Atomically inserts/updates polymarket_orders and appends to jsonl log."""
         now_iso = utcnow().isoformat()
@@ -892,8 +980,8 @@ class PolymarketAutonomousExecutor:
                         market_family, selection, side, line, poly_price, poly_odds,
                         model_prob, expected_value, stake_usd, shares_count, status,
                         tx_hash, pnl, error_code, error_detail, ai_remediation_hint,
-                        created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        created_at, updated_at, execution_mode
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(client_order_id) DO UPDATE SET
                         order_id=COALESCE(excluded.order_id, polymarket_orders.order_id),
                         status=excluded.status,
@@ -902,7 +990,8 @@ class PolymarketAutonomousExecutor:
                         error_code=COALESCE(excluded.error_code, polymarket_orders.error_code),
                         error_detail=COALESCE(excluded.error_detail, polymarket_orders.error_detail),
                         ai_remediation_hint=COALESCE(excluded.ai_remediation_hint, polymarket_orders.ai_remediation_hint),
-                        updated_at=excluded.updated_at;
+                        updated_at=excluded.updated_at,
+                        execution_mode=excluded.execution_mode;
                     """,
                     (
                         order_id,
@@ -929,6 +1018,7 @@ class PolymarketAutonomousExecutor:
                         ai_remediation_hint,
                         now_iso,
                         now_iso,
+                        execution_mode,
                     ),
                 )
         except Exception as exc:
@@ -956,6 +1046,7 @@ class PolymarketAutonomousExecutor:
             "tx_hash": tx_hash,
             "error_code": error_code,
             "error_detail": error_detail,
+            "execution_mode": execution_mode,
         }
         try:
             with open(self.log_path, "a", encoding="utf-8") as f:
@@ -973,6 +1064,7 @@ class PolymarketAutonomousExecutor:
         error_code: Optional[str] = None,
         error_detail: Optional[str] = None,
         ai_remediation_hint: Optional[str] = None,
+        execution_mode: Optional[str] = None,
     ):
         """Updates status of an existing order and appends transition event."""
         now_iso = utcnow().isoformat()
@@ -988,6 +1080,7 @@ class PolymarketAutonomousExecutor:
                         error_code=COALESCE(?, error_code),
                         error_detail=COALESCE(?, error_detail),
                         ai_remediation_hint=COALESCE(?, ai_remediation_hint),
+                        execution_mode=COALESCE(?, execution_mode),
                         updated_at=?
                     WHERE client_order_id=?;
                     """,
@@ -999,6 +1092,7 @@ class PolymarketAutonomousExecutor:
                         error_code,
                         error_detail,
                         ai_remediation_hint,
+                        execution_mode,
                         now_iso,
                         client_order_id,
                     ),

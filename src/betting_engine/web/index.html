@@ -179,21 +179,93 @@
 </section>
 <section id="view-polymarket" class="view" hidden>
 <div class="panel">
-<div class="panel-title"><div><div class="eyebrow accent">PARALLEL AUTONOMOUS PREDICTION DESK</div><h2>Polymarket CLOB &amp; Proven-Alpha Execution</h2></div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span id="poly-builder-badge" class="badge positive">Builder SDK: Active</span><span id="poly-relayer-badge" class="badge positive">Gasless Relayer</span><button class="button primary" id="poly-trigger-cycle-btn" type="button" style="font-size:12px;padding:6px 12px">▶ Run Autonomous Cycle</button><button class="button ghost" id="poly-settle-redeem-btn" type="button" style="font-size:12px;padding:6px 12px">💰 Settle &amp; Auto-Redeem</button><button class="button ghost" id="poly-refresh-btn" type="button" style="font-size:12px;padding:6px 12px">↻ Refresh</button></div></div>
+<div class="panel-title"><div><div class="eyebrow accent">PARALLEL AUTONOMOUS PREDICTION DESK</div><h2>Polymarket CLOB &amp; Proven-Alpha Execution</h2></div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span id="poly-builder-badge" class="badge positive">Builder SDK: Active</span><span id="poly-relayer-badge" class="badge positive">Gasless Relayer</span><button class="button primary" id="poly-trigger-cycle-btn" type="button" style="font-size:12px;padding:6px 12px">▶ Run Autonomous Cycle</button><button class="button ghost" id="poly-reset-shadow-btn" type="button" style="font-size:12px;padding:6px 12px;color:#b91c1c;border-color:#fca5a5">↻ Reset Shadow Portfolio</button><button class="button ghost" id="poly-settle-redeem-btn" type="button" style="font-size:12px;padding:6px 12px">💰 Settle &amp; Auto-Redeem</button><button class="button ghost" id="poly-refresh-btn" type="button" style="font-size:12px;padding:6px 12px">↻ Refresh</button></div></div>
 <p class="panel-copy">Independent parallel execution channel trading exclusively on <strong>Tier 3 proven-alpha sports markets</strong> via the decentralized Polymarket CLOB. Features sub-second orderbook depth and slippage verification, continuous fractional Kelly sizing, EIP-712 builder signing, gasless order relaying, and dual-pillar UMA/sports oracle settlement. All unproven markets are quarantined at $0.00.</p>
 <div id="poly-funding-alert" style="display:none;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px 16px;margin:12px 0 16px 0;"></div>
-<div class="stats" style="grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));margin-bottom:18px">
-<div class="stat"><div class="stat-label">USDC Collateral</div><div class="stat-value" id="poly-usdc-balance" style="color:var(--accent)">$0.00</div><div class="stat-sub" id="poly-proxy-sub">Polygon Proxy Wallet</div></div>
-<div class="stat"><div class="stat-label">Realized Net PnL</div><div class="stat-value" id="poly-realized-pnl">$0.00</div><div class="stat-sub">Official UMA Settlement</div></div>
-<div class="stat"><div class="stat-label">Total Orders</div><div class="stat-value" id="poly-total-orders">0</div><div class="stat-sub" id="poly-orders-breakdown">0 filled · 0 open</div></div>
-<div class="stat"><div class="stat-label">Authorized Markets</div><div class="stat-value" id="poly-proven-count" style="color:var(--green)">3</div><div class="stat-sub">Tier 3 Proven Alpha</div></div>
-<div class="stat"><div class="stat-label">Incubator R&amp;D Gaps</div><div class="stat-value" id="poly-gaps-count" style="color:#d97706">25</div><div class="stat-sub">Quarantined at $0.00</div></div>
+
+<!-- DUAL DESK TELEMETRY: SEPARATE SHADOW PAPER TRADING & LIVE ON-CHAIN -->
+<div style="display:flex;gap:16px;flex-wrap:wrap;margin:16px 0 20px 0;">
+  <!-- SHADOW PAPER TRADING DESK -->
+  <div class="stake-card" style="flex:1;min-width:320px;border-left:4px solid #6366f1;background:#faf5ff;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div>
+        <div class="eyebrow" style="color:#6366f1;font-weight:700;">PAPER TRADING (REAL CLOB DATA)</div>
+        <h3 style="margin:2px 0 0 0;font-size:16px;">Polymarket Shadow Desk</h3>
+      </div>
+      <span class="badge" style="background:#e0e7ff;color:#3730a3;font-weight:700;" id="poly-shadow-status-badge">SHADOW ACTIVE</span>
+    </div>
+    <p style="font-size:12px;color:var(--muted);margin:0 0 12px 0;line-height:1.4">
+      Paper trading on live orderbook quotes with continuous Kelly sizing. Completely risk-free ($0.00 virtual capital).
+    </p>
+    <div class="stats" style="grid-template-columns:repeat(2, 1fr);gap:10px;margin-bottom:12px;">
+      <div class="stat" style="background:#fff;border-radius:6px;padding:8px 12px;">
+        <div class="stat-label">Shadow Net PnL</div>
+        <div class="stat-value" id="poly-shadow-pnl" style="font-size:18px;">$0.00</div>
+        <div class="stat-sub" id="poly-shadow-winrate">Win Rate: 0.0%</div>
+      </div>
+      <div class="stat" style="background:#fff;border-radius:6px;padding:8px 12px;">
+        <div class="stat-label">Active Shadow Bets</div>
+        <div class="stat-value" id="poly-shadow-bets-count" style="font-size:18px;color:#6366f1;">0</div>
+        <div class="stat-sub" id="poly-shadow-settled">0 settled</div>
+      </div>
+      <div class="stat" style="background:#fff;border-radius:6px;padding:8px 12px;">
+        <div class="stat-label">Shadow Open Exposure</div>
+        <div class="stat-value" id="poly-shadow-exposure" style="font-size:18px;">$0.00</div>
+        <div class="stat-sub">Virtual Capital Committed</div>
+      </div>
+      <div class="stat" style="background:#fff;border-radius:6px;padding:8px 12px;">
+        <div class="stat-label">Authorized Markets</div>
+        <div class="stat-value" id="poly-proven-count" style="font-size:18px;color:var(--green);">3</div>
+        <div class="stat-sub" id="poly-gaps-count-sub"><span id="poly-gaps-count">25</span> quarantined at $0.00</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LIVE ON-CHAIN DESK -->
+  <div class="stake-card" style="flex:1;min-width:320px;border-left:4px solid #10b981;background:#f0fdf4;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div>
+        <div class="eyebrow" style="color:#059669;font-weight:700;">POLYGON POS MAINNET</div>
+        <h3 style="margin:2px 0 0 0;font-size:16px;">Polymarket Live Desk</h3>
+      </div>
+      <span class="badge" style="background:#d1fae5;color:#065f46;font-weight:700;" id="poly-live-status-badge">STANDBY</span>
+    </div>
+    <p style="font-size:12px;color:var(--muted);margin:0 0 12px 0;line-height:1.4">
+      Real-money decentralized CLOB execution with gasless relayer and builder EIP-712 signing.
+    </p>
+    <div class="stats" style="grid-template-columns:repeat(2, 1fr);gap:10px;margin-bottom:12px;">
+      <div class="stat" style="background:#fff;border-radius:6px;padding:8px 12px;">
+        <div class="stat-label">Wallet Cash (USDC)</div>
+        <div class="stat-value" id="poly-usdc-balance" style="font-size:18px;color:var(--accent);">$0.00</div>
+        <div class="stat-sub" id="poly-proxy-sub">Polygon Proxy Wallet</div>
+      </div>
+      <div class="stat" style="background:#fff;border-radius:6px;padding:8px 12px;">
+        <div class="stat-label">Live Realized PnL</div>
+        <div class="stat-value" id="poly-realized-pnl" style="font-size:18px;">$0.00</div>
+        <div class="stat-sub" id="poly-live-winrate">Win Rate: 0.0%</div>
+      </div>
+      <div class="stat" style="background:#fff;border-radius:6px;padding:8px 12px;">
+        <div class="stat-label">Live Bets Placed</div>
+        <div class="stat-value" id="poly-live-bets-count" style="font-size:18px;color:#059669;">0</div>
+        <div class="stat-sub" id="poly-live-settled">0 settled</div>
+      </div>
+      <div class="stat" style="background:#fff;border-radius:6px;padding:8px 12px;">
+        <div class="stat-label">Live Open Exposure</div>
+        <div class="stat-value" id="poly-live-exposure" style="font-size:18px;">$0.00</div>
+        <div class="stat-sub">Real USDC Locked</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);display:flex;justify-content:space-between;align-items:center;">
+      <span>Proxy: <code id="poly-proxy-address-full" style="font-family:var(--mono);font-size:10px;background:#e2e8f0;padding:2px 4px;border-radius:3px;">0xee888fa7b96007f7fa270988e92bddb0ae19ed10</code></span>
+      <span class="muted-text" id="poly-orders-breakdown" style="font-size:10px;">0 filled · 0 open</span>
+    </div>
+  </div>
 </div>
 </div>
 <div class="panel">
-<div class="panel-title"><div><div class="eyebrow accent">EXECUTION LEDGER</div><h3>Polymarket Order Lifecycle &amp; On-Chain History</h3></div><span class="badge" id="poly-orders-count-badge">0 Orders</span></div>
+<div class="panel-title"><div><div class="eyebrow accent">EXECUTION LEDGER</div><h3>Polymarket Order Lifecycle &amp; On-Chain History</h3></div><div style="display:flex;align-items:center;gap:8px;"><div style="display:flex;gap:4px;" id="poly-orders-filter-btns"><button type="button" class="button primary" data-filter="all" style="padding:3px 8px;font-size:10px;">All</button><button type="button" class="button ghost" data-filter="shadow" style="padding:3px 8px;font-size:10px;">Shadow</button><button type="button" class="button ghost" data-filter="live" style="padding:3px 8px;font-size:10px;">Live</button></div><span class="badge" id="poly-orders-count-badge">0 Orders</span><span id="poly-total-orders" style="display:none">0</span></div></div>
 <p class="panel-copy">Comprehensive 7-stage order lifecycle tracking: STAGED &rarr; SIGNED &rarr; RELAYED &rarr; OPEN / FILLED &rarr; MATCH_OFFICIAL &rarr; SETTLED.</p>
-<div id="poly-orders-table-wrap" class="table-wrap"><table class="table"><thead><tr><th>Time (Budapest)</th><th>Match &amp; League</th><th>Contract Selection</th><th>Price (Odds)</th><th>EV</th><th>Stake (USD)</th><th>Shares</th><th>Status</th><th>Tx / PnL</th></tr></thead><tbody id="poly-orders-tbody"><tr><td colspan="9" style="text-align:center;color:var(--muted)">No orders placed yet.</td></tr></tbody></table></div>
+<div id="poly-orders-table-wrap" class="table-wrap"><table class="table"><thead><tr><th>Mode</th><th>Time (Budapest)</th><th>Match &amp; League</th><th>Contract Selection</th><th>Price (Odds)</th><th>EV</th><th>Stake (USD)</th><th>Shares</th><th>Status</th><th>Tx / PnL</th></tr></thead><tbody id="poly-orders-tbody"><tr><td colspan="10" style="text-align:center;color:var(--muted)">No orders placed yet.</td></tr></tbody></table></div>
 </div>
 <div class="panel">
 <div class="panel-title"><div><div class="eyebrow accent">ALPHA GAP MATRIX</div><h3>Reachable Polymarket Sports Markets (Tier 3 vs Incubating)</h3></div><span class="badge positive" id="poly-matrix-badge">Continuous Line Valuation</span></div>
