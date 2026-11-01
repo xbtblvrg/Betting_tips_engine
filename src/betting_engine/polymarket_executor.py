@@ -549,6 +549,25 @@ class PolymarketAutonomousExecutor:
         base_stake = requested_stake or 2.50
         staged_stake = max(0.50, min(stake_cap, base_stake))
 
+        # Atomic DB deduplication guard: Ensure token is not already actively placed
+        if self.db_path.exists():
+            try:
+                with sqlite3.connect(self.db_path, timeout=5) as conn:
+                    active_row = conn.execute(
+                        "SELECT id FROM polymarket_orders WHERE token_id = ? AND status IN ('open', 'filled', 'staged', 'signed', 'relayed')",
+                        (token_id,)
+                    ).fetchone()
+                    if active_row:
+                        return {
+                            "ok": False,
+                            "status": "rejected",
+                            "client_order_id": client_order_id,
+                            "reason": "TOKEN_ALREADY_ACTIVE",
+                            "error_code": "DUPLICATE_ACTIVE_TOKEN",
+                        }
+            except Exception:
+                pass
+
         # 3. Sub-Second Pre-Flight Check (Point-in-Time Orderbook Depth & Slippage)
         preflight = self.preflight_check(
             token_id=token_id,

@@ -28,6 +28,7 @@ from .providers import DATA
 log = logging.getLogger(__name__)
 
 RUNNER_STATE_FILE = DATA / "polymarket_runner_state.json"
+_RUNNER_CYCLE_LOCK = threading.Lock()
 
 # Explicit Canonical Taxonomy Mapping for Polymarket Gamma API sportsMarketType
 POLYMARKET_STRUCTURED_TYPE_MAP: Dict[str, Tuple[str, str]] = {
@@ -289,6 +290,30 @@ class PolymarketAutonomousRunner:
         mock_events: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
         """Executes a single end-to-end autonomous scan, evaluation, order placement and settlement cycle."""
+        if not _RUNNER_CYCLE_LOCK.acquire(blocking=False):
+            log.info("[AUTONOMOUS RUNNER] Cycle already in progress, skipping concurrent trigger.")
+            return {
+                "timestamp": utcnow().isoformat(),
+                "skipped": True,
+                "reason": "concurrent_cycle_in_progress",
+            }
+        try:
+            return self._run_execution_cycle_inner(
+                leagues=leagues,
+                max_orders_per_cycle=max_orders_per_cycle,
+                max_clob_checks=max_clob_checks,
+                mock_events=mock_events,
+            )
+        finally:
+            _RUNNER_CYCLE_LOCK.release()
+
+    def _run_execution_cycle_inner(
+        self,
+        leagues: Tuple[str, ...] = ("NBA", "NFL", "NHL"),
+        max_orders_per_cycle: Optional[int] = None,
+        max_clob_checks: Optional[int] = None,
+        mock_events: Optional[List[Dict[str, Any]]] = None,
+    ) -> Dict[str, Any]:
         now = utcnow()
         now_iso = now.isoformat()
         cycle_start = time.time()
