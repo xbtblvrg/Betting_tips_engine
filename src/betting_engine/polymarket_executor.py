@@ -76,6 +76,11 @@ class PolymarketAutonomousExecutor:
         self.builder_passphrase = os.getenv("POLYMARKET_BUILDER_PASSPHRASE")
         self.relayer_api_key = os.getenv("POLYMARKET_RELAYER_API_KEY")
 
+        self._cached_scoreboard = None
+        self._scoreboard_cached_at = 0.0
+        self._cached_graduated = None
+        self._graduated_cached_at = 0.0
+
         self.client = client
         self._init_client_if_needed()
         self._ensure_table_exists()
@@ -191,47 +196,60 @@ class PolymarketAutonomousExecutor:
             f"{league}|{scope}|american_derivatives:{market_family}",
         ]
 
-        # 1. Check graduated_markets.json
-        if GRADUATED_MARKETS_FILE.exists():
-            try:
-                with open(GRADUATED_MARKETS_FILE, "r") as f:
-                    grad = json.load(f)
-                for k in seg_keys:
-                    entry = grad.get(k)
-                    if entry:
-                        roi = float(entry.get("roi", 0.0))
-                        sample = int(entry.get("sample_size", 0) or 0)
-                        if roi >= 0.035 and sample >= 25:
-                            stake_cap = 8.0 if roi >= 0.12 else 3.50
-                            return (
-                                True,
-                                f"TIER_3_GRADUATED: Verified Crucible Alpha (ROI: {roi*100:.1f}%, N={sample})",
-                                stake_cap,
-                            )
-            except Exception as exc:
-                log.warning(f"Error checking graduated_markets.json: {exc}")
+        # 1. Check graduated_markets.json (cached 60s)
+        now_ts = time.time()
+        if self._cached_graduated is None or (now_ts - self._graduated_cached_at) > 60.0:
+            if GRADUATED_MARKETS_FILE.exists():
+                try:
+                    with open(GRADUATED_MARKETS_FILE, "r") as f:
+                        self._cached_graduated = json.load(f)
+                    self._graduated_cached_at = now_ts
+                except Exception as exc:
+                    log.warning(f"Error checking graduated_markets.json: {exc}")
+                    self._cached_graduated = {}
+            else:
+                self._cached_graduated = {}
 
-        # 2. Check SegmentScoreboard / live ledger governance
-        try:
-            from .segment_scoreboard import compute_segment_scoreboard
-
-            with sqlite3.connect(self.db_path, timeout=5) as conn:
-                sb = compute_segment_scoreboard(conn)
-                alpha_keys = {s["segment"]: s for s in sb.get("alpha_segments", [])}
-                for k in seg_keys:
-                    if k in alpha_keys:
-                        s_data = alpha_keys[k]
-                        roi = float(s_data.get("roi", 0.0))
-                        sample = int(s_data.get("games_count", 0))
-                        sub_tier = s_data.get("sub_tier", "SOLID_ALPHA")
-                        stake_cap = 8.0 if sub_tier == "SUPER_ALPHA" else 3.50
+        if self._cached_graduated:
+            for k in seg_keys:
+                entry = self._cached_graduated.get(k)
+                if entry:
+                    roi = float(entry.get("roi", 0.0))
+                    sample = int(entry.get("sample_size", 0) or 0)
+                    if roi >= 0.035 and sample >= 25:
+                        stake_cap = 8.0 if roi >= 0.12 else 3.50
                         return (
                             True,
-                            f"TIER_3_ALPHA_SCOREBOARD: {sub_tier} Active (ROI: {roi:.1f}%, N={sample})",
+                            f"TIER_3_GRADUATED: Verified Crucible Alpha (ROI: {roi*100:.1f}%, N={sample})",
                             stake_cap,
                         )
-        except Exception as exc:
-            log.warning(f"Error inspecting SegmentScoreboard for Polymarket eligibility: {exc}")
+
+        # 2. Check SegmentScoreboard / live ledger governance (cached 60s)
+        if self._cached_scoreboard is None or (now_ts - self._scoreboard_cached_at) > 60.0:
+            try:
+                from .segment_scoreboard import compute_segment_scoreboard
+
+                with sqlite3.connect(self.db_path, timeout=5) as conn:
+                    self._cached_scoreboard = compute_segment_scoreboard(conn)
+                    self._scoreboard_cached_at = now_ts
+            except Exception as exc:
+                log.warning(f"Error inspecting SegmentScoreboard for Polymarket eligibility: {exc}")
+                self._cached_scoreboard = {}
+
+        if self._cached_scoreboard:
+            alpha_keys = {s["segment"]: s for s in self._cached_scoreboard.get("alpha_segments", [])}
+            for k in seg_keys:
+                if k in alpha_keys:
+                    s_data = alpha_keys[k]
+                    roi = float(s_data.get("roi", 0.0))
+                    sample = int(s_data.get("games_count", 0))
+                    sub_tier = s_data.get("sub_tier", "SOLID_ALPHA")
+                    stake_cap = 8.0 if sub_tier == "SUPER_ALPHA" else 3.50
+                    return (
+                        True,
+                        f"TIER_3_ALPHA_SCOREBOARD: {sub_tier} Active (ROI: {roi:.1f}%, N={sample})",
+                        stake_cap,
+                    )
 
         # Unproven or Quarantined: strictly $0.00 stake on Polymarket
         return (

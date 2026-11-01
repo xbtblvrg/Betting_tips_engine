@@ -77,6 +77,7 @@ class PolymarketAutonomousRunner:
         self,
         leagues: Tuple[str, ...] = ("NBA", "NFL", "NHL"),
         max_orders_per_cycle: int = 5,
+        max_clob_checks: int = 12,
         mock_events: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
         """Executes a single end-to-end autonomous scan, evaluation, order placement and settlement cycle."""
@@ -87,15 +88,20 @@ class PolymarketAutonomousRunner:
         traded_tokens = self._get_active_tokens_already_traded()
         orders_placed: List[Dict[str, Any]] = []
         rejected_candidates: List[Dict[str, Any]] = []
+        clob_checks_count = 0
 
         # 1. Fetch live events from Polymarket Gamma API or mock
         events = mock_events
         if events is None:
-            try:
-                events = self.service.fetch_active_events(category="sports")
-            except Exception as exc:
-                log.warning(f"Failed to fetch active Polymarket events: {exc}")
-                events = []
+            events = []
+            for l in leagues:
+                try:
+                    l_events = self.service.get_open_events(league=l, horizon_hours=self.execution_window_hours)
+                    for ev in l_events:
+                        ev["_league"] = l
+                    events.extend(l_events)
+                except Exception as exc:
+                    log.warning(f"Failed to fetch active Polymarket events for {l}: {exc}")
 
         scanned_count = len(events)
         evaluated_markets_count = 0
@@ -104,21 +110,39 @@ class PolymarketAutonomousRunner:
         min_start = now + timedelta(minutes=self.min_pregame_minutes)
         max_start = now + timedelta(hours=self.execution_window_hours)
 
+        # Filter and sort events by start time ascending (soonest kickoff first)
+        qualifying_events = []
         for event in events:
-            if len(orders_placed) >= max_orders_per_cycle:
+            start_str = event.get("startTime") or event.get("startDate") or ""
+            g_start = max_start
+            if start_str:
+                try:
+                    g_start = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
+                    if not (min_start <= g_start <= max_start):
+                        continue
+                except Exception:
+                    pass
+            event["_start_dt"] = g_start
+            qualifying_events.append(event)
+
+        qualifying_events.sort(key=lambda ev: ev.get("_start_dt", max_start))
+
+        for event in qualifying_events[:8]:
+            if len(orders_placed) >= max_orders_per_cycle or clob_checks_count >= max_clob_checks:
                 break
 
             title = event.get("title", "")
-            start_str = event.get("startDate") or event.get("startTime") or ""
+            start_str = event.get("startTime") or event.get("startDate") or ""
             markets = event.get("markets", [])
 
             # Match league
-            league = None
-            title_lower = title.lower()
-            for l in leagues:
-                if l.lower() in title_lower or any(l.lower() in m.get("question", "").lower() for m in markets):
-                    league = l
-                    break
+            league = event.get("_league")
+            if not league:
+                title_lower = title.lower()
+                for l in leagues:
+                    if l.lower() in title_lower or any(l.lower() in m.get("question", "").lower() for m in markets):
+                        league = l
+                        break
             if not league:
                 # Try inferring from tags
                 tags = [t.get("label", "").upper() for t in event.get("tags", []) if isinstance(t, dict)]
@@ -181,6 +205,12 @@ class PolymarketAutonomousRunner:
                     except Exception:
                         clob_token_ids = [clob_token_ids]
 
+                if isinstance(outcomes, str):
+                    try:
+                        outcomes = json.loads(outcomes)
+                    except Exception:
+                        outcomes = [outcomes]
+
                 if isinstance(outcome_prices, str):
                     try:
                         outcome_prices = json.loads(outcome_prices)
@@ -215,6 +245,28 @@ class PolymarketAutonomousRunner:
                             target_line=line_val,
                             target_side=side,
                         )
+                    elif line_val and family == "spreads":
+                        side = "favorite" if outcome_label == "Yes" or "-" in outcome_label else "underdog"
+                        model_prob = self.line_evaluator.evaluate_spread(
+                            league=league,
+                            base_line=line_val,
+                            base_prob=0.55,
+                            base_side=side,
+                            target_line=line_val,
+                            target_side=side,
+                        )
+
+                    # Pre-screen: Only check depth if contract is liquid and offers positive nominal EV
+                    if poly_price <= 0.05 or poly_price >= 0.95:
+                        continue
+
+                    nominal_ev = (model_prob / poly_price) - 1.0
+                    if nominal_ev < self.min_ev_hurdle:
+                        continue
+
+                    if clob_checks_count >= max_clob_checks:
+                        break
+                    clob_checks_count += 1
 
                     # Run preflight check (Depth & Slippage Guard)
                     preflight = self.executor.preflight_check(
@@ -268,6 +320,7 @@ class PolymarketAutonomousRunner:
             "orders_placed_count": len(orders_placed),
             "orders_placed": orders_placed,
             "rejected_candidates_count": len(rejected_candidates),
+            "rejected_candidates": rejected_candidates[:25],
             "settlement": settle_res,
         }
 

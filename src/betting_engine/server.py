@@ -76,11 +76,31 @@ async def lifespan(app):
             except Exception:
                 pass
 
+    async def _periodic_polymarket_runner_worker():
+        # Initial delay so engine startup finishes completely
+        await asyncio.sleep(20)
+        while not engine.stop.is_set():
+            try:
+                from .polymarket_runner import PolymarketAutonomousRunner
+                runner = PolymarketAutonomousRunner()
+                await asyncio.to_thread(runner.run_execution_cycle)
+            except asyncio.CancelledError:
+                break
+            except Exception as exc:
+                log.warning(f"Periodic Polymarket runner cycle warning: {exc}")
+
+            try:
+                await asyncio.sleep(300)
+            except asyncio.CancelledError:
+                break
+
     sync_task = asyncio.create_task(_periodic_stake_sync_worker())
+    poly_task = asyncio.create_task(_periodic_polymarket_runner_worker())
     try:
         yield
     finally:
         sync_task.cancel()
+        poly_task.cancel()
         try:
             engine.stop.set()
             wake=getattr(engine,'priority_refresh',None)
