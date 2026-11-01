@@ -182,13 +182,48 @@ class PolymarketAutonomousRunner:
 
         qualifying_events.sort(key=lambda ev: ev.get("_start_dt", max_start))
 
-        for event in qualifying_events[:8]:
+        # Ensure league is assigned to each qualifying event
+        for ev in qualifying_events:
+            if not ev.get("_league"):
+                title_lower = (ev.get("title") or "").lower()
+                for l in leagues:
+                    if l.lower() in title_lower or any(l.lower() in m.get("question", "").lower() for m in ev.get("markets", [])):
+                        ev["_league"] = l
+                        break
+                if not ev.get("_league"):
+                    tags = [t.get("label", "").upper() for t in ev.get("tags", []) if isinstance(t, dict)]
+                    for l in leagues:
+                        if l in tags:
+                            ev["_league"] = l
+                            break
+
+        # Ensure balanced multi-sport coverage across active leagues
+        events_by_league: Dict[str, List[Dict[str, Any]]] = {}
+        for ev in qualifying_events:
+            l_key = ev.get("_league") or "OTHER"
+            events_by_league.setdefault(l_key, []).append(ev)
+
+        interleaved_events = []
+        max_depth = max((len(evs) for evs in events_by_league.values()), default=0)
+        for d in range(min(max_depth, 10)):
+            for l_name in leagues:
+                if l_name in events_by_league and d < len(events_by_league[l_name]):
+                    interleaved_events.append(events_by_league[l_name][d])
+            if "OTHER" in events_by_league and d < len(events_by_league["OTHER"]):
+                interleaved_events.append(events_by_league["OTHER"][d])
+
+        if not interleaved_events:
+            interleaved_events = qualifying_events
+
+        for event in interleaved_events:
             if len(orders_placed) >= max_orders_per_cycle or clob_checks_count >= max_clob_checks:
                 break
 
             title = event.get("title", "")
             start_str = event.get("startTime") or event.get("startDate") or ""
             markets = event.get("markets", [])
+            game_orders_placed = 0
+            max_orders_per_game = 4
 
             # Match league
             league = event.get("_league")
@@ -217,7 +252,7 @@ class PolymarketAutonomousRunner:
             )
 
             for market in markets:
-                if len(orders_placed) >= max_orders_per_cycle:
+                if len(orders_placed) >= max_orders_per_cycle or game_orders_placed >= max_orders_per_game:
                     break
 
                 evaluated_markets_count += 1
@@ -384,6 +419,7 @@ class PolymarketAutonomousRunner:
                         order_res["token_id"] = token_id
                         orders_placed.append(order_res)
                         traded_tokens.add(token_id)
+                        game_orders_placed += 1
                         log.info(f"[AUTONOMOUS RUNNER] Placed Polymarket Order: {order_res.get('client_order_id')}")
 
         # 2. Trigger Outcome Settlement & Token Auto-Redemption

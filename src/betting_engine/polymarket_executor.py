@@ -126,13 +126,14 @@ class PolymarketAutonomousExecutor:
 
             # Derive Level 2 API credentials deterministically from polygon private key
             # signature_type=1 is POLY_PROXY for Polymarket proxy wallets
+            clob_builder_cfg = builder_config if not is_v2 else None
             c = ClobClient(
                 host=clob_host,
                 chain_id=chain_id,
                 key=self.private_key,
                 funder=self.proxy_address,
                 signature_type=1,
-                builder_config=builder_config,
+                builder_config=clob_builder_cfg,
             )
             if hasattr(c, "create_or_derive_api_key"):
                 derived_creds = c.create_or_derive_api_key()
