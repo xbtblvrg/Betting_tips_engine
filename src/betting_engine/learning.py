@@ -20,9 +20,10 @@ FEEDBACK_KINDS = frozenset(('outcome_review', 'closing_evaluation'))
 RECOVERY_KINDS = frozenset(('model_restore', 'segment_restore', 'period_restore'))
 PRIORITY = {'source_refresh':0, 'model_restore':0, 'segment_restore':0, 'period_restore':0,
     'outcome_review':1, 'closing_evaluation':1, 'shadow_evaluation':1, 'market_catalog':1, 'autonomous_system_audit':1, 'anti_constant_audit':1, 'autonomous_submarket_expansion':1, 'autorun_selector_repair':1,
-    'polymarket_identification_repair': 1, 'polymarket_taxonomy_repair': 1,
-    'controlled_retrain':2, 'segment_retrain':2, 'period_retrain':2, 'segment_repair':2, 'target_evaluation':2, 'anchor_weight_learning':2, 'opportunity_funnel_repair':2, 'urgent_polymarket_model_repair':2,
-    'player_history_refresh':2, 'player_prop_audit':2, 'player_data_refresh':3, 'model_search':3,
+    'polymarket_identification_repair': 1, 'polymarket_taxonomy_repair': 1, 'autonomous_code_healing': 1, 'high_retry_task_root_cause_analysis': 1,
+    'controlled_retrain':2, 'segment_retrain':2, 'period_retrain':2, 'segment_repair':2, 'submarket_turnaround_research': 2, 'target_evaluation':2, 'anchor_weight_learning':2, 'opportunity_funnel_repair':2, 'urgent_polymarket_model_repair':2,
+    'daily_council_briefing': 2, 'incubator_market_repair': 2, 'autonomous_model_synthesis': 2, 'upstream_sports_sensor_synthesis': 2,
+    'player_history_refresh':2, 'player_prop_audit':2, 'player_data_refresh':3, 'model_search':3, 'research_gap': 3, 'market_research': 3,
     'research_watch':4}
 
 
