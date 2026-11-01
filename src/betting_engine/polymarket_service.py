@@ -333,6 +333,8 @@ class PolymarketService:
             "min_order_size": _safe_float(book.get("min_order_size")),
             "tick_size": _safe_float(book.get("tick_size")),
             "fetched_at": now.isoformat(),
+            "bids": [{"price": str(p), "size": str(s)} for p, s in bids],
+            "asks": [{"price": str(p), "size": str(s)} for p, s in asks],
         }
 
         try:

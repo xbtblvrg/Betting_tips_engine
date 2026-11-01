@@ -130,8 +130,8 @@ class PolymarketAutonomousRunner:
     def run_execution_cycle(
         self,
         leagues: Tuple[str, ...] = ("NBA", "NFL", "NHL"),
-        max_orders_per_cycle: int = 5,
-        max_clob_checks: int = 12,
+        max_orders_per_cycle: int = 15,
+        max_clob_checks: int = 35,
         mock_events: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
         """Executes a single end-to-end autonomous scan, evaluation, order placement and settlement cycle."""
@@ -232,12 +232,19 @@ class PolymarketAutonomousRunner:
                     family = "spreads"
 
                 scope = "full_game"
-                if "1st half" in q.lower() or "half 1" in q.lower():
+                q_low = q.lower()
+                if "1st half" in q_low or "half 1" in q_low or "first half" in q_low:
                     scope = "half_1"
-                elif "2nd half" in q.lower() or "half 2" in q.lower():
+                elif "2nd half" in q_low or "half 2" in q_low or "second half" in q_low:
                     scope = "half_2"
-                elif "1st quarter" in q.lower() or "quarter 1" in q.lower():
+                elif "1st quarter" in q_low or "quarter 1" in q_low or "first quarter" in q_low:
                     scope = "quarter_1"
+                elif "2nd quarter" in q_low or "quarter 2" in q_low:
+                    scope = "quarter_2"
+                elif "3rd quarter" in q_low or "quarter 3" in q_low:
+                    scope = "quarter_3"
+                elif "4th quarter" in q_low or "quarter 4" in q_low:
+                    scope = "quarter_4"
 
                 # Check Tier 3 eligibility gate
                 line_val = None
@@ -303,6 +310,7 @@ class PolymarketAutonomousRunner:
                             base_side="over",
                             target_line=line_val,
                             target_side=side,
+                            scope=scope,
                         )
                     elif forecast and forecast.get("proj_spread") is not None and line_val is not None and family == "spreads":
                         side = "favorite" if outcome_label == "Yes" or "-" in outcome_label else "underdog"
@@ -313,6 +321,7 @@ class PolymarketAutonomousRunner:
                             base_side="favorite",
                             target_line=line_val,
                             target_side=side,
+                            scope=scope,
                         )
                     elif forecast and family == "moneyline" and forecast.get("home_prob") is not None:
                         h_name = forecast["home_name"].lower()

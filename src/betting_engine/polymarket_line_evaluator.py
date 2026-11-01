@@ -89,6 +89,7 @@ class ContinuousLineEvaluator:
         base_side: str,
         target_line: float,
         target_side: str,
+        scope: str = "full_game",
     ) -> float:
         """Projects total probability from baseline line to target line.
 
@@ -98,6 +99,18 @@ class ContinuousLineEvaluator:
             Result: ~0.638 (higher chance to hit lower line).
         """
         sigma = self._get_sigma(league, "totals")
+        eff_base_line = base_line
+
+        # Adjust for derivative period scopes if baseline is a full-game projection
+        sc = (scope or "full_game").lower()
+        if sc in ("half_1", "half_2", "1st_half", "2nd_half"):
+            if base_line > target_line * 1.3:
+                eff_base_line = base_line * 0.50
+            sigma = sigma / math.sqrt(2.0)
+        elif "quarter" in sc or sc.startswith("q") or sc in ("quarter_1", "quarter_2", "quarter_3", "quarter_4"):
+            if base_line > target_line * 2.2:
+                eff_base_line = base_line * 0.25
+            sigma = sigma * 0.50
         
         # 1. Normalize baseline to P(Over base_line)
         is_base_over = base_side.lower() in ("over", "o", "yes")
@@ -108,7 +121,7 @@ class ContinuousLineEvaluator:
         z_base = norm_inv(1.0 - p_base_over)
 
         # 3. Shift quantile by line difference: delta = (target - base) / sigma
-        delta_z = (target_line - base_line) / sigma
+        delta_z = (target_line - eff_base_line) / max(0.1, sigma)
         z_target = z_base + delta_z
 
         # 4. Target P(Over target_line) = 1 - Phi(z_target)
@@ -126,6 +139,7 @@ class ContinuousLineEvaluator:
         base_side: str,
         target_line: float,
         target_side: str,
+        scope: str = "full_game",
     ) -> float:
         """Projects spread probability from baseline handicap to target handicap.
 
@@ -133,6 +147,17 @@ class ContinuousLineEvaluator:
         Target line of -1.5 is easier to cover than -3.5.
         """
         sigma = self._get_sigma(league, "spreads")
+        eff_base_line = base_line
+
+        sc = (scope or "full_game").lower()
+        if sc in ("half_1", "half_2", "1st_half", "2nd_half"):
+            if abs(base_line) > abs(target_line) * 1.5 and abs(target_line) > 0.1:
+                eff_base_line = base_line * 0.50
+            sigma = sigma / math.sqrt(2.0)
+        elif "quarter" in sc or sc.startswith("q") or sc in ("quarter_1", "quarter_2", "quarter_3", "quarter_4"):
+            if abs(base_line) > abs(target_line) * 2.5 and abs(target_line) > 0.1:
+                eff_base_line = base_line * 0.25
+            sigma = sigma * 0.50
 
         # 1. Normalize to baseline covering probability
         is_base_fav = base_side.lower() in ("home", "favorite", "yes", "1")
@@ -145,7 +170,7 @@ class ContinuousLineEvaluator:
         # Covering margin: Margin > -Line.
         # Required hurdle change: Delta_Hurdle = -target_line - (-base_line) = -(target_line - base_line)
         # Therefore: delta_z = -(target_line - base_line) / sigma
-        delta_z = -(target_line - base_line) / sigma
+        delta_z = -(target_line - eff_base_line) / max(0.1, sigma)
         z_target = z_base + delta_z
 
         p_target = 1.0 - norm_cdf(z_target)
