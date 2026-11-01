@@ -97,6 +97,22 @@ class PolymarketAutonomousExecutor:
             clob_host = "https://clob.polymarket.com"
             chain_id = 137
 
+            builder_config = None
+            if self.builder_key and self.builder_secret and self.builder_passphrase:
+                try:
+                    from py_builder_signing_sdk.config import BuilderConfig
+                    from py_builder_signing_sdk.sdk_types import BuilderApiKeyCreds
+
+                    b_creds = BuilderApiKeyCreds(
+                        key=self.builder_key,
+                        secret=self.builder_secret,
+                        passphrase=self.builder_passphrase,
+                    )
+                    builder_config = BuilderConfig(local_builder_creds=b_creds)
+                    log.info("Polymarket Builder Signing SDK configured successfully.")
+                except Exception as b_err:
+                    log.warning(f"Could not initialize BuilderConfig: {b_err}")
+
             # Derive Level 2 API credentials deterministically from polygon private key
             c = ClobClient(
                 host=clob_host,
@@ -104,6 +120,7 @@ class PolymarketAutonomousExecutor:
                 key=self.private_key,
                 funder=self.proxy_address,
                 signature_type=2,
+                builder_config=builder_config,
             )
             derived_creds = c.create_or_derive_api_creds()
             c.set_api_creds(derived_creds)
@@ -403,10 +420,12 @@ class PolymarketAutonomousExecutor:
         scope: str = "full_game",
         requested_stake: Optional[float] = None,
         mock_book: Optional[Dict[str, Any]] = None,
+        order_type: str = "GTC",
     ) -> Dict[str, Any]:
         """Executes full 7-stage order lifecycle on Polymarket CLOB.
 
         STAGED -> SIGNED -> RELAYED -> OPEN / FILLED (or REJECTED).
+        Supports LIMIT_GTC, LIMIT_FOK, LIMIT_FAK, and MARKET_FOK.
         """
         now_iso = utcnow().isoformat()
         client_order_id = f"poly_{league.lower()}_{token_id[:8]}_{int(time.time()*1000)}"
@@ -555,20 +574,35 @@ class PolymarketAutonomousExecutor:
 
         # Live Execution via ClobClient
         try:
-            from py_clob_client.clob_types import OrderArgs
-
-            order_args = OrderArgs(
-                token_id=token_id,
-                price=round(preflight.eff_price, 2),
-                size=shares_count,
-                side="BUY" if side.upper() == "BUY" else "SELL",
-            )
+            from py_clob_client.clob_types import OrderArgs, MarketOrderArgs, OrderType
 
             # Stage 2: Signed
             self._update_order_status(client_order_id=client_order_id, status="signed")
 
-            # Stage 3: Relayed via gasless relayer
-            resp = self.client.create_and_post_order(order_args)
+            ot_upper = (order_type or "GTC").upper()
+            action_side = "BUY" if side.upper() in ("BUY", "OVER", "HOME", "YES") else "SELL"
+
+            if ot_upper == "MARKET":
+                market_args = MarketOrderArgs(
+                    token_id=token_id,
+                    amount=calibrated_stake,
+                    side=action_side,
+                    price=round(preflight.eff_price, 2),
+                    order_type=OrderType.FOK,
+                )
+                signed_order = self.client.create_market_order(market_args)
+                resp = self.client.post_order(signed_order, orderType=OrderType.FOK)
+            else:
+                order_args = OrderArgs(
+                    token_id=token_id,
+                    price=round(preflight.eff_price, 2),
+                    size=shares_count,
+                    side=action_side,
+                )
+                clob_ot = OrderType.FOK if ot_upper == "FOK" else (OrderType.FAK if ot_upper == "FAK" else OrderType.GTC)
+                signed_order = self.client.create_order(order_args)
+                resp = self.client.post_order(signed_order, orderType=clob_ot)
+
             poly_order_id = resp.get("orderID") or resp.get("id") or str(resp)
 
             status = "open"
@@ -696,11 +730,22 @@ class PolymarketAutonomousExecutor:
             except Exception:
                 cash_balance = 0.0
 
+        can_builder = False
+        if self.client and hasattr(self.client, "can_builder_auth"):
+            try:
+                can_builder = bool(self.client.can_builder_auth())
+            except Exception:
+                can_builder = False
+
         return {
             "channel": "polymarket_autonomous_parallel_executor",
             "active": True,
             "dry_run": self.dry_run,
             "authenticated": self.client is not None,
+            "builder_active": can_builder,
+            "builder_key_configured": bool(self.builder_key),
+            "relayer_configured": bool(self.relayer_api_key),
+            "supported_order_types": ["LIMIT_GTC", "LIMIT_FOK", "LIMIT_FAK", "MARKET_FOK"],
             "proxy_address": self.proxy_address,
             "total_orders": total_orders,
             "open_orders": open_orders,

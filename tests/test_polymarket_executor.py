@@ -383,3 +383,59 @@ def test_polymarket_data_api_oracle_settlement(test_env, monkeypatch):
         assert row["status"] == "won"
         assert row["pnl"] == 4.00
 
+
+def test_builder_and_order_types(test_env):
+    """Verifies that Builder API config and market/limit order types operate cleanly."""
+    pe = test_env["executor"]
+    status = pe.get_trader_status()
+
+    # Invariants on trader status
+    assert "supported_order_types" in status
+    assert "LIMIT_GTC" in status["supported_order_types"]
+    assert "LIMIT_FOK" in status["supported_order_types"]
+    assert "MARKET_FOK" in status["supported_order_types"]
+    assert "builder_key_configured" in status
+    assert "relayer_configured" in status
+
+    mock_book = {
+        "asks": [{"price": "0.55", "size": "150.0"}],
+        "bids": [{"price": "0.50", "size": "100.0"}],
+    }
+
+    # Submit with FOK order type
+    fok_res = pe.stage_and_submit_order(
+        league="NFL",
+        game_title="Chiefs vs Bills",
+        start_time="2026-11-01T23:00:00Z",
+        market_family="totals",
+        selection="Over 45.5",
+        side="over",
+        line=45.5,
+        token_id="tok_fok_test",
+        model_prob=0.70,
+        requested_stake=3.50,
+        mock_book=mock_book,
+        order_type="FOK",
+    )
+    assert fok_res["ok"] is True
+    assert fok_res["status"] == "filled"
+
+    # Submit with MARKET order type
+    market_res = pe.stage_and_submit_order(
+        league="NFL",
+        game_title="Chiefs vs Bills",
+        start_time="2026-11-01T23:00:00Z",
+        market_family="totals",
+        selection="Over 45.5",
+        side="over",
+        line=45.5,
+        token_id="tok_market_test",
+        model_prob=0.70,
+        requested_stake=3.50,
+        mock_book=mock_book,
+        order_type="MARKET",
+    )
+    assert market_res["ok"] is True
+    assert market_res["status"] == "filled"
+
+
