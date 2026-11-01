@@ -10,6 +10,7 @@ Validates:
 """
 import pytest
 import math
+from datetime import timedelta
 from betting_engine.polymarket_service import PolymarketService, _detect_market_scope
 from betting_engine.crucible_rules import evaluate_crucible_candidate
 from betting_engine.domain import utcnow, Game
@@ -23,7 +24,7 @@ def test_decision_engine_polymarket_reasons():
     g = SimpleNamespace(
         id="test_g_1",
         league="NFL",
-        start="2026-11-01T21:00:00Z",
+        start=(utcnow() + timedelta(hours=4)).isoformat(),
         home="Kansas City Chiefs",
         away="Las Vegas Raiders",
         state="scheduled",

@@ -460,6 +460,7 @@ async def polymarket_stage_order(request: Request):
         scope=body.get('scope', 'full_game'),
         requested_stake=float(body['requested_stake']) if body.get('requested_stake') is not None else None,
         order_type=body.get('order_type', 'GTC'),
+        require_tier_4=True,
     )
     return english_payload(res)
 

@@ -638,6 +638,7 @@ class PolymarketAutonomousExecutor:
         requested_stake: Optional[float] = None,
         mock_book: Optional[Dict[str, Any]] = None,
         order_type: str = "GTC",
+        require_tier_4: bool = False,
     ) -> Dict[str, Any]:
         """Executes full 7-stage order lifecycle on Polymarket CLOB.
 
@@ -647,12 +648,13 @@ class PolymarketAutonomousExecutor:
         now_iso = utcnow().isoformat()
         client_order_id = f"poly_{league.lower()}_{token_id[:8]}_{int(time.time()*1000)}"
 
-        # 1. Tier 3 Proven-Alpha Gate
+        # 1. Proven-Alpha Gate (Tier 4 when require_tier_4=True)
         is_eligible, elig_reason, stake_cap = self.is_market_eligible(
             league=league,
             scope=scope,
             market_family=market_family,
             line=line,
+            require_tier_4=require_tier_4,
         )
 
         if not is_eligible:

@@ -730,6 +730,7 @@ class PolymarketAutonomousRunner:
                     scope=best_cand["scope"],
                     requested_stake=best_cand["stake_cap"],
                     order_type="GTC",
+                    require_tier_4=self.require_tier_4,
                 )
 
                 if order_res.get("ok"):
