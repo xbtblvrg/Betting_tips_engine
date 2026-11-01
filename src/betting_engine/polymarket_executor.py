@@ -180,18 +180,24 @@ class PolymarketAutonomousExecutor:
                         created_at TEXT NOT NULL,
                         updated_at TEXT NOT NULL,
                         settled_at TEXT,
-                        execution_mode TEXT NOT NULL DEFAULT 'shadow'
+                        execution_mode TEXT NOT NULL DEFAULT 'shadow',
+                        scope TEXT NOT NULL DEFAULT 'full_game'
                     );
                     """
                 )
-                # Ensure execution_mode column exists in migrated tables
+                # Ensure execution_mode and scope columns exist in migrated tables
                 try:
                     conn.execute("ALTER TABLE polymarket_orders ADD COLUMN execution_mode TEXT NOT NULL DEFAULT 'shadow';")
+                except Exception:
+                    pass
+                try:
+                    conn.execute("ALTER TABLE polymarket_orders ADD COLUMN scope TEXT NOT NULL DEFAULT 'full_game';")
                 except Exception:
                     pass
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_poly_orders_league ON polymarket_orders(league);")
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_poly_orders_status ON polymarket_orders(status);")
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_poly_orders_mode ON polymarket_orders(execution_mode);")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_poly_orders_scope ON polymarket_orders(scope);")
         except Exception as exc:
             log.warning(f"Could not verify polymarket_orders table schema: {exc}")
 
@@ -529,6 +535,7 @@ class PolymarketAutonomousExecutor:
                 error_code="UNPROVEN_ON_POLYMARKET",
                 error_detail=elig_reason,
                 ai_remediation_hint="Enqueue in learning_jobs with CRITICAL_URGENT_POLYMARKET priority for Codex turnaround.",
+                scope=scope,
             )
             return {
                 "ok": False,
@@ -575,6 +582,7 @@ class PolymarketAutonomousExecutor:
                 error_code="PREFLIGHT_SLIPPAGE_REJECTED",
                 error_detail=preflight.reason,
                 ai_remediation_hint="Wait for CLOB depth refresh or re-quote next scan.",
+                scope=scope,
             )
             return {
                 "ok": False,
@@ -611,6 +619,7 @@ class PolymarketAutonomousExecutor:
             stake_usd=calibrated_stake,
             shares_count=shares_count,
             status="staged",
+            scope=scope,
         )
 
         # Stage 2: SIGNED & Stage 3: RELAYED / SUBMITTED
@@ -968,6 +977,7 @@ class PolymarketAutonomousExecutor:
         error_detail: Optional[str] = None,
         ai_remediation_hint: Optional[str] = None,
         execution_mode: str = "shadow",
+        scope: str = "full_game",
     ):
         """Atomically inserts/updates polymarket_orders and appends to jsonl log."""
         now_iso = utcnow().isoformat()
@@ -980,8 +990,8 @@ class PolymarketAutonomousExecutor:
                         market_family, selection, side, line, poly_price, poly_odds,
                         model_prob, expected_value, stake_usd, shares_count, status,
                         tx_hash, pnl, error_code, error_detail, ai_remediation_hint,
-                        created_at, updated_at, execution_mode
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        created_at, updated_at, execution_mode, scope
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(client_order_id) DO UPDATE SET
                         order_id=COALESCE(excluded.order_id, polymarket_orders.order_id),
                         status=excluded.status,
@@ -991,7 +1001,8 @@ class PolymarketAutonomousExecutor:
                         error_detail=COALESCE(excluded.error_detail, polymarket_orders.error_detail),
                         ai_remediation_hint=COALESCE(excluded.ai_remediation_hint, polymarket_orders.ai_remediation_hint),
                         updated_at=excluded.updated_at,
-                        execution_mode=excluded.execution_mode;
+                        execution_mode=excluded.execution_mode,
+                        scope=excluded.scope;
                     """,
                     (
                         order_id,
@@ -1019,6 +1030,7 @@ class PolymarketAutonomousExecutor:
                         now_iso,
                         now_iso,
                         execution_mode,
+                        scope,
                     ),
                 )
         except Exception as exc:
@@ -1047,6 +1059,7 @@ class PolymarketAutonomousExecutor:
             "error_code": error_code,
             "error_detail": error_detail,
             "execution_mode": execution_mode,
+            "scope": scope,
         }
         try:
             with open(self.log_path, "a", encoding="utf-8") as f:

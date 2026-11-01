@@ -84,11 +84,13 @@ class PolymarketAutonomousRunner:
         prioritizer: Optional[PolymarketRDPrioritizer] = None,
         service: Optional[PolymarketService] = None,
         db_path: Optional[Path] = None,
+        state_file: Optional[Path] = None,
         min_ev_hurdle: float = 0.025,
         execution_window_hours: float = 72.0,
         min_pregame_minutes: float = 10.0,
     ):
         self.db_path = Path(db_path) if db_path else (DATA / "engine.sqlite3")
+        self.state_file = Path(state_file) if state_file else RUNNER_STATE_FILE
         self.executor = executor or PolymarketAutonomousExecutor(db_path=self.db_path)
         self.settler = settler or PolymarketOutcomeSettler(db_path=self.db_path)
         self.line_evaluator = line_evaluator or ContinuousLineEvaluator()
@@ -348,13 +350,17 @@ class PolymarketAutonomousRunner:
                 break
 
             title = event.get("title", "")
+            title_lower = title.lower()
+            # Strictly skip player props events, individual player stat markets
+            if any(prop_kw in title_lower for prop_kw in ("player prop", "player props", "- props", "props -", "props", "touchdowns", "receptions", "passing")):
+                continue
+
             start_str = event.get("startTime") or event.get("startDate") or ""
             markets = event.get("markets", [])
 
             # Match league
             league = event.get("_league")
             if not league:
-                title_lower = title.lower()
                 for l in leagues:
                     if l.lower() in title_lower or any(l.lower() in m.get("question", "").lower() for m in markets):
                         league = l
@@ -377,6 +383,9 @@ class PolymarketAutonomousRunner:
                 tips=domain_tips,
             )
 
+            # Collect candidate bets for this event to select optimal line per group
+            event_candidates_by_group: Dict[Tuple[str, str, str], List[Dict[str, Any]]] = {}
+
             for market in markets:
                 if max_orders_per_cycle is not None and len(orders_placed) >= max_orders_per_cycle:
                     break
@@ -384,25 +393,33 @@ class PolymarketAutonomousRunner:
                 evaluated_markets_count += 1
                 q = market.get("question", "")
                 q_low = q.lower()
-                sports_type = (market.get("sportsMarketType") or "").lower()
+                sports_type = (market.get("sportsMarketType") or "").strip().lower()
 
                 # Deterministic Scope and Family resolution via Structured Taxonomy Map
                 scope = None
                 family = None
 
-                if sports_type in POLYMARKET_STRUCTURED_TYPE_MAP:
-                    scope, family = POLYMARKET_STRUCTURED_TYPE_MAP[sports_type]
-                elif q.strip().lower() == title.strip().lower() and not market.get("line"):
-                    scope, family = "full_game", "moneyline"
-                elif q_low.startswith("spread:") and market.get("line") is not None:
-                    scope, family = "full_game", "spreads"
-                elif ("over/under" in q_low or "o/u" in q_low) and market.get("line") is not None and not any(
-                    prop in q_low for prop in ("field goal", "touchdown", "points", "assist", "rebound", "strikeout", "yard", "pass", "rush", "corner", "team")
-                ):
-                    scope, family = "full_game", "totals"
+                if sports_type:
+                    if sports_type in POLYMARKET_STRUCTURED_TYPE_MAP:
+                        scope, family = POLYMARKET_STRUCTURED_TYPE_MAP[sports_type]
+                    else:
+                        # Polymarket provided a specific sportsMarketType that is not in our proven taxonomy
+                        # (e.g. passing_touchdowns, receptions, points, assists, rebounds, exact_margin, race_to_points)
+                        # Strictly skip without falling through to fuzzy regex!
+                        continue
                 else:
-                    # Unmodeled prop, player stat, exact margin, race to points, or team derivative -> strictly skip
-                    continue
+                    # Fallback text parsing ONLY when sportsMarketType is not provided
+                    if any(prop in q_low for prop in ("prop", "player", "touchdown", "reception", "pass", "rush", "assist", "rebound", "point", "yard", "strikeout", "tackle", "sack", "interception", "race to", "margin", "both teams to score", "first to", "team total")):
+                        continue
+                    if q.strip().lower() == title.strip().lower() and not market.get("line"):
+                        scope, family = "full_game", "moneyline"
+                    elif q_low.startswith("spread:") and market.get("line") is not None:
+                        scope, family = "full_game", "spreads"
+                    elif ("over/under" in q_low or "o/u" in q_low) and market.get("line") is not None:
+                        scope, family = "full_game", "totals"
+                    else:
+                        # Unmodeled prop, player stat, exact margin, race to points, or team derivative -> strictly skip
+                        continue
 
                 # Check Tier 3 eligibility gate
                 line_val = None
@@ -543,27 +560,54 @@ class PolymarketAutonomousRunner:
                         })
                         continue
 
-                    # Positive EV & Sufficient Depth -> Submit Order
-                    order_res = self.executor.stage_and_submit_order(
-                        league=league,
-                        game_title=title,
-                        start_time=start_str or now_iso,
-                        market_family=family,
-                        selection=outcome_label,
-                        side="BUY",
-                        line=line_val,
-                        token_id=token_id,
-                        model_prob=model_prob,
-                        scope=scope,
-                        requested_stake=stake_cap,
-                        order_type="GTC",
-                    )
+                    # Group candidate by (scope, family, side_key) to select optimal alpha line
+                    if family == "totals":
+                        side_key = "over" if ("over" in outcome_label.lower() or outcome_label == "Yes") else "under"
+                    elif family == "spreads":
+                        side_key = outcome_label.strip()
+                    else:
+                        side_key = outcome_label.strip()
 
-                    if order_res.get("ok"):
-                        order_res["token_id"] = token_id
-                        orders_placed.append(order_res)
-                        traded_tokens.add(token_id)
-                        log.info(f"[AUTONOMOUS RUNNER] Placed Polymarket Order: {order_res.get('client_order_id')}")
+                    group_key = (scope, family, side_key)
+                    event_candidates_by_group.setdefault(group_key, []).append({
+                        "token_id": token_id,
+                        "line": line_val,
+                        "selection": outcome_label,
+                        "model_prob": model_prob,
+                        "ev": preflight.ev,
+                        "preflight": preflight,
+                        "stake_cap": stake_cap,
+                        "scope": scope,
+                        "family": family,
+                    })
+
+            # Submit only the single highest-EV optimal line per (scope, family, side_key)
+            for (grp_scope, grp_family, grp_side), cands in event_candidates_by_group.items():
+                if max_orders_per_cycle is not None and len(orders_placed) >= max_orders_per_cycle:
+                    break
+
+                best_cand = max(cands, key=lambda c: c["ev"])
+
+                order_res = self.executor.stage_and_submit_order(
+                    league=league,
+                    game_title=title,
+                    start_time=start_str or now_iso,
+                    market_family=best_cand["family"],
+                    selection=best_cand["selection"],
+                    side="BUY",
+                    line=best_cand["line"],
+                    token_id=best_cand["token_id"],
+                    model_prob=best_cand["model_prob"],
+                    scope=best_cand["scope"],
+                    requested_stake=best_cand["stake_cap"],
+                    order_type="GTC",
+                )
+
+                if order_res.get("ok"):
+                    order_res["token_id"] = best_cand["token_id"]
+                    orders_placed.append(order_res)
+                    traded_tokens.add(best_cand["token_id"])
+                    log.info(f"[AUTONOMOUS RUNNER] Placed Polymarket Order: {order_res.get('client_order_id')} ({title} {best_cand['selection']} line={best_cand['line']} EV=+{best_cand['ev']*100:.1f}%)")
 
         # 2. Trigger Outcome Settlement & Token Auto-Redemption
         settle_res = self.settler.settle_orders()
@@ -583,7 +627,8 @@ class PolymarketAutonomousRunner:
 
         # Persist runner state
         try:
-            with open(RUNNER_STATE_FILE, "w", encoding="utf-8") as f:
+            self.state_file.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.state_file, "w", encoding="utf-8") as f:
                 json.dump(result, f, indent=2)
         except Exception as exc:
             log.warning(f"Could not persist runner state: {exc}")
@@ -593,9 +638,9 @@ class PolymarketAutonomousRunner:
     def get_runner_status(self) -> Dict[str, Any]:
         """Provides status of the background execution runner."""
         last_state = {}
-        if RUNNER_STATE_FILE.exists():
+        if self.state_file.exists():
             try:
-                with open(RUNNER_STATE_FILE, "r", encoding="utf-8") as f:
+                with open(self.state_file, "r", encoding="utf-8") as f:
                     last_state = json.load(f)
             except Exception:
                 pass

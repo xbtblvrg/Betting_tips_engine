@@ -14,11 +14,12 @@ from betting_engine.storage import Store
 def runner_env(tmp_path):
     db_path = tmp_path / "test_engine.sqlite3"
     log_path = tmp_path / "polymarket_orders.jsonl"
+    state_path = tmp_path / "polymarket_runner_state.json"
     store = Store(db_path)
 
     executor = PolymarketAutonomousExecutor(db_path=db_path, log_path=log_path, dry_run=True)
     settler = PolymarketOutcomeSettler(db_path=db_path, log_path=log_path)
-    runner = PolymarketAutonomousRunner(executor=executor, settler=settler, db_path=db_path)
+    runner = PolymarketAutonomousRunner(executor=executor, settler=settler, db_path=db_path, state_file=state_path)
 
     return {
         "runner": runner,
@@ -26,6 +27,7 @@ def runner_env(tmp_path):
         "settler": settler,
         "db_path": db_path,
         "log_path": log_path,
+        "state_path": state_path,
     }
 
 
@@ -209,3 +211,77 @@ def test_structured_taxonomy_type_mapping_and_rejection(runner_env):
     res = runner.run_execution_cycle(leagues=("NFL",), mock_events=mock_events)
     # None of these unmodeled markets should be executed!
     assert res["orders_placed_count"] == 0
+
+
+def test_optimal_line_selection_and_player_props_rejection(runner_env):
+    """Verifies that multi-line alternative contracts pick the single highest-EV line and reject player props."""
+    runner = runner_env["runner"]
+    db_path = runner_env["db_path"]
+
+    mock_events = [
+        # Event 1: Player props event -> must be completely skipped
+        {
+            "title": "Falcons vs. Buccaneers - Player Props",
+            "startDate": "2026-11-01T23:00:00Z",
+            "markets": [
+                {
+                    "question": "Bijan Robinson: Receptions O/U 2.5",
+                    "sportsMarketType": "receptions",
+                    "line": 2.5,
+                    "clobTokenIds": ["tok_bijan_over", "tok_bijan_under"],
+                    "outcomes": ["Over", "Under"],
+                    "outcomePrices": ["0.45", "0.55"],
+                }
+            ],
+            "tags": [{"label": "NFL"}],
+        },
+        # Event 2: Game with 3 alternative total lines -> must select ONLY the single highest-EV line
+        {
+            "title": "Detroit Lions vs Chicago Bears",
+            "startDate": "2026-11-01T23:00:00Z",
+            "markets": [
+                {
+                    "question": "Lions vs Bears: O/U 45.5",
+                    "sportsMarketType": "totals",
+                    "line": 45.5,
+                    "clobTokenIds": ["tok_tot_45_over", "tok_tot_45_under"],
+                    "outcomes": ["Over", "Under"],
+                    "outcomePrices": ["0.55", "0.45"],  # Lower EV for Over
+                },
+                {
+                    "question": "Lions vs Bears: O/U 48.5",
+                    "sportsMarketType": "totals",
+                    "line": 48.5,
+                    "clobTokenIds": ["tok_tot_48_over", "tok_tot_48_under"],
+                    "outcomes": ["Over", "Under"],
+                    "outcomePrices": ["0.40", "0.60"],  # Higher EV for Over! (model_prob ~ 0.50 -> EV = 0.50/0.40 - 1 = +25%)
+                },
+                {
+                    "question": "Lions vs Bears: O/U 51.5",
+                    "sportsMarketType": "totals",
+                    "line": 51.5,
+                    "clobTokenIds": ["tok_tot_51_over", "tok_tot_51_under"],
+                    "outcomes": ["Over", "Under"],
+                    "outcomePrices": ["0.50", "0.50"],  # Moderate EV
+                }
+            ],
+            "tags": [{"label": "NFL"}],
+        }
+    ]
+
+    res = runner.run_execution_cycle(leagues=("NFL",), mock_events=mock_events)
+
+    # 1. Player props were NOT executed (0 from event 1)
+    # 2. From event 2, only 1 optimal Over order was placed (NOT 3 orders!)
+    placed = res["orders_placed"]
+    over_orders = [o for o in placed if o.get("token_id") in ("tok_tot_45_over", "tok_tot_48_over", "tok_tot_51_over")]
+    assert len(over_orders) == 1
+    # Must have selected the highest-EV contract
+    assert over_orders[0]["token_id"] == "tok_tot_45_over"
+
+    # Verify scope column in SQLite
+    with sqlite3.connect(db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute("SELECT * FROM polymarket_orders WHERE token_id = ?", ("tok_tot_45_over",)).fetchone()
+        assert row is not None
+        assert row["scope"] == "full_game"
