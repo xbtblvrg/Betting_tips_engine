@@ -68,11 +68,11 @@ def test_gamma_resolution_win_loss_push(settlement_db, monkeypatch):
 
     def mock_fetch_gamma(token_id):
         if token_id == "tok_win":
-            return {"closed": True, "token_price": 1.0, "question": "Celtics -2.5"}
+            return {"closed": True, "resolved": True, "token_price": 1.0, "question": "Celtics -2.5"}
         elif token_id == "tok_loss":
-            return {"closed": True, "token_price": 0.0, "question": "Over 220.5"}
+            return {"closed": True, "resolved": True, "token_price": 0.0, "question": "Over 220.5"}
         elif token_id == "tok_push":
-            return {"closed": True, "token_price": 0.5, "question": "Chiefs -3"}
+            return {"closed": True, "resolved": True, "token_price": 0.5, "question": "Chiefs -3"}
         return None
 
     monkeypatch.setattr(settler, "fetch_gamma_market_resolution", mock_fetch_gamma)
@@ -124,3 +124,33 @@ def test_gamma_resolution_future_game_skipped(settlement_db, monkeypatch):
     res = settler.settle_orders()
     assert res["settled_count"] == 0
     assert len(called_tokens) == 0  # Not called because game is in the future!
+
+
+def test_gamma_resolution_closed_but_unresolved_skipped(settlement_db, monkeypatch):
+    """Verifies that closed markets without oracle resolution (prices=['0', '0']) are NOT settled as losses."""
+    past_time = (utcnow() - timedelta(hours=1)).isoformat()
+    with sqlite3.connect(settlement_db) as conn:
+        conn.execute("""
+            INSERT INTO polymarket_orders (client_order_id, token_id, game_title, start_time, market_family, selection, stake_usd, shares_count, status)
+            VALUES ('ord_unresolved', 'tok_unres', 'Celtics vs Magic', ?, 'spreads', 'Celtics', 5.0, 10.0, 'filled');
+        """, (past_time,))
+
+    settler = PolymarketOutcomeSettler(db_path=settlement_db)
+
+    # Mock Gamma returning closed=True but resolved=False (prices=['0', '0'])
+    def mock_fetch_gamma(token_id):
+        return {"closed": True, "resolved": False}
+
+    monkeypatch.setattr(settler, "fetch_gamma_market_resolution", mock_fetch_gamma)
+    monkeypatch.setattr(settler, "fetch_polymarket_positions", lambda: {})
+
+    res = settler.settle_orders()
+    # Must NOT settle as lost! Must remain filled and unsettled!
+    assert res["settled_count"] == 0
+
+    with sqlite3.connect(settlement_db) as conn:
+        conn.row_factory = sqlite3.Row
+        r = conn.execute("SELECT * FROM polymarket_orders WHERE client_order_id = 'ord_unresolved'").fetchone()
+        assert r["status"] == "filled"
+        assert r["settled_at"] is None
+        assert r["pnl"] is None

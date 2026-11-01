@@ -316,3 +316,7 @@ def test_optimal_line_selection_and_player_props_rejection(runner_env):
         row = conn.execute("SELECT * FROM polymarket_orders WHERE token_id = ?", ("tok_tot_45_over",)).fetchone()
         assert row is not None
         assert row["scope"] == "full_game"
+
+    # Multi-cycle Invariant: Cycle 2 must NOT drain the ladder by placing the 2nd best line!
+    res2 = runner.run_execution_cycle(leagues=("NFL",), mock_events=mock_events)
+    assert res2["orders_placed_count"] == 0

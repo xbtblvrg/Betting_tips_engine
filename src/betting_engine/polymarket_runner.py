@@ -118,6 +118,21 @@ class PolymarketAutonomousRunner:
             log.warning(f"Could not read existing polymarket orders: {exc}")
             return set()
 
+    def _get_active_market_groups(self) -> Set[Tuple[str, str, str]]:
+        """Returns set of (game_title, scope, market_family) tuples already traded to prevent ladder depletion."""
+        if not self.db_path.exists():
+            return set()
+        try:
+            with sqlite3.connect(self.db_path, timeout=5) as conn:
+                cur = conn.cursor()
+                rows = cur.execute(
+                    "SELECT game_title, scope, market_family FROM polymarket_orders WHERE status IN ('open', 'filled', 'staged', 'signed', 'relayed')"
+                ).fetchall()
+                return {(r[0], (r[1] or "full_game").lower(), r[2]) for r in rows if r[0] and r[2]}
+        except Exception as exc:
+            log.warning(f"Could not read existing polymarket market groups: {exc}")
+            return set()
+
     def _load_domain_tips(self, leagues: Optional[Tuple[str, ...]] = None) -> List[Dict[str, Any]]:
         """Loads recent calibrated domain model tips from SQLite."""
         if not self.db_path.exists():
@@ -279,6 +294,7 @@ class PolymarketAutonomousRunner:
         cycle_start = time.time()
 
         traded_tokens = self._get_active_tokens_already_traded()
+        traded_market_groups = self._get_active_market_groups()
         domain_tips = self._load_domain_tips(leagues=leagues)
         orders_placed: List[Dict[str, Any]] = []
         rejected_candidates: List[Dict[str, Any]] = []
@@ -448,6 +464,11 @@ class PolymarketAutonomousRunner:
                 )
 
                 if not is_eligible:
+                    continue
+
+                # Single optimal line invariant: Check if this market group (game, scope, family) is already active
+                market_group_key = (title, scope.lower(), family)
+                if market_group_key in traded_market_groups:
                     continue
 
                 clob_token_ids = market.get("clobTokenIds") or []
@@ -658,6 +679,7 @@ class PolymarketAutonomousRunner:
                     order_res["token_id"] = best_cand["token_id"]
                     orders_placed.append(order_res)
                     traded_tokens.add(best_cand["token_id"])
+                    traded_market_groups.add((title, best_cand["scope"].lower(), best_cand["family"]))
                     log.info(f"[AUTONOMOUS RUNNER] Placed Polymarket Order: {order_res.get('client_order_id')} ({title} {best_cand['selection']} line={best_cand['line']} EV=+{best_cand['ev']*100:.1f}%)")
 
         # 2. Trigger Outcome Settlement & Token Auto-Redemption

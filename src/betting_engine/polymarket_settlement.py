@@ -119,17 +119,35 @@ class PolymarketOutcomeSettler:
                 raw_prices = m.get("outcomePrices")
                 prices = json.loads(raw_prices) if isinstance(raw_prices, str) else (raw_prices or [])
 
+                parsed_prices = []
+                for p in prices:
+                    try:
+                        parsed_prices.append(float(p))
+                    except (ValueError, TypeError):
+                        pass
+
+                # Anti-False-Loss Guard: Verify the market is officially resolved by the oracle.
+                # A resolved market has at least one winning outcome (>= 0.98), or a confirmed push (both ~0.50).
+                # If outcomePrices is ["0", "0"] or sum is near 0, trading has halted but oracle has NOT resolved yet!
+                max_p = max(parsed_prices) if parsed_prices else 0.0
+                is_resolved = False
+                if max_p >= 0.98:
+                    is_resolved = True
+                elif len(parsed_prices) >= 2 and all(0.45 <= p <= 0.55 for p in parsed_prices[:2]):
+                    is_resolved = True
+
+                if not is_resolved:
+                    return {"closed": True, "resolved": False}
+
                 token_price = None
                 if token_id in tokens:
                     idx = tokens.index(token_id)
-                    if idx < len(prices):
-                        try:
-                            token_price = float(prices[idx])
-                        except (ValueError, TypeError):
-                            token_price = None
+                    if idx < len(parsed_prices):
+                        token_price = parsed_prices[idx]
 
                 return {
                     "closed": True,
+                    "resolved": True,
                     "token_price": token_price,
                     "question": m.get("question"),
                 }
@@ -239,7 +257,7 @@ class PolymarketOutcomeSettler:
                             if token_id not in gamma_res_cache:
                                 gamma_res_cache[token_id] = self.fetch_gamma_market_resolution(token_id)
                             gamma_res = gamma_res_cache[token_id]
-                            if gamma_res and gamma_res.get("closed"):
+                            if gamma_res and gamma_res.get("closed") and gamma_res.get("resolved") is not False:
                                 outcome_price = gamma_res.get("token_price")
                                 if outcome_price is not None:
                                     if outcome_price >= 0.99:
