@@ -29,6 +29,49 @@ log = logging.getLogger(__name__)
 
 RUNNER_STATE_FILE = DATA / "polymarket_runner_state.json"
 
+# Explicit Canonical Taxonomy Mapping for Polymarket Gamma API sportsMarketType
+POLYMARKET_STRUCTURED_TYPE_MAP: Dict[str, Tuple[str, str]] = {
+    # Full Game Main Markets
+    "moneyline": ("full_game", "moneyline"),
+    "spreads": ("full_game", "spreads"),
+    "totals": ("full_game", "totals"),
+    "tennis_game_handicap": ("full_game", "spreads"),
+    "tennis_match_totals": ("full_game", "totals"),
+    "both_teams_to_score": ("full_game", "both_score"),
+
+    # First Half Main Markets
+    "first_half_moneyline": ("half_1", "moneyline"),
+    "first_half_spreads": ("half_1", "spreads"),
+    "first_half_totals": ("half_1", "totals"),
+    "both_teams_to_score_first_half": ("half_1", "both_score"),
+
+    # Second Half Main Markets
+    "second_half_moneyline": ("half_2", "moneyline"),
+    "second_half_spreads": ("half_2", "spreads"),
+    "second_half_totals": ("half_2", "totals"),
+    "both_teams_to_score_second_half": ("half_2", "both_score"),
+
+    # Quarters (NBA & NFL)
+    "q1_moneyline": ("quarter_1", "moneyline"),
+    "q1_spreads": ("quarter_1", "spreads"),
+    "q1_totals": ("quarter_1", "totals"),
+    "q2_moneyline": ("quarter_2", "moneyline"),
+    "q2_spreads": ("quarter_2", "spreads"),
+    "q2_totals": ("quarter_2", "totals"),
+    "q3_moneyline": ("quarter_3", "moneyline"),
+    "q3_spreads": ("quarter_3", "spreads"),
+    "q3_totals": ("quarter_3", "totals"),
+    "q4_moneyline": ("quarter_4", "moneyline"),
+    "q4_spreads": ("quarter_4", "spreads"),
+    "q4_totals": ("quarter_4", "totals"),
+
+    # Tennis Sets (ATP & WTA)
+    "tennis_first_set_winner": ("period_1", "moneyline"),
+    "tennis_first_set_totals": ("period_1", "totals"),
+    "tennis_set_handicap": ("full_game", "spreads"),
+    "tennis_set_totals": ("full_game", "totals"),
+}
+
 
 class PolymarketAutonomousRunner:
     """Autonomous Background Loop executing trades on Polymarket CLOB."""
@@ -106,8 +149,20 @@ class PolymarketAutonomousRunner:
         """
         import math
 
-        t_names = [t.get("name", "").lower() for t in teams if isinstance(t, dict)]
-        t_abbr = [t.get("abbreviation", "").lower() for t in teams if isinstance(t, dict)]
+        t_names = []
+        poly_home_team = None
+        poly_away_team = None
+        for t in teams:
+            if isinstance(t, dict):
+                if t.get("name"):
+                    t_names.append(t["name"].lower())
+                if t.get("alias"):
+                    t_names.append(t["alias"].lower())
+                if t.get("ordering") == "home":
+                    poly_home_team = t.get("name") or t.get("alias")
+                elif t.get("ordering") == "away":
+                    poly_away_team = t.get("name") or t.get("alias")
+        t_abbr = [t.get("abbreviation", "").lower() for t in teams if isinstance(t, dict) and t.get("abbreviation")]
 
         matched_tips = []
         for tip in tips:
@@ -192,8 +247,10 @@ class PolymarketAutonomousRunner:
             "proj_total": proj_total,
             "proj_spread": proj_spread,
             "home_prob": home_prob,
-            "home_name": home_name,
-            "away_name": away_name,
+            "home_name": home_name or poly_home_team or "",
+            "away_name": away_name or poly_away_team or "",
+            "poly_home_team": poly_home_team,
+            "poly_away_team": poly_away_team,
         }
 
     def run_execution_cycle(
@@ -329,37 +386,23 @@ class PolymarketAutonomousRunner:
                 q_low = q.lower()
                 sports_type = (market.get("sportsMarketType") or "").lower()
 
-                # Map market family and scope strictly (Reject props, margins, races)
+                # Deterministic Scope and Family resolution via Structured Taxonomy Map
+                scope = None
                 family = None
-                if "total" in sports_type or "over" in q_low or "under" in q_low:
-                    # Exclude player props like "Assists O/U" or "Points O/U"
-                    if any(prop in q_low for prop in ("points", "assists", "rebounds", "strikeouts", "yards", "passing", "rushing")):
-                        continue
-                    family = "totals"
-                elif "spread" in sports_type or "handicap" in q_low:
-                    family = "spreads"
-                elif sports_type in ("moneyline", "winner", "h2h", "head_to_head") or (
-                    q.strip().lower() == title.strip().lower() and not market.get("line")
-                ):
-                    family = "moneyline"
-                else:
-                    # Player props, margins, races, etc. -> Skip until calibrated domain model exists
-                    continue
 
-                scope = "full_game"
-                q_low = q.lower()
-                if "1st half" in q_low or "half 1" in q_low or "first half" in q_low:
-                    scope = "half_1"
-                elif "2nd half" in q_low or "half 2" in q_low or "second half" in q_low:
-                    scope = "half_2"
-                elif "1st quarter" in q_low or "quarter 1" in q_low or "first quarter" in q_low:
-                    scope = "quarter_1"
-                elif "2nd quarter" in q_low or "quarter 2" in q_low:
-                    scope = "quarter_2"
-                elif "3rd quarter" in q_low or "quarter 3" in q_low:
-                    scope = "quarter_3"
-                elif "4th quarter" in q_low or "quarter 4" in q_low:
-                    scope = "quarter_4"
+                if sports_type in POLYMARKET_STRUCTURED_TYPE_MAP:
+                    scope, family = POLYMARKET_STRUCTURED_TYPE_MAP[sports_type]
+                elif q.strip().lower() == title.strip().lower() and not market.get("line"):
+                    scope, family = "full_game", "moneyline"
+                elif q_low.startswith("spread:") and market.get("line") is not None:
+                    scope, family = "full_game", "spreads"
+                elif ("over/under" in q_low or "o/u" in q_low) and market.get("line") is not None and not any(
+                    prop in q_low for prop in ("field goal", "touchdown", "points", "assist", "rebound", "strikeout", "yard", "pass", "rush", "corner", "team")
+                ):
+                    scope, family = "full_game", "totals"
+                else:
+                    # Unmodeled prop, player stat, exact margin, race to points, or team derivative -> strictly skip
+                    continue
 
                 # Check Tier 3 eligibility gate
                 line_val = None

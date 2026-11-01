@@ -158,3 +158,54 @@ def test_forecast_lookup_normal_cdf_fallback(runner_env):
     # proj_h=28, proj_a=21 -> diff = +7. sigma = 13.86.
     # home_prob = Phi(7 / 13.86) ~ 0.693. Must definitely be > 0.60 and NOT 0.52!
     assert 0.65 < fc["home_prob"] < 0.75
+
+
+def test_structured_taxonomy_type_mapping_and_rejection(runner_env):
+    """Verifies that Polymarket structured taxonomy maps valid contracts and rejects unmodeled props."""
+    runner = runner_env["runner"]
+    from betting_engine.polymarket_runner import POLYMARKET_STRUCTURED_TYPE_MAP
+
+    # 1. Verify structured mappings for main sports
+    assert POLYMARKET_STRUCTURED_TYPE_MAP["moneyline"] == ("full_game", "moneyline")
+    assert POLYMARKET_STRUCTURED_TYPE_MAP["spreads"] == ("full_game", "spreads")
+    assert POLYMARKET_STRUCTURED_TYPE_MAP["totals"] == ("full_game", "totals")
+    assert POLYMARKET_STRUCTURED_TYPE_MAP["q1_spreads"] == ("quarter_1", "spreads")
+    assert POLYMARKET_STRUCTURED_TYPE_MAP["first_half_totals"] == ("half_1", "totals")
+
+    # 2. Verify runner rejects unmodeled props in execution cycle
+    mock_events = [
+        {
+            "title": "Bills vs Ravens",
+            "startDate": "2026-11-01T23:00:00Z",
+            "markets": [
+                {
+                    "question": "Lamar Jackson Passing Yards O/U 210.5",
+                    "sportsMarketType": "passing_yards",
+                    "line": 210.5,
+                    "clobTokenIds": ["tok_lamar_pass_over", "tok_lamar_pass_under"],
+                    "outcomes": ["Over", "Under"],
+                    "outcomePrices": ["0.50", "0.50"],
+                },
+                {
+                    "question": "Bills Field Goals Made O/U 1.5",
+                    "sportsMarketType": "football_team_total_field_goals_made",
+                    "line": 1.5,
+                    "clobTokenIds": ["tok_fg_over", "tok_fg_under"],
+                    "outcomes": ["Over", "Under"],
+                    "outcomePrices": ["0.50", "0.50"],
+                },
+                {
+                    "question": "Bills vs Ravens: Exact Margin",
+                    "sportsMarketType": "exact_margin",
+                    "clobTokenIds": ["tok_margin_1", "tok_margin_2"],
+                    "outcomes": ["Bills 1-6", "Ravens 1-6"],
+                    "outcomePrices": ["0.20", "0.20"],
+                }
+            ],
+            "tags": [{"label": "NFL"}],
+        }
+    ]
+
+    res = runner.run_execution_cycle(leagues=("NFL",), mock_events=mock_events)
+    # None of these unmodeled markets should be executed!
+    assert res["orders_placed_count"] == 0
