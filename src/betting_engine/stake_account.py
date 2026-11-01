@@ -2685,7 +2685,7 @@ def stage_betslip_in_safari(
                     if db_path.exists():
                         with sqlite3.connect(db_path) as job_conn:
                             j_cur = job_conn.cursor()
-                            job_id = f"repair_{tip_id}_{int(time.time()*1000)}"
+                            job_id = f"repair_selector_{tip_id}"
                             j_payload = json.dumps({
                                 "tip_id": tip_id,
                                 "event_url": clean_url,
