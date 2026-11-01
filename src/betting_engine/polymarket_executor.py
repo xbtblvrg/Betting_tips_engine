@@ -272,7 +272,7 @@ class PolymarketAutonomousExecutor:
                 book = svc.get_clob_book(token_id)
 
         # In dry run mode with test tokens, provide synthetic liquidity if empty
-        if (not book or not isinstance(book, dict)) and self.dry_run and (token_id.startswith("test_") or "mock" in token_id):
+        if (not book or not isinstance(book, dict)) and self.dry_run and (token_id.startswith("test_") or token_id.startswith("tok_") or "mock" in token_id):
             book = {
                 "asks": [{"price": "0.50", "size": "100.0"}, {"price": "0.52", "size": "200.0"}],
                 "bids": [{"price": "0.48", "size": "100.0"}],

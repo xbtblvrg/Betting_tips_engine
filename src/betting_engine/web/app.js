@@ -11,7 +11,7 @@ const stakeStr=(v,def)=>{const val=v!=null?v:def;return Number.isInteger(val)?St
 const minOdds=v=>Number.isFinite(v)?(Math.ceil((v-Number.EPSILON)*100)/100).toFixed(2):'—';
 const when=v=>v?new Intl.DateTimeFormat('en-GB',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',timeZone:'Europe/Budapest'}).format(new Date(v)):'—';
 const localDay=d=>new Intl.DateTimeFormat('en-CA',{year:'numeric',month:'2-digit',day:'2-digit',timeZone:'Europe/Budapest'}).format(d);
-const title={research:'Research and Coverage',tips:'Betting Picks',games:'Schedule',models:'Model Performance',ledger:'Bet Tracker',sizing:'Stake Sizing',statistics:'Statistics',rd:'Autonomous Quant R&D Live',stake_account:'Stake Live Account',settings:'Settings'};
+const title={research:'Research and Coverage',tips:'Betting Picks',games:'Schedule',models:'Model Performance',ledger:'Bet Tracker',sizing:'Stake Sizing',statistics:'Statistics',rd:'Autonomous Quant R&D Live',stake_account:'Stake Live Account',polymarket:'Polymarket Desk',settings:'Settings'};
 const marketName={three_way:'1x2','1x2':'1x2',moneyline:'Winner',spreads:'Handicap',totals:'Total',home_total:'Home Team Total',away_total:'Away Team Total',both_score:'Both Teams to Score',double_chance:'Double Chance',odd_even:'Odd/Even',winner_total:'1x2 & Total',exact_score:'Correct Score'};
 function stakeNavigation(t){
  // Old recorded bets keep their original payload. Exact-selection navigation
@@ -3039,6 +3039,201 @@ function bindStakeAccountActions(){
  }
 }
 
+let polymarketDeskData = null;
+let polymarketOrdersData = null;
+let polymarketPrioritiesData = null;
+let polymarketFlight = null;
+
+async function loadPolymarketDesk() {
+ if (view !== 'polymarket') return;
+ if (polymarketFlight) return polymarketFlight;
+ polymarketFlight = (async () => {
+  try {
+   const [rStat, rOrders, rPriorities] = await Promise.all([
+    fetch('/api/polymarket/trader/status'),
+    fetch('/api/polymarket/trader/orders'),
+    fetch('/api/polymarket/rd-priorities'),
+   ]);
+   polymarketDeskData = await rStat.json();
+   polymarketOrdersData = await rOrders.json();
+   polymarketPrioritiesData = await rPriorities.json();
+   if (view === 'polymarket') renderPolymarketDesk();
+  } catch (e) {
+   if (view === 'polymarket') toast('Polymarket Desk: ' + e.message);
+  } finally {
+   polymarketFlight = null;
+  }
+ })();
+ return polymarketFlight;
+}
+
+function renderPolymarketDesk() {
+ if (view !== 'polymarket') return;
+ const d = polymarketDeskData || {};
+ const orders = polymarketOrdersData?.orders || [];
+ const prio = polymarketPrioritiesData || {};
+
+ const bBadge = $('#poly-builder-badge');
+ if (bBadge) {
+  bBadge.textContent = d.builder_active ? 'Builder SDK: Active' : (d.builder_key_configured ? 'Builder Configured' : 'Builder Standby');
+  bBadge.className = d.builder_active ? 'badge positive' : 'badge muted';
+ }
+ const rBadge = $('#poly-relayer-badge');
+ if (rBadge) {
+  rBadge.textContent = d.relayer_configured ? 'Gasless Relayer: Ready' : 'Relayer Standby';
+  rBadge.className = d.relayer_configured ? 'badge positive' : 'badge muted';
+ }
+
+ const usdcBal = Number(d.collateral_balance_usdc || 0);
+ if ($('#poly-usdc-balance')) $('#poly-usdc-balance').textContent = '$' + usdcBal.toFixed(2);
+ if ($('#poly-proxy-sub')) {
+  const p = d.proxy_address || '';
+  $('#poly-proxy-sub').textContent = p ? (p.slice(0, 6) + '...' + p.slice(-4)) : 'Polygon Mainnet';
+ }
+ if ($('#poly-realized-pnl')) {
+  const pnl = Number(d.realized_pnl || 0);
+  $('#poly-realized-pnl').textContent = (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2);
+  $('#poly-realized-pnl').style.color = pnl >= 0 ? 'var(--green)' : 'var(--red, #dc2626)';
+ }
+ if ($('#poly-total-orders')) $('#poly-total-orders').textContent = d.total_orders || 0;
+ if ($('#poly-orders-breakdown')) {
+  $('#poly-orders-breakdown').textContent = `${d.filled_orders || 0} filled · ${d.open_orders || 0} open · ${d.rejected_orders || 0} rejected`;
+ }
+ if ($('#poly-proven-count')) $('#poly-proven-count').textContent = prio.proven_active_count ?? (prio.proven_markets?.length ?? 3);
+ if ($('#poly-gaps-count')) $('#poly-gaps-count').textContent = prio.unproven_gaps_count ?? (prio.unproven_gaps?.length ?? 25);
+ if ($('#poly-orders-count-badge')) $('#poly-orders-count-badge').textContent = `${orders.length} Orders Recorded`;
+
+ const alertBox = $('#poly-funding-alert');
+ if (alertBox) {
+  if (usdcBal <= 0.05) {
+   alertBox.style.display = 'block';
+   alertBox.innerHTML = `
+    <div style="display:flex;align-items:flex-start;gap:12px">
+     <span style="font-size:20px;line-height:1">⚠️</span>
+     <div>
+      <strong style="color:#991b1b;font-size:13px">Polymarket Collateral Alert: Low USDC Balance ($${usdcBal.toFixed(2)})</strong>
+      <p style="margin:4px 0 0 0;font-size:12px;color:#b91c1c;line-height:1.4">
+       <strong>${prio.proven_active_count ?? 3} Proven Tier 3 Markets</strong> (NBA Spreads/Totals, NFL Totals) are active and eligible for automated execution.
+       To enable live fills, fund your Polygon proxy wallet: <code style="background:#fee2e2;padding:2px 6px;border-radius:4px;font-family:var(--mono);font-size:11px">${d.proxy_address || '0xee888fa7b96007f7fa270988e92bddb0ae19ed10'}</code> with USDC on Polygon PoS.
+      </p>
+     </div>
+    </div>
+   `;
+  } else {
+   alertBox.style.display = 'none';
+  }
+ }
+
+ const tbody = $('#poly-orders-tbody');
+ if (tbody) {
+  if (!orders.length) {
+   tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">No orders placed yet. Run an autonomous cycle or wait for pre-game trigger.</td></tr>';
+  } else {
+   tbody.innerHTML = orders.map(o => {
+    const timeStr = when(o.created_at || o.timestamp);
+    const stBadge = o.status === 'filled' || o.status === 'won' ? '<span class="badge positive">'+esc(o.status)+'</span>' :
+                    o.status === 'open' ? '<span class="badge" style="background:#dbeafe;color:#1e40af">open</span>' :
+                    o.status === 'lost' ? '<span class="badge" style="background:#fee2e2;color:#991b1b">lost</span>' :
+                    '<span class="badge muted">'+esc(o.status || 'staged')+'</span>';
+    const pnlStr = o.pnl != null ? ((o.pnl >= 0 ? '+$' : '-$') + Math.abs(o.pnl).toFixed(2)) : (o.tx_hash ? esc(o.tx_hash.slice(0, 8) + '...') : '—');
+    return `<tr>
+     <td>${timeStr}</td>
+     <td><strong>${esc(o.league)}</strong> ${esc(o.game_title || '—')}</td>
+     <td><strong>${esc(o.selection || o.market_family)}</strong></td>
+     <td>${Number(o.poly_price || o.price || 0).toFixed(3)} (${Number(o.poly_odds || o.odds || 0).toFixed(2)})</td>
+     <td>+${(Number(o.expected_value || o.ev || 0) * 100).toFixed(1)}%</td>
+     <td>$${Number(o.stake_usd || o.stake || 0).toFixed(2)}</td>
+     <td>${Number(o.shares_count || o.shares || 0).toFixed(1)}</td>
+     <td>${stBadge}</td>
+     <td>${pnlStr}</td>
+    </tr>`;
+   }).join('');
+  }
+ }
+
+ const mbody = $('#poly-matrix-tbody');
+ if (mbody) {
+  const proven = prio.proven_markets || [];
+  const gaps = prio.unproven_gaps || [];
+  const allItems = [
+   ...proven.map(p => ({ ...p, is_proven: true })),
+   ...gaps.slice(0, 15).map(g => ({ ...g, is_proven: false })),
+  ];
+  if (!allItems.length) {
+   mbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">No markets scanned yet.</td></tr>';
+  } else {
+   mbody.innerHTML = allItems.map(m => {
+    const statusBadge = m.is_proven ?
+     '<span class="badge positive" style="font-size:10px">✓ Tier 3 Proven (Live)</span>' :
+     '<span class="badge" style="background:#fef3c7;color:#92400e;font-size:10px">🛡 $0.00 Incubator R&D</span>';
+    const maxStakeStr = m.is_proven ? `$${Number(m.stake_cap || 3.5).toFixed(2)}` : '$0.00';
+    return `<tr>
+     <td><code style="font-family:var(--mono);font-size:11px">${esc(m.segment_key)}</code></td>
+     <td><strong>${esc(m.league)}</strong></td>
+     <td>${esc(m.scope)}</td>
+     <td>${esc(m.market_family)}</td>
+     <td>${esc(m.sample_event || 'Upcoming Event')}</td>
+     <td>${statusBadge}</td>
+     <td><strong>${maxStakeStr}</strong></td>
+    </tr>`;
+   }).join('');
+  }
+ }
+
+ bindPolymarketActions();
+}
+
+function bindPolymarketActions() {
+ const trigBtn = $('#poly-trigger-cycle-btn');
+ if (trigBtn && !trigBtn.dataset.bound) {
+  trigBtn.dataset.bound = 'true';
+  trigBtn.onclick = async () => {
+   trigBtn.disabled = true;
+   trigBtn.textContent = '⏳ Executing Cycle...';
+   try {
+    const r = await fetch('/api/polymarket/runner/trigger', { method: 'POST' });
+    const res = await r.json();
+    toast(`Runner Cycle: ${res.orders_placed_count || 0} orders placed, ${res.settlement?.settled_count || 0} settled.`);
+    await loadPolymarketDesk();
+   } catch (err) {
+    toast('Runner error: ' + err.message);
+   } finally {
+    trigBtn.disabled = false;
+    trigBtn.textContent = '▶ Run Autonomous Cycle';
+   }
+  };
+ }
+
+ const redeemBtn = $('#poly-settle-redeem-btn');
+ if (redeemBtn && !redeemBtn.dataset.bound) {
+  redeemBtn.dataset.bound = 'true';
+  redeemBtn.onclick = async () => {
+   redeemBtn.disabled = true;
+   redeemBtn.textContent = '⏳ Redeeming...';
+   try {
+    const r = await fetch('/api/polymarket/redeem', { method: 'POST' });
+    const res = await r.json();
+    toast(`Auto-Redeem: ${res.redeemable_count || 0} positions checked.`);
+    await loadPolymarketDesk();
+   } catch (err) {
+    toast('Redeem error: ' + err.message);
+   } finally {
+    redeemBtn.disabled = false;
+    redeemBtn.textContent = '💰 Settle & Auto-Redeem';
+   }
+  };
+ }
+
+ const refBtn = $('#poly-refresh-btn');
+ if (refBtn && !refBtn.dataset.bound) {
+  refBtn.dataset.bound = 'true';
+  refBtn.onclick = async () => {
+   await loadPolymarketDesk();
+   toast('Polymarket Desk refreshed.');
+  };
+ }
+}
+
 
 function table(headers,rows){return rows.length?`<table><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`:'<p class="panel-copy">No data available yet.</p>'}
 function renderFundingTiers(){
@@ -3236,7 +3431,7 @@ function renderSystemReviewBanner(){
  `;
 }
 
-function render(){renderSystemReviewBanner();renderStability();renderStakeSizing();renderStats();renderTips();renderArchive();renderGames();renderModels();if(view==='statistics')renderLiveCoverageTable();if(view==='stake_account')loadStakeAccount();$('#run-stage').textContent=data.engine?.stage||'Updated';$('#last-updated').textContent=data.generated_at?'Last Published: '+when(data.generated_at):'Preparing the First Analysis';const healing=data.status?.autonomous_healing||data.engine?.autonomous_healing;const healingBadge=$('#ai-self-healing-badge');if(healingBadge){if(healing){const hc=healing.total_healed_count||0,ac=healing.learned_aliases_count||0;healingBadge.textContent=`🤖 AI Self-Healing: Active (${hc} healed, ${ac} aliases)`;}if(!healingBadge.dataset.bound){healingBadge.dataset.bound='true';healingBadge.style.cursor='pointer';healingBadge.title='Click to view Autonomous Repair Timeline and AI Brain Queue';healingBadge.onclick=()=>{const rdBtn=$('.nav-item[data-view="rd"]');if(rdBtn)rdBtn.click();setTimeout(()=>{document.getElementById('rd-timeline-panel')?.scrollIntoView({behavior:'smooth'});},150);};}}const notices=[];if(data.settings?.auto_track_recommendations)notices.push('Auto-tracking is on: funded recommendations are assumed placed on Stake once, using the displayed odds and stake.');if(data.status?.daily_progress){const p=data.status.daily_progress;notices.push(`Daily target: ${p.issued}/${p.target} distinct funded recommendations issued (${p.date}, ${p.timezone}). ${p.counting_basis==='since_release'?'Counting from '+when(p.counting_since)+'. '+p.previously_issued_today+' earlier issuances excluded from this target. ':''}${p.distinct_games==null?'':p.distinct_games+' distinct games. '}${p.shortfall>0?p.shortfall+' more needed; the target does not override price or model requirements.':'Target reached; qualifying new picks are still published.'}`);}notices.push(data.settings?.daily_risk_limit==null?'No fixed daily stake cap. Maximum $'+num(data.settings?.max_bet||8)+' per bet.':'Daily stake cap: $'+num(data.settings.daily_risk_limit)+'.');const feedState=data.engine?.market_feed?.state;const feedErr=data.engine?.error;if(feedErr){const prefix=feedState==='partial'?'Notice: ':'Refresh Error: ';notices.push(prefix+feedErr);}$('#notice').textContent=notices.join(' ');$('#notice').hidden=!notices.length;const connLabel=data.engine?.running?'Evaluating Markets':feedState==='partial'?'Partial Coverage':(feedErr||feedState==='unavailable')?'Data Feed Error':'Live Monitoring';$('#connection').textContent=connLabel;$('#refresh').disabled=!!data.engine?.running;}
+function render(){renderSystemReviewBanner();renderStability();renderStakeSizing();renderStats();renderTips();renderArchive();renderGames();renderModels();if(view==='statistics')renderLiveCoverageTable();if(view==='stake_account')loadStakeAccount();if(view==='polymarket')loadPolymarketDesk();$('#run-stage').textContent=data.engine?.stage||'Updated';$('#last-updated').textContent=data.generated_at?'Last Published: '+when(data.generated_at):'Preparing the First Analysis';const healing=data.status?.autonomous_healing||data.engine?.autonomous_healing;const healingBadge=$('#ai-self-healing-badge');if(healingBadge){if(healing){const hc=healing.total_healed_count||0,ac=healing.learned_aliases_count||0;healingBadge.textContent=`🤖 AI Self-Healing: Active (${hc} healed, ${ac} aliases)`;}if(!healingBadge.dataset.bound){healingBadge.dataset.bound='true';healingBadge.style.cursor='pointer';healingBadge.title='Click to view Autonomous Repair Timeline and AI Brain Queue';healingBadge.onclick=()=>{const rdBtn=$('.nav-item[data-view="rd"]');if(rdBtn)rdBtn.click();setTimeout(()=>{document.getElementById('rd-timeline-panel')?.scrollIntoView({behavior:'smooth'});},150);};}}const notices=[];if(data.settings?.auto_track_recommendations)notices.push('Auto-tracking is on: funded recommendations are assumed placed on Stake once, using the displayed odds and stake.');if(data.status?.daily_progress){const p=data.status.daily_progress;notices.push(`Daily target: ${p.issued}/${p.target} distinct funded recommendations issued (${p.date}, ${p.timezone}). ${p.counting_basis==='since_release'?'Counting from '+when(p.counting_since)+'. '+p.previously_issued_today+' earlier issuances excluded from this target. ':''}${p.distinct_games==null?'':p.distinct_games+' distinct games. '}${p.shortfall>0?p.shortfall+' more needed; the target does not override price or model requirements.':'Target reached; qualifying new picks are still published.'}`);}notices.push(data.settings?.daily_risk_limit==null?'No fixed daily stake cap. Maximum $'+num(data.settings?.max_bet||8)+' per bet.':'Daily stake cap: $'+num(data.settings.daily_risk_limit)+'.');const feedState=data.engine?.market_feed?.state;const feedErr=data.engine?.error;if(feedErr){const prefix=feedState==='partial'?'Notice: ':'Refresh Error: ';notices.push(prefix+feedErr);}$('#notice').textContent=notices.join(' ');$('#notice').hidden=!notices.length;const connLabel=data.engine?.running?'Evaluating Markets':feedState==='partial'?'Partial Coverage':(feedErr||feedState==='unavailable')?'Data Feed Error':'Live Monitoring';$('#connection').textContent=connLabel;$('#refresh').disabled=!!data.engine?.running;}
 
 let audioCtx=null,lastSoundPlayTime=0;
 function getAudioContext(){
@@ -3399,7 +3594,7 @@ if(typeof window!=='undefined'&&window.addEventListener){
   const first=!data;appliedDashboardRequest=request;data=d;dashboardAvailable=true;
   try{
    check24hNewTickets(d,first);
-   render();fetchAutoRunTelemetry();syncStatisticsChrome();if(first)populateSettings();if(view==='ledger')renderLedger();if(view==='statistics')loadStatistics();if(view==='games')renderGames();if(view==='stake_account')loadStakeAccount();if(view==='rd')loadRD();
+   render();fetchAutoRunTelemetry();syncStatisticsChrome();if(first)populateSettings();if(view==='ledger')renderLedger();if(view==='statistics')loadStatistics();if(view==='games')renderGames();if(view==='stake_account')loadStakeAccount();if(view==='polymarket')loadPolymarketDesk();if(view==='rd')loadRD();
   }catch(renderErr){
    reportClientError(renderErr);
   }
@@ -3442,7 +3637,7 @@ function initMobileMenu(){
  window.addEventListener('keydown',e=>{if(e.key==='Escape')closeMobileMenu()});
 }
 initMobileMenu();
-$$('.nav-item').forEach(b=>b.onclick=()=>{closeMobileMenu();view=b.dataset.view;$$('.nav-item').forEach(n=>n.classList.toggle('active',n===b));$$('.view').forEach(v=>v.hidden=v.id!=='view-'+view);$('#breadcrumb').textContent=title[view];$('#page-title').innerHTML=view==='tips'?'Your next bet.<br><span>Backed by data.</span>':esc(title[view]);$('#page-description').textContent=view==='tips'?'Picks for today and the next 48 hours, with Stake market names and exact selections.':view==='rd'?'Continuous Quant Loss Attribution, Forensic Remediation & Crucible Validation.':view==='stake_account'?'Real-time Stake account balance, active bets, and market exposure monitoring.':'Track your picks, model performance and actual betting results.';if(view==='ledger')renderLedger();if(view==='sizing')renderStakeSizing();if(view==='statistics')loadStatistics();if(view==='games')renderGames();if(view==='settings')populateSettings();if(view==='rd')loadRD();if(view==='stake_account')loadStakeAccount();syncStatisticsChrome()});
+$$('.nav-item').forEach(b=>b.onclick=()=>{closeMobileMenu();view=b.dataset.view;$$('.nav-item').forEach(n=>n.classList.toggle('active',n===b));$$('.view').forEach(v=>v.hidden=v.id!=='view-'+view);$('#breadcrumb').textContent=title[view];$('#page-title').innerHTML=view==='tips'?'Your next bet.<br><span>Backed by data.</span>':esc(title[view]);$('#page-description').textContent=view==='tips'?'Picks for today and the next 48 hours, with Stake market names and exact selections.':view==='rd'?'Continuous Quant Loss Attribution, Forensic Remediation & Crucible Validation.':view==='stake_account'?'Real-time Stake account balance, active bets, and market exposure monitoring.':view==='polymarket'?'Decentralized CLOB trading on Tier 3 proven sports markets, sub-second preflight checks, and continuous Kelly sizing.':'Track your picks, model performance and actual betting results.';if(view==='ledger')renderLedger();if(view==='sizing')renderStakeSizing();if(view==='statistics')loadStatistics();if(view==='games')renderGames();if(view==='settings')populateSettings();if(view==='rd')loadRD();if(view==='stake_account')loadStakeAccount();if(view==='polymarket')loadPolymarketDesk();syncStatisticsChrome()});
 $$('[data-horizon]').forEach(b=>b.onclick=()=>{horizon=b.dataset.horizon;$$('[data-horizon]').forEach(x=>x.classList.toggle('selected',x===b));renderTips()});$('#league-filter').onchange=renderTips;$('#market-filter').onchange=renderTips;$('#sort-filter').onchange=renderTips;
 $('#refresh').onclick=async()=>{try{await api('/api/refresh',{method:'POST'});toast('The engine is refreshing markets and picks.');setTimeout(load,800)}catch(e){toast(e.message)}};
 $('#settings-form').onsubmit=async e=>{e.preventDefault();const f=e.target;const s={auto_track_recommendations:f.elements.auto_track_recommendations.checked};for(const k of ['daily_pick_target','max_bet','unit_stake','refresh_seconds'])s[k]=Number(f.elements[k].value);s.daily_risk_limit=f.daily_risk_limit.value===''?null:Number(f.daily_risk_limit.value);s.bankroll=f.bankroll.value?Number(f.bankroll.value):null;s.monthly_system_cost=f.monthly_system_cost.value!==''?Number(f.monthly_system_cost.value):null;s.minimum_roi=Number(f.minimum_roi.value)/100;try{await api('/api/settings',{method:'PUT',body:JSON.stringify(s)});$('#settings-feedback').textContent='Saved';toast('Settings saved. Picks are being recalculated.')}catch(err){$('#settings-feedback').textContent=err.message}};

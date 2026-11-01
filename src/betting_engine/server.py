@@ -437,6 +437,26 @@ def polymarket_settle_orders():
     res = settler.settle_orders()
     return english_payload(res)
 
+@app.get('/api/polymarket/runner/status')
+def polymarket_runner_status():
+    from .polymarket_runner import PolymarketAutonomousRunner
+    runner = PolymarketAutonomousRunner()
+    return english_payload(runner.get_runner_status())
+
+@app.post('/api/polymarket/runner/trigger')
+def polymarket_runner_trigger():
+    from .polymarket_runner import PolymarketAutonomousRunner
+    runner = PolymarketAutonomousRunner()
+    res = runner.run_execution_cycle()
+    return english_payload(res)
+
+@app.post('/api/polymarket/redeem')
+def polymarket_redeem_action():
+    from .polymarket_settlement import PolymarketOutcomeSettler
+    settler = PolymarketOutcomeSettler()
+    res = settler.auto_redeem_positions()
+    return english_payload(res)
+
 @app.get('/api/data-integrity')
 def data_integrity_status_route():
     from .data_integrity_supervisor import DataIntegritySupervisor
