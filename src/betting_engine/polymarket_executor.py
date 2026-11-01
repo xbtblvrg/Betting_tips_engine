@@ -302,7 +302,7 @@ class PolymarketAutonomousExecutor:
                         stake_cap = 8.0 if (sub_tier == "SUPER_ALPHA" or roi >= 15.0) else 3.50
                         return (
                             True,
-                            f"LIVE_LEDGER_PROVEN_PROFIT: Verified Live Wagers (PnL: +${pnl:.2f}, ROI: +{roi:.1f}%, N={sample})",
+                            f"TIER_4_LIVE_PROVEN_ALPHA: Verified Live Profit on Stake (LIVE_LEDGER_PROVEN_PROFIT: PnL: +${pnl:.2f}, ROI: +{roi:.1f}%, N={sample})",
                             stake_cap,
                         )
 
@@ -321,7 +321,7 @@ class PolymarketAutonomousExecutor:
         if league not in PRIMARY_LEAGUES:
             return (
                 False,
-                f"UNPROVEN_ON_POLYMARKET: Secondary league {league} segment {seg_keys[0]} has no confirmed live settled profit. Active in Shadow Incubator ($0.00).",
+                f"UNPROVEN_ON_POLYMARKET: Secondary league {league} segment {seg_keys[0]} has not reached Tier 4 (no confirmed live settled profit on Stake). Active in Shadow Incubator ($0.00).",
                 0.0,
             )
 
@@ -359,6 +359,56 @@ class PolymarketAutonomousExecutor:
             f"UNPROVEN_ON_POLYMARKET: Segment {seg_keys[0]} is not in Tier 3 proven alpha (Stake $0.00). Enqueueing R&D repair.",
             0.0,
         )
+
+    def get_market_tier(
+        self,
+        league: str,
+        scope: str = "full_game",
+        market_family: str = "totals",
+    ) -> Dict[str, Any]:
+        """Classifies a market into the formal 4-Tier progression:
+        Tier 1: Historical R&D Edge Discovery
+        Tier 2: Shadow Incubator Live Forward Validation ($0.00 virtual trading)
+        Tier 3: Stake Production Live Incubation ($0.50–$8.00 on Stake, pending live profit)
+        Tier 4: Live Proven Alpha Execution ($0.50–$8.00 on Polymarket, confirmed positive live profit on Stake)
+        """
+        is_elig, reason, cap = self.is_market_eligible(league, scope, market_family)
+        if "TIER_4" in reason:
+            return {
+                "tier": 4,
+                "tier_name": "TIER_4_LIVE_PROVEN_ALPHA",
+                "polymarket_eligible": True,
+                "stake_eligible": True,
+                "stake_cap": cap,
+                "reason": reason,
+            }
+        elif "TIER_3" in reason:
+            return {
+                "tier": 3,
+                "tier_name": "TIER_3_STAKE_PRODUCTION",
+                "polymarket_eligible": False,  # Shadow Incubator $0.00 until Tier 4 live profit is proven
+                "stake_eligible": True,
+                "stake_cap": cap,
+                "reason": reason,
+            }
+        elif "UNDERPERFORMING" in reason:
+            return {
+                "tier": 2,
+                "tier_name": "TIER_2_UNDERPERFORMING_QUARANTINE",
+                "polymarket_eligible": False,
+                "stake_eligible": True,
+                "stake_cap": 0.50,  # Tourniquet
+                "reason": reason,
+            }
+        else:
+            return {
+                "tier": 2,
+                "tier_name": "TIER_2_SHADOW_INCUBATOR",
+                "polymarket_eligible": False,
+                "stake_eligible": False,
+                "stake_cap": 0.0,
+                "reason": reason,
+            }
 
     def preflight_check(
         self,
@@ -1054,6 +1104,13 @@ class PolymarketAutonomousExecutor:
                 "settled_count": live_settled_count,
                 "win_rate": round(live_won_count / live_settled_count, 3) if live_settled_count > 0 else 0.0,
                 "proxy_address": self.proxy_address,
+            },
+            "tier_4_governance": {
+                "active": True,
+                "label": "Tier 4 Live Proven Alpha Gate",
+                "policy": "Only markets with confirmed positive live settled profit on Stake execute funded trades on Polymarket.",
+                "cached_scoreboard_loaded": self._cached_scoreboard is not None,
+                "tier_4_segments_count": len(self._cached_scoreboard.get("alpha_segments", [])) if self._cached_scoreboard else 0,
             },
             "updated_at": utcnow().isoformat(),
         }

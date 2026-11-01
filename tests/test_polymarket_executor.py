@@ -160,11 +160,22 @@ def test_anti_loss_invariant_and_market_hierarchy(test_env):
     assert cap_nba_h1 == 0.0
     assert "UNDERPERFORMING_IN_LIVE_BETS" in reason_nba_h1
 
-    # Invariant 3: MLS spreads has positive live settled profit (+19.9% ROI) -> Approved!
+    # Invariant 3: MLS spreads has positive live settled profit (+19.9% ROI) -> Tier 4 Approved!
     is_elig_mls_sp, reason_mls_sp, cap_mls_sp = pe.is_market_eligible("MLS", "full_game", "spreads")
     assert is_elig_mls_sp is True
     assert cap_mls_sp == 8.0
     assert "LIVE_LEDGER_PROVEN_PROFIT" in reason_mls_sp
+    assert "TIER_4" in reason_mls_sp
+
+    # Invariant 3b: get_market_tier returns formal Tier 4 classification
+    t4_mls = pe.get_market_tier("MLS", "full_game", "spreads")
+    assert t4_mls["tier"] == 4
+    assert t4_mls["tier_name"] == "TIER_4_LIVE_PROVEN_ALPHA"
+    assert t4_mls["polymarket_eligible"] is True
+
+    t2_mls = pe.get_market_tier("MLS", "full_game", "totals")
+    assert t2_mls["tier"] == 2
+    assert t2_mls["polymarket_eligible"] is False
 
     # Invariant 4: UCL totals has a diploma, but 0 live settled games -> Secondary unproven rejected to Shadow Incubator!
     is_elig_ucl, reason_ucl, cap_ucl = pe.is_market_eligible("UCL", "full_game", "totals")
