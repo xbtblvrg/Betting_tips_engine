@@ -51,44 +51,51 @@ class PolymarketRDPrioritizer:
         discovered_segments: Set[str] = set()
         segment_details: Dict[str, Dict[str, Any]] = {}
 
-        # 1. Discover reachable contracts across target leagues
-        for league in leagues:
+        # 1. Discover reachable contracts across target leagues (Parallel Concurrent Fetch)
+        from concurrent.futures import ThreadPoolExecutor
+        def _fetch_league(lg: str):
             try:
-                events = self.service.get_open_events(league=league, horizon_hours=72.0)
-                for ev in events:
-                    markets = ev.get("markets", [])
-                    for m in markets:
-                        m_type = (m.get("sportsMarketType") or m.get("type") or "moneyline").lower()
-                        q = m.get("question") or ""
-                        scope = _detect_market_scope(m_type, q)
-
-                        # Normalize market family
-                        if "spread" in m_type or "handicap" in m_type:
-                            m_fam = "spreads"
-                        elif "total" in m_type or "over" in m_type:
-                            m_fam = "totals"
-                        else:
-                            m_fam = "moneyline"
-
-                        seg_key = f"{league}|{scope}|{m_fam}"
-                        discovered_segments.add(seg_key)
-
-                        if seg_key not in segment_details:
-                            tokens = m.get("clobTokenIds", [])
-                            if isinstance(tokens, str):
-                                try:
-                                    tokens = json.loads(tokens)
-                                except Exception:
-                                    tokens = [tokens]
-                            segment_details[seg_key] = {
-                                "league": league,
-                                "scope": scope,
-                                "market_family": m_fam,
-                                "sample_event": ev.get("title", "Unknown"),
-                                "sample_token": tokens[0] if tokens else None,
-                            }
+                return lg, self.service.get_open_events(league=lg, horizon_hours=72.0)
             except Exception as exc:
-                log.warning(f"Error scanning Polymarket events for league {league}: {exc}")
+                log.warning(f"Error scanning Polymarket events for league {lg}: {exc}")
+                return lg, []
+
+        with ThreadPoolExecutor(max_workers=min(8, len(leagues))) as pool:
+            league_results = list(pool.map(_fetch_league, leagues))
+
+        for league, events in league_results:
+            for ev in events:
+                markets = ev.get("markets", [])
+                for m in markets:
+                    m_type = (m.get("sportsMarketType") or m.get("type") or "moneyline").lower()
+                    q = m.get("question") or ""
+                    scope = _detect_market_scope(m_type, q)
+
+                    # Normalize market family
+                    if "spread" in m_type or "handicap" in m_type:
+                        m_fam = "spreads"
+                    elif "total" in m_type or "over" in m_type:
+                        m_fam = "totals"
+                    else:
+                        m_fam = "moneyline"
+
+                    seg_key = f"{league}|{scope}|{m_fam}"
+                    discovered_segments.add(seg_key)
+
+                    if seg_key not in segment_details:
+                        tokens = m.get("clobTokenIds", [])
+                        if isinstance(tokens, str):
+                            try:
+                                tokens = json.loads(tokens)
+                            except Exception:
+                                tokens = [tokens]
+                        segment_details[seg_key] = {
+                            "league": league,
+                            "scope": scope,
+                            "market_family": m_fam,
+                            "sample_event": ev.get("title", "Unknown"),
+                            "sample_token": tokens[0] if tokens else None,
+                        }
 
         # 2. Evaluate each discovered segment for Tier 3 Proven Alpha
         proven_markets: List[Dict[str, Any]] = []

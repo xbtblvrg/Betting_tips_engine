@@ -346,18 +346,24 @@ class PolymarketAutonomousRunner:
         unmapped_market_types: Set[str] = set()
         clob_checks_count = 0
 
-        # 1. Fetch live events from Polymarket Gamma API or mock
+        # 1. Fetch live events from Polymarket Gamma API or mock (Parallel Concurrent Fetch)
         events = mock_events
         if events is None:
             events = []
-            for l in leagues:
+            from concurrent.futures import ThreadPoolExecutor
+            def _fetch_league_events(l: str) -> List[Dict[str, Any]]:
                 try:
                     l_events = self.service.get_open_events(league=l, horizon_hours=self.execution_window_hours)
                     for ev in l_events:
                         ev["_league"] = l
-                    events.extend(l_events)
+                    return l_events
                 except Exception as exc:
                     log.warning(f"Failed to fetch active Polymarket events for {l}: {exc}")
+                    return []
+
+            with ThreadPoolExecutor(max_workers=min(8, len(leagues))) as pool:
+                for l_res in pool.map(_fetch_league_events, leagues):
+                    events.extend(l_res)
 
         scanned_count = len(events)
         evaluated_markets_count = 0
