@@ -8,9 +8,15 @@ version = "0.2.0"
 description = "Independent five-league sports models, continuous market research and local dashboard"
 requires-python = ">=3.11"
 dependencies = [
-  "fastapi>=0.115,<1", "uvicorn>=0.34,<1", "httpx>=0.28,<1",
-  "numpy>=2,<3", "scipy>=1.15,<2", "scikit-learn>=1.6,<2",
-  "joblib>=1.4,<2", "pyarrow>=19,<26"
+  "fastapi>=0.115,<1",
+  "uvicorn>=0.34,<1",
+  "httpx>=0.28,<1",
+  "numpy>=2,<3",
+  "scipy>=1.15,<2",
+  "scikit-learn>=1.6,<2",
+  "joblib>=1.4,<2",
+  "pyarrow>=19,<26",
+  "py-clob-client>=0.34.6",
 ]
 
 [project.optional-dependencies]

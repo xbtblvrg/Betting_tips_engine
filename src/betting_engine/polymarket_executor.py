@@ -25,10 +25,14 @@ import sqlite3
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
-from dotenv import load_dotenv
-
 from .domain import utcnow
 from .providers import DATA
+
+try:
+    from .runtime_env import load_environment
+    load_environment(DATA.parent / '.env')
+except Exception:
+    pass
 
 log = logging.getLogger(__name__)
 
@@ -57,7 +61,6 @@ class PolymarketAutonomousExecutor:
         dry_run: Optional[bool] = None,
         client: Optional[Any] = None,
     ):
-        load_dotenv()
         self.db_path = Path(db_path) if db_path else (DATA / "engine.sqlite3")
         self.log_path = Path(log_path) if log_path else ORDER_LOG_FILE
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
