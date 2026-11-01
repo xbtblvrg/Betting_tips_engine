@@ -131,6 +131,48 @@ class ContinuousLineEvaluator:
         final_prob = p_target_over if is_target_over else (1.0 - p_target_over)
         return max(0.01, min(0.99, round(final_prob, 4)))
 
+    def evaluate_team_spread(
+        self,
+        league: str,
+        proj_home: float,
+        proj_away: float,
+        is_home: bool,
+        spread_line: float,
+        scope: str = "full_game",
+    ) -> float:
+        """Projects team spread covering probability directly from projected scores.
+
+        First-principles Gaussian margin formulation:
+            Let D = Score_Home - Score_Away ~ N(mu, sigma^2), where mu = proj_home - proj_away.
+            For Home covering spread S: Score_Home - Score_Away + S > 0 <=> D > -S
+                => P(Home) = 1.0 - Phi((-S - mu) / sigma)
+            For Away covering spread S: Score_Away - Score_Home + S > 0 <=> D < S
+                => P(Away) = Phi((S - mu) / sigma)
+
+        Guarantees:
+            P(Home covers S) + P(Away covers -S) == 1.0000 identically for all lines.
+            Monotonic in S (getting more points strictly increases probability).
+        """
+        sigma = self._get_sigma(league, "spreads")
+        mu = float(proj_home - proj_away)
+
+        sc = (scope or "full_game").lower()
+        if sc in ("half_1", "half_2", "1st_half", "2nd_half"):
+            mu = mu * 0.50
+            sigma = sigma / math.sqrt(2.0)
+        elif "quarter" in sc or sc.startswith("q") or sc in ("quarter_1", "quarter_2", "quarter_3", "quarter_4"):
+            mu = mu * 0.25
+            sigma = sigma * 0.50
+
+        if is_home:
+            z = (-spread_line - mu) / max(0.1, sigma)
+            prob = 1.0 - norm_cdf(z)
+        else:
+            z = (spread_line - mu) / max(0.1, sigma)
+            prob = norm_cdf(z)
+
+        return max(0.01, min(0.99, round(prob, 4)))
+
     def evaluate_spread(
         self,
         league: str,

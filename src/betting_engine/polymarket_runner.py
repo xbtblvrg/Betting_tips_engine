@@ -257,6 +257,8 @@ class PolymarketAutonomousRunner:
             "tip": matched_tips[0],
             "proj_total": proj_total,
             "proj_spread": proj_spread,
+            "proj_home": proj_h,
+            "proj_away": proj_a,
             "home_prob": home_prob,
             "home_name": home_name or poly_home_team or "",
             "away_name": away_name or poly_away_team or "",
@@ -485,6 +487,7 @@ class PolymarketAutonomousRunner:
 
                     # Independent probability modeling: Strictly derive from domain forecast models
                     model_prob = None
+                    outcome_spread = None
                     if forecast and forecast.get("proj_total") is not None and line_val is not None and family == "totals":
                         side = "over" if "over" in outcome_label.lower() or outcome_label == "Yes" else "under"
                         model_prob = self.line_evaluator.evaluate_total(
@@ -496,16 +499,21 @@ class PolymarketAutonomousRunner:
                             target_side=side,
                             scope=scope,
                         )
-                    elif forecast and forecast.get("proj_spread") is not None and line_val is not None and family == "spreads":
+                    elif forecast and family == "spreads" and line_val is not None:
+                        # Outcome spread handicap:
+                        # Polymarket defines line_val for Outcome 0 (Named Team in question).
+                        # Outcome 1 (Opponent) receives the inverse handicap (-line_val).
+                        outcome_spread = float(line_val) if idx == 0 else -float(line_val)
+
                         h_name = (forecast.get("home_name") or "").lower()
                         a_name = (forecast.get("away_name") or "").lower()
                         out_low = outcome_label.lower()
                         q_low = q.lower()
 
                         is_home = None
-                        if h_name and (h_name in out_low or any(w in out_low for w in h_name.split() if len(w) > 3)):
+                        if h_name and (out_low in h_name or h_name in out_low or any(w in out_low for w in h_name.split() if len(w) > 3)):
                             is_home = True
-                        elif a_name and (a_name in out_low or any(w in out_low for w in a_name.split() if len(w) > 3)):
+                        elif a_name and (out_low in a_name or a_name in out_low or any(w in out_low for w in a_name.split() if len(w) > 3)):
                             is_home = False
                         elif out_low == "yes":
                             if h_name and (h_name in q_low or any(w in q_low for w in h_name.split() if len(w) > 3)):
@@ -519,24 +527,35 @@ class PolymarketAutonomousRunner:
                                 is_home = True
 
                         if is_home is None:
-                            is_home = (idx == 0)
+                            if h_name and any(w in q_low for w in h_name.split() if len(w) > 3):
+                                is_home = (idx == 0)
+                            elif a_name and any(w in q_low for w in a_name.split() if len(w) > 3):
+                                is_home = (idx != 0)
+                            else:
+                                is_home = (idx == 0)
 
-                        # In forecast: proj_spread is proj_a - proj_h.
-                        # Negative proj_spread means Home is favored.
-                        home_margin = -float(forecast["proj_spread"])
-                        is_home_fav = home_margin >= 0.0
-                        fav_margin = abs(home_margin)
-                        is_this_fav = (is_home == is_home_fav)
-
-                        model_prob = self.line_evaluator.evaluate_spread(
-                            league=league,
-                            base_line=-fav_margin,
-                            base_prob=0.50,
-                            base_side="favorite",
-                            target_line=line_val,
-                            target_side="favorite" if is_this_fav else "underdog",
-                            scope=scope,
-                        )
+                        proj_h = forecast.get("proj_home")
+                        proj_a = forecast.get("proj_away")
+                        if proj_h is not None and proj_a is not None:
+                            model_prob = self.line_evaluator.evaluate_team_spread(
+                                league=league,
+                                proj_home=float(proj_h),
+                                proj_away=float(proj_a),
+                                is_home=is_home,
+                                spread_line=outcome_spread,
+                                scope=scope,
+                            )
+                        elif forecast.get("proj_spread") is not None:
+                            proj_h_eff = 0.0
+                            proj_a_eff = float(forecast["proj_spread"])
+                            model_prob = self.line_evaluator.evaluate_team_spread(
+                                league=league,
+                                proj_home=proj_h_eff,
+                                proj_away=proj_a_eff,
+                                is_home=is_home,
+                                spread_line=outcome_spread,
+                                scope=scope,
+                            )
                     elif forecast and family == "moneyline" and forecast.get("home_prob") is not None:
                         h_name = (forecast.get("home_name") or "").lower()
                         a_name = (forecast.get("away_name") or "").lower()
@@ -600,9 +619,10 @@ class PolymarketAutonomousRunner:
 
                     # Group candidate by (scope, family) to select single optimal alpha line/side per market
                     group_key = (scope, family)
+                    contract_line = outcome_spread if family == "spreads" else line_val
                     event_candidates_by_group.setdefault(group_key, []).append({
                         "token_id": token_id,
-                        "line": line_val,
+                        "line": contract_line,
                         "selection": outcome_label,
                         "model_prob": model_prob,
                         "ev": preflight.ev,

@@ -68,3 +68,29 @@ def test_contract_valuation_ev_hurdle():
     val_neg = evaluator.calculate_valuation(model_prob=0.50, poly_price=0.52, min_ev_hurdle=0.025)
     assert val_neg["ok"] is False
     assert val_neg["ev"] < 0.0
+
+
+def test_evaluate_team_spread_first_principles():
+    """Verifies that evaluate_team_spread obeys probability axioms and exact cover conditions."""
+    evaluator = ContinuousLineEvaluator()
+
+    # Home = 110.15 (Magic), Away = 113.02 (Celtics), Celtics favored by 2.87
+    ph, pa = 110.15, 113.02
+
+    # 1. Monotonicity: Getting more points increases cover probability
+    p_dog_deep = evaluator.evaluate_team_spread("NBA", ph, pa, is_home=True, spread_line=12.5)
+    p_dog_mid = evaluator.evaluate_team_spread("NBA", ph, pa, is_home=True, spread_line=5.5)
+    p_dog_neg = evaluator.evaluate_team_spread("NBA", ph, pa, is_home=True, spread_line=-12.5)
+
+    assert p_dog_deep > p_dog_mid > p_dog_neg
+    # Underdog giving 12.5 points against a stronger team must have small probability (< 15%)
+    assert p_dog_neg < 0.15
+    # Underdog receiving 12.5 points must have high probability (> 75%)
+    assert p_dog_deep > 0.75
+
+    # 2. Complementarity Axiom: P(Home covers S) + P(Away covers -S) == 1.0000
+    for s in [-15.5, -10.5, -5.5, -0.5, 0.0, 0.5, 5.5, 10.5, 15.5]:
+        p_h = evaluator.evaluate_team_spread("NBA", ph, pa, is_home=True, spread_line=s)
+        p_a = evaluator.evaluate_team_spread("NBA", ph, pa, is_home=False, spread_line=-s)
+        assert pytest.approx(p_h + p_a, abs=1e-3) == 1.0
+
