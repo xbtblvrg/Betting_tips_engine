@@ -85,7 +85,7 @@ class PolymarketAutonomousRunner:
         service: Optional[PolymarketService] = None,
         db_path: Optional[Path] = None,
         min_ev_hurdle: float = 0.025,
-        execution_window_hours: float = 36.0,
+        execution_window_hours: float = 72.0,
         min_pregame_minutes: float = 10.0,
     ):
         self.db_path = Path(db_path) if db_path else (DATA / "engine.sqlite3")
