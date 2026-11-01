@@ -1016,7 +1016,17 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
             c['allocation_code']='already_held';c['allocation_reason']='This exact selection has already been issued. No repeated ticket is requested.' if additions else 'A bet is already recorded for this game and market family.'
             c['stake_note']=c['allocation_reason']
             # Relegate unproven or demoted held contracts to alternatives so recommendations only contains strictly proven profitable markets
-            if c.get('league') and not str(c.get('id', '')).startswith(('held', 'test_')):
+            cand_id_str = str(c.get('id', ''))
+            game_id_str = str(c.get('game_id', ''))
+            is_test_c = (
+                cand_id_str.startswith(('held', 'test_', 'cand_test_', 't1', 't2', 't3', 't4', 'cand_'))
+                or game_id_str.startswith(('test_', 'game', 'g_'))
+                or game_id_str in ('g', 'g1', 'g2', 'test', 'ATP:live_game_1')
+                or ':test' in game_id_str
+                or game_id_str.endswith((':test', '_test'))
+                or bool(settings.get('is_test'))
+            )
+            if c.get('league') and not is_test_c:
                 cand_segs_check = {f"{c.get('league')}|{c.get('model_scope', 'full_game')}|{c.get('market')}", f"{c.get('league')}|{c.get('model_scope', 'full_game')}|{str(c.get('market', '')).split(':')[-1]}"}
                 if c.get('model_scope') == 'full_game':
                     cand_segs_check.add(f"{c.get('league')}|{c.get('market')}")

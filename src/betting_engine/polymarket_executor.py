@@ -83,10 +83,12 @@ class PolymarketAutonomousExecutor:
         log_path: Optional[Path] = None,
         dry_run: Optional[bool] = None,
         client: Optional[Any] = None,
+        graduated_file: Optional[Path] = None,
     ):
         self.db_path = Path(db_path) if db_path else (DATA / "engine.sqlite3")
         self.log_path = Path(log_path) if log_path else ORDER_LOG_FILE
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
+        self.graduated_file = Path(graduated_file) if graduated_file else GRADUATED_MARKETS_FILE
 
         # Dry-run flag: explicit argument or env var POLYMARKET_DRY_RUN (default False if credentials exist)
         env_dry = os.getenv("POLYMARKET_DRY_RUN", "").lower() in ("true", "1", "yes")
@@ -362,13 +364,13 @@ class PolymarketAutonomousExecutor:
 
         # 2. Check graduated_markets.json (cached 60s) - Fallback for Primary Leagues (NBA & NFL)
         if self._cached_graduated is None or (now_ts - self._graduated_cached_at) > 60.0:
-            if GRADUATED_MARKETS_FILE.exists():
+            if self.graduated_file.exists():
                 try:
-                    with open(GRADUATED_MARKETS_FILE, "r") as f:
+                    with open(self.graduated_file, "r") as f:
                         self._cached_graduated = json.load(f)
                     self._graduated_cached_at = now_ts
                 except Exception as exc:
-                    log.warning(f"Error checking graduated_markets.json: {exc}")
+                    log.warning(f"Error checking graduated_markets.json ({self.graduated_file}): {exc}")
                     self._cached_graduated = {}
             else:
                 self._cached_graduated = {}

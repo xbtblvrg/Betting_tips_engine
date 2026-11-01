@@ -53,10 +53,20 @@ def test_env(tmp_path):
             """
         )
 
+    grad_file = tmp_path / "graduated_markets.json"
+    grad_data = {
+        "NBA|full_game|three_way": {"roi": 0.258, "sample_size": 48},
+        "NFL|full_game|totals": {"roi": 0.036, "sample_size": 35},
+        "NFL|full_game|american_derivatives": {"roi": 0.217, "sample_size": 36},
+    }
+    with open(grad_file, "w") as f:
+        json.dump(grad_data, f)
+
     executor = PolymarketAutonomousExecutor(
         db_path=db_path,
         log_path=log_path,
         dry_run=True,
+        graduated_file=grad_file,
     )
     settler = PolymarketOutcomeSettler(db_path=db_path, log_path=log_path)
     prioritizer = PolymarketRDPrioritizer(db_path=db_path, cache_dir=cache_path, executor=executor)
