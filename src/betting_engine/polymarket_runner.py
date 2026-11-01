@@ -257,14 +257,25 @@ class PolymarketAutonomousRunner:
 
                 evaluated_markets_count += 1
                 q = market.get("question", "")
+                q_low = q.lower()
                 sports_type = (market.get("sportsMarketType") or "").lower()
 
-                # Map market family and scope
-                family = "moneyline"
-                if "total" in sports_type or "over" in q.lower() or "under" in q.lower():
+                # Map market family and scope strictly (Reject props, margins, races)
+                family = None
+                if "total" in sports_type or "over" in q_low or "under" in q_low:
+                    # Exclude player props like "Assists O/U" or "Points O/U"
+                    if any(prop in q_low for prop in ("points", "assists", "rebounds", "strikeouts", "yards", "passing", "rushing")):
+                        continue
                     family = "totals"
-                elif "spread" in sports_type or "handicap" in q.lower():
+                elif "spread" in sports_type or "handicap" in q_low:
                     family = "spreads"
+                elif sports_type in ("moneyline", "winner", "h2h", "head_to_head") or (
+                    q.strip().lower() == title.strip().lower() and not market.get("line")
+                ):
+                    family = "moneyline"
+                else:
+                    # Player props, margins, races, etc. -> Skip until calibrated domain model exists
+                    continue
 
                 scope = "full_game"
                 q_low = q.lower()

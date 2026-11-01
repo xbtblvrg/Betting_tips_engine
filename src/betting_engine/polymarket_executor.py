@@ -204,7 +204,7 @@ class PolymarketAutonomousExecutor:
         """
         family_aliases = [market_family]
         if market_family in ("moneyline", "winner", "head_to_head", "h2h"):
-            family_aliases.extend(["three_way", "winner", "moneyline"])
+            family_aliases.extend(["moneyline", "winner", "h2h"])
         elif market_family in ("spreads", "handicap", "run_line", "puck_line"):
             family_aliases.extend(["spreads", "handicap", "asian_handicap"])
         elif market_family in ("totals", "over_under"):
