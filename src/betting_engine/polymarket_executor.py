@@ -150,7 +150,7 @@ class PolymarketAutonomousExecutor:
     def _ensure_table_exists(self):
         """Guarantees polymarket_orders schema is present with indices."""
         try:
-            with sqlite3.connect(self.db_path, timeout=10) as conn:
+            with sqlite3.connect(self.db_path, timeout=30) as conn:
                 conn.execute(
                     """
                     CREATE TABLE IF NOT EXISTS polymarket_orders(
@@ -202,11 +202,21 @@ class PolymarketAutonomousExecutor:
           sample_size >= 25 and ROI >= +0.035, or SegmentScoreboard SUPER_ALPHA / SOLID_ALPHA).
         - If unproven / demoted / quarantined, returns (False, reason, 0.0) -> $0.00 stake.
         """
-        seg_keys = [
-            f"{league}|{scope}|{market_family}",
-            f"{league}|{scope}|asian_lines:{market_family}",
-            f"{league}|{scope}|american_derivatives:{market_family}",
-        ]
+        family_aliases = [market_family]
+        if market_family in ("moneyline", "winner", "head_to_head", "h2h"):
+            family_aliases.extend(["three_way", "winner", "moneyline"])
+        elif market_family in ("spreads", "handicap", "run_line", "puck_line"):
+            family_aliases.extend(["spreads", "handicap", "asian_handicap"])
+        elif market_family in ("totals", "over_under"):
+            family_aliases.extend(["totals", "asian_total", "asian_totals"])
+
+        seg_keys = []
+        for alias in family_aliases:
+            seg_keys.append(f"{league}|{scope}|{alias}")
+            seg_keys.append(f"{league}|{scope}|asian_lines:{alias}")
+            seg_keys.append(f"{league}|{scope}|american_derivatives:{alias}")
+        # Deduplicate while preserving order
+        seg_keys = list(dict.fromkeys(seg_keys))
 
         # 1. Check graduated_markets.json (cached 60s)
         now_ts = time.time()
@@ -242,7 +252,7 @@ class PolymarketAutonomousExecutor:
             try:
                 from .segment_scoreboard import compute_segment_scoreboard
 
-                with sqlite3.connect(self.db_path, timeout=5) as conn:
+                with sqlite3.connect(self.db_path, timeout=30) as conn:
                     self._cached_scoreboard = compute_segment_scoreboard(conn)
                     self._scoreboard_cached_at = now_ts
             except Exception as exc:
@@ -743,7 +753,7 @@ class PolymarketAutonomousExecutor:
 
         synced: List[Dict[str, Any]] = []
         try:
-            with sqlite3.connect(self.db_path, timeout=5) as conn:
+            with sqlite3.connect(self.db_path, timeout=30) as conn:
                 conn.row_factory = sqlite3.Row
                 cur = conn.cursor()
                 rows = cur.execute(
@@ -786,7 +796,7 @@ class PolymarketAutonomousExecutor:
         realized_pnl = 0.0
 
         try:
-            with sqlite3.connect(self.db_path, timeout=5) as conn:
+            with sqlite3.connect(self.db_path, timeout=30) as conn:
                 conn.row_factory = sqlite3.Row
                 cur = conn.cursor()
                 counts = cur.execute(
@@ -874,7 +884,7 @@ class PolymarketAutonomousExecutor:
         """Atomically inserts/updates polymarket_orders and appends to jsonl log."""
         now_iso = utcnow().isoformat()
         try:
-            with sqlite3.connect(self.db_path, timeout=5) as conn:
+            with sqlite3.connect(self.db_path, timeout=30) as conn:
                 conn.execute(
                     """
                     INSERT INTO polymarket_orders (
@@ -967,7 +977,7 @@ class PolymarketAutonomousExecutor:
         """Updates status of an existing order and appends transition event."""
         now_iso = utcnow().isoformat()
         try:
-            with sqlite3.connect(self.db_path, timeout=5) as conn:
+            with sqlite3.connect(self.db_path, timeout=30) as conn:
                 conn.execute(
                     """
                     UPDATE polymarket_orders SET
