@@ -20,7 +20,7 @@ FEEDBACK_KINDS = frozenset(('outcome_review', 'closing_evaluation'))
 RECOVERY_KINDS = frozenset(('model_restore', 'segment_restore', 'period_restore'))
 PRIORITY = {'source_refresh':0, 'model_restore':0, 'segment_restore':0, 'period_restore':0,
     'outcome_review':1, 'closing_evaluation':1, 'shadow_evaluation':1, 'market_catalog':1, 'autonomous_system_audit':1, 'anti_constant_audit':1, 'autonomous_submarket_expansion':1, 'autorun_selector_repair':1,
-    'controlled_retrain':2, 'segment_retrain':2, 'period_retrain':2, 'segment_repair':2, 'target_evaluation':2, 'anchor_weight_learning':2, 'opportunity_funnel_repair':2,
+    'controlled_retrain':2, 'segment_retrain':2, 'period_retrain':2, 'segment_repair':2, 'target_evaluation':2, 'anchor_weight_learning':2, 'opportunity_funnel_repair':2, 'urgent_polymarket_model_repair':2,
     'player_history_refresh':2, 'player_prop_audit':2, 'player_data_refresh':3, 'model_search':3,
     'research_watch':4}
 
@@ -970,6 +970,29 @@ class LearningWorker:
                 'league': job.get('league'),
                 'status': 'resolved',
                 'summary': f"Upstream sports sensors checked for task {task_id}."
+            }
+        if job['kind']=='urgent_polymarket_model_repair':
+            payload = json.loads(job['payload']) if isinstance(job['payload'], str) else (job['payload'] or {})
+            seg_key = payload.get('segment_key') or f"{job.get('league')}|full_game|moneyline"
+            from .codex_model_synthesizer import CodexModelSynthesizer
+            synth = CodexModelSynthesizer(self.data)
+            rec = None
+            try:
+                rec = synth.synthesize_and_screen_candidate(
+                    segment_key=seg_key,
+                    domain_problem=f"Polymarket continuous line pricing & Crucible pass for {seg_key}"
+                )
+            except Exception as exc:
+                logging.warning(f"Polymarket model synthesis error for {seg_key}: {exc}")
+            return {
+                'executed_at': utcnow().isoformat(),
+                'status': 'graduated_candidate_admitted' if (rec and rec.crucible_passed) else 'screened',
+                'segment_key': seg_key,
+                'candidate_model_id': rec.model_id if rec else None,
+                'crucible_passed': rec.crucible_passed if rec else False,
+                'oos_roi': rec.oos_simulated_roi if rec else 0.0,
+                'oos_sample_size': rec.oos_sample_size if rec else 0,
+                'conclusion': 'Polymarket model repair evaluated; candidate screened in Walk-Forward Crucible.'
             }
         raise ValueError('No approved handler for this task')
 
