@@ -121,7 +121,10 @@ class PolymarketService:
                 if resp.status == 200:
                     return json.loads(resp.read().decode("utf-8"))
         except urllib.error.HTTPError as e:
-            logger.warning("Polymarket HTTP error %d fetching %s: %s", e.code, url, e.reason)
+            if e.code == 404:
+                logger.debug("Polymarket resource 404 (empty book or no trades) for %s", url)
+            else:
+                logger.warning("Polymarket HTTP error %d fetching %s: %s", e.code, url, e.reason)
             return None
         except urllib.error.URLError as e:
             logger.warning("Polymarket network error fetching %s: %s", url, e.reason)

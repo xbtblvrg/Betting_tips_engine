@@ -73,6 +73,60 @@ class PolymarketAutonomousRunner:
             log.warning(f"Could not read existing polymarket orders: {exc}")
             return set()
 
+    def _load_domain_tips(self) -> List[Dict[str, Any]]:
+        """Loads recent calibrated domain model tips from SQLite."""
+        if not self.db_path.exists():
+            return []
+        try:
+            with sqlite3.connect(self.db_path, timeout=5) as conn:
+                cur = conn.cursor()
+                # Check if tips table exists
+                tbl = cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='tips';").fetchone()
+                if not tbl:
+                    return []
+                rows = cur.execute(
+                    "SELECT payload FROM tips ORDER BY last_seen DESC LIMIT 800;"
+                ).fetchall()
+                return [json.loads(r[0]) for r in rows if r[0]]
+        except Exception as exc:
+            log.warning(f"Could not load domain tips: {exc}")
+            return []
+
+    def _lookup_game_forecast(
+        self,
+        league: str,
+        teams: List[Dict[str, Any]],
+        title: str,
+        tips: List[Dict[str, Any]],
+    ) -> Optional[Dict[str, Any]]:
+        """Matches a Polymarket event against calibrated domain model tips."""
+        t_names = [t.get("name", "").lower() for t in teams if isinstance(t, dict)]
+        t_abbr = [t.get("abbreviation", "").lower() for t in teams if isinstance(t, dict)]
+
+        for tip in tips:
+            if tip.get("league") != league:
+                continue
+            h = tip.get("home", "").lower()
+            a = tip.get("away", "").lower()
+
+            h_match = any(tn in h for tn in t_names if len(tn) > 2) or any(ab in h for ab in t_abbr if len(ab) > 1) or h in title.lower()
+            a_match = any(tn in a for tn in t_names if len(tn) > 2) or any(ab in a for ab in t_abbr if len(ab) > 1) or a in title.lower()
+
+            if h_match and a_match:
+                proj_h = tip.get("predicted_home_points")
+                proj_a = tip.get("predicted_away_points")
+                proj_total = (proj_h + proj_a) if (proj_h and proj_a) else None
+                proj_spread = (proj_a - proj_h) if (proj_h and proj_a) else None
+                return {
+                    "tip": tip,
+                    "proj_total": proj_total,
+                    "proj_spread": proj_spread,
+                    "home_prob": tip.get("probability"),
+                    "home_name": tip.get("home", ""),
+                    "away_name": tip.get("away", ""),
+                }
+        return None
+
     def run_execution_cycle(
         self,
         leagues: Tuple[str, ...] = ("NBA", "NFL", "NHL"),
@@ -86,6 +140,7 @@ class PolymarketAutonomousRunner:
         cycle_start = time.time()
 
         traded_tokens = self._get_active_tokens_already_traded()
+        domain_tips = self._load_domain_tips()
         orders_placed: List[Dict[str, Any]] = []
         rejected_candidates: List[Dict[str, Any]] = []
         clob_checks_count = 0
@@ -153,6 +208,13 @@ class PolymarketAutonomousRunner:
 
             if not league:
                 continue
+
+            forecast = self._lookup_game_forecast(
+                league=league,
+                teams=event.get("teams", []),
+                title=title,
+                tips=domain_tips,
+            )
 
             for market in markets:
                 if len(orders_placed) >= max_orders_per_cycle:
@@ -230,31 +292,38 @@ class PolymarketAutonomousRunner:
                         except (ValueError, TypeError):
                             pass
 
-                    # Baseline model probability estimation (or continuous evaluation)
-                    # For proven alpha markets, baseline edge expectation
-                    model_prob = round(min(0.85, max(0.20, poly_price + 0.06)), 3)
-
-                    # Continuous line valuation if line is present
-                    if line_val and family == "totals":
+                    # Baseline model probability from domain forecast if available
+                    model_prob = round(min(0.85, max(0.15, poly_price + 0.055)), 3)
+                    if forecast and forecast.get("proj_total") is not None and line_val is not None and family == "totals":
                         side = "over" if "over" in outcome_label.lower() or outcome_label == "Yes" else "under"
                         model_prob = self.line_evaluator.evaluate_total(
                             league=league,
-                            base_line=line_val,
-                            base_prob=0.55,
-                            base_side=side,
+                            base_line=float(forecast["proj_total"]),
+                            base_prob=0.50,
+                            base_side="over",
                             target_line=line_val,
                             target_side=side,
                         )
-                    elif line_val and family == "spreads":
+                    elif forecast and forecast.get("proj_spread") is not None and line_val is not None and family == "spreads":
                         side = "favorite" if outcome_label == "Yes" or "-" in outcome_label else "underdog"
                         model_prob = self.line_evaluator.evaluate_spread(
                             league=league,
-                            base_line=line_val,
-                            base_prob=0.55,
-                            base_side=side,
+                            base_line=float(forecast["proj_spread"]),
+                            base_prob=0.50,
+                            base_side="favorite",
                             target_line=line_val,
                             target_side=side,
                         )
+                    elif forecast and family == "moneyline" and forecast.get("home_prob") is not None:
+                        h_name = forecast["home_name"].lower()
+                        is_home = (h_name in outcome_label.lower()) or (outcome_label == "Yes" and idx == 0)
+                        model_prob = float(forecast["home_prob"]) if is_home else (1.0 - float(forecast["home_prob"]))
+                    elif line_val and family == "totals":
+                        side = "over" if "over" in outcome_label.lower() or outcome_label == "Yes" else "under"
+                        model_prob = round(min(0.85, max(0.15, poly_price + 0.055)), 3)
+                    elif line_val and family == "spreads":
+                        side = "favorite" if outcome_label == "Yes" or "-" in outcome_label else "underdog"
+                        model_prob = round(min(0.85, max(0.15, poly_price + 0.055)), 3)
 
                     # Pre-screen: Only check depth if contract is liquid and offers positive nominal EV
                     if poly_price <= 0.05 or poly_price >= 0.95:
