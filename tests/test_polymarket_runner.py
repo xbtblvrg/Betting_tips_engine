@@ -1,4 +1,5 @@
 """Unit and Integration Tests for Polymarket Autonomous Background Runner."""
+from datetime import datetime, timezone, timedelta
 import json
 from pathlib import Path
 import pytest
@@ -8,6 +9,10 @@ from betting_engine.polymarket_executor import PolymarketAutonomousExecutor
 from betting_engine.polymarket_runner import PolymarketAutonomousRunner
 from betting_engine.polymarket_settlement import PolymarketOutcomeSettler
 from betting_engine.storage import Store
+
+
+def future_start_time(hours: float = 3.0) -> str:
+    return (datetime.now(timezone.utc) + timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 @pytest.fixture
@@ -83,7 +88,7 @@ def test_runner_deduplication_and_tier3_execution(runner_env):
     mock_events = [
         {
             "title": "Kansas City Chiefs vs Buffalo Bills",
-            "startDate": "2026-11-01T23:00:00Z",
+            "startDate": future_start_time(),
             "markets": [
                 {
                     "question": "Chiefs vs Bills: Over/Under 47.5",
@@ -222,7 +227,7 @@ def test_structured_taxonomy_type_mapping_and_rejection(runner_env):
     mock_events = [
         {
             "title": "Bills vs Ravens",
-            "startDate": "2026-11-01T23:00:00Z",
+            "startDate": future_start_time(),
             "markets": [
                 {
                     "question": "Lamar Jackson Passing Yards O/U 210.5",
@@ -266,7 +271,7 @@ def test_optimal_line_selection_and_player_props_rejection(runner_env):
         # Event 1: Player props event -> must be completely skipped
         {
             "title": "Falcons vs. Buccaneers - Player Props",
-            "startDate": "2026-11-01T23:00:00Z",
+            "startDate": future_start_time(),
             "markets": [
                 {
                     "question": "Bijan Robinson: Receptions O/U 2.5",
@@ -282,7 +287,7 @@ def test_optimal_line_selection_and_player_props_rejection(runner_env):
         # Event 2: Game with 3 alternative total lines -> must select ONLY the single highest-EV line
         {
             "title": "Detroit Lions vs Chicago Bears",
-            "startDate": "2026-11-01T23:00:00Z",
+            "startDate": future_start_time(),
             "markets": [
                 {
                     "question": "Lions vs Bears: O/U 45.5",
@@ -344,7 +349,7 @@ def test_unmatched_event_and_unmapped_taxonomy_gap_tracking(runner_env):
         # Event with unknown teams in NFL (domain tips exist, but teams cannot be paired)
         {
             "title": "Atlantis Sharks vs Gotham Rogues",
-            "startDate": "2026-11-01T23:00:00Z",
+            "startDate": future_start_time(),
             "teams": [{"name": "Atlantis Sharks"}, {"name": "Gotham Rogues"}],
             "markets": [
                 {

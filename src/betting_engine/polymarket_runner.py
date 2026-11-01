@@ -346,6 +346,16 @@ class PolymarketAutonomousRunner:
         unmapped_market_types: Set[str] = set()
         clob_checks_count = 0
 
+        # 0. Smart Order Routing: Process open Maker fallbacks & adverse selection circuit breaker
+        sor_actions = []
+        try:
+            sor_actions = self.executor.process_open_maker_fallbacks(
+                domain_tips=domain_tips,
+                min_ev_hurdle=self.min_ev_hurdle,
+            )
+        except Exception as exc:
+            log.warning(f"Error running SOR maker fallbacks: {exc}")
+
         # 1. Fetch live events from Polymarket Gamma API or mock (Parallel Concurrent Fetch)
         events = mock_events
         if events is None:

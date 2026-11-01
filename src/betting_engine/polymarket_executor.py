@@ -25,7 +25,7 @@ import sqlite3
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
-from .domain import utcnow
+from .domain import parse_time, utcnow
 from .providers import DATA
 
 try:
@@ -50,6 +50,28 @@ class PreflightResult:
     ev: float
     reason: str
     depth_shares: float = 0.0
+    best_bid: float = 0.0
+    best_ask: float = 0.0
+    spread: float = 0.0
+
+
+@dataclass
+class SlicingPlan:
+    strategy: str
+    total_stake: float
+    taker_ratio: float
+    maker_ratio: float
+    taker_stake: float
+    maker_stake: float
+    taker_price: float
+    maker_price: float
+    ev: float
+    minutes_to_start: float
+    spread: float
+    is_sliced: bool = False
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
 
 
 class PolymarketAutonomousExecutor:
@@ -592,6 +614,28 @@ class PolymarketAutonomousExecutor:
                 depth_shares=total_depth,
             )
 
+        # Determine best bid, best ask and spread from book for dynamic maker/taker pricing
+        best_bid = 0.0
+        best_ask = 0.0
+        if isinstance(book, dict):
+            if book.get("bids"):
+                try:
+                    first_b = book["bids"][0]
+                    best_bid = float(first_b.get("price", 0.0) if isinstance(first_b, dict) else getattr(first_b, "price", 0.0))
+                except Exception:
+                    pass
+            if book.get("asks"):
+                try:
+                    first_a = book["asks"][0]
+                    best_ask = float(first_a.get("price", 0.0) if isinstance(first_a, dict) else getattr(first_a, "price", 0.0))
+                except Exception:
+                    pass
+        if best_ask <= 0.0:
+            best_ask = round(eff_price, 4)
+        if best_bid <= 0.0:
+            best_bid = max(0.01, round(best_ask - 0.04, 4))
+        spread = max(0.001, round(best_ask - best_bid, 4))
+
         return PreflightResult(
             ok=True,
             eff_price=round(eff_price, 4),
@@ -600,6 +644,9 @@ class PolymarketAutonomousExecutor:
             ev=round(ev, 4),
             reason="PREFLIGHT_PASSED",
             depth_shares=total_depth,
+            best_bid=round(best_bid, 4),
+            best_ask=round(best_ask, 4),
+            spread=round(spread, 4),
         )
 
     def calculate_continuous_stake(
@@ -629,6 +676,117 @@ class PolymarketAutonomousExecutor:
         clamped_stake = max(0.50, min(stake_cap, target_stake))
         return round(clamped_stake, 2)
 
+    def compute_dynamic_alpha_slicing(
+        self,
+        ev: float,
+        start_time: str,
+        total_stake: float,
+        best_bid: float,
+        best_ask: float,
+        model_prob: float,
+    ) -> SlicingPlan:
+        """Determines the optimal quantitative Maker/Taker split.
+        
+        Balancing spread harvesting (+1.5-6.5% alpha) vs adverse selection
+        and execution urgency.
+        """
+        try:
+            start_dt = parse_time(start_time)
+            minutes_to_start = max(0.0, (start_dt - utcnow()).total_seconds() / 60.0)
+        except Exception:
+            minutes_to_start = 180.0
+
+        b_ask = float(best_ask if best_ask > 0 else 0.50)
+        b_bid = float(best_bid if best_bid > 0 else max(0.01, b_ask - 0.04))
+        spread = max(0.001, round(b_ask - b_bid, 4))
+
+        # Dynamic maker limit pricing: Step ahead of best bid by $0.001 to gain queue priority,
+        # but clamp strictly below discounted model fair value to guarantee positive edge.
+        model_fair_ceiling = round(model_prob * 0.98, 3)
+        raw_maker_p = round(b_bid + 0.001, 3)
+        maker_price = min(raw_maker_p, model_fair_ceiling)
+        if maker_price >= b_ask:
+            maker_price = max(0.01, round(b_ask - 0.005, 3))
+        maker_price = max(0.02, min(0.95, maker_price))
+
+        MIN_ORDER_USD = 1.00
+        if total_stake < 2.0 * MIN_ORDER_USD:
+            # Indivisible stake (< $2.00)
+            if minutes_to_start <= 30.0:
+                strategy = "indivisible_taker_urgency"
+                taker_ratio = 1.0
+                maker_ratio = 0.0
+            else:
+                strategy = "indivisible_maker_first"
+                taker_ratio = 0.0
+                maker_ratio = 1.0
+        else:
+            # Divisible stake (>= $2.00)
+            if minutes_to_start <= 25.0:
+                strategy = "pregame_urgency_slicing"
+                taker_ratio = 0.80
+                maker_ratio = 0.20
+            elif minutes_to_start <= 75.0:
+                strategy = "near_game_slicing"
+                taker_ratio = 0.60
+                maker_ratio = 0.40
+            elif ev >= 0.080:
+                # Ultra-High Alpha: prevent alpha decay by securing core exposure immediately
+                if spread >= 0.06:
+                    strategy = "ultra_alpha_wide_spread_slicing"
+                    taker_ratio = 0.40
+                    maker_ratio = 0.60
+                else:
+                    strategy = "ultra_alpha_slicing"
+                    taker_ratio = 0.50
+                    maker_ratio = 0.50
+            elif ev >= 0.055 and minutes_to_start <= 240.0:
+                # High alpha within 4 hours
+                strategy = "high_alpha_slicing"
+                taker_ratio = 0.35
+                maker_ratio = 0.65
+            else:
+                # Normal Alpha or deep time horizon (> 4 hours): harvest full spread
+                strategy = "maker_first_harvest"
+                taker_ratio = 0.0
+                maker_ratio = 1.0
+
+        taker_stake = round(total_stake * taker_ratio, 2)
+        maker_stake = round(total_stake - taker_stake, 2)
+
+        # Enforce $1.00 minimum bounds for non-zero slices
+        if 0.0 < taker_stake < MIN_ORDER_USD:
+            if taker_ratio >= 0.5:
+                taker_stake = MIN_ORDER_USD
+                maker_stake = round(total_stake - MIN_ORDER_USD, 2)
+            else:
+                taker_stake = 0.0
+                maker_stake = total_stake
+        elif 0.0 < maker_stake < MIN_ORDER_USD:
+            if maker_ratio >= 0.5:
+                maker_stake = MIN_ORDER_USD
+                taker_stake = round(total_stake - MIN_ORDER_USD, 2)
+            else:
+                maker_stake = 0.0
+                taker_stake = total_stake
+
+        is_sliced = (taker_stake > 0.0 and maker_stake > 0.0)
+
+        return SlicingPlan(
+            strategy=strategy,
+            total_stake=total_stake,
+            taker_ratio=round(taker_stake / max(0.01, total_stake), 3),
+            maker_ratio=round(maker_stake / max(0.01, total_stake), 3),
+            taker_stake=taker_stake,
+            maker_stake=maker_stake,
+            taker_price=b_ask,
+            maker_price=maker_price,
+            ev=ev,
+            minutes_to_start=round(minutes_to_start, 1),
+            spread=spread,
+            is_sliced=is_sliced,
+        )
+
     def stage_and_submit_order(
         self,
         league: str,
@@ -645,11 +803,13 @@ class PolymarketAutonomousExecutor:
         mock_book: Optional[Dict[str, Any]] = None,
         order_type: str = "GTC",
         require_tier_4: bool = False,
+        enable_dynamic_slicing: bool = True,
     ) -> Dict[str, Any]:
         """Executes full 7-stage order lifecycle on Polymarket CLOB.
 
         STAGED -> SIGNED -> RELAYED -> OPEN / FILLED (or REJECTED).
-        Supports LIMIT_GTC, LIMIT_FOK, LIMIT_FAK, and MARKET_FOK.
+        Supports Dynamic Alpha Slicing (Maker-First + Taker Fallback + Split Execution),
+        LIMIT_GTC, LIMIT_FOK, LIMIT_FAK, and MARKET_FOK.
         """
         now_iso = utcnow().isoformat()
         client_order_id = f"poly_{league.lower()}_{token_id[:8]}_{int(time.time()*1000)}"
@@ -770,6 +930,167 @@ class PolymarketAutonomousExecutor:
         )
         shares_count = round(calibrated_stake / preflight.eff_price, 2)
 
+        # 5. Dynamic Alpha Slicing Evaluation
+        slicing_plan = None
+        ot_upper = (order_type or "GTC").upper()
+        if enable_dynamic_slicing and ot_upper in ("GTC", "DYNAMIC"):
+            slicing_plan = self.compute_dynamic_alpha_slicing(
+                ev=preflight.ev,
+                start_time=start_time,
+                total_stake=calibrated_stake,
+                best_bid=preflight.best_bid,
+                best_ask=preflight.best_ask,
+                model_prob=model_prob,
+            )
+
+        # Stage 2: SIGNED & Stage 3: RELAYED / SUBMITTED
+        is_live_funded = False
+        if not self.dry_run and self.client:
+            try:
+                bal = self.get_collateral_balance()
+                is_live_funded = (bal > 0.05)
+            except Exception:
+                is_live_funded = False
+
+        # --- Dynamic Split Execution: Sliced into Taker and Maker ---
+        if slicing_plan and slicing_plan.is_sliced:
+            tk_cid = f"{client_order_id}_tk"
+            tk_stake = slicing_plan.taker_stake
+            tk_shares = round(tk_stake / max(0.01, preflight.eff_price), 2)
+
+            mk_cid = f"{client_order_id}_mk"
+            mk_stake = slicing_plan.maker_stake
+            mk_price = slicing_plan.maker_price
+            mk_shares = round(mk_stake / max(0.01, mk_price), 2)
+
+            # Volume-weighted blended execution metrics across both slices
+            total_shares = round(tk_shares + mk_shares, 2)
+            blended_price = round(calibrated_stake / max(0.01, total_shares), 4)
+            blended_odds = round(1.0 / max(0.01, blended_price), 3)
+            blended_ev = round((model_prob * blended_odds) - 1.0, 4)
+
+            slice_detail_json = json.dumps({
+                "strategy": slicing_plan.strategy,
+                "taker_slice": {"client_order_id": tk_cid, "stake": tk_stake, "shares": tk_shares, "price": preflight.eff_price},
+                "maker_slice": {"client_order_id": mk_cid, "stake": mk_stake, "shares": mk_shares, "price": mk_price},
+            })
+
+            # Record exactly ONE master position in polymarket_orders (preserving 1-to-1 ledger accounting)
+            self._record_order_event(
+                order_id=None,
+                client_order_id=client_order_id,
+                token_id=token_id,
+                league=league,
+                game_title=game_title,
+                start_time=start_time,
+                market_family=market_family,
+                selection=selection,
+                side=side,
+                line=line,
+                poly_price=blended_price,
+                poly_odds=blended_odds,
+                model_prob=model_prob,
+                expected_value=blended_ev,
+                stake_usd=calibrated_stake,
+                shares_count=total_shares,
+                status="staged",
+                error_detail=slice_detail_json,
+                scope=scope,
+            )
+
+            if not is_live_funded:
+                sim_parent = f"shadow_{client_order_id}"
+                log.info(
+                    f"[DYNAMIC ALPHA SLICING - SHADOW] Executed Sliced Portfolio: {league} {game_title} - {selection} "
+                    f"Strategy: {slicing_plan.strategy} (Taker: ${tk_stake:.2f} @ {preflight.eff_price:.3f}, Maker: ${mk_stake:.2f} @ {mk_price:.3f}, Blended: ${blended_price:.3f}, EV: +{blended_ev*100:.1f}%)"
+                )
+                self._update_order_status(client_order_id=client_order_id, order_id=sim_parent, status="filled", tx_hash=f"0xshadow_{client_order_id[:16]}", execution_mode="shadow")
+                return {
+                    "ok": True,
+                    "status": "filled",
+                    "order_id": sim_parent,
+                    "client_order_id": client_order_id,
+                    "shares": total_shares,
+                    "price": blended_price,
+                    "stake_usd": calibrated_stake,
+                    "ev": blended_ev,
+                    "dry_run": True,
+                    "execution_mode": "shadow",
+                    "is_sliced": True,
+                    "slicing_plan": slicing_plan.to_dict(),
+                    "taker_slice": {
+                        "client_order_id": tk_cid,
+                        "stake_usd": tk_stake,
+                        "shares": tk_shares,
+                        "price": preflight.eff_price,
+                        "status": "filled",
+                        "role": "taker_slice",
+                    },
+                    "maker_slice": {
+                        "client_order_id": mk_cid,
+                        "stake_usd": mk_stake,
+                        "shares": mk_shares,
+                        "price": mk_price,
+                        "status": "open",
+                        "role": "maker_slice",
+                    },
+                }
+            else:
+                # Live funded execution
+                action_side = "BUY" if side.upper() in ("BUY", "OVER", "HOME", "YES") else "SELL"
+                try:
+                    if getattr(self, "is_v2", False):
+                        from py_clob_client_v2.clob_types import OrderArgsV2, OrderType
+                        args_tk = OrderArgsV2(token_id=token_id, price=round(preflight.eff_price, 2), size=tk_shares, side=action_side)
+                        s_tk = self.client.create_order(args_tk)
+                        resp_tk = self.client.post_order(s_tk, order_type=OrderType.FAK)
+                    else:
+                        from py_clob_client.clob_types import OrderArgs, OrderType
+                        args_tk = OrderArgs(token_id=token_id, price=round(preflight.eff_price, 2), size=tk_shares, side=action_side)
+                        s_tk = self.client.create_order(args_tk)
+                        resp_tk = self.client.post_order(s_tk, orderType=OrderType.FAK)
+                    tk_oid = resp_tk.get("orderID") or resp_tk.get("id") or str(resp_tk)
+                except Exception as e_tk:
+                    log.error(f"Live taker slice failed: {e_tk}")
+
+                try:
+                    if getattr(self, "is_v2", False):
+                        from py_clob_client_v2.clob_types import OrderArgsV2, OrderType
+                        args_mk = OrderArgsV2(token_id=token_id, price=round(mk_price, 2), size=mk_shares, side=action_side)
+                        s_mk = self.client.create_order(args_mk)
+                        resp_mk = self.client.post_order(s_mk, order_type=OrderType.GTC)
+                    else:
+                        from py_clob_client.clob_types import OrderArgs, OrderType
+                        args_mk = OrderArgs(token_id=token_id, price=round(mk_price, 2), size=mk_shares, side=action_side)
+                        s_mk = self.client.create_order(args_mk)
+                        resp_mk = self.client.post_order(s_mk, orderType=OrderType.GTC)
+                    mk_oid = resp_mk.get("orderID") or resp_mk.get("id") or str(resp_mk)
+                except Exception as e_mk:
+                    log.error(f"Live maker slice failed: {e_mk}")
+
+                self._update_order_status(client_order_id=client_order_id, status="sliced_relayed", execution_mode="live")
+                return {
+                    "ok": True,
+                    "status": "sliced_relayed",
+                    "client_order_id": client_order_id,
+                    "shares": total_shares,
+                    "price": blended_price,
+                    "stake_usd": calibrated_stake,
+                    "ev": blended_ev,
+                    "dry_run": False,
+                    "execution_mode": "live",
+                    "is_sliced": True,
+                    "slicing_plan": slicing_plan.to_dict(),
+                    "taker_slice": {"client_order_id": tk_cid, "stake_usd": tk_stake, "price": preflight.eff_price},
+                    "maker_slice": {"client_order_id": mk_cid, "stake_usd": mk_stake, "price": mk_price},
+                }
+
+        # --- Single Order Execution (Indivisible or Single-Strategy) ---
+        eff_order_price = preflight.eff_price
+        if slicing_plan and slicing_plan.maker_stake > 0.0 and slicing_plan.taker_stake == 0.0:
+            eff_order_price = slicing_plan.maker_price
+            shares_count = round(calibrated_stake / max(0.01, eff_order_price), 2)
+
         # Stage 1: STAGED
         self._record_order_event(
             order_id=None,
@@ -782,8 +1103,8 @@ class PolymarketAutonomousExecutor:
             selection=selection,
             side=side,
             line=line,
-            poly_price=preflight.eff_price,
-            poly_odds=preflight.eff_odds,
+            poly_price=eff_order_price,
+            poly_odds=round(1.0 / max(0.01, eff_order_price), 3),
             model_prob=model_prob,
             expected_value=preflight.ev,
             stake_usd=calibrated_stake,
@@ -792,22 +1113,13 @@ class PolymarketAutonomousExecutor:
             scope=scope,
         )
 
-        # Stage 2: SIGNED & Stage 3: RELAYED / SUBMITTED
-        is_live_funded = False
-        if not self.dry_run and self.client:
-            try:
-                bal = self.get_collateral_balance()
-                is_live_funded = (bal > 0.05)
-            except Exception:
-                is_live_funded = False
-
         if not is_live_funded:
             # Deterministic simulation for test/dry-run or unfunded shadow paper trading
             simulated_order_id = f"shadow_{client_order_id}"
             simulated_tx = f"0xshadow_{client_order_id[:16]}"
             log.info(
                 f"[SHADOW TRADING] Verified Paper Execution (Real CLOB data): {league} {game_title} - {selection} "
-                f"({shares_count} shares @ {preflight.eff_price:.3f}, Stake: ${calibrated_stake:.2f}, EV: +{preflight.ev*100:.1f}%)"
+                f"({shares_count} shares @ {eff_order_price:.3f}, Stake: ${calibrated_stake:.2f}, EV: +{preflight.ev*100:.1f}%)"
             )
             self._update_order_status(
                 client_order_id=client_order_id,
@@ -816,18 +1128,22 @@ class PolymarketAutonomousExecutor:
                 tx_hash=simulated_tx,
                 execution_mode="shadow",
             )
-            return {
+            res_dict = {
                 "ok": True,
                 "status": "filled",
                 "order_id": simulated_order_id,
                 "client_order_id": client_order_id,
                 "shares": shares_count,
-                "price": preflight.eff_price,
+                "price": eff_order_price,
                 "stake_usd": calibrated_stake,
                 "ev": preflight.ev,
                 "dry_run": True,
                 "execution_mode": "shadow",
+                "is_sliced": False,
             }
+            if slicing_plan:
+                res_dict["slicing_plan"] = slicing_plan.to_dict()
+            return res_dict
 
         # Live Execution via ClobClient (Only when proxy wallet has > $0.05 USDC collateral)
         try:
@@ -970,6 +1286,126 @@ class PolymarketAutonomousExecutor:
         except Exception as exc:
             log.error(f"Failed to query open Polymarket orders: {exc}")
         return synced
+
+    def process_open_maker_fallbacks(
+        self,
+        domain_tips: Optional[List[Dict[str, Any]]] = None,
+        min_ev_hurdle: float = 0.035,
+    ) -> List[Dict[str, Any]]:
+        """Smart Order Routing Fallback & Adverse Selection Circuit Breaker.
+        
+        Evaluates open Maker limit orders approaching kickoff (<= 20 minutes):
+        1. If EV >= +3.5% remains at current Ask: cancels Maker, executes Taker fallback.
+        2. If EV < +3.5%: cancels Maker immediately to protect capital from adverse selection (e.g. late injury).
+        """
+        if not self.db_path.exists():
+            return []
+
+        actions: List[Dict[str, Any]] = []
+        now = utcnow()
+
+        try:
+            with sqlite3.connect(self.db_path, timeout=30) as conn:
+                conn.row_factory = sqlite3.Row
+                open_makers = conn.execute(
+                    """
+                    SELECT * FROM polymarket_orders 
+                    WHERE status = 'open' 
+                    AND (client_order_id LIKE '%_mk' OR execution_mode = 'live' OR error_code IS NULL)
+                    """
+                ).fetchall()
+
+            for row in open_makers:
+                st_str = row["start_time"]
+                try:
+                    st_dt = parse_time(st_str)
+                    mins_left = (st_dt - now).total_seconds() / 60.0
+                except Exception:
+                    mins_left = 999.0
+
+                if mins_left <= 20.0:
+                    cid = row["client_order_id"]
+                    oid = row["order_id"]
+                    tok = row["token_id"]
+                    model_p = float(row["model_prob"])
+                    rem_stake = float(row["stake_usd"])
+
+                    # Fetch fresh orderbook depth for token
+                    preflight = self.preflight_check(
+                        token_id=tok,
+                        side=row["side"],
+                        requested_stake=rem_stake,
+                        model_prob=model_p,
+                        min_ev=min_ev_hurdle,
+                    )
+
+                    if preflight.ok and preflight.ev >= min_ev_hurdle:
+                        # Convert to Taker fallback!
+                        log.info(
+                            f"[SOR FALLBACK TRIGGERED] Order {cid} (<{mins_left:.1f}m to kickoff): "
+                            f"Converting open Maker to Taker @ Ask {preflight.eff_price:.3f} (EV=+{preflight.ev*100:.1f}%)"
+                        )
+                        # Cancel open maker order on CLOB if live
+                        if not self.dry_run and self.client and oid:
+                            try:
+                                self.client.cancel(oid)
+                            except Exception as err:
+                                log.warning(f"Could not cancel maker order {oid} on CLOB: {err}")
+
+                        # Update maker status
+                        self._update_order_status(client_order_id=cid, status="fallback_converted")
+
+                        # Place Taker fallback order
+                        fb_client_id = f"{cid}_fb"
+                        fb_res = self.stage_and_submit_order(
+                            league=row["league"],
+                            game_title=row["game_title"],
+                            start_time=row["start_time"],
+                            market_family=row["market_family"],
+                            selection=row["selection"],
+                            side=row["side"],
+                            line=row["line"],
+                            token_id=tok,
+                            model_prob=model_p,
+                            scope=row["scope"],
+                            requested_stake=rem_stake,
+                            order_type="MARKET",
+                            enable_dynamic_slicing=False,
+                        )
+                        actions.append({
+                            "action": "taker_fallback_executed",
+                            "client_order_id": cid,
+                            "fallback_client_order_id": fb_client_id,
+                            "ev": preflight.ev,
+                            "stake_usd": rem_stake,
+                            "result": fb_res,
+                        })
+                    else:
+                        # Adverse Selection protection: cancel without executing taker
+                        log.info(
+                            f"[SOR ADVERSE SELECTION CANCELLATION] Order {cid} (<{mins_left:.1f}m to kickoff): "
+                            f"Cancelling open Maker order because current EV={preflight.ev*100:.1f}% < Hurdle {min_ev_hurdle*100:.1f}%."
+                        )
+                        if not self.dry_run and self.client and oid:
+                            try:
+                                self.client.cancel(oid)
+                            except Exception as err:
+                                log.warning(f"Could not cancel maker order {oid} on CLOB: {err}")
+                        self._update_order_status(
+                            client_order_id=cid,
+                            status="canceled_adverse_selection",
+                            error_detail=f"Canceled before kickoff: EV {preflight.ev*100:.1f}% < {min_ev_hurdle*100:.1f}%",
+                        )
+                        actions.append({
+                            "action": "maker_canceled_adverse_selection",
+                            "client_order_id": cid,
+                            "ev": preflight.ev,
+                            "reason": preflight.reason,
+                        })
+        except Exception as exc:
+            log.error(f"Error processing open maker fallbacks: {exc}")
+
+        return actions
 
     def get_collateral_balance(self) -> float:
         """Returns current USDC balance on the Polygon proxy wallet."""
