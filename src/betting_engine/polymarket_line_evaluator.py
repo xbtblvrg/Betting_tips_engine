@@ -25,6 +25,48 @@ LEAGUE_SIGMAS: Dict[str, Dict[str, float]] = {
 }
 DEFAULT_SIGMA = {"totals": 10.0, "spreads": 8.0}
 
+# Empirical period proportions of full game score/activity by league and period
+PERIOD_PROPORTIONS: Dict[str, Dict[str, float]] = {
+    "NFL": {
+        "half_1": 0.50,
+        "half_2": 0.50,
+        "1st_half": 0.50,
+        "2nd_half": 0.50,
+        "quarter_1": 0.19,
+        "quarter_2": 0.31,
+        "quarter_3": 0.19,
+        "quarter_4": 0.31,
+    },
+    "NBA": {
+        "half_1": 0.495,
+        "half_2": 0.505,
+        "1st_half": 0.495,
+        "2nd_half": 0.505,
+        "quarter_1": 0.245,
+        "quarter_2": 0.250,
+        "quarter_3": 0.245,
+        "quarter_4": 0.260,
+    },
+    "WNBA": {
+        "half_1": 0.495,
+        "half_2": 0.505,
+        "1st_half": 0.495,
+        "2nd_half": 0.505,
+        "quarter_1": 0.245,
+        "quarter_2": 0.250,
+        "quarter_3": 0.245,
+        "quarter_4": 0.260,
+    },
+    "NHL": {
+        "period_1": 0.30,
+        "period_2": 0.35,
+        "period_3": 0.35,
+    },
+    "MLB": {
+        "innings_1_5": 0.53,
+    },
+}
+
 
 def norm_cdf(x: float) -> float:
     """Standard Normal Cumulative Distribution Function."""
@@ -81,6 +123,36 @@ class ContinuousLineEvaluator:
         fam = "totals" if "total" in (family or "").lower() else "spreads"
         return self.sigmas.get(l_upper, DEFAULT_SIGMA).get(fam, DEFAULT_SIGMA[fam])
 
+    def _get_period_scaling(self, league: str, scope: str) -> Tuple[float, float]:
+        """Returns (weight, sigma_scale) for a given league and period scope.
+
+        - weight: expected fraction of full game total/mean (sums to 1.0 across disjoint periods).
+        - sigma_scale: sqrt(weight), maintaining variance additivity Var(total) = sum(Var(period)).
+        """
+        sc = (scope or "full_game").lower().strip()
+        if sc in ("full_game", "full", "match", "game", "regular"):
+            return 1.0, 1.0
+
+        l_upper = (league or "").upper()
+        league_weights = PERIOD_PROPORTIONS.get(l_upper, {})
+
+        if sc in league_weights:
+            w = league_weights[sc]
+            return w, math.sqrt(w)
+
+        if sc in ("half_1", "half_2", "1st_half", "2nd_half"):
+            w = 0.50
+        elif "quarter" in sc or sc.startswith("q"):
+            w = 0.25
+        elif "period" in sc:
+            w = 0.333
+        elif "innings_1_5" in sc:
+            w = 0.53
+        else:
+            w = 1.0
+
+        return w, math.sqrt(w)
+
     def evaluate_total(
         self,
         league: str,
@@ -98,19 +170,13 @@ class ContinuousLineEvaluator:
             Target: Polymarket Over 45.5.
             Result: ~0.638 (higher chance to hit lower line).
         """
-        sigma = self._get_sigma(league, "totals")
+        weight, sigma_scale = self._get_period_scaling(league, scope)
+        sigma = self._get_sigma(league, "totals") * sigma_scale
         eff_base_line = base_line
 
         # Adjust for derivative period scopes if baseline is a full-game projection
-        sc = (scope or "full_game").lower()
-        if sc in ("half_1", "half_2", "1st_half", "2nd_half"):
-            if base_line > target_line * 1.3:
-                eff_base_line = base_line * 0.50
-            sigma = sigma / math.sqrt(2.0)
-        elif "quarter" in sc or sc.startswith("q") or sc in ("quarter_1", "quarter_2", "quarter_3", "quarter_4"):
-            if base_line > target_line * 2.2:
-                eff_base_line = base_line * 0.25
-            sigma = sigma * 0.50
+        if weight < 0.95 and base_line > target_line * 1.3:
+            eff_base_line = base_line * weight
         
         # 1. Normalize baseline to P(Over base_line)
         is_base_over = base_side.lower() in ("over", "o", "yes")
@@ -153,16 +219,9 @@ class ContinuousLineEvaluator:
             P(Home covers S) + P(Away covers -S) == 1.0000 identically for all lines.
             Monotonic in S (getting more points strictly increases probability).
         """
-        sigma = self._get_sigma(league, "spreads")
-        mu = float(proj_home - proj_away)
-
-        sc = (scope or "full_game").lower()
-        if sc in ("half_1", "half_2", "1st_half", "2nd_half"):
-            mu = mu * 0.50
-            sigma = sigma / math.sqrt(2.0)
-        elif "quarter" in sc or sc.startswith("q") or sc in ("quarter_1", "quarter_2", "quarter_3", "quarter_4"):
-            mu = mu * 0.25
-            sigma = sigma * 0.50
+        weight, sigma_scale = self._get_period_scaling(league, scope)
+        sigma = self._get_sigma(league, "spreads") * sigma_scale
+        mu = float(proj_home - proj_away) * weight
 
         if is_home:
             z = (-spread_line - mu) / max(0.1, sigma)
@@ -188,18 +247,12 @@ class ContinuousLineEvaluator:
         Note on lines: A spread of -3.5 means the favorite must win by 4+.
         Target line of -1.5 is easier to cover than -3.5.
         """
-        sigma = self._get_sigma(league, "spreads")
+        weight, sigma_scale = self._get_period_scaling(league, scope)
+        sigma = self._get_sigma(league, "spreads") * sigma_scale
         eff_base_line = base_line
 
-        sc = (scope or "full_game").lower()
-        if sc in ("half_1", "half_2", "1st_half", "2nd_half"):
-            if abs(base_line) > abs(target_line) * 1.5 and abs(target_line) > 0.1:
-                eff_base_line = base_line * 0.50
-            sigma = sigma / math.sqrt(2.0)
-        elif "quarter" in sc or sc.startswith("q") or sc in ("quarter_1", "quarter_2", "quarter_3", "quarter_4"):
-            if abs(base_line) > abs(target_line) * 2.5 and abs(target_line) > 0.1:
-                eff_base_line = base_line * 0.25
-            sigma = sigma * 0.50
+        if weight < 0.95 and abs(base_line) > abs(target_line) * 1.3 and abs(target_line) > 0.1:
+            eff_base_line = base_line * weight
 
         # 1. Normalize to baseline covering probability
         is_base_fav = base_side.lower() in ("home", "favorite", "fav", "yes", "1")

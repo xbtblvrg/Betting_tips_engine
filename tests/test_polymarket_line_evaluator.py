@@ -94,3 +94,40 @@ def test_evaluate_team_spread_first_principles():
         p_a = evaluator.evaluate_team_spread("NBA", ph, pa, is_home=False, spread_line=-s)
         assert pytest.approx(p_h + p_a, abs=1e-3) == 1.0
 
+
+def test_empirical_period_proportions_and_variance_additivity():
+    """Verifies empirical period weights sum to 1.0 and variance additivity holds."""
+    from betting_engine.polymarket_line_evaluator import PERIOD_PROPORTIONS
+
+    # 1. NFL quarters sum to 1.0, halves sum to 1.0
+    nfl_q_sum = (
+        PERIOD_PROPORTIONS["NFL"]["quarter_1"]
+        + PERIOD_PROPORTIONS["NFL"]["quarter_2"]
+        + PERIOD_PROPORTIONS["NFL"]["quarter_3"]
+        + PERIOD_PROPORTIONS["NFL"]["quarter_4"]
+    )
+    assert pytest.approx(nfl_q_sum, abs=1e-4) == 1.0
+    assert pytest.approx(PERIOD_PROPORTIONS["NFL"]["half_1"] + PERIOD_PROPORTIONS["NFL"]["half_2"], abs=1e-4) == 1.0
+
+    # 2. NBA quarters sum to 1.0
+    nba_q_sum = (
+        PERIOD_PROPORTIONS["NBA"]["quarter_1"]
+        + PERIOD_PROPORTIONS["NBA"]["quarter_2"]
+        + PERIOD_PROPORTIONS["NBA"]["quarter_3"]
+        + PERIOD_PROPORTIONS["NBA"]["quarter_4"]
+    )
+    assert pytest.approx(nba_q_sum, abs=1e-4) == 1.0
+
+    # 3. Variance additivity: Var(Q1) + Var(Q2) + Var(Q3) + Var(Q4) == Var(Full Game)
+    evaluator = ContinuousLineEvaluator()
+    sigma_full = evaluator._get_sigma("NFL", "totals")
+    var_full = sigma_full ** 2
+
+    _, s1 = evaluator._get_period_scaling("NFL", "quarter_1")
+    _, s2 = evaluator._get_period_scaling("NFL", "quarter_2")
+    _, s3 = evaluator._get_period_scaling("NFL", "quarter_3")
+    _, s4 = evaluator._get_period_scaling("NFL", "quarter_4")
+
+    var_sum = ((sigma_full * s1) ** 2) + ((sigma_full * s2) ** 2) + ((sigma_full * s3) ** 2) + ((sigma_full * s4) ** 2)
+    assert pytest.approx(var_full, abs=1e-4) == var_sum
+

@@ -188,15 +188,27 @@ class PolymarketOutcomeSettler:
                                     home_score, away_score = scores
                                     break
 
-                        # Check bet_outcomes table for matching event
+                        # Check bet_outcomes table for matching event and scope
                         if home_score is None:
                             try:
+                                order_scope = (row["scope"] or "full_game").lower()
+                                # 1. Try matching both game_title and order_scope in evidence
                                 bo_rows = cur.execute(
-                                    "SELECT evidence FROM bet_outcomes WHERE evidence LIKE ? LIMIT 1",
-                                    (f"%{game_title}%",),
+                                    "SELECT evidence FROM bet_outcomes WHERE evidence LIKE ? AND evidence LIKE ? LIMIT 1",
+                                    (f"%{game_title}%", f'%"{order_scope}"%'),
                                 ).fetchall()
+                                # 2. Fallback to game_title only if full_game
+                                if not bo_rows and order_scope in ("full_game", "full", "game"):
+                                    bo_rows = cur.execute(
+                                        "SELECT evidence FROM bet_outcomes WHERE evidence LIKE ? LIMIT 1",
+                                        (f"%{game_title}%",),
+                                    ).fetchall()
                                 for bo in bo_rows:
                                     ev_data = json.loads(bo["evidence"])
+                                    # Ensure derivative scope does not settle using full-game score
+                                    ev_scope_str = str(ev_data.get("score_scope") or "").lower()
+                                    if order_scope not in ("full_game", "full", "game") and order_scope not in ev_scope_str:
+                                        continue
                                     if "home_score" in ev_data and "away_score" in ev_data:
                                         home_score = float(ev_data["home_score"])
                                         away_score = float(ev_data["away_score"])
