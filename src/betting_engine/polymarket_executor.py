@@ -38,6 +38,7 @@ log = logging.getLogger(__name__)
 
 ORDER_LOG_FILE = DATA / "logs" / "polymarket_orders.jsonl"
 GRADUATED_MARKETS_FILE = DATA / "graduated_markets.json"
+PRIMARY_LEAGUES: Tuple[str, ...] = ("NBA", "NFL")
 
 
 @dataclass
@@ -212,17 +213,25 @@ class PolymarketAutonomousExecutor:
         """Dynamic Proven-Alpha Gate (No Hardcoded Bans).
 
         Returns: (is_eligible, audit_reason, stake_cap)
-        - If require_live_profit is True: strictly requires confirmed positive live settled profit
-          in SegmentScoreboard (alpha_segments with pnl > 0 and games >= 5). A theoretical diploma alone is rejected.
-        - If require_live_profit is False: accepts Tier 3 diploma from graduated_markets.json or SegmentScoreboard.
+        - Invariant 1 (Anti-Loss Invariant): If a segment has negative live settled PnL or is
+          classified as UNDERPERFORMING in SegmentScoreboard, it is strictly quarantined ($0.00 virtual stakes).
+          A historical diploma in graduated_markets.json CAN NEVER override negative live reality!
+        - Invariant 2 (Live Ledger Proven Alpha): If confirmed positive live settled profit exists in
+          SegmentScoreboard, the market is eligible for funded trading (both primary and secondary leagues).
+        - Invariant 3 (Market Hierarchy - NBA & NFL First, Secondary Leagues Complement):
+          Primary leagues (NBA, NFL) can also qualify via Tier 3 Crucible diploma (ROI >= 3.5%, N >= 25)
+          if zero negative live wagers exist. Secondary leagues (MLS, EPL, UCL, NHL, etc.) MUST have
+          proven live settled profit in SegmentScoreboard to receive real money ($0.50-$8.00); otherwise,
+          they are routed to the Shadow Incubator ($0.00 virtual stakes) to build a live track record.
+        - If require_live_profit is True: strictly requires confirmed positive live settled profit for all leagues.
         """
         family_aliases = [market_family]
         if market_family in ("moneyline", "winner", "head_to_head", "h2h"):
-            family_aliases.extend(["moneyline", "winner", "h2h"])
+            family_aliases.extend(["moneyline", "winner", "h2h", f"{scope}:moneyline", f"{scope}:three_way"])
         elif market_family in ("spreads", "handicap", "run_line", "puck_line"):
-            family_aliases.extend(["spreads", "handicap", "asian_handicap"])
+            family_aliases.extend(["spreads", "handicap", "asian_handicap", f"{scope}:spreads", f"{scope}:asian_handicap"])
         elif market_family in ("totals", "over_under"):
-            family_aliases.extend(["totals", "asian_total", "asian_totals"])
+            family_aliases.extend(["totals", "asian_total", "asian_totals", f"{scope}:totals", f"{scope}:asian_total", f"{scope}:asian_totals"])
 
         seg_keys = []
         for alias in family_aliases:
@@ -247,6 +256,32 @@ class PolymarketAutonomousExecutor:
                 self._cached_scoreboard = {}
 
         if self._cached_scoreboard:
+            all_segs = (
+                self._cached_scoreboard.get("alpha_segments", [])
+                + self._cached_scoreboard.get("exploration_segments", [])
+                + self._cached_scoreboard.get("underperforming_segments", [])
+            )
+
+            # Invariant 1: Anti-Loss Invariant
+            # If a market has negative live settled PnL or is UNDERPERFORMING in live wagers,
+            # it is strictly quarantined ($0.00 virtual stakes). A historical diploma can NEVER override negative live reality!
+            for s in all_segs:
+                if s.get("league") == league and s.get("scope") == scope:
+                    s_fam = s.get("family", "")
+                    if any(a == s_fam or a in s_fam or s_fam in a for a in family_aliases):
+                        pnl = float(s.get("pnl", 0.0))
+                        roi = float(s.get("roi_pct", 0.0))
+                        games = int(s.get("games", 0))
+                        tier = s.get("tier", "")
+                        if pnl < 0.0 or roi < 0.0 or tier == "UNDERPERFORMING":
+                            return (
+                                False,
+                                f"UNDERPERFORMING_IN_LIVE_BETS: Segment {seg_keys[0]} has negative live settled performance (PnL: ${pnl:.2f}, ROI: {roi:.1f}%, N={games}). Quarantined in Shadow Incubator ($0.00).",
+                                0.0,
+                            )
+
+            # Invariant 2: Live Ledger Proven Alpha
+            # If confirmed positive live settled profit exists in SegmentScoreboard, the market is eligible!
             alpha_keys = {s["segment"]: s for s in self._cached_scoreboard.get("alpha_segments", [])}
             for k in seg_keys:
                 matched_s = None
@@ -254,7 +289,7 @@ class PolymarketAutonomousExecutor:
                     matched_s = alpha_keys[k]
                 else:
                     for ak, s_obj in alpha_keys.items():
-                        if ak.startswith(f"{league}|{scope}|") and (market_family in ak or ak.endswith(f":{market_family}")):
+                        if ak.startswith(f"{league}|{scope}|") and any(a in ak for a in family_aliases):
                             matched_s = s_obj
                             break
 
@@ -279,7 +314,18 @@ class PolymarketAutonomousExecutor:
                 0.0,
             )
 
-        # 2. Check graduated_markets.json (cached 60s) - Diploma only fallback
+        # Invariant 3: Market Hierarchy (NBA & NFL First, Secondary Leagues Complement):
+        # Secondary leagues (MLS, EPL, UCL, NHL, etc.) MUST have proven live settled profit in SegmentScoreboard
+        # before receiving real-money allocation ($0.50 - $8.00). Without confirmed live profit, secondary
+        # markets are routed to the Shadow Incubator ($0.00 virtual stakes) to build a forward track record.
+        if league not in PRIMARY_LEAGUES:
+            return (
+                False,
+                f"UNPROVEN_ON_POLYMARKET: Secondary league {league} segment {seg_keys[0]} has no confirmed live settled profit. Active in Shadow Incubator ($0.00).",
+                0.0,
+            )
+
+        # 2. Check graduated_markets.json (cached 60s) - Fallback for Primary Leagues (NBA & NFL)
         if self._cached_graduated is None or (now_ts - self._graduated_cached_at) > 60.0:
             if GRADUATED_MARKETS_FILE.exists():
                 try:
@@ -303,7 +349,7 @@ class PolymarketAutonomousExecutor:
                         stake_cap = 8.0 if roi >= 0.12 else 3.50
                         return (
                             True,
-                            f"TIER_3_GRADUATED: Verified Crucible Alpha (ROI: {roi*100:.1f}%, N={sample})",
+                            f"TIER_3_GRADUATED: Verified Crucible Alpha for Primary League {league} (ROI: {roi*100:.1f}%, N={sample})",
                             stake_cap,
                         )
 

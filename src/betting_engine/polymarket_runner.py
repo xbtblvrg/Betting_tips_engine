@@ -18,7 +18,7 @@ import time
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from .domain import utcnow
-from .polymarket_executor import PolymarketAutonomousExecutor, PreflightResult
+from .polymarket_executor import PolymarketAutonomousExecutor, PreflightResult, PRIMARY_LEAGUES
 from .polymarket_line_evaluator import ContinuousLineEvaluator
 from .polymarket_rd_prioritizer import PolymarketRDPrioritizer
 from .polymarket_service import PolymarketService
@@ -389,25 +389,36 @@ class PolymarketAutonomousRunner:
                             ev["_league"] = l
                             break
 
-        # Ensure balanced multi-sport coverage across active leagues
-        events_by_league: Dict[str, List[Dict[str, Any]]] = {}
-        for ev in qualifying_events:
+        # Strict Mandate: NBA and NFL are Primary Anchor Leagues (processed first)
+        primary_events = [ev for ev in qualifying_events if (ev.get("_league") or "") in PRIMARY_LEAGUES]
+        secondary_events = [ev for ev in qualifying_events if (ev.get("_league") or "") not in PRIMARY_LEAGUES]
+
+        primary_events.sort(key=lambda ev: ev.get("_start_dt", max_start))
+        secondary_events.sort(key=lambda ev: ev.get("_start_dt", max_start))
+
+        # Interleave secondary leagues among themselves to prevent a single secondary tournament from dominating
+        sec_by_league: Dict[str, List[Dict[str, Any]]] = {}
+        for ev in secondary_events:
             l_key = ev.get("_league") or "OTHER"
-            events_by_league.setdefault(l_key, []).append(ev)
+            sec_by_league.setdefault(l_key, []).append(ev)
 
-        interleaved_events = []
-        max_depth = max((len(evs) for evs in events_by_league.values()), default=0)
-        for d in range(max_depth):
+        sec_interleaved = []
+        max_sec_depth = max((len(evs) for evs in sec_by_league.values()), default=0)
+        for d in range(max_sec_depth):
             for l_name in leagues:
-                if l_name in events_by_league and d < len(events_by_league[l_name]):
-                    interleaved_events.append(events_by_league[l_name][d])
-            if "OTHER" in events_by_league and d < len(events_by_league["OTHER"]):
-                interleaved_events.append(events_by_league["OTHER"][d])
+                if l_name not in PRIMARY_LEAGUES and l_name in sec_by_league and d < len(sec_by_league[l_name]):
+                    sec_interleaved.append(sec_by_league[l_name][d])
+            if "OTHER" in sec_by_league and d < len(sec_by_league["OTHER"]):
+                sec_interleaved.append(sec_by_league["OTHER"][d])
 
-        if not interleaved_events:
-            interleaved_events = qualifying_events
+        ordered_events = primary_events + (sec_interleaved if sec_interleaved else secondary_events)
+        if not ordered_events:
+            ordered_events = qualifying_events
 
-        for event in interleaved_events:
+        primary_orders_count = 0
+        secondary_orders_count = 0
+
+        for event in ordered_events:
             if max_orders_per_cycle is not None and len(orders_placed) >= max_orders_per_cycle:
                 break
             if max_clob_checks is not None and clob_checks_count >= max_clob_checks:
@@ -697,6 +708,12 @@ class PolymarketAutonomousRunner:
 
                 best_cand = max(cands, key=lambda c: c["ev"])
 
+                # Pacing Guard: Secondary leagues act as complements and cannot overtake NBA/NFL
+                if league not in PRIMARY_LEAGUES:
+                    max_sec = max(5, int((len(orders_placed) + 1) * 0.35))
+                    if secondary_orders_count >= max_sec and primary_orders_count > 0:
+                        continue
+
                 order_res = self.executor.stage_and_submit_order(
                     league=league,
                     game_title=title,
@@ -713,6 +730,10 @@ class PolymarketAutonomousRunner:
                 )
 
                 if order_res.get("ok"):
+                    if league in PRIMARY_LEAGUES:
+                        primary_orders_count += 1
+                    else:
+                        secondary_orders_count += 1
                     order_res["token_id"] = best_cand["token_id"]
                     orders_placed.append(order_res)
                     traded_tokens.add(best_cand["token_id"])

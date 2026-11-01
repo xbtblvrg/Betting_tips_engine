@@ -99,6 +99,87 @@ def test_dynamic_proven_alpha_gate(test_env):
     assert "UNPROVEN_IN_LIVE_BETS" in reason_strict
 
 
+def test_anti_loss_invariant_and_market_hierarchy(test_env):
+    """Verifies that live ledger losses strictly override diplomas, and secondary leagues require live proof."""
+    pe = test_env["executor"]
+    db_path = test_env["db_path"]
+
+    # Mock scoreboard with live results:
+    # 1. MLS totals is losing in live wagers (PnL -$3.87)
+    # 2. MLS spreads is winning in live wagers (PnL +$30.10)
+    # 3. NBA half_1 spreads is losing in live wagers (PnL -$14.63)
+    pe._cached_scoreboard = {
+        "alpha_segments": [
+            {
+                "segment": "MLS|full_game|spreads",
+                "league": "MLS",
+                "scope": "full_game",
+                "family": "spreads",
+                "pnl": 30.10,
+                "roi_pct": 19.9,
+                "games": 19,
+                "sub_tier": "SUPER_ALPHA",
+            }
+        ],
+        "underperforming_segments": [
+            {
+                "segment": "MLS|full_game|totals",
+                "league": "MLS",
+                "scope": "full_game",
+                "family": "totals",
+                "pnl": -3.87,
+                "roi_pct": -3.2,
+                "games": 23,
+                "tier": "UNDERPERFORMING",
+            },
+            {
+                "segment": "NBA|half_1|half_1:spreads",
+                "league": "NBA",
+                "scope": "half_1",
+                "family": "half_1:spreads",
+                "pnl": -14.63,
+                "roi_pct": -83.8,
+                "games": 12,
+                "tier": "UNDERPERFORMING",
+            },
+        ],
+        "exploration_segments": [],
+    }
+    pe._scoreboard_cached_at = 9999999999.0  # Keep cached for test
+
+    # Invariant 1: MLS totals has a diploma in graduated_markets.json, but has negative live PnL!
+    # Anti-Loss Invariant must strictly reject it ($0.00 stake)!
+    is_elig_mls_tot, reason_mls_tot, cap_mls_tot = pe.is_market_eligible("MLS", "full_game", "totals")
+    assert is_elig_mls_tot is False
+    assert cap_mls_tot == 0.0
+    assert "UNDERPERFORMING_IN_LIVE_BETS" in reason_mls_tot
+
+    # Invariant 2: NBA half_1 spreads has negative live PnL (-$14.63) -> strictly rejected ($0.00 stake)
+    is_elig_nba_h1, reason_nba_h1, cap_nba_h1 = pe.is_market_eligible("NBA", "half_1", "spreads")
+    assert is_elig_nba_h1 is False
+    assert cap_nba_h1 == 0.0
+    assert "UNDERPERFORMING_IN_LIVE_BETS" in reason_nba_h1
+
+    # Invariant 3: MLS spreads has positive live settled profit (+19.9% ROI) -> Approved!
+    is_elig_mls_sp, reason_mls_sp, cap_mls_sp = pe.is_market_eligible("MLS", "full_game", "spreads")
+    assert is_elig_mls_sp is True
+    assert cap_mls_sp == 8.0
+    assert "LIVE_LEDGER_PROVEN_PROFIT" in reason_mls_sp
+
+    # Invariant 4: UCL totals has a diploma, but 0 live settled games -> Secondary unproven rejected to Shadow Incubator!
+    is_elig_ucl, reason_ucl, cap_ucl = pe.is_market_eligible("UCL", "full_game", "totals")
+    assert is_elig_ucl is False
+    assert cap_ucl == 0.0
+    assert "UNPROVEN_ON_POLYMARKET" in reason_ucl
+    assert "Secondary league" in reason_ucl
+
+    # Invariant 5: Primary Anchor (NBA three_way) has diploma and no negative live record -> Approved!
+    is_elig_nba_ml, reason_nba_ml, cap_nba_ml = pe.is_market_eligible("NBA", "full_game", "three_way")
+    assert is_elig_nba_ml is True
+    assert cap_nba_ml >= 3.50
+    assert "TIER_3_GRADUATED" in reason_nba_ml
+
+
 def test_continuous_kelly_sizing_bounds(test_env):
     """Verifies that stakes adhere to continuous Kelly formula and strictly bound in [$0.50, $8.00]."""
     pe = test_env["executor"]
