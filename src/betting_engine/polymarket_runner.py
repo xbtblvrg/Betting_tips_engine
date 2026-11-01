@@ -29,6 +29,7 @@ log = logging.getLogger(__name__)
 
 RUNNER_STATE_FILE = DATA / "polymarket_runner_state.json"
 _RUNNER_CYCLE_LOCK = threading.Lock()
+DEFAULT_RUNNER_LEAGUES: Tuple[str, ...] = ("NBA", "NFL", "NHL", "EPL", "UCL", "MLS")
 
 # Explicit Canonical Taxonomy Mapping for Polymarket Gamma API sportsMarketType
 POLYMARKET_STRUCTURED_TYPE_MAP: Dict[str, Tuple[str, str]] = {
@@ -284,7 +285,7 @@ class PolymarketAutonomousRunner:
 
     def run_execution_cycle(
         self,
-        leagues: Tuple[str, ...] = ("NBA", "NFL", "NHL"),
+        leagues: Tuple[str, ...] = DEFAULT_RUNNER_LEAGUES,
         max_orders_per_cycle: Optional[int] = None,
         max_clob_checks: Optional[int] = None,
         mock_events: Optional[List[Dict[str, Any]]] = None,
@@ -309,7 +310,7 @@ class PolymarketAutonomousRunner:
 
     def _run_execution_cycle_inner(
         self,
-        leagues: Tuple[str, ...] = ("NBA", "NFL", "NHL"),
+        leagues: Tuple[str, ...] = DEFAULT_RUNNER_LEAGUES,
         max_orders_per_cycle: Optional[int] = None,
         max_clob_checks: Optional[int] = None,
         mock_events: Optional[List[Dict[str, Any]]] = None,
