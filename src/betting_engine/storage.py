@@ -35,6 +35,36 @@ class Store:
         CREATE TABLE IF NOT EXISTS segment_prospective(game_id TEXT NOT NULL,scope TEXT NOT NULL,created_at TEXT NOT NULL,start TEXT NOT NULL,model_version TEXT NOT NULL,payload TEXT NOT NULL,outcome TEXT,brier REAL,PRIMARY KEY(game_id,scope));
         CREATE TABLE IF NOT EXISTS bets(id INTEGER PRIMARY KEY AUTOINCREMENT,tip_id TEXT NOT NULL,created_at TEXT NOT NULL,stake REAL NOT NULL,odds REAL NOT NULL,platform TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'open',pnl REAL,payload TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS bet_outcomes(bet_id INTEGER PRIMARY KEY,league TEXT,market TEXT,model_version TEXT,result TEXT NOT NULL,probability REAL,push_probability REAL,brier REAL,log_loss REAL,evidence TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS polymarket_orders(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_id TEXT UNIQUE,
+            client_order_id TEXT UNIQUE,
+            token_id TEXT NOT NULL,
+            league TEXT NOT NULL,
+            game_title TEXT NOT NULL,
+            start_time TEXT NOT NULL,
+            market_family TEXT NOT NULL,
+            selection TEXT NOT NULL,
+            side TEXT NOT NULL,
+            line REAL,
+            poly_price REAL NOT NULL,
+            poly_odds REAL NOT NULL,
+            model_prob REAL NOT NULL,
+            expected_value REAL NOT NULL,
+            stake_usd REAL NOT NULL,
+            shares_count REAL NOT NULL,
+            status TEXT NOT NULL,
+            tx_hash TEXT,
+            pnl REAL,
+            error_code TEXT,
+            error_detail TEXT,
+            ai_remediation_hint TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            settled_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_poly_orders_league ON polymarket_orders(league);
+        CREATE INDEX IF NOT EXISTS idx_poly_orders_status ON polymarket_orders(status);
         ''')
         with self.db() as c:
             columns={r['name'] for r in c.execute('PRAGMA table_info(bets)')}

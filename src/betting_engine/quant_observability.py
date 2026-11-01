@@ -576,6 +576,31 @@ class LeadQuantObservabilityEngine:
             except Exception:
                 pass
 
+        # 8. Polymarket Parallel Trading Events
+        poly_p = self.data_dir / 'logs' / 'polymarket_orders.jsonl'
+        if poly_p.exists():
+            try:
+                with open(poly_p, 'r', encoding='utf-8') as f:
+                    lines = f.readlines()[-limit:]
+                    for l in lines:
+                        if not l.strip():
+                            continue
+                        try:
+                            item = json.loads(l)
+                            status = item.get('status') or item.get('new_status') or 'order'
+                            events.append({
+                                'timestamp': item.get('timestamp', ''),
+                                'component': 'polymarket_executor',
+                                'event_type': status,
+                                'severity': 'error' if status == 'rejected' or item.get('error_code') else 'info',
+                                'message': f"Polymarket {item.get('league', '')} {item.get('selection', '')}: status={status} stake=${item.get('stake', item.get('stake_usd', 0))} EV={item.get('ev', 0)}",
+                                'data': item
+                            })
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+
         # Filter by component if requested
         if component:
             events = [e for e in events if e['component'] == component]

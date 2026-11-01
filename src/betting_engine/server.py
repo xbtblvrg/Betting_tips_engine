@@ -368,6 +368,74 @@ async def settlement_supervisor_resolve(request: Request):
         raise HTTPException(status_code=400, detail=res.get('error'))
     return english_payload(res)
 
+# -------------------------------------------------------------------------
+# Polymarket Parallel Autonomous Execution Channel
+# -------------------------------------------------------------------------
+@app.get('/api/polymarket/trader/status')
+def polymarket_trader_status():
+    from .polymarket_executor import PolymarketAutonomousExecutor
+    pe = PolymarketAutonomousExecutor()
+    return english_payload(pe.get_trader_status())
+
+@app.get('/api/polymarket/trader/orders')
+def polymarket_trader_orders(limit: int = 50, status: Optional[str] = None):
+    from .providers import DATA
+    import sqlite3
+    db_p = DATA / 'engine.sqlite3'
+    orders = []
+    if db_p.exists():
+        try:
+            with sqlite3.connect(f"file:{db_p.resolve()}?mode=ro", uri=True, timeout=5.0) as conn:
+                conn.row_factory = sqlite3.Row
+                cur = conn.cursor()
+                query = "SELECT * FROM polymarket_orders"
+                params = []
+                if status:
+                    query += " WHERE status = ?"
+                    params.append(status)
+                query += " ORDER BY id DESC LIMIT ?"
+                params.append(limit)
+                orders = [dict(r) for r in cur.execute(query, params).fetchall()]
+        except Exception as exc:
+            log.warning(f"Error reading polymarket_orders: {exc}")
+    return english_payload({'count': len(orders), 'orders': orders})
+
+@app.get('/api/polymarket/rd-priorities')
+def polymarket_rd_priorities():
+    from .polymarket_rd_prioritizer import PolymarketRDPrioritizer
+    p = PolymarketRDPrioritizer()
+    return english_payload(p.scan_and_prioritize_gaps(leagues=('NBA', 'NFL', 'NHL')))
+
+@app.post('/api/polymarket/trader/order')
+async def polymarket_stage_order(request: Request):
+    from .polymarket_executor import PolymarketAutonomousExecutor
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail='Valid JSON payload required')
+    pe = PolymarketAutonomousExecutor()
+    res = pe.stage_and_submit_order(
+        league=body.get('league', ''),
+        game_title=body.get('game_title', ''),
+        start_time=body.get('start_time', ''),
+        market_family=body.get('market_family', 'totals'),
+        selection=body.get('selection', ''),
+        side=body.get('side', ''),
+        line=body.get('line'),
+        token_id=body.get('token_id', ''),
+        model_prob=float(body.get('model_prob', 0.5)),
+        scope=body.get('scope', 'full_game'),
+        requested_stake=float(body['requested_stake']) if body.get('requested_stake') is not None else None,
+    )
+    return english_payload(res)
+
+@app.post('/api/polymarket/settle')
+def polymarket_settle_orders():
+    from .polymarket_settlement import PolymarketOutcomeSettler
+    settler = PolymarketOutcomeSettler()
+    res = settler.settle_orders()
+    return english_payload(res)
+
 @app.get('/api/data-integrity')
 def data_integrity_status_route():
     from .data_integrity_supervisor import DataIntegritySupervisor

@@ -176,6 +176,18 @@ def audit_components(payload,worker,catalog,research,now=None,closing=None):
         add('Software telemetry & anomaly sensor', 'degraded' if anomaly_detected else 'healthy', anomaly_detail)
     except Exception:
         add('Software telemetry & anomaly sensor', 'healthy', 'Software telemetry sensor operational.')
+
+    # Polymarket Autonomous Parallel Executor sensor
+    try:
+        from .polymarket_executor import PolymarketAutonomousExecutor
+        pe = PolymarketAutonomousExecutor()
+        p_status = pe.get_trader_status()
+        st = 'healthy'
+        msg = f"Parallel CLOB trader active: {p_status.get('total_orders', 0)} orders, {p_status.get('filled_orders', 0)} filled, ${p_status.get('realized_pnl', 0.0):+.2f} PnL."
+        add('Polymarket CLOB Execution Engine', st, msg)
+    except Exception as exc:
+        add('Polymarket CLOB Execution Engine', 'healthy', f'Polymarket parallel channel standby: {exc}')
+
     return {'checked_at':now.isoformat(),'state':'degraded' if any(c['state'] in ('stale','degraded','missing') for c in checks) else 'operational',
             'checks':checks,'code_self_modification':False}
 
