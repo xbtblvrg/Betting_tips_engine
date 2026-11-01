@@ -96,6 +96,44 @@ class PolymarketOutcomeSettler:
             "message": f"{len(redeemable_items)} positions flagged for redemption.",
         }
 
+    def fetch_gamma_market_resolution(self, token_id: str) -> Optional[Dict[str, Any]]:
+        """Queries Polymarket Gamma API to check if the market containing token_id is closed and resolved."""
+        if not token_id:
+            return None
+        url = f"https://gamma-api.polymarket.com/markets?clob_token_ids={token_id}&closed=true"
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=5) as r:
+                markets = json.loads(r.read().decode())
+                if not markets or not isinstance(markets, list):
+                    return None
+                m = markets[0]
+                if not m.get("closed"):
+                    return None
+
+                raw_tokens = m.get("clobTokenIds")
+                tokens = json.loads(raw_tokens) if isinstance(raw_tokens, str) else (raw_tokens or [])
+                raw_prices = m.get("outcomePrices")
+                prices = json.loads(raw_prices) if isinstance(raw_prices, str) else (raw_prices or [])
+
+                token_price = None
+                if token_id in tokens:
+                    idx = tokens.index(token_id)
+                    if idx < len(prices):
+                        try:
+                            token_price = float(prices[idx])
+                        except (ValueError, TypeError):
+                            token_price = None
+
+                return {
+                    "closed": True,
+                    "token_price": token_price,
+                    "question": m.get("question"),
+                }
+        except Exception as exc:
+            log.debug(f"Could not fetch Gamma resolution for token {token_id}: {exc}")
+            return None
+
     def settle_orders(
         self,
         order_ids: Optional[List[str]] = None,
@@ -106,6 +144,8 @@ class PolymarketOutcomeSettler:
         Dual-Pillar Resolution:
         1. Primary: Direct Polymarket Data API & On-Chain Oracle resolution
            (Reads exact cash PnL, redemption status and payout straight from Polymarket).
+        1.5 Polymarket Gamma Market Resolution: Official oracle resolution for closed markets
+           (essential for shadow paper executions and unindexed tokens).
         2. Fallback: Verified official sports feeds (ESPN, NHL API) for immediate settlement.
         """
         if not self.db_path.exists():
@@ -124,6 +164,7 @@ class PolymarketOutcomeSettler:
 
         # Step 0: Sync live on-chain positions from Polymarket Data API
         poly_positions = self.fetch_polymarket_positions() if not mock_scores else {}
+        gamma_res_cache: Dict[str, Optional[Dict[str, Any]]] = {}
 
         try:
             with sqlite3.connect(self.db_path, timeout=10) as conn:
@@ -173,6 +214,43 @@ class PolymarketOutcomeSettler:
                             new_status = "lost"
                             pnl = round(float(official_cash_pnl), 2) if official_cash_pnl is not None else -round(stake, 2)
                             settlement_source = "polymarket_data_api_oracle"
+
+                    # ---------------------------------------------------------
+                    # Pillar 1.5: Direct Polymarket Gamma Official Market Resolution
+                    # (Essential for shadow paper executions and unindexed tokens)
+                    # ---------------------------------------------------------
+                    if new_status is None and not mock_scores:
+                        start_time_str = row["start_time"]
+                        game_may_be_done = False
+                        if start_time_str:
+                            try:
+                                st = datetime.fromisoformat(start_time_str.replace("Z", "+00:00"))
+                                if utcnow() >= st:
+                                    game_may_be_done = True
+                            except Exception:
+                                game_may_be_done = True
+                        else:
+                            game_may_be_done = True
+
+                        if game_may_be_done:
+                            if token_id not in gamma_res_cache:
+                                gamma_res_cache[token_id] = self.fetch_gamma_market_resolution(token_id)
+                            gamma_res = gamma_res_cache[token_id]
+                            if gamma_res and gamma_res.get("closed"):
+                                outcome_price = gamma_res.get("token_price")
+                                if outcome_price is not None:
+                                    if outcome_price >= 0.99:
+                                        new_status = "won"
+                                        pnl = round(shares * 1.0 - stake, 2)
+                                        settlement_source = "polymarket_gamma_resolution"
+                                    elif outcome_price <= 0.01:
+                                        new_status = "lost"
+                                        pnl = -round(stake, 2)
+                                        settlement_source = "polymarket_gamma_resolution"
+                                    elif 0.45 <= outcome_price <= 0.55:
+                                        new_status = "pushed"
+                                        pnl = 0.00
+                                        settlement_source = "polymarket_gamma_resolution"
 
                     # ---------------------------------------------------------
                     # Pillar 2: Official Sports Scores Fallback
