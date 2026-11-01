@@ -208,6 +208,17 @@ class PolymarketAutonomousRunner:
         if not matched_tips:
             return None
 
+        # Filter out quarantined / demoted tips to prevent leaking unvalidated/degraded model forecasts
+        active_tips = [
+            t for t in matched_tips
+            if t.get("allocation_code") not in ("capital_defense_quarantined", "quarantined", "demoted")
+            and not t.get("funding_veto")
+        ]
+        if not active_tips:
+            log.info(f"Skipping Polymarket event {title}: all matched domain tips are quarantined/demoted.")
+            return None
+        matched_tips = active_tips
+
         # Extract projected points from matching tips
         proj_h = None
         proj_a = None

@@ -175,7 +175,7 @@ class ContinuousLineEvaluator:
         eff_base_line = base_line
 
         # Adjust for derivative period scopes if baseline is a full-game projection
-        if weight < 0.95 and base_line > target_line * 1.3:
+        if weight < 0.99:
             eff_base_line = base_line * weight
         
         # 1. Normalize baseline to P(Over base_line)

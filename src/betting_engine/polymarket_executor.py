@@ -443,6 +443,19 @@ class PolymarketAutonomousExecutor:
                 depth_shares=total_depth,
             )
 
+        # Extreme Sanity Guard: An EV exceeding 85% on a liquid contract signals model misspecification or tail artifact
+        MAX_SANITY_EV = 0.85
+        if ev > MAX_SANITY_EV:
+            return PreflightResult(
+                ok=False,
+                eff_price=round(eff_price, 4),
+                eff_odds=round(eff_odds, 3),
+                shares=shares_accumulated,
+                ev=round(ev, 4),
+                reason=f"EXCESSIVE_EV_ANOMALY_REJECTED: EV {ev*100:.2f}% > Max Sanity {MAX_SANITY_EV*100:.1f}% (Model divergence or tail artifact)",
+                depth_shares=total_depth,
+            )
+
         return PreflightResult(
             ok=True,
             eff_price=round(eff_price, 4),
