@@ -209,10 +209,44 @@ class PolymarketOutcomeSettler:
                             continue
 
                         # Evaluate payoff condition using contracts.py contract_value
-                        norm_market = "totals" if market_fam in ("totals", "Total") else "spreads" if market_fam in ("spreads", "Spread") else "moneyline"
-                        norm_side = side.lower()
-                        if norm_market == "moneyline" and norm_side not in ("home", "away"):
-                            norm_side = "home" if "home" in norm_side else "away"
+                        sel_str = str(row["selection"] or "")
+                        sel_low = sel_str.lower()
+
+                        if market_fam in ("totals", "Total"):
+                            norm_market = "totals"
+                            norm_side = "over" if "over" in sel_low else "under"
+                        else:
+                            norm_market = "spreads" if market_fam in ("spreads", "Spread") else "moneyline"
+                            home_name = None
+                            away_name = None
+                            if 'ev_data' in locals() and ev_data:
+                                home_name = ev_data.get("home_team") or ev_data.get("home")
+                                away_name = ev_data.get("away_team") or ev_data.get("away")
+                            if not home_name:
+                                try:
+                                    tip_row = cur.execute(
+                                        "SELECT json_extract(payload, '$.home'), json_extract(payload, '$.away') FROM tips WHERE payload LIKE ? LIMIT 1",
+                                        (f"%{game_title}%",),
+                                    ).fetchone()
+                                    if tip_row:
+                                        home_name, away_name = tip_row[0], tip_row[1]
+                                except Exception:
+                                    pass
+
+                            if home_name and (sel_low in home_name.lower() or any(w in sel_low for w in home_name.lower().split() if len(w) > 3)):
+                                norm_side = "home"
+                            elif away_name and (sel_low in away_name.lower() or any(w in sel_low for w in away_name.lower().split() if len(w) > 3)):
+                                norm_side = "away"
+                            else:
+                                parts = game_title.split(" vs. ") if " vs. " in game_title else game_title.split(" vs ")
+                                if len(parts) == 2:
+                                    away_part, home_part = parts[0].strip().lower(), parts[1].strip().lower()
+                                    if any(w in sel_low for w in home_part.split() if len(w) > 3):
+                                        norm_side = "home"
+                                    else:
+                                        norm_side = "away"
+                                else:
+                                    norm_side = "home" if "home" in sel_low else "away"
 
                         try:
                             c_val = contract_value(

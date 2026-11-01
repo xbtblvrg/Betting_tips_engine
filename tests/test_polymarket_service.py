@@ -338,3 +338,73 @@ def test_scope_isolation_and_side_aware_spreads(monkeypatch, tmp_path):
     assert "42.5" in res["totals"]
     assert res["totals"]["42.5"]["p_true_over"] == 0.55
     assert "26.5" not in res["totals"]  # Team total strictly excluded!
+
+
+def test_settler_sports_fallback_resolution(tmp_path):
+    """Verifies that PolymarketOutcomeSettler properly resolves Totals, Spreads, and Moneyline via mock scores."""
+    from betting_engine.polymarket_settlement import PolymarketOutcomeSettler
+    import sqlite3
+
+    db_path = tmp_path / "engine.sqlite3"
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("""
+            CREATE TABLE polymarket_orders (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                order_id TEXT,
+                client_order_id TEXT,
+                token_id TEXT,
+                league TEXT,
+                game_title TEXT,
+                start_time TEXT,
+                market_family TEXT,
+                selection TEXT,
+                side TEXT,
+                line REAL,
+                poly_price REAL,
+                poly_odds REAL,
+                model_prob REAL,
+                expected_value REAL,
+                stake_usd REAL,
+                shares_count REAL,
+                status TEXT,
+                tx_hash TEXT,
+                pnl REAL,
+                error_code TEXT,
+                error_detail TEXT,
+                ai_remediation_hint TEXT,
+                created_at TEXT,
+                updated_at TEXT,
+                settled_at TEXT,
+                execution_mode TEXT,
+                scope TEXT
+            );
+        """)
+        # 1. Totals: Under 45.5, final score 20-17 = 37 -> WON
+        conn.execute("""
+            INSERT INTO polymarket_orders (order_id, token_id, game_title, market_family, selection, side, line, stake_usd, shares_count, status)
+            VALUES ('ord_tot', 'tok_tot', 'Ravens vs. Bills', 'totals', 'Under', 'BUY', 45.5, 4.0, 10.0, 'filled');
+        """)
+        # 2. Spreads: Magic +2.5, final score Celtics 113, Magic 112 -> WON
+        conn.execute("""
+            INSERT INTO polymarket_orders (order_id, token_id, game_title, market_family, selection, side, line, stake_usd, shares_count, status)
+            VALUES ('ord_spd', 'tok_spd', 'Celtics vs. Magic', 'spreads', 'Magic', 'BUY', 2.5, 3.5, 10.0, 'filled');
+        """)
+        # 3. Moneyline: Broncos, final score Broncos 24, Chiefs 21 -> WON
+        conn.execute("""
+            INSERT INTO polymarket_orders (order_id, token_id, game_title, market_family, selection, side, line, stake_usd, shares_count, status)
+            VALUES ('ord_ml', 'tok_ml', 'Chiefs vs. Broncos', 'moneyline', 'Broncos', 'BUY', NULL, 2.0, 4.0, 'filled');
+        """)
+
+    settler = PolymarketOutcomeSettler(db_path=db_path)
+    mock_scores = {
+        "Ravens vs. Bills": (20.0, 17.0),
+        "Celtics vs. Magic": (112.0, 113.0),  # Magic (Home) 112, Celtics (Away) 113
+        "Chiefs vs. Broncos": (24.0, 21.0),  # Broncos (Home) 24, Chiefs (Away) 21
+    }
+
+    res = settler.settle_orders(mock_scores=mock_scores)
+    assert res["settled_count"] == 3
+    assert res["won_count"] == 3
+    assert res["lost_count"] == 0
+    assert res["total_pnl"] > 0
+
