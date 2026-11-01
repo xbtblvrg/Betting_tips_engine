@@ -92,6 +92,12 @@ def test_dynamic_proven_alpha_gate(test_env):
     assert cap_nhl == 0.0
     assert "UNPROVEN_ON_POLYMARKET" in reason_nhl
 
+    # Strict Live-Profit Gate: If require_live_profit=True, diploma-only is rejected
+    is_elig_strict, reason_strict, cap_strict = pe.is_market_eligible("NFL", "full_game", "totals", require_live_profit=True)
+    assert is_elig_strict is False
+    assert cap_strict == 0.0
+    assert "UNPROVEN_IN_LIVE_BETS" in reason_strict
+
 
 def test_continuous_kelly_sizing_bounds(test_env):
     """Verifies that stakes adhere to continuous Kelly formula and strictly bound in [$0.50, $8.00]."""
