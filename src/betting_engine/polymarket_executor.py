@@ -202,6 +202,21 @@ class PolymarketAutonomousExecutor:
         except Exception as exc:
             log.warning(f"Could not verify polymarket_orders table schema: {exc}")
 
+    def _get_or_refresh_scoreboard(self) -> Dict[str, Any]:
+        """Loads and caches SegmentScoreboard with a 60s cache TTL."""
+        now_ts = time.time()
+        if self._cached_scoreboard is None or (now_ts - self._scoreboard_cached_at) > 60.0:
+            try:
+                from .segment_scoreboard import compute_segment_scoreboard
+
+                with sqlite3.connect(self.db_path, timeout=30) as conn:
+                    self._cached_scoreboard = compute_segment_scoreboard(conn)
+                    self._scoreboard_cached_at = now_ts
+            except Exception as exc:
+                log.warning(f"Error inspecting SegmentScoreboard for Polymarket eligibility: {exc}")
+                self._cached_scoreboard = {}
+        return self._cached_scoreboard or {}
+
     def is_market_eligible(
         self,
         league: str,
@@ -247,16 +262,7 @@ class PolymarketAutonomousExecutor:
         now_ts = time.time()
 
         # 1. Check SegmentScoreboard / live ledger governance (cached 60s)
-        if self._cached_scoreboard is None or (now_ts - self._scoreboard_cached_at) > 60.0:
-            try:
-                from .segment_scoreboard import compute_segment_scoreboard
-
-                with sqlite3.connect(self.db_path, timeout=30) as conn:
-                    self._cached_scoreboard = compute_segment_scoreboard(conn)
-                    self._scoreboard_cached_at = now_ts
-            except Exception as exc:
-                log.warning(f"Error inspecting SegmentScoreboard for Polymarket eligibility: {exc}")
-                self._cached_scoreboard = {}
+        self._get_or_refresh_scoreboard()
 
         if self._cached_scoreboard:
             all_segs = (
@@ -1125,8 +1131,8 @@ class PolymarketAutonomousExecutor:
                 "active": True,
                 "label": "Tier 4 Live Proven Alpha Gate",
                 "policy": "Only markets with confirmed positive live settled profit on Stake execute funded trades on Polymarket.",
-                "cached_scoreboard_loaded": self._cached_scoreboard is not None,
-                "tier_4_segments_count": len(self._cached_scoreboard.get("alpha_segments", [])) if self._cached_scoreboard else 0,
+                "cached_scoreboard_loaded": bool(self._get_or_refresh_scoreboard()),
+                "tier_4_segments_count": len(self._get_or_refresh_scoreboard().get("alpha_segments", [])),
             },
             "updated_at": utcnow().isoformat(),
         }
