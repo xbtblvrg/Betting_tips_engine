@@ -90,3 +90,71 @@ def test_runner_status_telemetry(runner_env):
     assert "min_ev_hurdle_pct" in status
     assert status["min_ev_hurdle_pct"] == 2.5
     assert "execution_window_hours" in status
+
+
+def test_forecast_lookup_strict_semantics(runner_env):
+    """Verifies _lookup_game_forecast never confuses Totals with Moneyline and computes proper ML probabilities."""
+    runner = runner_env["runner"]
+
+    # Mock tips: First tip is a Totals Over with probability 0.25! Second tip is Moneyline Home with probability 0.68.
+    tips = [
+        {
+            "league": "NBA",
+            "home": "Boston Celtics",
+            "away": "Milwaukee Bucks",
+            "market": "totals",
+            "model_scope": "full_game",
+            "side": "over",
+            "line": 224.5,
+            "probability": 0.25,
+            "predicted_home_points": 118.0,
+            "predicted_away_points": 110.0,
+        },
+        {
+            "league": "NBA",
+            "home": "Boston Celtics",
+            "away": "Milwaukee Bucks",
+            "market": "moneyline",
+            "model_scope": "full_game",
+            "side": "home",
+            "selection": "Boston Celtics",
+            "probability": 0.68,
+            "predicted_home_points": 118.0,
+            "predicted_away_points": 110.0,
+        }
+    ]
+
+    teams = [{"name": "Boston Celtics"}, {"name": "Milwaukee Bucks"}]
+    fc = runner._lookup_game_forecast("NBA", teams, "Boston Celtics vs Milwaukee Bucks", tips)
+    assert fc is not None
+    # Crucial invariant: home_prob must NOT be 0.25 (the Totals Over probability)!
+    assert fc["home_prob"] == 0.68
+    assert fc["proj_total"] == 228.0
+    assert fc["proj_spread"] == -8.0
+
+
+def test_forecast_lookup_normal_cdf_fallback(runner_env):
+    """Verifies win probability derivation via normal CDF when only projected points exist."""
+    runner = runner_env["runner"]
+
+    tips = [
+        {
+            "league": "NFL",
+            "home": "Detroit Lions",
+            "away": "Chicago Bears",
+            "market": "totals",
+            "model_scope": "full_game",
+            "side": "over",
+            "line": 48.5,
+            "probability": 0.52,
+            "predicted_home_points": 28.0,
+            "predicted_away_points": 21.0,
+        }
+    ]
+
+    teams = [{"name": "Detroit Lions"}, {"name": "Chicago Bears"}]
+    fc = runner._lookup_game_forecast("NFL", teams, "Detroit Lions vs Chicago Bears", tips)
+    assert fc is not None
+    # proj_h=28, proj_a=21 -> diff = +7. sigma = 13.86.
+    # home_prob = Phi(7 / 13.86) ~ 0.693. Must definitely be > 0.60 and NOT 0.52!
+    assert 0.65 < fc["home_prob"] < 0.75

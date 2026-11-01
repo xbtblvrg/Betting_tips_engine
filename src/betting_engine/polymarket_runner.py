@@ -99,10 +99,17 @@ class PolymarketAutonomousRunner:
         title: str,
         tips: List[Dict[str, Any]],
     ) -> Optional[Dict[str, Any]]:
-        """Matches a Polymarket event against calibrated domain model tips."""
+        """Matches a Polymarket event against calibrated domain model tips.
+
+        Guarantees strict separation between 2-way Moneyline (incl. OT) and 3-way
+        regulation, and strictly avoids taking totals/spreads probabilities as home_prob.
+        """
+        import math
+
         t_names = [t.get("name", "").lower() for t in teams if isinstance(t, dict)]
         t_abbr = [t.get("abbreviation", "").lower() for t in teams if isinstance(t, dict)]
 
+        matched_tips = []
         for tip in tips:
             if tip.get("league") != league:
                 continue
@@ -113,19 +120,81 @@ class PolymarketAutonomousRunner:
             a_match = any(tn in a for tn in t_names if len(tn) > 2) or any(ab in a for ab in t_abbr if len(ab) > 1) or a in title.lower()
 
             if h_match and a_match:
-                proj_h = tip.get("predicted_home_points")
-                proj_a = tip.get("predicted_away_points")
-                proj_total = (proj_h + proj_a) if (proj_h and proj_a) else None
-                proj_spread = (proj_a - proj_h) if (proj_h and proj_a) else None
-                return {
-                    "tip": tip,
-                    "proj_total": proj_total,
-                    "proj_spread": proj_spread,
-                    "home_prob": tip.get("probability"),
-                    "home_name": tip.get("home", ""),
-                    "away_name": tip.get("away", ""),
-                }
-        return None
+                matched_tips.append(tip)
+
+        if not matched_tips:
+            return None
+
+        # Extract projected points from matching tips
+        proj_h = None
+        proj_a = None
+        home_name = ""
+        away_name = ""
+        for tip in matched_tips:
+            if tip.get("predicted_home_points") is not None and tip.get("predicted_away_points") is not None:
+                proj_h = float(tip["predicted_home_points"])
+                proj_a = float(tip["predicted_away_points"])
+                home_name = tip.get("home", "")
+                away_name = tip.get("away", "")
+                break
+            if not home_name and tip.get("home"):
+                home_name = tip.get("home", "")
+                away_name = tip.get("away", "")
+
+        proj_total = (proj_h + proj_a) if (proj_h is not None and proj_a is not None) else None
+        proj_spread = (proj_a - proj_h) if (proj_h is not None and proj_a is not None) else None
+
+        # Determine calibrated home win probability (strictly 2-way Moneyline including OT)
+        home_prob = None
+
+        # Priority 1: Exact calibrated 2-way Moneyline tip for full game
+        for tip in matched_tips:
+            if tip.get("model_scope") == "full_game" and tip.get("market") in ("moneyline", "winner", "h2h"):
+                p = tip.get("probability")
+                if p is not None:
+                    if tip.get("side") == "home" or (home_name and home_name.lower() in tip.get("selection", "").lower()):
+                        home_prob = float(p)
+                        break
+                    elif tip.get("side") == "away" or (away_name and away_name.lower() in tip.get("selection", "").lower()):
+                        home_prob = 1.0 - float(p)
+                        break
+
+        # Priority 2: If no direct moneyline tip but projected points exist, calculate using domain normal CDF
+        if home_prob is None and proj_h is not None and proj_a is not None:
+            sigma_map = {"NFL": 13.86, "NBA": 11.5, "NHL": 2.1, "MLB": 3.5}
+            sigma = sigma_map.get(league, 12.0)
+            diff = proj_h - proj_a
+            # Standard Gaussian CDF: 0.5 * (1.0 + erf(diff / (sigma * sqrt(2))))
+            home_prob = 0.5 * (1.0 + math.erf(diff / (sigma * math.sqrt(2.0))))
+
+        # Priority 3: If only three_way regulation tips exist, adjust regulation draw probability:
+        # P(2-way ML home) = P(reg home) + 0.5 * P(reg draw)
+        if home_prob is None:
+            p_reg_home = None
+            p_reg_draw = None
+            for tip in matched_tips:
+                if tip.get("model_scope") == "full_game" and tip.get("market") in ("three_way", "1x2"):
+                    side = tip.get("side")
+                    p = tip.get("probability")
+                    if p is not None:
+                        if side == "home":
+                            p_reg_home = float(p)
+                        elif side == "draw":
+                            p_reg_draw = float(p)
+                        elif side == "away":
+                            p_reg_home = 1.0 - float(p) - (p_reg_draw or 0.05)
+            if p_reg_home is not None:
+                p_draw = p_reg_draw if p_reg_draw is not None else 0.05
+                home_prob = min(0.99, max(0.01, p_reg_home + 0.5 * p_draw))
+
+        return {
+            "tip": matched_tips[0],
+            "proj_total": proj_total,
+            "proj_spread": proj_spread,
+            "home_prob": home_prob,
+            "home_name": home_name,
+            "away_name": away_name,
+        }
 
     def run_execution_cycle(
         self,
@@ -371,7 +440,28 @@ class PolymarketAutonomousRunner:
                         )
                     elif forecast and family == "moneyline" and forecast.get("home_prob") is not None:
                         h_name = forecast["home_name"].lower()
-                        is_home = (h_name in outcome_label.lower()) or (outcome_label == "Yes" and idx == 0)
+                        a_name = forecast["away_name"].lower()
+                        out_low = outcome_label.lower()
+                        q_low = q.lower()
+
+                        if h_name and (h_name in out_low or any(w in out_low for w in h_name.split() if len(w) > 3)):
+                            is_home = True
+                        elif a_name and (a_name in out_low or any(w in out_low for w in a_name.split() if len(w) > 3)):
+                            is_home = False
+                        elif out_low == "yes":
+                            # Question defines the subject: e.g. "Will Buffalo Bills win...?"
+                            if h_name and (h_name in q_low or any(w in q_low for w in h_name.split() if len(w) > 3)):
+                                is_home = True
+                            else:
+                                is_home = False
+                        elif out_low == "no":
+                            if h_name and (h_name in q_low or any(w in q_low for w in h_name.split() if len(w) > 3)):
+                                is_home = False
+                            else:
+                                is_home = True
+                        else:
+                            is_home = (idx == 0)
+
                         model_prob = float(forecast["home_prob"]) if is_home else (1.0 - float(forecast["home_prob"]))
                     elif line_val and family == "totals":
                         side = "over" if "over" in outcome_label.lower() or outcome_label == "Yes" else "under"
