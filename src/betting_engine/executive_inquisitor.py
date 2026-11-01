@@ -113,6 +113,19 @@ class AutonomousExecutiveInquisitor:
                 telemetry['failed_learning_jobs'] = failed_jobs
                 if failed_jobs > 5:
                     findings.append(f"{failed_jobs} db sikertelen feladat gyűlt össze a tanuló sorban.")
+
+                # Check Polymarket order health
+                try:
+                    cur.execute("SELECT count(*) FROM polymarket_orders WHERE status = 'rejected'")
+                    poly_rejected = cur.fetchone()[0]
+                    cur.execute("SELECT count(*) FROM polymarket_orders WHERE status IN ('open', 'filled')")
+                    poly_active = cur.fetchone()[0]
+                    telemetry['polymarket_rejected_orders'] = poly_rejected
+                    telemetry['polymarket_active_orders'] = poly_active
+                    if poly_rejected > 10:
+                        findings.append(f"{poly_rejected} db elutasított Polymarket megbízás található a főkönyvben.")
+                except Exception:
+                    pass
                 conn.close()
             except Exception as e:
                 findings.append(f"Adatbázis lekérdezési hiba az anomália-vizsgálatnál: {e}")
@@ -324,6 +337,19 @@ class AutonomousExecutiveInquisitor:
                 telemetry['rolling_7d_roi_pct'] = roi
                 telemetry['weekly_roi_target_pct'] = 10.0
                 telemetry['pnl_uptrend_active'] = pnl >= 0.0
+
+                # Polymarket financial contribution
+                try:
+                    cur.execute("SELECT count(*), round(coalesce(sum(stake_usd), 0.0), 2), round(coalesce(sum(pnl), 0.0), 2) FROM polymarket_orders WHERE status IN ('won', 'lost', 'settled')")
+                    p_row = cur.fetchone()
+                    p_count, p_staked, p_pnl = p_row if p_row else (0, 0.0, 0.0)
+                    cur.execute("SELECT round(coalesce(sum(stake_usd), 0.0), 2) FROM polymarket_orders WHERE status IN ('open', 'filled')")
+                    p_active_exp = cur.fetchone()[0] or 0.0
+                    telemetry['polymarket_settled_orders'] = p_count
+                    telemetry['polymarket_realized_pnl_usd'] = p_pnl
+                    telemetry['polymarket_active_exposure_usd'] = p_active_exp
+                except Exception:
+                    pass
                 conn.close()
 
                 if pnl < 0.0:
