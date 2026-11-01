@@ -8,6 +8,7 @@ via the gasless Builder relayer, and triggers settlement and token auto-redempti
 from __future__ import annotations
 
 from datetime import datetime, timezone, timedelta
+import hashlib
 import json
 import logging
 import os
@@ -171,13 +172,18 @@ class PolymarketAutonomousRunner:
         teams: List[Dict[str, Any]],
         title: str,
         tips: List[Dict[str, Any]],
-    ) -> Optional[Dict[str, Any]]:
+        return_failure_reason: bool = False,
+    ) -> Any:
         """Matches a Polymarket event against calibrated domain model tips.
 
         Guarantees strict separation between 2-way Moneyline (incl. OT) and 3-way
         regulation, and strictly avoids taking totals/spreads probabilities as home_prob.
         """
         import math
+
+        league_tips = [t for t in tips if t.get("league") == league]
+        if not league_tips:
+            return (None, "no_domain_tips_for_league") if return_failure_reason else None
 
         t_names = []
         poly_home_team = None
@@ -195,9 +201,7 @@ class PolymarketAutonomousRunner:
         t_abbr = [t.get("abbreviation", "").lower() for t in teams if isinstance(t, dict) and t.get("abbreviation")]
 
         matched_tips = []
-        for tip in tips:
-            if tip.get("league") != league:
-                continue
+        for tip in league_tips:
             h = tip.get("home", "").lower()
             a = tip.get("away", "").lower()
 
@@ -208,7 +212,7 @@ class PolymarketAutonomousRunner:
                 matched_tips.append(tip)
 
         if not matched_tips:
-            return None
+            return (None, "team_names_unmatched") if return_failure_reason else None
 
         # Filter out quarantined / demoted tips to prevent leaking unvalidated/degraded model forecasts
         active_tips = [
@@ -218,7 +222,7 @@ class PolymarketAutonomousRunner:
         ]
         if not active_tips:
             log.info(f"Skipping Polymarket event {title}: all matched domain tips are quarantined/demoted.")
-            return None
+            return (None, "tips_quarantined_or_demoted") if return_failure_reason else None
         matched_tips = active_tips
 
         # Extract projected points from matching tips
@@ -283,7 +287,7 @@ class PolymarketAutonomousRunner:
                 p_draw = p_reg_draw if p_reg_draw is not None else 0.05
                 home_prob = min(0.99, max(0.01, p_reg_home + 0.5 * p_draw))
 
-        return {
+        fc_result = {
             "tip": matched_tips[0],
             "proj_total": proj_total,
             "proj_spread": proj_spread,
@@ -295,6 +299,7 @@ class PolymarketAutonomousRunner:
             "poly_home_team": poly_home_team,
             "poly_away_team": poly_away_team,
         }
+        return (fc_result, None) if return_failure_reason else fc_result
 
     def run_execution_cycle(
         self,
@@ -337,6 +342,8 @@ class PolymarketAutonomousRunner:
         domain_tips = self._load_domain_tips(leagues=leagues)
         orders_placed: List[Dict[str, Any]] = []
         rejected_candidates: List[Dict[str, Any]] = []
+        unmatched_events: List[Dict[str, Any]] = []
+        unmapped_market_types: Set[str] = set()
         clob_checks_count = 0
 
         # 1. Fetch live events from Polymarket Gamma API or mock
@@ -453,12 +460,20 @@ class PolymarketAutonomousRunner:
             if not league:
                 continue
 
-            forecast = self._lookup_game_forecast(
+            forecast, fc_fail_reason = self._lookup_game_forecast(
                 league=league,
                 teams=event.get("teams", []),
                 title=title,
                 tips=domain_tips,
+                return_failure_reason=True,
             )
+            if forecast is None and fc_fail_reason:
+                unmatched_events.append({
+                    "league": league,
+                    "event_title": title,
+                    "teams": event.get("teams", []),
+                    "reason": fc_fail_reason,
+                })
 
             # Collect candidate bets for this event to select optimal line per group
             event_candidates_by_group: Dict[Tuple[str, str, str], List[Dict[str, Any]]] = {}
@@ -481,8 +496,10 @@ class PolymarketAutonomousRunner:
                         scope, family = POLYMARKET_STRUCTURED_TYPE_MAP[sports_type]
                     else:
                         # Polymarket provided a specific sportsMarketType that is not in our proven taxonomy
-                        # (e.g. passing_touchdowns, receptions, points, assists, rebounds, exact_margin, race_to_points)
-                        # Strictly skip without falling through to fuzzy regex!
+                        # Check if it's an unmodeled prop vs an unmapped game/period derivative
+                        is_prop = any(prop in sports_type for prop in ("touchdown", "reception", "pass", "rush", "assist", "rebound", "point", "yard", "strikeout", "tackle", "sack", "interception", "margin", "race"))
+                        if not is_prop:
+                            unmapped_market_types.add(sports_type)
                         continue
                 else:
                     # Fallback text parsing ONLY when sportsMarketType is not provided
@@ -747,6 +764,59 @@ class PolymarketAutonomousRunner:
         # 2. Trigger Outcome Settlement & Token Auto-Redemption
         settle_res = self.settler.settle_orders()
 
+        # 3. Enqueue identification and taxonomy gaps to learning_jobs for autonomous AI repair
+        if self.db_path.exists() and (unmatched_events or unmapped_market_types):
+            try:
+                with sqlite3.connect(self.db_path, timeout=5) as conn:
+                    conn.execute("""
+                        CREATE TABLE IF NOT EXISTS learning_jobs (
+                            id TEXT PRIMARY KEY,
+                            kind TEXT NOT NULL,
+                            league TEXT,
+                            status TEXT NOT NULL,
+                            created_at TEXT NOT NULL,
+                            updated_at TEXT NOT NULL,
+                            next_attempt TEXT NOT NULL,
+                            payload TEXT NOT NULL
+                        );
+                    """)
+                    for unmatch in unmatched_events:
+                        if unmatch.get("reason") == "team_names_unmatched":
+                            u_title = unmatch.get("event_title", "")
+                            u_league = unmatch.get("league", "UNKNOWN")
+                            job_id = f"poly_id_{u_league.lower()}_{hashlib.sha256(u_title.encode()).hexdigest()[:12]}"
+                            payload = {
+                                "kind": "polymarket_identification_repair",
+                                "league": u_league,
+                                "event_title": u_title,
+                                "teams": unmatch.get("teams", []),
+                                "reason": "Polymarket team names failed to match calibrated domain tips. Update team aliases or schedule synchronization.",
+                                "priority": "HIGH",
+                                "timestamp": now_iso,
+                            }
+                            conn.execute("""
+                                INSERT INTO learning_jobs (id, kind, league, status, created_at, updated_at, next_attempt, payload)
+                                VALUES (?, 'polymarket_identification_repair', ?, 'queued', ?, ?, ?, ?)
+                                ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, payload = excluded.payload;
+                            """, (job_id, u_league, now_iso, now_iso, now_iso, json.dumps(payload)))
+
+                    for m_type in unmapped_market_types:
+                        job_id = f"poly_tax_{hashlib.sha256(m_type.encode()).hexdigest()[:12]}"
+                        payload = {
+                            "kind": "polymarket_taxonomy_repair",
+                            "sports_market_type": m_type,
+                            "reason": f"Unmapped sportsMarketType '{m_type}' discovered on Polymarket. Propose mapping to canonical (scope, family).",
+                            "priority": "NORMAL",
+                            "timestamp": now_iso,
+                        }
+                        conn.execute("""
+                            INSERT INTO learning_jobs (id, kind, league, status, created_at, updated_at, next_attempt, payload)
+                            VALUES (?, 'polymarket_taxonomy_repair', 'ALL', 'queued', ?, ?, ?, ?)
+                            ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, payload = excluded.payload;
+                        """, (job_id, now_iso, now_iso, now_iso, json.dumps(payload)))
+            except Exception as exc:
+                log.warning(f"Could not persist Polymarket identification gaps into learning_jobs: {exc}")
+
         cycle_duration = round(time.time() - cycle_start, 3)
         result = {
             "timestamp": now_iso,
@@ -757,6 +827,10 @@ class PolymarketAutonomousRunner:
             "orders_placed": orders_placed,
             "rejected_candidates_count": len(rejected_candidates),
             "rejected_candidates": rejected_candidates[:25],
+            "unmatched_events_count": len(unmatched_events),
+            "unmatched_events": unmatched_events[:20],
+            "unmapped_market_types_count": len(unmapped_market_types),
+            "unmapped_market_types": sorted(list(unmapped_market_types)),
             "settlement": settle_res,
         }
 
@@ -785,5 +859,9 @@ class PolymarketAutonomousRunner:
             "min_ev_hurdle_pct": self.min_ev_hurdle * 100.0,
             "execution_window_hours": self.execution_window_hours,
             "min_pregame_minutes": self.min_pregame_minutes,
+            "unmatched_events_count": last_state.get("unmatched_events_count", 0),
+            "unmapped_market_types_count": last_state.get("unmapped_market_types_count", 0),
+            "unmatched_events": last_state.get("unmatched_events", [])[:10],
+            "unmapped_market_types": last_state.get("unmapped_market_types", []),
             "last_cycle": last_state,
         }

@@ -333,3 +333,53 @@ def test_optimal_line_selection_and_player_props_rejection(runner_env):
     # Multi-cycle Invariant: Cycle 2 must NOT drain the ladder by placing the 2nd best line!
     res2 = runner.run_execution_cycle(leagues=("NFL",), mock_events=mock_events)
     assert res2["orders_placed_count"] == 0
+
+
+def test_unmatched_event_and_unmapped_taxonomy_gap_tracking(runner_env):
+    """Verifies that unmatched team names or new sportsMarketTypes surface as repairable gaps in learning_jobs."""
+    runner = runner_env["runner"]
+    db_path = runner_env["db_path"]
+
+    mock_events = [
+        # Event with unknown teams in NFL (domain tips exist, but teams cannot be paired)
+        {
+            "title": "Atlantis Sharks vs Gotham Rogues",
+            "startDate": "2026-11-01T23:00:00Z",
+            "teams": [{"name": "Atlantis Sharks"}, {"name": "Gotham Rogues"}],
+            "markets": [
+                {
+                    "question": "Atlantis Sharks vs Gotham Rogues",
+                    "sportsMarketType": "moneyline",
+                    "clobTokenIds": ["tok_fake_1", "tok_fake_2"],
+                    "outcomes": ["Atlantis Sharks", "Gotham Rogues"],
+                    "outcomePrices": ["0.50", "0.50"],
+                },
+                # Market with a new, unmapped sportsMarketType
+                {
+                    "question": "First Team to Score",
+                    "sportsMarketType": "first_team_to_score",
+                    "clobTokenIds": ["tok_score_1", "tok_score_2"],
+                    "outcomes": ["Sharks", "Rogues"],
+                    "outcomePrices": ["0.50", "0.50"],
+                }
+            ],
+            "tags": [{"label": "NFL"}],
+        }
+    ]
+
+    res = runner.run_execution_cycle(leagues=("NFL",), mock_events=mock_events)
+    assert res["orders_placed_count"] == 0
+    assert res["unmatched_events_count"] == 1
+    assert res["unmatched_events"][0]["reason"] == "team_names_unmatched"
+    assert "first_team_to_score" in res["unmapped_market_types"]
+
+    # Verify that repair jobs were enqueued into learning_jobs
+    with sqlite3.connect(db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        id_job = conn.execute("SELECT * FROM learning_jobs WHERE kind = 'polymarket_identification_repair'").fetchone()
+        assert id_job is not None
+        assert "Atlantis Sharks" in id_job["payload"]
+
+        tax_job = conn.execute("SELECT * FROM learning_jobs WHERE kind = 'polymarket_taxonomy_repair'").fetchone()
+        assert tax_job is not None
+        assert "first_team_to_score" in tax_job["payload"]

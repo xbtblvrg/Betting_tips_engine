@@ -20,6 +20,7 @@ FEEDBACK_KINDS = frozenset(('outcome_review', 'closing_evaluation'))
 RECOVERY_KINDS = frozenset(('model_restore', 'segment_restore', 'period_restore'))
 PRIORITY = {'source_refresh':0, 'model_restore':0, 'segment_restore':0, 'period_restore':0,
     'outcome_review':1, 'closing_evaluation':1, 'shadow_evaluation':1, 'market_catalog':1, 'autonomous_system_audit':1, 'anti_constant_audit':1, 'autonomous_submarket_expansion':1, 'autorun_selector_repair':1,
+    'polymarket_identification_repair': 1, 'polymarket_taxonomy_repair': 1,
     'controlled_retrain':2, 'segment_retrain':2, 'period_retrain':2, 'segment_repair':2, 'target_evaluation':2, 'anchor_weight_learning':2, 'opportunity_funnel_repair':2, 'urgent_polymarket_model_repair':2,
     'player_history_refresh':2, 'player_prop_audit':2, 'player_data_refresh':3, 'model_search':3,
     'research_watch':4}
@@ -829,6 +830,15 @@ class LearningWorker:
                 'already_incubating': res.get('already_incubating_count', 0),
                 'still_researching': res.get('still_researching_count', 0),
                 'newly_admitted': res.get('newly_admitted', []),
+            }
+        if job['kind'] in ('polymarket_identification_repair', 'polymarket_taxonomy_repair'):
+            payload = json.loads(job['payload']) if isinstance(job['payload'], str) else (job['payload'] or {})
+            return {
+                'repaired_at': utcnow().isoformat(),
+                'status': 'logged_for_investigation',
+                'kind': job['kind'],
+                'target': payload.get('event_title') or payload.get('sports_market_type'),
+                'details': payload,
             }
         if job['kind']=='target_evaluation':
 

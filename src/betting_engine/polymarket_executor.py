@@ -1081,6 +1081,15 @@ class PolymarketAutonomousExecutor:
 
         live_active = (cash_balance > 0.05) and (not self.dry_run) and (self.client is not None)
 
+        runner_state = {}
+        runner_state_p = DATA / "polymarket_runner_state.json"
+        if runner_state_p.exists():
+            try:
+                with open(runner_state_p, "r", encoding="utf-8") as f:
+                    runner_state = json.load(f)
+            except Exception:
+                pass
+
         return {
             "channel": "polymarket_autonomous_parallel_executor",
             "active": True,
@@ -1133,6 +1142,12 @@ class PolymarketAutonomousExecutor:
                 "policy": "Only markets with confirmed positive live settled profit on Stake execute funded trades on Polymarket.",
                 "cached_scoreboard_loaded": bool(self._get_or_refresh_scoreboard()),
                 "tier_4_segments_count": len(self._get_or_refresh_scoreboard().get("alpha_segments", [])),
+            },
+            "identification_and_taxonomy_observability": {
+                "unmatched_events_count": runner_state.get("unmatched_events_count", 0),
+                "unmapped_market_types_count": runner_state.get("unmapped_market_types_count", 0),
+                "unmatched_events": runner_state.get("unmatched_events", [])[:10],
+                "unmapped_market_types": runner_state.get("unmapped_market_types", []),
             },
             "updated_at": utcnow().isoformat(),
         }
