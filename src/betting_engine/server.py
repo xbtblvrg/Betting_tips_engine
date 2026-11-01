@@ -398,7 +398,7 @@ def polymarket_trader_status():
     return english_payload(pe.get_trader_status())
 
 @app.get('/api/polymarket/trader/orders')
-def polymarket_trader_orders(limit: int = 50, status: Optional[str] = None, mode: Optional[str] = None):
+def polymarket_trader_orders(limit: int = 500, status: Optional[str] = None, mode: Optional[str] = None):
     from .providers import DATA
     import sqlite3
     db_p = DATA / 'engine.sqlite3'

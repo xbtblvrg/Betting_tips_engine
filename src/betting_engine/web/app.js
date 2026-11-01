@@ -3052,7 +3052,7 @@ async function loadPolymarketDesk() {
   try {
    const [rStat, rOrders, rPriorities] = await Promise.all([
     fetch('/api/polymarket/trader/status'),
-    fetch('/api/polymarket/trader/orders'),
+    fetch('/api/polymarket/trader/orders?limit=500'),
     fetch('/api/polymarket/rd-priorities'),
    ]);
    polymarketDeskData = await rStat.json();
@@ -3088,31 +3088,71 @@ function renderPolymarketDesk() {
  const shadow = d.shadow_trading || {};
  const live = d.live_trading || {};
 
+ // Categorize orders for seamless fallback & bidirectional consistency
+ const shadowOrders = orders.filter(o => {
+  const mode = o.execution_mode || (o.dry_run || (o.order_id && o.order_id.startsWith('shadow_')) ? 'shadow' : 'live');
+  return mode === 'shadow';
+ });
+ const liveOrders = orders.filter(o => {
+  const mode = o.execution_mode || (o.dry_run || (o.order_id && o.order_id.startsWith('shadow_')) ? 'shadow' : 'live');
+  return mode === 'live';
+ });
+
+ const shadowOpen = shadowOrders.filter(o => ['filled', 'open', 'relayed', 'signed'].includes(o.status));
+ const shadowSettled = shadowOrders.filter(o => ['won', 'lost', 'settled'].includes(o.status));
+ const shadowWon = shadowOrders.filter(o => o.status === 'won');
+ const shadowFilled = shadowOrders.filter(o => o.status === 'filled').length;
+ const shadowPending = shadowOrders.filter(o => ['open', 'relayed', 'signed'].includes(o.status)).length;
+ const shadowExposureCalc = shadowOpen.reduce((sum, o) => sum + (Number(o.stake_usd || o.stake || 0)), 0);
+ const shadowPnlCalc = shadowSettled.reduce((sum, o) => sum + (Number(o.pnl || 0)), 0);
+
+ const shadowBetsCount = shadow.bets_count != null ? shadow.bets_count : shadowOpen.length;
+ const shadowSettledCount = shadow.settled_count != null ? shadow.settled_count : shadowSettled.length;
+ const shadowExposure = shadow.exposure_usd != null ? Number(shadow.exposure_usd) : shadowExposureCalc;
+ const shadowPnl = shadow.realized_pnl != null ? Number(shadow.realized_pnl) : shadowPnlCalc;
+ const shadowWinRate = shadowSettledCount > 0 ? (shadow.win_rate != null ? Number(shadow.win_rate) * 100 : (shadowWon.length / shadowSettledCount) * 100) : 0.0;
+
+ const liveOpen = liveOrders.filter(o => ['filled', 'open', 'relayed', 'signed'].includes(o.status));
+ const liveSettled = liveOrders.filter(o => ['won', 'lost', 'settled'].includes(o.status));
+ const liveWon = liveOrders.filter(o => o.status === 'won');
+ const liveFilled = liveOrders.filter(o => o.status === 'filled').length;
+ const livePending = liveOrders.filter(o => ['open', 'relayed', 'signed'].includes(o.status)).length;
+ const liveExposureCalc = liveOpen.reduce((sum, o) => sum + (Number(o.stake_usd || o.stake || 0)), 0);
+ const livePnlCalc = liveSettled.reduce((sum, o) => sum + (Number(o.pnl || 0)), 0);
+
+ const liveBetsCount = live.bets_count != null ? live.bets_count : liveOpen.length;
+ const liveSettledCount = live.settled_count != null ? live.settled_count : liveSettled.length;
+ const liveExposure = live.exposure_usd != null ? Number(live.exposure_usd) : liveExposureCalc;
+ const livePnl = live.realized_pnl != null ? Number(live.realized_pnl) : (d.realized_pnl != null ? Number(d.realized_pnl) : livePnlCalc);
+ const liveWinRate = liveSettledCount > 0 ? (live.win_rate != null ? Number(live.win_rate) * 100 : (liveWon.length / liveSettledCount) * 100) : 0.0;
+
  // 1. Shadow Paper Trading Desk Metrics
- const shadowPnl = Number(shadow.realized_pnl != null ? shadow.realized_pnl : 0);
  if ($('#poly-shadow-pnl')) {
   $('#poly-shadow-pnl').textContent = (shadowPnl >= 0 ? '+$' : '-$') + Math.abs(shadowPnl).toFixed(2);
   $('#poly-shadow-pnl').style.color = shadowPnl >= 0 ? 'var(--green)' : 'var(--red, #dc2626)';
  }
  if ($('#poly-shadow-winrate')) {
-  const wr = Number(shadow.win_rate != null ? shadow.win_rate : 0) * 100;
-  $('#poly-shadow-winrate').textContent = `Win Rate: ${wr.toFixed(1)}%`;
+  $('#poly-shadow-winrate').textContent = `Win Rate: ${shadowWinRate.toFixed(1)}%`;
  }
  if ($('#poly-shadow-bets-count')) {
-  $('#poly-shadow-bets-count').textContent = String(shadow.bets_count != null ? shadow.bets_count : 0);
+  $('#poly-shadow-bets-count').textContent = String(shadowBetsCount);
  }
  if ($('#poly-shadow-settled')) {
-  $('#poly-shadow-settled').textContent = `${shadow.settled_count || 0} settled`;
+  $('#poly-shadow-settled').textContent = `${shadowSettledCount} settled`;
  }
  if ($('#poly-shadow-exposure')) {
-  const exp = Number(shadow.exposure_usd != null ? shadow.exposure_usd : 0);
-  $('#poly-shadow-exposure').textContent = '$' + exp.toFixed(2);
+  $('#poly-shadow-exposure').textContent = '$' + shadowExposure.toFixed(2);
  }
  if ($('#poly-shadow-status-badge')) {
   $('#poly-shadow-status-badge').textContent = 'SHADOW ACTIVE';
   $('#poly-shadow-status-badge').className = 'badge';
   $('#poly-shadow-status-badge').style.background = '#e0e7ff';
   $('#poly-shadow-status-badge').style.color = '#3730a3';
+ }
+ if ($('#poly-shadow-orders-breakdown')) {
+  const sFilled = shadow.filled_count != null ? shadow.filled_count : shadowFilled;
+  const sOpen = shadow.open_count != null ? shadow.open_count : shadowPending;
+  $('#poly-shadow-orders-breakdown').textContent = `${sFilled} filled · ${sOpen} open`;
  }
 
  // 2. Live On-Chain Desk Metrics
@@ -3125,25 +3165,22 @@ function renderPolymarketDesk() {
  if ($('#poly-proxy-address-full')) {
   $('#poly-proxy-address-full').textContent = d.proxy_address || '0xee888fa7b96007f7fa270988e92bddb0ae19ed10';
  }
- 
- const livePnl = Number(live.realized_pnl != null ? live.realized_pnl : (d.realized_pnl || 0));
+
  if ($('#poly-realized-pnl')) {
   $('#poly-realized-pnl').textContent = (livePnl >= 0 ? '+$' : '-$') + Math.abs(livePnl).toFixed(2);
   $('#poly-realized-pnl').style.color = livePnl >= 0 ? 'var(--green)' : 'var(--red, #dc2626)';
  }
  if ($('#poly-live-winrate')) {
-  const wr = Number(live.win_rate != null ? live.win_rate : 0) * 100;
-  $('#poly-live-winrate').textContent = `Win Rate: ${wr.toFixed(1)}%`;
+  $('#poly-live-winrate').textContent = `Win Rate: ${liveWinRate.toFixed(1)}%`;
  }
  if ($('#poly-live-bets-count')) {
-  $('#poly-live-bets-count').textContent = String(live.bets_count != null ? live.bets_count : 0);
+  $('#poly-live-bets-count').textContent = String(liveBetsCount);
  }
  if ($('#poly-live-settled')) {
-  $('#poly-live-settled').textContent = `${live.settled_count || 0} settled`;
+  $('#poly-live-settled').textContent = `${liveSettledCount} settled`;
  }
  if ($('#poly-live-exposure')) {
-  const exp = Number(live.exposure_usd != null ? live.exposure_usd : 0);
-  $('#poly-live-exposure').textContent = '$' + exp.toFixed(2);
+  $('#poly-live-exposure').textContent = '$' + liveExposure.toFixed(2);
  }
  if ($('#poly-live-status-badge')) {
   if (live.active) {
@@ -3154,15 +3191,33 @@ function renderPolymarketDesk() {
    $('#poly-live-status-badge').className = 'badge muted';
   }
  }
+ if ($('#poly-live-orders-breakdown')) {
+  const lFilled = live.filled_count != null ? live.filled_count : liveFilled;
+  const lOpen = live.open_count != null ? live.open_count : livePending;
+  $('#poly-live-orders-breakdown').textContent = `${lFilled} filled · ${lOpen} open`;
+ }
+ if ($('#poly-orders-breakdown')) {
+  const lFilled = live.filled_count != null ? live.filled_count : liveFilled;
+  const lOpen = live.open_count != null ? live.open_count : livePending;
+  $('#poly-orders-breakdown').textContent = `${lFilled} filled · ${lOpen} open`;
+ }
 
  // Common / Top Bar & Aggregates
- if ($('#poly-total-orders')) $('#poly-total-orders').textContent = String(d.total_orders != null ? d.total_orders : 0);
- if ($('#poly-orders-breakdown')) {
-  $('#poly-orders-breakdown').textContent = `${d.filled_orders || 0} filled · ${d.open_orders || 0} open · ${d.rejected_orders || 0} rejected`;
- }
  if ($('#poly-proven-count')) $('#poly-proven-count').textContent = String(prio.proven_active_count ?? (prio.proven_markets?.length ?? 3));
  if ($('#poly-gaps-count')) $('#poly-gaps-count').textContent = String(prio.unproven_gaps_count ?? (prio.unproven_gaps?.length ?? 25));
- if ($('#poly-orders-count-badge')) $('#poly-orders-count-badge').textContent = `${orders.length} Orders Recorded`;
+
+ // Update Filter Buttons and Ledger Counter
+ const btnAll = $('#poly-orders-filter-btns button[data-filter="all"]');
+ const btnShadow = $('#poly-orders-filter-btns button[data-filter="shadow"]');
+ const btnLive = $('#poly-orders-filter-btns button[data-filter="live"]');
+ if (btnAll) btnAll.textContent = `All (${orders.length})`;
+ if (btnShadow) btnShadow.textContent = `Shadow (${shadowOrders.length})`;
+ if (btnLive) btnLive.textContent = `Live (${liveOrders.length})`;
+
+ const activeFilteredCount = polyOrderFilter === 'shadow' ? shadowOrders.length : (polyOrderFilter === 'live' ? liveOrders.length : orders.length);
+ const filterLabel = polyOrderFilter === 'shadow' ? 'Shadow Orders' : (polyOrderFilter === 'live' ? 'Live Orders' : 'Orders Recorded');
+ if ($('#poly-orders-count-badge')) $('#poly-orders-count-badge').textContent = `${activeFilteredCount} ${filterLabel}`;
+ if ($('#poly-total-orders')) $('#poly-total-orders').textContent = String(d.total_orders != null ? d.total_orders : orders.length);
 
  const alertBox = $('#poly-funding-alert');
  if (alertBox) {

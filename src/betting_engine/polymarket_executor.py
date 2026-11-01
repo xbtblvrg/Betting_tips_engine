@@ -818,6 +818,9 @@ class PolymarketAutonomousExecutor:
 
         # Dedicated Shadow Paper Trading stats
         shadow_bets_count = 0
+        shadow_filled_count = 0
+        shadow_open_count = 0
+        shadow_rejected_count = 0
         shadow_exposure_usd = 0.0
         shadow_realized_pnl = 0.0
         shadow_settled_count = 0
@@ -825,6 +828,9 @@ class PolymarketAutonomousExecutor:
 
         # Dedicated Live Real-Money stats
         live_bets_count = 0
+        live_filled_count = 0
+        live_open_count = 0
+        live_rejected_count = 0
         live_exposure_usd = 0.0
         live_realized_pnl = 0.0
         live_settled_count = 0
@@ -853,6 +859,12 @@ class PolymarketAutonomousExecutor:
                             live_realized_pnl += p
                             if st == "won":
                                 live_won_count += 1
+                        if st == "filled":
+                            live_filled_count += 1
+                        elif st in ("open", "relayed", "signed"):
+                            live_open_count += 1
+                        elif st == "rejected":
+                            live_rejected_count += 1
                     else:
                         if st in ("filled", "open", "relayed", "signed"):
                             shadow_bets_count += 1
@@ -862,6 +874,12 @@ class PolymarketAutonomousExecutor:
                             shadow_realized_pnl += p
                             if st == "won":
                                 shadow_won_count += 1
+                        if st == "filled":
+                            shadow_filled_count += 1
+                        elif st in ("open", "relayed", "signed"):
+                            shadow_open_count += 1
+                        elif st == "rejected":
+                            shadow_rejected_count += 1
 
                     if st == "filled":
                         filled_orders += 1
@@ -917,6 +935,9 @@ class PolymarketAutonomousExecutor:
                 "status": "ACTIVE_FORWARD_TESTING",
                 "label": "Live CLOB Paper Trading",
                 "bets_count": shadow_bets_count,
+                "filled_count": shadow_filled_count,
+                "open_count": shadow_open_count,
+                "rejected_count": shadow_rejected_count,
                 "exposure_usd": round(shadow_exposure_usd, 2),
                 "realized_pnl": round(shadow_realized_pnl, 2),
                 "settled_count": shadow_settled_count,
@@ -929,6 +950,9 @@ class PolymarketAutonomousExecutor:
                 "label": "Polygon On-Chain Execution",
                 "cash_balance_usdc": round(cash_balance, 2),
                 "bets_count": live_bets_count,
+                "filled_count": live_filled_count,
+                "open_count": live_open_count,
+                "rejected_count": live_rejected_count,
                 "exposure_usd": round(live_exposure_usd, 2),
                 "realized_pnl": round(live_realized_pnl, 2),
                 "settled_count": live_settled_count,

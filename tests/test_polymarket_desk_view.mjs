@@ -82,7 +82,7 @@ async function bootPolymarketDesk(t) {
         }),
       };
     }
-    if (path === '/api/polymarket/trader/orders') {
+    if (path.startsWith('/api/polymarket/trader/orders')) {
       return {
         ok: true,
         json: async () => ({
