@@ -3212,11 +3212,14 @@ function renderPolymarketDesk() {
                     o.status === 'lost' ? '<span class="badge" style="background:#fee2e2;color:#991b1b">lost</span>' :
                     '<span class="badge muted">'+esc(o.status || 'staged')+'</span>';
     const pnlStr = o.pnl != null ? ((o.pnl >= 0 ? '+$' : '-$') + Math.abs(o.pnl).toFixed(2)) : (o.tx_hash ? esc(o.tx_hash.slice(0, 8) + '...') : '—');
+    const selText = o.selection || o.market_family;
+    const lineText = o.line != null ? (o.market_family === 'spreads' ? (Number(o.line) > 0 ? `+${o.line}` : `${o.line}`) : ` ${o.line}`) : '';
+    const scopeBadge = o.scope ? `<span class="badge muted" style="font-size:10px;padding:1px 4px;margin-left:4px;">${esc(o.scope)}</span>` : '';
     return `<tr>
      <td>${modeBadge}</td>
      <td>${timeStr}</td>
      <td><strong>${esc(o.league)}</strong> ${esc(o.game_title || '—')}</td>
-     <td><strong>${esc(o.selection || o.market_family)}</strong></td>
+     <td><strong>${esc(selText)}${lineText ? ' ' + esc(lineText) : ''}</strong> ${scopeBadge}</td>
      <td>${Number(o.poly_price || o.price || 0).toFixed(3)} (${Number(o.poly_odds || o.odds || 0).toFixed(2)})</td>
      <td>+${(Number(o.expected_value || o.ev || 0) * 100).toFixed(1)}%</td>
      <td>$${Number(o.stake_usd || o.stake || 0).toFixed(2)}</td>
