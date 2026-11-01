@@ -205,7 +205,7 @@ class PolymarketAutonomousRunner:
 
         interleaved_events = []
         max_depth = max((len(evs) for evs in events_by_league.values()), default=0)
-        for d in range(min(max_depth, 10)):
+        for d in range(max_depth):
             for l_name in leagues:
                 if l_name in events_by_league and d < len(events_by_league[l_name]):
                     interleaved_events.append(events_by_league[l_name][d])
@@ -385,7 +385,7 @@ class PolymarketAutonomousRunner:
                     preflight = self.executor.preflight_check(
                         token_id=token_id,
                         side="BUY",
-                        requested_stake=min(stake_cap, 3.50),
+                        requested_stake=stake_cap,
                         model_prob=model_prob,
                         min_ev=self.min_ev_hurdle,
                     )
@@ -411,7 +411,7 @@ class PolymarketAutonomousRunner:
                         token_id=token_id,
                         model_prob=model_prob,
                         scope=scope,
-                        requested_stake=min(stake_cap, 3.50),
+                        requested_stake=stake_cap,
                         order_type="GTC",
                     )
 
