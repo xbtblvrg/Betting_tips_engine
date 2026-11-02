@@ -1048,6 +1048,7 @@ def stage_betslip_in_safari(
                 min_odds=min_odds,
                 model_probability=model_prob,
                 league=league,
+                market_name=market_name,
             )
             pf_status = pf_res.get("status")
             if pf_status == "ok":
@@ -1808,6 +1809,15 @@ def stage_betslip_in_safari(
                 const innerLower = (b.innerText || "").toLowerCase();
 
                 // Outcome type safety guards
+                const isTargetCombo = targetNorm.includes("&") || targetNorm.includes(" and ") || (outcomeNorm && (outcomeNorm.includes("&") || outcomeNorm.includes(" and ")));
+                const isBtnCombo = ariaLower.includes("&") || ariaLower.includes(" and ") || innerLower.includes("&") || innerLower.includes(" and ");
+                if (isBtnCombo && !isTargetCombo) continue;
+
+                const btnHasLine = /\([+-]?\d+\.?\d*\)/.test(ariaLower) || /\([+-]?\d+\.?\d*\)/.test(innerLower);
+                if (lineVariants.length === 0 && btnHasLine && !isOver && !isUnder) {
+                    continue;
+                }
+
                 if (isOver && ariaLower.indexOf("over") === -1 && innerLower.indexOf("over") === -1) continue;
                 if (isUnder && ariaLower.indexOf("under") === -1 && innerLower.indexOf("under") === -1) continue;
                 if (isYes && ariaLower !== "yes" && innerLower !== "yes") continue;
@@ -2007,6 +2017,16 @@ def stage_betslip_in_safari(
                     const h = acc.querySelector(".header, [class*='header'], [class*='title'], h2, h3, h4");
                     if (!h || !h.innerText) continue;
                     const hText = h.innerText.toLowerCase().split(/[\r\n]+/)[0].trim();
+
+                    const isTargetCombo = (mNorm.includes("&") || mNorm.includes(" and ")) || (exactNorm.includes("&") || exactNorm.includes(" and "));
+                    const isAccCombo = hText.includes("&") || hText.includes(" and ");
+                    if (isAccCombo && !isTargetCombo) continue;
+
+                    const isTargetTeamTotal = mNorm.includes("team") || mNorm.includes("away_total") || mNorm.includes("home_total") || (mNorm.includes("total") && !mNorm.startsWith("total"));
+                    const isAccTeamTotal = hText.includes("team") || (hText.includes("total") && !hText.startsWith("total"));
+                    if (isTargetTeamTotal && !isAccTeamTotal && hText.startsWith("total")) continue;
+                    if (!isTargetTeamTotal && isAccTeamTotal) continue;
+
                     let isAccMatch = (exactNorm && (hText === exactNorm || hText.indexOf(exactNorm) !== -1 || exactNorm.indexOf(hText) !== -1));
                     if (!isAccMatch && mNorm && (hText === mNorm || hText.indexOf(mNorm) !== -1 || mNorm.indexOf(hText) !== -1)) {
                         isAccMatch = true;
@@ -2264,7 +2284,14 @@ def stage_betslip_in_safari(
                     }}
                 }}
 
-                if (hasOutcomeMatch && hasLineMatch && oddsMatch && periodMatch) {{
+                const betIsCombo = singleBetText.includes("&") || singleBetText.includes(" and ");
+                const targetIsCombo = targetNorm.includes("&") || targetNorm.includes(" and ") || (outcomeNorm && (outcomeNorm.includes("&") || outcomeNorm.includes(" and ")));
+                const comboMatch = (betIsCombo === targetIsCombo);
+
+                const betHasLine = /\([+-]?\d+\.?\d*\)/.test(singleBetText);
+                const lineTypeMatch = (lineVariants.length > 0) ? hasLineMatch : (!betHasLine || targetNorm.startsWith("over") || targetNorm.startsWith("under"));
+
+                if (comboMatch && lineTypeMatch && hasOutcomeMatch && hasLineMatch && oddsMatch && periodMatch) {{
                     alreadyInBetslip = true;
                 }}
             }}
@@ -2836,7 +2863,38 @@ def stage_betslip_in_safari(
                     }}
                 }}
 
-                // 3. Entity / Team Verification Gate
+                // 3. Combo Verification Gate
+                const targetIsCombo = targetNorm.includes("&") || targetNorm.includes(" and ") || (outcomeNorm && (outcomeNorm.includes("&") || outcomeNorm.includes(" and ")));
+                const cardIsCombo = cardText.includes("&") || cardText.includes(" and ");
+                if (cardIsCombo && !targetIsCombo) {{
+                    try {{
+                        const resetBtn = document.querySelector("[data-testid='reset-betslip']");
+                        if (resetBtn) resetBtn.click();
+                        const rm = verifyBetCard.querySelector("[data-testid='betslip-bet-remove']");
+                        if (rm) rm.click();
+                    }} catch(e) {{}}
+                    return JSON.stringify({{
+                        status: "verification_failed",
+                        error: "Szelvény verifikációs hiba: Egyszeri piac helyett kombinált piac (combo) került a betslipbe! Betslip tartalom: '" + verifyBetCard.innerText.replace(/\s+/g, ' ').slice(0, 80) + "'"
+                    }});
+                }}
+
+                // 4. Moneyline vs Handicap Verification Gate
+                const cardHasLine = /\([+-]?\d+\.?\d*\)/.test(cardText);
+                if ((!lineVariants || lineVariants.length === 0) && cardHasLine && !targetNorm.startsWith("over") && !targetNorm.startsWith("under") && targetNorm !== "draw") {{
+                    try {{
+                        const resetBtn = document.querySelector("[data-testid='reset-betslip']");
+                        if (resetBtn) resetBtn.click();
+                        const rm = verifyBetCard.querySelector("[data-testid='betslip-bet-remove']");
+                        if (rm) rm.click();
+                    }} catch(e) {{}}
+                    return JSON.stringify({{
+                        status: "verification_failed",
+                        error: "Szelvény verifikációs hiba: Moneyline helyett hendikep piac került a betslipbe! Betslip tartalom: '" + verifyBetCard.innerText.replace(/\s+/g, ' ').slice(0, 80) + "'"
+                    }});
+                }}
+
+                // 5. Entity / Team Verification Gate
                 const clubStopwords = new Set(["fc", "sc", "cf", "afc", "ac", "sk", "fk", "bk", "club", "de"]);
                 const entityText = targetSel.replace(/[+-]?\d+(\.\d+)?/g, "").replace(/[()]/g, "").trim();
                 const entityWords = entityText.split(/\s+/).filter(w => w.length > 1);

@@ -27,6 +27,15 @@ def test_match_outcome_text():
     assert match_outcome_text("Yes", "Yes") is True
     assert match_outcome_text("Under 1.5", "Over 1.5") is False
     assert match_outcome_text("Under 1.5", "Under 2.5") is False
+    # Anti-tautological invariant checks:
+    assert match_outcome_text("Over 104.5", "Over 218.5", line=104.5) is False
+    assert match_outcome_text("Indiana Pacers +2.5", "Indiana Pacers (1.5)", line=2.5) is False
+    assert match_outcome_text("Indiana Pacers +2.5", "Indiana Pacers (-2.5)", line=2.5) is False
+    assert match_outcome_text("Indiana Pacers +2.5", "Indiana Pacers (2.5)", line=2.5) is True
+    assert match_outcome_text("Indiana Pacers", "Indiana Pacers (1.5)", line=None) is False
+    assert match_outcome_text("Indiana Pacers", "Indiana Pacers & Under 119.5", line=None) is False
+    assert match_outcome_text("Philadelphia 76ers +2.5", "Philadelphia 76ers (2.5)", line=2.5) is True
+    assert match_outcome_text("Philadelphia 76ers +2.5", "Philadelphia 76ers (1.5)", line=2.5) is False
 
 
 def test_evaluate_odds_drift_flexible_with_model_probability():

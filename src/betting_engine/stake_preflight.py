@@ -58,53 +58,94 @@ def _normalize_text(t: Optional[str]) -> str:
     return " ".join(re.sub(r"[^\w\s\.\+\-]", " ", (t or "").lower()).split())
 
 
+def _clean_entity(text: str) -> str:
+    t = re.sub(r"\([+-]?\d+(?:\.\d+)?\)", " ", text)
+    t = re.sub(r"[+-]\d+(?:\.\d+)?", " ", t)
+    t = re.sub(r"\b(?:over|under|o|u)\b", " ", t, flags=re.I)
+    t = re.sub(r"\b\d+(?:\.\d+)?\b", " ", t)
+    return " ".join(t.lower().split())
+
+
 def match_outcome_text(selection: str, outcome_name: str, line: Optional[float] = None) -> bool:
     """Robust matching of a selection string against a Stake outcome name."""
-    # Prevent matching combo outcomes when selection is not a combo
+    # 1. Combo check: prevent matching combo outcomes when selection is not a combo
     o_is_combo = "&" in outcome_name or " and " in outcome_name.lower()
     s_is_combo = "&" in selection or " and " in selection.lower()
-    if o_is_combo and not s_is_combo:
+    if o_is_combo != s_is_combo:
         return False
 
-    s_norm = _normalize_text(selection)
-    o_norm = _normalize_text(outcome_name)
-    if s_norm == o_norm:
+    # 2. Over / Under direction check
+    s_norm = selection.lower()
+    o_norm = outcome_name.lower()
+    s_is_over = "over" in s_norm or s_norm.startswith("o ")
+    s_is_under = "under" in s_norm or s_norm.startswith("u ")
+    o_is_over = "over" in o_norm or o_norm.startswith("o ")
+    o_is_under = "under" in o_norm or o_norm.startswith("u ")
+
+    if (s_is_over or s_is_under) or (o_is_over or o_is_under):
+        if s_is_over != o_is_over or s_is_under != o_is_under:
+            return False
+
+    # 3. Line matching
+    s_line = None
+    if line is not None:
+        try:
+            s_line = float(line)
+        except (ValueError, TypeError):
+            pass
+    if s_line is None:
+        m_par = re.search(r"\(([+-]?\d+(?:\.\d+)?)\)", selection)
+        if m_par:
+            s_line = float(m_par.group(1))
+        else:
+            m_ou = re.search(r"(?:over|under|o|u)\s*(\d+(?:\.\d+)?)", selection, re.I)
+            if m_ou:
+                s_line = float(m_ou.group(1))
+            else:
+                m_signed = re.search(r"([+-]\d+(?:\.\d+)?)", selection)
+                if m_signed:
+                    s_line = float(m_signed.group(1))
+
+    o_line = None
+    m_par_o = re.search(r"\(([+-]?\d+(?:\.\d+)?)\)", outcome_name)
+    if m_par_o:
+        o_line = float(m_par_o.group(1))
+    else:
+        m_ou_o = re.search(r"(?:over|under|o|u)\s*(\d+(?:\.\d+)?)", outcome_name, re.I)
+        if m_ou_o:
+            o_line = float(m_ou_o.group(1))
+
+    if s_line is not None and o_line is not None:
+        if abs(s_line - o_line) > 1e-4:
+            return False
+    elif s_line is None and o_line is not None:
+        # Target has no line (e.g. moneyline), but outcome has a line (spread/total) -> Disqualify!
+        return False
+    elif s_line is not None and o_line is None:
+        # Outcome has no line, but target has line -> Disqualify unless it is simple 'Over'/'Under'
+        if not ((s_is_over and o_norm == "over") or (s_is_under and o_norm == "under")):
+            return False
+
+    # 4. Entity matching
+    s_ent = _clean_entity(selection)
+    o_ent = _clean_entity(outcome_name)
+    if not s_ent and not o_ent:
+        # Purely Over/Under with matched line
         return True
 
-    # Check Over / Under
-    s_is_under = "under" in s_norm or s_norm.startswith("u ")
-    o_is_under = "under" in o_norm or o_norm.startswith("u ")
-    s_is_over = "over" in s_norm or s_norm.startswith("o ")
-    o_is_over = "over" in o_norm or o_norm.startswith("o ")
-
-    if (s_is_under and o_is_under) or (s_is_over and o_is_over):
-        s_nums = re.findall(r"[\d\.]+", s_norm)
-        o_nums = re.findall(r"[\d\.]+", o_norm)
-        if s_nums and o_nums:
-            try:
-                if float(s_nums[-1]) == float(o_nums[-1]):
-                    return True
-            except ValueError:
-                pass
-        # If outcome name is simply "Under" or "Over" and line is supplied
-        if line is not None and s_nums:
-            try:
-                if float(s_nums[-1]) == float(line):
-                    return True
-            except ValueError:
-                pass
-
-    # Token-based match
-    s_tokens = set(s_norm.split())
-    o_tokens = set(o_norm.split())
+    s_tokens = set(s_ent.split())
+    o_tokens = set(o_ent.split())
     if s_tokens == o_tokens:
         return True
 
-    common = s_tokens.intersection(o_tokens) - {"over", "under", "+", "-"}
-    if len(common) >= 2:
-        return True
-    if len(common) == 1 and len(s_tokens) == 1:
-        return True
+    club_stopwords = {"fc", "sc", "cf", "afc", "ac", "sk", "fk", "bk", "club", "de"}
+    s_meaningful = s_tokens - club_stopwords
+    o_meaningful = o_tokens - club_stopwords
+
+    if s_meaningful and o_meaningful:
+        common = s_meaningful.intersection(o_meaningful)
+        if len(common) >= 1 and (common == s_meaningful or common == o_meaningful or len(common) >= 2):
+            return True
 
     return False
 
@@ -115,13 +156,14 @@ def match_stake_feed_contract(
     selection: str,
     line: Optional[float] = None,
     league: Optional[str] = None,
+    market_name: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """Match a contract in the structured Stake feed and return infallible targeting params."""
     if not feed_data or not isinstance(feed_data, dict):
         return None
 
     league_groups = feed_data.get("groups", [])
-    target_market_lower = (market or "").lower()
+    target_market_lower = f"{market or ''} {market_name or ''}".lower()
 
     # Determine period/scope
     target_period = None
@@ -196,15 +238,34 @@ def match_stake_feed_contract(
                 if m_type == "totals":
                     if "total" not in m_name_lower:
                         continue
-                    if "team" in m_name_lower and "team" not in target_market_lower:
+                    is_target_team_total = (
+                        "away_total" in target_market_lower
+                        or "home_total" in target_market_lower
+                        or "team" in target_market_lower
+                    )
+                    is_market_team_total = (
+                        "team" in m_name_lower
+                        or ("total" in m_name_lower and not m_name_lower.startswith("total") and not re.match(r"^(?:1st|2nd|3rd|4th|half|quarter|period)\s*(?:quarter|half|period)?\s*[-–]?\s*total", m_name_lower))
+                    )
+                    if not is_target_team_total and is_market_team_total:
+                        continue
+                    if is_target_team_total and not is_market_team_total:
                         continue
                     if not target_is_combo and ("&" in m_name_lower or " and " in m_name_lower):
                         continue
+                    if line is not None:
+                        spec_t = re.search(r"total=(\d+(?:\.\d+)?)", spec)
+                        if spec_t and abs(float(spec_t.group(1)) - float(line)) > 0.01:
+                            continue
                 elif m_type == "spreads":
                     if not any(k in m_name_lower for k in ["handicap", "spread", "puck line", "run line"]):
                         continue
                     if not target_is_combo and ("&" in m_name_lower or " and " in m_name_lower):
                         continue
+                    if line is not None:
+                        spec_h = re.search(r"hcp=([+-]?\d+(?:\.\d+)?)", spec)
+                        if spec_h and abs(abs(float(spec_h.group(1))) - abs(float(line))) > 0.01:
+                            continue
                 elif m_type == "both_score":
                     if "both teams to score" not in m_name_lower and "both to score" not in m_name_lower:
                         continue
@@ -347,6 +408,7 @@ def preflight_verify_contract(
     min_odds: Optional[float] = None,
     model_probability: Optional[float] = None,
     league: Optional[str] = None,
+    market_name: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Execute high-speed preflight check on a contract.
     
@@ -362,7 +424,14 @@ def preflight_verify_contract(
         # Network timeout or feed unavailable -> Seamless fallback to DOM
         return {"status": "fallback_to_dom", "reason": "Feed unavailable, using DOM fallback"}
 
-    match = match_stake_feed_contract(feed_data, market=market, selection=selection, line=line, league=league)
+    match = match_stake_feed_contract(
+        feed_data,
+        market=market,
+        selection=selection,
+        line=line,
+        league=league,
+        market_name=market_name,
+    )
     if not match:
         # Contract verified missing from Stake feed
         return {
