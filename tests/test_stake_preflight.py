@@ -221,3 +221,44 @@ def test_tennis_sets_preflight(monkeypatch):
     assert res["exact_outcome_name"] == "Player B"
     assert res["live_odds"] == 2.65
 
+
+def test_reject_combo_market_and_outcome_for_single_spreads():
+    """Verifies that pure spreads/handicaps never match combo markets like 'handicap & total'."""
+    assert match_outcome_text("Indiana Pacers +2.5", "Indiana Pacers (1.5) & over 60.5", line=2.5) is False
+    assert match_outcome_text("Indiana Pacers +1.5", "Indiana Pacers (1.5) & over 60.5", line=1.5) is False
+    assert match_outcome_text("Indiana Pacers +1.5", "Indiana Pacers (1.5)", line=1.5) is True
+
+    feed = {
+        "groups": [
+            {
+                "name": "quarters",
+                "markets": [
+                    [
+                        {
+                            "name": "1st quarter handicap & 1st quarter total",
+                            "specifiers": "quarternr=1",
+                            "outcomes": [
+                                {"id": "combo-1", "name": "Indiana Pacers (1.5) & over 60.5", "odds": 3.80, "active": True}
+                            ]
+                        }
+                    ],
+                    [
+                        {
+                            "name": "1st Quarter - Handicap",
+                            "specifiers": "quarternr=1|hcp=1.5",
+                            "outcomes": [
+                                {"id": "single-1", "name": "Indiana Pacers (1.5)", "odds": 1.91, "active": True}
+                            ]
+                        }
+                    ]
+                ]
+            }
+        ]
+    }
+
+    match = match_stake_feed_contract(feed, market="quarter_1:spreads", selection="Indiana Pacers +1.5", line=1.5, league="NBA")
+    assert match is not None
+    assert match["market_name"] == "1st Quarter - Handicap"
+    assert match["outcome_id"] == "single-1"
+    assert match["odds"] == 1.91
+

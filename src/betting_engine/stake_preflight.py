@@ -60,6 +60,12 @@ def _normalize_text(t: Optional[str]) -> str:
 
 def match_outcome_text(selection: str, outcome_name: str, line: Optional[float] = None) -> bool:
     """Robust matching of a selection string against a Stake outcome name."""
+    # Prevent matching combo outcomes when selection is not a combo
+    o_is_combo = "&" in outcome_name or " and " in outcome_name.lower()
+    s_is_combo = "&" in selection or " and " in selection.lower()
+    if o_is_combo and not s_is_combo:
+        return False
+
     s_norm = _normalize_text(selection)
     o_norm = _normalize_text(outcome_name)
     if s_norm == o_norm:
@@ -186,19 +192,28 @@ def match_stake_feed_contract(
                         continue
 
                 # Check market type match
+                target_is_combo = "&" in target_market_lower or " and " in target_market_lower
                 if m_type == "totals":
                     if "total" not in m_name_lower:
                         continue
                     if "team" in m_name_lower and "team" not in target_market_lower:
                         continue
+                    if not target_is_combo and ("&" in m_name_lower or " and " in m_name_lower):
+                        continue
                 elif m_type == "spreads":
                     if not any(k in m_name_lower for k in ["handicap", "spread", "puck line", "run line"]):
+                        continue
+                    if not target_is_combo and ("&" in m_name_lower or " and " in m_name_lower):
                         continue
                 elif m_type == "both_score":
                     if "both teams to score" not in m_name_lower and "both to score" not in m_name_lower:
                         continue
+                    if not target_is_combo and ("&" in m_name_lower or " and " in m_name_lower):
+                        continue
                 elif m_type == "moneyline":
                     if not any(k in m_name_lower for k in ["winner", "1x2", "draw no bet", "moneyline"]):
+                        continue
+                    if not target_is_combo and ("&" in m_name_lower or " and " in m_name_lower):
                         continue
 
                 # Scan outcomes
