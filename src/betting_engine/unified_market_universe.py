@@ -371,14 +371,22 @@ class UnifiedMarketUniverse:
                                 json_extract(payload, '$.market'),
                                 pnl,
                                 json_extract(payload, '$.stake'),
-                                issued_at
+                                issued_at,
+                                json_extract(payload, '$.game_id')
                             FROM system_decisions
                             WHERE status IN ('won', 'lost', 'push')
                         """).fetchall()
                         all_time_perf_map: Dict[str, Dict[str, Any]] = {}
-                        for lg_r, sc_r, fam_r, pnl_r, stake_r, iss_r in rows_perf:
+                        league_games_map: Dict[str, Dict[str, str]] = {}
+                        for lg_r, sc_r, fam_r, pnl_r, stake_r, iss_r, gid_r in rows_perf:
                             if not lg_r or not fam_r:
                                 continue
+                            lg_clean_u = str(lg_r).upper().strip()
+                            if gid_r and iss_r:
+                                gid_clean = str(gid_r).strip()
+                                cur_ts = league_games_map.setdefault(lg_clean_u, {}).get(gid_clean)
+                                if cur_ts is None or str(iss_r) < cur_ts:
+                                    league_games_map[lg_clean_u][gid_clean] = str(iss_r)
                             k = self.get_canonical_key(lg_r, sc_r, fam_r)
                             base_k = None
                             if ':' in str(fam_r):
@@ -479,13 +487,23 @@ class UnifiedMarketUniverse:
                             prof.phase_detail = f"Live Probation ({stat['sample_size']} game, ${stat['pnl']:+.2f}) - $0.50 floor"
                 else:
                     # No post-graduation live decisions yet (0 live settled games with new model)
-                    is_protected = is_protected_alpha_champion(k_perf, at_stat)
-                    if is_protected and at_stat and at_stat['pnl'] > 0.0 and at_stat['sample_size'] >= 2:
-                        prof.stake_cap = 8.00
-                        prof.rolling_pnl = at_stat['pnl']
-                        prof.rolling_roi_pct = at_stat['roi_pct']
-                        prof.sample_size = at_stat['sample_size']
-                        prof.phase_detail = f"Protected Alpha Champion ({at_stat['roi_pct']:+.1f}% ROI, ${at_stat['pnl']:+.2f} over {at_stat['sample_size']} games) - Tier 3 Kelly"
+                    # Fixture-Aware Silent Market Eviction Guard (Commandments 1, 2, 6, 7 & 10):
+                    # Check how many distinct match opportunities have occurred in this league since graduation.
+                    grad_ts = grad_at_map.get(k_perf) or grad_at_map.get(f"{prof.league}|{prof.scope}|{prof.family}") or '1970-01-01'
+                    lg_key = (prof.league or '').upper().strip()
+                    games_since_grad = 0
+                    if lg_key in league_games_map:
+                        games_since_grad = sum(1 for g_ts in league_games_map[lg_key].values() if g_ts >= grad_ts)
+
+                    MIN_FIXTURE_OPPORTUNITIES = 5
+                    if games_since_grad >= MIN_FIXTURE_OPPORTUNITIES:
+                        # Genuine execution bottleneck: The league had >= 5 matches, but market emitted 0 bets.
+                        # Evicted from Tier 3 to Tier 1 R&D for bottleneck diagnostics.
+                        prof.tier = int(MarketTier.RESEARCH_RND)
+                        prof.tier_name = "RESEARCH_RND"
+                        prof.stake_cap = 0.00
+                        prof.phase_detail = f"Dormant Market Eviction (0 bets across {games_since_grad} games post-grad) - Quarantined to R&D ($0.00)"
+                        grad_keys_set.discard(k_perf)
                     elif at_stat and at_stat['pnl'] < 0.0:
                         # Constitutional Invariant (Prime Directives 6 & 7):
                         # Markets with established negative live PnL must be quarantined to Tier 2 ($0.00 virtual stakes).
@@ -499,8 +517,19 @@ class UnifiedMarketUniverse:
                         prof.phase_detail = f"Shadow Incubator Quarantine - Established Live Loss (${at_stat['pnl']:+.2f} over {at_stat['sample_size']} games) - $0.00"
                         grad_keys_set.discard(k_perf)
                     else:
-                        prof.stake_cap = 0.50
-                        prof.phase_detail = "Newly Graduated Crucible Model - Live Probation ($0.50 floor)"
+                        # Safe: Has seen < 5 games since graduation (fresh graduate, weekly sports e.g. NFL waiting for Sunday, or off-season)
+                        is_protected = is_protected_alpha_champion(k_perf, at_stat)
+                        if is_protected and at_stat and at_stat['pnl'] > 0.0 and at_stat['sample_size'] >= 2:
+                            prof.stake_cap = 8.00 if at_stat['pnl'] >= 2.0 else 2.50
+                            prof.rolling_pnl = at_stat['pnl']
+                            prof.rolling_roi_pct = at_stat['roi_pct']
+                            prof.sample_size = at_stat['sample_size']
+                            prof.phase_detail = f"Protected Alpha Champion ({at_stat['roi_pct']:+.1f}% ROI, ${at_stat['pnl']:+.2f} over {at_stat['sample_size']} games) - Tier 3 Kelly"
+                        else:
+                            # Retains full Tier 3 live probation at $0.50 floor without premature eviction!
+                            prof.stake_cap = 0.50
+                            games_info = f"{games_since_grad}/5 games seen" if games_since_grad > 0 else "pending fixtures"
+                            prof.phase_detail = f"Newly Graduated Crucible Model - Live Probation ($0.50 floor, {games_info})"
 
         def _register_market_candidate(lg: str, sc: str, fam: str, model_id: Optional[str], archetype: str) -> None:
             lg_clean = (lg or '').upper().strip()
