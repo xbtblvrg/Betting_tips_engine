@@ -622,20 +622,32 @@ class PolymarketAutonomousExecutor:
         if isinstance(book, dict):
             if book.get("bids"):
                 try:
-                    first_b = book["bids"][0]
-                    best_bid = float(first_b.get("price", 0.0) if isinstance(first_b, dict) else getattr(first_b, "price", 0.0))
+                    bid_prices = [
+                        float(b.get("price", 0.0) if isinstance(b, dict) else getattr(b, "price", 0.0))
+                        for b in book["bids"]
+                    ]
+                    bid_prices = [p for p in bid_prices if 0.0 < p < 1.0]
+                    if bid_prices:
+                        best_bid = max(bid_prices)
                 except Exception:
                     pass
             if book.get("asks"):
                 try:
-                    first_a = book["asks"][0]
-                    best_ask = float(first_a.get("price", 0.0) if isinstance(first_a, dict) else getattr(first_a, "price", 0.0))
+                    ask_prices = [
+                        float(a.get("price", 0.0) if isinstance(a, dict) else getattr(a, "price", 0.0))
+                        for a in book["asks"]
+                    ]
+                    ask_prices = [p for p in ask_prices if 0.0 < p < 1.0]
+                    if ask_prices:
+                        best_ask = min(ask_prices)
                 except Exception:
                     pass
         if best_ask <= 0.0:
             best_ask = round(eff_price, 4)
         if best_bid <= 0.0:
             best_bid = max(0.01, round(best_ask - 0.04, 4))
+        if best_bid >= best_ask:
+            best_bid = max(0.01, round(best_ask - 0.01, 4))
         spread = max(0.001, round(best_ask - best_bid, 4))
 
         return PreflightResult(
@@ -1089,9 +1101,12 @@ class PolymarketAutonomousExecutor:
 
         # --- Single Order Execution (Indivisible or Single-Strategy) ---
         eff_order_price = preflight.eff_price
+        order_ev = preflight.ev
         if slicing_plan and slicing_plan.maker_stake > 0.0 and slicing_plan.taker_stake == 0.0:
             eff_order_price = slicing_plan.maker_price
             shares_count = round(calibrated_stake / max(0.01, eff_order_price), 2)
+            maker_odds = round(1.0 / max(0.01, eff_order_price), 3)
+            order_ev = round((model_prob * maker_odds) - 1.0, 4)
 
         # Stage 1: STAGED
         self._record_order_event(
@@ -1108,7 +1123,7 @@ class PolymarketAutonomousExecutor:
             poly_price=eff_order_price,
             poly_odds=round(1.0 / max(0.01, eff_order_price), 3),
             model_prob=model_prob,
-            expected_value=preflight.ev,
+            expected_value=order_ev,
             stake_usd=calibrated_stake,
             shares_count=shares_count,
             status="staged",
