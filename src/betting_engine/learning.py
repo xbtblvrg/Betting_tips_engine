@@ -82,7 +82,8 @@ def choose_learning_job(rows, recent_attempts, now=None, lane='all'):
     if background and not recovery and streak >= HIGH_PRIORITY_BUDGET:
         oldest = min(background, key=lambda r:(eligible_at(r),PRIORITY.get(r['kind'],5),r['id']))
         age = (now-eligible_at(oldest)).total_seconds()
-        if PRIORITY.get(ordinary['kind'],5)>0 or age >= EMERGENCY_AGE_CAP_SECONDS:
+        ord_age = (now-eligible_at(ordinary)).total_seconds()
+        if (PRIORITY.get(ordinary['kind'],5)>0 and ord_age < EMERGENCY_AGE_CAP_SECONDS) or age >= EMERGENCY_AGE_CAP_SECONDS:
             selected = oldest; reason = 'aged_background_after_emergencies' if PRIORITY.get(ordinary['kind'],5)==0 else 'background_turn_after_priority_budget'
     return selected, {'version':SCHEDULING_VERSION, 'reason':reason,
         'selected_job_id':selected['id'], 'selected_kind':selected['kind'],
@@ -1118,8 +1119,19 @@ class LearningWorker:
             with self.store.db() as c:
                 c.execute('BEGIN IMMEDIATE')
                 rows=[dict(r) for r in c.execute("SELECT * FROM learning_jobs WHERE status IN ('queued','retry') AND next_attempt<=?",(now,))]
-                recent=[dict(r) for r in c.execute("SELECT j.kind,a.status,a.started_at FROM learning_attempts a JOIN learning_jobs j ON a.job_id=j.id ORDER BY a.id DESC LIMIT ?",(HIGH_PRIORITY_BUDGET,))]
-                job,admission=choose_learning_job(rows,recent,parse_time(now))
+                fast_tuple = tuple(FAST_TRACK_KINDS)
+                placeholders = ','.join('?' for _ in fast_tuple)
+                deep_recent = [dict(r) for r in c.execute(
+                    f"SELECT j.kind, a.status, a.started_at FROM learning_attempts a "
+                    f"JOIN learning_jobs j ON a.job_id=j.id "
+                    f"WHERE j.kind NOT IN ({placeholders}) "
+                    f"ORDER BY a.id DESC LIMIT ?",
+                    (*fast_tuple, HIGH_PRIORITY_BUDGET)
+                ).fetchall()]
+                recent = [dict(r) for r in c.execute("SELECT j.kind,a.status,a.started_at FROM learning_attempts a JOIN learning_jobs j ON a.job_id=j.id ORDER BY a.id DESC LIMIT ?",(HIGH_PRIORITY_BUDGET,))]
+                job, admission = choose_learning_job(rows, deep_recent if deep_recent else recent, parse_time(now), lane='deep')
+                if not job:
+                    job, admission = choose_learning_job(rows, recent, parse_time(now), lane='all')
                 if job:
                     is_cont = job['kind'] == 'shadow_evaluation' and bool(job.get('result') and 'continuation_required' in str(job['result']))
                     att_inc = 0 if is_cont else 1

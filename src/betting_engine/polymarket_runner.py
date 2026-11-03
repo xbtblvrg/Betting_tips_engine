@@ -170,7 +170,52 @@ class PolymarketAutonomousRunner:
                     rows = cur.execute(
                         "SELECT payload FROM tips ORDER BY last_seen DESC LIMIT 4000;"
                     ).fetchall()
-                return [json.loads(r[0]) for r in rows if r[0]]
+                tips = [json.loads(r[0]) for r in rows if r[0]]
+
+            # Also enrich with latest publication games and calibrated pregame forecasts
+            # to match upcoming scheduled fixtures across 72h even before Stake contracts are posted.
+            try:
+                from .storage import Store
+                store = Store(self.db_path)
+                latest_pub = store.latest()
+                if latest_pub:
+                    games_by_id = {g['id']: g for g in latest_pub.get('games', []) if isinstance(g, dict) and g.get('id')}
+                    existing_pairs = {(str(t.get('league')).upper(), str(t.get('home')).lower(), str(t.get('away')).lower()) for t in tips}
+                    for gid, fc in latest_pub.get('forecasts', {}).items():
+                        g = games_by_id.get(gid)
+                        if not g or not isinstance(fc, dict):
+                            continue
+                        home = g.get('home')
+                        away = g.get('away')
+                        league = (g.get('league') or '').upper()
+                        if not home or not away or not league:
+                            continue
+                        pair_key = (league, home.lower(), away.lower())
+                        if pair_key in existing_pairs:
+                            continue
+                        existing_pairs.add(pair_key)
+                        h_prob = fc.get('home_probability')
+                        h_pts = fc.get('home_points')
+                        a_pts = fc.get('away_points')
+                        tips.append({
+                            'id': f"fc_{gid}_ml",
+                            'game_id': gid,
+                            'league': league,
+                            'home': home,
+                            'away': away,
+                            'market': 'moneyline',
+                            'model_scope': 'full_game',
+                            'side': 'home',
+                            'probability': h_prob,
+                            'predicted_home_points': h_pts,
+                            'predicted_away_points': a_pts,
+                            'allocation_code': 'prospective_domain_forecast',
+                            'funding_veto': False,
+                        })
+            except Exception as exc:
+                log.warning(f"Could not enrich tips from latest publication forecasts: {exc}")
+
+            return tips
         except Exception as exc:
             log.warning(f"Could not load domain tips: {exc}")
             return []

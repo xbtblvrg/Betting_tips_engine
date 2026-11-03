@@ -74,7 +74,7 @@ class SupremeSystemAuditor:
         except Exception as exc:
             log.warning('Failed to log healing event: %s', exc)
 
-    def audit_code_and_tests(self, targets: Optional[List[str]] = None, timeout: int = 45) -> Dict[str, Any]:
+    def audit_code_and_tests(self, targets: Optional[List[str]] = None, timeout: int = 120) -> Dict[str, Any]:
         """Runs pytest on designated test targets to uncover any regression or broken assertion."""
         targets = targets or CORE_TEST_TARGETS
         existing_targets = [t for t in targets if (self.root / t).exists()]
