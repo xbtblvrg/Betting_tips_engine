@@ -33,27 +33,32 @@ git clone git@github.com:xbtblvrg/Betting_tips_engine.git
 cd Betting_tips_engine
 ```
 
-### 2. Python Virtuális Környezet & Függőségek
+### 2. Automatikus Bootstrap & Függőségek (Single-Command Setup)
+A projekt modern csomagkezelése az `uv`-re épül, a teljes beüzemelést egyetlen script automatizálja:
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install --upgrade pip
-pip install -e .
-pip install pytest anyio uvicorn
+python3 scripts/bootstrap.py
 ```
+*Ez a script automatikusan:*
+- Ellenőrzi a Python futtatókörnyezetet (3.12+ / 3.14).
+- Az `uv sync --frozen --extra dev` segítségével felépíti a byte-pontos virtuális környezetet (`.venv`).
+- Elvégzi az Apple Silicon SQLite natív kiterjesztés ellenőrzését és csatolását.
+- A `runtime_seed/` mappából installálja és sha256 szerint ellenőrzi a fagyasztott modell súlyokat és riportokat (`data/models/`, `data/period_models/`, `data/segment_models/`).
+- Létrehozza a `data/engine.sqlite3` és `data/shadow_incubator.sqlite3` sémákat.
+- Létrehozza a `.env` konfigurációt a `.env.example`-ből.
 
 ### 3. Frontend / Web Teszt Környezet
 ```bash
 npm install
 ```
 
-### 4. Adatbázisok & Könyvtárak Előkészítése
-Ha a `data/` mappa üres, hozd létre a szükséges struktúrát és indítsd el a bootstrap scriptet:
+### 4. Rendszer-integritás Ellenőrzése (Pre-Flight Verification)
 ```bash
-mkdir -p data/logs data/research
-python3 scripts/bootstrap.py
+# Python matematikai invariánsok & quant primitívek tesztje:
+.venv/bin/pytest tests/test_quant_primitives.py tests/test_codex_model_synthesizer.py tests/test_native_test_protocol.py
+
+# Frontend Happy-DOM tesztek:
+node --test tests/web.test.mjs
 ```
-*(A rendszer automatikusan felépíti az `engine.sqlite3` és `shadow_incubator.sqlite3` sémákat, valamint a záróár- és inkubációs táblákat.)*
 
 ---
 
