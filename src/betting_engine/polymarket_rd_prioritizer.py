@@ -119,7 +119,8 @@ class PolymarketRDPrioritizer:
                             "strikeout", "tackle", "sack", "interception", "margin", "race", "corner",
                             "goal", "shot", "save", "team_total", "team_totals", "overtime", "odd_even",
                             "pick_six", "fourth_down", "field_goal", "first_down", "exact_score",
-                            "first_to_score", "score_first", "two_point", "completed_match"
+                            "first_to_score", "score_first", "two_point", "completed_match",
+                            "three", "threes", "steal", "block", "turnover", "foul", "home_run", "hit", "rbi"
                         ))
                         if is_excluded:
                             continue
