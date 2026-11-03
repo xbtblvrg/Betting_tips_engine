@@ -76,6 +76,24 @@ PERIOD_PROPORTIONS: Dict[str, Dict[str, float]] = {
     "MLB": {
         "innings_1_5": 0.53,
     },
+    "EPL": {
+        "half_1": 0.45,
+        "half_2": 0.55,
+        "1st_half": 0.45,
+        "2nd_half": 0.55,
+    },
+    "UCL": {
+        "half_1": 0.45,
+        "half_2": 0.55,
+        "1st_half": 0.45,
+        "2nd_half": 0.55,
+    },
+    "MLS": {
+        "half_1": 0.45,
+        "half_2": 0.55,
+        "1st_half": 0.45,
+        "2nd_half": 0.55,
+    },
 }
 
 

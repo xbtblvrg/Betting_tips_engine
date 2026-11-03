@@ -332,16 +332,16 @@ class PolymarketAutonomousExecutor:
                 f"STAKE_ONLY_MARKET: Segment {league}|{scope}|{market_family} (derivative scope {scope}) is a Stake sportsbook exclusive market with no corresponding Polymarket contract type. Active in Tier 3 on Stake.",
                 0.0,
             )
-        if league in ("WTA", "ATP") and scope != "full_game":
+        if league in ("WTA", "ATP") and scope not in ("full_game", "period_1"):
             return (
                 False,
-                f"STAKE_ONLY_MARKET: Segment {league}|{scope}|{market_family} (tennis period market) is a Stake sportsbook exclusive market with no corresponding Polymarket contract type. Active in Tier 3 on Stake.",
+                f"STAKE_ONLY_MARKET: Segment {league}|{scope}|{market_family} (tennis period market {scope}) is a Stake sportsbook exclusive market with no corresponding Polymarket contract type. Active in Tier 3 on Stake.",
                 0.0,
             )
-        if league in ("MLS", "EPL", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA") and scope != "full_game":
+        if league in ("MLS", "EPL", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA") and scope not in ("full_game", "half_1", "half_2"):
             return (
                 False,
-                f"STAKE_ONLY_MARKET: Segment {league}|{scope}|{market_family} (soccer period/half market) is not offered on Polymarket CLOB books. Active in Tier 3 on Stake.",
+                f"STAKE_ONLY_MARKET: Segment {league}|{scope}|{market_family} (soccer period market {scope}) is not offered on Polymarket CLOB books. Active in Tier 3 on Stake.",
                 0.0,
             )
         if league in ("NBA", "NCAAB", "WNBA", "CBB") and scope != "full_game":

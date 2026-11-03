@@ -73,6 +73,10 @@ POLYMARKET_STRUCTURED_TYPE_MAP: Dict[str, Tuple[str, str]] = {
     "tennis_first_set_totals": ("period_1", "totals"),
     "tennis_set_handicap": ("full_game", "spreads"),
     "tennis_set_totals": ("full_game", "totals"),
+
+    # Soccer Halftime / Second Half Result (EPL, UCL, MLS)
+    "soccer_halftime_result": ("half_1", "three_way"),
+    "soccer_second_half_result": ("half_2", "three_way"),
 }
 
 
@@ -516,7 +520,13 @@ class PolymarketAutonomousRunner:
                     else:
                         # Polymarket provided a specific sportsMarketType that is not in our proven taxonomy
                         # Check if it's an unmodeled prop vs an unmapped game/period derivative
-                        is_prop = any(prop in sports_type for prop in ("touchdown", "reception", "pass", "rush", "assist", "rebound", "point", "yard", "strikeout", "tackle", "sack", "interception", "margin", "race"))
+                        is_prop = any(prop in sports_type for prop in (
+                            "touchdown", "reception", "pass", "rush", "assist", "rebound", "point", "yard",
+                            "strikeout", "tackle", "sack", "interception", "margin", "race", "corner",
+                            "goal", "shot", "save", "team_total", "team_totals", "overtime", "odd_even",
+                            "pick_six", "fourth_down", "field_goal", "first_down", "exact_score",
+                            "first_to_score", "score_first", "two_point"
+                        ))
                         if not is_prop:
                             unmapped_market_types.add(sports_type)
                         continue
