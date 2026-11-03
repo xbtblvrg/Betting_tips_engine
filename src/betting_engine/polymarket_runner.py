@@ -30,7 +30,7 @@ log = logging.getLogger(__name__)
 
 RUNNER_STATE_FILE = DATA / "polymarket_runner_state.json"
 _RUNNER_CYCLE_LOCK = threading.Lock()
-DEFAULT_RUNNER_LEAGUES: Tuple[str, ...] = ("NBA", "NFL", "NHL", "EPL", "UCL", "UEL", "MLS", "NCAAF", "CBB", "ATP", "WTA")
+DEFAULT_RUNNER_LEAGUES: Tuple[str, ...] = ("NBA", "NFL", "NHL", "EPL", "UCL", "UEL", "MLS", "NCAAF", "CBB", "NCAAW", "ATP", "WTA")
 
 # Explicit Canonical Taxonomy Mapping for Polymarket Gamma API sportsMarketType
 POLYMARKET_STRUCTURED_TYPE_MAP: Dict[str, Tuple[str, str]] = {
@@ -190,7 +190,16 @@ class PolymarketAutonomousRunner:
         """
         import math
 
-        league_tips = [t for t in tips if t.get("league") == league]
+        league_up = (league or "").strip().upper()
+        allowed_leagues = {league_up}
+        if league_up in ("NCAAF", "CFB", "COLLEGE_FOOTBALL"):
+            allowed_leagues = {"NCAAF", "CFB", "COLLEGE_FOOTBALL"}
+        elif league_up in ("CBB", "NCAAB", "NCAAM", "COLLEGE_BASKETBALL"):
+            allowed_leagues = {"CBB", "NCAAB", "NCAAM", "COLLEGE_BASKETBALL"}
+        elif league_up in ("CWBB", "NCAAW"):
+            allowed_leagues = {"CWBB", "NCAAW"}
+
+        league_tips = [t for t in tips if (t.get("league") or "").upper() in allowed_leagues]
         if not league_tips:
             return (None, "no_domain_tips_for_league") if return_failure_reason else None
 
@@ -270,8 +279,26 @@ class PolymarketAutonomousRunner:
 
         # Priority 2: If no direct moneyline tip but projected points exist, calculate using domain normal CDF
         if home_prob is None and proj_h is not None and proj_a is not None:
-            sigma_map = {"NFL": 13.86, "NBA": 11.5, "NHL": 2.1, "MLB": 3.5}
-            sigma = sigma_map.get(league, 12.0)
+            sigma_map = {
+                "NFL": 13.86,
+                "NBA": 11.5,
+                "NHL": 2.1,
+                "MLB": 3.5,
+                "NCAAF": 16.0,
+                "CFB": 16.0,
+                "CBB": 11.5,
+                "NCAAB": 11.5,
+                "NCAAM": 11.5,
+                "NCAAW": 11.5,
+                "CWBB": 11.5,
+                "MLS": 1.3,
+                "EPL": 1.25,
+                "UCL": 1.25,
+                "UEL": 1.25,
+                "ATP": 4.0,
+                "WTA": 3.8,
+            }
+            sigma = sigma_map.get(league_up, 12.0)
             diff = proj_h - proj_a
             # Standard Gaussian CDF: 0.5 * (1.0 + erf(diff / (sigma * sqrt(2))))
             home_prob = 0.5 * (1.0 + math.erf(diff / (sigma * math.sqrt(2.0))))

@@ -273,6 +273,14 @@ class PolymarketAutonomousExecutor:
         market_family = str(market_family or "").strip().lower()
         clean_fam = market_family.split(":")[-1] if ":" in market_family else market_family
 
+        league_aliases = [league]
+        if league in ("CBB", "NCAAB", "NCAAM"):
+            league_aliases = ["CBB", "NCAAB", "NCAAM"]
+        elif league in ("CFB", "NCAAF"):
+            league_aliases = ["CFB", "NCAAF"]
+        elif league in ("CWBB", "NCAAW"):
+            league_aliases = ["CWBB", "NCAAW"]
+
         family_aliases = [market_family]
         if market_family in ("moneyline", "winner", "head_to_head", "h2h"):
             family_aliases.extend(["moneyline", "winner", "h2h", f"{scope}:moneyline", f"{scope}:three_way"])
@@ -304,7 +312,7 @@ class PolymarketAutonomousExecutor:
             )
 
             for s in all_segs:
-                if s.get("league") == league and s.get("scope") == scope:
+                if s.get("league") in league_aliases and s.get("scope") == scope:
                     s_fam = s.get("family", "")
                     if any(a == s_fam or a in s_fam or s_fam in a for a in family_aliases):
                         pnl = float(s.get("pnl", 0.0))
@@ -332,16 +340,16 @@ class PolymarketAutonomousExecutor:
                 f"STAKE_ONLY_MARKET: Segment {league}|{scope}|{market_family} (derivative scope {scope}) is a Stake sportsbook exclusive market with no corresponding Polymarket contract type. Active in Tier 3 on Stake.",
                 0.0,
             )
-        if league in ("WTA", "ATP") and scope not in ("full_game", "period_1"):
+        if league in ("WTA", "ATP") and scope != "full_game":
             return (
                 False,
-                f"STAKE_ONLY_MARKET: Segment {league}|{scope}|{market_family} (tennis period market {scope}) is a Stake sportsbook exclusive market with no corresponding Polymarket contract type. Active in Tier 3 on Stake.",
+                f"STAKE_ONLY_MARKET: Segment {league}|{scope}|{market_family} (tennis period market) is a Stake sportsbook exclusive market with no corresponding Polymarket contract type. Active in Tier 3 on Stake.",
                 0.0,
             )
-        if league in ("MLS", "EPL", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA") and scope not in ("full_game", "half_1", "half_2"):
+        if league in ("MLS", "EPL", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA") and scope != "full_game":
             return (
                 False,
-                f"STAKE_ONLY_MARKET: Segment {league}|{scope}|{market_family} (soccer period market {scope}) is not offered on Polymarket CLOB books. Active in Tier 3 on Stake.",
+                f"STAKE_ONLY_MARKET: Segment {league}|{scope}|{market_family} (soccer period/half market) is not offered on Polymarket CLOB books. Active in Tier 3 on Stake.",
                 0.0,
             )
         if league in ("NBA", "NCAAB", "WNBA", "CBB") and scope != "full_game":
@@ -369,7 +377,7 @@ class PolymarketAutonomousExecutor:
                     matched_s = alpha_keys[k]
                 else:
                     for ak, s_obj in alpha_keys.items():
-                        if ak.startswith(f"{league}|{scope}|") and any(a in ak for a in family_aliases):
+                        if any(ak.startswith(f"{l_alias}|{scope}|") for l_alias in league_aliases) and any(a in ak for a in family_aliases):
                             matched_s = s_obj
                             break
 
