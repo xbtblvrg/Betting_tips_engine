@@ -619,25 +619,25 @@ class PolymarketAutonomousRunner:
                         q_low = q.lower()
 
                         is_home = None
-                        if h_name and (out_low in h_name or h_name in out_low or any(w in out_low for w in h_name.split() if len(w) > 3)):
+                        if h_name and (out_low in h_name or h_name in out_low or any(w in out_low for w in h_name.split() if len(w) >= 3)):
                             is_home = True
-                        elif a_name and (out_low in a_name or a_name in out_low or any(w in out_low for w in a_name.split() if len(w) > 3)):
+                        elif a_name and (out_low in a_name or a_name in out_low or any(w in out_low for w in a_name.split() if len(w) >= 3)):
                             is_home = False
                         elif out_low == "yes":
-                            if h_name and (h_name in q_low or any(w in q_low for w in h_name.split() if len(w) > 3)):
+                            if h_name and (h_name in q_low or any(w in q_low for w in h_name.split() if len(w) >= 3)):
                                 is_home = True
-                            elif a_name and (a_name in q_low or any(w in q_low for w in a_name.split() if len(w) > 3)):
+                            elif a_name and (a_name in q_low or any(w in q_low for w in a_name.split() if len(w) >= 3)):
                                 is_home = False
                         elif out_low == "no":
-                            if h_name and (h_name in q_low or any(w in q_low for w in h_name.split() if len(w) > 3)):
+                            if h_name and (h_name in q_low or any(w in q_low for w in h_name.split() if len(w) >= 3)):
                                 is_home = False
-                            elif a_name and (a_name in q_low or any(w in q_low for w in a_name.split() if len(w) > 3)):
+                            elif a_name and (a_name in q_low or any(w in q_low for w in a_name.split() if len(w) >= 3)):
                                 is_home = True
 
                         if is_home is None:
-                            if h_name and any(w in q_low for w in h_name.split() if len(w) > 3):
+                            if h_name and any(w in q_low for w in h_name.split() if len(w) >= 3):
                                 is_home = (idx == 0)
-                            elif a_name and any(w in q_low for w in a_name.split() if len(w) > 3):
+                            elif a_name and any(w in q_low for w in a_name.split() if len(w) >= 3):
                                 is_home = (idx != 0)
                             else:
                                 is_home = (idx == 0)
@@ -670,17 +670,17 @@ class PolymarketAutonomousRunner:
                         out_low = outcome_label.lower()
                         q_low = q.lower()
 
-                        if h_name and (h_name in out_low or any(w in out_low for w in h_name.split() if len(w) > 3)):
+                        if h_name and (out_low in h_name or h_name in out_low or any(w in out_low for w in h_name.split() if len(w) >= 3)):
                             is_home = True
-                        elif a_name and (a_name in out_low or any(w in out_low for w in a_name.split() if len(w) > 3)):
+                        elif a_name and (out_low in a_name or a_name in out_low or any(w in out_low for w in a_name.split() if len(w) >= 3)):
                             is_home = False
                         elif out_low == "yes":
-                            if h_name and (h_name in q_low or any(w in q_low for w in h_name.split() if len(w) > 3)):
+                            if h_name and (h_name in q_low or any(w in q_low for w in h_name.split() if len(w) >= 3)):
                                 is_home = True
                             else:
                                 is_home = False
                         elif out_low == "no":
-                            if h_name and (h_name in q_low or any(w in q_low for w in h_name.split() if len(w) > 3)):
+                            if h_name and (h_name in q_low or any(w in q_low for w in h_name.split() if len(w) >= 3)):
                                 is_home = False
                             else:
                                 is_home = True
