@@ -60,6 +60,40 @@ class DynamicTestModel(BaseCandidateModel):
     assert dist.p_away == 0.45
 
 
+def test_instantiate_synthesized_class_with_quant_primitives():
+    code = """
+from scipy.stats import poisson
+
+class AdvancedCopulaModel(BaseCandidateModel):
+    def __init__(self, model_id='copula_test', version='1.0', league='MLS', scope='full_game', family='three_way'):
+        super().__init__(model_id=model_id, version=version, league=league, scope=scope, family=family)
+        self.copula = ClaytonCopula(theta=1.4)
+        self.kalman = KalmanRatingTracker(initial_rating=100.0)
+
+    def predict_distribution(self, game_context):
+        # Marginal count distributions
+        pmf_h = [poisson.pmf(i, 1.5) for i in range(6)]
+        pmf_a = [poisson.pmf(i, 1.2) for i in range(6)]
+        # Couple via Clayton copula into score lattice
+        lattice = build_copula_score_lattice(pmf_h, pmf_a, self.copula)
+        return DiscreteDistribution.from_scores(lattice)
+"""
+    is_safe, cls_name, err = check_ast_safety(code)
+    assert is_safe is True
+    assert cls_name == "AdvancedCopulaModel"
+
+    model = instantiate_synthesized_class(
+        code, cls_name, model_id="cop_001", league="MLS", scope="full_game", family="three_way"
+    )
+    dist = model.predict_distribution({})
+    # Axiom: probabilities must sum to 1.0
+    total_prob = dist.p_home + dist.p_draw + dist.p_away
+    assert abs(total_prob - 1.0) < 1e-5
+    assert dist.p_home > 0.0
+    assert dist.p_draw > 0.0
+    assert dist.p_away > 0.0
+
+
 def test_codex_model_synthesizer_end_to_end(tmp_path):
     synthesizer = CodexModelSynthesizer(data_dir=tmp_path)
     res = synthesizer.synthesize_and_screen_candidate(

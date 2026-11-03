@@ -30,7 +30,24 @@ from .ai_delegation import invoke, decode, read, file_lock
 from .ai_feedback_loop import AIFeedbackLoopManager, AIFeedbackRecord
 from .historical_trainer import HistoricalCandidateTrainer, get_default_segment_context
 from .providers import DATA
-from .sandbox_models.base import BaseCandidateModel, DiscreteDistribution, build_universal_score_lattice
+from .sandbox_models.base import (
+    BaseCandidateModel,
+    DiscreteDistribution,
+    build_universal_score_lattice,
+    ClaytonCopula,
+    GumbelCopula,
+    FrankCopula,
+    GaussianCopula,
+    build_copula_score_lattice,
+    WeibullRenewalHazard,
+    ZeroInflatedPoisson,
+    ZeroInflatedNegativeBinomial,
+    JamesSteinShrinkage,
+    EmpiricalBayesPoissonRate,
+    KalmanRatingTracker,
+    TemperatureScaler,
+    continuous_fractional_kelly,
+)
 from .sandbox_models.validator import validate_candidate_model
 from .tournament_engine import TournamentEngine, normalize_segment_key
 
@@ -125,6 +142,19 @@ def instantiate_synthesized_class(
         'BaseCandidateModel': BaseCandidateModel,
         'DiscreteDistribution': DiscreteDistribution,
         'build_universal_score_lattice': build_universal_score_lattice,
+        'ClaytonCopula': ClaytonCopula,
+        'GumbelCopula': GumbelCopula,
+        'FrankCopula': FrankCopula,
+        'GaussianCopula': GaussianCopula,
+        'build_copula_score_lattice': build_copula_score_lattice,
+        'WeibullRenewalHazard': WeibullRenewalHazard,
+        'ZeroInflatedPoisson': ZeroInflatedPoisson,
+        'ZeroInflatedNegativeBinomial': ZeroInflatedNegativeBinomial,
+        'JamesSteinShrinkage': JamesSteinShrinkage,
+        'EmpiricalBayesPoissonRate': EmpiricalBayesPoissonRate,
+        'KalmanRatingTracker': KalmanRatingTracker,
+        'TemperatureScaler': TemperatureScaler,
+        'continuous_fractional_kelly': continuous_fractional_kelly,
         '__name__': '__codex_sandbox__',
     }
 
@@ -575,11 +605,27 @@ class {class_name}(BaseCandidateModel):
             f"10. Immutable betting ledger and manual execution boundary (no automated order submission).\n\n"
             f"TECHNICAL REQUIREMENTS:\n"
             f"1. Inherit from 'betting_engine.sandbox_models.base.BaseCandidateModel'.\n"
-            f"2. Implement 'predict_distribution(self, game_context: Dict[str, Any]) -> DiscreteDistribution'.\n"
-            f"3. You may import standard 'math', 'typing', 'numpy', 'scipy.stats', and 'build_universal_score_lattice'.\n"
-            f"4. Do NOT import os, sys, subprocess, or make any external requests.\n"
-            f"5. Constructor must take model_id='{model_id}', version='1.0.0', league='{league}', scope='{scope}', family='{family}'.\n"
-            f"6. Return ONLY valid executable Python code in your response without markdown chat filler."
+            f"2. Implement 'predict_distribution(self, game_context: Dict[str, Any]) -> DiscreteDistribution'. Construct distributions using either `DiscreteDistribution(probabilities={{'home': p_h, 'draw': p_d, 'away': p_a}})` for 3-way/moneyline, `DiscreteDistribution.from_probabilities(p_home, p_draw, p_away)`, or `DiscreteDistribution.from_scores(scores)` for score matrices.\n"
+            f"3. INSTITUTIONAL QUANT PRIMITIVES & ECOSYSTEM:\n"
+            f"   You have direct access to Python's scientific mathematical ecosystem:\n"
+            f"   - Standard libraries: 'math', 'typing', 'numpy', 'scipy' (scipy.stats, scipy.optimize, scipy.integrate, scipy.special, scipy.linalg), 'sklearn' (linear_model, isotonic, calibration), 'torch' (autograd/tensors), 'mpmath'.\n"
+            f"   - Pre-built Quant Primitives (already in execution scope, no import needed):\n"
+            f"     * 'ClaytonCopula(theta)': Lower-tail asymmetric dependence for low-scoring/collapse games.\n"
+            f"     * 'GumbelCopula(theta)': Upper-tail asymmetric dependence for shootouts/over-pace clusters.\n"
+            f"     * 'FrankCopula(theta)': Symmetric nonlinear association.\n"
+            f"     * 'GaussianCopula(rho)': Correlation coupling between marginals.\n"
+            f"     * 'build_copula_score_lattice(pmf_h, pmf_a, copula)': 2D finite difference coupling marginals into joint score matrix.\n"
+            f"     * 'WeibullRenewalHazard(shape, scale)': Inter-event scoring hazards with positive/negative duration dependence.\n"
+            f"     * 'ZeroInflatedPoisson(mu, pi)' & 'ZeroInflatedNegativeBinomial(mu, alpha, pi)': Hurdle distributions for excess zeros & overdispersion.\n"
+            f"     * 'JamesSteinShrinkage': Dominates raw MLE for vectors of team performance parameters (p >= 3).\n"
+            f"     * 'KalmanRatingTracker': Dynamic 1D Kalman state tracking for form, fatigue, and momentum.\n"
+            f"     * 'TemperatureScaler': Calibrated probability scaling.\n"
+            f"     * 'build_universal_score_lattice': Adaptive lattice generator.\n"
+            f"   Use these institutional building blocks to design structurally sound, calibrated models.\n"
+            f"4. DOMAIN FEATURES: game_context provides rich situational features: 'home_expected', 'away_expected', 'home_rest_days', 'away_rest_days', 'home' attack/defense, 'away' attack/defense, weather (wind_speed, is_dome, temp), and venue.\n"
+            f"5. SAFETY BOUNDARY: Pure deterministic computation only. Do NOT import OS/process/network modules (os, sys, subprocess, socket, requests, urllib).\n"
+            f"6. Constructor must take model_id='{model_id}', version='1.0.0', league='{league}', scope='{scope}', family='{family}'.\n"
+            f"7. Return ONLY valid executable Python code in your response without markdown chat filler."
         )
 
         try:

@@ -14,6 +14,22 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 from scipy.stats import norm, poisson, nbinom
 
+from .quant_primitives import (
+    ClaytonCopula,
+    GumbelCopula,
+    FrankCopula,
+    GaussianCopula,
+    build_copula_score_lattice,
+    WeibullRenewalHazard,
+    ZeroInflatedPoisson,
+    ZeroInflatedNegativeBinomial,
+    JamesSteinShrinkage,
+    EmpiricalBayesPoissonRate,
+    KalmanRatingTracker,
+    TemperatureScaler,
+    continuous_fractional_kelly,
+)
+
 
 def build_universal_score_lattice(
     home_mu: float,
