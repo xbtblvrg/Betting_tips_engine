@@ -25,7 +25,7 @@ fi
 
 # 2. Stage all source, docs, config, tests, and root files (excluding ignored files in .gitignore)
 echo "Staging files..."
-git add src/ tests/ docs/ config/ scripts/ knowledge/cards/ package.json pyproject.toml .gitignore AGENTS.md GEMINI.md README.md COLD_START_RECOVERY.md 2>/dev/null || true
+git add src/ tests/ docs/ config/ scripts/ knowledge/ runtime_seed/ package.json pyproject.toml uv.lock .gitignore AGENTS.md GEMINI.md README.md COLD_START_RECOVERY.md 2>/dev/null || true
 
 # 3. Check if there are changes to commit
 if git diff --staged --quiet; then
