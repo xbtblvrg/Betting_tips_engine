@@ -30,7 +30,7 @@ log = logging.getLogger(__name__)
 
 RUNNER_STATE_FILE = DATA / "polymarket_runner_state.json"
 _RUNNER_CYCLE_LOCK = threading.Lock()
-DEFAULT_RUNNER_LEAGUES: Tuple[str, ...] = ("NBA", "NFL", "NHL", "EPL", "UCL", "MLS", "NCAAF")
+DEFAULT_RUNNER_LEAGUES: Tuple[str, ...] = ("NBA", "NFL", "NHL", "EPL", "UCL", "UEL", "MLS", "NCAAF", "CBB", "ATP", "WTA")
 
 # Explicit Canonical Taxonomy Mapping for Polymarket Gamma API sportsMarketType
 POLYMARKET_STRUCTURED_TYPE_MAP: Dict[str, Tuple[str, str]] = {
@@ -71,10 +71,12 @@ POLYMARKET_STRUCTURED_TYPE_MAP: Dict[str, Tuple[str, str]] = {
     # Tennis Sets (ATP & WTA)
     "tennis_first_set_winner": ("period_1", "moneyline"),
     "tennis_first_set_totals": ("period_1", "totals"),
+    "tennis_set_winner": ("period_2", "moneyline"),
+    "tennis_set_games_totals": ("period_2", "totals"),
     "tennis_set_handicap": ("full_game", "spreads"),
     "tennis_set_totals": ("full_game", "totals"),
 
-    # Soccer Halftime / Second Half Result (EPL, UCL, MLS)
+    # Soccer Halftime / Second Half Result (EPL, UCL, UEL, MLS)
     "soccer_halftime_result": ("half_1", "three_way"),
     "soccer_second_half_result": ("half_2", "three_way"),
 }
@@ -525,7 +527,7 @@ class PolymarketAutonomousRunner:
                             "strikeout", "tackle", "sack", "interception", "margin", "race", "corner",
                             "goal", "shot", "save", "team_total", "team_totals", "overtime", "odd_even",
                             "pick_six", "fourth_down", "field_goal", "first_down", "exact_score",
-                            "first_to_score", "score_first", "two_point"
+                            "first_to_score", "score_first", "two_point", "completed_match"
                         ))
                         if not is_prop:
                             unmapped_market_types.add(sports_type)

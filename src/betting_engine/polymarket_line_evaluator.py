@@ -94,6 +94,20 @@ PERIOD_PROPORTIONS: Dict[str, Dict[str, float]] = {
         "1st_half": 0.45,
         "2nd_half": 0.55,
     },
+    "UEL": {
+        "half_1": 0.45,
+        "half_2": 0.55,
+        "1st_half": 0.45,
+        "2nd_half": 0.55,
+    },
+    "ATP": {
+        "period_1": 0.45,
+        "period_2": 0.45,
+    },
+    "WTA": {
+        "period_1": 0.45,
+        "period_2": 0.45,
+    },
 }
 
 
