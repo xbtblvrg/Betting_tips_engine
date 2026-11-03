@@ -19,6 +19,7 @@ A rendszer egy önálló, több-modelles kvantitatív sportfogadási motor, amel
 
 - **Operációs Rendszer:** macOS (optimális a LaunchAgent háttérfolyamatokhoz) vagy modern Linux (Ubuntu 22.04+)
 - **Python:** 3.12+ (ajánlott: Python 3.14 vagy 3.12)
+- **uv:** Gyors Python csomagkezelő (`brew install uv` vagy `curl -LsSf https://astral.sh/uv/install.sh | sh`)
 - **Node.js:** v20+ és `npm`
 - **Git & SSH:** Hozzáférés a távoli tárhelyhez (`git@github.com:xbtblvrg/Betting_tips_engine.git`)
 - **SQLite3:** Rendszerszintű sqlite3 CLI
