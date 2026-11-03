@@ -37,6 +37,7 @@ DEFAULT_POLYMARKET_LEAGUES: Tuple[str, ...] = (
     "WNBA",
     "NCAAF",
     "NCAAB",
+    "NCAAW",
     "MLS",
     "EPL",
     "UCL",
@@ -98,23 +99,39 @@ class PolymarketRDPrioritizer:
         with ThreadPoolExecutor(max_workers=min(8, len(target_leagues))) as pool:
             league_results = list(pool.map(_fetch_league, target_leagues))
 
+        from .polymarket_runner import POLYMARKET_STRUCTURED_TYPE_MAP
+
         for league, events in league_results:
+            norm_league = "NCAAM" if league in ("CBB", "NCAAB") else ("NCAAF" if league == "CFB" else league)
             for ev in events:
                 markets = ev.get("markets", [])
                 for m in markets:
-                    m_type = (m.get("sportsMarketType") or m.get("type") or "moneyline").lower()
+                    m_type = (m.get("sportsMarketType") or m.get("type") or "").strip().lower()
                     q = m.get("question") or ""
-                    scope = _detect_market_scope(m_type, q)
 
-                    # Normalize market family
-                    if "spread" in m_type or "handicap" in m_type:
-                        m_fam = "spreads"
-                    elif "total" in m_type or "over" in m_type:
-                        m_fam = "totals"
+                    # Canonical resolution via POLYMARKET_STRUCTURED_TYPE_MAP
+                    if m_type in POLYMARKET_STRUCTURED_TYPE_MAP:
+                        scope, m_fam = POLYMARKET_STRUCTURED_TYPE_MAP[m_type]
                     else:
-                        m_fam = "moneyline"
+                        # Skip player props, team totals, and excluded novelties from R&D queue
+                        is_excluded = any(prop in m_type for prop in (
+                            "touchdown", "reception", "pass", "rush", "assist", "rebound", "point", "yard",
+                            "strikeout", "tackle", "sack", "interception", "margin", "race", "corner",
+                            "goal", "shot", "save", "team_total", "team_totals", "overtime", "odd_even",
+                            "pick_six", "fourth_down", "field_goal", "first_down", "exact_score",
+                            "first_to_score", "score_first", "two_point", "completed_match"
+                        ))
+                        if is_excluded:
+                            continue
+                        scope = _detect_market_scope(m_type, q)
+                        if "spread" in m_type or "handicap" in m_type:
+                            m_fam = "spreads"
+                        elif "total" in m_type or "over" in m_type:
+                            m_fam = "totals"
+                        else:
+                            m_fam = "moneyline"
 
-                    seg_key = f"{league}|{scope}|{m_fam}"
+                    seg_key = f"{norm_league}|{scope}|{m_fam}"
                     discovered_segments.add(seg_key)
 
                     tokens = m.get("clobTokenIds", [])
@@ -125,7 +142,7 @@ class PolymarketRDPrioritizer:
                             tokens = [tokens]
 
                     segment_details[seg_key] = {
-                        "league": league,
+                        "league": norm_league,
                         "scope": scope,
                         "market_family": m_fam,
                         "sample_event": ev.get("title", f"Active {league} Match"),
