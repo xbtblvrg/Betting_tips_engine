@@ -165,7 +165,6 @@ class AutonomousROIGovernor:
                 is_protected_alpha_champion(canon_k)
                 or is_protected_alpha_champion(base_canon_k)
                 or is_protected_alpha_champion(seg_key)
-                or pnl > 0.0
             )
 
             is_grad_seg = bool(

@@ -16,8 +16,14 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
+import selectors
+import signal
+import subprocess
+import tempfile
+import time
 from typing import Any, Dict, List, Optional, Tuple, Type
 
 from .ai_delegation import invoke, decode, read, file_lock
@@ -422,6 +428,110 @@ class {class_name}(BaseCandidateModel):
             rationale = "Asymmetric Laplace Difference capturing leptokurtic margin concentration around key numbers."
             return source_code, class_name, rationale
 
+    def _invoke_codex_with_watchdog(
+        self,
+        config: Dict[str, Any],
+        prompt: str,
+        timeout: float = 180.0,
+        max_hard_ceiling: float = 300.0,
+        idle_timeout: float = 25.0,
+    ) -> Dict[str, Any]:
+        """Spawns Codex CLI with progress-aware streaming watchdog and explicit reasoning effort."""
+        binary = config.get('binary') or '/Users/belavarga/.local/bin/codex'
+        model = ['--model', config['model']] if config.get('model') else []
+        reasoning = config.get('reasoning_effort', 'medium')
+        argv = [
+            binary, 'exec', '--sandbox', 'read-only', '--skip-git-repo-check',
+            '--ephemeral', '--color', 'never',
+            '-c', f'model_reasoning_effort="{reasoning}"',
+            *model, str(prompt)
+        ]
+        env = {'PATH': os.environ.get('PATH', '/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin')}
+        for k in ('OPENAI_API_KEY', 'CODEX_HOME'):
+            if k in os.environ:
+                env[k] = os.environ[k]
+
+        with tempfile.TemporaryDirectory(prefix='codex-synth-') as temp:
+            cwd = Path(temp)
+            process = subprocess.Popen(
+                argv, cwd=str(cwd), env=env, stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True
+            )
+            if process.stdin:
+                try:
+                    process.stdin.close()
+                except Exception:
+                    pass
+
+            buffers = [bytearray(), bytearray()]
+            selector = selectors.DefaultSelector()
+            for stream, idx in ((process.stdout, 0), (process.stderr, 1)):
+                if stream:
+                    os.set_blocking(stream.fileno(), False)
+                    selector.register(stream, selectors.EVENT_READ, idx)
+
+            started = time.monotonic()
+            last_activity = started
+            state = None
+            max_bytes = 512 * 1024
+
+            try:
+                while selector.get_map() or process.poll() is None:
+                    elapsed = time.monotonic() - started
+                    idle_elapsed = time.monotonic() - last_activity
+                    # If elapsed >= timeout and no new chunks in idle_timeout, or if hard ceiling reached
+                    if elapsed >= max_hard_ceiling or (idle_elapsed >= idle_timeout and elapsed >= timeout):
+                        state = 'timeout'
+                        break
+                    remaining = min(0.1, max(0.0, max_hard_ceiling - elapsed))
+                    for key, _ in selector.select(remaining):
+                        stream = key.fileobj
+                        try:
+                            chunk = os.read(stream.fileno(), 8192)
+                        except BlockingIOError:
+                            continue
+                        if not chunk:
+                            selector.unregister(stream)
+                            try:
+                                stream.close()
+                            except Exception:
+                                pass
+                            continue
+                        last_activity = time.monotonic()
+                        target = buffers[key.data]
+                        room = max_bytes - len(target)
+                        target.extend(chunk[:max(0, room)])
+                        if len(chunk) > room:
+                            state = 'output_limit'
+                    if state:
+                        break
+            finally:
+                try:
+                    os.killpg(process.pid, signal.SIGTERM)
+                except (ProcessLookupError, PermissionError):
+                    pass
+                try:
+                    process.wait(timeout=1.0)
+                except subprocess.TimeoutExpired:
+                    try:
+                        os.killpg(process.pid, signal.SIGKILL)
+                    except (ProcessLookupError, PermissionError):
+                        pass
+                selector.close()
+                for s in (process.stdout, process.stderr, process.stdin):
+                    if s and not s.closed:
+                        try:
+                            s.close()
+                        except Exception:
+                            pass
+
+            return {
+                'returncode': process.returncode,
+                'state': state,
+                'stdout': buffers[0].decode('utf-8', errors='replace'),
+                'stderr': buffers[1].decode('utf-8', errors='replace'),
+            }
+
     def _query_codex_for_model_code(
         self,
         segment_key: str,
@@ -473,11 +583,10 @@ class {class_name}(BaseCandidateModel):
         )
 
         try:
-            root = Path(".").resolve()
-            with file_lock(DATA / "development" / "ai-locks" / "codex.lock", timeout=15.0) as acquired:
+            with file_lock(DATA / "development" / "ai-locks" / "codex.lock", timeout=300.0) as acquired:
                 if not acquired:
                     return None
-                res = invoke('codex', {**codex_cfg, '_protected_root': str(root)}, prompt, timeout=60)
+                res = self._invoke_codex_with_watchdog(codex_cfg, prompt, timeout=180.0, max_hard_ceiling=300.0)
                 state, answer = decode('codex', res, codex_cfg.get('model'))
                 if state == 'received_unreviewed' and answer:
                     code_match = re.search(r'```(?:python)?\s*(.*?)\s*```', answer, re.DOTALL)

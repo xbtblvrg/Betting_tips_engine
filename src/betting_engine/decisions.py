@@ -1141,10 +1141,10 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                     continue
 
                 # Strict Graduation Gate:
-                # ONLY strictly graduated markets, verified statistical Alpha, or test candidates
+                # ONLY strictly graduated markets (or test candidates in unit tests)
                 # are eligible for funded real-money issuance.
                 # All unproven exploration markets remain at $0.00 in the Shadow Incubator until statistical graduation.
-                if not (is_grad or is_alpha_cand or is_test_cand):
+                if not (is_grad or is_test_cand):
                     c['stake'] = 0.0
                     c['allocation_code'] = 'incubator_unproven_research'
                     c['allocation_reason'] = 'Incubator Unproven Research: Market has not yet graduated through the statistical Crucible. Real-money funding suspended until graduation.'

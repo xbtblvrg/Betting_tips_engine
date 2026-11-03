@@ -604,6 +604,7 @@ function stakeBetButton(t){
  const instruction=view==='tips'&&executableInstruction(t),navigation=stakeNavigation(t),url=navigation.event_url;
  if(!url)return '';
  try{const u=new URL(url);if(u.origin!=='https://stake.com'||!u.pathname.startsWith('/sports/'))return ''}catch{return ''}
+ const polyLink=typeof getPolymarketLink==='function'?getPolymarketLink(t):null;
  const stakeAmt=Number(instructionStake(t)||0);
  const isPlacing=placingTipsSet.has(t.id);
  const isDone=getBetDoneTips().has(t.id);
@@ -636,6 +637,7 @@ function stakeBetButton(t){
  const btnTitle=isStaged?'Already staged in Safari (click to re-stage)':'Pre-fill this wager in Safari';
  return `<div class="detail-actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
   <a class="button primary stake-bet-button" href="${esc(url)}" target="_blank" rel="noopener noreferrer" aria-label="Bet on Stake: ${esc(t.selection)} — ${esc(t.market_display)} — ${esc(t.away)} at ${esc(t.home)}">${instruction?'Bet on Stake':'View on Stake'} ↗</a>
+  ${polyLink?`<a class="button ghost polymarket-link-btn" href="${esc(polyLink.url)}" target="_blank" rel="noopener noreferrer" style="border-color:#7c3aed;color:#8b5cf6;text-decoration:none;display:inline-flex;align-items:center;gap:4px;" title="Open matching event on Polymarket">🔮 Polymarket ↗</a>`:''}
   ${instruction?`<button type="button" class="button accent one-click-bet-btn${isDone?' is-done':''}${isSkipped?' is-skipped':''}" data-tip-id="${esc(t.id)}" ${oneClickDisabled} ${oneClickStyle} title="${oneClickTitle}">${oneClickContent}</button>`:''}
   ${instruction?`<button type="button" class="button ghost stage-betslip-btn${isStaged?' is-staged':''}" data-tip-id="${esc(t.id)}" ${stagedStyle} title="${btnTitle}">${btnContent}</button>`:''}
  </div>
@@ -2136,11 +2138,34 @@ function emptyTipsMessage(){
  }
  return '<div class="empty"><h3>No new bets ready right now</h3><p>The engine keeps checking upcoming markets. Qualified bets appear here automatically with their USD stake once verified by models and price freshness. Earlier instructions and placed bets remain in Bet Tracker.</p></div>';
 }
+function getPolymarketLink(t){
+ const gameCtx=(data?.games||[]).find(g=>g.id===t.game_id)?.context;
+ const poly=t.polymarket||t.game_context?.polymarket||t.current_assessment?.game_context?.polymarket||gameCtx?.polymarket;
+ if(!poly)return null;
+ const slug=poly.slug;
+ const eventId=poly.event_id;
+ const eventUrl=poly.event_url||(slug?`https://polymarket.com/event/${slug}`:(eventId?`https://polymarket.com/event/${eventId}`:null));
+ if(!eventUrl)return null;
+ return {
+  url: eventUrl,
+  slug: slug,
+  eventId: eventId,
+  title: poly.title || `${t.away} @ ${t.home}`,
+  matched: poly.matched
+ };
+}
 function polymarketBadge(t){
  const scope=t.model_scope||(t.market&&t.market.includes(':')?t.market.split(':')[0]:'full_game');
  if(scope!=='full_game')return '';
  const gameCtx=(data?.games||[]).find(g=>g.id===t.game_id)?.context;
- const poly=t.game_context?.polymarket||t.current_assessment?.game_context?.polymarket||gameCtx?.polymarket;
+ const poly=t.polymarket||t.game_context?.polymarket||t.current_assessment?.game_context?.polymarket||gameCtx?.polymarket;
+ const polyLink=getPolymarketLink(t);
+ const linkWrap=(html, title)=>{
+  if(polyLink?.url){
+   return `<a href="${esc(polyLink.url)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;cursor:pointer;display:inline-block;" title="${esc(title)} — Click to open on Polymarket">${html}</a>`;
+  }
+  return html;
+ };
  const reasons=[
   ...(Array.isArray(t.reasons)?t.reasons:[]),
   ...(Array.isArray(t.current_assessment?.reasons)?t.current_assessment.reasons:[])
@@ -2150,22 +2175,22 @@ function polymarketBadge(t){
   const match=edgeReason.match(/\(\+([0-9.]+)%\s*edge\)/i);
   const edgeText=match?`+${match[1]}% Edge`:'Edge';
   if(edgeReason.includes('Spread')){
-   return `<span class="badge polymarket-edge" title="${esc(edgeReason)}">🔮 Polymarket Spread ${edgeText}</span>`;
+   return linkWrap(`<span class="badge polymarket-edge" title="${esc(edgeReason)}">🔮 Polymarket Spread ${edgeText} ↗</span>`, edgeReason);
   }
   if(edgeReason.includes('Total')){
-   return `<span class="badge polymarket-edge" title="${esc(edgeReason)}">🔮 Polymarket Total ${edgeText}</span>`;
+   return linkWrap(`<span class="badge polymarket-edge" title="${esc(edgeReason)}">🔮 Polymarket Total ${edgeText} ↗</span>`, edgeReason);
   }
-  return `<span class="badge polymarket-edge" title="${esc(edgeReason)}">🔮 Polymarket ${edgeText}</span>`;
+  return linkWrap(`<span class="badge polymarket-edge" title="${esc(edgeReason)}">🔮 Polymarket ${edgeText} ↗</span>`, edgeReason);
  }
  const anchorReason=reasons.find(r=>typeof r==='string'&&r.includes('Polymarket Anchor'));
  if(anchorReason){
   if(anchorReason.includes('Spread')){
-   return `<span class="badge polymarket-matched" title="${esc(anchorReason)}">🔮 Polymarket Spread (Anchor)</span>`;
+   return linkWrap(`<span class="badge polymarket-matched" title="${esc(anchorReason)}">🔮 Polymarket Spread (Anchor) ↗</span>`, anchorReason);
   }
   if(anchorReason.includes('Total')){
-   return `<span class="badge polymarket-matched" title="${esc(anchorReason)}">🔮 Polymarket Total (Anchor)</span>`;
+   return linkWrap(`<span class="badge polymarket-matched" title="${esc(anchorReason)}">🔮 Polymarket Total (Anchor) ↗</span>`, anchorReason);
   }
-  return `<span class="badge polymarket-matched" title="${esc(anchorReason)}">🔮 Polymarket (Anchor)</span>`;
+  return linkWrap(`<span class="badge polymarket-matched" title="${esc(anchorReason)}">🔮 Polymarket (Anchor) ↗</span>`, anchorReason);
  }
  if(poly&&poly.matched){
   const marketKind=String(t.market||'').split(':').at(-1);
@@ -2178,12 +2203,12 @@ function polymarketBadge(t){
     const implied=1.0/odds;
     const edge=(polyProb-implied)*100;
     if(edge>=0.5){
-     return `<span class="badge polymarket-edge" title="Polymarket True Prob: ${(polyProb*100).toFixed(1)}% vs Stake Implied: ${(implied*100).toFixed(1)}% (+${edge.toFixed(1)}% EV Advantage)">🔮 Polymarket +${edge.toFixed(1)}% Edge</span>`;
+     return linkWrap(`<span class="badge polymarket-edge" title="Polymarket True Prob: ${(polyProb*100).toFixed(1)}% vs Stake Implied: ${(implied*100).toFixed(1)}% (+${edge.toFixed(1)}% EV Advantage)">🔮 Polymarket +${edge.toFixed(1)}% Edge ↗</span>`, 'Polymarket Edge');
     }
     const diffStr=(edge>=0?'+':'')+edge.toFixed(1)+'%';
-    return `<span class="badge polymarket-matched" title="Polymarket True Prob: ${(polyProb*100).toFixed(1)}% vs Stake Implied: ${(implied*100).toFixed(1)}% (${diffStr} — no price edge, orderbook anchor)">🔮 Polymarket ${(polyProb*100).toFixed(0)}% (Anchor)</span>`;
+    return linkWrap(`<span class="badge polymarket-matched" title="Polymarket True Prob: ${(polyProb*100).toFixed(1)}% vs Stake Implied: ${(implied*100).toFixed(1)}% (${diffStr} — no price edge, orderbook anchor)">🔮 Polymarket ${(polyProb*100).toFixed(0)}% (Anchor) ↗</span>`, 'Polymarket Anchor');
    }
-   return `<span class="badge polymarket-matched" title="Polymarket Orderbook Anchored: ${esc(poly.title||'Matched')}">🔮 Polymarket (Anchor)</span>`;
+   return linkWrap(`<span class="badge polymarket-matched" title="Polymarket Orderbook Anchored: ${esc(poly.title||'Matched')}">🔮 Polymarket (Anchor) ↗</span>`, 'Polymarket Anchor');
   }
   const isSpread=['spreads','asian_handicap'].includes(marketKind);
   if(isSpread&&poly.has_spreads){
@@ -2198,9 +2223,9 @@ function polymarketBadge(t){
       const implied=1.0/odds;
       const edge=(polyProb-implied)*100;
       if(edge>=0.5){
-       return `<span class="badge polymarket-edge" title="Polymarket Spread (${lineVal}) True Prob: ${(polyProb*100).toFixed(1)}% vs Stake Implied: ${(implied*100).toFixed(1)}% (+${edge.toFixed(1)}% EV Advantage)">🔮 Polymarket Spread +${edge.toFixed(1)}% Edge</span>`;
+       return linkWrap(`<span class="badge polymarket-edge" title="Polymarket Spread (${lineVal}) True Prob: ${(polyProb*100).toFixed(1)}% vs Stake Implied: ${(implied*100).toFixed(1)}% (+${edge.toFixed(1)}% EV Advantage)">🔮 Polymarket Spread +${edge.toFixed(1)}% Edge ↗</span>`, 'Polymarket Spread Edge');
       }
-      return `<span class="badge polymarket-matched" title="Polymarket Spread (${lineVal}) Consensus: ${(polyProb*100).toFixed(1)}%">🔮 Polymarket Spread (Anchor)</span>`;
+      return linkWrap(`<span class="badge polymarket-matched" title="Polymarket Spread (${lineVal}) Consensus: ${(polyProb*100).toFixed(1)}%">🔮 Polymarket Spread (Anchor) ↗</span>`, 'Polymarket Spread Anchor');
      }
     }
    }
@@ -2218,9 +2243,9 @@ function polymarketBadge(t){
       const implied=1.0/odds;
       const edge=(polyProb-implied)*100;
       if(edge>=0.5){
-       return `<span class="badge polymarket-edge" title="Polymarket Total (${lineVal}) True Prob: ${(polyProb*100).toFixed(1)}% vs Stake Implied: ${(implied*100).toFixed(1)}% (+${edge.toFixed(1)}% EV Advantage)">🔮 Polymarket Total +${edge.toFixed(1)}% Edge</span>`;
+       return linkWrap(`<span class="badge polymarket-edge" title="Polymarket Total (${lineVal}) True Prob: ${(polyProb*100).toFixed(1)}% vs Stake Implied: ${(implied*100).toFixed(1)}% (+${edge.toFixed(1)}% EV Advantage)">🔮 Polymarket Total +${edge.toFixed(1)}% Edge ↗</span>`, 'Polymarket Total Edge');
       }
-      return `<span class="badge polymarket-matched" title="Polymarket Total (${lineVal}) Consensus: ${(polyProb*100).toFixed(1)}%">🔮 Polymarket Total (Anchor)</span>`;
+      return linkWrap(`<span class="badge polymarket-matched" title="Polymarket Total (${lineVal}) Consensus: ${(polyProb*100).toFixed(1)}%">🔮 Polymarket Total (Anchor) ↗</span>`, 'Polymarket Total Anchor');
      }
     }
    }
@@ -2240,7 +2265,7 @@ function pickCard(t,index){
  const timingBadge=isFar?`<span class="badge ${timing.action==='BET_NOW'?'timing-bet-now':'timing-wait'}" title="${esc(timing.reason)}">${timing.action==='BET_NOW'?'⚡ BET NOW':'⏳ WAIT'}</span>`:'';
  const timingCallout=isFar?`<div class="timing-callout ${timing.action==='BET_NOW'?'timing-callout-bet-now':'timing-callout-wait'}"><strong>${timing.action==='BET_NOW'?'⚡ BET NOW: ':'⏳ WAIT: '}</strong>${esc(timing.reason)}</div>`:'';
  const polyBadge=polymarketBadge(t);
- return `<article class="tip-card" data-tip-id="${esc(t.id)}"><div class="tip-top"><span class="rank">${String(index+1).padStart(2,'0')}</span><span class="league ${esc(t.league)}">${esc(t.league)}</span>${timingBadge}<span class="time">${esc(when(t.start))}</span></div><div class="tip-match">${esc(t.away)} @ ${esc(t.home)}</div><div class="tip-market">${esc(c.market_display||marketName[t.market])}</div>${stakeNavigation(t).tab?`<p class="panel-copy stake-tab">Stake tab: <strong>${esc(stakeNavigation(t).tab)}</strong></p>`:''}<div class="selection">${esc(t.selection)}</div><div class="tip-metrics"><div><div class="metric-label">MODEL WIN PROBABILITY</div><div class="metric-value">${pct(c.probability)}</div></div><div><div class="metric-label">STAKE ODDS</div><div class="metric-value">${num(curOdds)}</div>${isIssued?`<div class="stat-sub">Original odds at issue: ${num(originalOdds)}</div><div class="stat-sub">Min odds: ${displayedMinimumOdds(t)}</div>`:''}</div><div><div class="metric-label">STAKE TO PLACE · USD</div><div class="metric-value">Bet $${num(instructionStake(t))}</div></div></div>${timingCallout}<p class="panel-copy">Minimum odds: <strong>${displayedMinimumOdds(t)}</strong>${isModelPick(t)?' (above model break-even)':''} · Single bet · ${allTiersWeighted(t)||weightedModelPick(t)?('$'+stakeStr(data.settings?.unit_stake,1)+'–$'+stakeStr(data.settings?.max_bet,5)+' calculated stake'):unitPickLabel(t)?('$'+stakeStr(data.settings?.unit_stake,1)+' maximum for this selection'):('$'+stakeStr(data.settings?.unit_stake,1)+'–$'+stakeStr(data.settings?.max_bet,5)+' per selection')}</p>${unitPickSummary(t)?`<p class="panel-copy model-pick-note">${esc(unitPickSummary(t))}</p>`:''}${stakeBetButton(t)}${placementControl(t)}<div class="tip-bottom"><div class="tip-bottom-badges"><span class="badge positive">${esc(instructionTierLabel(t)||(t.is_additional?'Additional Bet':'Ready to Bet'))}</span>${polyBadge}</div><button class="detail-button" data-detail="${esc(t.id)}">Bet Details →</button></div><p class="tip-reference">Odds checked: ${esc(when(c.quote_at))}</p></article>`;
+ return `<article class="tip-card" data-tip-id="${esc(t.id)}"><div class="tip-top"><span class="rank">${String(index+1).padStart(2,'0')}</span><span class="league ${esc(t.league)}">${esc(t.league)}</span>${timingBadge}<span class="time" title="Match Start Time">📅 Match: <strong>${esc(when(t.start))}</strong></span></div><div class="tip-match">${esc(t.away)} @ ${esc(t.home)}</div><div class="tip-market">${esc(c.market_display||marketName[t.market])}</div>${stakeNavigation(t).tab?`<p class="panel-copy stake-tab">Stake tab: <strong>${esc(stakeNavigation(t).tab)}</strong></p>`:''}<div class="selection">${esc(t.selection)}</div><div class="tip-metrics"><div><div class="metric-label">MODEL WIN PROBABILITY</div><div class="metric-value">${pct(c.probability)}</div></div><div><div class="metric-label">STAKE ODDS</div><div class="metric-value">${num(curOdds)}</div>${isIssued?`<div class="stat-sub">Original odds at issue: ${num(originalOdds)}</div><div class="stat-sub">Min odds: ${displayedMinimumOdds(t)}</div>`:''}</div><div><div class="metric-label">STAKE TO PLACE · USD</div><div class="metric-value">Bet $${num(instructionStake(t))}</div></div></div>${timingCallout}<p class="panel-copy">Minimum odds: <strong>${displayedMinimumOdds(t)}</strong>${isModelPick(t)?' (above model break-even)':''} · Single bet · ${allTiersWeighted(t)||weightedModelPick(t)?('$'+stakeStr(data.settings?.unit_stake,1)+'–$'+stakeStr(data.settings?.max_bet,5)+' calculated stake'):unitPickLabel(t)?('$'+stakeStr(data.settings?.unit_stake,1)+' maximum for this selection'):('$'+stakeStr(data.settings?.unit_stake,1)+'–$'+stakeStr(data.settings?.max_bet,5)+' per selection')}</p>${unitPickSummary(t)?`<p class="panel-copy model-pick-note">${esc(unitPickSummary(t))}</p>`:''}${stakeBetButton(t)}${placementControl(t)}<div class="tip-bottom"><div class="tip-bottom-badges"><span class="badge positive">${esc(instructionTierLabel(t)||(t.is_additional?'Additional Bet':'Ready to Bet'))}</span>${polyBadge}</div><button class="detail-button" data-detail="${esc(t.id)}">Bet Details →</button></div><p class="tip-reference">📅 <strong>Match:</strong> ${esc(when(t.start))} · 🕒 Odds checked: ${esc(when(c.quote_at))}${t.created_at?` · Issued: ${esc(when(t.created_at))}`:''}</p></article>`;
 }
 function updateHorizonBadges(){
  const pool=readyTips();
@@ -2296,15 +2321,15 @@ function renderTracked(){
    `<span class="badge muted">Changed</span><small>${esc(t.instruction_review.reason||'Current assessment is unavailable; the original record is retained.')}</small>`];
  }));
  const status=t=>isPlaced(t)?'Marked as placed':pendingInstruction(t)?'Current instruction':'Recorded · Not a current instruction';
- $('#history-table').innerHTML=table(['League','Matchup / Start','Market / Selection','Original Stake','Original Odds','Model at Issue','Status','Checklist','Details'],history.map(t=>[esc(t.league),esc(t.away)+' @ '+esc(t.home)+`<small>${esc(when(t.start))}</small>`,esc(t.market_display||marketName[t.market])+`<small>${esc(t.selection)}</small>`,'$'+num(instructionStake(t)),num(t.tracked_bet?.odds||t.reference_odds),pct(t.probability),status(t),placementControl(t),`<button class="detail-button" data-detail="${esc(t.id)}">Original Bet Details →</button>`]));
+ $('#history-table').innerHTML=table(['League','Matchup / Start','Market / Selection','Original Stake','Original Odds','Model at Issue','Status','Checklist','Details'],history.map(t=>{const pl=getPolymarketLink(t);return [esc(t.league),esc(t.away)+' @ '+esc(t.home)+(pl?` <a href="${esc(pl.url)}" target="_blank" rel="noopener noreferrer" title="View on Polymarket" style="text-decoration:none;font-size:0.85em;">🔮 ↗</a>`:'')+`<small>📅 Match: ${esc(when(t.start))}</small>`,esc(t.market_display||marketName[t.market])+`<small>${esc(t.selection)}</small>`,'$'+num(instructionStake(t)),num(t.tracked_bet?.odds||t.reference_odds),pct(t.probability),status(t),placementControl(t),`<button class="detail-button" data-detail="${esc(t.id)}">Original Bet Details →</button>`];}));
  const rows=(data?.tracked_bets||[]).map(b=>({...b.payload,record:b})).sort((a,b)=>new Date(a.start)-new Date(b.start));
  $('#tracked-section').hidden=!rows.length;$('#tracked-count').textContent=rows.length;
- $('#tracked-table').innerHTML=table(['League','Matchup','Start','Market','Recorded Selection','Stake','Recorded Odds','Tracking','Checklist'],rows.map(t=>[esc(t.league),esc(t.away)+' @ '+esc(t.home),esc(when(t.start)),esc(t.market_display||marketName[t.market]),esc(t.selection),'$'+num(t.record.stake),num(t.record.odds),trackingLabel(t),placementControl(t)]));
+ $('#tracked-table').innerHTML=table(['League','Matchup','Start','Market','Recorded Selection','Stake','Recorded Odds','Tracking','Checklist'],rows.map(t=>{const pl=getPolymarketLink(t);return [esc(t.league),esc(t.away)+' @ '+esc(t.home)+(pl?` <a href="${esc(pl.url)}" target="_blank" rel="noopener noreferrer" title="View on Polymarket" style="text-decoration:none;font-size:0.85em;">🔮 ↗</a>`:''),esc(when(t.start)),esc(t.market_display||marketName[t.market]),esc(t.selection),'$'+num(t.record.stake),num(t.record.odds),trackingLabel(t),placementControl(t)];}));
 }
 function renderAlternatives(){
  const issued=new Set(liveTips().map(t=>t.id));const rows=visibleTips(allCurrentSelections().filter(t=>!issued.has(t.id)));
  $('#alternatives-section').hidden=!rows.length;$('#alternative-count').textContent=rows.length;
- $('#alternatives-table').innerHTML=table(['League','Matchup','Start','Market','Selection','Stake Odds','Minimum Odds','Model EV / Stress','Why No New Bet?','Details'],rows.map(t=>[esc(t.league),esc(t.away)+' @ '+esc(t.home),esc(when(t.start)),esc(t.market_display||marketName[t.market]),esc(t.selection),num(t.reference_odds),minOdds(t.minimum_odds),pct(t.expected_roi)+' / '+pct(t.stress_roi),'No bet recommended. '+esc(allocationReason(t)),`<button class="detail-button" data-detail="${esc(t.id)}">Bet Details →</button>`]));
+ $('#alternatives-table').innerHTML=table(['League','Matchup','Start','Market','Selection','Stake Odds','Minimum Odds','Model EV / Stress','Why No New Bet?','Details'],rows.map(t=>{const pl=getPolymarketLink(t);return [esc(t.league),esc(t.away)+' @ '+esc(t.home)+(pl?` <a href="${esc(pl.url)}" target="_blank" rel="noopener noreferrer" title="View on Polymarket" style="text-decoration:none;font-size:0.85em;">🔮 ↗</a>`:''),esc(when(t.start)),esc(t.market_display||marketName[t.market]),esc(t.selection),num(t.reference_odds),minOdds(t.minimum_odds),pct(t.expected_roi)+' / '+pct(t.stress_roi),'No bet recommended. '+esc(allocationReason(t)),`<button class="detail-button" data-detail="${esc(t.id)}">Bet Details →</button>`];}));
 }
 function renderEvaluated(){
  const rows=visibleTips(allEvaluated());$('#evaluated-count').textContent=rows.length;
@@ -3203,7 +3228,8 @@ function renderPolymarketDesk() {
  }
 
  // Common / Top Bar & Aggregates
- if ($('#poly-proven-count')) $('#poly-proven-count').textContent = String(prio.proven_active_count ?? (prio.proven_markets?.length ?? 3));
+ const t4Count = d.tier_4_governance?.tier_4_segments_count ?? prio.proven_active_count ?? 7;
+ if ($('#poly-proven-count')) $('#poly-proven-count').textContent = String(t4Count);
  if ($('#poly-gaps-count')) $('#poly-gaps-count').textContent = String(prio.unproven_gaps_count ?? (prio.unproven_gaps?.length ?? 25));
 
  // Update Filter Buttons and Ledger Counter
@@ -3229,7 +3255,7 @@ function renderPolymarketDesk() {
      <div>
       <strong style="color:#991b1b;font-size:13px">Polymarket Collateral Alert: Low USDC Balance ($${usdcBal.toFixed(2)})</strong>
       <p style="margin:4px 0 0 0;font-size:12px;color:#b91c1c;line-height:1.4">
-       <strong>${prio.proven_active_count ?? 3} Proven Tier 3 Markets</strong> (NBA Spreads/Totals, NFL Totals) are active and eligible for automated execution.
+       <strong>${t4Count} Proven Tier 4 Markets</strong> (MLS Totals/Spreads, NBA Totals/Spreads, NCAAF Spreads/ML, NFL Spreads) are active and eligible for automated execution.
        To enable live fills, fund your Polygon proxy wallet: <code style="background:#fee2e2;padding:2px 6px;border-radius:4px;font-family:var(--mono);font-size:11px">${d.proxy_address || '0xee888fa7b96007f7fa270988e92bddb0ae19ed10'}</code> with USDC on Polygon PoS.
       </p>
      </div>
@@ -3288,26 +3314,38 @@ function renderPolymarketDesk() {
 
  const mbody = $('#poly-matrix-tbody');
  if (mbody) {
-  const proven = prio.proven_markets || [];
-  const gaps = prio.unproven_gaps || [];
-  const allItems = [
-   ...proven.map(p => ({ ...p, is_proven: true })),
-   ...gaps.slice(0, 15).map(g => ({ ...g, is_proven: false })),
+  const allItems = prio.all_reachable_markets || [
+   ...(prio.proven_markets || []).map(p => ({ ...p, is_proven: true })),
+   ...(prio.unproven_gaps || []).map(g => ({ ...g, is_proven: false })),
   ];
   if (!allItems.length) {
    mbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">No markets scanned yet.</td></tr>';
   } else {
    mbody.innerHTML = allItems.map(m => {
-    const statusBadge = m.is_proven ?
-     '<span class="badge positive" style="font-size:10px">✓ Tier 3 Proven (Live)</span>' :
-     '<span class="badge" style="background:#fef3c7;color:#92400e;font-size:10px">🛡 $0.00 Incubator R&D</span>';
-    const maxStakeStr = m.is_proven ? `$${Number(m.stake_cap || 3.5).toFixed(2)}` : '$0.00';
+    let statusBadge = '<span class="badge" style="background:#fef3c7;color:#92400e;font-size:10px">🛡 Tier 2 Incubating ($0.00)</span>';
+    if (m.tier_status === 'TIER_4_PROVEN' || m.is_proven) {
+     statusBadge = '<span class="badge positive" style="font-size:10px;font-weight:700">✓ Tier 4 Proven Alpha (Tier 3 Proven)</span>';
+    } else if (m.tier_status === 'TIER_3_PROBATION') {
+     statusBadge = '<span class="badge" style="background:#e0e7ff;color:#3730a3;font-size:10px">⚖ Tier 3 Probation</span>';
+    } else if (m.tier_status === 'TIER_2_UNDERPERFORMING') {
+     statusBadge = '<span class="badge" style="background:#fee2e2;color:#991b1b;font-size:10px">⚠️ Tier 2 Drawdown Quarantined</span>';
+    }
+
+    const nGames = m.live_games != null ? m.live_games : 0;
+    const pnlVal = m.live_pnl != null ? Number(m.live_pnl) : 0;
+    const roiVal = m.live_roi_pct != null ? Number(m.live_roi_pct) : 0;
+    const pnlStr = nGames > 0 ? `${pnlVal >= 0 ? '+$' : '-$'}${Math.abs(pnlVal).toFixed(2)} (${roiVal >= 0 ? '+' : ''}${roiVal.toFixed(1)}%)` : '<span style="color:var(--muted)">0 games</span>';
+    const pnlColor = pnlVal > 0 ? 'var(--green)' : (pnlVal < 0 ? 'var(--red, #dc2626)' : 'var(--muted)');
+
+    const maxStakeStr = (m.tier_status === 'TIER_4_PROVEN' || m.is_proven) ? `$${Number(m.stake_cap || 3.5).toFixed(2)}` : '$0.00';
+    const modelStr = m.model_id ? `<span style="font-family:var(--mono);font-size:10px">${esc(m.model_id)}</span><small style="display:block;color:var(--muted);font-size:9px">${esc(m.model_archetype || '')}</small>` : '<span style="color:var(--muted)">CalibratedDomainKernel</span>';
+
     return `<tr>
-     <td><code style="font-family:var(--mono);font-size:11px">${esc(m.segment_key)}</code></td>
+     <td><code style="font-family:var(--mono);font-size:11px;font-weight:600">${esc(m.segment_key)}</code></td>
      <td><strong>${esc(m.league)}</strong></td>
-     <td>${esc(m.scope)}</td>
-     <td>${esc(m.market_family)}</td>
-     <td>${esc(m.sample_event || 'Upcoming Event')}</td>
+     <td>${modelStr}</td>
+     <td style="text-align:center;font-weight:600">${nGames}</td>
+     <td style="font-weight:600;color:${pnlColor}">${pnlStr}</td>
      <td>${statusBadge}</td>
      <td><strong>${maxStakeStr}</strong></td>
     </tr>`;
@@ -3789,7 +3827,7 @@ function outcomeSizingTrace(t){
  return `<details class="outcome-sizing-trace"><summary>${v3?'Confidence and Historical Outcome Sizing':'Historical Outcome Sizing'}</summary><p>Segment: ${esc(a.segment)} · ${e.independent_games} independent settled games.</p><p>Game-weighted win rate: ${pct(e.game_wr)} · Break-even win rate: ${pct(e.break_even_wr)} · Game-weighted ROI: ${pct(e.game_roi)}.</p>${t.execution_revision?`<p>Updated before placement: $${num(t.execution_revision.original_stake)} → $${num(t.execution_revision.target_stake)}. This is the total stake to place once, not an additional bet. Original engine decision retained.</p>`:''}<p>${calculation} This is a sizing calculation; place only the instruction amount shown above, once.</p><p>Evidence cutoff: ${esc(when(e.as_of))}. Small samples are shrunk. Historical results do not establish future profitability.</p><code>${esc(e.summary_sha256)}</code></details>`;
 }
 
-function showDetail(id,preferCurrent=false){const original=(preferCurrent?[...allEvaluated(),...liveTips()]:[...liveTips(),...allEvaluated()]).find(x=>x.id===id);if(!original)return;const t=view==='tips'&&pendingInstruction(original)?{...original,...original.current_assessment,tracked_bet:original.tracked_bet,tracking_source:original.tracking_source,instruction_review:original.instruction_review,current_assessment:original.current_assessment,recorded_snapshot:false,execution_revision:original.execution_revision}:original;selectedTip=t;selectedInstructionSignature=view==='tips'?instructionSignature(original):null;$('#detail-content').innerHTML=`<span class="league ${esc(t.league)}">${esc(t.league)}</span><h2>${esc(t.selection)}</h2><p class="panel-copy">${esc(t.away)} @ ${esc(t.home)} · ${esc(when(t.start))}</p><div class="selection">${esc(t.market_display||marketName[t.market])}</div><div class="detail-data"><div><div class="metric-label">MODEL PROBABILITY</div><div class="metric-value">${pct(t.probability)}</div></div><div><div class="metric-label">MIN. DECIMAL ODDS</div><div class="metric-value">${displayedMinimumOdds(t)}</div></div><div><div class="metric-label">SUGGESTED STAKE</div><div class="metric-value">${stakeDisplay(t)}</div></div></div><p>${esc(t.stake_note)}</p>${outcomeSizingTrace(t)}${modelPickNote(t)}${trackingMarkup(t)}${stakeBetButton(t)}${executableInstruction(t)?'':`<p>${esc(allocationReason(t))}</p>`}${betInstructions(t)}${decisionEvidence(t)}<h3>Why This Pick?</h3><ul>${t.reasons.map(r=>`<li>${esc(r)}</li>`).join('')}</ul><h3>Check Your Stake Odds</h3><form id="quote-check-form"><div class="form-row"><label>Decimal Odds<input name="odds" type="number" min="1.01" step="0.01" required placeholder="e.g. 1.90"></label></div><button class="button ghost">Check Stake Odds for This Selection</button><p id="quote-result" role="status"></p></form><h3>Reference Price and Settlement Rules</h3>${sourceTerms(t)}<p>Odds Checked: ${esc(when(t.quote_at))}. Quote Valid Until: ${esc(when(t.valid_until))}.</p>${contextMarkup(t.game_context || t.current_assessment?.game_context || (data?.games||[]).find(g=>g.id===t.game_id)?.context)}<h3>Model Limitations and Context</h3><ul>${t.warnings.map(w=>`<li>${esc(w)}</li>`).join('')}</ul><div class="detail-actions"><a class="button ghost" target="_blank" rel="noopener noreferrer" href="${esc(t.reference_url)}">View Reference Market ↗</a><button class="button primary" id="record-bet">Log Placed Bet</button></div><div id="bet-form-wrap" hidden><h3>Record Your Placed Bet</h3><form id="bet-form"><div class="form-row"><label>Stake (USD)<input name="stake" type="number" step="0.01" min="0.01" required value="${t.stake||1}"></label><label>Accepted Decimal Odds<input name="odds" type="number" min="1.01" step="0.01" required placeholder="Actual accepted odds"></label></div><label>Platform<input name="platform" required maxlength="80" placeholder="e.g. Stake.com"></label><label>Settlement<select name="settlement_mode"><option value="manual">Manual: enter the actual total return</option><option value="sportsbook">Sportsbook: exact named market; stake refunded on a push</option></select></label><button class="button primary">Save Bet</button></form><p class="panel-copy">This records a bet you have already placed. It does not submit a bet. Polymarket share positions require separate settlement checks.</p></div><details><summary>Sources, Model and Market Settlement Rules</summary><p><a href="${esc(t.source_url)}" target="_blank" rel="noopener noreferrer">Sports Data Source</a> · Model: ${esc(t.model_version)}</p><p>${esc(t.stress_note)}</p><pre>${esc(t.reference_contract_description)}</pre></details>`;$('#quote-check-form').onsubmit=async e=>{e.preventDefault();try{const q=await api('/api/tips/'+t.id+'/quote',{method:'POST',body:JSON.stringify({odds:Number(e.target.odds.value)})});$('#quote-result').textContent=q.review_failed?q.note:q.expired?'This pick has expired. Wait for an updated analysis.':q.already_recorded?`This exact bet is already recorded. Entered odds ${q.price_qualifies?'meet':'do not meet'} the current model threshold. No additional ticket or stake is requested. Estimated ROI: ${pct(q.expected_roi)}. The entered price has not been verified against Stake.`:`Hypothetical price calculation. Estimated ROI: ${pct(q.expected_roi)}. Stress Scenario ROI: ${pct(q.stress_roi)}. Calculated Stake: $${num(q.stake)}. ${q.note} This does not issue a betting instruction; entered odds are not verified against Stake.`}catch(err){$('#quote-result').textContent=err.message}};$('#record-bet').onclick=()=>{$('#bet-form-wrap').hidden=false;$('#bet-form input').focus()};$('#bet-form').onsubmit=async e=>{e.preventDefault();const f=e.target;const submit=f.querySelector('button');submit.disabled=true;const requestId=f.dataset.requestId||(f.dataset.requestId=crypto.randomUUID());try{await api('/api/bets',{method:'POST',body:JSON.stringify({tip_id:t.id,stake:Number(f.stake.value),odds:Number(f.odds.value),platform:f.platform.value,request_id:requestId,settlement_mode:f.settlement_mode.value})});toast('Bet recorded.');$('#detail-dialog').close();await load()}catch(err){toast(err.message);submit.disabled=false}};if(t.tracked_bet)$('#record-bet').hidden=true;if(view==='tips')bindInstructionLink($('#detail-content .stake-bet-button'),t.id,selectedInstructionSignature);bindStageBetslipButtons();bindOneClickBetButtons();$('#detail-dialog').showModal()}
+function showDetail(id,preferCurrent=false){const original=(preferCurrent?[...allEvaluated(),...liveTips()]:[...liveTips(),...allEvaluated()]).find(x=>x.id===id);if(!original)return;const t=view==='tips'&&pendingInstruction(original)?{...original,...original.current_assessment,tracked_bet:original.tracked_bet,tracking_source:original.tracking_source,instruction_review:original.instruction_review,current_assessment:original.current_assessment,recorded_snapshot:false,execution_revision:original.execution_revision}:original;selectedTip=t;selectedInstructionSignature=view==='tips'?instructionSignature(original):null;const polyLink=getPolymarketLink(t);const polyBox=polyLink?`<div class="polymarket-box" style="margin:14px 0;padding:12px 14px;background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.3);border-radius:6px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;"><div><div style="font-weight:600;color:#c084fc;display:flex;align-items:center;gap:6px;">🔮 Polymarket Reference Contract</div><div style="font-size:0.85em;color:#94a3b8;margin-top:2px;">${esc(polyLink.title)} · ${esc(t.market_display||marketName[t.market]||t.market)}</div></div><a href="${esc(polyLink.url)}" target="_blank" rel="noopener noreferrer" class="button accent" style="background:#7c3aed;border-color:#7c3aed;color:#fff;text-decoration:none;padding:6px 12px;font-size:0.85em;display:inline-flex;align-items:center;gap:4px;">Open on Polymarket ↗</a></div>`:'';$('#detail-content').innerHTML=`<span class="league ${esc(t.league)}">${esc(t.league)}</span><h2>${esc(t.selection)}</h2><p class="panel-copy">${esc(t.away)} @ ${esc(t.home)} · 📅 <strong>Match:</strong> ${esc(when(t.start))}${t.created_at?` · 🕒 <strong>Issued:</strong> ${esc(when(t.created_at))}`:''}</p><div class="selection">${esc(t.market_display||marketName[t.market])}</div><div class="detail-data"><div><div class="metric-label">MODEL PROBABILITY</div><div class="metric-value">${pct(t.probability)}</div></div><div><div class="metric-label">MIN. DECIMAL ODDS</div><div class="metric-value">${displayedMinimumOdds(t)}</div></div><div><div class="metric-label">SUGGESTED STAKE</div><div class="metric-value">${stakeDisplay(t)}</div></div></div><p>${esc(t.stake_note)}</p>${outcomeSizingTrace(t)}${modelPickNote(t)}${trackingMarkup(t)}${polyBox}${stakeBetButton(t)}${executableInstruction(t)?'':`<p>${esc(allocationReason(t))}</p>`}${betInstructions(t)}${decisionEvidence(t)}<h3>Why This Pick?</h3><ul>${t.reasons.map(r=>`<li>${esc(r)}</li>`).join('')}</ul><h3>Check Your Stake Odds</h3><form id="quote-check-form"><div class="form-row"><label>Decimal Odds<input name="odds" type="number" min="1.01" step="0.01" required placeholder="e.g. 1.90"></label></div><button class="button ghost">Check Stake Odds for This Selection</button><p id="quote-result" role="status"></p></form><h3>Reference Price and Settlement Rules</h3>${sourceTerms(t)}<p>Odds Checked: ${esc(when(t.quote_at))}. Quote Valid Until: ${esc(when(t.valid_until))}.</p>${contextMarkup(t.game_context || t.current_assessment?.game_context || (data?.games||[]).find(g=>g.id===t.game_id)?.context)}<h3>Model Limitations and Context</h3><ul>${t.warnings.map(w=>`<li>${esc(w)}</li>`).join('')}</ul><div class="detail-actions"><a class="button ghost" target="_blank" rel="noopener noreferrer" href="${esc(t.reference_url)}">View Reference Market ↗</a>${polyLink?`<a class="button ghost" target="_blank" rel="noopener noreferrer" href="${esc(polyLink.url)}" style="border-color:#7c3aed;color:#8b5cf6;">View on Polymarket ↗</a>`:''}<button class="button primary" id="record-bet">Log Placed Bet</button></div><div id="bet-form-wrap" hidden><h3>Record Your Placed Bet</h3><form id="bet-form"><div class="form-row"><label>Stake (USD)<input name="stake" type="number" step="0.01" min="0.01" required value="${t.stake||1}"></label><label>Accepted Decimal Odds<input name="odds" type="number" min="1.01" step="0.01" required placeholder="Actual accepted odds"></label></div><label>Platform<input name="platform" required maxlength="80" placeholder="e.g. Stake.com"></label><label>Settlement<select name="settlement_mode"><option value="manual">Manual: enter the actual total return</option><option value="sportsbook">Sportsbook: exact named market; stake refunded on a push</option></select></label><button class="button primary">Save Bet</button></form><p class="panel-copy">This records a bet you have already placed. It does not submit a bet. Polymarket share positions require separate settlement checks.</p></div><details><summary>Sources, Model and Market Settlement Rules</summary><p><a href="${esc(t.source_url)}" target="_blank" rel="noopener noreferrer">Sports Data Source</a> · Model: ${esc(t.model_version)}</p><p>${esc(t.stress_note)}</p><pre>${esc(t.reference_contract_description)}</pre></details>`;$('#quote-check-form').onsubmit=async e=>{e.preventDefault();try{const q=await api('/api/tips/'+t.id+'/quote',{method:'POST',body:JSON.stringify({odds:Number(e.target.odds.value)})});$('#quote-result').textContent=q.review_failed?q.note:q.expired?'This pick has expired. Wait for an updated analysis.':q.already_recorded?`This exact bet is already recorded. Entered odds ${q.price_qualifies?'meet':'do not meet'} the current model threshold. No additional ticket or stake is requested. Estimated ROI: ${pct(q.expected_roi)}. The entered price has not been verified against Stake.`:`Hypothetical price calculation. Estimated ROI: ${pct(q.expected_roi)}. Stress Scenario ROI: ${pct(q.stress_roi)}. Calculated Stake: $${num(q.stake)}. ${q.note} This does not issue a betting instruction; entered odds are not verified against Stake.`}catch(err){$('#quote-result').textContent=err.message}};$('#record-bet').onclick=()=>{$('#bet-form-wrap').hidden=false;$('#bet-form input').focus()};$('#bet-form').onsubmit=async e=>{e.preventDefault();const f=e.target;const submit=f.querySelector('button');submit.disabled=true;const requestId=f.dataset.requestId||(f.dataset.requestId=crypto.randomUUID());try{await api('/api/bets',{method:'POST',body:JSON.stringify({tip_id:t.id,stake:Number(f.stake.value),odds:Number(f.odds.value),platform:f.platform.value,request_id:requestId,settlement_mode:f.settlement_mode.value})});toast('Bet recorded.');$('#detail-dialog').close();await load()}catch(err){toast(err.message);submit.disabled=false}};if(t.tracked_bet)$('#record-bet').hidden=true;if(view==='tips')bindInstructionLink($('#detail-content .stake-bet-button'),t.id,selectedInstructionSignature);bindStageBetslipButtons();bindOneClickBetButtons();$('#detail-dialog').showModal()}
 function openMobileMenu(){
  const sb=$('#sidebar')||$('.sidebar');const bd=$('#sidebar-backdrop');
  if(sb){sb.classList.add('open');bd?.classList.add('active');document.body.style.overflow='hidden';}

@@ -1753,7 +1753,7 @@ class ShadowMarketIncubator:
                     s_text = (str(selection) or side or '').lower()
                     outcome_res = 'won' if (cell in s_text or f'{r1} / {rft}' in s_text) else 'lost'
 
-                pnl = (stake * (odds - 1.0)) if outcome_res == 'won' else -stake
+                pnl = (stake * (odds - 1.0)) if outcome_res == 'won' else (0.0 if outcome_res == 'push' else -stake)
 
             # Settle Sequence Hazard
             elif family == 'sequence_hazard':
@@ -1762,7 +1762,7 @@ class ShadowMarketIncubator:
                 else:
                     win_side = 'home' if home_score > away_score else 'away'
                     outcome_res = 'won' if (win_side == side) else 'lost'
-                pnl = (stake * (odds - 1.0)) if outcome_res == 'won' else -stake
+                pnl = (stake * (odds - 1.0)) if outcome_res == 'won' else (0.0 if outcome_res == 'push' else -stake)
 
             if outcome_res is not None:
                 # Brier score calculation: y = 1 if won, 0.5 if half_win, 0 if lost
@@ -2081,7 +2081,7 @@ class ShadowMarketIncubator:
                             else:
                                 hit = home_score != away_score
                             outcome_res = 'won' if hit else 'lost'
-                        pnl = (stake * (odds - 1.0)) if outcome_res == 'won' else -stake
+                        pnl = (stake * (odds - 1.0)) if outcome_res == 'won' else (0.0 if outcome_res == 'push' else -stake)
 
                     # Settle Sequence Hazard
                     elif family == 'sequence_hazard':
@@ -2090,7 +2090,7 @@ class ShadowMarketIncubator:
                         else:
                             win_side = 'home' if home_score > away_score else 'away'
                             outcome_res = 'won' if (win_side == side) else 'lost'
-                        pnl = (stake * (odds - 1.0)) if outcome_res == 'won' else -stake
+                        pnl = (stake * (odds - 1.0)) if outcome_res == 'won' else (0.0 if outcome_res == 'push' else -stake)
 
                 if outcome_res is not None:
                     score_settled += 1

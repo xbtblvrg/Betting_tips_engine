@@ -90,7 +90,8 @@ async def lifespan(app):
                 log.warning(f"Periodic Polymarket runner cycle warning: {exc}")
 
             try:
-                await asyncio.sleep(300)
+                # 60s high-cadence refresh (Constitution Commandment 5)
+                await asyncio.sleep(60)
             except asyncio.CancelledError:
                 break
 
@@ -443,7 +444,7 @@ def polymarket_reset_shadow():
 def polymarket_rd_priorities():
     from .polymarket_rd_prioritizer import PolymarketRDPrioritizer
     p = PolymarketRDPrioritizer()
-    return english_payload(p.scan_and_prioritize_gaps(leagues=('NBA', 'NFL', 'NHL')))
+    return english_payload(p.scan_and_prioritize_gaps())
 
 @app.post('/api/polymarket/trader/order')
 async def polymarket_stage_order(request: Request):
@@ -1238,7 +1239,7 @@ class Settings(BaseModel):
     model_config=ConfigDict(extra='forbid')
     bankroll:float|None=Field(default=None,gt=0,le=1000000)
     daily_risk_limit:float|None=Field(None,ge=1,le=1000)
-    daily_pick_target:int=Field(20,ge=20,le=100)
+    daily_pick_target:int=Field(20,ge=20,le=500)
     max_bet:float=Field(8,ge=0.5,le=8)
     unit_stake:float=Field(0.5,ge=0.25,le=8)
     publication_limits_version:Literal['v1','v2','v3']|None=None

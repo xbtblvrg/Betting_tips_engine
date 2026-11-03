@@ -271,6 +271,8 @@ class SupremeAutonomousGovernor:
                     'Declared validation sources unavailable' in last_err
                     or 'Only ordered verified GPT routes' in last_err
                     or 'Antigravity capacity is in use' in last_err
+                    or 'Claude capacity is in use' in last_err
+                    or 'Provider unavailable' in last_err
                     or 'No such file or directory: \'.workspace-copy-' in last_err
                     or 'Expecting value: line 1 column 1' in last_err
                 )
@@ -279,7 +281,7 @@ class SupremeAutonomousGovernor:
                 if can_unblock:
                     tinfo['next_attempt_at'] = now_iso
                     # De-bloat artificial attempt inflation caused by provider lock contention
-                    if ('Antigravity capacity is in use' in last_err or 'Missing or oversized runtime evidence' in last_err) and tinfo.get('attempts', 0) > 3:
+                    if any(p in last_err for p in ('Antigravity capacity is in use', 'Claude capacity is in use', 'Provider unavailable', 'Missing or oversized runtime evidence')) and tinfo.get('attempts', 0) > 3:
                         tinfo['attempts'] = 1
                     unblocked.append(tid)
                     modified = True

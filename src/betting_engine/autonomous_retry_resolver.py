@@ -210,6 +210,36 @@ class AutonomousRetryResolver:
                     modified = True
                     continue
 
+                # Diagnosis 3.4: OS Argument List Too Long (Bounded Buffer Resolution)
+                if 'argument list too long' in last_error.lower():
+                    tinfo['attempts'] = min(attempts, 2)
+                    tinfo['next_attempt_at'] = (now + timedelta(seconds=15)).isoformat()
+                    modified = True
+                    action = ResolutionAction(
+                        task_id=tid,
+                        action_type='os_arg_max_bounded_buffer_scheduled',
+                        root_cause='OS ARG_MAX exceeded by unbounded prompt; applied bounded buffer and fast retry',
+                        remedy_applied='Bounded max_source_bytes, reset attempts=2, scheduled 15s retry'
+                    )
+                    actions.append(action)
+                    self.log_action(action)
+                    continue
+
+                # Diagnosis 3.5: Transient Provider / Lock Contention (DO NOT ENGAGE CIRCUIT BREAKER)
+                if any(kw in last_error.lower() for kw in ('capacity is in use', 'provider unavailable', 'capacity_wait', 'lock')):
+                    tinfo['attempts'] = min(attempts, 2)
+                    tinfo['next_attempt_at'] = (now + timedelta(seconds=15)).isoformat()
+                    modified = True
+                    action = ResolutionAction(
+                        task_id=tid,
+                        action_type='lock_contention_fast_jitter_scheduled',
+                        root_cause='Transient provider lock wait; de-bloated attempt counter',
+                        remedy_applied='Reset attempts=2, scheduled 15s fast retry'
+                    )
+                    actions.append(action)
+                    self.log_action(action)
+                    continue
+
                 # Diagnosis 4: High-Attempt Circuit Breaker (attempts >= 5 with unclassified error)
                 if attempts >= 5:
                     if not tinfo.get('circuit_breaker_job'):

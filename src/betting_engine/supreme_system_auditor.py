@@ -209,7 +209,7 @@ class SupremeSystemAuditor:
                 'compliant': odds_ok
             }
 
-            # Directive 1: Rolling 7-day ROI & Uptrend
+            # Directive 1: Rolling 7-day ROI, Uptrend & Anti-Illusion Bifurcation
             since_7d = (now - timedelta(days=7)).isoformat()
             cur.execute(
                 "SELECT count(*), round(sum(stake), 2), round(sum(pnl), 2) FROM bets WHERE created_at >= ? AND status IN ('won', 'lost', 'push')",
@@ -218,14 +218,86 @@ class SupremeSystemAuditor:
             s_row = cur.fetchone()
             count, staked, pnl = (s_row[0] or 0, s_row[1] or 0.0, s_row[2] or 0.0) if s_row else (0, 0.0, 0.0)
             roi_pct = round((pnl / staked) * 100.0, 2) if staked > 0 else 0.0
+
+            # Anti-Illusion Bifurcated PnL Audit: separate graduated from unproven markets
+            grad_file = self.data_dir / 'graduated_markets.json'
+            grad_dict = {}
+            if grad_file.exists():
+                try:
+                    grad_dict = json.loads(grad_file.read_text())
+                except Exception:
+                    grad_dict = {}
+
+            cur.execute("""
+                SELECT 
+                    json_extract(payload, '$.league') as league,
+                    json_extract(payload, '$.market') as market,
+                    json_extract(payload, '$.model_scope') as scope,
+                    COUNT(*),
+                    ROUND(SUM(CAST(json_extract(payload, '$.stake') AS REAL)), 2),
+                    ROUND(SUM(pnl), 2)
+                FROM system_decisions
+                WHERE status IN ('won', 'lost', 'push') AND issued_at >= ?
+                GROUP BY league, market, scope
+            """, (since_7d,))
+            
+            grad_stk, grad_pnl_val = 0.0, 0.0
+            ungrad_stk, ungrad_pnl_val = 0.0, 0.0
+            for r_l, r_m, r_sc, r_cnt, r_stk, r_pnl in cur.fetchall():
+                r_sc = r_sc or 'full_game'
+                b_m = (r_m or '').split(':')[-1]
+                canon_k = f"{r_l}|{r_sc}|{b_m}"
+                is_g = canon_k in grad_dict or f"{r_l}|{b_m}" in grad_dict or any(k.startswith(f"{r_l}|") and b_m in k for k in grad_dict)
+                if is_g:
+                    grad_stk += (r_stk or 0.0)
+                    grad_pnl_val += (r_pnl or 0.0)
+                else:
+                    ungrad_stk += (r_stk or 0.0)
+                    ungrad_pnl_val += (r_pnl or 0.0)
+
+            grad_roi = round((grad_pnl_val / grad_stk) * 100.0, 2) if grad_stk > 0 else 0.0
+            ungrad_roi = round((ungrad_pnl_val / ungrad_stk) * 100.0, 2) if ungrad_stk > 0 else 0.0
+            masking_detected = bool(grad_roi > 0.0 and roi_pct < 0.0)
+
             invariants['directives']['d01_roi_target'] = {
                 'rolling_7d_settled': count,
                 'staked_usd': staked,
                 'pnl_usd': pnl,
                 'roi_pct': roi_pct,
                 'target_roi_pct': 10.0,
-                'uptrend_active': pnl >= 0.0
+                'uptrend_active': pnl >= 0.0,
+                'graduated_roi_pct': grad_roi,
+                'graduated_pnl_usd': round(grad_pnl_val, 2),
+                'ungraduated_drag_pnl_usd': round(ungrad_pnl_val, 2),
+                'ungraduated_drag_roi_pct': ungrad_roi,
+                'aggregate_masking_detected': masking_detected
             }
+
+            # Directive 6: Zero-Ungraduated Leakage Audit & 3-Tier Quarantine
+            # Verify that NO ungraduated market has been issued with real stake > $0.00 since the morning gate
+            cur.execute("""
+                SELECT 
+                    tip_id,
+                    json_extract(payload, '$.league') as league,
+                    json_extract(payload, '$.market') as market,
+                    json_extract(payload, '$.model_scope') as scope,
+                    CAST(json_extract(payload, '$.stake') AS REAL) as stake,
+                    issued_at
+                FROM system_decisions
+                WHERE issued_at >= '2026-11-02T08:10:00' AND CAST(json_extract(payload, '$.stake') AS REAL) > 0.0
+            """)
+            recent_leaks = []
+            for t_id, l_val, m_val, sc_val, stk_val, iss_val in cur.fetchall():
+                sc_val = sc_val or 'full_game'
+                base_m = (m_val or '').split(':')[-1]
+                canon_k = f"{l_val}|{sc_val}|{base_m}"
+                if canon_k not in grad_dict and f"{l_val}|{base_m}" not in grad_dict and not any(k.startswith(f"{l_val}|") and base_m in k for k in grad_dict):
+                    recent_leaks.append({
+                        'tip_id': t_id,
+                        'market': canon_k,
+                        'stake': stk_val,
+                        'issued_at': iss_val
+                    })
 
             conn.close()
         except Exception as exc:
@@ -240,10 +312,21 @@ class SupremeSystemAuditor:
                 dem_cnt = cur_inc.fetchone()[0]
                 cur_inc.execute("SELECT count(*) FROM graduated_markets")
                 grad_cnt = cur_inc.fetchone()[0]
+                
+                leakage_detected = len(recent_leaks) > 0
+                if leakage_detected:
+                    invariants['violations'].append({
+                        'directive': 6,
+                        'error': f'Architectural Leakage Detected: {len(recent_leaks)} ungraduated wagers issued with real stake since lockdown gate',
+                        'leaks': recent_leaks[:5]
+                    })
+
                 invariants['directives']['d06_3tier_universe'] = {
                     'demoted_markets_quarantined': dem_cnt,
                     'graduated_markets_active': grad_cnt,
-                    'compliant': True
+                    'zero_leakage_active': not leakage_detected,
+                    'active_leaks_count': len(recent_leaks),
+                    'compliant': not leakage_detected and grad_cnt > 0
                 }
                 conn_inc.close()
             except Exception as exc:

@@ -233,3 +233,27 @@ def test_parallel_tasks_never_overlap_one_provider_or_wait_for_its_slot(tmp_path
         finally:finish.set()
         assert len(first.result()['advice'])==1
     assert calls==['claude']
+
+
+def test_invoke_progress_watchdog_permits_active_streaming_past_base_timeout(tmp_path):
+    # Simulated CLI that emits output continuously past the base timeout
+    cli = tmp_path / 'streaming-cli'
+    with cli.open('w', encoding='utf-8') as f:
+        f.write('#!' + sys.executable + '\n')
+        f.write('import time, sys\n')
+        f.write('sys.stdout.write("{\\"result\\": \\"")\n')
+        f.write('sys.stdout.flush()\n')
+        f.write('time.sleep(0.4)\n')
+        f.write('sys.stdout.write("progress part 1 ")\n')
+        f.write('sys.stdout.flush()\n')
+        f.write('time.sleep(0.4)\n')
+        f.write('sys.stdout.write("completed\\"}\\n")\n')
+        f.write('sys.stdout.flush()\n')
+    cli.chmod(0o700)
+
+    # Base timeout is 1.6s, but max_hard_ceiling is 5.0s and idle_timeout is 0.8s.
+    # Because it is actively streaming data (idle interval < 0.8s), it is NOT aborted at 1.6s!
+    result = invoke('claude', {'binary': str(cli), 'max_hard_ceiling': 5, 'idle_timeout': 0.8}, 'brief', timeout=1.6)
+    assert result['state'] is None, f"Expected successful stream completion, got {result['state']}"
+    assert 'progress part 1 completed' in result['stdout']
+

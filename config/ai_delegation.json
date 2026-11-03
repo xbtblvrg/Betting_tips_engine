@@ -9,6 +9,7 @@
       "enabled": true,
       "binary": "/Users/belavarga/.local/bin/codex",
       "model": "gpt-6-astra",
+      "reasoning_effort": "medium",
       "role": "secondary"
     },
     "claude": {
@@ -32,7 +33,8 @@
     }
   },
   "authority": "Google Antigravity (agy) is the primary quant brain, lead developer and final supervisor; Codex serves as deputy and secondary. agy delegates bounded tasks to Codex in a controlled manner; agy retains implementation, validation, final review and release decisions.",
-  "max_helper_seconds": 90,
+  "max_helper_seconds": 180,
+  "max_hard_ceiling": 300,
   "max_successful_helpers_per_attempt": 2,
   "failure_retry_seconds": 3600,
   "successful_call_interval_seconds": 900,

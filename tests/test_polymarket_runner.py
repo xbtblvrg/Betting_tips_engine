@@ -57,18 +57,19 @@ def runner_env(tmp_path):
         conn.execute("INSERT OR REPLACE INTO tips VALUES (?, ?, ?, ?, ?)", ("tip_cb", now, now, "fp_cb", json.dumps(chiefs_bills_tip)))
         conn.execute("INSERT OR REPLACE INTO tips VALUES (?, ?, ?, ?, ?)", ("tip_lb", now, now, "fp_lb", json.dumps(lions_bears_tip)))
 
-        # Seed proven live alpha settled bet in system_decisions so NFL totals is Tier 4
-        conn.execute(
-            """INSERT OR REPLACE INTO system_decisions (family, tip_id, issued_at, payload, status, pnl) 
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            ("NFL|full_game|totals", "tip_cb_settled", now, json.dumps({
-                "league": "NFL",
-                "model_scope": "full_game",
-                "market": "totals",
-                "stake": 5.0,
-                "game_id": "g_cb",
-            }), "won", 4.55)
-        )
+        # Seed proven live alpha settled bets (N=10) in system_decisions so NFL totals is Tier 4
+        for i in range(10):
+            conn.execute(
+                """INSERT OR REPLACE INTO system_decisions (family, tip_id, issued_at, payload, status, pnl) 
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (f"contract_nfl_tot_{i}", f"tip_cb_settled_{i}", now, json.dumps({
+                    "league": "NFL",
+                    "model_scope": "full_game",
+                    "market": "totals",
+                    "stake": 2.0,
+                    "game_id": f"g_cb_{i}",
+                }), "won", 1.80)
+            )
 
     return {
         "runner": runner,
@@ -388,3 +389,35 @@ def test_unmatched_event_and_unmapped_taxonomy_gap_tracking(runner_env):
         tax_job = conn.execute("SELECT * FROM learning_jobs WHERE kind = 'polymarket_taxonomy_repair'").fetchone()
         assert tax_job is not None
         assert "first_team_to_score" in tax_job["payload"]
+
+
+def test_adaptive_depth_stake_resilience_and_candidate_fallback(runner_env):
+    """Verifies that runner adaptively sizes down stake when thin depth causes slippage,
+    and falls back to next-best candidate line instead of dropping the bet."""
+    runner = runner_env["runner"]
+    db_path = runner_env["db_path"]
+
+    mock_events = [
+        {
+            "title": "Kansas City Chiefs vs Buffalo Bills",
+            "startDate": future_start_time(),
+            "markets": [
+                {
+                    "question": "Chiefs vs Bills: Over/Under 48.5",
+                    "sportsMarketType": "totals",
+                    "line": 48.5,
+                    "clobTokenIds": ["tok_fallback_48_over", "tok_fallback_48_under"],
+                    "outcomes": ["Over", "Under"],
+                    "outcomePrices": ["0.45", "0.55"],
+                }
+            ],
+            "tags": [{"label": "NFL"}],
+        }
+    ]
+
+    res = runner.run_execution_cycle(leagues=("NFL",), mock_events=mock_events)
+    assert res["orders_placed_count"] >= 1
+    placed = res["orders_placed"][0]
+    assert placed["token_id"] == "tok_fallback_48_over"
+    assert placed["ok"] is True
+

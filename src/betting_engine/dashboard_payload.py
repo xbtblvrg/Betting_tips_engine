@@ -104,6 +104,19 @@ def _compact_dashboard_tip(tip):
     if isinstance(compact.get('stake_market'), dict):
         sm = compact['stake_market']
         compact['stake_market'] = {k: sm[k] for k in ('event_url', 'tab', 'navigation_source', 'availability_verified', 'market_name', 'status') if k in sm}
+    poly = (tip.get('game_context') or {}).get('polymarket') or tip.get('polymarket')
+    if poly and isinstance(poly, dict) and poly.get('matched'):
+        slug_val = poly.get('slug')
+        compact['polymarket'] = {
+            'matched': True,
+            'title': poly.get('title'),
+            'slug': slug_val,
+            'event_id': poly.get('event_id'),
+            'event_url': poly.get('event_url') or (f"https://polymarket.com/event/{slug_val}" if slug_val else (f"https://polymarket.com/event/{poly.get('event_id')}" if poly.get('event_id') else None)),
+            'has_moneyline': poly.get('has_moneyline'),
+            'has_spreads': poly.get('has_spreads'),
+            'has_totals': poly.get('has_totals'),
+        }
     # Details and table rendering are total functions even for compact rows.
     compact['reasons']=[str(reason)[:200] for reason in (tip.get('reasons') or [])[:3]]
     compact['warnings']=[str(warning)[:200] for warning in (tip.get('warnings') or [])[:2]]

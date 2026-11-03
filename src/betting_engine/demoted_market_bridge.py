@@ -81,12 +81,19 @@ class DemotedMarketIncubationBridge:
                 FROM demoted_markets
                 ORDER BY 
                     CASE WHEN incubation_phase = 'incubating_with_new_model' THEN 1 ELSE 0 END,
+                    CASE WHEN last_screened_at IS NULL THEN 0 ELSE 1 END,
+                    -- STRICT MANDATE: Prioritize Dual Reachable Markets (Stake + Polymarket CLOB)
                     CASE 
-                        WHEN league IN ('NBA', 'NFL') THEN 0
+                        WHEN (league IN ('NBA', 'NFL', 'NHL', 'MLS', 'EPL', 'UCL', 'UEL', 'ATP', 'WTA', 'NCAAF', 'NCAAB', 'NCAAM', 'NCAAW', 'MLB')
+                              AND scope IN ('full_game', 'half_1', 'quarter_1')
+                              AND (family LIKE '%moneyline%' OR family LIKE '%spread%' OR family LIKE '%total%' OR family LIKE '%winner%' OR family LIKE '%three_way%'))
+                        THEN 0 ELSE 1 
+                    END,
+                    CASE 
+                        WHEN league IN ('NBA', 'NFL', 'EPL', 'MLS') THEN 0
                         WHEN league = 'NHL' THEN 1
-                        WHEN league IN ('MLB', 'NCAAF', 'NCAAM', 'NCAAW') THEN 2
-                        WHEN league IN ('ATP', 'WTA', 'CHALLENGER') THEN 3
-                        ELSE 4
+                        WHEN league IN ('MLB', 'UCL', 'ATP', 'WTA') THEN 2
+                        ELSE 3
                     END,
                     CASE WHEN rolling_pnl < 0.0 THEN 0 ELSE 1 END,
                     COALESCE(last_screened_at, '') ASC,
@@ -130,61 +137,85 @@ class DemotedMarketIncubationBridge:
             except Exception as e_touch:
                 log.debug("Demoted markets batch touch error: %s", e_touch)
 
-        def _screen_single_market(row):
+        def _screen_archetype_market(row):
             d_id, seg_key, league, scope, family, sub_fam, r_roi, r_pnl, g_count, phase, model_id = row
-
             # Run historical training & out-of-sample Crucible validation (100% read-only)
             champ_res = self.trainer.train_and_screen_demoted_market(seg_key)
-            if not champ_res or not champ_res.is_qualified:
-                # Fallback to Autonomous Multi-AI Model Synthesizer
-                try:
-                    from .codex_model_synthesizer import CodexModelSynthesizer
-                    synthesizer = CodexModelSynthesizer(data_dir=self.data_dir)
-                    synth_rec = synthesizer.synthesize_and_screen_candidate(
-                        segment_key=seg_key,
-                        domain_problem=f"Standard archetypes failed out-of-sample backtest on {seg_key}. Requires novel mathematical formulation with positive alpha."
-                    )
-                    if synth_rec.crucible_passed and synth_rec.is_admitted_to_incubator:
-                        from .historical_trainer import CandidateTrainingResult
-                        champ_res = CandidateTrainingResult(
-                            segment_key=seg_key,
-                            model_id=synth_rec.model_id,
-                            model_archetype=synth_rec.class_name,
-                            model_params={'source_file': f"{synth_rec.model_id}.py", 'provider': synth_rec.generator_provider},
-                            train_sample_size=0,
-                            oos_sample_size=synth_rec.oos_sample_size,
-                            oos_win_rate=synth_rec.oos_win_rate,
-                            oos_simulated_roi=synth_rec.oos_simulated_roi,
-                            oos_delta_brier=synth_rec.oos_delta_brier,
-                            oos_max_drawdown=synth_rec.oos_max_drawdown,
-                            is_qualified=True,
-                            scorecard_s=100.0,
-                        )
-                except Exception as e_synth:
-                    log.debug("Autonomous synthesis on %s: %s", seg_key, e_synth)
-
-            return d_id, seg_key, champ_res
+            return d_id, seg_key, row, champ_res
 
         from concurrent.futures import ThreadPoolExecutor
+        unresolved = []
         if to_screen:
-            with ThreadPoolExecutor(max_workers=min(4, len(to_screen))) as pool:
-                screened_results = list(pool.map(_screen_single_market, to_screen))
+            with ThreadPoolExecutor(max_workers=min(8, len(to_screen))) as pool:
+                screened_results = list(pool.map(_screen_archetype_market, to_screen))
 
-            for d_id, seg_key, champ_res in screened_results:
-                if not champ_res or not champ_res.is_qualified:
-                    still_researching += 1
-                    continue
+            for d_id, seg_key, row, champ_res in screened_results:
+                if champ_res and champ_res.is_qualified:
+                    success = self.admit_champion_to_market(d_id, seg_key, champ_res)
+                    if success:
+                        newly_admitted.append({
+                            'segment_key': seg_key,
+                            'model_id': champ_res.model_id,
+                            'model_archetype': champ_res.model_archetype,
+                            'historical_roi': champ_res.oos_simulated_roi,
+                            'historical_brier_delta': champ_res.oos_delta_brier,
+                            'historical_sample_size': champ_res.oos_sample_size,
+                        })
+                    else:
+                        unresolved.append(row)
+                else:
+                    unresolved.append(row)
 
-                success = self.admit_champion_to_market(d_id, seg_key, champ_res)
-                if success:
-                    newly_admitted.append({
-                        'segment_key': seg_key,
-                        'model_id': champ_res.model_id,
-                        'model_archetype': champ_res.model_archetype,
-                        'historical_roi': champ_res.oos_simulated_roi,
-                        'historical_brier_delta': champ_res.oos_delta_brier,
-                        'historical_sample_size': champ_res.oos_sample_size,
-                    })
+            # Phase 2: Sequential Controlled AI Model Synthesis for unresolved markets
+            # Strictly prioritizes Dual Reachable Markets (Stake + Polymarket CLOB)
+            if unresolved and len(newly_admitted) < max_train_per_run:
+                def _dual_priority_key(r):
+                    lg = (r[2] or '').upper()
+                    sc = (r[3] or '').lower()
+                    fm = (r[4] or '').lower()
+                    is_dual = (lg in ('NBA', 'NFL', 'EPL', 'MLS') and sc in ('full_game', 'half_1', 'quarter_1') and any(k in fm for k in ('spread', 'total', 'moneyline')))
+                    return 0 if is_dual else 1
+
+                unresolved.sort(key=_dual_priority_key)
+                max_ai_syntheses = min(2, len(unresolved))
+                for target_row in unresolved[:max_ai_syntheses]:
+                    t_did, t_seg_key = target_row[0], target_row[1]
+                    try:
+                        from .codex_model_synthesizer import CodexModelSynthesizer
+                        synthesizer = CodexModelSynthesizer(data_dir=self.data_dir)
+                        synth_rec = synthesizer.synthesize_and_screen_candidate(
+                            segment_key=t_seg_key,
+                            domain_problem=f"Standard archetypes failed out-of-sample backtest on {t_seg_key}. Requires novel mathematical formulation with positive alpha."
+                        )
+                        if synth_rec.crucible_passed and synth_rec.is_admitted_to_incubator:
+                            from .historical_trainer import CandidateTrainingResult
+                            ai_champ = CandidateTrainingResult(
+                                segment_key=t_seg_key,
+                                model_id=synth_rec.model_id,
+                                model_archetype=synth_rec.class_name,
+                                model_params={'source_file': f"{synth_rec.model_id}.py", 'provider': synth_rec.generator_provider},
+                                train_sample_size=0,
+                                oos_sample_size=synth_rec.oos_sample_size,
+                                oos_win_rate=synth_rec.oos_win_rate,
+                                oos_simulated_roi=synth_rec.oos_simulated_roi,
+                                oos_delta_brier=synth_rec.oos_delta_brier,
+                                oos_max_drawdown=synth_rec.oos_max_drawdown,
+                                is_qualified=True,
+                                scorecard_s=100.0,
+                            )
+                            if self.admit_champion_to_market(t_did, t_seg_key, ai_champ):
+                                newly_admitted.append({
+                                    'segment_key': t_seg_key,
+                                    'model_id': ai_champ.model_id,
+                                    'model_archetype': ai_champ.model_archetype,
+                                    'historical_roi': ai_champ.oos_simulated_roi,
+                                    'historical_brier_delta': ai_champ.oos_delta_brier,
+                                    'historical_sample_size': ai_champ.oos_sample_size,
+                                })
+                    except Exception as e_synth:
+                        log.debug("Autonomous synthesis on %s: %s", t_seg_key, e_synth)
+
+            still_researching = max(0, attempted_this_run - len(newly_admitted))
 
         return {
             'status': 'success',

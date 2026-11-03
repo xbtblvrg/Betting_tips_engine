@@ -113,7 +113,8 @@ class PolymarketAutonomousRunner:
         if not self.db_path.exists():
             return set()
         try:
-            with sqlite3.connect(self.db_path, timeout=5) as conn:
+            with sqlite3.connect(self.db_path, timeout=30.0) as conn:
+                conn.execute("PRAGMA busy_timeout = 30000;")
                 cur = conn.cursor()
                 rows = cur.execute(
                     "SELECT token_id FROM polymarket_orders WHERE status IN ('open', 'filled', 'staged', 'signed', 'relayed')"
@@ -128,7 +129,8 @@ class PolymarketAutonomousRunner:
         if not self.db_path.exists():
             return set()
         try:
-            with sqlite3.connect(self.db_path, timeout=5) as conn:
+            with sqlite3.connect(self.db_path, timeout=30.0) as conn:
+                conn.execute("PRAGMA busy_timeout = 30000;")
                 cur = conn.cursor()
                 rows = cur.execute(
                     "SELECT game_title, scope, market_family FROM polymarket_orders WHERE status IN ('open', 'filled', 'staged', 'signed', 'relayed')"
@@ -143,7 +145,8 @@ class PolymarketAutonomousRunner:
         if not self.db_path.exists():
             return []
         try:
-            with sqlite3.connect(self.db_path, timeout=5) as conn:
+            with sqlite3.connect(self.db_path, timeout=30.0) as conn:
+                conn.execute("PRAGMA busy_timeout = 30000;")
                 cur = conn.cursor()
                 # Check if tips table exists
                 tbl = cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='tips';").fetchone()
@@ -713,6 +716,30 @@ class PolymarketAutonomousRunner:
                         min_ev=self.min_ev_hurdle,
                     )
 
+                    # Dynamic Stake Resilience: If full stake_cap causes slippage,
+                    # adaptively check if a smaller viable stake down to the constitutional floor ($0.50)
+                    # preserves positive EV, ensuring we never abandon an edge due to rigid sizing!
+                    effective_stake_cap = stake_cap
+                    if not preflight.ok and "INSUFFICIENT_EV_AFTER_SLIPPAGE" in (preflight.reason or ""):
+                        for reduced_stake in [round(stake_cap * 0.5, 2), 2.0, 1.0, 0.50]:
+                            if reduced_stake >= stake_cap or reduced_stake < 0.50:
+                                continue
+                            pref_retry = self.executor.preflight_check(
+                                token_id=token_id,
+                                side="BUY",
+                                requested_stake=reduced_stake,
+                                model_prob=model_prob,
+                                min_ev=self.min_ev_hurdle,
+                            )
+                            if pref_retry.ok:
+                                preflight = pref_retry
+                                effective_stake_cap = reduced_stake
+                                log.info(
+                                    f"[ADAPTIVE DEPTH RESILIENCE] {title} {outcome_label}: "
+                                    f"Adjusted stake from ${stake_cap:.2f} to ${reduced_stake:.2f} to secure positive EV (+{pref_retry.ev*100:.1f}%)"
+                                )
+                                break
+
                     if not preflight.ok:
                         rejected_candidates.append({
                             "token_id": token_id,
@@ -732,17 +759,17 @@ class PolymarketAutonomousRunner:
                         "model_prob": model_prob,
                         "ev": preflight.ev,
                         "preflight": preflight,
-                        "stake_cap": stake_cap,
+                        "stake_cap": effective_stake_cap,
                         "scope": scope,
                         "family": family,
                     })
 
-            # Submit only the single highest-EV optimal line/side per (scope, family)
+            # Submit highest-EV optimal line/side per (scope, family), with fallback to next-best candidate
             for (grp_scope, grp_family), cands in event_candidates_by_group.items():
                 if max_orders_per_cycle is not None and len(orders_placed) >= max_orders_per_cycle:
                     break
 
-                best_cand = max(cands, key=lambda c: c["ev"])
+                sorted_cands = sorted(cands, key=lambda c: c["ev"], reverse=True)
 
                 # Pacing Guard: Secondary leagues act as complements and cannot overtake NBA/NFL
                 if league not in PRIMARY_LEAGUES:
@@ -750,32 +777,34 @@ class PolymarketAutonomousRunner:
                     if secondary_orders_count >= max_sec and primary_orders_count > 0:
                         continue
 
-                order_res = self.executor.stage_and_submit_order(
-                    league=league,
-                    game_title=title,
-                    start_time=start_str or now_iso,
-                    market_family=best_cand["family"],
-                    selection=best_cand["selection"],
-                    side="BUY",
-                    line=best_cand["line"],
-                    token_id=best_cand["token_id"],
-                    model_prob=best_cand["model_prob"],
-                    scope=best_cand["scope"],
-                    requested_stake=best_cand["stake_cap"],
-                    order_type="GTC",
-                    require_tier_4=self.require_tier_4,
-                )
+                for best_cand in sorted_cands:
+                    order_res = self.executor.stage_and_submit_order(
+                        league=league,
+                        game_title=title,
+                        start_time=start_str or now_iso,
+                        market_family=best_cand["family"],
+                        selection=best_cand["selection"],
+                        side="BUY",
+                        line=best_cand["line"],
+                        token_id=best_cand["token_id"],
+                        model_prob=best_cand["model_prob"],
+                        scope=best_cand["scope"],
+                        requested_stake=best_cand["stake_cap"],
+                        order_type="GTC",
+                        require_tier_4=self.require_tier_4,
+                    )
 
-                if order_res.get("ok"):
-                    if league in PRIMARY_LEAGUES:
-                        primary_orders_count += 1
-                    else:
-                        secondary_orders_count += 1
-                    order_res["token_id"] = best_cand["token_id"]
-                    orders_placed.append(order_res)
-                    traded_tokens.add(best_cand["token_id"])
-                    traded_market_groups.add((title, best_cand["scope"].lower(), best_cand["family"]))
-                    log.info(f"[AUTONOMOUS RUNNER] Placed Polymarket Order: {order_res.get('client_order_id')} ({title} {best_cand['selection']} line={best_cand['line']} EV=+{best_cand['ev']*100:.1f}%)")
+                    if order_res.get("ok"):
+                        if league in PRIMARY_LEAGUES:
+                            primary_orders_count += 1
+                        else:
+                            secondary_orders_count += 1
+                        order_res["token_id"] = best_cand["token_id"]
+                        orders_placed.append(order_res)
+                        traded_tokens.add(best_cand["token_id"])
+                        traded_market_groups.add((title, best_cand["scope"].lower(), best_cand["family"]))
+                        log.info(f"[AUTONOMOUS RUNNER] Placed Polymarket Order: {order_res.get('client_order_id')} ({title} {best_cand['selection']} line={best_cand['line']} EV=+{best_cand['ev']*100:.1f}%)")
+                        break
 
         # 2. Trigger Outcome Settlement & Token Auto-Redemption
         settle_res = self.settler.settle_orders()
@@ -783,7 +812,8 @@ class PolymarketAutonomousRunner:
         # 3. Enqueue identification and taxonomy gaps to learning_jobs for autonomous AI repair
         if self.db_path.exists() and (unmatched_events or unmapped_market_types):
             try:
-                with sqlite3.connect(self.db_path, timeout=5) as conn:
+                with sqlite3.connect(self.db_path, timeout=30.0) as conn:
+                    conn.execute("PRAGMA busy_timeout = 30000;")
                     conn.execute("""
                         CREATE TABLE IF NOT EXISTS learning_jobs (
                             id TEXT PRIMARY KEY,

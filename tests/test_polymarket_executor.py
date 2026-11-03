@@ -9,6 +9,7 @@ Validates independent mathematical invariants:
 6. Reachable Market R&D Prioritization.
 """
 import json
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 import sqlite3
 import pytest
@@ -404,12 +405,13 @@ def test_rd_prioritizer_gap_discovery(test_env):
     db_path = test_env["db_path"]
 
     # Write mock open events cache for NHL and NBA
+    now_utc = datetime.now(timezone.utc)
     nhl_events = {
-        "fetched_at": "2026-11-01T12:00:00Z",
+        "fetched_at": now_utc.isoformat(),
         "events": [
             {
                 "title": "Edmonton Oilers vs Calgary Flames",
-                "startTime": "2026-11-02T02:00:00Z",
+                "startTime": (now_utc + timedelta(hours=5)).isoformat(),
                 "markets": [
                     {"sportsMarketType": "moneyline", "question": "Oilers vs Flames", "clobTokenIds": ["tok_nhl_ml"]},
                     {"sportsMarketType": "totals", "question": "Over/Under 6.5", "clobTokenIds": ["tok_nhl_tot"]},
@@ -545,5 +547,77 @@ def test_builder_and_order_types(test_env):
     )
     assert market_res["ok"] is True
     assert market_res["status"] == "filled"
+
+
+def test_tier_4_strict_entry_gate_and_stake_only_rejection(test_env):
+    """Anti-Tautological Invariant: Verifies strict Tier 4 admission rules.
+
+    1. Stake-only derivatives (e.g. WTA period_2:moneyline, NBA away_total, NBA half_1:totals)
+       are strictly rejected from Polymarket execution with STAKE_ONLY_MARKET.
+    2. Micro-samples with positive profit (N < 10) are rejected with PROBATION_INSUFFICIENT_SAMPLE.
+    3. Robust segments (N >= 10, PnL >= $2.00, ROI >= 3.5%) qualify as TIER_4_LIVE_PROVEN_ALPHA.
+    """
+    pe = test_env["executor"]
+
+    # 1. Stake-only derivatives rejected regardless of scoreboard
+    is_elig_wta2, r_wta2, cap_wta2 = pe.is_market_eligible("WTA", "period_2", "moneyline", require_tier_4=True)
+    assert is_elig_wta2 is False
+    assert cap_wta2 == 0.0
+    assert "STAKE_ONLY_MARKET" in r_wta2
+
+    is_elig_team_tot, r_tt, cap_tt = pe.is_market_eligible("NBA", "full_game", "away_total", require_tier_4=True)
+    assert is_elig_team_tot is False
+    assert cap_tt == 0.0
+    assert "STAKE_ONLY_MARKET" in r_tt
+
+    is_elig_nba_h1, r_nba_h1, cap_nba_h1 = pe.is_market_eligible("NBA", "half_1", "totals", require_tier_4=True)
+    assert is_elig_nba_h1 is False
+    assert cap_nba_h1 == 0.0
+    assert "STAKE_ONLY_MARKET" in r_nba_h1
+
+    # 2. Mock scoreboard with:
+    # - Micro-sample positive wagers: MLB full_game moneyline (N=1, PnL=+$0.63)
+    # - Robust positive wagers: NBA full_game totals (N=31, PnL=+$25.95, ROI=+10.4%)
+    pe._cached_scoreboard = {
+        "alpha_segments": [
+            {
+                "segment": "NBA|full_game|totals",
+                "league": "NBA",
+                "scope": "full_game",
+                "family": "totals",
+                "pnl": 25.95,
+                "roi_pct": 10.4,
+                "games": 31,
+                "sub_tier": "SOLID_ALPHA",
+            }
+        ],
+        "exploration_segments": [
+            {
+                "segment": "MLB|full_game|moneyline",
+                "league": "MLB",
+                "scope": "full_game",
+                "family": "moneyline",
+                "pnl": 0.63,
+                "roi_pct": 63.0,
+                "games": 1,
+                "sub_tier": "EXPLORATION",
+            }
+        ],
+        "underperforming_segments": [],
+    }
+    pe._scoreboard_cached_at = 9999999999.0
+
+    # Micro-sample N=1 must be rejected from Tier 4 execution
+    is_elig_mlb, r_mlb, cap_mlb = pe.is_market_eligible("MLB", "full_game", "moneyline", require_tier_4=True)
+    assert is_elig_mlb is False
+    assert cap_mlb == 0.0
+    assert "PROBATION_INSUFFICIENT_SAMPLE" in r_mlb
+
+    # Robust N=31 qualifies for Tier 4
+    is_elig_nba, r_nba, cap_nba = pe.is_market_eligible("NBA", "full_game", "totals", require_tier_4=True)
+    assert is_elig_nba is True
+    assert cap_nba >= 3.50
+    assert "TIER_4_LIVE_PROVEN_ALPHA" in r_nba
+
 
 

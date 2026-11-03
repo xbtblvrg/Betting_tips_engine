@@ -40,32 +40,40 @@ class PolymarketOutcomeSettler:
         self.proxy_address = proxy_address or os.getenv("POLYMARKET_PROXY")
 
     def fetch_polymarket_positions(self) -> Dict[str, Dict[str, Any]]:
-        """Fetches official live account positions directly from Polymarket Data API.
+        """Fetches official live account positions directly from Polymarket Data API v2.
         
-        Indexed by token ID ('asset'). Provides exact dollar amounts, cash PnL,
+        Indexed by token ID ('token_id' or 'asset'). Provides exact dollar amounts, cash PnL,
         redemption status, and oracle resolution directly from Polymarket.
         """
         if not self.proxy_address:
             return {}
-        url = f"https://data-api.polymarket.com/positions?user={self.proxy_address}"
+        url = f"https://data-api.polymarket.com/v2/positions?user={self.proxy_address}"
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
             with urllib.request.urlopen(req, timeout=5) as r:
-                positions = json.loads(r.read().decode())
-                return {p.get("asset"): p for p in positions if isinstance(p, dict) and p.get("asset")}
+                res = json.loads(r.read().decode())
+                positions = res.get("data", res) if isinstance(res, dict) else res
+                out = {}
+                for p in positions:
+                    if isinstance(p, dict):
+                        tid = p.get("token_id") or p.get("asset")
+                        if tid:
+                            out[str(tid)] = p
+                return out
         except Exception as exc:
             log.warning(f"Could not fetch Polymarket positions from Data API: {exc}")
             return {}
 
     def fetch_recent_redemptions(self) -> List[Dict[str, Any]]:
-        """Fetches recent REDEEM activities and on-chain payout transaction hashes."""
+        """Fetches recent REDEEM activities and on-chain payout transaction hashes from v2."""
         if not self.proxy_address:
             return []
-        url = f"https://data-api.polymarket.com/activity?user={self.proxy_address}&limit=20"
+        url = f"https://data-api.polymarket.com/v2/activity?user={self.proxy_address}&limit=20"
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
             with urllib.request.urlopen(req, timeout=5) as r:
-                activities = json.loads(r.read().decode())
+                res = json.loads(r.read().decode())
+                activities = res.get("data", res) if isinstance(res, dict) else res
                 return [a for a in activities if isinstance(a, dict) and a.get("type") == "REDEEM"]
         except Exception as exc:
             log.warning(f"Could not fetch Polymarket redemptions: {exc}")
@@ -188,7 +196,8 @@ class PolymarketOutcomeSettler:
         gamma_res_cache: Dict[str, Optional[Dict[str, Any]]] = {}
 
         try:
-            with sqlite3.connect(self.db_path, timeout=10) as conn:
+            with sqlite3.connect(self.db_path, timeout=30.0) as conn:
+                conn.execute("PRAGMA busy_timeout = 30000;")
                 conn.row_factory = sqlite3.Row
                 cur = conn.cursor()
 

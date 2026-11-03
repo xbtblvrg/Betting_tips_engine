@@ -29,6 +29,26 @@ from .providers import DATA
 log = logging.getLogger(__name__)
 
 
+DEFAULT_POLYMARKET_LEAGUES: Tuple[str, ...] = (
+    "NBA",
+    "NFL",
+    "NHL",
+    "MLB",
+    "WNBA",
+    "NCAAF",
+    "NCAAB",
+    "MLS",
+    "EPL",
+    "UCL",
+    "UEL",
+    "LALIGA",
+    "BUNDESLIGA",
+    "SERIEA",
+    "ATP",
+    "WTA",
+)
+
+
 class PolymarketRDPrioritizer:
     """Prioritizes model synthesis and calibration repairs for liquid Polymarket contracts."""
 
@@ -45,14 +65,29 @@ class PolymarketRDPrioritizer:
 
     def scan_and_prioritize_gaps(
         self,
-        leagues: Tuple[str, ...] = ("NBA", "NFL", "NHL"),
+        leagues: Optional[Tuple[str, ...]] = None,
     ) -> Dict[str, Any]:
         """Scans reachable contracts, identifies unproven gaps, and enqueues learning jobs."""
+        target_leagues = leagues if leagues is not None else DEFAULT_POLYMARKET_LEAGUES
         discovered_segments: Set[str] = set()
         segment_details: Dict[str, Dict[str, Any]] = {}
 
-        # 1. Discover reachable contracts across target leagues (Parallel Concurrent Fetch)
+        # 1. Seed standard full-game contract types across all target leagues
+        for lg in target_leagues:
+            for fam in ("moneyline", "spreads", "totals"):
+                seg_key = f"{lg}|full_game|{fam}"
+                discovered_segments.add(seg_key)
+                segment_details[seg_key] = {
+                    "league": lg,
+                    "scope": "full_game",
+                    "market_family": fam,
+                    "sample_event": f"Active {lg} CLOB Orderbook",
+                    "sample_token": None,
+                }
+
+        # 2. Discover live open contracts across target leagues (Parallel Concurrent Fetch)
         from concurrent.futures import ThreadPoolExecutor
+
         def _fetch_league(lg: str):
             try:
                 return lg, self.service.get_open_events(league=lg, horizon_hours=72.0)
@@ -60,8 +95,8 @@ class PolymarketRDPrioritizer:
                 log.warning(f"Error scanning Polymarket events for league {lg}: {exc}")
                 return lg, []
 
-        with ThreadPoolExecutor(max_workers=min(8, len(leagues))) as pool:
-            league_results = list(pool.map(_fetch_league, leagues))
+        with ThreadPoolExecutor(max_workers=min(8, len(target_leagues))) as pool:
+            league_results = list(pool.map(_fetch_league, target_leagues))
 
         for league, events in league_results:
             for ev in events:
@@ -82,22 +117,43 @@ class PolymarketRDPrioritizer:
                     seg_key = f"{league}|{scope}|{m_fam}"
                     discovered_segments.add(seg_key)
 
-                    if seg_key not in segment_details:
-                        tokens = m.get("clobTokenIds", [])
-                        if isinstance(tokens, str):
-                            try:
-                                tokens = json.loads(tokens)
-                            except Exception:
-                                tokens = [tokens]
-                        segment_details[seg_key] = {
-                            "league": league,
-                            "scope": scope,
-                            "market_family": m_fam,
-                            "sample_event": ev.get("title", "Unknown"),
-                            "sample_token": tokens[0] if tokens else None,
-                        }
+                    tokens = m.get("clobTokenIds", [])
+                    if isinstance(tokens, str):
+                        try:
+                            tokens = json.loads(tokens)
+                        except Exception:
+                            tokens = [tokens]
 
-        # 2. Evaluate each discovered segment for Tier 3 Proven Alpha
+                    segment_details[seg_key] = {
+                        "league": league,
+                        "scope": scope,
+                        "market_family": m_fam,
+                        "sample_event": ev.get("title", f"Active {league} Match"),
+                        "sample_token": tokens[0] if tokens else None,
+                    }
+
+        # 3. Load authoritative UnifiedMarketUniverse & SegmentScoreboard metadata
+        roster = {}
+        try:
+            from .unified_market_universe import UnifiedMarketUniverse
+            umu = UnifiedMarketUniverse(data_dir=DATA)
+            roster = umu.build_universe_roster()
+        except Exception as exc:
+            log.warning(f"Could not load UnifiedMarketUniverse: {exc}")
+
+        scoreboard_segs = {}
+        try:
+            from .segment_scoreboard import compute_segment_scoreboard
+            if self.db_path.exists():
+                with sqlite3.connect(self.db_path, timeout=30.0) as conn:
+                    conn.execute("PRAGMA busy_timeout = 30000;")
+                    sb = compute_segment_scoreboard(conn)
+                    for s in (sb.get("alpha_segments", []) + sb.get("exploration_segments", []) + sb.get("underperforming_segments", [])):
+                        scoreboard_segs[s["segment"]] = s
+        except Exception as exc:
+            log.warning(f"Could not load SegmentScoreboard: {exc}")
+
+        # 4. Evaluate each discovered segment for Tier 4 Proven Alpha vs Tier 3 Probation vs Tier 2 Gaps
         proven_markets: List[Dict[str, Any]] = []
         unproven_gaps: List[Dict[str, Any]] = []
 
@@ -107,17 +163,52 @@ class PolymarketRDPrioritizer:
             scope = details["scope"]
             m_fam = details["market_family"]
 
+            # Match scoreboard stats (using aliases if needed)
+            sb_match = None
+            for k, v in scoreboard_segs.items():
+                if v.get("league") == league and v.get("scope") == scope:
+                    f_name = v.get("family", "")
+                    if m_fam in f_name or f_name in m_fam or (m_fam == "moneyline" and f_name in ("three_way", "winner", "h2h")):
+                        sb_match = v
+                        break
+
+            live_games = int(sb_match.get("games", 0)) if sb_match else 0
+            live_pnl = float(sb_match.get("pnl", 0.0)) if sb_match else 0.0
+            live_roi_pct = float(sb_match.get("roi_pct", 0.0)) if sb_match else 0.0
+
+            # Match model archetype from universe
+            u_entry = roster.get(seg_key)
+            model_id = u_entry.active_model_id if u_entry and u_entry.active_model_id else f"{league.lower()}_{scope}_{m_fam}_kernel"
+            model_archetype = u_entry.model_archetype if u_entry and u_entry.model_archetype else "CalibratedDomainKernel"
+
             is_eligible, reason, stake_cap = self.executor.is_market_eligible(
                 league=league,
                 scope=scope,
                 market_family=m_fam,
+                require_tier_4=True,
             )
+
+            if is_eligible:
+                tier_status = "TIER_4_PROVEN"
+            elif live_pnl > 0.0 and live_games > 0:
+                tier_status = "TIER_3_PROBATION"
+            elif live_pnl < 0.0 and live_games > 0:
+                tier_status = "TIER_2_UNDERPERFORMING"
+            else:
+                tier_status = "TIER_2_INCUBATING"
 
             seg_info = {
                 "segment_key": seg_key,
                 "league": league,
                 "scope": scope,
                 "market_family": m_fam,
+                "model_id": model_id,
+                "model_archetype": model_archetype,
+                "live_games": live_games,
+                "live_pnl": round(live_pnl, 2),
+                "live_roi_pct": round(live_roi_pct, 1),
+                "is_profitable": (live_pnl > 0.0) if live_games > 0 else (False if live_games > 0 and live_pnl < 0.0 else None),
+                "tier_status": tier_status,
                 "sample_event": details["sample_event"],
                 "sample_token": details["sample_token"],
                 "reason": reason,
@@ -135,7 +226,8 @@ class PolymarketRDPrioritizer:
 
         if self.db_path.exists() and unproven_gaps:
             try:
-                with sqlite3.connect(self.db_path, timeout=10) as conn:
+                with sqlite3.connect(self.db_path, timeout=30.0) as conn:
+                    conn.execute("PRAGMA busy_timeout = 30000;")
                     for gap in unproven_gaps:
                         seg_key = gap["segment_key"]
                         league = gap["league"]
@@ -187,5 +279,6 @@ class PolymarketRDPrioritizer:
             "unproven_gaps_count": len(unproven_gaps),
             "proven_markets": proven_markets,
             "unproven_gaps": unproven_gaps,
+            "all_reachable_markets": proven_markets + unproven_gaps,
             "enqueued_jobs_count": enqueued_count,
         }

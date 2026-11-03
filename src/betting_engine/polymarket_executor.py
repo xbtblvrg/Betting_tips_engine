@@ -267,6 +267,12 @@ class PolymarketAutonomousExecutor:
         """
         if require_tier_4 is not None:
             require_live_profit = require_tier_4
+
+        league = str(league or "").strip().upper()
+        scope = str(scope or "full_game").strip().lower()
+        market_family = str(market_family or "").strip().lower()
+        clean_fam = market_family.split(":")[-1] if ":" in market_family else market_family
+
         family_aliases = [market_family]
         if market_family in ("moneyline", "winner", "head_to_head", "h2h"):
             family_aliases.extend(["moneyline", "winner", "h2h", f"{scope}:moneyline", f"{scope}:three_way"])
@@ -285,7 +291,9 @@ class PolymarketAutonomousExecutor:
 
         now_ts = time.time()
 
-        # 1. Check SegmentScoreboard / live ledger governance (cached 60s)
+        # Gate 1: Check SegmentScoreboard / Anti-Loss Invariant (Prime Commandment 1 & 6)
+        # If a market has negative live settled PnL or is UNDERPERFORMING in live wagers,
+        # it is strictly quarantined ($0.00 virtual stakes). A historical diploma can NEVER override negative live reality!
         self._get_or_refresh_scoreboard()
 
         if self._cached_scoreboard:
@@ -295,9 +303,6 @@ class PolymarketAutonomousExecutor:
                 + self._cached_scoreboard.get("underperforming_segments", [])
             )
 
-            # Invariant 1: Anti-Loss Invariant
-            # If a market has negative live settled PnL or is UNDERPERFORMING in live wagers,
-            # it is strictly quarantined ($0.00 virtual stakes). A historical diploma can NEVER override negative live reality!
             for s in all_segs:
                 if s.get("league") == league and s.get("scope") == scope:
                     s_fam = s.get("family", "")
@@ -313,8 +318,46 @@ class PolymarketAutonomousExecutor:
                                 0.0,
                             )
 
-            # Invariant 2: Live Ledger Proven Alpha (Tier 4)
-            # If confirmed positive live settled profit exists in SegmentScoreboard, the market is eligible!
+        # Gate 2: Polymarket Contract Taxonomy Invariant:
+        # Strictly reject Stake sportsbook exclusive derivatives that have no Polymarket CLOB contract equivalent.
+        if any(deriv in market_family for deriv in ("home_total", "away_total", "team_total", "team_totals")):
+            return (
+                False,
+                f"STAKE_ONLY_MARKET: Segment {league}|{scope}|{market_family} (individual team total) is a Stake sportsbook exclusive market with no corresponding Polymarket contract type.",
+                0.0,
+            )
+        if scope in ("period_2", "period_3", "innings_1_5"):
+            return (
+                False,
+                f"STAKE_ONLY_MARKET: Segment {league}|{scope}|{market_family} (derivative scope {scope}) is a Stake sportsbook exclusive market with no corresponding Polymarket contract type. Active in Tier 3 on Stake.",
+                0.0,
+            )
+        if league in ("WTA", "ATP") and scope != "full_game":
+            return (
+                False,
+                f"STAKE_ONLY_MARKET: Segment {league}|{scope}|{market_family} (tennis period market) is a Stake sportsbook exclusive market with no corresponding Polymarket contract type. Active in Tier 3 on Stake.",
+                0.0,
+            )
+        if league in ("MLS", "EPL", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA") and scope != "full_game":
+            return (
+                False,
+                f"STAKE_ONLY_MARKET: Segment {league}|{scope}|{market_family} (soccer period/half market) is not offered on Polymarket CLOB books. Active in Tier 3 on Stake.",
+                0.0,
+            )
+        if league in ("NBA", "NCAAB", "WNBA", "CBB") and scope != "full_game":
+            return (
+                False,
+                f"STAKE_ONLY_MARKET: Segment {league}|{scope}|{market_family} (basketball period/quarter/half market) is not currently offered on Polymarket CLOB books. Active in Tier 3 on Stake.",
+                0.0,
+            )
+
+        if self._cached_scoreboard:
+
+            # Invariant 2: Live Ledger Proven Alpha (Tier 4 Gate)
+            # A segment qualifies for Tier 4 ONLY if:
+            # 1. It has confirmed positive live settled profit in SegmentScoreboard (PnL >= $2.00, ROI >= +3.5%)
+            # 2. It has achieved statistical significance in live wagers (games >= 10)
+            # Micro-sample exploration wagers (N < 10) or small-profit segments remain in Tier 3 / Shadow Incubator ($0.00).
             candidate_segments = (
                 self._cached_scoreboard.get("alpha_segments", [])
                 + [s for s in self._cached_scoreboard.get("exploration_segments", []) if s.get("pnl", 0.0) > 0.0 and s.get("roi_pct", 0.0) > 0.0]
@@ -335,13 +378,25 @@ class PolymarketAutonomousExecutor:
                     pnl = float(matched_s.get("pnl", 0.0))
                     sample = int(matched_s.get("games", 0))
                     sub_tier = matched_s.get("sub_tier", "SOLID_ALPHA")
-                    if pnl > 0.0:
+
+                    # Check Tier 4 Proven Alpha quorum: N >= 10 games, PnL >= $2.00, ROI >= +3.5%
+                    is_tier_4_proven = (sample >= 10 and pnl >= 2.00 and roi >= 3.5)
+
+                    if is_tier_4_proven:
                         stake_cap = 8.0 if (sub_tier == "SUPER_ALPHA" or roi >= 15.0) else 3.50
                         return (
                             True,
                             f"TIER_4_LIVE_PROVEN_ALPHA: Verified Live Profit on Stake (LIVE_LEDGER_PROVEN_PROFIT: PnL: +${pnl:.2f}, ROI: +{roi:.1f}%, N={sample})",
                             stake_cap,
                         )
+                    elif pnl > 0.0:
+                        # Early positive probation (N < 10 or small profit): Eligible for Tier 3 Stake production, but NOT Polymarket Tier 4
+                        if require_live_profit:
+                            return (
+                                False,
+                                f"PROBATION_INSUFFICIENT_SAMPLE: Segment {seg_keys[0]} has early live profit (PnL: +${pnl:.2f}, ROI: +{roi:.1f}%, N={sample}), but has not met Tier 4 Proven Alpha standard (N >= 10, PnL >= $2.00, ROI >= +3.5%). Active in Tier 3 on Stake.",
+                                0.0,
+                            )
 
         # If live profit is strictly required and not proven in live bets: reject
         if require_live_profit:
@@ -419,7 +474,7 @@ class PolymarketAutonomousExecutor:
                 "stake_cap": cap,
                 "reason": reason,
             }
-        elif "TIER_3" in reason:
+        elif "TIER_3" in reason or "PROBATION" in reason:
             return {
                 "tier": 3,
                 "tier_name": "TIER_3_STAKE_PRODUCTION",
@@ -877,7 +932,8 @@ class PolymarketAutonomousExecutor:
         # Atomic DB deduplication guard: Ensure token is not already actively placed
         if self.db_path.exists():
             try:
-                with sqlite3.connect(self.db_path, timeout=5) as conn:
+                with sqlite3.connect(self.db_path, timeout=30.0) as conn:
+                    conn.execute("PRAGMA busy_timeout = 30000;")
                     active_row = conn.execute(
                         "SELECT id FROM polymarket_orders WHERE token_id = ? AND status IN ('open', 'filled', 'staged', 'signed', 'relayed')",
                         (token_id,)
@@ -1543,6 +1599,16 @@ class PolymarketAutonomousExecutor:
             except Exception:
                 pass
 
+        sb = self._get_or_refresh_scoreboard()
+        t4_segments_count = 0
+        for seg in sb.get("alpha_segments", []):
+            l = seg.get("league", "")
+            sc = seg.get("scope", "full_game")
+            fam = seg.get("family", "")
+            is_elig, _, _ = self.is_market_eligible(l, sc, fam, require_tier_4=True)
+            if is_elig:
+                t4_segments_count += 1
+
         return {
             "channel": "polymarket_autonomous_parallel_executor",
             "active": True,
@@ -1593,8 +1659,9 @@ class PolymarketAutonomousExecutor:
                 "active": True,
                 "label": "Tier 4 Live Proven Alpha Gate",
                 "policy": "Only markets with confirmed positive live settled profit on Stake execute funded trades on Polymarket.",
-                "cached_scoreboard_loaded": bool(self._get_or_refresh_scoreboard()),
-                "tier_4_segments_count": len(self._get_or_refresh_scoreboard().get("alpha_segments", [])),
+                "cached_scoreboard_loaded": bool(sb),
+                "tier_4_segments_count": t4_segments_count,
+                "stake_alpha_segments_count": len(sb.get("alpha_segments", [])),
             },
             "identification_and_taxonomy_observability": {
                 "unmatched_events_count": runner_state.get("unmatched_events_count", 0),

@@ -61,6 +61,33 @@ def _normalize_name(name: str) -> str:
     return re.sub(r"[^a-z0-9]", "", name)
 
 
+def _canonical_match_key(norm_name: str) -> str:
+    """Strip common variations, prefixes, and multilingual aliases for fuzzy matching."""
+    if not norm_name:
+        return ""
+    k = norm_name
+    for prefix in ("fc", "cf", "club", "sk", "vfb", "stade"):
+        if k.startswith(prefix) and len(k) > len(prefix) + 3:
+            k = k[len(prefix):]
+    aliases = {
+        "munchen": "munich",
+        "clubatleticode": "atletico",
+        "atleticode": "atletico",
+        "atletico": "atletico",
+        "internazionale": "inter",
+        "parissaintgermain": "psg",
+        "sportingcp": "sporting",
+        "sportingclube": "sporting",
+        "wolves": "wolverhampton",
+        "mancity": "manchestercity",
+        "manutd": "manchesterunited",
+        "manunited": "manchesterunited",
+    }
+    for src, tgt in aliases.items():
+        k = k.replace(src, tgt)
+    return k
+
+
 def _safe_float(val: Any, default: float = 0.0) -> float:
     try:
         f = float(val)
@@ -152,8 +179,12 @@ class PolymarketService:
             except Exception:
                 pass
 
-        url = f"https://gamma-api.polymarket.com/events?closed=false&limit=100&series_id={series_id}"
+        url = f"https://gamma-api.polymarket.com/events?closed=false&order=startTime&ascending=true&limit=100&series_id={series_id}"
         events = self._http_get_json(url)
+        if events is None:
+            # Fallback to query without ordering if API fails
+            fallback_url = f"https://gamma-api.polymarket.com/events?closed=false&limit=100&series_id={series_id}"
+            events = self._http_get_json(fallback_url)
         if events is None:
             # Fallback to stale cache if present
             if cache_file.exists():
@@ -167,7 +198,7 @@ class PolymarketService:
         for e in events:
             if not isinstance(e, dict):
                 continue
-            start_str = e.get("startTime")
+            start_str = e.get("startTime") or e.get("startDate")
             if not start_str:
                 continue
             try:
@@ -229,10 +260,18 @@ class PolymarketService:
 
                 def team_matches(game_norm: str, t_info: Dict[str, str]) -> bool:
                     if t_info["alias"]:
-                        return (t_info["alias"] in game_norm or game_norm in t_info["alias"]
-                                or t_info["full"] in game_norm or game_norm in t_info["full"])
+                        if (t_info["alias"] in game_norm or game_norm in t_info["alias"]
+                                or t_info["full"] in game_norm or game_norm in t_info["full"]):
+                            return True
                     if len(t_info["name"]) >= 5:
-                        return t_info["name"] in game_norm or game_norm in t_info["name"]
+                        if t_info["name"] in game_norm or game_norm in t_info["name"]:
+                            return True
+                    # Check canonical match keys for cross-platform international clubs
+                    c_game = _canonical_match_key(game_norm)
+                    c_tname = _canonical_match_key(t_info["name"])
+                    if len(c_game) >= 4 and len(c_tname) >= 4:
+                        if c_game in c_tname or c_tname in c_game:
+                            return True
                     return False
 
                 # Ensure distinct 1-to-1 assignment: home matches T0 and away matches T1, OR home matches T1 and away matches T0
@@ -242,8 +281,16 @@ class PolymarketService:
                        (team_matches(norm_home, t1) and team_matches(norm_away, t0)):
                         matched_teams = True
 
-            if not matched_teams and norm_home in title and norm_away in title:
-                matched_teams = True
+            if not matched_teams:
+                if norm_home in title and norm_away in title:
+                    matched_teams = True
+                else:
+                    c_home = _canonical_match_key(norm_home)
+                    c_away = _canonical_match_key(norm_away)
+                    c_title = _canonical_match_key(title)
+                    if len(c_home) >= 4 and len(c_away) >= 4:
+                        if c_home in c_title and c_away in c_title:
+                            matched_teams = True
 
             if matched_teams:
                 if target_start:
@@ -493,6 +540,8 @@ class PolymarketService:
                                     "best_bid": round(1.0 - away_ask, 4),
                                     "best_ask": home_ask,
                                     "market_id": m.get("id"),
+                                    "market_slug": m.get("slug"),
+                                    "market_url": f"https://polymarket.com/event/{matched_event.get('slug')}" if matched_event.get("slug") else None,
                                     "question": m.get("question"),
                                     "scope": scope,
                                 }
@@ -509,6 +558,8 @@ class PolymarketService:
                                     "best_bid": round(1.0 - home_ask, 4),
                                     "best_ask": away_ask,
                                     "market_id": m.get("id"),
+                                    "market_slug": m.get("slug"),
+                                    "market_url": f"https://polymarket.com/event/{matched_event.get('slug')}" if matched_event.get("slug") else None,
                                     "question": m.get("question"),
                                     "scope": scope,
                                 }
@@ -574,6 +625,8 @@ class PolymarketService:
                                     "best_bid": best_bid,
                                     "best_ask": best_ask,
                                     "market_id": m.get("id"),
+                                    "market_slug": m.get("slug"),
+                                    "market_url": f"https://polymarket.com/event/{matched_event.get('slug')}" if matched_event.get("slug") else None,
                                     "question": m.get("question"),
                                     "scope": scope,
                                 }
@@ -583,11 +636,14 @@ class PolymarketService:
         has_ml = "home" in ml_data and "away" in ml_data
         has_spreads = bool(spreads_data)
         has_totals = bool(totals_data)
+        slug_val = matched_event.get("slug")
+        event_url = f"https://polymarket.com/event/{slug_val}" if slug_val else (f"https://polymarket.com/event/{matched_event.get('id')}" if matched_event.get("id") else None)
         summary = {
             "matched": True,
             "event_id": str(matched_event.get("id")),
             "title": matched_event.get("title"),
-            "slug": matched_event.get("slug"),
+            "slug": slug_val,
+            "event_url": event_url,
             "has_moneyline": has_ml,
             "moneyline": ml_data,
             "has_spreads": has_spreads,

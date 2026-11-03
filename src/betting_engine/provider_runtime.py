@@ -140,7 +140,7 @@ class RuntimeTransport:
         if provider != 'claude' or model != 'claude-opus-5-5':
             raise ValueError('Unapproved fallback provider')
         from .ai_delegation import invoke, file_lock
-        with file_lock(self.root / 'data/development/ai-locks/claude.lock', blocking=False) as acquired:
+        with file_lock(self.root / 'data/development/ai-locks/claude.lock', timeout=15.0) as acquired:
             if not acquired:
                 raise ProviderUnavailable('Claude capacity is in use; retry later')
             result = invoke('claude', {'binary': self.config['claude_binary'],
@@ -322,6 +322,11 @@ def run_ai_step(worker, schema, output, prefix, prompt, timeout=1200,
     try:
         while time.monotonic() < deadline:
             route = router.get_selection()
+            if not route or tried.get(route['id'], 0) >= 2 or (require_codex and route['provider'] not in ('codex', 'agy')):
+                for candidate in getattr(router, 'policy', {}).get('routes', []):
+                    if candidate and tried.get(candidate['id'], 0) < 2 and (not require_codex or candidate['provider'] in ('codex', 'agy')):
+                        route = dict(candidate)
+                        break
             progress = None
             if not route or tried.get(route['id'], 0) >= 2 or (require_codex and route['provider'] not in ('codex', 'agy')):
                 # One bounded action at a time. Retain the original step budget
@@ -331,6 +336,11 @@ def run_ai_step(worker, schema, output, prefix, prompt, timeout=1200,
                     raise ProviderUnavailable('Provider unavailable within remaining step budget; retry retains all prior evidence')
                 progress = router.periodic_tick(max_actions=1)
                 route = router.get_selection()
+                if not route or tried.get(route['id'], 0) >= 2 or (require_codex and route['provider'] not in ('codex', 'agy')):
+                    for candidate in getattr(router, 'policy', {}).get('routes', []):
+                        if candidate and tried.get(candidate['id'], 0) < 2 and (not require_codex or candidate['provider'] in ('codex', 'agy')):
+                            route = dict(candidate)
+                            break
             if not route or tried.get(route['id'], 0) >= 2 or (require_codex and route['provider'] not in ('codex', 'agy')):
                 if isinstance(progress, dict) and progress.get('actions', 0) > 0:
                     continue
@@ -364,13 +374,14 @@ def run_ai_step(worker, schema, output, prefix, prompt, timeout=1200,
                 elif route['provider'] == 'agy':
                     from .claude_development import prepare_step, apply_edits
                     from .agy_development import finish_agy_step
-                    with file_lock(worker.root / 'data/development/ai-locks/agy.lock', timeout=180.0) as acquired, tempfile.TemporaryDirectory(prefix='quant-agy-candidate-') as temporary:
+                    with file_lock(worker.root / 'data/development/ai-locks/agy.lock', timeout=15.0) as acquired, tempfile.TemporaryDirectory(prefix='quant-agy-candidate-') as temporary:
                         if not acquired:
                             raise ProviderUnavailable('Antigravity capacity is in use; candidate retained for retry')
                         agy_binary = runtime.config.get('agy_binary', '/Users/belavarga/.local/bin/agy')
                         prepared = prepare_step(worker.root, worker.workspace, Path(temporary).resolve(),
                             getattr(worker, 'current_task', {}), prompt, read_json(schema),
                             readonly=sandbox == 'read-only', binary=agy_binary,
+                            max_files=48, max_source_bytes=245760,
                             protected_paths=(*__import__('betting_engine.development', fromlist=['PROTECTED']).PROTECTED,
                                 *(name for name in worker.readonly_input_paths() if name != '.git')),
                             preferred_paths=extract_task_preferred_paths(getattr(worker, 'current_task', {})))
@@ -393,7 +404,7 @@ def run_ai_step(worker, schema, output, prefix, prompt, timeout=1200,
                         atomic_json(output, result['report'])
                 else:
                     from .claude_development import prepare_step, finish_step, apply_edits
-                    with file_lock(worker.root / 'data/development/ai-locks/claude.lock', blocking=False) as acquired, tempfile.TemporaryDirectory(prefix='quant-claude-candidate-') as temporary:
+                    with file_lock(worker.root / 'data/development/ai-locks/claude.lock', timeout=15.0) as acquired, tempfile.TemporaryDirectory(prefix='quant-claude-candidate-') as temporary:
                         if not acquired:
                             raise ProviderUnavailable('Claude capacity is in use; candidate retained for retry')
                         prepared = prepare_step(worker.root, worker.workspace, Path(temporary).resolve(),
@@ -425,7 +436,8 @@ def run_ai_step(worker, schema, output, prefix, prompt, timeout=1200,
                 return record
             except ProviderUnavailable:
                 record.update(state='capacity_wait', finished_at_epoch=time.time())
-                raise
+                tried[route['id']] = 2
+                continue
             except (RuntimeError, TimeoutError) as exc:
                 observation = failure_observation(step, exc)
                 record.update(state='failed', finished_at_epoch=time.time(), observation=observation)

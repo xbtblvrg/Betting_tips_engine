@@ -110,12 +110,48 @@ class DiscreteDistribution:
         p_away: Overall probability that away wins.
         p_draw: Overall probability of a regulation draw/tie.
     """
-    scores: Dict[Tuple[int, int], float]
-    home_expected: float
-    away_expected: float
-    p_home: float
-    p_away: float
+    scores: Dict[Tuple[int, int], float] = field(default_factory=dict)
+    home_expected: float = 0.0
+    away_expected: float = 0.0
+    p_home: float = 0.0
+    p_away: float = 0.0
     p_draw: float = 0.0
+
+    def __init__(
+        self,
+        scores: Optional[Dict[Tuple[int, int], float]] = None,
+        home_expected: float = 0.0,
+        away_expected: float = 0.0,
+        p_home: float = 0.0,
+        p_away: float = 0.0,
+        p_draw: float = 0.0,
+        probabilities: Optional[Dict[str, float]] = None,
+    ):
+        if probabilities is not None:
+            p_h = float(probabilities.get('home') or probabilities.get('1') or 0.33)
+            p_d = float(probabilities.get('draw') or probabilities.get('x') or probabilities.get('tie') or 0.0)
+            p_a = float(probabilities.get('away') or probabilities.get('2') or 0.33)
+            tot = p_h + p_d + p_a
+            if tot > 0:
+                p_h, p_d, p_a = p_h / tot, p_d / tot, p_a / tot
+            self.p_home = max(0.01, min(0.99, round(p_h, 4)))
+            self.p_away = max(0.01, min(0.99, round(p_a, 4)))
+            self.p_draw = max(0.0, min(0.99, round(p_d, 4)))
+            self.home_expected = float(home_expected or p_h)
+            self.away_expected = float(away_expected or p_a)
+            self.scores = scores or {(1, 0): self.p_home, (0, 0): self.p_draw, (0, 1): self.p_away}
+        else:
+            self.scores = scores or {}
+            self.home_expected = float(home_expected)
+            self.away_expected = float(away_expected)
+            self.p_home = float(p_home)
+            self.p_away = float(p_away)
+            self.p_draw = float(p_draw)
+
+    @classmethod
+    def from_probabilities(cls, p_home: float, p_draw: float = 0.0, p_away: float = 0.0) -> DiscreteDistribution:
+        """Constructs discrete distribution directly from win/draw/loss probabilities."""
+        return cls(probabilities={'home': p_home, 'draw': p_draw, 'away': p_away})
 
     @classmethod
     def from_scores(cls, scores: Dict[Tuple[int, int], float]) -> DiscreteDistribution:

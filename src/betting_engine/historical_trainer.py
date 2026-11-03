@@ -83,11 +83,17 @@ def get_default_segment_context(league: str, scope: str) -> Dict[str, Any]:
     elif 'period_2' in sc or 'period_3' in sc:
         scale = 0.33
 
+    now_iso = datetime.now(timezone.utc).isoformat()
+    h_scaled = round(h_full * scale, 3)
+    a_scaled = round(a_full * scale, 3)
     return {
-        'home_expected': round(h_full * scale, 3),
-        'away_expected': round(a_full * scale, 3),
+        'home_expected': h_scaled,
+        'away_expected': a_scaled,
         'home_rest_days': 1,
         'away_rest_days': 1,
+        'prediction_timestamp': now_iso,
+        'home': {'attack': {'goals': h_scaled, 'exposure': 1.0}, 'defense': {'goals': a_scaled, 'exposure': 1.0}},
+        'away': {'attack': {'goals': a_scaled, 'exposure': 1.0}, 'defense': {'goals': h_scaled, 'exposure': 1.0}},
     }
 
 
