@@ -608,7 +608,7 @@ class {class_name}(BaseCandidateModel):
             f"2. Implement 'predict_distribution(self, game_context: Dict[str, Any]) -> DiscreteDistribution'. Construct distributions using either `DiscreteDistribution(probabilities={{'home': p_h, 'draw': p_d, 'away': p_a}})` for 3-way/moneyline, `DiscreteDistribution.from_probabilities(p_home, p_draw, p_away)`, or `DiscreteDistribution.from_scores(scores)` for score matrices.\n"
             f"3. INSTITUTIONAL QUANT PRIMITIVES & ECOSYSTEM:\n"
             f"   You have direct access to Python's scientific mathematical ecosystem:\n"
-            f"   - Standard libraries: 'math', 'typing', 'numpy', 'scipy' (scipy.stats, scipy.optimize, scipy.integrate, scipy.special, scipy.linalg), 'sklearn' (linear_model, isotonic, calibration), 'torch' (autograd/tensors), 'mpmath'.\n"
+            f"   - Standard libraries: 'math', 'typing', 'numpy', 'scipy' (scipy.stats, scipy.optimize, scipy.integrate, scipy.special, scipy.linalg), 'sklearn' (linear_model, isotonic, calibration), 'statsmodels' (api, tsa, glm), 'pandas', 'mpmath'.\n"
             f"   - Pre-built Quant Primitives (already in execution scope, no import needed):\n"
             f"     * 'ClaytonCopula(theta)': Lower-tail asymmetric dependence for low-scoring/collapse games.\n"
             f"     * 'GumbelCopula(theta)': Upper-tail asymmetric dependence for shootouts/over-pace clusters.\n"
