@@ -30,7 +30,7 @@ log = logging.getLogger(__name__)
 
 RUNNER_STATE_FILE = DATA / "polymarket_runner_state.json"
 _RUNNER_CYCLE_LOCK = threading.Lock()
-DEFAULT_RUNNER_LEAGUES: Tuple[str, ...] = ("NBA", "NFL", "NHL", "EPL", "UCL", "MLS")
+DEFAULT_RUNNER_LEAGUES: Tuple[str, ...] = ("NBA", "NFL", "NHL", "EPL", "UCL", "MLS", "NCAAF")
 
 # Explicit Canonical Taxonomy Mapping for Polymarket Gamma API sportsMarketType
 POLYMARKET_STRUCTURED_TYPE_MAP: Dict[str, Tuple[str, str]] = {
