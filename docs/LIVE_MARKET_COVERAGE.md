@@ -1,15 +1,15 @@
 # Live Stake market coverage
 
-Checked: 2026-11-04T12:51:59.164813+00:00
+Checked: 2026-11-04T13:57:25.225769+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
 | League | Observed titles | Activity unverified | Offered now | Complete 10/10 | Incomplete offered | Evaluated | Funding supported | Ready now | Issued today |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| NFL | 79 | 7 | 41 | 0 | 41 | 23 | 7 | 4 | 0 |
-| NHL | 55 | 9 | 46 | 0 | 46 | 28 | 3 | 2 | 4 |
+| NFL | 79 | 7 | 41 | 0 | 41 | 25 | 8 | 3 | 0 |
+| NHL | 55 | 9 | 46 | 0 | 46 | 28 | 2 | 2 | 4 |
 | MLB | 9 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| NBA | 203 | 29 | 169 | 0 | 169 | 93 | 17 | 14 | 63 |
+| NBA | 203 | 29 | 169 | 0 | 169 | 93 | 16 | 13 | 64 |
 | WNBA | 7 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 
 Current stages require outcome-level evidence; original issuance, settlement and feedback are explicitly historical. 10/10 records observed execution, not proven profitability or automatic model promotion.
@@ -189,7 +189,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | Team to win all quarters | standard | regulation | offered_now | 0/10 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Toronto Raptors Total (Incl. Overtime) | standard | full_game | offered_now | 9/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 7/7 | verified 4/4 | partial 4/5 | 0 |
 | NBA | Toronto Raptors Total Maximum Consecutive Points | standard | regulation | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NBA | Total (Incl. Overtime) | standard | full_game | offered_now | 9/10 | verified 196/196 | verified 196/196 | verified 196/196 | verified 196/196 | verified 196/196 | verified 196/196 | verified 196/196 | verified 150/150 | verified 111/111 | partial 111/112 | 8 |
+| NBA | Total (Incl. Overtime) | standard | full_game | offered_now | 9/10 | verified 196/196 | verified 196/196 | verified 196/196 | verified 196/196 | verified 196/196 | verified 196/196 | verified 196/196 | verified 151/151 | verified 111/111 | partial 111/112 | 9 |
 | NBA | Total (Over-Exact-Under) | standard | regulation | offered_now | 0/10 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Utah Jazz Total (Incl. Overtime) | standard | full_game | offered_now | 9/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 4/4 | verified 1/1 | partial 1/2 | 3 |
 | NBA | Utah Jazz Total Maximum Consecutive Points | standard | regulation | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
@@ -242,15 +242,15 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NFL | 2nd Half - 1x2 (Incl. Overtime) | standard | half_2_ot | offered_now | 5/10 | partial 1/3 | verified 3/3 | partial 1/3 | partial 1/3 | partial 1/3 | verified 1/1 | verified 1/1 | verified 6/6 | verified 6/6 | partial 6/7 | 0 |
 | NFL | 2nd Half - Draw No Bet (Incl. Overtime) | standard | half_2_ot | offered_now | 5/10 | partial 1/2 | verified 2/2 | partial 1/2 | partial 1/2 | partial 1/2 | verified 1/1 | verified 1/1 | verified 1/1 | verified 1/1 | partial 1/2 | 0 |
 | NFL | 2nd Half - Handicap (Incl. Overtime) | standard | half_2_ot | offered_now | 5/10 | partial 1/2 | verified 2/2 | partial 1/2 | partial 1/2 | partial 1/2 | verified 1/1 | verified 1/1 | verified 4/4 | verified 4/4 | partial 4/5 | 0 |
-| NFL | 2nd Half - Total (Incl. Overtime) | standard | half_2_ot | offered_now | 3/10 | not_observed 0/2 | verified 2/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | verified 7/7 | verified 7/7 | awaiting_measurement 7/8 | 0 |
+| NFL | 2nd Half - Total (Incl. Overtime) | standard | half_2_ot | offered_now | 5/10 | partial 1/2 | verified 2/2 | partial 1/2 | partial 1/2 | partial 1/2 | verified 1/1 | verified 1/1 | verified 7/7 | verified 7/7 | partial 7/8 | 0 |
 | NFL | 2nd Quarter - 1x2 | standard | quarter_2 | offered_now | 1/10 | not_observed 0/3 | verified 3/3 | not_observed 0/3 | not_observed 0/3 | not_observed 0/3 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NFL | 2nd Quarter - Draw No Bet | standard | quarter_2 | offered_now | 1/10 | not_observed 0/2 | verified 2/2 | partial 1/2 | partial 1/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NFL | 2nd Quarter - Draw No Bet | standard | quarter_2 | offered_now | 3/10 | partial 1/2 | verified 2/2 | partial 1/2 | partial 1/2 | partial 1/2 | verified 1/1 | verified 1/1 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 2nd Quarter - Handicap | standard | quarter_2 | offered_now | 5/10 | partial 1/2 | verified 2/2 | partial 1/2 | partial 1/2 | partial 1/2 | verified 1/1 | verified 1/1 | verified 1/1 | verified 1/1 | partial 1/2 | 0 |
 | NFL | 2nd Quarter - Total | standard | quarter_2 | offered_now | 5/10 | partial 1/2 | verified 2/2 | partial 1/2 | partial 1/2 | partial 1/2 | verified 1/1 | verified 1/1 | verified 3/3 | verified 3/3 | partial 3/4 | 0 |
 | NFL | 3rd Quarter - 1x2 | standard | quarter_3 | offered_now | 1/10 | not_observed 0/3 | verified 3/3 | not_observed 0/3 | not_observed 0/3 | not_observed 0/3 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 3rd Quarter - Draw No Bet | standard | quarter_3 | offered_now | 3/10 | not_observed 0/2 | verified 2/2 | partial 1/2 | partial 1/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NFL | 3rd Quarter - Handicap | standard | quarter_3 | offered_now | 3/10 | not_observed 0/2 | verified 2/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | verified 4/4 | verified 4/4 | awaiting_measurement 4/5 | 0 |
-| NFL | 3rd Quarter - Total | standard | quarter_3 | offered_now | 3/10 | not_observed 0/2 | verified 2/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | verified 6/6 | verified 6/6 | awaiting_measurement 6/7 | 0 |
+| NFL | 3rd Quarter - Total | standard | quarter_3 | offered_now | 5/10 | partial 1/2 | verified 2/2 | partial 1/2 | partial 1/2 | partial 1/2 | verified 1/1 | verified 1/1 | verified 6/6 | verified 6/6 | partial 6/7 | 0 |
 | NFL | 4th Quarter - 1x2 | standard | quarter_4 | offered_now | 1/10 | not_observed 0/3 | verified 3/3 | not_observed 0/3 | not_observed 0/3 | not_observed 0/3 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 4th Quarter - Draw No Bet | standard | quarter_4 | offered_now | 1/10 | not_observed 0/2 | verified 2/2 | partial 1/2 | partial 1/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 4th Quarter - Draw No Bet (incl. Overtime) | standard | quarter_4_ot | offered_now | 1/10 | not_observed 0/2 | verified 2/2 | partial 1/2 | partial 1/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
@@ -292,7 +292,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NFL | Seattle Seahawks Total (Incl. Overtime) | standard | full_game | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Tampa Bay Buccaneers Total (Incl. Overtime) | standard | full_game | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NFL | Tennessee Titans Total (Incl. Overtime) | standard | full_game | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NFL | Total (Incl. Overtime) | standard | full_game | offered_now | 5/10 | partial 4/10 | verified 10/10 | partial 4/10 | partial 4/10 | partial 4/10 | verified 4/4 | verified 4/4 | verified 30/30 | verified 30/30 | partial 30/31 | 0 |
+| NFL | Total (Incl. Overtime) | standard | full_game | offered_now | 5/10 | partial 5/10 | verified 10/10 | partial 5/10 | partial 5/10 | partial 5/10 | verified 5/5 | verified 5/5 | verified 30/30 | verified 30/30 | partial 30/31 | 0 |
 | NFL | Total field goals made (incl. overtime) | standard | full_game | offered_now | 2/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | verified 6/6 | verified 6/6 | awaiting_measurement 6/7 | 0 |
 | NFL | Total sacks (incl. overtime) | standard | full_game | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NFL | Total touchdowns (incl. overtime) | standard | full_game | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
