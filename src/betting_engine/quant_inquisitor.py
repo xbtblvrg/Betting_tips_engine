@@ -129,11 +129,11 @@ def get_proactive_research_curriculum(conn: Optional[sqlite3.Connection] = None)
             category="market_microstructure",
             league="ALL",
             segment="ALL|full_game|all",
-            title="Sharp Book Line Velocity & Real-Time CLV Front-Running",
+            title="Polymarket Open CLOB Line Velocity & Real-Time CLV Front-Running",
             inquiry=(
-                "Can we measure the rate of odds change (Line Velocity: dOdds/dt) on reference sharp books "
-                "(Pinnacle / Betfair Exchange) to detect institutional syndicate moves and capture Stake mispricings "
-                "during the 30-120 second bookmaker adjustment latency window?"
+                "Can we measure the rate of probability change (Line Velocity: dP/dt) on the free Polymarket Open CLOB "
+                "to detect institutional volume moves and capture Stake mispricings "
+                "during the bookmaker adjustment latency window ($0.00 external data cost)?"
             ),
             rationale="Front-running market compression guarantees positive Closing Line Value (CLV), the mathematical hallmark of sustained betting profits.",
             potential_remedy_types=["line_velocity_sensor", "clv_steam_trigger", "adverse_selection_veto"],
@@ -279,9 +279,9 @@ def brainstorm_hypotheses_from_question(question: ResearchQuestion) -> List[Rese
             segment=question.segment,
             league="ALL",
             category="filter_gate",
-            title="Pinnacle Steam Line Velocity Prioritizer",
-            rationale="Prioritize immediate bet execution on Stake when Pinnacle line velocity accelerates downward (steam move).",
-            proposed_formula_or_rule="if pinny_line_velocity <= -0.05: mark_immediate_steam_alpha()",
+            title="Polymarket CLOB Steam Line Velocity Prioritizer",
+            rationale="Prioritize immediate bet execution on Stake when Polymarket CLOB line velocity accelerates downward (free institutional steam move).",
+            proposed_formula_or_rule="if poly_line_velocity <= -0.05: mark_immediate_steam_alpha()",
             status="pending",
             created_at=now_iso,
             updated_at=now_iso,

@@ -84,14 +84,12 @@ def _query_member_for_daily(
         f"You are an elite member of the Multi-AI Quant Council supervised by Google Antigravity (agy).\n"
         f"COUNCIL ROLES: agy (lead architect & chair), Claude (sports domain mechanics & rest traps), Codex (mathematical kernels & calibration), Grok (adversarial red-team & stress testing).\n"
         f"ASSIGNMENT: {assignment}\n\n"
-        f"MANDATORY PRIME DIRECTIVE & CONSTITUTION:\n"
+        f"MANDATORY PRIME DIRECTIVE & FINANCIAL TARGETS:\n"
         f"- Target minimum 10.0% weekly portfolio ROI and consistent daily cumulative PnL uptrend.\n"
         f"- Daily volume floor: Minimum 100 funded recommendations per Budapest day across the 72-hour horizon (700+/rolling week).\n"
-        f"- Dual Dynamic Capital: Scale capital ($2.50–$8.00) on proven alpha segments; clamp wobbly segments at $0.50; strictly suspend real money ($0.00) on demoted incubator markets.\n"
         f"- Pure Independent Models: Sports probabilities derive purely from domain models (market_anchor_mode='shadow', model_weight=1.0) without blending bookmaker vig.\n"
-        f"- Zero Hardcoded Clamps: Any contract with odds >= 1.40 and positive EV is eligible. High-odds contracts represent valid alpha.\n"
-        f"- Zero Paid External Sources: Strictly $0.00 external data cost; only free public official feeds (NHL Web API, MLB Stats API, Open-Meteo, ESPN Public, Polymarket CLOB).\n"
-        f"- 3-Tier Closed-Loop Progression: Demoted markets quarantined at $0.00 until passing historical backtest (ROI >= +3.5%, Brier skill, DD < 25%) and N >= 25 live shadow wagers.\n\n"
+        f"- Continuous Valuation: Any contract with odds >= 1.40 and positive EV is eligible.\n"
+        f"- OPEN COGNITIVE FREEDOM: Formulate your independent quantitative advice without anchoring to preset templates or formulas.\n\n"
         f"TODAY'S PORTFOLIO BRIEF:\n{json.dumps(brief, indent=2)}\n\n"
         f"Provide at most 300 words of actionable, concrete quantitative advice."
     )
@@ -224,12 +222,26 @@ def convene_daily_quant_council(
         )
 
     # 4. Gemini Antigravity (agy) Master Synthesis
+    # Synthesize actual insights from council members rather than static pre-written strings
+    consensus_parts = []
+    if claude_text:
+        c_clause = claude_text.split('.')[0].strip()
+        consensus_parts.append(f"Claude domain: {c_clause}")
+    if codex_text:
+        cd_clause = codex_text.split('.')[0].strip()
+        consensus_parts.append(f"Codex math: {cd_clause}")
+    if grok_text:
+        g_clause = grok_text.split('.')[0].strip()
+        consensus_parts.append(f"Grok red-team: {g_clause}")
+    
+    council_consensus = " | ".join(consensus_parts) if consensus_parts else "Synthesized domain rest dynamics, empirical dispersion shrinkage, and adversarial vig defense."
+
     synthesis = (
         f"DAILY STRATEGIC DIRECTIVE ({date_str}):\n"
         f"1. Volume Directive: Accelerate discovery across active leagues (NFL/NHL/NBA/MLB/Soccer) to meet the mandatory 100 picks/day floor.\n"
         f"2. Alpha Capital Strategy: Prioritize high-EV contracts with $2.50-$8.00 dynamic Kelly sizing on primary liquid spreads and totals.\n"
         f"3. Capital Defense: Retain $0.50 interim tourniquets on wobbling markets while running autonomous model discovery in the Shadow Incubator ($0.00).\n"
-        f"4. Council Consensus: Synergized Claude's rest asymmetry filter with Codex's hurdle dispersion mechanics and Grok's underdog vig shield."
+        f"4. Council Consensus: {council_consensus}"
     )
 
     directive = DailyCouncilDirective(

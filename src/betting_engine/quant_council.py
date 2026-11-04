@@ -153,7 +153,7 @@ def council_prompt(brief: Dict[str, Any], kind: str) -> str:
     """Generates role-specific prompt for Quant Council members with Mandatory Prime Directive."""
     assignment_map = {
         "sports_mechanics": "Deconstruct the sports mechanics, situational fatigue, tactical rotations, and variance behind this market segment failure.",
-        "quant_remedy": "Formulate a rigorous, leak-free mathematical or statistical remedy (distribution switch, Bayesian calibration shrinkage, or key number filter).",
+        "quant_remedy": "Formulate a rigorous, leak-free mathematical or statistical remedy. Openly explore any valid quantitative structure (hazard process, continuous score distribution, Bayesian calibration shrinkage, volatility dampening, copula dependence, or feature conditioning).",
         "adversarial_red_team": "Act as adversarial red-team: identify hidden bookmaker traps, liquidity risks, or counter-examples where this model could fail.",
     }
     assignment = assignment_map.get(kind, "Provide quantitative advisory.")
@@ -162,12 +162,9 @@ def council_prompt(brief: Dict[str, Any], kind: str) -> str:
         + assignment
         + " MANDATORY PRIME OBJECTIVE: Continuous win rate (WR) improvement, higher conviction betting decisions, "
         "and a strictly increasing cumulative net PnL uptrend across all portfolio segments. "
-        "UNIFIED OPERATIONAL MANDATE: The engine must deliver a minimum of 700 distinct funded recommendations per week (min 100/day) with a sustained minimum +10.0% net ROI target. "
-        "STAKE SIZING POLICY (OPTION B): Continuous risk-adjusted fractional Kelly bounded strictly within [$0.50, $8.00] ($2.50-$8.00 alpha acceleration on proven segments; $0.50 interim tourniquet on wobbling segments; $0.00 quarantine on demoted markets undergoing mandatory incubator re-graduation; 16:1 asymmetric capital ratio, null daily risk ceiling). "
-        "ZERO HARDCODED CLAMPS & PURE INDEPENDENT MODELS: Continuous valuation for any contract with odds >= 1.40 and positive EV. Sports probabilities derive purely from domain models without blending bookmaker vig. "
-        "ZERO PAID EXTERNAL SOURCES: Strictly $0.00 external data cost; only free public official feeds (NHL Web API, MLB Stats API, Open-Meteo, ESPN Public, Polymarket CLOB). Proposing paid APIs is strictly forbidden. "
-        "MANDATORY 3-TIER CLOSED-LOOP RECOVERY: Demoted markets MUST be trained and tuned on historical settled matches (97k+ games). Candidate models must prove out-of-sample positive ROI (>= +3.5%) and positive Brier skill BEFORE admission to the Shadow Incubator ($0.00). Only after accumulating N >= 25 live settled games with sustained profit does a candidate graduate to real money ($0.50-$8.00). "
-        "Every proposed remedy must be immediately testable in our leak-free Walk-Forward Crucible backtest and directly increase cash profit within days. "
+        "CORE QUANTITATIVE PRINCIPLES: Pure independent domain models without blending bookmaker vig; continuous valuation for any contract with odds >= 1.40 and positive EV. "
+        "OPEN ARCHITECTURAL & COGNITIVE FREEDOM: Do NOT restrict yourself to textbook clichés or rigid archetypes. Innovate freely with any mathematically rigorous formulation suited to the empirical symptom. "
+        "ANTI-TAUTOLOGICAL CRUCIBLE STANDARD: Every proposed remedy must be immediately testable in our leak-free Walk-Forward Crucible backtest and improve out-of-sample Brier calibration and positive economic return. "
         "Provide at most 400 words of concrete quantitative advice.\nBRIEF:\n" + json.dumps(brief)
     )
 
@@ -310,40 +307,59 @@ def convene_quant_council(
 
     hyp_id = f"hyp_council_{clean_slug}_v{version}"
 
-    # Rotate strategy based on version progression
-    if version == 1:
-        if "totals" in segment.lower() or "over" in segment.lower() or "under" in segment.lower():
-            cat = "distribution_switch" if league == "NHL" else "filter_gate"
-            formula = "negbin_overdispersion_correction" if league == "NHL" else "exclude_extreme_volatility_under"
-        elif "spread" in segment.lower() or "handicap" in segment.lower():
+    # Dynamic category synthesis from real Codex advice if available
+    codex_math_lower = (codex_advice.text if codex_advice else "").lower()
+    cat = None
+    formula = None
+    if codex_advice and len(codex_math_lower) > 20:
+        if any(w in codex_math_lower for w in ("distribution", "hazard", "negbin", "poisson", "weibull", "lattice", "dispersion")):
+            cat = "distribution_switch"
+            formula = "codex_score_distribution_formulation"
+        elif any(w in codex_math_lower for w in ("shrinkage", "bayesian", "empirical prior", "calibration", "isotonic")):
             cat = "calibration_shrinkage"
-            formula = "key_number_kernel_shrinkage"
+            formula = "codex_bayesian_calibration_shrinkage"
+        elif any(w in codex_math_lower for w in ("feature", "fatigue", "rest", "injury", "situational", "lineup")):
+            cat = "feature_addition"
+            formula = "codex_situational_feature_formulation"
+        elif any(w in codex_math_lower for w in ("filter", "gate", "quarantine", "exclude", "hurdle")):
+            cat = "filter_gate"
+            formula = "codex_variance_defense_gate"
+
+    # Rotate strategy based on version progression if not derived from dynamic advice
+    if not cat or not formula:
+        if version == 1:
+            if "totals" in segment.lower() or "over" in segment.lower() or "under" in segment.lower():
+                cat = "distribution_switch" if league == "NHL" else "filter_gate"
+                formula = "negbin_overdispersion_correction" if league == "NHL" else "exclude_extreme_volatility_under"
+            elif "spread" in segment.lower() or "handicap" in segment.lower():
+                cat = "calibration_shrinkage"
+                formula = "key_number_kernel_shrinkage"
+            else:
+                cat = "filter_gate"
+                formula = "draw_protection_and_market_consensus"
+        elif version == 2:
+            if "totals" in segment.lower() or "over" in segment.lower() or "under" in segment.lower():
+                cat = "calibration_shrinkage"
+                formula = "bayesian_empirical_prior_shrinkage"
+            elif "spread" in segment.lower() or "handicap" in segment.lower():
+                cat = "feature_addition"
+                formula = "situational_fatigue_and_variance_dampening"
+            else:
+                cat = "calibration_shrinkage"
+                formula = "isotonic_calibration_smoothing"
+        elif version == 3:
+            if "totals" in segment.lower() or "over" in segment.lower() or "under" in segment.lower():
+                cat = "feature_addition"
+                formula = "situational_rest_fatigue_penalty"
+            elif "spread" in segment.lower() or "handicap" in segment.lower():
+                cat = "feature_addition"
+                formula = "rest_asymmetry_advantage_discount"
+            else:
+                cat = "filter_gate"
+                formula = "away_longshot_vig_erosion_filter"
         else:
             cat = "filter_gate"
-            formula = "draw_protection_and_market_consensus"
-    elif version == 2:
-        if "totals" in segment.lower() or "over" in segment.lower() or "under" in segment.lower():
-            cat = "calibration_shrinkage"
-            formula = "bayesian_empirical_prior_shrinkage"
-        elif "spread" in segment.lower() or "handicap" in segment.lower():
-            cat = "feature_addition"
-            formula = "situational_fatigue_and_variance_dampening"
-        else:
-            cat = "calibration_shrinkage"
-            formula = "isotonic_calibration_smoothing"
-    elif version == 3:
-        if "totals" in segment.lower() or "over" in segment.lower() or "under" in segment.lower():
-            cat = "feature_addition"
-            formula = "situational_rest_fatigue_penalty"
-        elif "spread" in segment.lower() or "handicap" in segment.lower():
-            cat = "feature_addition"
-            formula = "rest_asymmetry_advantage_discount"
-        else:
-            cat = "filter_gate"
-            formula = "away_longshot_vig_erosion_filter"
-    else:
-        cat = "filter_gate"
-        formula = "quarantine_high_variance_outliers"
+            formula = "quarantine_high_variance_outliers"
 
     sports_summary = claude_advice.text[:300] if claude_advice else f"Domain sports variance in {dossier.primary_failure_mode}"
     codex_math = codex_advice.text[:300] if codex_advice else f"Quantitative Bayesian shrinkage on {dossier.primary_failure_mode}"
