@@ -176,6 +176,12 @@ def instantiate_synthesized_class(
     **kwargs
 ) -> BaseCandidateModel:
     """Safely executes source code in isolated scope and instantiates the candidate model."""
+    import sys
+    import types
+
+    mod_name = f"__codex_sandbox_{class_name}__"
+    mod = types.ModuleType(mod_name)
+
     exec_scope: Dict[str, Any] = {
         'BaseCandidateModel': BaseCandidateModel,
         'DiscreteDistribution': DiscreteDistribution,
@@ -193,16 +199,18 @@ def instantiate_synthesized_class(
         'KalmanRatingTracker': KalmanRatingTracker,
         'TemperatureScaler': TemperatureScaler,
         'continuous_fractional_kelly': continuous_fractional_kelly,
-        '__name__': '__codex_sandbox__',
+        '__name__': mod_name,
     }
+    mod.__dict__.update(exec_scope)
+    sys.modules[mod_name] = mod
 
-    code_obj = compile(source_code, filename=f"<codex_synth_{class_name}>", mode="exec")
-    exec(code_obj, exec_scope)
+    code_obj = compile(source_code, filename=f"<{mod_name}>", mode="exec")
+    exec(code_obj, mod.__dict__)
 
-    if class_name not in exec_scope:
+    if class_name not in mod.__dict__:
         raise ValueError(f"Class '{class_name}' not found in executed namespace.")
 
-    cls = exec_scope[class_name]
+    cls = mod.__dict__[class_name]
     return cls(**kwargs)
 
 

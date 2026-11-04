@@ -94,6 +94,39 @@ class AdvancedCopulaModel(BaseCandidateModel):
     assert dist.p_away > 0.0
 
 
+def test_instantiate_synthesized_class_with_dataclasses():
+    code = """
+from dataclasses import dataclass
+from typing import Optional
+from betting_engine.sandbox_models.base import BaseCandidateModel, DiscreteDistribution
+
+@dataclass
+class ModelParams:
+    mu_home: float = 2.5
+    mu_away: float = 1.8
+
+class DataclassTestModel(BaseCandidateModel):
+    def __init__(self, model_id='dc_test', version='1.0', league='NHL', scope='full_game', family='totals', params: Optional[ModelParams] = None):
+        super().__init__(model_id=model_id, version=version, league=league, scope=scope, family=family)
+        self.params = params or ModelParams()
+
+    def predict_distribution(self, game_context):
+        return DiscreteDistribution.from_scores({(3, 2): 0.6, (2, 3): 0.4})
+"""
+    is_safe, cls_name, err = check_ast_safety(code)
+    assert is_safe is True
+    assert cls_name == "DataclassTestModel"
+
+    model = instantiate_synthesized_class(
+        code, cls_name, model_id="dc_001", league="NHL", scope="full_game", family="totals"
+    )
+    assert isinstance(model, BaseCandidateModel)
+    dist = model.predict_distribution({})
+    assert dist.p_home == 0.6
+    assert dist.p_away == 0.4
+    assert model.params.mu_home == 2.5
+
+
 def test_codex_model_synthesizer_end_to_end(tmp_path):
     synthesizer = CodexModelSynthesizer(data_dir=tmp_path)
     res = synthesizer.synthesize_and_screen_candidate(
