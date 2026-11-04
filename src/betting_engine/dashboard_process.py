@@ -186,7 +186,7 @@ def read_publication_version(database):
     """Tiny read-only generation check; never decode a publication in HTTP."""
     connection=None
     try:
-        connection=sqlite3.connect(Path(database).resolve().as_uri()+'?mode=ro',uri=True,timeout=1)
+        connection=sqlite3.connect(Path(database).resolve().as_uri()+'?mode=ro',uri=True,timeout=30.0)
         return connection.execute('SELECT COALESCE(MAX(id),0) FROM publications').fetchone()[0]
     except sqlite3.Error as exc:raise DashboardUnavailable('Publication version is unavailable') from exc
     finally:

@@ -108,7 +108,7 @@ def read_lifecycle(data_dir, now, *, budget_seconds=10):
     path=Path(data_dir)/'engine.sqlite3';started=time.monotonic()
     result={'verified':False,'checked_at':now.isoformat()}
     try:
-        with closing(sqlite3.connect(path.resolve().as_uri()+'?mode=ro',uri=True,timeout=1)) as db:
+        with closing(sqlite3.connect(path.resolve().as_uri()+'?mode=ro',uri=True,timeout=15.0)) as db:
             db.set_progress_handler(lambda:int(time.monotonic()-started>budget_seconds),1000)
             # One SQLite read transaction gives all counts the same ledger version.
             db.execute('BEGIN')

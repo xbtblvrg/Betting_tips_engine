@@ -202,7 +202,7 @@ class UnifiedMarketUniverse:
             return roster
 
         try:
-            with closing(sqlite3.connect(f"file:{self.incubator_db_path}?mode=ro", uri=True, timeout=2.0)) as inc_conn:
+            with closing(sqlite3.connect(f"file:{self.incubator_db_path}?mode=ro", uri=True, timeout=15.0)) as inc_conn:
                 # 1. Ingest Graduated Markets (Tier 3 Candidates)
                 grad_rows = inc_conn.execute("""
                     SELECT segment_key, league, scope, family, sub_family,
@@ -740,7 +740,7 @@ class UnifiedMarketUniverse:
 
         # Check if explicitly demoted in demoted_markets
         try:
-            with closing(sqlite3.connect(f"file:{self.incubator_db_path}?mode=ro", uri=True, timeout=2.0)) as inc_conn:
+            with closing(sqlite3.connect(f"file:{self.incubator_db_path}?mode=ro", uri=True, timeout=15.0)) as inc_conn:
                 placeholders = ','.join('?' for _ in candidate_keys)
                 row = inc_conn.execute(
                     f"SELECT incubation_phase FROM demoted_markets WHERE segment_key IN ({placeholders})",
@@ -776,7 +776,7 @@ class UnifiedMarketUniverse:
         offered_by_league: Dict[str, int] = {}
         if self.engine_db_path.exists():
             try:
-                with closing(sqlite3.connect(f"file:{self.engine_db_path}?mode=ro", uri=True, timeout=1.0)) as eng_conn:
+                with closing(sqlite3.connect(f"file:{self.engine_db_path}?mode=ro", uri=True, timeout=15.0)) as eng_conn:
                     rows = eng_conn.execute("""
                         SELECT DISTINCT 
                             json_extract(payload, '$.league'),

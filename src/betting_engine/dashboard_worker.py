@@ -15,7 +15,7 @@ from .domain import parse_time
 class ReadOnlyStore(Store):
     def __init__(self,path):
         self.path=Path(path).resolve()
-        self.connection=sqlite3.connect(self.path.as_uri()+'?mode=ro',uri=True,timeout=1)
+        self.connection=sqlite3.connect(self.path.as_uri()+'?mode=ro',uri=True,timeout=30.0)
         self.connection.row_factory=sqlite3.Row
         self.connection.execute('PRAGMA query_only=ON')
         # Every ledger/settings/checklist read belongs to one SQLite snapshot.

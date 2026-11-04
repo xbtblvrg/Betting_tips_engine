@@ -162,7 +162,7 @@ def throughput_checks(data, observations, previous, now, cpu_reader=None):
     if path.exists():
         started=time.monotonic()
         try:
-            with closing(sqlite3.connect(path.resolve().as_uri()+'?mode=ro',uri=True,timeout=1)) as db:
+            with closing(sqlite3.connect(path.resolve().as_uri()+'?mode=ro',uri=True,timeout=15.0)) as db:
                 db.set_progress_handler(lambda: int(time.monotonic()-started>2),1000)
                 row=db.execute('SELECT rowid,length(CAST(report AS BLOB)),substr(report,1,14) FROM evaluations ORDER BY rowid DESC LIMIT 1').fetchone()
             from .prospective_shadow import report_logical_size

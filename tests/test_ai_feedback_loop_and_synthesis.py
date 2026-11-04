@@ -82,10 +82,10 @@ def test_feedback_loop_manager_lifecycle(tmp_path):
 
     # 3. Verify in-context learning prompt incorporates both
     prompt = mgr.get_in_context_learning_prompt(league="NBA", family="totals")
-    assert "VERIFIED PROFITABLE ALPHA EXEMPLARS IN NBA" in prompt
+    assert "HISTORICAL EMPIRICAL ALPHA BENCHMARKS IN NBA" in prompt
     assert "NegativeBinomialHurdleModel_NBA_full_game" in prompt
     assert "+6.5%" in prompt
-    assert "FAILED COUNTER-EXAMPLES IN NBA" in prompt
+    assert "HISTORICAL REJECTED FORMULATIONS IN NBA" in prompt
     assert "NaivePoissonSpreadModel_NBA" in prompt
 
     # 4. Record live settlements

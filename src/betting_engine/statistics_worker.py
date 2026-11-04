@@ -149,7 +149,7 @@ def _decode(row):
 
 
 def read_snapshot(database):
-    connection=sqlite3.connect(Path(database).resolve().as_uri()+'?mode=ro',uri=True,timeout=2)
+    connection=sqlite3.connect(Path(database).resolve().as_uri()+'?mode=ro',uri=True,timeout=30.0)
     connection.row_factory=sqlite3.Row
     try:
         connection.execute('PRAGMA query_only=ON');connection.execute('BEGIN')

@@ -90,6 +90,42 @@ class SynthesizedModelRecord:
         return asdict(self)
 
 
+def extract_clean_code(answer: str) -> str:
+    """Robustly extracts executable Python source code from LLM response text."""
+    if not answer or not answer.strip():
+        return ""
+    text = answer.strip()
+
+    # 1. Closed code block: ```python ... ``` or ``` ... ```
+    match = re.search(r'```(?:python)?\s*\n(.*?)\n```', text, re.DOTALL | re.IGNORECASE)
+    if match and match.group(1).strip():
+        return match.group(1).strip()
+
+    match = re.search(r'```(?:python)?\s*(.*?)\s*```', text, re.DOTALL | re.IGNORECASE)
+    if match and match.group(1).strip():
+        return match.group(1).strip()
+
+    # 2. Unclosed code block: starts with ```python or ``` but never closed
+    unclosed = re.search(r'```(?:python)?\s*\n(.*)', text, re.DOTALL | re.IGNORECASE)
+    if unclosed and unclosed.group(1).strip():
+        return unclosed.group(1).strip()
+
+    # 3. No fences: find first line of actual Python code (import, from, class, def, @)
+    lines = text.splitlines()
+    code_start_idx = None
+    for idx, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith(('import ', 'from ', 'class ', 'def ', '@')):
+            code_start_idx = idx
+            break
+
+    if code_start_idx is not None:
+        candidate_lines = lines[code_start_idx:]
+        return "\n".join(candidate_lines).strip()
+
+    return text
+
+
 def check_ast_safety(source_code: str) -> Tuple[bool, Optional[str], Optional[str]]:
     """Analyzes Python code AST for security compliance and finds candidate class name.
     
@@ -615,19 +651,9 @@ class {class_name}(BaseCandidateModel):
             f"3. INSTITUTIONAL QUANT PRIMITIVES & ECOSYSTEM:\n"
             f"   You have direct access to Python's scientific mathematical ecosystem:\n"
             f"   - Standard libraries: 'math', 'typing', 'numpy', 'scipy' (scipy.stats, scipy.optimize, scipy.integrate, scipy.special, scipy.linalg), 'sklearn' (linear_model, isotonic, calibration), 'statsmodels' (api, tsa, glm), 'pandas', 'mpmath'.\n"
-            f"   - Pre-built Quant Primitives (already in execution scope, no import needed):\n"
-            f"     * 'ClaytonCopula(theta)': Lower-tail asymmetric dependence for low-scoring/collapse games.\n"
-            f"     * 'GumbelCopula(theta)': Upper-tail asymmetric dependence for shootouts/over-pace clusters.\n"
-            f"     * 'FrankCopula(theta)': Symmetric nonlinear association.\n"
-            f"     * 'GaussianCopula(rho)': Correlation coupling between marginals.\n"
-            f"     * 'build_copula_score_lattice(pmf_h, pmf_a, copula)': 2D finite difference coupling marginals into joint score matrix.\n"
-            f"     * 'WeibullRenewalHazard(shape, scale)': Inter-event scoring hazards with positive/negative duration dependence.\n"
-            f"     * 'ZeroInflatedPoisson(mu, pi)' & 'ZeroInflatedNegativeBinomial(mu, alpha, pi)': Hurdle distributions for excess zeros & overdispersion.\n"
-            f"     * 'JamesSteinShrinkage': Dominates raw MLE for vectors of team performance parameters (p >= 3).\n"
-            f"     * 'KalmanRatingTracker': Dynamic 1D Kalman state tracking for form, fatigue, and momentum.\n"
-            f"     * 'TemperatureScaler': Calibrated probability scaling.\n"
-            f"     * 'build_universal_score_lattice': Adaptive lattice generator.\n"
-            f"   These building blocks are available in your namespace if helpful, but you have full mathematical freedom to formulate custom equations or distributions from first principles.\n"
+            f"   - Quant Primitives in Execution Scope (pre-loaded, no import needed):\n"
+            f"     All standard mathematical helpers, copula joint lattices, hazard renewals, zero-inflation hurdle distributions, shrinkage estimators, and state trackers are loaded into scope.\n"
+            f"     You are NOT constrained to any specific tool: formulate custom equations, probability distributions, or composite architectures independently from first principles based purely on the observed data moments and sports mechanics.\n"
             f"4. DOMAIN FEATURES: game_context provides rich situational features: 'home_expected', 'away_expected', 'home_rest_days', 'away_rest_days', 'home' attack/defense, 'away' attack/defense, weather (wind_speed, is_dome, temp), and venue.\n"
             f"5. SAFETY BOUNDARY: Pure deterministic computation only. Do NOT import OS/process/network modules (os, sys, subprocess, socket, requests, urllib).\n"
             f"6. Constructor must take model_id='{model_id}', version='1.0.0', league='{league}', scope='{scope}', family='{family}'.\n"
@@ -635,19 +661,23 @@ class {class_name}(BaseCandidateModel):
         )
 
         try:
-            with file_lock(DATA / "development" / "ai-locks" / "codex.lock", timeout=15.0) as acquired:
+            with file_lock(DATA / "development" / "ai-locks" / "codex.lock", timeout=60.0) as acquired:
                 if not acquired:
+                    log.warning(f"Failed to acquire codex.lock within 60.0s for {segment_key}")
                     return None
                 res = self._invoke_codex_with_watchdog(codex_cfg, prompt, timeout=120.0, max_hard_ceiling=240.0, idle_timeout=30.0)
                 state, answer = decode('codex', res, codex_cfg.get('model'))
                 if state == 'received_unreviewed' and answer:
-                    code_match = re.search(r'```(?:python)?\s*(.*?)\s*```', answer, re.DOTALL)
-                    clean_code = code_match.group(1) if code_match else answer.strip()
+                    clean_code = extract_clean_code(answer)
                     is_safe, cls_name, err = check_ast_safety(clean_code)
                     if is_safe and cls_name:
                         return clean_code, cls_name, f"Codex (gpt-6-astra) synthesized model addressing {domain_problem[:120]}"
-        except Exception:
-            pass
+                    else:
+                        log.warning(f"Codex AST check failed for {segment_key}: {err}; sample: {answer[:180]}")
+                else:
+                    log.warning(f"Codex decode returned state '{state}' for {segment_key}; rc: {res.get('returncode')}")
+        except Exception as e:
+            log.warning(f"Codex invocation exception for {segment_key}: {e}")
 
         return None
 
@@ -674,15 +704,16 @@ class {class_name}(BaseCandidateModel):
             f"and deduce a concrete mathematical formulation from first principles to capture this alpha. Output domain analysis only."
         )
         try:
-            with file_lock(DATA / "development" / "ai-locks" / "claude.lock", timeout=10.0) as acquired:
+            with file_lock(DATA / "development" / "ai-locks" / "claude.lock", timeout=30.0) as acquired:
                 if not acquired:
+                    log.warning(f"Failed to acquire claude.lock within 30.0s for hypothesis {segment_key}")
                     return None
                 res = invoke('claude', claude_cfg, prompt, timeout=45)
                 state, answer = decode('claude', res, claude_cfg.get('model'))
                 if state == 'received_unreviewed' and answer:
                     return answer.strip()
-        except Exception:
-            pass
+        except Exception as e:
+            log.warning(f"Claude domain hypothesis exception for {segment_key}: {e}")
         return None
 
     def _query_claude_for_model_code(
@@ -726,19 +757,9 @@ class {class_name}(BaseCandidateModel):
             f"3. INSTITUTIONAL QUANT PRIMITIVES & ECOSYSTEM:\n"
             f"   You have direct access to Python's scientific mathematical ecosystem:\n"
             f"   - Standard libraries: 'math', 'typing', 'numpy', 'scipy' (scipy.stats, scipy.optimize, scipy.integrate, scipy.special, scipy.linalg), 'sklearn' (linear_model, isotonic, calibration), 'statsmodels' (api, tsa, glm), 'pandas', 'mpmath'.\n"
-            f"   - Pre-built Quant Primitives (already in execution scope, no import needed):\n"
-            f"     * 'ClaytonCopula(theta)': Lower-tail asymmetric dependence for low-scoring/collapse games.\n"
-            f"     * 'GumbelCopula(theta)': Upper-tail asymmetric dependence for shootouts/over-pace clusters.\n"
-            f"     * 'FrankCopula(theta)': Symmetric nonlinear association.\n"
-            f"     * 'GaussianCopula(rho)': Correlation coupling between marginals.\n"
-            f"     * 'build_copula_score_lattice(pmf_h, pmf_a, copula)': 2D finite difference coupling marginals into joint score matrix.\n"
-            f"     * 'WeibullRenewalHazard(shape, scale)': Inter-event scoring hazards with positive/negative duration dependence.\n"
-            f"     * 'ZeroInflatedPoisson(mu, pi)' & 'ZeroInflatedNegativeBinomial(mu, alpha, pi)': Hurdle distributions for excess zeros & overdispersion.\n"
-            f"     * 'JamesSteinShrinkage': Dominates raw MLE for vectors of team performance parameters (p >= 3).\n"
-            f"     * 'KalmanRatingTracker': Dynamic 1D Kalman state tracking for form, fatigue, and momentum.\n"
-            f"     * 'TemperatureScaler': Calibrated probability scaling.\n"
-            f"     * 'build_universal_score_lattice': Adaptive lattice generator.\n"
-            f"   These building blocks are available in your namespace if helpful, but you have full mathematical freedom to formulate custom equations or distributions from first principles.\n"
+            f"   - Quant Primitives in Execution Scope (pre-loaded, no import needed):\n"
+            f"     All standard mathematical helpers, copula joint lattices, hazard renewals, zero-inflation hurdle distributions, shrinkage estimators, and state trackers are loaded into scope.\n"
+            f"     You are NOT constrained to any specific tool: formulate custom equations, probability distributions, or composite architectures independently from first principles based purely on the observed data moments and sports mechanics.\n"
             f"4. DOMAIN FEATURES: game_context provides rich situational features: 'home_expected', 'away_expected', 'home_rest_days', 'away_rest_days', 'home' attack/defense, 'away' attack/defense, weather (wind_speed, is_dome, temp), and venue.\n"
             f"5. SAFETY BOUNDARY: Pure deterministic computation only. Do NOT import OS/process/network modules (os, sys, subprocess, socket, requests, urllib).\n"
             f"6. Constructor must take model_id='{model_id}', version='1.0.0', league='{league}', scope='{scope}', family='{family}'.\n"
@@ -746,19 +767,23 @@ class {class_name}(BaseCandidateModel):
         )
 
         try:
-            with file_lock(DATA / "development" / "ai-locks" / "claude.lock", timeout=15.0) as acquired:
+            with file_lock(DATA / "development" / "ai-locks" / "claude.lock", timeout=60.0) as acquired:
                 if not acquired:
+                    log.warning(f"Failed to acquire claude.lock within 60.0s for {segment_key}")
                     return None
                 res = invoke('claude', claude_cfg, prompt, timeout=120)
                 state, answer = decode('claude', res, claude_cfg.get('model'))
                 if state == 'received_unreviewed' and answer:
-                    code_match = re.search(r'```(?:python)?\s*(.*?)\s*```', answer, re.DOTALL)
-                    clean_code = code_match.group(1) if code_match else answer.strip()
+                    clean_code = extract_clean_code(answer)
                     is_safe, cls_name, err = check_ast_safety(clean_code)
                     if is_safe and cls_name:
                         return clean_code, cls_name, f"Claude (claude-opus-5-5) synthesized model addressing {domain_problem[:120]}"
-        except Exception:
-            pass
+                    else:
+                        log.warning(f"Claude AST check failed for {segment_key}: {err}; sample: {answer[:180]}")
+                else:
+                    log.warning(f"Claude decode returned state '{state}' for {segment_key}; rc: {res.get('returncode')}")
+        except Exception as e:
+            log.warning(f"Claude invocation exception for {segment_key}: {e}")
 
         return None
 

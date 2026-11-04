@@ -346,7 +346,7 @@ class AIFeedbackLoopManager:
 
         sections = []
         if success_rows:
-            sections.append(f"VERIFIED PROFITABLE ALPHA EXEMPLARS IN {lg} (LEARN FROM THESE):")
+            sections.append(f"HISTORICAL EMPIRICAL ALPHA BENCHMARKS IN {lg} (FOR BENCHMARK COMPARISON ONLY; DO NOT ANCHOR OR COPY):")
             for r in success_rows:
                 l_roi = f" | Live ROI: {r['live_realized_roi']*100:.1f}% ({r['live_games_settled']} games)" if r['live_games_settled'] > 0 else ""
                 sections.append(
@@ -356,7 +356,7 @@ class AIFeedbackLoopManager:
                 )
 
         if failed_rows:
-            sections.append(f"\nFAILED COUNTER-EXAMPLES IN {lg} (AVOID THESE MISTAKES):")
+            sections.append(f"\nHISTORICAL REJECTED FORMULATIONS IN {lg} (OBSERVED FAILURE MODES TO AVOID):")
             for r in failed_rows:
                 sections.append(
                     f"- Rejected Archetype: {r['class_name']} | OOS Deficit: {r['oos_simulated_roi']*100:.1f}%\n"
