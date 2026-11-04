@@ -87,13 +87,13 @@ def validate_policy(policy):
         if (route['provider'] == 'agy' and route['family'] in ('gemini', 'flash', 'pro')
               and value.get('allow_temporary_agy', True) and not claude_seen):
             agy_seen = True
-        elif route['provider'] == 'codex' and route['family'] == 'gpt' and not claude_seen:
+        elif route['provider'] == 'codex' and route['family'] == 'gpt':
             pass
         elif (route['provider'] == 'claude' and route['family'] == 'opus-5.5' and route['model'] == 'claude-opus-5-5'
               and value['allow_temporary_claude'] and not claude_seen and len(seen) > 1):
             claude_seen = True
         else:
-            raise ValueError('Only ordered verified Gemini/GPT routes then temporary agy/Gemini or Opus 5.5 are authorized')
+            raise ValueError('Only ordered verified Gemini/GPT/Claude routes are authorized')
         for name in ('reasoning_effort', 'limit_id'):
             if route.get(name) is not None and (not isinstance(route[name], str) or not IDENTIFIER.fullmatch(route[name])):
                 raise ValueError('Invalid verified route option')
