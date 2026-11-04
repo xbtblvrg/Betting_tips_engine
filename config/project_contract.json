@@ -887,13 +887,13 @@
   },
   "ai_primary_fallback_directive_20261005": {
     "directive": "User approved Google Antigravity (agy / Gemini) as official Primary Fallback Brain when Codex is unavailable due to usage/rate limits.",
-    "hierarchy": "Primary Brain: Codex; Primary Fallback Brain: Google Antigravity (agy / gemini-3.8-flash-high, gemini-3.1-pro-high); Secondary Fallback: Claude (claude-opus-5-5); Tertiary: Grok.",
+    "hierarchy": "Primary Brain: Codex; Primary Fallback Brain: Google Antigravity (agy / gemini-3.8-flash-high, gemini-4-argon-high); Secondary Fallback: Claude (claude-opus-5-5); Tertiary: Grok.",
     "token_leak_remediation": "Quota-aware candidate selection, probe reasoning effort set to low, max_parallel reduced from 6 to 2, context bundling pruned.",
     "safety_guards": "EvidenceGuard, 294 DOM tests, 307 Python tests, and score regression checks remain mandatory. Betting forecasting and decisions remain 100% deterministic local Python/ML algorithms without LLM dependencies."
   },
   "ai_primary_brain_directive_20261006": {
     "directive": "User standing directive (2026-10-06): Google Antigravity (agy / Gemini) is permanently promoted to Primary Quant Brain, lead developer and final supervisor. Codex is replaced as primary and serves as deputy and secondary. When Codex returns/is available, agy delegates bounded tasks to it in a controlled manner with hash-verified dispositions.",
-    "hierarchy": "Primary Brain: Google Antigravity (agy / gemini-3.8-flash-high, gemini-3.1-pro-high); Deputy and Secondary: Codex (gpt-6-astra, etc.) and Claude (claude-opus-5-5); Tertiary: Grok.",
+    "hierarchy": "Primary Brain: Google Antigravity (agy / gemini-3.8-flash-high, gemini-4-argon-high); Deputy and Secondary: Codex (gpt-6-astra, etc.) and Claude (claude-opus-5-5); Tertiary: Grok.",
     "token_leak_remediation": "Quota-aware candidate selection, probe reasoning effort set to low, max_parallel reduced from 6 to 2, context bundling pruned.",
     "safety_guards": "EvidenceGuard, 294 DOM tests, 307 Python tests, and score regression checks remain mandatory. Betting forecasting and decisions remain 100% deterministic local Python/ML algorithms without LLM dependencies."
   },

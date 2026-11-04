@@ -17,10 +17,10 @@
       "model": "gemini-3.8-flash-high"
     },
     {
-      "id": "gemini-3.1-pro-high",
+      "id": "gemini-4-argon-high",
       "provider": "agy",
       "family": "gemini",
-      "model": "gemini-3.1-pro-high"
+      "model": "gemini-4-argon-high"
     },
     {
       "id": "gpt-6-astra",

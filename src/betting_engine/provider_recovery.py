@@ -84,7 +84,7 @@ def validate_policy(policy):
         if not _pin(route['capability_sha256']) or route['id'] in seen or (route['provider'], route['model']) in models:
             raise ValueError('Duplicate or unverified provider route')
         seen.add(route['id']); models.add((route['provider'], route['model']))
-        if (route['provider'] == 'agy' and route['family'] in ('gemini', 'flash', 'pro')
+        if (route['provider'] == 'agy' and route['family'] in ('gemini', 'flash', 'pro', 'argon')
               and value.get('allow_temporary_agy', True) and not claude_seen):
             agy_seen = True
         elif route['provider'] == 'codex' and route['family'] == 'gpt':
