@@ -650,18 +650,20 @@ class ShadowMarketIncubator:
 
     def _get_connection(self) -> sqlite3.Connection:
         import time, random
-        for attempt in range(4):
+        for attempt in range(5):
             try:
                 conn = sqlite3.connect(str(self.db_path), timeout=60.0)
                 conn.execute("PRAGMA busy_timeout = 60000")
-                conn.execute("PRAGMA journal_mode = WAL")
+                conn.execute("PRAGMA synchronous = NORMAL")
                 conn.execute("SELECT 1")
                 return conn
             except sqlite3.OperationalError:
-                if attempt < 3:
+                if attempt < 4:
                     time.sleep(0.1 * (2 ** attempt) + random.uniform(0.05, 0.15))
                     continue
-                return sqlite3.connect(f"file:{self.db_path.resolve()}?immutable=1", uri=True)
+                conn = sqlite3.connect(str(self.db_path), timeout=60.0)
+                conn.execute("PRAGMA busy_timeout = 60000")
+                return conn
 
     # -------------------------------------------------------------------------
     # 1. PRICING & INGESTION
@@ -3281,6 +3283,7 @@ class ShadowMarketIncubator:
 
             repaired_records = []
             repairs_to_insert = []
+            rd_repairs_to_enqueue = []
 
             for (league, scope, family, sub_family, n_samples, total_pnl, avg_odds_agg, brier_mod_agg, brier_mkt_agg) in stuck_candidates:
                 canonical_key = f"{league}|{scope}|{family}"
@@ -3377,28 +3380,40 @@ class ShadowMarketIncubator:
                     'recalibrated_at': now_iso
                 })
 
-                # Record in TierStateMachine / R&D logs if main engine DB exists
-                engine_db = self.data_dir / 'engine.sqlite3'
-                if engine_db.exists():
-                    try:
-                        from .tier_state_machine import enqueue_rd_repair_job
-                        conn_main = sqlite3.connect(str(engine_db), timeout=30.0)
-                        conn_main.execute("PRAGMA busy_timeout = 30000")
-                        enqueue_rd_repair_job(
-                            conn=conn_main,
-                            segment_key=segment_key,
-                            league=league,
-                            prev_tier='SHADOW_INCUBATION',
-                            new_tier='SHADOW_RECALIBRATION',
-                            failure_mode=failure_mode,
-                            remedy=actionable_remedy,
-                            stats={'pnl': total_pnl, 'roi_pct': round(roi * 100.0, 2), 'games': n_samples}
-                        )
-                        conn_main.close()
-                    except Exception:
-                        pass
+                # Collect for TierStateMachine / R&D logs batch enqueue
+                rd_repairs_to_enqueue.append({
+                    'segment_key': segment_key,
+                    'league': league,
+                    'prev_tier': 'SHADOW_INCUBATION',
+                    'new_tier': 'SHADOW_RECALIBRATION',
+                    'failure_mode': failure_mode,
+                    'remedy': actionable_remedy,
+                    'stats': {'pnl': total_pnl, 'roi_pct': round(roi * 100.0, 2), 'games': n_samples}
+                })
         finally:
             conn.close()
+
+        # Batch enqueue TierStateMachine R&D repair jobs in a single connection
+        if rd_repairs_to_enqueue:
+            engine_db = self.data_dir / 'engine.sqlite3'
+            if engine_db.exists():
+                try:
+                    from .tier_state_machine import enqueue_rd_repair_job
+                    with closing(sqlite3.connect(str(engine_db), timeout=30.0)) as conn_main:
+                        conn_main.execute("PRAGMA busy_timeout = 30000")
+                        for item in rd_repairs_to_enqueue:
+                            enqueue_rd_repair_job(
+                                conn=conn_main,
+                                segment_key=item['segment_key'],
+                                league=item['league'],
+                                prev_tier=item['prev_tier'],
+                                new_tier=item['new_tier'],
+                                failure_mode=item['failure_mode'],
+                                remedy=item['remedy'],
+                                stats=item['stats']
+                            )
+                except Exception:
+                    pass
 
         # Phase 2: Atomic batched write with exponential backoff to eliminate SQLite locks
         if repairs_to_insert:

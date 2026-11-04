@@ -85,7 +85,7 @@ class DemotedMarketIncubationBridge:
                     -- STRICT MANDATE: Prioritize Dual Reachable Markets (Stake + Polymarket CLOB)
                     CASE 
                         WHEN (league IN ('NBA', 'NFL', 'NHL', 'MLS', 'EPL', 'UCL', 'UEL', 'ATP', 'WTA', 'NCAAF', 'NCAAB', 'NCAAM', 'NCAAW', 'MLB')
-                              AND scope IN ('full_game', 'half_1', 'quarter_1')
+                              AND scope IN ('full_game', 'half_1', 'quarter_1', 'quarter_2', 'period_1')
                               AND (family LIKE '%moneyline%' OR family LIKE '%spread%' OR family LIKE '%total%' OR family LIKE '%winner%' OR family LIKE '%three_way%'))
                         THEN 0 ELSE 1 
                     END,

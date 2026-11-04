@@ -249,3 +249,38 @@ def test_fast_track_composite_power_graduation(temp_incubator_db: Path, tmp_path
     assert len(ucl_grads) == 1
     assert ucl_grads[0]['stats']['cohort'] == 'fast_track_composite'
     assert ucl_grads[0]['stats']['sample_size'] == 12
+
+
+def test_get_default_segment_context_all_scopes_and_sports():
+    """Validates game partition scaling invariants across all leagues and scopes."""
+    from betting_engine.historical_trainer import get_default_segment_context
+
+    # 1. Basketball Quarters: All quarters must be exactly 0.25 of full game (28.0 vs 112.0)
+    for q in ('quarter_1', 'quarter_2', 'quarter_3', 'quarter_4', 'quarter_4_ot'):
+        ctx = get_default_segment_context('NBA', q)
+        assert ctx['home_expected'] == 28.0, f"Expected 28.0 for NBA {q}, got {ctx['home_expected']}"
+        assert ctx['away_expected'] == 27.0, f"Expected 27.0 for NBA {q}, got {ctx['away_expected']}"
+
+    # 2. Basketball Halves: Exactly 0.50 of full game
+    for h in ('half_1', 'half_2'):
+        ctx = get_default_segment_context('NBA', h)
+        assert ctx['home_expected'] == 56.0
+        assert ctx['away_expected'] == 54.0
+
+    # 3. Tennis Sets: 0.45 of match (5.76 vs 12.8 total match games)
+    for p in ('period_1', 'period_2'):
+        ctx = get_default_segment_context('ATP', p)
+        assert ctx['home_expected'] == 5.76
+        assert ctx['away_expected'] == 5.31
+
+    # 4. Baseball Innings
+    ctx_1_5 = get_default_segment_context('MLB', 'innings_1_5')
+    assert ctx_1_5['home_expected'] == 2.53  # 4.6 * 0.55
+    ctx_1 = get_default_segment_context('MLB', 'inning_1')
+    assert ctx_1['home_expected'] == 0.69    # 4.6 * 0.15
+
+    # 5. Full Game Invariant: Scale must be exactly 1.0
+    ctx_full = get_default_segment_context('NBA', 'full_game')
+    assert ctx_full['home_expected'] == 112.0
+    assert ctx_full['away_expected'] == 108.0
+

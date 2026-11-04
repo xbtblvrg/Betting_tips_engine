@@ -76,12 +76,16 @@ def get_default_segment_context(league: str, scope: str) -> Dict[str, Any]:
         h_full, a_full = (3.1, 2.8) if lg == 'NHL' else (1.6, 1.2)
 
     scale = 1.0
-    if 'period_1' in sc or 'inning_1' in sc or 'quarter_1' in sc:
-        scale = 0.33 if lg == 'NHL' else (0.25 if lg in ('NBA', 'NFL') else 0.15)
-    elif 'half_1' in sc or 'half_2' in sc or 'innings_1_5' in sc:
+    if 'quarter' in sc:
+        scale = 0.25
+    elif 'half' in sc:
         scale = 0.50
-    elif 'period_2' in sc or 'period_3' in sc:
-        scale = 0.33
+    elif 'period' in sc:
+        scale = 0.45 if lg in ('ATP', 'WTA', 'CHALLENGER') else 0.33
+    elif 'innings_1_5' in sc:
+        scale = 0.55
+    elif 'inning' in sc:
+        scale = 0.15
 
     now_iso = datetime.now(timezone.utc).isoformat()
     h_scaled = round(h_full * scale, 3)
