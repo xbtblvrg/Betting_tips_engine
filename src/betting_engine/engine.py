@@ -525,6 +525,32 @@ class Engine:
                 status['opportunity_funnel']=record_cycle_funnel(candidates,recommendations,alternatives,settings,data_dir=DATA)
             except Exception as exc:
                 log.warning('Opportunity funnel recording failed: %s', exc)
+
+            # Pre-Guarded Publication Freshness Pruning (Constitution Commandments 1, 2 & 8):
+            # Prune individual expired quotes prior to atomic storage publication to prevent
+            # dropped publication batches on multi-minute review cycles while preserving fresh alpha.
+            try:
+                from .freshness import fresh_quote, MAX_QUOTE_AGE_SECONDS
+                now_dt = utcnow()
+                fresh_eval_time = now_dt + timedelta(seconds=15)
+                raw_recs = payload.get('recommendations', [])
+                raw_alts = payload.get('alternatives', [])
+                raw_cands = payload.get('evaluated_candidates', [])
+                fresh_recs = [t for t in raw_recs if fresh_quote(t, fresh_eval_time, max_age_seconds=MAX_QUOTE_AGE_SECONDS)]
+                fresh_alts = [t for t in raw_alts if fresh_quote(t, fresh_eval_time, max_age_seconds=MAX_QUOTE_AGE_SECONDS)]
+                fresh_cands = [t for t in raw_cands if fresh_quote(t, fresh_eval_time, max_age_seconds=MAX_QUOTE_AGE_SECONDS)]
+                if len(fresh_recs) != len(raw_recs) or len(fresh_cands) != len(raw_cands):
+                    log.warning(
+                        'Pruned expired quotes before guarded publication: %d recs, %d candidates',
+                        len(raw_recs) - len(fresh_recs), len(raw_cands) - len(fresh_cands)
+                    )
+                    payload['recommendations'] = fresh_recs
+                    payload['alternatives'] = fresh_alts
+                    payload['evaluated_candidates'] = fresh_cands
+                    recommendations = fresh_recs
+            except Exception as exc_fresh:
+                log.warning('Pre-publication freshness pruning check error: %s', exc_fresh)
+
             self.store.publish(payload,require_guard=True)
             from .telegram_notifier import notify_new_recommendations, notify_system_issues
             try:

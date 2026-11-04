@@ -649,13 +649,19 @@ class ShadowMarketIncubator:
         return self._tournament_engine
 
     def _get_connection(self) -> sqlite3.Connection:
-        try:
-            conn = sqlite3.connect(str(self.db_path), timeout=30.0)
-            conn.execute("PRAGMA busy_timeout = 30000")
-            conn.execute("SELECT 1")
-            return conn
-        except sqlite3.OperationalError:
-            return sqlite3.connect(f"file:{self.db_path.resolve()}?immutable=1", uri=True)
+        import time, random
+        for attempt in range(4):
+            try:
+                conn = sqlite3.connect(str(self.db_path), timeout=60.0)
+                conn.execute("PRAGMA busy_timeout = 60000")
+                conn.execute("PRAGMA journal_mode = WAL")
+                conn.execute("SELECT 1")
+                return conn
+            except sqlite3.OperationalError:
+                if attempt < 3:
+                    time.sleep(0.1 * (2 ** attempt) + random.uniform(0.05, 0.15))
+                    continue
+                return sqlite3.connect(f"file:{self.db_path.resolve()}?immutable=1", uri=True)
 
     # -------------------------------------------------------------------------
     # 1. PRICING & INGESTION
@@ -3274,6 +3280,7 @@ class ShadowMarketIncubator:
             stuck_candidates = cur.fetchall()
 
             repaired_records = []
+            repairs_to_insert = []
 
             for (league, scope, family, sub_family, n_samples, total_pnl, avg_odds_agg, brier_mod_agg, brier_mkt_agg) in stuck_candidates:
                 canonical_key = f"{league}|{scope}|{family}"
@@ -3349,13 +3356,7 @@ class ShadowMarketIncubator:
                     'remedy': actionable_remedy
                 }
 
-                cur.execute("""
-                    INSERT OR REPLACE INTO incubator_diagnostic_repairs (
-                        id, segment_key, league, scope, family, sub_family,
-                        diagnosed_at, sample_size, prior_roi, prior_pnl, failure_mode,
-                        actionable_remedy, recalibrated_at, stats
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
+                repairs_to_insert.append((
                     rep_id, segment_key, league, scope, family, sub_family,
                     now_iso, n_samples, roi, total_pnl, failure_mode,
                     actionable_remedy, now_iso, json.dumps(stats)
@@ -3381,7 +3382,8 @@ class ShadowMarketIncubator:
                 if engine_db.exists():
                     try:
                         from .tier_state_machine import enqueue_rd_repair_job
-                        conn_main = sqlite3.connect(str(engine_db), timeout=5.0)
+                        conn_main = sqlite3.connect(str(engine_db), timeout=30.0)
+                        conn_main.execute("PRAGMA busy_timeout = 30000")
                         enqueue_rd_repair_job(
                             conn=conn_main,
                             segment_key=segment_key,
@@ -3395,14 +3397,32 @@ class ShadowMarketIncubator:
                         conn_main.close()
                     except Exception:
                         pass
-
-                try:
-                    conn.commit()
-                except Exception:
-                    pass
-
         finally:
             conn.close()
+
+        # Phase 2: Atomic batched write with exponential backoff to eliminate SQLite locks
+        if repairs_to_insert:
+            import time, random
+            for attempt in range(5):
+                try:
+                    with closing(sqlite3.connect(str(self.db_path), timeout=60.0)) as write_conn:
+                        write_conn.execute("PRAGMA busy_timeout = 60000")
+                        with write_conn:
+                            write_conn.executemany("""
+                                INSERT OR REPLACE INTO incubator_diagnostic_repairs (
+                                    id, segment_key, league, scope, family, sub_family,
+                                    diagnosed_at, sample_size, prior_roi, prior_pnl, failure_mode,
+                                    actionable_remedy, recalibrated_at, stats
+                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            """, repairs_to_insert)
+                    break
+                except sqlite3.OperationalError as exc:
+                    if "locked" in str(exc).lower() and attempt < 4:
+                        time.sleep(0.2 * (2 ** attempt) + random.uniform(0.05, 0.15))
+                        continue
+                    log.warning("Could not persist incubator diagnostic repairs: %s", exc)
+                    break
+
         return repaired_records
 
     def evaluate_demotions_and_substitutions(
