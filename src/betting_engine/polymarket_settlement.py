@@ -13,6 +13,8 @@ import logging
 import os
 from pathlib import Path
 import sqlite3
+import time
+import urllib.error
 import urllib.request
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -27,6 +29,12 @@ ORDER_LOG_FILE = DATA / "logs" / "polymarket_orders.jsonl"
 
 class PolymarketOutcomeSettler:
     """Supervises and settles executed Polymarket orders against verified match outcomes."""
+
+    _positions_cache: Dict[str, Any] = {}
+    _positions_cached_at: float = 0.0
+    _activity_cache: List[Dict[str, Any]] = []
+    _activity_cached_at: float = 0.0
+    _rate_limited_until: float = 0.0
 
     def __init__(
         self,
@@ -47,6 +55,13 @@ class PolymarketOutcomeSettler:
         """
         if not self.proxy_address:
             return {}
+
+        now_ts = time.time()
+        if now_ts < PolymarketOutcomeSettler._rate_limited_until:
+            return PolymarketOutcomeSettler._positions_cache
+        if PolymarketOutcomeSettler._positions_cache and (now_ts - PolymarketOutcomeSettler._positions_cached_at < 180.0):
+            return PolymarketOutcomeSettler._positions_cache
+
         url = f"https://data-api.polymarket.com/v2/positions?user={self.proxy_address}"
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
@@ -59,25 +74,51 @@ class PolymarketOutcomeSettler:
                         tid = p.get("token_id") or p.get("asset")
                         if tid:
                             out[str(tid)] = p
+                PolymarketOutcomeSettler._positions_cache = out
+                PolymarketOutcomeSettler._positions_cached_at = now_ts
                 return out
+        except urllib.error.HTTPError as exc:
+            if exc.code == 429:
+                PolymarketOutcomeSettler._rate_limited_until = now_ts + 300.0  # Back off 5 min
+                log.debug("Polymarket Data API 429 rate limit received; backing off for 300s")
+            else:
+                log.debug("Polymarket positions HTTP error: %s", exc)
+            return PolymarketOutcomeSettler._positions_cache
         except Exception as exc:
-            log.warning(f"Could not fetch Polymarket positions from Data API: {exc}")
-            return {}
+            log.debug("Could not fetch Polymarket positions from Data API: %s", exc)
+            return PolymarketOutcomeSettler._positions_cache
 
     def fetch_recent_redemptions(self) -> List[Dict[str, Any]]:
         """Fetches recent REDEEM activities and on-chain payout transaction hashes from v2."""
         if not self.proxy_address:
             return []
+
+        now_ts = time.time()
+        if now_ts < PolymarketOutcomeSettler._rate_limited_until:
+            return PolymarketOutcomeSettler._activity_cache
+        if PolymarketOutcomeSettler._activity_cache and (now_ts - PolymarketOutcomeSettler._activity_cached_at < 180.0):
+            return PolymarketOutcomeSettler._activity_cache
+
         url = f"https://data-api.polymarket.com/v2/activity?user={self.proxy_address}&limit=20"
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
             with urllib.request.urlopen(req, timeout=5) as r:
                 res = json.loads(r.read().decode())
                 activities = res.get("data", res) if isinstance(res, dict) else res
-                return [a for a in activities if isinstance(a, dict) and a.get("type") == "REDEEM"]
+                redeems = [a for a in activities if isinstance(a, dict) and a.get("type") == "REDEEM"]
+                PolymarketOutcomeSettler._activity_cache = redeems
+                PolymarketOutcomeSettler._activity_cached_at = now_ts
+                return redeems
+        except urllib.error.HTTPError as exc:
+            if exc.code == 429:
+                PolymarketOutcomeSettler._rate_limited_until = now_ts + 300.0
+                log.debug("Polymarket Data API 429 activity rate limit; backing off for 300s")
+            else:
+                log.debug("Polymarket activity HTTP error: %s", exc)
+            return PolymarketOutcomeSettler._activity_cache
         except Exception as exc:
-            log.warning(f"Could not fetch Polymarket redemptions: {exc}")
-            return []
+            log.debug("Could not fetch Polymarket redemptions: %s", exc)
+            return PolymarketOutcomeSettler._activity_cache
 
     def auto_redeem_positions(self) -> Dict[str, Any]:
         """Inspects account positions and triggers redemption fallback for winning contracts."""
