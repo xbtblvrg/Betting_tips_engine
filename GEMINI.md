@@ -46,6 +46,13 @@ release authority or relax protected-data, model, testing, or publication gates.
   invariants, domain goals, and ground truth (real scores, Brier calibration,
   P&L, odds/probability axioms). Never weaken existing regression test suites to
   mask flawed logic.
+- Enforce Zero Prompt Anchoring & First-Principles Cognitive Freedom (2026-11-04 User Directive):
+  Never anchor LLM prompts with suggestive example enumerations, pre-selected formula candidates,
+  or parenthetical buzzword lists (e.g. "(Copulas, Renewal Hazards, Negative Binomial, Bayesian shrinkage)").
+  Prompts must present only objective empirical observations, observed data moments, failure pathology,
+  and measurable mathematical optimization goals. Models must independently deduce solutions from
+  first principles without artificial constraints, functional fixedness, or bureaucratic clutter. Statistically
+  and cognitively verify that prompts provide open freedom rather than prescriptive menus.
 
 ## Preserve the existing boundaries
 
