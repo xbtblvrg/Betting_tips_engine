@@ -645,6 +645,125 @@ class {class_name}(BaseCandidateModel):
 
         return None
 
+    def _query_claude_for_domain_hypothesis(
+        self,
+        segment_key: str,
+        domain_problem: str,
+    ) -> Optional[str]:
+        """Queries Anthropic Claude (claude-opus-5-5) for sports domain mechanics hypothesis."""
+        if not DELEGATION_CONFIG.exists():
+            return None
+        policy = read(DELEGATION_CONFIG, {})
+        claude_cfg = policy.get('providers', {}).get('claude', {})
+        if not claude_cfg.get('enabled'):
+            return None
+
+        parts = segment_key.split('|')
+        league, scope, family = parts[0], parts[1], parts[2]
+        prompt = (
+            f"You are Anthropic Claude (claude-opus-5-5), sports domain mechanics and tactical modeling specialist. "
+            f"For betting segment '{segment_key}' (League: {league}, Scope: {scope}, Family: {family}):\n"
+            f"DIAGNOSIS TASK: {domain_problem}\n\n"
+            f"In 2-4 concise sentences, explain the physical and tactical sports mechanics (e.g. empty-net dynamics, "
+            f"B2B fatigue, late-game intentional fouling, rotation depths, weather variance) that cause standard models to leak edge, "
+            f"and propose a concrete mathematical distribution, hazard, or copula coupling to capture this alpha. Output domain analysis only."
+        )
+        try:
+            with file_lock(DATA / "development" / "ai-locks" / "claude.lock", timeout=10.0) as acquired:
+                if not acquired:
+                    return None
+                res = invoke('claude', claude_cfg, prompt, timeout=45)
+                state, answer = decode('claude', res, claude_cfg.get('model'))
+                if state == 'received_unreviewed' and answer:
+                    return answer.strip()
+        except Exception:
+            pass
+        return None
+
+    def _query_claude_for_model_code(
+        self,
+        segment_key: str,
+        domain_problem: str,
+        sample_context: Dict[str, Any],
+        model_id: str,
+        claude_hypothesis: Optional[str] = None,
+        grok_critique: Optional[str] = None,
+    ) -> Optional[Tuple[str, str, str]]:
+        """Invokes Anthropic Claude (claude-opus-5-5) as 1:1 fallback when Codex is busy/unavailable."""
+        if not DELEGATION_CONFIG.exists():
+            return None
+
+        policy = read(DELEGATION_CONFIG, {})
+        claude_cfg = policy.get('providers', {}).get('claude', {})
+        if not claude_cfg.get('enabled'):
+            return None
+
+        parts = segment_key.split('|')
+        league, scope, family = parts[0], parts[1], parts[2]
+
+        feedback_context = self.feedback_manager.get_in_context_learning_prompt(league, family)
+
+        prompt = (
+            f"You are Anthropic Claude (claude-opus-5-5), elite quantitative modeler and sports domain mechanics specialist. "
+            f"Write a complete, production-grade Python candidate model class for the sports betting segment '{segment_key}' "
+            f"(League: {league}, Scope: {scope}, Family: {family}).\n\n"
+            f"DOMAIN DIAGNOSIS & GOAL:\n{domain_problem}\n"
+            f"{f'CLAUDE SPORTS MECHANICS HYPOTHESIS: {claude_hypothesis}' if claude_hypothesis else ''}\n"
+            f"{f'GROK RED-TEAM AUDIT & GUARDRAILS: {grok_critique}' if grok_critique else ''}\n\n"
+            f"REINFORCEMENT LEARNING CONTEXT (HISTORICAL ALPHA & COUNTER-EXAMPLES):\n{feedback_context}\n\n"
+            f"SYSTEM CONSTITUTION & 10 PRIME MANDATORY COMMANDMENTS:\n"
+            f"1. Target minimum 10.0% weekly portfolio ROI and consistent daily cumulative PnL uptrend.\n"
+            f"2. Daily volume floor: min 100 distinct funded recommendations per Budapest day (700+/rolling week).\n"
+            f"3. Zero hardcoded clamps: Continuous valuation for any contract with odds >= 1.40 and positive EV. Pure independent domain models (market_anchor_mode='shadow', model_weight=1.0) - zero blending of bookmaker vig into forecasts.\n"
+            f"4. Continuous risk-adjusted fractional Kelly sizing ($0.50-$8.00 bound, null daily risk ceiling).\n"
+            f"5. Dynamic 72-hour liquidity horizon across NFL, NHL, NBA, WNBA, MLB, NCAA, MLS, Tennis.\n"
+            f"6. 3-Tier Closed-Loop Progression: Demoted markets quarantined at $0.00. Candidate models must achieve out-of-sample ROI >= +3.5%, positive Brier skill, DD < 25% on 97k+ historical wagers before admission to the Shadow Incubator ($0.00 virtual stakes). Only after accumulating N >= 25 live settled matches with sustained profit does a candidate graduate to real money ($0.50-$8.00).\n"
+            f"7. Market Preservation: Never discard or permanently disable markets. Autonomous repair only.\n"
+            f"8. 3-Dimensional Capability Expansion: Free data features, portfolio shields, UI badges.\n"
+            f"9. Zero Paid External Sources: 100% free, public, official open feeds ($0.00 external data cost: NHL Web API, MLB Stats API, Open-Meteo, ESPN Public, Polymarket CLOB). Proposing paid APIs is strictly forbidden.\n"
+            f"10. Immutable betting ledger and manual execution boundary (no automated order submission).\n\n"
+            f"TECHNICAL REQUIREMENTS:\n"
+            f"1. Inherit from 'betting_engine.sandbox_models.base.BaseCandidateModel'.\n"
+            f"2. Implement 'predict_distribution(self, game_context: Dict[str, Any]) -> DiscreteDistribution'. Construct distributions using either `DiscreteDistribution(probabilities={{'home': p_h, 'draw': p_d, 'away': p_a}})` for 3-way/moneyline, `DiscreteDistribution.from_probabilities(p_home, p_draw, p_away)`, or `DiscreteDistribution.from_scores(scores)` for score matrices.\n"
+            f"3. INSTITUTIONAL QUANT PRIMITIVES & ECOSYSTEM:\n"
+            f"   You have direct access to Python's scientific mathematical ecosystem:\n"
+            f"   - Standard libraries: 'math', 'typing', 'numpy', 'scipy' (scipy.stats, scipy.optimize, scipy.integrate, scipy.special, scipy.linalg), 'sklearn' (linear_model, isotonic, calibration), 'statsmodels' (api, tsa, glm), 'pandas', 'mpmath'.\n"
+            f"   - Pre-built Quant Primitives (already in execution scope, no import needed):\n"
+            f"     * 'ClaytonCopula(theta)': Lower-tail asymmetric dependence for low-scoring/collapse games.\n"
+            f"     * 'GumbelCopula(theta)': Upper-tail asymmetric dependence for shootouts/over-pace clusters.\n"
+            f"     * 'FrankCopula(theta)': Symmetric nonlinear association.\n"
+            f"     * 'GaussianCopula(rho)': Correlation coupling between marginals.\n"
+            f"     * 'build_copula_score_lattice(pmf_h, pmf_a, copula)': 2D finite difference coupling marginals into joint score matrix.\n"
+            f"     * 'WeibullRenewalHazard(shape, scale)': Inter-event scoring hazards with positive/negative duration dependence.\n"
+            f"     * 'ZeroInflatedPoisson(mu, pi)' & 'ZeroInflatedNegativeBinomial(mu, alpha, pi)': Hurdle distributions for excess zeros & overdispersion.\n"
+            f"     * 'JamesSteinShrinkage': Dominates raw MLE for vectors of team performance parameters (p >= 3).\n"
+            f"     * 'KalmanRatingTracker': Dynamic 1D Kalman state tracking for form, fatigue, and momentum.\n"
+            f"     * 'TemperatureScaler': Calibrated probability scaling.\n"
+            f"     * 'build_universal_score_lattice': Adaptive lattice generator.\n"
+            f"   Use these institutional building blocks to design structurally sound, calibrated models.\n"
+            f"4. DOMAIN FEATURES: game_context provides rich situational features: 'home_expected', 'away_expected', 'home_rest_days', 'away_rest_days', 'home' attack/defense, 'away' attack/defense, weather (wind_speed, is_dome, temp), and venue.\n"
+            f"5. SAFETY BOUNDARY: Pure deterministic computation only. Do NOT import OS/process/network modules (os, sys, subprocess, socket, requests, urllib).\n"
+            f"6. Constructor must take model_id='{model_id}', version='1.0.0', league='{league}', scope='{scope}', family='{family}'.\n"
+            f"7. Return ONLY valid executable Python code in your response without markdown chat filler."
+        )
+
+        try:
+            with file_lock(DATA / "development" / "ai-locks" / "claude.lock", timeout=15.0) as acquired:
+                if not acquired:
+                    return None
+                res = invoke('claude', claude_cfg, prompt, timeout=120)
+                state, answer = decode('claude', res, claude_cfg.get('model'))
+                if state == 'received_unreviewed' and answer:
+                    code_match = re.search(r'```(?:python)?\s*(.*?)\s*```', answer, re.DOTALL)
+                    clean_code = code_match.group(1) if code_match else answer.strip()
+                    is_safe, cls_name, err = check_ast_safety(clean_code)
+                    if is_safe and cls_name:
+                        return clean_code, cls_name, f"Claude (claude-opus-5-5) synthesized model addressing {domain_problem[:120]}"
+        except Exception:
+            pass
+
+        return None
+
     def synthesize_and_screen_candidate(
         self,
         segment_key: str,
@@ -664,7 +783,14 @@ class {class_name}(BaseCandidateModel):
 
         ctx = sample_context or get_default_segment_context(league, scope)
 
-        # 1. Generate code via Codex (with algorithmic fallback)
+        # 0. Enrich with Claude domain mechanics hypothesis if not provided
+        if not claude_hypothesis and not force_archetype:
+            try:
+                claude_hypothesis = self._query_claude_for_domain_hypothesis(canonical_seg, domain_problem)
+            except Exception:
+                pass
+
+        # 1. Generate code via Codex (with Claude 1:1 fallback, then algorithmic fallback)
         provider = "codex"
         codex_res = None if force_archetype else self._query_codex_for_model_code(
             canonical_seg, domain_problem, ctx, model_id,
@@ -672,6 +798,20 @@ class {class_name}(BaseCandidateModel):
         )
         if codex_res:
             source_code, class_name, rationale = codex_res
+        elif not force_archetype:
+            # Fallback to Claude (1:1 identical environment) if Codex is busy/locked/unavailable
+            claude_res = self._query_claude_for_model_code(
+                canonical_seg, domain_problem, ctx, model_id,
+                claude_hypothesis=claude_hypothesis, grok_critique=grok_critique
+            )
+            if claude_res:
+                provider = "claude"
+                source_code, class_name, rationale = claude_res
+            else:
+                provider = "algorithmic_codex_engine"
+                source_code, class_name, rationale = self._generate_algorithmic_archetype(
+                    league, scope, family, model_id, archetype_hint=force_archetype
+                )
         else:
             provider = "algorithmic_codex_engine"
             source_code, class_name, rationale = self._generate_algorithmic_archetype(

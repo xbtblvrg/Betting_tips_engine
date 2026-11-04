@@ -37,48 +37,6 @@
       "reasoning_effort": "low"
     },
     {
-      "id": "gpt-6-luna",
-      "provider": "codex",
-      "family": "gpt",
-      "model": "gpt-6-luna",
-      "reasoning_effort": "low"
-    },
-    {
-      "id": "gpt-5.6-sol",
-      "provider": "codex",
-      "family": "gpt",
-      "model": "gpt-5.6-sol",
-      "reasoning_effort": "low"
-    },
-    {
-      "id": "gpt-5.6-terra",
-      "provider": "codex",
-      "family": "gpt",
-      "model": "gpt-5.6-terra",
-      "reasoning_effort": "low"
-    },
-    {
-      "id": "gpt-5.6-luna",
-      "provider": "codex",
-      "family": "gpt",
-      "model": "gpt-5.6-luna",
-      "reasoning_effort": "low"
-    },
-    {
-      "id": "gpt-5.5",
-      "provider": "codex",
-      "family": "gpt",
-      "model": "gpt-5.5",
-      "reasoning_effort": "low"
-    },
-    {
-      "id": "gpt-reserve",
-      "provider": "codex",
-      "family": "gpt",
-      "model": "gpt-reserve",
-      "reasoning_effort": "low"
-    },
-    {
       "id": "claude-opus-5-5",
       "provider": "claude",
       "family": "opus-5.5",
