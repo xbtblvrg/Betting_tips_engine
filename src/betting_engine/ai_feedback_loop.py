@@ -346,25 +346,25 @@ class AIFeedbackLoopManager:
 
         sections = []
         if success_rows:
-            sections.append(f"HISTORICAL EMPIRICAL ALPHA BENCHMARKS IN {lg} (FOR BENCHMARK COMPARISON ONLY; DO NOT ANCHOR OR COPY):")
-            for r in success_rows:
+            sections.append(f"HISTORICAL EMPIRICAL ALPHA BENCHMARKS IN {lg} (OBJECTIVE MATHEMATICAL TARGETS TO MATCH OR EXCEED):")
+            for idx, r in enumerate(success_rows, 1):
                 l_roi = f" | Live ROI: {r['live_realized_roi']*100:.1f}% ({r['live_games_settled']} games)" if r['live_games_settled'] > 0 else ""
                 sections.append(
-                    f"- Archetype: {r['class_name']} | OOS ROI: +{r['oos_simulated_roi']*100:.1f}% | "
-                    f"Delta Brier: +{r['oos_delta_brier']:.4f}{l_roi}\n"
-                    f"  Core mathematical rationale: {r['codex_rationale'] or 'Adaptive score lattice'}"
+                    f"- Empirical Benchmark {idx}: Out-of-sample ROI achieved: +{r['oos_simulated_roi']*100:.1f}% | "
+                    f"Delta Brier skill: +{r['oos_delta_brier']:.4f}{l_roi}\n"
+                    f"  Objective: Formulate independent quantitative architecture matching or exceeding this empirical skill."
                 )
 
         if failed_rows:
-            sections.append(f"\nHISTORICAL REJECTED FORMULATIONS IN {lg} (OBSERVED FAILURE MODES TO AVOID):")
-            for r in failed_rows:
+            sections.append(f"\nHISTORICAL EMPIRICAL CALIBRATION DEFICITS IN {lg} (DEFICITS TO OVERCOME):")
+            for idx, r in enumerate(failed_rows, 1):
                 sections.append(
-                    f"- Rejected Archetype: {r['class_name']} | OOS Deficit: {r['oos_simulated_roi']*100:.1f}%\n"
-                    f"  Failure Mode: Did not generate positive alpha; bookmaker closing line dominated forecasts."
+                    f"- Empirical Deficit {idx}: Out-of-sample deficit: {r['oos_simulated_roi']*100:.1f}%\n"
+                    f"  Observed Pathology: Uncalibrated probability mass dominated by bookmaker line; eliminate tail mispricing from first principles."
                 )
 
         if not sections:
             return f"PRIOR QUANT ADVISORY: Target high-conviction positive EV on {lg} {fam} with calibrated distribution estimation."
 
-        sections.append("\n(Note: Historical models above are empirical reference benchmarks only. You are NOT required to replicate or follow them; innovate freely with any valid mathematical formulation.)")
+        sections.append("\n(Note: Empirical benchmarks above quantify observed statistical skill targets. Formulate optimal probability structures independently from first principles based on observed data moments.)")
         return "\n".join(sections)

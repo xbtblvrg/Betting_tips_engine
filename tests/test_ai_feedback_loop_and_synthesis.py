@@ -80,13 +80,15 @@ def test_feedback_loop_manager_lifecycle(tmp_path):
     )
     assert mgr.record_synthesis_attempt(rec_fail) is True
 
-    # 3. Verify in-context learning prompt incorporates both
+    # 3. Verify in-context learning prompt incorporates empirical facts without class name anchoring
     prompt = mgr.get_in_context_learning_prompt(league="NBA", family="totals")
     assert "HISTORICAL EMPIRICAL ALPHA BENCHMARKS IN NBA" in prompt
-    assert "NegativeBinomialHurdleModel_NBA_full_game" in prompt
     assert "+6.5%" in prompt
-    assert "HISTORICAL REJECTED FORMULATIONS IN NBA" in prompt
-    assert "NaivePoissonSpreadModel_NBA" in prompt
+    assert "HISTORICAL EMPIRICAL CALIBRATION DEFICITS IN NBA" in prompt
+    assert "-8.2%" in prompt
+    # Strict anti-anchoring invariant: no class names or formula exemplars in prompt
+    assert "NegativeBinomialHurdleModel_NBA_full_game" not in prompt
+    assert "NaivePoissonSpreadModel_NBA" not in prompt
 
     # 4. Record live settlements
     # 5 wins, 0 losses
