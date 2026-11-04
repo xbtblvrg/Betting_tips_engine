@@ -158,27 +158,27 @@ class MarketAutopsyAnalyzer:
         if 'total' in fam:
             if lg in ('NBA', 'WNBA', 'NCAAM', 'NCAAW') or autopsy.dispersion_index > 1.25:
                 recs.extend(['NegativeBinomialHurdle', 'PaceAdjustedGammaPoisson', 'UniversalLattice'])
-                pathologies.append(f"Heavy right-tail variance (Dispersion={autopsy.dispersion_index}); requires Negative Binomial or Gamma mixture")
+                pathologies.append(f"Heavy right-tail variance (Dispersion={autopsy.dispersion_index}); candidate may consider overdispersed or mixture dynamics")
             elif lg == 'NHL' and ('period_3' in sc or 'regulation' in sc):
                 recs.extend(['WeibullRenewalHazard', 'ZeroInflatedPoisson'])
-                pathologies.append("Late empty-net goal surge violates Poisson homogeneity; requires Weibull non-homogeneous renewal")
+                pathologies.append("Late empty-net goal surge violates Poisson homogeneity; candidate may consider time-decay or renewal hazards")
             else:
                 recs.extend(['DixonColesSoccerModel', 'ZeroInflatedNegativeBinomial'])
-                pathologies.append("Low-scoring marginal dependence; requires Dixon-Coles or bivariate coupling")
+                pathologies.append("Low-scoring marginal dependence; candidate may explore bivariate coupling or joint score lattices")
 
         elif 'spread' in fam or 'handicap' in fam:
             if lg in ('NFL', 'NCAAF'):
                 recs.extend(['AsymmetricLaplaceDifference', 'KeyNumberDiscreteLattice'])
-                pathologies.append("Score differentials cluster sharply on key numbers (3, 7, 10); requires discrete lattice with Laplace peaks")
+                pathologies.append("Score differentials cluster sharply on key numbers (3, 7, 10); candidate should account for discrete key-number mass")
             else:
                 recs.extend(['AsymmetricLaplaceDifference', 'SkellamDifferentialModel'])
-                pathologies.append("High modal concentration around margin; requires Skellam or Asymmetric Laplace")
+                pathologies.append("High modal concentration around margin; candidate may consider differential or heavy-tailed formulations")
 
         elif 'three_way' in fam or 'draw' in fam or 'moneyline' in fam:
             if autopsy.worst_side == 'home':
-                pathologies.append(f"Systematic over-estimation of Home advantage (Home PnL: {autopsy.pnl_by_side.get('home', 0.0):.1f}); dampen home weighting")
+                pathologies.append(f"Systematic over-estimation of Home advantage (Home PnL: {autopsy.pnl_by_side.get('home', 0.0):.1f}); consider dampening home weighting")
             recs.extend(['SkellamDifferentialModel', 'DixonColesSoccerModel', 'ClaytonCopula'])
-            pathologies.append("3-way draw probability sensitivity; requires bivariate marginal lattice")
+            pathologies.append("3-way draw probability sensitivity; candidate may explore bivariate marginal lattices")
 
         else:
             recs.extend(['UniversalScoreLattice', 'AsymmetricLaplaceDifference'])
@@ -214,18 +214,21 @@ class TargetedSynthesisBriefBuilder:
         prompt = (
             f"TARGET QUANTITATIVE BETTING SEGMENT: '{autopsy.segment_key}'\n"
             f"- League: {autopsy.league} | Game Scope: {autopsy.scope} | Market Family: {autopsy.family}\n\n"
-            f"HISTORICAL FORENSIC AUTOPSY:\n"
+            f"HISTORICAL FORENSIC AUTOPSY (EMPIRICAL EVIDENCE):\n"
             f"- Settled Historical Sample: {sample_desc}\n"
             f"- {perf_desc}\n"
             f"- PnL Breakdown by Side: {side_breakdown}\n"
             f"{worst_note}"
             f"- Empirical Baseline Means: Home expected = {autopsy.home_expected:.2f}, Away expected = {autopsy.away_expected:.2f}\n"
             f"- {disp_desc}\n"
-            f"- Identified Pathology: {pathology_desc}\n\n"
-            f"MANDATORY MATHEMATICAL OBJECTIVE:\n"
-            f"1. Address the exact pathology identified above. Zero hardcoded constants or arbitrary static clamps.\n"
-            f"2. Recommended Candidate Architectures (use as quantitative foundation or innovate with any valid structure): {recommended_dists}.\n"
-            f"3. Anchor distributions around empirical baseline means (Home: {autopsy.home_expected:.2f}, Away: {autopsy.away_expected:.2f}), "
+            f"- Identified Empirical Pathology: {pathology_desc}\n\n"
+            f"MATHEMATICAL OBJECTIVE & OPEN QUANTITATIVE FREEDOM:\n"
+            f"1. Resolve the empirical cash leak and calibration defect identified above. Zero hardcoded constants or arbitrary static clamps.\n"
+            f"2. OPEN ARCHITECTURAL EXPLORATION: You are strictly NOT restricted to any single textbook template. "
+            f"Potential inspirations include ({recommended_dists}), but you have full creative quantitative freedom to design ANY valid, "
+            f"theoretically sound mathematical structure (Copulas, Renewal Hazards, Hurdle/Negative Binomial, Skewed Distributions, "
+            f"Hierarchical Shrinkage, or entirely new composite architectures) that addresses the domain dynamics.\n"
+            f"3. Anchor distributions around empirical domain reality (Home: {autopsy.home_expected:.2f}, Away: {autopsy.away_expected:.2f}), "
             f"and dynamically scale with situational inputs ('home_expected', 'away_expected', attack/defense exposure, tempo/pace, rest days).\n"
             f"4. If modeling overdispersed totals, calibrate dispersion alpha from observed index ({autopsy.dispersion_index:.3f}) or domain dynamics for {autopsy.league}.\n"
             f"5. If modeling spreads or moneylines, ensure margin mass respects sport-specific key numbers and limits home-field over-confidence.\n"
