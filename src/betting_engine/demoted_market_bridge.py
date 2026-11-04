@@ -177,7 +177,7 @@ class DemotedMarketIncubationBridge:
                     return 0 if is_dual else 1
 
                 unresolved.sort(key=_dual_priority_key)
-                max_ai_syntheses = min(2, len(unresolved))
+                max_ai_syntheses = min(max_train_per_run - len(newly_admitted), len(unresolved))
                 for target_row in unresolved[:max_ai_syntheses]:
                     t_did, t_seg_key = target_row[0], target_row[1]
                     try:
@@ -185,7 +185,7 @@ class DemotedMarketIncubationBridge:
                         synthesizer = CodexModelSynthesizer(data_dir=self.data_dir)
                         synth_rec = synthesizer.synthesize_and_screen_candidate(
                             segment_key=t_seg_key,
-                            domain_problem=f"Standard archetypes failed out-of-sample backtest on {t_seg_key}. Requires novel mathematical formulation with positive alpha."
+                            domain_problem=f"Demoted market {t_seg_key} requiring targeted quantitative repair."
                         )
                         if synth_rec.crucible_passed and synth_rec.is_admitted_to_incubator:
                             from .historical_trainer import CandidateTrainingResult

@@ -28,7 +28,9 @@ from typing import Any, Dict, List, Optional, Tuple, Type
 
 from .ai_delegation import invoke, decode, read, file_lock
 from .ai_feedback_loop import AIFeedbackLoopManager, AIFeedbackRecord
+from .dynamic_model_registry import DynamicArchetypeRegistry
 from .historical_trainer import HistoricalCandidateTrainer, get_default_segment_context
+from .market_autopsy import MarketAutopsy, MarketAutopsyAnalyzer, TargetedSynthesisBriefBuilder
 from .providers import DATA
 from .sandbox_models.base import (
     BaseCandidateModel,
@@ -177,6 +179,9 @@ class CodexModelSynthesizer:
         self.tournament = TournamentEngine(self.data_dir)
         self.trainer = HistoricalCandidateTrainer(self.data_dir / "shadow_incubator.sqlite3")
         self.feedback_manager = AIFeedbackLoopManager(self.data_dir)
+        self.autopsy_analyzer = MarketAutopsyAnalyzer(self.data_dir / "shadow_incubator.sqlite3")
+        self.brief_builder = TargetedSynthesisBriefBuilder()
+        self.registry = DynamicArchetypeRegistry.get_instance()
 
     def _append_log(self, record: SynthesizedModelRecord) -> None:
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
@@ -192,7 +197,8 @@ class CodexModelSynthesizer:
         scope: str,
         family: str,
         model_id: str,
-        archetype_hint: Optional[str] = None
+        archetype_hint: Optional[str] = None,
+        autopsy: Optional[MarketAutopsy] = None,
     ) -> Tuple[str, str, str]:
         """Algorithmic fallback synthesizer that writes verified mathematical Python source code.
         
@@ -212,6 +218,13 @@ class CodexModelSynthesizer:
             tag = 'hurdle'
         else:
             tag = 'asymmetric_laplace'
+
+        base_ctx = get_default_segment_context(league, scope)
+        def_h = float(autopsy.home_expected if autopsy else 0.0) or float(base_ctx.get('home_expected') or 1.5)
+        def_a = float(autopsy.away_expected if autopsy else 0.0) or float(base_ctx.get('away_expected') or 1.2)
+        disp_alpha = max(0.01, round(float(autopsy.dispersion_index) - 1.0, 3)) if (autopsy and autopsy.dispersion_index > 1.0) else 0.15
+        zero_hurdle = round(float(autopsy.zero_frequency), 3) if (autopsy and autopsy.zero_frequency > 0.0) else 0.05
+        kappa = round(max(0.7, min(1.4, 1.0 + (float(autopsy.skewness) * 0.1))), 3) if autopsy else 1.05
 
         # 1. Tennis: Absorbing Markov Chain
         if tag == 'markov_tennis':
@@ -299,8 +312,8 @@ class {class_name}(BaseCandidateModel):
         self.hazard_shape_k = hazard_shape_k
 
     def predict_distribution(self, game_context: Dict[str, Any]) -> DiscreteDistribution:
-        h_mu = float(game_context.get('home_expected') or 1.15) * (self.hazard_shape_k ** 0.5)
-        a_mu = float(game_context.get('away_expected') or 1.05) * (self.hazard_shape_k ** 0.5)
+        h_mu = float(game_context.get('home_expected') or {def_h}) * (self.hazard_shape_k ** 0.5)
+        a_mu = float(game_context.get('away_expected') or {def_a}) * (self.hazard_shape_k ** 0.5)
         scores = build_universal_score_lattice(h_mu, a_mu, dispersion_alpha=0.18, max_discrete_score=8)
         return DiscreteDistribution.from_scores(scores)
 '''
@@ -341,8 +354,8 @@ class {class_name}(BaseCandidateModel):
         self.rho = rho
 
     def predict_distribution(self, game_context: Dict[str, Any]) -> DiscreteDistribution:
-        h_mu = float(game_context.get('home_expected') or 1.55)
-        a_mu = float(game_context.get('away_expected') or 1.15)
+        h_mu = float(game_context.get('home_expected') or {def_h})
+        a_mu = float(game_context.get('away_expected') or {def_a})
         scores = {{}}
         for h in range(7):
             for a in range(7):
@@ -381,8 +394,8 @@ class {class_name}(BaseCandidateModel):
         league: str = "{league}",
         scope: str = "{scope}",
         family: str = "{family}",
-        zero_hurdle_prob: float = 0.08,
-        dispersion_alpha: float = 0.22,
+        zero_hurdle_prob: float = {zero_hurdle},
+        dispersion_alpha: float = {disp_alpha},
         metadata: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(
@@ -398,8 +411,8 @@ class {class_name}(BaseCandidateModel):
         self.dispersion_alpha = dispersion_alpha
 
     def predict_distribution(self, game_context: Dict[str, Any]) -> DiscreteDistribution:
-        def_h = 2.8 if self.league == "NHL" else (110.0 if self.league in ("NBA", "WNBA") else 1.4)
-        def_a = 2.4 if self.league == "NHL" else (106.0 if self.league in ("NBA", "WNBA") else 1.1)
+        def_h = {def_h}
+        def_a = {def_a}
         h_mu = float(game_context.get('home_expected') or game_context.get('home_points') or def_h)
         a_mu = float(game_context.get('away_expected') or game_context.get('away_points') or def_a)
 
@@ -432,7 +445,7 @@ class {class_name}(BaseCandidateModel):
         league: str = "{league}",
         scope: str = "{scope}",
         family: str = "{family}",
-        asymmetry_kappa: float = 1.08,
+        asymmetry_kappa: float = {kappa},
         metadata: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(
@@ -447,8 +460,8 @@ class {class_name}(BaseCandidateModel):
         self.asymmetry_kappa = asymmetry_kappa
 
     def predict_distribution(self, game_context: Dict[str, Any]) -> DiscreteDistribution:
-        def_h = 2.8 if self.league == "NHL" else (110.0 if self.league in ("NBA", "WNBA") else 1.4)
-        def_a = 2.4 if self.league == "NHL" else (106.0 if self.league in ("NBA", "WNBA") else 1.1)
+        def_h = {def_h}
+        def_a = {def_a}
         h_mu = float(game_context.get('home_expected') or game_context.get('home_points') or def_h) * self.asymmetry_kappa
         a_mu = float(game_context.get('away_expected') or game_context.get('away_points') or def_a)
 
@@ -477,7 +490,7 @@ class {class_name}(BaseCandidateModel):
             *model, str(prompt)
         ]
         env = {'PATH': os.environ.get('PATH', '/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin')}
-        for k in ('OPENAI_API_KEY', 'CODEX_HOME'):
+        for k in ('OPENAI_API_KEY', 'CODEX_HOME', 'HOME', 'USER', 'LOGNAME', 'TMPDIR'):
             if k in os.environ:
                 env[k] = os.environ[k]
 
@@ -629,10 +642,10 @@ class {class_name}(BaseCandidateModel):
         )
 
         try:
-            with file_lock(DATA / "development" / "ai-locks" / "codex.lock", timeout=300.0) as acquired:
+            with file_lock(DATA / "development" / "ai-locks" / "codex.lock", timeout=15.0) as acquired:
                 if not acquired:
                     return None
-                res = self._invoke_codex_with_watchdog(codex_cfg, prompt, timeout=300.0, max_hard_ceiling=600.0, idle_timeout=60.0)
+                res = self._invoke_codex_with_watchdog(codex_cfg, prompt, timeout=120.0, max_hard_ceiling=240.0, idle_timeout=30.0)
                 state, answer = decode('codex', res, codex_cfg.get('model'))
                 if state == 'received_unreviewed' and answer:
                     code_match = re.search(r'```(?:python)?\s*(.*?)\s*```', answer, re.DOTALL)
@@ -783,17 +796,21 @@ class {class_name}(BaseCandidateModel):
 
         ctx = sample_context or get_default_segment_context(league, scope)
 
+        # -1. Automated Empirical Market Autopsy & Targeted Quantitative Brief
+        autopsy = self.autopsy_analyzer.analyze_market(canonical_seg)
+        targeted_problem = self.brief_builder.build_targeted_prompt(autopsy, domain_problem)
+
         # 0. Enrich with Claude domain mechanics hypothesis if not provided
         if not claude_hypothesis and not force_archetype:
             try:
-                claude_hypothesis = self._query_claude_for_domain_hypothesis(canonical_seg, domain_problem)
+                claude_hypothesis = self._query_claude_for_domain_hypothesis(canonical_seg, targeted_problem)
             except Exception:
                 pass
 
         # 1. Generate code via Codex (with Claude 1:1 fallback, then algorithmic fallback)
         provider = "codex"
         codex_res = None if force_archetype else self._query_codex_for_model_code(
-            canonical_seg, domain_problem, ctx, model_id,
+            canonical_seg, targeted_problem, ctx, model_id,
             claude_hypothesis=claude_hypothesis, grok_critique=grok_critique
         )
         if codex_res:
@@ -801,7 +818,7 @@ class {class_name}(BaseCandidateModel):
         elif not force_archetype:
             # Fallback to Claude (1:1 identical environment) if Codex is busy/locked/unavailable
             claude_res = self._query_claude_for_model_code(
-                canonical_seg, domain_problem, ctx, model_id,
+                canonical_seg, targeted_problem, ctx, model_id,
                 claude_hypothesis=claude_hypothesis, grok_critique=grok_critique
             )
             if claude_res:
@@ -810,12 +827,12 @@ class {class_name}(BaseCandidateModel):
             else:
                 provider = "algorithmic_codex_engine"
                 source_code, class_name, rationale = self._generate_algorithmic_archetype(
-                    league, scope, family, model_id, archetype_hint=force_archetype
+                    league, scope, family, model_id, archetype_hint=force_archetype, autopsy=autopsy
                 )
         else:
             provider = "algorithmic_codex_engine"
             source_code, class_name, rationale = self._generate_algorithmic_archetype(
-                league, scope, family, model_id, archetype_hint=force_archetype
+                league, scope, family, model_id, archetype_hint=force_archetype, autopsy=autopsy
             )
 
         # 2. AST Safety & Structure Check
@@ -961,6 +978,21 @@ class {class_name}(BaseCandidateModel):
             # Register in tournament
             ok, t_errs = self.tournament.register_candidate(canonical_seg, model_instance, sample_context=ctx)
             admitted = ok
+
+            # Register in dynamic archetype registry for continuous model library enrichment
+            try:
+                self.registry.register_new_model(
+                    model_id=model_id,
+                    source_code=source_code,
+                    class_name=found_class,
+                    league=league,
+                    scope=scope,
+                    family=family,
+                    oos_roi=sim_roi,
+                    delta_brier=delta_brier
+                )
+            except Exception:
+                pass
 
         record = SynthesizedModelRecord(
             model_id=model_id,
