@@ -67,7 +67,9 @@ def test_brief_builder_generates_dense_quant_prompt():
     assert "NBA|full_game|home_total" in prompt
     assert "112.40" in prompt
     assert "1.345" in prompt
-    assert "NegativeBinomialHurdle" in prompt
+    assert "NegativeBinomialHurdle" not in prompt
+    assert "PaceAdjustedGammaPoisson" not in prompt
+    assert "FIRST-PRINCIPLES MATHEMATICAL DERIVATION" in prompt
     assert "CRITICAL CASH LEAK: Side 'over'" in prompt
 
 
@@ -90,7 +92,9 @@ def test_brief_builder_handles_cold_start_truthfully():
     assert "Cold Start market" in prompt
     assert "Realized Win Rate: N/A" in prompt
     assert "0.0% win rate" not in prompt.lower()
-    assert "DixonColesSoccerModel" in prompt
+    assert "DixonColesSoccerModel" not in prompt
+    assert "ZeroInflatedNegativeBinomial" not in prompt
+    assert "FIRST-PRINCIPLES MATHEMATICAL DERIVATION" in prompt
 
 
 def test_dynamic_archetype_registry_discovery_and_instantiation():

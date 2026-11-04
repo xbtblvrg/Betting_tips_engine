@@ -147,7 +147,7 @@ class MarketAutopsyAnalyzer:
                 var_l = sum((x - mean_l) ** 2 for x in lines) / max(1, len(lines) - 1)
                 autopsy.dispersion_index = round(var_l / max(0.1, mean_l), 3)
 
-        # Domain distribution recommendations
+        # Domain statistical property diagnostics
         fam = autopsy.family.lower()
         lg = autopsy.league.upper()
         sc = autopsy.scope.lower()
@@ -157,32 +157,32 @@ class MarketAutopsyAnalyzer:
 
         if 'total' in fam:
             if lg in ('NBA', 'WNBA', 'NCAAM', 'NCAAW') or autopsy.dispersion_index > 1.25:
-                recs.extend(['NegativeBinomialHurdle', 'PaceAdjustedGammaPoisson', 'UniversalLattice'])
-                pathologies.append(f"Heavy right-tail variance (Dispersion={autopsy.dispersion_index}); candidate may consider overdispersed or mixture dynamics")
+                recs.extend(['overdispersed_variance', 'compound_scoring'])
+                pathologies.append(f"Heavy right-tail variance (Dispersion={autopsy.dispersion_index}); evaluate overdispersed or compound variance dynamics")
             elif lg == 'NHL' and ('period_3' in sc or 'regulation' in sc):
-                recs.extend(['WeibullRenewalHazard', 'ZeroInflatedPoisson'])
-                pathologies.append("Late empty-net goal surge violates Poisson homogeneity; candidate may consider time-decay or renewal hazards")
+                recs.extend(['time_varying_hazard', 'accelerating_rate'])
+                pathologies.append("Late empty-net goal surge violates constant event-rate homogeneity; observe time-dependent acceleration")
             else:
-                recs.extend(['DixonColesSoccerModel', 'ZeroInflatedNegativeBinomial'])
-                pathologies.append("Low-scoring marginal dependence; candidate may explore bivariate coupling or joint score lattices")
+                recs.extend(['bivariate_dependence', 'low_scoring_marginal'])
+                pathologies.append("Low-scoring marginal dependence; observe joint score correlation and low-tally clustering")
 
         elif 'spread' in fam or 'handicap' in fam:
             if lg in ('NFL', 'NCAAF'):
-                recs.extend(['AsymmetricLaplaceDifference', 'KeyNumberDiscreteLattice'])
-                pathologies.append("Score differentials cluster sharply on key numbers (3, 7, 10); candidate should account for discrete key-number mass")
+                recs.extend(['key_number_clustering', 'discrete_margin_mass'])
+                pathologies.append("Score differentials cluster sharply on key numbers (3, 7, 10); discrete margin mass observed")
             else:
-                recs.extend(['AsymmetricLaplaceDifference', 'SkellamDifferentialModel'])
-                pathologies.append("High modal concentration around margin; candidate may consider differential or heavy-tailed formulations")
+                recs.extend(['differential_scoring', 'modal_concentration'])
+                pathologies.append("High modal concentration around margin; evaluate differential tail dispersion")
 
         elif 'three_way' in fam or 'draw' in fam or 'moneyline' in fam:
             if autopsy.worst_side == 'home':
                 pathologies.append(f"Systematic over-estimation of Home advantage (Home PnL: {autopsy.pnl_by_side.get('home', 0.0):.1f}); consider dampening home weighting")
-            recs.extend(['SkellamDifferentialModel', 'DixonColesSoccerModel', 'ClaytonCopula'])
-            pathologies.append("3-way draw probability sensitivity; candidate may explore bivariate marginal lattices")
+            recs.extend(['bivariate_dependence', 'draw_sensitivity'])
+            pathologies.append("3-way draw probability sensitivity; evaluate joint marginal outcomes")
 
         else:
-            recs.extend(['UniversalScoreLattice', 'AsymmetricLaplaceDifference'])
-            pathologies.append("Tail variance uncaptured by naive models")
+            recs.extend(['score_lattice', 'tail_variance'])
+            pathologies.append("Tail variance uncaptured by baseline models")
 
         autopsy.recommended_distributions = recs
         autopsy.pathology_summary = "; ".join(pathologies) if pathologies else "Standard out-of-sample edge deficit"
@@ -209,8 +209,6 @@ class TargetedSynthesisBriefBuilder:
             worst_note = ""
             pathology_desc = "Cold start unmodeled market; construct first principled quantitative architecture from domain fundamentals."
 
-        recommended_dists = ", ".join(autopsy.recommended_distributions)
-
         prompt = (
             f"TARGET QUANTITATIVE BETTING SEGMENT: '{autopsy.segment_key}'\n"
             f"- League: {autopsy.league} | Game Scope: {autopsy.scope} | Market Family: {autopsy.family}\n\n"
@@ -225,12 +223,11 @@ class TargetedSynthesisBriefBuilder:
             f"MATHEMATICAL OBJECTIVE & OPEN QUANTITATIVE FREEDOM:\n"
             f"1. Resolve the empirical cash leak and calibration defect identified above. Zero hardcoded constants or arbitrary static clamps.\n"
             f"2. FIRST-PRINCIPLES MATHEMATICAL DERIVATION: Do NOT anchor to standard recipes, buzzword lists, or historical templates. "
-            f"Historical baselines tested: {recommended_dists} (benchmark only; do NOT copy or anchor to this baseline). "
             f"Independently formulate the theoretical model structure directly from empirical moments and domain dynamics.\n"
             f"3. Anchor distributions around empirical domain reality (Home: {autopsy.home_expected:.2f}, Away: {autopsy.away_expected:.2f}), "
             f"and dynamically scale with situational inputs ('home_expected', 'away_expected', attack/defense exposure, tempo/pace, rest days).\n"
-            f"4. If modeling overdispersed totals, calibrate dispersion alpha from observed index ({autopsy.dispersion_index:.3f}) or domain dynamics for {autopsy.league}.\n"
-            f"5. If modeling spreads or moneylines, ensure margin mass respects sport-specific key numbers and limits home-field over-confidence.\n"
+            f"4. If modeling overdispersed totals, calibrate dispersion parameter from observed index ({autopsy.dispersion_index:.3f}) or domain dynamics for {autopsy.league}.\n"
+            f"5. If modeling spreads or moneylines, ensure margin mass respects sport-specific scoring structure and limits home-field over-confidence.\n"
         )
         if base_problem and base_problem.strip():
             prompt += f"\nADDITIONAL USER/SUPERVISOR DIAGNOSIS:\n{base_problem.strip()}\n"

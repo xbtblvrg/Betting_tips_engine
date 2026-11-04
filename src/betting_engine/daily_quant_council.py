@@ -212,8 +212,8 @@ def convene_daily_quant_council(
         )
     if not codex_text:
         codex_text = (
-            "Enforce strict fractional Kelly continuous sizing ($0.50-$8.00). Ensure negative binomial hurdle "
-            "and Dixon-Coles bivariate parameter estimates maintain positive out-of-sample Brier skill."
+            "Enforce strict fractional Kelly continuous sizing ($0.50-$8.00). Ensure probability distribution "
+            "parameter estimates maintain positive out-of-sample Brier skill and calibrated mathematical expectation."
         )
     if not grok_text:
         grok_text = (

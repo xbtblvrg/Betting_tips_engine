@@ -184,7 +184,7 @@ class SportContext:
         return status
     def injuries(self,games):
         status=[];now=utcnow()
-        for league in sorted({g.league for g in games if g.state=='scheduled' and 0<(parse_time(g.start)-now).total_seconds()<48*3600}):
+        for league in sorted({g.league for g in games if g.state=='scheduled' and 0<(parse_time(g.start)-now).total_seconds()<72*3600}):
             if league.startswith('NCAA'):
                 status.append({'source':league+'/injuries','ok':True,'state':'roster_depth_evaluated','note':'College availability data is not an implemented model input; college models price roster depth and situational home field advantage directly.'})
                 continue
@@ -230,7 +230,7 @@ class SportContext:
         status = []
         now = utcnow()
         outdoor_games = [g for g in games if g.state == 'scheduled' and g.league in ('MLB', 'NFL', 'NCAAF')
-                         and 0 < (parse_time(g.start) - now).total_seconds() < 48 * 3600]
+                         and 0 < (parse_time(g.start) - now).total_seconds() < 72 * 3600]
         def fetch_weather(g):
             try:
                 w = ws.get_venue_weather(g.league, g.home, g.start)

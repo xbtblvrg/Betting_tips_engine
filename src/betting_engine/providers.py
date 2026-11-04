@@ -120,7 +120,7 @@ class SportsData:
                     games.append(Game(id=league+':'+r['id'],league=league,start=r['date'],home=r['home_display_name'],away=r['away_display_name'],home_id=r['home_id'],away_id=r['away_id'],home_abbr=r['home_abbreviation'],away_abbr=r['away_abbreviation'],state=state,season=season,home_score=num(r['home_score']) if state=='final' else None,away_score=num(r['away_score']) if state=='final' else None,neutral=truth(r.get('neutral_site')),game_type='playoff' if str(r.get('season_type')) in ('3','3.0') else 'regular',source=url,fetched_at=m['fetched_at']))
             except (ValueError,KeyError):continue
         return validate_batch(games),m
-    def basketball_current(self,league):
+    def basketball_current(self,league,horizon_hours=48):
         """Supplement season CSV omissions with independently identified ESPN fixtures.
 
         Only future scheduled events enter this supplement; preseason results
@@ -128,10 +128,15 @@ class SportsData:
         """
         if league not in ('NBA','WNBA'):raise ValueError('Unsupported basketball league')
         now=utcnow();games={};metas=[]
-        for offset in (-1,0,1,2):
+        offsets=(-1,0,1,2,3) if horizon_hours>48 else (-1,0,1,2)
+        for offset in offsets:
             day=(now+timedelta(days=offset)).strftime('%Y%m%d')
             url=f'https://site.api.espn.com/apis/site/v2/sports/basketball/{league.lower()}/scoreboard?dates={day}&limit=1000'
-            payload,meta=self.fetcher.json(url,900);metas.append(meta)
+            try:
+                payload,meta=self.fetcher.json(url,900);metas.append(meta)
+            except Exception:
+                if offset==3:continue
+                raise
             if not isinstance(payload.get('events'),list):raise SourceError('events_missing')
             for event in payload['events']:
                 competitions=event.get('competitions') or []
@@ -139,7 +144,7 @@ class SportsData:
                 c=competitions[0];status=(c.get('status') or event.get('status') or {}).get('type',{})
                 if status.get('name')!='STATUS_SCHEDULED' or status.get('state')!='pre' or c.get('timeValid') is False:continue
                 start=c.get('date') or event.get('date')
-                if not start or not now<parse_time(start)<=now+timedelta(hours=48):continue
+                if not start or not now<parse_time(start)<=now+timedelta(hours=horizon_hours):continue
                 phase=str(event.get('season',{}).get('type',''))
                 if phase not in ('1','2','3'):continue
                 home=[r['team'] for r in c.get('competitors',[]) if r.get('homeAway')=='home']
@@ -472,7 +477,7 @@ class SportsData:
                     jobs[f'{league}/{s}']=(season,(self.fetcher,league,s))
                 jobs[f'{league}/current']=(current,(self.fetcher,league))
         for league in ('NBA','WNBA'):
-            if league in leagues:jobs[f'{league}/current']=(self.basketball_current,(league,))
+            if league in leagues:jobs[f'{league}/current']=(self.basketball_current,(league,72))
         if 'NHL' in leagues:
             jobs['NHL/current']=(self.nhl_current,())
             # The league schedule is forward-looking by hockey date. Keep the
