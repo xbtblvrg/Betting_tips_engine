@@ -378,6 +378,15 @@ class HistoricalCandidateTrainer:
                 )
                 candidate_configs.append(('SkellamDifferentialModel', m, {'draw_inflation_eta': eta}))
 
+        # 11. Dynamic AI-Synthesized Archetypes from Registry (First-Principles Models)
+        try:
+            from .dynamic_model_registry import DynamicArchetypeRegistry
+            dyn_candidates = DynamicArchetypeRegistry.get_instance().get_dynamic_candidates_for_segment(league, scope, family)
+            if dyn_candidates:
+                candidate_configs.extend(dyn_candidates)
+        except Exception as e_dyn:
+            log.debug("Could not load dynamic candidate archetypes for %s|%s|%s: %s", league, scope, family, e_dyn)
+
         # Evaluate candidate models out-of-sample on holdout
         qualified_results: List[CandidateTrainingResult] = []
         all_results: List[CandidateTrainingResult] = []

@@ -133,13 +133,10 @@ def test_historical_candidate_trainer_training(temp_incubator_db: Path):
     assert result.oos_sample_size > 0
     assert result.oos_simulated_roi > 0.0
     assert result.is_qualified is True
-    assert result.model_archetype in (
-        'BivariateCopulaHazardModel',
-        'NegativeBinomialOverdispersionModel',
-        'OddsDampedKellyShrinkageModel',
-        'SituationalFatigueModel',
-        'ZeroInflatedPoissonModel'
-    )
+    assert isinstance(result.model_archetype, str) and len(result.model_archetype) > 0
+    assert result.oos_simulated_roi >= 0.035
+    assert result.oos_delta_brier > 0.0
+    assert result.oos_max_drawdown < 0.25
 
 
 def test_demoted_market_incubation_bridge(temp_incubator_db: Path, tmp_path: Path):

@@ -240,7 +240,8 @@ class DemotedMarketIncubationBridge:
 
         # Instantiate model archetype with fitted parameters
         class_map = self.tournament_engine._get_class_map()
-        cls_target = class_map.get(champ_res.model_archetype)
+        clean_arch = champ_res.model_archetype.removeprefix('Dynamic_')
+        cls_target = class_map.get(champ_res.model_archetype) or class_map.get(clean_arch)
         if not cls_target:
             return False
 
