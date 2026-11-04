@@ -59,6 +59,22 @@ def team_matches(label,name,abbr=''):
     if len(a)>=4 and b.endswith(a):return True
     return a.replace('la','losangeles',1)==b if a.startswith('la') else False
 
+def tennis_player_matches(label, name):
+    """Robust bidirectional tennis player name matcher for ATP/WTA/Challenger.
+    Handles 'Djokovic N.' vs 'Novak Djokovic', 'Lastname, Firstname', and standard initial conventions.
+    """
+    if not label or not name:
+        return False
+    if exact_team_name_match(label, name):
+        return True
+    cleaned_l = re.sub(r'[/,\-–—.]', ' ', str(label).lower())
+    cleaned_n = re.sub(r'[/,\-–—.]', ' ', str(name).lower())
+    tokens_l = {w for w in cleaned_l.split() if len(w) >= 3}
+    tokens_n = {w for w in cleaned_n.split() if len(w) >= 3}
+    if tokens_l and tokens_n and (tokens_l & tokens_n):
+        return True
+    return False
+
 def _stake_contract_key(market):
     # Keep raw JSON identity hashable even for a malformed neighboring offer.
     # Status and exact outcomes bind tab/support attribution to the same offer.
@@ -352,11 +368,24 @@ class StakeSportsbook:
             return None
         if fixture.get('status') not in (None, 'active'):
             return None
+        teams = self._fixture_teams(fixture.get('name'))
         if league in ('ATP', 'WTA', 'CHALLENGER'):
             by_id = [g for g in games if g.id == f"{league}:{fixture['id']}"]
             if len(by_id) == 1:
                 return by_id[0]
-        teams = self._fixture_teams(fixture.get('name'))
+            if len(teams) == 2:
+                # Tennis player matching with 4-hour window for match start shifts / delays
+                t_matches = [
+                    g for g in games
+                    if g.league == league
+                    and abs((parse_time(g.start) - start).total_seconds()) <= 14400
+                    and (
+                        (tennis_player_matches(teams[0], g.home) and tennis_player_matches(teams[1], g.away))
+                        or (tennis_player_matches(teams[0], g.away) and tennis_player_matches(teams[1], g.home))
+                    )
+                ]
+                if len(t_matches) == 1:
+                    return t_matches[0]
         if len(teams) != 2:
             return None
         matches = [

@@ -536,17 +536,30 @@ class PolymarketAutonomousExecutor:
 
         if book is None:
             if self.client:
+                import time
+                for attempt in range(3):
+                    try:
+                        book = self.client.get_order_book(token_id)
+                        if book is not None:
+                            break
+                    except Exception as exc:
+                        if attempt < 2:
+                            time.sleep(0.3 * (2 ** attempt))
+                            continue
+                        log.debug(f"CLOB get_order_book transient failure for {token_id}: {exc}, falling back to REST cache")
+                        try:
+                            from .polymarket_service import PolymarketService
+                            svc = PolymarketService()
+                            book = svc.get_clob_book(token_id)
+                        except Exception as e_svc:
+                            log.debug(f"Fallback get_clob_book error: {e_svc}")
+            else:
                 try:
-                    book = self.client.get_order_book(token_id)
-                except Exception as exc:
-                    log.warning(f"CLOB get_order_book failed for {token_id}: {exc}")
                     from .polymarket_service import PolymarketService
                     svc = PolymarketService()
                     book = svc.get_clob_book(token_id)
-            else:
-                from .polymarket_service import PolymarketService
-                svc = PolymarketService()
-                book = svc.get_clob_book(token_id)
+                except Exception as e_svc:
+                    log.debug(f"Direct get_clob_book error: {e_svc}")
 
         # Normalize OrderBookSummary dataclass or dict
         if book is not None:
