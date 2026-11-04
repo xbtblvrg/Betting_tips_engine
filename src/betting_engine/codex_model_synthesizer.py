@@ -627,7 +627,7 @@ class {class_name}(BaseCandidateModel):
             f"     * 'KalmanRatingTracker': Dynamic 1D Kalman state tracking for form, fatigue, and momentum.\n"
             f"     * 'TemperatureScaler': Calibrated probability scaling.\n"
             f"     * 'build_universal_score_lattice': Adaptive lattice generator.\n"
-            f"   Use these institutional building blocks to design structurally sound, calibrated models.\n"
+            f"   These building blocks are available in your namespace if helpful, but you have full mathematical freedom to formulate custom equations or distributions from first principles.\n"
             f"4. DOMAIN FEATURES: game_context provides rich situational features: 'home_expected', 'away_expected', 'home_rest_days', 'away_rest_days', 'home' attack/defense, 'away' attack/defense, weather (wind_speed, is_dome, temp), and venue.\n"
             f"5. SAFETY BOUNDARY: Pure deterministic computation only. Do NOT import OS/process/network modules (os, sys, subprocess, socket, requests, urllib).\n"
             f"6. Constructor must take model_id='{model_id}', version='1.0.0', league='{league}', scope='{scope}', family='{family}'.\n"
@@ -670,9 +670,8 @@ class {class_name}(BaseCandidateModel):
             f"You are Anthropic Claude (claude-opus-5-5), sports domain mechanics and tactical modeling specialist. "
             f"For betting segment '{segment_key}' (League: {league}, Scope: {scope}, Family: {family}):\n"
             f"DIAGNOSIS TASK: {domain_problem}\n\n"
-            f"In 2-4 concise sentences, explain the physical and tactical sports mechanics (e.g. empty-net dynamics, "
-            f"B2B fatigue, late-game intentional fouling, rotation depths, weather variance) that cause standard models to leak edge, "
-            f"and propose a concrete mathematical distribution, hazard, or copula coupling to capture this alpha. Output domain analysis only."
+            f"In 2-4 concise sentences, identify the specific sports mechanics and physical dynamics of this league and market that cause standard models to leak edge, "
+            f"and deduce a concrete mathematical formulation from first principles to capture this alpha. Output domain analysis only."
         )
         try:
             with file_lock(DATA / "development" / "ai-locks" / "claude.lock", timeout=10.0) as acquired:
@@ -739,7 +738,7 @@ class {class_name}(BaseCandidateModel):
             f"     * 'KalmanRatingTracker': Dynamic 1D Kalman state tracking for form, fatigue, and momentum.\n"
             f"     * 'TemperatureScaler': Calibrated probability scaling.\n"
             f"     * 'build_universal_score_lattice': Adaptive lattice generator.\n"
-            f"   Use these institutional building blocks to design structurally sound, calibrated models.\n"
+            f"   These building blocks are available in your namespace if helpful, but you have full mathematical freedom to formulate custom equations or distributions from first principles.\n"
             f"4. DOMAIN FEATURES: game_context provides rich situational features: 'home_expected', 'away_expected', 'home_rest_days', 'away_rest_days', 'home' attack/defense, 'away' attack/defense, weather (wind_speed, is_dome, temp), and venue.\n"
             f"5. SAFETY BOUNDARY: Pure deterministic computation only. Do NOT import OS/process/network modules (os, sys, subprocess, socket, requests, urllib).\n"
             f"6. Constructor must take model_id='{model_id}', version='1.0.0', league='{league}', scope='{scope}', family='{family}'.\n"

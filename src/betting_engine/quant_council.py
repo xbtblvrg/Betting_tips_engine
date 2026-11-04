@@ -153,7 +153,7 @@ def council_prompt(brief: Dict[str, Any], kind: str) -> str:
     """Generates role-specific prompt for Quant Council members with Mandatory Prime Directive."""
     assignment_map = {
         "sports_mechanics": "Deconstruct the sports mechanics, situational fatigue, tactical rotations, and variance behind this market segment failure.",
-        "quant_remedy": "Formulate a rigorous, leak-free mathematical or statistical remedy. Openly explore any valid quantitative structure (hazard process, continuous score distribution, Bayesian calibration shrinkage, volatility dampening, copula dependence, or feature conditioning).",
+        "quant_remedy": "Formulate a rigorous, leak-free mathematical or statistical remedy to resolve this empirical defect. Independently deduce the optimal formulation from first principles based on the observed pathology, with zero reliance on predefined templates.",
         "adversarial_red_team": "Act as adversarial red-team: identify hidden bookmaker traps, liquidity risks, or counter-examples where this model could fail.",
     }
     assignment = assignment_map.get(kind, "Provide quantitative advisory.")
@@ -163,7 +163,7 @@ def council_prompt(brief: Dict[str, Any], kind: str) -> str:
         + " MANDATORY PRIME OBJECTIVE: Continuous win rate (WR) improvement, higher conviction betting decisions, "
         "and a strictly increasing cumulative net PnL uptrend across all portfolio segments. "
         "CORE QUANTITATIVE PRINCIPLES: Pure independent domain models without blending bookmaker vig; continuous valuation for any contract with odds >= 1.40 and positive EV. "
-        "OPEN ARCHITECTURAL & COGNITIVE FREEDOM: Do NOT restrict yourself to textbook clichés or rigid archetypes. Innovate freely with any mathematically rigorous formulation suited to the empirical symptom. "
+        "FIRST-PRINCIPLES COGNITIVE FREEDOM: Do NOT anchor to textbook examples, standard recipes, or buzzword lists. Analyze the empirical evidence and independently formulate whatever mathematical structure best resolves the defect. "
         "ANTI-TAUTOLOGICAL CRUCIBLE STANDARD: Every proposed remedy must be immediately testable in our leak-free Walk-Forward Crucible backtest and improve out-of-sample Brier calibration and positive economic return. "
         "Provide at most 400 words of concrete quantitative advice.\nBRIEF:\n" + json.dumps(brief)
     )
