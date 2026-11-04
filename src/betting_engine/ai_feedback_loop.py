@@ -311,27 +311,34 @@ class AIFeedbackLoopManager:
 
         try:
             with closing(self._get_connection()) as conn:
-                # 1. Fetch top profitable models in this league/family
+                # 1. Fetch top profitable models in this league/family (grouped by distinct archetype)
                 cur = conn.cursor()
                 cur.execute("""
-                    SELECT class_name, oos_simulated_roi, oos_delta_brier, live_realized_roi,
-                           live_games_settled, codex_rationale, claude_hypothesis
+                    SELECT class_name, max(oos_simulated_roi) as oos_simulated_roi, max(oos_delta_brier) as oos_delta_brier,
+                           max(COALESCE(live_realized_roi, 0.0)) as live_realized_roi,
+                           max(live_games_settled) as live_games_settled,
+                           max(codex_rationale) as codex_rationale,
+                           max(claude_hypothesis) as claude_hypothesis
                     FROM ai_synthesis_feedback_loop
                     WHERE league = ? AND (oos_simulated_roi >= 0.035 OR live_realized_roi >= 0.035)
-                    ORDER BY (oos_simulated_roi * 0.4 + COALESCE(live_realized_roi, 0.0) * 0.6) DESC
+                    GROUP BY class_name
+                    ORDER BY (max(oos_simulated_roi) * 0.4 + COALESCE(max(live_realized_roi), 0.0) * 0.6) DESC
                     LIMIT ?
                 """, (lg, limit_success))
                 success_rows = cur.fetchall()
 
-                # 2. Fetch failed models to avoid repeating mistakes
+                # 2. Fetch distinct failed models, excluding already successful classes
+                succ_classes = {r['class_name'] for r in success_rows}
                 cur.execute("""
-                    SELECT class_name, oos_simulated_roi, oos_delta_brier, codex_rationale
+                    SELECT class_name, min(oos_simulated_roi) as oos_simulated_roi, min(oos_delta_brier) as oos_delta_brier, max(codex_rationale) as codex_rationale
                     FROM ai_synthesis_feedback_loop
                     WHERE league = ? AND crucible_passed = 0
-                    ORDER BY oos_simulated_roi ASC
-                    LIMIT ?
-                """, (lg, limit_failed))
-                failed_rows = cur.fetchall()
+                    GROUP BY class_name
+                    ORDER BY min(oos_simulated_roi) ASC
+                    LIMIT 10
+                """, (lg,))
+                raw_failed = cur.fetchall()
+                failed_rows = [r for r in raw_failed if r['class_name'] not in succ_classes][:limit_failed]
 
         except Exception as e:
             log.debug("Feedback retrieval error: %s", e)
@@ -357,6 +364,7 @@ class AIFeedbackLoopManager:
                 )
 
         if not sections:
-            return f"PRIOR QUANT ADVISORY: Target high-conviction positive EV on {lg} {fam}. Emphasize heavy-tailed variance and key numbers."
+            return f"PRIOR QUANT ADVISORY: Target high-conviction positive EV on {lg} {fam} with calibrated distribution estimation."
 
+        sections.append("\n(Note: Historical models above are empirical reference benchmarks only. You are NOT required to replicate or follow them; innovate freely with any valid mathematical formulation.)")
         return "\n".join(sections)
