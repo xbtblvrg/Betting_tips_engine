@@ -71,6 +71,28 @@ def test_brief_builder_generates_dense_quant_prompt():
     assert "CRITICAL CASH LEAK: Side 'over'" in prompt
 
 
+def test_brief_builder_handles_cold_start_truthfully():
+    cold_autopsy = MarketAutopsy(
+        segment_key="MLS|full_game|away_total",
+        league="MLS",
+        scope="full_game",
+        family="away_total",
+        sample_size=0,
+        win_rate=0.0,
+        total_pnl=0.0,
+        realized_roi=0.0,
+        home_expected=1.6,
+        away_expected=1.2,
+        dispersion_index=1.0,
+        recommended_distributions=['DixonColesSoccerModel', 'ZeroInflatedNegativeBinomial']
+    )
+    prompt = TargetedSynthesisBriefBuilder.build_targeted_prompt(cold_autopsy)
+    assert "Cold Start market" in prompt
+    assert "Realized Win Rate: N/A" in prompt
+    assert "0.0% win rate" not in prompt.lower()
+    assert "DixonColesSoccerModel" in prompt
+
+
 def test_dynamic_archetype_registry_discovery_and_instantiation():
     registry = DynamicArchetypeRegistry.get_instance()
     count = registry.refresh_registry()

@@ -194,8 +194,20 @@ class TargetedSynthesisBriefBuilder:
     @staticmethod
     def build_targeted_prompt(autopsy: MarketAutopsy, base_problem: Optional[str] = None) -> str:
         """Assembles the complete mathematical brief."""
-        side_breakdown = ", ".join(f"{k}: ${v:.2f}" for k, v in autopsy.pnl_by_side.items()) if autopsy.pnl_by_side else "None"
-        worst_note = f"CRITICAL CASH LEAK: Side '{autopsy.worst_side}' accounted for the majority of financial losses." if autopsy.worst_side else ""
+        if autopsy.sample_size > 0:
+            sample_desc = f"{autopsy.sample_size} settled wagers"
+            perf_desc = f"Realized Win Rate: {autopsy.win_rate * 100:.1f}% | Historical PnL: ${autopsy.total_pnl:.2f} | Realized ROI: {autopsy.realized_roi * 100:.1f}%"
+            side_breakdown = ", ".join(f"{k}: ${v:.2f}" for k, v in autopsy.pnl_by_side.items()) if autopsy.pnl_by_side else "None"
+            disp_desc = f"Observed Dispersion Index (Var/Mean): {autopsy.dispersion_index:.3f}"
+            worst_note = f"- CRITICAL CASH LEAK: Side '{autopsy.worst_side}' accounted for the majority of financial losses.\n" if autopsy.worst_side else ""
+            pathology_desc = autopsy.pathology_summary
+        else:
+            sample_desc = "0 wagers (Cold Start market - unobserved historical bets)"
+            perf_desc = "Realized Win Rate: N/A (cold start) | Historical PnL: $0.00 | Realized ROI: N/A"
+            side_breakdown = "None (unobserved cold start)"
+            disp_desc = f"Dispersion Index (Var/Mean): Unobserved prior (standard Poisson assumption: {autopsy.dispersion_index:.3f})"
+            worst_note = ""
+            pathology_desc = "Cold start unmodeled market; construct first principled quantitative architecture from domain fundamentals."
 
         recommended_dists = ", ".join(autopsy.recommended_distributions)
 
@@ -203,19 +215,19 @@ class TargetedSynthesisBriefBuilder:
             f"TARGET QUANTITATIVE BETTING SEGMENT: '{autopsy.segment_key}'\n"
             f"- League: {autopsy.league} | Game Scope: {autopsy.scope} | Market Family: {autopsy.family}\n\n"
             f"HISTORICAL FORENSIC AUTOPSY:\n"
-            f"- Settled Historical Sample: {autopsy.sample_size} wagers\n"
-            f"- Realized Win Rate: {autopsy.win_rate * 100:.1f}% | Historical PnL: ${autopsy.total_pnl:.2f} | Realized ROI: {autopsy.realized_roi * 100:.1f}%\n"
+            f"- Settled Historical Sample: {sample_desc}\n"
+            f"- {perf_desc}\n"
             f"- PnL Breakdown by Side: {side_breakdown}\n"
-            f"{worst_note}\n"
+            f"{worst_note}"
             f"- Empirical Baseline Means: Home expected = {autopsy.home_expected:.2f}, Away expected = {autopsy.away_expected:.2f}\n"
-            f"- Observed Dispersion Index (Var/Mean): {autopsy.dispersion_index:.3f}\n"
-            f"- Identified Pathology: {autopsy.pathology_summary}\n\n"
+            f"- {disp_desc}\n"
+            f"- Identified Pathology: {pathology_desc}\n\n"
             f"MANDATORY MATHEMATICAL OBJECTIVE:\n"
-            f"1. Address the exact pathology identified above. Do NOT use generic naive Poisson or arbitrary static constants.\n"
-            f"2. Recommended Mathematical Architectures: {recommended_dists}.\n"
-            f"3. Anchor distributions around the empirical baseline means (Home: {autopsy.home_expected:.2f}, Away: {autopsy.away_expected:.2f}), "
-            f"and dynamically scale with situational inputs ('home_expected', 'away_expected', attack/defense exposure, tempo/pace).\n"
-            f"4. If modeling overdispersed totals, calibrate dispersion alpha from the observed index {autopsy.dispersion_index:.3f}.\n"
+            f"1. Address the exact pathology identified above. Zero hardcoded constants or arbitrary static clamps.\n"
+            f"2. Recommended Candidate Architectures (use as quantitative foundation or innovate with any valid structure): {recommended_dists}.\n"
+            f"3. Anchor distributions around empirical baseline means (Home: {autopsy.home_expected:.2f}, Away: {autopsy.away_expected:.2f}), "
+            f"and dynamically scale with situational inputs ('home_expected', 'away_expected', attack/defense exposure, tempo/pace, rest days).\n"
+            f"4. If modeling overdispersed totals, calibrate dispersion alpha from observed index ({autopsy.dispersion_index:.3f}) or domain dynamics for {autopsy.league}.\n"
             f"5. If modeling spreads or moneylines, ensure margin mass respects sport-specific key numbers and limits home-field over-confidence.\n"
         )
         if base_problem and base_problem.strip():
