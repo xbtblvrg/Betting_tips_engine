@@ -462,9 +462,9 @@ class {class_name}(BaseCandidateModel):
         self,
         config: Dict[str, Any],
         prompt: str,
-        timeout: float = 180.0,
-        max_hard_ceiling: float = 300.0,
-        idle_timeout: float = 25.0,
+        timeout: float = 300.0,
+        max_hard_ceiling: float = 600.0,
+        idle_timeout: float = 60.0,
     ) -> Dict[str, Any]:
         """Spawns Codex CLI with progress-aware streaming watchdog and explicit reasoning effort."""
         binary = config.get('binary') or '/Users/belavarga/.local/bin/codex'
@@ -632,7 +632,7 @@ class {class_name}(BaseCandidateModel):
             with file_lock(DATA / "development" / "ai-locks" / "codex.lock", timeout=300.0) as acquired:
                 if not acquired:
                     return None
-                res = self._invoke_codex_with_watchdog(codex_cfg, prompt, timeout=180.0, max_hard_ceiling=300.0)
+                res = self._invoke_codex_with_watchdog(codex_cfg, prompt, timeout=300.0, max_hard_ceiling=600.0, idle_timeout=60.0)
                 state, answer = decode('codex', res, codex_cfg.get('model'))
                 if state == 'received_unreviewed' and answer:
                     code_match = re.search(r'```(?:python)?\s*(.*?)\s*```', answer, re.DOTALL)

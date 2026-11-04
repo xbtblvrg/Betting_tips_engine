@@ -66,7 +66,7 @@ def _query_member_for_daily(
     kind: str,
     brief: Dict[str, Any],
     policy: Dict[str, Any],
-    timeout: int = 40
+    timeout: int = 90
 ) -> Optional[str]:
     """Queries a single AI member for the daily briefing with bounded execution."""
     config = policy.get("providers", {}).get(provider, {})

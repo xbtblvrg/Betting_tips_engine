@@ -265,3 +265,27 @@ def test_agy_route_execution(tmp_path, monkeypatch):
     assert receipt['state'] == 'completed'
     assert json.loads(output.read_text()) == {'summary': 'agy test passed'}
 
+
+def test_agy_lock_busy_raises_provider_unavailable_without_cascading_to_secondary(tmp_path, monkeypatch):
+    router, output, worker = setup_runtime(tmp_path, monkeypatch,
+        [{'id': 'agy', 'provider': 'agy', 'model': 'gemini-3.8-flash-high'},
+         {'id': 'codex', 'provider': 'codex', 'model': 'gpt-6-astra'}])
+    worker.workspace = tmp_path / 'workspace'
+    worker.workspace.mkdir()
+    worker.readonly_input_paths = lambda: []
+    worker.current_task = {'task_id': 'D99', 'title': 'test'}
+    schema = tmp_path / 'schema.json'
+    schema.write_text('{}')
+
+    from contextlib import contextmanager
+    @contextmanager
+    def fake_lock(*a, **k):
+        yield False
+    monkeypatch.setattr(runtime, 'file_lock', fake_lock)
+
+    # Must raise ProviderUnavailable so controller can reschedule politely, NOT cascade to codex!
+    with pytest.raises(runtime.ProviderUnavailable) as exc_info:
+        runtime.run_ai_step(worker, schema, output, tmp_path / 'implementation', 'prompt', 10)
+    assert 'Antigravity capacity is in use' in str(exc_info.value)
+
+

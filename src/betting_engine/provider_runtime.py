@@ -381,7 +381,7 @@ def run_ai_step(worker, schema, output, prefix, prompt, timeout=1200,
                         prepared = prepare_step(worker.root, worker.workspace, Path(temporary).resolve(),
                             getattr(worker, 'current_task', {}), prompt, read_json(schema),
                             readonly=sandbox == 'read-only', binary=agy_binary,
-                            max_files=48, max_source_bytes=245760,
+                            max_files=32, max_source_bytes=163840,
                             protected_paths=(*__import__('betting_engine.development', fromlist=['PROTECTED']).PROTECTED,
                                 *(name for name in worker.readonly_input_paths() if name != '.git')),
                             preferred_paths=extract_task_preferred_paths(getattr(worker, 'current_task', {})))
@@ -434,8 +434,12 @@ def run_ai_step(worker, schema, output, prefix, prompt, timeout=1200,
                 router.report_success(route['id'], record['output_sha256'], route['model'])
                 worker._last_ai_provider = {'provider': route['provider'], 'model': route['model']}
                 return record
-            except ProviderUnavailable:
+            except ProviderUnavailable as exc:
                 record.update(state='capacity_wait', finished_at_epoch=time.time())
+                # If capacity is locally in use (lock busy), do not burn secondary quotas via cascade.
+                # Raise ProviderUnavailable so controller reschedules a clean retry for this provider.
+                if 'capacity is in use' in str(exc) or 'in use' in str(exc):
+                    raise
                 tried[route['id']] = 2
                 continue
             except (RuntimeError, TimeoutError) as exc:
