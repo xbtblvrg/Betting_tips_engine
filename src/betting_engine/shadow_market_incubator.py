@@ -2224,7 +2224,7 @@ class ShadowMarketIncubator:
         engine_db = self.data_dir / 'engine.sqlite3'
         if engine_db.exists():
             try:
-                with closing(sqlite3.connect(str(engine_db), timeout=5.0)) as conn_eng:
+                with closing(sqlite3.connect(f"file:{engine_db.resolve()}?mode=ro", uri=True, timeout=30.0)) as conn_eng:
                     cur_eng = conn_eng.cursor()
                     cached_live_rows = [
                         (json.loads(r[0]) if isinstance(r[0], str) else r[0], float(r[1] or 0.0), str(r[2] or ''))
@@ -2728,7 +2728,7 @@ class ShadowMarketIncubator:
         engine_db = self.data_dir / 'engine.sqlite3'
         if engine_db.exists():
             try:
-                with closing(sqlite3.connect(str(engine_db), timeout=5.0)) as conn_eng:
+                with closing(sqlite3.connect(f"file:{engine_db.resolve()}?mode=ro", uri=True, timeout=30.0)) as conn_eng:
                     cur_eng = conn_eng.cursor()
                     cached_live_rows = [
                         (json.loads(r[0]) if isinstance(r[0], str) else r[0], float(r[1] or 0.0), str(r[2] or ''))
@@ -3019,7 +3019,7 @@ class ShadowMarketIncubator:
         engine_db = self.data_dir / 'engine.sqlite3'
         if engine_db.exists():
             try:
-                with closing(sqlite3.connect(str(engine_db), timeout=5.0)) as conn_eng:
+                with closing(sqlite3.connect(f"file:{engine_db.resolve()}?mode=ro", uri=True, timeout=30.0)) as conn_eng:
                     cur_eng = conn_eng.cursor()
                     cached_live_rows = [
                         (json.loads(r[0]) if isinstance(r[0], str) else r[0], float(r[1] or 0.0), str(r[2] or ''))
@@ -3451,7 +3451,7 @@ class ShadowMarketIncubator:
         substituted_records = []
 
         try:
-            conn_eng = sqlite3.connect(db_file, timeout=10.0)
+            conn_eng = sqlite3.connect(f"file:{Path(db_file).resolve()}?mode=ro", uri=True, timeout=30.0)
             cur_eng = conn_eng.cursor()
             cur_eng.execute("""
                 SELECT payload, status, pnl, issued_at
@@ -3750,7 +3750,8 @@ class ShadowMarketIncubator:
                                     'rd_actionable_remedy': remedy_msg,
                                     'failure_mode': failure_mode
                                 })
-                                conn_main = sqlite3.connect(db_file, timeout=10.0)
+                                from .db_accelerator import get_optimized_connection
+                                conn_main = get_optimized_connection(db_file, timeout=30.0)
                                 enqueue_rd_repair_job(
                                     conn=conn_main,
                                     segment_key=seg_key,

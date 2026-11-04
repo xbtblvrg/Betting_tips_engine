@@ -8,6 +8,8 @@ from functools import lru_cache
 from decimal import Decimal, ROUND_CEILING
 from urllib.parse import urlsplit
 
+from .contracts import SUPPORTED, SCORE_MARKETS
+
 TEXT = {
  'Teljes mérkőzés':'Full Game',
  'Hosszabbítással; moneyline döntetlennél a platform szabálya ellenőrizendő.':'Includes overtime. Check the sportsbook settlement rules if the Winner market can end in a tie.',
@@ -300,8 +302,8 @@ def english_payload(value):
     if isinstance(value,list):return [english_payload(v) for v in value]
     if isinstance(value,dict):
         result={k:english_payload(v) for k,v in value.items()}
-        from .contracts import SUPPORTED, SCORE_MARKETS
-        if 'selection' in value and (value.get('market') in SUPPORTED or value.get('market') in SCORE_MARKETS):
+        mkt = value.get('market')
+        if 'selection' in value and (mkt in SUPPORTED or mkt in SCORE_MARKETS):
             result['selection']=selection_name(value)
             result['market_display']=market_name(value.get('league'),value['market'],value)
             if value.get('league') in STAKE_LEAGUE_PATHS:

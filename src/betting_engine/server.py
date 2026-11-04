@@ -1175,7 +1175,7 @@ async def dashboard(request:Request):
     try:
         # A publication or acknowledged write may change during a build. Retry
         # that race once, within one overall bound; never reuse stale output.
-        async with asyncio.timeout(45):
+        async with asyncio.timeout(90):
             for attempt in range(2):
                 try:
                     version=await asyncio.to_thread(read_publication_version,engine.store.path)

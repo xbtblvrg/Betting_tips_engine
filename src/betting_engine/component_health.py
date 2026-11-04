@@ -82,8 +82,8 @@ def audit_components(payload,worker,catalog,research,now=None,closing=None):
     if not inv_ok:checks[-1]['violations']=violations
     from .segment_scoreboard import compute_segment_scoreboard
     try:
-        import sqlite3
-        with sqlite3.connect('data/engine.sqlite3') as conn:
+        from .db_accelerator import get_optimized_connection
+        with get_optimized_connection('data/engine.sqlite3', timeout=30.0) as conn:
             sb = compute_segment_scoreboard(conn)
             alpha_cnt = sb['counts']['alpha']
             under_cnt = sb['counts']['underperforming']

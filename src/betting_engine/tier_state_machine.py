@@ -198,6 +198,10 @@ def enqueue_rd_repair_job(
 ) -> Optional[str]:
     """Enqueues an autonomous repair task into learning_jobs for degraded segments."""
     try:
+        try:
+            conn.execute("PRAGMA busy_timeout = 30000")
+        except Exception:
+            pass
         cur = conn.cursor()
         cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='learning_jobs'")
         if not cur.fetchone():

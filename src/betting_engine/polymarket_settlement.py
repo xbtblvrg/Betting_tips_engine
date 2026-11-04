@@ -36,6 +36,38 @@ class PolymarketOutcomeSettler:
     _activity_cached_at: float = 0.0
     _rate_limited_until: float = 0.0
 
+    @classmethod
+    def _sync_from_disk_cache(cls) -> None:
+        cache_file = DATA / 'polymarket_data_api_cache.json'
+        if cache_file.exists():
+            try:
+                data = json.loads(cache_file.read_text(encoding='utf-8'))
+                cls._rate_limited_until = max(cls._rate_limited_until, float(data.get('rate_limited_until', 0.0)))
+                if not cls._positions_cache and 'positions' in data:
+                    cls._positions_cache = data.get('positions', {})
+                    cls._positions_cached_at = float(data.get('positions_cached_at', 0.0))
+                if not cls._activity_cache and 'activities' in data:
+                    cls._activity_cache = data.get('activities', [])
+                    cls._activity_cached_at = float(data.get('activity_cached_at', 0.0))
+            except Exception:
+                pass
+
+    @classmethod
+    def _persist_to_disk_cache(cls) -> None:
+        cache_file = DATA / 'polymarket_data_api_cache.json'
+        try:
+            cache_file.parent.mkdir(parents=True, exist_ok=True)
+            payload = {
+                'rate_limited_until': cls._rate_limited_until,
+                'positions_cached_at': cls._positions_cached_at,
+                'positions': cls._positions_cache,
+                'activity_cached_at': cls._activity_cached_at,
+                'activities': cls._activity_cache,
+            }
+            cache_file.write_text(json.dumps(payload), encoding='utf-8')
+        except Exception:
+            pass
+
     def __init__(
         self,
         db_path: Optional[Path] = None,
@@ -56,6 +88,7 @@ class PolymarketOutcomeSettler:
         if not self.proxy_address:
             return {}
 
+        PolymarketOutcomeSettler._sync_from_disk_cache()
         now_ts = time.time()
         if now_ts < PolymarketOutcomeSettler._rate_limited_until:
             return PolymarketOutcomeSettler._positions_cache
@@ -76,10 +109,12 @@ class PolymarketOutcomeSettler:
                             out[str(tid)] = p
                 PolymarketOutcomeSettler._positions_cache = out
                 PolymarketOutcomeSettler._positions_cached_at = now_ts
+                PolymarketOutcomeSettler._persist_to_disk_cache()
                 return out
         except urllib.error.HTTPError as exc:
             if exc.code == 429:
                 PolymarketOutcomeSettler._rate_limited_until = now_ts + 300.0  # Back off 5 min
+                PolymarketOutcomeSettler._persist_to_disk_cache()
                 log.debug("Polymarket Data API 429 rate limit received; backing off for 300s")
             else:
                 log.debug("Polymarket positions HTTP error: %s", exc)
@@ -93,6 +128,7 @@ class PolymarketOutcomeSettler:
         if not self.proxy_address:
             return []
 
+        PolymarketOutcomeSettler._sync_from_disk_cache()
         now_ts = time.time()
         if now_ts < PolymarketOutcomeSettler._rate_limited_until:
             return PolymarketOutcomeSettler._activity_cache
@@ -108,10 +144,12 @@ class PolymarketOutcomeSettler:
                 redeems = [a for a in activities if isinstance(a, dict) and a.get("type") == "REDEEM"]
                 PolymarketOutcomeSettler._activity_cache = redeems
                 PolymarketOutcomeSettler._activity_cached_at = now_ts
+                PolymarketOutcomeSettler._persist_to_disk_cache()
                 return redeems
         except urllib.error.HTTPError as exc:
             if exc.code == 429:
                 PolymarketOutcomeSettler._rate_limited_until = now_ts + 300.0
+                PolymarketOutcomeSettler._persist_to_disk_cache()
                 log.debug("Polymarket Data API 429 activity rate limit; backing off for 300s")
             else:
                 log.debug("Polymarket activity HTTP error: %s", exc)
