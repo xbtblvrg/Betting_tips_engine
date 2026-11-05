@@ -154,7 +154,7 @@ def test_unified_universe_quarantines_past_live_losses(tmp_path: Path):
     roster = umu.build_universe_roster()
     wnba_prof = roster.get('WNBA|full_game|moneyline')
     assert wnba_prof is not None
-    # Must be quarantined to Tier 2 (SHADOW_INCUBATOR) with $0.00 stake cap!
-    assert wnba_prof.tier == int(MarketTier.SHADOW_INCUBATOR)
+    # Must be quarantined to Tier 1 (RESEARCH_RND) with $0.00 stake cap!
+    assert wnba_prof.tier == int(MarketTier.RESEARCH_RND)
     assert wnba_prof.stake_cap == 0.00
     assert "Quarantine" in wnba_prof.phase_detail
