@@ -26,7 +26,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 from .domain import utcnow, LEAGUES
 from .io_utils import atomic_json
 from .providers import DATA
-from .unified_market_universe import UnifiedMarketUniverse, PROTECTED_ALPHA_CHAMPIONS, is_protected_alpha_champion
+from .unified_market_universe import UnifiedMarketUniverse
 
 log = logging.getLogger(__name__)
 

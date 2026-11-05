@@ -223,12 +223,8 @@ class UnifiedMarketUniverse:
                         )
                         roster[seg_key] = prof
                         continue
-                    init_cap = 8.00 if is_protected_alpha_champion(seg_key) else 0.50
-                    init_phase = (
-                        "Protected Alpha Champion - Tier 3 Kelly"
-                        if is_protected_alpha_champion(seg_key)
-                        else "Newly Graduated Crucible Model - Live Probation ($0.50 floor)"
-                    )
+                    init_cap = 0.50
+                    init_phase = "Newly Graduated Crucible Model - Live Probation ($0.50 floor)"
                     prof = UnifiedMarketProfile(
                         segment_key=seg_key,
                         league=lg,
@@ -528,22 +524,15 @@ class UnifiedMarketUniverse:
             n_samples = int(stat.get('sample_size', 0))
             r_units = float(stat.get('units', 0.0))
 
-            is_protected = is_protected_alpha_champion(canon_key, stat) or is_protected_alpha_champion(canon_base_key, stat)
-
             # Total Market Universe Invariant (Constitution Prime Directives 1, 2, 6 & 7):
-            # Only demonstrably profitable markets are permitted in Tier 3 live funded execution ($0.50-$8.00).
+            # Universal Meritocracy: Only demonstrably profitable markets are permitted in Tier 3 live funded execution ($0.50-$8.00).
             # Bleeding markets and untraded silent markets are strictly assigned to Tier 1 R&D ($0.00)
             # for candidate model synthesis, historical backtesting, and Crucible re-graduation!
-            if is_protected and r_pnl > 0.0 and n_samples >= 2:
+            if n_samples >= 2 and r_pnl > 0.0:
                 tier_val = int(MarketTier.PRODUCTION_GRADUATED)
                 tier_name_val = "PRODUCTION_GRADUATED"
                 stake_cap_val = 8.00 if (r_pnl >= 2.0 or r_roi >= 10.0) else 2.50
                 phase_val = f"Alpha Acceleration ({r_roi:+.1f}% ROI, ${r_pnl:+.2f} over {n_samples} games) - Tier 3 Kelly"
-            elif n_samples >= 2 and r_pnl > 0.0:
-                tier_val = int(MarketTier.PRODUCTION_GRADUATED)
-                tier_name_val = "PRODUCTION_GRADUATED"
-                stake_cap_val = 8.00 if (r_pnl >= 2.0 or r_roi >= 10.0) else 2.50
-                phase_val = f"Active Profitable Live Model ({r_roi:+.1f}% ROI, ${r_pnl:+.2f} over {n_samples} games) - Tier 3 Kelly"
             elif n_samples >= 1 and r_pnl < 0.0:
                 tier_val = int(MarketTier.RESEARCH_RND)
                 tier_name_val = "RESEARCH_RND"

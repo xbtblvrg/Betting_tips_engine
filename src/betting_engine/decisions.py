@@ -274,16 +274,11 @@ def continuous_selection_priority_v4(tip, tier):
     is_grad = bool(not is_demoted and not any(s in capital_defense for s in seg_candidates) and (tip.get('is_graduated') or any(s in grad_segs for s in seg_candidates)))
     graduated_boost = 0.45 if is_grad else 0.0
 
-    # Family preference towards proven high-ROI families (Prioritize Moneyline and Fast-settling Period markets)
+    # Universal Meritocracy Mandate (Prime Directives 1, 3, 6, 10):
+    # Zero artificial core privilege, family scoring boost, or market bias.
+    # All markets compete purely on mathematical expectation (EV), win probability,
+    # empirical alpha status from AutonomousROIGovernor, and Crucible graduation.
     family_pref = 0.0
-    if 'moneyline' in market or market == 'winner':
-        family_pref = 0.55
-    elif scope in ('half_1', 'period_1', 'inning_1', 'innings_1_5'):
-        family_pref = 0.45
-    elif 'spreads' in market:
-        family_pref = 0.20
-    elif 'total' in market and ('home' in market or 'away' in market):
-        family_pref = 0.20
 
     # End-game protection on Totals Under (continuous penalty curve):
     is_under = 'total' in market and side == 'under'
@@ -966,6 +961,7 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                 family_selection_reason='Within each canonical family, preserve funding tier precedence, then prefer the current final win probability, with stressed return as the tie-break. No measured performance improvement is implied.')
         if probability_flow:
             c['allocation_policy'].update(version=selection_policy,
+                core_market=False,
                 family_selection_policy=selection_policy,
                 historical_selection_score=learned_selection_score(c),
                 reason='Eligible exact contracts compete by final unconditional win probability, game-weighted learned performance and current stressed return, within the active exposure limits.')

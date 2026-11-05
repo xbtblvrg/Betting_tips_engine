@@ -34,7 +34,6 @@ from .domain import Game, parse_time, utcnow
 from .io_utils import atomic_json
 from .market_decomposer import DecomposedContract, decompose_market
 from .providers import DATA
-from .unified_market_universe import PROTECTED_ALPHA_CHAMPIONS, is_protected_alpha_champion
 
 log = logging.getLogger(__name__)
 

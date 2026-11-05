@@ -26,7 +26,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from .domain import utcnow
 from .io_utils import atomic_json
 from .providers import DATA
-from .unified_market_universe import PROTECTED_ALPHA_CHAMPIONS, is_protected_alpha_champion
+from .unified_market_universe import UnifiedMarketUniverse
 
 log = logging.getLogger(__name__)
 
@@ -161,19 +161,11 @@ class AutonomousROIGovernor:
             base_mkt = market.split(':')[-1] if ':' in market else market
             base_canon_k = f"{league}|{scope}|{base_mkt}"
 
-            is_protected_alpha = (
-                is_protected_alpha_champion(canon_k)
-                or is_protected_alpha_champion(base_canon_k)
-                or is_protected_alpha_champion(seg_key)
-            )
-
             is_grad_seg = bool(
                 seg_key in grad_markets
                 or canon_k in grad_markets
                 or base_canon_k in grad_markets
             )
-            min_cnt_for_defense = 15 if is_grad_seg else 4
-            units_threshold_defense = -8.0 if is_grad_seg else -2.5
 
             # Quarantined lower-tier circuits (Challenger/ITF) receive zero stake allocation UNLESS graduated via Crucible
             if ((league in ('CHALLENGER', 'ITF') or 'challenger' in league.lower() or 'challenger' in seg_key.lower())
@@ -192,31 +184,15 @@ class AutonomousROIGovernor:
                 action = 'Quarantined: odd/even coin-flip market suppressed'
                 toxic_quarantine.append(seg_key)
 
-            # Protected Alpha Champions with positive profit: prioritize Alpha Acceleration!
-            elif is_protected_alpha and pnl > 0.0:
-                if cnt >= 5 and roi >= 12.0 and (units_pnl >= 3.0 or pnl >= 3.00):
-                    tier = 'SUPER_ALPHA'
-                    stake_cap = 8.00
-                    min_ev = 0.015
-                    action = 'Super Alpha Acceleration: maximum confidence scaling ($4.00–$8.00)'
-                    super_alpha.append(seg_key)
-                else:
-                    tier = 'SOLID_ALPHA'
-                    stake_cap = 3.50
-                    min_ev = 0.010
-                    action = 'Solid Alpha Acceleration: prioritized scaling ($2.50–$3.50)'
-                    solid_alpha.append(seg_key)
-
             # A. Dynamic Loss Circuit Breaker (Scale-Invariant in Risk Units - Commandment 6):
-            # Zero-Bleed Mandate: No segment is allowed to slowly bleed user bankroll at $0.50.
-            # Any segment with cnt >= 4 and pnl <= -2.00, or cnt >= 3 and pnl <= -1.50 and roi < -10.0%,
+            # Universal Meritocracy Mandate: Zero-Bleed on ALL markets without exception.
+            # Any segment with cnt >= 4 and (pnl <= -2.00 or units_pnl <= -2.0),
+            # or cnt >= 3 and pnl <= -1.50 and roi < -10.0%,
             # or cnt >= 6 and pnl < 0.0 is strictly placed in TOXIC_QUARANTINE ($0.00 stake).
             elif (
                 (cnt >= 4 and (pnl <= -2.00 or units_pnl <= -2.0))
                 or (cnt >= 3 and pnl <= -1.50 and roi < -10.0)
                 or (cnt >= 6 and pnl < 0.0)
-                or (is_grad_seg and cnt >= min_cnt_for_defense and units_pnl <= units_threshold_defense)
-                or (not is_grad_seg and not is_protected_alpha and cnt >= 4 and pnl <= -2.00)
             ):
                 tier = 'TOXIC_QUARANTINE'
                 stake_cap = 0.0
@@ -242,9 +218,8 @@ class AutonomousROIGovernor:
                 solid_alpha.append(seg_key)
 
             # D. Capital Defense ($0.50 Tourniquet - Commandment 6):
-            # Reserved strictly for exploratory trials (cnt in (1, 2, 3) with minor drawdown) or positive champions dipping temporarily
-            elif ((cnt in (1, 2, 3) and pnl >= -1.50 and (roi < 0.0 or pnl < 0.0))
-                  or (cnt >= 4 and (roi < -3.0 or pnl < 0.0) and is_protected_alpha and pnl > 0.0)):
+            # Reserved strictly for exploratory trials (cnt in (1, 2, 3) with minor drawdown)
+            elif cnt in (1, 2, 3) and pnl >= -1.50 and (roi < 0.0 or pnl < 0.0):
                 tier = 'CAPITAL_DEFENSE'
                 stake_cap = 0.50
                 min_ev = 0.035

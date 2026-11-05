@@ -467,17 +467,6 @@ def check_portfolio_shield(candidate: Dict[str, Any]) -> Optional[Dict[str, Any]
 
     scope = candidate.get('model_scope', 'full_game')
 
-    # Protected Alpha Champions are immune from portfolio shield quarantine (Constitution Rules 6 & 8)
-    try:
-        from .unified_market_universe import is_protected_alpha_champion
-        canon_k = f"{league}|{scope}|{market}"
-        base_m = market.split(':')[-1] if market and ':' in market else market
-        base_canon_k = f"{league}|{scope}|{base_m}"
-        if is_protected_alpha_champion(canon_k) or is_protected_alpha_champion(base_canon_k):
-            return None
-    except Exception:
-        pass
-
     is_3way_ml = market in ('moneyline', 'three_way') or (market and (market.endswith(':moneyline') or market.endswith(':three_way')))
     is_totals = ('total' in str(market))
     is_reg_puckline = (scope == 'regulation' and 'spreads' in str(market))
