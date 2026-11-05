@@ -477,7 +477,7 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                 any(k in caps for k in ('demoted_market_defense_clamp', 'capital_defense_clamp', 'capital_defense_quarantine'))
                 or (not is_test_cand and bool(check_keys & set(gov.get('capital_defense_list', []))))
             )
-            is_protected_alpha = any(k in PROTECTED_ALPHA_CHAMPIONS for k in check_keys) and pnl_val >= 0.0
+            is_protected_alpha = pnl_val > 0.0 and roi_val > 0.0 and games_val >= 2
             is_super_alpha = not has_defense and (
                 (games_val >= 8 and roi_val >= 0.08 and (pnl_val >= 5.0 or (pnl_val / max(0.2, def_unit) >= 4.0)))
                 or gov_super

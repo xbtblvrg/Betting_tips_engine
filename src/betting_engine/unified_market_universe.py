@@ -37,36 +37,23 @@ from .providers import DATA
 logger = logging.getLogger(__name__)
 
 # Canonical segment keys for empirically proven profitable markets that produce positive alpha.
-# These champions are protected from premature demotion or throttle while generating profit.
-PROTECTED_ALPHA_CHAMPIONS: Set[str] = {
-    "MLS|full_game|spreads",
-    "MLS|half_1|spreads",
-    "WTA|period_1|moneyline",
-    "WTA|period_2|moneyline",
-    "MLS|full_game|totals",
-    "MLS|half_2|spreads",
-    "MLB|innings_1_5|spreads",
-    "WTA|period_1|spreads",
-    "NBA|full_game|totals",
-    "ATP|full_game|moneyline",
-    "EPL|full_game|moneyline",
-    "EPL|half_1|spreads",
-    "NHL|full_game|spreads",
-    "WTA|full_game|moneyline",
-    "ATP|period_1|moneyline",
-}
+# Zero Hardcoded Privilege Mandate (Constitutional Prime Directives 1, 3, 6, 7 & 10):
+# No static list of protected champions. Every market is evaluated strictly on empirical live performance.
+PROTECTED_ALPHA_CHAMPIONS: Set[str] = set()
 
 
 def is_protected_alpha_champion(canonical_key: str, stat: Optional[Dict[str, Any]] = None) -> bool:
-    """Checks whether a market is a protected alpha champion with positive track record."""
-    if stat and (float(stat.get('pnl', 0.0)) > 0.0 or float(stat.get('roi_pct', 0.0)) > 0.0):
-        return True
-    if canonical_key in PROTECTED_ALPHA_CHAMPIONS:
-        if stat is None:
-            return True
-        if int(stat.get('sample_size', 0)) > 0:
-            return float(stat.get('pnl', 0.0)) > 0.0 and float(stat.get('roi_pct', 0.0)) > 0.0
-        return False
+    """Anti-Constant & Universal Meritocracy Mandate:
+    There are ZERO hardcoded protected markets, zero core exemptions, and zero pedigree privileges.
+    Only genuine empirical live performance qualifies for Alpha scaling ($2.50 - $8.00):
+    Must have measured positive live PnL (pnl > 0.0) and positive ROI (roi_pct > 0.0).
+    A market with no stats or negative stats is NEVER protected.
+    """
+    if stat and isinstance(stat, dict):
+        pnl = float(stat.get('pnl', 0.0))
+        roi = float(stat.get('roi_pct', stat.get('roi', 0.0)))
+        sample = int(stat.get('sample_size', stat.get('games', 0)))
+        return sample >= 2 and pnl > 0.0 and roi > 0.0
     return False
 
 
@@ -451,40 +438,34 @@ class UnifiedMarketUniverse:
                     prof.rolling_roi_pct = stat['roi_pct']
                     prof.sample_size = stat['sample_size']
 
-                    is_protected = is_protected_alpha_champion(k_perf, stat)
-                    if is_protected and stat['pnl'] > 0.0 and stat['sample_size'] >= 2:
-                        prof.stake_cap = 8.00
-                        prof.phase_detail = f"Protected Alpha Champion ({stat['roi_pct']:+.1f}% ROI, ${stat['pnl']:+.2f} over {stat['sample_size']} games) - Tier 3 Kelly"
-                    else:
-                        # Zero-Bleed Live Quarantine (Constitution Prime Directives 1, 6 & 7):
-                        # Only genuinely profitable markets are permitted in Tier 3 live funded execution.
-                        # Any market with established negative live performance is immediately quarantined to Tier 1 ($0.00).
-                        is_stat_degraded = (
-                            (stat['sample_size'] >= 4 and stat['pnl'] <= -2.00)
-                            or (stat['sample_size'] >= 3 and stat['pnl'] <= -1.50 and stat['roi_pct'] < -10.0)
-                            or (stat['sample_size'] >= 6 and stat['pnl'] < 0.0)
-                            or (stat['sample_size'] >= 2 and stat['pnl'] < 0.0 and stat['roi_pct'] <= -20.0)
-                            or (stat['pnl'] <= -4.00)
-                        )
-                        if is_stat_degraded:
-                            prof.tier = int(MarketTier.RESEARCH_RND)
-                            prof.tier_name = "RESEARCH_RND"
-                            prof.stake_cap = 0.00
-                            prof.phase_detail = f"Live Drawdown Demotion ({stat['roi_pct']:.1f}% ROI, ${stat['pnl']:.2f} over {stat['sample_size']} games) - Quarantined ($0.00)"
-                            grad_keys_set.discard(k_perf)
-                        elif stat['pnl'] < 0.0 or (is_protected and stat['pnl'] > 0.0 and stat['roi_pct'] < 0.0):
-                            prof.stake_cap = 0.50
-                            prof.phase_detail = f"Capital Defense Tourniquet ({stat['roi_pct']:+.1f}% ROI, ${stat['pnl']:+.2f} over {stat['sample_size']} games) - $0.50 clamp"
-                        elif stat['sample_size'] >= 2 and stat['pnl'] > 0.0:
-                            if stat['pnl'] >= 2.0 and stat['roi_pct'] >= 10.0:
-                                prof.stake_cap = 8.00
-                                prof.phase_detail = f"Alpha Acceleration ({stat['roi_pct']:+.1f}% ROI, ${stat['pnl']:+.2f} over {stat['sample_size']} games) - $8.00 cap"
-                            else:
-                                prof.stake_cap = 2.50
-                                prof.phase_detail = f"Active Profitable Live Model ({stat['roi_pct']:+.1f}% ROI, ${stat['pnl']:+.2f} over {stat['sample_size']} games) - Tier 3 Kelly"
+                    # Universal Meritocracy Mandate (Prime Directives 1, 3, 6, 7 & 10):
+                    # Zero hardcoded privileges: every market is subject to immediate drawdown demotion:
+                    is_stat_degraded = (
+                        (stat['sample_size'] >= 4 and stat['pnl'] <= -2.00)
+                        or (stat['sample_size'] >= 3 and stat['pnl'] <= -1.50 and stat['roi_pct'] < -10.0)
+                        or (stat['sample_size'] >= 6 and stat['pnl'] < 0.0)
+                        or (stat['sample_size'] >= 2 and stat['pnl'] < 0.0 and stat['roi_pct'] <= -20.0)
+                        or (stat['pnl'] <= -4.00)
+                    )
+                    if is_stat_degraded:
+                        prof.tier = int(MarketTier.RESEARCH_RND)
+                        prof.tier_name = "RESEARCH_RND"
+                        prof.stake_cap = 0.00
+                        prof.phase_detail = f"Live Drawdown Demotion ({stat['roi_pct']:.1f}% ROI, ${stat['pnl']:.2f} over {stat['sample_size']} games) - Quarantined ($0.00)"
+                        grad_keys_set.discard(k_perf)
+                    elif stat['pnl'] < 0.0:
+                        prof.stake_cap = 0.50
+                        prof.phase_detail = f"Capital Defense Tourniquet ({stat['roi_pct']:+.1f}% ROI, ${stat['pnl']:+.2f} over {stat['sample_size']} games) - $0.50 clamp"
+                    elif stat['sample_size'] >= 2 and stat['pnl'] > 0.0:
+                        if stat['pnl'] >= 2.0 and stat['roi_pct'] >= 10.0:
+                            prof.stake_cap = 8.00
+                            prof.phase_detail = f"Alpha Acceleration ({stat['roi_pct']:+.1f}% ROI, ${stat['pnl']:+.2f} over {stat['sample_size']} games) - $8.00 cap"
                         else:
-                            prof.stake_cap = 0.50
-                            prof.phase_detail = f"Live Probation ({stat['sample_size']} game, ${stat['pnl']:+.2f}) - $0.50 floor"
+                            prof.stake_cap = 2.50
+                            prof.phase_detail = f"Active Profitable Live Model ({stat['roi_pct']:+.1f}% ROI, ${stat['pnl']:+.2f} over {stat['sample_size']} games) - Tier 3 Kelly"
+                    else:
+                        prof.stake_cap = 0.50
+                        prof.phase_detail = f"Live Probation ({stat['sample_size']} game, ${stat['pnl']:+.2f}) - $0.50 floor"
                 else:
                     # No post-graduation live decisions yet (0 live settled games with new model)
                     # Fixture-Aware Silent Market Eviction Guard (Commandments 1, 2, 6, 7 & 10):
@@ -518,13 +499,12 @@ class UnifiedMarketUniverse:
                         grad_keys_set.discard(k_perf)
                     else:
                         # Safe: Has seen < 5 games since graduation (fresh graduate, weekly sports e.g. NFL waiting for Sunday, or off-season)
-                        is_protected = is_protected_alpha_champion(k_perf, at_stat)
-                        if is_protected and at_stat and at_stat['pnl'] > 0.0 and at_stat['sample_size'] >= 2:
-                            prof.stake_cap = 8.00 if at_stat['pnl'] >= 2.0 else 2.50
+                        if at_stat and at_stat['pnl'] > 0.0 and at_stat['sample_size'] >= 2:
+                            prof.stake_cap = 8.00 if at_stat['pnl'] >= 2.0 and at_stat['roi_pct'] >= 10.0 else 2.50
                             prof.rolling_pnl = at_stat['pnl']
                             prof.rolling_roi_pct = at_stat['roi_pct']
                             prof.sample_size = at_stat['sample_size']
-                            prof.phase_detail = f"Protected Alpha Champion ({at_stat['roi_pct']:+.1f}% ROI, ${at_stat['pnl']:+.2f} over {at_stat['sample_size']} games) - Tier 3 Kelly"
+                            prof.phase_detail = f"Active Profitable Live Model ({at_stat['roi_pct']:+.1f}% ROI, ${at_stat['pnl']:+.2f} over {at_stat['sample_size']} games) - Tier 3 Kelly"
                         else:
                             # Retains full Tier 3 live probation at $0.50 floor without premature eviction!
                             prof.stake_cap = 0.50

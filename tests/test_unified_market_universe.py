@@ -69,24 +69,26 @@ def test_api_market_universe_endpoint():
     assert 'leagues_breakdown' in data
 
 
-def test_protected_alpha_champions_preserved_in_tier3():
-    """Verifies that protected alpha champions remain in Tier 3 with their dynamic Kelly cap."""
+def test_universal_meritocracy_and_zero_hardcoded_privilege():
+    """Prime Directives 1, 3, 6, 7 & 10:
+    Verifies that no market receives hardcoded immunity or automatic protected status.
+    Only genuine empirical live performance (pnl > 0.0, roi > 0.0, sample >= 2) qualifies for Alpha scaling.
+    A market with negative PnL, unproven stats, or None is NEVER protected.
+    """
     from betting_engine.unified_market_universe import (
-        PROTECTED_ALPHA_CHAMPIONS,
         is_protected_alpha_champion,
     )
-    assert len(PROTECTED_ALPHA_CHAMPIONS) >= 10
-    assert "MLS|full_game|spreads" in PROTECTED_ALPHA_CHAMPIONS
-    assert "WTA|period_1|moneyline" in PROTECTED_ALPHA_CHAMPIONS
-    assert is_protected_alpha_champion("MLS|full_game|spreads") is True
-    assert is_protected_alpha_champion("RANDOM|full_game|market", {'pnl': 5.0}) is True
-    assert is_protected_alpha_champion("RANDOM|full_game|market", {'pnl': -2.0}) is False
+    assert is_protected_alpha_champion("RANDOM|full_game|market", {'pnl': 5.0, 'roi_pct': 10.0, 'sample_size': 5}) is True
+    assert is_protected_alpha_champion("RANDOM|full_game|market", {'pnl': -2.0, 'roi_pct': -10.0, 'sample_size': 5}) is False
+    assert is_protected_alpha_champion("RANDOM|full_game|market", {'pnl': 0.0, 'roi_pct': 0.0, 'sample_size': 0}) is False
+    assert is_protected_alpha_champion("MLS|full_game|spreads", None) is False
+    assert is_protected_alpha_champion("NBA|full_game|totals", {'pnl': -10.0, 'roi_pct': -20.0, 'sample_size': 4}) is False
 
     universe = UnifiedMarketUniverse()
     universe.invalidate_cache()
-    roster = universe.build_universe_roster()
+    roster = universe.build_universe_roster(force_refresh=True)
     
-    # Check MLS spreads profile
+    # Check MLS spreads profile: if in roster, must have valid meritocratic tier
     mls_prof = roster.get("MLS|full_game|spreads")
     if mls_prof:
         assert mls_prof.tier == int(MarketTier.PRODUCTION_GRADUATED)

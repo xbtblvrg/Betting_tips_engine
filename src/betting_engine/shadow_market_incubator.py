@@ -3637,10 +3637,10 @@ class ShadowMarketIncubator:
                     #    rather than jumping prematurely to $0.00 quarantine.
                     # 3. Variance Z-Score Evaluation: Only demote when loss exceeds normal variance:
                     #    z = rolling_pnl / sqrt(len(recent) * avg_stake * 1.95) <= -1.96 over 8+ games.
-                    is_protected = is_protected_alpha_champion(seg_key) or is_protected_alpha_champion(canon_k) or total_live_pnl > 0.0
-                    if is_protected:
-                        if not (len(recent) >= 10 and rolling_pnl <= -10.0 and total_live_pnl < 0.0):
-                            continue
+                    # Universal Meritocracy Mandate: No market is shielded from demotion by pedigree or name.
+                    # Markets that are currently winning (rolling_pnl > 0.0 and total_live_pnl > 0.0) remain in production.
+                    if rolling_pnl > 0.0 and total_live_pnl > 0.0:
+                        continue
 
                     var_factor = math.sqrt(max(1.0, len(recent) * max(0.50, avg_stake) * 1.95))
                     z_score = rolling_pnl / var_factor
