@@ -66,7 +66,7 @@ def continuous_selection_priority(tip, tier):
     # actual unconditional final win probability is primary; historical
     # performance then current stressed return break ties.
     return (int(tier > 0), tip['probability'], learned_selection_score(tip),
-            tip['stress_roi'], is_core_market(tip), str(tip['id']))
+            tip['stress_roi'], False, str(tip['id']))
 
 def continuous_selection_priority_v3(tip, tier):
     # Eligible candidates precede ineligible rows.
@@ -75,20 +75,20 @@ def continuous_selection_priority_v3(tip, tier):
     # learned historical segment track record, and unconditional win probability,
     # with a soft deprioritization of negative-EV Totals Under and a value boost for
     # positive-EV high odds (underdogs >= 2.00) to counter favourite probability bias.
+    # Universal Meritocracy Mandate: Zero artificial core privilege or core scoring boost.
     p = float(tip.get('probability', 0.))
     ev = float(tip.get('expected_roi', 0.))
     stress_roi = float(tip.get('stress_roi', 0.))
     odds = float(tip.get('reference_odds', 0.) or 0.)
     learned = learned_selection_score(tip)
-    core = 1.0 if is_core_market(tip) else 0.0
     side = str(tip.get('side', '')).lower()
     market = str(tip.get('market', '')).lower()
     is_under = 'total' in market and side == 'under'
     under_drag = -0.10 if (is_under and ev < 0.03) else 0.0
     odds_pref = 0.15 if odds >= 2.00 else 0.10 if odds >= 1.60 else 0.05 if odds >= 1.40 else (-0.20 if odds > 0 else 0.0)
     underdog_value_boost = min(0.35, ev * odds * 0.5) if (odds >= 2.00 and ev > 0) else 0.0
-    score = (tier * 10.0) + (p * 2.0) + (min(1.0, max(-1.0, ev)) * 1.5) + (learned * 0.5) + (core * 0.2) + odds_pref + under_drag + underdog_value_boost
-    return (int(tier > 0), score, p, stress_roi, is_core_market(tip), str(tip['id']))
+    score = (tier * 10.0) + (p * 2.0) + (min(1.0, max(-1.0, ev)) * 1.5) + (learned * 0.5) + odds_pref + under_drag + underdog_value_boost
+    return (int(tier > 0), score, p, stress_roi, False, str(tip['id']))
 
 _GOVERNOR_CACHE = {'ts': 0.0, 'data': None}
 def _get_governor_status():
@@ -219,7 +219,6 @@ def continuous_selection_priority_v4(tip, tier):
     stress_roi = float(tip.get('stress_roi', 0.))
     odds = float(tip.get('reference_odds', 0.) or 0.)
     learned = learned_selection_score(tip)
-    core = 1.0 if is_core_market(tip) else 0.0
     side = str(tip.get('side', '')).lower()
     market = str(tip.get('market', '')).lower()
     league = str(tip.get('league', '')).upper()
@@ -285,8 +284,6 @@ def continuous_selection_priority_v4(tip, tier):
         family_pref = 0.20
     elif 'total' in market and ('home' in market or 'away' in market):
         family_pref = 0.20
-    elif core:
-        family_pref = 0.15
 
     # End-game protection on Totals Under (continuous penalty curve):
     is_under = 'total' in market and side == 'under'
@@ -320,7 +317,7 @@ def continuous_selection_priority_v4(tip, tier):
     high_ev_boost = min(0.80, max(0.0, (ev - 0.015) * 40.0)) if ev >= 0.015 else 0.0
 
     score = (tier * 10.0) + (p * 1.5) + (min(2.5, max(-5.0, ev_score))) + (learned * 0.5) + family_pref + odds_pref + under_drag + underdog_value_boost + alpha_boost + graduated_boost + waterfill_boost + high_ev_boost + uncertainty_noise_penalty
-    return (int(tier > 0), score, p, stress_roi, is_core_market(tip), str(tip['id']))
+    return (int(tier > 0), score, p, stress_roi, False, str(tip['id']))
 
 PUBLICATION_LIMITS_V1 = 'v1'  # Archived regression replay for 2026-10-02 flood tests only
 PUBLICATION_LIMITS_V2 = 'v2'  # Archived interim policy (tests only)
@@ -809,7 +806,7 @@ def probability_preference_ids(candidates,settings,bases=None,held_preference_al
     positive={c['game_id'] for c in candidates if bases[c['id']]['tier'] in ('stress_value','model_pick')}
     positive.update(game for game,tier in held_preference_allocations if tier=='model_pick')
     best={}
-    def priority(c):return (c['probability'],c['stress_roi'],is_core_market(c),str(c['id']))
+    def priority(c):return (c['probability'],c['stress_roi'],False,str(c['id']))
     for c in candidates:
         if bases[c['id']]['tier']!='probability_pick' or c['game_id'] in positive:continue
         old=best.get(c['game_id'])
@@ -1109,7 +1106,6 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                 game_id = str(c.get('game_id', ''))
                 is_test_cand = cand_id.startswith(('test_', 'cand_test_', 't1', 't2', 't3', 't4', 'cand_')) or game_id.startswith(('test_', 'game')) or ':test' in game_id or game_id.endswith('_test') or game_id in ('g', 'g1', 'g2') or game_id == 'ATP:live_game_1' or bool(settings.get('is_test'))
                 is_alpha_cand = bool(cand_segs & s_alpha)
-                is_core = is_core_market(c) and c.get('league') in ('NBA', 'WNBA', 'MLB', 'NFL', 'NHL', 'NCAAF', 'NCAAM', 'NCAAW', 'EPL', 'MLS', 'UCL', 'ATP', 'WTA')
                 grad_segs = _get_graduated_segments()
                 demoted_segs = _get_demoted_segments()
                 is_demoted_cand = (bool(c.get('is_demoted')) or bool(cand_segs & demoted_segs)) if not is_test_cand else (cand_id.startswith('cand_demoted') or bool(c.get('is_demoted')))

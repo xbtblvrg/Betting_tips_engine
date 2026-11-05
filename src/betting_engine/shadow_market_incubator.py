@@ -3537,7 +3537,6 @@ class ShadowMarketIncubator:
                 base_fam = allocation_family(p)
                 mkt = str(p.get('market', '')).lower()
                 base_mkt = mkt.split(':')[-1] if ':' in mkt else mkt
-                is_core = (dec_scope == 'full_game')
 
                 # Add specific market segment
                 seg_k = f"{lg}|{dec_scope}|{base_mkt}"
@@ -3548,7 +3547,6 @@ class ShadowMarketIncubator:
                         'family': base_fam,
                         'sub_family': base_mkt,
                         'segment_key': seg_k,
-                        'is_core': is_core
                     }
         except Exception as e_mkt:
             log.warning("Could not assemble active segments for review: %s", e_mkt)
@@ -3662,7 +3660,7 @@ class ShadowMarketIncubator:
                     )
 
                     if should_demote:
-                        is_core = meta.get('is_core', False)
+                        is_core = bool(scope == 'full_game')
                         demoted_entry = {
                             'segment_key': seg_key,
                             'league': league,
@@ -3712,7 +3710,7 @@ class ShadowMarketIncubator:
                                         d_id, seg_key, league, scope, meta.get('family', ''), meta.get('sub_family', ''),
                                         now_iso, rolling_roi, rolling_pnl, len(recent),
                                         f"Continuous Review: Rolling ROI {rolling_roi*100:.1f}%, PnL ${rolling_pnl:.2f} across {len(recent)} games",
-                                        json.dumps({'rolling_roi': rolling_roi, 'rolling_pnl': rolling_pnl, 'games': len(recent), 'is_core': is_core})
+                                        json.dumps({'rolling_roi': rolling_roi, 'rolling_pnl': rolling_pnl, 'games': len(recent)})
                                     ))
                                     break
                             except sqlite3.OperationalError as e_sql:
@@ -3726,22 +3724,16 @@ class ShadowMarketIncubator:
                                 break
 
                         if seg_key not in existing_demoted:
-                            prev_tier = 'CORE_DOMAIN_MODEL' if is_core else 'GRADUATED_EXPLORATION'
-                            new_tier = 'CAPITAL_DEFENSE' if is_core else 'PROBATION_RESEARCH'
-                            failure_mode = 'CORE_DOMAIN_MODEL_DRAWDOWN' if is_core else 'LIVE_DRAWDOWN_DRIFT'
+                            prev_tier = 'GRADUATED_PRODUCTION'
+                            new_tier = 'PROBATION_RESEARCH'
+                            failure_mode = 'LIVE_DRAWDOWN_DRIFT'
                             diag_msg = (
-                                f"Continuous Core Market Review: {seg_key} degraded in live execution "
-                                f"(Rolling ROI {rolling_roi*100:.1f}%, PnL ${rolling_pnl:.2f} over {len(recent)} games). "
-                                f"Relegated to incubator research & clamped to Capital Defense ($0.50)."
-                                if is_core else
                                 f"Continuous Review Demotion: {seg_key} degraded in live execution "
                                 f"(Rolling ROI {rolling_roi*100:.1f}%, PnL ${rolling_pnl:.2f} over {len(recent)} games). "
-                                f"Relegated to incubator research."
+                                f"Relegated to Tier 1 incubator research ($0.00 stake)."
                             )
                             remedy_msg = (
-                                "Clamped to $0.50 floor + 3.5% min EV hurdle under Capital Defense; enqueued for Multi-AI Quant Council challenger model formulation."
-                                if is_core else
-                                "Replaced in live lineup; enqueued for Quant Council forensic investigation."
+                                "Suspended to $0.00 virtual stakes in Shadow Incubator; enqueued for Quant Council forensic investigation and challenger model training."
                             )
 
                             try:
@@ -3775,7 +3767,7 @@ class ShadowMarketIncubator:
                                     new_tier=new_tier,
                                     failure_mode=failure_mode,
                                     remedy=remedy_msg,
-                                    stats={'pnl': rolling_pnl, 'roi_pct': round(rolling_roi * 100.0, 2), 'games': len(recent), 'is_core': is_core}
+                                    stats={'pnl': rolling_pnl, 'roi_pct': round(rolling_roi * 100.0, 2), 'games': len(recent)}
                                 )
                                 conn_main.close()
                             except Exception:
