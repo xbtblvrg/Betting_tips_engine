@@ -433,8 +433,8 @@ class LearningWorker:
             def _dual_repair_priority(seg_rec):
                 lg = (seg_rec.get('league') or '').upper()
                 s_key = (seg_rec.get('segment') or '').lower()
-                is_dual_league = lg in ('NBA', 'NFL', 'EPL', 'MLS', 'UCL', 'NHL', 'MLB')
-                is_dual_family = any(k in s_key for k in ('spread', 'total', 'moneyline', '1x2', 'three_way'))
+                is_dual_league = lg in ('NBA', 'NFL', 'EPL', 'MLS', 'UCL', 'NHL', 'MLB', 'ATP', 'WTA')
+                is_dual_family = any(k in s_key for k in ('spread', 'total', 'moneyline', '1x2', 'three_way', 'both')) and not any(ex in s_key for ex in ('home_total', 'away_total', 'team_total'))
                 dual_rank = 0 if (is_dual_league and is_dual_family) else 1
                 return (dual_rank, seg_rec.get('pnl', 0.0))
 

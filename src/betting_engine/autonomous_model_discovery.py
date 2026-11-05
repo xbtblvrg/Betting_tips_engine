@@ -73,7 +73,7 @@ class AutonomousModelDiscoveryEngine:
     ):
         from .providers import DATA
         self.data_dir = Path(data_dir or DATA)
-        self.db_path = db_path or (self.data_dir / 'shadow_incubator.sqlite3')
+        self.db_path = Path(db_path) if db_path else (self.data_dir / 'shadow_incubator.sqlite3')
         self.tournament_engine = tournament_engine or TournamentEngine(data_dir=self.data_dir, db_path=self.db_path)
         self.historical_trainer = historical_trainer or HistoricalCandidateTrainer(db_path=self.db_path)
         self.bridge = DemotedMarketIncubationBridge(
@@ -111,9 +111,10 @@ class AutonomousModelDiscoveryEngine:
                 ORDER BY 
                     -- Strict Constitutional Mandate (Commandment 6.5): Prioritize Dual Reachable Markets (Stake + Polymarket CLOB)
                     CASE 
-                        WHEN (league IN ('NBA', 'NFL', 'EPL', 'MLS', 'UCL', 'NHL', 'MLB')
-                              AND scope IN ('full_game', 'half_1', 'quarter_1', 'quarter_2', 'period_1')
-                              AND (family LIKE '%moneyline%' OR family LIKE '%spread%' OR family LIKE '%total%' OR family LIKE '%winner%' OR family LIKE '%three_way%'))
+                        WHEN (league IN ('NBA', 'NFL', 'EPL', 'MLS', 'UCL', 'NHL', 'MLB', 'ATP', 'WTA')
+                              AND scope IN ('full_game', 'half_1', 'half_2', 'quarter_1', 'quarter_2', 'quarter_3', 'quarter_4', 'period_1', 'period_2')
+                              AND (family LIKE '%moneyline%' OR family LIKE '%spread%' OR family LIKE '%totals%' OR family = 'totals' OR family LIKE '%winner%' OR family LIKE '%three_way%' OR family LIKE '%both%')
+                              AND family NOT LIKE '%home_total%' AND family NOT LIKE '%away_total%' AND family NOT LIKE '%team_total%')
                         THEN 0 ELSE 1
                     END,
                     CASE 
