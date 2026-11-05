@@ -112,7 +112,27 @@ class AutonomousROIGovernor:
             ORDER BY SUM(pnl) DESC
         """, (cutoff_str,))
         rows = c.fetchall()
+
+        # Collect recent individual settled wagers per segment to evaluate rolling health
+        c.execute("""
+            SELECT 
+                json_extract(payload, '$.league') as league,
+                json_extract(payload, '$.model_scope') as scope,
+                json_extract(payload, '$.market') as market,
+                pnl,
+                stake
+            FROM bets 
+            WHERE status IN ('settled', 'won', 'lost', 'push')
+              AND created_at >= ?
+            ORDER BY created_at DESC
+        """, (cutoff_str,))
+        all_recent_bets = c.fetchall()
         conn.close()
+
+        recent_by_seg = {}
+        for r_lg, r_sc, r_mkt, r_pnl, r_stk in all_recent_bets:
+            sk = f"{r_lg or 'UNKNOWN'}|{r_sc or 'full_game'}|{r_mkt or 'unknown'}"
+            recent_by_seg.setdefault(sk, []).append((float(r_pnl or 0.0), float(r_stk or 0.0)))
 
         segments: List[SegmentMetric] = []
         super_alpha = []
@@ -121,16 +141,21 @@ class AutonomousROIGovernor:
         toxic_quarantine = []
 
         grad_markets = set()
+        demoted_markets_set = set()
         try:
             from .unified_market_universe import UnifiedMarketUniverse
             roster = UnifiedMarketUniverse(self.data_dir).build_universe_roster()
             grad_markets = {k for k, p in roster.items() if p.tier == 3}
+            demoted_markets_set = {k for k, p in roster.items() if p.tier in (1, 2)}
         except Exception:
             try:
-                from .shadow_market_incubator import load_graduated_markets
+                from .shadow_market_incubator import load_graduated_markets, load_demoted_markets
                 gm = load_graduated_markets(self.data_dir)
                 if gm:
                     grad_markets = set(gm.keys())
+                dm = load_demoted_markets(self.data_dir)
+                if dm:
+                    demoted_markets_set = set(dm.keys())
             except Exception:
                 pass
 
@@ -167,8 +192,32 @@ class AutonomousROIGovernor:
                 or base_canon_k in grad_markets
             )
 
-            # Quarantined lower-tier circuits (Challenger/ITF) receive zero stake allocation UNLESS graduated via Crucible
-            if ((league in ('CHALLENGER', 'ITF') or 'challenger' in league.lower() or 'challenger' in seg_key.lower())
+            is_demoted_seg = bool(
+                seg_key in demoted_markets_set
+                or canon_k in demoted_markets_set
+                or base_canon_k in demoted_markets_set
+                or any(d_k.startswith(f"{league}|{scope}|") and (market in d_k or base_mkt in d_k) for d_k in demoted_markets_set)
+            )
+
+            # Evaluate recent rolling cohort (last 10 wagers) for rolling health
+            rec_bets = recent_by_seg.get(seg_key, [])[:10]
+            rec_pnl = sum(b[0] for b in rec_bets) if rec_bets else 0.0
+            rec_stk = sum(b[1] for b in rec_bets) if rec_bets else 0.0
+            rec_roi = (rec_pnl / rec_stk * 100) if rec_stk > 0 else 0.0
+            rec_avg_stk = (rec_stk / len(rec_bets)) if rec_bets else 1.0
+            rec_units = rec_pnl / max(0.50, rec_avg_stk)
+            is_rolling_degraded = bool(len(rec_bets) >= 4 and (rec_roi <= -3.0 or rec_units <= -2.0 or (rec_pnl < 0.0 and rec_roi < 0.0)))
+
+            # 1. Demoted Markets in Shadow Incubator / Tier 1-2 Quarantine ($0.00 stake)
+            if is_demoted_seg:
+                tier = 'TOXIC_QUARANTINE'
+                stake_cap = 0.0
+                min_ev = 0.10
+                action = 'Quarantined: demoted in Unified Market Universe / Shadow Incubator ($0.00)'
+                toxic_quarantine.append(seg_key)
+
+            # 2. Quarantined lower-tier circuits (Challenger/ITF) receive zero stake allocation UNLESS graduated via Crucible
+            elif ((league in ('CHALLENGER', 'ITF') or 'challenger' in league.lower() or 'challenger' in seg_key.lower())
                 and not is_grad_seg):
                 tier = 'TOXIC_QUARANTINE'
                 stake_cap = 0.0
@@ -176,7 +225,7 @@ class AutonomousROIGovernor:
                 action = 'Quarantined: lower-tier circuit zero stake allocation until formal promotion'
                 toxic_quarantine.append(seg_key)
 
-            # Pure noise 50/50 markets (odd/even): zero fundamental edge, negative bookmaker vig
+            # 3. Pure noise 50/50 markets (odd/even): zero fundamental edge, negative bookmaker vig
             elif 'odd_even' in str(market).lower():
                 tier = 'TOXIC_QUARANTINE'
                 stake_cap = 0.0
@@ -184,7 +233,15 @@ class AutonomousROIGovernor:
                 action = 'Quarantined: odd/even coin-flip market suppressed'
                 toxic_quarantine.append(seg_key)
 
-            # A. Dynamic Loss Circuit Breaker (Scale-Invariant in Risk Units - Commandment 6):
+            # 4. Rolling Breakdown / Degradation Invariant (Recent drawdown overrides ancient history)
+            elif is_rolling_degraded:
+                tier = 'CAPITAL_DEFENSE'
+                stake_cap = 0.50
+                min_ev = 0.035
+                action = f'Capital defense tourniquet: rolling drawdown ({rec_roi:.1f}% ROI, {rec_units:.1f}U over {len(rec_bets)} bets)'
+                capital_defense.append(seg_key)
+
+            # 5. Dynamic Loss Circuit Breaker (Scale-Invariant in Risk Units - Commandment 6):
             # Universal Meritocracy Mandate: Zero-Bleed on ALL markets without exception.
             # Any segment with cnt >= 4 and (pnl <= -2.00 or units_pnl <= -2.0),
             # or cnt >= 3 and pnl <= -1.50 and roi < -10.0%,
@@ -200,24 +257,24 @@ class AutonomousROIGovernor:
                 action = f'Quarantined: net loss ({units_pnl:.1f} units, ${pnl:+.2f}, {roi:+.1f}% ROI) triggered zero-bleed circuit breaker'
                 toxic_quarantine.append(seg_key)
 
-            # B. Super Alpha: Rolling ROI >= +12%, PnL >= +3 units (or >=+$3.00) with 5+ games (verified major markets only)
-            elif cnt >= 5 and roi >= 12.0 and (units_pnl >= 3.0 or pnl >= 3.00) and league not in ('CHALLENGER', 'ITF'):
+            # 6. Super Alpha: Rolling ROI >= +12%, PnL >= +3 units (or >=+$3.00) with 5+ games (verified major markets only)
+            elif cnt >= 5 and roi >= 12.0 and (units_pnl >= 3.0 or pnl >= 3.00) and league not in ('CHALLENGER', 'ITF') and not is_rolling_degraded and not is_demoted_seg and rec_pnl >= 0.0:
                 tier = 'SUPER_ALPHA'
                 stake_cap = 8.00
                 min_ev = 0.015
                 action = 'Super Alpha Acceleration: maximum confidence scaling ($4.00–$8.00)'
                 super_alpha.append(seg_key)
 
-            # C. Solid Alpha: Rolling ROI >= +5%, PnL >= +1 unit (or >=+$1.00) with 2+ games
+            # 7. Solid Alpha: Rolling ROI >= +5%, PnL >= +1 unit (or >=+$1.00) with 2+ games
             elif ((cnt >= 2 and roi >= 15.0 and (units_pnl >= 1.0 or pnl >= 1.00))
-                  or (cnt >= 4 and roi >= 5.0 and (units_pnl >= 1.5 or pnl >= 1.50))) and league not in ('CHALLENGER', 'ITF'):
+                  or (cnt >= 4 and roi >= 5.0 and (units_pnl >= 1.5 or pnl >= 1.50))) and league not in ('CHALLENGER', 'ITF') and not is_rolling_degraded and not is_demoted_seg and rec_pnl >= 0.0:
                 tier = 'SOLID_ALPHA'
                 stake_cap = 3.50
                 min_ev = 0.010
                 action = 'Solid Alpha Acceleration: prioritized scaling ($2.50–$3.50)'
                 solid_alpha.append(seg_key)
 
-            # D. Capital Defense ($0.50 Tourniquet - Commandment 6):
+            # 8. Capital Defense ($0.50 Tourniquet - Commandment 6):
             # Reserved strictly for exploratory trials (cnt in (1, 2, 3) with minor drawdown)
             elif cnt in (1, 2, 3) and pnl >= -1.50 and (roi < 0.0 or pnl < 0.0):
                 tier = 'CAPITAL_DEFENSE'
