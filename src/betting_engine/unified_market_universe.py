@@ -453,8 +453,38 @@ class UnifiedMarketUniverse:
                 logger.error("Error reading engine db for universe settled performance: %s", exc)
 
         # Synchronize existing roster profiles (including graduated) with live settled performance
+        sb_underperforming_map: Dict[str, Dict[str, Any]] = {}
+        if self.engine_db_path.exists():
+            try:
+                from .segment_scoreboard import compute_segment_scoreboard
+                with closing(sqlite3.connect(self.engine_db_path, timeout=10.0)) as sb_conn:
+                    sb_data = compute_segment_scoreboard(sb_conn)
+                    for s_obj in sb_data.get("underperforming_segments", []):
+                        sb_underperforming_map[s_obj["segment"]] = s_obj
+            except Exception as e_sb:
+                logger.warning("Could not compute scoreboard in universe roster: %s", e_sb)
+
         for k_perf, prof in roster.items():
             if prof.tier == int(MarketTier.PRODUCTION_GRADUATED):
+                # Rolling Degradation Priority: If SegmentScoreboard marks this segment as underperforming,
+                # immediately enforce Capital Defense Tourniquet ($0.50 clamp) regardless of ancient lifetime profit.
+                sb_entry = sb_underperforming_map.get(k_perf)
+                if not sb_entry and ':' in k_perf:
+                    parts = k_perf.split('|')
+                    if len(parts) == 3 and ':' in parts[2]:
+                        base_k = f"{parts[0]}|{parts[1]}|{parts[2].split(':')[-1]}"
+                        sb_entry = sb_underperforming_map.get(base_k)
+
+                if sb_entry:
+                    r_pnl = float(sb_entry.get("rolling_pnl", 0.0))
+                    r_roi = float(sb_entry.get("rolling_roi_pct", 0.0))
+                    r_games = int(sb_entry.get("rolling_games", 0))
+                    prof.rolling_pnl = r_pnl
+                    prof.rolling_roi_pct = r_roi
+                    prof.stake_cap = 0.50
+                    prof.phase_detail = f"Capital Defense Tourniquet ({r_roi:+.1f}% ROI, ${r_pnl:+.2f} over {r_games} games) - $0.50 clamp"
+                    continue
+
                 stat = perf_map.get(k_perf)
                 at_stat = all_time_perf_map.get(k_perf)
 

@@ -88,11 +88,13 @@ def test_universal_meritocracy_and_zero_hardcoded_privilege():
     universe.invalidate_cache()
     roster = universe.build_universe_roster(force_refresh=True)
     
-    # Check MLS spreads profile: if in roster, must have valid meritocratic tier
+    # Check MLS spreads profile: if in roster, must have valid meritocratic tier.
+    # Due to recent rolling drawdown (-24.3% ROI), meritocratic capital defense clamps it to $0.50 tourniquet.
     mls_prof = roster.get("MLS|full_game|spreads")
     if mls_prof:
         assert mls_prof.tier == int(MarketTier.PRODUCTION_GRADUATED)
-        assert mls_prof.stake_cap > 0.50
+        assert mls_prof.stake_cap == 0.50
+        assert "Capital Defense" in mls_prof.phase_detail
 
 
 def test_every_tier1_market_has_owner_and_developer():

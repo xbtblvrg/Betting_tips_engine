@@ -142,6 +142,7 @@ class AutonomousROIGovernor:
 
         grad_markets = set()
         demoted_markets_set = set()
+        sb_underperforming_set = set()
         try:
             from .unified_market_universe import UnifiedMarketUniverse
             roster = UnifiedMarketUniverse(self.data_dir).build_universe_roster()
@@ -158,6 +159,14 @@ class AutonomousROIGovernor:
                     demoted_markets_set = set(dm.keys())
             except Exception:
                 pass
+
+        try:
+            from .segment_scoreboard import compute_segment_scoreboard
+            with sqlite3.connect(self.db_path, timeout=10.0) as sb_conn:
+                sb_obj = compute_segment_scoreboard(sb_conn)
+                sb_underperforming_set = {s["segment"] for s in sb_obj.get("underperforming_segments", [])}
+        except Exception as e_sb:
+            log.debug(f"Could not load segment scoreboard in governor: {e_sb}")
 
         for r in rows:
             league = r[0] or 'UNKNOWN'
@@ -199,6 +208,13 @@ class AutonomousROIGovernor:
                 or any(d_k.startswith(f"{league}|{scope}|") and (market in d_k or base_mkt in d_k) for d_k in demoted_markets_set)
             )
 
+            is_sb_underperforming = bool(
+                seg_key in sb_underperforming_set
+                or canon_k in sb_underperforming_set
+                or base_canon_k in sb_underperforming_set
+                or any(u_k.startswith(f"{league}|{scope}|") and (market in u_k or base_mkt in u_k) for u_k in sb_underperforming_set)
+            )
+
             # Evaluate recent rolling cohort (last 10 wagers) for rolling health
             rec_bets = recent_by_seg.get(seg_key, [])[:10]
             rec_pnl = sum(b[0] for b in rec_bets) if rec_bets else 0.0
@@ -234,7 +250,7 @@ class AutonomousROIGovernor:
                 toxic_quarantine.append(seg_key)
 
             # 4. Rolling Breakdown / Degradation Invariant (Recent drawdown overrides ancient history)
-            elif is_rolling_degraded:
+            elif is_rolling_degraded or is_sb_underperforming:
                 tier = 'CAPITAL_DEFENSE'
                 stake_cap = 0.50
                 min_ev = 0.035
@@ -258,7 +274,7 @@ class AutonomousROIGovernor:
                 toxic_quarantine.append(seg_key)
 
             # 6. Super Alpha: Rolling ROI >= +12%, PnL >= +3 units (or >=+$3.00) with 5+ games (verified major markets only)
-            elif cnt >= 5 and roi >= 12.0 and (units_pnl >= 3.0 or pnl >= 3.00) and league not in ('CHALLENGER', 'ITF') and not is_rolling_degraded and not is_demoted_seg and rec_pnl >= 0.0:
+            elif cnt >= 5 and roi >= 12.0 and (units_pnl >= 3.0 or pnl >= 3.00) and league not in ('CHALLENGER', 'ITF') and not is_rolling_degraded and not is_sb_underperforming and not is_demoted_seg and rec_pnl >= 0.0:
                 tier = 'SUPER_ALPHA'
                 stake_cap = 8.00
                 min_ev = 0.015
@@ -267,7 +283,7 @@ class AutonomousROIGovernor:
 
             # 7. Solid Alpha: Rolling ROI >= +5%, PnL >= +1 unit (or >=+$1.00) with 2+ games
             elif ((cnt >= 2 and roi >= 15.0 and (units_pnl >= 1.0 or pnl >= 1.00))
-                  or (cnt >= 4 and roi >= 5.0 and (units_pnl >= 1.5 or pnl >= 1.50))) and league not in ('CHALLENGER', 'ITF') and not is_rolling_degraded and not is_demoted_seg and rec_pnl >= 0.0:
+                  or (cnt >= 4 and roi >= 5.0 and (units_pnl >= 1.5 or pnl >= 1.50))) and league not in ('CHALLENGER', 'ITF') and not is_rolling_degraded and not is_sb_underperforming and not is_demoted_seg and rec_pnl >= 0.0:
                 tier = 'SOLID_ALPHA'
                 stake_cap = 3.50
                 min_ev = 0.010
