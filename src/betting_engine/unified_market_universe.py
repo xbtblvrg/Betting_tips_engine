@@ -217,6 +217,22 @@ class UnifiedMarketUniverse:
         if not self.incubator_db_path.exists():
             return roster
 
+        sb_underperforming_map: Dict[str, Dict[str, Any]] = {}
+        if self.engine_db_path.exists():
+            try:
+                from .segment_scoreboard import compute_segment_scoreboard
+                with closing(sqlite3.connect(f"file:{self.engine_db_path}?mode=ro", uri=True, timeout=10.0)) as sb_conn:
+                    sb_data = compute_segment_scoreboard(sb_conn)
+                    for s_obj in sb_data.get("underperforming_segments", []):
+                        seg_s = s_obj["segment"]
+                        sb_underperforming_map[seg_s] = s_obj
+                        parts = seg_s.split('|')
+                        if len(parts) == 3 and ':' in parts[2]:
+                            fam_clean = parts[2].split(':')[-1]
+                            sb_underperforming_map[f"{parts[0]}|{parts[1]}|{fam_clean}"] = s_obj
+            except Exception as e_sb:
+                logger.warning("Could not compute scoreboard in universe roster: %s", e_sb)
+
         try:
             with closing(sqlite3.connect(f"file:{self.incubator_db_path}?mode=ro", uri=True, timeout=15.0)) as inc_conn:
                 # 1. Ingest Graduated Markets (Tier 3 Candidates)
@@ -286,13 +302,17 @@ class UnifiedMarketUniverse:
                     SELECT segment_key, league, scope, family, sub_family,
                            rolling_roi, rolling_pnl, games, incubation_phase,
                            incubated_model_id, model_archetype, historical_roi, historical_brier_delta,
-                           demoted_at
+                           demoted_at, reason
                     FROM demoted_markets
                 """).fetchall()
 
                 for r in dem_rows:
                     (seg_key, lg, sc, fam, sub_fam, r_roi, r_pnl, games,
-                     phase, model_id, arch, h_roi, h_brier, dem_at) = r
+                     phase, model_id, arch, h_roi, h_brier, dem_at, reason) = r
+
+                    # Reachability Guard: Skip phantom/unsupported contracts so they never pollute the active universe
+                    if phase == 'unsupported_phantom' or not is_supported_stake_contract(lg, sc, fam, sub_fam):
+                        continue
 
                     canonical_k = self.get_canonical_key(lg, sc, fam)
                     is_sub = bool(sub_fam and sub_fam != fam)
@@ -453,22 +473,6 @@ class UnifiedMarketUniverse:
                 logger.error("Error reading engine db for universe settled performance: %s", exc)
 
         # Synchronize existing roster profiles (including graduated) with live settled performance
-        sb_underperforming_map: Dict[str, Dict[str, Any]] = {}
-        if self.engine_db_path.exists():
-            try:
-                from .segment_scoreboard import compute_segment_scoreboard
-                with closing(sqlite3.connect(self.engine_db_path, timeout=10.0)) as sb_conn:
-                    sb_data = compute_segment_scoreboard(sb_conn)
-                    for s_obj in sb_data.get("underperforming_segments", []):
-                        seg_s = s_obj["segment"]
-                        sb_underperforming_map[seg_s] = s_obj
-                        parts = seg_s.split('|')
-                        if len(parts) == 3 and ':' in parts[2]:
-                            fam_clean = parts[2].split(':')[-1]
-                            sb_underperforming_map[f"{parts[0]}|{parts[1]}|{fam_clean}"] = s_obj
-            except Exception as e_sb:
-                logger.warning("Could not compute scoreboard in universe roster: %s", e_sb)
-
         for k_perf, prof in roster.items():
             if prof.tier == int(MarketTier.PRODUCTION_GRADUATED):
                 # Rolling Degradation Priority: If SegmentScoreboard marks this segment as underperforming,
@@ -575,6 +579,8 @@ class UnifiedMarketUniverse:
             lg_clean = (lg or '').upper().strip()
             sc_norm = self.normalize_scope(sc)
             fam_clean = (fam or '').lower().strip()
+            if not is_supported_stake_contract(lg_clean, sc_norm, fam_clean):
+                return
             canon_key = self.get_canonical_key(lg_clean, sc_norm, fam_clean)
             base_fam = fam_clean.split(':')[-1] if ':' in fam_clean else fam_clean
             canon_base_key = self.get_canonical_key(lg_clean, sc_norm, base_fam)
@@ -592,7 +598,16 @@ class UnifiedMarketUniverse:
             # Universal Meritocracy: Only demonstrably profitable markets are permitted in Tier 3 live funded execution ($0.50-$8.00).
             # Bleeding markets and untraded silent markets are strictly assigned to Tier 1 R&D ($0.00)
             # for candidate model synthesis, historical backtesting, and Crucible re-graduation!
-            if n_samples >= 2 and r_pnl > 0.0:
+            sb_entry = sb_underperforming_map.get(canon_key) or sb_underperforming_map.get(canon_base_key)
+            if sb_entry:
+                tier_val = int(MarketTier.PRODUCTION_GRADUATED)
+                tier_name_val = "PRODUCTION_GRADUATED"
+                stake_cap_val = 0.50
+                r_pnl = float(sb_entry.get("rolling_pnl", 0.0))
+                r_roi = float(sb_entry.get("rolling_roi_pct", 0.0))
+                r_games = int(sb_entry.get("rolling_games", 0))
+                phase_val = f"Capital Defense Tourniquet ({r_roi:+.1f}% ROI, ${r_pnl:+.2f} over {r_games} games) - $0.50 clamp"
+            elif n_samples >= 2 and r_pnl > 0.0:
                 tier_val = int(MarketTier.PRODUCTION_GRADUATED)
                 tier_name_val = "PRODUCTION_GRADUATED"
                 stake_cap_val = 8.00 if (r_pnl >= 2.0 or r_roi >= 10.0) else 2.50
@@ -716,7 +731,7 @@ class UnifiedMarketUniverse:
                     now_str = datetime.now(timezone.utc).isoformat()
                     to_insert = []
                     for k, p in roster.items():
-                        if p.tier in (1, 2) and k not in existing_dem and k not in grad_keys_set:
+                        if p.tier in (1, 2) and k not in existing_dem and k not in grad_keys_set and is_supported_stake_contract(p.league, p.scope, p.family, p.sub_family):
                             d_id = f"demote_{hashlib.sha256(f'{k}:{now_str}'.encode()).hexdigest()[:16]}"
                             phase_name = 'incubating_with_new_model' if (p.tier == 2 and p.active_model_id) else 'research_training'
                             to_insert.append((
@@ -776,7 +791,7 @@ class UnifiedMarketUniverse:
             with closing(sqlite3.connect(f"file:{self.incubator_db_path}?mode=ro", uri=True, timeout=15.0)) as inc_conn:
                 placeholders = ','.join('?' for _ in candidate_keys)
                 row = inc_conn.execute(
-                    f"SELECT incubation_phase, incubated_model_id FROM demoted_markets WHERE segment_key IN ({placeholders})",
+                    f"SELECT incubation_phase, incubated_model_id FROM demoted_markets WHERE segment_key IN ({placeholders}) AND incubation_phase != 'unsupported_phantom'",
                     candidate_keys
                 ).fetchone()
                 if row:
