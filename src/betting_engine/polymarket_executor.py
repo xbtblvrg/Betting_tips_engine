@@ -460,14 +460,18 @@ class PolymarketAutonomousExecutor:
                     r_pnl = float(matched_s.get("rolling_pnl", pnl))
                     r_units = float(matched_s.get("rolling_units", matched_s.get("units_pnl", pnl / max(0.50, matched_s.get("stake", 1.0) / max(1, sample)))))
 
-                    # Check Tier 4 Proven Alpha quorum: N >= 10 games, Rolling ROI >= +2.0%, Positive units profit
-                    is_tier_4_proven = (r_games >= 10 and r_roi >= 2.0 and (r_units >= 0.5 or r_pnl >= 2.0 or (not has_rolling and pnl >= 2.0 and roi >= 3.5)))
+                    # Check Tier 4 Proven Alpha quorum: Sample >= 10 (or Rolling games >= 5), Rolling ROI >= +2.0%, Positive units profit
+                    is_tier_4_proven = (
+                        (sample >= 10 or r_games >= 10)
+                        and (r_roi >= 2.0 or (r_pnl > 0.0 and r_roi > 0.0))
+                        and (r_units >= 0.4 or r_pnl >= 2.0 or pnl >= 2.0)
+                    )
 
                     if is_tier_4_proven:
                         stake_cap = 8.0 if (sub_tier == "SUPER_ALPHA" or r_roi >= 15.0) else 3.50
                         return (
                             True,
-                            f"TIER_4_LIVE_PROVEN_ALPHA: Verified Live Profit on Stake (LIVE_LEDGER_PROVEN_PROFIT: Rolling ROI: +{r_roi:.1f}%, Units: +{r_units:.2f}U over {r_games} games)",
+                            f"TIER_4_LIVE_PROVEN_ALPHA: Verified Live Profit on Stake (LIVE_LEDGER_PROVEN_PROFIT: Rolling ROI: +{r_roi:.1f}%, Units: +{r_units:.2f}U over {r_games} games, N={sample})",
                             stake_cap,
                         )
                     elif (r_pnl > 0.0 or pnl > 0.0):
