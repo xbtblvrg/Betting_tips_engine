@@ -149,7 +149,7 @@ class AutonomousROIGovernor:
             roi = (pnl / st * 100) if st > 0 else 0.0
             wr = (w / (w + l) * 100) if (w + l) > 0 else 0.0
             avg_st = (st / cnt) if cnt > 0 else 1.0
-            units_pnl = pnl / max(1.0, avg_st)
+            units_pnl = pnl / max(0.50, avg_st)
 
             # Dynamic Tier Classification
             tier = 'NEUTRAL'

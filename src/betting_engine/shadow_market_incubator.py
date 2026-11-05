@@ -3594,7 +3594,7 @@ class ShadowMarketIncubator:
                     rolling_pnl = sum(d['pnl'] for d in recent)
                     rolling_roi = (rolling_pnl / rolling_staked) if rolling_staked > 0 else 0.0
                     avg_stake = (rolling_staked / len(recent)) if len(recent) > 0 else 1.0
-                    rolling_units_pnl = rolling_pnl / max(1.0, avg_stake)
+                    rolling_units_pnl = rolling_pnl / max(0.50, avg_stake)
 
                     # Statistical Significance Safeguard (Constitutional Commandments 6 & 7):
                     # A market with massive incubator backing (inc_n >= 50 and inc_pnl >= 20.0)
@@ -3615,8 +3615,8 @@ class ShadowMarketIncubator:
                     total_live_pnl = sum(d['pnl'] for d in matching_decisions)
                     total_live_staked = sum(float(d.get('stake', 0.0) or 0.0) for d in matching_decisions)
                     avg_total_stake = (total_live_staked / len(matching_decisions)) if len(matching_decisions) > 0 else 1.0
-                    total_live_units = total_live_pnl / max(1.0, avg_total_stake)
-                    inc_units = inc_pnl / max(1.0, 1.0)
+                    total_live_units = total_live_pnl / max(0.50, avg_total_stake)
+                    inc_units = inc_pnl / max(0.50, 1.0)
                     # Paper incubator stats can only shield a market against stochastic noise if all-time live PnL is non-negative
                     if total_live_pnl >= 0.0 and ((inc_n >= 50 and (inc_units >= 15.0 or inc_pnl >= 20.0)) or (len(matching_decisions) >= 50 and (total_live_units >= 15.0 or total_live_pnl >= 20.0))):
                         if len(matching_decisions) < 25 and (rolling_units_pnl > -10.0 or rolling_pnl > -15.0):

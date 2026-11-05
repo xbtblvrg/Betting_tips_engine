@@ -434,7 +434,7 @@ class UnifiedMarketUniverse:
                                 stk_v = stat['staked']
                                 cnt_v = stat['sample_size']
                                 avg_stk = stk_v / max(1, cnt_v)
-                                stat['units'] = round(pnl_v / max(1.0, avg_stk), 2)
+                                stat['units'] = round(pnl_v / max(0.50, avg_stk), 2)
                                 stat['roi_pct'] = round((pnl_v / stk_v * 100.0) if stk_v > 0 else 0.0, 2)
                                 stat['pnl'] = round(pnl_v, 2)
                                 stat['staked'] = round(stk_v, 2)
