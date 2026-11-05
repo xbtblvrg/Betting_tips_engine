@@ -150,6 +150,10 @@ def test_stake_only_derivatives_rejected_on_polymarket(universe_fixture):
         ok, reason, cap = poly.is_market_eligible(lg, sc, fam, require_tier_4=True)
         assert not ok, f"Stake derivative {lg}|{sc}|{fam} should not be eligible on Polymarket"
         assert cap == 0.0, f"Stake derivative {lg}|{sc}|{fam} received non-zero cap: {cap}"
-        assert "STAKE_ONLY_MARKET" in reason or "DEMOTED_IN_SHADOW_INCUBATOR" in reason, (
-            f"Expected STAKE_ONLY_MARKET or DEMOTED, got: {reason}"
+        assert (
+            "STAKE_ONLY_MARKET" in reason
+            or "DEMOTED_IN_SHADOW_INCUBATOR" in reason
+            or "UNDERPERFORMING_IN_LIVE_BETS" in reason
+        ), (
+            f"Expected STAKE_ONLY_MARKET, DEMOTED, or UNDERPERFORMING, got: {reason}"
         )

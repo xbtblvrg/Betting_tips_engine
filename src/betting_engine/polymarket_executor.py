@@ -331,6 +331,42 @@ class PolymarketAutonomousExecutor:
         except Exception as e_dem:
             log.debug(f"Could not check demoted_markets: {e_dem}")
 
+        # Gate 1: Check SegmentScoreboard / Anti-Loss Invariant (Prime Commandment 1 & 6)
+        # If a market has negative live settled PnL or is UNDERPERFORMING in live wagers,
+        # it is strictly quarantined ($0.00 virtual stakes). A historical diploma can NEVER override negative live reality!
+        self._get_or_refresh_scoreboard()
+
+        if self._cached_scoreboard:
+            all_segs = (
+                self._cached_scoreboard.get("alpha_segments", [])
+                + self._cached_scoreboard.get("exploration_segments", [])
+                + self._cached_scoreboard.get("underperforming_segments", [])
+            )
+
+            for s in all_segs:
+                if s.get("league") in league_aliases and s.get("scope") == scope:
+                    s_fam = s.get("family", "")
+                    if any(a == s_fam or a in s_fam or s_fam in a for a in family_aliases):
+                        pnl = float(s.get("pnl", 0.0))
+                        roi = float(s.get("roi_pct", 0.0))
+                        games = int(s.get("games", 0))
+                        tier = s.get("tier", "")
+                        rolling_games = int(s.get("rolling_games", 0))
+                        rolling_pnl = float(s.get("rolling_pnl", 0.0))
+                        rolling_roi = float(s.get("rolling_roi_pct", 0.0))
+                        rolling_units = float(s.get("rolling_units", 0.0))
+
+                        # Check rolling degradation
+                        is_rolling_degraded = (
+                            rolling_games >= 4 and (rolling_roi <= -3.0 or rolling_units <= -2.0 or (rolling_pnl < 0.0 and rolling_roi < 0.0))
+                        )
+                        if pnl < 0.0 or roi < 0.0 or tier == "UNDERPERFORMING" or is_rolling_degraded:
+                            return (
+                                False,
+                                f"UNDERPERFORMING_IN_LIVE_BETS: Segment {seg_keys[0]} has negative/degraded live performance (PnL: ${pnl:.2f}, Rolling ROI: {rolling_roi:.1f}%, Rolling PnL: ${rolling_pnl:.2f}, N={games}). Quarantined in Shadow Incubator ($0.00).",
+                                0.0,
+                            )
+
         # Gate 0b: Polymarket Contract Taxonomy Invariant:
         # Strictly reject Stake sportsbook exclusive derivatives that have no Polymarket CLOB contract equivalent.
         if any(deriv in market_family for deriv in (
@@ -388,42 +424,6 @@ class PolymarketAutonomousExecutor:
                         break
         except Exception as e_uni:
             log.debug(f"Could not check UnifiedMarketUniverse: {e_uni}")
-
-        # Gate 1: Check SegmentScoreboard / Anti-Loss Invariant (Prime Commandment 1 & 6)
-        # If a market has negative live settled PnL or is UNDERPERFORMING in live wagers,
-        # it is strictly quarantined ($0.00 virtual stakes). A historical diploma can NEVER override negative live reality!
-        self._get_or_refresh_scoreboard()
-
-        if self._cached_scoreboard:
-            all_segs = (
-                self._cached_scoreboard.get("alpha_segments", [])
-                + self._cached_scoreboard.get("exploration_segments", [])
-                + self._cached_scoreboard.get("underperforming_segments", [])
-            )
-
-            for s in all_segs:
-                if s.get("league") in league_aliases and s.get("scope") == scope:
-                    s_fam = s.get("family", "")
-                    if any(a == s_fam or a in s_fam or s_fam in a for a in family_aliases):
-                        pnl = float(s.get("pnl", 0.0))
-                        roi = float(s.get("roi_pct", 0.0))
-                        games = int(s.get("games", 0))
-                        tier = s.get("tier", "")
-                        rolling_games = int(s.get("rolling_games", 0))
-                        rolling_pnl = float(s.get("rolling_pnl", 0.0))
-                        rolling_roi = float(s.get("rolling_roi_pct", 0.0))
-                        rolling_units = float(s.get("rolling_units", 0.0))
-
-                        # Check rolling degradation
-                        is_rolling_degraded = (
-                            rolling_games >= 4 and (rolling_roi <= -3.0 or rolling_units <= -2.0 or (rolling_pnl < 0.0 and rolling_roi < 0.0))
-                        )
-                        if pnl < 0.0 or roi < 0.0 or tier == "UNDERPERFORMING" or is_rolling_degraded:
-                            return (
-                                False,
-                                f"UNDERPERFORMING_IN_LIVE_BETS: Segment {seg_keys[0]} has negative/degraded live performance (PnL: ${pnl:.2f}, Rolling ROI: {rolling_roi:.1f}%, Rolling PnL: ${rolling_pnl:.2f}, N={games}). Quarantined in Shadow Incubator ($0.00).",
-                                0.0,
-                            )
 
         if self._cached_scoreboard:
 
