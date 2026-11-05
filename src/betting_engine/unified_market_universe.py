@@ -97,15 +97,24 @@ class UnifiedMarketProfile:
 
         # Polymarket CLOB Canonical Dual Pairing (Commandments 6.5 & 10)
         try:
-            from .polymarket_runner import POLYMARKET_STRUCTURED_TYPE_MAP
-            poly_leagues = {'NBA', 'NFL', 'NHL', 'MLB', 'WNBA', 'NCAAF', 'NCAAB', 'NCAAM', 'NCAAW', 'MLS', 'EPL', 'UCL', 'UEL', 'LALIGA', 'BUNDESLIGA', 'SERIEA', 'ATP', 'WTA'}
-            if lg in poly_leagues:
-                base_fam = fam.split(':')[-1] if ':' in fam else fam
-                for p_type, (p_sc, p_fam) in POLYMARKET_STRUCTURED_TYPE_MAP.items():
-                    if p_sc == sc and (p_fam == fam or p_fam == base_fam):
-                        self.is_dual_polymarket = True
-                        self.polymarket_pairing = p_type
-                        break
+            from .polymarket_runner import POLYMARKET_STRUCTURED_TAXONOMY
+            base_fam = fam.split(':')[-1] if ':' in fam else fam
+            fam_aliases = {fam, base_fam}
+            if fam in ('both_teams_score', 'both_score') or base_fam in ('both_teams_score', 'both_score'):
+                fam_aliases.update(['both_score', 'both_teams_score'])
+            soccer_leagues = {'EPL', 'MLS', 'UCL', 'UEL', 'LALIGA', 'BUNDESLIGA', 'SERIEA'}
+            if lg in soccer_leagues and (fam in ('three_way', '1x2', 'moneyline') or base_fam in ('three_way', '1x2', 'moneyline')):
+                fam_aliases.update(['three_way', '1x2', 'moneyline'])
+            if fam in ('set_handicap', 'tennis_sets:set_handicap', 'tennis_sets') or base_fam in ('set_handicap', 'tennis_sets:set_handicap', 'tennis_sets'):
+                fam_aliases.update(['set_handicap'])
+            if fam in ('total_sets', 'tennis_sets:total_sets') or base_fam in ('total_sets', 'tennis_sets:total_sets'):
+                fam_aliases.update(['total_sets'])
+
+            for p_type, (p_sc, p_fam, p_leagues) in POLYMARKET_STRUCTURED_TAXONOMY.items():
+                if lg in p_leagues and p_sc == sc and p_fam in fam_aliases:
+                    self.is_dual_polymarket = True
+                    self.polymarket_pairing = p_type
+                    break
         except Exception:
             pass
 

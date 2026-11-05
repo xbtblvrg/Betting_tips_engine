@@ -769,30 +769,45 @@ class PolymarketAutonomousRunner:
                                 spread_line=outcome_spread,
                                 scope=scope,
                             )
-                    elif forecast and family == "moneyline" and forecast.get("home_prob") is not None:
+                    elif forecast and family in ("moneyline", "three_way") and forecast.get("home_prob") is not None:
                         h_name = (forecast.get("home_name") or "").lower()
                         a_name = (forecast.get("away_name") or "").lower()
                         out_low = outcome_label.lower()
                         q_low = q.lower()
 
-                        if h_name and (out_low in h_name or h_name in out_low or any(w in out_low for w in h_name.split() if len(w) >= 3)):
-                            is_home = True
-                        elif a_name and (out_low in a_name or a_name in out_low or any(w in out_low for w in a_name.split() if len(w) >= 3)):
-                            is_home = False
-                        elif out_low == "yes":
-                            if h_name and (h_name in q_low or any(w in q_low for w in h_name.split() if len(w) >= 3)):
-                                is_home = True
-                            else:
-                                is_home = False
-                        elif out_low == "no":
-                            if h_name and (h_name in q_low or any(w in q_low for w in h_name.split() if len(w) >= 3)):
-                                is_home = False
-                            else:
-                                is_home = True
-                        else:
-                            is_home = (idx == 0)
+                        # Check for 3-way regulation soccer markets (EPL, MLS, UCL, UEL, LALIGA, BUNDESLIGA, SERIEA)
+                        is_soccer = league in ("EPL", "MLS", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA")
+                        is_draw_question = "draw" in q_low or out_low == "draw"
 
-                        model_prob = float(forecast["home_prob"]) if is_home else (1.0 - float(forecast["home_prob"]))
+                        if is_soccer and is_draw_question:
+                            draw_p = float(forecast.get("draw_prob") or 0.25)
+                            model_prob = draw_p if out_low in ("yes", "draw") else (1.0 - draw_p)
+                        elif is_soccer and a_name and (a_name in q_low and h_name not in q_low):
+                            away_p = float(forecast.get("away_prob") or max(0.05, 1.0 - float(forecast["home_prob"]) - float(forecast.get("draw_prob") or 0.25)))
+                            model_prob = away_p if out_low == "yes" else (1.0 - away_p)
+                        elif is_soccer and h_name and (h_name in q_low and a_name not in q_low):
+                            home_p = float(forecast.get("home_prob") or 0.45)
+                            model_prob = home_p if out_low == "yes" else (1.0 - home_p)
+                        else:
+                            # Standard 2-way Moneyline (NBA, NFL, NHL, MLB, Tennis, CBB, NCAAF)
+                            if h_name and (out_low in h_name or h_name in out_low or any(w in out_low for w in h_name.split() if len(w) >= 3)):
+                                is_home = True
+                            elif a_name and (out_low in a_name or a_name in out_low or any(w in out_low for w in a_name.split() if len(w) >= 3)):
+                                is_home = False
+                            elif out_low == "yes":
+                                if h_name and (h_name in q_low or any(w in q_low for w in h_name.split() if len(w) >= 3)):
+                                    is_home = True
+                                else:
+                                    is_home = False
+                            elif out_low == "no":
+                                if h_name and (h_name in q_low or any(w in q_low for w in h_name.split() if len(w) >= 3)):
+                                    is_home = False
+                                else:
+                                    is_home = True
+                            else:
+                                is_home = (idx == 0)
+
+                            model_prob = float(forecast["home_prob"]) if is_home else (1.0 - float(forecast["home_prob"]))
                     else:
                         # Strictly skip unmodeled or uncalibrated contracts - synthetic price shifts are forbidden!
                         continue
