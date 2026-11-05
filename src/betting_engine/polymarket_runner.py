@@ -33,52 +33,56 @@ _RUNNER_CYCLE_LOCK = threading.Lock()
 DEFAULT_RUNNER_LEAGUES: Tuple[str, ...] = ("NBA", "NFL", "NHL", "EPL", "UCL", "UEL", "MLS", "NCAAF", "CBB", "NCAAW", "ATP", "WTA")
 
 # Explicit Canonical Taxonomy Mapping for Polymarket Gamma API sportsMarketType
-POLYMARKET_STRUCTURED_TYPE_MAP: Dict[str, Tuple[str, str]] = {
-    # Full Game Main Markets
-    "moneyline": ("full_game", "moneyline"),
-    "spreads": ("full_game", "spreads"),
-    "totals": ("full_game", "totals"),
-    "tennis_game_handicap": ("full_game", "spreads"),
-    "tennis_match_totals": ("full_game", "totals"),
-    "both_teams_to_score": ("full_game", "both_score"),
+# Qualified with authoritative sport/league scope to prevent cross-sport taxonomic bleed
+POLYMARKET_STRUCTURED_TAXONOMY: Dict[str, Tuple[str, str, Tuple[str, ...]]] = {
+    # Full Game Main Markets (Core Leagues)
+    "moneyline": ("full_game", "moneyline", ("NBA", "NFL", "NHL", "MLB", "WNBA", "NCAAF", "CFB", "CBB", "NCAAB", "NCAAM", "NCAAW", "CWBB", "MLS", "EPL", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA", "ATP", "WTA")),
+    "spreads": ("full_game", "spreads", ("NBA", "NFL", "NHL", "MLB", "WNBA", "NCAAF", "CFB", "MLS", "EPL", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA", "ATP", "WTA")),
+    "totals": ("full_game", "totals", ("NBA", "NFL", "NHL", "MLB", "WNBA", "NCAAF", "CFB", "MLS", "EPL", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA", "ATP", "WTA")),
 
-    # First Half Main Markets
-    "first_half_moneyline": ("half_1", "moneyline"),
-    "first_half_spreads": ("half_1", "spreads"),
-    "first_half_totals": ("half_1", "totals"),
-    "both_teams_to_score_first_half": ("half_1", "both_score"),
+    # Soccer Specific Markets (EPL, MLS, UCL, UEL, LALIGA, BUNDESLIGA, SERIEA)
+    "both_teams_to_score": ("full_game", "both_score", ("EPL", "MLS", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA")),
+    "both_teams_to_score_first_half": ("half_1", "both_score", ("EPL", "MLS", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA")),
+    "both_teams_to_score_second_half": ("half_2", "both_score", ("EPL", "MLS", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA")),
+    "soccer_halftime_result": ("half_1", "three_way", ("EPL", "MLS", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA")),
+    "soccer_second_half_result": ("half_2", "three_way", ("EPL", "MLS", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA")),
 
-    # Second Half Main Markets
-    "second_half_moneyline": ("half_2", "moneyline"),
-    "second_half_spreads": ("half_2", "spreads"),
-    "second_half_totals": ("half_2", "totals"),
-    "both_teams_to_score_second_half": ("half_2", "both_score"),
+    # Tennis Specific Markets (ATP & WTA)
+    "tennis_first_set_winner": ("period_1", "moneyline", ("ATP", "WTA")),
+    "tennis_first_set_totals": ("period_1", "totals", ("ATP", "WTA")),
+    "tennis_set_winner": ("period_2", "moneyline", ("ATP", "WTA")),
+    "tennis_set_games_totals": ("period_2", "totals", ("ATP", "WTA")),
+    "tennis_game_handicap": ("full_game", "spreads", ("ATP", "WTA")),
+    "tennis_match_totals": ("full_game", "totals", ("ATP", "WTA")),
+    "tennis_set_handicap": ("full_game", "set_handicap", ("ATP", "WTA")),
+    "tennis_set_totals": ("full_game", "total_sets", ("ATP", "WTA")),
+
+    # Halves (Football, Basketball, Soccer)
+    "first_half_moneyline": ("half_1", "moneyline", ("NBA", "NFL", "NCAAF", "CFB", "CBB", "NCAAB", "WNBA")),
+    "first_half_spreads": ("half_1", "spreads", ("NBA", "NFL", "NCAAF", "CFB", "EPL", "MLS", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA")),
+    "first_half_totals": ("half_1", "totals", ("NBA", "NFL", "NCAAF", "CFB", "EPL", "MLS", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA")),
+    "second_half_moneyline": ("half_2", "moneyline", ("NBA", "NFL", "NCAAF", "CFB", "WNBA")),
+    "second_half_spreads": ("half_2", "spreads", ("NBA", "NFL", "NCAAF", "CFB", "EPL", "MLS", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA")),
+    "second_half_totals": ("half_2", "totals", ("NBA", "NFL", "NCAAF", "CFB", "EPL", "MLS", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA")),
 
     # Quarters (NBA & NFL)
-    "q1_moneyline": ("quarter_1", "moneyline"),
-    "q1_spreads": ("quarter_1", "spreads"),
-    "q1_totals": ("quarter_1", "totals"),
-    "q2_moneyline": ("quarter_2", "moneyline"),
-    "q2_spreads": ("quarter_2", "spreads"),
-    "q2_totals": ("quarter_2", "totals"),
-    "q3_moneyline": ("quarter_3", "moneyline"),
-    "q3_spreads": ("quarter_3", "spreads"),
-    "q3_totals": ("quarter_3", "totals"),
-    "q4_moneyline": ("quarter_4", "moneyline"),
-    "q4_spreads": ("quarter_4", "spreads"),
-    "q4_totals": ("quarter_4", "totals"),
+    "q1_moneyline": ("quarter_1", "moneyline", ("NBA", "NFL", "NCAAF", "WNBA")),
+    "q1_spreads": ("quarter_1", "spreads", ("NBA", "NFL", "NCAAF", "WNBA")),
+    "q1_totals": ("quarter_1", "totals", ("NBA", "NFL", "NCAAF", "WNBA")),
+    "q2_moneyline": ("quarter_2", "moneyline", ("NBA", "NFL", "NCAAF", "WNBA")),
+    "q2_spreads": ("quarter_2", "spreads", ("NBA", "NFL", "NCAAF", "WNBA")),
+    "q2_totals": ("quarter_2", "totals", ("NBA", "NFL", "NCAAF", "WNBA")),
+    "q3_moneyline": ("quarter_3", "moneyline", ("NBA", "NFL", "NCAAF", "WNBA")),
+    "q3_spreads": ("quarter_3", "spreads", ("NBA", "NFL", "NCAAF", "WNBA")),
+    "q3_totals": ("quarter_3", "totals", ("NBA", "NFL", "NCAAF", "WNBA")),
+    "q4_moneyline": ("quarter_4", "moneyline", ("NBA", "NFL", "NCAAF", "WNBA")),
+    "q4_spreads": ("quarter_4", "spreads", ("NBA", "NFL", "NCAAF", "WNBA")),
+    "q4_totals": ("quarter_4", "totals", ("NBA", "NFL", "NCAAF", "WNBA")),
+}
 
-    # Tennis Sets (ATP & WTA)
-    "tennis_first_set_winner": ("period_1", "moneyline"),
-    "tennis_first_set_totals": ("period_1", "totals"),
-    "tennis_set_winner": ("period_2", "moneyline"),
-    "tennis_set_games_totals": ("period_2", "totals"),
-    "tennis_set_handicap": ("full_game", "spreads"),
-    "tennis_set_totals": ("full_game", "totals"),
-
-    # Soccer Halftime / Second Half Result (EPL, UCL, UEL, MLS)
-    "soccer_halftime_result": ("half_1", "three_way"),
-    "soccer_second_half_result": ("half_2", "three_way"),
+# Derived canonical map for backwards compatibility
+POLYMARKET_STRUCTURED_TYPE_MAP: Dict[str, Tuple[str, str]] = {
+    k: (v[0], v[1]) for k, v in POLYMARKET_STRUCTURED_TAXONOMY.items()
 }
 
 
@@ -348,25 +352,32 @@ class PolymarketAutonomousRunner:
             # Standard Gaussian CDF: 0.5 * (1.0 + erf(diff / (sigma * sqrt(2))))
             home_prob = 0.5 * (1.0 + math.erf(diff / (sigma * math.sqrt(2.0))))
 
-        # Priority 3: If only three_way regulation tips exist, adjust regulation draw probability:
-        # P(2-way ML home) = P(reg home) + 0.5 * P(reg draw)
-        if home_prob is None:
-            p_reg_home = None
-            p_reg_draw = None
-            for tip in matched_tips:
-                if tip.get("model_scope") == "full_game" and tip.get("market") in ("three_way", "1x2"):
-                    side = tip.get("side")
-                    p = tip.get("probability")
-                    if p is not None:
-                        if side == "home":
-                            p_reg_home = float(p)
-                        elif side == "draw":
-                            p_reg_draw = float(p)
-                        elif side == "away":
-                            p_reg_home = 1.0 - float(p) - (p_reg_draw or 0.05)
-            if p_reg_home is not None:
-                p_draw = p_reg_draw if p_reg_draw is not None else 0.05
-                home_prob = min(0.99, max(0.01, p_reg_home + 0.5 * p_draw))
+        # Collect distinct 3-way probabilities for soccer/regulation sports
+        p_reg_home = None
+        p_reg_draw = None
+        p_reg_away = None
+        for tip in matched_tips:
+            if tip.get("model_scope") == "full_game" and tip.get("market") in ("three_way", "1x2"):
+                side = tip.get("side")
+                p = tip.get("probability")
+                if p is not None:
+                    if side == "home":
+                        p_reg_home = float(p)
+                    elif side == "draw":
+                        p_reg_draw = float(p)
+                    elif side == "away":
+                        p_reg_away = float(p)
+
+        if p_reg_home is not None and p_reg_draw is not None and p_reg_away is None:
+            p_reg_away = max(0.01, 1.0 - p_reg_home - p_reg_draw)
+        elif p_reg_away is not None and p_reg_draw is not None and p_reg_home is None:
+            p_reg_home = max(0.01, 1.0 - p_reg_away - p_reg_draw)
+        elif p_reg_home is not None and p_reg_away is not None and p_reg_draw is None:
+            p_reg_draw = max(0.01, 1.0 - p_reg_home - p_reg_away)
+
+        if home_prob is None and p_reg_home is not None:
+            p_draw = p_reg_draw if p_reg_draw is not None else 0.25
+            home_prob = min(0.99, max(0.01, p_reg_home + 0.5 * p_draw))
 
         fc_result = {
             "tip": matched_tips[0],
@@ -375,6 +386,8 @@ class PolymarketAutonomousRunner:
             "proj_home": proj_h,
             "proj_away": proj_a,
             "home_prob": home_prob,
+            "draw_prob": p_reg_draw,
+            "away_prob": p_reg_away,
             "home_name": home_name or poly_home_team or "",
             "away_name": away_name or poly_away_team or "",
             "poly_home_team": poly_home_team,
@@ -589,7 +602,14 @@ class PolymarketAutonomousRunner:
                 family = None
 
                 if sports_type:
-                    if sports_type in POLYMARKET_STRUCTURED_TYPE_MAP:
+                    if sports_type in POLYMARKET_STRUCTURED_TAXONOMY:
+                        tax_sc, tax_fam, tax_lgs = POLYMARKET_STRUCTURED_TAXONOMY[sports_type]
+                        if league in tax_lgs:
+                            scope, family = tax_sc, tax_fam
+                        else:
+                            # Cross-sport taxonomy mismatch (e.g. tennis market in NHL event)
+                            continue
+                    elif sports_type in POLYMARKET_STRUCTURED_TYPE_MAP:
                         scope, family = POLYMARKET_STRUCTURED_TYPE_MAP[sports_type]
                     else:
                         # Polymarket provided a specific sportsMarketType that is not in our proven taxonomy
