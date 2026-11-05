@@ -289,6 +289,37 @@ def is_supported_stake_contract(league: str, scope: str, family: str, sub_family
 
     # Match in SUPPORTED
     kind = base if sc == 'full_game' else f'{sc}:{base}'
-    return kind in SUPPORTED
+    if kind not in SUPPORTED:
+        return False
+
+    # Sport-specific domain reachability guards:
+    # 1. both_score / btts is strictly for soccer and hockey (not basketball, baseball, or tennis)
+    if base in ('both_score', 'both_teams_score', 'both_teams_to_score', 'btts'):
+        if lg not in ('EPL', 'MLS', 'UCL', 'UEL', 'LALIGA', 'SERIEA', 'BUNDESLIGA', 'SOCCER', 'NHL'):
+            return False
+
+    # 2. odd_even is a casino derivative unoffered and unmodeled pre-match on Stake
+    if base == 'odd_even':
+        return False
+
+    # 3. total_sets / set_handicap only valid for tennis or volleyball
+    if base in ('total_sets', 'set_handicap'):
+        if lg not in ('ATP', 'WTA', 'CHALLENGER', 'TENNIS', 'VOLLEYBALL'):
+            return False
+
+    # 4. full_game 3-way does not exist in leagues with mandatory overtime/shootout or no tie
+    if base in ('three_way', '1x2') and sc == 'full_game':
+        if lg in ('NBA', 'WNBA', 'MLB', 'ATP', 'WTA', 'CHALLENGER'):
+            return False
+
+    # 5. Inning scopes strictly belong to baseball
+    if 'inning' in sc and lg not in ('MLB', 'BASEBALL', 'NPB', 'KBO'):
+        return False
+
+    # 6. Tennis scopes restricted to full_game and set periods
+    if lg in ('ATP', 'WTA', 'CHALLENGER') and sc not in ('full_game', 'period_1', 'period_2'):
+        return False
+
+    return True
 
 

@@ -445,6 +445,13 @@ def load_demoted_markets(data_dir: Path = DATA) -> Dict[str, Dict[str, Any]]:
         return {}
 
 
+def evaluate_tier2_lifecycle(data_dir: Path = DATA, db_path: Optional[Path] = None, as_of: Optional[str] = None) -> Dict[str, Any]:
+    """Convenience module-level entrypoint for Tier 2 lifecycle and eviction review."""
+    incubator = ShadowMarketIncubator(data_dir=data_dir, db_path=db_path)
+    return incubator.evaluate_tier2_lifecycle(as_of=as_of)
+
+
+
 def get_demoted_segments(data_dir: Path = DATA) -> set:
     """Returns set of all segment_keys and canonical aliases currently demoted to research / capital defense."""
     demoted = load_demoted_markets(data_dir)
@@ -625,9 +632,9 @@ def _half_totals(m: np.ndarray, eff_line: float, side: str = 'over') -> Tuple[fl
 class ShadowMarketIncubator:
     """Manages the lifecycle of unmodeled Stake gap markets from observation to graduation."""
 
-    def __init__(self, data_dir: Path = DATA):
+    def __init__(self, data_dir: Path = DATA, db_path: Optional[Path] = None):
         self.data_dir = Path(data_dir or DATA)
-        self.db_path = self.data_dir / 'shadow_incubator.sqlite3'
+        self.db_path = Path(db_path) if db_path is not None else (self.data_dir / 'shadow_incubator.sqlite3')
         conn = _init_db(self.db_path)
         if conn is not None:
             conn.close()
@@ -2178,9 +2185,195 @@ class ShadowMarketIncubator:
     # 3. CRUCIBLE EVALUATION & DYNAMIC GRADUATION GATEKEEPER
     # -------------------------------------------------------------------------
 
+    def evaluate_tier2_lifecycle(self, as_of: Optional[str] = None) -> Dict[str, Any]:
+        """Tier 2 Lifecycle & Eviction Watchdog Engine.
+        
+        Evaluates all markets in Tier 2 (incubation_phase = 'incubating_with_new_model'):
+        1. Reachability Guard: Evicts phantom/unsupported contracts (not offered pre-match on Stake) to 'unsupported_phantom'.
+        2. Off-Season & Hiatus Protection: Detects leagues in seasonal hiatus (no matches in past 14d or open) and preserves them without eviction or penalty.
+        3. Fast-Fail Live Eviction: If N_live >= 10 and (ROI_live <= -15.0% or PnL_live <= -$5.00), resets to Tier 1 (research_training, model=NULL).
+        4. Stagnation Eviction: If N_live >= 25 and (PnL_live < 0.0 or ROI_live < +3.5%), resets to Tier 1 for novel AI retraining.
+        5. Deadlock Reset: If historical_roi <= 0.0 or sample_size <= 0 AND live PnL <= 0, resets to Tier 1 (research_training, model=NULL).
+        """
+        now_iso = as_of or utcnow().isoformat()
+        conn = self._get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT id, segment_key, league, scope, family, sub_family,
+                       incubated_model_id, model_archetype, historical_roi, historical_sample_size,
+                       admitted_to_incubator_at
+                FROM demoted_markets
+                WHERE incubation_phase = 'incubating_with_new_model'
+            """)
+            incubating_rows = cur.fetchall()
+
+            if not incubating_rows:
+                return {
+                    'status': 'empty',
+                    'evicted_phantom_count': 0,
+                    'evicted_fast_fail_count': 0,
+                    'evicted_stagnant_count': 0,
+                    'evicted_unverified_count': 0,
+                    'dormant_count': 0,
+                    'retained_count': 0,
+                }
+
+            # Discover active leagues with fixtures in the past 14 days or open fixtures
+            cur.execute("""
+                SELECT league 
+                FROM incubated_wagers 
+                WHERE captured_at >= datetime(?, '-14 days') OR status = 'open'
+                GROUP BY league
+            """, (now_iso,))
+            active_leagues = {r[0] for r in cur.fetchall()}
+        finally:
+            conn.close()
+
+        from .contracts import is_supported_stake_contract
+
+        evicted_phantom: List[str] = []
+        evicted_fast_fail: List[Dict[str, Any]] = []
+        evicted_stagnant: List[Dict[str, Any]] = []
+        evicted_unverified: List[str] = []
+        dormant_markets: List[str] = []
+        retained_markets: List[str] = []
+
+        for attempt in range(5):
+            try:
+                with closing(sqlite3.connect(str(self.db_path), timeout=30.0, isolation_level=None)) as w_conn:
+                    w_conn.execute("PRAGMA busy_timeout = 30000")
+                    cur_w = w_conn.cursor()
+
+                    for row in incubating_rows:
+                        d_id, seg_key, league, scope, family, sub_fam, mid, arch, h_roi, h_n, adm_at = row
+                        
+                        # 1. Reachability Guard (Phantom / Unsupported contracts)
+                        if not is_supported_stake_contract(league, scope, family, sub_fam):
+                            cur_w.execute("""
+                                UPDATE demoted_markets
+                                SET incubation_phase = 'unsupported_phantom',
+                                    incubated_model_id = NULL,
+                                    model_archetype = NULL,
+                                    model_params = NULL,
+                                    reason = 'Unsupported contract: Not offered pre-match by Stake sportsbook'
+                                WHERE id = ? OR segment_key = ?
+                            """, (d_id, seg_key))
+                            evicted_phantom.append(seg_key)
+                            continue
+
+                        # 2. Off-Season & Hiatus Protection
+                        if league not in active_leagues:
+                            if h_roi is not None and float(h_roi) >= 0.035 and (h_n or 0) > 0:
+                                dormant_markets.append(seg_key)
+                                continue
+                            # If it was unverified before going dormant, it needs reset to Tier 1
+                            cur_w.execute("""
+                                UPDATE demoted_markets
+                                SET incubation_phase = 'research_training',
+                                    incubated_model_id = NULL,
+                                    model_archetype = NULL,
+                                    model_params = NULL,
+                                    reason = 'Tier 2 Deadlock Reset: Unverified historical baseline reset for rigorous AI R&D'
+                                WHERE id = ? OR segment_key = ?
+                            """, (d_id, seg_key))
+                            evicted_unverified.append(seg_key)
+                            continue
+
+                        # 3. Live Forward Performance Evaluation
+                        cur_w.execute("""
+                            SELECT count(*), sum(pnl)
+                            FROM incubated_wagers
+                            WHERE status = 'settled'
+                              AND league = ? AND scope = ?
+                              AND (family = ? OR family LIKE '%' || ? || '%' OR ? LIKE '%' || family || '%')
+                              AND (settled_at > ? OR ? IS NULL)
+                        """, (league, scope, family, family, family, adm_at, adm_at))
+                        res_p = cur_w.fetchone()
+                        n_live = res_p[0] or 0
+                        live_pnl = float(res_p[1] or 0.0)
+                        live_roi = (live_pnl / float(n_live)) if n_live > 0 else 0.0
+
+                        # Rule 3A: Fast-Fail Eviction (Deep losses early)
+                        if n_live >= 10 and (live_roi <= -0.15 or live_pnl <= -5.00):
+                            reason_msg = f"Tier 2 Fast-Fail Eviction: Live forward ROI {live_roi*100:.1f}%, PnL ${live_pnl:.2f} across {n_live} games"
+                            cur_w.execute("""
+                                UPDATE demoted_markets
+                                SET incubation_phase = 'research_training',
+                                    incubated_model_id = NULL,
+                                    model_archetype = NULL,
+                                    model_params = NULL,
+                                    reason = ?
+                                WHERE id = ? OR segment_key = ?
+                            """, (reason_msg, d_id, seg_key))
+                            evicted_fast_fail.append({'segment_key': seg_key, 'live_roi': live_roi, 'live_pnl': live_pnl, 'n_live': n_live})
+                            continue
+
+                        # Rule 3B: Stagnation Eviction (Failed to pass after full probation)
+                        if n_live >= 25 and (live_pnl < 0.0 or live_roi < 0.035):
+                            reason_msg = f"Tier 2 Stagnation Eviction: Failed graduation hurdle after {n_live} live games (ROI {live_roi*100:.1f}%, PnL ${live_pnl:.2f})"
+                            cur_w.execute("""
+                                UPDATE demoted_markets
+                                SET incubation_phase = 'research_training',
+                                    incubated_model_id = NULL,
+                                    model_archetype = NULL,
+                                    model_params = NULL,
+                                    reason = ?
+                                WHERE id = ? OR segment_key = ?
+                            """, (reason_msg, d_id, seg_key))
+                            evicted_stagnant.append({'segment_key': seg_key, 'live_roi': live_roi, 'live_pnl': live_pnl, 'n_live': n_live})
+                            continue
+
+                        # Rule 3C: Unverified Deadlock Reset
+                        h_roi_val = float(h_roi or 0.0)
+                        h_n_val = int(h_n or 0)
+                        if (h_roi_val <= 0.0 or h_n_val <= 0) and live_pnl <= 0.0:
+                            reason_msg = f"Tier 2 Deadlock Reset: Unverified historical baseline (ROI {h_roi_val*100:.1f}%, N={h_n_val}) reset for rigorous AI R&D"
+                            cur_w.execute("""
+                                UPDATE demoted_markets
+                                SET incubation_phase = 'research_training',
+                                    incubated_model_id = NULL,
+                                    model_archetype = NULL,
+                                    model_params = NULL,
+                                    reason = ?
+                                WHERE id = ? OR segment_key = ?
+                            """, (reason_msg, d_id, seg_key))
+                            evicted_unverified.append(seg_key)
+                            continue
+
+                        retained_markets.append(seg_key)
+                break
+            except sqlite3.OperationalError as e_sql:
+                if "locked" in str(e_sql) and attempt < 4:
+                    time.sleep(0.5 * (attempt + 1))
+                    continue
+                log.warning("Could not execute Tier 2 lifecycle review: %s", e_sql)
+                break
+
+        return {
+            'status': 'success',
+            'evicted_phantom_count': len(evicted_phantom),
+            'evicted_fast_fail_count': len(evicted_fast_fail),
+            'evicted_stagnant_count': len(evicted_stagnant),
+            'evicted_unverified_count': len(evicted_unverified),
+            'dormant_count': len(dormant_markets),
+            'retained_count': len(retained_markets),
+            'evicted_phantom': evicted_phantom,
+            'evicted_fast_fail': evicted_fast_fail,
+            'evicted_stagnant': evicted_stagnant,
+            'evicted_unverified': evicted_unverified,
+            'dormant_markets': dormant_markets,
+            'retained_markets': retained_markets,
+        }
+
     def evaluate_graduation(self, as_of: Optional[str] = None) -> List[Dict[str, Any]]:
         """Evaluates all settled shadow families against dynamic Crucible invariants and graduates winners."""
         now_iso = as_of or utcnow().isoformat()
+        try:
+            self.evaluate_tier2_lifecycle(as_of=now_iso)
+        except Exception as e_life:
+            log.warning("Tier 2 lifecycle evaluation error: %s", e_life)
+
         conn = self._get_connection()
         try:
             cur = conn.cursor()

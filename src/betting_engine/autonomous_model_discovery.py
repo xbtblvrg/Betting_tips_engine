@@ -107,7 +107,7 @@ class AutonomousModelDiscoveryEngine:
                 SELECT id, segment_key, league, scope, family, sub_family, rolling_roi, rolling_pnl, games, demoted_at
                 FROM demoted_markets
                 WHERE incubation_phase = 'research_training' 
-                   OR (incubation_phase = 'incubating_with_new_model' AND (incubated_model_id IS NULL OR incubated_model_id = ''))
+                   OR (incubation_phase = 'incubating_with_new_model' AND (incubated_model_id IS NULL OR incubated_model_id = '' OR historical_roi <= 0.0))
                 ORDER BY 
                     -- Strict Constitutional Mandate (Commandment 6.5): Prioritize Dual Reachable Markets (Stake + Polymarket CLOB)
                     CASE 
@@ -127,8 +127,13 @@ class AutonomousModelDiscoveryEngine:
                     CASE WHEN rolling_pnl < 0.0 THEN 0 ELSE 1 END,
                     scope, family
             """)
-            rows = [dict(r) for r in cur.fetchall()]
-            return rows
+            raw_rows = [dict(r) for r in cur.fetchall()]
+            from .contracts import is_supported_stake_contract
+            actionable_rows = [
+                r for r in raw_rows
+                if is_supported_stake_contract(r.get('league', ''), r.get('scope', 'full_game'), r.get('family', ''), r.get('sub_family', ''))
+            ]
+            return actionable_rows
         finally:
             conn.close()
 
