@@ -463,7 +463,7 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
         gov_solid = bool(not is_test_cand and (check_keys & set(gov.get('solid_alpha_list', []))))
 
         is_alpha_eligible_market = (
-            (('spread' in market_val or 'moneyline' in market_val or '1x2' in market_val) or (gov_super or gov_solid))
+            (gov_super or gov_solid or (pnl_val > 0.0 and roi_val > 0.0) or tip.get('is_graduated'))
             and not is_preseason
             and not is_challenger_event
         )
@@ -482,18 +482,16 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                 (games_val >= 8 and roi_val >= 0.08 and (pnl_val >= 5.0 or (pnl_val / max(0.2, def_unit) >= 4.0)))
                 or gov_super
                 or (is_protected_alpha and pnl_val >= 3.0)
-                or (grad_proven and ev_val is not None and ev_val >= 0.08 and roi_val >= 0.0 and pnl_val >= 0.0)
+                or (grad_proven and ev_val is not None and ev_val >= 0.08 and games_val >= 5 and roi_val > 0.0 and pnl_val > 0.0)
             )
             is_solid_alpha = not has_defense and (
                 (games_val >= 5 and roi_val >= 0.03 and (pnl_val >= 2.0 or (pnl_val / max(0.2, def_unit) >= 2.0)))
                 or gov_solid
                 or is_protected_alpha
-                or (grad_proven and ev_val is not None and ev_val >= 0.03 and roi_val >= 0.0 and pnl_val >= 0.0)
+                or (grad_proven and ev_val is not None and ev_val >= 0.03 and games_val >= 3 and roi_val > 0.0 and pnl_val > 0.0)
             )
 
-            cand_scope = tip.get('model_scope', 'full_game')
-            # Protect Full-Game primary contracts: Full-game Alpha retains 100% factor (no dilution)
-            alpha_discount = 1.0 if cand_scope == 'full_game' else max(0.85, discount)
+            alpha_discount = discount
 
             if is_super_alpha:
                 if ev_val is not None and ev_val < 0:
@@ -507,7 +505,7 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                     caps.pop('maximum_stake', None)
                     caps.pop('max_stake', None)
                     caps.pop('probation_nursery_clamp', None)
-                    if gov_super or grad_proven or is_protected_tot:
+                    if (gov_super and pnl_val > 0.0) or (grad_proven and games_val >= 5 and pnl_val > 0.0) or is_protected_tot:
                         caps.pop('totals_defense_clamp', None)
                 requested = max(requested, alpha_target)
             elif is_solid_alpha:
@@ -522,7 +520,7 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                     caps.pop('maximum_stake', None)
                     caps.pop('max_stake', None)
                     caps.pop('probation_nursery_clamp', None)
-                    if gov_solid or grad_proven or is_protected_tot:
+                    if (gov_solid and pnl_val > 0.0) or (grad_proven and games_val >= 3 and pnl_val > 0.0) or is_protected_tot:
                         caps.pop('totals_defense_clamp', None)
                 requested = max(requested, alpha_target)
 
