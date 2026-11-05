@@ -174,11 +174,37 @@ def compute_segment_scoreboard(conn: sqlite3.Connection) -> dict:
     total_pnl_clean = round(sum(s['pnl'] for s in all_evaluated), 2)
     overall_roi = round((total_pnl_clean / total_staked_clean * 100) if total_staked_clean > 0 else 0.0, 2)
 
+    # Read historical baseline from kv if present for unified cross-era ledger transparency
+    hist_baseline_pnl = 0.0
+    hist_baseline_turnover = 0.0
+    hist_baseline_count = 0
+    hist_baseline_settled = 0
+    try:
+        cur.execute("SELECT value FROM kv WHERE key='historical_ledger_baseline'")
+        b_row = cur.fetchone()
+        if b_row and b_row[0]:
+            b_data = json.loads(b_row[0])
+            hist_baseline_pnl = round(float(b_data.get('pnl', 0.0)), 2)
+            hist_baseline_turnover = round(float(b_data.get('turnover', 0.0)), 2)
+            hist_baseline_count = int(b_data.get('count', 0))
+            hist_baseline_settled = int(b_data.get('settled', 0))
+    except Exception:
+        pass
+
+    cumulative_ledger_pnl = round(total_pnl_clean + hist_baseline_pnl, 2)
+    cumulative_ledger_turnover = round(total_staked_clean + hist_baseline_turnover, 2)
+
     return {
         'generated_at': datetime.now(timezone.utc).isoformat(),
         'total_staked': total_staked_clean,
         'total_pnl': total_pnl_clean,
         'overall_roi_pct': overall_roi,
+        'active_era_pnl': total_pnl_clean,
+        'active_era_turnover': total_staked_clean,
+        'historical_baseline_pnl': hist_baseline_pnl,
+        'historical_baseline_turnover': hist_baseline_turnover,
+        'cumulative_ledger_pnl': cumulative_ledger_pnl,
+        'cumulative_ledger_turnover': cumulative_ledger_turnover,
         'counts': {
             'alpha': len(alpha_segments),
             'super_alpha': sum(1 for s in alpha_segments if s.get('sub_tier') == 'SUPER_ALPHA'),
