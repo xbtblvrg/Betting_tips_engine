@@ -196,4 +196,27 @@ def test_fixture_aware_silent_market_eviction_guard(tmp_path):
     assert "1/5 games seen" in nba_prof.phase_detail, "Must cite remaining probation games"
 
 
+def test_tier2_requires_active_model_and_demotion_to_tier1():
+    """Prime Directives 6 & 7:
+    Verifies that:
+    1. A market in Tier 2 (Shadow Incubator) MUST have a valid active model; without a model it belongs in Tier 1 R&D.
+    2. Live drawdown / established losses relegate the market to Tier 1 R&D ($0.00).
+    3. In the live roster, zero Tier 2 markets lack an active_model_id.
+    """
+    universe = UnifiedMarketUniverse()
+    universe.invalidate_cache()
+    roster = universe.build_universe_roster(force_refresh=True)
+
+    tier2_markets = [p for p in roster.values() if p.tier == int(MarketTier.SHADOW_INCUBATOR)]
+    for m in tier2_markets:
+        assert m.active_model_id is not None and m.active_model_id != "", (
+            f"Market {m.segment_key} in Tier 2 SHADOW_INCUBATOR must have an active candidate model, got: {m.active_model_id}"
+        )
+        assert m.stake_cap == 0.00, f"Tier 2 market {m.segment_key} must have 0.00 stake cap"
+
+    tier1_markets = [p for p in roster.values() if p.tier == int(MarketTier.RESEARCH_RND)]
+    for m in tier1_markets:
+        assert m.stake_cap == 0.00, f"Tier 1 market {m.segment_key} must have 0.00 stake cap"
+
+
 

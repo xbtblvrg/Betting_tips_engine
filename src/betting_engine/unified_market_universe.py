@@ -299,10 +299,10 @@ class UnifiedMarketUniverse:
                             grad_keys_set.discard(canonical_k)
                             grad_keys_set.discard(sub_k)
 
-                    if phase == 'incubating_with_new_model':
+                    if phase == 'incubating_with_new_model' and (model_id or arch):
                         tier = int(MarketTier.SHADOW_INCUBATOR)
                         tier_name = "SHADOW_INCUBATOR"
-                        phase_detail = f"Live forward validation with {arch or 'candidate model'} ($0.00)"
+                        phase_detail = f"Live forward validation with {arch or model_id} ($0.00)"
                     else:
                         tier = int(MarketTier.RESEARCH_RND)
                         tier_name = "RESEARCH_RND"
@@ -506,15 +506,15 @@ class UnifiedMarketUniverse:
                         grad_keys_set.discard(k_perf)
                     elif at_stat and at_stat['pnl'] < 0.0:
                         # Constitutional Invariant (Prime Directives 6 & 7):
-                        # Markets with established negative live PnL must be quarantined to Tier 2 ($0.00 virtual stakes).
+                        # Markets with established negative live PnL must be quarantined to Tier 1 R&D ($0.00).
                         # Clamping or letting demoted/losing markets bleed real capital at $0.50 is strictly forbidden.
-                        prof.tier = int(MarketTier.SHADOW_INCUBATOR)
-                        prof.tier_name = "SHADOW_INCUBATOR"
+                        prof.tier = int(MarketTier.RESEARCH_RND)
+                        prof.tier_name = "RESEARCH_RND"
                         prof.stake_cap = 0.00
                         prof.rolling_pnl = at_stat['pnl']
                         prof.rolling_roi_pct = at_stat['roi_pct']
                         prof.sample_size = at_stat['sample_size']
-                        prof.phase_detail = f"Shadow Incubator Quarantine - Established Live Loss (${at_stat['pnl']:+.2f} over {at_stat['sample_size']} games) - $0.00"
+                        prof.phase_detail = f"R&D Live Quarantine - Established Live Loss (${at_stat['pnl']:+.2f} over {at_stat['sample_size']} games) - $0.00"
                         grad_keys_set.discard(k_perf)
                     else:
                         # Safe: Has seen < 5 games since graduation (fresh graduate, weekly sports e.g. NFL waiting for Sunday, or off-season)
@@ -743,11 +743,11 @@ class UnifiedMarketUniverse:
             with closing(sqlite3.connect(f"file:{self.incubator_db_path}?mode=ro", uri=True, timeout=15.0)) as inc_conn:
                 placeholders = ','.join('?' for _ in candidate_keys)
                 row = inc_conn.execute(
-                    f"SELECT incubation_phase FROM demoted_markets WHERE segment_key IN ({placeholders})",
+                    f"SELECT incubation_phase, incubated_model_id FROM demoted_markets WHERE segment_key IN ({placeholders})",
                     candidate_keys
                 ).fetchone()
                 if row:
-                    return MarketTier.SHADOW_INCUBATOR if row[0] == 'incubating_with_new_model' else MarketTier.RESEARCH_RND
+                    return MarketTier.SHADOW_INCUBATOR if (row[0] == 'incubating_with_new_model' and row[1]) else MarketTier.RESEARCH_RND
         except Exception:
             pass
 
