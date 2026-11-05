@@ -346,7 +346,8 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
         f"{cand_league}|{cand_scope}|{base_mkt}",
         f"{cand_league}|{cand_scope}|{cand_scope}:{base_mkt}"
     }
-    is_protected_tot = any(k in PROTECTED_ALPHA_CHAMPIONS for k in check_keys)
+    stat_dict = {'pnl': pnl_val, 'roi_pct': roi_val * 100.0, 'sample_size': games_val} if games_val > 0 else None
+    is_protected_tot = any(is_protected_alpha_champion(k, stat_dict) for k in check_keys)
 
     cand_id = str(tip.get('id', ''))
     game_id = str(tip.get('game_id', ''))
