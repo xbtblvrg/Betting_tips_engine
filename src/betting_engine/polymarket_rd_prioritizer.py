@@ -208,10 +208,12 @@ class PolymarketRDPrioritizer:
 
             if is_eligible:
                 tier_status = "TIER_4_PROVEN"
+            elif "DEMOTED" in reason:
+                tier_status = "TIER_2_INCUBATING"
+            elif "UNDERPERFORMING" in reason or (live_pnl < 0.0 and live_games > 0):
+                tier_status = "TIER_2_UNDERPERFORMING"
             elif live_pnl > 0.0 and live_games > 0:
                 tier_status = "TIER_3_PROBATION"
-            elif live_pnl < 0.0 and live_games > 0:
-                tier_status = "TIER_2_UNDERPERFORMING"
             else:
                 tier_status = "TIER_2_INCUBATING"
 
