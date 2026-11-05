@@ -299,6 +299,58 @@ class PolymarketAutonomousExecutor:
 
         now_ts = time.time()
 
+        # Gate 0a: Check demoted_markets in shadow_incubator.sqlite3
+        # If a market is currently demoted, it is strictly quarantined in Tier 1 R&D / Tier 2 Shadow Incubator ($0.00).
+        # Polymarket order generation is strictly suspended to $0.00 virtual stakes!
+        try:
+            from .shadow_market_incubator import load_demoted_markets
+            demoted = load_demoted_markets(self.db_path.parent)
+            if demoted:
+                for k in seg_keys:
+                    if k in demoted:
+                        d_info = demoted[k]
+                        r_roi = float(d_info.get("rolling_roi", 0.0))
+                        r_pnl = float(d_info.get("rolling_pnl", 0.0))
+                        return (
+                            False,
+                            f"DEMOTED_IN_SHADOW_INCUBATOR: Segment {k} is quarantined in Tier 1/2 (demoted_markets table: {r_roi*100:.1f}% ROI, ${r_pnl:.2f}). Real-money Polymarket trading strictly suspended ($0.00).",
+                            0.0,
+                        )
+                canon_pre = f"{league}|{scope}|"
+                for d_k, d_info in demoted.items():
+                    if d_k.startswith(canon_pre):
+                        d_fam = d_k.split("|")[2].lower()
+                        if any(a == d_fam or a in d_fam or d_fam in a for a in family_aliases):
+                            r_roi = float(d_info.get("rolling_roi", 0.0))
+                            r_pnl = float(d_info.get("rolling_pnl", 0.0))
+                            return (
+                                False,
+                                f"DEMOTED_IN_SHADOW_INCUBATOR: Segment {d_k} is quarantined in Tier 1/2 (demoted_markets table: {r_roi*100:.1f}% ROI, ${r_pnl:.2f}). Real-money Polymarket trading strictly suspended ($0.00).",
+                                0.0,
+                            )
+        except Exception as e_dem:
+            log.debug(f"Could not check demoted_markets: {e_dem}")
+
+        # Gate 0b: Check Unified Market Universe Roster
+        # Tier 4 on Polymarket requires active Tier 3 ($0.50-$8.00) status on Stake.
+        try:
+            from .unified_market_universe import UnifiedMarketUniverse, MarketTier
+            universe = UnifiedMarketUniverse(data_dir=self.db_path.parent)
+            roster = universe.get_roster()
+            if roster:
+                for k in seg_keys:
+                    prof = roster.get(k)
+                    if prof:
+                        if prof.tier != int(MarketTier.PRODUCTION_GRADUATED) or prof.stake_cap <= 0.0:
+                            return (
+                                False,
+                                f"NOT_ACTIVE_IN_TIER_3: Segment {k} is in Tier {prof.tier} ({prof.tier_name}) on Stake with stake cap ${prof.stake_cap:.2f}. Must be active in Tier 3 to trade on Polymarket.",
+                                0.0,
+                            )
+                        break
+        except Exception as e_uni:
+            log.debug(f"Could not check UnifiedMarketUniverse: {e_uni}")
+
         # Gate 1: Check SegmentScoreboard / Anti-Loss Invariant (Prime Commandment 1 & 6)
         # If a market has negative live settled PnL or is UNDERPERFORMING in live wagers,
         # it is strictly quarantined ($0.00 virtual stakes). A historical diploma can NEVER override negative live reality!
@@ -319,10 +371,19 @@ class PolymarketAutonomousExecutor:
                         roi = float(s.get("roi_pct", 0.0))
                         games = int(s.get("games", 0))
                         tier = s.get("tier", "")
-                        if pnl < 0.0 or roi < 0.0 or tier == "UNDERPERFORMING":
+                        rolling_games = int(s.get("rolling_games", 0))
+                        rolling_pnl = float(s.get("rolling_pnl", 0.0))
+                        rolling_roi = float(s.get("rolling_roi_pct", 0.0))
+                        rolling_units = float(s.get("rolling_units", 0.0))
+
+                        # Check rolling degradation
+                        is_rolling_degraded = (
+                            rolling_games >= 4 and (rolling_roi <= -3.0 or rolling_units <= -2.0 or (rolling_pnl < 0.0 and rolling_roi < 0.0))
+                        )
+                        if pnl < 0.0 or roi < 0.0 or tier == "UNDERPERFORMING" or is_rolling_degraded:
                             return (
                                 False,
-                                f"UNDERPERFORMING_IN_LIVE_BETS: Segment {seg_keys[0]} has negative live settled performance (PnL: ${pnl:.2f}, ROI: {roi:.1f}%, N={games}). Quarantined in Shadow Incubator ($0.00).",
+                                f"UNDERPERFORMING_IN_LIVE_BETS: Segment {seg_keys[0]} has negative/degraded live performance (PnL: ${pnl:.2f}, Rolling ROI: {rolling_roi:.1f}%, Rolling PnL: ${rolling_pnl:.2f}, N={games}). Quarantined in Shadow Incubator ($0.00).",
                                 0.0,
                             )
 
@@ -363,7 +424,7 @@ class PolymarketAutonomousExecutor:
 
             # Invariant 2: Live Ledger Proven Alpha (Tier 4 Gate)
             # A segment qualifies for Tier 4 ONLY if:
-            # 1. It has confirmed positive live settled profit in SegmentScoreboard (PnL >= $2.00, ROI >= +3.5%)
+            # 1. It has confirmed positive live settled profit in the retroactive rolling match window (Rolling ROI >= +2.0%, Rolling Units >= +0.5U)
             # 2. It has achieved statistical significance in live wagers (games >= 10)
             # Micro-sample exploration wagers (N < 10) or small-profit segments remain in Tier 3 / Shadow Incubator ($0.00).
             candidate_segments = (
@@ -387,22 +448,29 @@ class PolymarketAutonomousExecutor:
                     sample = int(matched_s.get("games", 0))
                     sub_tier = matched_s.get("sub_tier", "SOLID_ALPHA")
 
-                    # Check Tier 4 Proven Alpha quorum: N >= 10 games, PnL >= $2.00, ROI >= +3.5%
-                    is_tier_4_proven = (sample >= 10 and pnl >= 2.00 and roi >= 3.5)
+                    # Scale-invariant rolling window evaluation:
+                    has_rolling = "rolling_games" in matched_s and int(matched_s.get("rolling_games", 0)) > 0
+                    r_games = int(matched_s.get("rolling_games", sample))
+                    r_roi = float(matched_s.get("rolling_roi_pct", roi))
+                    r_pnl = float(matched_s.get("rolling_pnl", pnl))
+                    r_units = float(matched_s.get("rolling_units", matched_s.get("units_pnl", pnl / max(0.50, matched_s.get("stake", 1.0) / max(1, sample)))))
+
+                    # Check Tier 4 Proven Alpha quorum: N >= 10 games, Rolling ROI >= +2.0%, Positive units profit
+                    is_tier_4_proven = (r_games >= 10 and r_roi >= 2.0 and (r_units >= 0.5 or r_pnl >= 2.0 or (not has_rolling and pnl >= 2.0 and roi >= 3.5)))
 
                     if is_tier_4_proven:
-                        stake_cap = 8.0 if (sub_tier == "SUPER_ALPHA" or roi >= 15.0) else 3.50
+                        stake_cap = 8.0 if (sub_tier == "SUPER_ALPHA" or r_roi >= 15.0) else 3.50
                         return (
                             True,
-                            f"TIER_4_LIVE_PROVEN_ALPHA: Verified Live Profit on Stake (LIVE_LEDGER_PROVEN_PROFIT: PnL: +${pnl:.2f}, ROI: +{roi:.1f}%, N={sample})",
+                            f"TIER_4_LIVE_PROVEN_ALPHA: Verified Live Profit on Stake (LIVE_LEDGER_PROVEN_PROFIT: Rolling ROI: +{r_roi:.1f}%, Units: +{r_units:.2f}U over {r_games} games)",
                             stake_cap,
                         )
-                    elif pnl > 0.0:
+                    elif (r_pnl > 0.0 or pnl > 0.0):
                         # Early positive probation (N < 10 or small profit): Eligible for Tier 3 Stake production, but NOT Polymarket Tier 4
                         if require_live_profit:
                             return (
                                 False,
-                                f"PROBATION_INSUFFICIENT_SAMPLE: Segment {seg_keys[0]} has early live profit (PnL: +${pnl:.2f}, ROI: +{roi:.1f}%, N={sample}), but has not met Tier 4 Proven Alpha standard (N >= 10, PnL >= $2.00, ROI >= +3.5%). Active in Tier 3 on Stake.",
+                                f"PROBATION_INSUFFICIENT_SAMPLE: Segment {seg_keys[0]} has early live profit (Rolling ROI: +{r_roi:.1f}%, Units: +{r_units:.2f}U, N={r_games}), but has not met Tier 4 Proven Alpha standard (Rolling N >= 10, Rolling ROI >= +2.0%, Rolling Units >= +0.5U). Active in Tier 3 on Stake.",
                                 0.0,
                             )
 

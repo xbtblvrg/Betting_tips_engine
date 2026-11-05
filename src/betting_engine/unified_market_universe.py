@@ -460,13 +460,13 @@ class UnifiedMarketUniverse:
                     prof.sample_size = stat['sample_size']
 
                     # Universal Meritocracy Mandate (Prime Directives 1, 3, 6, 7 & 10):
-                    # Zero hardcoded privileges: every market is subject to immediate drawdown demotion:
+                    # Zero hardcoded privileges: every market is subject to scale-invariant drawdown demotion:
                     is_stat_degraded = (
-                        (stat['sample_size'] >= 4 and stat['pnl'] <= -2.00)
-                        or (stat['sample_size'] >= 3 and stat['pnl'] <= -1.50 and stat['roi_pct'] < -10.0)
-                        or (stat['sample_size'] >= 6 and stat['pnl'] < 0.0)
-                        or (stat['sample_size'] >= 2 and stat['pnl'] < 0.0 and stat['roi_pct'] <= -20.0)
-                        or (stat['pnl'] <= -4.00)
+                        (stat['sample_size'] >= 4 and (stat['units'] <= -2.0 or stat['pnl'] <= -2.00))
+                        or (stat['sample_size'] >= 3 and (stat['units'] <= -1.5 or stat['pnl'] <= -1.50) and stat['roi_pct'] < -10.0)
+                        or (stat['sample_size'] >= 6 and (stat['units'] < 0.0 or stat['pnl'] < 0.0))
+                        or (stat['sample_size'] >= 2 and (stat['units'] < 0.0 or stat['pnl'] < 0.0) and stat['roi_pct'] <= -20.0)
+                        or (stat['units'] <= -3.5 or stat['pnl'] <= -4.00)
                     )
                     if is_stat_degraded:
                         prof.tier = int(MarketTier.RESEARCH_RND)
@@ -474,11 +474,11 @@ class UnifiedMarketUniverse:
                         prof.stake_cap = 0.00
                         prof.phase_detail = f"Live Drawdown Demotion ({stat['roi_pct']:.1f}% ROI, ${stat['pnl']:.2f} over {stat['sample_size']} games) - Quarantined ($0.00)"
                         grad_keys_set.discard(k_perf)
-                    elif stat['pnl'] < 0.0:
+                    elif stat['pnl'] < 0.0 or stat['units'] < 0.0:
                         prof.stake_cap = 0.50
                         prof.phase_detail = f"Capital Defense Tourniquet ({stat['roi_pct']:+.1f}% ROI, ${stat['pnl']:+.2f} over {stat['sample_size']} games) - $0.50 clamp"
                     elif stat['sample_size'] >= 2 and stat['pnl'] > 0.0:
-                        if stat['pnl'] >= 2.0 and stat['roi_pct'] >= 10.0:
+                        if (stat['units'] >= 2.0 or stat['pnl'] >= 2.0) and stat['roi_pct'] >= 10.0:
                             prof.stake_cap = 8.00
                             prof.phase_detail = f"Alpha Acceleration ({stat['roi_pct']:+.1f}% ROI, ${stat['pnl']:+.2f} over {stat['sample_size']} games) - $8.00 cap"
                         else:
@@ -506,7 +506,7 @@ class UnifiedMarketUniverse:
                         prof.stake_cap = 0.00
                         prof.phase_detail = f"Dormant Market Eviction (0 bets across {games_since_grad} games post-grad) - Quarantined to R&D ($0.00)"
                         grad_keys_set.discard(k_perf)
-                    elif at_stat and at_stat['pnl'] < 0.0:
+                    elif at_stat and (at_stat['units'] < 0.0 or at_stat['pnl'] < 0.0):
                         # Constitutional Invariant (Prime Directives 6 & 7):
                         # Markets with established negative live PnL must be quarantined to Tier 1 R&D ($0.00).
                         # Clamping or letting demoted/losing markets bleed real capital at $0.50 is strictly forbidden.

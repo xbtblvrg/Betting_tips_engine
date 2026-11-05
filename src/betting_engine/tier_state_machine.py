@@ -55,9 +55,9 @@ def classify_tier(
     Evaluates progression and defense in units of average stake (Units = PnL / avg_stake).
     """
     avg_st = (staked / games_count) if (staked > 0 and games_count > 0) else 1.0
-    units_pnl = pnl / max(1.0, avg_st)
+    units_pnl = pnl / max(0.50, avg_st)
     avg_roll_st = (rolling_staked / rolling_games) if (rolling_staked > 0 and rolling_games > 0) else 1.0
-    units_roll_pnl = rolling_pnl / max(1.0, avg_roll_st)
+    units_roll_pnl = rolling_pnl / max(0.50, avg_roll_st)
 
     # 1. Post-Repair Rapid Acceleration Gate
     if has_deployed_patch and rolling_games >= 5 and rolling_roi >= 0.03 and rolling_pnl > 0.0:
@@ -68,7 +68,7 @@ def classify_tier(
                 'stake_cap': 8.0,
                 'min_ev': 0.001,
                 'scaling_target': '$5.00–$8.00 super-alpha scaling',
-                'action': f"Post-repair Super Alpha active: Rolling ROI {rolling_roi*100:.1f}% (+${rolling_pnl:.2f} over {rolling_games} games) unlocks maximum confidence sizing ($5.00-$8.00)",
+                'action': f"Post-repair Super Alpha active: Rolling ROI {rolling_roi*100:.1f}% (+{units_roll_pnl:.1f}U over {rolling_games} games) unlocks maximum confidence sizing ($5.00-$8.00)",
                 'recovery_accelerated': True
             }
         else:
@@ -78,12 +78,25 @@ def classify_tier(
                 'stake_cap': 3.5,
                 'min_ev': 0.001,
                 'scaling_target': '$2.50–$3.50 solid-alpha scaling',
-                'action': f"Post-repair Solid Alpha active: Rolling ROI {rolling_roi*100:.1f}% (+${rolling_pnl:.2f} over {rolling_games} games) unlocks Solid Alpha scaling ($2.50-$3.50)",
+                'action': f"Post-repair Solid Alpha active: Rolling ROI {rolling_roi*100:.1f}% (+{units_roll_pnl:.1f}U over {rolling_games} games) unlocks Solid Alpha scaling ($2.50-$3.50)",
                 'recovery_accelerated': True
             }
 
-    # 2. Capital Defense: triggered when ROI < -3% OR net loss in risk units <= -4.0 with 4+ games
-    if (roi <= -0.03 or (units_pnl <= -4.0 and roi < 0.0)) and games_count >= 4:
+    # 2. Rolling Degradation Invariant (Recent Drawdown overrides ancient history)
+    # If recent rolling performance shows degradation (rolling_roi <= -3% OR loss <= -2.0 units across 4+ games),
+    # the market must immediately drop to CAPITAL_DEFENSE to stop capital leaks.
+    if rolling_games >= 4 and (rolling_roi <= -0.03 or (units_roll_pnl <= -2.0 and rolling_roi < 0.0)):
+        return {
+            'tier': 'UNDERPERFORMING',
+            'sub_tier': 'CAPITAL_DEFENSE',
+            'stake_cap': 0.50,
+            'min_ev': 0.035,
+            'scaling_target': '$0.50 flat clamp',
+            'action': f'Capital defense clamp ($0.50 max stake); rolling drawdown ({rolling_roi*100:.1f}% ROI, {units_roll_pnl:.1f}U over {rolling_games} games); active AI repair investigation'
+        }
+
+    # 3. All-Time Capital Defense: triggered when ROI < -3% OR net loss in risk units <= -3.5 with 4+ games
+    if (roi <= -0.03 or (units_pnl <= -3.5 and roi < 0.0)) and games_count >= 4:
         return {
             'tier': 'UNDERPERFORMING',
             'sub_tier': 'CAPITAL_DEFENSE',
@@ -92,7 +105,7 @@ def classify_tier(
             'scaling_target': '$0.50 flat clamp',
             'action': 'Capital defense clamp ($0.50 max stake); active AI repair investigation'
         }
-    # 3. Evolutionary Live Probation: Any unproven market with 0 live games, or unproven initial cohort (games < 3 with nonpositive pnl/roi)
+    # 4. Evolutionary Live Probation: Any unproven market with 0 live games, or unproven initial cohort (games < 3 with nonpositive pnl/roi)
     elif games_count == 0 or (games_count < 3 and pnl <= 0.0 and roi <= 0.0):
         return {
             'tier': 'EXPLORATION',
@@ -102,8 +115,18 @@ def classify_tier(
             'scaling_target': '$0.50 evolutionary probation floor',
             'action': 'Evolutionary Live Probation: strictly $0.50 floor until live settled games prove positive performance'
         }
+    # 5. Alpha Boost: requires positive units and positive ROI, free from rolling degradation
     elif (units_pnl >= 2.0 or pnl >= 2.0) and roi >= 0.03 and games_count >= 3:
-        if (units_pnl >= 4.0 or pnl >= 5.0) and roi >= 0.12 and games_count >= 5:
+        if rolling_games >= 4 and (units_roll_pnl < 0.0 or rolling_roi < 0.0):
+            return {
+                'tier': 'EXPLORATION',
+                'sub_tier': 'EXPLORATION',
+                'stake_cap': 1.5,
+                'min_ev': 0.01,
+                'scaling_target': '$1.00–$1.50 cautious exploration',
+                'action': 'Historical Alpha held in Exploration due to flat/negative recent rolling performance'
+            }
+        if (units_roll_pnl >= 4.0 or units_pnl >= 4.0 or pnl >= 5.0) and (rolling_roi >= 0.12 if rolling_games >= 4 else roi >= 0.12) and (rolling_games >= 5 if rolling_games >= 4 else games_count >= 5):
             return {
                 'tier': 'ALPHA_BOOST',
                 'sub_tier': 'SUPER_ALPHA',

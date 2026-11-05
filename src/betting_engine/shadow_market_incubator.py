@@ -3644,18 +3644,17 @@ class ShadowMarketIncubator:
 
                     if len(recent) < 4:
                         continue
-                    if len(recent) < 8 and rolling_units_pnl > -3.0 and rolling_pnl > -6.0:
+                    if len(recent) < 8 and rolling_units_pnl > -2.5:
                         continue
 
                     # Scale-Invariant Dynamic Loss Evaluation (Anti-Constant Mandate, Commandment 3):
                     should_demote = (
                         (len(recent) >= 8 and z_score <= -1.96 and rolling_roi <= -0.03)
                         or (rolling_units_pnl <= -3.0 and rolling_roi < 0.0)
-                        or (rolling_pnl <= -6.0 and rolling_roi <= -0.05)
-                        or (len(recent) >= 4 and rolling_roi <= -0.15 and rolling_pnl <= -3.0)
-                        or (len(recent) >= 8 and rolling_roi <= -0.03 and rolling_units_pnl <= -2.5)
-                        or (len(matching_decisions) >= 4 and total_live_pnl <= -2.0 and rolling_roi < 0.0)
-                        or (total_live_pnl <= -4.0)
+                        or (len(recent) >= 4 and rolling_roi <= -0.15 and rolling_units_pnl <= -2.0)
+                        or (len(recent) >= 8 and rolling_roi <= -0.03 and rolling_units_pnl <= -2.0)
+                        or (len(matching_decisions) >= 4 and total_live_units <= -2.0 and rolling_roi < 0.0)
+                        or (total_live_units <= -3.5)
                     )
 
                     if should_demote:

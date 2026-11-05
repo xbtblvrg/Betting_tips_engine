@@ -117,6 +117,11 @@ def compute_segment_scoreboard(conn: sqlite3.Connection) -> dict:
         rolling_games = len(set(str(w['game_id']) for w in recent_wagers if w.get('game_id')))
         has_deployed_patch = key in patched_segments
 
+        avg_recent_stake = (rolling_stake / len(recent_wagers)) if recent_wagers else 1.0
+        rolling_units = round(rolling_pnl / max(0.50, avg_recent_stake), 2)
+        avg_stake = (stake_val / len(s.get('wagers', []))) if s.get('wagers') else 1.0
+        units_pnl = round(pnl_val / max(0.50, avg_stake), 2)
+
         record = {
             'segment': key,
             'league': s['league'],
@@ -124,6 +129,7 @@ def compute_segment_scoreboard(conn: sqlite3.Connection) -> dict:
             'family': s['family'],
             'stake': stake_val,
             'pnl': pnl_val,
+            'units_pnl': units_pnl,
             'roi_pct': roi_pct,
             'roi': roi_val,
             'games': games_count,
@@ -133,7 +139,9 @@ def compute_segment_scoreboard(conn: sqlite3.Connection) -> dict:
             'win_rate_pct': round(win_rate * 100, 1),
             'rolling_stake': rolling_stake,
             'rolling_pnl': rolling_pnl,
+            'rolling_units': rolling_units,
             'rolling_roi_pct': round(rolling_roi * 100, 2),
+            'rolling_roi': rolling_roi,
             'rolling_games': rolling_games,
             'has_deployed_patch': has_deployed_patch,
         }
@@ -153,7 +161,9 @@ def compute_segment_scoreboard(conn: sqlite3.Connection) -> dict:
         record.update(tier_info)
 
         if record['tier'] == 'ALPHA_BOOST':
-            if record['pnl'] > 0:
+            # Alpha segments require both positive all-time profit AND non-negative rolling performance
+            has_bad_rolling = (record.get('rolling_games', 0) >= 4 and (record.get('rolling_roi', 0.0) < 0.0 or record.get('rolling_pnl', 0.0) < 0.0))
+            if record['pnl'] > 0 and not has_bad_rolling:
                 alpha_segments.append(record)
             else:
                 exploration_segments.append(record)
