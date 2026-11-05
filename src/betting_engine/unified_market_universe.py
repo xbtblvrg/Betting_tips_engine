@@ -460,7 +460,12 @@ class UnifiedMarketUniverse:
                 with closing(sqlite3.connect(self.engine_db_path, timeout=10.0)) as sb_conn:
                     sb_data = compute_segment_scoreboard(sb_conn)
                     for s_obj in sb_data.get("underperforming_segments", []):
-                        sb_underperforming_map[s_obj["segment"]] = s_obj
+                        seg_s = s_obj["segment"]
+                        sb_underperforming_map[seg_s] = s_obj
+                        parts = seg_s.split('|')
+                        if len(parts) == 3 and ':' in parts[2]:
+                            fam_clean = parts[2].split(':')[-1]
+                            sb_underperforming_map[f"{parts[0]}|{parts[1]}|{fam_clean}"] = s_obj
             except Exception as e_sb:
                 logger.warning("Could not compute scoreboard in universe roster: %s", e_sb)
 
