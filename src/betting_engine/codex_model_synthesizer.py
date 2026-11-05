@@ -16,6 +16,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 import hashlib
 import json
+import logging
 import os
 from pathlib import Path
 import re
@@ -52,6 +53,8 @@ from .sandbox_models.base import (
 )
 from .sandbox_models.validator import validate_candidate_model
 from .tournament_engine import TournamentEngine, normalize_segment_key
+
+log = logging.getLogger(__name__)
 
 
 SYNTHESIS_LOG_FILE = DATA / "research" / "codex_model_syntheses.jsonl"

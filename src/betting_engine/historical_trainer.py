@@ -9,6 +9,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 import hashlib
 import json
+import logging
 from pathlib import Path
 import sqlite3
 from typing import Any, Dict, List, Optional, Tuple
@@ -29,6 +30,7 @@ from .tournament_engine import calculate_crucible_scorecard, normalize_segment_k
 
 
 INCUBATOR_DB = DATA / 'shadow_incubator.sqlite3'
+log = logging.getLogger(__name__)
 
 
 @dataclass
