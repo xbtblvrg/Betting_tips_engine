@@ -365,6 +365,34 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
         except Exception:
             gov = {}
 
+    # Constitutional Invariant: Tier Universe & Demoted Market Quarantine (Commandments 1, 3, 6, 7 & 10)
+    # Any market demoted to Tier 1 or Tier 2, or flagged as demoted / quarantined in the Governor or Universe,
+    # is unconditionally capped to $0.00 stake. Real capital cannot be allocated under any policy.
+    universe_prof = None
+    if not is_test_cand or tip.get('is_demoted'):
+        try:
+            from .unified_market_universe import UnifiedMarketUniverse
+            umu = UnifiedMarketUniverse()
+            roster = umu.build_universe_roster(force_refresh=False)
+            for ck in check_keys:
+                if ck in roster:
+                    universe_prof = roster[ck]
+                    break
+        except Exception:
+            universe_prof = None
+
+    if universe_prof and universe_prof.stake_cap is not None:
+        caps['universe_tier_stake_cap'] = universe_prof.stake_cap
+        if universe_prof.tier in (1, 2) or universe_prof.stake_cap == 0.0:
+            caps['demoted_market_defense_clamp'] = 0.00
+
+    if (
+        tip.get('is_demoted') is True
+        or (not is_test_cand and check_keys & set(gov.get('quarantine_list', [])))
+        or (not is_test_cand and ((games_val >= 4 and pnl_val <= -2.00) or (games_val >= 6 and pnl_val < 0.0)))
+    ):
+        caps['demoted_market_defense_clamp'] = 0.00
+
     if settings.get('capital_defense', False):
         try:
             if not is_test_cand:
@@ -408,6 +436,10 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
         # Pure noise 50/50 coin flip clamp
         if 'odd_even' in market_val:
             caps['odd_even_defense_clamp'] = def_unit
+        # Totals Volatility Defense: Totals are subject to empty net / garbage time tail variance.
+        # When capital defense is active, clamp Totals to def_unit unless backed by a verified Alpha sample (>=30 games, >=15% ROI).
+        if is_total and (games_val < 30 or roi_val < 0.15):
+            caps['totals_defense_clamp'] = def_unit
         # Challenger Tennis Capital Defense:
         # Lower-tier tournaments with player volatility and soft limits.
         # When capital defense is active, clamp Challenger bets strictly to def_unit tourniquet (no Alpha scaling).
@@ -440,7 +472,11 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
 
 
     requested = max(base * factor, v3['confidence_target']) if v3 else base * factor
-    if caps.get('capital_defense_quarantine') == 0.0:
+    if (
+        caps.get('capital_defense_quarantine') == 0.0
+        or caps.get('demoted_market_defense_clamp') == 0.0
+        or caps.get('universe_tier_stake_cap') == 0.0
+    ):
         requested = 0.0
 
     if settings.get('alpha_acceleration', False):
@@ -475,13 +511,13 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                 (games_val >= 8 and roi_val >= 0.08 and (pnl_val >= 5.0 or (pnl_val / max(0.2, def_unit) >= 4.0)))
                 or gov_super
                 or (is_early_alpha and pnl_val >= 3.0)
-                or (grad_proven and ev_val is not None and ev_val >= 0.08 and games_val >= 5 and roi_val > 0.0 and pnl_val > 0.0)
+                or (grad_proven and ev_val is not None and ev_val >= 0.08)
             )
             is_solid_alpha = not has_defense and (
                 (games_val >= 5 and roi_val >= 0.03 and (pnl_val >= 2.0 or (pnl_val / max(0.2, def_unit) >= 2.0)))
                 or gov_solid
                 or is_early_alpha
-                or (grad_proven and ev_val is not None and ev_val >= 0.03 and games_val >= 3 and roi_val > 0.0 and pnl_val > 0.0)
+                or (grad_proven and ev_val is not None and ev_val >= 0.03)
             )
 
             alpha_discount = discount
@@ -498,7 +534,7 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                     caps.pop('maximum_stake', None)
                     caps.pop('max_stake', None)
                     caps.pop('probation_nursery_clamp', None)
-                    if (gov_super and pnl_val > 0.0) or (grad_proven and games_val >= 5 and pnl_val > 0.0):
+                    if (gov_super and pnl_val > 0.0) or (grad_proven and pnl_val >= 0.0):
                         caps.pop('totals_defense_clamp', None)
                 requested = max(requested, alpha_target)
             elif is_solid_alpha:
@@ -513,7 +549,7 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                     caps.pop('maximum_stake', None)
                     caps.pop('max_stake', None)
                     caps.pop('probation_nursery_clamp', None)
-                    if (gov_solid and pnl_val > 0.0) or (grad_proven and games_val >= 3 and pnl_val > 0.0):
+                    if (gov_solid and pnl_val > 0.0) or (grad_proven and pnl_val >= 0.0):
                         caps.pop('totals_defense_clamp', None)
                 requested = max(requested, alpha_target)
 
