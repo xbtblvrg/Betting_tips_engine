@@ -83,6 +83,8 @@ class UnifiedMarketProfile:
     owner: str = "Gemini Antigravity (agy)"
     assigned_developer: str = "OpenAI Codex (gpt-6-astra) & HistoricalTrainer"
     audit_adversary: str = "xAI Grok (grok-4.7)"
+    is_dual_polymarket: bool = False
+    polymarket_pairing: Optional[str] = None
 
     def __post_init__(self):
         lg = (self.league or '').upper()
@@ -92,6 +94,20 @@ class UnifiedMarketProfile:
             self.assigned_developer = "Claude (claude-opus-5-5) & HistoricalTrainer"
         else:
             self.assigned_developer = "OpenAI Codex (gpt-6-astra) & HistoricalTrainer"
+
+        # Polymarket CLOB Canonical Dual Pairing (Commandments 6.5 & 10)
+        try:
+            from .polymarket_runner import POLYMARKET_STRUCTURED_TYPE_MAP
+            poly_leagues = {'NBA', 'NFL', 'NHL', 'MLB', 'WNBA', 'NCAAF', 'NCAAB', 'NCAAM', 'NCAAW', 'MLS', 'EPL', 'UCL', 'UEL', 'LALIGA', 'BUNDESLIGA', 'SERIEA', 'ATP', 'WTA'}
+            if lg in poly_leagues:
+                base_fam = fam.split(':')[-1] if ':' in fam else fam
+                for p_type, (p_sc, p_fam) in POLYMARKET_STRUCTURED_TYPE_MAP.items():
+                    if p_sc == sc and (p_fam == fam or p_fam == base_fam):
+                        self.is_dual_polymarket = True
+                        self.polymarket_pairing = p_type
+                        break
+        except Exception:
+            pass
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -769,8 +785,15 @@ class UnifiedMarketUniverse:
 
         leagues_breakdown: Dict[str, Dict[str, int]] = {}
         for m in unique_profiles.values():
-            lb = leagues_breakdown.setdefault(m.league, {'tier1': 0, 'tier2': 0, 'tier3': 0, 'total': 0, 'offered_now': 0})
+            lb = leagues_breakdown.setdefault(m.league, {
+                'tier1': 0, 'tier2': 0, 'tier3': 0, 'total': 0,
+                'dual_polymarket': 0, 'stake_only': 0, 'offered_now': 0
+            })
             lb['total'] += 1
+            if m.is_dual_polymarket:
+                lb['dual_polymarket'] += 1
+            else:
+                lb['stake_only'] += 1
             if m.tier == 3:
                 lb['tier3'] += 1
             elif m.tier == 2:
@@ -782,8 +805,14 @@ class UnifiedMarketUniverse:
             if lg_key in leagues_breakdown:
                 leagues_breakdown[lg_key]['offered_now'] = cnt
 
+        dual_markets_cnt = sum(1 for m in unique_profiles.values() if m.is_dual_polymarket)
+        stake_only_cnt = sum(1 for m in unique_profiles.values() if not m.is_dual_polymarket)
+
         summary = {
             'total_supported_markets': total_markets,
+            'dual_polymarket_markets_count': dual_markets_cnt,
+            'stake_only_markets_count': stake_only_cnt,
+            'dual_polymarket_ratio': round(dual_markets_cnt / max(1, total_markets), 4),
             'tier_3_production_graduated_count': len(tier3),
             'tier_2_shadow_incubator_count': len(tier2),
             'tier_1_research_rnd_count': len(tier1),
