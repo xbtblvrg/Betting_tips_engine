@@ -173,7 +173,11 @@ class DemotedMarketIncubationBridge:
                     lg = (r[2] or '').upper()
                     sc = (r[3] or '').lower()
                     fm = (r[4] or '').lower()
-                    is_dual = (lg in ('NBA', 'NFL', 'EPL', 'MLS') and sc in ('full_game', 'half_1', 'quarter_1') and any(k in fm for k in ('spread', 'total', 'moneyline')))
+                    is_dual = (
+                        lg in ('NBA', 'NFL', 'EPL', 'MLS', 'UCL', 'NHL', 'MLB')
+                        and sc in ('full_game', 'half_1', 'quarter_1', 'quarter_2', 'period_1')
+                        and any(k in fm for k in ('spread', 'total', 'moneyline', '1x2', 'three_way', 'winner'))
+                    )
                     return 0 if is_dual else 1
 
                 unresolved.sort(key=_dual_priority_key)

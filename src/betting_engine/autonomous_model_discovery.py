@@ -109,11 +109,18 @@ class AutonomousModelDiscoveryEngine:
                 WHERE incubation_phase = 'research_training' 
                    OR (incubation_phase = 'incubating_with_new_model' AND (incubated_model_id IS NULL OR incubated_model_id = ''))
                 ORDER BY 
+                    -- Strict Constitutional Mandate (Commandment 6.5): Prioritize Dual Reachable Markets (Stake + Polymarket CLOB)
                     CASE 
-                        WHEN league IN ('NBA', 'NFL') THEN 0
-                        WHEN league = 'NHL' THEN 1
-                        WHEN league IN ('MLB', 'NCAAF', 'NCAAM', 'NCAAW') THEN 2
-                        WHEN league IN ('ATP', 'WTA', 'CHALLENGER') THEN 3
+                        WHEN (league IN ('NBA', 'NFL', 'EPL', 'MLS', 'UCL', 'NHL', 'MLB')
+                              AND scope IN ('full_game', 'half_1', 'quarter_1', 'quarter_2', 'period_1')
+                              AND (family LIKE '%moneyline%' OR family LIKE '%spread%' OR family LIKE '%total%' OR family LIKE '%winner%' OR family LIKE '%three_way%'))
+                        THEN 0 ELSE 1
+                    END,
+                    CASE 
+                        WHEN league IN ('NBA', 'NFL', 'EPL', 'MLS') THEN 0
+                        WHEN league IN ('NHL', 'UCL') THEN 1
+                        WHEN league IN ('MLB', 'ATP', 'WTA') THEN 2
+                        WHEN league IN ('NCAAF', 'NCAAM', 'NCAAW') THEN 3
                         ELSE 4
                     END,
                     CASE WHEN rolling_pnl < 0.0 THEN 0 ELSE 1 END,

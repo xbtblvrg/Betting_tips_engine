@@ -429,6 +429,16 @@ class LearningWorker:
             with self.store.db() as c:
                 scoreboard = compute_segment_scoreboard(c)
             under = scoreboard.get('underperforming_segments', [])
+            # Strict Constitutional Mandate (Commandment 6.5): Prioritize Dual Reachable Markets (Stake + Polymarket CLOB)
+            def _dual_repair_priority(seg_rec):
+                lg = (seg_rec.get('league') or '').upper()
+                s_key = (seg_rec.get('segment') or '').lower()
+                is_dual_league = lg in ('NBA', 'NFL', 'EPL', 'MLS', 'UCL', 'NHL', 'MLB')
+                is_dual_family = any(k in s_key for k in ('spread', 'total', 'moneyline', '1x2', 'three_way'))
+                dual_rank = 0 if (is_dual_league and is_dual_family) else 1
+                return (dual_rank, seg_rec.get('pnl', 0.0))
+
+            under = sorted(under, key=_dual_repair_priority)
             now_iso = now.isoformat()
             for seg in under:
                 g = seg.get('games', 0)
