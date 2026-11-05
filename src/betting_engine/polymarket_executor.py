@@ -800,7 +800,22 @@ class PolymarketAutonomousExecutor:
         maker_price = max(0.02, min(0.95, maker_price))
 
         MIN_ORDER_USD = 1.00
-        if total_stake < 2.0 * MIN_ORDER_USD:
+        # Realistic Liquidity & Anti-Hallucination Guard:
+        # A maker limit order is viable ONLY if best bid is competitive (>= 0.08)
+        # and the spread gap to best ask is narrow (spread <= 0.08 and b_ask - maker_price <= 0.08).
+        # On wide or empty books, passive limit orders will not execute in real trading.
+        is_book_liquid_for_maker = (
+            b_bid >= 0.08
+            and spread <= 0.08
+            and (b_ask - maker_price) <= 0.08
+            and maker_price >= 0.08
+        )
+
+        if not is_book_liquid_for_maker:
+            strategy = "indivisible_taker_urgency"
+            taker_ratio = 1.0
+            maker_ratio = 0.0
+        elif total_stake < 2.0 * MIN_ORDER_USD:
             # Indivisible stake (< $2.00)
             if minutes_to_start <= 30.0:
                 strategy = "indivisible_taker_urgency"
@@ -1065,6 +1080,75 @@ class PolymarketAutonomousExecutor:
                 "taker_slice": {"client_order_id": tk_cid, "stake": tk_stake, "shares": tk_shares, "price": preflight.eff_price},
                 "maker_slice": {"client_order_id": mk_cid, "stake": mk_stake, "shares": mk_shares, "price": mk_price},
             })
+
+            # Check if maker slice is realistically fillable (Anti-Hallucination Guard)
+            maker_is_fillable = (
+                mk_price >= 0.08
+                and (preflight.eff_price - mk_price) <= 0.08
+                and blended_price >= 0.08
+            )
+
+            # In shadow paper mode: if maker slice is unfillable due to extreme discount,
+            # benchmark strictly at verified Taker execution to prevent phantom maker profits!
+            if not is_live_funded and not maker_is_fillable:
+                log.info(
+                    f"[DYNAMIC ALPHA SLICING - SHADOW] Maker slice (${mk_stake:.2f} @ {mk_price:.3f}) unfillable on wide book. "
+                    f"Benchmarking exclusively at verified Taker execution (${tk_stake:.2f} @ {preflight.eff_price:.3f})."
+                )
+                self._record_order_event(
+                    order_id=None,
+                    client_order_id=client_order_id,
+                    token_id=token_id,
+                    league=league,
+                    game_title=game_title,
+                    start_time=start_time,
+                    market_family=market_family,
+                    selection=selection,
+                    side=side,
+                    line=line,
+                    poly_price=preflight.eff_price,
+                    poly_odds=preflight.eff_odds,
+                    model_prob=model_prob,
+                    expected_value=preflight.ev,
+                    stake_usd=tk_stake,
+                    shares_count=tk_shares,
+                    status="staged",
+                    error_detail=slice_detail_json,
+                    ai_remediation_hint="Shadow Taker Benchmark: Maker slice unfillable due to extreme discount.",
+                    scope=scope,
+                )
+                sim_parent = f"shadow_{client_order_id}"
+                self._update_order_status(client_order_id=client_order_id, order_id=sim_parent, status="filled", tx_hash=f"0xshadow_{client_order_id[:16]}", execution_mode="shadow")
+                return {
+                    "ok": True,
+                    "status": "filled",
+                    "order_id": sim_parent,
+                    "client_order_id": client_order_id,
+                    "shares": tk_shares,
+                    "price": preflight.eff_price,
+                    "stake_usd": tk_stake,
+                    "ev": preflight.ev,
+                    "dry_run": True,
+                    "execution_mode": "shadow",
+                    "is_sliced": True,
+                    "slicing_plan": slicing_plan.to_dict(),
+                    "taker_slice": {
+                        "client_order_id": tk_cid,
+                        "stake_usd": tk_stake,
+                        "shares": tk_shares,
+                        "price": preflight.eff_price,
+                        "status": "filled",
+                        "role": "taker_slice",
+                    },
+                    "maker_slice": {
+                        "client_order_id": mk_cid,
+                        "stake_usd": mk_stake,
+                        "shares": mk_shares,
+                        "price": mk_price,
+                        "status": "unfilled_cancelled",
+                        "role": "maker_slice",
+                    },
+                }
 
             # Record exactly ONE master position in polymarket_orders (preserving 1-to-1 ledger accounting)
             self._record_order_event(

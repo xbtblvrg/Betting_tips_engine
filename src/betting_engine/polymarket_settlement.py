@@ -295,10 +295,28 @@ class PolymarketOutcomeSettler:
                     token_id = row["token_id"]
                     game_title = row["game_title"]
                     market_fam = row["market_family"]
+                    selection = row["selection"]
                     side = row["side"]
                     line = row["line"]
                     stake = float(row["stake_usd"])
                     shares = float(row["shares_count"])
+
+                    # Anti-Hallucination Guard: If shares / stake > 12.0 on an order with a maker slice,
+                    # verify whether the order contains a realistic taker slice in error_detail.
+                    # If so, settle strictly on the verified taker slice to prevent phantom maker payouts.
+                    if (shares / max(0.01, stake)) > 12.0 and "taker_slice" in str(row["error_detail"] or ""):
+                        try:
+                            det = json.loads(row["error_detail"])
+                            tk = det.get("taker_slice", {})
+                            if tk.get("shares") and float(tk.get("price", 0.0)) >= 0.08:
+                                log.warning(
+                                    f"[SETTLEMENT AUDIT] Overriding inflated maker shares ({shares}) with realistic taker shares ({tk['shares']}) "
+                                    f"for {game_title} {selection}"
+                                )
+                                shares = float(tk["shares"])
+                                stake = float(tk.get("stake", stake))
+                        except Exception as e_sh:
+                            log.debug(f"Could not parse taker slice from error_detail: {e_sh}")
 
                     new_status: Optional[str] = None
                     pnl: Optional[float] = None
