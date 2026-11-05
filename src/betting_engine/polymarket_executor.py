@@ -331,7 +331,45 @@ class PolymarketAutonomousExecutor:
         except Exception as e_dem:
             log.debug(f"Could not check demoted_markets: {e_dem}")
 
-        # Gate 0b: Check Unified Market Universe Roster
+        # Gate 0b: Polymarket Contract Taxonomy Invariant:
+        # Strictly reject Stake sportsbook exclusive derivatives that have no Polymarket CLOB contract equivalent.
+        if any(deriv in market_family for deriv in (
+            "home_total", "away_total", "team_total", "team_totals",
+            "double_chance", "both_score", "both_teams_score", "draw_no_bet",
+            "bivariate_derivatives", "odd_even", "sequence_hazard",
+            "tennis_sets", "total_sets", "set_handicap", "correct_score"
+        )):
+            return (
+                False,
+                f"STAKE_ONLY_MARKET: Segment {league}|{scope}|{market_family} is a Stake sportsbook exclusive market with no corresponding Polymarket contract type.",
+                0.0,
+            )
+        if scope in ("period_1", "period_2", "period_3", "innings_1_5", "inning_1", "regulation"):
+            return (
+                False,
+                f"STAKE_ONLY_MARKET: Segment {league}|{scope}|{market_family} (derivative scope {scope}) is a Stake sportsbook exclusive market with no corresponding Polymarket contract type. Active in Tier 3 on Stake.",
+                0.0,
+            )
+        if league in ("WTA", "ATP") and scope != "full_game":
+            return (
+                False,
+                f"STAKE_ONLY_MARKET: Segment {league}|{scope}|{market_family} (tennis period market) is a Stake sportsbook exclusive market with no corresponding Polymarket contract type. Active in Tier 3 on Stake.",
+                0.0,
+            )
+        if league in ("MLS", "EPL", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA") and scope != "full_game":
+            return (
+                False,
+                f"STAKE_ONLY_MARKET: Segment {league}|{scope}|{market_family} (soccer period/half market) is not offered on Polymarket CLOB books. Active in Tier 3 on Stake.",
+                0.0,
+            )
+        if league in ("NBA", "NCAAB", "WNBA", "CBB") and scope != "full_game":
+            return (
+                False,
+                f"STAKE_ONLY_MARKET: Segment {league}|{scope}|{market_family} (basketball period/quarter/half market) is not currently offered on Polymarket CLOB books. Active in Tier 3 on Stake.",
+                0.0,
+            )
+
+        # Gate 0c: Check Unified Market Universe Roster
         # Tier 4 on Polymarket requires active Tier 3 ($0.50-$8.00) status on Stake.
         try:
             from .unified_market_universe import UnifiedMarketUniverse, MarketTier
@@ -386,39 +424,6 @@ class PolymarketAutonomousExecutor:
                                 f"UNDERPERFORMING_IN_LIVE_BETS: Segment {seg_keys[0]} has negative/degraded live performance (PnL: ${pnl:.2f}, Rolling ROI: {rolling_roi:.1f}%, Rolling PnL: ${rolling_pnl:.2f}, N={games}). Quarantined in Shadow Incubator ($0.00).",
                                 0.0,
                             )
-
-        # Gate 2: Polymarket Contract Taxonomy Invariant:
-        # Strictly reject Stake sportsbook exclusive derivatives that have no Polymarket CLOB contract equivalent.
-        if any(deriv in market_family for deriv in ("home_total", "away_total", "team_total", "team_totals")):
-            return (
-                False,
-                f"STAKE_ONLY_MARKET: Segment {league}|{scope}|{market_family} (individual team total) is a Stake sportsbook exclusive market with no corresponding Polymarket contract type.",
-                0.0,
-            )
-        if scope in ("period_2", "period_3", "innings_1_5"):
-            return (
-                False,
-                f"STAKE_ONLY_MARKET: Segment {league}|{scope}|{market_family} (derivative scope {scope}) is a Stake sportsbook exclusive market with no corresponding Polymarket contract type. Active in Tier 3 on Stake.",
-                0.0,
-            )
-        if league in ("WTA", "ATP") and scope != "full_game":
-            return (
-                False,
-                f"STAKE_ONLY_MARKET: Segment {league}|{scope}|{market_family} (tennis period market) is a Stake sportsbook exclusive market with no corresponding Polymarket contract type. Active in Tier 3 on Stake.",
-                0.0,
-            )
-        if league in ("MLS", "EPL", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA") and scope != "full_game":
-            return (
-                False,
-                f"STAKE_ONLY_MARKET: Segment {league}|{scope}|{market_family} (soccer period/half market) is not offered on Polymarket CLOB books. Active in Tier 3 on Stake.",
-                0.0,
-            )
-        if league in ("NBA", "NCAAB", "WNBA", "CBB") and scope != "full_game":
-            return (
-                False,
-                f"STAKE_ONLY_MARKET: Segment {league}|{scope}|{market_family} (basketball period/quarter/half market) is not currently offered on Polymarket CLOB books. Active in Tier 3 on Stake.",
-                0.0,
-            )
 
         if self._cached_scoreboard:
 

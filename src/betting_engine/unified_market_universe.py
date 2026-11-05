@@ -199,6 +199,10 @@ class UnifiedMarketUniverse:
             sc = 'regulation'
         return f"{lg}|{sc}|{fam}"
 
+    def get_roster(self, force_refresh: bool = False) -> Dict[str, UnifiedMarketProfile]:
+        """Convenience alias for build_universe_roster."""
+        return self.build_universe_roster(force_refresh=force_refresh)
+
     def build_universe_roster(self, force_refresh: bool = False) -> Dict[str, UnifiedMarketProfile]:
         """Assembles the complete 461-market roster with exact tier classifications."""
         import time
