@@ -98,17 +98,38 @@ class UnifiedMarketProfile:
         # Polymarket CLOB Canonical Dual Pairing (Commandments 6.5 & 10)
         try:
             from .polymarket_runner import POLYMARKET_STRUCTURED_TAXONOMY
+            sub = (self.sub_family or '').lower().strip()
             base_fam = fam.split(':')[-1] if ':' in fam else fam
+            base_sub = sub.split(':')[-1] if ':' in sub else sub
+
             fam_aliases = {fam, base_fam}
-            if fam in ('both_teams_score', 'both_score') or base_fam in ('both_teams_score', 'both_score'):
-                fam_aliases.update(['both_score', 'both_teams_score'])
-            soccer_leagues = {'EPL', 'MLS', 'UCL', 'UEL', 'LALIGA', 'BUNDESLIGA', 'SERIEA'}
-            if lg in soccer_leagues and (fam in ('three_way', '1x2', 'moneyline') or base_fam in ('three_way', '1x2', 'moneyline')):
-                fam_aliases.update(['three_way', '1x2', 'moneyline'])
-            if fam in ('set_handicap', 'tennis_sets:set_handicap', 'tennis_sets') or base_fam in ('set_handicap', 'tennis_sets:set_handicap', 'tennis_sets'):
-                fam_aliases.update(['set_handicap'])
-            if fam in ('total_sets', 'tennis_sets:total_sets') or base_fam in ('total_sets', 'tennis_sets:total_sets'):
-                fam_aliases.update(['total_sets'])
+            if sub:
+                fam_aliases.add(sub)
+                fam_aliases.add(base_sub)
+
+            # Contract aliases identical to contracts.py:is_supported_stake_contract
+            for candidate in list(fam_aliases):
+                if candidate in ('winner', 'match_winner', 'draw_no_bet', 'set_winner'):
+                    fam_aliases.add('moneyline')
+                elif candidate in ('asian_lines', 'asian_line', 'asian_handicap', 'handicap', 'game_handicap'):
+                    fam_aliases.add('spreads')
+                elif candidate in ('asian_totals', 'asian_total', 'set_totals', 'total_games'):
+                    fam_aliases.add('totals')
+                elif candidate in ('both_teams_score', 'both_teams_to_score', 'btts'):
+                    fam_aliases.add('both_score')
+                elif candidate in ('set_handicap', 'tennis_sets:set_handicap'):
+                    fam_aliases.add('set_handicap')
+                elif candidate in ('total_sets', 'tennis_sets:total_sets'):
+                    fam_aliases.add('total_sets')
+                elif candidate in ('three_way', '1x2'):
+                    fam_aliases.add('three_way')
+                    if lg in {'EPL', 'MLS', 'UCL', 'UEL', 'LALIGA', 'BUNDESLIGA', 'SERIEA'}:
+                        fam_aliases.add('moneyline')
+
+            # Special case for container families with specific sub_family
+            if fam in ('american_derivatives', 'asian_lines', 'bivariate_derivatives', 'tennis_sets'):
+                if base_sub in ('totals', 'spreads', 'moneyline', 'three_way', 'both_score', 'set_handicap', 'total_sets'):
+                    fam_aliases.add(base_sub)
 
             for p_type, (p_sc, p_fam, p_leagues) in POLYMARKET_STRUCTURED_TAXONOMY.items():
                 if lg in p_leagues and p_sc == sc and p_fam in fam_aliases:
