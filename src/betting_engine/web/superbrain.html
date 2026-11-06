@@ -731,6 +731,10 @@
       </div>
 
       <div class="header-actions">
+        <button class="hud-btn" id="test-popup-btn" title="Simulate a live settlement event popup">
+          <span>⚡</span>
+          <span>TEST POPUP</span>
+        </button>
         <button class="hud-btn" id="sound-toggle-btn" title="Toggle audio alert synthesizers">
           <span id="sound-status-dot"></span>
           <span id="sound-btn-text">Audio: ON</span>
@@ -1196,6 +1200,15 @@
       }
     });
 
+    // Test Popup Button
+    const testPopupBtn = document.getElementById('test-popup-btn');
+    if (testPopupBtn) {
+      testPopupBtn.addEventListener('click', () => {
+        audioSynth.playWin();
+        showToast('win', 'WIN SETTLED! (LIVE VERIFICATION)', 'Colorado Avalanche vs Nashville Predators', 'NHL · regulation:home_total (Under 2.5) @ 3.10', 1.05);
+      });
+    }
+
     // Toast Popup Engine
     const popupContainer = document.getElementById('popup-container');
     const seenEventIds = new Set();
@@ -1274,23 +1287,45 @@
           dContainer.appendChild(chip);
         }
 
-        // 3. AI Quant Council
-        const agy = data.ai_brains.find(b => b.id === 'agy');
-        if (agy) {
-          document.getElementById('agy-activity').textContent = agy.current_focus;
+        // 3. AI Quant Council - Dynamic live synthesis & hypotheses
+        const cs = data.council_sessions && data.council_sessions.length > 0 ? data.council_sessions[0] : null;
+        const latestSynth = data.tiers.tier_1_rd.recent_syntheses && data.tiers.tier_1_rd.recent_syntheses.length > 0 ? data.tiers.tier_1_rd.recent_syntheses[0] : null;
+
+        // Gemini Antigravity
+        const agyEl = document.getElementById('agy-activity');
+        if (agyEl) {
+          if (cs) {
+            agyEl.innerHTML = `<span style="color:var(--cyan);font-weight:700;">[Orchestration · ${cs.segment}]</span> ${cs.decision} · Target Rule: <code style="color:#fff;">${cs.target_formula || 'quarantine_high_variance'}</code>`;
+          } else {
+            agyEl.textContent = 'Orchestrating 4-tier closed-loop progression & enforcing 10 Prime Directives.';
+          }
         }
-        const claude = data.ai_brains.find(b => b.id === 'claude');
-        if (claude) {
-          document.getElementById('claude-activity').textContent = claude.current_focus;
+
+        // Claude Opus 5.5
+        const claudeEl = document.getElementById('claude-activity');
+        if (claudeEl) {
+          if (cs && cs.claude_advice) {
+            const shortAdvice = cs.claude_advice.replace(/\*\*/g, '').slice(0, 160) + '...';
+            claudeEl.innerHTML = `<span style="color:var(--purple);font-weight:700;">[Domain Mechanics · ${cs.segment}]</span> ${shortAdvice}`;
+          } else {
+            claudeEl.textContent = 'Analyzing NBA/NHL rest differentials, goalie fatigue, and starter injury weights.';
+          }
         }
-        const codex = data.ai_brains.find(b => b.id === 'codex');
-        if (codex) {
-          document.getElementById('codex-activity').textContent = codex.current_focus;
-          document.getElementById('codex-badge').textContent = codex.pulse_rate;
+
+        // Codex Astra
+        const codexEl = document.getElementById('codex-activity');
+        if (codexEl) {
+          if (latestSynth) {
+            codexEl.innerHTML = `<span style="color:var(--green);font-weight:700;">[Kernel Synthesis]</span> ${latestSynth.class_name} (${latestSynth.league} ${latestSynth.scope}) · OOS ROI: <strong>${latestSynth.oos_roi}%</strong> · Status: <span class="stream-badge ${latestSynth.crucible_passed ? 'pos' : 'neg'}">${latestSynth.crucible_passed ? 'CRUCIBLE PASS' : 'REJECTED'}</span>`;
+          } else {
+            codexEl.textContent = 'Synthesizing Negative Binomial, Copula Hazard & Asymmetric Laplace models.';
+          }
         }
-        const grok = data.ai_brains.find(b => b.id === 'grok');
-        if (grok) {
-          document.getElementById('grok-activity').textContent = grok.current_focus;
+
+        // Grok 4.7
+        const grokEl = document.getElementById('grok-activity');
+        if (grokEl) {
+          grokEl.innerHTML = `<span style="color:var(--red);font-weight:700;">[Red-Team Guard]</span> Clamp max prob delta to ±3.5% · $0.50 tourniquet on failure · Strict Crucible N≥25 out-of-sample`;
         }
 
         // 4. Tier Metrics & Conduits
