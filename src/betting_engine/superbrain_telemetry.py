@@ -539,13 +539,13 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
             except Exception:
                 continue
 
-    # Bottleneck & Dugulásmentes status evaluation
+    # Bottleneck & Flow status evaluation
     queued_count = jobs_summary.get("queued", 0)
     retry_count = jobs_summary.get("retry", 0)
     is_clogged = queued_count > 2500 or retry_count > 50
     clog_status = {
         "is_clogged": is_clogged,
-        "indicator": "WARNING: QUEUE BACKLOG" if is_clogged else "OPTIMAL: DUGULÁSMENTES (FREE FLOW)",
+        "indicator": "WARNING: QUEUE BACKLOG" if is_clogged else "OPTIMAL: UNCLOGGED (FREE FLOW)",
         "queued_jobs": queued_count,
         "completed_jobs": jobs_summary.get("completed", 0),
         "collecting_evidence": jobs_summary.get("collecting_evidence", 0),
@@ -565,7 +565,7 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
             "status": "ACTIVE / ORCHESTRATING",
             "pulse_rate": "Continuous",
             "specialty": "Full-System Directives, Zero-Regression Gatekeeping, Closed-Loop Invariants",
-            "current_focus": "Automated Turnaround & Dugulásmentes Flow Optimization"
+            "current_focus": "Automated Turnaround & Free Flow Pipeline Optimization"
         },
         {
             "id": "claude",
@@ -756,7 +756,7 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
             "type": "real_bet_issued",
             "priority": "critical",
             "target_node": "bets_motor",
-            "title": "ÚJ ÉLES SZELVÉNY KIADVA · STAKE KELLY",
+            "title": "NEW LIVE BET ISSUED · STAKE KELLY",
             "subtitle": f"{b.get('home')} vs {b.get('away')} ({b.get('selection')})",
             "league": leg,
             "emoji": get_league_emoji(leg),
@@ -793,7 +793,7 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
             "type": "code_synthesis",
             "priority": "critical",
             "target_node": "codex_stream",
-            "title": "ÚJ MODELL SZINTETIZÁLVA · CODEX ASTRA",
+            "title": "NEW MODEL SYNTHESIZED · CODEX ASTRA",
             "subtitle": f"{m.get('class_name')} ({target_seg})",
             "league": leg,
             "emoji": get_league_emoji(leg),
@@ -829,13 +829,13 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
             "type": "learning_job",
             "priority": "critical" if job.get("status") == "running" else "routine",
             "target_node": "tier_1",
-            "title": "K+F JAVÍTÁSI FELADAT AKTÍV · TIER 1 R&D",
+            "title": "R&D REPAIR TASK ACTIVE · TIER 1 R&D",
             "subtitle": f"[{leg}] {job.get('kind', '').replace('_', ' ')}",
             "league": leg,
             "emoji": get_league_emoji(leg),
             "badge": f"{job.get('status', '').upper()}",
             "badge_color": "purple",
-            "details": f"Tölcsér feldolgozási sebesség: {synth_rate_per_hour:.1f} model / óra",
+            "details": f"Funnel synthesis velocity: {synth_rate_per_hour:.1f} models / hr",
             "timestamp": job.get("created_at") or now_utc.isoformat()
         })
 
