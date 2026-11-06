@@ -306,11 +306,11 @@ def load_graduated_markets(data_dir: Path = DATA) -> Dict[str, Dict[str, Any]]:
     if db_path.exists():
         try:
             try:
-                conn_raw = sqlite3.connect(f"file:{db_path.resolve()}?mode=ro", uri=True, timeout=5.0)
+                conn_raw = sqlite3.connect(f"file:{db_path.resolve()}?mode=ro", uri=True, timeout=30.0)
             except sqlite3.OperationalError:
-                conn_raw = sqlite3.connect(str(db_path), timeout=5.0)
+                conn_raw = sqlite3.connect(str(db_path), timeout=30.0)
             with closing(conn_raw) as conn:
-                conn.execute("PRAGMA busy_timeout = 5000")
+                conn.execute("PRAGMA busy_timeout = 30000")
                 # Demoted markets filter: ensure no demoted/probationary market lingers in memory or JSON
                 demoted_keys = set()
                 try:
@@ -334,8 +334,8 @@ def load_graduated_markets(data_dir: Path = DATA) -> Dict[str, Dict[str, Any]]:
                 ]
                 if stale_keys_to_purge:
                     try:
-                        with closing(sqlite3.connect(str(db_path), timeout=5.0)) as conn_del:
-                            conn_del.execute("PRAGMA busy_timeout = 5000")
+                        with closing(sqlite3.connect(str(db_path), timeout=30.0)) as conn_del:
+                            conn_del.execute("PRAGMA busy_timeout = 30000")
                             placeholders = ','.join('?' for _ in stale_keys_to_purge)
                             conn_del.execute(f"DELETE FROM graduated_markets WHERE segment_key IN ({placeholders})", stale_keys_to_purge)
                             conn_del.commit()
@@ -365,8 +365,8 @@ def load_graduated_markets(data_dir: Path = DATA) -> Dict[str, Dict[str, Any]]:
             ]
             if missing_in_db:
                 try:
-                    with closing(sqlite3.connect(str(db_path), timeout=5.0)) as conn_w:
-                        conn_w.execute("PRAGMA busy_timeout = 5000")
+                    with closing(sqlite3.connect(str(db_path), timeout=30.0)) as conn_w:
+                        conn_w.execute("PRAGMA busy_timeout = 30000")
                         cur_w = conn_w.cursor()
                         for item in missing_in_db:
                             st_dict = item.get('stats', {})

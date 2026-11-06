@@ -1,6 +1,6 @@
 # Live Stake market coverage
 
-Checked: 2026-11-06T13:51:27.095769+00:00
+Checked: 2026-11-06T16:05:05.473285+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
@@ -9,7 +9,7 @@ Observed feed titles; not proof of complete Stake website coverage. Funding supp
 | NFL | 72 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 11 |
 | NHL | 54 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 |
 | MLB | 9 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| NBA | 149 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 41 |
+| NBA | 149 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 50 |
 | WNBA | 7 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 
 Current stages require outcome-level evidence; original issuance, settlement and feedback are explicitly historical. 10/10 records observed execution, not proven profitability or automatic model promotion.
@@ -52,7 +52,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | 1st Half - Toronto Raptors Total | standard | half_1 | catalogue_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NBA | 1st Half - Utah Jazz Total | standard | half_1 | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | 1st Half - Washington Wizards Total | standard | half_1 | catalogue_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
-| NBA | 1st Quarter - 1x2 | standard | quarter_1 | catalogue_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 28/28 | verified 28/28 | awaiting_measurement 28/29 | 0 |
+| NBA | 1st Quarter - 1x2 | standard | quarter_1 | catalogue_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 34/34 | verified 28/28 | awaiting_measurement 28/29 | 6 |
 | NBA | 1st Quarter - Atlanta Hawks total | standard | quarter_1 | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | 1st Quarter - Boston Celtics total | standard | quarter_1 | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | 1st Quarter - Brooklyn Nets total | standard | quarter_1 | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
@@ -162,7 +162,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | Team to win all quarters | standard | regulation | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Toronto Raptors Total (Incl. Overtime) | standard | full_game | catalogue_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 10/10 | verified 7/7 | awaiting_measurement 7/8 | 3 |
 | NBA | Toronto Raptors Total Maximum Consecutive Points | standard | regulation | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NBA | Total (Incl. Overtime) | standard | full_game | catalogue_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 183/183 | verified 159/159 | awaiting_measurement 159/160 | 18 |
+| NBA | Total (Incl. Overtime) | standard | full_game | catalogue_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 186/186 | verified 159/159 | awaiting_measurement 159/160 | 21 |
 | NBA | Total (Over-Exact-Under) | standard | regulation | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Utah Jazz Total (Incl. Overtime) | standard | full_game | catalogue_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 7/7 | verified 4/4 | awaiting_measurement 4/5 | 3 |
 | NBA | Utah Jazz Total Maximum Consecutive Points | standard | regulation | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
@@ -237,7 +237,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NFL | Seattle Seahawks Total (Incl. Overtime) | standard | full_game | catalogue_only | 1/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Tampa Bay Buccaneers Total (Incl. Overtime) | standard | full_game | catalogue_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NFL | Total (Incl. Overtime) | standard | full_game | catalogue_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 30/30 | verified 30/30 | awaiting_measurement 30/31 | 0 |
-| NFL | Total field goals made (incl. overtime) | standard | full_game | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 6/6 | verified 6/6 | awaiting_measurement 6/7 | 0 |
+| NFL | Total field goals made (incl. overtime) | standard | full_game | catalogue_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 6/6 | verified 6/6 | awaiting_measurement 6/7 | 0 |
 | NFL | Total sacks (incl. overtime) | standard | full_game | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NFL | Total touchdowns (incl. overtime) | standard | full_game | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Total turnovers (incl. overtime) | standard | full_game | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
