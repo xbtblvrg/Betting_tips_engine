@@ -756,7 +756,7 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
             "type": "real_bet_issued",
             "priority": "critical",
             "target_node": "bets_motor",
-            "title": "FUNDED STAKE EXECUTION INSTRUCTION",
+            "title": "ÚJ ÉLES SZELVÉNY KIADVA · STAKE KELLY",
             "subtitle": f"{b.get('home')} vs {b.get('away')} ({b.get('selection')})",
             "league": leg,
             "emoji": get_league_emoji(leg),

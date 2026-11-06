@@ -2294,10 +2294,17 @@
 
           // Check for brand-new critical events to interrupt the ambient tour ("HOPP!")
           if (!isInitialLoad) {
-            const freshCritical = liveQueue.find(ev => ev.priority === 'critical' && !seenEventIds.has(ev.id));
-            if (freshCritical) {
-              seenEventIds.add(freshCritical.id);
-              triggerCriticalEventInterrupt(freshCritical);
+            const freshCriticals = liveQueue.filter(ev => ev.priority === 'critical' && !seenEventIds.has(ev.id));
+            if (freshCriticals.length > 0) {
+              const mainEvent = freshCriticals[0];
+              triggerCriticalEventInterrupt(mainEvent);
+              freshCriticals.forEach(ev => {
+                seenEventIds.add(ev.id);
+                if (ev.type === 'real_bet_issued') {
+                  const em = ev.emoji || getEmoji(ev.league);
+                  showToast('win', `${em} ÚJ SZELVÉNY KIADVA: ${ev.badge}`, `${ev.subtitle} · ${ev.details}`);
+                }
+              });
             }
           }
 
