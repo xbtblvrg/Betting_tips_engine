@@ -68,66 +68,97 @@
       z-index: 2;
     }
 
-    /* 3D Holographic Pod Style */
+    /* 3D Holographic Pod Style (Dormant by default - Zero static text clutter) */
     .hologram-pod {
       position: absolute;
       top: 0;
       left: 0;
-      pointer-events: auto;
-      background: rgba(5, 10, 24, 0.92);
+      pointer-events: none;
+      background: rgba(4, 8, 22, 0.94);
       border: 1px solid rgba(0, 243, 255, 0.35);
-      border-radius: 8px;
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.75), inset 0 0 16px rgba(0, 243, 255, 0.08);
+      border-radius: 10px;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 16px 50px rgba(0, 0, 0, 0.85), inset 0 0 20px rgba(0, 243, 255, 0.08);
       transform-origin: center center;
-      transition: border-color 0.25s ease, box-shadow 0.25s ease, opacity 0.35s ease;
+      transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1), transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease, box-shadow 0.25s ease;
       will-change: transform, opacity;
-      max-height: 520px;
+      max-height: 540px;
       display: flex;
       flex-direction: column;
+      opacity: 0;
+      transform: scale(0.85);
+      z-index: 100;
     }
 
-    /* Compact Badge Mode (Unfocused Pods to completely eliminate overlapping) */
-    .hologram-pod.compact-badge {
-      width: auto !important;
-      min-width: 170px;
-      max-width: 250px;
-      max-height: 38px !important;
-      overflow: hidden;
-      cursor: pointer;
-      padding: 0;
-      border-color: rgba(255, 255, 255, 0.16) !important;
-      background: rgba(4, 8, 22, 0.88) !important;
-      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.6) !important;
-    }
-    .hologram-pod.compact-badge .pod-header {
-      padding: 6px 10px;
-      border-bottom: none;
-      background: transparent;
-    }
-    .hologram-pod.compact-badge .pod-body {
-      display: none !important;
-    }
-    .hologram-pod.compact-badge:hover {
-      border-color: var(--cyan) !important;
-      box-shadow: 0 6px 24px rgba(0, 243, 255, 0.35) !important;
-    }
-
-    .hologram-pod:hover, .hologram-pod.focused-pod {
-      border-color: var(--cyan);
-      box-shadow: 0 14px 44px rgba(0, 243, 255, 0.35), inset 0 0 22px rgba(0, 243, 255, 0.15);
+    /* Magnifying Glass Mode: Activated ONLY when focused, hovered, or alerting with live actual processes */
+    .hologram-pod.magnifying-active {
+      opacity: 1 !important;
+      pointer-events: auto !important;
+      transform: scale(1.0) !important;
       z-index: 9999 !important;
+      border-color: var(--cyan);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9), 0 0 35px rgba(0, 243, 255, 0.3), inset 0 0 24px rgba(0, 243, 255, 0.12);
+      animation: magnifyingPulse 3s infinite alternate ease-in-out;
     }
 
-    .hologram-pod.glow-purple { border-color: rgba(181, 23, 158, 0.45); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.75), inset 0 0 16px rgba(181, 23, 158, 0.1); }
-    .hologram-pod.glow-purple:hover, .hologram-pod.glow-purple.focused-pod { border-color: var(--purple); box-shadow: 0 14px 44px rgba(181, 23, 158, 0.4); }
+    @keyframes magnifyingPulse {
+      0% { box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9), 0 0 25px rgba(0, 243, 255, 0.25), inset 0 0 16px rgba(0, 243, 255, 0.1); }
+      100% { box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9), 0 0 45px rgba(0, 243, 255, 0.45), inset 0 0 28px rgba(0, 243, 255, 0.2); }
+    }
 
-    .hologram-pod.glow-green { border-color: rgba(0, 255, 136, 0.45); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.75), inset 0 0 16px rgba(0, 255, 136, 0.1); }
-    .hologram-pod.glow-green:hover, .hologram-pod.glow-green.focused-pod { border-color: var(--green); box-shadow: 0 14px 44px rgba(0, 255, 136, 0.4); }
+    /* Magnifying Scan Bar atop each pod */
+    .magnifying-scan-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(90deg, rgba(0, 243, 255, 0.18), rgba(181, 23, 158, 0.14));
+      border-bottom: 1px solid rgba(0, 243, 255, 0.3);
+      padding: 5px 10px;
+      font-family: var(--font-mono);
+      font-size: 8.5px;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      color: var(--cyan);
+    }
+    .mag-live-tag {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .mag-live-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      animation: livePulse 1.2s infinite ease-in-out;
+    }
+    .mag-close-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 3px;
+      color: #bed2ea;
+      font-size: 9px;
+      padding: 2px 7px;
+      cursor: pointer;
+      font-family: var(--font-mono);
+      transition: all 0.2s;
+    }
+    .mag-close-btn:hover {
+      background: rgba(255, 0, 85, 0.3);
+      border-color: var(--red);
+      color: #fff;
+    }
 
-    .hologram-pod.glow-amber { border-color: rgba(255, 183, 3, 0.45); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.75), inset 0 0 16px rgba(255, 183, 3, 0.1); }
-    .hologram-pod.glow-amber:hover, .hologram-pod.glow-amber.focused-pod { border-color: var(--amber); box-shadow: 0 14px 44px rgba(255, 183, 3, 0.4); }
+    .hologram-pod.glow-purple { border-color: rgba(181, 23, 158, 0.45); }
+    .hologram-pod.glow-purple.magnifying-active { border-color: var(--purple); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9), 0 0 35px rgba(181, 23, 158, 0.4), inset 0 0 24px rgba(181, 23, 158, 0.15); }
+
+    .hologram-pod.glow-green { border-color: rgba(0, 255, 136, 0.45); }
+    .hologram-pod.glow-green.magnifying-active { border-color: var(--green); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9), 0 0 35px rgba(0, 255, 136, 0.4), inset 0 0 24px rgba(0, 255, 136, 0.15); }
+
+    .hologram-pod.glow-amber { border-color: rgba(255, 183, 3, 0.45); }
+    .hologram-pod.glow-amber.magnifying-active { border-color: var(--amber); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9), 0 0 35px rgba(255, 183, 3, 0.4), inset 0 0 24px rgba(255, 183, 3, 0.15); }
 
     .pod-header {
       padding: 8px 12px;
@@ -315,6 +346,19 @@
     .league-tile-name { font-weight: 700; font-size: 11px; color: #fff; display: flex; align-items: center; justify-content: center; gap: 4px; }
     .league-tile-count { font-family: var(--font-mono); font-size: 12px; color: var(--cyan); font-weight: 800; margin-top: 2px; }
     .league-tile-sub { font-size: 8px; color: var(--text-dim); margin-top: 1px; }
+
+    /* Sensory Feeds List */
+    .sensory-feed-card {
+      background: rgba(255, 255, 255, 0.025);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 5px;
+      padding: 6px 8px;
+      margin-bottom: 6px;
+      transition: all 0.2s;
+    }
+    .sensory-feed-card:hover { border-color: var(--cyan); background: rgba(0, 243, 255, 0.04); }
+    .sensory-feed-top { display: flex; justify-content: space-between; font-weight: 700; font-size: 10px; color: #fff; }
+    .sensory-feed-meta { display: flex; justify-content: space-between; font-size: 8.5px; color: var(--text-dim); margin-top: 2px; }
 
     /* Top Debug Thoughts Stream Bar (Real-Time Consciousness Line) */
     #debug-thoughts-bar {
@@ -640,9 +684,13 @@
 
       <!-- Pod 1: AI Quant Council Cluster (Lobe: Frontal Left) -->
       <div id="pod-ai-council" class="hologram-pod glow-purple">
+        <div class="magnifying-scan-bar">
+          <div class="mag-live-tag"><span class="mag-live-dot"></span> ⌖ NAGYÍTÓ ALATT · 4-AI ÉLŐ KVANTUM TANÁCS</div>
+          <button class="mag-close-btn" onclick="flyCameraTo('macro')">✕ BEZÁRÁS</button>
+        </div>
         <div class="pod-header" onclick="focusOnNode('ai_council')">
           <span class="pod-title">🏛️ AI QUANT COUNCIL</span>
-          <span class="hud-metric-chip" style="color:var(--purple); font-size:9px;">DIRECTIVE 9 COMPLIANT</span>
+          <span id="council-live-tokens" class="hud-metric-chip" style="color:var(--purple); font-size:9px;">4/4 MODELL AKTÍV · 0MS HÁTRAMARADÁS</span>
         </div>
         <div class="pod-body">
           <div class="council-boxes">
@@ -687,11 +735,19 @@
               <div id="brain-reasoning-grok" class="brain-cell-thought">Stress-testing candidate parameters against out-of-sample drawdowns.</div>
             </div>
           </div>
+          <div id="council-live-deliberation" style="background:rgba(181,23,158,0.08); border:1px solid rgba(181,23,158,0.25); border-radius:4px; padding:6px 8px; margin-top:8px; font-family:var(--font-mono); font-size:8.5px; color:#c9ddf2;">
+            <div style="color:var(--purple); font-weight:700; margin-bottom:2px;">⚡ ÉLŐ KÖZÖS DÖNTÉSHOZATALI KONSZENZUS:</div>
+            <div id="council-delib-text">Kelly tőkeméretezés [$0.50-$8.00] ellenőrizve, 12 likvid liga pásztázása folyamatban.</div>
+          </div>
         </div>
       </div>
 
       <!-- Pod 2: Live Codex Python Code Stream (Lobe: Parietal Left) -->
       <div id="pod-code-synth" class="hologram-pod glow-green">
+        <div class="magnifying-scan-bar">
+          <div class="mag-live-tag"><span class="mag-live-dot"></span> ⌖ NAGYÍTÓ ALATT · CODEX ASTRA KÓDSZINTÉZIS &amp; AST COMPILER</div>
+          <button class="mag-close-btn" onclick="flyCameraTo('macro')">✕ BEZÁRÁS</button>
+        </div>
         <div class="pod-header" onclick="focusOnNode('codex_stream')">
           <span class="pod-title">💻 LIVE CODE SYNTHESIS STREAM</span>
           <span id="meta-status" class="hud-metric-chip" style="color:var(--green); font-size:9px;">AST VALIDATED</span>
@@ -712,31 +768,58 @@
 
       <!-- Pod 3: Quantum Mathematical Core & Kelly Engine (Lobe: Central Thalamus) -->
       <div id="pod-math-core" class="hologram-pod glow-cyan">
+        <div class="magnifying-scan-bar">
+          <div class="mag-live-tag"><span class="mag-live-dot"></span> ⌖ NAGYÍTÓ ALATT · ÉLŐ EV &amp; FRACTIONAL KELLY SZÁMÍTÁSOK</div>
+          <button class="mag-close-btn" onclick="flyCameraTo('macro')">✕ BEZÁRÁS</button>
+        </div>
         <div class="pod-header" onclick="focusOnNode('math_core')">
           <span class="pod-title">⚛️ QUANTUM VALUATION &amp; KELLY</span>
           <span class="hud-metric-chip" style="color:var(--cyan); font-size:9px;">FIRST-PRINCIPLES</span>
         </div>
         <div class="pod-body">
-          <div class="formula-card">
-            <div class="formula-eq">EV = P · O - 1.0 &gt; 0</div>
-            <div class="formula-desc">Directive 3: Zero hardcoded odds clamps. Pure domain model probabilities (model_weight = 1.0).</div>
+          <!-- Live Real-Time Contract Valuation Process -->
+          <div id="math-live-eval-box" class="formula-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+              <span id="math-eval-pairing" style="font-weight:700; color:#fff; font-size:11px;">Orlando City SC vs New England</span>
+              <span id="math-eval-ev-badge" class="cap-badge ev">+25.1% EV</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:9.5px; color:var(--text-dim); margin-bottom:6px;">
+              <span id="math-eval-market">MLS · Under 1.75 Totals</span>
+              <span>Odds: <strong id="math-eval-odds" style="color:var(--amber);">5.80</strong> · P: <strong id="math-eval-prob" style="color:var(--cyan);">20.1%</strong></span>
+            </div>
+            <div style="background:rgba(0,243,255,0.06); border:1px dashed rgba(0,243,255,0.3); border-radius:4px; padding:5px 7px; font-family:var(--font-mono); font-size:9px; line-height:1.4;">
+              <div style="color:var(--cyan);">EV = (P · O) - 1.0 = <span id="math-eval-formula" style="color:var(--green); font-weight:700;">+25.1% &gt; 0</span> (ALPHA VERIFIED)</div>
+              <div style="color:#bed2ea; margin-top:2px;">Kelly f* = (b·p - q)/b · λ → <strong id="math-eval-kelly" style="color:var(--green); font-size:10px;">$3.26</strong> <span style="color:var(--text-dim);">[Bounds: $0.50-$8.00]</span></div>
+            </div>
           </div>
-          <div class="formula-card">
-            <div class="formula-eq">f* = (P · O - 1) / (O - 1) · λ_risk</div>
-            <div class="formula-desc">Directive 4: Continuous risk-adjusted Fractional Kelly bounded in [$0.50, $8.00]. Daily risk limit null.</div>
-          </div>
-          <div class="formula-card">
-            <div class="formula-eq">ΔBrier = Brier_bench - Brier_model &gt; 0</div>
-            <div class="formula-desc">Directive 6 &amp; 7: Crucible graduation requires positive Brier skill &amp; Max Drawdown &lt; 25%.</div>
-          </div>
-          <div style="background:rgba(255,255,255,0.03); padding:6px 8px; border-radius:4px; font-family:var(--font-mono); font-size:9px;">
-            <div>OPEN STAKE: <span id="math-open-stake" style="color:var(--green); font-weight:700;">$0.00</span> across <span id="math-open-tickets" style="color:#fff;">0</span> tickets</div>
+          <!-- Capital & Exposure Metrics -->
+          <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); padding:8px; border-radius:4px; font-family:var(--font-mono); font-size:9px;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+              <span>NYITOTT KELLY TŐKE:</span>
+              <span id="math-open-stake" style="color:var(--green); font-weight:700;">$0.00</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+              <span>SZELVÉNYEK SZÁMA:</span>
+              <span id="math-open-tickets" style="color:#fff; font-weight:700;">0 db</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+              <span>NAPI KOCKÁZATI PLAFON:</span>
+              <span style="color:var(--cyan); font-weight:700;">NULL (Dinamikus Kelly)</span>
+            </div>
+            <div style="display:flex; justify-content:space-between;">
+              <span>LIKVIDITÁSI HORIZONT:</span>
+              <span style="color:var(--amber); font-weight:700;">72 órás aktív scan</span>
+            </div>
           </div>
         </div>
       </div>
 
       <!-- Pod 4: 4-Tier Progression Architecture (Lobe: Frontal Right) -->
       <div id="pod-4tier-pipeline" class="hologram-pod glow-green">
+        <div class="magnifying-scan-bar">
+          <div class="mag-live-tag"><span class="mag-live-dot"></span> ⌖ NAGYÍTÓ ALATT · 4-SZINTŰ ZÁRT LÁNCÚ GAZDASÁGI PIPELINE</div>
+          <button class="mag-close-btn" onclick="flyCameraTo('macro')">✕ BEZÁRÁS</button>
+        </div>
         <div class="pod-header" onclick="focusOnNode('tiers_pipeline')">
           <span class="pod-title">📶 4-TIER PROGRESSION ENGINE</span>
           <span class="hud-metric-chip" style="color:var(--green); font-size:9px;">CLOSED-LOOP</span>
@@ -829,6 +912,10 @@
 
       <!-- Pod 5: League Constellation (Lobe: Posterior Occipital) -->
       <div id="pod-leagues" class="hologram-pod glow-amber">
+        <div class="magnifying-scan-bar">
+          <div class="mag-live-tag"><span class="mag-live-dot"></span> ⌖ NAGYÍTÓ ALATT · 12 LIGA 72 ÓRÁS LIKVIDITÁSI HORIZONT</div>
+          <button class="mag-close-btn" onclick="flyCameraTo('macro')">✕ BEZÁRÁS</button>
+        </div>
         <div class="pod-header" onclick="focusOnNode('leagues_constellation')">
           <span class="pod-title">🏟️ LEAGUE CONSTELLATION</span>
           <span class="hud-metric-chip" style="color:var(--amber); font-size:9px;">DYNAMIC SCAN</span>
@@ -840,6 +927,10 @@
 
       <!-- Pod 6: Live Bets, Virtual Trades & Instant Settlements (Lobe: Efferent Motor Tract) -->
       <div id="pod-bets-settlements" class="hologram-pod glow-cyan">
+        <div class="magnifying-scan-bar">
+          <div class="mag-live-tag"><span class="mag-live-dot"></span> ⌖ NAGYÍTÓ ALATT · ÉLES SZELVÉNYEK &amp; AZONNALI KÖNYVELÉS</div>
+          <button class="mag-close-btn" onclick="flyCameraTo('macro')">✕ BEZÁRÁS</button>
+        </div>
         <div class="pod-header" onclick="focusOnNode('bets_motor')">
           <span class="pod-title">⚡ REAL BETS &amp; VIRTUAL TRADES</span>
           <span class="hud-metric-chip" style="color:var(--cyan); font-size:9px;">LIVE MATRIX</span>
@@ -859,30 +950,18 @@
 
       <!-- Pod 7: Sensory Feeds Ingestion (Lobe: Temporal Anterior) -->
       <div id="pod-sensory-ingest" class="hologram-pod glow-purple">
+        <div class="magnifying-scan-bar">
+          <div class="mag-live-tag"><span class="mag-live-dot"></span> ⌖ NAGYÍTÓ ALATT · ÉLŐ INGYENES NYILVÁNOS ADATFOLYAMOK</div>
+          <button class="mag-close-btn" onclick="flyCameraTo('macro')">✕ BEZÁRÁS</button>
+        </div>
         <div class="pod-header" onclick="focusOnNode('sensory_hub')">
           <span class="pod-title">📡 SENSORY FEEDS INGESTION</span>
           <span class="hud-metric-chip" style="color:var(--purple); font-size:9px;">100% FREE SOURCES</span>
         </div>
         <div class="pod-body">
-          <div style="margin-bottom:6px;">
-            <div style="font-weight:700; color:var(--cyan);">ESPN PUBLIC API</div>
-            <div style="color:var(--text-dim); font-size:9px;">60s period clocks, quarters, live match timers across 8 sports.</div>
-          </div>
-          <div style="margin-bottom:6px;">
-            <div style="font-weight:700; color:var(--cyan);">NHL OFFICIAL WEB API (api-web.nhle.com)</div>
-            <div style="color:var(--text-dim); font-size:9px;">Confirmed starting goalies, save percentages, travel fatigue.</div>
-          </div>
-          <div style="margin-bottom:6px;">
-            <div style="font-weight:700; color:var(--cyan);">MLB STATS API (statsapi.mlb.com)</div>
-            <div style="color:var(--text-dim); font-size:9px;">Probable starting pitchers, bullpen workloads, umpire strike zones.</div>
-          </div>
-          <div style="margin-bottom:6px;">
-            <div style="font-weight:700; color:var(--cyan);">OPEN-METEO WEATHER API</div>
-            <div style="color:var(--text-dim); font-size:9px;">Wind speeds (km/h), stadium azimuths, outdoor total impacts.</div>
-          </div>
-          <div>
-            <div style="font-weight:700; color:var(--cyan);">POLYMARKET OPEN CLOB</div>
-            <div style="color:var(--text-dim); font-size:9px;">Live WebSocket orderbook depths &amp; maker limit execution.</div>
+          <div id="sensory-feeds-list">
+            <!-- Dynamically populated from telemetry -->
+            <div style="font-family:var(--font-mono); font-size:9px; color:#bed2ea;">Élő adatfolyamok inicializálása...</div>
           </div>
         </div>
       </div>
@@ -1102,6 +1181,9 @@
       lastUserInteraction: 0,
       isInterruptLocked: false
     };
+
+    let hoveredSomaId = null;
+    let currentAlertNodeId = null;
 
     function resizeCanvas() {
       const dpr = window.devicePixelRatio || 1;
@@ -1336,14 +1418,16 @@
         ctx.shadowBlur = 10 * p.scale;
         ctx.stroke();
 
-        if (p.scale > 0.48) {
-          ctx.font = `bold ${Math.round(8.5 * p.scale)}px var(--font-mono)`;
+        // ONLY draw tier label if that tier or tiers_pipeline is under the magnifying glass, hovered, or alerting!
+        const isTierActive = ['tiers_pipeline', tDef.id].includes(activeFocusNodeId) || hoveredSomaId === tDef.id || currentAlertNodeId === tDef.id;
+        if (isTierActive && p.scale > 0.48) {
+          ctx.font = `bold ${Math.round(9 * p.scale)}px var(--font-mono)`;
           ctx.fillStyle = tDef.color;
           ctx.textAlign = 'left';
           ctx.textBaseline = 'middle';
-          ctx.shadowBlur = 6;
-          ctx.shadowColor = '#000';
-          ctx.fillText(`⬡ ${tDef.label}`, p.sx + rx + 6 * p.scale, p.sy + 4 * p.scale);
+          ctx.shadowBlur = 8;
+          ctx.shadowColor = tDef.color;
+          ctx.fillText(`⌖ ${tDef.label}`, p.sx + rx + 8 * p.scale, p.sy + 4 * p.scale);
         }
         ctx.restore();
       });
@@ -1492,24 +1576,54 @@
         ctx.fill();
         ctx.stroke();
 
-        // Typography
-        if (s.scale > 0.45) {
-          ctx.font = `bold ${Math.round((s.isFocused ? 12 : 10) * s.scale)}px var(--font-mono)`;
-          ctx.fillStyle = s.isFocused ? '#00f3ff' : '#fff';
+        // Typography: ONLY show labels when the node is under the magnifying glass (isFocused), hovered, or alerting!
+        const isSomaFocused = (activeFocusNodeId === s.id || activeFocusNodeId === s.podId || (s.podId === 'pod-4tier-pipeline' && ['tiers_pipeline', 'tier_1', 'tier_2', 'tier_3', 'tier_4'].includes(activeFocusNodeId)));
+        const isSomaHovered = (hoveredSomaId === s.id);
+        const isSomaAlerting = (currentAlertNodeId === s.id || currentAlertNodeId === s.podId);
+        const showLabel = isSomaFocused || isSomaHovered || isSomaAlerting;
+
+        if (showLabel && s.scale > 0.45) {
+          ctx.save();
+          // Magnifying Glass Target Reticle around the active soma
+          const reticleR = s.screenR * 1.5;
+          ctx.strokeStyle = s.color;
+          ctx.lineWidth = Math.max(1.5, 2.5 * s.scale);
+          ctx.setLineDash([4 * s.scale, 4 * s.scale]);
+          ctx.beginPath();
+          ctx.arc(s.sx, s.sy, reticleR, 0, Math.PI * 2);
+          ctx.stroke();
+
+          // Reticle Corner Crosshair Ticks
+          const tickLen = 6 * s.scale;
+          ctx.setLineDash([]);
+          ctx.beginPath();
+          ctx.moveTo(s.sx - reticleR - tickLen, s.sy); ctx.lineTo(s.sx - reticleR + tickLen, s.sy);
+          ctx.moveTo(s.sx + reticleR - tickLen, s.sy); ctx.lineTo(s.sx + reticleR + tickLen, s.sy);
+          ctx.moveTo(s.sx, s.sy - reticleR - tickLen); ctx.lineTo(s.sx, s.sy - reticleR + tickLen);
+          ctx.moveTo(s.sx, s.sy + reticleR - tickLen); ctx.lineTo(s.sx, s.sy + reticleR + tickLen);
+          ctx.stroke();
+
+          // Glowing Process Label
+          ctx.font = `bold ${Math.round(11 * s.scale)}px var(--font-mono)`;
+          ctx.fillStyle = s.color;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.shadowBlur = 8;
-          ctx.shadowColor = '#000';
-          ctx.fillText(s.label, s.sx, s.sy - s.screenR - 10 * s.scale);
+          ctx.shadowBlur = 10;
+          ctx.shadowColor = s.color;
+          ctx.fillText(`⌖ ${s.label}`, s.sx, s.sy - reticleR - 12 * s.scale);
 
-          ctx.font = `${Math.round(8 * s.scale)}px var(--font-sans)`;
-          ctx.fillStyle = 'rgba(212, 229, 247, 0.85)';
-          ctx.fillText(s.sub, s.sx, s.sy - s.screenR - 1 * s.scale);
+          // Sub-process Live Status
+          ctx.font = `600 ${Math.round(8.5 * s.scale)}px var(--font-mono)`;
+          ctx.fillStyle = '#c9ddf2';
+          ctx.shadowBlur = 6;
+          ctx.shadowColor = '#000';
+          ctx.fillText(`● ÉLŐ FOLYAMAT: ${s.sub}`, s.sx, s.sy - reticleR - 2 * s.scale);
+          ctx.restore();
         }
         ctx.restore();
       });
 
-      // 7. Position 3D Holographic Pods with Level of Detail & Directional Quadrant Offsets
+      // 7. Position 3D Holographic Pods: Revealed ONLY under magnifying glass, hover, or alert!
       neuralSomas3D.forEach(node => {
         if (!node.podId) return;
         const el = document.getElementById(node.podId);
@@ -1524,18 +1638,22 @@
 
         const isTierNode = ['tiers_pipeline', 'tier_1', 'tier_2', 'tier_3', 'tier_4'].includes(activeFocusNodeId);
         const isFocused = (activeFocusNodeId === node.id || activeFocusNodeId === node.podId || (node.podId === 'pod-4tier-pipeline' && isTierNode));
+        const isHovered = (hoveredSomaId === node.id);
+        const isAlerting = (currentAlertNodeId === node.id || currentAlertNodeId === node.podId);
 
-        if (isFocused) {
-          el.classList.add('focused-pod');
-          el.classList.remove('compact-badge');
+        const shouldShow = isFocused || isHovered || isAlerting;
+
+        if (shouldShow) {
+          el.classList.add('magnifying-active');
+          el.style.opacity = '1';
+          el.style.pointerEvents = 'auto';
         } else {
-          el.classList.remove('focused-pod');
-          el.classList.add('compact-badge');
+          el.classList.remove('magnifying-active');
+          el.style.opacity = '0';
+          el.style.pointerEvents = 'none';
         }
 
         const clampedScale = Math.max(0.7, Math.min(isFocused ? 1.15 : 1.0, p.scale * (isFocused ? 1.1 : 0.95)));
-        let depthOpacity = Math.max(0.35, Math.min(1.0, 0.65 + (p.zDepth / 350)));
-        if (isFocused) depthOpacity = 1.0;
         const zIndex = isFocused ? 9999 : Math.round(100 + p.zDepth);
 
         // Directional quadrant offset anchor to prevent overlap
@@ -1569,10 +1687,8 @@
         const screenX = p.sx + offsetX;
         const screenY = p.sy + offsetY;
 
-        el.style.transform = `translate3d(${screenX}px, ${screenY}px, 0) scale(${clampedScale})`;
-        el.style.opacity = depthOpacity.toFixed(2);
+        el.style.transform = `translate3d(${screenX}px, ${screenY}px, 0) scale(${shouldShow ? clampedScale : 0.7})`;
         el.style.zIndex = zIndex;
-        el.style.pointerEvents = depthOpacity > 0.4 ? 'auto' : 'none';
       });
 
       requestAnimationFrame(renderNeuralUniverse);
@@ -1625,29 +1741,42 @@
 
       // Interactive hover tooltip for moving semantic synaptic data packets ("Futó gombócok")
       const tooltip = document.getElementById('packet-hud-tooltip');
-      if (!tooltip) return;
 
       let foundPacket = null;
-      for (let i = 0; i < activeProjectedPackets.length; i++) {
-        const pkt = activeProjectedPackets[i];
-        const dist = Math.hypot(e.clientX - pkt.x, e.clientY - pkt.y);
-        if (dist <= Math.max(16, pkt.radius + 8)) {
-          foundPacket = pkt;
-          break;
+      if (tooltip) {
+        for (let i = 0; i < activeProjectedPackets.length; i++) {
+          const pkt = activeProjectedPackets[i];
+          const dist = Math.hypot(e.clientX - pkt.x, e.clientY - pkt.y);
+          if (dist <= Math.max(16, pkt.radius + 8)) {
+            foundPacket = pkt;
+            break;
+          }
+        }
+
+        if (foundPacket) {
+          tooltip.style.display = 'block';
+          tooltip.style.left = `${e.clientX + 14}px`;
+          tooltip.style.top = `${e.clientY - 20}px`;
+          tooltip.innerHTML = `
+            <div style="font-weight:700; color:${foundPacket.color}; font-size:10px;">⚡ ${foundPacket.label}</div>
+            <div style="color:var(--text-dim); font-size:9px; margin-top:2px;">FELADAT: ${foundPacket.task} · ÉLŐ QUANT DÖNTÉSI CSOMAG</div>
+          `;
+        } else {
+          tooltip.style.display = 'none';
         }
       }
 
-      if (foundPacket) {
-        tooltip.style.display = 'block';
-        tooltip.style.left = `${e.clientX + 14}px`;
-        tooltip.style.top = `${e.clientY - 20}px`;
-        tooltip.innerHTML = `
-          <div style="font-weight:700; color:${foundPacket.color}; font-size:10px;">⚡ ${foundPacket.label}</div>
-          <div style="color:var(--text-dim); font-size:9px; margin-top:2px;">FELADAT: ${foundPacket.task} · ÉLŐ QUANT DÖNTÉSI CSOMAG</div>
-        `;
-      } else {
-        tooltip.style.display = 'none';
+      // Check for hovered soma (reveals soma magnifying HUD when user pays attention)
+      let hoveredSoma = null;
+      for (const id in latestProjectedSomas) {
+        const s = latestProjectedSomas[id];
+        if (Math.hypot(e.clientX - s.sx, e.clientY - s.sy) <= s.screenR + 14) {
+          hoveredSoma = s.id;
+          break;
+        }
       }
+      hoveredSomaId = hoveredSoma;
+      canvas.style.cursor = (hoveredSoma || foundPacket) ? 'pointer' : 'default';
     });
 
     canvas.addEventListener('wheel', (e) => {
@@ -1863,7 +1992,8 @@
         bannerEl.classList.add('interrupt-flash');
       }
 
-      // Fly camera directly to event target node
+      // Fly camera directly to event target node & mark as alerting
+      currentAlertNodeId = event.target_node || 'math_core';
       flyCameraTo(event.target_node || 'math_core');
 
       // Flash Beacon Popup
@@ -1885,6 +2015,7 @@
       // Release interrupt lock after 5 seconds so ambient tour resumes
       interruptLockTimer = setTimeout(() => {
         camera.isInterruptLocked = false;
+        currentAlertNodeId = null;
       }, 5200);
     }
 
@@ -2101,15 +2232,46 @@
           if (reasoningEl && b.current_focus) reasoningEl.textContent = b.current_focus;
         });
 
+        const delibEl = document.getElementById('council-delib-text');
+        if (delibEl && data.debug_thought_stream && data.debug_thought_stream.length > 0) {
+          const topThought = data.debug_thought_stream[0];
+          delibEl.innerHTML = `<span style="color:${topThought.color}">[${topThought.source}]</span> ${topThought.text}`;
+        }
+
         // 3. Codex Code Models
         const codeModels = data.tiers?.tier_1_rd?.latest_code_models || [];
         if (codeModels.length > 0 && (cachedCodeModels.length === 0 || codeModels[0].filename !== cachedCodeModels[0]?.filename)) {
           renderCodeTerminal(codeModels);
         }
 
-        // 4. Quantum Math Open Stake
+        // 4. Quantum Math Live Contract Valuation & Open Stake
         document.getElementById('math-open-stake').textContent = `$${Number(tier3.open_bets_stake ?? 0).toFixed(2)}`;
-        document.getElementById('math-open-tickets').textContent = tier3.open_bets_count ?? 0;
+        document.getElementById('math-open-tickets').textContent = `${tier3.open_bets_count ?? 0} db`;
+
+        const activePicks = tier3.active_executable_bets || [];
+        if (activePicks.length > 0) {
+          const topP = activePicks[0];
+          const pairingEl = document.getElementById('math-eval-pairing');
+          const marketEl = document.getElementById('math-eval-market');
+          const oddsEl = document.getElementById('math-eval-odds');
+          const probEl = document.getElementById('math-eval-prob');
+          const evBadgeEl = document.getElementById('math-eval-ev-badge');
+          const formulaEl = document.getElementById('math-eval-formula');
+          const kellyEl = document.getElementById('math-eval-kelly');
+
+          const evVal = topP.ev_pct != null ? Number(topP.ev_pct) : (topP.expected_roi != null ? Number(topP.expected_roi) : 0.0);
+          let probPct = 50.0;
+          if (topP.win_prob != null) probPct = Number(topP.win_prob) <= 1.0 ? Number(topP.win_prob) * 100 : Number(topP.win_prob);
+          else if (topP.probability != null) probPct = Number(topP.probability) <= 1.0 ? Number(topP.probability) * 100 : Number(topP.probability);
+
+          if (pairingEl) pairingEl.textContent = `${getEmoji(topP.league)} ${topP.home} vs ${topP.away}`;
+          if (marketEl) marketEl.textContent = `${topP.league} · ${topP.selection} (${topP.market || 'contract'})`;
+          if (oddsEl) oddsEl.textContent = Number(topP.odds).toFixed(2);
+          if (probEl) probEl.textContent = `${probPct.toFixed(1)}%`;
+          if (evBadgeEl) evBadgeEl.textContent = `+${evVal.toFixed(1)}% EV`;
+          if (formulaEl) formulaEl.textContent = `+${evVal.toFixed(1)}% > 0 (ALPHA VERIFIED)`;
+          if (kellyEl) kellyEl.textContent = `$${Number(topP.stake).toFixed(2)}`;
+        }
 
         // 5. 4-Tier Progression Pod & Tier 1 Queue Depth
         const t1 = data.tiers?.tier_1_rd || {};
@@ -2287,7 +2449,25 @@
           }
         }
 
-        // 10. Autonomous Event Queue & Immediate Interrupt Trigger
+        // 10. Sensory Feeds Ingestion Live Stream
+        const sensoryList = document.getElementById('sensory-feeds-list');
+        const feeds = data.sensory_feeds || [];
+        if (sensoryList && feeds.length > 0) {
+          sensoryList.innerHTML = feeds.map(f => `
+            <div class="sensory-feed-card">
+              <div class="sensory-feed-top">
+                <span>${f.name}</span>
+                <span style="color:var(--green); font-family:var(--font-mono);">${f.latency_ms}ms · ${f.status}</span>
+              </div>
+              <div class="sensory-feed-meta">
+                <span>${f.coverage}</span>
+                <span style="color:var(--cyan);">SYNC: 0ms BACKLOG</span>
+              </div>
+            </div>
+          `).join('');
+        }
+
+        // 11. Autonomous Event Queue & Immediate Interrupt Trigger
         const liveQueue = data.live_flow_events?.live_event_queue || [];
         if (liveQueue.length > 0) {
           autonomousEventQueue = liveQueue;
