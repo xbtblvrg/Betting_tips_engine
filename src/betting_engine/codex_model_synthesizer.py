@@ -106,43 +106,74 @@ def extract_clean_code(answer: str) -> str:
     text = re.sub(r'<antThinking\b[^>]*>.*?</antThinking>', '', text, flags=re.DOTALL | re.IGNORECASE)
     text = text.strip()
 
+    code = ""
     # 1. Closed code blocks: prioritize block containing 'class '
     blocks = re.findall(r'```(?:python)?\s*\n(.*?)\n```', text, re.DOTALL | re.IGNORECASE)
     for b in blocks:
         if 'class ' in b:
-            return b.strip()
-    if blocks:
+            code = b.strip()
+            break
+    if not code and blocks:
         for b in blocks:
             if b.strip():
-                return b.strip()
+                code = b.strip()
+                break
 
-    inline_blocks = re.findall(r'```(?:python)?\s*(.*?)\s*```', text, re.DOTALL | re.IGNORECASE)
-    for b in inline_blocks:
-        if 'class ' in b:
-            return b.strip()
+    if not code:
+        inline_blocks = re.findall(r'```(?:python)?\s*(.*?)\s*```', text, re.DOTALL | re.IGNORECASE)
+        for b in inline_blocks:
+            if 'class ' in b:
+                code = b.strip()
+                break
 
     # 2. Unclosed code block: starts with ```python or ``` but never closed
-    unclosed = re.search(r'```(?:python)?\s*\n(.*)', text, re.DOTALL | re.IGNORECASE)
-    if unclosed and 'class ' in unclosed.group(1):
-        return unclosed.group(1).strip()
+    if not code:
+        unclosed = re.search(r'```(?:python)?\s*\n(.*)', text, re.DOTALL | re.IGNORECASE)
+        if unclosed and 'class ' in unclosed.group(1):
+            code = unclosed.group(1).strip()
 
     # 3. No fences: find first line of actual Python code (import, from, class, def, @)
-    lines = text.splitlines()
-    code_start_idx = None
-    for idx, line in enumerate(lines):
-        stripped = line.strip()
-        if stripped.startswith(('import ', 'from ', 'class ', 'def ', '@')):
-            code_start_idx = idx
-            break
+    if not code:
+        lines = text.splitlines()
+        code_start_idx = None
+        for idx, line in enumerate(lines):
+            stripped = line.strip()
+            if stripped.startswith(('import ', 'from ', 'class ', 'def ', '@')):
+                code_start_idx = idx
+                break
 
-    if code_start_idx is not None:
-        candidate_lines = lines[code_start_idx:]
-        cand = "\n".join(candidate_lines).strip()
-        if 'class ' in cand:
-            return cand
+        if code_start_idx is not None:
+            candidate_lines = lines[code_start_idx:]
+            cand = "\n".join(candidate_lines).strip()
+            if 'class ' in cand:
+                code = cand
 
-    # If no candidate class or code found, return empty string so AST parser fails cleanly
-    return ""
+    if not code:
+        return ""
+
+    # Auto-normalize base candidate imports if used
+    if 'DiscreteDistribution' in code or 'build_universal_score_lattice' in code or 'BaseCandidateModel' in code:
+        if 'from betting_engine.sandbox_models.base import' in code:
+            code = re.sub(
+                r'from betting_engine\.sandbox_models\.base import [^\n]+',
+                'from betting_engine.sandbox_models.base import BaseCandidateModel, DiscreteDistribution, build_universal_score_lattice',
+                code
+            )
+        elif 'from betting_engine.sandbox_models.base' not in code:
+            code = 'from betting_engine.sandbox_models.base import BaseCandidateModel, DiscreteDistribution, build_universal_score_lattice\n' + code
+
+    # Auto-normalize quant primitives imports if referenced
+    quant_names = [
+        'ClaytonCopula', 'GumbelCopula', 'FrankCopula', 'GaussianCopula',
+        'build_copula_score_lattice', 'WeibullRenewalHazard', 'ZeroInflatedPoisson',
+        'ZeroInflatedNegativeBinomial', 'JamesSteinShrinkage', 'EmpiricalBayesPoissonRate',
+        'KalmanRatingTracker', 'TemperatureScaler', 'continuous_fractional_kelly'
+    ]
+    used_primitives = [p for p in quant_names if p in code and f'import {p}' not in code and '*' not in code]
+    if used_primitives:
+        code = f"from betting_engine.quant_primitives import {', '.join(used_primitives)}\n" + code
+
+    return code
 
 
 def check_ast_safety(source_code: str) -> Tuple[bool, Optional[str], Optional[str]]:
@@ -188,6 +219,50 @@ def check_ast_safety(source_code: str) -> Tuple[bool, Optional[str], Optional[st
 
     if not candidate_class:
         return False, None, "No class inheriting from BaseCandidateModel was defined in source."
+
+    # Validate that the source code has zero undefined referenced globals via symtable
+    try:
+        import symtable
+        import builtins
+        sandbox_primitives = {
+            'BaseCandidateModel', 'DiscreteDistribution', 'build_universal_score_lattice',
+            'ClaytonCopula', 'GumbelCopula', 'FrankCopula', 'GaussianCopula',
+            'build_copula_score_lattice', 'WeibullRenewalHazard', 'ZeroInflatedPoisson',
+            'ZeroInflatedNegativeBinomial', 'JamesSteinShrinkage', 'EmpiricalBayesPoissonRate',
+            'KalmanRatingTracker', 'TemperatureScaler', 'continuous_fractional_kelly'
+        }
+        allowed_builtins = set(dir(builtins)) | {
+            '__file__', '__name__', '__doc__', '__package__', '__path__', '__class__',
+            '__spec__', '__loader__', '__builtins__', '__cached__', '__conditional_annotations__'
+        } | sandbox_primitives
+        st = symtable.symtable(source_code, '<synthesized>', 'exec')
+        top_symbols = set()
+        for sym in st.get_symbols():
+            if sym.is_assigned() or sym.is_imported() or sym.is_namespace():
+                top_symbols.add(sym.get_name())
+        has_star_import = any(
+            isinstance(node, ast.ImportFrom) and any(alias.name == '*' for alias in node.names)
+            for node in ast.walk(tree)
+        )
+        if not has_star_import:
+            undefined = []
+            def _check_table(t):
+                if t.get_name() == '__annotate__':
+                    return
+                for sym in t.get_symbols():
+                    s_name = sym.get_name()
+                    if sym.is_global() and sym.is_referenced():
+                        if s_name not in top_symbols and s_name not in allowed_builtins:
+                            undefined.append(s_name)
+                for child in t.get_children():
+                    _check_table(child)
+            _check_table(st)
+            if undefined:
+                return False, None, f"Undefined globals in synthesized code: {undefined}"
+    except SyntaxError as e:
+        return False, None, f"SyntaxError in symtable check: {e}"
+    except Exception:
+        pass
 
     return True, candidate_class, None
 

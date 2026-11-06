@@ -6,9 +6,7 @@ from typing import Any, Dict, Mapping, Optional
 import numpy as np
 from scipy.stats import nbinom, poisson
 
-from betting_engine.sandbox_models.base import BaseCandidateModel
-
-# DiscreteDistribution is supplied by the candidate execution environment.
+from betting_engine.sandbox_models.base import BaseCandidateModel, DiscreteDistribution
 
 
 class NBAQuarter2HomeTotalCandidate(BaseCandidateModel):
