@@ -1223,12 +1223,13 @@
 
     // Neural Canvas Visualizer
     const canvas = document.getElementById('neural-canvas');
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas && canvas.getContext ? canvas.getContext('2d') : null;
     let width, height;
     let particles = [];
     const PARTICLE_COUNT = 65;
 
     function resizeCanvas() {
+      if (!canvas) return;
       width = canvas.width = window.innerWidth;
       height = canvas.height = window.innerHeight;
     }
@@ -1238,8 +1239,8 @@
 
     class SynapseNode {
       constructor() {
-        this.x = Math.random() * width;
-        this.y = Math.random() * height;
+        this.x = Math.random() * (width || 800);
+        this.y = Math.random() * (height || 600);
         this.vx = (Math.random() - 0.5) * 0.7;
         this.vy = (Math.random() - 0.5) * 0.7;
         this.radius = Math.random() * 2.2 + 1;
@@ -1249,10 +1250,11 @@
       update() {
         this.x += this.vx;
         this.y += this.vy;
-        if (this.x < 0 || this.x > width) this.vx *= -1;
-        if (this.y < 0 || this.y > height) this.vy *= -1;
+        if (this.x < 0 || this.x > (width || 800)) this.vx *= -1;
+        if (this.y < 0 || this.y > (height || 600)) this.vy *= -1;
       }
       draw() {
+        if (!ctx) return;
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
         ctx.fillStyle = this.color + this.alpha + ')';
@@ -1265,6 +1267,7 @@
     }
 
     function animateNeuralSynapses() {
+      if (!ctx) return;
       ctx.clearRect(0, 0, width, height);
 
       // Draw connections
