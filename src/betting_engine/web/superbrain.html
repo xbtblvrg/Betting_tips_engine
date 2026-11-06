@@ -1465,119 +1465,169 @@
         }
 
         // 4. Tier Metrics & Conduits
-        const fv = data.funnel_velocity;
-        document.getElementById('net-velocity-badge').textContent = `Net Velocity: ${fv.net_market_expansion_rate_per_hour >= 0 ? '+' : ''}${fv.net_market_expansion_rate_per_hour.toFixed(2)}/h`;
+        const fv = data.funnel_velocity || {};
+        const hourly = fv.hourly_velocity || {};
+        const inventory = fv.active_inventory || {};
+        const windows = fv.windows || {};
+        const w24h = windows['24h'] || {};
+
+        const netExp = Number(fv.net_market_expansion_rate_per_hour ?? hourly.net_expansion_velocity_per_hour_24h ?? 0);
+        const netBadge = document.getElementById('net-velocity-badge');
+        if (netBadge) {
+          netBadge.textContent = `Net Velocity: ${netExp >= 0 ? '+' : ''}${netExp.toFixed(2)}/h`;
+        }
 
         // T1
-        document.getElementById('t1-rate-badge').textContent = `${fv.model_synthesis_rate_per_hour.toFixed(1)} model/h`;
-        document.getElementById('t1-synth-rate').textContent = `${fv.model_synthesis_rate_per_hour.toFixed(1)}/h`;
-        document.getElementById('t1-total-synth').textContent = fv.total_synthesized_models;
+        const t1SynthRate = Number(fv.model_synthesis_rate_per_hour ?? hourly.models_synthesized_per_hour_24h ?? data.tiers?.tier_1_rd?.synthesis_rate_per_hour ?? 0);
+        const t1TotalSynth = Number(fv.total_synthesized_models ?? w24h.syntheses_count ?? data.tiers?.tier_1_rd?.active_models_synthesized ?? 0);
+        const t1RateBadge = document.getElementById('t1-rate-badge');
+        if (t1RateBadge) t1RateBadge.textContent = `${t1SynthRate.toFixed(1)} model/h`;
+        const t1RateEl = document.getElementById('t1-synth-rate');
+        if (t1RateEl) t1RateEl.textContent = `${t1SynthRate.toFixed(1)}/h`;
+        const t1TotalEl = document.getElementById('t1-total-synth');
+        if (t1TotalEl) t1TotalEl.textContent = t1TotalSynth;
 
         const t1Stream = document.getElementById('t1-syntheses-stream');
-        t1Stream.innerHTML = '';
-        data.tiers.tier_1_rd.recent_syntheses.forEach(s => {
-          const row = document.createElement('div');
-          row.className = 'stream-row';
-          row.innerHTML = `
-            <div class="stream-row-head">
-              <span class="stream-name" title="${s.class_name}">${s.class_name}</span>
-              <span class="stream-badge ${s.crucible_passed ? 'pos' : 'neg'}">${s.crucible_passed ? 'CRUCIBLE PASS' : 'REJECTED'}</span>
-            </div>
-            <div class="stream-desc">${s.league} · ${s.scope} · ${s.family} | OOS ROI: ${s.oos_roi}%</div>
-          `;
-          t1Stream.appendChild(row);
-        });
+        if (t1Stream) {
+          t1Stream.innerHTML = '';
+          const synths = data.tiers?.tier_1_rd?.recent_syntheses || [];
+          synths.forEach(s => {
+            const row = document.createElement('div');
+            row.className = 'stream-row';
+            row.innerHTML = `
+              <div class="stream-row-head">
+                <span class="stream-name" title="${s.class_name}">${s.class_name}</span>
+                <span class="stream-badge ${s.crucible_passed ? 'pos' : 'neg'}">${s.crucible_passed ? 'CRUCIBLE PASS' : 'REJECTED'}</span>
+              </div>
+              <div class="stream-desc">${s.league} · ${s.scope} · ${s.family} | OOS ROI: ${s.oos_roi}%</div>
+            `;
+            t1Stream.appendChild(row);
+          });
+        }
 
         // T2
-        document.getElementById('t2-rate-badge').textContent = `${fv.tier_2_admission_rate_per_hour.toFixed(2)} adm/h`;
-        document.getElementById('t2-demoted-count').textContent = fv.demoted_incubator_markets_count;
-        document.getElementById('t2-pass-pct').textContent = `${fv.crucible_admission_rate_pct.toFixed(1)}%`;
+        const t2AdmRate = Number(fv.tier_2_admission_rate_per_hour ?? hourly.tier2_admissions_per_hour_24h ?? data.tiers?.tier_2_incubator?.admission_rate_per_hour ?? 0);
+        const t2DemotedCount = Number(fv.demoted_incubator_markets_count ?? inventory.tier2_shadow_incubator_count ?? data.tiers?.tier_2_incubator?.demoted_markets_count ?? 0);
+        const t2PassPct = Number(fv.crucible_admission_rate_pct ?? hourly.crucible_pass_rate_pct_24h ?? data.tiers?.tier_2_incubator?.crucible_pass_rate_pct ?? 0);
+
+        const t2RateBadge = document.getElementById('t2-rate-badge');
+        if (t2RateBadge) t2RateBadge.textContent = `${t2AdmRate.toFixed(2)} adm/h`;
+        const t2DemEl = document.getElementById('t2-demoted-count');
+        if (t2DemEl) t2DemEl.textContent = t2DemotedCount;
+        const t2PassEl = document.getElementById('t2-pass-pct');
+        if (t2PassEl) t2PassEl.textContent = `${t2PassPct.toFixed(1)}%`;
 
         const t2Stream = document.getElementById('t2-incubating-stream');
-        t2Stream.innerHTML = '';
-        data.tiers.tier_2_incubator.top_candidates.forEach(c => {
-          const row = document.createElement('div');
-          row.className = 'stream-row';
-          row.innerHTML = `
-            <div class="stream-row-head">
-              <span class="stream-name" title="${c.class_name}">${c.class_name}</span>
-              <span class="stream-badge neutral">${c.status}</span>
-            </div>
-            <div class="stream-desc">${c.league} · ${c.family} | Settled: ${c.settled}/25 | ROI: ${c.roi}%</div>
-          `;
-          t2Stream.appendChild(row);
-        });
+        if (t2Stream) {
+          t2Stream.innerHTML = '';
+          const topCands = data.tiers?.tier_2_incubator?.top_candidates || [];
+          topCands.forEach(c => {
+            const row = document.createElement('div');
+            row.className = 'stream-row';
+            row.innerHTML = `
+              <div class="stream-row-head">
+                <span class="stream-name" title="${c.class_name}">${c.class_name}</span>
+                <span class="stream-badge neutral">${c.status}</span>
+              </div>
+              <div class="stream-desc">${c.league} · ${c.family} | Settled: ${c.settled}/25 | ROI: ${c.roi}%</div>
+            `;
+            t2Stream.appendChild(row);
+          });
+        }
 
         // T3
-        document.getElementById('t3-rate-badge').textContent = `${fv.tier_3_graduation_rate_per_hour.toFixed(2)} grad/h`;
-        document.getElementById('t3-grad-count').textContent = fv.active_graduated_markets_count;
-        document.getElementById('t3-open-count').textContent = data.tiers.tier_3_stake.open_bets_count;
+        const t3GradRate = Number(fv.tier_3_graduation_rate_per_hour ?? hourly.tier3_graduations_per_hour_24h ?? data.tiers?.tier_3_stake?.graduation_rate_per_hour ?? 0);
+        const t3GradCount = Number(fv.active_graduated_markets_count ?? inventory.tier3_production_graduated_count ?? data.tiers?.tier_3_stake?.active_graduated_markets_count ?? 0);
+        const t3OpenCount = Number(data.tiers?.tier_3_stake?.open_bets_count ?? 0);
+
+        const t3RateBadge = document.getElementById('t3-rate-badge');
+        if (t3RateBadge) t3RateBadge.textContent = `${t3GradRate.toFixed(2)} grad/h`;
+        const t3GradEl = document.getElementById('t3-grad-count');
+        if (t3GradEl) t3GradEl.textContent = t3GradCount;
+        const t3OpenEl = document.getElementById('t3-open-count');
+        if (t3OpenEl) t3OpenEl.textContent = t3OpenCount;
 
         const t3Stream = document.getElementById('t3-bets-stream');
-        t3Stream.innerHTML = '';
-        data.tiers.tier_3_stake.active_executable_bets.slice(0, 5).forEach(b => {
-          const row = document.createElement('div');
-          row.className = 'stream-row';
-          row.innerHTML = `
-            <div class="stream-row-head">
-              <span class="stream-name">${b.home} vs ${b.away}</span>
-              <span class="stream-badge pos">$${b.stake.toFixed(2)}</span>
-            </div>
-            <div class="stream-desc">${b.league} · ${b.selection} @ ${b.odds.toFixed(2)} (EV: +${b.expected_roi}%)</div>
-          `;
-          t3Stream.appendChild(row);
-        });
+        if (t3Stream) {
+          t3Stream.innerHTML = '';
+          const openBets = data.tiers?.tier_3_stake?.active_executable_bets || [];
+          openBets.slice(0, 5).forEach(b => {
+            const row = document.createElement('div');
+            row.className = 'stream-row';
+            row.innerHTML = `
+              <div class="stream-row-head">
+                <span class="stream-name">${b.home} vs ${b.away}</span>
+                <span class="stream-badge pos">$${Number(b.stake || 0).toFixed(2)}</span>
+              </div>
+              <div class="stream-desc">${b.league} · ${b.selection} @ ${Number(b.odds || 0).toFixed(2)} (EV: +${b.expected_roi}%)</div>
+            `;
+            t3Stream.appendChild(row);
+          });
+        }
 
         // T4
-        document.getElementById('t4-filled-count').textContent = data.tiers.tier_4_polymarket.summary.filled?.count || 0;
-        const polyWon = data.tiers.tier_4_polymarket.summary.won?.pnl || 0;
-        const polyLost = data.tiers.tier_4_polymarket.summary.lost?.pnl || 0;
+        const polyFilled = data.tiers?.tier_4_polymarket?.summary?.filled?.count || 0;
+        const polyWon = data.tiers?.tier_4_polymarket?.summary?.won?.pnl || 0;
+        const polyLost = data.tiers?.tier_4_polymarket?.summary?.lost?.pnl || 0;
         const netPoly = polyWon + polyLost;
-        document.getElementById('t4-pnl-val').textContent = `${netPoly >= 0 ? '+' : ''}$${netPoly.toFixed(2)}`;
+        const t4FilledEl = document.getElementById('t4-filled-count');
+        if (t4FilledEl) t4FilledEl.textContent = polyFilled;
+        const t4PnlEl = document.getElementById('t4-pnl-val');
+        if (t4PnlEl) t4PnlEl.textContent = `${netPoly >= 0 ? '+' : ''}$${netPoly.toFixed(2)}`;
 
         const t4Stream = document.getElementById('t4-orders-stream');
-        t4Stream.innerHTML = '';
-        data.tiers.tier_4_polymarket.recent_orders.forEach(o => {
-          const row = document.createElement('div');
-          row.className = 'stream-row';
-          row.innerHTML = `
-            <div class="stream-row-head">
-              <span class="stream-name">${o.game}</span>
-              <span class="stream-badge amber">${o.status}</span>
-            </div>
-            <div class="stream-desc">${o.league} · ${o.selection} @ Poly ${o.price} | EV: +${o.ev}%</div>
-          `;
-          t4Stream.appendChild(row);
-        });
+        if (t4Stream) {
+          t4Stream.innerHTML = '';
+          const polyOrders = data.tiers?.tier_4_polymarket?.recent_orders || [];
+          polyOrders.forEach(o => {
+            const row = document.createElement('div');
+            row.className = 'stream-row';
+            row.innerHTML = `
+              <div class="stream-row-head">
+                <span class="stream-name">${o.game}</span>
+                <span class="stream-badge amber">${o.status}</span>
+              </div>
+              <div class="stream-desc">${o.league} · ${o.selection} @ Poly ${o.price} | EV: +${o.ev}%</div>
+            `;
+            t4Stream.appendChild(row);
+          });
+        }
 
         // Demotions Return Loop Chips
         const dChips = document.getElementById('demotions-chips-container');
-        dChips.innerHTML = '';
-        data.tiers.demotion_loop.recent_demotions.forEach(d => {
-          const chip = document.createElement('span');
-          chip.className = 'demoted-chip';
-          chip.textContent = `${d.segment_key} (${d.reason.split(':')[0]})`;
-          dChips.appendChild(chip);
-        });
+        if (dChips) {
+          dChips.innerHTML = '';
+          const demotions = data.tiers?.demotion_loop?.recent_demotions || [];
+          demotions.forEach(d => {
+            const chip = document.createElement('span');
+            chip.className = 'demoted-chip';
+            chip.textContent = `${d.segment_key} (${(d.reason || '').split(':')[0]})`;
+            dChips.appendChild(chip);
+          });
+        }
 
         // 5. Active Executable Recommendations Full Table
         const fullRecsStream = document.getElementById('active-bets-full-stream');
-        fullRecsStream.innerHTML = '';
-        document.getElementById('live-recs-badge').textContent = `${data.tiers.tier_3_stake.active_executable_bets.length} Recommendations`;
-        data.tiers.tier_3_stake.active_executable_bets.forEach(b => {
-          const row = document.createElement('div');
-          row.className = 'stream-row';
-          row.innerHTML = `
-            <div class="stream-row-head">
-              <span class="stream-name" style="max-width:280px;">${b.home} vs ${b.away}</span>
-              <span class="stream-badge pos">Stake: $${b.stake.toFixed(2)}</span>
-            </div>
-            <div class="stream-desc">
-              <strong style="color:#fff;">${b.league}</strong> · ${b.market} · <span style="color:var(--cyan); font-weight:700;">${b.selection}</span> @ <strong>${b.odds.toFixed(2)}</strong> | EV: <span style="color:var(--green);">+${b.expected_roi}%</span> | P: ${b.probability}%
-            </div>
-          `;
-          fullRecsStream.appendChild(row);
-        });
+        if (fullRecsStream) {
+          fullRecsStream.innerHTML = '';
+          const fullRecs = data.tiers?.tier_3_stake?.active_executable_bets || [];
+          const liveRecsBadge = document.getElementById('live-recs-badge');
+          if (liveRecsBadge) liveRecsBadge.textContent = `${fullRecs.length} Recommendations`;
+          fullRecs.forEach(b => {
+            const row = document.createElement('div');
+            row.className = 'stream-row';
+            row.innerHTML = `
+              <div class="stream-row-head">
+                <span class="stream-name" style="max-width:280px;">${b.home} vs ${b.away}</span>
+                <span class="stream-badge pos">Stake: $${Number(b.stake || 0).toFixed(2)}</span>
+              </div>
+              <div class="stream-desc">
+                <strong style="color:#fff;">${b.league}</strong> · ${b.market} · <span style="color:var(--cyan); font-weight:700;">${b.selection}</span> @ <strong>${Number(b.odds || 0).toFixed(2)}</strong> | EV: <span style="color:var(--green);">+${b.expected_roi}%</span> | P: ${b.probability}%
+              </div>
+            `;
+            fullRecsStream.appendChild(row);
+          });
+        }
 
         // 6. Live Settlements & Popups
         const settlementsStream = document.getElementById('settlements-full-stream');

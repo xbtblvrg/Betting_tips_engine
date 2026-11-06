@@ -69,6 +69,34 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
 
     # 1. Funnel Velocity
     funnel_report = get_latest_funnel_velocity_report(d)
+    hourly = funnel_report.get("hourly_velocity", {}) if isinstance(funnel_report, dict) else {}
+    inventory = funnel_report.get("active_inventory", {}) if isinstance(funnel_report, dict) else {}
+    windows = funnel_report.get("windows", {}) if isinstance(funnel_report, dict) else {}
+    w24h = windows.get("24h", {}) if isinstance(windows, dict) else {}
+
+    synth_rate_per_hour = float(hourly.get("models_synthesized_per_hour_24h", w24h.get("synthesis_rate_per_hour", 0.0)) or 0.0)
+    tier2_adm_per_hour = float(hourly.get("tier2_admissions_per_hour_24h", w24h.get("tier2_admission_rate_per_hour", 0.0)) or 0.0)
+    tier3_grad_per_hour = float(hourly.get("tier3_graduations_per_hour_24h", w24h.get("tier3_graduation_rate_per_hour", 0.0)) or 0.0)
+    tier1_dem_per_hour = float(hourly.get("tier1_demotions_per_hour_24h", w24h.get("tier1_demotion_rate_per_hour", 0.0)) or 0.0)
+    tier4_prom_per_hour = float(hourly.get("tier4_promotions_per_hour_24h", w24h.get("tier4_promotion_rate_per_hour", 0.0)) or 0.0)
+    net_expansion_rate = float(hourly.get("net_expansion_velocity_per_hour_24h", w24h.get("net_graduation_velocity_per_hour", 0.0)) or 0.0)
+    crucible_pass_pct = float(hourly.get("crucible_pass_rate_pct_24h", w24h.get("crucible_pass_rate_pct", 0.0)) or 0.0)
+
+    demoted_markets_count = int(inventory.get("tier2_shadow_incubator_count", 0) or 0)
+    graduated_markets_count = int(inventory.get("tier3_production_graduated_count", 0) or 0)
+    total_synthesized = int(w24h.get("syntheses_count", 0) or 0)
+
+    if isinstance(funnel_report, dict):
+        funnel_report["model_synthesis_rate_per_hour"] = synth_rate_per_hour
+        funnel_report["tier_2_admission_rate_per_hour"] = tier2_adm_per_hour
+        funnel_report["tier_3_graduation_rate_per_hour"] = tier3_grad_per_hour
+        funnel_report["tier_1_demotion_rate_per_hour"] = tier1_dem_per_hour
+        funnel_report["tier_4_alpha_promotion_rate_per_hour"] = tier4_prom_per_hour
+        funnel_report["net_market_expansion_rate_per_hour"] = net_expansion_rate
+        funnel_report["crucible_admission_rate_pct"] = crucible_pass_pct
+        funnel_report["demoted_incubator_markets_count"] = demoted_markets_count
+        funnel_report["active_graduated_markets_count"] = graduated_markets_count
+        funnel_report["total_synthesized_models"] = total_synthesized
 
     # 2. Daemon & Clog Diagnostics
     daemons = get_daemon_status()
@@ -391,23 +419,23 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
         "tiers": {
             "tier_1_rd": {
                 "name": "Tier 1: R&D Historical Training & Edge Discovery",
-                "active_models_synthesized": funnel_report.get("total_synthesized_models", 0),
-                "synthesis_rate_per_hour": funnel_report.get("model_synthesis_rate_per_hour", 0.0),
+                "active_models_synthesized": total_synthesized,
+                "synthesis_rate_per_hour": synth_rate_per_hour,
                 "historical_match_backtest_pool": "97,000+ settled matches",
                 "recent_syntheses": syntheses
             },
             "tier_2_incubator": {
                 "name": "Tier 2: Shadow Incubator ($0.00 Live Forward Validation)",
-                "demoted_markets_count": funnel_report.get("demoted_incubator_markets_count", 0),
-                "admission_rate_per_hour": funnel_report.get("tier_2_admission_rate_per_hour", 0.0),
-                "crucible_pass_rate_pct": funnel_report.get("crucible_admission_rate_pct", 0.0),
+                "demoted_markets_count": demoted_markets_count,
+                "admission_rate_per_hour": tier2_adm_per_hour,
+                "crucible_pass_rate_pct": crucible_pass_pct,
                 "virtual_stake": "$0.00 (Zero bankroll risk)",
                 "top_candidates": incubating_candidates
             },
             "tier_3_stake": {
                 "name": "Tier 3: Stake Sportsbook Production ($0.50–$8.00 Kelly)",
-                "active_graduated_markets_count": funnel_report.get("active_graduated_markets_count", 0),
-                "graduation_rate_per_hour": funnel_report.get("tier_3_graduation_rate_per_hour", 0.0),
+                "active_graduated_markets_count": graduated_markets_count,
+                "graduation_rate_per_hour": tier3_grad_per_hour,
                 "today_volume_picks": today_bets_count,
                 "daily_volume_target": 100,
                 "today_volume_progress_pct": round(min(100.0, (today_bets_count / 100.0) * 100), 1),
@@ -418,14 +446,14 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
             },
             "tier_4_polymarket": {
                 "name": "Tier 4: Live Proven Alpha & Polymarket CLOB Execution",
-                "promotion_rate_per_hour": funnel_report.get("tier_4_alpha_promotion_rate_per_hour", 0.0),
+                "promotion_rate_per_hour": tier4_prom_per_hour,
                 "execution_mode": "Maker Limit Orders (0% Taker Fee)",
                 "summary": poly_summary,
                 "recent_orders": recent_poly_orders
             },
             "demotion_loop": {
                 "name": "Interim Tourniquet & Demotion Return Loop (Tier 3 -> Tier 1)",
-                "demotion_rate_per_hour": funnel_report.get("tier_1_demotion_rate_per_hour", 0.0),
+                "demotion_rate_per_hour": tier1_dem_per_hour,
                 "tourniquet_clamp": "$0.50 emergency clamp -> $0.00 quarantine",
                 "trigger_condition": "Rolling ROI < -3.0% over 4+ games",
                 "recent_demotions": demotions
