@@ -91,7 +91,7 @@ def maintain(root=DATA):
                         conn.execute("VACUUM")
                 except Exception:
                     pass
-                conn.execute('PRAGMA wal_checkpoint(TRUNCATE)')
+                conn.execute('PRAGMA wal_checkpoint(PASSIVE)')
         except Exception:
             pass
 
