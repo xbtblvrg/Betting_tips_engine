@@ -27,6 +27,32 @@ log = logging.getLogger(__name__)
 
 BUDAPEST_TZ = timezone(timedelta(hours=1))
 
+LEAGUE_EMOJIS = {
+    "NBA": "🏀",
+    "WNBA": "🏀",
+    "NCAAB": "🏀",
+    "NFL": "🏈",
+    "NCAAF": "🏈",
+    "NHL": "🏒",
+    "MLB": "⚾",
+    "MLS": "⚽",
+    "EPL": "⚽",
+    "UCL": "⚽",
+    "LA_LIGA": "⚽",
+    "SERIE_A": "⚽",
+    "BUNDESLIGA": "⚽",
+    "SOCCER": "⚽",
+    "ATP": "🎾",
+    "WTA": "🎾",
+    "TENNIS": "🎾"
+}
+
+def get_league_emoji(league: Optional[str]) -> str:
+    if not league:
+        return "⚡"
+    clean = str(league).upper().strip()
+    return LEAGUE_EMOJIS.get(clean, "🏆")
+
 
 def get_budapest_today_start_utc() -> str:
     now_bp = datetime.now(BUDAPEST_TZ)
@@ -260,6 +286,7 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
     graduations: List[Dict[str, Any]] = []
     demotions: List[Dict[str, Any]] = []
     syntheses: List[Dict[str, Any]] = []
+    virtual_paper_trades: List[Dict[str, Any]] = []
     incubating_candidates: List[Dict[str, Any]] = []
     graduated_markets_list: List[Dict[str, Any]] = []
     incubating_markets_list: List[Dict[str, Any]] = []
@@ -299,6 +326,30 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
                         "segment_key": r[0], "league": r[1], "scope": r[2], "family": r[3],
                         "demoted_at": r[4], "rolling_roi": round(r[5] * 100, 2), "rolling_pnl": round(r[6], 2),
                         "reason": r[7], "incubation_phase": r[8]
+                    }
+                    for r in c.fetchall()
+                ]
+
+                # Recent virtual / test paper trades ($0.00 in Tier 2 Shadow Incubator)
+                c.execute("""
+                    SELECT id, league, selection, odds, model_prob, ev, status, result, pnl, model_id, captured_at
+                    FROM incubated_wagers
+                    ORDER BY id DESC LIMIT 12
+                """)
+                virtual_paper_trades = [
+                    {
+                        "id": r[0],
+                        "league": r[1] or "Unknown",
+                        "emoji": get_league_emoji(r[1]),
+                        "selection": r[2] or "",
+                        "odds": round(r[3], 2) if r[3] is not None else 0.0,
+                        "model_prob": round(r[4] * 100, 1) if r[4] is not None else 0.0,
+                        "ev_pct": round(r[5] * 100, 1) if r[5] is not None else 0.0,
+                        "status": r[6],
+                        "result": r[7] or r[6],
+                        "pnl": round(r[8], 2) if r[8] is not None else 0.0,
+                        "model_id": r[9] or "candidate_model",
+                        "captured_at": r[10]
                     }
                     for r in c.fetchall()
                 ]
@@ -626,6 +677,130 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
         }
     ]
 
+    # Build Unified Live Event Stream for Camera Director & Autonomous Focus
+    live_event_queue: List[Dict[str, Any]] = []
+
+    # 1. Crucible Graduations (Tier 2 -> Tier 3)
+    for g in graduations:
+        leg = g.get("league", "UNKNOWN")
+        live_event_queue.append({
+            "id": f"grad_{g.get('segment_key')}",
+            "type": "crucible_graduation",
+            "target_node": "tiers_pipeline",
+            "title": "CRUCIBLE GRADUATION (TIER 2 → TIER 3)",
+            "subtitle": f"{g.get('segment_key')}",
+            "league": leg,
+            "emoji": get_league_emoji(leg),
+            "badge": f"+{g.get('roi', 0.0):.1f}% ROI",
+            "badge_color": "green",
+            "details": f"Passed Crucible with {g.get('sample_size', 0)} matches, ΔBrier: +{g.get('delta_brier', 0.0):.4f}",
+            "timestamp": g.get("graduated_at") or now_utc.isoformat()
+        })
+
+    # 2. Demotions & Tourniquet Clamps (Tier 3 -> Tier 1)
+    for d_item in demotions:
+        leg = d_item.get("league", "UNKNOWN")
+        live_event_queue.append({
+            "id": f"dem_{d_item.get('segment_key')}",
+            "type": "demotion_tourniquet",
+            "target_node": "tiers_pipeline",
+            "title": "TOURNIQUET CLAMP & DEMOTION",
+            "subtitle": f"{d_item.get('segment_key')}",
+            "league": leg,
+            "emoji": get_league_emoji(leg),
+            "badge": f"ROI {d_item.get('rolling_roi', 0.0):.1f}%",
+            "badge_color": "red",
+            "details": f"$0.50 clamp -> $0.00 shadow quarantine. Reason: {d_item.get('reason', 'Wobble')}",
+            "timestamp": d_item.get("demoted_at") or now_utc.isoformat()
+        })
+
+    # 3. Real Settled Bets
+    for s in recent_settled[:6]:
+        leg = s.get("league", "UNKNOWN")
+        is_win = s.get("result") == "won" or s.get("status") == "won" or (s.get("pnl", 0) > 0)
+        live_event_queue.append({
+            "id": f"settle_{s.get('id')}",
+            "type": "bet_settlement",
+            "target_node": "bets_motor",
+            "title": "WIN SETTLED 🟢" if is_win else "LOSS SETTLED 🔴",
+            "subtitle": f"{s.get('home')} vs {s.get('away')} ({s.get('selection')})",
+            "league": leg,
+            "emoji": get_league_emoji(leg),
+            "badge": f"{'+' if is_win else ''}${s.get('pnl', 0.0):.2f}",
+            "badge_color": "green" if is_win else "red",
+            "details": f"Odds {s.get('odds', 0.0):.2f} · Stake ${s.get('stake', 0.0):.2f} · Status: {s.get('result', s.get('status'))}",
+            "timestamp": s.get("settled_at") or s.get("created_at") or now_utc.isoformat()
+        })
+
+    # 4. Real Open Bets (Funded Stake Picks)
+    for b in open_bets[:4]:
+        leg = b.get("league", "UNKNOWN")
+        live_event_queue.append({
+            "id": f"funded_{b.get('id')}",
+            "type": "real_bet_issued",
+            "target_node": "bets_motor",
+            "title": "FUNDED STAKE EXECUTION INSTRUCTION",
+            "subtitle": f"{b.get('home')} vs {b.get('away')} ({b.get('selection')})",
+            "league": leg,
+            "emoji": get_league_emoji(leg),
+            "badge": f"${b.get('stake', 0.0):.2f} (EV +{b.get('ev_pct', 0.0):.1f}%)",
+            "badge_color": "cyan",
+            "details": f"Odds {b.get('odds', 0.0):.2f} · Kelly Sizing · Win Prob: {b.get('probability', 0.0):.1f}%",
+            "timestamp": b.get("created_at") or now_utc.isoformat()
+        })
+
+    # 5. Virtual Paper Trades ($0.00 Shadow Incubator)
+    for v in virtual_paper_trades[:4]:
+        leg = v.get("league", "UNKNOWN")
+        live_event_queue.append({
+            "id": f"virtual_{v.get('id')}",
+            "type": "virtual_paper_trade",
+            "target_node": "tier_2",
+            "title": "SHADOW INCUBATOR TEST TRADE ($0.00)",
+            "subtitle": f"{v.get('selection')}",
+            "league": leg,
+            "emoji": get_league_emoji(leg),
+            "badge": f"Odds {v.get('odds', 0.0):.2f} (EV +{v.get('ev_pct', 0.0):.1f}%)",
+            "badge_color": "amber",
+            "details": f"Model: {v.get('model_id')} · Simulated PnL: ${v.get('pnl', 0.0):.2f}",
+            "timestamp": v.get("captured_at") or now_utc.isoformat()
+        })
+
+    # 6. Codex Generated Python Models
+    for m in latest_code_models[:3]:
+        target_seg = m.get("target_segment", "")
+        leg = target_seg.split()[0] if target_seg else "MATH"
+        live_event_queue.append({
+            "id": f"code_{m.get('filename')}",
+            "type": "code_synthesis",
+            "target_node": "codex_stream",
+            "title": "CODEX ASTRA MODEL SYNTHESIS COMPILED",
+            "subtitle": f"{m.get('class_name')} ({target_seg})",
+            "league": leg,
+            "emoji": get_league_emoji(leg),
+            "badge": f"{m.get('lines', 0)} LINES",
+            "badge_color": "green",
+            "details": "AST syntax validated · Generated for candidate pool",
+            "timestamp": m.get("mtime") or now_utc.isoformat()
+        })
+
+    # 7. Polymarket CLOB Maker Orders
+    for po in recent_poly_orders[:3]:
+        leg = po.get("league", "UNKNOWN")
+        live_event_queue.append({
+            "id": f"poly_{po.get('created_at', '')}_{po.get('selection', '')}",
+            "type": "polymarket_order",
+            "target_node": "tier_4",
+            "title": "POLYMARKET CLOB MAKER LIMIT ORDER",
+            "subtitle": f"{po.get('game')} ({po.get('selection')})",
+            "league": leg,
+            "emoji": get_league_emoji(leg),
+            "badge": f"${po.get('stake', 0.0):.2f} MAKER",
+            "badge_color": "cyan",
+            "details": f"Odds {po.get('odds', 0.0):.2f} · EV +{po.get('ev', 0.0):.1f}% · 0% taker fee",
+            "timestamp": po.get("created_at") or now_utc.isoformat()
+        })
+
     return {
         "timestamp_utc": now_utc.isoformat(),
         "budapest_time": now_bp.strftime("%Y-%m-%d %H:%M:%S UTC+1"),
@@ -657,7 +832,8 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
                 "crucible_pass_rate_pct": crucible_pass_pct,
                 "virtual_stake": "$0.00 (Zero bankroll risk)",
                 "top_candidates": incubating_candidates,
-                "incubating_markets_list": incubating_markets_list
+                "incubating_markets_list": incubating_markets_list,
+                "virtual_paper_trades": virtual_paper_trades
             },
             "tier_3_stake": {
                 "name": "Tier 3: Stake Sportsbook Production ($0.50–$8.00 Kelly)",
@@ -708,6 +884,8 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
             "recent_settlements": recent_settled,
             "recent_graduations": graduations,
             "recent_demotions": demotions,
-            "recent_syntheses": syntheses
+            "recent_syntheses": syntheses,
+            "virtual_paper_trades": virtual_paper_trades,
+            "live_event_queue": live_event_queue
         }
     }

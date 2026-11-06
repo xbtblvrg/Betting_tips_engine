@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>SUPERBRAIN · Living 3D/4D Quant Neural Network & Operations Matrix</title>
+  <title>SUPERBRAIN · Cosmic 3D/4D Quant Neural Universe & Operations Cockpit</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
   <style>
     :root {
-      --bg-dark: #02040a;
+      --bg-dark: #010206;
       --cyan: #00f3ff;
       --green: #00ff88;
       --purple: #b5179e;
@@ -32,7 +32,7 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    /* 3D Neural Viewport Stage */
+    /* Cosmic Deep Space Viewport */
     #superbrain-viewport {
       position: fixed;
       top: 0;
@@ -41,7 +41,7 @@
       height: 100vh;
       overflow: hidden;
       perspective: 1200px;
-      background: radial-gradient(circle at 50% 50%, #060a18 0%, #020409 70%, #010205 100%);
+      background: radial-gradient(circle at 50% 50%, #060a1c 0%, #02040c 60%, #010104 100%);
     }
 
     #neuralCanvas {
@@ -57,7 +57,7 @@
 
     #neuralCanvas:active { cursor: grabbing; }
 
-    /* Floating 3D Spatial Stage Layer for Holographic Pods */
+    /* 3D Spatial Holographic Pods Layer */
     #spatial-pods-layer {
       position: absolute;
       top: 0;
@@ -74,14 +74,14 @@
       top: 0;
       left: 0;
       pointer-events: auto;
-      background: rgba(6, 11, 24, 0.85);
+      background: rgba(5, 10, 24, 0.88);
       border: 1px solid rgba(0, 243, 255, 0.35);
       border-radius: 8px;
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7), inset 0 0 16px rgba(0, 243, 255, 0.08);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.75), inset 0 0 16px rgba(0, 243, 255, 0.08);
       transform-origin: center center;
-      transition: border-color 0.25s ease, box-shadow 0.25s ease, opacity 0.3s ease;
+      transition: border-color 0.25s ease, box-shadow 0.25s ease, opacity 0.35s ease;
       will-change: transform, opacity;
       max-height: 480px;
       display: flex;
@@ -90,22 +90,22 @@
 
     .hologram-pod:hover {
       border-color: var(--cyan);
-      box-shadow: 0 12px 40px rgba(0, 243, 255, 0.3), inset 0 0 20px rgba(0, 243, 255, 0.15);
+      box-shadow: 0 14px 44px rgba(0, 243, 255, 0.35), inset 0 0 22px rgba(0, 243, 255, 0.15);
       z-index: 9999 !important;
     }
 
-    .hologram-pod.glow-purple { border-color: rgba(181, 23, 158, 0.4); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7), inset 0 0 16px rgba(181, 23, 158, 0.1); }
-    .hologram-pod.glow-purple:hover { border-color: var(--purple); box-shadow: 0 12px 40px rgba(181, 23, 158, 0.35); }
+    .hologram-pod.glow-purple { border-color: rgba(181, 23, 158, 0.45); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.75), inset 0 0 16px rgba(181, 23, 158, 0.1); }
+    .hologram-pod.glow-purple:hover { border-color: var(--purple); box-shadow: 0 14px 44px rgba(181, 23, 158, 0.4); }
 
-    .hologram-pod.glow-green { border-color: rgba(0, 255, 136, 0.4); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7), inset 0 0 16px rgba(0, 255, 136, 0.1); }
-    .hologram-pod.glow-green:hover { border-color: var(--green); box-shadow: 0 12px 40px rgba(0, 255, 136, 0.35); }
+    .hologram-pod.glow-green { border-color: rgba(0, 255, 136, 0.45); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.75), inset 0 0 16px rgba(0, 255, 136, 0.1); }
+    .hologram-pod.glow-green:hover { border-color: var(--green); box-shadow: 0 14px 44px rgba(0, 255, 136, 0.4); }
 
-    .hologram-pod.glow-amber { border-color: rgba(255, 183, 3, 0.4); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7), inset 0 0 16px rgba(255, 183, 3, 0.1); }
-    .hologram-pod.glow-amber:hover { border-color: var(--amber); box-shadow: 0 12px 40px rgba(255, 183, 3, 0.35); }
+    .hologram-pod.glow-amber { border-color: rgba(255, 183, 3, 0.45); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.75), inset 0 0 16px rgba(255, 183, 3, 0.1); }
+    .hologram-pod.glow-amber:hover { border-color: var(--amber); box-shadow: 0 14px 44px rgba(255, 183, 3, 0.4); }
 
     .pod-header {
       padding: 8px 12px;
-      background: rgba(255, 255, 255, 0.03);
+      background: rgba(255, 255, 255, 0.035);
       border-bottom: 1px solid rgba(255, 255, 255, 0.08);
       display: flex;
       align-items: center;
@@ -136,16 +136,16 @@
     .pod-body::-webkit-scrollbar { width: 4px; }
     .pod-body::-webkit-scrollbar-thumb { background: rgba(0, 243, 255, 0.25); border-radius: 2px; }
 
-    /* Pod Specific Widths & Layouts */
+    /* Pod Specific Dimensions */
     #pod-ai-council { width: 340px; }
-    #pod-code-synth { width: 380px; }
+    #pod-code-synth { width: 400px; }
     #pod-math-core { width: 320px; }
-    #pod-4tier-pipeline { width: 340px; }
-    #pod-leagues { width: 300px; }
-    #pod-bets-settlements { width: 350px; }
+    #pod-4tier-pipeline { width: 350px; }
+    #pod-leagues { width: 310px; }
+    #pod-bets-settlements { width: 380px; }
     #pod-sensory-ingest { width: 300px; }
 
-    /* Council Grid */
+    /* Council Cells */
     .council-boxes {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -167,7 +167,7 @@
     .brain-cell-status { font-family: var(--font-mono); font-size: 9px; margin-top: 4px; font-weight: 600; }
     .brain-cell-thought { font-size: 10px; color: #bed2ea; margin-top: 4px; line-height: 1.3; }
 
-    /* Code Terminal Pod */
+    /* Code Terminal */
     .code-tabs-strip {
       display: flex;
       gap: 4px;
@@ -179,7 +179,7 @@
     .code-tab-pill {
       font-family: var(--font-mono);
       font-size: 9px;
-      padding: 2px 6px;
+      padding: 2px 7px;
       border-radius: 4px;
       background: rgba(255, 255, 255, 0.05);
       border: 1px solid rgba(255, 255, 255, 0.1);
@@ -194,8 +194,8 @@
       font-weight: 700;
     }
     .code-view-pre {
-      background: #020307;
-      border: 1px solid rgba(255, 255, 255, 0.05);
+      background: #020308;
+      border: 1px solid rgba(255, 255, 255, 0.06);
       border-radius: 4px;
       padding: 8px;
       font-family: var(--font-mono);
@@ -213,7 +213,7 @@
     .code-str { color: #ffb703; }
     .code-cmt { color: #6272a4; font-style: italic; }
 
-    /* Math Formulas Pod */
+    /* Math Formulas */
     .formula-card {
       background: rgba(0, 243, 255, 0.05);
       border: 1px solid rgba(0, 243, 255, 0.2);
@@ -230,7 +230,7 @@
     }
     .formula-desc { font-size: 10px; color: var(--text-dim); line-height: 1.35; }
 
-    /* 4-Tier Progression Pod */
+    /* 4-Tier Cards */
     .tier-step-card {
       background: rgba(255, 255, 255, 0.02);
       border-left: 3px solid #7086a3;
@@ -248,7 +248,7 @@
     .tier-header-row { display: flex; justify-content: space-between; font-weight: 700; font-size: 11px; }
     .tier-sub-row { font-size: 10px; color: var(--text-dim); display: flex; justify-content: space-between; margin-top: 2px; }
 
-    /* Bets & Settlements Pod */
+    /* Bets & Settlements Capsules */
     .bet-capsule {
       background: rgba(255, 255, 255, 0.025);
       border: 1px solid rgba(255, 255, 255, 0.06);
@@ -262,7 +262,7 @@
     .bet-capsule.is-loss { border-left: 3px solid var(--red); }
     .bet-cap-top { display: flex; justify-content: space-between; font-weight: 700; font-size: 11px; }
     .bet-cap-meta { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-dim); margin-top: 2px; }
-    .bet-cap-badges { display: flex; gap: 4px; margin-top: 4px; font-family: var(--font-mono); font-size: 9px; }
+    .bet-cap-badges { display: flex; gap: 4px; margin-top: 4px; font-family: var(--font-mono); font-size: 9px; align-items: center; }
     .cap-badge { padding: 1px 5px; border-radius: 3px; font-weight: 600; background: rgba(255, 255, 255, 0.06); }
     .cap-badge.odds { color: var(--amber); border: 1px solid rgba(255, 183, 3, 0.3); }
     .cap-badge.stake { color: var(--green); border: 1px solid rgba(0, 255, 136, 0.3); }
@@ -286,11 +286,57 @@
       border-color: var(--cyan);
       background: rgba(0, 243, 255, 0.08);
     }
-    .league-tile-name { font-weight: 700; font-size: 11px; color: #fff; }
+    .league-tile-name { font-weight: 700; font-size: 11px; color: #fff; display: flex; align-items: center; justify-content: center; gap: 4px; }
     .league-tile-count { font-family: var(--font-mono); font-size: 12px; color: var(--cyan); font-weight: 800; margin-top: 2px; }
     .league-tile-sub { font-size: 8px; color: var(--text-dim); margin-top: 1px; }
 
-    /* Top Glass Cyber HUD (Non-obtrusive overlay) */
+    /* Floating Autonomous Event Spotlight Beacon (Center HUD Pop-up) */
+    #autonomous-event-beacon {
+      position: fixed;
+      top: 64px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-20px);
+      z-index: 2000;
+      background: rgba(6, 12, 28, 0.94);
+      border: 1px solid var(--cyan);
+      box-shadow: 0 0 32px rgba(0, 243, 255, 0.4), inset 0 0 16px rgba(0, 243, 255, 0.15);
+      border-radius: 8px;
+      padding: 10px 18px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      max-width: 90vw;
+    }
+
+    #autonomous-event-beacon.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+      pointer-events: auto;
+    }
+
+    .beacon-emoji-box {
+      font-size: 26px;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 6px;
+      padding: 6px 10px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .beacon-info { display: flex; flex-direction: column; gap: 2px; }
+    .beacon-title { font-weight: 800; font-size: 12px; letter-spacing: 0.5px; font-family: var(--font-mono); }
+    .beacon-sub { font-size: 11px; color: var(--text); }
+    .beacon-detail { font-size: 10px; color: var(--text-dim); }
+
+    /* Top Glass Cyber HUD */
     .top-glass-hud {
       position: fixed;
       top: 0;
@@ -446,7 +492,7 @@
     .toast-msg.loss { border-left-color: var(--red); }
     @keyframes toastIn { from { transform: translateX(50px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
-    /* Responsive adjustments */
+    /* Responsive */
     @media (max-width: 900px) {
       .bottom-camera-dock {
         width: 96vw;
@@ -644,20 +690,22 @@
         </div>
       </div>
 
-      <!-- Pod 6: Live Bets & Instant Settlements (Lobe: Efferent Motor Tract) -->
+      <!-- Pod 6: Live Bets, Virtual Trades & Instant Settlements (Lobe: Efferent Motor Tract) -->
       <div id="pod-bets-settlements" class="hologram-pod glow-cyan">
         <div class="pod-header" onclick="focusOnNode('bets_motor')">
-          <span class="pod-title">⚡ ACTIVE BETS &amp; SETTLEMENTS</span>
-          <span class="hud-metric-chip" style="color:var(--cyan); font-size:9px;">REAL-TIME LEDGER</span>
+          <span class="pod-title">⚡ REAL BETS &amp; VIRTUAL TRADES</span>
+          <span class="hud-metric-chip" style="color:var(--cyan); font-size:9px;">LIVE MATRIX</span>
         </div>
         <div class="pod-body">
           <!-- Toggle Tabs -->
-          <div style="display:flex; gap:6px; margin-bottom:8px;">
-            <button id="tab-btn-active-bets" class="code-tab-pill active" onclick="switchBetFeed('active')">ACTIVE BETS (<span id="count-active-bets">0</span>)</button>
-            <button id="tab-btn-settled-bets" class="code-tab-pill" onclick="switchBetFeed('settled')">SETTLED WAGERS (<span id="count-settled-bets">0</span>)</button>
+          <div style="display:flex; gap:4px; margin-bottom:8px;">
+            <button id="tab-btn-active-bets" class="code-tab-pill active" onclick="switchBetFeed('active')">ACTIVE (<span id="count-active-bets">0</span>)</button>
+            <button id="tab-btn-settled-bets" class="code-tab-pill" onclick="switchBetFeed('settled')">SETTLED (<span id="count-settled-bets">0</span>)</button>
+            <button id="tab-btn-virtual-bets" class="code-tab-pill" onclick="switchBetFeed('virtual')">VIRTUAL ($0.00) (<span id="count-virtual-bets">0</span>)</button>
           </div>
           <div id="feed-active-container"></div>
           <div id="feed-settled-container" style="display:none;"></div>
+          <div id="feed-virtual-container" style="display:none;"></div>
         </div>
       </div>
 
@@ -694,12 +742,25 @@
     </div>
   </div>
 
+  <!-- Autonomous Event Spotlight Beacon (Center HUD Pop-up) -->
+  <div id="autonomous-event-beacon">
+    <div id="beacon-emoji" class="beacon-emoji-box">⚡</div>
+    <div class="beacon-info">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span id="beacon-title" class="beacon-title" style="color:var(--cyan);">LIVE SYSTEM EVENT</span>
+        <span id="beacon-badge" class="cap-badge ev">+15.8% ROI</span>
+      </div>
+      <div id="beacon-sub" class="beacon-sub">Charlotte Hornets vs Boston Celtics</div>
+      <div id="beacon-detail" class="beacon-detail">Passed Crucible with 36 matches, ΔBrier: +0.0152</div>
+    </div>
+  </div>
+
   <!-- Top Glass Cyber HUD -->
   <header class="top-glass-hud">
     <div class="hud-left-sec">
       <div class="hud-brand-title">
         <span class="hud-pulse-ring"></span>
-        <span>SUPERBRAIN · NEURAL MATRIX</span>
+        <span>SUPERBRAIN · NEURAL UNIVERSE</span>
       </div>
       <div class="hud-metric-chip">
         <span style="color:var(--text-dim);">BUDAPEST:</span>
@@ -747,8 +808,9 @@
     <button class="nav-pill-btn" onclick="flyCameraTo('math_core')"><span>⚛️</span> MATH &amp; KELLY</button>
     <button class="nav-pill-btn" onclick="flyCameraTo('tiers_pipeline')"><span>📶</span> 4-TIER PIPELINE</button>
     <button class="nav-pill-btn" onclick="flyCameraTo('leagues_constellation')"><span>🏟️</span> LEAGUES</button>
-    <button class="nav-pill-btn" onclick="flyCameraTo('bets_motor')"><span>⚡</span> BETS &amp; SETTLEMENTS</button>
+    <button class="nav-pill-btn" onclick="flyCameraTo('bets_motor')"><span>⚡</span> REAL &amp; VIRTUAL</button>
     <button class="nav-pill-btn" onclick="flyCameraTo('sensory_hub')"><span>📡</span> SENSORY</button>
+    <button id="btn-auto-director" class="nav-pill-btn" onclick="toggleAutoDirector()" style="color:var(--cyan); border-color:rgba(0,243,255,0.4);"><span>🎬</span> AUTO-DIRECTOR: ON</button>
     <button id="btn-auto-orbit" class="nav-pill-btn" onclick="toggleAutoOrbit()"><span>↺</span> AUTO-ORBIT: ON</button>
   </nav>
 
@@ -758,6 +820,20 @@
   <!-- Pure Native 3D/4D Vector Neural Engine & Telemetry Logic -->
   <script>
     'use strict';
+
+    // League Emojis Map
+    const LEAGUE_EMOJIS = {
+      'NBA': '🏀', 'WNBA': '🏀', 'NCAAB': '🏀',
+      'NFL': '🏈', 'NCAAF': '🏈',
+      'NHL': '🏒',
+      'MLB': '⚾',
+      'MLS': '⚽', 'EPL': '⚽', 'UCL': '⚽', 'LA_LIGA': '⚽', 'SERIE_A': '⚽', 'BUNDESLIGA': '⚽', 'SOCCER': '⚽',
+      'ATP': '🎾', 'WTA': '🎾', 'TENNIS': '🎾'
+    };
+    function getEmoji(league) {
+      if (!league) return '⚡';
+      return LEAGUE_EMOJIS[league.toUpperCase().trim()] || '🏆';
+    }
 
     // ==========================================
     // AUDIO SYNTHESIZER (WEB AUDIO API)
@@ -815,12 +891,27 @@
           osc.stop(now + i * 0.1 + 0.3);
         });
       }
+      playBeacon() {
+        if (!this.enabled || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, now);
+        osc.frequency.exponentialRampToValueAtTime(1320, now + 0.15);
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.2);
+      }
     }
     const audioSynth = new CyberAudioSynth();
     document.getElementById('btn-audio-toggle')?.addEventListener('click', () => audioSynth.toggle());
 
     // ==========================================
-    // 3D SPATIAL NEURAL GRAPH ENGINE
+    // 3D SPATIAL NEURAL UNIVERSE ENGINE
     // ==========================================
     const canvas = document.getElementById('neuralCanvas');
     const ctx = canvas.getContext('2d');
@@ -838,7 +929,9 @@
       targetPanX: 0,
       targetPanY: 0,
       focalLength: 850,
-      autoOrbit: true
+      autoOrbit: true,
+      autoDirector: true,
+      lastUserInteraction: 0
     };
 
     function resizeCanvas() {
@@ -850,47 +943,57 @@
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
 
+    // Cosmic Starfield Background Particles (Parallax Cosmos)
+    const starfield = [];
+    for (let i = 0; i < 220; i++) {
+      starfield.push({
+        x: (Math.random() - 0.5) * 1600,
+        y: (Math.random() - 0.5) * 1600,
+        z: (Math.random() - 0.5) * 1600,
+        size: 0.8 + Math.random() * 1.8,
+        alpha: 0.2 + Math.random() * 0.7,
+        color: Math.random() > 0.4 ? '#00f3ff' : (Math.random() > 0.5 ? '#b5179e' : '#fff')
+      });
+    }
+
     // 3D Spatial Neural Somas / Hyper-Nodes
-    // Coordinates normalized in range [-350, 350]
     const neuralSomas3D = [
-      // Central Quantum Thalamus (Math & Kelly Engine)
-      { id: 'math_core', label: 'QUANTUM THALAMUS', sub: 'EV & FRACTIONAL KELLY', x: 0, y: 0, z: 0, r: 28, color: '#00f3ff', podId: 'pod-math-core' },
+      // Central Quantum Thalamus
+      { id: 'math_core', label: 'QUANTUM THALAMUS', sub: 'EV & FRACTIONAL KELLY', x: 0, y: 0, z: 0, r: 30, color: '#00f3ff', podId: 'pod-math-core' },
 
       // AI Quant Council Cortex (Frontal Left)
-      { id: 'ai_council', label: 'AI QUANT COUNCIL', sub: '4-BRAIN DELIBERATION', x: -220, y: -110, z: 20, r: 24, color: '#b5179e', podId: 'pod-ai-council' },
-      { id: 'agy', label: 'GEMINI AGY', sub: 'LEAD ARCHITECT', x: -280, y: -160, z: -20, r: 16, color: '#00f3ff' },
-      { id: 'claude', label: 'CLAUDE OPUS', sub: 'SPORTS MECHANICS', x: -300, y: -90, z: 50, r: 15, color: '#ffb703' },
-      { id: 'codex', label: 'CODEX ASTRA', sub: 'KERNEL SYNTHESIS', x: -270, y: -30, z: -40, r: 16, color: '#00ff88' },
-      { id: 'grok', label: 'GROK 4.7', sub: 'RED-TEAM AUDITOR', x: -310, y: 30, z: 30, r: 14, color: '#ff0055' },
+      { id: 'ai_council', label: 'AI QUANT COUNCIL', sub: '4-BRAIN DELIBERATION', x: -230, y: -110, z: 20, r: 25, color: '#b5179e', podId: 'pod-ai-council' },
+      { id: 'agy', label: 'GEMINI AGY', sub: 'LEAD ARCHITECT', x: -290, y: -160, z: -20, r: 16, color: '#00f3ff' },
+      { id: 'claude', label: 'CLAUDE OPUS', sub: 'SPORTS MECHANICS', x: -310, y: -90, z: 50, r: 15, color: '#ffb703' },
+      { id: 'codex', label: 'CODEX ASTRA', sub: 'KERNEL SYNTHESIS', x: -280, y: -30, z: -40, r: 16, color: '#00ff88' },
+      { id: 'grok', label: 'GROK 4.7', sub: 'RED-TEAM AUDITOR', x: -320, y: 30, z: 30, r: 14, color: '#ff0055' },
 
       // Codex Python Synthesis Stream (Parietal Left)
-      { id: 'codex_stream', label: 'CODEX SYNTHESIS STREAM', sub: 'AST PYTHON MODELS', x: -200, y: 150, z: -30, r: 22, color: '#00ff88', podId: 'pod-code-synth' },
+      { id: 'codex_stream', label: 'CODEX SYNTHESIS STREAM', sub: 'AST PYTHON MODELS', x: -210, y: 150, z: -30, r: 24, color: '#00ff88', podId: 'pod-code-synth' },
 
       // 4-Tier Progression Pipeline (Frontal Right)
-      { id: 'tiers_pipeline', label: '4-TIER PIPELINE', sub: 'CLOSED-LOOP RECOVERY', x: 220, y: -100, z: 20, r: 25, color: '#00ff88', podId: 'pod-4tier-pipeline' },
-      { id: 'tier_1', label: 'TIER 1 R&D', sub: '97K+ MATCH POOL', x: 280, y: -170, z: -30, r: 16, color: '#b5179e' },
-      { id: 'tier_2', label: 'TIER 2 INCUBATOR', sub: '$0.00 SHADOW', x: 310, y: -100, z: 40, r: 16, color: '#ffb703' },
-      { id: 'tier_3', label: 'TIER 3 STAKE', sub: 'KELLY FUNDED', x: 290, y: -30, z: -20, r: 18, color: '#00ff88' },
-      { id: 'tier_4', label: 'TIER 4 POLYMARKET', sub: 'MAKER ALPHA', x: 310, y: 40, z: 30, r: 16, color: '#00f3ff' },
+      { id: 'tiers_pipeline', label: '4-TIER PIPELINE', sub: 'CLOSED-LOOP RECOVERY', x: 230, y: -100, z: 20, r: 26, color: '#00ff88', podId: 'pod-4tier-pipeline' },
+      { id: 'tier_1', label: 'TIER 1 R&D', sub: '97K+ MATCH POOL', x: 290, y: -170, z: -30, r: 16, color: '#b5179e' },
+      { id: 'tier_2', label: 'TIER 2 INCUBATOR', sub: '$0.00 SHADOW', x: 320, y: -100, z: 40, r: 17, color: '#ffb703' },
+      { id: 'tier_3', label: 'TIER 3 STAKE', sub: 'KELLY FUNDED', x: 300, y: -30, z: -20, r: 19, color: '#00ff88' },
+      { id: 'tier_4', label: 'TIER 4 POLYMARKET', sub: 'MAKER ALPHA', x: 320, y: 40, z: 30, r: 16, color: '#00f3ff' },
 
-      // Efferent Motor Tract: Active Bets & Settlements (Motor Right)
-      { id: 'bets_motor', label: 'EFFERENT MOTOR TRACT', sub: 'ACTIVE BETS & RESULTS', x: 190, y: 160, z: -30, r: 24, color: '#00f3ff', podId: 'pod-bets-settlements' },
+      // Efferent Motor Tract: Active Bets & Settlements
+      { id: 'bets_motor', label: 'EFFERENT MOTOR TRACT', sub: 'ACTIVE BETS & RESULTS', x: 200, y: 160, z: -30, r: 25, color: '#00f3ff', podId: 'pod-bets-settlements' },
 
       // League Constellation (Occipital Lower)
-      { id: 'leagues_constellation', label: 'LEAGUE CONSTELLATION', sub: 'LIQUID COVERAGE', x: 0, y: 220, z: 50, r: 24, color: '#ffb703', podId: 'pod-leagues' },
+      { id: 'leagues_constellation', label: 'LEAGUE CONSTELLATION', sub: 'LIQUID COVERAGE', x: 0, y: 230, z: 50, r: 25, color: '#ffb703', podId: 'pod-leagues' },
 
       // Sensory Feeds Ingestion (Anterior Upper)
-      { id: 'sensory_hub', label: 'SENSORY INGESTION', sub: 'ESPN, NHL, MLB, WEATHER', x: 0, y: -220, z: -40, r: 22, color: '#7086a3', podId: 'pod-sensory-ingest' }
+      { id: 'sensory_hub', label: 'SENSORY INGESTION', sub: 'ESPN, NHL, MLB, WEATHER', x: 0, y: -230, z: -40, r: 23, color: '#7086a3', podId: 'pod-sensory-ingest' }
     ];
 
-    // Synaptic Axon Connections
+    // Synaptic Axon Connections (Curved Splines)
     const neuralAxons = [
-      // Sensory feeds into Thalamus & AI Council
       { from: 'sensory_hub', to: 'math_core', color: '#00f3ff', strength: 2.2 },
       { from: 'sensory_hub', to: 'ai_council', color: '#b5179e', strength: 1.8 },
       { from: 'sensory_hub', to: 'leagues_constellation', color: '#7086a3', strength: 1.2 },
 
-      // AI Council Internal Commissural Fibers
       { from: 'ai_council', to: 'agy', color: '#00f3ff', strength: 2.0 },
       { from: 'ai_council', to: 'claude', color: '#ffb703', strength: 1.8 },
       { from: 'ai_council', to: 'codex', color: '#00ff88', strength: 2.0 },
@@ -899,63 +1002,52 @@
       { from: 'claude', to: 'codex', color: '#ffb703', strength: 1.4 },
       { from: 'codex', to: 'grok', color: '#ff0055', strength: 1.6 },
 
-      // Codex into Synthesis Stream
       { from: 'codex', to: 'codex_stream', color: '#00ff88', strength: 2.5 },
       { from: 'codex_stream', to: 'tier_1', color: '#b5179e', strength: 2.0 },
 
-      // AI Council into Central Math Core
       { from: 'ai_council', to: 'math_core', color: '#00f3ff', strength: 2.5 },
       { from: 'math_core', to: 'tiers_pipeline', color: '#00ff88', strength: 2.5 },
 
-      // 4-Tier Progression Ladder
       { from: 'tiers_pipeline', to: 'tier_1', color: '#b5179e', strength: 1.8 },
       { from: 'tier_1', to: 'tier_2', color: '#ffb703', strength: 2.2 },
       { from: 'tier_2', to: 'tier_3', color: '#00ff88', strength: 2.5 },
       { from: 'tier_3', to: 'tier_4', color: '#00f3ff', strength: 2.2 },
 
-      // Closed-Loop Tourniquet Feedback Arc (Tier 3 back to Tier 1)
       { from: 'tier_3', to: 'tier_1', color: '#ff0055', strength: 1.8, dashed: true },
 
-      // Execution Tract
       { from: 'tier_3', to: 'bets_motor', color: '#00ff88', strength: 2.8 },
       { from: 'tier_4', to: 'bets_motor', color: '#00f3ff', strength: 2.0 },
       { from: 'math_core', to: 'bets_motor', color: '#00f3ff', strength: 2.0 },
 
-      // League Integration
       { from: 'leagues_constellation', to: 'math_core', color: '#ffb703', strength: 2.0 },
       { from: 'leagues_constellation', to: 'tiers_pipeline', color: '#ffb703', strength: 1.5 }
     ];
 
-    // 4D Action Potential Waves (Quantum Photon Pulses)
+    // 4D Action Potential Waves
     const actionPotentials = [];
-    const MAX_PHOTONS = 120;
-    for (let i = 0; i < MAX_PHOTONS; i++) {
+    for (let i = 0; i < 140; i++) {
       actionPotentials.push({
         axonIdx: Math.floor(Math.random() * neuralAxons.length),
         progress: Math.random(),
-        speed: 0.003 + Math.random() * 0.007,
-        size: 2.0 + Math.random() * 2.5,
-        tailLength: 6 + Math.floor(Math.random() * 8)
+        speed: 0.0035 + Math.random() * 0.008,
+        size: 2.0 + Math.random() * 2.5
       });
     }
 
     // 3D Matrix Projection Function
     function project3D(x, y, z, cx, cy) {
-      // Rotation Yaw (around Y axis)
       const cosY = Math.cos(camera.yaw);
       const sinY = Math.sin(camera.yaw);
       let x1 = x * cosY + z * sinY;
       let y1 = y;
       let z1 = -x * sinY + z * cosY;
 
-      // Rotation Pitch (around X axis)
       const cosP = Math.cos(camera.pitch);
       const sinP = Math.sin(camera.pitch);
       let x2 = x1;
       let y2 = y1 * cosP - z1 * sinP;
       let z2 = y1 * sinP + z1 * cosP;
 
-      // Camera focal projection
       const dist = camera.focalLength + z2;
       if (dist <= 10) return { visible: false };
 
@@ -963,18 +1055,13 @@
       const sx = cx + (x2 + camera.panX) * scale;
       const sy = cy + (y2 + camera.panY) * scale;
 
-      return {
-        visible: true,
-        sx,
-        sy,
-        scale,
-        zDepth: z2
-      };
+      return { visible: true, sx, sy, scale, zDepth: z2 };
     }
 
-    // Main 3D Animation & Rendering Loop (60 FPS)
+    // Main 3D Animation & Rendering Loop
     let globalPulseTick = 0;
     let latestProjectedSomas = {};
+
     function renderNeuralUniverse() {
       globalPulseTick += 0.025;
 
@@ -985,8 +1072,8 @@
       camera.panX += (camera.targetPanX - camera.panX) * 0.06;
       camera.panY += (camera.targetPanY - camera.panY) * 0.06;
 
-      if (camera.autoOrbit) {
-        camera.targetYaw += 0.0018;
+      if (camera.autoOrbit && Date.now() - camera.lastUserInteraction > 3000) {
+        camera.targetYaw += 0.0016;
       }
 
       const w = window.innerWidth;
@@ -996,11 +1083,24 @@
 
       ctx.clearRect(0, 0, w, h);
 
-      // 1. Project all somas in 3D
+      // 1. Draw Cosmic Starfield Background
+      starfield.forEach(st => {
+        const p = project3D(st.x, st.y, st.z, cx, cy);
+        if (p.visible && p.scale > 0) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(p.sx, p.sy, Math.max(0.6, st.size * p.scale), 0, Math.PI * 2);
+          ctx.fillStyle = st.color;
+          ctx.globalAlpha = Math.max(0.1, Math.min(0.85, st.alpha * (p.scale * 1.2)));
+          ctx.fill();
+          ctx.restore();
+        }
+      });
+
+      // 2. Project all neural somas
       const projectedSomas = {};
       neuralSomas3D.forEach(node => {
-        // Subtle organic membrane breathing oscillation
-        const breath = Math.sin(globalPulseTick * 1.5 + node.x * 0.02) * 2.0;
+        const breath = Math.sin(globalPulseTick * 1.5 + node.x * 0.02) * 2.2;
         const p = project3D(node.x, node.y, node.z, cx, cy);
         if (p.visible) {
           projectedSomas[node.id] = {
@@ -1009,31 +1109,31 @@
             sy: p.sy,
             scale: p.scale,
             zDepth: p.zDepth,
-            screenR: Math.max(4, (node.r + breath) * p.scale)
+            screenR: Math.max(5, (node.r + breath) * p.scale)
           };
         }
       });
       latestProjectedSomas = projectedSomas;
 
-      // 2. Draw Synaptic Axons with Dynamic Perspective
+      // 3. Draw Organic Curved Synaptic Axons with Dynamic Depth
       neuralAxons.forEach((axon, idx) => {
         const pA = projectedSomas[axon.from];
         const pB = projectedSomas[axon.to];
         if (!pA || !pB) return;
 
         const avgZ = (pA.zDepth + pB.zDepth) / 2;
-        const depthAlpha = Math.max(0.12, Math.min(0.7, 0.45 + (avgZ / 400)));
+        const depthAlpha = Math.max(0.12, Math.min(0.75, 0.45 + (avgZ / 400)));
 
         ctx.save();
         ctx.beginPath();
         ctx.moveTo(pA.sx, pA.sy);
 
-        // Gentle curved axon spine
-        const midX = (pA.sx + pB.sx) / 2 + Math.sin(globalPulseTick + idx) * 8 * pA.scale;
-        const midY = (pA.sy + pB.sy) / 2 + Math.cos(globalPulseTick + idx) * 8 * pA.scale;
+        // Curved harmonic spline
+        const midX = (pA.sx + pB.sx) / 2 + Math.sin(globalPulseTick + idx) * 10 * pA.scale;
+        const midY = (pA.sy + pB.sy) / 2 + Math.cos(globalPulseTick + idx) * 10 * pA.scale;
         ctx.quadraticCurveTo(midX, midY, pB.sx, pB.sy);
 
-        if (axon.dashed) ctx.setLineDash([4, 4]);
+        if (axon.dashed) ctx.setLineDash([5, 5]);
         ctx.strokeStyle = axon.color;
         ctx.globalAlpha = depthAlpha;
         ctx.lineWidth = Math.max(1, axon.strength * ((pA.scale + pB.scale) / 2));
@@ -1041,7 +1141,7 @@
         ctx.restore();
       });
 
-      // 3. Draw 4D Action Potential Waves (Quantum Photons)
+      // 4. Draw 4D Action Potential Waves
       actionPotentials.forEach(ap => {
         const axon = neuralAxons[ap.axonIdx];
         if (!axon) return;
@@ -1058,7 +1158,6 @@
         const t = ap.progress;
         const midX = (pA.sx + pB.sx) / 2;
         const midY = (pA.sy + pB.sy) / 2;
-        // Bezier interpolation
         const px = (1 - t) * (1 - t) * pA.sx + 2 * (1 - t) * t * midX + t * t * pB.sx;
         const py = (1 - t) * (1 - t) * pA.sy + 2 * (1 - t) * t * midY + t * t * pB.sy;
         const pScale = (pA.scale + pB.scale) / 2;
@@ -1074,22 +1173,21 @@
         ctx.restore();
       });
 
-      // 4. Draw Neural Somas (Crystalline Nucleus + Breathing Corona)
-      // Sort by depth so far nodes draw behind near nodes
+      // 5. Draw Neural Somas (Crystalline Nucleus + Breathing Corona)
       const sortedSomas = Object.values(projectedSomas).sort((a, b) => b.zDepth - a.zDepth);
       sortedSomas.forEach(s => {
         const depthAlpha = Math.max(0.2, Math.min(1.0, 0.6 + (s.zDepth / 400)));
 
         ctx.save();
-        // Outer Corona Aura
-        const grad = ctx.createRadialGradient(s.sx, s.sy, s.screenR * 0.2, s.sx, s.sy, s.screenR * 2.2);
+        // Corona Aura
+        const grad = ctx.createRadialGradient(s.sx, s.sy, s.screenR * 0.2, s.sx, s.sy, s.screenR * 2.4);
         grad.addColorStop(0, s.color);
         grad.addColorStop(0.5, s.color + '44');
         grad.addColorStop(1, 'transparent');
         ctx.fillStyle = grad;
         ctx.globalAlpha = depthAlpha * 0.75;
         ctx.beginPath();
-        ctx.arc(s.sx, s.sy, s.screenR * 2.2, 0, Math.PI * 2);
+        ctx.arc(s.sx, s.sy, s.screenR * 2.4, 0, Math.PI * 2);
         ctx.fill();
 
         // Inner Nucleus
@@ -1104,7 +1202,7 @@
         ctx.fill();
         ctx.stroke();
 
-        // Node Label Typography
+        // Typography
         if (s.scale > 0.45) {
           ctx.font = `bold ${Math.round(10 * s.scale)}px var(--font-mono)`;
           ctx.fillStyle = '#fff';
@@ -1121,7 +1219,7 @@
         ctx.restore();
       });
 
-      // 5. Position 3D Holographic Pods Locked to 3D Soma Positions
+      // 6. Position 3D Holographic Pods Locked to 3D Coordinates
       neuralSomas3D.forEach(node => {
         if (!node.podId) return;
         const el = document.getElementById(node.podId);
@@ -1134,12 +1232,10 @@
           return;
         }
 
-        // Adjust pod scale and opacity based on 3D depth
         const clampedScale = Math.max(0.65, Math.min(1.05, p.scale));
         const depthOpacity = Math.max(0.3, Math.min(1.0, 0.65 + (p.zDepth / 350)));
         const zIndex = Math.round(100 + p.zDepth);
 
-        // Position slightly offset so soma remains clearly visible
         const offsetX = 35 * clampedScale;
         const offsetY = -40 * clampedScale;
         const screenX = p.sx + offsetX;
@@ -1156,7 +1252,7 @@
     requestAnimationFrame(renderNeuralUniverse);
 
     // ==========================================
-    // INTERACTIVE CAMERA CONTROLS & FLIGHT
+    // CAMERA CONTROLS & AUTONOMOUS EVENT DIRECTOR
     // ==========================================
     let isDragging = false;
     let prevMouseX = 0;
@@ -1167,6 +1263,7 @@
       prevMouseX = e.clientX;
       prevMouseY = e.clientY;
       camera.autoOrbit = false;
+      camera.lastUserInteraction = Date.now();
       updateAutoOrbitBtn();
     });
 
@@ -1194,19 +1291,22 @@
 
       camera.targetYaw += dx * 0.005;
       camera.targetPitch = Math.max(-0.9, Math.min(0.9, camera.targetPitch + dy * 0.005));
+      camera.lastUserInteraction = Date.now();
     });
 
     canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
       camera.autoOrbit = false;
+      camera.lastUserInteraction = Date.now();
       updateAutoOrbitBtn();
       const delta = e.deltaY > 0 ? 0.92 : 1.08;
       camera.targetZoom = Math.max(0.4, Math.min(2.2, camera.targetZoom * delta));
     }, { passive: false });
 
-    // Touch Support for Mobile / Tablets
+    // Touch Support
     let initialTouchDist = null;
     canvas.addEventListener('touchstart', (e) => {
+      camera.lastUserInteraction = Date.now();
       if (e.touches.length === 1) {
         isDragging = true;
         prevMouseX = e.touches[0].clientX;
@@ -1222,6 +1322,7 @@
     });
 
     canvas.addEventListener('touchmove', (e) => {
+      camera.lastUserInteraction = Date.now();
       if (e.touches.length === 1 && isDragging) {
         const dx = e.touches[0].clientX - prevMouseX;
         const dy = e.touches[0].clientY - prevMouseY;
@@ -1250,7 +1351,6 @@
       camera.autoOrbit = false;
       updateAutoOrbitBtn();
 
-      // Highlight active nav pill
       document.querySelectorAll('.nav-pill-btn').forEach(btn => btn.classList.remove('active'));
       const activeBtn = Array.from(document.querySelectorAll('.nav-pill-btn')).find(b => b.textContent.includes(targetKey.toUpperCase().replace('_', ' ')));
       if (activeBtn) activeBtn.classList.add('active');
@@ -1287,6 +1387,17 @@
       }
     }
 
+    function toggleAutoDirector() {
+      camera.autoDirector = !camera.autoDirector;
+      const btn = document.getElementById('btn-auto-director');
+      if (btn) {
+        btn.textContent = camera.autoDirector ? '🎬 AUTO-DIRECTOR: ON' : '🎬 AUTO-DIRECTOR: OFF';
+        btn.style.color = camera.autoDirector ? 'var(--cyan)' : 'var(--text-dim)';
+        btn.style.borderColor = camera.autoDirector ? 'rgba(0,243,255,0.4)' : 'transparent';
+      }
+    }
+    window.toggleAutoDirector = toggleAutoDirector;
+
     // Toggle Fullscreen
     document.getElementById('btn-fullscreen-toggle')?.addEventListener('click', () => {
       if (!document.fullscreenElement) {
@@ -1295,6 +1406,61 @@
         document.exitFullscreen().catch(() => {});
       }
     });
+
+    // ==========================================
+    // AUTONOMOUS EVENT SPOTLIGHT & DIRECTOR LOGIC
+    // ==========================================
+    let autonomousEventQueue = [];
+    let currentEventIndex = 0;
+    let beaconTimer = null;
+
+    function triggerAutonomousSpotlight(event) {
+      if (!event) return;
+
+      const beaconEl = document.getElementById('autonomous-event-beacon');
+      const emojiEl = document.getElementById('beacon-emoji');
+      const titleEl = document.getElementById('beacon-title');
+      const badgeEl = document.getElementById('beacon-badge');
+      const subEl = document.getElementById('beacon-sub');
+      const detailEl = document.getElementById('beacon-detail');
+
+      if (!beaconEl) return;
+
+      // Hydrate Beacon
+      emojiEl.textContent = event.emoji || getEmoji(event.league);
+      titleEl.textContent = event.title;
+      subEl.textContent = event.subtitle;
+      detailEl.textContent = event.details;
+
+      badgeEl.textContent = event.badge;
+      badgeEl.className = `cap-badge ${event.badge_color || 'ev'}`;
+
+      // Smoothly steer camera to the event target node
+      if (camera.autoDirector && Date.now() - camera.lastUserInteraction > 5000) {
+        flyCameraTo(event.target_node || 'math_core');
+      }
+
+      // Flash Beacon Popup
+      beaconEl.classList.add('visible');
+      audioSynth.playBeacon();
+
+      clearTimeout(beaconTimer);
+      beaconTimer = setTimeout(() => {
+        beaconEl.classList.remove('visible');
+      }, 4200);
+    }
+
+    // Auto-cycle through high-priority live events every 6.5 seconds
+    setInterval(() => {
+      if (!camera.autoDirector) return;
+      if (Date.now() - camera.lastUserInteraction < 6000) return;
+
+      if (autonomousEventQueue.length > 0) {
+        currentEventIndex = (currentEventIndex + 1) % autonomousEventQueue.length;
+        const ev = autonomousEventQueue[currentEventIndex];
+        triggerAutonomousSpotlight(ev);
+      }
+    }, 6500);
 
     // ==========================================
     // REAL-TIME TELEMETRY POLLING & HYDRATION
@@ -1362,7 +1528,6 @@
       document.getElementById('terminal-code-body').innerHTML = highlightPython(m.code_snippet);
     }
 
-    // Auto-cycle code models every 12 seconds
     setInterval(() => {
       if (cachedCodeModels && cachedCodeModels.length > 1) {
         currentCodeIndex = (currentCodeIndex + 1) % cachedCodeModels.length;
@@ -1374,23 +1539,27 @@
     window.switchBetFeed = function(mode) {
       const activeBtn = document.getElementById('tab-btn-active-bets');
       const settledBtn = document.getElementById('tab-btn-settled-bets');
+      const virtualBtn = document.getElementById('tab-btn-virtual-bets');
+
       const activeFeed = document.getElementById('feed-active-container');
       const settledFeed = document.getElementById('feed-settled-container');
+      const virtualFeed = document.getElementById('feed-virtual-container');
+
+      [activeBtn, settledBtn, virtualBtn].forEach(b => b?.classList.remove('active'));
+      [activeFeed, settledFeed, virtualFeed].forEach(f => { if (f) f.style.display = 'none'; });
 
       if (mode === 'active') {
-        activeBtn.classList.add('active');
-        settledBtn.classList.remove('active');
-        activeFeed.style.display = 'block';
-        settledFeed.style.display = 'none';
-      } else {
-        settledBtn.classList.add('active');
-        activeBtn.classList.remove('active');
-        settledFeed.style.display = 'block';
-        activeFeed.style.display = 'none';
+        activeBtn?.classList.add('active');
+        if (activeFeed) activeFeed.style.display = 'block';
+      } else if (mode === 'settled') {
+        settledBtn?.classList.add('active');
+        if (settledFeed) settledFeed.style.display = 'block';
+      } else if (mode === 'virtual') {
+        virtualBtn?.classList.add('active');
+        if (virtualFeed) virtualFeed.style.display = 'block';
       }
     };
 
-    // Show Toast Notification
     function showToast(type, title, subtitle) {
       const box = document.getElementById('superbrain-toast-box');
       if (!box) return;
@@ -1443,7 +1612,7 @@
         }
         document.getElementById('hud-daemons-count').textContent = `${clog.running_daemons_count ?? 5}/${clog.total_daemons_count ?? 5} DAEMONS`;
 
-        // 2. AI Quant Council State
+        // 2. AI Quant Council
         const brains = Array.isArray(data.ai_brains) ? data.ai_brains : Object.values(data.ai_brains || {});
         brains.forEach(b => {
           const statusEl = document.getElementById(`brain-status-${b.id}`);
@@ -1458,7 +1627,7 @@
           renderCodeTerminal(codeModels);
         }
 
-        // 4. Quantum Math & Kelly Open Stake
+        // 4. Quantum Math Open Stake
         document.getElementById('math-open-stake').textContent = `$${Number(tier3.open_bets_stake ?? 0).toFixed(2)}`;
         document.getElementById('math-open-tickets').textContent = tier3.open_bets_count ?? 0;
 
@@ -1483,13 +1652,16 @@
         const leagues = data.league_distribution || [];
         const leagueGrid = document.getElementById('league-tiles-grid');
         if (leagueGrid && leagues.length > 0) {
-          leagueGrid.innerHTML = leagues.slice(0, 9).map(l => `
+          leagueGrid.innerHTML = leagues.slice(0, 9).map(l => {
+            const em = getEmoji(l.league);
+            return `
             <div class="league-tile">
-              <div class="league-tile-name">${l.league}</div>
+              <div class="league-tile-name"><span>${em}</span> ${l.league}</div>
               <div class="league-tile-count">${l.total_markets}</div>
               <div class="league-tile-sub">T1: ${l.tier_1_research} · T2: ${l.tier_2_incubating}</div>
             </div>
-          `).join('');
+            `;
+          }).join('');
         }
 
         // 7. Active Executable Bets
@@ -1505,10 +1677,11 @@
             if (b.win_prob != null) probPct = Number(b.win_prob) <= 1.0 ? Number(b.win_prob) * 100 : Number(b.win_prob);
             else if (b.probability != null) probPct = Number(b.probability) <= 1.0 ? Number(b.probability) * 100 : Number(b.probability);
             const timeStr = b.start_time ? b.start_time.slice(11, 16) + ' UTC' : '';
+            const em = getEmoji(b.league);
             return `
               <div class="bet-capsule">
                 <div class="bet-cap-top">
-                  <span>${b.home} vs ${b.away}</span>
+                  <span>${em} ${b.home} vs ${b.away}</span>
                   <span style="color:var(--green); font-family:var(--font-mono);">$${Number(b.stake).toFixed(2)}</span>
                 </div>
                 <div class="bet-cap-meta">
@@ -1536,10 +1709,11 @@
             const isWin = s.result === 'won' || s.result === 'win' || s.status === 'won' || (Number(s.pnl) > 0);
             const resLabel = s.result || s.status || (isWin ? 'won' : 'lost');
             const timeStr = s.settled_at ? s.settled_at.slice(11, 19) + ' UTC' : '';
+            const em = getEmoji(s.league);
             return `
               <div class="bet-capsule ${isWin ? 'is-win' : 'is-loss'}">
                 <div class="bet-cap-top">
-                  <span>${s.home} vs ${s.away}</span>
+                  <span>${em} ${s.home} vs ${s.away}</span>
                   <span style="font-weight:800; color:${isWin ? 'var(--green)' : 'var(--red)'}">
                     ${isWin ? '+' : ''}$${Number(s.pnl).toFixed(2)}
                   </span>
@@ -1560,18 +1734,58 @@
           }).join('');
         }
 
-        // 9. Real-Time Win/Loss Toasts
+        // 9. Virtual / Test Trades ($0.00 Shadow Incubator)
+        const virtualTrades = data.tiers?.tier_2_incubator?.virtual_paper_trades || data.live_flow_events?.virtual_paper_trades || [];
+        const virtualCountEl = document.getElementById('count-virtual-bets');
+        if (virtualCountEl) virtualCountEl.textContent = virtualTrades.length;
+        const virtualContainer = document.getElementById('feed-virtual-container');
+        if (virtualContainer) {
+          if (virtualTrades.length === 0) {
+            virtualContainer.innerHTML = '<div style="color:var(--text-dim); text-align:center; padding:12px;">No virtual paper trades active.</div>';
+          } else {
+            virtualContainer.innerHTML = virtualTrades.map(v => {
+              const em = v.emoji || getEmoji(v.league);
+              const isWin = v.result === 'won' || v.pnl > 0;
+              return `
+                <div class="bet-capsule">
+                  <div class="bet-cap-top">
+                    <span>${em} ${v.league} · ${v.selection}</span>
+                    <span style="color:var(--amber); font-weight:700;">$0.00 VIRTUAL</span>
+                  </div>
+                  <div class="bet-cap-meta">
+                    <span>Model: ${v.model_id}</span>
+                    <span style="color:${isWin ? 'var(--green)' : 'var(--text-dim)'}; font-weight:700;">${v.result || v.status}</span>
+                  </div>
+                  <div class="bet-cap-badges">
+                    <span class="cap-badge odds">ODDS ${Number(v.odds).toFixed(2)}</span>
+                    <span class="cap-badge ev">EV +${Number(v.ev_pct).toFixed(1)}%</span>
+                    <span class="cap-badge">PROB ${Number(v.model_prob).toFixed(1)}%</span>
+                  </div>
+                </div>
+              `;
+            }).join('');
+          }
+        }
+
+        // 10. Autonomous Event Queue Hydration
+        const liveQueue = data.live_flow_events?.live_event_queue || [];
+        if (liveQueue.length > 0) {
+          autonomousEventQueue = liveQueue;
+        }
+
+        // 11. Real-Time Win/Loss Alerts
         settlements.forEach(s => {
           if (!seenEventIds.has(s.id)) {
             seenEventIds.add(s.id);
             if (!isInitialLoad) {
               const isWin = s.result === 'won' || s.result === 'win' || s.status === 'won' || (Number(s.pnl) > 0);
+              const em = getEmoji(s.league);
               if (isWin) {
                 audioSynth.playWin();
-                showToast('win', `WIN SETTLED: +$${Number(s.pnl).toFixed(2)}`, `${s.home} vs ${s.away} · ${s.selection}`);
+                showToast('win', `${em} WIN SETTLED: +$${Number(s.pnl).toFixed(2)}`, `${s.home} vs ${s.away} · ${s.selection}`);
               } else {
                 audioSynth.playLoss();
-                showToast('loss', `LOSS SETTLED: -$${Math.abs(Number(s.pnl)).toFixed(2)}`, `${s.home} vs ${s.away} · ${s.selection}`);
+                showToast('loss', `${em} LOSS SETTLED: -$${Math.abs(Number(s.pnl)).toFixed(2)}`, `${s.home} vs ${s.away} · ${s.selection}`);
               }
             }
           }
@@ -1583,8 +1797,8 @@
       }
     }
 
-    // Poll every 3 seconds for high-cadence live operations
-    setInterval(updateSuperbrainState, 3000);
+    // High-Cadence Live Polling (Every 2.5s)
+    setInterval(updateSuperbrainState, 2500);
     updateSuperbrainState();
   </script>
 </body>
