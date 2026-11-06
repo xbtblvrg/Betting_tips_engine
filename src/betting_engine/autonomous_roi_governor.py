@@ -282,8 +282,10 @@ class AutonomousROIGovernor:
                 super_alpha.append(seg_key)
 
             # 7. Solid Alpha: Rolling ROI >= +5%, PnL >= +1 unit (or >=+$1.00) with 2+ games
+            #    OR Large-Sample Empirical Alpha: cnt >= 15, ROI >= +3.0%, PnL >= +3 units (or >=+$3.00)
             elif ((cnt >= 2 and roi >= 15.0 and (units_pnl >= 1.0 or pnl >= 1.00))
-                  or (cnt >= 4 and roi >= 5.0 and (units_pnl >= 1.5 or pnl >= 1.50))) and league not in ('CHALLENGER', 'ITF') and not is_rolling_degraded and not is_sb_underperforming and not is_demoted_seg and rec_pnl >= 0.0:
+                  or (cnt >= 4 and roi >= 5.0 and (units_pnl >= 1.5 or pnl >= 1.50))
+                  or (cnt >= 15 and roi >= 3.0 and (units_pnl >= 3.0 or pnl >= 3.00))) and league not in ('CHALLENGER', 'ITF') and not is_rolling_degraded and not is_sb_underperforming and not is_demoted_seg and rec_pnl >= 0.0:
                 tier = 'SOLID_ALPHA'
                 stake_cap = 3.50
                 min_ev = 0.010
@@ -333,14 +335,21 @@ class AutonomousROIGovernor:
             league_pnls[s.league] += s.total_pnl
 
         for s in segments:
-            if league_pnls[s.league] < -10.0 and s.scope != 'full_game' and s.segment not in super_alpha:
+            # Firewall only freezes losing/unproven derivatives (total_pnl <= 0.0), preserving winning alpha engines
+            if (
+                league_pnls[s.league] < -10.0
+                and s.scope != 'full_game'
+                and s.segment not in super_alpha
+                and s.segment not in solid_alpha
+                and s.total_pnl <= 0.0
+            ):
                 if s.segment not in toxic_quarantine:
                     toxic_quarantine.append(s.segment)
                 if s.segment in capital_defense:
                     capital_defense.remove(s.segment)
                 s.tier = 'TOXIC_QUARANTINE'
                 s.stake_cap = 0.00
-                s.action = f"Sport Firewall: Freezing derivative to $0.00 due to {s.league} net losses (${league_pnls[s.league]:.2f})"
+                s.action = f"Sport Firewall: Freezing non-profitable derivative to $0.00 due to {s.league} net losses (${league_pnls[s.league]:.2f})"
 
         target_roi = 10.0  # +10.0% weekly target per Constitution Prime Directive #1
         gap_to_target = target_roi - portfolio_roi

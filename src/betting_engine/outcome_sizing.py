@@ -419,9 +419,15 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
 
             # Portfolio Profit Shield (Layer 2): Protect winning alpha by capping unproven markets to $1.00
             # Alpha Acceleration ($2.50 to $8.00) is reserved strictly for verified positive alpha
+            gov_super_check = bool(not is_test_cand and bool(check_keys & set(gov.get('super_alpha_list', []))))
+            gov_solid_check = bool(not is_test_cand and bool(check_keys & set(gov.get('solid_alpha_list', []))))
             is_proven_alpha = bool(
                 (games_val >= 5 and roi_val >= 0.03 and pnl_val > 0.0)
+                or gov_super_check
+                or gov_solid_check
                 or (tip.get('is_super_alpha') and pnl_val >= 0.0)
+                or (tip.get('is_solid_alpha') and pnl_val >= 0.0)
+                or (tip.get('is_graduated') and pnl_val >= 0.0)
             )
             if not is_proven_alpha and not is_test_cand:
                 caps['unproven_market_profit_shield_clamp'] = 1.00
@@ -492,7 +498,7 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
         gov_solid = bool(not is_test_cand and (check_keys & set(gov.get('solid_alpha_list', []))))
 
         is_alpha_eligible_market = (
-            (gov_super or gov_solid or (pnl_val > 0.0 and roi_val > 0.0) or tip.get('is_graduated'))
+            (gov_super or gov_solid or (pnl_val > 0.0 and roi_val > 0.0) or tip.get('is_graduated') or tip.get('is_super_alpha') or tip.get('is_solid_alpha'))
             and not is_preseason
             and not is_challenger_event
         )
@@ -512,12 +518,14 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                 or gov_super
                 or (is_early_alpha and pnl_val >= 3.0)
                 or (grad_proven and ev_val is not None and ev_val >= 0.08)
+                or bool(tip.get('is_super_alpha'))
             )
             is_solid_alpha = not has_defense and (
                 (games_val >= 5 and roi_val >= 0.03 and (pnl_val >= 2.0 or (pnl_val / max(0.2, def_unit) >= 2.0)))
                 or gov_solid
                 or is_early_alpha
                 or (grad_proven and ev_val is not None and ev_val >= 0.03)
+                or bool(tip.get('is_solid_alpha'))
             )
 
             alpha_discount = discount
@@ -534,7 +542,8 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                     caps.pop('maximum_stake', None)
                     caps.pop('max_stake', None)
                     caps.pop('probation_nursery_clamp', None)
-                    if (gov_super and pnl_val > 0.0) or (grad_proven and pnl_val >= 0.0):
+                    caps.pop('unproven_market_profit_shield_clamp', None)
+                    if (gov_super and pnl_val >= 0.0) or (grad_proven and pnl_val >= 0.0):
                         caps.pop('totals_defense_clamp', None)
                 requested = max(requested, alpha_target)
             elif is_solid_alpha:
@@ -549,7 +558,8 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                     caps.pop('maximum_stake', None)
                     caps.pop('max_stake', None)
                     caps.pop('probation_nursery_clamp', None)
-                    if (gov_solid and pnl_val > 0.0) or (grad_proven and pnl_val >= 0.0):
+                    caps.pop('unproven_market_profit_shield_clamp', None)
+                    if (gov_solid and pnl_val >= 0.0) or (grad_proven and pnl_val >= 0.0):
                         caps.pop('totals_defense_clamp', None)
                 requested = max(requested, alpha_target)
 

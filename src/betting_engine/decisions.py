@@ -264,8 +264,10 @@ def continuous_selection_priority_v4(tip, tier):
         alpha_boost = -0.50
     elif any(s in super_alpha for s in seg_candidates):
         alpha_boost = 0.60
+        tip['is_super_alpha'] = True
     elif any(s in solid_alpha for s in seg_candidates):
         alpha_boost = 0.35
+        tip['is_solid_alpha'] = True
     elif any(s in capital_defense for s in seg_candidates):
         alpha_boost = -0.40
 
