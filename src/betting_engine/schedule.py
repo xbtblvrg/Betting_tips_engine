@@ -9,7 +9,18 @@ import httpx
 from .io_utils import atomic_json
 
 TZ = ZoneInfo('Europe/Budapest')
-LEAGUES = {'NFL':'football/nfl','NBA':'basketball/nba','MLB':'baseball/mlb','NHL':'hockey/nhl','WNBA':'basketball/wnba','MLS':'soccer/usa.1','EPL':'soccer/eng.1','UCL':'soccer/uefa.champions'}
+LEAGUES = {
+    'NFL': 'football/nfl',
+    'NBA': 'basketball/nba',
+    'MLB': 'baseball/mlb',
+    'NHL': 'hockey/nhl',
+    'WNBA': 'basketball/wnba',
+    'MLS': 'soccer/usa.1',
+    'EPL': 'soccer/eng.1',
+    'UCL': 'soccer/uefa.champions',
+    'NCAAF': 'football/college-football',
+    'NCAAM': 'basketball/mens-college-basketball',
+}
 
 def instant(value):
     d = datetime.fromisoformat(value.replace('Z', '+00:00'))

@@ -559,21 +559,27 @@ def test_tier_4_strict_entry_gate_and_stake_only_rejection(test_env):
     """
     pe = test_env["executor"]
 
-    # 1. Stake-only derivatives rejected regardless of scoreboard
-    is_elig_wta2, r_wta2, cap_wta2 = pe.is_market_eligible("WTA", "period_2", "moneyline", require_tier_4=True)
-    assert is_elig_wta2 is False
-    assert cap_wta2 == 0.0
-    assert "STAKE_ONLY_MARKET" in r_wta2
-
+    # 1. Genuine Stake-only derivatives rejected regardless of scoreboard
     is_elig_team_tot, r_tt, cap_tt = pe.is_market_eligible("NBA", "full_game", "away_total", require_tier_4=True)
     assert is_elig_team_tot is False
     assert cap_tt == 0.0
     assert "STAKE_ONLY_MARKET" in r_tt
 
-    is_elig_nba_h1, r_nba_h1, cap_nba_h1 = pe.is_market_eligible("NBA", "half_1", "totals", require_tier_4=True)
-    assert is_elig_nba_h1 is False
-    assert cap_nba_h1 == 0.0
-    assert "STAKE_ONLY_MARKET" in r_nba_h1
+    is_elig_nba_dc, r_nba_dc, cap_nba_dc = pe.is_market_eligible("NBA", "half_1", "double_chance", require_tier_4=True)
+    assert is_elig_nba_dc is False
+    assert cap_nba_dc == 0.0
+    assert "STAKE_ONLY_MARKET" in r_nba_dc
+
+    is_elig_mlb_inn, r_mlb_inn, cap_mlb_inn = pe.is_market_eligible("MLB", "innings_1_5", "spreads", require_tier_4=True)
+    assert is_elig_mlb_inn is False
+    assert cap_mlb_inn == 0.0
+    assert "STAKE_ONLY_MARKET" in r_mlb_inn
+
+    # Dual-platform taxonomy derivatives without live proven alpha in scoreboard are rejected from Tier 4
+    is_elig_wta2, r_wta2, cap_wta2 = pe.is_market_eligible("WTA", "period_2", "moneyline", require_tier_4=True)
+    assert is_elig_wta2 is False
+    assert cap_wta2 == 0.0
+    assert any(k in r_wta2 for k in ("UNPROVEN_IN_LIVE_BETS", "DEMOTED_IN_SHADOW_INCUBATOR", "PROBATION_INSUFFICIENT_SAMPLE"))
 
     # 2. Mock scoreboard with:
     # - Micro-sample positive wagers: MLB full_game moneyline (N=1, PnL=+$0.63)

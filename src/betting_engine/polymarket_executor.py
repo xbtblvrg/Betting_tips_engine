@@ -368,42 +368,43 @@ class PolymarketAutonomousExecutor:
                             )
 
         # Gate 0b: Polymarket Contract Taxonomy Invariant:
-        # Strictly reject Stake sportsbook exclusive derivatives that have no Polymarket CLOB contract equivalent.
+        # 1. Strictly reject Stake sportsbook exclusive derivatives that have no Polymarket CLOB contract equivalent.
         if any(deriv in market_family for deriv in (
             "home_total", "away_total", "team_total", "team_totals",
             "double_chance", "both_score", "both_teams_score", "draw_no_bet",
             "bivariate_derivatives", "odd_even", "sequence_hazard",
-            "tennis_sets", "total_sets", "set_handicap", "correct_score"
+            "innings_1_5", "inning_1", "regulation", "correct_score"
         )):
             return (
                 False,
                 f"STAKE_ONLY_MARKET: Segment {league}|{scope}|{market_family} is a Stake sportsbook exclusive market with no corresponding Polymarket contract type.",
                 0.0,
             )
-        if scope in ("period_1", "period_2", "period_3", "innings_1_5", "inning_1", "regulation"):
-            return (
-                False,
-                f"STAKE_ONLY_MARKET: Segment {league}|{scope}|{market_family} (derivative scope {scope}) is a Stake sportsbook exclusive market with no corresponding Polymarket contract type. Active in Tier 3 on Stake.",
-                0.0,
-            )
-        if league in ("WTA", "ATP") and scope != "full_game":
-            return (
-                False,
-                f"STAKE_ONLY_MARKET: Segment {league}|{scope}|{market_family} (tennis period market) is a Stake sportsbook exclusive market with no corresponding Polymarket contract type. Active in Tier 3 on Stake.",
-                0.0,
-            )
-        if league in ("MLS", "EPL", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA") and scope != "full_game":
-            return (
-                False,
-                f"STAKE_ONLY_MARKET: Segment {league}|{scope}|{market_family} (soccer period/half market) is not offered on Polymarket CLOB books. Active in Tier 3 on Stake.",
-                0.0,
-            )
-        if league in ("NBA", "NCAAB", "WNBA", "CBB") and scope != "full_game":
-            return (
-                False,
-                f"STAKE_ONLY_MARKET: Segment {league}|{scope}|{market_family} (basketball period/quarter/half market) is not currently offered on Polymarket CLOB books. Active in Tier 3 on Stake.",
-                0.0,
-            )
+
+        # 2. Dynamic Structured Taxonomy verification for derivative/period scopes (Zero Hardcoded Clamps)
+        if scope != "full_game":
+            try:
+                from .polymarket_runner import POLYMARKET_STRUCTURED_TAXONOMY
+                clean_fam = market_family.split(":")[-1] if ":" in market_family else market_family
+                fam_aliases = {clean_fam, market_family}
+                if "moneyline" in market_family or "three_way" in market_family:
+                    fam_aliases.update(["moneyline", "three_way"])
+
+                is_supported_derivative = False
+                for tax_type, (tax_sc, tax_fam, tax_leagues) in POLYMARKET_STRUCTURED_TAXONOMY.items():
+                    if league in tax_leagues and tax_sc == scope:
+                        if tax_fam in fam_aliases or clean_fam in tax_fam or tax_fam in clean_fam:
+                            is_supported_derivative = True
+                            break
+
+                if not is_supported_derivative:
+                    return (
+                        False,
+                        f"STAKE_ONLY_MARKET: Segment {league}|{scope}|{market_family} (derivative scope {scope}) is a Stake sportsbook exclusive market with no corresponding Polymarket contract type. Active in Tier 3 on Stake.",
+                        0.0,
+                    )
+            except Exception as e_tax:
+                log.debug(f"Dynamic taxonomy lookup fallback: {e_tax}")
 
         # Gate 0c: Check Unified Market Universe Roster
         # Tier 4 on Polymarket requires active Tier 3 ($0.50-$8.00) status on Stake.

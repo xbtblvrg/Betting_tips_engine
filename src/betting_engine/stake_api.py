@@ -13,10 +13,19 @@ COLLEGE=('NCAAF','NCAAM','NCAAW')
 SPORTS={'NBA':'basketball','WNBA':'basketball','MLB':'baseball','NHL':'ice-hockey','NFL':'american-football',
         'NCAAF':'american-football','NCAAM':'basketball','NCAAW':'basketball','MLS':'soccer','EPL':'soccer','UCL':'soccer',
         'ATP':'tennis','WTA':'tennis','CHALLENGER':'tennis'}
-TOURNAMENTS={'NBA':'nba','WNBA':'wnba','MLB':'mlb','NHL':'nhl','NFL':'nfl','MLS':'major-league-soccer','EPL':'premier-league','UCL':'uefa-champions-league'}
+TOURNAMENTS={'NBA':'nba','WNBA':'wnba','MLB':'mlb','NHL':'nhl','NFL':'nfl','MLS':'major-league-soccer','EPL':'premier-league','UCL':'uefa-champions-league','NCAAF':'ncaa','NCAAM':'ncaa'}
 TOURNAMENT_CATEGORIES={'EPL':'england','UCL':'international-clubs'}
 # Exact observed official tournament aliases; never substring-match NBA esports.
-TOURNAMENT_ALIASES={('basketball','nba-preseason'):'NBA',('soccer','premier-league'):'EPL',('soccer','uefa-champions-league'):'UCL'}
+TOURNAMENT_ALIASES={
+    ('basketball','nba-preseason'):'NBA',
+    ('basketball','ncaa'):'NCAAM',
+    ('basketball','ncaa-men'):'NCAAM',
+    ('basketball','ncaa-regular'):'NCAAM',
+    ('american-football','ncaa'):'NCAAF',
+    ('american-football','ncaa-regular'):'NCAAF',
+    ('soccer','premier-league'):'EPL',
+    ('soccer','uefa-champions-league'):'UCL',
+}
 ALL_LEAGUES=tuple(SPORTS)
 
 def meta_ref(meta):

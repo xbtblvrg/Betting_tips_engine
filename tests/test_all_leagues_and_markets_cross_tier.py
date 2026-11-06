@@ -134,15 +134,15 @@ def test_tier_3_probation_markets_blocked_from_tier_4(universe_fixture):
     assert probation_count >= 1, "Expected at least 1 market in Tier 3 probation status"
 
 def test_stake_only_derivatives_rejected_on_polymarket(universe_fixture):
-    """Verify that Stake-only derivative scopes (quarters, periods, sets, corners)
+    """Verify that Stake-only derivative scopes/families (not offered on Polymarket)
     are recognized as STAKE_ONLY_MARKET and rejected from Polymarket ($0.00)."""
     poly = universe_fixture["poly"]
 
     test_cases = [
-        ("NBA", "quarter_2", "spreads"),
-        ("NBA", "quarter_4", "totals"),
-        ("MLS", "half_2", "totals"),
-        ("WTA", "period_2", "moneyline"),
+        ("NBA", "quarter_2", "double_chance"),
+        ("NBA", "quarter_4", "both_teams_to_score"),
+        ("MLS", "half_2", "draw_no_bet"),
+        ("WTA", "period_2", "double_chance"),
         ("NHL", "period_3", "double_chance"),
     ]
 

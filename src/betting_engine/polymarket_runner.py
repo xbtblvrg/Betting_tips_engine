@@ -37,8 +37,8 @@ DEFAULT_RUNNER_LEAGUES: Tuple[str, ...] = ("NBA", "NFL", "NHL", "EPL", "UCL", "U
 POLYMARKET_STRUCTURED_TAXONOMY: Dict[str, Tuple[str, str, Tuple[str, ...]]] = {
     # Full Game Main Markets (Core Leagues)
     "moneyline": ("full_game", "moneyline", ("NBA", "NFL", "NHL", "MLB", "WNBA", "NCAAF", "CFB", "CBB", "NCAAB", "NCAAM", "NCAAW", "CWBB", "MLS", "EPL", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA", "ATP", "WTA")),
-    "spreads": ("full_game", "spreads", ("NBA", "NFL", "NHL", "MLB", "WNBA", "NCAAF", "CFB", "MLS", "EPL", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA", "ATP", "WTA")),
-    "totals": ("full_game", "totals", ("NBA", "NFL", "NHL", "MLB", "WNBA", "NCAAF", "CFB", "MLS", "EPL", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA", "ATP", "WTA")),
+    "spreads": ("full_game", "spreads", ("NBA", "NFL", "NHL", "MLB", "WNBA", "NCAAF", "CFB", "CBB", "NCAAB", "NCAAM", "NCAAW", "CWBB", "MLS", "EPL", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA", "ATP", "WTA")),
+    "totals": ("full_game", "totals", ("NBA", "NFL", "NHL", "MLB", "WNBA", "NCAAF", "CFB", "CBB", "NCAAB", "NCAAM", "NCAAW", "CWBB", "MLS", "EPL", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA", "ATP", "WTA")),
 
     # Soccer Specific Markets (EPL, MLS, UCL, UEL, LALIGA, BUNDESLIGA, SERIEA)
     "both_teams_to_score": ("full_game", "both_score", ("EPL", "MLS", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA")),
