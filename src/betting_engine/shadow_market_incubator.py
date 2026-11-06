@@ -2245,10 +2245,30 @@ class ShadowMarketIncubator:
                     w_conn.execute("PRAGMA busy_timeout = 30000")
                     cur_w = w_conn.cursor()
 
+                    # 1. Reachability Guard: Cleanse any unsupported phantom contracts across both Tier 1 and Tier 2
+                    cur_w.execute("""
+                        SELECT id, segment_key, league, scope, family, sub_family
+                        FROM demoted_markets
+                        WHERE incubation_phase = 'research_training'
+                    """)
+                    for r_row in cur_w.fetchall():
+                        r_id, r_key, r_lg, r_sc, r_fam, r_sub = r_row
+                        if not is_supported_stake_contract(r_lg, r_sc, r_fam, r_sub):
+                            cur_w.execute("""
+                                UPDATE demoted_markets
+                                SET incubation_phase = 'unsupported_phantom',
+                                    incubated_model_id = NULL,
+                                    model_archetype = NULL,
+                                    model_params = NULL,
+                                    reason = 'Unsupported contract: Not offered pre-match by Stake sportsbook'
+                                WHERE id = ? OR segment_key = ?
+                            """, (r_id, r_key))
+                            evicted_phantom.append(r_key)
+
                     for row in incubating_rows:
                         d_id, seg_key, league, scope, family, sub_fam, mid, arch, h_roi, h_n, adm_at = row
                         
-                        # 1. Reachability Guard (Phantom / Unsupported contracts)
+                        # Reachability Guard on Tier 2 incubating candidates
                         if not is_supported_stake_contract(league, scope, family, sub_fam):
                             cur_w.execute("""
                                 UPDATE demoted_markets
