@@ -110,6 +110,9 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
     jobs_summary: Dict[str, int] = {}
     today_bets_count = 0
     today_bets_stake = 0.0
+    rolling_7d_stake = 0.0
+    rolling_7d_pnl = 0.0
+    rolling_7d_roi_pct = 0.0
 
     if eng_db.exists():
         try:
@@ -141,6 +144,19 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
                     today_bets_count = t_row[0]
                     today_bets_stake = round(t_row[1], 2)
 
+                # Rolling 7-day settled bets metrics
+                seven_days_ago = (now_utc - timedelta(days=7)).isoformat()
+                c.execute("""
+                    SELECT coalesce(sum(stake), 0), coalesce(sum(pnl), 0)
+                    FROM bets
+                    WHERE status IN ('won', 'lost') AND created_at >= ?
+                """, (seven_days_ago,))
+                r7 = c.fetchone()
+                if r7 and r7[0] > 0:
+                    rolling_7d_stake = round(r7[0], 2)
+                    rolling_7d_pnl = round(r7[1], 2)
+                    rolling_7d_roi_pct = round((rolling_7d_pnl / rolling_7d_stake) * 100, 1)
+
                 # Recent settled bets (for WIN/LOSS real-time popups)
                 c.execute("""
                     SELECT id, stake, odds, status, pnl, payload, created_at
@@ -155,6 +171,7 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
                         "stake": r[1],
                         "odds": r[2],
                         "status": r[3],
+                        "result": r[3],
                         "pnl": round(r[4], 2) if r[4] is not None else 0.0,
                         "league": p.get("league") or "Unknown",
                         "home": p.get("home", ""),
@@ -162,6 +179,7 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
                         "market": p.get("market", ""),
                         "selection": p.get("selection", ""),
                         "expected_roi": round(p.get("expected_roi", 0.0) * 100, 1) if p.get("expected_roi") is not None else None,
+                        "settled_at": r[6],
                         "created_at": r[6]
                     })
 
@@ -174,6 +192,8 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
                 """)
                 for r in c.fetchall():
                     p = json.loads(r[4]) if r[4] else {}
+                    ev_pct = round(p.get("expected_roi", 0.0) * 100, 1) if p.get("expected_roi") is not None else 0.0
+                    prob_val = float(p.get("probability", 0.0)) if p.get("probability") is not None else 0.0
                     open_bets.append({
                         "id": r[0],
                         "stake": r[1],
@@ -183,8 +203,12 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
                         "away": p.get("away", ""),
                         "market": p.get("market", ""),
                         "selection": p.get("selection", ""),
-                        "expected_roi": round(p.get("expected_roi", 0.0) * 100, 1) if p.get("expected_roi") is not None else None,
-                        "probability": round(p.get("probability", 0.0) * 100, 1) if p.get("probability") is not None else None,
+                        "expected_roi": ev_pct,
+                        "ev_pct": ev_pct,
+                        "probability": round(prob_val * 100, 1),
+                        "win_prob": round(prob_val, 4),
+                        "start_time": p.get("start") or r[5],
+                        "tier": "TIER 3 (GRADUATED)" if p.get("is_graduated") else ("TIER 2 (INCUBATING)" if p.get("is_demoted") else "TIER 3 (FUNDED)"),
                         "created_at": r[5]
                     })
 
@@ -516,6 +540,8 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
     total_lost_bets = bets_summary.get("lost", {}).get("count", 0)
     total_settled_bets = total_won_bets + total_lost_bets
     win_rate_pct = round((total_won_bets / total_settled_bets * 100), 1) if total_settled_bets > 0 else 0.0
+    total_settled_stake = bets_summary.get("won", {}).get("stake", 0.0) + bets_summary.get("lost", {}).get("stake", 0.0)
+    all_time_roi_pct = round((total_realized_pnl / total_settled_stake * 100), 1) if total_settled_stake > 0 else 0.0
 
     pipeline_threads = [
         {
@@ -670,6 +696,12 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
             "total_lost_bets": total_lost_bets,
             "win_rate_pct": win_rate_pct,
             "total_realized_pnl": round(total_realized_pnl, 2),
+            "live_funded_pnl_usd": round(total_realized_pnl, 2),
+            "rolling_7d_roi_pct": rolling_7d_roi_pct,
+            "rolling_7d_pnl_usd": rolling_7d_pnl,
+            "rolling_7d_stake_usd": rolling_7d_stake,
+            "all_time_roi_pct": all_time_roi_pct,
+            "total_settled_stake_usd": round(total_settled_stake, 2),
             "weekly_roi_target_pct": 10.0
         },
         "live_flow_events": {

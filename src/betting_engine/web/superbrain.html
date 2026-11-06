@@ -1615,9 +1615,81 @@
           <div><strong>EXECUTION MODE:</strong> GTC Maker Limit Orders (0% taker fee, earns spread)</div>
           <div><strong>REALIZED NET PROFIT:</strong> +$217.26 (67 won maker limit orders)</div>
         `;
+      } else if (nodeId === 'espn') {
+        title.textContent = 'SENSORY INGEST: ESPN PUBLIC API';
+        html = `
+          <div style="background:rgba(0,243,255,0.08); padding:10px; border-radius:4px; border:1px solid var(--border-cyan);">
+            <div style="color:var(--cyan); font-weight:700;">LIVE GAME CLOCKS &amp; PERIOD TRACKING</div>
+            <div style="color:var(--text-dim); font-size:10px;">Free public endpoint for live scores, quarters, halves, and clock times.</div>
+          </div>
+          <div><strong>FREQUENCY:</strong> Polled every 60s for active live events</div>
+          <div><strong>COVERAGE:</strong> NBA, NFL, WNBA, Soccer, MLB</div>
+          <div><strong>PURPOSE:</strong> Prevents betting on matches already started; feeds half/quarter boundaries</div>
+        `;
+      } else if (nodeId === 'nhl') {
+        title.textContent = 'SENSORY INGEST: NHL OFFICIAL WEB API';
+        html = `
+          <div style="background:rgba(0,243,255,0.08); padding:10px; border-radius:4px; border:1px solid var(--border-cyan);">
+            <div style="color:var(--cyan); font-weight:700;">api-web.nhle.com (FREE / ZERO COST)</div>
+            <div style="color:var(--text-dim); font-size:10px;">Directive 9: 100% Free / Public feed for ice hockey features.</div>
+          </div>
+          <div><strong>INGESTED FEATURES:</strong> Confirmed starting goalies, save percentages, rest day differentials, travel fatigue</div>
+          <div><strong>MARKETS:</strong> NHL Moneyline, Puckline, Over/Under 5.5, 6.0, 6.5, Period totals</div>
+        `;
+      } else if (nodeId === 'mlb') {
+        title.textContent = 'SENSORY INGEST: MLB STATS API';
+        html = `
+          <div style="background:rgba(0,243,255,0.08); padding:10px; border-radius:4px; border:1px solid var(--border-cyan);">
+            <div style="color:var(--cyan); font-weight:700;">statsapi.mlb.com (FREE / ZERO COST)</div>
+            <div style="color:var(--text-dim); font-size:10px;">Official Major League Baseball public stats data feed.</div>
+          </div>
+          <div><strong>INGESTED FEATURES:</strong> Probable starting pitchers, ERA, FIP, bullpen usage in last 3 days, home plate umpire strike zone</div>
+          <div><strong>MARKETS:</strong> MLB Moneyline, Run Line (-1.5), F5 (First 5 innings) totals</div>
+        `;
+      } else if (nodeId === 'weather') {
+        title.textContent = 'SENSORY INGEST: OPEN-METEO WEATHER';
+        html = `
+          <div style="background:rgba(0,243,255,0.08); padding:10px; border-radius:4px; border:1px solid var(--border-cyan);">
+            <div style="color:var(--cyan); font-weight:700;">OPEN-METEO WEATHER API</div>
+            <div style="color:var(--text-dim); font-size:10px;">Stadium geocoordinate weather forecasting.</div>
+          </div>
+          <div><strong>VARIABLES:</strong> Wind speed (km/h &amp; direction), temperature, precipitation probability, humidity</div>
+          <div><strong>ALPHA IMPACT:</strong> NFL outdoor totals, MLB Wrigley/Fenway wind direction, MLS totals</div>
+        `;
+      } else if (nodeId === 'polymarket') {
+        title.textContent = 'EXECUTION: POLYMARKET OPEN CLOB';
+        html = `
+          <div style="background:rgba(0,243,255,0.08); padding:10px; border-radius:4px; border:1px solid var(--border-cyan);">
+            <div style="color:var(--cyan); font-weight:700;">TIER 4 MAKER ORDER ENGINE</div>
+            <div style="color:var(--text-dim); font-size:10px;">Continuous WebSocket orderbook scan &amp; Maker Limit placements.</div>
+          </div>
+          <div><strong>FEE STRUCTURE:</strong> 0% taker fee (Maker post-only orders earn spread)</div>
+          <div><strong>STATUS:</strong> Reserved exclusively for markets with live proven Stake profit</div>
+        `;
+      } else if (nodeId === 'crucible') {
+        title.textContent = 'GATE: WALK-FORWARD CRUCIBLE';
+        html = `
+          <div style="background:rgba(255,183,3,0.08); padding:10px; border-radius:4px; border:1px solid var(--border-amber);">
+            <div style="color:var(--amber); font-weight:700;">THE WALK-FORWARD CRUCIBLE BENCHMARK</div>
+            <div style="color:var(--text-dim); font-size:10px;">Directive 7: Mandatory graduation gate for all candidate models.</div>
+          </div>
+          <div><strong>BACKTEST POOL:</strong> 97,000+ historical settled matches</div>
+          <div><strong>PASS HURDLE:</strong> Out-of-sample ROI &ge; +3.5%, Delta Brier &ge; -0.005, Max Drawdown &lt; 25%</div>
+        `;
+      } else if (nodeId === 'tourniquet') {
+        title.textContent = 'PORTFOLIO SHIELD: INTERIM TOURNIQUET';
+        html = `
+          <div style="background:rgba(255,0,85,0.08); padding:10px; border-radius:4px; border:1px solid var(--border-red);">
+            <div style="color:var(--red); font-weight:700;">CLOSED-LOOP DEFENSE &amp; REPAIR ARC</div>
+            <div style="color:var(--text-dim); font-size:10px;">Directive 6 &amp; 7: Dual dynamic capital defense.</div>
+          </div>
+          <div><strong>TRIGGER:</strong> Rolling ROI &lt; -3.0% over 4+ matches</div>
+          <div><strong>PHASE 1:</strong> $0.50 emergency tourniquet clamp + EV threshold (+3.5%)</div>
+          <div><strong>PHASE 2:</strong> $0.00 Shadow Incubator quarantine &amp; autonomous AI model repair</div>
+        `;
       } else {
         title.textContent = `NODE: ${nodeId.toUpperCase()}`;
-        html = `<div>Inspecting sensory node ${nodeId}...</div>`;
+        html = `<div>Inspecting telemetry node ${nodeId}...</div>`;
       }
 
       body.innerHTML = html;
@@ -1647,17 +1719,18 @@
         
         const sb = data.scoreboard || {};
         const pnlEl = document.getElementById('hud-pnl');
-        const pnlVal = sb.live_funded_pnl_usd ?? 0;
+        const pnlVal = sb.live_funded_pnl_usd ?? sb.total_realized_pnl ?? 0;
         pnlEl.textContent = `${pnlVal >= 0 ? '+' : ''}$${pnlVal.toFixed(2)}`;
         pnlEl.style.color = pnlVal >= 0 ? 'var(--green)' : 'var(--red)';
 
         const roiEl = document.getElementById('hud-roi');
-        const roiVal = sb.rolling_7d_roi_pct ?? 0;
+        const roiVal = sb.rolling_7d_roi_pct ?? sb.all_time_roi_pct ?? 0;
         roiEl.textContent = `${roiVal >= 0 ? '+' : ''}${roiVal.toFixed(1)}%`;
         roiEl.style.color = roiVal >= 0 ? 'var(--green)' : 'var(--red)';
 
         const tier3 = data.tiers?.tier_3_stake || {};
-        document.getElementById('hud-volume').textContent = `${tier3.today_volume_picks ?? 0} / 100`;
+        const todayPicksCount = tier3.today_volume_picks ?? sb.today_picks ?? 0;
+        document.getElementById('hud-volume').textContent = `${todayPicksCount} / 100`;
 
         // 2. AI Quant Council State
         const brainsList = Array.isArray(data.ai_brains) ? data.ai_brains : Object.values(data.ai_brains || {});
@@ -1751,7 +1824,17 @@
               No pending executable bets currently in queue.
             </div>`;
         } else {
-          activeContainer.innerHTML = activeBets.map(b => `
+          activeContainer.innerHTML = activeBets.map(b => {
+            const evVal = b.ev_pct != null ? Number(b.ev_pct) : (b.expected_roi != null ? Number(b.expected_roi) : 0.0);
+            let probPct = 50.0;
+            if (b.win_prob != null) {
+              probPct = Number(b.win_prob) <= 1.0 ? Number(b.win_prob) * 100 : Number(b.win_prob);
+            } else if (b.probability != null) {
+              probPct = Number(b.probability) <= 1.0 ? Number(b.probability) * 100 : Number(b.probability);
+            }
+            const timeStr = b.start_time ? b.start_time.slice(11, 16) + ' UTC' : (b.created_at ? b.created_at.slice(11, 16) + ' UTC' : '');
+            const tierStr = b.tier || 'TIER 3 (FUNDED)';
+            return `
             <div class="bet-row">
               <div class="bet-top-line">
                 <span>${b.home} vs ${b.away}</span>
@@ -1759,16 +1842,17 @@
               </div>
               <div class="bet-meta-line">
                 <span style="color:var(--cyan); font-weight:600;">${b.league} · ${b.selection}</span>
-                <span>${b.start_time ? b.start_time.slice(11, 16) + ' UTC' : ''}</span>
+                <span>${timeStr}</span>
               </div>
               <div class="bet-quant-line">
                 <span class="quant-pill odds">ODDS ${Number(b.odds).toFixed(2)}</span>
-                <span class="quant-pill ev">EV +${Number(b.ev_pct).toFixed(1)}%</span>
-                <span class="quant-pill">PROB ${(Number(b.win_prob) * 100).toFixed(1)}%</span>
-                <span style="color:var(--text-dim); font-size:9px; margin-left:auto;">${b.tier}</span>
+                <span class="quant-pill ev">EV +${evVal.toFixed(1)}%</span>
+                <span class="quant-pill">PROB ${probPct.toFixed(1)}%</span>
+                <span style="color:var(--text-dim); font-size:9px; margin-left:auto;">${tierStr}</span>
               </div>
             </div>
-          `).join('');
+            `;
+          }).join('');
         }
 
         // 8. Instant Settlements Feed
@@ -1783,7 +1867,9 @@
             </div>`;
         } else {
           settledContainer.innerHTML = settlements.map(s => {
-            const isWin = s.result === 'win' || s.pnl > 0;
+            const isWin = s.result === 'won' || s.result === 'win' || s.status === 'won' || (Number(s.pnl) > 0);
+            const resLabel = s.result || s.status || (isWin ? 'won' : 'lost');
+            const timeLabel = s.settled_at ? s.settled_at.slice(11, 19) + ' UTC' : (s.created_at ? s.created_at.slice(11, 19) + ' UTC' : '');
             return `
               <div class="bet-row ${isWin ? 'settled-win' : 'settled-loss'}">
                 <div class="bet-top-line">
@@ -1795,13 +1881,13 @@
                 <div class="bet-meta-line">
                   <span>${s.league} · ${s.selection}</span>
                   <span style="font-weight:700; text-transform:uppercase; color:${isWin ? 'var(--green)' : 'var(--red)'}">
-                    ${s.result}
+                    ${resLabel}
                   </span>
                 </div>
                 <div class="bet-quant-line">
                   <span class="quant-pill odds">ODDS ${Number(s.odds).toFixed(2)}</span>
                   <span class="quant-pill stake">STAKE $${Number(s.stake).toFixed(2)}</span>
-                  <span style="color:var(--text-dim); font-size:9px; margin-left:auto;">${s.settled_at ? s.settled_at.slice(11, 19) + ' UTC' : ''}</span>
+                  <span style="color:var(--text-dim); font-size:9px; margin-left:auto;">${timeLabel}</span>
                 </div>
               </div>
             `;
