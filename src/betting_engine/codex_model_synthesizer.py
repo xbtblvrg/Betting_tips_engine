@@ -766,9 +766,9 @@ class {class_name}(BaseCandidateModel):
         )
 
         try:
-            with file_lock(DATA / "development" / "ai-locks" / "codex.lock", timeout=15.0) as acquired:
+            with file_lock(DATA / "development" / "ai-locks" / "codex.lock", timeout=5.0) as acquired:
                 if not acquired:
-                    log.warning(f"Codex lock busy (15.0s) for {segment_key}; yielding to Claude parallel fallback")
+                    log.warning(f"Codex lock busy (5.0s) for {segment_key}; yielding to Claude parallel fallback")
                     return None
                 res = self._invoke_codex_with_watchdog(codex_cfg, prompt, timeout=240.0, max_hard_ceiling=480.0, idle_timeout=60.0)
                 state, answer = decode('codex', res, codex_cfg.get('model'))

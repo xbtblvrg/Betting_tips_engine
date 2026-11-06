@@ -182,7 +182,9 @@ class DemotedMarketIncubationBridge:
 
                 unresolved.sort(key=_dual_priority_key)
                 max_ai_syntheses = min(max_train_per_run - len(newly_admitted), len(unresolved))
-                for target_row in unresolved[:max_ai_syntheses]:
+                ai_candidates = unresolved[:max_ai_syntheses]
+
+                def _bridge_synthesize_target(target_row):
                     t_did, t_seg_key = target_row[0], target_row[1]
                     try:
                         from .codex_model_synthesizer import CodexModelSynthesizer
@@ -208,16 +210,24 @@ class DemotedMarketIncubationBridge:
                                 scorecard_s=100.0,
                             )
                             if self.admit_champion_to_market(t_did, t_seg_key, ai_champ):
-                                newly_admitted.append({
+                                return {
                                     'segment_key': t_seg_key,
                                     'model_id': ai_champ.model_id,
                                     'model_archetype': ai_champ.model_archetype,
                                     'historical_roi': ai_champ.oos_simulated_roi,
                                     'historical_brier_delta': ai_champ.oos_delta_brier,
                                     'historical_sample_size': ai_champ.oos_sample_size,
-                                })
+                                }
                     except Exception as e_synth:
                         log.debug("Autonomous synthesis on %s: %s", t_seg_key, e_synth)
+                    return None
+
+                if ai_candidates:
+                    with ThreadPoolExecutor(max_workers=2) as ai_pool:
+                        synth_results = list(ai_pool.map(_bridge_synthesize_target, ai_candidates))
+                        for sr in synth_results:
+                            if sr:
+                                newly_admitted.append(sr)
 
             still_researching = max(0, attempted_this_run - len(newly_admitted))
 

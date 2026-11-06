@@ -224,7 +224,9 @@ class AutonomousModelDiscoveryEngine:
             archetype_results = dict(pool.map(_screen_archetype, tier1_markets))
 
         new_discoveries: List[ModelDiscoveryRecord] = []
+        unresolved_markets: List[Dict[str, Any]] = []
 
+        # 1. Admit library archetype champions directly and collect unresolved markets
         for market in tier1_markets:
             segment_key = market['segment_key']
             league = market['league']
@@ -232,99 +234,117 @@ class AutonomousModelDiscoveryEngine:
             family = market['family']
             d_id = market.get('id')
 
-            try:
-                best_cand = archetype_results.get(segment_key)
-                if not best_cand:
-                    # If standard library has no edge, invoke autonomous Codex/Claude model synthesis
-                    try:
-                        from .codex_model_synthesizer import CodexModelSynthesizer
-                        synthesizer = CodexModelSynthesizer(self.data_dir)
-                        synth_rec = synthesizer.synthesize_and_screen_candidate(
-                            segment_key=segment_key,
-                            domain_problem=f"Standard archetypes failed out-of-sample backtest on {segment_key}. Requires novel mathematical formulation."
-                        )
-                        if synth_rec.crucible_passed and synth_rec.is_admitted_to_incubator:
-                            candidate_result = CandidateTrainingResult(
-                                segment_key=segment_key,
-                                model_id=synth_rec.model_id,
-                                model_archetype=synth_rec.class_name,
-                                model_params={'source_file': f"{synth_rec.model_id}.py"},
-                                train_sample_size=0,
-                                oos_sample_size=synth_rec.oos_sample_size,
-                                oos_win_rate=synth_rec.oos_win_rate,
-                                oos_simulated_roi=synth_rec.oos_simulated_roi,
-                                oos_delta_brier=synth_rec.oos_delta_brier,
-                                oos_max_drawdown=synth_rec.oos_max_drawdown,
-                                is_qualified=True,
-                                scorecard_s=100.0,
-                            )
-                            self.bridge.admit_champion_to_market(d_id, segment_key, candidate_result)
-
-                            disc_id = f"disc_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}_{segment_key.replace('|', '_')}"
-                            record = ModelDiscoveryRecord(
-                                discovery_id=disc_id,
-                                timestamp=now_iso,
-                                segment_key=segment_key,
-                                league=league,
-                                scope=scope,
-                                family=family,
-                                winning_archetype=synth_rec.class_name,
-                                winning_model_id=synth_rec.model_id,
-                                historical_roi=synth_rec.oos_simulated_roi,
-                                historical_brier_delta=synth_rec.oos_delta_brier,
-                                historical_sample_size=synth_rec.oos_sample_size,
-                                historical_max_drawdown=synth_rec.oos_max_drawdown,
-                                parameters={'synthesizer': synth_rec.generator_provider, 'rationale': synth_rec.rationale},
-                                scientific_basis=f"Codex-synthesized mathematical formulation: {synth_rec.class_name}",
-                            )
-                            new_discoveries.append(record)
-                            self._log_discovery(record)
-                    except Exception:
-                        pass
-                    continue
-
-                # Directly admit and bind champion to the demoted market in Tier 2
-                success = self.bridge.admit_champion_to_market(d_id, segment_key, best_cand)
-                if not success:
-                    continue
-
-                # Record successful edge discovery
-                disc_id = f"disc_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}_{segment_key.replace('|', '_')}"
-                record = ModelDiscoveryRecord(
-                    discovery_id=disc_id,
-                    timestamp=now_iso,
-                    segment_key=segment_key,
-                    league=league,
-                    scope=scope,
-                    family=family,
-                    winning_archetype=best_cand.model_archetype,
-                    winning_model_id=best_cand.model_id,
-                    historical_roi=best_cand.oos_simulated_roi,
-                    historical_brier_delta=best_cand.oos_delta_brier,
-                    historical_sample_size=best_cand.oos_sample_size,
-                    historical_max_drawdown=best_cand.oos_max_drawdown,
-                    parameters=best_cand.model_params,
-                    scientific_basis=self.LITERATURE_TAXONOMY.get(
-                        best_cand.model_archetype, 'Autonomous domain formulation'
-                    ),
-                )
-                new_discoveries.append(record)
-                self._log_discovery(record)
-            except Exception:
-                # Isolate unexpected training failures and proceed with other candidate markets
-                continue
-            finally:
-                # Always advance last_screened_at for this market
+            best_cand = archetype_results.get(segment_key)
+            if best_cand and best_cand.is_qualified:
                 try:
-                    with sqlite3.connect(str(self.db_path), timeout=10.0) as fin_conn:
-                        fin_conn.execute("PRAGMA busy_timeout = 10000")
-                        fin_conn.execute(
-                            "UPDATE demoted_markets SET last_screened_at = ? WHERE id = ?",
-                            (datetime.now(timezone.utc).isoformat(), d_id)
+                    success = self.bridge.admit_champion_to_market(d_id, segment_key, best_cand)
+                    if success:
+                        disc_id = f"disc_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}_{segment_key.replace('|', '_')}"
+                        record = ModelDiscoveryRecord(
+                            discovery_id=disc_id,
+                            timestamp=now_iso,
+                            segment_key=segment_key,
+                            league=league,
+                            scope=scope,
+                            family=family,
+                            winning_archetype=best_cand.model_archetype,
+                            winning_model_id=best_cand.model_id,
+                            historical_roi=best_cand.oos_simulated_roi,
+                            historical_brier_delta=best_cand.oos_delta_brier,
+                            historical_sample_size=best_cand.oos_sample_size,
+                            historical_max_drawdown=best_cand.oos_max_drawdown,
+                            parameters=best_cand.model_params,
+                            scientific_basis=self.LITERATURE_TAXONOMY.get(
+                                best_cand.model_archetype, 'Autonomous domain formulation'
+                            ),
                         )
-                        fin_conn.commit()
+                        new_discoveries.append(record)
+                        self._log_discovery(record)
                 except Exception:
                     pass
+                finally:
+                    try:
+                        with sqlite3.connect(str(self.db_path), timeout=10.0) as fin_conn:
+                            fin_conn.execute("PRAGMA busy_timeout = 10000")
+                            fin_conn.execute(
+                                "UPDATE demoted_markets SET last_screened_at = ? WHERE id = ?",
+                                (datetime.now(timezone.utc).isoformat(), d_id)
+                            )
+                            fin_conn.commit()
+                    except Exception:
+                        pass
+            else:
+                unresolved_markets.append(market)
+
+        # 2. Parallel Dual-AI Synthesis (Codex + Claude) for unresolved markets
+        if unresolved_markets:
+            def _synthesize_market(m):
+                seg = m['segment_key']
+                d_id = m.get('id')
+                try:
+                    from .codex_model_synthesizer import CodexModelSynthesizer
+                    synthesizer = CodexModelSynthesizer(self.data_dir)
+                    synth_rec = synthesizer.synthesize_and_screen_candidate(
+                        segment_key=seg,
+                        domain_problem=f"Standard archetypes failed out-of-sample backtest on {seg}. Requires novel mathematical formulation."
+                    )
+                    if synth_rec.crucible_passed and synth_rec.is_admitted_to_incubator:
+                        from .historical_trainer import CandidateTrainingResult
+                        candidate_result = CandidateTrainingResult(
+                            segment_key=seg,
+                            model_id=synth_rec.model_id,
+                            model_archetype=synth_rec.class_name,
+                            model_params={'source_file': f"{synth_rec.model_id}.py"},
+                            train_sample_size=0,
+                            oos_sample_size=synth_rec.oos_sample_size,
+                            oos_win_rate=synth_rec.oos_win_rate,
+                            oos_simulated_roi=synth_rec.oos_simulated_roi,
+                            oos_delta_brier=synth_rec.oos_delta_brier,
+                            oos_max_drawdown=synth_rec.oos_max_drawdown,
+                            is_qualified=True,
+                            scorecard_s=100.0,
+                        )
+                        self.bridge.admit_champion_to_market(d_id, seg, candidate_result)
+
+                        disc_id = f"disc_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}_{seg.replace('|', '_')}"
+                        record = ModelDiscoveryRecord(
+                            discovery_id=disc_id,
+                            timestamp=now_iso,
+                            segment_key=seg,
+                            league=m['league'],
+                            scope=m['scope'],
+                            family=m['family'],
+                            winning_archetype=synth_rec.class_name,
+                            winning_model_id=synth_rec.model_id,
+                            historical_roi=synth_rec.oos_simulated_roi,
+                            historical_brier_delta=synth_rec.oos_delta_brier,
+                            historical_sample_size=synth_rec.oos_sample_size,
+                            historical_max_drawdown=synth_rec.oos_max_drawdown,
+                            parameters={'synthesizer': synth_rec.generator_provider, 'rationale': synth_rec.rationale},
+                            scientific_basis=f"Codex-synthesized mathematical formulation: {synth_rec.class_name}",
+                        )
+                        self._log_discovery(record)
+                        return record
+                except Exception:
+                    pass
+                finally:
+                    try:
+                        with sqlite3.connect(str(self.db_path), timeout=10.0) as fin_conn:
+                            fin_conn.execute("PRAGMA busy_timeout = 10000")
+                            fin_conn.execute(
+                                "UPDATE demoted_markets SET last_screened_at = ? WHERE id = ?",
+                                (datetime.now(timezone.utc).isoformat(), d_id)
+                            )
+                            fin_conn.commit()
+                    except Exception:
+                        pass
+                return None
+
+            with ThreadPoolExecutor(max_workers=2) as synth_pool:
+                synth_records = list(synth_pool.map(_synthesize_market, unresolved_markets))
+                for r in synth_records:
+                    if r:
+                        new_discoveries.append(r)
 
         return new_discoveries
 
