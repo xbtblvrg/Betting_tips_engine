@@ -811,9 +811,9 @@ class {class_name}(BaseCandidateModel):
             f"and deduce a concrete mathematical formulation from first principles to capture this alpha. Output domain analysis only."
         )
         try:
-            with file_lock(DATA / "development" / "ai-locks" / "claude.lock", timeout=10.0) as acquired:
+            with file_lock(DATA / "development" / "ai-locks" / "claude.lock", timeout=30.0) as acquired:
                 if not acquired:
-                    log.warning(f"Failed to acquire claude.lock within 10.0s for hypothesis {segment_key}")
+                    log.warning(f"Failed to acquire claude.lock within 30.0s for hypothesis {segment_key}")
                     return None
                 res = invoke('claude', claude_cfg, prompt, timeout=60)
                 state, answer = decode('claude', res, claude_cfg.get('model'))
@@ -879,9 +879,9 @@ class {class_name}(BaseCandidateModel):
         )
 
         try:
-            with file_lock(DATA / "development" / "ai-locks" / "claude.lock", timeout=10.0) as acquired:
+            with file_lock(DATA / "development" / "ai-locks" / "claude.lock", timeout=30.0) as acquired:
                 if not acquired:
-                    log.warning(f"Failed to acquire claude.lock within 10.0s for {segment_key}")
+                    log.warning(f"Failed to acquire claude.lock within 30.0s for {segment_key}")
                     return None
                 res = invoke('claude', claude_cfg, prompt, timeout=240)
                 state, answer = decode('claude', res, claude_cfg.get('model'))
