@@ -681,6 +681,141 @@
     #sound-status-dot.off {
       background: var(--text-dim);
     }
+
+    /* Mobile Responsive Optimizations */
+    @media (max-width: 768px) {
+      .cockpit {
+        padding: 10px 10px 24px 10px;
+        gap: 12px;
+      }
+      .top-ribbon {
+        padding: 12px;
+        gap: 10px;
+      }
+      .brand-group {
+        width: 100%;
+        justify-content: flex-start;
+      }
+      .brand-title {
+        font-size: 16px;
+      }
+      .brand-subtitle {
+        font-size: 10px;
+      }
+      .telemetry-pills {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        width: 100%;
+        gap: 6px;
+      }
+      .tele-pill {
+        padding: 5px 8px;
+      }
+      .tele-pill .label {
+        font-size: 8.5px;
+      }
+      .tele-pill .val {
+        font-size: 11.5px;
+      }
+      .header-actions {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        width: 100%;
+        gap: 6px;
+      }
+      .hud-btn {
+        justify-content: center;
+        padding: 7px 8px;
+        font-size: 11px;
+      }
+      .diagnostics-banner {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 10px 12px;
+        gap: 8px;
+      }
+      .diag-left {
+        font-size: 11px;
+      }
+      .diag-daemons {
+        width: 100%;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+      }
+      .daemon-chip {
+        font-size: 9px;
+        padding: 2px 6px;
+      }
+      .ai-council-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+      .ai-card {
+        padding: 12px;
+      }
+      .ai-activity {
+        font-size: 10.5px;
+      }
+      .tiers-flow-container {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+      .tier-column {
+        padding: 12px;
+      }
+      .stream-name {
+        max-width: 180px;
+      }
+      .demotion-return-bar {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 12px;
+        gap: 8px;
+      }
+      .demotion-chips-stream {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 4px;
+      }
+      .events-card {
+        padding: 12px;
+      }
+      .events-card-head {
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+    }
+
+    @media (max-width: 600px) {
+      #popup-container {
+        left: 10px;
+        right: 10px;
+        bottom: 10px;
+        width: auto;
+      }
+      .toast-popup {
+        width: 100%;
+        max-width: 100%;
+        padding: 10px 14px;
+      }
+      .toast-match {
+        font-size: 12px;
+      }
+      .toast-details {
+        font-size: 10px;
+      }
+    }
+
+    @media (max-width: 380px) {
+      .telemetry-pills {
+        grid-template-columns: 1fr;
+      }
+      .header-actions {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body>
@@ -1098,6 +1233,7 @@
       height = canvas.height = window.innerHeight;
     }
     window.addEventListener('resize', resizeCanvas);
+    window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 100));
     resizeCanvas();
 
     class SynapseNode {
