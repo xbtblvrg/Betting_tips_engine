@@ -131,38 +131,67 @@ def invoke(provider, config, prompt, timeout=90, heartbeat=None):
                 process.stdin.close()
         else:
             process.stdin.close()
-        started = time.monotonic(); state = None; last_heartbeat = -1; cleanup_errors = []
+        # Streaming watchdog: if actively streaming chunks, do not prematurely kill.
+        idle_timeout = float(config.get('idle_timeout', min(60.0, float(timeout))))
+        if 'max_hard_ceiling' in config:
+            max_hard_ceiling = float(config['max_hard_ceiling'])
+        else:
+            max_hard_ceiling = max(float(timeout) * 2.5, 300.0) if float(timeout) >= 30.0 else float(timeout)
+
+        started = time.monotonic()
+        last_activity = started
+        state = None
+        last_heartbeat = -1
+        cleanup_errors = []
         try:
-            # The deadline covers input delivery AND every inherited pipe,
-            # even if the initial CLI process exits before its descendants.
+            # The streaming watchdog protects active token generation:
+            # A task is only aborted for timeout if it goes idle (no output for idle_timeout)
+            # after exceeding base timeout, OR if the hard ceiling is breached.
             while selector.get_map() or process.poll() is None:
                 elapsed = time.monotonic() - started
-                if elapsed >= timeout:
-                    state = 'timeout'; break
+                idle_elapsed = time.monotonic() - last_activity
+                if elapsed >= max_hard_ceiling or (idle_elapsed >= idle_timeout and elapsed >= timeout):
+                    state = 'timeout'
+                    break
                 if heartbeat and int(elapsed) != last_heartbeat:
-                    heartbeat(provider, round(elapsed)); last_heartbeat = int(elapsed)
-                for key, _ in selector.select(min(0.1, max(0, timeout - elapsed))):
+                    heartbeat(provider, round(elapsed))
+                    last_heartbeat = int(elapsed)
+                for key, _ in selector.select(min(0.1, max(0.0, max_hard_ceiling - elapsed))):
                     stream = key.fileobj
                     if key.data == 'input':
                         try:
-                            count = os.write(stream.fileno(), pending[:8192]); pending = pending[count:]
-                        except BlockingIOError: continue
+                            count = os.write(stream.fileno(), pending[:8192])
+                            pending = pending[count:]
+                            if count > 0:
+                                last_activity = time.monotonic()
+                        except BlockingIOError:
+                            continue
                         except BrokenPipeError:
-                            state = 'input_error'; pending = memoryview(b'')
+                            state = 'input_error'
+                            pending = memoryview(b'')
                         if not pending:
-                            selector.unregister(stream); stream.close()
+                            selector.unregister(stream)
+                            stream.close()
                     else:
-                        try: chunk = os.read(stream.fileno(), 8192)
-                        except BlockingIOError: continue
+                        try:
+                            chunk = os.read(stream.fileno(), 8192)
+                        except BlockingIOError:
+                            continue
                         if not chunk:
-                            selector.unregister(stream); stream.close(); continue
-                        target = buffers[key.data]; room = MAX_BYTES - len(target)
+                            selector.unregister(stream)
+                            stream.close()
+                            continue
+                        last_activity = time.monotonic()
+                        target = buffers[key.data]
+                        room = MAX_BYTES - len(target)
                         target.extend(chunk[:max(0, room)])
-                        if len(chunk) > room: state = 'output_limit'
+                        if len(chunk) > room:
+                            state = 'output_limit'
                 # A child may close stdin before emitting its startup error.
                 # Keep that failure, but drain bounded diagnostics until EOF or
                 # the original deadline; never accept a partial-input answer.
-                if state and state != 'input_error': break
+                if state and state != 'input_error':
+                    break
         finally:
             # Do not depend on leader liveness: grandchildren can keep pipes
             # open after it exits. Killing this owned process group is bounded.
@@ -238,7 +267,7 @@ def decode(provider, result, expected_model=None):
         answer = payload.get({'codex': 'response', 'claude': 'result', 'agy': 'response', 'grok': 'text'}.get(provider, 'response'))
         if not answer:
             answer = payload.get('result') or payload.get('text') or payload.get('response')
-        if not isinstance(answer, str) or not answer.strip() or len(answer) > 16000:
+        if not isinstance(answer, str) or not answer.strip() or len(answer) > MAX_BYTES:
             return 'invalid_output', None
         return 'received_unreviewed', answer
     except (AttributeError, KeyError, TypeError, ValueError):

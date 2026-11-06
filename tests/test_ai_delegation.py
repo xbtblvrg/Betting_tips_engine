@@ -243,17 +243,52 @@ def test_invoke_progress_watchdog_permits_active_streaming_past_base_timeout(tmp
         f.write('import time, sys\n')
         f.write('sys.stdout.write("{\\"result\\": \\"")\n')
         f.write('sys.stdout.flush()\n')
-        f.write('time.sleep(0.4)\n')
+        f.write('time.sleep(0.35)\n')
         f.write('sys.stdout.write("progress part 1 ")\n')
         f.write('sys.stdout.flush()\n')
-        f.write('time.sleep(0.4)\n')
+        f.write('time.sleep(0.35)\n')
         f.write('sys.stdout.write("completed\\"}\\n")\n')
         f.write('sys.stdout.flush()\n')
     cli.chmod(0o700)
 
-    # Base timeout is 1.6s, but max_hard_ceiling is 5.0s and idle_timeout is 0.8s.
-    # Because it is actively streaming data (idle interval < 0.8s), it is NOT aborted at 1.6s!
-    result = invoke('claude', {'binary': str(cli), 'max_hard_ceiling': 5, 'idle_timeout': 0.8}, 'brief', timeout=1.6)
+    # Base timeout is 0.5s, but process takes ~0.7s total.
+    # Because it is actively streaming data (idle interval ~0.35s < idle_timeout 0.8s),
+    # the streaming watchdog keeps it alive past the 0.5s base timeout!
+    result = invoke('claude', {'binary': str(cli), 'max_hard_ceiling': 5, 'idle_timeout': 0.8}, 'brief', timeout=0.5)
     assert result['state'] is None, f"Expected successful stream completion, got {result['state']}"
     assert 'progress part 1 completed' in result['stdout']
+
+
+def test_invoke_progress_watchdog_aborts_when_stream_goes_idle_past_timeout(tmp_path):
+    # Simulated CLI that emits initial token and then hangs indefinitely
+    cli = tmp_path / 'idle-cli'
+    with cli.open('w', encoding='utf-8') as f:
+        f.write('#!' + sys.executable + '\n')
+        f.write('import time, sys\n')
+        f.write('sys.stdout.write("{\\"result\\": \\"")\n')
+        f.write('sys.stdout.flush()\n')
+        f.write('time.sleep(2.0)\n')
+    cli.chmod(0o700)
+
+    # Base timeout is 0.3s, idle_timeout is 0.4s.
+    # Process goes idle for > 0.4s after base timeout, so watchdog aborts with 'timeout'
+    result = invoke('claude', {'binary': str(cli), 'max_hard_ceiling': 5, 'idle_timeout': 0.4}, 'brief', timeout=0.3)
+    assert result['state'] == 'timeout'
+
+
+def test_invoke_progress_watchdog_enforces_hard_ceiling(tmp_path):
+    # Simulated CLI that streams continuously forever
+    cli = tmp_path / 'infinite-cli'
+    with cli.open('w', encoding='utf-8') as f:
+        f.write('#!' + sys.executable + '\n')
+        f.write('import time, sys\n')
+        f.write('while True:\n')
+        f.write('    sys.stdout.write("chunk ")\n')
+        f.write('    sys.stdout.flush()\n')
+        f.write('    time.sleep(0.05)\n')
+    cli.chmod(0o700)
+
+    # Even though chunks arrive every 50ms, hard ceiling of 0.5s must terminate it
+    result = invoke('claude', {'binary': str(cli), 'max_hard_ceiling': 0.5, 'idle_timeout': 0.8}, 'brief', timeout=0.2)
+    assert result['state'] == 'timeout'
 
