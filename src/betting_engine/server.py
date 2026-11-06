@@ -258,6 +258,12 @@ def model_funnel_velocity_status():
     from .providers import DATA
     return english_payload(get_latest_funnel_velocity_report(DATA))
 
+@app.get('/api/superbrain/state')
+def superbrain_state_status():
+    from .superbrain_telemetry import get_superbrain_state
+    from .providers import DATA
+    return english_payload(get_superbrain_state(DATA))
+
 @app.get('/api/inventory')
 @app.get('/api/canonical-inventory')
 def canonical_system_inventory_status():
@@ -1338,7 +1344,11 @@ def get_schedule():
 
 WEB=Path(__file__).parent/'web'
 @app.get('/')
+@app.head('/')
 def index():return FileResponse(WEB/'index.html',headers={'Cache-Control':'no-cache, no-store, must-revalidate'})
+@app.get('/superbrain')
+@app.head('/superbrain')
+def superbrain():return FileResponse(WEB/'superbrain.html',headers={'Cache-Control':'no-cache, no-store, must-revalidate'})
 @app.get('/assets/{file_path:path}')
 def static_asset(file_path: str):
     target = (WEB / file_path).resolve()

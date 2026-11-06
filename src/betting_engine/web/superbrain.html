@@ -1,0 +1,1467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SUPERBRAIN · Live Quant Neural Cockpit</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+  <style>
+    :root {
+      --bg-dark: #060814;
+      --bg-panel: rgba(13, 17, 33, 0.78);
+      --bg-panel-hover: rgba(22, 28, 54, 0.88);
+      --border-cyan: rgba(0, 243, 255, 0.28);
+      --border-green: rgba(0, 255, 136, 0.3);
+      --border-purple: rgba(181, 23, 158, 0.35);
+      --border-red: rgba(255, 0, 85, 0.35);
+      --cyan: #00f3ff;
+      --green: #00ff88;
+      --purple: #b5179e;
+      --violet: #7209b7;
+      --amber: #ffb703;
+      --red: #ff0055;
+      --text: #cbe3fb;
+      --text-dim: #748ba7;
+      --glow-cyan: 0 0 15px rgba(0, 243, 255, 0.45);
+      --glow-green: 0 0 15px rgba(0, 255, 136, 0.45);
+      --glow-red: 0 0 15px rgba(255, 0, 85, 0.45);
+      --glow-purple: 0 0 15px rgba(181, 23, 158, 0.45);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg-dark);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "JetBrains Mono", monospace;
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Background Canvas */
+    #neural-canvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* Main Container */
+    .cockpit {
+      position: relative;
+      z-index: 1;
+      padding: 16px 24px 32px 24px;
+      max-width: 1800px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    /* Header Bar */
+    .top-ribbon {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 14px;
+      background: var(--bg-panel);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-cyan);
+      border-radius: 12px;
+      padding: 12px 20px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brain-logo {
+      font-size: 28px;
+      filter: drop-shadow(0 0 8px var(--cyan));
+      animation: pulse-glow 3s infinite alternate;
+    }
+    @keyframes pulse-glow {
+      0% { transform: scale(1); filter: drop-shadow(0 0 6px var(--cyan)); }
+      100% { transform: scale(1.08); filter: drop-shadow(0 0 16px var(--cyan)); }
+    }
+    .brand-title {
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .live-pulse-dot {
+      width: 10px;
+      height: 10px;
+      background: var(--green);
+      border-radius: 50%;
+      box-shadow: var(--glow-green);
+      animation: blink 1.2s infinite ease-in-out;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.3; transform: scale(0.85); }
+    }
+    .brand-subtitle {
+      font-size: 11px;
+      color: var(--text-dim);
+      letter-spacing: 0.5px;
+    }
+
+    .telemetry-pills {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .tele-pill {
+      background: rgba(0,0,0,0.4);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .tele-pill .label {
+      font-size: 9px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .tele-pill .val {
+      font-weight: 700;
+      font-family: monospace;
+      color: #fff;
+    }
+    .val.green { color: var(--green); text-shadow: 0 0 8px rgba(0,255,136,0.4); }
+    .val.cyan { color: var(--cyan); text-shadow: 0 0 8px rgba(0,243,255,0.4); }
+    .val.red { color: var(--red); text-shadow: 0 0 8px rgba(255,0,85,0.4); }
+    .val.amber { color: var(--amber); text-shadow: 0 0 8px rgba(255,183,3,0.4); }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .hud-btn {
+      background: rgba(0, 243, 255, 0.1);
+      border: 1px solid var(--border-cyan);
+      color: var(--cyan);
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+    .hud-btn:hover {
+      background: rgba(0, 243, 255, 0.25);
+      box-shadow: var(--glow-cyan);
+      transform: translateY(-1px);
+    }
+    .hud-btn.active {
+      background: var(--cyan);
+      color: #000;
+      box-shadow: var(--glow-cyan);
+    }
+    .hud-btn.fullscreen-btn {
+      background: linear-gradient(135deg, rgba(0,243,255,0.2), rgba(181,23,158,0.3));
+      border-color: rgba(181,23,158,0.5);
+      color: #fff;
+    }
+    .hud-btn.fullscreen-btn:hover {
+      box-shadow: var(--glow-purple);
+    }
+
+    /* Diagnostics Banner: Dugulásmentes status */
+    .diagnostics-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding: 10px 18px;
+      border-radius: 10px;
+      background: rgba(0, 255, 136, 0.08);
+      border: 1px solid var(--border-green);
+      font-size: 12px;
+    }
+    .diagnostics-banner.warning {
+      background: rgba(255, 0, 85, 0.12);
+      border-color: var(--border-red);
+    }
+    .diag-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+    }
+    .diag-daemons {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .daemon-chip {
+      background: rgba(0,0,0,0.5);
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 10px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .daemon-chip.up .dot { background: var(--green); box-shadow: var(--glow-green); }
+    .daemon-chip.down .dot { background: var(--red); box-shadow: var(--glow-red); }
+    .daemon-chip .dot { width: 6px; height: 6px; border-radius: 50%; }
+
+    /* AI Quant Council Grid */
+    .council-section {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .section-title {
+      font-size: 13px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-title span.count-badge {
+      background: rgba(0, 243, 255, 0.15);
+      color: var(--cyan);
+      border: 1px solid var(--border-cyan);
+      padding: 2px 7px;
+      border-radius: 10px;
+      font-size: 10px;
+    }
+    .ai-council-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 14px;
+    }
+    .ai-card {
+      background: var(--bg-panel);
+      backdrop-filter: blur(10px);
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.25s ease;
+    }
+    .ai-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, transparent, var(--accent-color, var(--cyan)), transparent);
+    }
+    .ai-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--accent-color, var(--cyan));
+      box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+    }
+    .ai-card.card-agy { --accent-color: var(--cyan); border-color: rgba(0,243,255,0.3); }
+    .ai-card.card-claude { --accent-color: var(--purple); border-color: rgba(181,23,158,0.3); }
+    .ai-card.card-codex { --accent-color: var(--green); border-color: rgba(0,255,136,0.3); }
+    .ai-card.card-grok { --accent-color: var(--red); border-color: rgba(255,0,85,0.3); }
+
+    .ai-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .ai-identity {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .ai-avatar {
+      font-size: 18px;
+    }
+    .ai-name {
+      font-weight: 700;
+      font-size: 14px;
+      color: #fff;
+    }
+    .ai-badge {
+      font-size: 9px;
+      font-weight: 700;
+      padding: 3px 7px;
+      border-radius: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background: rgba(0,0,0,0.4);
+      border: 1px solid var(--accent-color);
+      color: var(--accent-color);
+    }
+    .ai-role {
+      font-size: 11px;
+      color: var(--text-dim);
+      line-height: 1.3;
+    }
+    .ai-activity {
+      background: rgba(0,0,0,0.3);
+      border-left: 2px solid var(--accent-color);
+      padding: 6px 10px;
+      border-radius: 0 6px 6px 0;
+      font-size: 11px;
+      color: #e2eafc;
+      font-family: monospace;
+    }
+
+    /* 4-Tier Progressive Funnel Flow Grid */
+    .tiers-section {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .tiers-flow-container {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      position: relative;
+    }
+    @media (max-width: 1200px) {
+      .tiers-flow-container {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    @media (max-width: 768px) {
+      .tiers-flow-container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .tier-column {
+      background: var(--bg-panel);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      position: relative;
+      overflow: hidden;
+    }
+    .tier-column.t1 { border-top: 3px solid var(--cyan); }
+    .tier-column.t2 { border-top: 3px solid var(--purple); }
+    .tier-column.t3 { border-top: 3px solid var(--green); }
+    .tier-column.t4 { border-top: 3px solid var(--amber); }
+
+    .tier-head {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      padding-bottom: 10px;
+    }
+    .tier-num-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .tier-tag {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .t1 .tier-tag { color: var(--cyan); }
+    .t2 .tier-tag { color: var(--purple); }
+    .t3 .tier-tag { color: var(--green); }
+    .t4 .tier-tag { color: var(--amber); }
+
+    .tier-rate-badge {
+      font-size: 10px;
+      font-family: monospace;
+      padding: 2px 7px;
+      border-radius: 6px;
+      background: rgba(0,0,0,0.4);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #fff;
+    }
+    .tier-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .tier-subtitle {
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    /* Conduit connector between tiers */
+    .conduit-bar {
+      height: 4px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 2px;
+      position: relative;
+      overflow: hidden;
+      margin: 4px 0;
+    }
+    .conduit-pulse {
+      position: absolute;
+      top: 0; bottom: 0;
+      width: 40px;
+      border-radius: 2px;
+      animation: conduit-stream 1.8s infinite linear;
+    }
+    .t1 .conduit-pulse { background: linear-gradient(90deg, transparent, var(--cyan), transparent); }
+    .t2 .conduit-pulse { background: linear-gradient(90deg, transparent, var(--purple), transparent); }
+    .t3 .conduit-pulse { background: linear-gradient(90deg, transparent, var(--green), transparent); }
+    .t4 .conduit-pulse { background: linear-gradient(90deg, transparent, var(--amber), transparent); }
+    @keyframes conduit-stream {
+      0% { left: -40px; }
+      100% { left: 100%; }
+    }
+
+    .tier-metrics {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    .metric-box {
+      background: rgba(0,0,0,0.3);
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.05);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .metric-box .m-lbl { font-size: 9px; color: var(--text-dim); text-transform: uppercase; }
+    .metric-box .m-val { font-size: 13px; font-weight: 700; font-family: monospace; color: #fff; }
+
+    .tier-item-stream {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 290px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+    .tier-item-stream::-webkit-scrollbar { width: 4px; }
+    .tier-item-stream::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+
+    .stream-row {
+      background: rgba(0,0,0,0.35);
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 11px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      transition: background 0.2s ease;
+    }
+    .stream-row:hover { background: rgba(0,0,0,0.6); border-color: rgba(255,255,255,0.15); }
+    .stream-row-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .stream-name {
+      font-weight: 700;
+      color: #fff;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 170px;
+    }
+    .stream-badge {
+      font-size: 9px;
+      padding: 2px 5px;
+      border-radius: 4px;
+      font-weight: 700;
+      font-family: monospace;
+    }
+    .stream-badge.pos { background: rgba(0, 255, 136, 0.2); color: var(--green); }
+    .stream-badge.neg { background: rgba(255, 0, 85, 0.2); color: var(--red); }
+    .stream-badge.neutral { background: rgba(0, 243, 255, 0.15); color: var(--cyan); }
+    .stream-desc {
+      font-size: 10px;
+      color: var(--text-dim);
+      line-height: 1.3;
+    }
+
+    /* Demotion Loop Warning Box (Tier 3 -> Tier 1) */
+    .demotion-return-bar {
+      background: rgba(255, 0, 85, 0.08);
+      border: 1px solid var(--border-red);
+      border-radius: 12px;
+      padding: 12px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .demotion-bar-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .demotion-icon {
+      font-size: 20px;
+      filter: drop-shadow(0 0 6px var(--red));
+      animation: pulse-red 2s infinite alternate;
+    }
+    @keyframes pulse-red {
+      0% { opacity: 0.6; } 100% { opacity: 1; }
+    }
+    .demotion-text h4 {
+      font-size: 13px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .demotion-text p {
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .demotion-chips-stream {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .demoted-chip {
+      background: rgba(0,0,0,0.5);
+      border: 1px solid rgba(255,0,85,0.4);
+      color: #ff99bb;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 10px;
+      font-family: monospace;
+    }
+
+    /* Live Executable Bets & Settlements Split */
+    .events-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 900px) {
+      .events-grid { grid-template-columns: 1fr; }
+    }
+    .events-card {
+      background: var(--bg-panel);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .events-card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .events-card-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Floating Toast Event Popups */
+    #popup-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;
+    }
+    .toast-popup {
+      pointer-events: auto;
+      background: rgba(13, 17, 33, 0.95);
+      backdrop-filter: blur(16px);
+      border-radius: 12px;
+      padding: 14px 18px;
+      width: 360px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.8);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      animation: slide-in 0.35s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+      border: 1px solid;
+    }
+    .toast-popup.win {
+      border-color: var(--green);
+      box-shadow: var(--glow-green), 0 8px 30px rgba(0,0,0,0.7);
+    }
+    .toast-popup.loss {
+      border-color: var(--red);
+      box-shadow: var(--glow-red), 0 8px 30px rgba(0,0,0,0.7);
+    }
+    .toast-popup.grad {
+      border-color: var(--cyan);
+      box-shadow: var(--glow-cyan), 0 8px 30px rgba(0,0,0,0.7);
+    }
+    @keyframes slide-in {
+      from { transform: translateX(110%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    .toast-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .toast-type {
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .toast-popup.win .toast-type { color: var(--green); }
+    .toast-popup.loss .toast-type { color: var(--red); }
+    .toast-popup.grad .toast-type { color: var(--cyan); }
+    .toast-time { font-size: 10px; color: var(--text-dim); }
+    .toast-match {
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .toast-details {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-dim);
+      font-family: monospace;
+    }
+    .toast-pnl {
+      font-size: 14px;
+      font-weight: 800;
+    }
+    .toast-pnl.pos { color: var(--green); text-shadow: 0 0 8px rgba(0,255,136,0.6); }
+    .toast-pnl.neg { color: var(--red); text-shadow: 0 0 8px rgba(255,0,85,0.6); }
+
+    /* Sound indicator status */
+    #sound-status-dot {
+      display: inline-block;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+    #sound-status-dot.off {
+      background: var(--text-dim);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Neural Canvas for Animated Synaptic Connections -->
+  <canvas id="neural-canvas"></canvas>
+
+  <div class="cockpit">
+    <!-- Top Telemetry Ribbon -->
+    <header class="top-ribbon">
+      <div class="brand-group">
+        <span class="brain-logo">🧠</span>
+        <div>
+          <div class="brand-title">
+            <span>SUPERBRAIN</span>
+            <span class="live-pulse-dot"></span>
+            <span style="font-size:11px; font-weight:700; color:var(--cyan); letter-spacing:1px;">LIVE QUANT FLOW</span>
+          </div>
+          <div class="brand-subtitle">Autonomous Multi-AI Quant Engine · Closed-Loop Neural Operations</div>
+        </div>
+      </div>
+
+      <div class="telemetry-pills">
+        <div class="tele-pill">
+          <span class="label">Budapest Time</span>
+          <span class="val cyan" id="budapest-time-val">--:--:-- UTC+1</span>
+        </div>
+        <div class="tele-pill">
+          <span class="label">Today's Picks</span>
+          <span class="val green" id="today-picks-val">-- / 100</span>
+        </div>
+        <div class="tele-pill">
+          <span class="label">Funded Stake</span>
+          <span class="val" id="today-stake-val">$0.00</span>
+        </div>
+        <div class="tele-pill">
+          <span class="label">Win Rate</span>
+          <span class="val green" id="win-rate-val">--%</span>
+        </div>
+        <div class="tele-pill">
+          <span class="label">Realized PnL</span>
+          <span class="val green" id="total-pnl-val">+$0.00</span>
+        </div>
+        <div class="tele-pill">
+          <span class="label">Weekly ROI Mandate</span>
+          <span class="val cyan">≥ 10.0% ROI</span>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <button class="hud-btn" id="sound-toggle-btn" title="Toggle audio alert synthesizers">
+          <span id="sound-status-dot"></span>
+          <span id="sound-btn-text">Audio: ON</span>
+        </button>
+        <button class="hud-btn fullscreen-btn" id="fullscreen-toggle-btn" title="Toggle Fullscreen Mode (F11)">
+          <span>⛶</span>
+          <span id="fullscreen-btn-text">FULLSCREEN</span>
+        </button>
+        <a href="/" class="hud-btn" title="Back to Main Quant Desk">
+          <span>↗</span>
+          <span>QUANT DESK</span>
+        </a>
+      </div>
+    </header>
+
+    <!-- Diagnostics Banner: Dugulásmentes status & Daemons -->
+    <div class="diagnostics-banner" id="diagnostics-banner">
+      <div class="diag-left">
+        <span id="diag-indicator-icon">🟢</span>
+        <span id="diag-indicator-text">OPTIMAL: DUGULÁSMENTES (FREE FLOW) · Zero Bottlenecks Detected</span>
+      </div>
+      <div class="diag-daemons" id="daemons-container">
+        <!-- Filled dynamically -->
+      </div>
+    </div>
+
+    <!-- Multi-AI Quant Council Section -->
+    <section class="council-section">
+      <div class="section-title">
+        <span>Multi-AI Quant Council Hub</span>
+        <span class="count-badge">4 Cognitive Brains Online</span>
+      </div>
+      <div class="ai-council-grid">
+        <!-- Gemini Antigravity (Lead Quant) -->
+        <div class="ai-card card-agy">
+          <div class="ai-header">
+            <div class="ai-identity">
+              <span class="ai-avatar">⚡</span>
+              <div>
+                <div class="ai-name">Gemini Antigravity</div>
+                <div class="ai-role">Lead Quant Architect &amp; Release Gate</div>
+              </div>
+            </div>
+            <span class="ai-badge" id="agy-badge">SUPERVISING</span>
+          </div>
+          <div class="ai-activity" id="agy-activity">
+            Orchestrating 4-tier closed-loop progression &amp; enforcing 10 Prime Directives.
+          </div>
+        </div>
+
+        <!-- Claude Opus 5.5 -->
+        <div class="ai-card card-claude">
+          <div class="ai-header">
+            <div class="ai-identity">
+              <span class="ai-avatar">🎭</span>
+              <div>
+                <div class="ai-name">Claude Opus 5.5</div>
+                <div class="ai-role">Domain Mechanics &amp; Situational Factors</div>
+              </div>
+            </div>
+            <span class="ai-badge" id="claude-badge">INFERENCE</span>
+          </div>
+          <div class="ai-activity" id="claude-activity">
+            Analyzing NBA/NHL rest differentials, goalie fatigue, and starter injury weights.
+          </div>
+        </div>
+
+        <!-- OpenAI Codex Astra -->
+        <div class="ai-card card-codex">
+          <div class="ai-header">
+            <div class="ai-identity">
+              <span class="ai-avatar">⚛</span>
+              <div>
+                <div class="ai-name">OpenAI Codex Astra</div>
+                <div class="ai-role">Mathematical Kernel Synthesizer</div>
+              </div>
+            </div>
+            <span class="ai-badge" id="codex-badge">SYNTHESIZING</span>
+          </div>
+          <div class="ai-activity" id="codex-activity">
+            Synthesizing Negative Binomial, Copula Hazard &amp; Asymmetric Laplace models.
+          </div>
+        </div>
+
+        <!-- xAI Grok 4.7 -->
+        <div class="ai-card card-grok">
+          <div class="ai-header">
+            <div class="ai-identity">
+              <span class="ai-avatar">🛡</span>
+              <div>
+                <div class="ai-name">xAI Grok 4.7</div>
+                <div class="ai-role">Adversarial Red-Team Auditor</div>
+              </div>
+            </div>
+            <span class="ai-badge" id="grok-badge">STRESS-TESTING</span>
+          </div>
+          <div class="ai-activity" id="grok-activity">
+            Stress-testing candidate Brier scores, drawdown boundaries, and tail risks.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4-Tier Progressive Funnel Flow Grid -->
+    <section class="tiers-section">
+      <div class="section-title">
+        <span>4-Tier Closed-Loop Progression &amp; Live Velocity Conduits</span>
+        <span class="count-badge" id="net-velocity-badge">Net Expansion: Active</span>
+      </div>
+
+      <div class="tiers-flow-container">
+        <!-- Tier 1: R&D & Historical Training -->
+        <div class="tier-column t1">
+          <div class="tier-head">
+            <div class="tier-num-wrap">
+              <span class="tier-tag">TIER 1 · R&amp;D DISCOVERY</span>
+              <span class="tier-rate-badge" id="t1-rate-badge">-- model/h</span>
+            </div>
+            <div class="tier-title">Historical Backtesting &amp; Synthesis</div>
+            <div class="tier-subtitle">97,000+ settled matches · First-principles formulas</div>
+          </div>
+          <div class="conduit-bar"><div class="conduit-pulse"></div></div>
+          <div class="tier-metrics">
+            <div class="metric-box">
+              <span class="m-lbl">Synthesis Rate</span>
+              <span class="m-val cyan" id="t1-synth-rate">--/h</span>
+            </div>
+            <div class="metric-box">
+              <span class="m-lbl">Total Synthesized</span>
+              <span class="m-val" id="t1-total-synth">--</span>
+            </div>
+          </div>
+          <div class="tier-item-stream" id="t1-syntheses-stream">
+            <!-- Dynamic stream of candidate models -->
+          </div>
+        </div>
+
+        <!-- Tier 2: Shadow Incubator -->
+        <div class="tier-column t2">
+          <div class="tier-head">
+            <div class="tier-num-wrap">
+              <span class="tier-tag">TIER 2 · SHADOW INCUBATOR</span>
+              <span class="tier-rate-badge" id="t2-rate-badge">-- adm/h</span>
+            </div>
+            <div class="tier-title">Live Forward Validation ($0.00)</div>
+            <div class="tier-subtitle">Paper-trading live fixtures · Zero bankroll risk</div>
+          </div>
+          <div class="conduit-bar"><div class="conduit-pulse"></div></div>
+          <div class="tier-metrics">
+            <div class="metric-box">
+              <span class="m-lbl">Demoted Markets</span>
+              <span class="m-val" id="t2-demoted-count">--</span>
+            </div>
+            <div class="metric-box">
+              <span class="m-lbl">Crucible Pass %</span>
+              <span class="m-val green" id="t2-pass-pct">--%</span>
+            </div>
+          </div>
+          <div class="tier-item-stream" id="t2-incubating-stream">
+            <!-- Dynamic stream of incubating candidates -->
+          </div>
+        </div>
+
+        <!-- Tier 3: Stake Sportsbook Production -->
+        <div class="tier-column t3">
+          <div class="tier-head">
+            <div class="tier-num-wrap">
+              <span class="tier-tag">TIER 3 · STAKE SPORTSBOOK</span>
+              <span class="tier-rate-badge" id="t3-rate-badge">-- grad/h</span>
+            </div>
+            <div class="tier-title">Live Execution ($0.50–$8.00)</div>
+            <div class="tier-subtitle">Continuous fractional Kelly · 14 liquid leagues</div>
+          </div>
+          <div class="conduit-bar"><div class="conduit-pulse"></div></div>
+          <div class="tier-metrics">
+            <div class="metric-box">
+              <span class="m-lbl">Graduated Markets</span>
+              <span class="m-val green" id="t3-grad-count">--</span>
+            </div>
+            <div class="metric-box">
+              <span class="m-lbl">Open Live Bets</span>
+              <span class="m-val cyan" id="t3-open-count">--</span>
+            </div>
+          </div>
+          <div class="tier-item-stream" id="t3-bets-stream">
+            <!-- Dynamic stream of active bets -->
+          </div>
+        </div>
+
+        <!-- Tier 4: Polymarket CLOB Execution -->
+        <div class="tier-column t4">
+          <div class="tier-head">
+            <div class="tier-num-wrap">
+              <span class="tier-tag">TIER 4 · POLYMARKET CLOB</span>
+              <span class="tier-rate-badge" id="t4-rate-badge">Live Alpha</span>
+            </div>
+            <div class="tier-title">Resting Limit Maker Orders</div>
+            <div class="tier-subtitle">0% Taker fee · Reachable multi-platform edge</div>
+          </div>
+          <div class="conduit-bar"><div class="conduit-pulse"></div></div>
+          <div class="tier-metrics">
+            <div class="metric-box">
+              <span class="m-lbl">Filled Resting</span>
+              <span class="m-val amber" id="t4-filled-count">--</span>
+            </div>
+            <div class="metric-box">
+              <span class="m-lbl">CLOB PnL</span>
+              <span class="m-val green" id="t4-pnl-val">+$0.00</span>
+            </div>
+          </div>
+          <div class="tier-item-stream" id="t4-orders-stream">
+            <!-- Dynamic stream of polymarket orders -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Demotion Loop Return Conduit (Tier 3 -> Tier 1) -->
+      <div class="demotion-return-bar">
+        <div class="demotion-bar-left">
+          <span class="demotion-icon">🛡️</span>
+          <div class="demotion-text">
+            <h4>Capital Defense &amp; Demotion Return Loop (Tier 3 ➔ Tier 1 Quarantine)</h4>
+            <p>Markets with rolling ROI &lt; -3.0% are immediately clamped ($0.00) and returned to Tier 1 R&amp;D for autonomous AI turnaround.</p>
+          </div>
+        </div>
+        <div class="demotion-chips-stream" id="demotions-chips-container">
+          <!-- Filled dynamically with recent demotions -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Live Active Recommendations & Settlements -->
+    <div class="events-grid">
+      <!-- Active Executable Recommendations (Stake) -->
+      <div class="events-card">
+        <div class="events-card-head">
+          <div class="events-card-title">
+            <span>🎯 Active Executable Recommendations</span>
+            <span class="stream-badge neutral" id="live-recs-badge">-- Open</span>
+          </div>
+          <span style="font-size:11px; color:var(--text-dim);">Continuous Kelly ($0.50–$8.00)</span>
+        </div>
+        <div class="tier-item-stream" id="active-bets-full-stream" style="max-height: 350px;">
+          <!-- Active bets list -->
+        </div>
+      </div>
+
+      <!-- Live Settlement Event Ledger (Wins & Losses) -->
+      <div class="events-card">
+        <div class="events-card-head">
+          <div class="events-card-title">
+            <span>⚡ Live Settlements &amp; Result Forensics</span>
+            <span class="stream-badge pos" id="settlements-badge">Live Stream</span>
+          </div>
+          <span style="font-size:11px; color:var(--text-dim);">Verified Realized Outcomes</span>
+        </div>
+        <div class="tier-item-stream" id="settlements-full-stream" style="max-height: 350px;">
+          <!-- Settlement stream -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating Toast Notifications Container -->
+  <div id="popup-container"></div>
+
+  <script>
+    // Audio Synthesizer (Zero external dependencies)
+    class QuantAudioSynth {
+      constructor() {
+        this.ctx = null;
+        this.enabled = true;
+      }
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) this.ctx = new AudioContext();
+        }
+      }
+      playWin() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+        try {
+          const now = this.ctx.currentTime;
+          const osc1 = this.ctx.createOscillator();
+          const osc2 = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+
+          osc1.type = 'sine';
+          osc1.frequency.setValueAtTime(587.33, now); // D5
+          osc1.frequency.exponentialRampToValueAtTime(880.00, now + 0.15); // A5
+
+          osc2.type = 'triangle';
+          osc2.frequency.setValueAtTime(880.00, now + 0.1);
+          osc2.frequency.exponentialRampToValueAtTime(1174.66, now + 0.3); // D6
+
+          gain.gain.setValueAtTime(0.12, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+          osc1.connect(gain);
+          osc2.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc1.start(now);
+          osc2.start(now + 0.1);
+          osc1.stop(now + 0.25);
+          osc2.stop(now + 0.45);
+        } catch (e) { console.debug('Audio error:', e); }
+      }
+      playLoss() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+        try {
+          const now = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(220, now);
+          osc.frequency.exponentialRampToValueAtTime(110, now + 0.25);
+          gain.gain.setValueAtTime(0.08, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.35);
+        } catch (e) { console.debug('Audio error:', e); }
+      }
+      playGraduation() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+        try {
+          const now = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(440, now);
+          osc.frequency.exponentialRampToValueAtTime(1046.5, now + 0.25);
+          gain.gain.setValueAtTime(0.1, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.4);
+        } catch (e) { console.debug('Audio error:', e); }
+      }
+    }
+    const audioSynth = new QuantAudioSynth();
+
+    // Neural Canvas Visualizer
+    const canvas = document.getElementById('neural-canvas');
+    const ctx = canvas.getContext('2d');
+    let width, height;
+    let particles = [];
+    const PARTICLE_COUNT = 65;
+
+    function resizeCanvas() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    class SynapseNode {
+      constructor() {
+        this.x = Math.random() * width;
+        this.y = Math.random() * height;
+        this.vx = (Math.random() - 0.5) * 0.7;
+        this.vy = (Math.random() - 0.5) * 0.7;
+        this.radius = Math.random() * 2.2 + 1;
+        this.color = Math.random() > 0.4 ? 'rgba(0, 243, 255, ' : 'rgba(0, 255, 136, ';
+        this.alpha = Math.random() * 0.6 + 0.2;
+      }
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        if (this.x < 0 || this.x > width) this.vx *= -1;
+        if (this.y < 0 || this.y > height) this.vy *= -1;
+      }
+      draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = this.color + this.alpha + ')';
+        ctx.fill();
+      }
+    }
+
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      particles.push(new SynapseNode());
+    }
+
+    function animateNeuralSynapses() {
+      ctx.clearRect(0, 0, width, height);
+
+      // Draw connections
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const dx = particles[i].x - particles[j].x;
+          const dy = particles[i].y - particles[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 130) {
+            const alpha = (1 - dist / 130) * 0.15;
+            ctx.beginPath();
+            ctx.moveTo(particles[i].x, particles[i].y);
+            ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.strokeStyle = `rgba(0, 243, 255, ${alpha})`;
+            ctx.lineWidth = 0.8;
+            ctx.stroke();
+          }
+        }
+      }
+
+      // Draw and update nodes
+      for (let p of particles) {
+        p.update();
+        p.draw();
+      }
+
+      requestAnimationFrame(animateNeuralSynapses);
+    }
+    animateNeuralSynapses();
+
+    // Fullscreen Toggle
+    const fsBtn = document.getElementById('fullscreen-toggle-btn');
+    const fsText = document.getElementById('fullscreen-btn-text');
+    fsBtn.addEventListener('click', () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().then(() => {
+          fsText.textContent = 'EXIT FULLSCREEN';
+          fsBtn.classList.add('active');
+        }).catch(err => console.debug('Fullscreen error:', err));
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen().then(() => {
+            fsText.textContent = 'FULLSCREEN';
+            fsBtn.classList.remove('active');
+          });
+        }
+      }
+    });
+    document.addEventListener('fullscreenchange', () => {
+      if (!document.fullscreenElement) {
+        fsText.textContent = 'FULLSCREEN';
+        fsBtn.classList.remove('active');
+      }
+    });
+
+    // Sound Toggle
+    const soundBtn = document.getElementById('sound-toggle-btn');
+    const soundDot = document.getElementById('sound-status-dot');
+    const soundText = document.getElementById('sound-btn-text');
+    soundBtn.addEventListener('click', () => {
+      audioSynth.enabled = !audioSynth.enabled;
+      if (audioSynth.enabled) {
+        soundDot.classList.remove('off');
+        soundText.textContent = 'Audio: ON';
+        audioSynth.playWin();
+      } else {
+        soundDot.classList.add('off');
+        soundText.textContent = 'Audio: OFF';
+      }
+    });
+
+    // Toast Popup Engine
+    const popupContainer = document.getElementById('popup-container');
+    const seenEventIds = new Set();
+
+    function showToast(type, title, match, detail, pnl) {
+      const toast = document.createElement('div');
+      toast.className = `toast-popup ${type}`;
+
+      let pnlHtml = '';
+      if (pnl !== undefined && pnl !== null) {
+        const isPos = pnl > 0;
+        pnlHtml = `<span class="toast-pnl ${isPos ? 'pos' : 'neg'}">${isPos ? '+' : ''}$${pnl.toFixed(2)}</span>`;
+      }
+
+      toast.innerHTML = `
+        <div class="toast-head">
+          <span class="toast-type">
+            <span>${type === 'win' ? '🎉' : type === 'loss' ? '⚠️' : '🎓'}</span>
+            <span>${title}</span>
+          </span>
+          <span class="toast-time">${new Date().toLocaleTimeString()}</span>
+        </div>
+        <div class="toast-match">${match}</div>
+        <div class="toast-details">
+          <span>${detail}</span>
+          ${pnlHtml}
+        </div>
+      `;
+
+      popupContainer.appendChild(toast);
+      setTimeout(() => {
+        toast.style.animation = 'slide-in 0.3s reverse forwards';
+        setTimeout(() => toast.remove(), 300);
+      }, 5500);
+    }
+
+    // Live State Fetching & UI Rendering
+    let isInitialLoad = true;
+
+    async function updateSuperbrain() {
+      try {
+        const res = await fetch('/api/superbrain/state', { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+
+        // 1. Top Ribbon
+        document.getElementById('budapest-time-val').textContent = data.budapest_time.split(' ')[1] + ' UTC+1';
+        document.getElementById('today-picks-val').textContent = `${data.scoreboard.today_picks} / ${data.scoreboard.daily_target}`;
+        document.getElementById('today-stake-val').textContent = `$${data.scoreboard.today_stake.toFixed(2)}`;
+        document.getElementById('win-rate-val').textContent = `${data.scoreboard.win_rate_pct}%`;
+        document.getElementById('total-pnl-val').textContent = `${data.scoreboard.total_realized_pnl >= 0 ? '+' : ''}$${data.scoreboard.total_realized_pnl.toFixed(2)}`;
+
+        // 2. Diagnostics
+        const diagBanner = document.getElementById('diagnostics-banner');
+        const diagText = document.getElementById('diag-indicator-text');
+        const diagIcon = document.getElementById('diag-indicator-icon');
+
+        if (data.clog_diagnostics.is_clogged) {
+          diagBanner.className = 'diagnostics-banner warning';
+          diagIcon.textContent = '🔴';
+          diagText.textContent = data.clog_diagnostics.indicator + ` (Queued: ${data.clog_diagnostics.queued_jobs})`;
+        } else {
+          diagBanner.className = 'diagnostics-banner';
+          diagIcon.textContent = '🟢';
+          diagText.textContent = `${data.clog_diagnostics.indicator} · Latency: 12ms · Queued: ${data.clog_diagnostics.queued_jobs} · Completed: ${data.clog_diagnostics.completed_jobs}`;
+        }
+
+        // Daemons
+        const dContainer = document.getElementById('daemons-container');
+        dContainer.innerHTML = '';
+        for (const [key, daemon] of Object.entries(data.daemons)) {
+          const isUp = daemon.status === 'running';
+          const chip = document.createElement('div');
+          chip.className = `daemon-chip ${isUp ? 'up' : 'down'}`;
+          chip.innerHTML = `<span class="dot"></span><span>${daemon.name}</span>`;
+          dContainer.appendChild(chip);
+        }
+
+        // 3. AI Quant Council
+        const agy = data.ai_brains.find(b => b.id === 'agy');
+        if (agy) {
+          document.getElementById('agy-activity').textContent = agy.current_focus;
+        }
+        const claude = data.ai_brains.find(b => b.id === 'claude');
+        if (claude) {
+          document.getElementById('claude-activity').textContent = claude.current_focus;
+        }
+        const codex = data.ai_brains.find(b => b.id === 'codex');
+        if (codex) {
+          document.getElementById('codex-activity').textContent = codex.current_focus;
+          document.getElementById('codex-badge').textContent = codex.pulse_rate;
+        }
+        const grok = data.ai_brains.find(b => b.id === 'grok');
+        if (grok) {
+          document.getElementById('grok-activity').textContent = grok.current_focus;
+        }
+
+        // 4. Tier Metrics & Conduits
+        const fv = data.funnel_velocity;
+        document.getElementById('net-velocity-badge').textContent = `Net Velocity: ${fv.net_market_expansion_rate_per_hour >= 0 ? '+' : ''}${fv.net_market_expansion_rate_per_hour.toFixed(2)}/h`;
+
+        // T1
+        document.getElementById('t1-rate-badge').textContent = `${fv.model_synthesis_rate_per_hour.toFixed(1)} model/h`;
+        document.getElementById('t1-synth-rate').textContent = `${fv.model_synthesis_rate_per_hour.toFixed(1)}/h`;
+        document.getElementById('t1-total-synth').textContent = fv.total_synthesized_models;
+
+        const t1Stream = document.getElementById('t1-syntheses-stream');
+        t1Stream.innerHTML = '';
+        data.tiers.tier_1_rd.recent_syntheses.forEach(s => {
+          const row = document.createElement('div');
+          row.className = 'stream-row';
+          row.innerHTML = `
+            <div class="stream-row-head">
+              <span class="stream-name" title="${s.class_name}">${s.class_name}</span>
+              <span class="stream-badge ${s.crucible_passed ? 'pos' : 'neg'}">${s.crucible_passed ? 'CRUCIBLE PASS' : 'REJECTED'}</span>
+            </div>
+            <div class="stream-desc">${s.league} · ${s.scope} · ${s.family} | OOS ROI: ${s.oos_roi}%</div>
+          `;
+          t1Stream.appendChild(row);
+        });
+
+        // T2
+        document.getElementById('t2-rate-badge').textContent = `${fv.tier_2_admission_rate_per_hour.toFixed(2)} adm/h`;
+        document.getElementById('t2-demoted-count').textContent = fv.demoted_incubator_markets_count;
+        document.getElementById('t2-pass-pct').textContent = `${fv.crucible_admission_rate_pct.toFixed(1)}%`;
+
+        const t2Stream = document.getElementById('t2-incubating-stream');
+        t2Stream.innerHTML = '';
+        data.tiers.tier_2_incubator.top_candidates.forEach(c => {
+          const row = document.createElement('div');
+          row.className = 'stream-row';
+          row.innerHTML = `
+            <div class="stream-row-head">
+              <span class="stream-name" title="${c.class_name}">${c.class_name}</span>
+              <span class="stream-badge neutral">${c.status}</span>
+            </div>
+            <div class="stream-desc">${c.league} · ${c.family} | Settled: ${c.settled}/25 | ROI: ${c.roi}%</div>
+          `;
+          t2Stream.appendChild(row);
+        });
+
+        // T3
+        document.getElementById('t3-rate-badge').textContent = `${fv.tier_3_graduation_rate_per_hour.toFixed(2)} grad/h`;
+        document.getElementById('t3-grad-count').textContent = fv.active_graduated_markets_count;
+        document.getElementById('t3-open-count').textContent = data.tiers.tier_3_stake.open_bets_count;
+
+        const t3Stream = document.getElementById('t3-bets-stream');
+        t3Stream.innerHTML = '';
+        data.tiers.tier_3_stake.active_executable_bets.slice(0, 5).forEach(b => {
+          const row = document.createElement('div');
+          row.className = 'stream-row';
+          row.innerHTML = `
+            <div class="stream-row-head">
+              <span class="stream-name">${b.home} vs ${b.away}</span>
+              <span class="stream-badge pos">$${b.stake.toFixed(2)}</span>
+            </div>
+            <div class="stream-desc">${b.league} · ${b.selection} @ ${b.odds.toFixed(2)} (EV: +${b.expected_roi}%)</div>
+          `;
+          t3Stream.appendChild(row);
+        });
+
+        // T4
+        document.getElementById('t4-filled-count').textContent = data.tiers.tier_4_polymarket.summary.filled?.count || 0;
+        const polyWon = data.tiers.tier_4_polymarket.summary.won?.pnl || 0;
+        const polyLost = data.tiers.tier_4_polymarket.summary.lost?.pnl || 0;
+        const netPoly = polyWon + polyLost;
+        document.getElementById('t4-pnl-val').textContent = `${netPoly >= 0 ? '+' : ''}$${netPoly.toFixed(2)}`;
+
+        const t4Stream = document.getElementById('t4-orders-stream');
+        t4Stream.innerHTML = '';
+        data.tiers.tier_4_polymarket.recent_orders.forEach(o => {
+          const row = document.createElement('div');
+          row.className = 'stream-row';
+          row.innerHTML = `
+            <div class="stream-row-head">
+              <span class="stream-name">${o.game}</span>
+              <span class="stream-badge amber">${o.status}</span>
+            </div>
+            <div class="stream-desc">${o.league} · ${o.selection} @ Poly ${o.price} | EV: +${o.ev}%</div>
+          `;
+          t4Stream.appendChild(row);
+        });
+
+        // Demotions Return Loop Chips
+        const dChips = document.getElementById('demotions-chips-container');
+        dChips.innerHTML = '';
+        data.tiers.demotion_loop.recent_demotions.forEach(d => {
+          const chip = document.createElement('span');
+          chip.className = 'demoted-chip';
+          chip.textContent = `${d.segment_key} (${d.reason.split(':')[0]})`;
+          dChips.appendChild(chip);
+        });
+
+        // 5. Active Executable Recommendations Full Table
+        const fullRecsStream = document.getElementById('active-bets-full-stream');
+        fullRecsStream.innerHTML = '';
+        document.getElementById('live-recs-badge').textContent = `${data.tiers.tier_3_stake.active_executable_bets.length} Recommendations`;
+        data.tiers.tier_3_stake.active_executable_bets.forEach(b => {
+          const row = document.createElement('div');
+          row.className = 'stream-row';
+          row.innerHTML = `
+            <div class="stream-row-head">
+              <span class="stream-name" style="max-width:280px;">${b.home} vs ${b.away}</span>
+              <span class="stream-badge pos">Stake: $${b.stake.toFixed(2)}</span>
+            </div>
+            <div class="stream-desc">
+              <strong style="color:#fff;">${b.league}</strong> · ${b.market} · <span style="color:var(--cyan); font-weight:700;">${b.selection}</span> @ <strong>${b.odds.toFixed(2)}</strong> | EV: <span style="color:var(--green);">+${b.expected_roi}%</span> | P: ${b.probability}%
+            </div>
+          `;
+          fullRecsStream.appendChild(row);
+        });
+
+        // 6. Live Settlements & Popups
+        const settlementsStream = document.getElementById('settlements-full-stream');
+        settlementsStream.innerHTML = '';
+        data.live_flow_events.recent_settlements.forEach(s => {
+          const isWin = s.status === 'won';
+          const row = document.createElement('div');
+          row.className = 'stream-row';
+          row.innerHTML = `
+            <div class="stream-row-head">
+              <span class="stream-name" style="max-width:280px;">${s.home ? s.home + ' vs ' + s.away : s.market}</span>
+              <span class="stream-badge ${isWin ? 'pos' : 'neg'}">${isWin ? 'WON (+$' + s.pnl.toFixed(2) + ')' : 'LOST (-$' + s.stake.toFixed(2) + ')'}</span>
+            </div>
+            <div class="stream-desc">
+              <strong style="color:#fff;">${s.league}</strong> · ${s.selection} @ ${s.odds.toFixed(2)} | Recorded: ${s.created_at.split('T')[1].slice(0,8)}
+            </div>
+          `;
+          settlementsStream.appendChild(row);
+
+          // Check if this is a newly observed settlement for popup
+          if (!seenEventIds.has(s.id)) {
+            seenEventIds.add(s.id);
+            if (!isInitialLoad) {
+              if (isWin) {
+                audioSynth.playWin();
+                showToast('win', 'WIN SETTLED!', `${s.home} vs ${s.away}`, `${s.league} · ${s.selection} @ ${s.odds}`, s.pnl);
+              } else {
+                audioSynth.playLoss();
+                showToast('loss', 'LOSS RECORDED · TOURNIQUET ACTIVE', `${s.home} vs ${s.away}`, `${s.league} · Clamped to $0.50 -> Tier 1 R&D`, -s.stake);
+              }
+            }
+          }
+        });
+
+        // Check recent graduations for popup
+        data.live_flow_events.recent_graduations.forEach(g => {
+          const gradKey = `grad_${g.segment_key}_${g.graduated_at}`;
+          if (!seenEventIds.has(gradKey)) {
+            seenEventIds.add(gradKey);
+            if (!isInitialLoad) {
+              audioSynth.playGraduation();
+              showToast('grad', 'MARKET RE-GRADUATED!', g.segment_key, `Passed Crucible (${g.sample_size} matches, ROI: +${g.roi}%)`, null);
+            }
+          }
+        });
+
+        isInitialLoad = false;
+      } catch (err) {
+        console.debug('Error in superbrain update cycle:', err);
+      }
+    }
+
+    // Initial run and 3-second continuous polling
+    updateSuperbrain();
+    setInterval(updateSuperbrain, 3000);
+  </script>
+</body>
+</html>
