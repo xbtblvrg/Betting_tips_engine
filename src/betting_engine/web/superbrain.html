@@ -41,7 +41,7 @@
       height: 100vh;
       overflow: hidden;
       perspective: 1200px;
-      background: radial-gradient(circle at 50% 50%, #060a1c 0%, #02040c 60%, #010104 100%);
+      background: radial-gradient(circle at 50% 50%, #070e28 0%, #030614 55%, #010207 100%);
     }
 
     #neuralCanvas {
@@ -81,7 +81,7 @@
       -webkit-backdrop-filter: blur(16px);
       box-shadow: 0 16px 50px rgba(0, 0, 0, 0.85), inset 0 0 20px rgba(0, 243, 255, 0.08);
       transform-origin: center center;
-      transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1), transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease, box-shadow 0.25s ease;
+      transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.4s ease, box-shadow 0.4s ease;
       will-change: transform, opacity;
       max-height: 540px;
       display: flex;
@@ -99,12 +99,12 @@
       z-index: 9999 !important;
       border-color: var(--cyan);
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9), 0 0 35px rgba(0, 243, 255, 0.3), inset 0 0 24px rgba(0, 243, 255, 0.12);
-      animation: magnifyingPulse 3s infinite alternate ease-in-out;
+      animation: magnifyingPulse 4.5s infinite alternate ease-in-out;
     }
 
     @keyframes magnifyingPulse {
-      0% { box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9), 0 0 25px rgba(0, 243, 255, 0.25), inset 0 0 16px rgba(0, 243, 255, 0.1); }
-      100% { box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9), 0 0 45px rgba(0, 243, 255, 0.45), inset 0 0 28px rgba(0, 243, 255, 0.2); }
+      0% { box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9), 0 0 20px rgba(0, 243, 255, 0.2), inset 0 0 14px rgba(0, 243, 255, 0.08); }
+      100% { box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9), 0 0 38px rgba(0, 243, 255, 0.38), inset 0 0 26px rgba(0, 243, 255, 0.16); }
     }
 
     /* Magnifying Scan Bar atop each pod */
@@ -132,7 +132,11 @@
       border-radius: 50%;
       background: var(--green);
       box-shadow: 0 0 8px var(--green);
-      animation: livePulse 1.2s infinite ease-in-out;
+      animation: livePulse 3.6s infinite ease-in-out;
+    }
+    @keyframes livePulse {
+      0%, 100% { opacity: 0.95; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(0.85); }
     }
     .mag-close-btn {
       background: rgba(255, 255, 255, 0.08);
@@ -404,7 +408,7 @@
       display: flex;
       align-items: center;
       gap: 16px;
-      transition: opacity 0.2s ease;
+      transition: opacity 0.45s ease-in-out;
     }
 
     /* Packet Interactive Tooltip */
@@ -446,7 +450,7 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      transition: all 0.35s ease;
+      transition: border-color 0.8s ease, box-shadow 0.8s ease, background 0.8s ease, color 0.8s ease;
       white-space: nowrap;
       pointer-events: none;
     }
@@ -454,8 +458,8 @@
     #screensaver-mode-banner.interrupt-flash {
       border-color: var(--green);
       color: #fff;
-      background: rgba(0, 40, 25, 0.95);
-      box-shadow: 0 0 25px rgba(0, 255, 136, 0.5);
+      background: rgba(4, 28, 20, 0.94);
+      box-shadow: 0 0 25px rgba(0, 255, 136, 0.35);
     }
 
     /* Floating Autonomous Event Spotlight Beacon */
@@ -546,12 +550,12 @@
       border-radius: 50%;
       background: var(--cyan);
       box-shadow: 0 0 12px var(--cyan);
-      animation: pulseAnim 1.6s infinite ease-in-out;
+      animation: pulseAnim 3.8s infinite ease-in-out;
     }
 
     @keyframes pulseAnim {
-      0%, 100% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(0.7); opacity: 0.4; }
+      0%, 100% { transform: scale(1); opacity: 0.95; }
+      50% { transform: scale(0.85); opacity: 0.55; }
     }
 
     .hud-metric-chip {
@@ -1194,16 +1198,44 @@
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
 
-    // Cosmic Starfield Background Particles (Parallax Cosmos)
+    // Cosmic Starfield Background Particles (Multi-tier Parallax Cosmos)
     const starfield = [];
-    for (let i = 0; i < 240; i++) {
+    for (let i = 0; i < 340; i++) {
       starfield.push({
-        x: (Math.random() - 0.5) * 1600,
-        y: (Math.random() - 0.5) * 1600,
-        z: (Math.random() - 0.5) * 1600,
-        size: 0.8 + Math.random() * 1.8,
-        alpha: 0.2 + Math.random() * 0.7,
-        color: Math.random() > 0.4 ? '#00f3ff' : (Math.random() > 0.5 ? '#b5179e' : '#fff')
+        x: (Math.random() - 0.5) * 1900,
+        y: (Math.random() - 0.5) * 1900,
+        z: (Math.random() - 0.5) * 1900,
+        size: 0.7 + Math.random() * 1.9,
+        alpha: 0.2 + Math.random() * 0.75,
+        twinklePhase: Math.random() * Math.PI * 2,
+        color: Math.random() > 0.4 ? '#00f3ff' : (Math.random() > 0.45 ? '#b5179e' : (Math.random() > 0.5 ? '#00ff88' : '#ffffff'))
+      });
+    }
+
+    // Volumetric 3D Cosmic Nebulae (Interstellar Quantum Gas Clouds)
+    const cosmicNebulae = [
+      { x: -340, y: -120, z: -50, r: 440, c0: 'rgba(181, 23, 158, 0.22)', c1: 'rgba(114, 9, 183, 0.08)', c2: 'rgba(4, 7, 24, 0)' },
+      { x: 310, y: 10, z: 30, r: 480, c0: 'rgba(0, 255, 136, 0.18)', c1: 'rgba(0, 243, 255, 0.07)', c2: 'rgba(2, 6, 20, 0)' },
+      { x: 0, y: -10, z: 0, r: 400, c0: 'rgba(0, 243, 255, 0.24)', c1: 'rgba(16, 32, 90, 0.11)', c2: 'rgba(2, 4, 14, 0)' },
+      { x: 0, y: 220, z: -20, r: 410, c0: 'rgba(255, 183, 3, 0.16)', c1: 'rgba(255, 0, 85, 0.06)', c2: 'rgba(4, 3, 18, 0)' },
+      { x: -160, y: 180, z: -160, r: 450, c0: 'rgba(114, 9, 183, 0.14)', c1: 'rgba(0, 243, 255, 0.04)', c2: 'rgba(1, 2, 8, 0)' },
+      { x: 0, y: -260, z: -80, r: 380, c0: 'rgba(0, 243, 255, 0.15)', c1: 'rgba(112, 134, 163, 0.05)', c2: 'rgba(1, 2, 8, 0)' }
+    ];
+
+    // 3D Quantum Gravitational Waves / Energy Ripples
+    const quantumRipples = [
+      { x: 0, y: -10, z: 0, r: 40, maxR: 440, speed: 2.4, color: '#00f3ff', alpha: 0.6 }
+    ];
+    function spawnQuantumRipple(x, y, z, color) {
+      quantumRipples.push({
+        x: x || 0,
+        y: y || 0,
+        z: z || 0,
+        r: 15,
+        maxR: 440,
+        speed: 3.4,
+        color: color || '#00f3ff',
+        alpha: 0.8
       });
     }
 
@@ -1275,6 +1307,20 @@
       { from: 'leagues_constellation', to: 'tiers_pipeline', color: '#ffb703', strength: 1.5 }
     ];
 
+    // Living Bio-Neural Dendrites (Organic Synaptic Arborization)
+    const somaDendrites = {};
+    neuralSomas3D.forEach(node => {
+      const count = node.id === 'math_core' ? 9 : 5 + (Math.abs(Math.round(node.x)) % 3);
+      const branches = [];
+      for (let b = 0; b < count; b++) {
+        const baseAngle = (b / count) * Math.PI * 2 + (node.x * 0.015);
+        const len = (node.r * 1.45) + (b * 5) % 20 + 8;
+        const curl = ((b % 2 === 0 ? 1 : -1) * 0.32);
+        branches.push({ angle: baseAngle, length: len, curl: curl });
+      }
+      somaDendrites[node.id] = branches;
+    });
+
     // Semantic Tasks for Dynamic Synaptic Data Packets ("Futó gombócok")
     const SEMANTIC_PACKET_TASKS = [
       { label: '🏀 NBA Q3: Under 60.5', task: 'Tier 2 Forward Paper Trade', color: '#ffb703', priority: true },
@@ -1334,21 +1380,23 @@
     // Main 3D Animation & Rendering Loop
     let globalPulseTick = 0;
     let latestProjectedSomas = {};
-    let activeFocusNodeId = null;
+    let manualFocusNodeId = null;
+    let ambientCinematicNodeId = null;
     let activeProjectedPackets = [];
 
     function renderNeuralUniverse() {
-      globalPulseTick += 0.025;
+      // Gentle harmonic biological respiration
+      globalPulseTick += 0.014;
 
-      // Smooth Camera Lerp
-      camera.yaw += (camera.targetYaw - camera.yaw) * 0.06;
-      camera.pitch += (camera.targetPitch - camera.pitch) * 0.06;
-      camera.zoom += (camera.targetZoom - camera.zoom) * 0.06;
-      camera.panX += (camera.targetPanX - camera.panX) * 0.06;
-      camera.panY += (camera.targetPanY - camera.panY) * 0.06;
+      // Silky-smooth cinematic camera interpolation
+      camera.yaw += (camera.targetYaw - camera.yaw) * 0.038;
+      camera.pitch += (camera.targetPitch - camera.pitch) * 0.038;
+      camera.zoom += (camera.targetZoom - camera.zoom) * 0.038;
+      camera.panX += (camera.targetPanX - camera.panX) * 0.038;
+      camera.panY += (camera.targetPanY - camera.panY) * 0.038;
 
-      if (camera.autoOrbit && Date.now() - camera.lastUserInteraction > 3000) {
-        camera.targetYaw += 0.0016;
+      if (camera.autoOrbit && Date.now() - camera.lastUserInteraction > 3500) {
+        camera.targetYaw += 0.0009; // very gentle, elegant cosmic drift
       }
 
       const w = window.innerWidth;
@@ -1358,7 +1406,26 @@
 
       ctx.clearRect(0, 0, w, h);
 
-      // 1. Cosmic Starfield Background
+      // 1. Volumetric 3D Cosmic Nebulae (Interstellar Gas Clouds)
+      cosmicNebulae.forEach(neb => {
+        const p = project3D(neb.x, neb.y, neb.z, cx, cy);
+        if (p.visible && p.scale > 0) {
+          ctx.save();
+          ctx.globalCompositeOperation = 'screen';
+          const r = neb.r * p.scale;
+          const grad = ctx.createRadialGradient(p.sx, p.sy, 0, p.sx, p.sy, r);
+          grad.addColorStop(0, neb.c0);
+          grad.addColorStop(0.5, neb.c1);
+          grad.addColorStop(1, neb.c2);
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(p.sx, p.sy, r, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      });
+
+      // 2. Cosmic Starfield with Smooth Twinkle & Parallax
       starfield.forEach(st => {
         const p = project3D(st.x, st.y, st.z, cx, cy);
         if (p.visible && p.scale > 0) {
@@ -1366,18 +1433,44 @@
           ctx.beginPath();
           ctx.arc(p.sx, p.sy, Math.max(0.6, st.size * p.scale), 0, Math.PI * 2);
           ctx.fillStyle = st.color;
-          ctx.globalAlpha = Math.max(0.1, Math.min(0.85, st.alpha * (p.scale * 1.2)));
+          const twinkle = 0.85 + Math.sin(globalPulseTick * 0.6 + st.twinklePhase) * 0.15;
+          ctx.globalAlpha = Math.max(0.12, Math.min(0.85, st.alpha * p.scale * twinkle));
           ctx.fill();
           ctx.restore();
         }
       });
 
-      // 2. Project Neural Somas
+      // 3. 3D Quantum Gravitational Ripples
+      for (let i = quantumRipples.length - 1; i >= 0; i--) {
+        const rip = quantumRipples[i];
+        rip.r += rip.speed;
+        rip.alpha *= 0.985;
+        if (rip.r >= rip.maxR || rip.alpha <= 0.02) {
+          quantumRipples.splice(i, 1);
+          continue;
+        }
+        const p = project3D(rip.x, rip.y, rip.z, cx, cy);
+        if (p.visible && p.scale > 0) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(p.sx, p.sy, rip.r * p.scale, 0, Math.PI * 2);
+          ctx.strokeStyle = rip.color;
+          ctx.lineWidth = Math.max(1, 2.0 * p.scale);
+          ctx.globalAlpha = rip.alpha * Math.min(1.0, p.scale);
+          ctx.shadowColor = rip.color;
+          ctx.shadowBlur = 14 * p.scale;
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+
+      // 4. Project Neural Somas
       const projectedSomas = {};
       neuralSomas3D.forEach(node => {
-        const isTierNode = ['tiers_pipeline', 'tier_1', 'tier_2', 'tier_3', 'tier_4'].includes(activeFocusNodeId);
-        const isFocused = (activeFocusNodeId === node.id || activeFocusNodeId === node.podId || (node.podId === 'pod-4tier-pipeline' && isTierNode));
-        const breath = Math.sin(globalPulseTick * 1.5 + node.x * 0.02) * (isFocused ? 4.0 : 2.2);
+        const isTierNode = ['tiers_pipeline', 'tier_1', 'tier_2', 'tier_3', 'tier_4'].includes(manualFocusNodeId);
+        const isManuallyFocused = (manualFocusNodeId === node.id || manualFocusNodeId === node.podId || (node.podId === 'pod-4tier-pipeline' && isTierNode));
+        const isAmbientTarget = (ambientCinematicNodeId === node.id || (ambientCinematicNodeId === 'tiers_pipeline' && node.podId === 'pod-4tier-pipeline'));
+        const breath = Math.sin(globalPulseTick * 1.2 + node.x * 0.01) * (isManuallyFocused ? 3.0 : 1.6);
         const p = project3D(node.x, node.y, node.z, cx, cy);
         if (p.visible) {
           projectedSomas[node.id] = {
@@ -1386,27 +1479,88 @@
             sy: p.sy,
             scale: p.scale,
             zDepth: p.zDepth,
-            isFocused,
+            isManuallyFocused,
+            isAmbientTarget,
             screenR: Math.max(5, (node.r + breath) * p.scale)
           };
         }
       });
       latestProjectedSomas = projectedSomas;
 
-      // 3. Draw 4 Grand Tier Orbital Energy Rings (Ascending Progression Backbone)
+      // 5. Draw Living Bio-Dendritic Arborization (Filaments branching into space)
+      neuralSomas3D.forEach(node => {
+        const p = projectedSomas[node.id];
+        const branches = somaDendrites[node.id];
+        if (!p || !branches || p.scale <= 0.25) return;
+
+        const avgAlpha = Math.max(0.12, Math.min(0.65, 0.4 + (p.zDepth / 500)));
+        ctx.save();
+        branches.forEach((br, bIdx) => {
+          const sway = Math.sin(globalPulseTick * 0.8 + bIdx * 0.6) * 0.12;
+          const curAngle = br.angle + sway;
+          const endX = p.sx + Math.cos(curAngle) * br.length * p.scale;
+          const endY = p.sy + Math.sin(curAngle) * br.length * p.scale;
+          const cX = p.sx + Math.cos(curAngle + br.curl) * (br.length * 0.55) * p.scale;
+          const cY = p.sy + Math.sin(curAngle + br.curl) * (br.length * 0.55) * p.scale;
+
+          ctx.beginPath();
+          ctx.moveTo(p.sx + Math.cos(curAngle) * p.screenR, p.sy + Math.sin(curAngle) * p.screenR);
+          ctx.quadraticCurveTo(cX, cY, endX, endY);
+          ctx.strokeStyle = node.color;
+          ctx.lineWidth = Math.max(0.7, 1.1 * p.scale);
+          ctx.globalAlpha = avgAlpha * 0.45;
+          ctx.stroke();
+
+          // Synaptic Bouton Bead at tip
+          ctx.beginPath();
+          ctx.arc(endX, endY, Math.max(1.0, 1.8 * p.scale), 0, Math.PI * 2);
+          ctx.fillStyle = node.color;
+          ctx.globalAlpha = avgAlpha * 0.85;
+          ctx.fill();
+        });
+        ctx.restore();
+      });
+
+      // 6. Draw 4-Tier Energy Spine Ladder & Orbital Toroids
       const tierRingDefs = [
-        { id: 'tier_1', label: 'TIER 1 · R&D HISTORICAL TRAINING (97K+ MATCH POOL)', color: '#b5179e' },
-        { id: 'tier_2', label: 'TIER 2 · SHADOW INCUBATOR ($0.00 FORWARD PAPER TRADES)', color: '#ffb703' },
-        { id: 'tier_3', label: 'TIER 3 · STAKE SPORTSBOOK PROBATION (KELLY $0.50–$8.00)', color: '#00ff88' },
-        { id: 'tier_4', label: 'TIER 4 · POLYMARKET CLOB ALPHA (PROVEN ALPHA)', color: '#00f3ff' }
+        { id: 'tier_1', label: 'TIER 1 · R&D DISCOVERY (97K+ MATCH POOL)', color: '#b5179e' },
+        { id: 'tier_2', label: 'TIER 2 · SHADOW INCUBATOR ($0.00 FORWARD TRADES)', color: '#ffb703' },
+        { id: 'tier_3', label: 'TIER 3 · STAKE PROBATION (KELLY $0.50–$8.00)', color: '#00ff88' },
+        { id: 'tier_4', label: 'TIER 4 · POLYMARKET CLOB (PROVEN ALPHA)', color: '#00f3ff' }
       ];
 
+      // Draw ladder rungs between spine nodes (T1 -> T2 -> T3 -> T4)
+      for (let t = 0; t < tierRingDefs.length - 1; t++) {
+        const p1 = projectedSomas[tierRingDefs[t].id];
+        const p2 = projectedSomas[tierRingDefs[t + 1].id];
+        if (p1 && p2) {
+          ctx.save();
+          // Draw 3 transverse energy bars across the spine
+          for (let r = 1; r <= 3; r++) {
+            const frac = r / 4;
+            const rx = p1.sx + (p2.sx - p1.sx) * frac;
+            const ry = p1.sy + (p2.sy - p1.sy) * frac;
+            const perpX = -(p2.sy - p1.sy) * 0.12;
+            const perpY = (p2.sx - p1.sx) * 0.12;
+            ctx.beginPath();
+            ctx.moveTo(rx - perpX, ry - perpY);
+            ctx.lineTo(rx + perpX, ry + perpY);
+            ctx.strokeStyle = tierRingDefs[t + 1].color;
+            ctx.lineWidth = Math.max(1, 1.4 * ((p1.scale + p2.scale) / 2));
+            ctx.globalAlpha = 0.35;
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+      }
+
+      // Draw Grand Orbital Toroids for each Tier
       tierRingDefs.forEach((tDef, idx) => {
         const p = projectedSomas[tDef.id];
         if (!p || !p.visible) return;
 
         ctx.save();
-        const rx = Math.max(22, (38 + Math.sin(globalPulseTick * 2 + idx) * 3) * p.scale);
+        const rx = Math.max(22, (38 + Math.sin(globalPulseTick * 0.8 + idx) * 2) * p.scale);
         const ry = rx * 0.44;
 
         ctx.beginPath();
@@ -1418,8 +1572,8 @@
         ctx.shadowBlur = 10 * p.scale;
         ctx.stroke();
 
-        // ONLY draw tier label if that tier or tiers_pipeline is under the magnifying glass, hovered, or alerting!
-        const isTierActive = ['tiers_pipeline', tDef.id].includes(activeFocusNodeId) || hoveredSomaId === tDef.id || currentAlertNodeId === tDef.id;
+        // ONLY draw tier label if that tier or tiers_pipeline is under manual inspection, hovered, or alerting!
+        const isTierActive = ['tiers_pipeline', tDef.id].includes(manualFocusNodeId) || hoveredSomaId === tDef.id || currentAlertNodeId === tDef.id;
         if (isTierActive && p.scale > 0.48) {
           ctx.font = `bold ${Math.round(9 * p.scale)}px var(--font-mono)`;
           ctx.fillStyle = tDef.color;
@@ -1432,34 +1586,56 @@
         ctx.restore();
       });
 
-      // 4. Draw Curved Organic Axons
+      // 7. Draw Multi-Pass Biophotonic Synaptic Axons
       neuralAxons.forEach((axon, idx) => {
         const pA = projectedSomas[axon.from];
         const pB = projectedSomas[axon.to];
         if (!pA || !pB) return;
 
-        const isHighlighted = (pA.isFocused || pB.isFocused);
+        const isHighlighted = (pA.isManuallyFocused || pB.isManuallyFocused || pA.isAmbientTarget || pB.isAmbientTarget);
         const avgZ = (pA.zDepth + pB.zDepth) / 2;
-        let depthAlpha = Math.max(0.12, Math.min(0.75, 0.45 + (avgZ / 400)));
-        if (isHighlighted) depthAlpha = Math.min(1.0, depthAlpha * 1.6);
+        let depthAlpha = Math.max(0.14, Math.min(0.85, 0.48 + (avgZ / 400)));
+        if (isHighlighted) depthAlpha = Math.min(1.0, depthAlpha * 1.5);
+
+        const avgScale = (pA.scale + pB.scale) / 2;
+        const midX = (pA.sx + pB.sx) / 2 + Math.sin(globalPulseTick * 0.6 + idx) * 3 * avgScale;
+        const midY = (pA.sy + pB.sy) / 2 + Math.cos(globalPulseTick * 0.6 + idx) * 3 * avgScale;
 
         ctx.save();
+        if (axon.dashed) ctx.setLineDash([5, 5]);
+
+        // Pass A: Outer Biophotonic Sheath (Soft wide aura)
         ctx.beginPath();
         ctx.moveTo(pA.sx, pA.sy);
-
-        const midX = (pA.sx + pB.sx) / 2 + Math.sin(globalPulseTick + idx) * 10 * pA.scale;
-        const midY = (pA.sy + pB.sy) / 2 + Math.cos(globalPulseTick + idx) * 10 * pA.scale;
         ctx.quadraticCurveTo(midX, midY, pB.sx, pB.sy);
-
-        if (axon.dashed) ctx.setLineDash([5, 5]);
         ctx.strokeStyle = isHighlighted ? '#00f3ff' : axon.color;
-        ctx.globalAlpha = depthAlpha;
-        ctx.lineWidth = Math.max(1, (isHighlighted ? 3.0 : axon.strength) * ((pA.scale + pB.scale) / 2));
+        ctx.globalAlpha = depthAlpha * 0.16;
+        ctx.lineWidth = Math.max(2, 7.5 * avgScale);
         ctx.stroke();
+
+        // Pass B: Inner Axonal Fiber Cord
+        ctx.beginPath();
+        ctx.moveTo(pA.sx, pA.sy);
+        ctx.quadraticCurveTo(midX, midY, pB.sx, pB.sy);
+        ctx.strokeStyle = isHighlighted ? '#00f3ff' : axon.color;
+        ctx.globalAlpha = depthAlpha * 0.75;
+        ctx.lineWidth = Math.max(1, (isHighlighted ? 2.6 : axon.strength) * avgScale);
+        ctx.stroke();
+
+        // Pass C: Hot Center Core Beam
+        if (isHighlighted || axon.strength >= 2.4) {
+          ctx.beginPath();
+          ctx.moveTo(pA.sx, pA.sy);
+          ctx.quadraticCurveTo(midX, midY, pB.sx, pB.sy);
+          ctx.strokeStyle = '#ffffff';
+          ctx.globalAlpha = depthAlpha * 0.65;
+          ctx.lineWidth = Math.max(0.6, 0.9 * avgScale);
+          ctx.stroke();
+        }
         ctx.restore();
       });
 
-      // 5. Draw Semantic Synaptic Data Packets ("Futó gombócok") with Comet Trails & Badges
+      // 8. Draw Semantic Synaptic Data Packets ("Futó gombócok")
       const renderedPackets = [];
       actionPotentials.forEach((ap, pIdx) => {
         const axon = neuralAxons[ap.axonIdx];
@@ -1476,25 +1652,25 @@
         }
 
         const t = ap.progress;
-        const midX = (pA.sx + pB.sx) / 2;
-        const midY = (pA.sy + pB.sy) / 2;
+        const avgScale = (pA.scale + pB.scale) / 2;
+        const midX = (pA.sx + pB.sx) / 2 + Math.sin(globalPulseTick * 0.6 + ap.axonIdx) * 3 * avgScale;
+        const midY = (pA.sy + pB.sy) / 2 + Math.cos(globalPulseTick * 0.6 + ap.axonIdx) * 3 * avgScale;
         const px = (1 - t) * (1 - t) * pA.sx + 2 * (1 - t) * t * midX + t * t * pB.sx;
         const py = (1 - t) * (1 - t) * pA.sy + 2 * (1 - t) * t * midY + t * t * pB.sy;
-        const pScale = (pA.scale + pB.scale) / 2;
 
         ap.trail.push({ x: px, y: py });
-        if (ap.trail.length > 5) ap.trail.shift();
+        if (ap.trail.length > 6) ap.trail.shift();
 
         const taskDef = SEMANTIC_PACKET_TASKS[ap.taskIdx] || { label: 'Data Pulse', color: axon.color, priority: false };
         const pColor = taskDef.color || axon.color;
 
         renderedPackets.push({
-          x: px, y: py, radius: ap.size * 2.6 * pScale,
+          x: px, y: py, radius: ap.size * 2.6 * avgScale,
           label: taskDef.label, task: taskDef.task, color: pColor
         });
 
         ctx.save();
-        // Comet Motion Trail
+        // Phosphorescent Comet Motion Trail
         if (ap.trail.length > 1) {
           ctx.beginPath();
           ctx.moveTo(ap.trail[0].x, ap.trail[0].y);
@@ -1502,87 +1678,120 @@
             ctx.lineTo(ap.trail[ti].x, ap.trail[ti].y);
           }
           ctx.strokeStyle = pColor;
-          ctx.lineWidth = Math.max(1, ap.size * 0.7 * pScale);
-          ctx.globalAlpha = 0.35;
+          ctx.lineWidth = Math.max(1, ap.size * 0.8 * avgScale);
+          ctx.globalAlpha = 0.32;
           ctx.stroke();
         }
 
-        // Glowing Nucleus
-        const grad = ctx.createRadialGradient(px, py, 0.5, px, py, ap.size * 2.6 * pScale);
+        // Luminous Soliton Nucleus
+        const grad = ctx.createRadialGradient(px, py, 0.4, px, py, ap.size * 2.5 * avgScale);
         grad.addColorStop(0, '#ffffff');
-        grad.addColorStop(0.35, pColor);
+        grad.addColorStop(0.38, pColor);
         grad.addColorStop(1, 'transparent');
         ctx.beginPath();
-        ctx.arc(px, py, ap.size * 2.6 * pScale, 0, Math.PI * 2);
+        ctx.arc(px, py, ap.size * 2.5 * avgScale, 0, Math.PI * 2);
         ctx.fillStyle = grad;
         ctx.globalAlpha = 0.95;
         ctx.fill();
 
-        // Floating Heads-Up Micro-Badge on Priority Packets
-        const showBadge = (taskDef.priority && pIdx % 3 === 0 && pScale > 0.55);
+        // Heads-up Micro-badge only on priority packets when zoomed in
+        const showBadge = (taskDef.priority && pIdx % 4 === 0 && avgScale > 0.68 && (manualFocusNodeId || hoveredSomaId));
         if (showBadge) {
-          ctx.font = `bold ${Math.round(8 * pScale)}px var(--font-mono)`;
+          ctx.font = `bold ${Math.round(8 * avgScale)}px var(--font-mono)`;
           const textWidth = ctx.measureText(taskDef.label).width;
-          const badgeW = textWidth + 8 * pScale;
-          const badgeH = 13 * pScale;
-          const badgeX = px + 6 * pScale;
-          const badgeY = py - 7 * pScale;
+          const badgeW = textWidth + 8 * avgScale;
+          const badgeH = 13 * avgScale;
+          const badgeX = px + 6 * avgScale;
+          const badgeY = py - 7 * avgScale;
 
-          ctx.fillStyle = 'rgba(3, 7, 18, 0.88)';
+          ctx.fillStyle = 'rgba(3, 7, 18, 0.92)';
           ctx.strokeStyle = pColor;
           ctx.lineWidth = 1;
           ctx.beginPath();
-          ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 3 * pScale);
+          ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 3 * avgScale);
           ctx.fill();
           ctx.stroke();
 
           ctx.fillStyle = '#ffffff';
           ctx.textAlign = 'left';
           ctx.textBaseline = 'middle';
-          ctx.fillText(taskDef.label, badgeX + 4 * pScale, badgeY + badgeH / 2);
+          ctx.fillText(taskDef.label, badgeX + 4 * avgScale, badgeY + badgeH / 2);
         }
         ctx.restore();
       });
       activeProjectedPackets = renderedPackets;
 
-      // 6. Draw Neural Somas (Far to Near)
+      // 9. Draw Neural Somas (Far to Near)
       const sortedSomas = Object.values(projectedSomas).sort((a, b) => b.zDepth - a.zDepth);
       sortedSomas.forEach(s => {
-        let depthAlpha = Math.max(0.2, Math.min(1.0, 0.6 + (s.zDepth / 400)));
-        if (s.isFocused) depthAlpha = 1.0;
+        let depthAlpha = Math.max(0.25, Math.min(1.0, 0.62 + (s.zDepth / 400)));
+        if (s.isManuallyFocused || s.isAmbientTarget) depthAlpha = 1.0;
 
         ctx.save();
-        // Corona Aura
-        const auraMultiplier = s.isFocused ? 3.2 : 2.4;
-        const grad = ctx.createRadialGradient(s.sx, s.sy, s.screenR * 0.2, s.sx, s.sy, s.screenR * auraMultiplier);
+        // Biological Corona Aura
+        const auraMultiplier = (s.isManuallyFocused || s.isAmbientTarget) ? 3.4 : 2.5;
+        const grad = ctx.createRadialGradient(s.sx, s.sy, s.screenR * 0.25, s.sx, s.sy, s.screenR * auraMultiplier);
         grad.addColorStop(0, s.color);
-        grad.addColorStop(0.5, s.color + (s.isFocused ? '88' : '44'));
+        grad.addColorStop(0.5, s.color + (s.isManuallyFocused ? '88' : '44'));
         grad.addColorStop(1, 'transparent');
         ctx.fillStyle = grad;
-        ctx.globalAlpha = depthAlpha * (s.isFocused ? 1.0 : 0.75);
+        ctx.globalAlpha = depthAlpha * ((s.isManuallyFocused || s.isAmbientTarget) ? 1.0 : 0.72);
         ctx.beginPath();
         ctx.arc(s.sx, s.sy, s.screenR * auraMultiplier, 0, Math.PI * 2);
         ctx.fill();
 
-        // Inner Nucleus
+        // Translucent Lipid-Quantum Cell Membrane
         ctx.beginPath();
         ctx.arc(s.sx, s.sy, s.screenR, 0, Math.PI * 2);
-        ctx.fillStyle = '#040714';
+        ctx.fillStyle = '#030614';
         ctx.strokeStyle = s.color;
-        ctx.lineWidth = Math.max(1.5, (s.isFocused ? 3.8 : 2.5) * s.scale);
+        ctx.lineWidth = Math.max(1.5, ((s.isManuallyFocused || s.isAmbientTarget) ? 3.6 : 2.4) * s.scale);
         ctx.globalAlpha = depthAlpha;
         ctx.shadowColor = s.color;
-        ctx.shadowBlur = (s.isFocused ? 24 : 12) * s.scale;
+        ctx.shadowBlur = ((s.isManuallyFocused || s.isAmbientTarget) ? 22 : 12) * s.scale;
         ctx.fill();
         ctx.stroke();
 
-        // Typography: ONLY show labels when the node is under the magnifying glass (isFocused), hovered, or alerting!
-        const isSomaFocused = (activeFocusNodeId === s.id || activeFocusNodeId === s.podId || (s.podId === 'pod-4tier-pipeline' && ['tiers_pipeline', 'tier_1', 'tier_2', 'tier_3', 'tier_4'].includes(activeFocusNodeId)));
+        // Internal Orbiting Organelle Dots
+        const organelleCount = s.id === 'math_core' ? 4 : 2;
+        for (let og = 0; og < organelleCount; og++) {
+          const ogAngle = globalPulseTick * 1.5 + (og * Math.PI * 2 / organelleCount);
+          const ogR = s.screenR * 0.42;
+          const ogX = s.sx + Math.cos(ogAngle) * ogR;
+          const ogY = s.sy + Math.sin(ogAngle) * ogR;
+          ctx.beginPath();
+          ctx.arc(ogX, ogY, Math.max(1.0, 1.8 * s.scale), 0, Math.PI * 2);
+          ctx.fillStyle = '#ffffff';
+          ctx.globalAlpha = depthAlpha * 0.9;
+          ctx.fill();
+        }
+
+        // Special Quantum Gyroscope Rings on Central Singularity (Quantum Thalamus)
+        if (s.id === 'math_core') {
+          // Ring 1: Equatorial Gyro
+          ctx.beginPath();
+          ctx.ellipse(s.sx, s.sy, s.screenR * 1.55, s.screenR * 0.55, globalPulseTick * 0.7, 0, Math.PI * 2);
+          ctx.strokeStyle = '#00f3ff';
+          ctx.lineWidth = Math.max(1, 1.6 * s.scale);
+          ctx.globalAlpha = depthAlpha * 0.65;
+          ctx.stroke();
+
+          // Ring 2: Polar Inclined Gyro (tilted 60 deg)
+          ctx.beginPath();
+          ctx.ellipse(s.sx, s.sy, s.screenR * 1.45, s.screenR * 0.48, -globalPulseTick * 0.5 + Math.PI / 3, 0, Math.PI * 2);
+          ctx.strokeStyle = '#00ff88';
+          ctx.lineWidth = Math.max(1, 1.4 * s.scale);
+          ctx.globalAlpha = depthAlpha * 0.55;
+          ctx.stroke();
+        }
+
+        // Typography: Sleek Heads-Up display on canvas
+        const isSomaManuallyFocused = (manualFocusNodeId === s.id || manualFocusNodeId === s.podId || (s.podId === 'pod-4tier-pipeline' && ['tiers_pipeline', 'tier_1', 'tier_2', 'tier_3', 'tier_4'].includes(manualFocusNodeId)));
         const isSomaHovered = (hoveredSomaId === s.id);
         const isSomaAlerting = (currentAlertNodeId === s.id || currentAlertNodeId === s.podId);
-        const showLabel = isSomaFocused || isSomaHovered || isSomaAlerting;
+        const isSomaAmbientLobe = (ambientCinematicNodeId === s.id || (ambientCinematicNodeId === 'tiers_pipeline' && s.podId === 'pod-4tier-pipeline'));
 
-        if (showLabel && s.scale > 0.45) {
+        if ((isSomaManuallyFocused || isSomaHovered || isSomaAlerting) && s.scale > 0.45) {
           ctx.save();
           // Magnifying Glass Target Reticle around the active soma
           const reticleR = s.screenR * 1.5;
@@ -1619,11 +1828,23 @@
           ctx.shadowColor = '#000';
           ctx.fillText(`● ACTIVE PROCESS: ${s.sub}`, s.sx, s.sy - reticleR - 2 * s.scale);
           ctx.restore();
+        } else if (isSomaAmbientLobe && s.scale > 0.5) {
+          // Subtle, elegant canvas label during ambient screensaver cruise (ZERO DOM popups!)
+          ctx.save();
+          ctx.font = `bold ${Math.round(10 * s.scale)}px var(--font-mono)`;
+          ctx.fillStyle = s.color;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.globalAlpha = 0.85;
+          ctx.shadowBlur = 8;
+          ctx.shadowColor = s.color;
+          ctx.fillText(`⌖ ${s.label}`, s.sx, s.sy - s.screenR - 10 * s.scale);
+          ctx.restore();
         }
         ctx.restore();
       });
 
-      // 7. Position 3D Holographic Pods: Revealed ONLY under magnifying glass, hover, or alert!
+      // 10. Position 3D Holographic Pods: Revealed ONLY under manual inspection, hover, or alert! (NEVER on ambient tour!)
       neuralSomas3D.forEach(node => {
         if (!node.podId) return;
         const el = document.getElementById(node.podId);
@@ -1636,12 +1857,12 @@
           return;
         }
 
-        const isTierNode = ['tiers_pipeline', 'tier_1', 'tier_2', 'tier_3', 'tier_4'].includes(activeFocusNodeId);
-        const isFocused = (activeFocusNodeId === node.id || activeFocusNodeId === node.podId || (node.podId === 'pod-4tier-pipeline' && isTierNode));
+        const isTierNode = ['tiers_pipeline', 'tier_1', 'tier_2', 'tier_3', 'tier_4'].includes(manualFocusNodeId);
+        const isManuallyFocused = (manualFocusNodeId === node.id || manualFocusNodeId === node.podId || (node.podId === 'pod-4tier-pipeline' && isTierNode));
         const isHovered = (hoveredSomaId === node.id);
         const isAlerting = (currentAlertNodeId === node.id || currentAlertNodeId === node.podId);
 
-        const shouldShow = isFocused || isHovered || isAlerting;
+        const shouldShow = isManuallyFocused || isHovered || isAlerting;
 
         if (shouldShow) {
           el.classList.add('magnifying-active');
@@ -1653,33 +1874,28 @@
           el.style.pointerEvents = 'none';
         }
 
-        const clampedScale = Math.max(0.7, Math.min(isFocused ? 1.15 : 1.0, p.scale * (isFocused ? 1.1 : 0.95)));
-        const zIndex = isFocused ? 9999 : Math.round(100 + p.zDepth);
+        const clampedScale = Math.max(0.7, Math.min(isManuallyFocused ? 1.15 : 1.0, p.scale * (isManuallyFocused ? 1.1 : 0.95)));
+        const zIndex = isManuallyFocused ? 9999 : Math.round(100 + p.zDepth);
 
         // Directional quadrant offset anchor to prevent overlap
         let offsetX = 0;
         let offsetY = 0;
-        const approxW = isFocused ? (el.offsetWidth || 340) : 180;
-        const approxH = isFocused ? (el.offsetHeight || 280) : 38;
+        const approxW = isManuallyFocused ? (el.offsetWidth || 340) : 180;
+        const approxH = isManuallyFocused ? (el.offsetHeight || 280) : 38;
 
         if (node.x > 80) {
-          // Right Quadrant (4-Tier Pipeline): anchor to the right
           offsetX = 30 * clampedScale;
           offsetY = -approxH / 2 * clampedScale;
         } else if (node.x < -80) {
-          // Left Quadrant (AI Council, Code Forge): anchor to the left
           offsetX = (-approxW - 30) * clampedScale;
           offsetY = -approxH / 2 * clampedScale;
         } else if (node.y < -100) {
-          // Top Hub (Sensory Ingest): anchor above
           offsetX = -approxW / 2 * clampedScale;
           offsetY = (-approxH - 30) * clampedScale;
         } else if (node.y > 100) {
-          // Bottom Hub (Motor Tract, Leagues): anchor below
           offsetX = -approxW / 2 * clampedScale;
           offsetY = 32 * clampedScale;
         } else {
-          // Center (Quantum Thalamus): anchor slightly above
           offsetX = -approxW / 2 * clampedScale;
           offsetY = (-approxH - 25) * clampedScale;
         }
@@ -1716,13 +1932,23 @@
     canvas.addEventListener('click', (e) => {
       const clickX = e.clientX;
       const clickY = e.clientY;
+      let clickedSoma = false;
       for (const id in latestProjectedSomas) {
         const s = latestProjectedSomas[id];
         const dist = Math.hypot(clickX - s.sx, clickY - s.sy);
         if (dist <= s.screenR + 14) {
-          flyCameraTo(s.id);
+          clickedSoma = true;
+          spawnQuantumRipple(s.x, s.y, s.z, s.color);
+          flyCameraTo(s.id, true);
           break;
         }
+      }
+      if (!clickedSoma && manualFocusNodeId) {
+        // Clicking empty space closes the open pod and returns smoothly to macro
+        flyCameraTo('macro', true);
+      } else if (!clickedSoma) {
+        // Spawn gentle cosmic ripple in deep space
+        spawnQuantumRipple(0, -10, 0, '#00f3ff');
       }
     });
 
@@ -1832,10 +2058,18 @@
     });
 
     // Fly Camera To Node / Coordinates
-    function flyCameraTo(targetKey) {
-      camera.autoOrbit = false;
-      updateAutoOrbitBtn();
-      activeFocusNodeId = targetKey;
+    function flyCameraTo(targetKey, isManual = true) {
+      if (isManual) {
+        camera.autoOrbit = false;
+        camera.lastUserInteraction = Date.now();
+        updateAutoOrbitBtn();
+        manualFocusNodeId = targetKey === 'macro' ? null : targetKey;
+        ambientCinematicNodeId = null;
+      } else {
+        // Ambient cinematic cruise: DO NOT open DOM cards, only glide camera!
+        ambientCinematicNodeId = targetKey === 'macro' ? null : targetKey;
+        manualFocusNodeId = null;
+      }
 
       document.querySelectorAll('.nav-pill-btn').forEach(btn => btn.classList.remove('active'));
       const activeBtn = Array.from(document.querySelectorAll('.nav-pill-btn')).find(b => b.textContent.includes(targetKey.toUpperCase().replace('_', ' ')));
@@ -1847,18 +2081,17 @@
         camera.targetZoom = 1.0;
         camera.targetPanX = 0;
         camera.targetPanY = 0;
-        activeFocusNodeId = null;
         return;
       }
 
       const node = neuralSomas3D.find(n => n.id === targetKey);
       if (node) {
-        camera.targetZoom = 1.35;
+        camera.targetZoom = isManual ? 1.35 : 1.2;
         camera.targetPanX = -node.x;
         camera.targetPanY = -node.y;
       }
     }
-    window.focusOnNode = flyCameraTo;
+    window.focusOnNode = (id) => flyCameraTo(id, true);
     window.flyCameraTo = flyCameraTo;
 
     function toggleAutoOrbit() {
@@ -1986,15 +2219,17 @@
       badgeEl.textContent = event.badge;
       badgeEl.className = `cap-badge ${event.badge_color || 'ev'}`;
 
-      // Update Top Banner with Interrupt Flash
+      // Update Top Banner smoothly
       if (bannerText && bannerEl) {
         bannerText.textContent = `⚡ EVENT DETECTED: ${em} ${event.title}: ${event.subtitle}`;
         bannerEl.classList.add('interrupt-flash');
       }
 
-      // Fly camera directly to event target node & mark as alerting
+      // Fly camera directly to event target node & mark as alerting + ripple
       currentAlertNodeId = event.target_node || 'math_core';
-      flyCameraTo(event.target_node || 'math_core');
+      manualFocusNodeId = event.target_node || 'math_core';
+      spawnQuantumRipple(0, -10, 0, '#00f3ff');
+      flyCameraTo(event.target_node || 'math_core', true);
 
       // Flash Beacon Popup
       beaconEl.classList.add('visible');
@@ -2010,31 +2245,32 @@
       beaconTimer = setTimeout(() => {
         beaconEl.classList.remove('visible');
         if (bannerEl) bannerEl.classList.remove('interrupt-flash');
-      }, 4200);
+      }, 4500);
 
       // Release interrupt lock after 5 seconds so ambient tour resumes
       interruptLockTimer = setTimeout(() => {
         camera.isInterruptLocked = false;
         currentAlertNodeId = null;
-      }, 5200);
+      }, 5500);
     }
 
-    // Ambient Tour Loop (Walks through active processes in idle periods)
+    // Ambient Tour Loop (Walks through active processes in idle periods - 16s majestic rhythm)
     setInterval(() => {
       if (!camera.screensaverActive) return;
       if (camera.isInterruptLocked) return;
-      if (Date.now() - camera.lastUserInteraction < 8000) return;
+      if (manualFocusNodeId) return; // User is manually inspecting a pod; do not disrupt them!
+      if (Date.now() - camera.lastUserInteraction < 10000) return;
 
       currentTourStepIndex = (currentTourStepIndex + 1) % ambientTourSteps.length;
       const step = ambientTourSteps[currentTourStepIndex];
 
       const bannerText = document.getElementById('screensaver-mode-text');
       if (bannerText) {
-        bannerText.textContent = `🔍 ${step.title}`;
+        bannerText.textContent = `🎬 COSMIC VOYAGE · ${step.title}`;
       }
 
-      flyCameraTo(step.id);
-    }, 7500);
+      flyCameraTo(step.id, false); // isManual = false -> zero DOM popup!
+    }, 16000);
 
     // ==========================================
     // REAL-TIME TELEMETRY POLLING & HYDRATION
@@ -2160,11 +2396,11 @@
             <span style="color:#e1edfc;">${t.text}</span>
           `;
           el.style.opacity = '1';
-        }, 150);
+        }, 350);
       }
 
       renderThought();
-      debugThoughtTimer = setInterval(renderThought, 2800);
+      debugThoughtTimer = setInterval(renderThought, 4800);
     }
 
     function showToast(type, title, subtitle) {
