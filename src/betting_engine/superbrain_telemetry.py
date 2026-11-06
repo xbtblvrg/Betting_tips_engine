@@ -784,22 +784,22 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
             "timestamp": v.get("captured_at") or now_utc.isoformat()
         })
 
-    # 6. Codex Generated Python Models
+    # 6. Codex Generated Python Models (New Synthesis Event)
     for m in latest_code_models[:3]:
         target_seg = m.get("target_segment", "")
         leg = target_seg.split()[0] if target_seg else "MATH"
         live_event_queue.append({
             "id": f"code_{m.get('filename')}",
             "type": "code_synthesis",
-            "priority": "routine",
+            "priority": "critical",
             "target_node": "codex_stream",
-            "title": "CODEX ASTRA MODEL SYNTHESIS COMPILED",
+            "title": "ÚJ MODELL SZINTETIZÁLVA · CODEX ASTRA",
             "subtitle": f"{m.get('class_name')} ({target_seg})",
             "league": leg,
             "emoji": get_league_emoji(leg),
             "badge": f"{m.get('lines', 0)} LINES",
             "badge_color": "green",
-            "details": "AST syntax validated · Generated for candidate pool",
+            "details": "AST syntax validated · Pure deterministic candidate class generated",
             "timestamp": m.get("mtime") or now_utc.isoformat()
         })
 
@@ -819,6 +819,24 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
             "badge_color": "cyan",
             "details": f"Odds {po.get('odds', 0.0):.2f} · EV +{po.get('ev', 0.0):.1f}% · 0% taker fee",
             "timestamp": po.get("created_at") or now_utc.isoformat()
+        })
+
+    # 8. Active Repair Jobs (Tier 1 R&D Queue)
+    for job in active_jobs[:3]:
+        leg = job.get("league") or "SYSTEM"
+        live_event_queue.append({
+            "id": f"job_{job.get('id')}",
+            "type": "learning_job",
+            "priority": "critical" if job.get("status") == "running" else "routine",
+            "target_node": "tier_1",
+            "title": "K+F JAVÍTÁSI FELADAT AKTÍV · TIER 1 R&D",
+            "subtitle": f"[{leg}] {job.get('kind', '').replace('_', ' ')}",
+            "league": leg,
+            "emoji": get_league_emoji(leg),
+            "badge": f"{job.get('status', '').upper()}",
+            "badge_color": "purple",
+            "details": f"Tölcsér feldolgozási sebesség: {synth_rate_per_hour:.1f} model / óra",
+            "timestamp": job.get("created_at") or now_utc.isoformat()
         })
 
     return {

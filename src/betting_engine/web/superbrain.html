@@ -2300,9 +2300,17 @@
               triggerCriticalEventInterrupt(mainEvent);
               freshCriticals.forEach(ev => {
                 seenEventIds.add(ev.id);
+                const em = ev.emoji || getEmoji(ev.league);
                 if (ev.type === 'real_bet_issued') {
-                  const em = ev.emoji || getEmoji(ev.league);
                   showToast('win', `${em} ÚJ SZELVÉNY KIADVA: ${ev.badge}`, `${ev.subtitle} · ${ev.details}`);
+                } else if (ev.type === 'crucible_graduation') {
+                  showToast('win', `🚀 CRUCIBLE DIPLOMÁZÁS: ${ev.badge}`, `${ev.subtitle} · ${ev.details}`);
+                } else if (ev.type === 'demotion_tourniquet') {
+                  showToast('loss', `🩸 TŐKEVÉDELMI ÉRSZORÍTÓ: ${ev.subtitle}`, `${ev.details}`);
+                } else if (ev.type === 'code_synthesis') {
+                  showToast('win', `💻 ÚJ MODELL SZINTETIZÁLVA: ${ev.badge}`, `${ev.subtitle}`);
+                } else if (ev.type === 'polymarket_order') {
+                  showToast('win', `💎 POLYMARKET CLOB MEGBÍZÁS: ${ev.badge}`, `${ev.subtitle} · ${ev.details}`);
                 }
               });
             }
