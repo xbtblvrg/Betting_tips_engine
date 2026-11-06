@@ -182,3 +182,48 @@ def test_skellam_dynamic_tail_expansion():
     max_h = max(h for (h, _) in dist.scores.keys())
     assert max_h >= 13  # High-scoring tail expanded beyond static 8
     assert round(sum(dist.scores.values()), 4) == 1.0000
+
+
+def test_stratified_aging_round_robin_prioritizes_untouched_and_rotates(temp_db: Path):
+    """Anti-tautological test verifying that 0-attempt untouched markets are prioritized ahead of heavily attempted markets."""
+    engine = AutonomousModelDiscoveryEngine(db_path=temp_db)
+
+    conn = sqlite3.connect(str(temp_db))
+    # Market A: Already attempted 10 times
+    conn.execute("""
+        INSERT INTO demoted_markets (
+            id, segment_key, league, scope, family, sub_family, demoted_at,
+            rolling_roi, rolling_pnl, games, reason, stats, incubation_phase, last_screened_at
+        ) VALUES (
+            'demote_heavily_attempted', 'NBA|full_game|moneyline', 'NBA', 'full_game', 'moneyline', 'moneyline',
+            '2026-10-24T00:00:00Z', -0.10, -5.0, 15, 'leaky', '{}', 'research_training', '2026-11-06T10:00:00Z'
+        )
+    """)
+    for i in range(10):
+        conn.execute("""
+            INSERT INTO ai_synthesis_feedback_loop (
+                id, model_id, segment_key, league, scope, family, crucible_passed, created_at
+            ) VALUES (?, ?, 'NBA|full_game|moneyline', 'NBA', 'full_game', 'moneyline', 0, '2026-11-06T10:00:00Z')
+        """, (f'fb_nba_{i}', f'model_nba_{i}'))
+
+    # Market B: Untouched (0 attempts, null last_screened_at)
+    conn.execute("""
+        INSERT INTO demoted_markets (
+            id, segment_key, league, scope, family, sub_family, demoted_at,
+            rolling_roi, rolling_pnl, games, reason, stats, incubation_phase, last_screened_at
+        ) VALUES (
+            'demote_untouched', 'UCL|full_game|totals', 'UCL', 'full_game', 'totals', 'totals',
+            '2026-10-24T00:00:00Z', -0.04, -1.0, 8, 'wobbling', '{}', 'research_training', NULL
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+    engine = AutonomousModelDiscoveryEngine(db_path=temp_db)
+    scanned = engine.scan_unresolved_tier1_markets()
+
+    # Verify that the untouched market with 0 attempts is ranked ahead of the heavily attempted one
+    keys = [m['segment_key'] for m in scanned]
+    assert 'UCL|full_game|totals' in keys
+    assert 'NBA|full_game|moneyline' in keys
+    assert keys.index('UCL|full_game|totals') < keys.index('NBA|full_game|moneyline')

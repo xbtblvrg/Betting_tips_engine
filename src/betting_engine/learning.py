@@ -798,7 +798,7 @@ class LearningWorker:
             try:
                 from .autonomous_model_discovery import AutonomousModelDiscoveryEngine
                 discovery_eng = AutonomousModelDiscoveryEngine(data_dir=self.data)
-                discovered = discovery_eng.run_discovery_cycle(max_markets=5)
+                discovered = discovery_eng.run_discovery_cycle(max_markets=25)
                 discovery_res = {'discovered_count': len(discovered), 'discoveries': [d.to_dict() for d in discovered]}
             except Exception as e:
                 discovery_res = {'error': str(e)}
@@ -852,7 +852,7 @@ class LearningWorker:
             from .demoted_market_bridge import DemotedMarketIncubationBridge
             bridge = DemotedMarketIncubationBridge(data_dir=self.data)
             payload = json.loads(job['payload']) if isinstance(job['payload'], str) else (job['payload'] or {})
-            max_p = int(payload.get('max_markets') or 5)
+            max_p = int(payload.get('max_markets') or 25)
             res = bridge.synchronize_demoted_markets(max_train_per_run=max_p)
             return {
                 'executed_at': utcnow().isoformat(),

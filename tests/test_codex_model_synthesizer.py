@@ -5,6 +5,7 @@ from pathlib import Path
 from betting_engine.codex_model_synthesizer import (
     CodexModelSynthesizer,
     check_ast_safety,
+    extract_clean_code,
     instantiate_synthesized_class
 )
 from betting_engine.sandbox_models.base import BaseCandidateModel
@@ -153,3 +154,40 @@ def test_codex_model_synthesizer_end_to_end(tmp_path):
         gen_file = GENERATED_MODELS_DIR / f"{res.model_id}.py"
         if gen_file.exists():
             gen_file.unlink()
+
+
+def test_extract_clean_code_with_invoke_tags_and_preamble():
+    raw_claude_response = """I'll check whether `betting_engine` is available so I can match the real `DiscreteDistribution` API.
+<invoke name="Bash">
+<parameter name="command">python -c 'import betting_engine'</parameter>
+</invoke>
+
+Here is the candidate model class:
+```python
+import numpy as np
+from betting_engine.sandbox_models.base import BaseCandidateModel, DiscreteDistribution
+
+class WNBAPossessionModel(BaseCandidateModel):
+    def predict_distribution(self, game_context):
+        return DiscreteDistribution({'home': 0.52, 'away': 0.48})
+```
+I hope this captures the 4Q fatigue dynamics!"""
+
+    code = extract_clean_code(raw_claude_response)
+    assert "<invoke" not in code
+    assert "I'll check whether" not in code
+    assert "class WNBAPossessionModel(BaseCandidateModel):" in code
+    is_safe, cls_name, err = check_ast_safety(code)
+    assert is_safe is True
+    assert cls_name == "WNBAPossessionModel"
+    assert err is None
+
+
+def test_extract_clean_code_pure_english_fails_cleanly():
+    raw_non_code = "I'm sorry, but I cannot fulfill this request without knowing the database schema."
+    code = extract_clean_code(raw_non_code)
+    assert code == ""
+    is_safe, cls_name, err = check_ast_safety(code)
+    assert is_safe is False
+    assert cls_name is None
+    assert "No candidate class definition found" in err

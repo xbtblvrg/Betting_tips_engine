@@ -99,18 +99,31 @@ def extract_clean_code(answer: str) -> str:
         return ""
     text = answer.strip()
 
-    # 1. Closed code block: ```python ... ``` or ``` ... ```
-    match = re.search(r'```(?:python)?\s*\n(.*?)\n```', text, re.DOTALL | re.IGNORECASE)
-    if match and match.group(1).strip():
-        return match.group(1).strip()
+    # Strip XML/HTML tool invocation tags (such as <invoke...>, <thinking...>, <antThinking...>)
+    text = re.sub(r'<invoke\b[^>]*>.*?</invoke>', '', text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r'<invoke\b[^>]*>.*', '', text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r'<thinking\b[^>]*>.*?</thinking>', '', text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r'<antThinking\b[^>]*>.*?</antThinking>', '', text, flags=re.DOTALL | re.IGNORECASE)
+    text = text.strip()
 
-    match = re.search(r'```(?:python)?\s*(.*?)\s*```', text, re.DOTALL | re.IGNORECASE)
-    if match and match.group(1).strip():
-        return match.group(1).strip()
+    # 1. Closed code blocks: prioritize block containing 'class '
+    blocks = re.findall(r'```(?:python)?\s*\n(.*?)\n```', text, re.DOTALL | re.IGNORECASE)
+    for b in blocks:
+        if 'class ' in b:
+            return b.strip()
+    if blocks:
+        for b in blocks:
+            if b.strip():
+                return b.strip()
+
+    inline_blocks = re.findall(r'```(?:python)?\s*(.*?)\s*```', text, re.DOTALL | re.IGNORECASE)
+    for b in inline_blocks:
+        if 'class ' in b:
+            return b.strip()
 
     # 2. Unclosed code block: starts with ```python or ``` but never closed
     unclosed = re.search(r'```(?:python)?\s*\n(.*)', text, re.DOTALL | re.IGNORECASE)
-    if unclosed and unclosed.group(1).strip():
+    if unclosed and 'class ' in unclosed.group(1):
         return unclosed.group(1).strip()
 
     # 3. No fences: find first line of actual Python code (import, from, class, def, @)
@@ -124,9 +137,12 @@ def extract_clean_code(answer: str) -> str:
 
     if code_start_idx is not None:
         candidate_lines = lines[code_start_idx:]
-        return "\n".join(candidate_lines).strip()
+        cand = "\n".join(candidate_lines).strip()
+        if 'class ' in cand:
+            return cand
 
-    return text
+    # If no candidate class or code found, return empty string so AST parser fails cleanly
+    return ""
 
 
 def check_ast_safety(source_code: str) -> Tuple[bool, Optional[str], Optional[str]]:
@@ -135,6 +151,9 @@ def check_ast_safety(source_code: str) -> Tuple[bool, Optional[str], Optional[st
     Returns:
         (is_safe, candidate_class_name, error_message)
     """
+    if not source_code or not source_code.strip():
+        return False, None, "No candidate class definition found in response"
+
     try:
         tree = ast.parse(source_code)
     except SyntaxError as e:
@@ -672,11 +691,11 @@ class {class_name}(BaseCandidateModel):
         )
 
         try:
-            with file_lock(DATA / "development" / "ai-locks" / "codex.lock", timeout=60.0) as acquired:
+            with file_lock(DATA / "development" / "ai-locks" / "codex.lock", timeout=15.0) as acquired:
                 if not acquired:
-                    log.warning(f"Failed to acquire codex.lock within 60.0s for {segment_key}")
+                    log.warning(f"Codex lock busy (15.0s) for {segment_key}; yielding to Claude parallel fallback")
                     return None
-                res = self._invoke_codex_with_watchdog(codex_cfg, prompt, timeout=120.0, max_hard_ceiling=240.0, idle_timeout=30.0)
+                res = self._invoke_codex_with_watchdog(codex_cfg, prompt, timeout=240.0, max_hard_ceiling=480.0, idle_timeout=60.0)
                 state, answer = decode('codex', res, codex_cfg.get('model'))
                 if state == 'received_unreviewed' and answer:
                     clean_code = extract_clean_code(answer)
@@ -774,15 +793,18 @@ class {class_name}(BaseCandidateModel):
             f"4. DOMAIN FEATURES: game_context provides rich situational features: 'home_expected', 'away_expected', 'home_rest_days', 'away_rest_days', 'home' attack/defense, 'away' attack/defense, weather (wind_speed, is_dome, temp), and venue.\n"
             f"5. SAFETY BOUNDARY: Pure deterministic computation only. Do NOT import OS/process/network modules (os, sys, subprocess, socket, requests, urllib).\n"
             f"6. Constructor must take model_id='{model_id}', version='1.0.0', league='{league}', scope='{scope}', family='{family}'.\n"
-            f"7. Return ONLY valid executable Python code in your response without markdown chat filler."
+            f"7. CRITICAL HEADLESS INSTRUCTION: You are executing in non-interactive batch generation mode.\n"
+            f"   - Do NOT output XML tags, tool invocations (<invoke>), or conversational preface.\n"
+            f"   - Start directly with standard Python imports and the candidate class.\n"
+            f"   - Return ONLY the executable Python code enclosed in ```python ... ```."
         )
 
         try:
-            with file_lock(DATA / "development" / "ai-locks" / "claude.lock", timeout=60.0) as acquired:
+            with file_lock(DATA / "development" / "ai-locks" / "claude.lock", timeout=30.0) as acquired:
                 if not acquired:
-                    log.warning(f"Failed to acquire claude.lock within 60.0s for {segment_key}")
+                    log.warning(f"Failed to acquire claude.lock within 30.0s for {segment_key}")
                     return None
-                res = invoke('claude', claude_cfg, prompt, timeout=120)
+                res = invoke('claude', claude_cfg, prompt, timeout=180)
                 state, answer = decode('claude', res, claude_cfg.get('model'))
                 if state == 'received_unreviewed' and answer:
                     clean_code = extract_clean_code(answer)

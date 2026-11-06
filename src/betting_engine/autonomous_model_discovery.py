@@ -11,6 +11,7 @@ markets to Tier 2 (Shadow Incubator).
 from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
+from concurrent.futures import ThreadPoolExecutor
 import json
 from pathlib import Path
 import sqlite3
@@ -80,6 +81,41 @@ class AutonomousModelDiscoveryEngine:
             data_dir=self.data_dir,
             db_path=self.db_path,
         )
+        self._ensure_schema()
+
+    def _ensure_schema(self) -> None:
+        """Ensures feedback loop and last_screened_at schema exist for round-robin discovery."""
+        if not self.db_path.exists():
+            return
+        try:
+            with sqlite3.connect(str(self.db_path), timeout=30.0) as conn:
+                conn.execute("PRAGMA busy_timeout = 30000")
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS ai_synthesis_feedback_loop (
+                        id TEXT PRIMARY KEY,
+                        model_id TEXT NOT NULL,
+                        segment_key TEXT NOT NULL,
+                        league TEXT NOT NULL,
+                        scope TEXT NOT NULL,
+                        family TEXT NOT NULL,
+                        generator_provider TEXT,
+                        class_name TEXT,
+                        oos_roi REAL,
+                        oos_delta_brier REAL,
+                        oos_win_rate REAL,
+                        oos_max_drawdown REAL,
+                        crucible_passed INTEGER,
+                        created_at TEXT
+                    )
+                """)
+                cur = conn.cursor()
+                cur.execute("PRAGMA table_info(demoted_markets)")
+                cols = [r[1] for r in cur.fetchall()]
+                if 'last_screened_at' not in cols and cols:
+                    conn.execute("ALTER TABLE demoted_markets ADD COLUMN last_screened_at TEXT")
+                conn.commit()
+        except Exception:
+            pass
 
     def list_available_archetypes(self) -> List[Dict[str, str]]:
         """Returns all dynamically discovered mathematical archetypes in the engine."""
@@ -104,28 +140,40 @@ class AutonomousModelDiscoveryEngine:
         try:
             cur = conn.cursor()
             cur.execute("""
-                SELECT id, segment_key, league, scope, family, sub_family, rolling_roi, rolling_pnl, games, demoted_at
-                FROM demoted_markets
-                WHERE incubation_phase = 'research_training' 
-                   OR (incubation_phase = 'incubating_with_new_model' AND (incubated_model_id IS NULL OR incubated_model_id = '' OR historical_roi <= 0.0))
+                SELECT dm.id, dm.segment_key, dm.league, dm.scope, dm.family, dm.sub_family, dm.rolling_roi, dm.rolling_pnl, dm.games, dm.demoted_at, dm.last_screened_at,
+                       COUNT(fb.id) as attempts
+                FROM demoted_markets dm
+                LEFT JOIN ai_synthesis_feedback_loop fb ON dm.segment_key = fb.segment_key
+                WHERE dm.incubation_phase = 'research_training' 
+                   OR (dm.incubation_phase = 'incubating_with_new_model' AND (dm.incubated_model_id IS NULL OR dm.incubated_model_id = '' OR dm.historical_roi <= 0.0))
+                GROUP BY dm.id
                 ORDER BY 
-                    -- Strict Constitutional Mandate (Commandment 6.5): Prioritize Dual Reachable Markets (Stake + Polymarket CLOB)
+                    -- 1. Untouched markets with 0 attempts get top priority (ensures all 89 markets are reached immediately)
+                    CASE WHEN COUNT(fb.id) = 0 THEN 0 ELSE 1 END,
+                    -- 2. Strict Constitutional Mandate (Commandment 6.5): Prioritize Dual Reachable Markets (Stake + Polymarket CLOB)
                     CASE 
-                        WHEN (league IN ('NBA', 'NFL', 'EPL', 'MLS', 'UCL', 'NHL', 'MLB', 'ATP', 'WTA')
-                              AND scope IN ('full_game', 'half_1', 'half_2', 'quarter_1', 'quarter_2', 'quarter_3', 'quarter_4', 'period_1', 'period_2')
-                              AND (family LIKE '%moneyline%' OR family LIKE '%spread%' OR family LIKE '%totals%' OR family = 'totals' OR family LIKE '%winner%' OR family LIKE '%three_way%' OR family LIKE '%both%')
-                              AND family NOT LIKE '%home_total%' AND family NOT LIKE '%away_total%' AND family NOT LIKE '%team_total%')
+                        WHEN (dm.league IN ('NBA', 'NFL', 'EPL', 'MLS', 'UCL', 'NHL', 'MLB', 'ATP', 'WTA')
+                              AND dm.scope IN ('full_game', 'half_1', 'half_2', 'quarter_1', 'quarter_2', 'quarter_3', 'quarter_4', 'period_1', 'period_2')
+                              AND (dm.family LIKE '%moneyline%' OR dm.family LIKE '%spread%' OR dm.family LIKE '%totals%' OR dm.family = 'totals' OR dm.family LIKE '%winner%' OR dm.family LIKE '%three_way%' OR dm.family LIKE '%both%')
+                              AND dm.family NOT LIKE '%home_total%' AND dm.family NOT LIKE '%away_total%' AND dm.family NOT LIKE '%team_total%')
                         THEN 0 ELSE 1
                     END,
+                    -- 3. Leaky markets with negative rolling PnL (tourniquet turnaround)
+                    CASE WHEN dm.rolling_pnl < 0.0 THEN 0 ELSE 1 END,
+                    -- 4. Tier 1 League preference
                     CASE 
-                        WHEN league IN ('NBA', 'NFL', 'EPL', 'MLS') THEN 0
-                        WHEN league IN ('NHL', 'UCL') THEN 1
-                        WHEN league IN ('MLB', 'ATP', 'WTA') THEN 2
-                        WHEN league IN ('NCAAF', 'NCAAM', 'NCAAW') THEN 3
+                        WHEN dm.league IN ('NBA', 'NFL', 'EPL', 'MLS') THEN 0
+                        WHEN dm.league IN ('NHL', 'UCL') THEN 1
+                        WHEN dm.league IN ('MLB', 'ATP', 'WTA') THEN 2
+                        WHEN dm.league IN ('NCAAF', 'NCAAM', 'NCAAW') THEN 3
                         ELSE 4
                     END,
-                    CASE WHEN rolling_pnl < 0.0 THEN 0 ELSE 1 END,
-                    scope, family
+                    -- 5. Stratified Aging Round-Robin: oldest screened first
+                    CASE WHEN dm.last_screened_at IS NULL THEN 0 ELSE 1 END,
+                    COALESCE(dm.last_screened_at, '') ASC,
+                    -- 6. Fewest attempts first (prevent 400+ repeat attempts)
+                    COUNT(fb.id) ASC,
+                    dm.scope, dm.family
             """)
             raw_rows = [dict(r) for r in cur.fetchall()]
             from .contracts import is_supported_stake_contract
@@ -148,8 +196,34 @@ class AutonomousModelDiscoveryEngine:
         if max_markets:
             tier1_markets = tier1_markets[:max_markets]
 
-        new_discoveries: List[ModelDiscoveryRecord] = []
+        if not tier1_markets:
+            return []
+
+        # Batch touch last_screened_at immediately so the queue advances even if a worker crashes
         now_iso = datetime.now(timezone.utc).isoformat()
+        try:
+            with sqlite3.connect(str(self.db_path), timeout=30.0) as touch_conn:
+                touch_conn.execute("PRAGMA busy_timeout = 30000")
+                touch_conn.execute(
+                    f"UPDATE demoted_markets SET last_screened_at = ? WHERE id IN ({','.join('?' for _ in tier1_markets)})",
+                    [now_iso] + [m['id'] for m in tier1_markets]
+                )
+                touch_conn.commit()
+        except Exception:
+            pass
+
+        # Multi-core rapid archetype screening across the 97k match pool
+        def _screen_archetype(m):
+            try:
+                cand = self.historical_trainer.train_and_screen_demoted_market(m['segment_key'])
+                return m['segment_key'], cand
+            except Exception:
+                return m['segment_key'], None
+
+        with ThreadPoolExecutor(max_workers=min(8, max(1, len(tier1_markets)))) as pool:
+            archetype_results = dict(pool.map(_screen_archetype, tier1_markets))
+
+        new_discoveries: List[ModelDiscoveryRecord] = []
 
         for market in tier1_markets:
             segment_key = market['segment_key']
@@ -159,10 +233,9 @@ class AutonomousModelDiscoveryEngine:
             d_id = market.get('id')
 
             try:
-                # Run historical training across the expanded archetype library
-                best_cand = self.historical_trainer.train_and_screen_demoted_market(segment_key)
+                best_cand = archetype_results.get(segment_key)
                 if not best_cand:
-                    # If standard library has no edge, invoke autonomous Codex model synthesis
+                    # If standard library has no edge, invoke autonomous Codex/Claude model synthesis
                     try:
                         from .codex_model_synthesizer import CodexModelSynthesizer
                         synthesizer = CodexModelSynthesizer(self.data_dir)
@@ -240,6 +313,18 @@ class AutonomousModelDiscoveryEngine:
             except Exception:
                 # Isolate unexpected training failures and proceed with other candidate markets
                 continue
+            finally:
+                # Always advance last_screened_at for this market
+                try:
+                    with sqlite3.connect(str(self.db_path), timeout=10.0) as fin_conn:
+                        fin_conn.execute("PRAGMA busy_timeout = 10000")
+                        fin_conn.execute(
+                            "UPDATE demoted_markets SET last_screened_at = ? WHERE id = ?",
+                            (datetime.now(timezone.utc).isoformat(), d_id)
+                        )
+                        fin_conn.commit()
+                except Exception:
+                    pass
 
         return new_discoveries
 
