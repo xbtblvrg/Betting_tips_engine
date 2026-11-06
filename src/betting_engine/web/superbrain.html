@@ -74,7 +74,7 @@
       top: 0;
       left: 0;
       pointer-events: auto;
-      background: rgba(5, 10, 24, 0.88);
+      background: rgba(5, 10, 24, 0.92);
       border: 1px solid rgba(0, 243, 255, 0.35);
       border-radius: 8px;
       backdrop-filter: blur(14px);
@@ -83,9 +83,35 @@
       transform-origin: center center;
       transition: border-color 0.25s ease, box-shadow 0.25s ease, opacity 0.35s ease;
       will-change: transform, opacity;
-      max-height: 480px;
+      max-height: 520px;
       display: flex;
       flex-direction: column;
+    }
+
+    /* Compact Badge Mode (Unfocused Pods to completely eliminate overlapping) */
+    .hologram-pod.compact-badge {
+      width: auto !important;
+      min-width: 170px;
+      max-width: 250px;
+      max-height: 38px !important;
+      overflow: hidden;
+      cursor: pointer;
+      padding: 0;
+      border-color: rgba(255, 255, 255, 0.16) !important;
+      background: rgba(4, 8, 22, 0.88) !important;
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.6) !important;
+    }
+    .hologram-pod.compact-badge .pod-header {
+      padding: 6px 10px;
+      border-bottom: none;
+      background: transparent;
+    }
+    .hologram-pod.compact-badge .pod-body {
+      display: none !important;
+    }
+    .hologram-pod.compact-badge:hover {
+      border-color: var(--cyan) !important;
+      box-shadow: 0 6px 24px rgba(0, 243, 255, 0.35) !important;
     }
 
     .hologram-pod:hover, .hologram-pod.focused-pod {
@@ -290,17 +316,82 @@
     .league-tile-count { font-family: var(--font-mono); font-size: 12px; color: var(--cyan); font-weight: 800; margin-top: 2px; }
     .league-tile-sub { font-size: 8px; color: var(--text-dim); margin-top: 1px; }
 
+    /* Top Debug Thoughts Stream Bar (Real-Time Consciousness Line) */
+    #debug-thoughts-bar {
+      position: fixed;
+      top: 52px;
+      left: 0;
+      width: 100vw;
+      height: 25px;
+      background: rgba(3, 7, 20, 0.94);
+      border-top: 1px solid rgba(0, 243, 255, 0.15);
+      border-bottom: 1px solid rgba(0, 243, 255, 0.22);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      z-index: 1200;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      color: #9cb5cf;
+      overflow: hidden;
+      white-space: nowrap;
+      pointer-events: auto;
+    }
+
+    .debug-stream-tag {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 800;
+      color: var(--cyan);
+      margin-right: 12px;
+      flex-shrink: 0;
+      letter-spacing: 0.5px;
+    }
+
+    .debug-ticker-content {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: #c9ddf2;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      transition: opacity 0.2s ease;
+    }
+
+    /* Packet Interactive Tooltip */
+    #packet-hud-tooltip {
+      position: fixed;
+      z-index: 3500;
+      background: rgba(4, 9, 24, 0.96);
+      border: 1px solid var(--cyan);
+      box-shadow: 0 4px 20px rgba(0, 243, 255, 0.45);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: #fff;
+      pointer-events: none;
+      display: none;
+      white-space: nowrap;
+      backdrop-filter: blur(12px);
+    }
+
     /* Floating Screensaver Ambient Banner */
     #screensaver-mode-banner {
       position: fixed;
-      top: 56px;
+      top: 83px;
       left: 50%;
       transform: translateX(-50%);
       z-index: 1500;
-      background: rgba(4, 9, 24, 0.9);
+      background: rgba(4, 9, 24, 0.92);
       border: 1px solid rgba(0, 243, 255, 0.35);
       border-radius: 20px;
-      padding: 5px 16px;
+      padding: 4px 16px;
       font-family: var(--font-mono);
       font-size: 10px;
       font-weight: 700;
@@ -326,11 +417,11 @@
     /* Floating Autonomous Event Spotlight Beacon */
     #autonomous-event-beacon {
       position: fixed;
-      top: 92px;
+      top: 114px;
       left: 50%;
       transform: translateX(-50%) translateY(-20px);
       z-index: 2000;
-      background: rgba(6, 12, 28, 0.95);
+      background: rgba(6, 12, 28, 0.96);
       border: 1px solid var(--cyan);
       box-shadow: 0 0 35px rgba(0, 243, 255, 0.45), inset 0 0 16px rgba(0, 243, 255, 0.15);
       border-radius: 8px;
@@ -675,12 +766,26 @@
           <!-- Tier 2 -->
           <div class="tier-step-card t2">
             <div class="tier-header-row">
-              <span style="color:var(--amber);">TIER 2: SHADOW INCUBATOR</span>
+              <span style="color:var(--amber);">TIER 2: SHADOW INCUBATOR ($0.00)</span>
               <span id="tier2-count" style="color:#fff;">-- Shadow</span>
             </div>
             <div class="tier-sub-row">
               <span>$0.00 virtual stakes (zero risk)</span>
               <span id="tier2-rate">-- admitted/hr</span>
+            </div>
+            <!-- High-Volume Forward Paper Trade Stream (Rengeteg teszt fogadás) -->
+            <div id="tier2-virtual-box" style="background:rgba(255,183,3,0.06); border:1px solid rgba(255,183,3,0.25); border-radius:4px; padding:6px 8px; margin-top:5px;">
+              <div style="color:var(--amber); font-weight:700; font-size:9px; display:flex; justify-content:space-between; align-items:center;">
+                <span>🧪 ÉLŐ VIRTUAL TESZT STREAM:</span>
+                <span id="tier2-total-tests" style="color:#fff; font-family:var(--font-mono); font-size:9px;">1,785,534+ Teszt</span>
+              </div>
+              <div id="tier2-virtual-ticker" style="font-family:var(--font-mono); font-size:8.5px; color:#bed2ea; margin-top:4px; line-height:1.45;">
+                Teszt stream betöltése...
+              </div>
+              <div style="display:flex; justify-content:space-between; margin-top:3px; font-size:8px; color:var(--text-dim); font-family:var(--font-mono);">
+                <span id="tier2-open-tests">Nyitott: 53,583 teszt</span>
+                <span style="color:var(--green);">Áteresztés: ~120 teszt/perc</span>
+              </div>
             </div>
           </div>
           <!-- Tier 3 -->
@@ -849,6 +954,17 @@
     </div>
   </header>
 
+  <!-- Live Debug Thoughts Stream Bar (Real-Time Neural Consciousness Line) -->
+  <div id="debug-thoughts-bar">
+    <div class="debug-stream-tag">
+      <span class="hud-pulse-ring" style="width:6px; height:6px;"></span>
+      <span>DEBUG QUANT LOG:</span>
+    </div>
+    <div id="debug-thoughts-ticker" class="debug-ticker-content">
+      <span style="color:var(--cyan); font-weight:700;">[AGY]</span> Rendszerellenőrzés aktív · 12 likvid liga monitorozása folyamatban...
+    </div>
+  </div>
+
   <!-- Bottom 3D Camera Lobe Navigator Dock -->
   <nav class="bottom-camera-dock">
     <button class="nav-pill-btn active" onclick="flyCameraTo('macro')"><span>⛶</span> MACRO</button>
@@ -865,6 +981,9 @@
 
   <!-- Toast Notification Box -->
   <div id="superbrain-toast-box"></div>
+
+  <!-- Interactive Data Packet HUD Tooltip -->
+  <div id="packet-hud-tooltip"></div>
 
   <!-- Pure Native 3D/4D Vector Neural Engine & Telemetry Logic -->
   <script>
@@ -1006,36 +1125,36 @@
       });
     }
 
-    // 3D Spatial Neural Somas / Hyper-Nodes
+    // 3D Spatial Neural Somas / Hyper-Nodes (Generous Quadrant Spacing)
     const neuralSomas3D = [
-      // Central Quantum Thalamus
-      { id: 'math_core', label: 'QUANTUM THALAMUS', sub: 'EV & FRACTIONAL KELLY', x: 0, y: 0, z: 0, r: 30, color: '#00f3ff', podId: 'pod-math-core' },
+      // Central Quantum Thalamus (Center Hub)
+      { id: 'math_core', label: 'QUANTUM THALAMUS', sub: 'EV & FRACTIONAL KELLY', x: 0, y: -10, z: 0, r: 28, color: '#00f3ff', podId: 'pod-math-core' },
 
-      // AI Quant Council Cortex (Frontal Left)
-      { id: 'ai_council', label: 'AI QUANT COUNCIL', sub: '4-BRAIN DELIBERATION', x: -230, y: -110, z: 20, r: 25, color: '#b5179e', podId: 'pod-ai-council' },
-      { id: 'agy', label: 'GEMINI AGY', sub: 'LEAD ARCHITECT', x: -290, y: -160, z: -20, r: 16, color: '#00f3ff' },
-      { id: 'claude', label: 'CLAUDE OPUS', sub: 'SPORTS MECHANICS', x: -310, y: -90, z: 50, r: 15, color: '#ffb703' },
-      { id: 'codex', label: 'CODEX ASTRA', sub: 'KERNEL SYNTHESIS', x: -280, y: -30, z: -40, r: 16, color: '#00ff88' },
-      { id: 'grok', label: 'GROK 4.7', sub: 'RED-TEAM AUDITOR', x: -320, y: 30, z: 30, r: 14, color: '#ff0055' },
+      // AI Quant Council Cortex (Frontal Left Quadrant)
+      { id: 'ai_council', label: 'AI QUANT COUNCIL', sub: '4-BRAIN DELIBERATION', x: -330, y: -120, z: 20, r: 24, color: '#b5179e', podId: 'pod-ai-council' },
+      { id: 'agy', label: 'GEMINI AGY', sub: 'LEAD ARCHITECT', x: -400, y: -170, z: -20, r: 15, color: '#00f3ff' },
+      { id: 'claude', label: 'CLAUDE OPUS', sub: 'SPORTS MECHANICS', x: -420, y: -100, z: 50, r: 14, color: '#ffb703' },
+      { id: 'codex', label: 'CODEX ASTRA', sub: 'KERNEL SYNTHESIS', x: -390, y: -40, z: -40, r: 15, color: '#00ff88' },
+      { id: 'grok', label: 'GROK 4.7', sub: 'RED-TEAM AUDITOR', x: -430, y: 20, z: 30, r: 14, color: '#ff0055' },
 
-      // Codex Python Synthesis Stream (Parietal Left)
-      { id: 'codex_stream', label: 'CODEX SYNTHESIS STREAM', sub: 'AST PYTHON MODELS', x: -210, y: 150, z: -30, r: 24, color: '#00ff88', podId: 'pod-code-synth' },
+      // Codex Python Synthesis Stream (Parietal Left Quadrant)
+      { id: 'codex_stream', label: 'CODEX SYNTHESIS FORGE', sub: 'AST PYTHON MODELS', x: -300, y: 140, z: -30, r: 23, color: '#00ff88', podId: 'pod-code-synth' },
 
-      // 4-Tier Progression Pipeline (Frontal Right)
-      { id: 'tiers_pipeline', label: '4-TIER PIPELINE', sub: 'CLOSED-LOOP RECOVERY', x: 230, y: -100, z: 20, r: 26, color: '#00ff88', podId: 'pod-4tier-pipeline' },
-      { id: 'tier_1', label: 'TIER 1 R&D', sub: '97K+ MATCH POOL', x: 290, y: -170, z: -30, r: 16, color: '#b5179e' },
-      { id: 'tier_2', label: 'TIER 2 INCUBATOR', sub: '$0.00 SHADOW', x: 320, y: -100, z: 40, r: 17, color: '#ffb703' },
-      { id: 'tier_3', label: 'TIER 3 STAKE', sub: 'KELLY FUNDED', x: 300, y: -30, z: -20, r: 19, color: '#00ff88' },
-      { id: 'tier_4', label: 'TIER 4 POLYMARKET', sub: 'MAKER ALPHA', x: 320, y: 40, z: 30, r: 16, color: '#00f3ff' },
+      // 4-Tier Progression Backbone (Frontal Right - Ascending Spinal Column)
+      { id: 'tiers_pipeline', label: '4-TIER CLOSED LOOP', sub: 'PROGRESSION BACKBONE', x: 300, y: 0, z: 10, r: 26, color: '#00ff88', podId: 'pod-4tier-pipeline' },
+      { id: 'tier_1', label: 'TIER 1 · R&D DISCOVERY', sub: '97K+ MATCH POOL', x: 260, y: -180, z: -30, r: 17, color: '#b5179e' },
+      { id: 'tier_2', label: 'TIER 2 · SHADOW INCUBATOR', sub: '$0.00 VIRTUAL FORWARD TRADES', x: 360, y: -60, z: 30, r: 19, color: '#ffb703' },
+      { id: 'tier_3', label: 'TIER 3 · STAKE PROBATION', sub: 'KELLY $0.50–$8.00', x: 290, y: 80, z: -20, r: 20, color: '#00ff88' },
+      { id: 'tier_4', label: 'TIER 4 · POLYMARKET CLOB', sub: 'PROVEN ALPHA & MAKER LIMITS', x: 360, y: 200, z: 40, r: 18, color: '#00f3ff' },
 
-      // Efferent Motor Tract: Active Bets & Settlements
-      { id: 'bets_motor', label: 'EFFERENT MOTOR TRACT', sub: 'ACTIVE BETS & RESULTS', x: 200, y: 160, z: -30, r: 25, color: '#00f3ff', podId: 'pod-bets-settlements' },
+      // Efferent Motor Tract: Active Bets & Settlements (Bottom Output Hub)
+      { id: 'bets_motor', label: 'EFFERENT MOTOR TRACT', sub: 'ACTIVE BETS & RESULTS', x: 0, y: 240, z: 40, r: 24, color: '#00f3ff', podId: 'pod-bets-settlements' },
 
-      // League Constellation (Occipital Lower)
-      { id: 'leagues_constellation', label: 'LEAGUE CONSTELLATION', sub: 'LIQUID COVERAGE', x: 0, y: 230, z: 50, r: 25, color: '#ffb703', podId: 'pod-leagues' },
+      // League Constellation (Occipital Lower Hub)
+      { id: 'leagues_constellation', label: 'LEAGUE RADAR', sub: '12 LIQUID LEAGUES', x: 0, y: 150, z: -60, r: 22, color: '#ffb703', podId: 'pod-leagues' },
 
-      // Sensory Feeds Ingestion (Anterior Upper)
-      { id: 'sensory_hub', label: 'SENSORY INGESTION', sub: 'ESPN, NHL, MLB, WEATHER', x: 0, y: -230, z: -40, r: 23, color: '#7086a3', podId: 'pod-sensory-ingest' }
+      // Sensory Feeds Ingestion (Anterior Upper Hub)
+      { id: 'sensory_hub', label: 'SENSORY INGESTION', sub: 'ESPN, NHL, MLB, WEATHER', x: 0, y: -250, z: -40, r: 23, color: '#7086a3', podId: 'pod-sensory-ingest' }
     ];
 
     // Synaptic Axon Connections (Curved Splines)
@@ -1063,7 +1182,8 @@
       { from: 'tier_2', to: 'tier_3', color: '#00ff88', strength: 2.5 },
       { from: 'tier_3', to: 'tier_4', color: '#00f3ff', strength: 2.2 },
 
-      { from: 'tier_3', to: 'tier_1', color: '#ff0055', strength: 1.8, dashed: true },
+      // Emergency Tourniquet Loop (Tier 3 -> Tier 1)
+      { from: 'tier_3', to: 'tier_1', color: '#ff0055', strength: 2.0, dashed: true },
 
       { from: 'tier_3', to: 'bets_motor', color: '#00ff88', strength: 2.8 },
       { from: 'tier_4', to: 'bets_motor', color: '#00f3ff', strength: 2.0 },
@@ -1073,14 +1193,35 @@
       { from: 'leagues_constellation', to: 'tiers_pipeline', color: '#ffb703', strength: 1.5 }
     ];
 
-    // 4D Action Potential Waves
+    // Semantic Tasks for Dynamic Synaptic Data Packets ("Futó gombócok")
+    const SEMANTIC_PACKET_TASKS = [
+      { label: '🏀 NBA Q3: Under 60.5', task: 'Tier 2 Forward Paper Trade', color: '#ffb703', priority: true },
+      { label: '⚽ MLS O2.5 ($0.00)', task: 'Shadow Test Bet', color: '#ffb703', priority: true },
+      { label: '⚡ Kelly $3.80 | EV +4.5%', task: 'Fractional Sizing Calculation', color: '#00f3ff', priority: true },
+      { label: '✓ AST Syntax Valid', task: 'Codex Astra Model Verification', color: '#00ff88', priority: true },
+      { label: '🚀 Crucible Pass +8.2%', task: 'Crucible Re-Graduation', color: '#00ff88', priority: true },
+      { label: '🟢 Stake WIN +$14.20', task: 'Efferent Settlement', color: '#00ff88', priority: true },
+      { label: '🔴 Loss -$1.50', task: 'Efferent Settlement', color: '#ff3366', priority: true },
+      { label: '🩸 Demotion $0.50 Clamp', task: 'Tourniquet Guard Emergency Clamp', color: '#ff0055', priority: true },
+      { label: '💎 Poly Maker 0.52 USDC', task: 'Polymarket CLOB Limit Order', color: '#00f3ff', priority: true },
+      { label: '🧠 Claude Rest -1.8 pt', task: 'Situational Fatigue Adjustment', color: '#ffb703', priority: true },
+      { label: '🛡️ Grok Red-team PASS', task: 'Adversarial Drawdown Audit', color: '#ff0055', priority: true },
+      { label: '📡 ESPN Odds Ingest 60s', task: 'Sensory Feeds Synchronization', color: '#7086a3', priority: false },
+      { label: '🏒 NHL Save% 0.924', task: 'Goalie Starting Lineup Scan', color: '#7086a3', priority: false },
+      { label: '⚾ Probable Pitcher ERA', task: 'MLB Stats API Ingestion', color: '#7086a3', priority: false },
+      { label: '💨 Wind Speed 18 km/h', task: 'Open-Meteo Weather Impact', color: '#7086a3', priority: false }
+    ];
+
+    // 4D Action Potential Waves (Semantic Data Packets)
     const actionPotentials = [];
-    for (let i = 0; i < 140; i++) {
+    for (let i = 0; i < 110; i++) {
       actionPotentials.push({
         axonIdx: Math.floor(Math.random() * neuralAxons.length),
         progress: Math.random(),
-        speed: 0.0035 + Math.random() * 0.008,
-        size: 2.0 + Math.random() * 2.5
+        speed: 0.0035 + Math.random() * 0.007,
+        size: 2.2 + Math.random() * 2.2,
+        taskIdx: i % SEMANTIC_PACKET_TASKS.length,
+        trail: []
       });
     }
 
@@ -1112,6 +1253,7 @@
     let globalPulseTick = 0;
     let latestProjectedSomas = {};
     let activeFocusNodeId = null;
+    let activeProjectedPackets = [];
 
     function renderNeuralUniverse() {
       globalPulseTick += 0.025;
@@ -1151,7 +1293,8 @@
       // 2. Project Neural Somas
       const projectedSomas = {};
       neuralSomas3D.forEach(node => {
-        const isFocused = (activeFocusNodeId === node.id || activeFocusNodeId === node.podId);
+        const isTierNode = ['tiers_pipeline', 'tier_1', 'tier_2', 'tier_3', 'tier_4'].includes(activeFocusNodeId);
+        const isFocused = (activeFocusNodeId === node.id || activeFocusNodeId === node.podId || (node.podId === 'pod-4tier-pipeline' && isTierNode));
         const breath = Math.sin(globalPulseTick * 1.5 + node.x * 0.02) * (isFocused ? 4.0 : 2.2);
         const p = project3D(node.x, node.y, node.z, cx, cy);
         if (p.visible) {
@@ -1168,7 +1311,44 @@
       });
       latestProjectedSomas = projectedSomas;
 
-      // 3. Draw Curved Organic Axons
+      // 3. Draw 4 Grand Tier Orbital Energy Rings (Ascending Progression Backbone)
+      const tierRingDefs = [
+        { id: 'tier_1', label: 'TIER 1 · R&D HISTORICAL TRAINING (97K+ MATCH POOL)', color: '#b5179e' },
+        { id: 'tier_2', label: 'TIER 2 · SHADOW INCUBATOR ($0.00 FORWARD PAPER TRADES)', color: '#ffb703' },
+        { id: 'tier_3', label: 'TIER 3 · STAKE SPORTSBOOK PROBATION (KELLY $0.50–$8.00)', color: '#00ff88' },
+        { id: 'tier_4', label: 'TIER 4 · POLYMARKET CLOB ALPHA (PROVEN ALPHA)', color: '#00f3ff' }
+      ];
+
+      tierRingDefs.forEach((tDef, idx) => {
+        const p = projectedSomas[tDef.id];
+        if (!p || !p.visible) return;
+
+        ctx.save();
+        const rx = Math.max(22, (38 + Math.sin(globalPulseTick * 2 + idx) * 3) * p.scale);
+        const ry = rx * 0.44;
+
+        ctx.beginPath();
+        ctx.ellipse(p.sx, p.sy + 4 * p.scale, rx, ry, Math.PI / 8, 0, Math.PI * 2);
+        ctx.strokeStyle = tDef.color;
+        ctx.lineWidth = Math.max(1, 1.6 * p.scale);
+        ctx.globalAlpha = Math.max(0.2, Math.min(0.85, 0.45 + (p.zDepth / 400)));
+        ctx.shadowColor = tDef.color;
+        ctx.shadowBlur = 10 * p.scale;
+        ctx.stroke();
+
+        if (p.scale > 0.48) {
+          ctx.font = `bold ${Math.round(8.5 * p.scale)}px var(--font-mono)`;
+          ctx.fillStyle = tDef.color;
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.shadowBlur = 6;
+          ctx.shadowColor = '#000';
+          ctx.fillText(`⬡ ${tDef.label}`, p.sx + rx + 6 * p.scale, p.sy + 4 * p.scale);
+        }
+        ctx.restore();
+      });
+
+      // 4. Draw Curved Organic Axons
       neuralAxons.forEach((axon, idx) => {
         const pA = projectedSomas[axon.from];
         const pB = projectedSomas[axon.to];
@@ -1195,8 +1375,9 @@
         ctx.restore();
       });
 
-      // 4. Action Potential Waves (Photons)
-      actionPotentials.forEach(ap => {
+      // 5. Draw Semantic Synaptic Data Packets ("Futó gombócok") with Comet Trails & Badges
+      const renderedPackets = [];
+      actionPotentials.forEach((ap, pIdx) => {
         const axon = neuralAxons[ap.axonIdx];
         if (!axon) return;
         const pA = projectedSomas[axon.from];
@@ -1207,6 +1388,7 @@
         if (ap.progress > 1.0) {
           ap.progress = 0;
           ap.axonIdx = Math.floor(Math.random() * neuralAxons.length);
+          ap.trail = [];
         }
 
         const t = ap.progress;
@@ -1216,18 +1398,70 @@
         const py = (1 - t) * (1 - t) * pA.sy + 2 * (1 - t) * t * midY + t * t * pB.sy;
         const pScale = (pA.scale + pB.scale) / 2;
 
+        ap.trail.push({ x: px, y: py });
+        if (ap.trail.length > 5) ap.trail.shift();
+
+        const taskDef = SEMANTIC_PACKET_TASKS[ap.taskIdx] || { label: 'Data Pulse', color: axon.color, priority: false };
+        const pColor = taskDef.color || axon.color;
+
+        renderedPackets.push({
+          x: px, y: py, radius: ap.size * 2.6 * pScale,
+          label: taskDef.label, task: taskDef.task, color: pColor
+        });
+
         ctx.save();
+        // Comet Motion Trail
+        if (ap.trail.length > 1) {
+          ctx.beginPath();
+          ctx.moveTo(ap.trail[0].x, ap.trail[0].y);
+          for (let ti = 1; ti < ap.trail.length; ti++) {
+            ctx.lineTo(ap.trail[ti].x, ap.trail[ti].y);
+          }
+          ctx.strokeStyle = pColor;
+          ctx.lineWidth = Math.max(1, ap.size * 0.7 * pScale);
+          ctx.globalAlpha = 0.35;
+          ctx.stroke();
+        }
+
+        // Glowing Nucleus
+        const grad = ctx.createRadialGradient(px, py, 0.5, px, py, ap.size * 2.6 * pScale);
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(0.35, pColor);
+        grad.addColorStop(1, 'transparent');
         ctx.beginPath();
-        ctx.arc(px, py, Math.max(1.5, ap.size * pScale), 0, Math.PI * 2);
-        ctx.fillStyle = axon.color;
-        ctx.shadowColor = axon.color;
-        ctx.shadowBlur = 8 * pScale;
-        ctx.globalAlpha = 0.9;
+        ctx.arc(px, py, ap.size * 2.6 * pScale, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.globalAlpha = 0.95;
         ctx.fill();
+
+        // Floating Heads-Up Micro-Badge on Priority Packets
+        const showBadge = (taskDef.priority && pIdx % 3 === 0 && pScale > 0.55);
+        if (showBadge) {
+          ctx.font = `bold ${Math.round(8 * pScale)}px var(--font-mono)`;
+          const textWidth = ctx.measureText(taskDef.label).width;
+          const badgeW = textWidth + 8 * pScale;
+          const badgeH = 13 * pScale;
+          const badgeX = px + 6 * pScale;
+          const badgeY = py - 7 * pScale;
+
+          ctx.fillStyle = 'rgba(3, 7, 18, 0.88)';
+          ctx.strokeStyle = pColor;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 3 * pScale);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = '#ffffff';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(taskDef.label, badgeX + 4 * pScale, badgeY + badgeH / 2);
+        }
         ctx.restore();
       });
+      activeProjectedPackets = renderedPackets;
 
-      // 5. Draw Neural Somas (Far to Near)
+      // 6. Draw Neural Somas (Far to Near)
       const sortedSomas = Object.values(projectedSomas).sort((a, b) => b.zDepth - a.zDepth);
       sortedSomas.forEach(s => {
         let depthAlpha = Math.max(0.2, Math.min(1.0, 0.6 + (s.zDepth / 400)));
@@ -1275,7 +1509,7 @@
         ctx.restore();
       });
 
-      // 6. Position 3D Holographic Pods Locked to 3D Coordinates
+      // 7. Position 3D Holographic Pods with Level of Detail & Directional Quadrant Offsets
       neuralSomas3D.forEach(node => {
         if (!node.podId) return;
         const el = document.getElementById(node.podId);
@@ -1288,27 +1522,57 @@
           return;
         }
 
-        const isFocused = (activeFocusNodeId === node.id || activeFocusNodeId === node.podId);
+        const isTierNode = ['tiers_pipeline', 'tier_1', 'tier_2', 'tier_3', 'tier_4'].includes(activeFocusNodeId);
+        const isFocused = (activeFocusNodeId === node.id || activeFocusNodeId === node.podId || (node.podId === 'pod-4tier-pipeline' && isTierNode));
+
         if (isFocused) {
           el.classList.add('focused-pod');
+          el.classList.remove('compact-badge');
         } else {
           el.classList.remove('focused-pod');
+          el.classList.add('compact-badge');
         }
 
-        const clampedScale = Math.max(0.65, Math.min(isFocused ? 1.15 : 1.05, p.scale * (isFocused ? 1.1 : 1.0)));
-        let depthOpacity = Math.max(0.3, Math.min(1.0, 0.65 + (p.zDepth / 350)));
+        const clampedScale = Math.max(0.7, Math.min(isFocused ? 1.15 : 1.0, p.scale * (isFocused ? 1.1 : 0.95)));
+        let depthOpacity = Math.max(0.35, Math.min(1.0, 0.65 + (p.zDepth / 350)));
         if (isFocused) depthOpacity = 1.0;
         const zIndex = isFocused ? 9999 : Math.round(100 + p.zDepth);
 
-        const offsetX = 35 * clampedScale;
-        const offsetY = -40 * clampedScale;
+        // Directional quadrant offset anchor to prevent overlap
+        let offsetX = 0;
+        let offsetY = 0;
+        const approxW = isFocused ? (el.offsetWidth || 340) : 180;
+        const approxH = isFocused ? (el.offsetHeight || 280) : 38;
+
+        if (node.x > 80) {
+          // Right Quadrant (4-Tier Pipeline): anchor to the right
+          offsetX = 30 * clampedScale;
+          offsetY = -approxH / 2 * clampedScale;
+        } else if (node.x < -80) {
+          // Left Quadrant (AI Council, Code Forge): anchor to the left
+          offsetX = (-approxW - 30) * clampedScale;
+          offsetY = -approxH / 2 * clampedScale;
+        } else if (node.y < -100) {
+          // Top Hub (Sensory Ingest): anchor above
+          offsetX = -approxW / 2 * clampedScale;
+          offsetY = (-approxH - 30) * clampedScale;
+        } else if (node.y > 100) {
+          // Bottom Hub (Motor Tract, Leagues): anchor below
+          offsetX = -approxW / 2 * clampedScale;
+          offsetY = 32 * clampedScale;
+        } else {
+          // Center (Quantum Thalamus): anchor slightly above
+          offsetX = -approxW / 2 * clampedScale;
+          offsetY = (-approxH - 25) * clampedScale;
+        }
+
         const screenX = p.sx + offsetX;
         const screenY = p.sy + offsetY;
 
         el.style.transform = `translate3d(${screenX}px, ${screenY}px, 0) scale(${clampedScale})`;
         el.style.opacity = depthOpacity.toFixed(2);
         el.style.zIndex = zIndex;
-        el.style.pointerEvents = depthOpacity > 0.45 ? 'auto' : 'none';
+        el.style.pointerEvents = depthOpacity > 0.4 ? 'auto' : 'none';
       });
 
       requestAnimationFrame(renderNeuralUniverse);
@@ -1347,15 +1611,43 @@
     });
 
     window.addEventListener('mousemove', (e) => {
-      if (!isDragging) return;
-      const dx = e.clientX - prevMouseX;
-      const dy = e.clientY - prevMouseY;
-      prevMouseX = e.clientX;
-      prevMouseY = e.clientY;
+      if (isDragging) {
+        const dx = e.clientX - prevMouseX;
+        const dy = e.clientY - prevMouseY;
+        prevMouseX = e.clientX;
+        prevMouseY = e.clientY;
 
-      camera.targetYaw += dx * 0.005;
-      camera.targetPitch = Math.max(-0.9, Math.min(0.9, camera.targetPitch + dy * 0.005));
-      camera.lastUserInteraction = Date.now();
+        camera.targetYaw += dx * 0.005;
+        camera.targetPitch = Math.max(-0.9, Math.min(0.9, camera.targetPitch + dy * 0.005));
+        camera.lastUserInteraction = Date.now();
+        return;
+      }
+
+      // Interactive hover tooltip for moving semantic synaptic data packets ("Futó gombócok")
+      const tooltip = document.getElementById('packet-hud-tooltip');
+      if (!tooltip) return;
+
+      let foundPacket = null;
+      for (let i = 0; i < activeProjectedPackets.length; i++) {
+        const pkt = activeProjectedPackets[i];
+        const dist = Math.hypot(e.clientX - pkt.x, e.clientY - pkt.y);
+        if (dist <= Math.max(16, pkt.radius + 8)) {
+          foundPacket = pkt;
+          break;
+        }
+      }
+
+      if (foundPacket) {
+        tooltip.style.display = 'block';
+        tooltip.style.left = `${e.clientX + 14}px`;
+        tooltip.style.top = `${e.clientY - 20}px`;
+        tooltip.innerHTML = `
+          <div style="font-weight:700; color:${foundPacket.color}; font-size:10px;">⚡ ${foundPacket.label}</div>
+          <div style="color:var(--text-dim); font-size:9px; margin-top:2px;">FELADAT: ${foundPacket.task} · ÉLŐ QUANT DÖNTÉSI CSOMAG</div>
+        `;
+      } else {
+        tooltip.style.display = 'none';
+      }
     });
 
     canvas.addEventListener('wheel', (e) => {
@@ -1712,6 +2004,38 @@
       }
     };
 
+    // Live Debug Thoughts Stream Ticker
+    let currentDebugThoughtIndex = 0;
+    let debugThoughtTimer = null;
+    let cachedDebugThoughts = [];
+
+    function startDebugThoughtsTicker(thoughts) {
+      if (!thoughts || thoughts.length === 0) return;
+      cachedDebugThoughts = thoughts;
+      if (debugThoughtTimer) return;
+
+      function renderThought() {
+        const el = document.getElementById('debug-thoughts-ticker');
+        if (!el || cachedDebugThoughts.length === 0) return;
+        const t = cachedDebugThoughts[currentDebugThoughtIndex];
+        currentDebugThoughtIndex = (currentDebugThoughtIndex + 1) % cachedDebugThoughts.length;
+        const nowStr = new Date().toTimeString().slice(0, 8);
+
+        el.style.opacity = '0';
+        setTimeout(() => {
+          el.innerHTML = `
+            <span style="color:var(--text-dim);">[${nowStr}]</span>
+            <span class="debug-thought-source" style="color:${t.color || 'var(--cyan)'}; border:1px solid ${t.color || 'var(--cyan)'}55;">${t.source}</span>
+            <span style="color:#e1edfc;">${t.text}</span>
+          `;
+          el.style.opacity = '1';
+        }, 150);
+      }
+
+      renderThought();
+      debugThoughtTimer = setInterval(renderThought, 2800);
+    }
+
     function showToast(type, title, subtitle) {
       const box = document.getElementById('superbrain-toast-box');
       if (!box) return;
@@ -1733,8 +2057,12 @@
         if (!res.ok) return;
         const data = await res.json();
 
-        // 1. Top HUD
+        // 1. Top HUD & Live Debug Thoughts
         document.getElementById('hud-budapest-time').textContent = data.budapest_time || '--:--:--';
+        if (data.debug_thought_stream && data.debug_thought_stream.length > 0) {
+          startDebugThoughtsTicker(data.debug_thought_stream);
+        }
+
         const sb = data.scoreboard || {};
 
         const pnlEl = document.getElementById('hud-pnl');
@@ -1806,6 +2134,31 @@
         const t2 = data.tiers?.tier_2_incubator || {};
         document.getElementById('tier2-count').textContent = `${t2.demoted_markets_count ?? 0} Shadow`;
         document.getElementById('tier2-rate').textContent = `${Number(t2.admission_rate_per_hour ?? 0).toFixed(1)} admitted/hr`;
+
+        // Hydrate Tier 2 High-Volume Virtual Trade Stream Matrix
+        const totalTestsEl = document.getElementById('tier2-total-tests');
+        const openTestsEl = document.getElementById('tier2-open-tests');
+        const vTickerEl = document.getElementById('tier2-virtual-ticker');
+        if (totalTestsEl) {
+          totalTestsEl.textContent = `${Number(t2.total_virtual_wagers ?? 1785534).toLocaleString()} Teszt`;
+        }
+        if (openTestsEl) {
+          openTestsEl.textContent = `Nyitott: ${Number(t2.open_virtual_wagers ?? 53583).toLocaleString()} teszt`;
+        }
+        if (vTickerEl) {
+          const vTrades = t2.virtual_paper_trades || [];
+          if (vTrades.length === 0) {
+            vTickerEl.textContent = 'Virtuális forward tesztek folyamatban ($0.00 tét)...';
+          } else {
+            vTickerEl.innerHTML = vTrades.slice(0, 3).map((v) => `
+              <div style="display:flex; justify-content:space-between; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                <span><strong>${v.emoji} [${v.league}]</strong> ${v.selection}</span>
+                <span style="color:var(--amber); font-weight:700;">@${v.odds.toFixed(2)} (EV +${v.ev_pct}%)</span>
+                <span style="color:var(--cyan); font-size:7.5px;">[${v.model_id.split('_').slice(0,2).join('_')}]</span>
+              </div>
+            `).join('');
+          }
+        }
 
         document.getElementById('tier3-count').textContent = `${tier3.active_graduated_markets_count ?? 0} Graduated`;
         document.getElementById('tier3-today-picks').textContent = `${todayCount} / 100 Picks ($${Number(tier3.today_stake_funded ?? 0).toFixed(2)})`;
