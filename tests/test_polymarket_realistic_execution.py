@@ -19,11 +19,16 @@ from betting_engine.storage import Store
 def realistic_exec_env(tmp_path):
     db_path = tmp_path / "test_engine.sqlite3"
     log_path = tmp_path / "polymarket_orders.jsonl"
+    grad_file = tmp_path / "graduated_markets.json"
+    grad_file.write_text(json.dumps({
+        "NBA|full_game|spreads": {"roi": 0.08, "sample_size": 35}
+    }))
     Store(db_path)
 
     executor = PolymarketAutonomousExecutor(
         db_path=db_path,
         log_path=log_path,
+        graduated_file=grad_file,
         dry_run=True,
     )
     settler = PolymarketOutcomeSettler(
