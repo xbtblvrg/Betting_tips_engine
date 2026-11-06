@@ -3,11 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>SUPERBRAIN · Cosmic 3D/4D Quant Neural Universe & Operations Cockpit</title>
+  <title>SUPERBRAIN · 4D Quantum Organism & Operations Cockpit</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
   <style>
     :root {
-      --bg-dark: #010206;
+      --bg-dark: #010207;
+      --bg-surface: rgba(4, 9, 24, 0.88);
       --cyan: #00f3ff;
       --green: #00ff88;
       --purple: #b5179e;
@@ -41,7 +42,7 @@
       height: 100vh;
       overflow: hidden;
       perspective: 1200px;
-      background: radial-gradient(circle at 50% 50%, #070e28 0%, #030614 55%, #010207 100%);
+      background: radial-gradient(circle at 50% 50%, #060d26 0%, #030614 60%, #010207 100%);
     }
 
     #neuralCanvas {
@@ -57,326 +58,101 @@
 
     #neuralCanvas:active { cursor: grabbing; }
 
-    /* 3D Spatial Holographic Pods Layer */
-    #spatial-pods-layer {
-      position: absolute;
+    /* Top Glass Cyber HUD */
+    .top-glass-hud {
+      position: fixed;
       top: 0;
       left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: 2;
-    }
-
-    /* 3D Holographic Pod Style (Dormant by default - Zero static text clutter) */
-    .hologram-pod {
-      position: absolute;
-      top: 0;
-      left: 0;
-      pointer-events: none;
-      background: rgba(4, 8, 22, 0.94);
-      border: 1px solid rgba(0, 243, 255, 0.35);
-      border-radius: 10px;
+      right: 0;
+      height: 48px;
+      z-index: 1000;
+      background: rgba(3, 6, 15, 0.86);
+      border-bottom: 1px solid rgba(0, 243, 255, 0.22);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
-      box-shadow: 0 16px 50px rgba(0, 0, 0, 0.85), inset 0 0 20px rgba(0, 243, 255, 0.08);
-      transform-origin: center center;
-      transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.4s ease, box-shadow 0.4s ease;
-      will-change: transform, opacity;
-      max-height: 540px;
-      display: flex;
-      flex-direction: column;
-      opacity: 0;
-      transform: scale(0.85);
-      z-index: 100;
-    }
-
-    /* Magnifying Glass Mode: Activated ONLY when focused, hovered, or alerting with live actual processes */
-    .hologram-pod.magnifying-active {
-      opacity: 1 !important;
-      pointer-events: auto !important;
-      transform: scale(1.0) !important;
-      z-index: 9999 !important;
-      border-color: var(--cyan);
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9), 0 0 35px rgba(0, 243, 255, 0.3), inset 0 0 24px rgba(0, 243, 255, 0.12);
-      animation: magnifyingPulse 4.5s infinite alternate ease-in-out;
-    }
-
-    @keyframes magnifyingPulse {
-      0% { box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9), 0 0 20px rgba(0, 243, 255, 0.2), inset 0 0 14px rgba(0, 243, 255, 0.08); }
-      100% { box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9), 0 0 38px rgba(0, 243, 255, 0.38), inset 0 0 26px rgba(0, 243, 255, 0.16); }
-    }
-
-    /* Magnifying Scan Bar atop each pod */
-    .magnifying-scan-bar {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      background: linear-gradient(90deg, rgba(0, 243, 255, 0.18), rgba(181, 23, 158, 0.14));
-      border-bottom: 1px solid rgba(0, 243, 255, 0.3);
-      padding: 5px 10px;
+      padding: 0 16px;
       font-family: var(--font-mono);
-      font-size: 8.5px;
-      font-weight: 800;
-      letter-spacing: 0.8px;
-      color: var(--cyan);
+      font-size: 11px;
     }
-    .mag-live-tag {
+
+    .hud-left-sec, .hud-center-sec, .hud-right-sec {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 10px;
     }
-    .mag-live-dot {
-      width: 6px;
-      height: 6px;
+
+    .hud-brand-title {
+      font-weight: 800;
+      font-size: 12.5px;
+      letter-spacing: 0.8px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .hud-pulse-ring {
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
-      background: var(--green);
-      box-shadow: 0 0 8px var(--green);
-      animation: livePulse 3.6s infinite ease-in-out;
+      background: var(--cyan);
+      box-shadow: 0 0 10px var(--cyan);
+      animation: pulseAnim 3.8s infinite ease-in-out;
     }
-    @keyframes livePulse {
-      0%, 100% { opacity: 0.95; transform: scale(1); }
-      50% { opacity: 0.6; transform: scale(0.85); }
+
+    @keyframes pulseAnim {
+      0%, 100% { transform: scale(1); opacity: 0.95; }
+      50% { transform: scale(0.85); opacity: 0.55; }
     }
-    .mag-close-btn {
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 3px;
-      color: #bed2ea;
-      font-size: 9px;
-      padding: 2px 7px;
-      cursor: pointer;
+
+    .hud-metric-chip {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      padding: 4px 8px;
+      display: flex;
+      align-items: baseline;
+      gap: 5px;
+      white-space: nowrap;
+    }
+
+    .hud-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: var(--text);
+      padding: 4px 10px;
+      border-radius: 4px;
       font-family: var(--font-mono);
-      transition: all 0.2s;
+      font-size: 10.5px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      white-space: nowrap;
     }
-    .mag-close-btn:hover {
-      background: rgba(255, 0, 85, 0.3);
-      border-color: var(--red);
+    .hud-btn:hover {
+      background: rgba(0, 243, 255, 0.15);
+      border-color: var(--cyan);
       color: #fff;
     }
 
-    .hologram-pod.glow-purple { border-color: rgba(181, 23, 158, 0.45); }
-    .hologram-pod.glow-purple.magnifying-active { border-color: var(--purple); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9), 0 0 35px rgba(181, 23, 158, 0.4), inset 0 0 24px rgba(181, 23, 158, 0.15); }
-
-    .hologram-pod.glow-green { border-color: rgba(0, 255, 136, 0.45); }
-    .hologram-pod.glow-green.magnifying-active { border-color: var(--green); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9), 0 0 35px rgba(0, 255, 136, 0.4), inset 0 0 24px rgba(0, 255, 136, 0.15); }
-
-    .hologram-pod.glow-amber { border-color: rgba(255, 183, 3, 0.45); }
-    .hologram-pod.glow-amber.magnifying-active { border-color: var(--amber); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9), 0 0 35px rgba(255, 183, 3, 0.4), inset 0 0 24px rgba(255, 183, 3, 0.15); }
-
-    .pod-header {
-      padding: 8px 12px;
-      background: rgba(255, 255, 255, 0.035);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      font-family: var(--font-mono);
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.5px;
-      cursor: pointer;
-    }
-
-    .pod-header .pod-title {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .pod-body {
-      padding: 10px 12px;
-      overflow-y: auto;
-      overflow-x: hidden;
-      flex: 1;
-      font-size: 11px;
-      line-height: 1.45;
-    }
-
-    .pod-body::-webkit-scrollbar { width: 4px; }
-    .pod-body::-webkit-scrollbar-thumb { background: rgba(0, 243, 255, 0.25); border-radius: 2px; }
-
-    /* Pod Specific Dimensions */
-    #pod-ai-council { width: 340px; }
-    #pod-code-synth { width: 400px; }
-    #pod-math-core { width: 320px; }
-    #pod-4tier-pipeline { width: 360px; }
-    #pod-leagues { width: 310px; }
-    #pod-bets-settlements { width: 380px; }
-    #pod-sensory-ingest { width: 300px; }
-
-    /* Council Cells */
-    .council-boxes {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-    }
-    .brain-cell {
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 6px;
-      padding: 6px 8px;
-      transition: all 0.2s ease;
-    }
-    .brain-cell:hover {
-      background: rgba(255, 255, 255, 0.06);
-      border-color: var(--cyan);
-    }
-    .brain-cell-name { font-weight: 700; font-size: 11px; display: flex; align-items: center; justify-content: space-between; }
-    .brain-cell-role { font-size: 9px; color: var(--text-dim); margin-top: 1px; }
-    .brain-cell-status { font-family: var(--font-mono); font-size: 9px; margin-top: 4px; font-weight: 600; }
-    .brain-cell-thought { font-size: 10px; color: #bed2ea; margin-top: 4px; line-height: 1.3; }
-
-    /* Code Terminal */
-    .code-tabs-strip {
-      display: flex;
-      gap: 4px;
-      overflow-x: auto;
-      padding-bottom: 6px;
-      margin-bottom: 6px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    }
-    .code-tab-pill {
-      font-family: var(--font-mono);
-      font-size: 9px;
-      padding: 2px 7px;
-      border-radius: 4px;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      cursor: pointer;
-      white-space: nowrap;
-      color: var(--text-dim);
-    }
-    .code-tab-pill.active {
-      background: rgba(0, 255, 136, 0.15);
-      border-color: var(--green);
-      color: var(--green);
-      font-weight: 700;
-    }
-    .code-view-pre {
-      background: #020308;
-      border: 1px solid rgba(255, 255, 255, 0.06);
-      border-radius: 4px;
-      padding: 8px;
-      font-family: var(--font-mono);
-      font-size: 10px;
-      line-height: 1.4;
-      color: #a4b9cf;
-      max-height: 240px;
-      overflow-y: auto;
-      white-space: pre-wrap;
-      word-break: break-all;
-    }
-    .code-kw { color: #ff007f; font-weight: bold; }
-    .code-cls { color: #00f3ff; font-weight: bold; }
-    .code-fn { color: #00ff88; }
-    .code-str { color: #ffb703; }
-    .code-cmt { color: #6272a4; font-style: italic; }
-
-    /* Math Formulas */
-    .formula-card {
-      background: rgba(0, 243, 255, 0.05);
-      border: 1px solid rgba(0, 243, 255, 0.2);
-      border-radius: 6px;
-      padding: 8px;
-      margin-bottom: 8px;
-    }
-    .formula-eq {
-      font-family: var(--font-mono);
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--cyan);
-      margin-bottom: 4px;
-    }
-    .formula-desc { font-size: 10px; color: var(--text-dim); line-height: 1.35; }
-
-    /* 4-Tier Cards */
-    .tier-step-card {
-      background: rgba(255, 255, 255, 0.02);
-      border-left: 3px solid #7086a3;
-      border-radius: 0 6px 6px 0;
-      padding: 6px 10px;
-      margin-bottom: 6px;
-      transition: all 0.2s;
-    }
-    .tier-step-card:hover { background: rgba(255, 255, 255, 0.05); }
-    .tier-step-card.t1 { border-left-color: var(--purple); }
-    .tier-step-card.t2 { border-left-color: var(--amber); }
-    .tier-step-card.t3 { border-left-color: var(--green); }
-    .tier-step-card.t4 { border-left-color: var(--cyan); }
-    .tier-step-card.t-loop { border-left-color: var(--red); }
-    .tier-header-row { display: flex; justify-content: space-between; font-weight: 700; font-size: 11px; }
-    .tier-sub-row { font-size: 10px; color: var(--text-dim); display: flex; justify-content: space-between; margin-top: 2px; }
-
-    /* Bets & Settlements Capsules */
-    .bet-capsule {
-      background: rgba(255, 255, 255, 0.025);
-      border: 1px solid rgba(255, 255, 255, 0.06);
-      border-radius: 6px;
-      padding: 6px 8px;
-      margin-bottom: 6px;
-      transition: border-color 0.2s;
-    }
-    .bet-capsule:hover { border-color: var(--cyan); }
-    .bet-capsule.is-win { border-left: 3px solid var(--green); }
-    .bet-capsule.is-loss { border-left: 3px solid var(--red); }
-    .bet-cap-top { display: flex; justify-content: space-between; font-weight: 700; font-size: 11px; }
-    .bet-cap-meta { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-dim); margin-top: 2px; }
-    .bet-cap-badges { display: flex; gap: 4px; margin-top: 4px; font-family: var(--font-mono); font-size: 9px; align-items: center; }
-    .cap-badge { padding: 1px 5px; border-radius: 3px; font-weight: 600; background: rgba(255, 255, 255, 0.06); }
-    .cap-badge.odds { color: var(--amber); border: 1px solid rgba(255, 183, 3, 0.3); }
-    .cap-badge.stake { color: var(--green); border: 1px solid rgba(0, 255, 136, 0.3); }
-    .cap-badge.ev { color: var(--cyan); border: 1px solid rgba(0, 243, 255, 0.3); }
-
-    /* League Grid */
-    .league-grid-boxes {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 6px;
-    }
-    .league-tile {
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 4px;
-      padding: 6px;
-      text-align: center;
-      transition: all 0.2s;
-    }
-    .league-tile:hover {
-      border-color: var(--cyan);
-      background: rgba(0, 243, 255, 0.08);
-    }
-    .league-tile-name { font-weight: 700; font-size: 11px; color: #fff; display: flex; align-items: center; justify-content: center; gap: 4px; }
-    .league-tile-count { font-family: var(--font-mono); font-size: 12px; color: var(--cyan); font-weight: 800; margin-top: 2px; }
-    .league-tile-sub { font-size: 8px; color: var(--text-dim); margin-top: 1px; }
-
-    /* Sensory Feeds List */
-    .sensory-feed-card {
-      background: rgba(255, 255, 255, 0.025);
-      border: 1px solid rgba(255, 255, 255, 0.07);
-      border-radius: 5px;
-      padding: 6px 8px;
-      margin-bottom: 6px;
-      transition: all 0.2s;
-    }
-    .sensory-feed-card:hover { border-color: var(--cyan); background: rgba(0, 243, 255, 0.04); }
-    .sensory-feed-top { display: flex; justify-content: space-between; font-weight: 700; font-size: 10px; color: #fff; }
-    .sensory-feed-meta { display: flex; justify-content: space-between; font-size: 8.5px; color: var(--text-dim); margin-top: 2px; }
-
-    /* Top Debug Thoughts Stream Bar (Real-Time Consciousness Line) */
+    /* Live Debug Thoughts Stream Bar (Consciousness Line) */
     #debug-thoughts-bar {
       position: fixed;
-      top: 52px;
+      top: 48px;
       left: 0;
       width: 100vw;
-      height: 25px;
-      background: rgba(3, 7, 20, 0.94);
-      border-top: 1px solid rgba(0, 243, 255, 0.15);
-      border-bottom: 1px solid rgba(0, 243, 255, 0.22);
+      height: 24px;
+      background: rgba(3, 7, 20, 0.92);
+      border-bottom: 1px solid rgba(0, 243, 255, 0.18);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
-      z-index: 1200;
+      z-index: 990;
       display: flex;
       align-items: center;
       padding: 0 16px;
@@ -385,7 +161,6 @@
       color: #9cb5cf;
       overflow: hidden;
       white-space: nowrap;
-      pointer-events: auto;
     }
 
     .debug-stream-tag {
@@ -408,10 +183,88 @@
       display: flex;
       align-items: center;
       gap: 16px;
-      transition: opacity 0.45s ease-in-out;
+      transition: opacity 0.35s ease-in-out;
     }
 
-    /* Packet Interactive Tooltip */
+    /* Screensaver Mode Floating Banner */
+    #screensaver-mode-banner {
+      position: fixed;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 980;
+      background: rgba(4, 9, 24, 0.88);
+      border: 1px solid rgba(0, 243, 255, 0.3);
+      border-radius: 20px;
+      padding: 4px 16px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--cyan);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.6s ease;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    #screensaver-mode-banner.interrupt-flash {
+      border-color: var(--green);
+      color: #fff;
+      background: rgba(4, 28, 20, 0.94);
+      box-shadow: 0 0 25px rgba(0, 255, 136, 0.35);
+    }
+
+    /* Autonomous Event Spotlight Beacon */
+    #autonomous-event-beacon {
+      position: fixed;
+      top: 112px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-15px);
+      z-index: 2000;
+      background: rgba(6, 12, 28, 0.96);
+      border: 1px solid var(--cyan);
+      box-shadow: 0 0 35px rgba(0, 243, 255, 0.45), inset 0 0 16px rgba(0, 243, 255, 0.15);
+      border-radius: 8px;
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      max-width: 90vw;
+    }
+
+    #autonomous-event-beacon.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+      pointer-events: auto;
+    }
+
+    .beacon-emoji-box {
+      font-size: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 6px;
+      padding: 6px 10px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .beacon-info { display: flex; flex-direction: column; gap: 2px; }
+    .beacon-title { font-weight: 800; font-size: 11px; letter-spacing: 0.5px; font-family: var(--font-mono); }
+    .beacon-sub { font-size: 10.5px; color: var(--text); }
+    .beacon-detail { font-size: 9.5px; color: var(--text-dim); }
+
+    /* Interactive Data Packet HUD Tooltip */
     #packet-hud-tooltip {
       position: fixed;
       z-index: 3500;
@@ -429,167 +282,7 @@
       backdrop-filter: blur(12px);
     }
 
-    /* Floating Screensaver Ambient Banner */
-    #screensaver-mode-banner {
-      position: fixed;
-      top: 83px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 1500;
-      background: rgba(4, 9, 24, 0.92);
-      border: 1px solid rgba(0, 243, 255, 0.35);
-      border-radius: 20px;
-      padding: 4px 16px;
-      font-family: var(--font-mono);
-      font-size: 10px;
-      font-weight: 700;
-      color: var(--cyan);
-      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.7);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      transition: border-color 0.8s ease, box-shadow 0.8s ease, background 0.8s ease, color 0.8s ease;
-      white-space: nowrap;
-      pointer-events: none;
-    }
-
-    #screensaver-mode-banner.interrupt-flash {
-      border-color: var(--green);
-      color: #fff;
-      background: rgba(4, 28, 20, 0.94);
-      box-shadow: 0 0 25px rgba(0, 255, 136, 0.35);
-    }
-
-    /* Floating Autonomous Event Spotlight Beacon */
-    #autonomous-event-beacon {
-      position: fixed;
-      top: 114px;
-      left: 50%;
-      transform: translateX(-50%) translateY(-20px);
-      z-index: 2000;
-      background: rgba(6, 12, 28, 0.96);
-      border: 1px solid var(--cyan);
-      box-shadow: 0 0 35px rgba(0, 243, 255, 0.45), inset 0 0 16px rgba(0, 243, 255, 0.15);
-      border-radius: 8px;
-      padding: 10px 18px;
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      opacity: 0;
-      pointer-events: none;
-      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      max-width: 90vw;
-    }
-
-    #autonomous-event-beacon.visible {
-      opacity: 1;
-      transform: translateX(-50%) translateY(0);
-      pointer-events: auto;
-    }
-
-    .beacon-emoji-box {
-      font-size: 26px;
-      line-height: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(255, 255, 255, 0.05);
-      border-radius: 6px;
-      padding: 6px 10px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .beacon-info { display: flex; flex-direction: column; gap: 2px; }
-    .beacon-title { font-weight: 800; font-size: 12px; letter-spacing: 0.5px; font-family: var(--font-mono); }
-    .beacon-sub { font-size: 11px; color: var(--text); }
-    .beacon-detail { font-size: 10px; color: var(--text-dim); }
-
-    /* Top Glass Cyber HUD */
-    .top-glass-hud {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 48px;
-      z-index: 1000;
-      background: rgba(3, 6, 15, 0.82);
-      border-bottom: 1px solid rgba(0, 243, 255, 0.25);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 16px;
-      font-family: var(--font-mono);
-      font-size: 11px;
-    }
-
-    .hud-left-sec, .hud-center-sec, .hud-right-sec {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .hud-brand-title {
-      font-weight: 800;
-      font-size: 13px;
-      letter-spacing: 1px;
-      color: #fff;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .hud-pulse-ring {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: var(--cyan);
-      box-shadow: 0 0 12px var(--cyan);
-      animation: pulseAnim 3.8s infinite ease-in-out;
-    }
-
-    @keyframes pulseAnim {
-      0%, 100% { transform: scale(1); opacity: 0.95; }
-      50% { transform: scale(0.85); opacity: 0.55; }
-    }
-
-    .hud-metric-chip {
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 4px;
-      padding: 4px 8px;
-      display: flex;
-      align-items: baseline;
-      gap: 5px;
-    }
-
-    .hud-btn {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      color: var(--text);
-      padding: 4px 10px;
-      border-radius: 4px;
-      font-family: var(--font-mono);
-      font-size: 11px;
-      cursor: pointer;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      transition: all 0.2s ease;
-    }
-    .hud-btn:hover {
-      background: rgba(0, 243, 255, 0.15);
-      border-color: var(--cyan);
-      color: #fff;
-    }
-
-    /* Bottom 3D Camera Lobe Navigator Dock */
+    /* Bottom 4D Camera & Realm Navigator Dock */
     .bottom-camera-dock {
       position: fixed;
       bottom: 14px;
@@ -605,22 +298,24 @@
       padding: 4px 8px;
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 4px;
+      max-width: 96vw;
+      overflow-x: auto;
     }
 
     .nav-pill-btn {
       background: transparent;
       border: 1px solid transparent;
       color: var(--text-dim);
-      padding: 6px 12px;
+      padding: 5px 11px;
       border-radius: 20px;
       font-family: var(--font-mono);
-      font-size: 11px;
+      font-size: 10.5px;
       font-weight: 700;
       cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
       transition: all 0.2s ease;
       white-space: nowrap;
     }
@@ -632,10 +327,244 @@
 
     .nav-pill-btn.active {
       color: var(--cyan);
-      background: rgba(0, 243, 255, 0.12);
-      border-color: rgba(0, 243, 255, 0.4);
-      box-shadow: 0 0 12px rgba(0, 243, 255, 0.2);
+      background: rgba(0, 243, 255, 0.14);
+      border-color: rgba(0, 243, 255, 0.45);
+      box-shadow: 0 0 14px rgba(0, 243, 255, 0.25);
     }
+
+    .nav-pill-btn.tier-pill-1.active { color: var(--purple); background: rgba(181, 23, 158, 0.16); border-color: var(--purple); }
+    .nav-pill-btn.tier-pill-2.active { color: var(--amber); background: rgba(255, 183, 3, 0.16); border-color: var(--amber); }
+    .nav-pill-btn.tier-pill-3.active { color: var(--green); background: rgba(0, 255, 136, 0.16); border-color: var(--green); }
+    .nav-pill-btn.tier-pill-4.active { color: var(--cyan); background: rgba(0, 243, 255, 0.16); border-color: var(--cyan); }
+
+    /* ==============================================================
+       NEW: TIER OPERATIONS & WORKSTREAM DECK (High-Density Side Cockpit)
+       ============================================================== */
+    #tier-operations-deck {
+      position: fixed;
+      top: 80px;
+      right: 16px;
+      width: 440px;
+      max-height: calc(100vh - 150px);
+      background: rgba(3, 7, 20, 0.94);
+      border: 1px solid rgba(0, 243, 255, 0.35);
+      border-radius: 12px;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85), 0 0 30px rgba(0, 243, 255, 0.15);
+      z-index: 1100;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transform: translateX(0);
+      transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease;
+    }
+
+    #tier-operations-deck.deck-collapsed {
+      transform: translateX(470px);
+      pointer-events: none;
+      opacity: 0;
+    }
+
+    /* Deck Toggle Button */
+    #deck-toggle-trigger {
+      position: fixed;
+      top: 80px;
+      right: 16px;
+      z-index: 1090;
+      background: rgba(4, 9, 24, 0.92);
+      border: 1px solid var(--cyan);
+      color: var(--cyan);
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 4px 16px rgba(0, 243, 255, 0.25);
+      backdrop-filter: blur(12px);
+      transition: all 0.2s ease;
+    }
+    #deck-toggle-trigger:hover {
+      background: rgba(0, 243, 255, 0.15);
+      box-shadow: 0 0 20px rgba(0, 243, 255, 0.4);
+    }
+
+    .deck-header {
+      padding: 10px 14px;
+      background: linear-gradient(90deg, rgba(0, 243, 255, 0.15), rgba(181, 23, 158, 0.12));
+      border-bottom: 1px solid rgba(0, 243, 255, 0.25);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .deck-title {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.6px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .deck-close-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+      color: #bed2ea;
+      font-size: 9px;
+      padding: 3px 8px;
+      cursor: pointer;
+      font-family: var(--font-mono);
+      transition: all 0.2s;
+    }
+    .deck-close-btn:hover {
+      background: rgba(255, 0, 85, 0.3);
+      border-color: var(--red);
+      color: #fff;
+    }
+
+    /* Deck Tabs Strip */
+    .deck-tabs-strip {
+      display: flex;
+      background: rgba(0, 0, 0, 0.4);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 6px 10px;
+      gap: 5px;
+      overflow-x: auto;
+    }
+
+    .deck-tab-btn {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--text-dim);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+    }
+    .deck-tab-btn:hover {
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+    .deck-tab-btn.active {
+      background: rgba(0, 243, 255, 0.15);
+      border-color: var(--cyan);
+      color: var(--cyan);
+      box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
+    }
+    .deck-tab-btn.t1.active { background: rgba(181, 23, 158, 0.2); border-color: var(--purple); color: var(--purple); }
+    .deck-tab-btn.t2.active { background: rgba(255, 183, 3, 0.2); border-color: var(--amber); color: var(--amber); }
+    .deck-tab-btn.t3.active { background: rgba(0, 255, 136, 0.2); border-color: var(--green); color: var(--green); }
+    .deck-tab-btn.t4.active { background: rgba(0, 243, 255, 0.2); border-color: var(--cyan); color: var(--cyan); }
+
+    .deck-body {
+      padding: 12px 14px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      flex: 1;
+      font-size: 11px;
+      line-height: 1.45;
+    }
+
+    .deck-body::-webkit-scrollbar { width: 4px; }
+    .deck-body::-webkit-scrollbar-thumb { background: rgba(0, 243, 255, 0.3); border-radius: 2px; }
+
+    /* Workstream Info Modules */
+    .deck-tier-banner {
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin-bottom: 10px;
+      font-family: var(--font-mono);
+    }
+    .deck-tier-banner.t1 { background: rgba(181, 23, 158, 0.12); border: 1px solid rgba(181, 23, 158, 0.35); }
+    .deck-tier-banner.t2 { background: rgba(255, 183, 3, 0.12); border: 1px solid rgba(255, 183, 3, 0.35); }
+    .deck-tier-banner.t3 { background: rgba(0, 255, 136, 0.12); border: 1px solid rgba(0, 255, 136, 0.35); }
+    .deck-tier-banner.t4 { background: rgba(0, 243, 255, 0.12); border: 1px solid rgba(0, 243, 255, 0.35); }
+
+    .deck-sec-heading {
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      color: var(--text-dim);
+      margin: 10px 0 6px 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .job-task-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      padding: 7px 9px;
+      margin-bottom: 6px;
+      transition: all 0.2s;
+    }
+    .job-task-card:hover {
+      border-color: var(--cyan);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .job-title-row {
+      display: flex;
+      justify-content: space-between;
+      font-weight: 700;
+      font-size: 11px;
+    }
+    .job-meta-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 9.5px;
+      color: var(--text-dim);
+      margin-top: 2px;
+    }
+
+    .cap-badge {
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-family: var(--font-mono);
+      font-size: 8.5px;
+      font-weight: 700;
+      background: rgba(255, 255, 255, 0.06);
+    }
+    .cap-badge.green { color: var(--green); border: 1px solid rgba(0, 255, 136, 0.3); }
+    .cap-badge.amber { color: var(--amber); border: 1px solid rgba(255, 183, 3, 0.3); }
+    .cap-badge.cyan { color: var(--cyan); border: 1px solid rgba(0, 243, 255, 0.3); }
+    .cap-badge.purple { color: var(--purple); border: 1px solid rgba(181, 23, 158, 0.3); }
+    .cap-badge.red { color: var(--red); border: 1px solid rgba(255, 0, 85, 0.3); }
+
+    /* Code Terminal in Deck */
+    .deck-code-box {
+      background: #020308;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 5px;
+      padding: 8px;
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      line-height: 1.4;
+      color: #a4b9cf;
+      max-height: 200px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .code-kw { color: #ff007f; font-weight: bold; }
+    .code-cls { color: #00f3ff; font-weight: bold; }
+    .code-fn { color: #00ff88; }
+    .code-str { color: #ffb703; }
+    .code-cmt { color: #6272a4; font-style: italic; }
 
     /* Toast Notification Overlay */
     #superbrain-toast-box {
@@ -666,330 +595,17 @@
 
     /* Responsive */
     @media (max-width: 900px) {
-      .bottom-camera-dock {
-        width: 96vw;
-        overflow-x: auto;
-        justify-content: flex-start;
-        padding: 4px 6px;
-      }
+      #tier-operations-deck { width: calc(100vw - 32px); right: 16px; max-height: 60vh; }
       .hud-center-sec { display: none; }
-      .hologram-pod { max-width: 88vw !important; }
+      .bottom-camera-dock { justify-content: flex-start; }
     }
   </style>
 </head>
 <body>
 
-  <!-- Fullscreen 3D Neural Viewport -->
+  <!-- Fullscreen 4D Quantum Organism Viewport -->
   <div id="superbrain-viewport">
     <canvas id="neuralCanvas"></canvas>
-
-    <!-- 3D Spatial Holographic Pods Layer (Anchored to 3D Coordinates) -->
-    <div id="spatial-pods-layer">
-
-      <!-- Pod 1: AI Quant Council Cluster (Lobe: Frontal Left) -->
-      <div id="pod-ai-council" class="hologram-pod glow-purple">
-        <div class="magnifying-scan-bar">
-          <div class="mag-live-tag"><span class="mag-live-dot"></span> ⌖ DEEP SCAN · 4-AI QUANT COUNCIL INFERENCE</div>
-          <button class="mag-close-btn" onclick="flyCameraTo('macro')">✕ CLOSE</button>
-        </div>
-        <div class="pod-header" onclick="focusOnNode('ai_council')">
-          <span class="pod-title">🏛️ AI QUANT COUNCIL</span>
-          <span id="council-live-tokens" class="hud-metric-chip" style="color:var(--purple); font-size:9px;">4/4 BRAINS ACTIVE · 0MS BACKLOG</span>
-        </div>
-        <div class="pod-body">
-          <div class="council-boxes">
-            <!-- AGY -->
-            <div id="brain-card-agy" class="brain-cell">
-              <div class="brain-cell-name">
-                <span style="color:var(--cyan);">GEMINI AGY</span>
-                <span style="color:var(--cyan); font-size:9px;">LEAD</span>
-              </div>
-              <div class="brain-cell-role">Lead Architect &amp; Release Gate</div>
-              <div id="brain-status-agy" class="brain-cell-status" style="color:var(--green);">ACTIVE · SUPERVISING</div>
-              <div id="brain-reasoning-agy" class="brain-cell-thought">Balancing funnel flow &amp; verifying zero-clog invariants.</div>
-            </div>
-            <!-- CLAUDE -->
-            <div id="brain-card-claude" class="brain-cell">
-              <div class="brain-cell-name">
-                <span style="color:var(--amber);">CLAUDE OPUS</span>
-                <span style="color:var(--amber); font-size:9px;">DOMAIN</span>
-              </div>
-              <div class="brain-cell-role">Sports Mechanics &amp; B2B Rest</div>
-              <div id="brain-status-claude" class="brain-cell-status" style="color:var(--green);">ACTIVE · INFERENCE</div>
-              <div id="brain-reasoning-claude" class="brain-cell-thought">Evaluating NBA/NFL back-to-back travel fatigue penalties.</div>
-            </div>
-            <!-- CODEX -->
-            <div id="brain-card-codex" class="brain-cell">
-              <div class="brain-cell-name">
-                <span style="color:var(--green);">CODEX ASTRA</span>
-                <span style="color:var(--green); font-size:9px;">KERNEL</span>
-              </div>
-              <div class="brain-cell-role">Math Kernel Synthesis &amp; Code</div>
-              <div id="brain-status-codex" class="brain-cell-status" style="color:var(--green);">ACTIVE · SYNTHESIZING</div>
-              <div id="brain-reasoning-codex" class="brain-cell-thought">Synthesizing Python models for demoted submarkets.</div>
-            </div>
-            <!-- GROK -->
-            <div id="brain-card-grok" class="brain-cell">
-              <div class="brain-cell-name">
-                <span style="color:var(--red);">GROK 4.7</span>
-                <span style="color:var(--red); font-size:9px;">AUDITOR</span>
-              </div>
-              <div class="brain-cell-role">Adversarial Anti-Overfit Red-Team</div>
-              <div id="brain-status-grok" class="brain-cell-status" style="color:var(--green);">ACTIVE · AUDITING</div>
-              <div id="brain-reasoning-grok" class="brain-cell-thought">Stress-testing candidate parameters against out-of-sample drawdowns.</div>
-            </div>
-          </div>
-          <div id="council-live-deliberation" style="background:rgba(181,23,158,0.08); border:1px solid rgba(181,23,158,0.25); border-radius:4px; padding:6px 8px; margin-top:8px; font-family:var(--font-mono); font-size:8.5px; color:#c9ddf2;">
-            <div style="color:var(--purple); font-weight:700; margin-bottom:2px;">⚡ LIVE MULTI-AI CONSENSUS DELIBERATION:</div>
-            <div id="council-delib-text">Fractional Kelly sizing [$0.50-$8.00] verified · 12 liquid leagues actively scanned.</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Pod 2: Live Codex Python Code Stream (Lobe: Parietal Left) -->
-      <div id="pod-code-synth" class="hologram-pod glow-green">
-        <div class="magnifying-scan-bar">
-          <div class="mag-live-tag"><span class="mag-live-dot"></span> ⌖ DEEP SCAN · CODEX ASTRA CODE SYNTHESIS &amp; AST COMPILER</div>
-          <button class="mag-close-btn" onclick="flyCameraTo('macro')">✕ CLOSE</button>
-        </div>
-        <div class="pod-header" onclick="focusOnNode('codex_stream')">
-          <span class="pod-title">💻 LIVE CODE SYNTHESIS STREAM</span>
-          <span id="meta-status" class="hud-metric-chip" style="color:var(--green); font-size:9px;">AST VALIDATED</span>
-        </div>
-        <div class="pod-body">
-          <div id="terminal-tab-container" class="code-tabs-strip"></div>
-          <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-family:var(--font-mono); font-size:9px; color:var(--text-dim);">
-            <span id="meta-model-name" style="color:#fff; font-weight:700;">Loading...</span>
-            <span id="meta-lines">-- lines</span>
-          </div>
-          <div id="terminal-code-body" class="code-view-pre"># Awaiting synthesized candidate stream...</div>
-          <div style="display:flex; justify-content:space-between; margin-top:4px; font-family:var(--font-mono); font-size:8px; color:var(--text-dim);">
-            <span id="meta-target-segment">SEGMENT: --</span>
-            <span id="terminal-mtime">MTIME: --</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Pod 3: Quantum Mathematical Core & Kelly Engine (Lobe: Central Thalamus) -->
-      <div id="pod-math-core" class="hologram-pod glow-cyan">
-        <div class="magnifying-scan-bar">
-          <div class="mag-live-tag"><span class="mag-live-dot"></span> ⌖ DEEP SCAN · LIVE EV &amp; FRACTIONAL KELLY VALUATION</div>
-          <button class="mag-close-btn" onclick="flyCameraTo('macro')">✕ CLOSE</button>
-        </div>
-        <div class="pod-header" onclick="focusOnNode('math_core')">
-          <span class="pod-title">⚛️ QUANTUM VALUATION &amp; KELLY</span>
-          <span class="hud-metric-chip" style="color:var(--cyan); font-size:9px;">FIRST-PRINCIPLES</span>
-        </div>
-        <div class="pod-body">
-          <!-- Live Real-Time Contract Valuation Process -->
-          <div id="math-live-eval-box" class="formula-card">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-              <span id="math-eval-pairing" style="font-weight:700; color:#fff; font-size:11px;">Orlando City SC vs New England</span>
-              <span id="math-eval-ev-badge" class="cap-badge ev">+25.1% EV</span>
-            </div>
-            <div style="display:flex; justify-content:space-between; font-size:9.5px; color:var(--text-dim); margin-bottom:6px;">
-              <span id="math-eval-market">MLS · Under 1.75 Totals</span>
-              <span>Odds: <strong id="math-eval-odds" style="color:var(--amber);">5.80</strong> · P: <strong id="math-eval-prob" style="color:var(--cyan);">20.1%</strong></span>
-            </div>
-            <div style="background:rgba(0,243,255,0.06); border:1px dashed rgba(0,243,255,0.3); border-radius:4px; padding:5px 7px; font-family:var(--font-mono); font-size:9px; line-height:1.4;">
-              <div style="color:var(--cyan);">EV = (P · O) - 1.0 = <span id="math-eval-formula" style="color:var(--green); font-weight:700;">+25.1% &gt; 0</span> (ALPHA VERIFIED)</div>
-              <div style="color:#bed2ea; margin-top:2px;">Kelly f* = (b·p - q)/b · λ → <strong id="math-eval-kelly" style="color:var(--green); font-size:10px;">$3.26</strong> <span style="color:var(--text-dim);">[Bounds: $0.50-$8.00]</span></div>
-            </div>
-          </div>
-          <!-- Capital & Exposure Metrics -->
-          <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); padding:8px; border-radius:4px; font-family:var(--font-mono); font-size:9px;">
-            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-              <span>OPEN KELLY CAPITAL:</span>
-              <span id="math-open-stake" style="color:var(--green); font-weight:700;">$0.00</span>
-            </div>
-            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-              <span>OPEN TICKETS:</span>
-              <span id="math-open-tickets" style="color:#fff; font-weight:700;">0 tickets</span>
-            </div>
-            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-              <span>DAILY RISK LIMIT:</span>
-              <span style="color:var(--cyan); font-weight:700;">NULL (Dynamic Fractional Kelly)</span>
-            </div>
-            <div style="display:flex; justify-content:space-between;">
-              <span>LIQUIDITY HORIZON:</span>
-              <span style="color:var(--amber); font-weight:700;">72-Hour Dynamic Schedule Scan</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Pod 4: 4-Tier Progression Architecture (Lobe: Frontal Right) -->
-      <div id="pod-4tier-pipeline" class="hologram-pod glow-green">
-        <div class="magnifying-scan-bar">
-          <div class="mag-live-tag"><span class="mag-live-dot"></span> ⌖ DEEP SCAN · 4-TIER CLOSED-LOOP PRODUCTION PIPELINE</div>
-          <button class="mag-close-btn" onclick="flyCameraTo('macro')">✕ CLOSE</button>
-        </div>
-        <div class="pod-header" onclick="focusOnNode('tiers_pipeline')">
-          <span class="pod-title">📶 4-TIER PROGRESSION ENGINE</span>
-          <span class="hud-metric-chip" style="color:var(--green); font-size:9px;">CLOSED-LOOP</span>
-        </div>
-        <div class="pod-body">
-          <!-- Tier 1 -->
-          <div class="tier-step-card t1">
-            <div class="tier-header-row">
-              <span style="color:var(--purple);">TIER 1: R&amp;D CANDIDATE DISCOVERY</span>
-              <span id="tier1-count" style="color:#fff;">-- Active</span>
-            </div>
-            <div class="tier-sub-row">
-              <span>97,000+ settled match pool</span>
-              <span id="tier1-rate">-- models/hr</span>
-            </div>
-            <!-- Dynamic Queue Box for Tier 1 -->
-            <div id="tier1-queue-box" style="background:rgba(181,23,158,0.08); border:1px solid rgba(181,23,158,0.25); border-radius:4px; padding:6px 8px; margin-top:5px;">
-              <div style="color:var(--purple); font-weight:700; font-size:9px; display:flex; justify-content:space-between;">
-                <span>R&amp;D REPAIR QUEUE &amp; VELOCITY:</span>
-                <span id="tier1-queue-rate" style="color:#fff;">--/hr</span>
-              </div>
-              <div id="tier1-queue-list" style="font-size:9px; color:#bed2ea; margin-top:3px; line-height:1.4;">
-                Loading queue jobs...
-              </div>
-            </div>
-          </div>
-          <!-- Tier 2 -->
-          <div class="tier-step-card t2">
-            <div class="tier-header-row">
-              <span style="color:var(--amber);">TIER 2: SHADOW INCUBATOR ($0.00)</span>
-              <span id="tier2-count" style="color:#fff;">-- Shadow</span>
-            </div>
-            <div class="tier-sub-row">
-              <span>$0.00 virtual stakes (zero risk)</span>
-              <span id="tier2-rate">-- admitted/hr</span>
-            </div>
-            <!-- High-Volume Forward Paper Trade Stream (Zero Risk) -->
-            <div id="tier2-virtual-box" style="background:rgba(255,183,3,0.06); border:1px solid rgba(255,183,3,0.25); border-radius:4px; padding:6px 8px; margin-top:5px;">
-              <div style="color:var(--amber); font-weight:700; font-size:9px; display:flex; justify-content:space-between; align-items:center;">
-                <span>🧪 LIVE VIRTUAL PAPER TRADE STREAM:</span>
-                <span id="tier2-total-tests" style="color:#fff; font-family:var(--font-mono); font-size:9px;">1,785,534+ Tests</span>
-              </div>
-              <div id="tier2-virtual-ticker" style="font-family:var(--font-mono); font-size:8.5px; color:#bed2ea; margin-top:4px; line-height:1.45;">
-                Streaming virtual paper trades...
-              </div>
-              <div style="display:flex; justify-content:space-between; margin-top:3px; font-size:8px; color:var(--text-dim); font-family:var(--font-mono);">
-                <span id="tier2-open-tests">Open: 53,583 tests</span>
-                <span style="color:var(--green);">Throughput: ~120 tests/min</span>
-              </div>
-            </div>
-          </div>
-          <!-- Tier 3 -->
-          <div class="tier-step-card t3">
-            <div class="tier-header-row">
-              <span style="color:var(--green);">TIER 3: STAKE SPORTSBOOK PROBATION</span>
-              <span id="tier3-count" style="color:#fff;">-- Graduated</span>
-            </div>
-            <div class="tier-sub-row">
-              <span id="tier3-today-picks">0 / 100 Picks ($0.00)</span>
-              <span>Kelly $0.50–$8.00</span>
-            </div>
-            <div style="background:rgba(255,255,255,0.05); height:3px; border-radius:2px; margin-top:4px; overflow:hidden;">
-              <div id="tier3-progress-bar" style="background:var(--green); height:100%; width:0%;"></div>
-            </div>
-          </div>
-          <!-- Tier 4 -->
-          <div class="tier-step-card t4">
-            <div class="tier-header-row">
-              <span style="color:var(--cyan);">TIER 4: POLYMARKET CLOB ALPHA</span>
-              <span id="tier4-count" style="color:#fff;">-- Elite</span>
-            </div>
-            <div class="tier-sub-row">
-              <span>Maker Limit Orders (0% taker fee)</span>
-              <span id="tier4-rate">-- promoted/hr</span>
-            </div>
-          </div>
-          <!-- Demotion Loop -->
-          <div class="tier-step-card t-loop">
-            <div class="tier-header-row">
-              <span style="color:var(--red);">TOURNIQUET &amp; DEMOTION LOOP</span>
-              <span style="color:var(--red);">TIER 3 → TIER 1</span>
-            </div>
-            <div class="tier-sub-row">
-              <span>$0.50 clamp → $0.00 shadow quarantine</span>
-              <span>ROI &lt; -3.0% trigger</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Pod 5: League Constellation (Lobe: Posterior Occipital) -->
-      <div id="pod-leagues" class="hologram-pod glow-amber">
-        <div class="magnifying-scan-bar">
-          <div class="mag-live-tag"><span class="mag-live-dot"></span> ⌖ DEEP SCAN · 12 LIQUID LEAGUES 72-HOUR HORIZON RADAR</div>
-          <button class="mag-close-btn" onclick="flyCameraTo('macro')">✕ CLOSE</button>
-        </div>
-        <div class="pod-header" onclick="focusOnNode('leagues_constellation')">
-          <span class="pod-title">🏟️ LEAGUE CONSTELLATION</span>
-          <span class="hud-metric-chip" style="color:var(--amber); font-size:9px;">DYNAMIC SCAN</span>
-        </div>
-        <div class="pod-body">
-          <div id="league-tiles-grid" class="league-grid-boxes"></div>
-        </div>
-      </div>
-
-      <!-- Pod 6: Live Bets, Virtual Trades & Instant Settlements (Lobe: Efferent Motor Tract) -->
-      <div id="pod-bets-settlements" class="hologram-pod glow-cyan">
-        <div class="magnifying-scan-bar">
-          <div class="mag-live-tag"><span class="mag-live-dot"></span> ⌖ DEEP SCAN · FUNDED BETS &amp; REAL-TIME SETTLEMENTS</div>
-          <button class="mag-close-btn" onclick="flyCameraTo('macro')">✕ CLOSE</button>
-        </div>
-        <div class="pod-header" onclick="focusOnNode('bets_motor')">
-          <span class="pod-title">⚡ REAL BETS &amp; VIRTUAL TRADES</span>
-          <span class="hud-metric-chip" style="color:var(--cyan); font-size:9px;">LIVE MATRIX</span>
-        </div>
-        <div class="pod-body">
-          <!-- Toggle Tabs -->
-          <div style="display:flex; gap:4px; margin-bottom:8px;">
-            <button id="tab-btn-active-bets" class="code-tab-pill active" onclick="switchBetFeed('active')">ACTIVE (<span id="count-active-bets">0</span>)</button>
-            <button id="tab-btn-settled-bets" class="code-tab-pill" onclick="switchBetFeed('settled')">SETTLED (<span id="count-settled-bets">0</span>)</button>
-            <button id="tab-btn-virtual-bets" class="code-tab-pill" onclick="switchBetFeed('virtual')">VIRTUAL ($0.00) (<span id="count-virtual-bets">0</span>)</button>
-          </div>
-          <div id="feed-active-container"></div>
-          <div id="feed-settled-container" style="display:none;"></div>
-          <div id="feed-virtual-container" style="display:none;"></div>
-        </div>
-      </div>
-
-      <!-- Pod 7: Sensory Feeds Ingestion (Lobe: Temporal Anterior) -->
-      <div id="pod-sensory-ingest" class="hologram-pod glow-purple">
-        <div class="magnifying-scan-bar">
-          <div class="mag-live-tag"><span class="mag-live-dot"></span> ⌖ DEEP SCAN · 100% FREE PUBLIC SENSORY DATA FEEDS</div>
-          <button class="mag-close-btn" onclick="flyCameraTo('macro')">✕ CLOSE</button>
-        </div>
-        <div class="pod-header" onclick="focusOnNode('sensory_hub')">
-          <span class="pod-title">📡 SENSORY FEEDS INGESTION</span>
-          <span class="hud-metric-chip" style="color:var(--purple); font-size:9px;">100% FREE SOURCES</span>
-        </div>
-        <div class="pod-body">
-          <div id="sensory-feeds-list">
-            <!-- Dynamically populated from telemetry -->
-            <div style="font-family:var(--font-mono); font-size:9px; color:#bed2ea;">Initializing public sensory streams...</div>
-          </div>
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- Screensaver Mode Banner (Top Center) -->
-  <div id="screensaver-mode-banner">
-    <span class="hud-pulse-ring" style="width:7px; height:7px;"></span>
-    <span id="screensaver-mode-text">SCREENSAVER ACTIVE · MACRO COSMIC ORBIT</span>
-  </div>
-
-  <!-- Autonomous Event Spotlight Beacon (Center HUD Pop-up) -->
-  <div id="autonomous-event-beacon">
-    <div id="beacon-emoji" class="beacon-emoji-box">⚡</div>
-    <div class="beacon-info">
-      <div style="display:flex; align-items:center; gap:8px;">
-        <span id="beacon-title" class="beacon-title" style="color:var(--cyan);">LIVE SYSTEM EVENT</span>
-        <span id="beacon-badge" class="cap-badge ev">+15.8% ROI</span>
-      </div>
-      <div id="beacon-sub" class="beacon-sub">Charlotte Hornets vs Boston Celtics</div>
-      <div id="beacon-detail" class="beacon-detail">Passed Crucible with 36 matches, ΔBrier: +0.0152</div>
-    </div>
   </div>
 
   <!-- Top Glass Cyber HUD -->
@@ -997,7 +613,7 @@
     <div class="hud-left-sec">
       <div class="hud-brand-title">
         <span class="hud-pulse-ring"></span>
-        <span>SUPERBRAIN · NEURAL UNIVERSE</span>
+        <span>SUPERBRAIN · 4D QUANTUM ORGANISM</span>
       </div>
       <div class="hud-metric-chip">
         <span style="color:var(--text-dim);">BUDAPEST:</span>
@@ -1014,8 +630,8 @@
         <span style="color:var(--text-dim);">7D ROI:</span>
         <span id="hud-roi" style="font-weight:800;">0.0%</span>
       </div>
-      <div class="hud-metric-chip">
-        <span style="color:var(--text-dim);">TODAY PICKS:</span>
+      <div class="hud-metric-chip" title="Daily Funded Picks vs 100/day floor">
+        <span style="color:var(--text-dim);">VOLUME:</span>
         <span id="hud-volume" style="font-weight:800; color:var(--cyan);">0 / 100</span>
       </div>
       <div id="clog-indicator-badge" class="hud-metric-chip" style="color:var(--green); font-weight:700; border-color:rgba(0,255,136,0.3);">
@@ -1037,29 +653,82 @@
     </div>
   </header>
 
-  <!-- Live Debug Thoughts Stream Bar (Real-Time Neural Consciousness Line) -->
+  <!-- Live Consciousness Line (Debug Thoughts) -->
   <div id="debug-thoughts-bar">
     <div class="debug-stream-tag">
       <span class="hud-pulse-ring" style="width:6px; height:6px;"></span>
-      <span>DEBUG QUANT LOG:</span>
+      <span>4-AI BRAIN LOG:</span>
     </div>
     <div id="debug-thoughts-ticker" class="debug-ticker-content">
-      <span style="color:var(--cyan); font-weight:700;">[AGY]</span> System audit optimal · 12 liquid leagues actively monitored for positive-EV contracts...
+      <span style="color:var(--cyan); font-weight:700;">[AGY]</span> Autonomous quantum organism initialized · 4-Tier closed loop active...
     </div>
   </div>
 
-  <!-- Bottom 3D Camera Lobe Navigator Dock -->
+  <!-- Screensaver Mode Banner (Top Center) -->
+  <div id="screensaver-mode-banner">
+    <span class="hud-pulse-ring" style="width:7px; height:7px;"></span>
+    <span id="screensaver-mode-text">4D QUANTUM CRUISE · FULL METABOLISM</span>
+  </div>
+
+  <!-- Autonomous Event Spotlight Beacon (Center HUD Pop-up) -->
+  <div id="autonomous-event-beacon">
+    <div id="beacon-emoji" class="beacon-emoji-box">⚡</div>
+    <div class="beacon-info">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span id="beacon-title" class="beacon-title" style="color:var(--cyan);">LIVE SYSTEM EVENT</span>
+        <span id="beacon-badge" class="cap-badge green">+15.8% ROI</span>
+      </div>
+      <div id="beacon-sub" class="beacon-sub">Loading event...</div>
+      <div id="beacon-detail" class="beacon-detail">Passed Crucible benchmark</div>
+    </div>
+  </div>
+
+  <!-- Deck Toggle Button -->
+  <button id="deck-toggle-trigger" onclick="toggleOperationsDeck()">
+    <span>📶</span> TIER OPERATIONS DECK
+  </button>
+
+  <!-- ==============================================================
+       TIER OPERATIONS & WORKSTREAM DECK (Interactive Deep Telemetry)
+       ============================================================== -->
+  <aside id="tier-operations-deck">
+    <div class="deck-header">
+      <div class="deck-title">
+        <span id="deck-header-icon">📶</span>
+        <span id="deck-header-title">4-TIER OPERATIONS COCKPIT</span>
+      </div>
+      <button class="deck-close-btn" onclick="toggleOperationsDeck()">✕ CLOSE</button>
+    </div>
+
+    <!-- Realm / Tier Selector Tabs -->
+    <div class="deck-tabs-strip">
+      <button class="deck-tab-btn active" onclick="switchDeckTab('overview')">OVERVIEW</button>
+      <button class="deck-tab-btn t1" onclick="switchDeckTab('tier1')">TIER 1 (R&amp;D)</button>
+      <button class="deck-tab-btn t2" onclick="switchDeckTab('tier2')">TIER 2 (INCUBATOR)</button>
+      <button class="deck-tab-btn t3" onclick="switchDeckTab('tier3')">TIER 3 (STAKE)</button>
+      <button class="deck-tab-btn t4" onclick="switchDeckTab('tier4')">TIER 4 (POLY)</button>
+      <button class="deck-tab-btn" onclick="switchDeckTab('council')">AI COUNCIL</button>
+      <button class="deck-tab-btn" onclick="switchDeckTab('motor')">BETS &amp; RESULTS</button>
+    </div>
+
+    <div id="deck-content-body" class="deck-body">
+      <!-- Dynamic Content Hydrated by JavaScript -->
+    </div>
+  </aside>
+
+  <!-- Bottom 4D Camera & Realm Navigator Dock -->
   <nav class="bottom-camera-dock">
     <button class="nav-pill-btn active" onclick="flyCameraTo('macro')"><span>⛶</span> MACRO</button>
+    <button class="nav-pill-btn tier-pill-1" onclick="flyCameraTo('tier_1')"><span>⚛</span> TIER 1 (R&amp;D)</button>
+    <button class="nav-pill-btn tier-pill-2" onclick="flyCameraTo('tier_2')"><span>🧪</span> TIER 2 (INCUBATOR)</button>
+    <button class="nav-pill-btn tier-pill-3" onclick="flyCameraTo('tier_3')"><span>🎯</span> TIER 3 (STAKE)</button>
+    <button class="nav-pill-btn tier-pill-4" onclick="flyCameraTo('tier_4')"><span>💎</span> TIER 4 (POLY)</button>
     <button class="nav-pill-btn" onclick="flyCameraTo('ai_council')"><span>🏛️</span> AI COUNCIL</button>
-    <button class="nav-pill-btn" onclick="flyCameraTo('codex_stream')"><span>💻</span> CODE STREAM</button>
-    <button class="nav-pill-btn" onclick="flyCameraTo('math_core')"><span>⚛️</span> MATH &amp; KELLY</button>
-    <button class="nav-pill-btn" onclick="flyCameraTo('tiers_pipeline')"><span>📶</span> 4-TIER PIPELINE</button>
-    <button class="nav-pill-btn" onclick="flyCameraTo('leagues_constellation')"><span>🏟️</span> LEAGUES</button>
-    <button class="nav-pill-btn" onclick="flyCameraTo('bets_motor')"><span>⚡</span> REAL &amp; VIRTUAL</button>
+    <button class="nav-pill-btn" onclick="flyCameraTo('math_core')"><span>⚡</span> KELLY CORE</button>
+    <button class="nav-pill-btn" onclick="flyCameraTo('bets_motor')"><span>🚀</span> BETS MOTOR</button>
     <button class="nav-pill-btn" onclick="flyCameraTo('sensory_hub')"><span>📡</span> SENSORY</button>
-    <button id="btn-screensaver-toggle" class="nav-pill-btn" onclick="toggleScreensaver()" style="color:var(--cyan); border-color:rgba(0,243,255,0.4);"><span>🎬</span> SCREENSAVER: ACTIVE</button>
-    <button id="btn-auto-orbit" class="nav-pill-btn" onclick="toggleAutoOrbit()"><span>↺</span> AUTO-ORBIT: ON</button>
+    <button id="btn-screensaver-toggle" class="nav-pill-btn" onclick="toggleScreensaver()" style="color:var(--cyan); border-color:rgba(0,243,255,0.4);"><span>🎬</span> SCREENSAVER: ON</button>
+    <button id="btn-auto-orbit" class="nav-pill-btn" onclick="toggleAutoOrbit()"><span>↺</span> ORBIT: ON</button>
   </nav>
 
   <!-- Toast Notification Box -->
@@ -1068,7 +737,9 @@
   <!-- Interactive Data Packet HUD Tooltip -->
   <div id="packet-hud-tooltip"></div>
 
-  <!-- Pure Native 3D/4D Vector Neural Engine & Telemetry Logic -->
+  <!-- ==============================================================
+       JAVASCRIPT: 4D QUANTUM ORGANISM & OPERATIONS ENGINE
+       ============================================================== -->
   <script>
     'use strict';
 
@@ -1162,32 +833,10 @@
     document.getElementById('btn-audio-toggle')?.addEventListener('click', () => audioSynth.toggle());
 
     // ==========================================
-    // 3D SPATIAL NEURAL UNIVERSE ENGINE
+    // 4D HYPER-SPATIAL QUANTUM ORGANISM ENGINE
     // ==========================================
     const canvas = document.getElementById('neuralCanvas');
     const ctx = canvas.getContext('2d');
-
-    // Camera 3D State
-    const camera = {
-      yaw: 0.15,
-      pitch: -0.1,
-      targetYaw: 0.15,
-      targetPitch: -0.1,
-      zoom: 1.0,
-      targetZoom: 1.0,
-      panX: 0,
-      panY: 0,
-      targetPanX: 0,
-      targetPanY: 0,
-      focalLength: 850,
-      autoOrbit: true,
-      screensaverActive: true,
-      lastUserInteraction: 0,
-      isInterruptLocked: false
-    };
-
-    let hoveredSomaId = null;
-    let currentAlertNodeId = null;
 
     function resizeCanvas() {
       const dpr = window.devicePixelRatio || 1;
@@ -1198,138 +847,125 @@
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
 
-    // Cosmic Starfield Background Particles (Multi-tier Parallax Cosmos)
-    const starfield = [];
-    for (let i = 0; i < 340; i++) {
-      starfield.push({
-        x: (Math.random() - 0.5) * 1900,
-        y: (Math.random() - 0.5) * 1900,
-        z: (Math.random() - 0.5) * 1900,
-        size: 0.7 + Math.random() * 1.9,
-        alpha: 0.2 + Math.random() * 0.75,
-        twinklePhase: Math.random() * Math.PI * 2,
-        color: Math.random() > 0.4 ? '#00f3ff' : (Math.random() > 0.45 ? '#b5179e' : (Math.random() > 0.5 ? '#00ff88' : '#ffffff'))
-      });
-    }
+    // Camera 4D/3D Navigation State
+    const camera = {
+      yaw: 0.18,
+      pitch: -0.08,
+      targetYaw: 0.18,
+      targetPitch: -0.08,
+      zoom: 1.0,
+      targetZoom: 1.0,
+      panX: 0,
+      panY: 0,
+      targetPanX: 0,
+      targetPanY: 0,
+      focalLength: 850,
+      hyperAngleXW: 0.0, // 4D evolutionary progression phase
+      autoOrbit: true,
+      screensaverActive: true,
+      lastUserInteraction: 0,
+      isInterruptLocked: false
+    };
 
-    // Volumetric 3D Cosmic Nebulae (Interstellar Quantum Gas Clouds)
-    const cosmicNebulae = [
-      { x: -340, y: -120, z: -50, r: 440, c0: 'rgba(181, 23, 158, 0.22)', c1: 'rgba(114, 9, 183, 0.08)', c2: 'rgba(4, 7, 24, 0)' },
-      { x: 310, y: 10, z: 30, r: 480, c0: 'rgba(0, 255, 136, 0.18)', c1: 'rgba(0, 243, 255, 0.07)', c2: 'rgba(2, 6, 20, 0)' },
-      { x: 0, y: -10, z: 0, r: 400, c0: 'rgba(0, 243, 255, 0.24)', c1: 'rgba(16, 32, 90, 0.11)', c2: 'rgba(2, 4, 14, 0)' },
-      { x: 0, y: 220, z: -20, r: 410, c0: 'rgba(255, 183, 3, 0.16)', c1: 'rgba(255, 0, 85, 0.06)', c2: 'rgba(4, 3, 18, 0)' },
-      { x: -160, y: 180, z: -160, r: 450, c0: 'rgba(114, 9, 183, 0.14)', c1: 'rgba(0, 243, 255, 0.04)', c2: 'rgba(1, 2, 8, 0)' },
-      { x: 0, y: -260, z: -80, r: 380, c0: 'rgba(0, 243, 255, 0.15)', c1: 'rgba(112, 134, 163, 0.05)', c2: 'rgba(1, 2, 8, 0)' }
+    // 4D Hyper-Nodes Architecture
+    // Coordinates: [x, y, z, w] where w represents the Progression Continuum
+    const hyperOrganismNodes = [
+      // Central Singularity / Thalamus (Math & Continuous Kelly Valuation)
+      { id: 'math_core', label: 'QUANTUM THALAMUS', sub: 'EV & FRACTIONAL KELLY', x: 0, y: -10, z: 0, w: 0, r: 28, color: '#00f3ff', realm: 'core' },
+
+      // AI Quant Council (Cerebral Cortex - Deliberation & Directives)
+      { id: 'ai_council', label: 'AI QUANT COUNCIL', sub: '4-BRAIN DELIBERATION', x: -330, y: -130, z: 20, w: -80, r: 25, color: '#b5179e', realm: 'council' },
+      { id: 'agy', label: 'GEMINI AGY', sub: 'LEAD ARCHITECT', x: -410, y: -190, z: -10, w: -80, r: 15, color: '#00f3ff', realm: 'council' },
+      { id: 'claude', label: 'CLAUDE OPUS', sub: 'SPORTS MECHANICS', x: -430, y: -110, z: 40, w: -80, r: 14, color: '#ffb703', realm: 'council' },
+      { id: 'codex', label: 'CODEX ASTRA', sub: 'KERNEL SYNTHESIZER', x: -390, y: -40, z: -30, w: -80, r: 15, color: '#00ff88', realm: 'council' },
+      { id: 'grok', label: 'GROK 4.7', sub: 'RED-TEAM AUDITOR', x: -430, y: 30, z: 20, w: -80, r: 14, color: '#ff0055', realm: 'council' },
+
+      // AST Code Synthesis Forge
+      { id: 'codex_stream', label: 'CODEX AST FORGE', sub: 'AST PYTHON COMPILER', x: -310, y: 140, z: -20, w: -30, r: 22, color: '#00ff88', realm: 'synthesis' },
+
+      // ==========================================
+      // THE 4 GRAND TIER REALMS (PROGRESSION SPINE)
+      // ==========================================
+      // Tier 1: R&D Historical Training & Edge Discovery (97k+ match pool, AST compiler)
+      { id: 'tier_1', label: 'TIER 1 · R&D DISCOVERY', sub: '97K+ MATCH BACKTEST POOL', x: 260, y: -190, z: -20, w: 30, r: 24, color: '#b5179e', realm: 'tier1', tierNum: 1 },
+
+      // Tier 2: Shadow Incubator ($0.00 Live Forward Validation)
+      { id: 'tier_2', label: 'TIER 2 · SHADOW INCUBATOR', sub: '$0.00 VIRTUAL PAPER TRADES', x: 370, y: -60, z: 30, w: 90, r: 25, color: '#ffb703', realm: 'tier2', tierNum: 2 },
+
+      // Tier 3: Stake Production Live Probation & Kelly ($0.50–$8.00)
+      { id: 'tier_3', label: 'TIER 3 · STAKE KELLY REACTOR', sub: 'FUNDED EXECUTION $0.50–$8.00', x: 290, y: 80, z: -20, w: 150, r: 27, color: '#00ff88', realm: 'tier3', tierNum: 3 },
+
+      // Tier 4: Live Proven Alpha & Polymarket CLOB Execution
+      { id: 'tier_4', label: 'TIER 4 · POLYMARKET CLOB', sub: 'PROVEN ALPHA & MAKER LIMITS', x: 370, y: 220, z: 40, w: 210, r: 24, color: '#00f3ff', realm: 'tier4', tierNum: 4 },
+
+      // Efferent Motor Tract (Active Bets, Tickets & Settlements)
+      { id: 'bets_motor', label: 'EFFERENT MOTOR TRACT', sub: 'EXECUTION & RESULTS', x: 0, y: 250, z: 40, w: 160, r: 24, color: '#00f3ff', realm: 'motor' },
+
+      // 72-Hour Liquid League Schedule Radar
+      { id: 'leagues_constellation', label: 'LEAGUE RADAR', sub: '12 LIQUID LEAGUES 72H', x: 0, y: 140, z: -50, w: 60, r: 22, color: '#ffb703', realm: 'leagues' },
+
+      // Sensory Ingestion Horizon (ESPN, NHL API, MLB Stats, Open-Meteo, Polymarket CLOB)
+      { id: 'sensory_hub', label: 'SENSORY INGESTION', sub: '100% FREE PUBLIC FEEDS', x: 0, y: -260, z: -30, w: -140, r: 23, color: '#7086a3', realm: 'sensory' }
     ];
 
-    // 3D Quantum Gravitational Waves / Energy Ripples
-    const quantumRipples = [
-      { x: 0, y: -10, z: 0, r: 40, maxR: 440, speed: 2.4, color: '#00f3ff', alpha: 0.6 }
-    ];
-    function spawnQuantumRipple(x, y, z, color) {
-      quantumRipples.push({
-        x: x || 0,
-        y: y || 0,
-        z: z || 0,
-        r: 15,
-        maxR: 440,
-        speed: 3.4,
-        color: color || '#00f3ff',
-        alpha: 0.8
-      });
-    }
-
-    // 3D Spatial Neural Somas / Hyper-Nodes (Generous Quadrant Spacing)
-    const neuralSomas3D = [
-      // Central Quantum Thalamus (Center Hub)
-      { id: 'math_core', label: 'QUANTUM THALAMUS', sub: 'EV & FRACTIONAL KELLY', x: 0, y: -10, z: 0, r: 28, color: '#00f3ff', podId: 'pod-math-core' },
-
-      // AI Quant Council Cortex (Frontal Left Quadrant)
-      { id: 'ai_council', label: 'AI QUANT COUNCIL', sub: '4-BRAIN DELIBERATION', x: -330, y: -120, z: 20, r: 24, color: '#b5179e', podId: 'pod-ai-council' },
-      { id: 'agy', label: 'GEMINI AGY', sub: 'LEAD ARCHITECT', x: -400, y: -170, z: -20, r: 15, color: '#00f3ff' },
-      { id: 'claude', label: 'CLAUDE OPUS', sub: 'SPORTS MECHANICS', x: -420, y: -100, z: 50, r: 14, color: '#ffb703' },
-      { id: 'codex', label: 'CODEX ASTRA', sub: 'KERNEL SYNTHESIS', x: -390, y: -40, z: -40, r: 15, color: '#00ff88' },
-      { id: 'grok', label: 'GROK 4.7', sub: 'RED-TEAM AUDITOR', x: -430, y: 20, z: 30, r: 14, color: '#ff0055' },
-
-      // Codex Python Synthesis Stream (Parietal Left Quadrant)
-      { id: 'codex_stream', label: 'CODEX SYNTHESIS FORGE', sub: 'AST PYTHON MODELS', x: -300, y: 140, z: -30, r: 23, color: '#00ff88', podId: 'pod-code-synth' },
-
-      // 4-Tier Progression Backbone (Frontal Right - Ascending Spinal Column)
-      { id: 'tiers_pipeline', label: '4-TIER CLOSED LOOP', sub: 'PROGRESSION BACKBONE', x: 300, y: 0, z: 10, r: 26, color: '#00ff88', podId: 'pod-4tier-pipeline' },
-      { id: 'tier_1', label: 'TIER 1 · R&D DISCOVERY', sub: '97K+ MATCH POOL', x: 260, y: -180, z: -30, r: 17, color: '#b5179e' },
-      { id: 'tier_2', label: 'TIER 2 · SHADOW INCUBATOR', sub: '$0.00 VIRTUAL FORWARD TRADES', x: 360, y: -60, z: 30, r: 19, color: '#ffb703' },
-      { id: 'tier_3', label: 'TIER 3 · STAKE PROBATION', sub: 'KELLY $0.50–$8.00', x: 290, y: 80, z: -20, r: 20, color: '#00ff88' },
-      { id: 'tier_4', label: 'TIER 4 · POLYMARKET CLOB', sub: 'PROVEN ALPHA & MAKER LIMITS', x: 360, y: 200, z: 40, r: 18, color: '#00f3ff' },
-
-      // Efferent Motor Tract: Active Bets & Settlements (Bottom Output Hub)
-      { id: 'bets_motor', label: 'EFFERENT MOTOR TRACT', sub: 'ACTIVE BETS & RESULTS', x: 0, y: 240, z: 40, r: 24, color: '#00f3ff', podId: 'pod-bets-settlements' },
-
-      // League Constellation (Occipital Lower Hub)
-      { id: 'leagues_constellation', label: 'LEAGUE RADAR', sub: '12 LIQUID LEAGUES', x: 0, y: 150, z: -60, r: 22, color: '#ffb703', podId: 'pod-leagues' },
-
-      // Sensory Feeds Ingestion (Anterior Upper Hub)
-      { id: 'sensory_hub', label: 'SENSORY INGESTION', sub: 'ESPN, NHL, MLB, WEATHER', x: 0, y: -250, z: -40, r: 23, color: '#7086a3', podId: 'pod-sensory-ingest' }
-    ];
-
-    // Synaptic Axon Connections (Curved Splines - Streamlined Clean Topology)
+    // Synaptic 4D Conduits (Clean, direct topology · ZERO FLASHING)
     const neuralAxons = [
-      // Sensory Ingestion into Central Thalamus & League Radar
+      // Sensory Feeds -> Central Thalamus & League Radar
       { from: 'sensory_hub', to: 'math_core', color: '#00f3ff', strength: 2.0 },
       { from: 'sensory_hub', to: 'leagues_constellation', color: '#7086a3', strength: 1.4 },
 
-      // AI Council deliberates directly with central Math Valuation
+      // AI Council deliberates directly with Central Valuation
       { from: 'ai_council', to: 'math_core', color: '#b5179e', strength: 2.2 },
 
-      // AI Brain spokes connecting to AI Council
+      // AI Brain spokes to Council
       { from: 'ai_council', to: 'agy', color: '#00f3ff', strength: 1.5 },
       { from: 'ai_council', to: 'claude', color: '#ffb703', strength: 1.5 },
       { from: 'ai_council', to: 'codex', color: '#00ff88', strength: 1.5 },
       { from: 'ai_council', to: 'grok', color: '#ff0055', strength: 1.5 },
 
-      // Codex Astra Forge feeds synthesized AST models to Tier 1 R&D
+      // Codex Astra Forge feeds AST models to Tier 1 R&D Discovery
       { from: 'codex', to: 'codex_stream', color: '#00ff88', strength: 1.8 },
       { from: 'codex_stream', to: 'tier_1', color: '#00ff88', strength: 1.8 },
 
-      // Central Math feeds the 4-Tier closed-loop production backbone
-      { from: 'math_core', to: 'tiers_pipeline', color: '#00ff88', strength: 2.2 },
+      // Central Math feeds the 4-Tier closed loop
+      { from: 'math_core', to: 'tier_1', color: '#b5179e', strength: 1.8 },
 
-      // Ascending 4-Tier Progression Backbone
-      { from: 'tiers_pipeline', to: 'tier_1', color: '#b5179e', strength: 1.8 },
-      { from: 'tier_1', to: 'tier_2', color: '#ffb703', strength: 1.8 },
-      { from: 'tier_2', to: 'tier_3', color: '#00ff88', strength: 2.0 },
-      { from: 'tier_3', to: 'tier_4', color: '#00f3ff', strength: 2.0 },
+      // Ascending 4-Tier Progression Highway
+      { from: 'tier_1', to: 'tier_2', color: '#ffb703', strength: 2.2 }, // Post-Crucible Candidate Admission
+      { from: 'tier_2', to: 'tier_3', color: '#00ff88', strength: 2.4 }, // Crucible Re-Graduation
+      { from: 'tier_3', to: 'tier_4', color: '#00f3ff', strength: 2.2 }, // Proven Alpha Promotion
 
-      // Emergency Tourniquet Loop (Tier 3 -> Tier 1)
-      { from: 'tier_3', to: 'tier_1', color: '#ff0055', strength: 1.8, dashed: true },
+      // Emergency Closed-Loop Tourniquet Return (Tier 3 -> Tier 1)
+      { from: 'tier_3', to: 'tier_1', color: '#ff0055', strength: 2.0, dashed: true },
 
       // Production Execution into Motor Tract
       { from: 'tier_3', to: 'bets_motor', color: '#00ff88', strength: 2.2 },
       { from: 'tier_4', to: 'bets_motor', color: '#00f3ff', strength: 2.0 },
 
-      // 72-Hour Liquid League schedule into Central Math
+      // 72h Schedule Ingestion into Central Math
       { from: 'leagues_constellation', to: 'math_core', color: '#ffb703', strength: 1.6 }
     ];
 
     // Semantic Tasks for Dynamic Synaptic Data Packets ("Futó gombócok")
     const SEMANTIC_PACKET_TASKS = [
-      { label: '🏀 NBA Q3: Under 60.5', task: 'Tier 2 Forward Paper Trade', color: '#ffb703', priority: true },
-      { label: '⚽ MLS O2.5 ($0.00)', task: 'Shadow Test Bet', color: '#ffb703', priority: true },
-      { label: '⚡ Kelly $3.80 | EV +4.5%', task: 'Fractional Sizing Calculation', color: '#00f3ff', priority: true },
-      { label: '✓ AST Syntax Valid', task: 'Codex Astra Model Verification', color: '#00ff88', priority: true },
-      { label: '🚀 Crucible Pass +8.2%', task: 'Crucible Re-Graduation', color: '#00ff88', priority: true },
-      { label: '🟢 Stake WIN +$14.20', task: 'Efferent Settlement', color: '#00ff88', priority: true },
-      { label: '🔴 Loss -$1.50', task: 'Efferent Settlement', color: '#ff3366', priority: true },
-      { label: '🩸 Demotion $0.50 Clamp', task: 'Tourniquet Guard Emergency Clamp', color: '#ff0055', priority: true },
-      { label: '💎 Poly Maker 0.52 USDC', task: 'Polymarket CLOB Limit Order', color: '#00f3ff', priority: true },
-      { label: '🧠 Claude Rest -1.8 pt', task: 'Situational Fatigue Adjustment', color: '#ffb703', priority: true },
-      { label: '🛡️ Grok Red-team PASS', task: 'Adversarial Drawdown Audit', color: '#ff0055', priority: true },
-      { label: '📡 ESPN Odds Ingest 60s', task: 'Sensory Feeds Synchronization', color: '#7086a3', priority: false },
-      { label: '🏒 NHL Save% 0.924', task: 'Goalie Starting Lineup Scan', color: '#7086a3', priority: false },
-      { label: '⚾ Probable Pitcher ERA', task: 'MLB Stats API Ingestion', color: '#7086a3', priority: false },
-      { label: '💨 Wind Speed 18 km/h', task: 'Open-Meteo Weather Impact', color: '#7086a3', priority: false }
+      { label: '🏀 NBA Q3: Under 60.5', task: 'Tier 2 Forward Paper Trade', color: '#ffb703' },
+      { label: '⚽ MLS O2.5 ($0.00)', task: 'Shadow Test Bet', color: '#ffb703' },
+      { label: '⚡ Kelly $3.80 | EV +4.5%', task: 'Fractional Sizing Calculation', color: '#00f3ff' },
+      { label: '✓ AST Syntax Valid', task: 'Codex Astra Model Verification', color: '#00ff88' },
+      { label: '🚀 Crucible Pass +8.2%', task: 'Crucible Re-Graduation', color: '#00ff88' },
+      { label: '🟢 Stake WIN +$14.20', task: 'Efferent Settlement', color: '#00ff88' },
+      { label: '🔴 Loss -$1.50', task: 'Efferent Settlement', color: '#ff3366' },
+      { label: '🩸 Demotion $0.50 Clamp', task: 'Tourniquet Emergency Clamp', color: '#ff0055' },
+      { label: '💎 Poly Maker 0.52 USDC', task: 'Polymarket CLOB Limit Order', color: '#00f3ff' },
+      { label: '🧠 Claude Rest -1.8 pt', task: 'Situational Fatigue Adjustment', color: '#ffb703' },
+      { label: '🛡️ Grok Red-team PASS', task: 'Adversarial Drawdown Audit', color: '#ff0055' },
+      { label: '📡 ESPN Odds Ingest 60s', task: 'Sensory Feeds Synchronization', color: '#7086a3' },
+      { label: '🏒 NHL Save% 0.924', task: 'Goalie Starting Lineup Scan', color: '#7086a3' },
+      { label: '⚾ Probable Pitcher ERA', task: 'MLB Stats API Ingestion', color: '#7086a3' },
+      { label: '💨 Wind Speed 18 km/h', task: 'Open-Meteo Weather Impact', color: '#7086a3' }
     ];
 
-    // 4D Action Potential Waves (Calm, graceful energy quanta - 1 per active conduit)
+    // 4D Action Potential Waves (1 steady quantum photon per conduit)
     const actionPotentials = [];
     for (let i = 0; i < neuralAxons.length; i++) {
       actionPotentials.push({
@@ -1342,42 +978,89 @@
       });
     }
 
-    // 3D Matrix Projection Function
-    function project3D(x, y, z, cx, cy) {
+    // 4D Hyper-Spatial Projection Function (4D -> 3D -> 2D)
+    function project4D(x, y, z, w, cx, cy) {
+      // 1. 4D Rotation in XW plane (Evolutionary cycle breathing)
+      const cosXW = Math.cos(camera.hyperAngleXW);
+      const sinXW = Math.sin(camera.hyperAngleXW);
+      const x1 = x * cosXW - w * sinXW;
+      const w1 = x * sinXW + w * cosXW;
+
+      // 2. 4D Perspective Stereographic projection into 3D
+      const d4 = 750;
+      const scale4D = d4 / (d4 + w1 * 0.4);
+      const x3 = x1 * scale4D;
+      const y3 = y * scale4D;
+      const z3 = z * scale4D;
+
+      // 3. 3D Camera Yaw & Pitch Rotation
       const cosY = Math.cos(camera.yaw);
       const sinY = Math.sin(camera.yaw);
-      let x1 = x * cosY + z * sinY;
-      let y1 = y;
-      let z1 = -x * sinY + z * cosY;
+      let x3a = x3 * cosY + z3 * sinY;
+      let y3a = y3;
+      let z3a = -x3 * sinY + z3 * cosY;
 
       const cosP = Math.cos(camera.pitch);
       const sinP = Math.sin(camera.pitch);
-      let x2 = x1;
-      let y2 = y1 * cosP - z1 * sinP;
-      let z2 = y1 * sinP + z1 * cosP;
+      let x3b = x3a;
+      let y3b = y3a * cosP - z3a * sinP;
+      let z3b = y3a * sinP + z3a * cosP;
 
-      const dist = camera.focalLength + z2;
+      const dist = camera.focalLength + z3b;
       if (dist <= 10) return { visible: false };
 
-      const scale = (camera.focalLength / dist) * camera.zoom;
-      const sx = cx + (x2 + camera.panX) * scale;
-      const sy = cy + (y2 + camera.panY) * scale;
+      const scale2D = (camera.focalLength / dist) * camera.zoom;
+      const sx = cx + (x3b + camera.panX) * scale2D;
+      const sy = cy + (y3b + camera.panY) * scale2D;
 
-      return { visible: true, sx, sy, scale, zDepth: z2 };
+      return { visible: true, sx, sy, scale: scale2D, zDepth: z3b, wDepth: w1 };
     }
 
-    // Main 3D Animation & Rendering Loop
+    // Cosmic Starfield
+    const starfield = [];
+    for (let i = 0; i < 320; i++) {
+      starfield.push({
+        x: (Math.random() - 0.5) * 1900,
+        y: (Math.random() - 0.5) * 1900,
+        z: (Math.random() - 0.5) * 1900,
+        w: (Math.random() - 0.5) * 400,
+        size: 0.7 + Math.random() * 1.8,
+        alpha: 0.2 + Math.random() * 0.7,
+        twinklePhase: Math.random() * Math.PI * 2,
+        color: Math.random() > 0.45 ? '#00f3ff' : (Math.random() > 0.45 ? '#b5179e' : (Math.random() > 0.5 ? '#00ff88' : '#ffffff'))
+      });
+    }
+
+    // Volumetric 3D Cosmic Nebulae
+    const cosmicNebulae = [
+      { x: -340, y: -120, z: -50, w: -50, r: 420, c0: 'rgba(181, 23, 158, 0.20)', c1: 'rgba(114, 9, 183, 0.07)', c2: 'rgba(4, 7, 24, 0)' },
+      { x: 320, y: 20, z: 30, w: 80, r: 460, c0: 'rgba(0, 255, 136, 0.16)', c1: 'rgba(0, 243, 255, 0.06)', c2: 'rgba(2, 6, 20, 0)' },
+      { x: 0, y: -10, z: 0, w: 0, r: 380, c0: 'rgba(0, 243, 255, 0.22)', c1: 'rgba(16, 32, 90, 0.09)', c2: 'rgba(2, 4, 14, 0)' },
+      { x: 0, y: 220, z: -20, w: 100, r: 400, c0: 'rgba(255, 183, 3, 0.15)', c1: 'rgba(255, 0, 85, 0.05)', c2: 'rgba(4, 3, 18, 0)' }
+    ];
+
+    // Quantum Gravitational Ripples
+    const quantumRipples = [];
+    function spawnQuantumRipple(x, y, z, color) {
+      quantumRipples.push({
+        x: x || 0, y: y || 0, z: z || 0, w: 0,
+        r: 15, maxR: 420, speed: 3.2,
+        color: color || '#00f3ff', alpha: 0.8
+      });
+    }
+
+    // 4D Main Animation & Rendering Loop
     let globalPulseTick = 0;
-    let latestProjectedSomas = {};
-    let manualFocusNodeId = null;
-    let ambientCinematicNodeId = null;
+    let latestProjectedNodes = {};
+    let focusedNodeId = null;
+    let hoveredNodeId = null;
     let activeProjectedPackets = [];
 
-    function renderNeuralUniverse() {
-      // Gentle harmonic biological respiration
+    function render4DQuantumUniverse() {
       globalPulseTick += 0.014;
+      camera.hyperAngleXW = Math.sin(globalPulseTick * 0.15) * 0.18; // gentle 4D phase oscillation
 
-      // Silky-smooth cinematic camera interpolation
+      // Smooth camera interpolation
       camera.yaw += (camera.targetYaw - camera.yaw) * 0.038;
       camera.pitch += (camera.targetPitch - camera.pitch) * 0.038;
       camera.zoom += (camera.targetZoom - camera.zoom) * 0.038;
@@ -1385,7 +1068,7 @@
       camera.panY += (camera.targetPanY - camera.panY) * 0.038;
 
       if (camera.autoOrbit && Date.now() - camera.lastUserInteraction > 3500) {
-        camera.targetYaw += 0.0009; // very gentle, elegant cosmic drift
+        camera.targetYaw += 0.0009; // calm cosmic drift
       }
 
       const w = window.innerWidth;
@@ -1395,9 +1078,9 @@
 
       ctx.clearRect(0, 0, w, h);
 
-      // 1. Volumetric 3D Cosmic Nebulae (Interstellar Gas Clouds)
+      // 1. Volumetric Nebulae
       cosmicNebulae.forEach(neb => {
-        const p = project3D(neb.x, neb.y, neb.z, cx, cy);
+        const p = project4D(neb.x, neb.y, neb.z, neb.w, cx, cy);
         if (p.visible && p.scale > 0) {
           ctx.save();
           ctx.globalCompositeOperation = 'screen';
@@ -1414,9 +1097,9 @@
         }
       });
 
-      // 2. Cosmic Starfield with Smooth Twinkle & Parallax
+      // 2. Parallax Starfield
       starfield.forEach(st => {
-        const p = project3D(st.x, st.y, st.z, cx, cy);
+        const p = project4D(st.x, st.y, st.z, st.w, cx, cy);
         if (p.visible && p.scale > 0) {
           ctx.save();
           ctx.beginPath();
@@ -1429,7 +1112,7 @@
         }
       });
 
-      // 3. 3D Quantum Gravitational Ripples
+      // 3. Quantum Ripples
       for (let i = quantumRipples.length - 1; i >= 0; i--) {
         const rip = quantumRipples[i];
         rip.r += rip.speed;
@@ -1438,7 +1121,7 @@
           quantumRipples.splice(i, 1);
           continue;
         }
-        const p = project3D(rip.x, rip.y, rip.z, cx, cy);
+        const p = project4D(rip.x, rip.y, rip.z, rip.w, cx, cy);
         if (p.visible && p.scale > 0) {
           ctx.save();
           ctx.beginPath();
@@ -1453,70 +1136,76 @@
         }
       }
 
-      // 4. Project Neural Somas
-      const projectedSomas = {};
-      neuralSomas3D.forEach(node => {
-        const isTierNode = ['tiers_pipeline', 'tier_1', 'tier_2', 'tier_3', 'tier_4'].includes(manualFocusNodeId);
-        const isManuallyFocused = (manualFocusNodeId === node.id || manualFocusNodeId === node.podId || (node.podId === 'pod-4tier-pipeline' && isTierNode));
-        const isAmbientTarget = (ambientCinematicNodeId === node.id || (ambientCinematicNodeId === 'tiers_pipeline' && node.podId === 'pod-4tier-pipeline'));
-        const breath = Math.sin(globalPulseTick * 1.2 + node.x * 0.01) * (isManuallyFocused ? 3.0 : 1.6);
-        const p = project3D(node.x, node.y, node.z, cx, cy);
+      // 4. Project Hyper-Nodes
+      const projectedNodes = {};
+      hyperOrganismNodes.forEach(node => {
+        const isFocused = (focusedNodeId === node.id);
+        const breath = Math.sin(globalPulseTick * 1.2 + node.x * 0.01) * (isFocused ? 3.0 : 1.6);
+        const p = project4D(node.x, node.y, node.z, node.w, cx, cy);
         if (p.visible) {
-          projectedSomas[node.id] = {
+          projectedNodes[node.id] = {
             ...node,
             sx: p.sx,
             sy: p.sy,
             scale: p.scale,
             zDepth: p.zDepth,
-            isManuallyFocused,
-            isAmbientTarget,
-            screenR: Math.max(5, (node.r + breath) * p.scale)
+            wDepth: p.wDepth,
+            isFocused,
+            screenR: Math.max(6, (node.r + breath) * p.scale)
           };
         }
       });
-      latestProjectedSomas = projectedSomas;
+      latestProjectedNodes = projectedNodes;
 
-      // 5. Draw 4 Grand Tier Orbital Energy Rings (Clean Progression Backbone)
-      const tierRingDefs = [
-        { id: 'tier_1', label: 'TIER 1 · R&D DISCOVERY (97K+ MATCH POOL)', color: '#b5179e' },
-        { id: 'tier_2', label: 'TIER 2 · SHADOW INCUBATOR ($0.00 FORWARD TRADES)', color: '#ffb703' },
-        { id: 'tier_3', label: 'TIER 3 · STAKE PROBATION (KELLY $0.50–$8.00)', color: '#00ff88' },
-        { id: 'tier_4', label: 'TIER 4 · POLYMARKET CLOB (PROVEN ALPHA)', color: '#00f3ff' }
+      // 5. Draw 4 Grand Tier Quantum Realms & Progression Highway
+      const tierDefs = [
+        { id: 'tier_1', num: 1, title: 'TIER 1: R&D & AST SYNTHESIS', sub: '97K+ HISTORICAL POOL · CANDIDATE FORGE', color: '#b5179e' },
+        { id: 'tier_2', num: 2, title: 'TIER 2: SHADOW INCUBATOR', sub: '$0.00 VIRTUAL PAPER TRADES (ZERO RISK)', color: '#ffb703' },
+        { id: 'tier_3', num: 3, title: 'TIER 3: STAKE PROBATION', sub: 'KELLY $0.50–$8.00 · 100 PICKS/DAY FLOOR', color: '#00ff88' },
+        { id: 'tier_4', num: 4, title: 'TIER 4: POLYMARKET CLOB', sub: 'PROVEN ALPHA · MAKER 0% FEE ORDERS', color: '#00f3ff' }
       ];
 
-      tierRingDefs.forEach((tDef, idx) => {
-        const p = projectedSomas[tDef.id];
+      tierDefs.forEach((tDef, idx) => {
+        const p = projectedNodes[tDef.id];
         if (!p || !p.visible) return;
 
         ctx.save();
-        const rx = Math.max(22, (38 + Math.sin(globalPulseTick * 0.8 + idx) * 2) * p.scale);
+        // 4D Toroidal Energy Ring
+        const rx = Math.max(26, (42 + Math.sin(globalPulseTick * 0.8 + idx) * 2.5) * p.scale);
         const ry = rx * 0.44;
 
         ctx.beginPath();
         ctx.ellipse(p.sx, p.sy + 4 * p.scale, rx, ry, Math.PI / 8, 0, Math.PI * 2);
         ctx.strokeStyle = tDef.color;
         ctx.lineWidth = Math.max(1, 1.4 * p.scale);
-        ctx.globalAlpha = Math.max(0.18, Math.min(0.75, 0.40 + (p.zDepth / 450)));
+        ctx.globalAlpha = Math.max(0.2, Math.min(0.75, 0.42 + (p.zDepth / 450)));
+        ctx.shadowColor = tDef.color;
+        ctx.shadowBlur = 8 * p.scale;
         ctx.stroke();
 
-        // ONLY draw tier label if that tier or tiers_pipeline is under manual inspection, hovered, or alerting!
-        const isTierActive = ['tiers_pipeline', tDef.id].includes(manualFocusNodeId) || hoveredSomaId === tDef.id || currentAlertNodeId === tDef.id;
-        if (isTierActive && p.scale > 0.48) {
-          ctx.font = `bold ${Math.round(9 * p.scale)}px var(--font-mono)`;
+        // Canvas Informative Holographic Tier Badge (Crisp & Readable)
+        if (p.scale > 0.45) {
+          ctx.font = `bold ${Math.round(9.5 * p.scale)}px var(--font-mono)`;
           ctx.fillStyle = tDef.color;
           ctx.textAlign = 'left';
           ctx.textBaseline = 'middle';
           ctx.shadowBlur = 6;
           ctx.shadowColor = tDef.color;
-          ctx.fillText(`⌖ ${tDef.label}`, p.sx + rx + 8 * p.scale, p.sy + 4 * p.scale);
+          ctx.fillText(`⌖ ${tDef.title}`, p.sx + rx + 8 * p.scale, p.sy - 2 * p.scale);
+
+          ctx.font = `600 ${Math.round(8 * p.scale)}px var(--font-mono)`;
+          ctx.fillStyle = '#bed2ea';
+          ctx.shadowBlur = 4;
+          ctx.shadowColor = '#000';
+          ctx.fillText(tDef.sub, p.sx + rx + 8 * p.scale, p.sy + 10 * p.scale);
         }
         ctx.restore();
       });
 
-      // 6. Draw Clean, Serene Synaptic Axons (Steady, calm colors · ZERO FLASHING)
+      // 6. Draw Synaptic Conduits (Steady Calm Colors · ZERO Flashing)
       neuralAxons.forEach((axon, idx) => {
-        const pA = projectedSomas[axon.from];
-        const pB = projectedSomas[axon.to];
+        const pA = projectedNodes[axon.from];
+        const pB = projectedNodes[axon.to];
         if (!pA || !pB) return;
 
         const avgZ = (pA.zDepth + pB.zDepth) / 2;
@@ -1541,18 +1230,18 @@
         ctx.restore();
       });
 
-      // 7. Draw Subtle Synaptic Photons (Calm, steady energy quanta · Loops smoothly on designated path)
+      // 7. Draw Subtle Synaptic Photons (1 steady quantum photon per conduit)
       const renderedPackets = [];
       actionPotentials.forEach((ap) => {
         const axon = neuralAxons[ap.axonIdx];
         if (!axon) return;
-        const pA = projectedSomas[axon.from];
-        const pB = projectedSomas[axon.to];
+        const pA = projectedNodes[axon.from];
+        const pB = projectedNodes[axon.to];
         if (!pA || !pB) return;
 
         ap.progress += ap.speed;
         if (ap.progress > 1.0) {
-          ap.progress = 0; // loops smoothly on same axon, NO sudden jumping!
+          ap.progress = 0;
           ap.trail = [];
         }
 
@@ -1566,7 +1255,7 @@
         ap.trail.push({ x: px, y: py });
         if (ap.trail.length > 3) ap.trail.shift();
 
-        const taskDef = SEMANTIC_PACKET_TASKS[ap.taskIdx] || { label: 'Data Pulse', color: axon.color };
+        const taskDef = SEMANTIC_PACKET_TASKS[ap.taskIdx] || { label: 'Quantum Packet', color: axon.color };
         const pColor = taskDef.color || axon.color;
 
         renderedPackets.push({
@@ -1575,7 +1264,6 @@
         });
 
         ctx.save();
-        // Subtle short motion trail
         if (ap.trail.length > 1) {
           ctx.beginPath();
           ctx.moveTo(ap.trail[0].x, ap.trail[0].y);
@@ -1588,7 +1276,6 @@
           ctx.stroke();
         }
 
-        // Gentle, soft photon bead
         ctx.beginPath();
         ctx.arc(px, py, ap.size * 1.5 * avgScale, 0, Math.PI * 2);
         ctx.fillStyle = pColor;
@@ -1600,21 +1287,21 @@
       });
       activeProjectedPackets = renderedPackets;
 
-      // 8. Draw Neural Somas (Far to Near)
-      const sortedSomas = Object.values(projectedSomas).sort((a, b) => b.zDepth - a.zDepth);
-      sortedSomas.forEach(s => {
+      // 8. Draw Hyper-Nodes Somas (Far to Near)
+      const sortedNodes = Object.values(projectedNodes).sort((a, b) => b.zDepth - a.zDepth);
+      sortedNodes.forEach(s => {
         let depthAlpha = Math.max(0.25, Math.min(1.0, 0.62 + (s.zDepth / 400)));
-        if (s.isManuallyFocused || s.isAmbientTarget) depthAlpha = 1.0;
+        if (s.isFocused || hoveredNodeId === s.id) depthAlpha = 1.0;
 
         ctx.save();
         // Biological Corona Aura
-        const auraMultiplier = (s.isManuallyFocused || s.isAmbientTarget) ? 3.4 : 2.5;
+        const auraMultiplier = (s.isFocused || hoveredNodeId === s.id) ? 3.2 : 2.4;
         const grad = ctx.createRadialGradient(s.sx, s.sy, s.screenR * 0.25, s.sx, s.sy, s.screenR * auraMultiplier);
         grad.addColorStop(0, s.color);
-        grad.addColorStop(0.5, s.color + (s.isManuallyFocused ? '88' : '44'));
+        grad.addColorStop(0.5, s.color + (s.isFocused ? '88' : '44'));
         grad.addColorStop(1, 'transparent');
         ctx.fillStyle = grad;
-        ctx.globalAlpha = depthAlpha * ((s.isManuallyFocused || s.isAmbientTarget) ? 1.0 : 0.72);
+        ctx.globalAlpha = depthAlpha * (s.isFocused ? 1.0 : 0.7);
         ctx.beginPath();
         ctx.arc(s.sx, s.sy, s.screenR * auraMultiplier, 0, Math.PI * 2);
         ctx.fill();
@@ -1624,174 +1311,49 @@
         ctx.arc(s.sx, s.sy, s.screenR, 0, Math.PI * 2);
         ctx.fillStyle = '#030614';
         ctx.strokeStyle = s.color;
-        ctx.lineWidth = Math.max(1.5, ((s.isManuallyFocused || s.isAmbientTarget) ? 3.6 : 2.4) * s.scale);
+        ctx.lineWidth = Math.max(1.5, (s.isFocused ? 3.4 : 2.2) * s.scale);
         ctx.globalAlpha = depthAlpha;
         ctx.shadowColor = s.color;
-        ctx.shadowBlur = ((s.isManuallyFocused || s.isAmbientTarget) ? 22 : 12) * s.scale;
+        ctx.shadowBlur = (s.isFocused ? 20 : 10) * s.scale;
         ctx.fill();
         ctx.stroke();
 
-        // Internal Orbiting Organelle Dots
-        const organelleCount = s.id === 'math_core' ? 4 : 2;
-        for (let og = 0; og < organelleCount; og++) {
-          const ogAngle = globalPulseTick * 1.5 + (og * Math.PI * 2 / organelleCount);
-          const ogR = s.screenR * 0.42;
-          const ogX = s.sx + Math.cos(ogAngle) * ogR;
-          const ogY = s.sy + Math.sin(ogAngle) * ogR;
-          ctx.beginPath();
-          ctx.arc(ogX, ogY, Math.max(1.0, 1.8 * s.scale), 0, Math.PI * 2);
-          ctx.fillStyle = '#ffffff';
-          ctx.globalAlpha = depthAlpha * 0.9;
-          ctx.fill();
-        }
-
-        // Special Quantum Gyroscope Rings on Central Singularity (Quantum Thalamus)
+        // Special Gyroscope Rings on Central Thalamus (Math & Kelly)
         if (s.id === 'math_core') {
-          // Ring 1: Equatorial Gyro
           ctx.beginPath();
           ctx.ellipse(s.sx, s.sy, s.screenR * 1.55, s.screenR * 0.55, globalPulseTick * 0.7, 0, Math.PI * 2);
           ctx.strokeStyle = '#00f3ff';
-          ctx.lineWidth = Math.max(1, 1.6 * s.scale);
+          ctx.lineWidth = Math.max(1, 1.5 * s.scale);
           ctx.globalAlpha = depthAlpha * 0.65;
           ctx.stroke();
 
-          // Ring 2: Polar Inclined Gyro (tilted 60 deg)
           ctx.beginPath();
           ctx.ellipse(s.sx, s.sy, s.screenR * 1.45, s.screenR * 0.48, -globalPulseTick * 0.5 + Math.PI / 3, 0, Math.PI * 2);
           ctx.strokeStyle = '#00ff88';
-          ctx.lineWidth = Math.max(1, 1.4 * s.scale);
+          ctx.lineWidth = Math.max(1, 1.3 * s.scale);
           ctx.globalAlpha = depthAlpha * 0.55;
           ctx.stroke();
         }
 
-        // Typography: Sleek Heads-Up display on canvas
-        const isSomaManuallyFocused = (manualFocusNodeId === s.id || manualFocusNodeId === s.podId || (s.podId === 'pod-4tier-pipeline' && ['tiers_pipeline', 'tier_1', 'tier_2', 'tier_3', 'tier_4'].includes(manualFocusNodeId)));
-        const isSomaHovered = (hoveredSomaId === s.id);
-        const isSomaAlerting = (currentAlertNodeId === s.id || currentAlertNodeId === s.podId);
-        const isSomaAmbientLobe = (ambientCinematicNodeId === s.id || (ambientCinematicNodeId === 'tiers_pipeline' && s.podId === 'pod-4tier-pipeline'));
-
-        if ((isSomaManuallyFocused || isSomaHovered || isSomaAlerting) && s.scale > 0.45) {
-          ctx.save();
-          // Magnifying Glass Target Reticle around the active soma
-          const reticleR = s.screenR * 1.5;
-          ctx.strokeStyle = s.color;
-          ctx.lineWidth = Math.max(1.5, 2.5 * s.scale);
-          ctx.setLineDash([4 * s.scale, 4 * s.scale]);
-          ctx.beginPath();
-          ctx.arc(s.sx, s.sy, reticleR, 0, Math.PI * 2);
-          ctx.stroke();
-
-          // Reticle Corner Crosshair Ticks
-          const tickLen = 6 * s.scale;
-          ctx.setLineDash([]);
-          ctx.beginPath();
-          ctx.moveTo(s.sx - reticleR - tickLen, s.sy); ctx.lineTo(s.sx - reticleR + tickLen, s.sy);
-          ctx.moveTo(s.sx + reticleR - tickLen, s.sy); ctx.lineTo(s.sx + reticleR + tickLen, s.sy);
-          ctx.moveTo(s.sx, s.sy - reticleR - tickLen); ctx.lineTo(s.sx, s.sy - reticleR + tickLen);
-          ctx.moveTo(s.sx, s.sy + reticleR - tickLen); ctx.lineTo(s.sx, s.sy + reticleR + tickLen);
-          ctx.stroke();
-
-          // Glowing Process Label
-          ctx.font = `bold ${Math.round(11 * s.scale)}px var(--font-mono)`;
+        // Heads-up canvas label for non-tier nodes
+        if (!s.tierNum && s.scale > 0.48) {
+          ctx.font = `bold ${Math.round(9.5 * s.scale)}px var(--font-mono)`;
           ctx.fillStyle = s.color;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.shadowBlur = 10;
-          ctx.shadowColor = s.color;
-          ctx.fillText(`⌖ ${s.label}`, s.sx, s.sy - reticleR - 12 * s.scale);
-
-          // Sub-process Live Status
-          ctx.font = `600 ${Math.round(8.5 * s.scale)}px var(--font-mono)`;
-          ctx.fillStyle = '#c9ddf2';
           ctx.shadowBlur = 6;
-          ctx.shadowColor = '#000';
-          ctx.fillText(`● ACTIVE PROCESS: ${s.sub}`, s.sx, s.sy - reticleR - 2 * s.scale);
-          ctx.restore();
-        } else if (isSomaAmbientLobe && s.scale > 0.5) {
-          // Subtle, elegant canvas label during ambient screensaver cruise (ZERO DOM popups!)
-          ctx.save();
-          ctx.font = `bold ${Math.round(10 * s.scale)}px var(--font-mono)`;
-          ctx.fillStyle = s.color;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.globalAlpha = 0.85;
-          ctx.shadowBlur = 8;
           ctx.shadowColor = s.color;
           ctx.fillText(`⌖ ${s.label}`, s.sx, s.sy - s.screenR - 10 * s.scale);
-          ctx.restore();
         }
         ctx.restore();
       });
 
-      // 10. Position 3D Holographic Pods: Revealed ONLY under manual inspection, hover, or alert! (NEVER on ambient tour!)
-      neuralSomas3D.forEach(node => {
-        if (!node.podId) return;
-        const el = document.getElementById(node.podId);
-        if (!el) return;
-
-        const p = projectedSomas[node.id];
-        if (!p || !p.visible) {
-          el.style.opacity = '0';
-          el.style.pointerEvents = 'none';
-          return;
-        }
-
-        const isTierNode = ['tiers_pipeline', 'tier_1', 'tier_2', 'tier_3', 'tier_4'].includes(manualFocusNodeId);
-        const isManuallyFocused = (manualFocusNodeId === node.id || manualFocusNodeId === node.podId || (node.podId === 'pod-4tier-pipeline' && isTierNode));
-        const isHovered = (hoveredSomaId === node.id);
-        const isAlerting = (currentAlertNodeId === node.id || currentAlertNodeId === node.podId);
-
-        const shouldShow = isManuallyFocused || isHovered || isAlerting;
-
-        if (shouldShow) {
-          el.classList.add('magnifying-active');
-          el.style.opacity = '1';
-          el.style.pointerEvents = 'auto';
-        } else {
-          el.classList.remove('magnifying-active');
-          el.style.opacity = '0';
-          el.style.pointerEvents = 'none';
-        }
-
-        const clampedScale = Math.max(0.7, Math.min(isManuallyFocused ? 1.15 : 1.0, p.scale * (isManuallyFocused ? 1.1 : 0.95)));
-        const zIndex = isManuallyFocused ? 9999 : Math.round(100 + p.zDepth);
-
-        // Directional quadrant offset anchor to prevent overlap
-        let offsetX = 0;
-        let offsetY = 0;
-        const approxW = isManuallyFocused ? (el.offsetWidth || 340) : 180;
-        const approxH = isManuallyFocused ? (el.offsetHeight || 280) : 38;
-
-        if (node.x > 80) {
-          offsetX = 30 * clampedScale;
-          offsetY = -approxH / 2 * clampedScale;
-        } else if (node.x < -80) {
-          offsetX = (-approxW - 30) * clampedScale;
-          offsetY = -approxH / 2 * clampedScale;
-        } else if (node.y < -100) {
-          offsetX = -approxW / 2 * clampedScale;
-          offsetY = (-approxH - 30) * clampedScale;
-        } else if (node.y > 100) {
-          offsetX = -approxW / 2 * clampedScale;
-          offsetY = 32 * clampedScale;
-        } else {
-          offsetX = -approxW / 2 * clampedScale;
-          offsetY = (-approxH - 25) * clampedScale;
-        }
-
-        const screenX = p.sx + offsetX;
-        const screenY = p.sy + offsetY;
-
-        el.style.transform = `translate3d(${screenX}px, ${screenY}px, 0) scale(${shouldShow ? clampedScale : 0.7})`;
-        el.style.zIndex = zIndex;
-      });
-
-      requestAnimationFrame(renderNeuralUniverse);
+      requestAnimationFrame(render4DQuantumUniverse);
     }
-    requestAnimationFrame(renderNeuralUniverse);
+    requestAnimationFrame(render4DQuantumUniverse);
 
     // ==========================================
-    // CAMERA CONTROLS & MANUAL OVERRIDE
+    // INTERACTION & CAMERA CONTROLS
     // ==========================================
     let isDragging = false;
     let prevMouseX = 0;
@@ -1811,22 +1373,20 @@
     canvas.addEventListener('click', (e) => {
       const clickX = e.clientX;
       const clickY = e.clientY;
-      let clickedSoma = false;
-      for (const id in latestProjectedSomas) {
-        const s = latestProjectedSomas[id];
+      let clickedNode = null;
+      for (const id in latestProjectedNodes) {
+        const s = latestProjectedNodes[id];
         const dist = Math.hypot(clickX - s.sx, clickY - s.sy);
-        if (dist <= s.screenR + 14) {
-          clickedSoma = true;
-          spawnQuantumRipple(s.x, s.y, s.z, s.color);
-          flyCameraTo(s.id, true);
+        if (dist <= s.screenR + 16) {
+          clickedNode = s;
           break;
         }
       }
-      if (!clickedSoma && manualFocusNodeId) {
-        // Clicking empty space closes the open pod and returns smoothly to macro
-        flyCameraTo('macro', true);
-      } else if (!clickedSoma) {
-        // Spawn gentle cosmic ripple in deep space
+      if (clickedNode) {
+        spawnQuantumRipple(clickedNode.x, clickedNode.y, clickedNode.z, clickedNode.color);
+        flyCameraTo(clickedNode.id);
+        openDeckForNode(clickedNode.id);
+      } else {
         spawnQuantumRipple(0, -10, 0, '#00f3ff');
       }
     });
@@ -1844,44 +1404,41 @@
         return;
       }
 
-      // Interactive hover tooltip for moving semantic synaptic data packets ("Futó gombócok")
+      // Check packet hover
       const tooltip = document.getElementById('packet-hud-tooltip');
-
       let foundPacket = null;
       if (tooltip) {
         for (let i = 0; i < activeProjectedPackets.length; i++) {
           const pkt = activeProjectedPackets[i];
-          const dist = Math.hypot(e.clientX - pkt.x, e.clientY - pkt.y);
-          if (dist <= Math.max(16, pkt.radius + 8)) {
+          if (Math.hypot(e.clientX - pkt.x, e.clientY - pkt.y) <= Math.max(16, pkt.radius + 8)) {
             foundPacket = pkt;
             break;
           }
         }
-
         if (foundPacket) {
           tooltip.style.display = 'block';
           tooltip.style.left = `${e.clientX + 14}px`;
           tooltip.style.top = `${e.clientY - 20}px`;
           tooltip.innerHTML = `
             <div style="font-weight:700; color:${foundPacket.color}; font-size:10px;">⚡ ${foundPacket.label}</div>
-            <div style="color:var(--text-dim); font-size:9px; margin-top:2px;">TASK: ${foundPacket.task} · QUANT VALUATION PACKET</div>
+            <div style="color:var(--text-dim); font-size:9px; margin-top:2px;">TASK: ${foundPacket.task}</div>
           `;
         } else {
           tooltip.style.display = 'none';
         }
       }
 
-      // Check for hovered soma (reveals soma magnifying HUD when user pays attention)
-      let hoveredSoma = null;
-      for (const id in latestProjectedSomas) {
-        const s = latestProjectedSomas[id];
+      // Check node hover
+      let hovered = null;
+      for (const id in latestProjectedNodes) {
+        const s = latestProjectedNodes[id];
         if (Math.hypot(e.clientX - s.sx, e.clientY - s.sy) <= s.screenR + 14) {
-          hoveredSoma = s.id;
+          hovered = s.id;
           break;
         }
       }
-      hoveredSomaId = hoveredSoma;
-      canvas.style.cursor = (hoveredSoma || foundPacket) ? 'pointer' : 'default';
+      hoveredNodeId = hovered;
+      canvas.style.cursor = (hovered || foundPacket) ? 'pointer' : 'default';
     });
 
     canvas.addEventListener('wheel', (e) => {
@@ -1890,98 +1447,46 @@
       camera.lastUserInteraction = Date.now();
       updateAutoOrbitBtn();
       const delta = e.deltaY > 0 ? 0.92 : 1.08;
-      camera.targetZoom = Math.max(0.4, Math.min(2.2, camera.targetZoom * delta));
+      camera.targetZoom = Math.max(0.4, Math.min(2.4, camera.targetZoom * delta));
     }, { passive: false });
 
-    // Touch Support
-    let initialTouchDist = null;
-    canvas.addEventListener('touchstart', (e) => {
+    // Fly Camera To Realm / Node
+    function flyCameraTo(targetKey) {
       camera.lastUserInteraction = Date.now();
-      if (e.touches.length === 1) {
-        isDragging = true;
-        prevMouseX = e.touches[0].clientX;
-        prevMouseY = e.touches[0].clientY;
-        camera.autoOrbit = false;
-        updateAutoOrbitBtn();
-      } else if (e.touches.length === 2) {
-        initialTouchDist = Math.hypot(
-          e.touches[0].clientX - e.touches[1].clientX,
-          e.touches[0].clientY - e.touches[1].clientY
-        );
-      }
-    });
-
-    canvas.addEventListener('touchmove', (e) => {
-      camera.lastUserInteraction = Date.now();
-      if (e.touches.length === 1 && isDragging) {
-        const dx = e.touches[0].clientX - prevMouseX;
-        const dy = e.touches[0].clientY - prevMouseY;
-        prevMouseX = e.touches[0].clientX;
-        prevMouseY = e.touches[0].clientY;
-        camera.targetYaw += dx * 0.006;
-        camera.targetPitch = Math.max(-0.9, Math.min(0.9, camera.targetPitch + dy * 0.006));
-      } else if (e.touches.length === 2 && initialTouchDist) {
-        const dist = Math.hypot(
-          e.touches[0].clientX - e.touches[1].clientX,
-          e.touches[0].clientY - e.touches[1].clientY
-        );
-        const factor = dist / initialTouchDist;
-        camera.targetZoom = Math.max(0.4, Math.min(2.2, camera.targetZoom * factor));
-        initialTouchDist = dist;
-      }
-    }, { passive: false });
-
-    canvas.addEventListener('touchend', () => {
-      isDragging = false;
-      initialTouchDist = null;
-    });
-
-    // Fly Camera To Node / Coordinates
-    function flyCameraTo(targetKey, isManual = true) {
-      if (isManual) {
-        camera.autoOrbit = false;
-        camera.lastUserInteraction = Date.now();
-        updateAutoOrbitBtn();
-        manualFocusNodeId = targetKey === 'macro' ? null : targetKey;
-        ambientCinematicNodeId = null;
-      } else {
-        // Ambient cinematic cruise: DO NOT open DOM cards, only glide camera!
-        ambientCinematicNodeId = targetKey === 'macro' ? null : targetKey;
-        manualFocusNodeId = null;
-      }
+      focusedNodeId = targetKey === 'macro' ? null : targetKey;
 
       document.querySelectorAll('.nav-pill-btn').forEach(btn => btn.classList.remove('active'));
       const activeBtn = Array.from(document.querySelectorAll('.nav-pill-btn')).find(b => b.textContent.includes(targetKey.toUpperCase().replace('_', ' ')));
       if (activeBtn) activeBtn.classList.add('active');
 
       if (targetKey === 'macro') {
-        camera.targetYaw = 0.15;
-        camera.targetPitch = -0.1;
+        camera.targetYaw = 0.18;
+        camera.targetPitch = -0.08;
         camera.targetZoom = 1.0;
         camera.targetPanX = 0;
         camera.targetPanY = 0;
         return;
       }
 
-      const node = neuralSomas3D.find(n => n.id === targetKey);
+      const node = hyperOrganismNodes.find(n => n.id === targetKey);
       if (node) {
-        camera.targetZoom = isManual ? 1.35 : 1.2;
+        camera.targetZoom = 1.35;
         camera.targetPanX = -node.x;
         camera.targetPanY = -node.y;
       }
     }
-    window.focusOnNode = (id) => flyCameraTo(id, true);
     window.flyCameraTo = flyCameraTo;
 
     function toggleAutoOrbit() {
       camera.autoOrbit = !camera.autoOrbit;
       updateAutoOrbitBtn();
     }
+    window.toggleAutoOrbit = toggleAutoOrbit;
 
     function updateAutoOrbitBtn() {
       const btn = document.getElementById('btn-auto-orbit');
       if (btn) {
-        btn.textContent = camera.autoOrbit ? '↺ AUTO-ORBIT: ON' : '↺ AUTO-ORBIT: OFF';
+        btn.textContent = camera.autoOrbit ? '↺ ORBIT: ON' : '↺ ORBIT: OFF';
         btn.style.color = camera.autoOrbit ? 'var(--cyan)' : 'var(--text-dim)';
       }
     }
@@ -1991,12 +1496,10 @@
       const btn = document.getElementById('btn-screensaver-toggle');
       const banner = document.getElementById('screensaver-mode-banner');
       if (btn) {
-        btn.textContent = camera.screensaverActive ? '🎬 SCREENSAVER: ACTIVE' : '🎬 SCREENSAVER: PAUSED';
+        btn.textContent = camera.screensaverActive ? '🎬 SCREENSAVER: ON' : '🎬 SCREENSAVER: OFF';
         btn.style.color = camera.screensaverActive ? 'var(--cyan)' : 'var(--text-dim)';
       }
-      if (banner) {
-        banner.style.display = camera.screensaverActive ? 'flex' : 'none';
-      }
+      if (banner) banner.style.display = camera.screensaverActive ? 'flex' : 'none';
     }
     window.toggleScreensaver = toggleScreensaver;
 
@@ -2009,156 +1512,51 @@
       }
     });
 
-    // ==========================================
-    // AMBIENT CINEMATIC SCREENSAVER & INTERRUPT DIRECTOR
-    // ==========================================
-    let autonomousEventQueue = [];
-    let beaconTimer = null;
-    let interruptLockTimer = null;
+    // ==============================================================
+    // TIER OPERATIONS & WORKSTREAM DECK LOGIC
+    // ==============================================================
+    let currentDeckTab = 'overview';
+    let isDeckOpen = true; // Open by default for immediate operational visibility
 
-    // 8-Stop Ambient Inspection Tour
-    const ambientTourSteps = [
-      {
-        id: 'ai_council',
-        title: 'AI QUANT COUNCIL · 4-BRAIN DELIBERATION & TOKEN STREAM',
-        subtitle: 'Gemini AGY (Architecture) ↔ Claude (Fatigue) ↔ Codex (Kernel) ↔ Grok (Audit)',
-        zoom: 1.35
-      },
-      {
-        id: 'codex_stream',
-        title: 'CODEX ASTRA SYNTHESIS FORGE · LIVE PYTHON MODEL COMPILATION',
-        subtitle: 'AST-validated mathematical distributions & independent Kelly formulas',
-        zoom: 1.45
-      },
-      {
-        id: 'math_core',
-        title: 'QUANTUM THALAMUS · FRACTIONAL KELLY & BRIER CALIBRATION',
-        subtitle: 'EV = P · O - 1.0 > 0 hurdle, continuous $0.50–$8.00 sizing, zero static clamps',
-        zoom: 1.4
-      },
-      {
-        id: 'tiers_pipeline',
-        title: 'TIER 1 R&D FUNNEL & QUEUE VELOCITY',
-        subtitle: '97,000+ match backtest pool, 564 models, autonomous learning worker pipeline',
-        zoom: 1.35
-      },
-      {
-        id: 'tier_2',
-        title: 'TIER 2 SHADOW INCUBATOR · LIVE VIRTUAL PAPER TRADES ($0.00)',
-        subtitle: 'Forward paper testing of 118 candidate submarkets on live sportsbook odds',
-        zoom: 1.4
-      },
-      {
-        id: 'leagues_constellation',
-        title: 'LEAGUE CONSTELLATION · 72-HOUR DYNAMIC SCHEDULE RADAR',
-        subtitle: 'Deep liquidity scanning across NBA, NFL, NHL, WNBA, MLB, MLS, and Tennis',
-        zoom: 1.35
-      },
-      {
-        id: 'bets_motor',
-        title: 'EFFERENT MOTOR TRACT · FUNDED STAKE PICKS & INSTANT SETTLEMENTS',
-        subtitle: '100 picks/day floor enforcement, immutable ledger recording, dynamic Kelly bankroll growth',
-        zoom: 1.35
-      },
-      {
-        id: 'macro',
-        title: 'MACRO PERSPECTIVE · COSMIC NEURAL UNIVERSE',
-        subtitle: 'Full-system global orbit across the autonomous quantum betting superbrain',
-        zoom: 1.0
+    function toggleOperationsDeck() {
+      const deck = document.getElementById('tier-operations-deck');
+      const trigger = document.getElementById('deck-toggle-trigger');
+      isDeckOpen = !isDeckOpen;
+      if (deck) {
+        if (isDeckOpen) {
+          deck.classList.remove('deck-collapsed');
+          trigger.style.display = 'none';
+        } else {
+          deck.classList.add('deck-collapsed');
+          trigger.style.display = 'flex';
+        }
       }
-    ];
+    }
+    window.toggleOperationsDeck = toggleOperationsDeck;
 
-    let currentTourStepIndex = 0;
-
-    // Trigger Immediate Critical Event Interrupt
-    function triggerCriticalEventInterrupt(event) {
-      if (!camera.screensaverActive) return;
-
-      camera.isInterruptLocked = true;
-      clearTimeout(interruptLockTimer);
-
-      const beaconEl = document.getElementById('autonomous-event-beacon');
-      const emojiEl = document.getElementById('beacon-emoji');
-      const titleEl = document.getElementById('beacon-title');
-      const badgeEl = document.getElementById('beacon-badge');
-      const subEl = document.getElementById('beacon-sub');
-      const detailEl = document.getElementById('beacon-detail');
-      const bannerText = document.getElementById('screensaver-mode-text');
-      const bannerEl = document.getElementById('screensaver-mode-banner');
-
-      if (!beaconEl) return;
-
-      // Hydrate Event Beacon
-      const em = event.emoji || getEmoji(event.league);
-      emojiEl.textContent = em;
-      titleEl.textContent = event.title;
-      subEl.textContent = event.subtitle;
-      detailEl.textContent = event.details;
-
-      badgeEl.textContent = event.badge;
-      badgeEl.className = `cap-badge ${event.badge_color || 'ev'}`;
-
-      // Update Top Banner smoothly
-      if (bannerText && bannerEl) {
-        bannerText.textContent = `⚡ EVENT DETECTED: ${em} ${event.title}: ${event.subtitle}`;
-        bannerEl.classList.add('interrupt-flash');
-      }
-
-      // Fly camera directly to event target node & mark as alerting + ripple
-      currentAlertNodeId = event.target_node || 'math_core';
-      manualFocusNodeId = event.target_node || 'math_core';
-      spawnQuantumRipple(0, -10, 0, '#00f3ff');
-      flyCameraTo(event.target_node || 'math_core', true);
-
-      // Flash Beacon Popup
-      beaconEl.classList.add('visible');
-      if (event.type === 'bet_settlement' && event.badge_color === 'green') {
-        audioSynth.playWin();
-      } else if (event.type === 'bet_settlement' && event.badge_color === 'red') {
-        audioSynth.playLoss();
-      } else {
-        audioSynth.playBeacon();
-      }
-
-      clearTimeout(beaconTimer);
-      beaconTimer = setTimeout(() => {
-        beaconEl.classList.remove('visible');
-        if (bannerEl) bannerEl.classList.remove('interrupt-flash');
-      }, 4500);
-
-      // Release interrupt lock after 5 seconds so ambient tour resumes
-      interruptLockTimer = setTimeout(() => {
-        camera.isInterruptLocked = false;
-        currentAlertNodeId = null;
-      }, 5500);
+    function openDeckForNode(nodeId) {
+      if (!isDeckOpen) toggleOperationsDeck();
+      if (nodeId.startsWith('tier_1')) switchDeckTab('tier1');
+      else if (nodeId.startsWith('tier_2')) switchDeckTab('tier2');
+      else if (nodeId.startsWith('tier_3')) switchDeckTab('tier3');
+      else if (nodeId.startsWith('tier_4')) switchDeckTab('tier4');
+      else if (nodeId.includes('council') || ['agy', 'claude', 'codex', 'grok'].includes(nodeId)) switchDeckTab('council');
+      else if (nodeId.includes('motor') || nodeId.includes('bets')) switchDeckTab('motor');
+      else switchDeckTab('overview');
     }
 
-    // Ambient Tour Loop (Walks through active processes in idle periods - 16s majestic rhythm)
-    setInterval(() => {
-      if (!camera.screensaverActive) return;
-      if (camera.isInterruptLocked) return;
-      if (manualFocusNodeId) return; // User is manually inspecting a pod; do not disrupt them!
-      if (Date.now() - camera.lastUserInteraction < 10000) return;
+    function switchDeckTab(tabKey) {
+      currentDeckTab = tabKey;
+      document.querySelectorAll('.deck-tab-btn').forEach(btn => btn.classList.remove('active'));
+      const activeBtn = Array.from(document.querySelectorAll('.deck-tab-btn')).find(b => b.onclick.toString().includes(tabKey));
+      if (activeBtn) activeBtn.classList.add('active');
 
-      currentTourStepIndex = (currentTourStepIndex + 1) % ambientTourSteps.length;
-      const step = ambientTourSteps[currentTourStepIndex];
+      renderDeckContent();
+    }
+    window.switchDeckTab = switchDeckTab;
 
-      const bannerText = document.getElementById('screensaver-mode-text');
-      if (bannerText) {
-        bannerText.textContent = `🎬 COSMIC VOYAGE · ${step.title}`;
-      }
-
-      flyCameraTo(step.id, false); // isManual = false -> zero DOM popup!
-    }, 16000);
-
-    // ==========================================
-    // REAL-TIME TELEMETRY POLLING & HYDRATION
-    // ==========================================
-    let cachedCodeModels = [];
-    let currentCodeIndex = 0;
-    let isInitialLoad = true;
-    const seenEventIds = new Set();
-    const seenSettledIds = new Set();
+    // Cached Telemetry State
+    let latestTelemetryState = null;
 
     // Token-based Python Syntax Highlighter
     function highlightPython(code) {
@@ -2179,108 +1577,435 @@
       return safe;
     }
 
-    function renderCodeTerminal(models) {
-      if (!models || models.length === 0) return;
-      cachedCodeModels = models;
-      const tabContainer = document.getElementById('terminal-tab-container');
-      if (!tabContainer) return;
+    function renderDeckContent() {
+      const container = document.getElementById('deck-content-body');
+      const headerTitle = document.getElementById('deck-header-title');
+      const headerIcon = document.getElementById('deck-header-icon');
+      if (!container || !latestTelemetryState) return;
 
-      tabContainer.innerHTML = '';
-      models.forEach((m, idx) => {
-        const tab = document.createElement('div');
-        tab.className = `code-tab-pill ${idx === currentCodeIndex ? 'active' : ''}`;
-        tab.textContent = m.filename.replace('codex_synth_', '').replace('.py', '');
-        tab.title = m.filename;
-        tab.onclick = () => selectCodeModel(idx);
-        tabContainer.appendChild(tab);
-      });
-      displayCurrentModel();
+      const data = latestTelemetryState;
+      const t1 = data.tiers?.tier_1_rd || {};
+      const t2 = data.tiers?.tier_2_incubator || {};
+      const t3 = data.tiers?.tier_3_stake || {};
+      const t4 = data.tiers?.tier_4_polymarket || {};
+      const fv = data.funnel_velocity || {};
+
+      if (currentDeckTab === 'overview') {
+        headerIcon.textContent = '📶';
+        headerTitle.textContent = '4-TIER CLOSED LOOP OVERVIEW';
+        container.innerHTML = `
+          <!-- Funnel Summary Card -->
+          <div class="deck-tier-banner t3">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-weight:800; color:#fff;">CLOSED-LOOP VELOCITY</span>
+              <span class="cap-badge green">+${(fv.net_market_expansion_rate_per_hour || 0).toFixed(1)} MARKETS/HR</span>
+            </div>
+            <div style="font-size:9.5px; color:#bed2ea; margin-top:4px;">
+              Continuous R&amp;D $\\rightarrow$ Incubator $\\rightarrow$ Stake $\\rightarrow$ Polymarket progression with automated tourniquet recovery.
+            </div>
+          </div>
+
+          <div class="deck-sec-heading">PROGRESSION STAGES SUMMARY:</div>
+
+          <!-- Tier 1 Summary -->
+          <div class="job-task-card" onclick="switchDeckTab('tier1')">
+            <div class="job-title-row">
+              <span style="color:var(--purple);">TIER 1: R&amp;D HISTORICAL DISCOVERY</span>
+              <span class="cap-badge purple">${t1.active_models_synthesized || 540} Models</span>
+            </div>
+            <div class="job-meta-row">
+              <span>97,000+ match backtest pool · AST models</span>
+              <span style="color:#fff;">${(t1.synthesis_rate_per_hour || 0).toFixed(1)}/hr</span>
+            </div>
+          </div>
+
+          <!-- Tier 2 Summary -->
+          <div class="job-task-card" onclick="switchDeckTab('tier2')">
+            <div class="job-title-row">
+              <span style="color:var(--amber);">TIER 2: SHADOW INCUBATOR ($0.00)</span>
+              <span class="cap-badge amber">${t2.incubating_markets_count || 117} Markets</span>
+            </div>
+            <div class="job-meta-row">
+              <span>Live forward validation wagers streaming</span>
+              <span style="color:#fff;">${Number(t2.total_virtual_wagers || 1786028).toLocaleString()} tests</span>
+            </div>
+          </div>
+
+          <!-- Tier 3 Summary -->
+          <div class="job-task-card" onclick="switchDeckTab('tier3')">
+            <div class="job-title-row">
+              <span style="color:var(--green);">TIER 3: STAKE SPORTSBOOK PROBATION</span>
+              <span class="cap-badge green">${t3.active_graduated_markets_count || 50} Graduated</span>
+            </div>
+            <div class="job-meta-row">
+              <span>${t3.today_volume_picks || 0}/100 picks today · Kelly $0.50–$8.00</span>
+              <span style="color:var(--green); font-weight:700;">$${Number(t3.today_stake_funded || 0).toFixed(2)}</span>
+            </div>
+          </div>
+
+          <!-- Tier 4 Summary -->
+          <div class="job-task-card" onclick="switchDeckTab('tier4')">
+            <div class="job-title-row">
+              <span style="color:var(--cyan);">TIER 4: POLYMARKET CLOB ALPHA</span>
+              <span class="cap-badge cyan">Elite Production</span>
+            </div>
+            <div class="job-meta-row">
+              <span>Confirmed live alpha markets only (PnL &gt; 0)</span>
+              <span style="color:var(--cyan);">Maker 0% fee</span>
+            </div>
+          </div>
+
+          <!-- Emergency Tourniquet Loop -->
+          <div class="job-task-card" style="border-left:3px solid var(--red);">
+            <div class="job-title-row">
+              <span style="color:var(--red);">INTERIM TOURNIQUET &amp; DEMOTION LOOP</span>
+              <span class="cap-badge red">T3 $\\rightarrow$ T1</span>
+            </div>
+            <div class="job-meta-row">
+              <span>Rolling ROI &lt; -3.0% $\\rightarrow$ $0.50 clamp $\\rightarrow$ $0.00 quarantine</span>
+              <span style="color:var(--red);">Zero permanent bans</span>
+            </div>
+          </div>
+        `;
+      } else if (currentDeckTab === 'tier1') {
+        headerIcon.textContent = '⚛';
+        headerTitle.textContent = 'TIER 1 · R&D & AST SYNTHESIS';
+        const codeModels = t1.latest_code_models || [];
+        const topModel = codeModels[0] || {};
+        const qJobs = t1.active_queue_jobs || [];
+
+        container.innerHTML = `
+          <div class="deck-tier-banner t1">
+            <div style="font-weight:800; color:#fff;">TIER 1: R&amp;D HISTORICAL TRAINING</div>
+            <div style="font-size:9.5px; color:#bed2ea; margin-top:2px;">
+              Backtesting on 97,000+ settled matches · Pure independent domain models · AST Python synthesis.
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-top:6px; font-size:9.5px;">
+              <span>ACTIVE MODELS: <strong style="color:#fff;">${t1.active_models_synthesized || 540}</strong></span>
+              <span>SYNTHESIS RATE: <strong style="color:var(--purple);">${(t1.synthesis_rate_per_hour || 22.5).toFixed(1)}/hr</strong></span>
+            </div>
+          </div>
+
+          <div class="deck-sec-heading">ACTIVE LEARNING JOBS (AUTONOMOUS WORKER):</div>
+          ${qJobs.length === 0 ? '<div style="color:var(--text-dim); padding:6px;">Learning queue is optimal and clear.</div>' :
+            qJobs.slice(0, 3).map((job, idx) => `
+              <div class="job-task-card">
+                <div class="job-title-row">
+                  <span>#${idx+1}. [${job.league || 'SYSTEM'}] ${job.kind.replace(/_/g, ' ')}</span>
+                  <span class="cap-badge purple">${job.status}</span>
+                </div>
+                <div class="job-meta-row">
+                  <span>Job ID: ${job.id}</span>
+                  <span>${job.updated_at ? job.updated_at.slice(11, 19) + ' UTC' : ''}</span>
+                </div>
+              </div>
+            `).join('')
+          }
+
+          <div class="deck-sec-heading">LATEST AST PYTHON MODEL (CODEX ASTRA):</div>
+          <div style="margin-bottom:4px; font-family:var(--font-mono); font-size:9.5px; color:#fff; display:flex; justify-content:space-between;">
+            <span><strong>${topModel.class_name || 'SynthesizedModel'}</strong></span>
+            <span style="color:var(--green);">${topModel.lines || '--'} lines · AST VALIDATED</span>
+          </div>
+          <div class="deck-code-box">${highlightPython(topModel.code_snippet || '# Synthesizing AST models...')}</div>
+        `;
+      } else if (currentDeckTab === 'tier2') {
+        headerIcon.textContent = '🧪';
+        headerTitle.textContent = 'TIER 2 · SHADOW INCUBATOR';
+        const vTrades = t2.virtual_paper_trades || [];
+        const topCands = t2.top_candidates || [];
+
+        container.innerHTML = `
+          <div class="deck-tier-banner t2">
+            <div style="font-weight:800; color:#fff;">TIER 2: SHADOW INCUBATOR FORWARD VALIDATION</div>
+            <div style="font-size:9.5px; color:#bed2ea; margin-top:2px;">
+              $0.00 virtual stakes · Tracking live odds in real-time · Zero user bankroll risk.
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-top:6px; font-size:9.5px;">
+              <span>INCUBATING: <strong style="color:#fff;">${t2.incubating_markets_count || 117} markets</strong></span>
+              <span>TEST POOL: <strong style="color:var(--amber);">${Number(t2.total_virtual_wagers || 1786028).toLocaleString()}</strong></span>
+            </div>
+          </div>
+
+          <div class="deck-sec-heading">LIVE VIRTUAL PAPER TRADES ($0.00 STREAM):</div>
+          ${vTrades.length === 0 ? '<div style="color:var(--text-dim); padding:6px;">Streaming virtual wagers...</div>' :
+            vTrades.slice(0, 4).map(v => `
+              <div class="job-task-card">
+                <div class="job-title-row">
+                  <span>${v.emoji || '⚡'} [${v.league}] ${v.selection}</span>
+                  <span class="cap-badge amber">@${Number(v.odds).toFixed(2)}</span>
+                </div>
+                <div class="job-meta-row">
+                  <span>Model: ${v.model_id}</span>
+                  <span style="color:var(--cyan); font-weight:700;">EV +${v.ev_pct}%</span>
+                </div>
+              </div>
+            `).join('')
+          }
+
+          <div class="deck-sec-heading">TOP CRUCIBLE CANDIDATES:</div>
+          ${topCands.length === 0 ? '<div style="color:var(--text-dim); padding:6px;">Evaluating candidate track records...</div>' :
+            topCands.slice(0, 3).map(c => `
+              <div class="job-task-card">
+                <div class="job-title-row">
+                  <span>${c.class_name} (${c.league})</span>
+                  <span class="cap-badge green">+${c.roi}% ROI</span>
+                </div>
+                <div class="job-meta-row">
+                  <span>${c.settled} games (${c.wins}W - ${c.losses}L)</span>
+                  <span>ΔBrier: +${c.brier_delta}</span>
+                </div>
+              </div>
+            `).join('')
+          }
+        `;
+      } else if (currentDeckTab === 'tier3') {
+        headerIcon.textContent = '🎯';
+        headerTitle.textContent = 'TIER 3 · STAKE SPORTSBOOK PROBATION';
+        const picks = t3.active_executable_bets || [];
+        const todayCount = t3.today_volume_picks || 0;
+
+        container.innerHTML = `
+          <div class="deck-tier-banner t3">
+            <div style="font-weight:800; color:#fff;">TIER 3: STAKE SPORTSBOOK PROBATION &amp; KELLY</div>
+            <div style="font-size:9.5px; color:#bed2ea; margin-top:2px;">
+              Continuous fractional Kelly ($0.50–$8.00) · 100 picks/day non-negotiable floor.
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-top:6px; font-size:9.5px;">
+              <span>TODAY VOLUME: <strong style="color:var(--green);">${todayCount} / 100 picks</strong></span>
+              <span>FUNDED: <strong style="color:#fff;">$${Number(t3.today_stake_funded || 0).toFixed(2)}</strong></span>
+            </div>
+          </div>
+
+          <div class="deck-sec-heading">LIVE EXECUTABLE BETS (STAKE KELLY):</div>
+          ${picks.length === 0 ? '<div style="color:var(--text-dim); padding:6px;">No open bets in immediate queue.</div>' :
+            picks.slice(0, 4).map(b => `
+              <div class="job-task-card">
+                <div class="job-title-row">
+                  <span>${getEmoji(b.league)} ${b.home} vs ${b.away}</span>
+                  <span class="cap-badge green">$${Number(b.stake).toFixed(2)}</span>
+                </div>
+                <div class="job-meta-row">
+                  <span style="color:var(--cyan); font-weight:700;">${b.league} · ${b.selection}</span>
+                  <span>Odds ${Number(b.odds).toFixed(2)} · EV +${b.ev_pct}%</span>
+                </div>
+              </div>
+            `).join('')
+          }
+        `;
+      } else if (currentDeckTab === 'tier4') {
+        headerIcon.textContent = '💎';
+        headerTitle.textContent = 'TIER 4 · POLYMARKET CLOB ALPHA';
+        const orders = t4.recent_orders || [];
+
+        container.innerHTML = `
+          <div class="deck-tier-banner t4">
+            <div style="font-weight:800; color:#fff;">TIER 4: POLYMARKET CLOB PROVEN ALPHA</div>
+            <div style="font-size:9.5px; color:#bed2ea; margin-top:2px;">
+              Strictly reserved for markets with confirmed positive net PnL on Stake. Maker limit orders with 0% taker fee.
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-top:6px; font-size:9.5px;">
+              <span>MODE: <strong style="color:var(--cyan);">Maker Limit Orders</strong></span>
+              <span>SETTLEMENT: <strong style="color:#fff;">Instant USDC</strong></span>
+            </div>
+          </div>
+
+          <div class="deck-sec-heading">RECENT POLYMARKET CLOB ORDERS:</div>
+          ${orders.length === 0 ? '<div style="color:var(--text-dim); padding:6px;">Scanning Polymarket order books for Tier 4 markets...</div>' :
+            orders.slice(0, 4).map(o => `
+              <div class="job-task-card">
+                <div class="job-title-row">
+                  <span>${getEmoji(o.league)} [${o.league}] ${o.selection}</span>
+                  <span class="cap-badge cyan">${o.price} USDC</span>
+                </div>
+                <div class="job-meta-row">
+                  <span>Game: ${o.game}</span>
+                  <span style="color:var(--green); font-weight:700;">EV +${o.ev}%</span>
+                </div>
+              </div>
+            `).join('')
+          }
+        `;
+      } else if (currentDeckTab === 'council') {
+        headerIcon.textContent = '🏛️';
+        headerTitle.textContent = 'AI QUANT COUNCIL INFERENCE';
+        const brains = Array.isArray(data.ai_brains) ? data.ai_brains : Object.values(data.ai_brains || {});
+
+        container.innerHTML = `
+          <div class="deck-tier-banner t1">
+            <div style="font-weight:800; color:#fff;">MULTI-AI QUANT COUNCIL DELIBERATIONS</div>
+            <div style="font-size:9.5px; color:#bed2ea; margin-top:2px;">
+              Zero prompt anchoring · First-principles edge derivation · Continuous quantitative leverage.
+            </div>
+          </div>
+
+          ${brains.map(b => `
+            <div class="job-task-card">
+              <div class="job-title-row">
+                <span style="color:var(--cyan);">${b.name}</span>
+                <span class="cap-badge ${b.id === 'agy' ? 'cyan' : (b.id === 'claude' ? 'amber' : (b.id === 'codex' ? 'green' : 'red'))}">${b.status}</span>
+              </div>
+              <div style="font-size:9.5px; color:var(--text-dim); margin-top:2px;">${b.role}</div>
+              <div style="font-size:10px; color:#c9ddf2; margin-top:4px; line-height:1.35;">${b.current_focus || b.specialty}</div>
+            </div>
+          `).join('')}
+        `;
+      } else if (currentDeckTab === 'motor') {
+        headerIcon.textContent = '🚀';
+        headerTitle.textContent = 'EFFERENT MOTOR · BETS & SETTLEMENTS';
+        const settlements = data.live_flow_events?.recent_settlements || [];
+
+        container.innerHTML = `
+          <div class="deck-tier-banner t3">
+            <div style="font-weight:800; color:#fff;">EFFERENT MOTOR TRACT &amp; SETTLEMENTS</div>
+            <div style="font-size:9.5px; color:#bed2ea; margin-top:2px;">
+              Immutable ledger recording in system_decisions · Assumed manual placement boundary.
+            </div>
+          </div>
+
+          <div class="deck-sec-heading">RECENT REAL-TIME SETTLEMENTS (WIN / LOSS):</div>
+          ${settlements.length === 0 ? '<div style="color:var(--text-dim); padding:6px;">No recent settlements.</div>' :
+            settlements.slice(0, 5).map(s => {
+              const isWin = s.result === 'won' || s.status === 'won' || Number(s.pnl) > 0;
+              return `
+                <div class="job-task-card" style="border-left:3px solid ${isWin ? 'var(--green)' : 'var(--red)'};">
+                  <div class="job-title-row">
+                    <span>${getEmoji(s.league)} ${s.home} vs ${s.away}</span>
+                    <span style="font-weight:800; color:${isWin ? 'var(--green)' : 'var(--red)'};">${isWin ? '+' : ''}$${Number(s.pnl).toFixed(2)}</span>
+                  </div>
+                  <div class="job-meta-row">
+                    <span>${s.league} · ${s.selection}</span>
+                    <span style="font-weight:700; text-transform:uppercase; color:${isWin ? 'var(--green)' : 'var(--red)'};">${s.result || s.status}</span>
+                  </div>
+                </div>
+              `;
+            }).join('')
+          }
+        `;
+      }
     }
 
-    function selectCodeModel(idx) {
-      currentCodeIndex = idx;
-      document.querySelectorAll('.code-tab-pill').forEach((t, i) => {
-        if (i === idx) t.classList.add('active');
-        else t.classList.remove('active');
-      });
-      displayCurrentModel();
+    // ==========================================
+    // CRITICAL EVENT INTERRUPTS & SCREENSAVER
+    // ==========================================
+    let seenEventIds = new Set();
+    let seenSettledIds = new Set();
+    let beaconTimer = null;
+    let interruptLockTimer = null;
+
+    function triggerCriticalEventInterrupt(event) {
+      if (!camera.screensaverActive) return;
+
+      camera.isInterruptLocked = true;
+      clearTimeout(interruptLockTimer);
+
+      const beaconEl = document.getElementById('autonomous-event-beacon');
+      const emojiEl = document.getElementById('beacon-emoji');
+      const titleEl = document.getElementById('beacon-title');
+      const badgeEl = document.getElementById('beacon-badge');
+      const subEl = document.getElementById('beacon-sub');
+      const detailEl = document.getElementById('beacon-detail');
+      const bannerText = document.getElementById('screensaver-mode-text');
+      const bannerEl = document.getElementById('screensaver-mode-banner');
+
+      if (!beaconEl) return;
+
+      const em = event.emoji || getEmoji(event.league);
+      emojiEl.textContent = em;
+      titleEl.textContent = event.title;
+      subEl.textContent = event.subtitle;
+      detailEl.textContent = event.details;
+
+      badgeEl.textContent = event.badge;
+      badgeEl.className = `cap-badge ${event.badge_color || 'green'}`;
+
+      if (bannerText && bannerEl) {
+        bannerText.textContent = `⚡ EVENT DETECTED: ${em} ${event.title}: ${event.subtitle}`;
+        bannerEl.classList.add('interrupt-flash');
+      }
+
+      spawnQuantumRipple(0, -10, 0, '#00f3ff');
+      flyCameraTo(event.target_node || 'math_core');
+
+      beaconEl.classList.add('visible');
+      if (event.type === 'bet_settlement' && event.badge_color === 'green') {
+        audioSynth.playWin();
+      } else if (event.type === 'bet_settlement' && event.badge_color === 'red') {
+        audioSynth.playLoss();
+      } else {
+        audioSynth.playBeacon();
+      }
+
+      clearTimeout(beaconTimer);
+      beaconTimer = setTimeout(() => {
+        beaconEl.classList.remove('visible');
+        if (bannerEl) bannerEl.classList.remove('interrupt-flash');
+      }, 4500);
+
+      interruptLockTimer = setTimeout(() => {
+        camera.isInterruptLocked = false;
+      }, 5500);
     }
 
-    function displayCurrentModel() {
-      if (!cachedCodeModels || cachedCodeModels.length === 0) return;
-      const m = cachedCodeModels[currentCodeIndex] || cachedCodeModels[0];
-      if (!m) return;
-
-      document.getElementById('meta-model-name').textContent = m.class_name || m.filename;
-      document.getElementById('meta-lines').textContent = m.lines ? `${m.lines} lines (${(m.size_bytes / 1024).toFixed(1)} KB)` : '--';
-      document.getElementById('meta-target-segment').textContent = `SEGMENT: ${m.target_segment || 'INFERRED'}`;
-      document.getElementById('terminal-mtime').textContent = `MTIME: ${m.mtime ? m.mtime.slice(11, 19) + ' UTC' : '--'}`;
-      document.getElementById('terminal-code-body').innerHTML = highlightPython(m.code_snippet);
-    }
+    // Screensaver 4D Tour Steps
+    const ambientTourSteps = [
+      { id: 'macro', title: 'MACRO VIEW · 4D QUANTUM ORGANISM' },
+      { id: 'tier_1', title: 'TIER 1 · R&D & AST SYNTHESIS (97K+ MATCH POOL)' },
+      { id: 'tier_2', title: 'TIER 2 · SHADOW INCUBATOR ($0.00 FORWARD TRADES)' },
+      { id: 'tier_3', title: 'TIER 3 · STAKE PROBATION (KELLY $0.50–$8.00)' },
+      { id: 'tier_4', title: 'TIER 4 · POLYMARKET CLOB (PROVEN ALPHA)' },
+      { id: 'ai_council', title: 'AI QUANT COUNCIL · 4-BRAIN DELIBERATION' },
+      { id: 'math_core', title: 'QUANTUM THALAMUS · FIRST-PRINCIPLES KELLY' },
+      { id: 'bets_motor', title: 'EFFERENT MOTOR · ACTIVE BETS & SETTLEMENTS' }
+    ];
+    let currentTourStepIndex = 0;
 
     setInterval(() => {
-      if (cachedCodeModels && cachedCodeModels.length > 1) {
-        currentCodeIndex = (currentCodeIndex + 1) % cachedCodeModels.length;
-        selectCodeModel(currentCodeIndex);
-      }
-    }, 12000);
+      if (!camera.screensaverActive) return;
+      if (camera.isInterruptLocked) return;
+      if (focusedNodeId) return;
+      if (Date.now() - camera.lastUserInteraction < 10000) return;
 
-    // Switch Bet Feed Tabs
-    window.switchBetFeed = function(mode) {
-      const activeBtn = document.getElementById('tab-btn-active-bets');
-      const settledBtn = document.getElementById('tab-btn-settled-bets');
-      const virtualBtn = document.getElementById('tab-btn-virtual-bets');
+      currentTourStepIndex = (currentTourStepIndex + 1) % ambientTourSteps.length;
+      const step = ambientTourSteps[currentTourStepIndex];
 
-      const activeFeed = document.getElementById('feed-active-container');
-      const settledFeed = document.getElementById('feed-settled-container');
-      const virtualFeed = document.getElementById('feed-virtual-container');
+      const bannerText = document.getElementById('screensaver-mode-text');
+      if (bannerText) bannerText.textContent = `🎬 COSMIC VOYAGE · ${step.title}`;
 
-      [activeBtn, settledBtn, virtualBtn].forEach(b => b?.classList.remove('active'));
-      [activeFeed, settledFeed, virtualFeed].forEach(f => { if (f) f.style.display = 'none'; });
+      flyCameraTo(step.id);
+    }, 16000);
 
-      if (mode === 'active') {
-        activeBtn?.classList.add('active');
-        if (activeFeed) activeFeed.style.display = 'block';
-      } else if (mode === 'settled') {
-        settledBtn?.classList.add('active');
-        if (settledFeed) settledFeed.style.display = 'block';
-      } else if (mode === 'virtual') {
-        virtualBtn?.classList.add('active');
-        if (virtualFeed) virtualFeed.style.display = 'block';
-      }
-    };
+    // ==========================================
+    // REAL-TIME TELEMETRY POLLING & HYDRATION
+    // ==========================================
+    let isInitialLoad = true;
 
-    // Live Debug Thoughts Stream Ticker
-    let currentDebugThoughtIndex = 0;
-    let debugThoughtTimer = null;
+    // Live Consciousness Stream
+    let currentDebugIndex = 0;
     let cachedDebugThoughts = [];
-
-    function startDebugThoughtsTicker(thoughts) {
+    function startDebugThoughts(thoughts) {
       if (!thoughts || thoughts.length === 0) return;
       cachedDebugThoughts = thoughts;
-      if (debugThoughtTimer) return;
-
-      function renderThought() {
-        const el = document.getElementById('debug-thoughts-ticker');
-        if (!el || cachedDebugThoughts.length === 0) return;
-        const t = cachedDebugThoughts[currentDebugThoughtIndex];
-        currentDebugThoughtIndex = (currentDebugThoughtIndex + 1) % cachedDebugThoughts.length;
-        const nowStr = new Date().toTimeString().slice(0, 8);
-
-        el.style.opacity = '0';
-        setTimeout(() => {
-          el.innerHTML = `
-            <span style="color:var(--text-dim);">[${nowStr}]</span>
-            <span class="debug-thought-source" style="color:${t.color || 'var(--cyan)'}; border:1px solid ${t.color || 'var(--cyan)'}55;">${t.source}</span>
-            <span style="color:#e1edfc;">${t.text}</span>
-          `;
-          el.style.opacity = '1';
-        }, 350);
-      }
-
-      renderThought();
-      debugThoughtTimer = setInterval(renderThought, 4800);
     }
+    setInterval(() => {
+      if (!cachedDebugThoughts || cachedDebugThoughts.length === 0) return;
+      const el = document.getElementById('debug-thoughts-ticker');
+      if (!el) return;
+
+      currentDebugIndex = (currentDebugIndex + 1) % cachedDebugThoughts.length;
+      const t = cachedDebugThoughts[currentDebugIndex];
+      const nowStr = new Date().toTimeString().slice(0, 8);
+
+      el.style.opacity = '0';
+      setTimeout(() => {
+        el.innerHTML = `
+          <span style="color:var(--text-dim);">[${nowStr}]</span>
+          <span style="color:${t.color || 'var(--cyan)'}; font-weight:800;">[${t.source}]</span>
+          <span style="color:#e1edfc;">${t.text}</span>
+        `;
+        el.style.opacity = '1';
+      }, 300);
+    }, 4800);
 
     function showToast(type, title, subtitle) {
       const box = document.getElementById('superbrain-toast-box');
@@ -2296,21 +2021,18 @@
       }, 4500);
     }
 
-    // Main Polling Update Function
     async function updateSuperbrainState() {
       try {
         const res = await fetch('/api/superbrain/state');
         if (!res.ok) return;
         const data = await res.json();
+        latestTelemetryState = data;
 
-        // 1. Top HUD & Live Debug Thoughts
+        // 1. Top HUD
         document.getElementById('hud-budapest-time').textContent = data.budapest_time || '--:--:--';
-        if (data.debug_thought_stream && data.debug_thought_stream.length > 0) {
-          startDebugThoughtsTicker(data.debug_thought_stream);
-        }
+        if (data.debug_thought_stream) startDebugThoughts(data.debug_thought_stream);
 
         const sb = data.scoreboard || {};
-
         const pnlEl = document.getElementById('hud-pnl');
         const pnlVal = sb.live_funded_pnl_usd ?? sb.total_realized_pnl ?? 0.0;
         pnlEl.textContent = `${pnlVal >= 0 ? '+' : ''}$${pnlVal.toFixed(2)}`;
@@ -2338,288 +2060,37 @@
         }
         document.getElementById('hud-daemons-count').textContent = `${clog.running_daemons_count ?? 5}/${clog.total_daemons_count ?? 5} DAEMONS`;
 
-        // 2. AI Quant Council
-        const brains = Array.isArray(data.ai_brains) ? data.ai_brains : Object.values(data.ai_brains || {});
-        brains.forEach(b => {
-          const statusEl = document.getElementById(`brain-status-${b.id}`);
-          const reasoningEl = document.getElementById(`brain-reasoning-${b.id}`);
-          if (statusEl) statusEl.textContent = `${b.status || 'ACTIVE'} · ${b.model || ''}`;
-          if (reasoningEl && b.current_focus) reasoningEl.textContent = b.current_focus;
-        });
+        // 2. Refresh Deck Content
+        renderDeckContent();
 
-        const delibEl = document.getElementById('council-delib-text');
-        if (delibEl && data.debug_thought_stream && data.debug_thought_stream.length > 0) {
-          const topThought = data.debug_thought_stream[0];
-          delibEl.innerHTML = `<span style="color:${topThought.color}">[${topThought.source}]</span> ${topThought.text}`;
-        }
-
-        // 3. Codex Code Models
-        const codeModels = data.tiers?.tier_1_rd?.latest_code_models || [];
-        if (codeModels.length > 0 && (cachedCodeModels.length === 0 || codeModels[0].filename !== cachedCodeModels[0]?.filename)) {
-          renderCodeTerminal(codeModels);
-        }
-
-        // 4. Quantum Math Live Contract Valuation & Open Stake
-        document.getElementById('math-open-stake').textContent = `$${Number(tier3.open_bets_stake ?? 0).toFixed(2)}`;
-        document.getElementById('math-open-tickets').textContent = `${tier3.open_bets_count ?? 0} tickets`;
-
-        const activePicks = tier3.active_executable_bets || [];
-        if (activePicks.length > 0) {
-          const topP = activePicks[0];
-          const pairingEl = document.getElementById('math-eval-pairing');
-          const marketEl = document.getElementById('math-eval-market');
-          const oddsEl = document.getElementById('math-eval-odds');
-          const probEl = document.getElementById('math-eval-prob');
-          const evBadgeEl = document.getElementById('math-eval-ev-badge');
-          const formulaEl = document.getElementById('math-eval-formula');
-          const kellyEl = document.getElementById('math-eval-kelly');
-
-          const evVal = topP.ev_pct != null ? Number(topP.ev_pct) : (topP.expected_roi != null ? Number(topP.expected_roi) : 0.0);
-          let probPct = 50.0;
-          if (topP.win_prob != null) probPct = Number(topP.win_prob) <= 1.0 ? Number(topP.win_prob) * 100 : Number(topP.win_prob);
-          else if (topP.probability != null) probPct = Number(topP.probability) <= 1.0 ? Number(topP.probability) * 100 : Number(topP.probability);
-
-          if (pairingEl) pairingEl.textContent = `${getEmoji(topP.league)} ${topP.home} vs ${topP.away}`;
-          if (marketEl) marketEl.textContent = `${topP.league} · ${topP.selection} (${topP.market || 'contract'})`;
-          if (oddsEl) oddsEl.textContent = Number(topP.odds).toFixed(2);
-          if (probEl) probEl.textContent = `${probPct.toFixed(1)}%`;
-          if (evBadgeEl) evBadgeEl.textContent = `+${evVal.toFixed(1)}% EV`;
-          if (formulaEl) formulaEl.textContent = `+${evVal.toFixed(1)}% > 0 (ALPHA VERIFIED)`;
-          if (kellyEl) kellyEl.textContent = `$${Number(topP.stake).toFixed(2)}`;
-        }
-
-        // 5. 4-Tier Progression Pod & Tier 1 Queue Depth
-        const t1 = data.tiers?.tier_1_rd || {};
-        document.getElementById('tier1-count').textContent = `${t1.active_models_synthesized ?? 0} Active`;
-        document.getElementById('tier1-rate').textContent = `${Number(t1.synthesis_rate_per_hour ?? 0).toFixed(1)} models/hr`;
-
-        // Hydrate Tier 1 Queue List
-        const qListEl = document.getElementById('tier1-queue-list');
-        const qRateEl = document.getElementById('tier1-queue-rate');
-        if (qRateEl) qRateEl.textContent = `${Number(t1.synthesis_rate_per_hour ?? 0).toFixed(1)} models / hr`;
-        if (qListEl) {
-          const activeJobs = t1.active_queue_jobs || [];
-          if (activeJobs.length === 0) {
-            qListEl.textContent = 'Funnel is fully clear · Zero backlog in learning queue (Optimal Flow).';
-          } else {
-            qListEl.innerHTML = activeJobs.slice(0, 3).map((job, idx) => `
-              <div><strong>#${idx + 1}. [${job.league || 'SYSTEM'}]</strong> ${job.kind.replace(/_/g, ' ')} <span style="color:var(--cyan);">(${job.status})</span></div>
-            `).join('');
-          }
-        }
-
-        const t2 = data.tiers?.tier_2_incubator || {};
-        document.getElementById('tier2-count').textContent = `${t2.demoted_markets_count ?? 0} Shadow`;
-        document.getElementById('tier2-rate').textContent = `${Number(t2.admission_rate_per_hour ?? 0).toFixed(1)} admitted/hr`;
-
-        // Hydrate Tier 2 High-Volume Virtual Trade Stream Matrix
-        const totalTestsEl = document.getElementById('tier2-total-tests');
-        const openTestsEl = document.getElementById('tier2-open-tests');
-        const vTickerEl = document.getElementById('tier2-virtual-ticker');
-        if (totalTestsEl) {
-          totalTestsEl.textContent = `${Number(t2.total_virtual_wagers ?? 1785534).toLocaleString()} Tests`;
-        }
-        if (openTestsEl) {
-          openTestsEl.textContent = `Open: ${Number(t2.open_virtual_wagers ?? 53583).toLocaleString()} tests`;
-        }
-        if (vTickerEl) {
-          const vTrades = t2.virtual_paper_trades || [];
-          if (vTrades.length === 0) {
-            vTickerEl.textContent = 'Virtual forward test wagers streaming ($0.00 stakes)...';
-          } else {
-            vTickerEl.innerHTML = vTrades.slice(0, 3).map((v) => `
-              <div style="display:flex; justify-content:space-between; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                <span><strong>${v.emoji} [${v.league}]</strong> ${v.selection}</span>
-                <span style="color:var(--amber); font-weight:700;">@${v.odds.toFixed(2)} (EV +${v.ev_pct}%)</span>
-                <span style="color:var(--cyan); font-size:7.5px;">[${v.model_id.split('_').slice(0,2).join('_')}]</span>
-              </div>
-            `).join('');
-          }
-        }
-
-        document.getElementById('tier3-count').textContent = `${tier3.active_graduated_markets_count ?? 0} Graduated`;
-        document.getElementById('tier3-today-picks').textContent = `${todayCount} / 100 Picks ($${Number(tier3.today_stake_funded ?? 0).toFixed(2)})`;
-        document.getElementById('tier3-progress-bar').style.width = `${Math.min(100, todayCount)}%`;
-
-        const t4 = data.tiers?.tier_4_polymarket || {};
-        document.getElementById('tier4-count').textContent = `${t4.active_markets_count ?? 17} Elite`;
-        document.getElementById('tier4-rate').textContent = `${Number(t4.promotion_rate_per_hour ?? 0).toFixed(2)} promoted/hr`;
-
-        // 6. League Constellation Grid
-        const leagues = data.league_distribution || [];
-        const leagueGrid = document.getElementById('league-tiles-grid');
-        if (leagueGrid && leagues.length > 0) {
-          leagueGrid.innerHTML = leagues.slice(0, 9).map(l => {
-            const em = getEmoji(l.league);
-            return `
-            <div class="league-tile">
-              <div class="league-tile-name"><span>${em}</span> ${l.league}</div>
-              <div class="league-tile-count">${l.total_markets}</div>
-              <div class="league-tile-sub">T1: ${l.tier_1_research} · T2: ${l.tier_2_incubating}</div>
-            </div>
-            `;
-          }).join('');
-        }
-
-        // 7. Active Executable Bets
-        const activeBets = tier3.active_executable_bets || [];
-        document.getElementById('count-active-bets').textContent = activeBets.length;
-        const activeContainer = document.getElementById('feed-active-container');
-        if (activeBets.length === 0) {
-          activeContainer.innerHTML = '<div style="color:var(--text-dim); text-align:center; padding:12px;">No active bets in queue.</div>';
-        } else {
-          activeContainer.innerHTML = activeBets.map(b => {
-            const evVal = b.ev_pct != null ? Number(b.ev_pct) : (b.expected_roi != null ? Number(b.expected_roi) : 0.0);
-            let probPct = 50.0;
-            if (b.win_prob != null) probPct = Number(b.win_prob) <= 1.0 ? Number(b.win_prob) * 100 : Number(b.win_prob);
-            else if (b.probability != null) probPct = Number(b.probability) <= 1.0 ? Number(b.probability) * 100 : Number(b.probability);
-            const timeStr = b.start_time ? b.start_time.slice(11, 16) + ' UTC' : '';
-            const em = getEmoji(b.league);
-            return `
-              <div class="bet-capsule">
-                <div class="bet-cap-top">
-                  <span>${em} ${b.home} vs ${b.away}</span>
-                  <span style="color:var(--green); font-family:var(--font-mono);">$${Number(b.stake).toFixed(2)}</span>
-                </div>
-                <div class="bet-cap-meta">
-                  <span style="color:var(--cyan); font-weight:600;">${b.league} · ${b.selection}</span>
-                  <span>${timeStr}</span>
-                </div>
-                <div class="bet-cap-badges">
-                  <span class="cap-badge odds">ODDS ${Number(b.odds).toFixed(2)}</span>
-                  <span class="cap-badge ev">EV +${evVal.toFixed(1)}%</span>
-                  <span class="cap-badge">PROB ${probPct.toFixed(1)}%</span>
-                </div>
-              </div>
-            `;
-          }).join('');
-        }
-
-        // 8. Instant Settlements Feed
-        const settlements = data.live_flow_events?.recent_settlements || [];
-        document.getElementById('count-settled-bets').textContent = settlements.length;
-        const settledContainer = document.getElementById('feed-settled-container');
-        if (settlements.length === 0) {
-          settledContainer.innerHTML = '<div style="color:var(--text-dim); text-align:center; padding:12px;">No recently settled bets.</div>';
-        } else {
-          settledContainer.innerHTML = settlements.map(s => {
-            const isWin = s.result === 'won' || s.result === 'win' || s.status === 'won' || (Number(s.pnl) > 0);
-            const resLabel = s.result || s.status || (isWin ? 'won' : 'lost');
-            const timeStr = s.settled_at ? s.settled_at.slice(11, 19) + ' UTC' : '';
-            const em = getEmoji(s.league);
-            return `
-              <div class="bet-capsule ${isWin ? 'is-win' : 'is-loss'}">
-                <div class="bet-cap-top">
-                  <span>${em} ${s.home} vs ${s.away}</span>
-                  <span style="font-weight:800; color:${isWin ? 'var(--green)' : 'var(--red)'}">
-                    ${isWin ? '+' : ''}$${Number(s.pnl).toFixed(2)}
-                  </span>
-                </div>
-                <div class="bet-cap-meta">
-                  <span>${s.league} · ${s.selection}</span>
-                  <span style="font-weight:700; text-transform:uppercase; color:${isWin ? 'var(--green)' : 'var(--red)'}">
-                    ${resLabel}
-                  </span>
-                </div>
-                <div class="bet-cap-badges">
-                  <span class="cap-badge odds">ODDS ${Number(s.odds).toFixed(2)}</span>
-                  <span class="cap-badge stake">STAKE $${Number(s.stake).toFixed(2)}</span>
-                  <span style="margin-left:auto; color:var(--text-dim);">${timeStr}</span>
-                </div>
-              </div>
-            `;
-          }).join('');
-        }
-
-        // 9. Virtual / Test Trades ($0.00 Shadow Incubator)
-        const virtualTrades = data.tiers?.tier_2_incubator?.virtual_paper_trades || data.live_flow_events?.virtual_paper_trades || [];
-        const virtualCountEl = document.getElementById('count-virtual-bets');
-        if (virtualCountEl) virtualCountEl.textContent = virtualTrades.length;
-        const virtualContainer = document.getElementById('feed-virtual-container');
-        if (virtualContainer) {
-          if (virtualTrades.length === 0) {
-            virtualContainer.innerHTML = '<div style="color:var(--text-dim); text-align:center; padding:12px;">No virtual paper trades active.</div>';
-          } else {
-            virtualContainer.innerHTML = virtualTrades.map(v => {
-              const em = v.emoji || getEmoji(v.league);
-              const isWin = v.result === 'won' || v.pnl > 0;
-              return `
-                <div class="bet-capsule">
-                  <div class="bet-cap-top">
-                    <span>${em} ${v.league} · ${v.selection}</span>
-                    <span style="color:var(--amber); font-weight:700;">$0.00 VIRTUAL</span>
-                  </div>
-                  <div class="bet-cap-meta">
-                    <span>Model: ${v.model_id}</span>
-                    <span style="color:${isWin ? 'var(--green)' : 'var(--text-dim)'}; font-weight:700;">${v.result || v.status}</span>
-                  </div>
-                  <div class="bet-cap-badges">
-                    <span class="cap-badge odds">ODDS ${Number(v.odds).toFixed(2)}</span>
-                    <span class="cap-badge ev">EV +${Number(v.ev_pct).toFixed(1)}%</span>
-                    <span class="cap-badge">PROB ${Number(v.model_prob).toFixed(1)}%</span>
-                  </div>
-                </div>
-              `;
-            }).join('');
-          }
-        }
-
-        // 10. Sensory Feeds Ingestion Live Stream
-        const sensoryList = document.getElementById('sensory-feeds-list');
-        const feeds = data.sensory_feeds || [];
-        if (sensoryList && feeds.length > 0) {
-          sensoryList.innerHTML = feeds.map(f => `
-            <div class="sensory-feed-card">
-              <div class="sensory-feed-top">
-                <span>${f.name}</span>
-                <span style="color:var(--green); font-family:var(--font-mono);">${f.latency_ms}ms · ${f.status}</span>
-              </div>
-              <div class="sensory-feed-meta">
-                <span>${f.coverage}</span>
-                <span style="color:var(--cyan);">SYNC: 0ms BACKLOG</span>
-              </div>
-            </div>
-          `).join('');
-        }
-
-        // 11. Autonomous Event Queue & Immediate Interrupt Trigger
+        // 3. Autonomous Critical Events
         const liveQueue = data.live_flow_events?.live_event_queue || [];
-        if (liveQueue.length > 0) {
-          autonomousEventQueue = liveQueue;
-
-          // Check for brand-new critical events to interrupt the ambient tour
-          if (!isInitialLoad) {
-            const freshCriticals = liveQueue.filter(ev => ev.priority === 'critical' && !seenEventIds.has(ev.id));
-            if (freshCriticals.length > 0) {
-              const mainEvent = freshCriticals[0];
-              triggerCriticalEventInterrupt(mainEvent);
-              freshCriticals.forEach(ev => {
-                seenEventIds.add(ev.id);
-                const em = ev.emoji || getEmoji(ev.league);
-                if (ev.type === 'real_bet_issued') {
-                  showToast('win', `${em} NEW FUNDED BET: ${ev.badge}`, `${ev.subtitle} · ${ev.details}`);
-                } else if (ev.type === 'crucible_graduation') {
-                  showToast('win', `🚀 CRUCIBLE GRADUATION: ${ev.badge}`, `${ev.subtitle} · ${ev.details}`);
-                } else if (ev.type === 'demotion_tourniquet') {
-                  showToast('loss', `🩸 TOURNIQUET EMERGENCY CLAMP: ${ev.subtitle}`, `${ev.details}`);
-                } else if (ev.type === 'code_synthesis') {
-                  showToast('win', `💻 NEW MODEL SYNTHESIZED: ${ev.badge}`, `${ev.subtitle}`);
-                } else if (ev.type === 'polymarket_order') {
-                  showToast('win', `💎 POLYMARKET MAKER ORDER: ${ev.badge}`, `${ev.subtitle} · ${ev.details}`);
-                }
-              });
-            }
+        if (liveQueue.length > 0 && !isInitialLoad) {
+          const fresh = liveQueue.filter(ev => ev.priority === 'critical' && !seenEventIds.has(ev.id));
+          if (fresh.length > 0) {
+            triggerCriticalEventInterrupt(fresh[0]);
+            fresh.forEach(ev => {
+              seenEventIds.add(ev.id);
+              const em = ev.emoji || getEmoji(ev.league);
+              if (ev.type === 'real_bet_issued') {
+                showToast('win', `${em} NEW FUNDED BET: ${ev.badge}`, `${ev.subtitle} · ${ev.details}`);
+              } else if (ev.type === 'crucible_graduation') {
+                showToast('win', `🚀 CRUCIBLE GRADUATION: ${ev.badge}`, `${ev.subtitle}`);
+              } else if (ev.type === 'demotion_tourniquet') {
+                showToast('loss', `🩸 TOURNIQUET EMERGENCY CLAMP: ${ev.subtitle}`, `${ev.details}`);
+              }
+            });
           }
-
-          liveQueue.forEach(ev => seenEventIds.add(ev.id));
         }
+        liveQueue.forEach(ev => seenEventIds.add(ev.id));
 
-        // 11. Settlements Audio Chimes & Toasts
+        // 4. Settlements Audio & Toasts
+        const settlements = data.live_flow_events?.recent_settlements || [];
         settlements.forEach(s => {
           if (!seenSettledIds.has(s.id)) {
             seenSettledIds.add(s.id);
             if (!isInitialLoad) {
-              const isWin = s.result === 'won' || s.result === 'win' || s.status === 'won' || (Number(s.pnl) > 0);
+              const isWin = s.result === 'won' || s.status === 'won' || Number(s.pnl) > 0;
               const em = getEmoji(s.league);
               if (isWin) {
                 audioSynth.playWin();
@@ -2638,7 +2109,7 @@
       }
     }
 
-    // High-Cadence Live Polling (Every 2.5s)
+    // High Cadence Polling (Every 2.5s)
     setInterval(updateSuperbrainState, 2500);
     updateSuperbrainState();
   </script>
