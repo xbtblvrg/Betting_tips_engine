@@ -240,6 +240,7 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
     graduated_markets_list: List[Dict[str, Any]] = []
     incubating_markets_list: List[Dict[str, Any]] = []
     research_markets_list: List[Dict[str, Any]] = []
+    league_distribution: List[Dict[str, Any]] = []
     tier1_research_count = 324
     tier2_incubating_count = 114
 
@@ -365,6 +366,18 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
                         "rolling_pnl": round(r[5], 2) if r[5] is not None else 0.0,
                         "demoted_at": r[6]
                     }
+                    for r in c.fetchall()
+                ]
+
+                # Active league market distribution across tiers
+                c.execute("""
+                    SELECT league, count(*) as total,
+                           sum(CASE WHEN incubation_phase = 'research_training' THEN 1 ELSE 0 END) as t1,
+                           sum(CASE WHEN incubation_phase = 'incubating_with_new_model' THEN 1 ELSE 0 END) as t2
+                    FROM demoted_markets GROUP BY league ORDER BY total DESC
+                """)
+                league_distribution = [
+                    {"league": r[0], "total_markets": r[1], "tier_1_research": r[2], "tier_2_incubating": r[3]}
                     for r in c.fetchall()
                 ]
         except Exception as e:
@@ -598,6 +611,7 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
         "funnel_velocity": funnel_report,
         "council_sessions": recent_council_sessions,
         "pipeline_threads": pipeline_threads,
+        "league_distribution": league_distribution,
         "tiers": {
             "tier_1_rd": {
                 "name": "Tier 1: R&D Historical Training & Edge Discovery",
