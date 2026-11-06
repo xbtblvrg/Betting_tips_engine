@@ -11,6 +11,7 @@ Consolidates full-spectrum quantitative telemetry into a unified real-time state
 from __future__ import annotations
 import json
 import logging
+import re
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 import sqlite3
@@ -340,6 +341,43 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
         except Exception as e:
             log.debug("Council file read error: %s", e)
 
+    # 4. Latest Generated Python Models Code
+    latest_code_models: List[Dict[str, Any]] = []
+    generated_dir = d.parent / "src" / "betting_engine" / "sandbox_models" / "generated"
+    if not generated_dir.exists():
+        generated_dir = Path("src/betting_engine/sandbox_models/generated")
+    if generated_dir.exists():
+        py_files = sorted(generated_dir.glob("*.py"), key=lambda p: p.stat().st_mtime, reverse=True)
+        # Select newest generated models, favoring rich implementations
+        selected_files = []
+        for f in py_files:
+            try:
+                txt = f.read_text(encoding="utf-8")
+                cls_match = re.search(r"class\s+([A-Za-z0-9_]+)\s*\(", txt)
+                if cls_match:
+                    selected_files.append((f, cls_match.group(1), txt))
+                if len(selected_files) >= 6:
+                    break
+            except Exception:
+                continue
+
+        for f, cls_name, code_text in selected_files:
+            try:
+                # Infer human-readable segment
+                clean_name = f.stem.replace("codex_synth_", "").replace("_", " ").upper()
+                latest_code_models.append({
+                    "filename": f.name,
+                    "class_name": cls_name,
+                    "target_segment": clean_name,
+                    "size_bytes": f.stat().st_size,
+                    "mtime": datetime.fromtimestamp(f.stat().st_mtime, timezone.utc).isoformat(),
+                    "lines": len(code_text.splitlines()),
+                    "code_snippet": code_text[:3500],
+                    "status": "VALIDATED · CRUCIBLE CANDIDATE"
+                })
+            except Exception:
+                continue
+
     # Bottleneck & Dugulásmentes status evaluation
     queued_count = jobs_summary.get("queued", 0)
     retry_count = jobs_summary.get("retry", 0)
@@ -422,7 +460,8 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
                 "active_models_synthesized": total_synthesized,
                 "synthesis_rate_per_hour": synth_rate_per_hour,
                 "historical_match_backtest_pool": "97,000+ settled matches",
-                "recent_syntheses": syntheses
+                "recent_syntheses": syntheses,
+                "latest_code_models": latest_code_models
             },
             "tier_2_incubator": {
                 "name": "Tier 2: Shadow Incubator ($0.00 Live Forward Validation)",

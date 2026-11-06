@@ -7,1672 +7,1521 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
   <style>
     :root {
-      --bg-dark: #060814;
-      --bg-panel: rgba(13, 17, 33, 0.78);
-      --bg-panel-hover: rgba(22, 28, 54, 0.88);
+      --bg-dark: #050711;
+      --bg-panel: rgba(10, 14, 29, 0.85);
+      --bg-panel-hover: rgba(17, 24, 48, 0.95);
+      --bg-code: #03050c;
       --border-cyan: rgba(0, 243, 255, 0.28);
       --border-green: rgba(0, 255, 136, 0.3);
       --border-purple: rgba(181, 23, 158, 0.35);
       --border-red: rgba(255, 0, 85, 0.35);
+      --border-amber: rgba(255, 183, 3, 0.35);
+      --border-dim: rgba(255, 255, 255, 0.08);
       --cyan: #00f3ff;
       --green: #00ff88;
       --purple: #b5179e;
       --violet: #7209b7;
       --amber: #ffb703;
       --red: #ff0055;
-      --text: #cbe3fb;
-      --text-dim: #748ba7;
-      --glow-cyan: 0 0 15px rgba(0, 243, 255, 0.45);
-      --glow-green: 0 0 15px rgba(0, 255, 136, 0.45);
-      --glow-red: 0 0 15px rgba(255, 0, 85, 0.45);
-      --glow-purple: 0 0 15px rgba(181, 23, 158, 0.45);
+      --text: #d4e5f7;
+      --text-dim: #7086a3;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, Menlo, monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      background: var(--bg-dark);
+    
+    html, body {
+      width: 100%;
+      height: 100%;
+      background-color: var(--bg-dark);
       color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "JetBrains Mono", monospace;
-      min-height: 100vh;
-      overflow-x: hidden;
-      position: relative;
+      font-family: var(--font-sans);
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
 
-    /* Background Canvas */
-    #neural-canvas {
+    /* Ambient Background Cyber-Grid */
+    body::before {
+      content: '';
       position: fixed;
-      top: 0; left: 0;
-      width: 100vw; height: 100vh;
-      z-index: 0;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: 
+        radial-gradient(circle at 50% 25%, rgba(114, 9, 183, 0.12) 0%, transparent 65%),
+        radial-gradient(circle at 15% 85%, rgba(0, 243, 255, 0.08) 0%, transparent 50%),
+        radial-gradient(circle at 85% 85%, rgba(0, 255, 136, 0.07) 0%, transparent 50%),
+        linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 100% 100%, 32px 32px, 32px 32px;
       pointer-events: none;
+      z-index: 0;
     }
 
-    /* Main Container */
-    .cockpit {
+    /* Layout Skeleton: 100vh Single Screen */
+    .cockpit-container {
       position: relative;
       z-index: 1;
-      padding: 16px 24px 32px 24px;
-      max-width: 1800px;
-      margin: 0 auto;
       display: flex;
       flex-direction: column;
-      gap: 18px;
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
     }
 
-    /* Header Bar */
-    .top-ribbon {
+    /* Top HUD Bar (46px) */
+    .top-hud {
+      height: 46px;
+      min-height: 46px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 14px;
-      background: var(--bg-panel);
-      backdrop-filter: blur(12px);
-      border: 1px solid var(--border-cyan);
-      border-radius: 12px;
-      padding: 12px 20px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+      padding: 0 16px;
+      background: rgba(6, 9, 20, 0.95);
+      border-bottom: 1px solid var(--border-cyan);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+      font-family: var(--font-mono);
+      font-size: 12px;
     }
 
-    .brand-group {
+    .hud-left, .hud-center, .hud-right {
       display: flex;
       align-items: center;
       gap: 12px;
     }
-    .brain-logo {
-      font-size: 28px;
-      filter: drop-shadow(0 0 8px var(--cyan));
-      animation: pulse-glow 3s infinite alternate;
-    }
-    @keyframes pulse-glow {
-      0% { transform: scale(1); filter: drop-shadow(0 0 6px var(--cyan)); }
-      100% { transform: scale(1.08); filter: drop-shadow(0 0 16px var(--cyan)); }
-    }
-    .brand-title {
-      font-size: 18px;
+
+    .hud-title {
       font-weight: 800;
+      font-size: 14px;
       letter-spacing: 1.5px;
       color: #fff;
       display: flex;
       align-items: center;
       gap: 8px;
     }
-    .live-pulse-dot {
-      width: 10px;
-      height: 10px;
-      background: var(--green);
+
+    .hud-title span.pulse-dot {
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
-      box-shadow: var(--glow-green);
-      animation: blink 1.2s infinite ease-in-out;
-    }
-    @keyframes blink {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.3; transform: scale(0.85); }
-    }
-    .brand-subtitle {
-      font-size: 11px;
-      color: var(--text-dim);
-      letter-spacing: 0.5px;
+      background: var(--cyan);
+      box-shadow: 0 0 10px var(--cyan);
+      animation: pulseGlow 1.8s infinite;
     }
 
-    .telemetry-pills {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
+    @keyframes pulseGlow {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
     }
-    .tele-pill {
-      background: rgba(0,0,0,0.4);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 8px;
-      padding: 6px 12px;
-      font-size: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-    .tele-pill .label {
-      font-size: 9px;
-      color: var(--text-dim);
+
+    .badge-hud {
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 11px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
+      border: 1px solid;
     }
-    .tele-pill .val {
-      font-weight: 700;
-      font-family: monospace;
-      color: #fff;
-    }
-    .val.green { color: var(--green); text-shadow: 0 0 8px rgba(0,255,136,0.4); }
-    .val.cyan { color: var(--cyan); text-shadow: 0 0 8px rgba(0,243,255,0.4); }
-    .val.red { color: var(--red); text-shadow: 0 0 8px rgba(255,0,85,0.4); }
-    .val.amber { color: var(--amber); text-shadow: 0 0 8px rgba(255,183,3,0.4); }
 
-    .header-actions {
+    .badge-cyan { background: rgba(0, 243, 255, 0.12); color: var(--cyan); border-color: var(--border-cyan); }
+    .badge-green { background: rgba(0, 255, 136, 0.12); color: var(--green); border-color: var(--border-green); }
+    .badge-purple { background: rgba(181, 23, 158, 0.12); color: var(--purple); border-color: var(--border-purple); }
+    .badge-red { background: rgba(255, 0, 85, 0.12); color: var(--red); border-color: var(--border-red); }
+    .badge-amber { background: rgba(255, 183, 3, 0.12); color: var(--amber); border-color: var(--border-amber); }
+
+    .hud-metric {
       display: flex;
-      align-items: center;
-      gap: 10px;
+      align-items: baseline;
+      gap: 5px;
     }
+    .hud-metric-label { color: var(--text-dim); font-size: 10px; }
+    .hud-metric-value { font-weight: 700; color: #fff; }
+
     .hud-btn {
-      background: rgba(0, 243, 255, 0.1);
-      border: 1px solid var(--border-cyan);
-      color: var(--cyan);
-      padding: 8px 14px;
-      border-radius: 8px;
-      font-size: 12px;
-      font-weight: 700;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-dim);
+      color: var(--text);
+      padding: 4px 10px;
+      border-radius: 4px;
       cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 11px;
       transition: all 0.2s ease;
-      text-decoration: none;
-    }
-    .hud-btn:hover {
-      background: rgba(0, 243, 255, 0.25);
-      box-shadow: var(--glow-cyan);
-      transform: translateY(-1px);
-    }
-    .hud-btn.active {
-      background: var(--cyan);
-      color: #000;
-      box-shadow: var(--glow-cyan);
-    }
-    .hud-btn.fullscreen-btn {
-      background: linear-gradient(135deg, rgba(0,243,255,0.2), rgba(181,23,158,0.3));
-      border-color: rgba(181,23,158,0.5);
-      color: #fff;
-    }
-    .hud-btn.fullscreen-btn:hover {
-      box-shadow: var(--glow-purple);
-    }
-
-    /* Diagnostics Banner: Dugulásmentes status */
-    .diagnostics-banner {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 12px;
-      padding: 10px 18px;
-      border-radius: 10px;
-      background: rgba(0, 255, 136, 0.08);
-      border: 1px solid var(--border-green);
-      font-size: 12px;
-    }
-    .diagnostics-banner.warning {
-      background: rgba(255, 0, 85, 0.12);
-      border-color: var(--border-red);
-    }
-    .diag-left {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-weight: 600;
-    }
-    .diag-daemons {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-    .daemon-chip {
-      background: rgba(0,0,0,0.5);
-      border: 1px solid rgba(255,255,255,0.1);
-      padding: 3px 8px;
-      border-radius: 6px;
-      font-size: 10px;
       display: flex;
       align-items: center;
       gap: 5px;
+      text-decoration: none;
     }
-    .daemon-chip.up .dot { background: var(--green); box-shadow: var(--glow-green); }
-    .daemon-chip.down .dot { background: var(--red); box-shadow: var(--glow-red); }
-    .daemon-chip .dot { width: 6px; height: 6px; border-radius: 50%; }
+    .hud-btn:hover {
+      background: rgba(0, 243, 255, 0.15);
+      border-color: var(--cyan);
+      color: #fff;
+    }
 
-    /* AI Quant Council Grid */
-    .council-section {
+    /* Main Cockpit 3-Column Grid */
+    .cockpit-grid {
+      display: grid;
+      grid-template-columns: 29% 42% 29%;
+      height: calc(100vh - 46px);
+      width: 100vw;
+      gap: 10px;
+      padding: 10px;
+      overflow: hidden;
+    }
+
+    /* Shared Column Style */
+    .cockpit-col {
       display: flex;
       flex-direction: column;
       gap: 10px;
-    }
-    .section-title {
-      font-size: 13px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 1.2px;
-      color: var(--text-dim);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .section-title span.count-badge {
-      background: rgba(0, 243, 255, 0.15);
-      color: var(--cyan);
-      border: 1px solid var(--border-cyan);
-      padding: 2px 7px;
-      border-radius: 10px;
-      font-size: 10px;
-    }
-    .ai-council-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 14px;
-    }
-    .ai-card {
-      background: var(--bg-panel);
-      backdrop-filter: blur(10px);
-      border-radius: 12px;
-      border: 1px solid rgba(255,255,255,0.08);
-      padding: 14px 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      position: relative;
+      height: 100%;
+      min-height: 0;
       overflow: hidden;
-      transition: all 0.25s ease;
     }
-    .ai-card::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0; height: 3px;
-      background: linear-gradient(90deg, transparent, var(--accent-color, var(--cyan)), transparent);
-    }
-    .ai-card:hover {
-      transform: translateY(-2px);
-      border-color: var(--accent-color, var(--cyan));
-      box-shadow: 0 8px 24px rgba(0,0,0,0.6);
-    }
-    .ai-card.card-agy { --accent-color: var(--cyan); border-color: rgba(0,243,255,0.3); }
-    .ai-card.card-claude { --accent-color: var(--purple); border-color: rgba(181,23,158,0.3); }
-    .ai-card.card-codex { --accent-color: var(--green); border-color: rgba(0,255,136,0.3); }
-    .ai-card.card-grok { --accent-color: var(--red); border-color: rgba(255,0,85,0.3); }
 
-    .ai-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .ai-identity {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .ai-avatar {
-      font-size: 18px;
-    }
-    .ai-name {
-      font-weight: 700;
-      font-size: 14px;
-      color: #fff;
-    }
-    .ai-badge {
-      font-size: 9px;
-      font-weight: 700;
-      padding: 3px 7px;
+    /* Panel Card Style */
+    .quant-panel {
+      background: var(--bg-panel);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border-dim);
       border-radius: 6px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      background: rgba(0,0,0,0.4);
-      border: 1px solid var(--accent-color);
-      color: var(--accent-color);
-    }
-    .ai-role {
-      font-size: 11px;
-      color: var(--text-dim);
-      line-height: 1.3;
-    }
-    .ai-activity {
-      background: rgba(0,0,0,0.3);
-      border-left: 2px solid var(--accent-color);
-      padding: 6px 10px;
-      border-radius: 0 6px 6px 0;
-      font-size: 11px;
-      color: #e2eafc;
-      font-family: monospace;
-    }
-
-    /* 4-Tier Progressive Funnel Flow Grid */
-    .tiers-section {
       display: flex;
       flex-direction: column;
-      gap: 12px;
-    }
-    .tiers-flow-container {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 16px;
-      position: relative;
-    }
-    @media (max-width: 1200px) {
-      .tiers-flow-container {
-        grid-template-columns: repeat(2, 1fr);
-      }
-    }
-    @media (max-width: 768px) {
-      .tiers-flow-container {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    .tier-column {
-      background: var(--bg-panel);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 14px;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      position: relative;
+      min-height: 0;
       overflow: hidden;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+      position: relative;
     }
-    .tier-column.t1 { border-top: 3px solid var(--cyan); }
-    .tier-column.t2 { border-top: 3px solid var(--purple); }
-    .tier-column.t3 { border-top: 3px solid var(--green); }
-    .tier-column.t4 { border-top: 3px solid var(--amber); }
 
-    .tier-head {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-      padding-bottom: 10px;
-    }
-    .tier-num-wrap {
+    .quant-panel.glow-cyan { border-color: var(--border-cyan); }
+    .quant-panel.glow-purple { border-color: var(--border-purple); }
+    .quant-panel.glow-green { border-color: var(--border-green); }
+
+    .panel-header {
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.02);
+      border-bottom: 1px solid var(--border-dim);
       display: flex;
       align-items: center;
       justify-content: space-between;
-    }
-    .tier-tag {
+      font-family: var(--font-mono);
       font-size: 11px;
-      font-weight: 800;
+      font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 1px;
-    }
-    .t1 .tier-tag { color: var(--cyan); }
-    .t2 .tier-tag { color: var(--purple); }
-    .t3 .tier-tag { color: var(--green); }
-    .t4 .tier-tag { color: var(--amber); }
-
-    .tier-rate-badge {
-      font-size: 10px;
-      font-family: monospace;
-      padding: 2px 7px;
-      border-radius: 6px;
-      background: rgba(0,0,0,0.4);
-      border: 1px solid rgba(255,255,255,0.1);
-      color: #fff;
-    }
-    .tier-title {
-      font-size: 14px;
-      font-weight: 700;
-      color: #fff;
-    }
-    .tier-subtitle {
-      font-size: 11px;
       color: var(--text-dim);
+      flex-shrink: 0;
     }
+    .panel-header span.title-active { color: #fff; display: flex; align-items: center; gap: 6px; }
 
-    /* Conduit connector between tiers */
-    .conduit-bar {
-      height: 4px;
-      background: rgba(255,255,255,0.05);
-      border-radius: 2px;
-      position: relative;
-      overflow: hidden;
-      margin: 4px 0;
-    }
-    .conduit-pulse {
-      position: absolute;
-      top: 0; bottom: 0;
-      width: 40px;
-      border-radius: 2px;
-      animation: conduit-stream 1.8s infinite linear;
-    }
-    .t1 .conduit-pulse { background: linear-gradient(90deg, transparent, var(--cyan), transparent); }
-    .t2 .conduit-pulse { background: linear-gradient(90deg, transparent, var(--purple), transparent); }
-    .t3 .conduit-pulse { background: linear-gradient(90deg, transparent, var(--green), transparent); }
-    .t4 .conduit-pulse { background: linear-gradient(90deg, transparent, var(--amber), transparent); }
-    @keyframes conduit-stream {
-      0% { left: -40px; }
-      100% { left: 100%; }
-    }
-
-    .tier-metrics {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 8px;
-    }
-    .metric-box {
-      background: rgba(0,0,0,0.3);
-      padding: 8px 10px;
-      border-radius: 8px;
-      border: 1px solid rgba(255,255,255,0.05);
+    .panel-body {
+      padding: 10px;
+      overflow-y: auto;
+      flex: 1;
+      min-height: 0;
       display: flex;
       flex-direction: column;
-      gap: 2px;
+      gap: 8px;
     }
-    .metric-box .m-lbl { font-size: 9px; color: var(--text-dim); text-transform: uppercase; }
-    .metric-box .m-val { font-size: 13px; font-weight: 700; font-family: monospace; color: #fff; }
 
-    .tier-item-stream {
+    /* Custom Scrollbars */
+    .panel-body::-webkit-scrollbar { width: 5px; height: 5px; }
+    .panel-body::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
+    .panel-body::-webkit-scrollbar-thumb { background: rgba(0, 243, 255, 0.2); border-radius: 3px; }
+    .panel-body::-webkit-scrollbar-thumb:hover { background: var(--cyan); }
+
+    /* LEFT COLUMN COMPONENTS */
+    /* AI Quant Council Panel */
+    .council-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .brain-box {
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border-dim);
+      border-radius: 4px;
+      padding: 6px 8px;
+      font-family: var(--font-mono);
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      transition: all 0.2s ease;
+    }
+    .brain-box.active { border-color: var(--border-cyan); box-shadow: inset 0 0 10px rgba(0, 243, 255, 0.08); }
+    .brain-name { font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: space-between; }
+    .brain-role { font-size: 9px; color: var(--text-dim); }
+    .brain-status { font-size: 9px; font-weight: 600; }
+    .brain-reasoning { font-size: 9px; color: var(--text); line-height: 1.25; margin-top: 2px; }
+
+    /* Live Code Synthesis Terminal */
+    .code-terminal {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-code);
+      border-radius: 4px;
+      border: 1px solid var(--border-dim);
+      overflow: hidden;
+      font-family: var(--font-mono);
+      min-height: 0;
+    }
+
+    .code-terminal-tabs {
+      display: flex;
+      background: rgba(0, 0, 0, 0.6);
+      border-bottom: 1px solid var(--border-dim);
+      overflow-x: auto;
+      flex-shrink: 0;
+    }
+
+    .code-terminal-tab {
+      padding: 6px 10px;
+      font-size: 10px;
+      color: var(--text-dim);
+      border-right: 1px solid var(--border-dim);
+      cursor: pointer;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.15s ease;
+    }
+    .code-terminal-tab.active {
+      background: var(--bg-code);
+      color: var(--cyan);
+      border-top: 2px solid var(--cyan);
+    }
+
+    .code-model-meta {
+      padding: 6px 10px;
+      background: rgba(0, 243, 255, 0.04);
+      border-bottom: 1px solid var(--border-dim);
+      font-size: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .code-editor-area {
+      flex: 1;
+      padding: 8px 10px;
+      overflow-y: auto;
+      font-size: 11px;
+      line-height: 1.45;
+      color: #b8d4ee;
+      min-height: 0;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* Python Syntax Highlighting Clues */
+    .kw { color: #ff007f; font-weight: 700; }
+    .cls { color: #00f3ff; font-weight: 700; }
+    .fn { color: #00ff88; }
+    .str { color: #ffb703; }
+    .cmt { color: #5a738e; font-style: italic; }
+    .num { color: #bd93f9; }
+
+    .code-terminal-footer {
+      padding: 4px 10px;
+      background: rgba(0, 0, 0, 0.7);
+      border-top: 1px solid var(--border-dim);
+      font-size: 10px;
+      display: flex;
+      justify-content: space-between;
+      color: var(--text-dim);
+      flex-shrink: 0;
+    }
+
+    /* CENTER COLUMN COMPONENTS */
+    /* Superbrain Neural Canvas */
+    .canvas-container {
+      flex: 1;
+      position: relative;
+      min-height: 0;
+      background: radial-gradient(circle at center, rgba(13, 17, 33, 0.6) 0%, rgba(5, 7, 17, 0.95) 100%);
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid var(--border-cyan);
+      box-shadow: inset 0 0 30px rgba(0, 243, 255, 0.05);
+    }
+
+    #neuralCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .canvas-hud-overlay {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      right: 8px;
+      display: flex;
+      justify-content: space-between;
+      pointer-events: none;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+    .canvas-badge {
+      background: rgba(5, 7, 17, 0.75);
+      border: 1px solid var(--border-dim);
+      padding: 3px 8px;
+      border-radius: 3px;
+      pointer-events: auto;
+    }
+
+    /* Funnel Velocity & Bottleneck Ribbon */
+    .funnel-ribbon {
+      height: 140px;
+      min-height: 140px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-dim);
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .funnel-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 6px;
+      padding: 8px;
+      height: calc(100% - 30px);
+    }
+
+    .funnel-metric-box {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border-dim);
+      border-radius: 4px;
+      padding: 6px 8px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      font-family: var(--font-mono);
+    }
+    .funnel-metric-box .label { font-size: 9px; color: var(--text-dim); margin-bottom: 2px; text-transform: uppercase; }
+    .funnel-metric-box .val { font-size: 15px; font-weight: 800; color: #fff; }
+    .funnel-metric-box .sub { font-size: 8px; color: var(--cyan); margin-top: 2px; }
+
+    /* Clog Status Indicator */
+    .clog-status-strip {
+      padding: 4px 10px;
+      background: rgba(0, 255, 136, 0.08);
+      border-bottom: 1px solid var(--border-green);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      flex-shrink: 0;
+    }
+    .clog-status-strip.is-clogged {
+      background: rgba(255, 0, 85, 0.15);
+      border-color: var(--red);
+      color: var(--red);
+    }
+
+    /* RIGHT COLUMN COMPONENTS */
+    /* 4-Tier Progression Stack */
+    .tier-stack {
       display: flex;
       flex-direction: column;
       gap: 6px;
-      max-height: 290px;
-      overflow-y: auto;
-      padding-right: 4px;
     }
-    .tier-item-stream::-webkit-scrollbar { width: 4px; }
-    .tier-item-stream::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
 
-    .stream-row {
-      background: rgba(0,0,0,0.35);
-      border: 1px solid rgba(255,255,255,0.05);
-      border-radius: 8px;
-      padding: 8px 10px;
+    .tier-card {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border-dim);
+      border-radius: 4px;
+      padding: 6px 10px;
+      font-family: var(--font-mono);
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .tier-card.tier-1 { border-left: 3px solid var(--purple); }
+    .tier-card.tier-2 { border-left: 3px solid var(--amber); }
+    .tier-card.tier-3 { border-left: 3px solid var(--green); }
+    .tier-card.tier-4 { border-left: 3px solid var(--cyan); }
+
+    .tier-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       font-size: 11px;
+      font-weight: 700;
+    }
+    .tier-details {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+
+    .tier-progress-track {
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 3px;
+    }
+    .tier-progress-fill {
+      height: 100%;
+      background: var(--green);
+      transition: width 0.4s ease;
+    }
+
+    /* Live Bet Ledger & Settlement Feed */
+    .bets-feed-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .feed-tabs {
+      display: flex;
+      background: rgba(0, 0, 0, 0.5);
+      border-bottom: 1px solid var(--border-dim);
+      flex-shrink: 0;
+    }
+    .feed-tab {
+      flex: 1;
+      padding: 6px 10px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      text-align: center;
+      color: var(--text-dim);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s ease;
+    }
+    .feed-tab.active {
+      color: #fff;
+      border-bottom-color: var(--cyan);
+      background: rgba(0, 243, 255, 0.05);
+    }
+
+    .feed-content-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-height: 0;
+    }
+
+    /* Unclipped Bet Row (No Truncation) */
+    .bet-row {
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px solid var(--border-dim);
+      border-radius: 4px;
+      padding: 6px 8px;
+      font-family: var(--font-mono);
       display: flex;
       flex-direction: column;
       gap: 4px;
-      transition: background 0.2s ease;
+      transition: all 0.15s ease;
     }
-    .stream-row:hover { background: rgba(0,0,0,0.6); border-color: rgba(255,255,255,0.15); }
-    .stream-row-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+    .bet-row:hover {
+      border-color: var(--border-cyan);
+      background: rgba(0, 243, 255, 0.03);
     }
-    .stream-name {
-      font-weight: 700;
-      color: #fff;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      max-width: 170px;
-    }
-    .stream-badge {
-      font-size: 9px;
-      padding: 2px 5px;
-      border-radius: 4px;
-      font-weight: 700;
-      font-family: monospace;
-    }
-    .stream-badge.pos { background: rgba(0, 255, 136, 0.2); color: var(--green); }
-    .stream-badge.neg { background: rgba(255, 0, 85, 0.2); color: var(--red); }
-    .stream-badge.neutral { background: rgba(0, 243, 255, 0.15); color: var(--cyan); }
-    .stream-desc {
-      font-size: 10px;
-      color: var(--text-dim);
-      line-height: 1.3;
-    }
+    .bet-row.settled-win { border-left: 3px solid var(--green); }
+    .bet-row.settled-loss { border-left: 3px solid var(--red); }
 
-    /* Demotion Loop Warning Box (Tier 3 -> Tier 1) */
-    .demotion-return-bar {
-      background: rgba(255, 0, 85, 0.08);
-      border: 1px solid var(--border-red);
-      border-radius: 12px;
-      padding: 12px 18px;
+    .bet-top-line {
       display: flex;
-      align-items: center;
       justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 12px;
-    }
-    .demotion-bar-left {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .demotion-icon {
-      font-size: 20px;
-      filter: drop-shadow(0 0 6px var(--red));
-      animation: pulse-red 2s infinite alternate;
-    }
-    @keyframes pulse-red {
-      0% { opacity: 0.6; } 100% { opacity: 1; }
-    }
-    .demotion-text h4 {
-      font-size: 13px;
-      color: #fff;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .demotion-text p {
+      align-items: baseline;
       font-size: 11px;
-      color: var(--text-dim);
-    }
-    .demotion-chips-stream {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-    .demoted-chip {
-      background: rgba(0,0,0,0.5);
-      border: 1px solid rgba(255,0,85,0.4);
-      color: #ff99bb;
-      padding: 4px 8px;
-      border-radius: 6px;
-      font-size: 10px;
-      font-family: monospace;
-    }
-
-    /* Live Executable Bets & Settlements Split */
-    .events-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-    }
-    @media (max-width: 900px) {
-      .events-grid { grid-template-columns: 1fr; }
-    }
-    .events-card {
-      background: var(--bg-panel);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 14px;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-    .events-card-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .events-card-title {
-      font-size: 14px;
       font-weight: 700;
       color: #fff;
+      word-break: break-word;
+    }
+    .bet-meta-line {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 10px;
+      color: var(--text-dim);
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .bet-quant-line {
       display: flex;
       align-items: center;
       gap: 8px;
+      font-size: 10px;
+      flex-wrap: wrap;
     }
+    .quant-pill {
+      background: rgba(255, 255, 255, 0.05);
+      padding: 2px 6px;
+      border-radius: 3px;
+      color: var(--text);
+    }
+    .quant-pill.ev { color: var(--green); font-weight: 700; }
+    .quant-pill.odds { color: var(--cyan); font-weight: 700; }
+    .quant-pill.stake { color: var(--amber); font-weight: 700; }
 
-    /* Floating Toast Event Popups */
-    #popup-container {
+    /* Audio / Toast Floating Notifications */
+    .toast-container {
       position: fixed;
-      bottom: 24px;
-      right: 24px;
-      z-index: 9999;
+      bottom: 20px;
+      right: 20px;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 8px;
+      z-index: 9999;
       pointer-events: none;
     }
-    .toast-popup {
-      pointer-events: auto;
-      background: rgba(13, 17, 33, 0.95);
-      backdrop-filter: blur(16px);
-      border-radius: 12px;
-      padding: 14px 18px;
-      width: 360px;
-      box-shadow: 0 12px 40px rgba(0,0,0,0.8);
+
+    .toast-msg {
+      background: rgba(10, 14, 29, 0.95);
+      border: 1px solid var(--border-cyan);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: #fff;
+      animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1);
       display: flex;
-      flex-direction: column;
-      gap: 6px;
-      animation: slide-in 0.35s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
-      border: 1px solid;
+      align-items: center;
+      gap: 10px;
+      max-width: 380px;
     }
-    .toast-popup.win {
-      border-color: var(--green);
-      box-shadow: var(--glow-green), 0 8px 30px rgba(0,0,0,0.7);
-    }
-    .toast-popup.loss {
-      border-color: var(--red);
-      box-shadow: var(--glow-red), 0 8px 30px rgba(0,0,0,0.7);
-    }
-    .toast-popup.grad {
-      border-color: var(--cyan);
-      box-shadow: var(--glow-cyan), 0 8px 30px rgba(0,0,0,0.7);
-    }
-    @keyframes slide-in {
-      from { transform: translateX(110%); opacity: 0; }
+    .toast-msg.win { border-color: var(--green); box-shadow: 0 0 15px rgba(0, 255, 136, 0.3); }
+    .toast-msg.loss { border-color: var(--red); box-shadow: 0 0 15px rgba(255, 0, 85, 0.3); }
+    .toast-msg.grad { border-color: var(--cyan); box-shadow: 0 0 15px rgba(0, 243, 255, 0.3); }
+
+    @keyframes slideInRight {
+      from { transform: translateX(100%); opacity: 0; }
       to { transform: translateX(0); opacity: 1; }
     }
-    .toast-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .toast-type {
-      font-size: 12px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .toast-popup.win .toast-type { color: var(--green); }
-    .toast-popup.loss .toast-type { color: var(--red); }
-    .toast-popup.grad .toast-type { color: var(--cyan); }
-    .toast-time { font-size: 10px; color: var(--text-dim); }
-    .toast-match {
-      font-size: 13px;
-      font-weight: 700;
-      color: #fff;
-    }
-    .toast-details {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      font-size: 11px;
-      color: var(--text-dim);
-      font-family: monospace;
-    }
-    .toast-pnl {
-      font-size: 14px;
-      font-weight: 800;
-    }
-    .toast-pnl.pos { color: var(--green); text-shadow: 0 0 8px rgba(0,255,136,0.6); }
-    .toast-pnl.neg { color: var(--red); text-shadow: 0 0 8px rgba(255,0,85,0.6); }
 
-    /* Sound indicator status */
-    #sound-status-dot {
-      display: inline-block;
-      width: 6px; height: 6px;
-      border-radius: 50%;
-      background: var(--green);
-    }
-    #sound-status-dot.off {
-      background: var(--text-dim);
-    }
+    /* Fullscreen Mode Helpers */
+    :fullscreen .top-hud { padding: 0 24px; }
 
-    /* Mobile Responsive Optimizations */
-    @media (max-width: 768px) {
-      .cockpit {
-        padding: 10px 10px 24px 10px;
-        gap: 12px;
-      }
-      .top-ribbon {
-        padding: 12px;
-        gap: 10px;
-      }
-      .brand-group {
-        width: 100%;
-        justify-content: flex-start;
-      }
-      .brand-title {
-        font-size: 16px;
-      }
-      .brand-subtitle {
-        font-size: 10px;
-      }
-      .telemetry-pills {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        width: 100%;
-        gap: 6px;
-      }
-      .tele-pill {
-        padding: 5px 8px;
-      }
-      .tele-pill .label {
-        font-size: 8.5px;
-      }
-      .tele-pill .val {
-        font-size: 11.5px;
-      }
-      .header-actions {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        width: 100%;
-        gap: 6px;
-      }
-      .hud-btn {
-        justify-content: center;
-        padding: 7px 8px;
-        font-size: 11px;
-      }
-      .diagnostics-banner {
-        flex-direction: column;
-        align-items: flex-start;
-        padding: 10px 12px;
-        gap: 8px;
-      }
-      .diag-left {
-        font-size: 11px;
-      }
-      .diag-daemons {
-        width: 100%;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 5px;
-      }
-      .daemon-chip {
-        font-size: 9px;
-        padding: 2px 6px;
-      }
-      .ai-council-grid {
+    /* Responsive Fallback (Mobile / Tablet <= 1024px) */
+    @media (max-width: 1024px) {
+      html, body { overflow: auto; height: auto; }
+      .cockpit-container { height: auto; overflow: visible; }
+      .cockpit-grid {
         grid-template-columns: 1fr;
-        gap: 10px;
+        height: auto;
+        overflow: visible;
       }
-      .ai-card {
-        padding: 12px;
-      }
-      .ai-activity {
-        font-size: 10.5px;
-      }
-      .tiers-flow-container {
-        grid-template-columns: 1fr;
-        gap: 12px;
-      }
-      .tier-column {
-        padding: 12px;
-      }
-      .stream-name {
-        max-width: 180px;
-      }
-      .demotion-return-bar {
-        flex-direction: column;
-        align-items: flex-start;
-        padding: 12px;
-        gap: 8px;
-      }
-      .demotion-chips-stream {
-        width: 100%;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        padding-bottom: 4px;
-      }
-      .events-card {
-        padding: 12px;
-      }
-      .events-card-head {
-        flex-wrap: wrap;
-        gap: 6px;
-      }
-    }
-
-    @media (max-width: 600px) {
-      #popup-container {
-        left: 10px;
-        right: 10px;
-        bottom: 10px;
-        width: auto;
-      }
-      .toast-popup {
-        width: 100%;
-        max-width: 100%;
-        padding: 10px 14px;
-      }
-      .toast-match {
-        font-size: 12px;
-      }
-      .toast-details {
-        font-size: 10px;
-      }
-    }
-
-    @media (max-width: 380px) {
-      .telemetry-pills {
-        grid-template-columns: 1fr;
-      }
-      .header-actions {
-        grid-template-columns: 1fr;
-      }
+      .cockpit-col { height: auto; min-height: 380px; }
+      .canvas-container { min-height: 380px; }
+      .code-terminal { min-height: 340px; }
+      .funnel-grid { grid-template-columns: repeat(3, 1fr); }
     }
   </style>
 </head>
 <body>
-
-  <!-- Neural Canvas for Animated Synaptic Connections -->
-  <canvas id="neural-canvas"></canvas>
-
-  <div class="cockpit">
-    <!-- Top Telemetry Ribbon -->
-    <header class="top-ribbon">
-      <div class="brand-group">
-        <span class="brain-logo">🧠</span>
-        <div>
-          <div class="brand-title">
-            <span>SUPERBRAIN</span>
-            <span class="live-pulse-dot"></span>
-            <span style="font-size:11px; font-weight:700; color:var(--cyan); letter-spacing:1px;">LIVE QUANT FLOW</span>
-          </div>
-          <div class="brand-subtitle">Autonomous Multi-AI Quant Engine · Closed-Loop Neural Operations</div>
+  <div class="cockpit-container">
+    <!-- Top HUD Bar -->
+    <header class="top-hud">
+      <div class="hud-left">
+        <div class="hud-title">
+          <span class="pulse-dot"></span>
+          SUPERBRAIN QUANT COCKPIT
         </div>
+        <span id="hud-status-badge" class="badge-hud badge-green">OPTIMAL · 100% AUTONOMOUS</span>
+        <span class="hud-metric">
+          <span class="hud-metric-label">BUDAPEST:</span>
+          <span id="hud-budapest-time" class="hud-metric-value">--:--:--</span>
+        </span>
       </div>
 
-      <div class="telemetry-pills">
-        <div class="tele-pill">
-          <span class="label">Budapest Time</span>
-          <span class="val cyan" id="budapest-time-val">--:--:-- UTC+1</span>
-        </div>
-        <div class="tele-pill">
-          <span class="label">Today's Picks</span>
-          <span class="val green" id="today-picks-val">-- / 100</span>
-        </div>
-        <div class="tele-pill">
-          <span class="label">Funded Stake</span>
-          <span class="val" id="today-stake-val">$0.00</span>
-        </div>
-        <div class="tele-pill">
-          <span class="label">Win Rate</span>
-          <span class="val green" id="win-rate-val">--%</span>
-        </div>
-        <div class="tele-pill">
-          <span class="label">Realized PnL</span>
-          <span class="val green" id="total-pnl-val">+$0.00</span>
-        </div>
-        <div class="tele-pill">
-          <span class="label">Weekly ROI Mandate</span>
-          <span class="val cyan">≥ 10.0% ROI</span>
-        </div>
+      <div class="hud-center">
+        <span class="hud-metric">
+          <span class="hud-metric-label">DAEMONS:</span>
+          <span id="hud-daemons-count" class="hud-metric-value" style="color:var(--cyan)">5/5 RUNNING</span>
+        </span>
+        <span class="hud-metric">
+          <span class="hud-metric-label">NET PNL:</span>
+          <span id="hud-pnl" class="hud-metric-value">+$0.00</span>
+        </span>
+        <span class="hud-metric">
+          <span class="hud-metric-label">7D ROI:</span>
+          <span id="hud-roi" class="hud-metric-value" style="color:var(--green)">+0.0%</span>
+        </span>
+        <span class="hud-metric">
+          <span class="hud-metric-label">24H VOLUME:</span>
+          <span id="hud-volume" class="hud-metric-value">0 / 100</span>
+        </span>
       </div>
 
-      <div class="header-actions">
-        <button class="hud-btn" id="test-popup-btn" title="Simulate a live settlement event popup">
-          <span>⚡</span>
-          <span>TEST POPUP</span>
+      <div class="hud-right">
+        <button id="btn-audio-toggle" class="hud-btn" title="Toggle Synthesizer Audio Alerts">
+          🔊 AUDIO: <span id="hud-audio-state">OFF</span>
         </button>
-        <button class="hud-btn" id="sound-toggle-btn" title="Toggle audio alert synthesizers">
-          <span id="sound-status-dot"></span>
-          <span id="sound-btn-text">Audio: ON</span>
+        <button id="btn-fullscreen-toggle" class="hud-btn" title="Toggle Fullscreen Cockpit">
+          ⛶ FULLSCREEN
         </button>
-        <button class="hud-btn fullscreen-btn" id="fullscreen-toggle-btn" title="Toggle Fullscreen Mode (F11)">
-          <span>⛶</span>
-          <span id="fullscreen-btn-text">FULLSCREEN</span>
-        </button>
-        <a href="/" class="hud-btn" title="Back to Main Quant Desk">
-          <span>↗</span>
-          <span>QUANT DESK</span>
+        <a href="/" class="hud-btn" title="Return to Main Bet Execution Board">
+          ← MAIN BOARD
         </a>
       </div>
     </header>
 
-    <!-- Diagnostics Banner: Dugulásmentes status & Daemons -->
-    <div class="diagnostics-banner" id="diagnostics-banner">
-      <div class="diag-left">
-        <span id="diag-indicator-icon">🟢</span>
-        <span id="diag-indicator-text">OPTIMAL: DUGULÁSMENTES (FREE FLOW) · Zero Bottlenecks Detected</span>
-      </div>
-      <div class="diag-daemons" id="daemons-container">
-        <!-- Filled dynamically -->
-      </div>
-    </div>
+    <!-- 3-Column Main Grid -->
+    <main class="cockpit-grid">
+      <!-- LEFT COLUMN: AI Quant Council & Code Terminal -->
+      <section class="cockpit-col">
+        <!-- AI Quant Council Panel -->
+        <div class="quant-panel glow-purple" style="flex: 0 0 auto;">
+          <div class="panel-header">
+            <span class="title-active">🏛️ AI QUANT COUNCIL</span>
+            <span style="color:var(--purple); font-size:10px;">DIRECTIVE 9 COMPLIANT</span>
+          </div>
+          <div class="panel-body">
+            <div class="council-grid">
+              <!-- Brain 1: AGY -->
+              <div id="brain-card-agy" class="brain-box active">
+                <div class="brain-name">
+                  <span style="color:var(--cyan);">GEMINI AGY</span>
+                  <span class="badge-hud badge-cyan">LEAD</span>
+                </div>
+                <div class="brain-role">Architect & Release Authority</div>
+                <div id="brain-status-agy" class="brain-status" style="color:var(--green);">ACTIVE · SUPERVISING</div>
+                <div id="brain-reasoning-agy" class="brain-reasoning">Balancing funnel flow & verifying zero-clog invariants.</div>
+              </div>
 
-    <!-- Multi-AI Quant Council Section -->
-    <section class="council-section">
-      <div class="section-title">
-        <span>Multi-AI Quant Council Hub</span>
-        <span class="count-badge">4 Cognitive Brains Online</span>
-      </div>
-      <div class="ai-council-grid">
-        <!-- Gemini Antigravity (Lead Quant) -->
-        <div class="ai-card card-agy">
-          <div class="ai-header">
-            <div class="ai-identity">
-              <span class="ai-avatar">⚡</span>
-              <div>
-                <div class="ai-name">Gemini Antigravity</div>
-                <div class="ai-role">Lead Quant Architect &amp; Release Gate</div>
+              <!-- Brain 2: Claude -->
+              <div id="brain-card-claude" class="brain-box active">
+                <div class="brain-name">
+                  <span style="color:var(--amber);">CLAUDE OPUS</span>
+                  <span class="badge-hud badge-amber">DOMAIN</span>
+                </div>
+                <div class="brain-role">Mechanics & Situational Logic</div>
+                <div id="brain-status-claude" class="brain-status" style="color:var(--green);">ACTIVE · INFERENCE</div>
+                <div id="brain-reasoning-claude" class="brain-reasoning">Evaluating NBA/NFL back-to-back rest fatigue penalties.</div>
+              </div>
+
+              <!-- Brain 3: Codex -->
+              <div id="brain-card-codex" class="brain-box active">
+                <div class="brain-name">
+                  <span style="color:var(--green);">CODEX ASTRA</span>
+                  <span class="badge-hud badge-green">KERNEL</span>
+                </div>
+                <div class="brain-role">Math Kernel Synthesis & Code</div>
+                <div id="brain-status-codex" class="brain-status" style="color:var(--green);">ACTIVE · SYNTHESIZING</div>
+                <div id="brain-reasoning-codex" class="brain-reasoning">Synthesizing Python models for demoted submarkets.</div>
+              </div>
+
+              <!-- Brain 4: Grok -->
+              <div id="brain-card-grok" class="brain-box active">
+                <div class="brain-name">
+                  <span style="color:var(--red);">GROK 4.7</span>
+                  <span class="badge-hud badge-red">AUDITOR</span>
+                </div>
+                <div class="brain-role">Adversarial Red-Team & Anti-Overfit</div>
+                <div id="brain-status-grok" class="brain-status" style="color:var(--green);">ACTIVE · AUDITING</div>
+                <div id="brain-reasoning-grok" class="brain-reasoning">Stress-testing candidate parameters against out-of-sample drawdowns.</div>
               </div>
             </div>
-            <span class="ai-badge" id="agy-badge">SUPERVISING</span>
-          </div>
-          <div class="ai-activity" id="agy-activity">
-            Orchestrating 4-tier closed-loop progression &amp; enforcing 10 Prime Directives.
           </div>
         </div>
 
-        <!-- Claude Opus 5.5 -->
-        <div class="ai-card card-claude">
-          <div class="ai-header">
-            <div class="ai-identity">
-              <span class="ai-avatar">🎭</span>
-              <div>
-                <div class="ai-name">Claude Opus 5.5</div>
-                <div class="ai-role">Domain Mechanics &amp; Situational Factors</div>
+        <!-- Live Code Synthesis & Execution Terminal -->
+        <div class="quant-panel glow-cyan code-terminal">
+          <div class="panel-header">
+            <span class="title-active">⚡ CODEX KERNEL SYNTHESIS TERMINAL</span>
+            <span id="terminal-active-tag" style="color:var(--cyan); font-size:10px;">PYTHON 3.14 · AST VALIDATED</span>
+          </div>
+          
+          <!-- Terminal Tabs (Dynamic Python Models) -->
+          <div id="terminal-tab-container" class="code-terminal-tabs">
+            <div class="code-terminal-tab active">Loading models...</div>
+          </div>
+
+          <!-- Model Metadata Strip -->
+          <div id="terminal-model-meta" class="code-model-meta">
+            <div><strong style="color:var(--cyan);">MODEL:</strong> <span id="meta-model-name">--</span></div>
+            <div><strong style="color:var(--green);">TARGET:</strong> <span id="meta-target-segment">--</span></div>
+            <div><strong style="color:var(--amber);">LINES:</strong> <span id="meta-lines">--</span></div>
+            <div><strong style="color:var(--purple);">STATUS:</strong> <span id="meta-status">CRUCIBLE CANDIDATE</span></div>
+          </div>
+
+          <!-- Code Display Body -->
+          <div id="terminal-code-body" class="code-editor-area">
+# Initializing Codex Astra Mathematical Kernel Synthesis...
+# Reading from src/betting_engine/sandbox_models/generated/
+          </div>
+
+          <!-- Terminal Execution Status Footer -->
+          <div class="code-terminal-footer">
+            <span id="terminal-compile-status">✓ AST VERIFIED · SCIPY / NUMPY COMPLIANT</span>
+            <span id="terminal-mtime">TIMESTAMP: --</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- CENTER COLUMN: Superbrain Neural Topology & Funnel Ribbon -->
+      <section class="cockpit-col">
+        <!-- Neural Synapse Canvas -->
+        <div class="quant-panel canvas-container">
+          <div class="canvas-hud-overlay">
+            <span class="canvas-badge">NEURAL AXONAL PATHWAYS & ACTIVE POTENTIALS</span>
+            <span class="canvas-badge" style="color:var(--cyan)">INTERACTIVE TOPOLOGY</span>
+          </div>
+          <canvas id="neuralCanvas"></canvas>
+        </div>
+
+        <!-- Funnel Velocity & Bottleneck Ribbon -->
+        <div class="funnel-ribbon">
+          <div id="clog-indicator-strip" class="clog-status-strip">
+            <span id="clog-indicator-badge">● DUGULÁSMENTES: OPTIMAL CONTINUOUS FLOW</span>
+            <span id="clog-queue-detail">QUEUED: 0 · COMPLETED: 0 · RETRY: 0</span>
+          </div>
+          
+          <div class="funnel-grid">
+            <div class="funnel-metric-box">
+              <span class="label">SYNTHESIS</span>
+              <span id="funnel-vel-synth-1h" class="val">--</span>
+              <span class="sub">MODELS / HR</span>
+            </div>
+            <div class="funnel-metric-box">
+              <span class="label">TIER 2 ADMIT</span>
+              <span id="funnel-vel-t2-1h" class="val">--</span>
+              <span class="sub">INCUBATED / HR</span>
+            </div>
+            <div class="funnel-metric-box">
+              <span class="label">TIER 3 GRAD</span>
+              <span id="funnel-vel-t3-1h" class="val">--</span>
+              <span class="sub">GRADUATED / HR</span>
+            </div>
+            <div class="funnel-metric-box">
+              <span class="label">DEMOTIONS</span>
+              <span id="funnel-vel-demote-1h" class="val">--</span>
+              <span class="sub">TOURNIQUET / HR</span>
+            </div>
+            <div class="funnel-metric-box">
+              <span class="label">NET EXPANSION</span>
+              <span id="funnel-vel-net-24h" class="val">--</span>
+              <span class="sub">VELOCITY / HR</span>
+            </div>
+            <div class="funnel-metric-box">
+              <span class="label">CRUCIBLE PASS</span>
+              <span id="funnel-crucible-pass-24h" class="val">--</span>
+              <span class="sub">BENCHMARK %</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- RIGHT COLUMN: 4-Tier Progression & Live Bet Ledger -->
+      <section class="cockpit-col">
+        <!-- 4-Tier Progression Stack -->
+        <div class="quant-panel glow-green" style="flex: 0 0 auto;">
+          <div class="panel-header">
+            <span class="title-active">📶 4-TIER PROGRESSION ENGINE</span>
+            <span style="color:var(--green); font-size:10px;">CLOSED-LOOP GOVERNANCE</span>
+          </div>
+          <div class="panel-body">
+            <div class="tier-stack">
+              <!-- Tier 1 -->
+              <div class="tier-card tier-1">
+                <div class="tier-header">
+                  <span style="color:var(--purple);">TIER 1: R&D CANDIDATE DISCOVERY</span>
+                  <span id="tier1-count" class="badge-hud badge-purple">--</span>
+                </div>
+                <div class="tier-details">
+                  <span>97k+ Settled Database Pool</span>
+                  <span id="tier1-rate">-- models/hr</span>
+                </div>
+              </div>
+
+              <!-- Tier 2 -->
+              <div class="tier-card tier-2">
+                <div class="tier-header">
+                  <span style="color:var(--amber);">TIER 2: SHADOW INCUBATOR</span>
+                  <span id="tier2-count" class="badge-hud badge-amber">--</span>
+                </div>
+                <div class="tier-details">
+                  <span>$0.00 Live Forward Validation</span>
+                  <span id="tier2-rate">-- admitted/hr</span>
+                </div>
+              </div>
+
+              <!-- Tier 3 -->
+              <div class="tier-card tier-3">
+                <div class="tier-header">
+                  <span style="color:var(--green);">TIER 3: STAKE SPORTSBOOK PROBATION</span>
+                  <span id="tier3-count" class="badge-hud badge-green">--</span>
+                </div>
+                <div class="tier-details">
+                  <span>$0.50–$8.00 Kelly Funded Bets</span>
+                  <span id="tier3-today-picks">0 / 100 Picks</span>
+                </div>
+                <div class="tier-progress-track">
+                  <div id="tier3-progress-bar" class="tier-progress-fill" style="width: 0%;"></div>
+                </div>
+              </div>
+
+              <!-- Tier 4 -->
+              <div class="tier-card tier-4">
+                <div class="tier-header">
+                  <span style="color:var(--cyan);">TIER 4: POLYMARKET CLOB ALPHA</span>
+                  <span id="tier4-count" class="badge-hud badge-cyan">--</span>
+                </div>
+                <div class="tier-details">
+                  <span>Maker Limit Orders (0% Taker Fee)</span>
+                  <span id="tier4-rate">-- promoted/hr</span>
+                </div>
               </div>
             </div>
-            <span class="ai-badge" id="claude-badge">INFERENCE</span>
-          </div>
-          <div class="ai-activity" id="claude-activity">
-            Analyzing NBA/NHL rest differentials, goalie fatigue, and starter injury weights.
           </div>
         </div>
 
-        <!-- OpenAI Codex Astra -->
-        <div class="ai-card card-codex">
-          <div class="ai-header">
-            <div class="ai-identity">
-              <span class="ai-avatar">⚛</span>
-              <div>
-                <div class="ai-name">OpenAI Codex Astra</div>
-                <div class="ai-role">Mathematical Kernel Synthesizer</div>
-              </div>
+        <!-- Live Bet Ledger & Instant Settlement Feed -->
+        <div class="quant-panel glow-cyan bets-feed-panel">
+          <div class="feed-tabs">
+            <div id="tab-active-bets" class="feed-tab active" onclick="switchBetTab('active')">
+              ACTIVE FUNDED BETS (<span id="count-active-bets">0</span>)
             </div>
-            <span class="ai-badge" id="codex-badge">SYNTHESIZING</span>
+            <div id="tab-settled-bets" class="feed-tab" onclick="switchBetTab('settled')">
+              INSTANT SETTLEMENTS (<span id="count-settled-bets">0</span>)
+            </div>
           </div>
-          <div class="ai-activity" id="codex-activity">
-            Synthesizing Negative Binomial, Copula Hazard &amp; Asymmetric Laplace models.
-          </div>
-        </div>
 
-        <!-- xAI Grok 4.7 -->
-        <div class="ai-card card-grok">
-          <div class="ai-header">
-            <div class="ai-identity">
-              <span class="ai-avatar">🛡</span>
-              <div>
-                <div class="ai-name">xAI Grok 4.7</div>
-                <div class="ai-role">Adversarial Red-Team Auditor</div>
-              </div>
+          <div id="feed-active-container" class="feed-content-area">
+            <div style="color:var(--text-dim); text-align:center; padding:20px; font-family:var(--font-mono); font-size:11px;">
+              Polling real-time executable instructions...
             </div>
-            <span class="ai-badge" id="grok-badge">STRESS-TESTING</span>
           </div>
-          <div class="ai-activity" id="grok-activity">
-            Stress-testing candidate Brier scores, drawdown boundaries, and tail risks.
-          </div>
-        </div>
-      </div>
-    </section>
 
-    <!-- 4-Tier Progressive Funnel Flow Grid -->
-    <section class="tiers-section">
-      <div class="section-title">
-        <span>4-Tier Closed-Loop Progression &amp; Live Velocity Conduits</span>
-        <span class="count-badge" id="net-velocity-badge">Net Expansion: Active</span>
-      </div>
-
-      <div class="tiers-flow-container">
-        <!-- Tier 1: R&D & Historical Training -->
-        <div class="tier-column t1">
-          <div class="tier-head">
-            <div class="tier-num-wrap">
-              <span class="tier-tag">TIER 1 · R&amp;D DISCOVERY</span>
-              <span class="tier-rate-badge" id="t1-rate-badge">-- model/h</span>
+          <div id="feed-settled-container" class="feed-content-area" style="display:none;">
+            <div style="color:var(--text-dim); text-align:center; padding:20px; font-family:var(--font-mono); font-size:11px;">
+              Polling settled events ledger...
             </div>
-            <div class="tier-title">Historical Backtesting &amp; Synthesis</div>
-            <div class="tier-subtitle">97,000+ settled matches · First-principles formulas</div>
-          </div>
-          <div class="conduit-bar"><div class="conduit-pulse"></div></div>
-          <div class="tier-metrics">
-            <div class="metric-box">
-              <span class="m-lbl">Synthesis Rate</span>
-              <span class="m-val cyan" id="t1-synth-rate">--/h</span>
-            </div>
-            <div class="metric-box">
-              <span class="m-lbl">Total Synthesized</span>
-              <span class="m-val" id="t1-total-synth">--</span>
-            </div>
-          </div>
-          <div class="tier-item-stream" id="t1-syntheses-stream">
-            <!-- Dynamic stream of candidate models -->
           </div>
         </div>
-
-        <!-- Tier 2: Shadow Incubator -->
-        <div class="tier-column t2">
-          <div class="tier-head">
-            <div class="tier-num-wrap">
-              <span class="tier-tag">TIER 2 · SHADOW INCUBATOR</span>
-              <span class="tier-rate-badge" id="t2-rate-badge">-- adm/h</span>
-            </div>
-            <div class="tier-title">Live Forward Validation ($0.00)</div>
-            <div class="tier-subtitle">Paper-trading live fixtures · Zero bankroll risk</div>
-          </div>
-          <div class="conduit-bar"><div class="conduit-pulse"></div></div>
-          <div class="tier-metrics">
-            <div class="metric-box">
-              <span class="m-lbl">Demoted Markets</span>
-              <span class="m-val" id="t2-demoted-count">--</span>
-            </div>
-            <div class="metric-box">
-              <span class="m-lbl">Crucible Pass %</span>
-              <span class="m-val green" id="t2-pass-pct">--%</span>
-            </div>
-          </div>
-          <div class="tier-item-stream" id="t2-incubating-stream">
-            <!-- Dynamic stream of incubating candidates -->
-          </div>
-        </div>
-
-        <!-- Tier 3: Stake Sportsbook Production -->
-        <div class="tier-column t3">
-          <div class="tier-head">
-            <div class="tier-num-wrap">
-              <span class="tier-tag">TIER 3 · STAKE SPORTSBOOK</span>
-              <span class="tier-rate-badge" id="t3-rate-badge">-- grad/h</span>
-            </div>
-            <div class="tier-title">Live Execution ($0.50–$8.00)</div>
-            <div class="tier-subtitle">Continuous fractional Kelly · 14 liquid leagues</div>
-          </div>
-          <div class="conduit-bar"><div class="conduit-pulse"></div></div>
-          <div class="tier-metrics">
-            <div class="metric-box">
-              <span class="m-lbl">Graduated Markets</span>
-              <span class="m-val green" id="t3-grad-count">--</span>
-            </div>
-            <div class="metric-box">
-              <span class="m-lbl">Open Live Bets</span>
-              <span class="m-val cyan" id="t3-open-count">--</span>
-            </div>
-          </div>
-          <div class="tier-item-stream" id="t3-bets-stream">
-            <!-- Dynamic stream of active bets -->
-          </div>
-        </div>
-
-        <!-- Tier 4: Polymarket CLOB Execution -->
-        <div class="tier-column t4">
-          <div class="tier-head">
-            <div class="tier-num-wrap">
-              <span class="tier-tag">TIER 4 · POLYMARKET CLOB</span>
-              <span class="tier-rate-badge" id="t4-rate-badge">Live Alpha</span>
-            </div>
-            <div class="tier-title">Resting Limit Maker Orders</div>
-            <div class="tier-subtitle">0% Taker fee · Reachable multi-platform edge</div>
-          </div>
-          <div class="conduit-bar"><div class="conduit-pulse"></div></div>
-          <div class="tier-metrics">
-            <div class="metric-box">
-              <span class="m-lbl">Filled Resting</span>
-              <span class="m-val amber" id="t4-filled-count">--</span>
-            </div>
-            <div class="metric-box">
-              <span class="m-lbl">CLOB PnL</span>
-              <span class="m-val green" id="t4-pnl-val">+$0.00</span>
-            </div>
-          </div>
-          <div class="tier-item-stream" id="t4-orders-stream">
-            <!-- Dynamic stream of polymarket orders -->
-          </div>
-        </div>
-      </div>
-
-      <!-- Demotion Loop Return Conduit (Tier 3 -> Tier 1) -->
-      <div class="demotion-return-bar">
-        <div class="demotion-bar-left">
-          <span class="demotion-icon">🛡️</span>
-          <div class="demotion-text">
-            <h4>Capital Defense &amp; Demotion Return Loop (Tier 3 ➔ Tier 1 Quarantine)</h4>
-            <p>Markets with rolling ROI &lt; -3.0% are immediately clamped ($0.00) and returned to Tier 1 R&amp;D for autonomous AI turnaround.</p>
-          </div>
-        </div>
-        <div class="demotion-chips-stream" id="demotions-chips-container">
-          <!-- Filled dynamically with recent demotions -->
-        </div>
-      </div>
-    </section>
-
-    <!-- Live Active Recommendations & Settlements -->
-    <div class="events-grid">
-      <!-- Active Executable Recommendations (Stake) -->
-      <div class="events-card">
-        <div class="events-card-head">
-          <div class="events-card-title">
-            <span>🎯 Active Executable Recommendations</span>
-            <span class="stream-badge neutral" id="live-recs-badge">-- Open</span>
-          </div>
-          <span style="font-size:11px; color:var(--text-dim);">Continuous Kelly ($0.50–$8.00)</span>
-        </div>
-        <div class="tier-item-stream" id="active-bets-full-stream" style="max-height: 350px;">
-          <!-- Active bets list -->
-        </div>
-      </div>
-
-      <!-- Live Settlement Event Ledger (Wins & Losses) -->
-      <div class="events-card">
-        <div class="events-card-head">
-          <div class="events-card-title">
-            <span>⚡ Live Settlements &amp; Result Forensics</span>
-            <span class="stream-badge pos" id="settlements-badge">Live Stream</span>
-          </div>
-          <span style="font-size:11px; color:var(--text-dim);">Verified Realized Outcomes</span>
-        </div>
-        <div class="tier-item-stream" id="settlements-full-stream" style="max-height: 350px;">
-          <!-- Settlement stream -->
-        </div>
-      </div>
-    </div>
+      </section>
+    </main>
   </div>
 
-  <!-- Floating Toast Notifications Container -->
-  <div id="popup-container"></div>
+  <!-- Floating Toast Notifications -->
+  <div id="toast-container" class="toast-container"></div>
 
+  <!-- Web Audio Synthesizer & Client State Logic -->
   <script>
-    // Audio Synthesizer (Zero external dependencies)
-    class QuantAudioSynth {
+    // Web Audio Synthesizer for Quant Telemetry Sounds
+    class QuantAudioSynthesizer {
       constructor() {
         this.ctx = null;
-        this.enabled = true;
+        this.enabled = false;
       }
+
       init() {
         if (!this.ctx) {
           const AudioContext = window.AudioContext || window.webkitAudioContext;
-          if (AudioContext) this.ctx = new AudioContext();
+          if (AudioContext) {
+            this.ctx = new AudioContext();
+          }
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
         }
       }
+
+      toggle() {
+        this.init();
+        this.enabled = !this.enabled;
+        return this.enabled;
+      }
+
+      playTone(freq, type = 'sine', duration = 0.15, gainVal = 0.05) {
+        if (!this.enabled || !this.ctx) return;
+        try {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+          gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + duration);
+        } catch (e) {
+          console.debug('Audio playback error', e);
+        }
+      }
+
       playWin() {
         if (!this.enabled) return;
-        this.init();
-        if (!this.ctx) return;
-        try {
-          const now = this.ctx.currentTime;
-          const osc1 = this.ctx.createOscillator();
-          const osc2 = this.ctx.createOscillator();
-          const gain = this.ctx.createGain();
-
-          osc1.type = 'sine';
-          osc1.frequency.setValueAtTime(587.33, now); // D5
-          osc1.frequency.exponentialRampToValueAtTime(880.00, now + 0.15); // A5
-
-          osc2.type = 'triangle';
-          osc2.frequency.setValueAtTime(880.00, now + 0.1);
-          osc2.frequency.exponentialRampToValueAtTime(1174.66, now + 0.3); // D6
-
-          gain.gain.setValueAtTime(0.12, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
-
-          osc1.connect(gain);
-          osc2.connect(gain);
-          gain.connect(this.ctx.destination);
-
-          osc1.start(now);
-          osc2.start(now + 0.1);
-          osc1.stop(now + 0.25);
-          osc2.stop(now + 0.45);
-        } catch (e) { console.debug('Audio error:', e); }
+        this.playTone(523.25, 'triangle', 0.15, 0.08); // C5
+        setTimeout(() => this.playTone(659.25, 'triangle', 0.15, 0.08), 90); // E5
+        setTimeout(() => this.playTone(783.99, 'triangle', 0.25, 0.1), 180); // G5
       }
+
       playLoss() {
         if (!this.enabled) return;
-        this.init();
-        if (!this.ctx) return;
-        try {
-          const now = this.ctx.currentTime;
-          const osc = this.ctx.createOscillator();
-          const gain = this.ctx.createGain();
-          osc.type = 'sawtooth';
-          osc.frequency.setValueAtTime(220, now);
-          osc.frequency.exponentialRampToValueAtTime(110, now + 0.25);
-          gain.gain.setValueAtTime(0.08, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
-          osc.connect(gain);
-          gain.connect(this.ctx.destination);
-          osc.start(now);
-          osc.stop(now + 0.35);
-        } catch (e) { console.debug('Audio error:', e); }
+        this.playTone(392.00, 'sawtooth', 0.18, 0.05); // G4
+        setTimeout(() => this.playTone(311.13, 'sawtooth', 0.3, 0.06), 120); // Eb4
       }
+
       playGraduation() {
         if (!this.enabled) return;
-        this.init();
-        if (!this.ctx) return;
-        try {
-          const now = this.ctx.currentTime;
-          const osc = this.ctx.createOscillator();
-          const gain = this.ctx.createGain();
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(440, now);
-          osc.frequency.exponentialRampToValueAtTime(1046.5, now + 0.25);
-          gain.gain.setValueAtTime(0.1, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-          osc.connect(gain);
-          gain.connect(this.ctx.destination);
-          osc.start(now);
-          osc.stop(now + 0.4);
-        } catch (e) { console.debug('Audio error:', e); }
+        this.playTone(440.0, 'sine', 0.1, 0.07);
+        setTimeout(() => this.playTone(554.37, 'sine', 0.1, 0.07), 80);
+        setTimeout(() => this.playTone(659.25, 'sine', 0.1, 0.07), 160);
+        setTimeout(() => this.playTone(880.0, 'sine', 0.3, 0.09), 240);
+      }
+
+      playSynapsePulse() {
+        if (!this.enabled) return;
+        this.playTone(1200 + Math.random() * 400, 'sine', 0.04, 0.015);
       }
     }
-    const audioSynth = new QuantAudioSynth();
 
-    // Neural Canvas Visualizer
-    const canvas = document.getElementById('neural-canvas');
+    const audioSynth = new QuantAudioSynthesizer();
+    document.getElementById('btn-audio-toggle').addEventListener('click', () => {
+      const active = audioSynth.toggle();
+      const stateEl = document.getElementById('hud-audio-state');
+      stateEl.textContent = active ? 'ON' : 'OFF';
+      stateEl.style.color = active ? 'var(--cyan)' : 'inherit';
+    });
+
+    // Fullscreen Toggle
+    document.getElementById('btn-fullscreen-toggle').addEventListener('click', () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+      }
+    });
+
+    // Toast Notification System
+    function showToast(type, title, subtitle, details) {
+      const container = document.getElementById('toast-container');
+      if (!container) return;
+      const t = document.createElement('div');
+      t.className = `toast-msg ${type}`;
+      t.innerHTML = `
+        <div style="font-size:16px;">${type === 'win' ? '🟢' : type === 'loss' ? '🔴' : '💎'}</div>
+        <div>
+          <div style="font-weight:700; color:#fff;">${title}</div>
+          <div style="color:var(--text); font-size:10px;">${subtitle}</div>
+          ${details ? `<div style="color:var(--text-dim); font-size:9px;">${details}</div>` : ''}
+        </div>
+      `;
+      container.appendChild(t);
+      setTimeout(() => {
+        t.style.opacity = '0';
+        t.style.transition = 'opacity 0.4s ease';
+        setTimeout(() => t.remove(), 400);
+      }, 4500);
+    }
+
+    // Tabs for Bet Feed
+    let currentBetTab = 'active';
+    function switchBetTab(tab) {
+      currentBetTab = tab;
+      const tabActive = document.getElementById('tab-active-bets');
+      const tabSettled = document.getElementById('tab-settled-bets');
+      const feedActive = document.getElementById('feed-active-container');
+      const feedSettled = document.getElementById('feed-settled-container');
+      
+      if (tab === 'active') {
+        tabActive.classList.add('active');
+        tabSettled.classList.remove('active');
+        feedActive.style.display = 'flex';
+        feedSettled.style.display = 'none';
+      } else {
+        tabSettled.classList.add('active');
+        tabActive.classList.remove('active');
+        feedSettled.style.display = 'flex';
+        feedActive.style.display = 'none';
+      }
+    }
+
+    // ==========================================
+    // SUPERBRAIN NEURAL TOPOLOGY CANVAS ENGINE
+    // ==========================================
+    const canvas = document.getElementById('neuralCanvas');
     const ctx = canvas && canvas.getContext ? canvas.getContext('2d') : null;
-    let width, height;
-    let particles = [];
-    const PARTICLE_COUNT = 65;
+
+    let canvasWidth = 0;
+    let canvasHeight = 0;
 
     function resizeCanvas() {
       if (!canvas) return;
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
+      const rect = canvas.getBoundingClientRect();
+      canvasWidth = rect.width;
+      canvasHeight = rect.height;
+      canvas.width = canvasWidth * window.devicePixelRatio;
+      canvas.height = canvasHeight * window.devicePixelRatio;
+      if (ctx) ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
     }
     window.addEventListener('resize', resizeCanvas);
-    window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 100));
-    resizeCanvas();
+    setTimeout(resizeCanvas, 50);
 
-    class SynapseNode {
-      constructor() {
-        this.x = Math.random() * (width || 800);
-        this.y = Math.random() * (height || 600);
-        this.vx = (Math.random() - 0.5) * 0.7;
-        this.vy = (Math.random() - 0.5) * 0.7;
-        this.radius = Math.random() * 2.2 + 1;
-        this.color = Math.random() > 0.4 ? 'rgba(0, 243, 255, ' : 'rgba(0, 255, 136, ';
-        this.alpha = Math.random() * 0.6 + 0.2;
-      }
-      update() {
-        this.x += this.vx;
-        this.y += this.vy;
-        if (this.x < 0 || this.x > (width || 800)) this.vx *= -1;
-        if (this.y < 0 || this.y > (height || 600)) this.vy *= -1;
-      }
-      draw() {
-        if (!ctx) return;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        ctx.fillStyle = this.color + this.alpha + ')';
-        ctx.fill();
-      }
-    }
+    // Neural Topology Nodes Definitions
+    const neuralNodes = [
+      // Central Quant Engine Core
+      { id: 'core', label: 'QUANT CORE', sub: 'SHADOW EV & KELLY', x: 0.50, y: 0.48, r: 24, color: '#00f3ff', pulse: 0 },
+      // Sensory Ingestion
+      { id: 'espn', label: 'ESPN FEED', sub: 'SCORES & CLOCKS', x: 0.16, y: 0.18, r: 14, color: '#7086a3', pulse: 0 },
+      { id: 'nhl', label: 'NHL STATS', sub: 'GOALIES & ICE', x: 0.14, y: 0.38, r: 14, color: '#00f3ff', pulse: 0 },
+      { id: 'mlb', label: 'MLB STATS', sub: 'PITCHERS & PARKS', x: 0.14, y: 0.58, r: 14, color: '#ffb703', pulse: 0 },
+      { id: 'weather', label: 'METEO WIND', sub: 'STADIUM PHYSICS', x: 0.16, y: 0.78, r: 14, color: '#b5179e', pulse: 0 },
+      // AI Quant Council
+      { id: 'agy', label: 'AGY ARCHITECT', sub: 'DIRECTIVE LEAD', x: 0.34, y: 0.22, r: 16, color: '#00f3ff', pulse: 0 },
+      { id: 'claude', label: 'CLAUDE OPUS', sub: 'SITUATIONAL', x: 0.34, y: 0.74, r: 16, color: '#ffb703', pulse: 0 },
+      { id: 'codex', label: 'CODEX ASTRA', sub: 'SYNTHESIS KERNEL', x: 0.50, y: 0.16, r: 18, color: '#00ff88', pulse: 0 },
+      { id: 'grok', label: 'GROK AUDIT', sub: 'RED-TEAM PROOF', x: 0.50, y: 0.80, r: 16, color: '#ff0055', pulse: 0 },
+      // Tiers
+      { id: 'tier1', label: 'TIER 1 R&D', sub: 'HISTORICAL 97k', x: 0.68, y: 0.22, r: 15, color: '#b5179e', pulse: 0 },
+      { id: 'tier2', label: 'TIER 2 INCUBATOR', sub: '$0.00 SHADOW', x: 0.68, y: 0.74, r: 15, color: '#ffb703', pulse: 0 },
+      { id: 'tier3', label: 'TIER 3 STAKE', sub: '$0.50–$8.00 KELLY', x: 0.86, y: 0.35, r: 18, color: '#00ff88', pulse: 0 },
+      { id: 'tier4', label: 'TIER 4 POLYMARKET', sub: 'MAKER CLOB', x: 0.86, y: 0.62, r: 16, color: '#00f3ff', pulse: 0 }
+    ];
 
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
-      particles.push(new SynapseNode());
-    }
+    // Synaptic Axons Connecting Nodes
+    const neuralAxons = [
+      { from: 'espn', to: 'agy', color: 'rgba(112, 134, 163, 0.4)' },
+      { from: 'nhl', to: 'agy', color: 'rgba(0, 243, 255, 0.4)' },
+      { from: 'mlb', to: 'claude', color: 'rgba(255, 183, 3, 0.4)' },
+      { from: 'weather', to: 'claude', color: 'rgba(181, 23, 158, 0.4)' },
+      { from: 'agy', to: 'core', color: 'rgba(0, 243, 255, 0.6)' },
+      { from: 'claude', to: 'core', color: 'rgba(255, 183, 3, 0.6)' },
+      { from: 'codex', to: 'core', color: 'rgba(0, 255, 136, 0.7)' },
+      { from: 'grok', to: 'core', color: 'rgba(255, 0, 85, 0.6)' },
+      { from: 'core', to: 'tier1', color: 'rgba(181, 23, 158, 0.6)' },
+      { from: 'tier1', to: 'tier2', color: 'rgba(255, 183, 3, 0.6)' },
+      { from: 'tier2', to: 'tier3', color: 'rgba(0, 255, 136, 0.7)' },
+      { from: 'tier3', to: 'tier4', color: 'rgba(0, 243, 255, 0.7)' },
+      // Tourniquet Closed-Loop Return
+      { from: 'tier3', to: 'tier1', color: 'rgba(255, 0, 85, 0.5)', curved: true }
+    ];
 
-    function animateNeuralSynapses() {
-      if (!ctx) return;
-      ctx.clearRect(0, 0, width, height);
-
-      // Draw connections
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          const dx = particles[i].x - particles[j].x;
-          const dy = particles[i].y - particles[j].y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 130) {
-            const alpha = (1 - dist / 130) * 0.15;
-            ctx.beginPath();
-            ctx.moveTo(particles[i].x, particles[i].y);
-            ctx.lineTo(particles[j].x, particles[j].y);
-            ctx.strokeStyle = `rgba(0, 243, 255, ${alpha})`;
-            ctx.lineWidth = 0.8;
-            ctx.stroke();
-          }
-        }
-      }
-
-      // Draw and update nodes
-      for (let p of particles) {
-        p.update();
-        p.draw();
-      }
-
-      requestAnimationFrame(animateNeuralSynapses);
-    }
-    animateNeuralSynapses();
-
-    // Fullscreen Toggle
-    const fsBtn = document.getElementById('fullscreen-toggle-btn');
-    const fsText = document.getElementById('fullscreen-btn-text');
-    fsBtn.addEventListener('click', () => {
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().then(() => {
-          fsText.textContent = 'EXIT FULLSCREEN';
-          fsBtn.classList.add('active');
-        }).catch(err => console.debug('Fullscreen error:', err));
-      } else {
-        if (document.exitFullscreen) {
-          document.exitFullscreen().then(() => {
-            fsText.textContent = 'FULLSCREEN';
-            fsBtn.classList.remove('active');
-          });
-        }
-      }
-    });
-    document.addEventListener('fullscreenchange', () => {
-      if (!document.fullscreenElement) {
-        fsText.textContent = 'FULLSCREEN';
-        fsBtn.classList.remove('active');
-      }
-    });
-
-    // Sound Toggle
-    const soundBtn = document.getElementById('sound-toggle-btn');
-    const soundDot = document.getElementById('sound-status-dot');
-    const soundText = document.getElementById('sound-btn-text');
-    soundBtn.addEventListener('click', () => {
-      audioSynth.enabled = !audioSynth.enabled;
-      if (audioSynth.enabled) {
-        soundDot.classList.remove('off');
-        soundText.textContent = 'Audio: ON';
-        audioSynth.playWin();
-      } else {
-        soundDot.classList.add('off');
-        soundText.textContent = 'Audio: OFF';
-      }
-    });
-
-    // Test Popup Button
-    const testPopupBtn = document.getElementById('test-popup-btn');
-    if (testPopupBtn) {
-      testPopupBtn.addEventListener('click', () => {
-        audioSynth.playWin();
-        showToast('win', 'WIN SETTLED! (LIVE VERIFICATION)', 'Colorado Avalanche vs Nashville Predators', 'NHL · regulation:home_total (Under 2.5) @ 3.10', 1.05);
+    // Synaptic Action Potential Particles
+    const particles = [];
+    for (let i = 0; i < 45; i++) {
+      const axon = neuralAxons[Math.floor(Math.random() * neuralAxons.length)];
+      particles.push({
+        axon: axon,
+        progress: Math.random(),
+        speed: 0.003 + Math.random() * 0.007,
+        size: 1.5 + Math.random() * 2.0,
+        brightness: 0.6 + Math.random() * 0.4
       });
     }
 
-    // Toast Popup Engine
-    const popupContainer = document.getElementById('popup-container');
-    const seenEventIds = new Set();
-
-    function showToast(type, title, match, detail, pnl) {
-      const toast = document.createElement('div');
-      toast.className = `toast-popup ${type}`;
-
-      let pnlHtml = '';
-      if (pnl !== undefined && pnl !== null) {
-        const isPos = pnl > 0;
-        pnlHtml = `<span class="toast-pnl ${isPos ? 'pos' : 'neg'}">${isPos ? '+' : ''}$${pnl.toFixed(2)}</span>`;
+    function drawNeuralCanvas() {
+      if (!ctx || canvasWidth === 0 || canvasHeight === 0) {
+        requestAnimationFrame(drawNeuralCanvas);
+        return;
       }
 
-      toast.innerHTML = `
-        <div class="toast-head">
-          <span class="toast-type">
-            <span>${type === 'win' ? '🎉' : type === 'loss' ? '⚠️' : '🎓'}</span>
-            <span>${title}</span>
-          </span>
-          <span class="toast-time">${new Date().toLocaleTimeString()}</span>
-        </div>
-        <div class="toast-match">${match}</div>
-        <div class="toast-details">
-          <span>${detail}</span>
-          ${pnlHtml}
-        </div>
-      `;
+      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
-      popupContainer.appendChild(toast);
-      setTimeout(() => {
-        toast.style.animation = 'slide-in 0.3s reverse forwards';
-        setTimeout(() => toast.remove(), 300);
-      }, 5500);
+      // Node coordinates lookup map
+      const nodeMap = {};
+      neuralNodes.forEach(n => {
+        nodeMap[n.id] = {
+          x: n.x * canvasWidth,
+          y: n.y * canvasHeight,
+          node: n
+        };
+      });
+
+      // 1. Draw Synaptic Axons (Curved Bezier Paths)
+      neuralAxons.forEach(axon => {
+        const from = nodeMap[axon.from];
+        const to = nodeMap[axon.to];
+        if (!from || !to) return;
+
+        ctx.beginPath();
+        ctx.strokeStyle = axon.color;
+        ctx.lineWidth = 1.4;
+
+        if (axon.curved) {
+          const midX = (from.x + to.x) / 2;
+          const midY = ((from.y + to.y) / 2) + 40;
+          ctx.moveTo(from.x, from.y);
+          ctx.quadraticCurveTo(midX, midY, to.x, to.y);
+        } else {
+          ctx.moveTo(from.x, from.y);
+          ctx.lineTo(to.x, to.y);
+        }
+        ctx.stroke();
+      });
+
+      // 2. Animate Action Potential Particles Streaming on Axons
+      particles.forEach(p => {
+        p.progress += p.speed;
+        if (p.progress > 1) {
+          p.progress = 0;
+          p.axon = neuralAxons[Math.floor(Math.random() * neuralAxons.length)];
+        }
+
+        const from = nodeMap[p.axon.from];
+        const to = nodeMap[p.axon.to];
+        if (!from || !to) return;
+
+        let px, py;
+        if (p.axon.curved) {
+          const midX = (from.x + to.x) / 2;
+          const midY = ((from.y + to.y) / 2) + 40;
+          const t = p.progress;
+          px = (1 - t) * (1 - t) * from.x + 2 * (1 - t) * t * midX + t * t * to.x;
+          py = (1 - t) * (1 - t) * from.y + 2 * (1 - t) * t * midY + t * t * to.y;
+        } else {
+          px = from.x + (to.x - from.x) * p.progress;
+          py = from.y + (to.y - from.y) * p.progress;
+        }
+
+        ctx.beginPath();
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = p.axon.color;
+        ctx.shadowBlur = 8;
+        ctx.arc(px, py, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      });
+
+      // 3. Draw Nodes with Glowing Halos & Labels
+      neuralNodes.forEach(n => {
+        const pt = nodeMap[n.id];
+        if (!pt) return;
+
+        // Glowing outer halo
+        ctx.beginPath();
+        ctx.fillStyle = n.color;
+        ctx.globalAlpha = 0.15 + Math.sin(Date.now() * 0.003 + n.r) * 0.08;
+        ctx.arc(pt.x, pt.y, n.r + 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1.0;
+
+        // Node Body
+        ctx.beginPath();
+        ctx.fillStyle = '#060914';
+        ctx.strokeStyle = n.color;
+        ctx.lineWidth = 2.0;
+        ctx.arc(pt.x, pt.y, n.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // Node Inner Core Dot
+        ctx.beginPath();
+        ctx.fillStyle = n.color;
+        ctx.arc(pt.x, pt.y, n.r * 0.35, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Node Labels (Unclipped, Crisp Typography)
+        ctx.font = '700 9px monospace';
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.fillText(n.label, pt.x, pt.y + n.r + 12);
+
+        ctx.font = '600 7.5px monospace';
+        ctx.fillStyle = '#7086a3';
+        ctx.fillText(n.sub, pt.x, pt.y + n.r + 21);
+      });
+
+      requestAnimationFrame(drawNeuralCanvas);
+    }
+    requestAnimationFrame(drawNeuralCanvas);
+
+    // ==========================================
+    // SYNTHESIZED CODE TERMINAL LOGIC
+    // ==========================================
+    let cachedCodeModels = [];
+    let currentCodeIndex = 0;
+
+    function renderCodeTerminal(models) {
+      if (!models || models.length === 0) return;
+      cachedCodeModels = models;
+
+      const tabContainer = document.getElementById('terminal-tab-container');
+      if (!tabContainer) return;
+
+      tabContainer.innerHTML = '';
+      models.forEach((m, idx) => {
+        const tab = document.createElement('div');
+        tab.className = `code-terminal-tab ${idx === currentCodeIndex ? 'active' : ''}`;
+        tab.textContent = m.filename.replace('codex_synth_', '').replace('.py', '');
+        tab.title = m.filename;
+        tab.onclick = () => selectCodeModel(idx);
+        tabContainer.appendChild(tab);
+      });
+
+      displayCurrentModel();
     }
 
-    // Live State Fetching & UI Rendering
+    function selectCodeModel(idx) {
+      currentCodeIndex = idx;
+      const tabs = document.querySelectorAll('.code-terminal-tab');
+      tabs.forEach((t, i) => {
+        if (i === idx) t.classList.add('active');
+        else t.classList.remove('active');
+      });
+      displayCurrentModel();
+    }
+
+    function highlightPython(code) {
+      if (!code) return '';
+      let safe = code
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
+      const tokens = [];
+      const addToken = (html) => {
+        tokens.push(html);
+        return `___TOK${tokens.length - 1}___`;
+      };
+
+      safe = safe.replace(/(#.*$)/gm, (m) => addToken(`<span class="cmt">${m}</span>`));
+      safe = safe.replace(/("""[\s\S]*?"""|'''[\s\S]*?'''|"[^"\n]*"|'[^'\n]*')/g, (m) => addToken(`<span class="str">${m}</span>`));
+      safe = safe.replace(/\bclass\s+([A-Za-z0-9_]+)/g, (_, cls) => addToken(`<span class="kw">class</span> <span class="cls">${cls}</span>`));
+      safe = safe.replace(/\bdef\s+([A-Za-z0-9_]+)/g, (_, fn) => addToken(`<span class="kw">def</span> <span class="fn">${fn}</span>`));
+      safe = safe.replace(/\b(import|from|return|if|else|elif|for|while|try|except|with|as|None|True|False|self)\b/g, (m) => addToken(`<span class="kw">${m}</span>`));
+      safe = safe.replace(/\b(\d+(\.\d+)?)\b/g, (m) => addToken(`<span class="num">${m}</span>`));
+
+      safe = safe.replace(/___TOK(\d+)___/g, (_, i) => tokens[parseInt(i, 10)]);
+      return safe;
+    }
+
+    function displayCurrentModel() {
+      if (!cachedCodeModels || cachedCodeModels.length === 0) return;
+      const m = cachedCodeModels[currentCodeIndex] || cachedCodeModels[0];
+      if (!m) return;
+
+      document.getElementById('meta-model-name').textContent = m.class_name || m.filename;
+      document.getElementById('meta-target-segment').textContent = m.target_segment || 'INFERRED';
+      document.getElementById('meta-lines').textContent = m.lines ? `${m.lines} lines (${(m.size_bytes / 1024).toFixed(1)} KB)` : '--';
+      document.getElementById('meta-status').textContent = m.status || 'CRUCIBLE CANDIDATE';
+      document.getElementById('terminal-mtime').textContent = `MTIME: ${m.mtime ? m.mtime.slice(11, 19) + ' UTC' : '--'}`;
+
+      const codeBody = document.getElementById('terminal-code-body');
+      codeBody.innerHTML = highlightPython(m.code_snippet);
+    }
+
+    // Auto-cycle through code models every 15 seconds if user hasn't clicked
+    setInterval(() => {
+      if (cachedCodeModels && cachedCodeModels.length > 1) {
+        currentCodeIndex = (currentCodeIndex + 1) % cachedCodeModels.length;
+        selectCodeModel(currentCodeIndex);
+      }
+    }, 15000);
+
+    // ==========================================
+    // REAL-TIME TELEMETRY POLLING & HYDRATION
+    // ==========================================
     let isInitialLoad = true;
+    const seenEventIds = new Set();
 
     async function updateSuperbrain() {
       try {
-        const res = await fetch('/api/superbrain/state', { cache: 'no-store' });
+        const res = await fetch('/api/superbrain/state');
         if (!res.ok) return;
         const data = await res.json();
 
-        // 1. Top Ribbon
-        document.getElementById('budapest-time-val').textContent = data.budapest_time.split(' ')[1] + ' UTC+1';
-        document.getElementById('today-picks-val').textContent = `${data.scoreboard.today_picks} / ${data.scoreboard.daily_target}`;
-        document.getElementById('today-stake-val').textContent = `$${data.scoreboard.today_stake.toFixed(2)}`;
-        document.getElementById('win-rate-val').textContent = `${data.scoreboard.win_rate_pct}%`;
-        document.getElementById('total-pnl-val').textContent = `${data.scoreboard.total_realized_pnl >= 0 ? '+' : ''}$${data.scoreboard.total_realized_pnl.toFixed(2)}`;
+        // 1. Top HUD
+        document.getElementById('hud-budapest-time').textContent = data.budapest_time || '--:--:--';
+        
+        const sb = data.scoreboard || {};
+        const pnlEl = document.getElementById('hud-pnl');
+        const pnlVal = sb.live_funded_pnl_usd ?? 0;
+        pnlEl.textContent = `${pnlVal >= 0 ? '+' : ''}$${pnlVal.toFixed(2)}`;
+        pnlEl.style.color = pnlVal >= 0 ? 'var(--green)' : 'var(--red)';
 
-        // 2. Diagnostics
-        const diagBanner = document.getElementById('diagnostics-banner');
-        const diagText = document.getElementById('diag-indicator-text');
-        const diagIcon = document.getElementById('diag-indicator-icon');
+        const roiEl = document.getElementById('hud-roi');
+        const roiVal = sb.rolling_7d_roi_pct ?? 0;
+        roiEl.textContent = `${roiVal >= 0 ? '+' : ''}${roiVal.toFixed(1)}%`;
+        roiEl.style.color = roiVal >= 0 ? 'var(--green)' : 'var(--red)';
 
-        if (data.clog_diagnostics.is_clogged) {
-          diagBanner.className = 'diagnostics-banner warning';
-          diagIcon.textContent = '🔴';
-          diagText.textContent = data.clog_diagnostics.indicator + ` (Queued: ${data.clog_diagnostics.queued_jobs})`;
-        } else {
-          diagBanner.className = 'diagnostics-banner';
-          diagIcon.textContent = '🟢';
-          diagText.textContent = `${data.clog_diagnostics.indicator} · Latency: 12ms · Queued: ${data.clog_diagnostics.queued_jobs} · Completed: ${data.clog_diagnostics.completed_jobs}`;
-        }
+        const tier3 = data.tiers?.tier_3_stake || {};
+        document.getElementById('hud-volume').textContent = `${tier3.today_volume_picks ?? 0} / 100`;
 
-        // Daemons
-        const dContainer = document.getElementById('daemons-container');
-        dContainer.innerHTML = '';
-        for (const [key, daemon] of Object.entries(data.daemons)) {
-          const isUp = daemon.status === 'running';
-          const chip = document.createElement('div');
-          chip.className = `daemon-chip ${isUp ? 'up' : 'down'}`;
-          chip.innerHTML = `<span class="dot"></span><span>${daemon.name}</span>`;
-          dContainer.appendChild(chip);
-        }
-
-        // 3. AI Quant Council - Dynamic live synthesis & hypotheses
-        const cs = data.council_sessions && data.council_sessions.length > 0 ? data.council_sessions[0] : null;
-        const latestSynth = data.tiers.tier_1_rd.recent_syntheses && data.tiers.tier_1_rd.recent_syntheses.length > 0 ? data.tiers.tier_1_rd.recent_syntheses[0] : null;
-
-        // Gemini Antigravity
-        const agyEl = document.getElementById('agy-activity');
-        if (agyEl) {
-          if (cs) {
-            agyEl.innerHTML = `<span style="color:var(--cyan);font-weight:700;">[Orchestration · ${cs.segment}]</span> ${cs.decision} · Target Rule: <code style="color:#fff;">${cs.target_formula || 'quarantine_high_variance'}</code>`;
-          } else {
-            agyEl.textContent = 'Orchestrating 4-tier closed-loop progression & enforcing 10 Prime Directives.';
+        // 2. AI Quant Council State
+        const brainsList = Array.isArray(data.ai_brains) ? data.ai_brains : Object.values(data.ai_brains || {});
+        brainsList.forEach(b => {
+          const brainId = b.id;
+          const statusEl = document.getElementById(`brain-status-${brainId}`);
+          const reasoningEl = document.getElementById(`brain-reasoning-${brainId}`);
+          if (statusEl) {
+            statusEl.textContent = `${b.status || 'ACTIVE'} · ${b.model || ''}`;
           }
-        }
-
-        // Claude Opus 5.5
-        const claudeEl = document.getElementById('claude-activity');
-        if (claudeEl) {
-          if (cs && cs.claude_advice) {
-            const shortAdvice = cs.claude_advice.replace(/\*\*/g, '').slice(0, 160) + '...';
-            claudeEl.innerHTML = `<span style="color:var(--purple);font-weight:700;">[Domain Mechanics · ${cs.segment}]</span> ${shortAdvice}`;
-          } else {
-            claudeEl.textContent = 'Analyzing NBA/NHL rest differentials, goalie fatigue, and starter injury weights.';
+          if (reasoningEl) {
+            if (brainId === 'claude' && data.council_sessions && data.council_sessions.length > 0) {
+              const latestSession = data.council_sessions[0];
+              reasoningEl.textContent = `${latestSession.segment}: ${latestSession.target_formula || latestSession.hypothesis_title}`;
+            } else if (b.current_focus) {
+              reasoningEl.textContent = b.current_focus;
+            }
           }
+        });
+
+        // 3. Code Models for Terminal
+        const codeModels = data.tiers?.tier_1_rd?.latest_code_models || [];
+        if (codeModels.length > 0 && (cachedCodeModels.length === 0 || codeModels[0].filename !== cachedCodeModels[0]?.filename)) {
+          renderCodeTerminal(codeModels);
         }
 
-        // Codex Astra
-        const codexEl = document.getElementById('codex-activity');
-        if (codexEl) {
-          if (latestSynth) {
-            codexEl.innerHTML = `<span style="color:var(--green);font-weight:700;">[Kernel Synthesis]</span> ${latestSynth.class_name} (${latestSynth.league} ${latestSynth.scope}) · OOS ROI: <strong>${latestSynth.oos_roi}%</strong> · Status: <span class="stream-badge ${latestSynth.crucible_passed ? 'pos' : 'neg'}">${latestSynth.crucible_passed ? 'CRUCIBLE PASS' : 'REJECTED'}</span>`;
-          } else {
-            codexEl.textContent = 'Synthesizing Negative Binomial, Copula Hazard & Asymmetric Laplace models.';
-          }
-        }
-
-        // Grok 4.7
-        const grokEl = document.getElementById('grok-activity');
-        if (grokEl) {
-          grokEl.innerHTML = `<span style="color:var(--red);font-weight:700;">[Red-Team Guard]</span> Clamp max prob delta to ±3.5% · $0.50 tourniquet on failure · Strict Crucible N≥25 out-of-sample`;
-        }
-
-        // 4. Tier Metrics & Conduits
+        // 4. Funnel Velocity Ribbon
         const fv = data.funnel_velocity || {};
-        const hourly = fv.hourly_velocity || {};
-        const inventory = fv.active_inventory || {};
-        const windows = fv.windows || {};
-        const w24h = windows['24h'] || {};
+        document.getElementById('funnel-vel-synth-1h').textContent = Number(fv.model_synthesis_rate_per_hour ?? 0).toFixed(1);
+        document.getElementById('funnel-vel-t2-1h').textContent = Number(fv.tier_2_admission_rate_per_hour ?? 0).toFixed(1);
+        document.getElementById('funnel-vel-t3-1h').textContent = Number(fv.tier_3_graduation_rate_per_hour ?? 0).toFixed(1);
+        document.getElementById('funnel-vel-demote-1h').textContent = Number(fv.tier_1_demotion_rate_per_hour ?? 0).toFixed(1);
+        
+        const netExpEl = document.getElementById('funnel-vel-net-24h');
+        const netExpVal = Number(fv.net_market_expansion_rate_per_hour ?? 0);
+        netExpEl.textContent = `${netExpVal >= 0 ? '+' : ''}${netExpVal.toFixed(1)}`;
+        netExpEl.style.color = netExpVal >= 0 ? 'var(--green)' : 'var(--amber)';
 
-        const netExp = Number(fv.net_market_expansion_rate_per_hour ?? hourly.net_expansion_velocity_per_hour_24h ?? 0);
-        const netBadge = document.getElementById('net-velocity-badge');
-        if (netBadge) {
-          netBadge.textContent = `Net Velocity: ${netExp >= 0 ? '+' : ''}${netExp.toFixed(2)}/h`;
+        document.getElementById('funnel-crucible-pass-24h').textContent = `${Number(fv.crucible_admission_rate_pct ?? 0).toFixed(1)}%`;
+
+        // Clog & Daemon Status
+        const clog = data.clog_diagnostics || {};
+        const clogBadge = document.getElementById('clog-indicator-badge');
+        const clogDetail = document.getElementById('clog-queue-detail');
+        const clogStrip = document.getElementById('clog-indicator-strip');
+
+        if (clog.is_clogged) {
+          clogStrip.classList.add('is-clogged');
+          clogBadge.textContent = '▲ WARNING: QUEUE BACKLOG DETECTED';
+        } else {
+          clogStrip.classList.remove('is-clogged');
+          clogBadge.textContent = '● DUGULÁSMENTES: OPTIMAL CONTINUOUS FLOW';
         }
+        clogDetail.textContent = `QUEUED: ${clog.queued_jobs ?? 0} · COMPLETED: ${clog.completed_jobs ?? 0} · RETRY: ${clog.retry_jobs ?? 0}`;
+        document.getElementById('hud-daemons-count').textContent = `${clog.running_daemons_count ?? 5}/${clog.total_daemons_count ?? 5} RUNNING`;
 
-        // T1
-        const t1SynthRate = Number(fv.model_synthesis_rate_per_hour ?? hourly.models_synthesized_per_hour_24h ?? data.tiers?.tier_1_rd?.synthesis_rate_per_hour ?? 0);
-        const t1TotalSynth = Number(fv.total_synthesized_models ?? w24h.syntheses_count ?? data.tiers?.tier_1_rd?.active_models_synthesized ?? 0);
-        const t1RateBadge = document.getElementById('t1-rate-badge');
-        if (t1RateBadge) t1RateBadge.textContent = `${t1SynthRate.toFixed(1)} model/h`;
-        const t1RateEl = document.getElementById('t1-synth-rate');
-        if (t1RateEl) t1RateEl.textContent = `${t1SynthRate.toFixed(1)}/h`;
-        const t1TotalEl = document.getElementById('t1-total-synth');
-        if (t1TotalEl) t1TotalEl.textContent = t1TotalSynth;
+        // 5. 4-Tier Progression Stack
+        const t1 = data.tiers?.tier_1_rd || {};
+        document.getElementById('tier1-count').textContent = `${t1.active_models_synthesized ?? 0} Active`;
+        document.getElementById('tier1-rate').textContent = `${Number(t1.synthesis_rate_per_hour ?? 0).toFixed(1)} models/hr`;
 
-        const t1Stream = document.getElementById('t1-syntheses-stream');
-        if (t1Stream) {
-          t1Stream.innerHTML = '';
-          const synths = data.tiers?.tier_1_rd?.recent_syntheses || [];
-          synths.forEach(s => {
-            const row = document.createElement('div');
-            row.className = 'stream-row';
-            row.innerHTML = `
-              <div class="stream-row-head">
-                <span class="stream-name" title="${s.class_name}">${s.class_name}</span>
-                <span class="stream-badge ${s.crucible_passed ? 'pos' : 'neg'}">${s.crucible_passed ? 'CRUCIBLE PASS' : 'REJECTED'}</span>
+        const t2 = data.tiers?.tier_2_incubator || {};
+        document.getElementById('tier2-count').textContent = `${t2.demoted_markets_count ?? 0} Shadow`;
+        document.getElementById('tier2-rate').textContent = `${Number(t2.admission_rate_per_hour ?? 0).toFixed(1)} admitted/hr`;
+
+        document.getElementById('tier3-count').textContent = `${tier3.active_graduated_markets_count ?? 0} Graduated`;
+        document.getElementById('tier3-today-picks').textContent = `${tier3.today_volume_picks ?? 0} / 100 Picks ($${Number(tier3.today_stake_funded ?? 0).toFixed(2)})`;
+        document.getElementById('tier3-progress-bar').style.width = `${Math.min(100, (tier3.today_volume_picks ?? 0))}%`;
+
+        const t4 = data.tiers?.tier_4_polymarket || {};
+        document.getElementById('tier4-count').textContent = `${t4.active_markets_count ?? 0} Elite`;
+        document.getElementById('tier4-rate').textContent = `${Number(t4.promotion_rate_per_hour ?? 0).toFixed(2)} promoted/hr`;
+
+        // 6. Live Bet Ledger (Active Bets)
+        const activeBets = tier3.active_executable_bets || [];
+        document.getElementById('count-active-bets').textContent = activeBets.length;
+        const activeContainer = document.getElementById('feed-active-container');
+
+        if (activeBets.length === 0) {
+          activeContainer.innerHTML = `
+            <div style="color:var(--text-dim); text-align:center; padding:20px; font-family:var(--font-mono); font-size:11px;">
+              No pending executable bets currently in queue.
+            </div>`;
+        } else {
+          activeContainer.innerHTML = activeBets.map(b => `
+            <div class="bet-row">
+              <div class="bet-top-line">
+                <span>${b.home} vs ${b.away}</span>
+                <span class="quant-pill stake">$${Number(b.stake).toFixed(2)}</span>
               </div>
-              <div class="stream-desc">${s.league} · ${s.scope} · ${s.family} | OOS ROI: ${s.oos_roi}%</div>
-            `;
-            t1Stream.appendChild(row);
-          });
-        }
-
-        // T2
-        const t2AdmRate = Number(fv.tier_2_admission_rate_per_hour ?? hourly.tier2_admissions_per_hour_24h ?? data.tiers?.tier_2_incubator?.admission_rate_per_hour ?? 0);
-        const t2DemotedCount = Number(fv.demoted_incubator_markets_count ?? inventory.tier2_shadow_incubator_count ?? data.tiers?.tier_2_incubator?.demoted_markets_count ?? 0);
-        const t2PassPct = Number(fv.crucible_admission_rate_pct ?? hourly.crucible_pass_rate_pct_24h ?? data.tiers?.tier_2_incubator?.crucible_pass_rate_pct ?? 0);
-
-        const t2RateBadge = document.getElementById('t2-rate-badge');
-        if (t2RateBadge) t2RateBadge.textContent = `${t2AdmRate.toFixed(2)} adm/h`;
-        const t2DemEl = document.getElementById('t2-demoted-count');
-        if (t2DemEl) t2DemEl.textContent = t2DemotedCount;
-        const t2PassEl = document.getElementById('t2-pass-pct');
-        if (t2PassEl) t2PassEl.textContent = `${t2PassPct.toFixed(1)}%`;
-
-        const t2Stream = document.getElementById('t2-incubating-stream');
-        if (t2Stream) {
-          t2Stream.innerHTML = '';
-          const topCands = data.tiers?.tier_2_incubator?.top_candidates || [];
-          topCands.forEach(c => {
-            const row = document.createElement('div');
-            row.className = 'stream-row';
-            row.innerHTML = `
-              <div class="stream-row-head">
-                <span class="stream-name" title="${c.class_name}">${c.class_name}</span>
-                <span class="stream-badge neutral">${c.status}</span>
+              <div class="bet-meta-line">
+                <span style="color:var(--cyan); font-weight:600;">${b.league} · ${b.selection}</span>
+                <span>${b.start_time ? b.start_time.slice(11, 16) + ' UTC' : ''}</span>
               </div>
-              <div class="stream-desc">${c.league} · ${c.family} | Settled: ${c.settled}/25 | ROI: ${c.roi}%</div>
-            `;
-            t2Stream.appendChild(row);
-          });
-        }
-
-        // T3
-        const t3GradRate = Number(fv.tier_3_graduation_rate_per_hour ?? hourly.tier3_graduations_per_hour_24h ?? data.tiers?.tier_3_stake?.graduation_rate_per_hour ?? 0);
-        const t3GradCount = Number(fv.active_graduated_markets_count ?? inventory.tier3_production_graduated_count ?? data.tiers?.tier_3_stake?.active_graduated_markets_count ?? 0);
-        const t3OpenCount = Number(data.tiers?.tier_3_stake?.open_bets_count ?? 0);
-
-        const t3RateBadge = document.getElementById('t3-rate-badge');
-        if (t3RateBadge) t3RateBadge.textContent = `${t3GradRate.toFixed(2)} grad/h`;
-        const t3GradEl = document.getElementById('t3-grad-count');
-        if (t3GradEl) t3GradEl.textContent = t3GradCount;
-        const t3OpenEl = document.getElementById('t3-open-count');
-        if (t3OpenEl) t3OpenEl.textContent = t3OpenCount;
-
-        const t3Stream = document.getElementById('t3-bets-stream');
-        if (t3Stream) {
-          t3Stream.innerHTML = '';
-          const openBets = data.tiers?.tier_3_stake?.active_executable_bets || [];
-          openBets.slice(0, 5).forEach(b => {
-            const row = document.createElement('div');
-            row.className = 'stream-row';
-            row.innerHTML = `
-              <div class="stream-row-head">
-                <span class="stream-name">${b.home} vs ${b.away}</span>
-                <span class="stream-badge pos">$${Number(b.stake || 0).toFixed(2)}</span>
+              <div class="bet-quant-line">
+                <span class="quant-pill odds">ODDS ${Number(b.odds).toFixed(2)}</span>
+                <span class="quant-pill ev">EV +${Number(b.ev_pct).toFixed(1)}%</span>
+                <span class="quant-pill">PROB ${(Number(b.win_prob) * 100).toFixed(1)}%</span>
+                <span style="color:var(--text-dim); font-size:9px; margin-left:auto;">${b.tier}</span>
               </div>
-              <div class="stream-desc">${b.league} · ${b.selection} @ ${Number(b.odds || 0).toFixed(2)} (EV: +${b.expected_roi}%)</div>
-            `;
-            t3Stream.appendChild(row);
-          });
-        }
-
-        // T4
-        const polyFilled = data.tiers?.tier_4_polymarket?.summary?.filled?.count || 0;
-        const polyWon = data.tiers?.tier_4_polymarket?.summary?.won?.pnl || 0;
-        const polyLost = data.tiers?.tier_4_polymarket?.summary?.lost?.pnl || 0;
-        const netPoly = polyWon + polyLost;
-        const t4FilledEl = document.getElementById('t4-filled-count');
-        if (t4FilledEl) t4FilledEl.textContent = polyFilled;
-        const t4PnlEl = document.getElementById('t4-pnl-val');
-        if (t4PnlEl) t4PnlEl.textContent = `${netPoly >= 0 ? '+' : ''}$${netPoly.toFixed(2)}`;
-
-        const t4Stream = document.getElementById('t4-orders-stream');
-        if (t4Stream) {
-          t4Stream.innerHTML = '';
-          const polyOrders = data.tiers?.tier_4_polymarket?.recent_orders || [];
-          polyOrders.forEach(o => {
-            const row = document.createElement('div');
-            row.className = 'stream-row';
-            row.innerHTML = `
-              <div class="stream-row-head">
-                <span class="stream-name">${o.game}</span>
-                <span class="stream-badge amber">${o.status}</span>
-              </div>
-              <div class="stream-desc">${o.league} · ${o.selection} @ Poly ${o.price} | EV: +${o.ev}%</div>
-            `;
-            t4Stream.appendChild(row);
-          });
-        }
-
-        // Demotions Return Loop Chips
-        const dChips = document.getElementById('demotions-chips-container');
-        if (dChips) {
-          dChips.innerHTML = '';
-          const demotions = data.tiers?.demotion_loop?.recent_demotions || [];
-          demotions.forEach(d => {
-            const chip = document.createElement('span');
-            chip.className = 'demoted-chip';
-            chip.textContent = `${d.segment_key} (${(d.reason || '').split(':')[0]})`;
-            dChips.appendChild(chip);
-          });
-        }
-
-        // 5. Active Executable Recommendations Full Table
-        const fullRecsStream = document.getElementById('active-bets-full-stream');
-        if (fullRecsStream) {
-          fullRecsStream.innerHTML = '';
-          const fullRecs = data.tiers?.tier_3_stake?.active_executable_bets || [];
-          const liveRecsBadge = document.getElementById('live-recs-badge');
-          if (liveRecsBadge) liveRecsBadge.textContent = `${fullRecs.length} Recommendations`;
-          fullRecs.forEach(b => {
-            const row = document.createElement('div');
-            row.className = 'stream-row';
-            row.innerHTML = `
-              <div class="stream-row-head">
-                <span class="stream-name" style="max-width:280px;">${b.home} vs ${b.away}</span>
-                <span class="stream-badge pos">Stake: $${Number(b.stake || 0).toFixed(2)}</span>
-              </div>
-              <div class="stream-desc">
-                <strong style="color:#fff;">${b.league}</strong> · ${b.market} · <span style="color:var(--cyan); font-weight:700;">${b.selection}</span> @ <strong>${Number(b.odds || 0).toFixed(2)}</strong> | EV: <span style="color:var(--green);">+${b.expected_roi}%</span> | P: ${b.probability}%
-              </div>
-            `;
-            fullRecsStream.appendChild(row);
-          });
-        }
-
-        // 6. Live Settlements & Popups
-        const settlementsStream = document.getElementById('settlements-full-stream');
-        settlementsStream.innerHTML = '';
-        data.live_flow_events.recent_settlements.forEach(s => {
-          const isWin = s.status === 'won';
-          const row = document.createElement('div');
-          row.className = 'stream-row';
-          row.innerHTML = `
-            <div class="stream-row-head">
-              <span class="stream-name" style="max-width:280px;">${s.home ? s.home + ' vs ' + s.away : s.market}</span>
-              <span class="stream-badge ${isWin ? 'pos' : 'neg'}">${isWin ? 'WON (+$' + s.pnl.toFixed(2) + ')' : 'LOST (-$' + s.stake.toFixed(2) + ')'}</span>
             </div>
-            <div class="stream-desc">
-              <strong style="color:#fff;">${s.league}</strong> · ${s.selection} @ ${s.odds.toFixed(2)} | Recorded: ${s.created_at.split('T')[1].slice(0,8)}
-            </div>
-          `;
-          settlementsStream.appendChild(row);
+          `).join('');
+        }
 
-          // Check if this is a newly observed settlement for popup
+        // 7. Instant Settlements Feed
+        const settlements = data.live_flow_events?.recent_settlements || [];
+        document.getElementById('count-settled-bets').textContent = settlements.length;
+        const settledContainer = document.getElementById('feed-settled-container');
+
+        if (settlements.length === 0) {
+          settledContainer.innerHTML = `
+            <div style="color:var(--text-dim); text-align:center; padding:20px; font-family:var(--font-mono); font-size:11px;">
+              No recently settled bets recorded.
+            </div>`;
+        } else {
+          settledContainer.innerHTML = settlements.map(s => {
+            const isWin = s.result === 'win' || s.pnl > 0;
+            return `
+              <div class="bet-row ${isWin ? 'settled-win' : 'settled-loss'}">
+                <div class="bet-top-line">
+                  <span>${s.home} vs ${s.away}</span>
+                  <span style="font-weight:800; color:${isWin ? 'var(--green)' : 'var(--red)'}">
+                    ${isWin ? '+' : ''}$${Number(s.pnl).toFixed(2)}
+                  </span>
+                </div>
+                <div class="bet-meta-line">
+                  <span>${s.league} · ${s.selection}</span>
+                  <span style="font-weight:700; text-transform:uppercase; color:${isWin ? 'var(--green)' : 'var(--red)'}">
+                    ${s.result}
+                  </span>
+                </div>
+                <div class="bet-quant-line">
+                  <span class="quant-pill odds">ODDS ${Number(s.odds).toFixed(2)}</span>
+                  <span class="quant-pill stake">STAKE $${Number(s.stake).toFixed(2)}</span>
+                  <span style="color:var(--text-dim); font-size:9px; margin-left:auto;">${s.settled_at ? s.settled_at.slice(11, 19) + ' UTC' : ''}</span>
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+
+        // 8. Event Monitoring & Toast Notifications
+        settlements.forEach(s => {
           if (!seenEventIds.has(s.id)) {
             seenEventIds.add(s.id);
             if (!isInitialLoad) {
+              const isWin = s.result === 'win' || s.pnl > 0;
               if (isWin) {
                 audioSynth.playWin();
-                showToast('win', 'WIN SETTLED!', `${s.home} vs ${s.away}`, `${s.league} · ${s.selection} @ ${s.odds}`, s.pnl);
+                showToast('win', 'WIN SETTLED!', `${s.home} vs ${s.away}`, `${s.league} · PnL: +$${Number(s.pnl).toFixed(2)}`);
               } else {
                 audioSynth.playLoss();
-                showToast('loss', 'LOSS RECORDED · TOURNIQUET ACTIVE', `${s.home} vs ${s.away}`, `${s.league} · Clamped to $0.50 -> Tier 1 R&D`, -s.stake);
+                showToast('loss', 'LOSS RECORDED · TOURNIQUET ACTIVE', `${s.home} vs ${s.away}`, `${s.league} · Re-evaluating candidate`);
               }
             }
           }
         });
 
-        // Check recent graduations for popup
-        data.live_flow_events.recent_graduations.forEach(g => {
+        // Monitor Graduations for Toasts
+        (data.live_flow_events?.recent_graduations || []).forEach(g => {
           const gradKey = `grad_${g.segment_key}_${g.graduated_at}`;
           if (!seenEventIds.has(gradKey)) {
             seenEventIds.add(gradKey);
             if (!isInitialLoad) {
               audioSynth.playGraduation();
-              showToast('grad', 'MARKET RE-GRADUATED!', g.segment_key, `Passed Crucible (${g.sample_size} matches, ROI: +${g.roi}%)`, null);
+              showToast('grad', 'MARKET RE-GRADUATED!', g.segment_key, `Crucible Passed (${g.sample_size} matches, ROI: +${Number(g.roi).toFixed(1)}%)`);
             }
           }
         });
@@ -1683,7 +1532,7 @@
       }
     }
 
-    // Initial run and 3-second continuous polling
+    // Initial run & 3-second continuous refresh cycle
     updateSuperbrain();
     setInterval(updateSuperbrain, 3000);
   </script>
