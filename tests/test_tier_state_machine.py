@@ -283,3 +283,53 @@ def test_dual_window_patched_segment_agile_unclamping():
     assert patched_relapsed['tier'] == 'UNDERPERFORMING'
     assert patched_relapsed['sub_tier'] == 'CAPITAL_DEFENSE'
     assert patched_relapsed['stake_cap'] == 0.50
+
+
+def test_enqueue_rd_repair_job_readonly_connection_fallback(tmp_path, monkeypatch):
+    """Verifies that enqueue_rd_repair_job handles read-only connections gracefully by falling back to writable connection."""
+    from betting_engine.tier_state_machine import enqueue_rd_repair_job
+    db_file = tmp_path / "engine.sqlite3"
+    w_conn = sqlite3.connect(str(db_file))
+    w_conn.execute("""
+        CREATE TABLE learning_jobs (
+            id TEXT PRIMARY KEY,
+            kind TEXT NOT NULL,
+            league TEXT,
+            status TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            next_attempt TEXT NOT NULL,
+            attempts INTEGER NOT NULL DEFAULT 0,
+            payload TEXT NOT NULL,
+            result TEXT,
+            last_error TEXT
+        )
+    """)
+    w_conn.commit()
+    w_conn.close()
+
+    monkeypatch.setattr('betting_engine.providers.DATA', tmp_path)
+
+    # Open connection in strictly read-only mode
+    ro_conn = sqlite3.connect(f"file:{db_file}?mode=ro", uri=True)
+
+    job_id = enqueue_rd_repair_job(
+        conn=ro_conn,
+        segment_key="NBA|full_game|spreads",
+        league="NBA",
+        prev_tier="EXPLORATION",
+        new_tier="CAPITAL_DEFENSE",
+        failure_mode="DRAWDOWN",
+        remedy="Crucible Repair",
+        stats={"pnl": -10.0}
+    )
+    assert job_id is not None
+
+    # Verify job was committed in the writable DB
+    chk_conn = sqlite3.connect(str(db_file))
+    row = chk_conn.execute("SELECT id, status, league FROM learning_jobs WHERE id=?", (job_id,)).fetchone()
+    assert row is not None
+    assert row[1] == "queued"
+    assert row[2] == "NBA"
+    chk_conn.close()
+    ro_conn.close()

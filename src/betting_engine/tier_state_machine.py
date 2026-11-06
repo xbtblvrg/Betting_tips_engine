@@ -246,17 +246,36 @@ def enqueue_rd_repair_job(
             'directive': 'Smart Autonomous Quant Self-Repair Directive (AGENTS.md)'
         })
 
-        cur.execute("""
-            INSERT INTO learning_jobs (id, kind, league, status, created_at, updated_at, next_attempt, attempts, payload)
-            VALUES (?, 'segment_repair', ?, 'queued', ?, ?, ?, 0, ?)
-            ON CONFLICT(id) DO UPDATE SET
-                status = CASE WHEN status = 'running' THEN status ELSE 'queued' END,
-                updated_at = excluded.updated_at,
-                next_attempt = excluded.next_attempt,
-                attempts = CASE WHEN status = 'running' THEN attempts ELSE 0 END,
-                payload = excluded.payload
-        """, (job_id, league, now_iso, now_iso, now_iso, payload))
-        conn.commit()
+        try:
+            cur.execute("""
+                INSERT INTO learning_jobs (id, kind, league, status, created_at, updated_at, next_attempt, attempts, payload)
+                VALUES (?, 'segment_repair', ?, 'queued', ?, ?, ?, 0, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    status = CASE WHEN status = 'running' THEN status ELSE 'queued' END,
+                    updated_at = excluded.updated_at,
+                    next_attempt = excluded.next_attempt,
+                    attempts = CASE WHEN status = 'running' THEN attempts ELSE 0 END,
+                    payload = excluded.payload
+            """, (job_id, league, now_iso, now_iso, now_iso, payload))
+            conn.commit()
+        except sqlite3.OperationalError as op_err:
+            if "readonly" in str(op_err).lower():
+                from .providers import DATA
+                with sqlite3.connect(str(DATA / 'engine.sqlite3'), timeout=30.0) as w_conn:
+                    w_conn.execute("PRAGMA busy_timeout = 30000")
+                    w_conn.execute("""
+                        INSERT INTO learning_jobs (id, kind, league, status, created_at, updated_at, next_attempt, attempts, payload)
+                        VALUES (?, 'segment_repair', ?, 'queued', ?, ?, ?, 0, ?)
+                        ON CONFLICT(id) DO UPDATE SET
+                            status = CASE WHEN status = 'running' THEN status ELSE 'queued' END,
+                            updated_at = excluded.updated_at,
+                            next_attempt = excluded.next_attempt,
+                            attempts = CASE WHEN status = 'running' THEN attempts ELSE 0 END,
+                            payload = excluded.payload
+                    """, (job_id, league, now_iso, now_iso, now_iso, payload))
+                    w_conn.commit()
+            else:
+                raise
 
         try:
             from .quant_council import invalidate_segment_cache
