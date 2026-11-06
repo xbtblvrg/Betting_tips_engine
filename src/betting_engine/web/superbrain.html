@@ -2,1509 +2,1352 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SUPERBRAIN · 3D/4D Quant Neural Cockpit & Living Process Matrix</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>SUPERBRAIN · Living 3D/4D Quant Neural Network & Operations Matrix</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
   <style>
     :root {
-      --bg-dark: #04060f;
-      --bg-panel: rgba(8, 12, 26, 0.88);
-      --bg-panel-hover: rgba(15, 22, 46, 0.95);
-      --bg-code: #020409;
-      --border-cyan: rgba(0, 243, 255, 0.28);
-      --border-green: rgba(0, 255, 136, 0.3);
-      --border-purple: rgba(181, 23, 158, 0.35);
-      --border-red: rgba(255, 0, 85, 0.35);
-      --border-amber: rgba(255, 183, 3, 0.35);
-      --border-dim: rgba(255, 255, 255, 0.08);
+      --bg-dark: #02040a;
       --cyan: #00f3ff;
       --green: #00ff88;
       --purple: #b5179e;
       --violet: #7209b7;
       --amber: #ffb703;
       --red: #ff0055;
-      --text: #d4e5f7;
-      --text-dim: #7086a3;
+      --text: #e1edfc;
+      --text-dim: #738ba8;
       --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, Menlo, monospace;
       --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+
     html, body {
-      width: 100%;
-      height: 100%;
-      background-color: var(--bg-dark);
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: var(--bg-dark);
       color: var(--text);
       font-family: var(--font-sans);
-      overflow: hidden;
       -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
     }
 
-    body::before {
-      content: '';
+    /* 3D Neural Viewport Stage */
+    #superbrain-viewport {
       position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: 
-        radial-gradient(circle at 50% 25%, rgba(114, 9, 183, 0.14) 0%, transparent 65%),
-        radial-gradient(circle at 15% 85%, rgba(0, 243, 255, 0.08) 0%, transparent 50%),
-        radial-gradient(circle at 85% 85%, rgba(0, 255, 136, 0.07) 0%, transparent 50%),
-        linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
-      background-size: 100% 100%, 100% 100%, 100% 100%, 32px 32px, 32px 32px;
-      pointer-events: none;
-      z-index: 0;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      perspective: 1200px;
+      background: radial-gradient(circle at 50% 50%, #060a18 0%, #020409 70%, #010205 100%);
     }
 
-    .cockpit-container {
-      position: relative;
+    #neuralCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: grab;
       z-index: 1;
+    }
+
+    #neuralCanvas:active { cursor: grabbing; }
+
+    /* Floating 3D Spatial Stage Layer for Holographic Pods */
+    #spatial-pods-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* 3D Holographic Pod Style */
+    .hologram-pod {
+      position: absolute;
+      top: 0;
+      left: 0;
+      pointer-events: auto;
+      background: rgba(6, 11, 24, 0.85);
+      border: 1px solid rgba(0, 243, 255, 0.35);
+      border-radius: 8px;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7), inset 0 0 16px rgba(0, 243, 255, 0.08);
+      transform-origin: center center;
+      transition: border-color 0.25s ease, box-shadow 0.25s ease, opacity 0.3s ease;
+      will-change: transform, opacity;
+      max-height: 480px;
       display: flex;
       flex-direction: column;
-      height: 100vh;
-      width: 100vw;
-      overflow: hidden;
     }
 
-    /* Top HUD Bar (44px) */
-    .top-hud {
-      height: 44px;
-      min-height: 44px;
+    .hologram-pod:hover {
+      border-color: var(--cyan);
+      box-shadow: 0 12px 40px rgba(0, 243, 255, 0.3), inset 0 0 20px rgba(0, 243, 255, 0.15);
+      z-index: 9999 !important;
+    }
+
+    .hologram-pod.glow-purple { border-color: rgba(181, 23, 158, 0.4); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7), inset 0 0 16px rgba(181, 23, 158, 0.1); }
+    .hologram-pod.glow-purple:hover { border-color: var(--purple); box-shadow: 0 12px 40px rgba(181, 23, 158, 0.35); }
+
+    .hologram-pod.glow-green { border-color: rgba(0, 255, 136, 0.4); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7), inset 0 0 16px rgba(0, 255, 136, 0.1); }
+    .hologram-pod.glow-green:hover { border-color: var(--green); box-shadow: 0 12px 40px rgba(0, 255, 136, 0.35); }
+
+    .hologram-pod.glow-amber { border-color: rgba(255, 183, 3, 0.4); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7), inset 0 0 16px rgba(255, 183, 3, 0.1); }
+    .hologram-pod.glow-amber:hover { border-color: var(--amber); box-shadow: 0 12px 40px rgba(255, 183, 3, 0.35); }
+
+    .pod-header {
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.03);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+    }
+
+    .pod-header .pod-title {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pod-body {
+      padding: 10px 12px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      flex: 1;
+      font-size: 11px;
+      line-height: 1.45;
+    }
+
+    .pod-body::-webkit-scrollbar { width: 4px; }
+    .pod-body::-webkit-scrollbar-thumb { background: rgba(0, 243, 255, 0.25); border-radius: 2px; }
+
+    /* Pod Specific Widths & Layouts */
+    #pod-ai-council { width: 340px; }
+    #pod-code-synth { width: 380px; }
+    #pod-math-core { width: 320px; }
+    #pod-4tier-pipeline { width: 340px; }
+    #pod-leagues { width: 300px; }
+    #pod-bets-settlements { width: 350px; }
+    #pod-sensory-ingest { width: 300px; }
+
+    /* Council Grid */
+    .council-boxes {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .brain-cell {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      padding: 6px 8px;
+      transition: all 0.2s ease;
+    }
+    .brain-cell:hover {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: var(--cyan);
+    }
+    .brain-cell-name { font-weight: 700; font-size: 11px; display: flex; align-items: center; justify-content: space-between; }
+    .brain-cell-role { font-size: 9px; color: var(--text-dim); margin-top: 1px; }
+    .brain-cell-status { font-family: var(--font-mono); font-size: 9px; margin-top: 4px; font-weight: 600; }
+    .brain-cell-thought { font-size: 10px; color: #bed2ea; margin-top: 4px; line-height: 1.3; }
+
+    /* Code Terminal Pod */
+    .code-tabs-strip {
+      display: flex;
+      gap: 4px;
+      overflow-x: auto;
+      padding-bottom: 6px;
+      margin-bottom: 6px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .code-tab-pill {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      cursor: pointer;
+      white-space: nowrap;
+      color: var(--text-dim);
+    }
+    .code-tab-pill.active {
+      background: rgba(0, 255, 136, 0.15);
+      border-color: var(--green);
+      color: var(--green);
+      font-weight: 700;
+    }
+    .code-view-pre {
+      background: #020307;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 4px;
+      padding: 8px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      line-height: 1.4;
+      color: #a4b9cf;
+      max-height: 240px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .code-kw { color: #ff007f; font-weight: bold; }
+    .code-cls { color: #00f3ff; font-weight: bold; }
+    .code-fn { color: #00ff88; }
+    .code-str { color: #ffb703; }
+    .code-cmt { color: #6272a4; font-style: italic; }
+
+    /* Math Formulas Pod */
+    .formula-card {
+      background: rgba(0, 243, 255, 0.05);
+      border: 1px solid rgba(0, 243, 255, 0.2);
+      border-radius: 6px;
+      padding: 8px;
+      margin-bottom: 8px;
+    }
+    .formula-eq {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--cyan);
+      margin-bottom: 4px;
+    }
+    .formula-desc { font-size: 10px; color: var(--text-dim); line-height: 1.35; }
+
+    /* 4-Tier Progression Pod */
+    .tier-step-card {
+      background: rgba(255, 255, 255, 0.02);
+      border-left: 3px solid #7086a3;
+      border-radius: 0 6px 6px 0;
+      padding: 6px 10px;
+      margin-bottom: 6px;
+      transition: all 0.2s;
+    }
+    .tier-step-card:hover { background: rgba(255, 255, 255, 0.05); }
+    .tier-step-card.t1 { border-left-color: var(--purple); }
+    .tier-step-card.t2 { border-left-color: var(--amber); }
+    .tier-step-card.t3 { border-left-color: var(--green); }
+    .tier-step-card.t4 { border-left-color: var(--cyan); }
+    .tier-step-card.t-loop { border-left-color: var(--red); }
+    .tier-header-row { display: flex; justify-content: space-between; font-weight: 700; font-size: 11px; }
+    .tier-sub-row { font-size: 10px; color: var(--text-dim); display: flex; justify-content: space-between; margin-top: 2px; }
+
+    /* Bets & Settlements Pod */
+    .bet-capsule {
+      background: rgba(255, 255, 255, 0.025);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 6px;
+      padding: 6px 8px;
+      margin-bottom: 6px;
+      transition: border-color 0.2s;
+    }
+    .bet-capsule:hover { border-color: var(--cyan); }
+    .bet-capsule.is-win { border-left: 3px solid var(--green); }
+    .bet-capsule.is-loss { border-left: 3px solid var(--red); }
+    .bet-cap-top { display: flex; justify-content: space-between; font-weight: 700; font-size: 11px; }
+    .bet-cap-meta { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-dim); margin-top: 2px; }
+    .bet-cap-badges { display: flex; gap: 4px; margin-top: 4px; font-family: var(--font-mono); font-size: 9px; }
+    .cap-badge { padding: 1px 5px; border-radius: 3px; font-weight: 600; background: rgba(255, 255, 255, 0.06); }
+    .cap-badge.odds { color: var(--amber); border: 1px solid rgba(255, 183, 3, 0.3); }
+    .cap-badge.stake { color: var(--green); border: 1px solid rgba(0, 255, 136, 0.3); }
+    .cap-badge.ev { color: var(--cyan); border: 1px solid rgba(0, 243, 255, 0.3); }
+
+    /* League Grid */
+    .league-grid-boxes {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+    .league-tile {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 4px;
+      padding: 6px;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .league-tile:hover {
+      border-color: var(--cyan);
+      background: rgba(0, 243, 255, 0.08);
+    }
+    .league-tile-name { font-weight: 700; font-size: 11px; color: #fff; }
+    .league-tile-count { font-family: var(--font-mono); font-size: 12px; color: var(--cyan); font-weight: 800; margin-top: 2px; }
+    .league-tile-sub { font-size: 8px; color: var(--text-dim); margin-top: 1px; }
+
+    /* Top Glass Cyber HUD (Non-obtrusive overlay) */
+    .top-glass-hud {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 48px;
+      z-index: 1000;
+      background: rgba(3, 6, 15, 0.82);
+      border-bottom: 1px solid rgba(0, 243, 255, 0.25);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
       display: flex;
       align-items: center;
       justify-content: space-between;
       padding: 0 16px;
-      background: rgba(5, 8, 18, 0.96);
-      border-bottom: 1px solid var(--border-cyan);
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
       font-family: var(--font-mono);
-      font-size: 12px;
-      flex-shrink: 0;
+      font-size: 11px;
     }
 
-    .hud-left, .hud-center, .hud-right {
+    .hud-left-sec, .hud-center-sec, .hud-right-sec {
       display: flex;
       align-items: center;
       gap: 12px;
     }
 
-    .hud-title {
+    .hud-brand-title {
       font-weight: 800;
       font-size: 13px;
-      letter-spacing: 1.2px;
+      letter-spacing: 1px;
       color: #fff;
       display: flex;
       align-items: center;
       gap: 8px;
     }
 
-    .hud-title span.pulse-dot {
-      width: 8px;
-      height: 8px;
+    .hud-pulse-ring {
+      width: 10px;
+      height: 10px;
       border-radius: 50%;
       background: var(--cyan);
-      box-shadow: 0 0 10px var(--cyan);
-      animation: pulseGlow 1.8s infinite;
+      box-shadow: 0 0 12px var(--cyan);
+      animation: pulseAnim 1.6s infinite ease-in-out;
     }
 
-    @keyframes pulseGlow {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.35; transform: scale(0.85); }
+    @keyframes pulseAnim {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(0.7); opacity: 0.4; }
     }
 
-    .badge-hud {
-      padding: 2px 7px;
+    .hud-metric-chip {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 4px;
-      font-weight: 600;
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      border: 1px solid;
-    }
-
-    .badge-cyan { background: rgba(0, 243, 255, 0.12); color: var(--cyan); border-color: var(--border-cyan); }
-    .badge-green { background: rgba(0, 255, 136, 0.12); color: var(--green); border-color: var(--border-green); }
-    .badge-purple { background: rgba(181, 23, 158, 0.12); color: var(--purple); border-color: var(--border-purple); }
-    .badge-red { background: rgba(255, 0, 85, 0.12); color: var(--red); border-color: var(--border-red); }
-    .badge-amber { background: rgba(255, 183, 3, 0.12); color: var(--amber); border-color: var(--border-amber); }
-
-    .hud-metric {
+      padding: 4px 8px;
       display: flex;
       align-items: baseline;
       gap: 5px;
     }
-    .hud-metric-label { color: var(--text-dim); font-size: 10px; }
-    .hud-metric-value { font-weight: 700; color: #fff; }
 
     .hud-btn {
       background: rgba(255, 255, 255, 0.05);
-      border: 1px solid var(--border-dim);
+      border: 1px solid rgba(255, 255, 255, 0.15);
       color: var(--text);
       padding: 4px 10px;
       border-radius: 4px;
-      cursor: pointer;
       font-family: var(--font-mono);
       font-size: 11px;
-      transition: all 0.2s ease;
-      display: flex;
-      align-items: center;
-      gap: 5px;
+      cursor: pointer;
       text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
     }
-    .hud-btn:hover, .hud-btn.active {
+    .hud-btn:hover {
       background: rgba(0, 243, 255, 0.15);
       border-color: var(--cyan);
       color: #fff;
     }
 
-    /* Main Cockpit 3-Column Grid */
-    .cockpit-grid {
-      display: grid;
-      grid-template-columns: 28% 44% 28%;
-      height: calc(100vh - 44px);
-      width: 100vw;
-      gap: 10px;
-      padding: 10px;
-      overflow: hidden;
-    }
-
-    .cockpit-col {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      height: 100%;
-      min-height: 0;
-      overflow: hidden;
-    }
-
-    /* Panel Card Style */
-    .quant-panel {
-      background: var(--bg-panel);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border: 1px solid var(--border-dim);
-      border-radius: 6px;
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
-      overflow: hidden;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-      position: relative;
-    }
-
-    .quant-panel.glow-cyan { border-color: var(--border-cyan); }
-    .quant-panel.glow-purple { border-color: var(--border-purple); }
-    .quant-panel.glow-green { border-color: var(--border-green); }
-
-    .panel-header {
-      padding: 7px 12px;
-      background: rgba(255, 255, 255, 0.02);
-      border-bottom: 1px solid var(--border-dim);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      font-family: var(--font-mono);
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: var(--text-dim);
-      flex-shrink: 0;
-    }
-    .panel-header span.title-active { color: #fff; display: flex; align-items: center; gap: 6px; }
-
-    .panel-body {
-      padding: 8px;
-      overflow-y: auto;
-      flex: 1;
-      min-height: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    /* Custom Scrollbars */
-    ::-webkit-scrollbar { width: 5px; height: 5px; }
-    ::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
-    ::-webkit-scrollbar-thumb { background: rgba(0, 243, 255, 0.2); border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: var(--cyan); }
-
-    /* AI Quant Council Grid */
-    .council-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 6px;
-    }
-
-    .brain-box {
-      background: rgba(0, 0, 0, 0.4);
-      border: 1px solid var(--border-dim);
-      border-radius: 4px;
-      padding: 6px 8px;
-      font-family: var(--font-mono);
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-      transition: all 0.2s ease;
-      cursor: pointer;
-    }
-    .brain-box:hover { border-color: var(--border-cyan); background: rgba(0, 243, 255, 0.04); }
-    .brain-box.active { border-color: var(--border-cyan); box-shadow: inset 0 0 10px rgba(0, 243, 255, 0.08); }
-    .brain-name { font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: space-between; }
-    .brain-role { font-size: 9px; color: var(--text-dim); }
-    .brain-status { font-size: 9px; font-weight: 600; }
-    .brain-reasoning { font-size: 9px; color: var(--text); line-height: 1.25; margin-top: 2px; }
-
-    /* Live Code Synthesis Terminal */
-    .code-terminal {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      background: var(--bg-code);
-      border-radius: 4px;
-      border: 1px solid var(--border-dim);
-      overflow: hidden;
-      font-family: var(--font-mono);
-      min-height: 0;
-    }
-
-    .code-terminal-tabs {
-      display: flex;
-      background: rgba(0, 0, 0, 0.6);
-      border-bottom: 1px solid var(--border-dim);
-      overflow-x: auto;
-      flex-shrink: 0;
-    }
-
-    .code-terminal-tab {
-      padding: 5px 10px;
-      font-size: 10px;
-      color: var(--text-dim);
-      border-right: 1px solid var(--border-dim);
-      cursor: pointer;
-      white-space: nowrap;
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      transition: all 0.15s ease;
-    }
-    .code-terminal-tab.active {
-      background: var(--bg-code);
-      color: var(--cyan);
-      border-top: 2px solid var(--cyan);
-    }
-
-    .code-model-meta {
-      padding: 5px 10px;
-      background: rgba(0, 243, 255, 0.04);
-      border-bottom: 1px solid var(--border-dim);
-      font-size: 10px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-shrink: 0;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-
-    .code-editor-area {
-      flex: 1;
-      padding: 8px 10px;
-      overflow-y: auto;
-      font-size: 11px;
-      line-height: 1.45;
-      color: #b8d4ee;
-      min-height: 0;
-      white-space: pre-wrap;
-      word-break: break-all;
-    }
-
-    .kw { color: #ff007f; font-weight: 700; }
-    .cls { color: #00f3ff; font-weight: 700; }
-    .fn { color: #00ff88; }
-    .str { color: #ffb703; }
-    .cmt { color: #5a738e; font-style: italic; }
-    .num { color: #bd93f9; }
-
-    .code-terminal-footer {
-      padding: 4px 10px;
-      background: rgba(0, 0, 0, 0.7);
-      border-top: 1px solid var(--border-dim);
-      font-size: 10px;
-      display: flex;
-      justify-content: space-between;
-      color: var(--text-dim);
-      flex-shrink: 0;
-    }
-
-    /* 3D/4D Superbrain Neural Canvas */
-    .canvas-container {
-      flex: 1;
-      position: relative;
-      min-height: 0;
-      background: radial-gradient(circle at center, rgba(12, 17, 36, 0.6) 0%, rgba(4, 6, 15, 0.98) 100%);
-      border-radius: 4px;
-      overflow: hidden;
-      border: 1px solid var(--border-cyan);
-      box-shadow: inset 0 0 35px rgba(0, 243, 255, 0.06);
-    }
-
-    #neuralCanvas {
-      width: 100%;
-      height: 100%;
-      display: block;
-      cursor: grab;
-    }
-    #neuralCanvas:active { cursor: grabbing; }
-
-    .canvas-hud-overlay {
-      position: absolute;
-      top: 8px;
-      left: 8px;
-      right: 8px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      pointer-events: none;
-      font-family: var(--font-mono);
-      font-size: 10px;
-      color: var(--text-dim);
-    }
-
-    .canvas-badge {
-      background: rgba(4, 6, 15, 0.85);
-      border: 1px solid var(--border-dim);
-      padding: 3px 8px;
-      border-radius: 3px;
-      pointer-events: auto;
-    }
-
-    .canvas-controls {
-      display: flex;
-      gap: 6px;
-      pointer-events: auto;
-    }
-
-    .canvas-ctrl-btn {
-      background: rgba(0, 0, 0, 0.6);
-      border: 1px solid var(--border-dim);
-      color: var(--text);
-      padding: 2px 6px;
-      border-radius: 3px;
-      font-size: 9px;
-      cursor: pointer;
-      font-family: var(--font-mono);
-    }
-    .canvas-ctrl-btn:hover { border-color: var(--cyan); color: #fff; }
-
-    /* Funnel Velocity & Bottleneck Ribbon */
-    .funnel-ribbon {
-      height: 135px;
-      min-height: 135px;
-      background: var(--bg-panel);
-      border: 1px solid var(--border-dim);
-      border-radius: 6px;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      flex-shrink: 0;
-    }
-
-    .funnel-grid {
-      display: grid;
-      grid-template-columns: repeat(6, 1fr);
-      gap: 6px;
-      padding: 8px;
-      height: calc(100% - 30px);
-    }
-
-    .funnel-metric-box {
-      background: rgba(0, 0, 0, 0.35);
-      border: 1px solid var(--border-dim);
-      border-radius: 4px;
-      padding: 4px 6px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      text-align: center;
-      font-family: var(--font-mono);
-    }
-    .funnel-metric-box .label { font-size: 8.5px; color: var(--text-dim); margin-bottom: 2px; text-transform: uppercase; }
-    .funnel-metric-box .val { font-size: 14px; font-weight: 800; color: #fff; }
-    .funnel-metric-box .sub { font-size: 7.5px; color: var(--cyan); margin-top: 2px; }
-
-    .clog-status-strip {
-      padding: 3px 10px;
-      background: rgba(0, 255, 136, 0.08);
-      border-bottom: 1px solid var(--border-green);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-family: var(--font-mono);
-      font-size: 10px;
-      flex-shrink: 0;
-    }
-    .clog-status-strip.is-clogged {
-      background: rgba(255, 0, 85, 0.15);
-      border-color: var(--red);
-      color: var(--red);
-    }
-
-    /* 4-Tier Progression Stack */
-    .tier-stack {
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-    }
-
-    .tier-card {
-      background: rgba(0, 0, 0, 0.35);
-      border: 1px solid var(--border-dim);
-      border-radius: 4px;
-      padding: 6px 8px;
-      font-family: var(--font-mono);
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      cursor: pointer;
-      transition: all 0.15s ease;
-    }
-    .tier-card:hover { background: rgba(255, 255, 255, 0.04); }
-    .tier-card.tier-1 { border-left: 3px solid var(--purple); }
-    .tier-card.tier-2 { border-left: 3px solid var(--amber); }
-    .tier-card.tier-3 { border-left: 3px solid var(--green); }
-    .tier-card.tier-4 { border-left: 3px solid var(--cyan); }
-
-    .tier-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 11px;
-      font-weight: 700;
-    }
-    .tier-details {
-      display: flex;
-      justify-content: space-between;
-      font-size: 9.5px;
-      color: var(--text-dim);
-    }
-
-    .tier-progress-track {
-      width: 100%;
-      height: 4px;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 2px;
-      overflow: hidden;
-      margin-top: 2px;
-    }
-    .tier-progress-fill {
-      height: 100%;
-      background: var(--green);
-      transition: width 0.4s ease;
-    }
-
-    /* League Radar Strip */
-    .league-radar-strip {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
-      padding: 4px 6px;
-      background: rgba(0, 0, 0, 0.3);
-      border: 1px solid var(--border-dim);
-      border-radius: 4px;
-      font-family: var(--font-mono);
-      font-size: 9px;
-      flex-shrink: 0;
-    }
-    .league-pill {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid var(--border-dim);
-      padding: 2px 5px;
-      border-radius: 3px;
-      color: var(--text);
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-    .league-pill.active { border-color: var(--cyan); color: #fff; }
-    .league-pill span.dot { width: 5px; height: 5px; border-radius: 50%; background: var(--green); }
-
-    /* Live Bet Ledger & Settlement Feed */
-    .bets-feed-panel {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
-    }
-
-    .feed-tabs {
-      display: flex;
-      background: rgba(0, 0, 0, 0.5);
-      border-bottom: 1px solid var(--border-dim);
-      flex-shrink: 0;
-    }
-    .feed-tab {
-      flex: 1;
-      padding: 5px 8px;
-      font-family: var(--font-mono);
-      font-size: 10px;
-      text-align: center;
-      color: var(--text-dim);
-      cursor: pointer;
-      border-bottom: 2px solid transparent;
-      transition: all 0.2s ease;
-    }
-    .feed-tab.active {
-      color: #fff;
-      border-bottom-color: var(--cyan);
-      background: rgba(0, 243, 255, 0.05);
-    }
-
-    .feed-content-area {
-      flex: 1;
-      overflow-y: auto;
-      padding: 6px;
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-      min-height: 0;
-    }
-
-    .bet-row {
-      background: rgba(0, 0, 0, 0.45);
-      border: 1px solid var(--border-dim);
-      border-radius: 4px;
-      padding: 5px 7px;
-      font-family: var(--font-mono);
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-      transition: all 0.15s ease;
-    }
-    .bet-row:hover {
-      border-color: var(--border-cyan);
-      background: rgba(0, 243, 255, 0.03);
-    }
-    .bet-row.settled-win { border-left: 3px solid var(--green); }
-    .bet-row.settled-loss { border-left: 3px solid var(--red); }
-
-    .bet-top-line {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      font-size: 10.5px;
-      font-weight: 700;
-      color: #fff;
-      word-break: break-word;
-    }
-    .bet-meta-line {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 9.5px;
-      color: var(--text-dim);
-      flex-wrap: wrap;
-      gap: 4px;
-    }
-    .bet-quant-line {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 9.5px;
-      flex-wrap: wrap;
-    }
-    .quant-pill {
-      background: rgba(255, 255, 255, 0.05);
-      padding: 1px 5px;
-      border-radius: 3px;
-      color: var(--text);
-    }
-    .quant-pill.ev { color: var(--green); font-weight: 700; }
-    .quant-pill.odds { color: var(--cyan); font-weight: 700; }
-    .quant-pill.stake { color: var(--amber); font-weight: 700; }
-
-    /* Interactive Node Inspector Drawer */
-    .inspector-drawer {
+    /* Bottom 3D Camera Lobe Navigator Dock */
+    .bottom-camera-dock {
       position: fixed;
-      right: 0;
-      top: 44px;
-      bottom: 0;
-      width: 420px;
-      background: rgba(4, 6, 16, 0.98);
+      bottom: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      background: rgba(4, 8, 20, 0.9);
+      border: 1px solid rgba(0, 243, 255, 0.35);
+      border-radius: 28px;
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
-      border-left: 1px solid var(--border-cyan);
-      box-shadow: -6px 0 30px rgba(0, 0, 0, 0.85);
-      z-index: 9000;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.7);
+      padding: 4px 8px;
       display: flex;
-      flex-direction: column;
-      transform: translateX(100%);
-      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-      font-family: var(--font-mono);
-    }
-    .inspector-drawer.open { transform: translateX(0); }
-
-    .inspector-header {
-      padding: 12px 16px;
-      background: rgba(255, 255, 255, 0.03);
-      border-bottom: 1px solid var(--border-dim);
-      display: flex;
-      justify-content: space-between;
       align-items: center;
+      gap: 6px;
     }
-    .inspector-body {
-      padding: 16px;
-      overflow-y: auto;
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-    .inspector-close {
-      cursor: pointer;
-      color: var(--text-dim);
-      font-size: 16px;
-    }
-    .inspector-close:hover { color: #fff; }
 
-    /* Toast Container */
-    .toast-container {
+    .nav-pill-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-dim);
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .nav-pill-btn:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .nav-pill-btn.active {
+      color: var(--cyan);
+      background: rgba(0, 243, 255, 0.12);
+      border-color: rgba(0, 243, 255, 0.4);
+      box-shadow: 0 0 12px rgba(0, 243, 255, 0.2);
+    }
+
+    /* Toast Notification Overlay */
+    #superbrain-toast-box {
       position: fixed;
-      bottom: 20px;
+      top: 60px;
       right: 20px;
+      z-index: 10000;
       display: flex;
       flex-direction: column;
       gap: 8px;
-      z-index: 9999;
       pointer-events: none;
     }
 
     .toast-msg {
-      background: rgba(8, 12, 26, 0.95);
-      border: 1px solid var(--border-cyan);
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
-      border-radius: 6px;
+      background: rgba(6, 12, 28, 0.94);
+      border-left: 4px solid var(--cyan);
+      border-radius: 4px;
       padding: 10px 14px;
-      font-family: var(--font-mono);
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.8);
       font-size: 11px;
       color: #fff;
-      animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      max-width: 380px;
+      min-width: 260px;
+      animation: toastIn 0.3s ease-out forwards;
     }
-    .toast-msg.win { border-color: var(--green); box-shadow: 0 0 15px rgba(0, 255, 136, 0.3); }
-    .toast-msg.loss { border-color: var(--red); box-shadow: 0 0 15px rgba(255, 0, 85, 0.3); }
-    .toast-msg.grad { border-color: var(--cyan); box-shadow: 0 0 15px rgba(0, 243, 255, 0.3); }
+    .toast-msg.win { border-left-color: var(--green); }
+    .toast-msg.loss { border-left-color: var(--red); }
+    @keyframes toastIn { from { transform: translateX(50px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
-    @keyframes slideInRight {
-      from { transform: translateX(100%); opacity: 0; }
-      to { transform: translateX(0); opacity: 1; }
-    }
-
-    @media (max-width: 1024px) {
-      html, body { overflow: auto; height: auto; }
-      .cockpit-container { height: auto; overflow: visible; }
-      .cockpit-grid {
-        grid-template-columns: 1fr;
-        height: auto;
-        overflow: visible;
+    /* Responsive adjustments */
+    @media (max-width: 900px) {
+      .bottom-camera-dock {
+        width: 96vw;
+        overflow-x: auto;
+        justify-content: flex-start;
+        padding: 4px 6px;
       }
-      .cockpit-col { height: auto; min-height: 380px; }
-      .canvas-container { min-height: 420px; }
-      .code-terminal { min-height: 340px; }
-      .funnel-grid { grid-template-columns: repeat(3, 1fr); }
-      .inspector-drawer { width: 100vw; }
+      .hud-center-sec { display: none; }
+      .hologram-pod { max-width: 88vw !important; }
     }
   </style>
 </head>
 <body>
-  <div class="cockpit-container">
-    <!-- Top HUD Bar -->
-    <header class="top-hud">
-      <div class="hud-left">
-        <div class="hud-title">
-          <span class="pulse-dot"></span>
-          SUPERBRAIN 3D COCKPIT
+
+  <!-- Fullscreen 3D Neural Viewport -->
+  <div id="superbrain-viewport">
+    <canvas id="neuralCanvas"></canvas>
+
+    <!-- 3D Spatial Holographic Pods Layer (Anchored to 3D Coordinates) -->
+    <div id="spatial-pods-layer">
+
+      <!-- Pod 1: AI Quant Council Cluster (Lobe: Frontal Left) -->
+      <div id="pod-ai-council" class="hologram-pod glow-purple">
+        <div class="pod-header" onclick="focusOnNode('ai_council')">
+          <span class="pod-title">🏛️ AI QUANT COUNCIL</span>
+          <span class="hud-metric-chip" style="color:var(--purple); font-size:9px;">DIRECTIVE 9 COMPLIANT</span>
         </div>
-        <span id="hud-status-badge" class="badge-hud badge-green">OPTIMAL · 100% AUTONOMOUS</span>
-        <span class="hud-metric">
-          <span class="hud-metric-label">BUDAPEST:</span>
-          <span id="hud-budapest-time" class="hud-metric-value">--:--:--</span>
-        </span>
+        <div class="pod-body">
+          <div class="council-boxes">
+            <!-- AGY -->
+            <div id="brain-card-agy" class="brain-cell">
+              <div class="brain-cell-name">
+                <span style="color:var(--cyan);">GEMINI AGY</span>
+                <span style="color:var(--cyan); font-size:9px;">LEAD</span>
+              </div>
+              <div class="brain-cell-role">Lead Architect &amp; Release Gate</div>
+              <div id="brain-status-agy" class="brain-cell-status" style="color:var(--green);">ACTIVE · SUPERVISING</div>
+              <div id="brain-reasoning-agy" class="brain-cell-thought">Balancing funnel flow &amp; verifying zero-clog invariants.</div>
+            </div>
+            <!-- CLAUDE -->
+            <div id="brain-card-claude" class="brain-cell">
+              <div class="brain-cell-name">
+                <span style="color:var(--amber);">CLAUDE OPUS</span>
+                <span style="color:var(--amber); font-size:9px;">DOMAIN</span>
+              </div>
+              <div class="brain-cell-role">Sports Mechanics &amp; B2B Rest</div>
+              <div id="brain-status-claude" class="brain-cell-status" style="color:var(--green);">ACTIVE · INFERENCE</div>
+              <div id="brain-reasoning-claude" class="brain-cell-thought">Evaluating NBA/NFL back-to-back travel fatigue penalties.</div>
+            </div>
+            <!-- CODEX -->
+            <div id="brain-card-codex" class="brain-cell">
+              <div class="brain-cell-name">
+                <span style="color:var(--green);">CODEX ASTRA</span>
+                <span style="color:var(--green); font-size:9px;">KERNEL</span>
+              </div>
+              <div class="brain-cell-role">Math Kernel Synthesis &amp; Code</div>
+              <div id="brain-status-codex" class="brain-cell-status" style="color:var(--green);">ACTIVE · SYNTHESIZING</div>
+              <div id="brain-reasoning-codex" class="brain-cell-thought">Synthesizing Python models for demoted submarkets.</div>
+            </div>
+            <!-- GROK -->
+            <div id="brain-card-grok" class="brain-cell">
+              <div class="brain-cell-name">
+                <span style="color:var(--red);">GROK 4.7</span>
+                <span style="color:var(--red); font-size:9px;">AUDITOR</span>
+              </div>
+              <div class="brain-cell-role">Adversarial Anti-Overfit Red-Team</div>
+              <div id="brain-status-grok" class="brain-cell-status" style="color:var(--green);">ACTIVE · AUDITING</div>
+              <div id="brain-reasoning-grok" class="brain-cell-thought">Stress-testing candidate parameters against out-of-sample drawdowns.</div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div class="hud-center">
-        <span class="hud-metric">
-          <span class="hud-metric-label">DAEMONS:</span>
-          <span id="hud-daemons-count" class="hud-metric-value" style="color:var(--cyan)">5/5 RUNNING</span>
-        </span>
-        <span class="hud-metric">
-          <span class="hud-metric-label">NET PNL:</span>
-          <span id="hud-pnl" class="hud-metric-value">+$0.00</span>
-        </span>
-        <span class="hud-metric">
-          <span class="hud-metric-label">7D ROI:</span>
-          <span id="hud-roi" class="hud-metric-value" style="color:var(--green)">+0.0%</span>
-        </span>
-        <span class="hud-metric">
-          <span class="hud-metric-label">24H VOLUME:</span>
-          <span id="hud-volume" class="hud-metric-value">0 / 100</span>
-        </span>
+      <!-- Pod 2: Live Codex Python Code Stream (Lobe: Parietal Left) -->
+      <div id="pod-code-synth" class="hologram-pod glow-green">
+        <div class="pod-header" onclick="focusOnNode('codex_stream')">
+          <span class="pod-title">💻 LIVE CODE SYNTHESIS STREAM</span>
+          <span id="meta-status" class="hud-metric-chip" style="color:var(--green); font-size:9px;">AST VALIDATED</span>
+        </div>
+        <div class="pod-body">
+          <div id="terminal-tab-container" class="code-tabs-strip"></div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-family:var(--font-mono); font-size:9px; color:var(--text-dim);">
+            <span id="meta-model-name" style="color:#fff; font-weight:700;">Loading...</span>
+            <span id="meta-lines">-- lines</span>
+          </div>
+          <div id="terminal-code-body" class="code-view-pre"># Awaiting synthesized candidate stream...</div>
+          <div style="display:flex; justify-content:space-between; margin-top:4px; font-family:var(--font-mono); font-size:8px; color:var(--text-dim);">
+            <span id="meta-target-segment">SEGMENT: --</span>
+            <span id="terminal-mtime">MTIME: --</span>
+          </div>
+        </div>
       </div>
 
-      <div class="hud-right">
-        <button id="btn-orbit-toggle" class="hud-btn" title="Toggle 3D Cinematic Auto-Orbit">
-          🔄 3D ORBIT: <span id="hud-orbit-state" style="color:var(--cyan)">ON</span>
-        </button>
-        <button id="btn-audio-toggle" class="hud-btn" title="Toggle Synthesizer Audio Alerts">
-          🔊 AUDIO: <span id="hud-audio-state">OFF</span>
-        </button>
-        <button id="btn-fullscreen-toggle" class="hud-btn" title="Toggle Fullscreen Cockpit">
-          ⛶ FULLSCREEN
-        </button>
-        <a href="/" class="hud-btn" title="Return to Main Bet Execution Board">
-          ← MAIN BOARD
-        </a>
+      <!-- Pod 3: Quantum Mathematical Core & Kelly Engine (Lobe: Central Thalamus) -->
+      <div id="pod-math-core" class="hologram-pod glow-cyan">
+        <div class="pod-header" onclick="focusOnNode('math_core')">
+          <span class="pod-title">⚛️ QUANTUM VALUATION &amp; KELLY</span>
+          <span class="hud-metric-chip" style="color:var(--cyan); font-size:9px;">FIRST-PRINCIPLES</span>
+        </div>
+        <div class="pod-body">
+          <div class="formula-card">
+            <div class="formula-eq">EV = P · O - 1.0 &gt; 0</div>
+            <div class="formula-desc">Directive 3: Zero hardcoded odds clamps. Pure domain model probabilities (model_weight = 1.0).</div>
+          </div>
+          <div class="formula-card">
+            <div class="formula-eq">f* = (P · O - 1) / (O - 1) · λ_risk</div>
+            <div class="formula-desc">Directive 4: Continuous risk-adjusted Fractional Kelly bounded in [$0.50, $8.00]. Daily risk limit null.</div>
+          </div>
+          <div class="formula-card">
+            <div class="formula-eq">ΔBrier = Brier_bench - Brier_model &gt; 0</div>
+            <div class="formula-desc">Directive 6 &amp; 7: Crucible graduation requires positive Brier skill &amp; Max Drawdown &lt; 25%.</div>
+          </div>
+          <div style="background:rgba(255,255,255,0.03); padding:6px 8px; border-radius:4px; font-family:var(--font-mono); font-size:9px;">
+            <div>OPEN STAKE: <span id="math-open-stake" style="color:var(--green); font-weight:700;">$0.00</span> across <span id="math-open-tickets" style="color:#fff;">0</span> tickets</div>
+          </div>
+        </div>
       </div>
-    </header>
 
-    <!-- Main 3-Column 100vh Single-Screen Cockpit -->
-    <main class="cockpit-grid">
-      <!-- LEFT COLUMN: AI Quant Council & Code Terminal -->
-      <section class="cockpit-col">
-        <!-- AI Quant Council Panel -->
-        <div class="quant-panel glow-purple" style="flex: 0 0 auto;">
-          <div class="panel-header">
-            <span class="title-active">🏛️ AI QUANT COUNCIL</span>
-            <span style="color:var(--purple); font-size:10px;">DIRECTIVE 9 COMPLIANT</span>
+      <!-- Pod 4: 4-Tier Progression Architecture (Lobe: Frontal Right) -->
+      <div id="pod-4tier-pipeline" class="hologram-pod glow-green">
+        <div class="pod-header" onclick="focusOnNode('tiers_pipeline')">
+          <span class="pod-title">📶 4-TIER PROGRESSION ENGINE</span>
+          <span class="hud-metric-chip" style="color:var(--green); font-size:9px;">CLOSED-LOOP</span>
+        </div>
+        <div class="pod-body">
+          <!-- Tier 1 -->
+          <div class="tier-step-card t1">
+            <div class="tier-header-row">
+              <span style="color:var(--purple);">TIER 1: R&amp;D CANDIDATE DISCOVERY</span>
+              <span id="tier1-count" style="color:#fff;">-- Active</span>
+            </div>
+            <div class="tier-sub-row">
+              <span>97,000+ settled match pool</span>
+              <span id="tier1-rate">-- models/hr</span>
+            </div>
           </div>
-          <div class="panel-body">
-            <div class="council-grid">
-              <!-- Brain 1: AGY -->
-              <div id="brain-card-agy" class="brain-box active" onclick="openInspector('agy')">
-                <div class="brain-name">
-                  <span style="color:var(--cyan);">GEMINI AGY</span>
-                  <span class="badge-hud badge-cyan">LEAD</span>
-                </div>
-                <div class="brain-role">Architect &amp; Release Authority</div>
-                <div id="brain-status-agy" class="brain-status" style="color:var(--green);">ACTIVE · SUPERVISING</div>
-                <div id="brain-reasoning-agy" class="brain-reasoning">Balancing funnel flow &amp; verifying zero-clog invariants.</div>
-              </div>
-
-              <!-- Brain 2: Claude -->
-              <div id="brain-card-claude" class="brain-box active" onclick="openInspector('claude')">
-                <div class="brain-name">
-                  <span style="color:var(--amber);">CLAUDE OPUS</span>
-                  <span class="badge-hud badge-amber">DOMAIN</span>
-                </div>
-                <div class="brain-role">Mechanics &amp; Situational Logic</div>
-                <div id="brain-status-claude" class="brain-status" style="color:var(--green);">ACTIVE · INFERENCE</div>
-                <div id="brain-reasoning-claude" class="brain-reasoning">Evaluating NBA/NFL back-to-back rest fatigue penalties.</div>
-              </div>
-
-              <!-- Brain 3: Codex -->
-              <div id="brain-card-codex" class="brain-box active" onclick="openInspector('codex')">
-                <div class="brain-name">
-                  <span style="color:var(--green);">CODEX ASTRA</span>
-                  <span class="badge-hud badge-green">KERNEL</span>
-                </div>
-                <div class="brain-role">Math Kernel Synthesis &amp; Code</div>
-                <div id="brain-status-codex" class="brain-status" style="color:var(--green);">ACTIVE · SYNTHESIZING</div>
-                <div id="brain-reasoning-codex" class="brain-reasoning">Synthesizing Python models for demoted submarkets.</div>
-              </div>
-
-              <!-- Brain 4: Grok -->
-              <div id="brain-card-grok" class="brain-box active" onclick="openInspector('grok')">
-                <div class="brain-name">
-                  <span style="color:var(--red);">GROK 4.7</span>
-                  <span class="badge-hud badge-red">AUDITOR</span>
-                </div>
-                <div class="brain-role">Adversarial Red-Team &amp; Anti-Overfit</div>
-                <div id="brain-status-grok" class="brain-status" style="color:var(--green);">ACTIVE · AUDITING</div>
-                <div id="brain-reasoning-grok" class="brain-reasoning">Stress-testing candidate parameters against out-of-sample drawdowns.</div>
-              </div>
+          <!-- Tier 2 -->
+          <div class="tier-step-card t2">
+            <div class="tier-header-row">
+              <span style="color:var(--amber);">TIER 2: SHADOW INCUBATOR</span>
+              <span id="tier2-count" style="color:#fff;">-- Shadow</span>
+            </div>
+            <div class="tier-sub-row">
+              <span>$0.00 virtual stakes (zero risk)</span>
+              <span id="tier2-rate">-- admitted/hr</span>
+            </div>
+          </div>
+          <!-- Tier 3 -->
+          <div class="tier-step-card t3">
+            <div class="tier-header-row">
+              <span style="color:var(--green);">TIER 3: STAKE SPORTSBOOK PROBATION</span>
+              <span id="tier3-count" style="color:#fff;">-- Graduated</span>
+            </div>
+            <div class="tier-sub-row">
+              <span id="tier3-today-picks">0 / 100 Picks ($0.00)</span>
+              <span>Kelly $0.50–$8.00</span>
+            </div>
+            <div style="background:rgba(255,255,255,0.05); height:3px; border-radius:2px; margin-top:4px; overflow:hidden;">
+              <div id="tier3-progress-bar" style="background:var(--green); height:100%; width:0%;"></div>
+            </div>
+          </div>
+          <!-- Tier 4 -->
+          <div class="tier-step-card t4">
+            <div class="tier-header-row">
+              <span style="color:var(--cyan);">TIER 4: POLYMARKET CLOB ALPHA</span>
+              <span id="tier4-count" style="color:#fff;">-- Elite</span>
+            </div>
+            <div class="tier-sub-row">
+              <span>Maker Limit Orders (0% taker fee)</span>
+              <span id="tier4-rate">-- promoted/hr</span>
+            </div>
+          </div>
+          <!-- Demotion Loop -->
+          <div class="tier-step-card t-loop">
+            <div class="tier-header-row">
+              <span style="color:var(--red);">TOURNIQUET &amp; DEMOTION LOOP</span>
+              <span style="color:var(--red);">TIER 3 → TIER 1</span>
+            </div>
+            <div class="tier-sub-row">
+              <span>$0.50 clamp → $0.00 shadow quarantine</span>
+              <span>ROI &lt; -3.0% trigger</span>
             </div>
           </div>
         </div>
+      </div>
 
-        <!-- Live Code Synthesis & Execution Terminal -->
-        <div class="quant-panel glow-cyan code-terminal">
-          <div class="panel-header">
-            <span class="title-active">⚡ CODEX KERNEL SYNTHESIS TERMINAL</span>
-            <span id="terminal-active-tag" style="color:var(--cyan); font-size:10px;">PYTHON 3.14 · AST VALIDATED</span>
-          </div>
-          
-          <div id="terminal-tab-container" class="code-terminal-tabs">
-            <div class="code-terminal-tab active">Loading models...</div>
-          </div>
+      <!-- Pod 5: League Constellation (Lobe: Posterior Occipital) -->
+      <div id="pod-leagues" class="hologram-pod glow-amber">
+        <div class="pod-header" onclick="focusOnNode('leagues_constellation')">
+          <span class="pod-title">🏟️ LEAGUE CONSTELLATION</span>
+          <span class="hud-metric-chip" style="color:var(--amber); font-size:9px;">DYNAMIC SCAN</span>
+        </div>
+        <div class="pod-body">
+          <div id="league-tiles-grid" class="league-grid-boxes"></div>
+        </div>
+      </div>
 
-          <div id="terminal-model-meta" class="code-model-meta">
-            <div><strong style="color:var(--cyan);">MODEL:</strong> <span id="meta-model-name">--</span></div>
-            <div><strong style="color:var(--green);">TARGET:</strong> <span id="meta-target-segment">--</span></div>
-            <div><strong style="color:var(--amber);">LINES:</strong> <span id="meta-lines">--</span></div>
-            <div><strong style="color:var(--purple);">STATUS:</strong> <span id="meta-status">CRUCIBLE CANDIDATE</span></div>
+      <!-- Pod 6: Live Bets & Instant Settlements (Lobe: Efferent Motor Tract) -->
+      <div id="pod-bets-settlements" class="hologram-pod glow-cyan">
+        <div class="pod-header" onclick="focusOnNode('bets_motor')">
+          <span class="pod-title">⚡ ACTIVE BETS &amp; SETTLEMENTS</span>
+          <span class="hud-metric-chip" style="color:var(--cyan); font-size:9px;">REAL-TIME LEDGER</span>
+        </div>
+        <div class="pod-body">
+          <!-- Toggle Tabs -->
+          <div style="display:flex; gap:6px; margin-bottom:8px;">
+            <button id="tab-btn-active-bets" class="code-tab-pill active" onclick="switchBetFeed('active')">ACTIVE BETS (<span id="count-active-bets">0</span>)</button>
+            <button id="tab-btn-settled-bets" class="code-tab-pill" onclick="switchBetFeed('settled')">SETTLED WAGERS (<span id="count-settled-bets">0</span>)</button>
           </div>
+          <div id="feed-active-container"></div>
+          <div id="feed-settled-container" style="display:none;"></div>
+        </div>
+      </div>
 
-          <div id="terminal-code-body" class="code-editor-area">
-# Initializing Codex Astra Mathematical Kernel Synthesis...
-# Reading from src/betting_engine/sandbox_models/generated/
+      <!-- Pod 7: Sensory Feeds Ingestion (Lobe: Temporal Anterior) -->
+      <div id="pod-sensory-ingest" class="hologram-pod glow-purple">
+        <div class="pod-header" onclick="focusOnNode('sensory_hub')">
+          <span class="pod-title">📡 SENSORY FEEDS INGESTION</span>
+          <span class="hud-metric-chip" style="color:var(--purple); font-size:9px;">100% FREE SOURCES</span>
+        </div>
+        <div class="pod-body">
+          <div style="margin-bottom:6px;">
+            <div style="font-weight:700; color:var(--cyan);">ESPN PUBLIC API</div>
+            <div style="color:var(--text-dim); font-size:9px;">60s period clocks, quarters, live match timers across 8 sports.</div>
           </div>
-
-          <div class="code-terminal-footer">
-            <span id="terminal-compile-status">✓ AST VERIFIED · SCIPY / NUMPY COMPLIANT</span>
-            <span id="terminal-mtime">TIMESTAMP: --</span>
+          <div style="margin-bottom:6px;">
+            <div style="font-weight:700; color:var(--cyan);">NHL OFFICIAL WEB API (api-web.nhle.com)</div>
+            <div style="color:var(--text-dim); font-size:9px;">Confirmed starting goalies, save percentages, travel fatigue.</div>
+          </div>
+          <div style="margin-bottom:6px;">
+            <div style="font-weight:700; color:var(--cyan);">MLB STATS API (statsapi.mlb.com)</div>
+            <div style="color:var(--text-dim); font-size:9px;">Probable starting pitchers, bullpen workloads, umpire strike zones.</div>
+          </div>
+          <div style="margin-bottom:6px;">
+            <div style="font-weight:700; color:var(--cyan);">OPEN-METEO WEATHER API</div>
+            <div style="color:var(--text-dim); font-size:9px;">Wind speeds (km/h), stadium azimuths, outdoor total impacts.</div>
+          </div>
+          <div>
+            <div style="font-weight:700; color:var(--cyan);">POLYMARKET OPEN CLOB</div>
+            <div style="color:var(--text-dim); font-size:9px;">Live WebSocket orderbook depths &amp; maker limit execution.</div>
           </div>
         </div>
-      </section>
+      </div>
 
-      <!-- CENTER COLUMN: 3D Neural Superbrain Stage & Funnel Ribbon -->
-      <section class="cockpit-col">
-        <!-- 3D Neural Superbrain Stage -->
-        <div class="quant-panel canvas-container">
-          <div class="canvas-hud-overlay">
-            <div class="canvas-badge">
-              <strong style="color:#fff;">3D/4D LIVING NEURAL SUPERBRAIN</strong>
-              <span style="color:var(--cyan); margin-left:6px;">DRAG TO ROTATE · SCROLL TO ZOOM</span>
-            </div>
-            <div class="canvas-controls">
-              <button class="canvas-ctrl-btn" onclick="reset3DCamera()">RESET</button>
-              <button class="canvas-ctrl-btn" onclick="zoom3D(1.15)">ZOOM +</button>
-              <button class="canvas-ctrl-btn" onclick="zoom3D(0.85)">ZOOM −</button>
-            </div>
-          </div>
-          <canvas id="neuralCanvas"></canvas>
-        </div>
-
-        <!-- Funnel Velocity & Bottleneck Ribbon -->
-        <div class="funnel-ribbon">
-          <div id="clog-indicator-strip" class="clog-status-strip">
-            <span id="clog-indicator-badge">● DUGULÁSMENTES: OPTIMAL CONTINUOUS FLOW</span>
-            <span id="clog-queue-detail">QUEUED: 0 · COMPLETED: 0 · RETRY: 0</span>
-          </div>
-          
-          <div class="funnel-grid">
-            <div class="funnel-metric-box">
-              <span class="label">SYNTHESIS</span>
-              <span id="funnel-vel-synth-1h" class="val">--</span>
-              <span class="sub">MODELS / HR</span>
-            </div>
-            <div class="funnel-metric-box">
-              <span class="label">TIER 2 ADMIT</span>
-              <span id="funnel-vel-t2-1h" class="val">--</span>
-              <span class="sub">INCUBATED / HR</span>
-            </div>
-            <div class="funnel-metric-box">
-              <span class="label">TIER 3 GRAD</span>
-              <span id="funnel-vel-t3-1h" class="val">--</span>
-              <span class="sub">GRADUATED / HR</span>
-            </div>
-            <div class="funnel-metric-box">
-              <span class="label">DEMOTIONS</span>
-              <span id="funnel-vel-demote-1h" class="val">--</span>
-              <span class="sub">TOURNIQUET / HR</span>
-            </div>
-            <div class="funnel-metric-box">
-              <span class="label">NET EXPANSION</span>
-              <span id="funnel-vel-net-24h" class="val">--</span>
-              <span class="sub">VELOCITY / HR</span>
-            </div>
-            <div class="funnel-metric-box">
-              <span class="label">CRUCIBLE PASS</span>
-              <span id="funnel-crucible-pass-24h" class="val">--</span>
-              <span class="sub">BENCHMARK %</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- RIGHT COLUMN: 4-Tier Progression, League Radar & Live Bets -->
-      <section class="cockpit-col">
-        <!-- 4-Tier Progression Stack -->
-        <div class="quant-panel glow-green" style="flex: 0 0 auto;">
-          <div class="panel-header">
-            <span class="title-active">📶 4-TIER PROGRESSION ENGINE</span>
-            <span style="color:var(--green); font-size:10px;">CLOSED-LOOP GOVERNANCE</span>
-          </div>
-          <div class="panel-body">
-            <div class="tier-stack">
-              <!-- Tier 1 -->
-              <div class="tier-card tier-1" onclick="openInspector('tier1')">
-                <div class="tier-header">
-                  <span style="color:var(--purple);">TIER 1: R&amp;D CANDIDATE DISCOVERY</span>
-                  <span id="tier1-count" class="badge-hud badge-purple">--</span>
-                </div>
-                <div class="tier-details">
-                  <span>97k+ Settled Database Pool</span>
-                  <span id="tier1-rate">-- models/hr</span>
-                </div>
-              </div>
-
-              <!-- Tier 2 -->
-              <div class="tier-card tier-2" onclick="openInspector('tier2')">
-                <div class="tier-header">
-                  <span style="color:var(--amber);">TIER 2: SHADOW INCUBATOR</span>
-                  <span id="tier2-count" class="badge-hud badge-amber">--</span>
-                </div>
-                <div class="tier-details">
-                  <span>$0.00 Live Forward Validation</span>
-                  <span id="tier2-rate">-- admitted/hr</span>
-                </div>
-              </div>
-
-              <!-- Tier 3 -->
-              <div class="tier-card tier-3" onclick="openInspector('tier3')">
-                <div class="tier-header">
-                  <span style="color:var(--green);">TIER 3: STAKE SPORTSBOOK PROBATION</span>
-                  <span id="tier3-count" class="badge-hud badge-green">--</span>
-                </div>
-                <div class="tier-details">
-                  <span>$0.50–$8.00 Kelly Funded Bets</span>
-                  <span id="tier3-today-picks">0 / 100 Picks</span>
-                </div>
-                <div class="tier-progress-track">
-                  <div id="tier3-progress-bar" class="tier-progress-fill" style="width: 0%;"></div>
-                </div>
-              </div>
-
-              <!-- Tier 4 -->
-              <div class="tier-card tier-4" onclick="openInspector('tier4')">
-                <div class="tier-header">
-                  <span style="color:var(--cyan);">TIER 4: POLYMARKET CLOB ALPHA</span>
-                  <span id="tier4-count" class="badge-hud badge-cyan">--</span>
-                </div>
-                <div class="tier-details">
-                  <span>Maker Limit Orders (0% Taker Fee)</span>
-                  <span id="tier4-rate">-- promoted/hr</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- League Distribution Radar -->
-        <div id="league-radar-container" class="league-radar-strip">
-          <div class="league-pill active"><span class="dot"></span>NBA: 94</div>
-          <div class="league-pill active"><span class="dot"></span>NFL: 73</div>
-          <div class="league-pill active"><span class="dot"></span>NHL: 53</div>
-          <div class="league-pill active"><span class="dot"></span>WNBA: 48</div>
-          <div class="league-pill active"><span class="dot"></span>UCL: 45</div>
-          <div class="league-pill active"><span class="dot"></span>EPL: 31</div>
-          <div class="league-pill active"><span class="dot"></span>MLS: 29</div>
-          <div class="league-pill active"><span class="dot"></span>MLB: 14</div>
-          <div class="league-pill active"><span class="dot"></span>TENNIS: 31</div>
-        </div>
-
-        <!-- Live Bet Ledger & Instant Settlement Feed -->
-        <div class="quant-panel glow-cyan bets-feed-panel">
-          <div class="feed-tabs">
-            <div id="tab-active-bets" class="feed-tab active" onclick="switchBetTab('active')">
-              ACTIVE FUNDED BETS (<span id="count-active-bets">0</span>)
-            </div>
-            <div id="tab-settled-bets" class="feed-tab" onclick="switchBetTab('settled')">
-              INSTANT SETTLEMENTS (<span id="count-settled-bets">0</span>)
-            </div>
-          </div>
-
-          <div id="feed-active-container" class="feed-content-area">
-            <div style="color:var(--text-dim); text-align:center; padding:20px; font-family:var(--font-mono); font-size:11px;">
-              Polling real-time executable instructions...
-            </div>
-          </div>
-
-          <div id="feed-settled-container" class="feed-content-area" style="display:none;">
-            <div style="color:var(--text-dim); text-align:center; padding:20px; font-family:var(--font-mono); font-size:11px;">
-              Polling settled events ledger...
-            </div>
-          </div>
-        </div>
-      </section>
-    </main>
+    </div>
   </div>
 
-  <!-- Interactive Node Inspector Drawer -->
-  <aside id="node-inspector-drawer" class="inspector-drawer">
-    <div class="inspector-header">
-      <div style="font-weight:700; color:#fff; font-size:12px;" id="drawer-title">COMPONENT INSPECTOR</div>
-      <div class="inspector-close" onclick="closeInspector()">✕</div>
+  <!-- Top Glass Cyber HUD -->
+  <header class="top-glass-hud">
+    <div class="hud-left-sec">
+      <div class="hud-brand-title">
+        <span class="hud-pulse-ring"></span>
+        <span>SUPERBRAIN · NEURAL MATRIX</span>
+      </div>
+      <div class="hud-metric-chip">
+        <span style="color:var(--text-dim);">BUDAPEST:</span>
+        <span id="hud-budapest-time" style="color:#fff; font-weight:700;">--:--:--</span>
+      </div>
     </div>
-    <div class="inspector-body" id="drawer-body">
-      <!-- Dynamic Node Telemetry Data -->
+
+    <div class="hud-center-sec">
+      <div class="hud-metric-chip">
+        <span style="color:var(--text-dim);">LIVE PnL:</span>
+        <span id="hud-pnl" style="font-weight:800;">$0.00</span>
+      </div>
+      <div class="hud-metric-chip">
+        <span style="color:var(--text-dim);">7D ROI:</span>
+        <span id="hud-roi" style="font-weight:800;">0.0%</span>
+      </div>
+      <div class="hud-metric-chip">
+        <span style="color:var(--text-dim);">TODAY PICKS:</span>
+        <span id="hud-volume" style="font-weight:800; color:var(--cyan);">0 / 100</span>
+      </div>
+      <div id="clog-indicator-badge" class="hud-metric-chip" style="color:var(--green); font-weight:700; border-color:rgba(0,255,136,0.3);">
+        ● DUGULÁSMENTES: CONTINUOUS FLOW
+      </div>
+      <div id="hud-daemons-count" class="hud-metric-chip" style="color:var(--text-dim);">5/5 DAEMONS</div>
     </div>
-  </aside>
 
-  <!-- Floating Toast Notifications -->
-  <div id="toast-container" class="toast-container"></div>
+    <div class="hud-right-sec">
+      <button id="btn-audio-toggle" class="hud-btn" title="Toggle Sound Chimes">
+        🔊 AUDIO: <span id="hud-audio-state">OFF</span>
+      </button>
+      <button id="btn-fullscreen-toggle" class="hud-btn" title="Toggle Fullscreen Cockpit">
+        ⛶ FULLSCREEN
+      </button>
+      <a href="/" class="hud-btn" title="Return to Main Bet Execution Board">
+        ← MAIN BOARD
+      </a>
+    </div>
+  </header>
 
-  <!-- Audio Synthesizer & 3D Neural Engine -->
+  <!-- Bottom 3D Camera Lobe Navigator Dock -->
+  <nav class="bottom-camera-dock">
+    <button class="nav-pill-btn active" onclick="flyCameraTo('macro')"><span>⛶</span> MACRO</button>
+    <button class="nav-pill-btn" onclick="flyCameraTo('ai_council')"><span>🏛️</span> AI COUNCIL</button>
+    <button class="nav-pill-btn" onclick="flyCameraTo('codex_stream')"><span>💻</span> CODE STREAM</button>
+    <button class="nav-pill-btn" onclick="flyCameraTo('math_core')"><span>⚛️</span> MATH &amp; KELLY</button>
+    <button class="nav-pill-btn" onclick="flyCameraTo('tiers_pipeline')"><span>📶</span> 4-TIER PIPELINE</button>
+    <button class="nav-pill-btn" onclick="flyCameraTo('leagues_constellation')"><span>🏟️</span> LEAGUES</button>
+    <button class="nav-pill-btn" onclick="flyCameraTo('bets_motor')"><span>⚡</span> BETS &amp; SETTLEMENTS</button>
+    <button class="nav-pill-btn" onclick="flyCameraTo('sensory_hub')"><span>📡</span> SENSORY</button>
+    <button id="btn-auto-orbit" class="nav-pill-btn" onclick="toggleAutoOrbit()"><span>↺</span> AUTO-ORBIT: ON</button>
+  </nav>
+
+  <!-- Toast Notification Box -->
+  <div id="superbrain-toast-box"></div>
+
+  <!-- Pure Native 3D/4D Vector Neural Engine & Telemetry Logic -->
   <script>
-    // Web Audio Synthesizer
-    class QuantAudioSynthesizer {
-      constructor() { this.ctx = null; this.enabled = false; }
+    'use strict';
+
+    // ==========================================
+    // AUDIO SYNTHESIZER (WEB AUDIO API)
+    // ==========================================
+    class CyberAudioSynth {
+      constructor() {
+        this.ctx = null;
+        this.enabled = false;
+      }
       init() {
         if (!this.ctx) {
           const AudioContext = window.AudioContext || window.webkitAudioContext;
           if (AudioContext) this.ctx = new AudioContext();
         }
-        if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
       }
-      toggle() { this.init(); this.enabled = !this.enabled; return this.enabled; }
-      playTone(freq, type = 'sine', duration = 0.15, gainVal = 0.05) {
-        if (!this.enabled || !this.ctx) return;
-        try {
-          const osc = this.ctx.createOscillator();
-          const gain = this.ctx.createGain();
-          osc.type = type;
-          osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-          gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
-          gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
-          osc.connect(gain); gain.connect(this.ctx.destination);
-          osc.start(); osc.stop(this.ctx.currentTime + duration);
-        } catch (e) { console.debug('Audio error', e); }
+      toggle() {
+        this.init();
+        this.enabled = !this.enabled;
+        const el = document.getElementById('hud-audio-state');
+        if (el) el.textContent = this.enabled ? 'ON' : 'OFF';
+        return this.enabled;
       }
       playWin() {
-        if (!this.enabled) return;
-        this.playTone(523.25, 'triangle', 0.15, 0.08);
-        setTimeout(() => this.playTone(659.25, 'triangle', 0.15, 0.08), 90);
-        setTimeout(() => this.playTone(783.99, 'triangle', 0.25, 0.1), 180);
+        if (!this.enabled || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, now + i * 0.08);
+          gain.gain.setValueAtTime(0.12, now + i * 0.08);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.35);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now + i * 0.08);
+          osc.stop(now + i * 0.08 + 0.35);
+        });
       }
       playLoss() {
-        if (!this.enabled) return;
-        this.playTone(392.00, 'sawtooth', 0.18, 0.05);
-        setTimeout(() => this.playTone(311.13, 'sawtooth', 0.3, 0.06), 120);
-      }
-      playGraduation() {
-        if (!this.enabled) return;
-        this.playTone(440.0, 'sine', 0.1, 0.07);
-        setTimeout(() => this.playTone(554.37, 'sine', 0.1, 0.07), 80);
-        setTimeout(() => this.playTone(659.25, 'sine', 0.1, 0.07), 160);
-        setTimeout(() => this.playTone(880.0, 'sine', 0.3, 0.09), 240);
-      }
-    }
-
-    const audioSynth = new QuantAudioSynthesizer();
-    document.getElementById('btn-audio-toggle').addEventListener('click', () => {
-      const active = audioSynth.toggle();
-      const stateEl = document.getElementById('hud-audio-state');
-      stateEl.textContent = active ? 'ON' : 'OFF';
-      stateEl.style.color = active ? 'var(--cyan)' : 'inherit';
-    });
-
-    document.getElementById('btn-fullscreen-toggle').addEventListener('click', () => {
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(() => {});
-      } else {
-        if (document.exitFullscreen) document.exitFullscreen();
-      }
-    });
-
-    let autoOrbit = true;
-    document.getElementById('btn-orbit-toggle').addEventListener('click', () => {
-      autoOrbit = !autoOrbit;
-      const stateEl = document.getElementById('hud-orbit-state');
-      stateEl.textContent = autoOrbit ? 'ON' : 'OFF';
-      stateEl.style.color = autoOrbit ? 'var(--cyan)' : 'var(--text-dim)';
-    });
-
-    function showToast(type, title, subtitle, details) {
-      const container = document.getElementById('toast-container');
-      if (!container) return;
-      const t = document.createElement('div');
-      t.className = `toast-msg ${type}`;
-      t.innerHTML = `
-        <div style="font-size:16px;">${type === 'win' ? '🟢' : type === 'loss' ? '🔴' : '💎'}</div>
-        <div>
-          <div style="font-weight:700; color:#fff;">${title}</div>
-          <div style="color:var(--text); font-size:10px;">${subtitle}</div>
-          ${details ? `<div style="color:var(--text-dim); font-size:9px;">${details}</div>` : ''}
-        </div>
-      `;
-      container.appendChild(t);
-      setTimeout(() => {
-        t.style.opacity = '0';
-        t.style.transition = 'opacity 0.4s ease';
-        setTimeout(() => t.remove(), 400);
-      }, 4500);
-    }
-
-    function switchBetTab(tab) {
-      const tabActive = document.getElementById('tab-active-bets');
-      const tabSettled = document.getElementById('tab-settled-bets');
-      const feedActive = document.getElementById('feed-active-container');
-      const feedSettled = document.getElementById('feed-settled-container');
-      if (tab === 'active') {
-        tabActive.classList.add('active');
-        tabSettled.classList.remove('active');
-        feedActive.style.display = 'flex';
-        feedSettled.style.display = 'none';
-      } else {
-        tabSettled.classList.add('active');
-        tabActive.classList.remove('active');
-        feedSettled.style.display = 'flex';
-        feedActive.style.display = 'none';
+        if (!this.enabled || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        [220, 196, 174.61].forEach((freq, i) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(freq, now + i * 0.1);
+          gain.gain.setValueAtTime(0.09, now + i * 0.1);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.1 + 0.3);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now + i * 0.1);
+          osc.stop(now + i * 0.1 + 0.3);
+        });
       }
     }
+    const audioSynth = new CyberAudioSynth();
+    document.getElementById('btn-audio-toggle')?.addEventListener('click', () => audioSynth.toggle());
 
-    // ====================================================
-    // TRUE 3D/4D NEURAL SUPERBRAIN PERSPECTIVE ENGINE
-    // ====================================================
+    // ==========================================
+    // 3D SPATIAL NEURAL GRAPH ENGINE
+    // ==========================================
     const canvas = document.getElementById('neuralCanvas');
-    const ctx = canvas && canvas.getContext ? canvas.getContext('2d') : null;
-    let canvasWidth = 0, canvasHeight = 0;
+    const ctx = canvas.getContext('2d');
 
-    // 3D Camera Controls
-    let cameraYaw = 0.35;
-    let cameraPitch = 0.22;
-    let cameraFocal = 560;
-    let isDragging = false;
-    let prevMouseX = 0, prevMouseY = 0;
+    // Camera 3D State
+    const camera = {
+      yaw: 0.15,
+      pitch: -0.1,
+      targetYaw: 0.15,
+      targetPitch: -0.1,
+      zoom: 1.0,
+      targetZoom: 1.0,
+      panX: 0,
+      panY: 0,
+      targetPanX: 0,
+      targetPanY: 0,
+      focalLength: 850,
+      autoOrbit: true
+    };
 
     function resizeCanvas() {
-      if (!canvas) return;
-      const rect = canvas.getBoundingClientRect();
-      canvasWidth = rect.width;
-      canvasHeight = rect.height;
-      canvas.width = canvasWidth * (window.devicePixelRatio || 1);
-      canvas.height = canvasHeight * (window.devicePixelRatio || 1);
-      if (ctx) ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = window.innerWidth * dpr;
+      canvas.height = window.innerHeight * dpr;
+      ctx.scale(dpr, dpr);
     }
     window.addEventListener('resize', resizeCanvas);
-    setTimeout(resizeCanvas, 50);
+    resizeCanvas();
 
-    function reset3DCamera() {
-      cameraYaw = 0.35;
-      cameraPitch = 0.22;
-      cameraFocal = 560;
-    }
-
-    function zoom3D(factor) {
-      cameraFocal = Math.max(300, Math.min(1100, cameraFocal * factor));
-    }
-
-    // Mouse & Touch 3D Orbit Handlers
-    if (canvas) {
-      canvas.addEventListener('mousedown', (e) => {
-        isDragging = true;
-        prevMouseX = e.clientX;
-        prevMouseY = e.clientY;
-      });
-
-      window.addEventListener('mousemove', (e) => {
-        if (!isDragging) return;
-        const dx = e.clientX - prevMouseX;
-        const dy = e.clientY - prevMouseY;
-        cameraYaw += dx * 0.008;
-        cameraPitch = Math.max(-1.1, Math.min(1.1, cameraPitch + dy * 0.008));
-        prevMouseX = e.clientX;
-        prevMouseY = e.clientY;
-      });
-
-      window.addEventListener('mouseup', () => { isDragging = false; });
-
-      canvas.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        zoom3D(e.deltaY > 0 ? 0.94 : 1.06);
-      }, { passive: false });
-
-      // Click to inspect node in 3D
-      canvas.addEventListener('click', (e) => {
-        const rect = canvas.getBoundingClientRect();
-        const clickX = e.clientX - rect.left;
-        const clickY = e.clientY - rect.top;
-        if (!latestProjectedNodes) return;
-        for (const n of latestProjectedNodes) {
-          const dist = Math.hypot(clickX - n.sx, clickY - n.sy);
-          if (dist <= n.sr + 10) {
-            openInspector(n.id);
-            break;
-          }
-        }
-      });
-    }
-
-    // 3D Spatial Neural Cells / Somas Definition
-    // (Coordinates normalized in range [-200, 200])
+    // 3D Spatial Neural Somas / Hyper-Nodes
+    // Coordinates normalized in range [-350, 350]
     const neuralSomas3D = [
-      // Central Core: Quantum Thalamus
-      { id: 'core', label: 'QUANTUM SOMA', sub: 'SHADOW EV & KELLY', x: 0, y: 0, z: 0, r: 24, color: '#00f3ff' },
-      
-      // Sensory Feeds Lobe (Left / Ingest)
-      { id: 'espn', label: 'ESPN CLOCKS', sub: 'SCORES & PERIODS', x: -160, y: -70, z: -60, r: 13, color: '#7086a3' },
-      { id: 'nhl', label: 'NHL STATS', sub: 'GOALIES & ICE', x: -180, y: -10, z: 30, r: 14, color: '#00f3ff' },
-      { id: 'mlb', label: 'MLB STATS', sub: 'PITCHERS & PARKS', x: -170, y: 50, z: -40, r: 14, color: '#ffb703' },
-      { id: 'weather', label: 'METEO WIND', sub: 'PHYSICS VECTOR', x: -150, y: 100, z: 50, r: 13, color: '#b5179e' },
-      
-      // Frontal Cognitive Lobe (Top / AI Council)
-      { id: 'agy', label: 'AGY ARCHITECT', sub: 'DIRECTIVE LEAD', x: -60, y: -130, z: 40, r: 16, color: '#00f3ff' },
-      { id: 'claude', label: 'CLAUDE OPUS', sub: 'SITUATIONAL', x: -40, y: -120, z: -70, r: 16, color: '#ffb703' },
-      { id: 'codex', label: 'CODEX ASTRA', sub: 'KERNEL SYNTHESIS', x: 50, y: -130, z: -40, r: 18, color: '#00ff88' },
-      { id: 'grok', label: 'GROK AUDIT', sub: 'RED-TEAM PROOF', x: 60, y: -120, z: 60, r: 16, color: '#ff0055' },
+      // Central Quantum Thalamus (Math & Kelly Engine)
+      { id: 'math_core', label: 'QUANTUM THALAMUS', sub: 'EV & FRACTIONAL KELLY', x: 0, y: 0, z: 0, r: 28, color: '#00f3ff', podId: 'pod-math-core' },
 
-      // 4-Tier Progression Lobe (Right / Action Strata)
-      { id: 'tier1', label: 'TIER 1 R&D', sub: 'HISTORICAL 97k', x: 130, y: -60, z: -50, r: 15, color: '#b5179e' },
-      { id: 'tier2', label: 'TIER 2 INCUBATOR', sub: '$0.00 SHADOW', x: 150, y: 10, z: 40, r: 15, color: '#ffb703' },
-      { id: 'tier3', label: 'TIER 3 STAKE', sub: '$0.50–$8.00 KELLY', x: 180, y: 70, z: -30, r: 18, color: '#00ff88' },
-      { id: 'tier4', label: 'TIER 4 POLYMARKET', sub: 'MAKER CLOB', x: 190, y: 120, z: 50, r: 16, color: '#00f3ff' }
+      // AI Quant Council Cortex (Frontal Left)
+      { id: 'ai_council', label: 'AI QUANT COUNCIL', sub: '4-BRAIN DELIBERATION', x: -220, y: -110, z: 20, r: 24, color: '#b5179e', podId: 'pod-ai-council' },
+      { id: 'agy', label: 'GEMINI AGY', sub: 'LEAD ARCHITECT', x: -280, y: -160, z: -20, r: 16, color: '#00f3ff' },
+      { id: 'claude', label: 'CLAUDE OPUS', sub: 'SPORTS MECHANICS', x: -300, y: -90, z: 50, r: 15, color: '#ffb703' },
+      { id: 'codex', label: 'CODEX ASTRA', sub: 'KERNEL SYNTHESIS', x: -270, y: -30, z: -40, r: 16, color: '#00ff88' },
+      { id: 'grok', label: 'GROK 4.7', sub: 'RED-TEAM AUDITOR', x: -310, y: 30, z: 30, r: 14, color: '#ff0055' },
+
+      // Codex Python Synthesis Stream (Parietal Left)
+      { id: 'codex_stream', label: 'CODEX SYNTHESIS STREAM', sub: 'AST PYTHON MODELS', x: -200, y: 150, z: -30, r: 22, color: '#00ff88', podId: 'pod-code-synth' },
+
+      // 4-Tier Progression Pipeline (Frontal Right)
+      { id: 'tiers_pipeline', label: '4-TIER PIPELINE', sub: 'CLOSED-LOOP RECOVERY', x: 220, y: -100, z: 20, r: 25, color: '#00ff88', podId: 'pod-4tier-pipeline' },
+      { id: 'tier_1', label: 'TIER 1 R&D', sub: '97K+ MATCH POOL', x: 280, y: -170, z: -30, r: 16, color: '#b5179e' },
+      { id: 'tier_2', label: 'TIER 2 INCUBATOR', sub: '$0.00 SHADOW', x: 310, y: -100, z: 40, r: 16, color: '#ffb703' },
+      { id: 'tier_3', label: 'TIER 3 STAKE', sub: 'KELLY FUNDED', x: 290, y: -30, z: -20, r: 18, color: '#00ff88' },
+      { id: 'tier_4', label: 'TIER 4 POLYMARKET', sub: 'MAKER ALPHA', x: 310, y: 40, z: 30, r: 16, color: '#00f3ff' },
+
+      // Efferent Motor Tract: Active Bets & Settlements (Motor Right)
+      { id: 'bets_motor', label: 'EFFERENT MOTOR TRACT', sub: 'ACTIVE BETS & RESULTS', x: 190, y: 160, z: -30, r: 24, color: '#00f3ff', podId: 'pod-bets-settlements' },
+
+      // League Constellation (Occipital Lower)
+      { id: 'leagues_constellation', label: 'LEAGUE CONSTELLATION', sub: 'LIQUID COVERAGE', x: 0, y: 220, z: 50, r: 24, color: '#ffb703', podId: 'pod-leagues' },
+
+      // Sensory Feeds Ingestion (Anterior Upper)
+      { id: 'sensory_hub', label: 'SENSORY INGESTION', sub: 'ESPN, NHL, MLB, WEATHER', x: 0, y: -220, z: -40, r: 22, color: '#7086a3', podId: 'pod-sensory-ingest' }
     ];
 
-    // 3D Synaptic Axons Connecting Cells
-    const neuralAxons3D = [
-      { from: 'espn', to: 'agy', color: 'rgba(112, 134, 163, 0.45)', tag: 'ODDS_FEED' },
-      { from: 'nhl', to: 'agy', color: 'rgba(0, 243, 255, 0.5)', tag: 'GOALIE_FEED' },
-      { from: 'mlb', to: 'claude', color: 'rgba(255, 183, 3, 0.5)', tag: 'PITCHER_SPLIT' },
-      { from: 'weather', to: 'claude', color: 'rgba(181, 23, 158, 0.5)', tag: 'WIND_VECTOR' },
-      { from: 'agy', to: 'core', color: 'rgba(0, 243, 255, 0.7)', tag: 'LEAD_FLOW' },
-      { from: 'claude', to: 'core', color: 'rgba(255, 183, 3, 0.7)', tag: 'B2B_PENALTY' },
-      { from: 'codex', to: 'core', color: 'rgba(0, 255, 136, 0.8)', tag: 'SYNTH_KERNEL' },
-      { from: 'grok', to: 'core', color: 'rgba(255, 0, 85, 0.7)', tag: 'STRESS_PROOF' },
-      { from: 'core', to: 'tier1', color: 'rgba(181, 23, 158, 0.7)', tag: 'GAP_DISCOVERY' },
-      { from: 'tier1', to: 'tier2', color: 'rgba(255, 183, 3, 0.7)', tag: 'CRUCIBLE_PASS' },
-      { from: 'tier2', to: 'tier3', color: 'rgba(0, 255, 136, 0.8)', tag: 'RE_GRADUATE' },
-      { from: 'tier3', to: 'tier4', color: 'rgba(0, 243, 255, 0.85)', tag: 'PROVEN_ALPHA' },
-      // Feedback Tourniquet Arc looping from Tier 3 back down to Tier 1
-      { from: 'tier3', to: 'tier1', color: 'rgba(255, 0, 85, 0.65)', curved: true, tag: 'TOURNIQUET_LOOP' }
+    // Synaptic Axon Connections
+    const neuralAxons = [
+      // Sensory feeds into Thalamus & AI Council
+      { from: 'sensory_hub', to: 'math_core', color: '#00f3ff', strength: 2.2 },
+      { from: 'sensory_hub', to: 'ai_council', color: '#b5179e', strength: 1.8 },
+      { from: 'sensory_hub', to: 'leagues_constellation', color: '#7086a3', strength: 1.2 },
+
+      // AI Council Internal Commissural Fibers
+      { from: 'ai_council', to: 'agy', color: '#00f3ff', strength: 2.0 },
+      { from: 'ai_council', to: 'claude', color: '#ffb703', strength: 1.8 },
+      { from: 'ai_council', to: 'codex', color: '#00ff88', strength: 2.0 },
+      { from: 'ai_council', to: 'grok', color: '#ff0055', strength: 1.8 },
+      { from: 'agy', to: 'codex', color: '#00f3ff', strength: 1.4 },
+      { from: 'claude', to: 'codex', color: '#ffb703', strength: 1.4 },
+      { from: 'codex', to: 'grok', color: '#ff0055', strength: 1.6 },
+
+      // Codex into Synthesis Stream
+      { from: 'codex', to: 'codex_stream', color: '#00ff88', strength: 2.5 },
+      { from: 'codex_stream', to: 'tier_1', color: '#b5179e', strength: 2.0 },
+
+      // AI Council into Central Math Core
+      { from: 'ai_council', to: 'math_core', color: '#00f3ff', strength: 2.5 },
+      { from: 'math_core', to: 'tiers_pipeline', color: '#00ff88', strength: 2.5 },
+
+      // 4-Tier Progression Ladder
+      { from: 'tiers_pipeline', to: 'tier_1', color: '#b5179e', strength: 1.8 },
+      { from: 'tier_1', to: 'tier_2', color: '#ffb703', strength: 2.2 },
+      { from: 'tier_2', to: 'tier_3', color: '#00ff88', strength: 2.5 },
+      { from: 'tier_3', to: 'tier_4', color: '#00f3ff', strength: 2.2 },
+
+      // Closed-Loop Tourniquet Feedback Arc (Tier 3 back to Tier 1)
+      { from: 'tier_3', to: 'tier_1', color: '#ff0055', strength: 1.8, dashed: true },
+
+      // Execution Tract
+      { from: 'tier_3', to: 'bets_motor', color: '#00ff88', strength: 2.8 },
+      { from: 'tier_4', to: 'bets_motor', color: '#00f3ff', strength: 2.0 },
+      { from: 'math_core', to: 'bets_motor', color: '#00f3ff', strength: 2.0 },
+
+      // League Integration
+      { from: 'leagues_constellation', to: 'math_core', color: '#ffb703', strength: 2.0 },
+      { from: 'leagues_constellation', to: 'tiers_pipeline', color: '#ffb703', strength: 1.5 }
     ];
 
-    // 4D Action Potential Waves (Quantum Photon Packets)
-    const photonPackets = [];
-    for (let i = 0; i < 50; i++) {
-      const axon = neuralAxons3D[Math.floor(Math.random() * neuralAxons3D.length)];
-      photonPackets.push({
-        axon: axon,
+    // 4D Action Potential Waves (Quantum Photon Pulses)
+    const actionPotentials = [];
+    const MAX_PHOTONS = 120;
+    for (let i = 0; i < MAX_PHOTONS; i++) {
+      actionPotentials.push({
+        axonIdx: Math.floor(Math.random() * neuralAxons.length),
         progress: Math.random(),
         speed: 0.003 + Math.random() * 0.007,
-        size: 1.8 + Math.random() * 2.2,
-        pulseOffset: Math.random() * Math.PI * 2
+        size: 2.0 + Math.random() * 2.5,
+        tailLength: 6 + Math.floor(Math.random() * 8)
       });
     }
 
-    let latestProjectedNodes = [];
-
+    // 3D Matrix Projection Function
     function project3D(x, y, z, cx, cy) {
-      // Rotate around Y axis (Yaw)
-      const cosY = Math.cos(cameraYaw), sinY = Math.sin(cameraYaw);
-      const x1 = x * cosY + z * sinY;
-      const z1 = -x * sinY + z * cosY;
+      // Rotation Yaw (around Y axis)
+      const cosY = Math.cos(camera.yaw);
+      const sinY = Math.sin(camera.yaw);
+      let x1 = x * cosY + z * sinY;
+      let y1 = y;
+      let z1 = -x * sinY + z * cosY;
 
-      // Rotate around X axis (Pitch)
-      const cosP = Math.cos(cameraPitch), sinP = Math.sin(cameraPitch);
-      const y2 = y * cosP - z1 * sinP;
-      const z2 = y * sinP + z1 * cosP;
+      // Rotation Pitch (around X axis)
+      const cosP = Math.cos(camera.pitch);
+      const sinP = Math.sin(camera.pitch);
+      let x2 = x1;
+      let y2 = y1 * cosP - z1 * sinP;
+      let z2 = y1 * sinP + z1 * cosP;
 
-      // Perspective scale
-      const scale = cameraFocal / (cameraFocal + z2 + 250);
+      // Camera focal projection
+      const dist = camera.focalLength + z2;
+      if (dist <= 10) return { visible: false };
+
+      const scale = (camera.focalLength / dist) * camera.zoom;
+      const sx = cx + (x2 + camera.panX) * scale;
+      const sy = cy + (y2 + camera.panY) * scale;
+
       return {
-        sx: cx + x1 * scale,
-        sy: cy + y2 * scale,
-        sz: z2,
-        scale: scale
+        visible: true,
+        sx,
+        sy,
+        scale,
+        zDepth: z2
       };
     }
 
-    function draw3DNeuralSuperbrain() {
-      if (!ctx || canvasWidth === 0 || canvasHeight === 0) {
-        requestAnimationFrame(draw3DNeuralSuperbrain);
+    // Main 3D Animation & Rendering Loop (60 FPS)
+    let globalPulseTick = 0;
+    let latestProjectedSomas = {};
+    function renderNeuralUniverse() {
+      globalPulseTick += 0.025;
+
+      // Smooth Camera Lerp
+      camera.yaw += (camera.targetYaw - camera.yaw) * 0.06;
+      camera.pitch += (camera.targetPitch - camera.pitch) * 0.06;
+      camera.zoom += (camera.targetZoom - camera.zoom) * 0.06;
+      camera.panX += (camera.targetPanX - camera.panX) * 0.06;
+      camera.panY += (camera.targetPanY - camera.panY) * 0.06;
+
+      if (camera.autoOrbit) {
+        camera.targetYaw += 0.0018;
+      }
+
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const cx = w / 2;
+      const cy = h / 2;
+
+      ctx.clearRect(0, 0, w, h);
+
+      // 1. Project all somas in 3D
+      const projectedSomas = {};
+      neuralSomas3D.forEach(node => {
+        // Subtle organic membrane breathing oscillation
+        const breath = Math.sin(globalPulseTick * 1.5 + node.x * 0.02) * 2.0;
+        const p = project3D(node.x, node.y, node.z, cx, cy);
+        if (p.visible) {
+          projectedSomas[node.id] = {
+            ...node,
+            sx: p.sx,
+            sy: p.sy,
+            scale: p.scale,
+            zDepth: p.zDepth,
+            screenR: Math.max(4, (node.r + breath) * p.scale)
+          };
+        }
+      });
+      latestProjectedSomas = projectedSomas;
+
+      // 2. Draw Synaptic Axons with Dynamic Perspective
+      neuralAxons.forEach((axon, idx) => {
+        const pA = projectedSomas[axon.from];
+        const pB = projectedSomas[axon.to];
+        if (!pA || !pB) return;
+
+        const avgZ = (pA.zDepth + pB.zDepth) / 2;
+        const depthAlpha = Math.max(0.12, Math.min(0.7, 0.45 + (avgZ / 400)));
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(pA.sx, pA.sy);
+
+        // Gentle curved axon spine
+        const midX = (pA.sx + pB.sx) / 2 + Math.sin(globalPulseTick + idx) * 8 * pA.scale;
+        const midY = (pA.sy + pB.sy) / 2 + Math.cos(globalPulseTick + idx) * 8 * pA.scale;
+        ctx.quadraticCurveTo(midX, midY, pB.sx, pB.sy);
+
+        if (axon.dashed) ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = axon.color;
+        ctx.globalAlpha = depthAlpha;
+        ctx.lineWidth = Math.max(1, axon.strength * ((pA.scale + pB.scale) / 2));
+        ctx.stroke();
+        ctx.restore();
+      });
+
+      // 3. Draw 4D Action Potential Waves (Quantum Photons)
+      actionPotentials.forEach(ap => {
+        const axon = neuralAxons[ap.axonIdx];
+        if (!axon) return;
+        const pA = projectedSomas[axon.from];
+        const pB = projectedSomas[axon.to];
+        if (!pA || !pB) return;
+
+        ap.progress += ap.speed;
+        if (ap.progress > 1.0) {
+          ap.progress = 0;
+          ap.axonIdx = Math.floor(Math.random() * neuralAxons.length);
+        }
+
+        const t = ap.progress;
+        const midX = (pA.sx + pB.sx) / 2;
+        const midY = (pA.sy + pB.sy) / 2;
+        // Bezier interpolation
+        const px = (1 - t) * (1 - t) * pA.sx + 2 * (1 - t) * t * midX + t * t * pB.sx;
+        const py = (1 - t) * (1 - t) * pA.sy + 2 * (1 - t) * t * midY + t * t * pB.sy;
+        const pScale = (pA.scale + pB.scale) / 2;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(px, py, Math.max(1.5, ap.size * pScale), 0, Math.PI * 2);
+        ctx.fillStyle = axon.color;
+        ctx.shadowColor = axon.color;
+        ctx.shadowBlur = 8 * pScale;
+        ctx.globalAlpha = 0.9;
+        ctx.fill();
+        ctx.restore();
+      });
+
+      // 4. Draw Neural Somas (Crystalline Nucleus + Breathing Corona)
+      // Sort by depth so far nodes draw behind near nodes
+      const sortedSomas = Object.values(projectedSomas).sort((a, b) => b.zDepth - a.zDepth);
+      sortedSomas.forEach(s => {
+        const depthAlpha = Math.max(0.2, Math.min(1.0, 0.6 + (s.zDepth / 400)));
+
+        ctx.save();
+        // Outer Corona Aura
+        const grad = ctx.createRadialGradient(s.sx, s.sy, s.screenR * 0.2, s.sx, s.sy, s.screenR * 2.2);
+        grad.addColorStop(0, s.color);
+        grad.addColorStop(0.5, s.color + '44');
+        grad.addColorStop(1, 'transparent');
+        ctx.fillStyle = grad;
+        ctx.globalAlpha = depthAlpha * 0.75;
+        ctx.beginPath();
+        ctx.arc(s.sx, s.sy, s.screenR * 2.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Inner Nucleus
+        ctx.beginPath();
+        ctx.arc(s.sx, s.sy, s.screenR, 0, Math.PI * 2);
+        ctx.fillStyle = '#040714';
+        ctx.strokeStyle = s.color;
+        ctx.lineWidth = Math.max(1.5, 2.5 * s.scale);
+        ctx.globalAlpha = depthAlpha;
+        ctx.shadowColor = s.color;
+        ctx.shadowBlur = 12 * s.scale;
+        ctx.fill();
+        ctx.stroke();
+
+        // Node Label Typography
+        if (s.scale > 0.45) {
+          ctx.font = `bold ${Math.round(10 * s.scale)}px var(--font-mono)`;
+          ctx.fillStyle = '#fff';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.shadowBlur = 6;
+          ctx.shadowColor = '#000';
+          ctx.fillText(s.label, s.sx, s.sy - s.screenR - 10 * s.scale);
+
+          ctx.font = `${Math.round(8 * s.scale)}px var(--font-sans)`;
+          ctx.fillStyle = 'rgba(212, 229, 247, 0.8)';
+          ctx.fillText(s.sub, s.sx, s.sy - s.screenR - 1 * s.scale);
+        }
+        ctx.restore();
+      });
+
+      // 5. Position 3D Holographic Pods Locked to 3D Soma Positions
+      neuralSomas3D.forEach(node => {
+        if (!node.podId) return;
+        const el = document.getElementById(node.podId);
+        if (!el) return;
+
+        const p = projectedSomas[node.id];
+        if (!p || !p.visible) {
+          el.style.opacity = '0';
+          el.style.pointerEvents = 'none';
+          return;
+        }
+
+        // Adjust pod scale and opacity based on 3D depth
+        const clampedScale = Math.max(0.65, Math.min(1.05, p.scale));
+        const depthOpacity = Math.max(0.3, Math.min(1.0, 0.65 + (p.zDepth / 350)));
+        const zIndex = Math.round(100 + p.zDepth);
+
+        // Position slightly offset so soma remains clearly visible
+        const offsetX = 35 * clampedScale;
+        const offsetY = -40 * clampedScale;
+        const screenX = p.sx + offsetX;
+        const screenY = p.sy + offsetY;
+
+        el.style.transform = `translate3d(${screenX}px, ${screenY}px, 0) scale(${clampedScale})`;
+        el.style.opacity = depthOpacity.toFixed(2);
+        el.style.zIndex = zIndex;
+        el.style.pointerEvents = depthOpacity > 0.45 ? 'auto' : 'none';
+      });
+
+      requestAnimationFrame(renderNeuralUniverse);
+    }
+    requestAnimationFrame(renderNeuralUniverse);
+
+    // ==========================================
+    // INTERACTIVE CAMERA CONTROLS & FLIGHT
+    // ==========================================
+    let isDragging = false;
+    let prevMouseX = 0;
+    let prevMouseY = 0;
+
+    canvas.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      prevMouseX = e.clientX;
+      prevMouseY = e.clientY;
+      camera.autoOrbit = false;
+      updateAutoOrbitBtn();
+    });
+
+    window.addEventListener('mouseup', () => { isDragging = false; });
+
+    canvas.addEventListener('click', (e) => {
+      const clickX = e.clientX;
+      const clickY = e.clientY;
+      for (const id in latestProjectedSomas) {
+        const s = latestProjectedSomas[id];
+        const dist = Math.hypot(clickX - s.sx, clickY - s.sy);
+        if (dist <= s.screenR + 14) {
+          flyCameraTo(s.id);
+          break;
+        }
+      }
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      const dx = e.clientX - prevMouseX;
+      const dy = e.clientY - prevMouseY;
+      prevMouseX = e.clientX;
+      prevMouseY = e.clientY;
+
+      camera.targetYaw += dx * 0.005;
+      camera.targetPitch = Math.max(-0.9, Math.min(0.9, camera.targetPitch + dy * 0.005));
+    });
+
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      camera.autoOrbit = false;
+      updateAutoOrbitBtn();
+      const delta = e.deltaY > 0 ? 0.92 : 1.08;
+      camera.targetZoom = Math.max(0.4, Math.min(2.2, camera.targetZoom * delta));
+    }, { passive: false });
+
+    // Touch Support for Mobile / Tablets
+    let initialTouchDist = null;
+    canvas.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        isDragging = true;
+        prevMouseX = e.touches[0].clientX;
+        prevMouseY = e.touches[0].clientY;
+        camera.autoOrbit = false;
+        updateAutoOrbitBtn();
+      } else if (e.touches.length === 2) {
+        initialTouchDist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+      }
+    });
+
+    canvas.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 1 && isDragging) {
+        const dx = e.touches[0].clientX - prevMouseX;
+        const dy = e.touches[0].clientY - prevMouseY;
+        prevMouseX = e.touches[0].clientX;
+        prevMouseY = e.touches[0].clientY;
+        camera.targetYaw += dx * 0.006;
+        camera.targetPitch = Math.max(-0.9, Math.min(0.9, camera.targetPitch + dy * 0.006));
+      } else if (e.touches.length === 2 && initialTouchDist) {
+        const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        const factor = dist / initialTouchDist;
+        camera.targetZoom = Math.max(0.4, Math.min(2.2, camera.targetZoom * factor));
+        initialTouchDist = dist;
+      }
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', () => {
+      isDragging = false;
+      initialTouchDist = null;
+    });
+
+    // Fly Camera To Specific Lobe / Node
+    function flyCameraTo(targetKey) {
+      camera.autoOrbit = false;
+      updateAutoOrbitBtn();
+
+      // Highlight active nav pill
+      document.querySelectorAll('.nav-pill-btn').forEach(btn => btn.classList.remove('active'));
+      const activeBtn = Array.from(document.querySelectorAll('.nav-pill-btn')).find(b => b.textContent.includes(targetKey.toUpperCase().replace('_', ' ')));
+      if (activeBtn) activeBtn.classList.add('active');
+
+      if (targetKey === 'macro') {
+        camera.targetYaw = 0.15;
+        camera.targetPitch = -0.1;
+        camera.targetZoom = 1.0;
+        camera.targetPanX = 0;
+        camera.targetPanY = 0;
         return;
       }
 
-      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-
-      if (autoOrbit && !isDragging) {
-        cameraYaw += 0.0035;
+      const node = neuralSomas3D.find(n => n.id === targetKey);
+      if (node) {
+        camera.targetZoom = 1.35;
+        camera.targetPanX = -node.x;
+        camera.targetPanY = -node.y;
       }
-
-      const cx = canvasWidth / 2;
-      const cy = canvasHeight / 2;
-      const now = Date.now();
-
-      // Project all 3D somas to screen
-      const projectedMap = {};
-      const projectedNodesList = [];
-
-      neuralSomas3D.forEach(s => {
-        // Subtle organic breathing oscillation (4D time-evolution)
-        const breathe = Math.sin(now * 0.002 + s.r) * 3.5;
-        const proj = project3D(s.x, s.y + breathe, s.z, cx, cy);
-        const nodeData = {
-          id: s.id,
-          label: s.label,
-          sub: s.sub,
-          color: s.color,
-          rawR: s.r,
-          sx: proj.sx,
-          sy: proj.sy,
-          sz: proj.sz,
-          scale: proj.scale,
-          sr: Math.max(3, s.r * proj.scale)
-        };
-        projectedMap[s.id] = nodeData;
-        projectedNodesList.push(nodeData);
-      });
-
-      latestProjectedNodes = projectedNodesList;
-
-      // 1. Draw 3D Synaptic Axons (Depth-blended Bezier Filaments)
-      neuralAxons3D.forEach(axon => {
-        const from = projectedMap[axon.from];
-        const to = projectedMap[axon.to];
-        if (!from || !to) return;
-
-        const depthAlpha = Math.max(0.12, Math.min(0.95, (from.scale + to.scale) * 0.45));
-        ctx.beginPath();
-        ctx.strokeStyle = axon.color;
-        ctx.globalAlpha = depthAlpha;
-        ctx.lineWidth = Math.max(0.8, 1.8 * ((from.scale + to.scale) / 2));
-
-        if (axon.curved) {
-          const midX = (from.sx + to.sx) / 2;
-          const midY = ((from.sy + to.sy) / 2) + 55 * from.scale;
-          ctx.moveTo(from.sx, from.sy);
-          ctx.quadraticCurveTo(midX, midY, to.sx, to.sy);
-        } else {
-          ctx.moveTo(from.sx, from.sy);
-          ctx.lineTo(to.sx, to.sy);
-        }
-        ctx.stroke();
-        ctx.globalAlpha = 1.0;
-      });
-
-      // 2. Animate 4D Action Potential Quantum Photon Packets
-      photonPackets.forEach(p => {
-        p.progress += p.speed;
-        if (p.progress > 1) {
-          p.progress = 0;
-          p.axon = neuralAxons3D[Math.floor(Math.random() * neuralAxons3D.length)];
-        }
-
-        const from = projectedMap[p.axon.from];
-        const to = projectedMap[p.axon.to];
-        if (!from || !to) return;
-
-        let px, py;
-        if (p.axon.curved) {
-          const midX = (from.sx + to.sx) / 2;
-          const midY = ((from.sy + to.sy) / 2) + 55 * from.scale;
-          const t = p.progress;
-          px = (1 - t) * (1 - t) * from.sx + 2 * (1 - t) * t * midX + t * t * to.sx;
-          py = (1 - t) * (1 - t) * from.sy + 2 * (1 - t) * t * midY + t * t * to.sy;
-        } else {
-          px = from.sx + (to.sx - from.sx) * p.progress;
-          py = from.sy + (to.sy - from.sy) * p.progress;
-        }
-
-        const currentScale = from.scale + (to.scale - from.scale) * p.progress;
-        const packetSize = Math.max(1.2, p.size * currentScale);
-
-        ctx.beginPath();
-        ctx.fillStyle = '#ffffff';
-        ctx.shadowColor = p.axon.color;
-        ctx.shadowBlur = 10 * currentScale;
-        ctx.arc(px, py, packetSize, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-      });
-
-      // 3. Draw 3D Somas / Cells (Sorted by Depth Z for Realistic Occlusion)
-      projectedNodesList.sort((a, b) => b.sz - a.sz);
-
-      projectedNodesList.forEach(n => {
-        // Glowing Outer Halo
-        ctx.beginPath();
-        ctx.fillStyle = n.color;
-        ctx.globalAlpha = 0.16 + Math.sin(now * 0.003 + n.rawR) * 0.08;
-        ctx.arc(n.sx, n.sy, n.sr + 8 * n.scale, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.globalAlpha = 1.0;
-
-        // Soma Outer Membrane
-        ctx.beginPath();
-        ctx.fillStyle = '#050816';
-        ctx.strokeStyle = n.color;
-        ctx.lineWidth = Math.max(1.2, 2.2 * n.scale);
-        ctx.arc(n.sx, n.sy, n.sr, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-
-        // Nucleus Inner Light
-        ctx.beginPath();
-        ctx.fillStyle = n.color;
-        ctx.shadowColor = n.color;
-        ctx.shadowBlur = 12 * n.scale;
-        ctx.arc(n.sx, n.sy, n.sr * 0.38, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-
-        // 3D Perspective Crisp Typography
-        const fontSizeTitle = Math.max(7, Math.round(9.5 * n.scale));
-        ctx.font = `700 ${fontSizeTitle}px monospace`;
-        ctx.fillStyle = '#ffffff';
-        ctx.textAlign = 'center';
-        ctx.fillText(n.label, n.sx, n.sy + n.sr + 11 * n.scale);
-
-        const fontSizeSub = Math.max(6, Math.round(7.5 * n.scale));
-        ctx.font = `600 ${fontSizeSub}px monospace`;
-        ctx.fillStyle = '#7086a3';
-        ctx.fillText(n.sub, n.sx, n.sy + n.sr + 20 * n.scale);
-      });
-
-      requestAnimationFrame(draw3DNeuralSuperbrain);
     }
-    requestAnimationFrame(draw3DNeuralSuperbrain);
+    window.focusOnNode = flyCameraTo;
+    window.flyCameraTo = flyCameraTo;
+
+    function toggleAutoOrbit() {
+      camera.autoOrbit = !camera.autoOrbit;
+      updateAutoOrbitBtn();
+    }
+
+    function updateAutoOrbitBtn() {
+      const btn = document.getElementById('btn-auto-orbit');
+      if (btn) {
+        btn.textContent = camera.autoOrbit ? '↺ AUTO-ORBIT: ON' : '↺ AUTO-ORBIT: OFF';
+        btn.style.color = camera.autoOrbit ? 'var(--cyan)' : 'var(--text-dim)';
+      }
+    }
+
+    // Toggle Fullscreen
+    document.getElementById('btn-fullscreen-toggle')?.addEventListener('click', () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    });
 
     // ==========================================
-    // SYNTHESIZED CODE TERMINAL LOGIC
+    // REAL-TIME TELEMETRY POLLING & HYDRATION
     // ==========================================
     let cachedCodeModels = [];
     let currentCodeIndex = 0;
+    let isInitialLoad = true;
+    const seenEventIds = new Set();
+
+    // Token-based Python Syntax Highlighter
+    function highlightPython(code) {
+      if (!code) return '';
+      let safe = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const tokens = [];
+      const addTok = (html) => { tokens.push(html); return `___TOK${tokens.length - 1}___`; };
+
+      safe = safe.replace(/(#.*$)/gm, (m) => addTok(`<span class="code-cmt">${m}</span>`));
+      safe = safe.replace(/("""[\s\S]*?"""|'''[\s\S]*?'''|"[^"\n]*"|'[^'\n]*')/g, (m) => addTok(`<span class="code-str">${m}</span>`));
+      safe = safe.replace(/\bclass\s+([A-Za-z0-9_]+)/g, (_, cls) => addTok(`<span class="code-kw">class</span> <span class="code-cls">${cls}</span>`));
+      safe = safe.replace(/\bdef\s+([A-Za-z0-9_]+)/g, (_, fn) => addTok(`<span class="code-kw">def</span> <span class="code-fn">${fn}</span>`));
+      safe = safe.replace(/\b(import|from|return|if|else|elif|for|while|try|except|with|as|None|True|False|self|raise|pass)\b/g, (m) => addTok(`<span class="code-kw">${m}</span>`));
+
+      tokens.forEach((t, i) => {
+        safe = safe.replaceAll(`___TOK${i}___`, t);
+      });
+      return safe;
+    }
 
     function renderCodeTerminal(models) {
       if (!models || models.length === 0) return;
       cachedCodeModels = models;
-
       const tabContainer = document.getElementById('terminal-tab-container');
       if (!tabContainer) return;
 
       tabContainer.innerHTML = '';
       models.forEach((m, idx) => {
         const tab = document.createElement('div');
-        tab.className = `code-terminal-tab ${idx === currentCodeIndex ? 'active' : ''}`;
+        tab.className = `code-tab-pill ${idx === currentCodeIndex ? 'active' : ''}`;
         tab.textContent = m.filename.replace('codex_synth_', '').replace('.py', '');
         tab.title = m.filename;
         tab.onclick = () => selectCodeModel(idx);
         tabContainer.appendChild(tab);
       });
-
       displayCurrentModel();
     }
 
     function selectCodeModel(idx) {
       currentCodeIndex = idx;
-      const tabs = document.querySelectorAll('.code-terminal-tab');
-      tabs.forEach((t, i) => {
+      document.querySelectorAll('.code-tab-pill').forEach((t, i) => {
         if (i === idx) t.classList.add('active');
         else t.classList.remove('active');
       });
       displayCurrentModel();
-    }
-
-    function highlightPython(code) {
-      if (!code) return '';
-      let safe = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      const tokens = [];
-      const addToken = (html) => { tokens.push(html); return `___TOK${tokens.length - 1}___`; };
-
-      safe = safe.replace(/(#.*$)/gm, (m) => addToken(`<span class="cmt">${m}</span>`));
-      safe = safe.replace(/("""[\s\S]*?"""|'''[\s\S]*?'''|"[^"\n]*"|'[^'\n]*')/g, (m) => addToken(`<span class="str">${m}</span>`));
-      safe = safe.replace(/\bclass\s+([A-Za-z0-9_]+)/g, (_, cls) => addToken(`<span class="kw">class</span> <span class="cls">${cls}</span>`));
-      safe = safe.replace(/\bdef\s+([A-Za-z0-9_]+)/g, (_, fn) => addToken(`<span class="kw">def</span> <span class="fn">${fn}</span>`));
-      safe = safe.replace(/\b(import|from|return|if|else|elif|for|while|try|except|with|as|None|True|False|self)\b/g, (m) => addToken(`<span class="kw">${m}</span>`));
-      safe = safe.replace(/\b(\d+(\.\d+)?)\b/g, (m) => addToken(`<span class="num">${m}</span>`));
-
-      safe = safe.replace(/___TOK(\d+)___/g, (_, i) => tokens[parseInt(i, 10)]);
-      return safe;
     }
 
     function displayCurrentModel() {
@@ -1513,279 +1356,113 @@
       if (!m) return;
 
       document.getElementById('meta-model-name').textContent = m.class_name || m.filename;
-      document.getElementById('meta-target-segment').textContent = m.target_segment || 'INFERRED';
       document.getElementById('meta-lines').textContent = m.lines ? `${m.lines} lines (${(m.size_bytes / 1024).toFixed(1)} KB)` : '--';
-      document.getElementById('meta-status').textContent = m.status || 'CRUCIBLE CANDIDATE';
+      document.getElementById('meta-target-segment').textContent = `SEGMENT: ${m.target_segment || 'INFERRED'}`;
       document.getElementById('terminal-mtime').textContent = `MTIME: ${m.mtime ? m.mtime.slice(11, 19) + ' UTC' : '--'}`;
-
-      const codeBody = document.getElementById('terminal-code-body');
-      codeBody.innerHTML = highlightPython(m.code_snippet);
+      document.getElementById('terminal-code-body').innerHTML = highlightPython(m.code_snippet);
     }
 
+    // Auto-cycle code models every 12 seconds
     setInterval(() => {
       if (cachedCodeModels && cachedCodeModels.length > 1) {
         currentCodeIndex = (currentCodeIndex + 1) % cachedCodeModels.length;
         selectCodeModel(currentCodeIndex);
       }
-    }, 15000);
+    }, 12000);
 
-    // ==========================================
-    // INTERACTIVE NODE INSPECTOR LOGIC
-    // ==========================================
-    let latestTelemetryState = null;
+    // Switch Bet Feed Tabs
+    window.switchBetFeed = function(mode) {
+      const activeBtn = document.getElementById('tab-btn-active-bets');
+      const settledBtn = document.getElementById('tab-btn-settled-bets');
+      const activeFeed = document.getElementById('feed-active-container');
+      const settledFeed = document.getElementById('feed-settled-container');
 
-    function openInspector(nodeId) {
-      const drawer = document.getElementById('node-inspector-drawer');
-      const title = document.getElementById('drawer-title');
-      const body = document.getElementById('drawer-body');
-      if (!drawer || !title || !body) return;
-
-      const state = latestTelemetryState || {};
-      const tiers = state.tiers || {};
-      const clog = state.clog_diagnostics || {};
-
-      let html = '';
-      if (nodeId === 'core') {
-        title.textContent = 'QUANTUM CORE & KELLY ENGINE';
-        html = `
-          <div style="background:rgba(0,243,255,0.08); padding:10px; border-radius:4px; border:1px solid var(--border-cyan);">
-            <div style="color:var(--cyan); font-weight:700;">SHADOW VALUATION &amp; KELLY ENGINE</div>
-            <div style="color:var(--text-dim); font-size:10px; margin-top:4px;">Directive 3 &amp; 4: Zero hardcoded clamps. Continuous fractional Kelly stake [$0.50, $8.00].</div>
-          </div>
-          <div><strong>ACTIVE PROCESS:</strong> hu.belavarga.betting-quant-engine</div>
-          <div><strong>VALUATION MODE:</strong> Pure independent domain models (model_weight = 1.0)</div>
-          <div><strong>AGGREGATE DAILY RISK:</strong> null (No artificial daily risk cap)</div>
-          <div><strong>CURRENT OPEN STAKE:</strong> $${tiers.tier_3_stake?.open_bets_stake ?? 0} across ${tiers.tier_3_stake?.open_bets_count ?? 0} active tickets</div>
-          <div><strong>BOTTLENECK DETECTOR:</strong> ${clog.indicator}</div>
-        `;
-      } else if (nodeId === 'agy' || nodeId === 'claude' || nodeId === 'codex' || nodeId === 'grok') {
-        const brain = (state.ai_brains || []).find(b => b.id === nodeId) || {};
-        title.textContent = `AI BRAIN: ${brain.name || nodeId.toUpperCase()}`;
-        html = `
-          <div style="background:rgba(255,255,255,0.04); padding:10px; border-radius:4px; border:1px solid var(--border-dim);">
-            <div style="color:#fff; font-weight:700;">${brain.role}</div>
-            <div style="color:var(--cyan); font-size:10px; margin-top:2px;">MODEL: ${brain.model} · STATUS: ${brain.status}</div>
-          </div>
-          <div><strong>SPECIALTY:</strong> ${brain.specialty}</div>
-          <div><strong>CURRENT FOCUS:</strong> ${brain.current_focus}</div>
-          <div><strong>PROMPT DISCIPLINE:</strong> Directive 10: Zero prompt anchoring. No pre-suggested menus. Pure first-principles deduction.</div>
-        `;
-      } else if (nodeId === 'tier1') {
-        title.textContent = 'TIER 1: R&D CANDIDATE DISCOVERY';
-        html = `
-          <div style="background:rgba(181,23,158,0.1); padding:10px; border-radius:4px; border:1px solid var(--border-purple);">
-            <div style="color:var(--purple); font-weight:700;">HISTORICAL FITTING &amp; EDGE DISCOVERY</div>
-            <div style="color:var(--text-dim); font-size:10px;">Backtesting candidates across 97,000+ settled wagers pool.</div>
-          </div>
-          <div><strong>TOTAL SYNTHESIZED MODELS:</strong> ${tiers.tier_1_rd?.active_models_synthesized ?? 0}</div>
-          <div><strong>SYNTHESIS VELOCITY:</strong> ${tiers.tier_1_rd?.synthesis_rate_per_hour ?? 0} models/hour</div>
-          <div><strong>MARKETS IN RESEARCH:</strong> ${tiers.tier_1_rd?.research_markets_count ?? 324} markets</div>
-          <div><strong>CRUCIBLE BENCHMARK:</strong> Minimum OOS ROI &ge; +3.5%, Delta Brier &ge; -0.005, Drawdown &lt; 25%</div>
-        `;
-      } else if (nodeId === 'tier2') {
-        title.textContent = 'TIER 2: SHADOW INCUBATOR';
-        html = `
-          <div style="background:rgba(255,183,3,0.1); padding:10px; border-radius:4px; border:1px solid var(--border-amber);">
-            <div style="color:var(--amber); font-weight:700;">$0.00 LIVE FORWARD VALIDATION</div>
-            <div style="color:var(--text-dim); font-size:10px;">Paper trades upcoming live fixtures without risking user bankroll.</div>
-          </div>
-          <div><strong>ACTIVE INCUBATING MARKETS:</strong> ${tiers.tier_2_incubator?.incubating_markets_count ?? 114}</div>
-          <div><strong>ADMISSION CADENCE:</strong> ${tiers.tier_2_incubator?.admission_rate_per_hour ?? 0} admitted/hour</div>
-          <div><strong>CRUCIBLE PASS RATE:</strong> ${tiers.tier_2_incubator?.crucible_pass_rate_pct ?? 0}%</div>
-          <div><strong>GRADUATION HURDLE:</strong> N &ge; 25 matches, positive ROI &amp; positive Brier skill</div>
-        `;
-      } else if (nodeId === 'tier3') {
-        title.textContent = 'TIER 3: STAKE PRODUCTION PROBATION';
-        html = `
-          <div style="background:rgba(0,255,136,0.1); padding:10px; border-radius:4px; border:1px solid var(--border-green);">
-            <div style="color:var(--green); font-weight:700;">FUNDED REAL-MONEY BETTING ($0.50–$8.00)</div>
-            <div style="color:var(--text-dim); font-size:10px;">Mandatory daily volume target: minimum 100 picks / day.</div>
-          </div>
-          <div><strong>GRADUATED PRODUCTION MARKETS:</strong> ${tiers.tier_3_stake?.active_graduated_markets_count ?? 50}</div>
-          <div><strong>TODAY FUNDED PICKS:</strong> ${tiers.tier_3_stake?.today_volume_picks ?? 0} / 100 ($${tiers.tier_3_stake?.today_stake_funded ?? 0})</div>
-          <div><strong>OPEN ACTIVE TICKETS:</strong> ${tiers.tier_3_stake?.open_bets_count ?? 0} ($${tiers.tier_3_stake?.open_bets_stake ?? 0})</div>
-        `;
-      } else if (nodeId === 'tier4') {
-        title.textContent = 'TIER 4: POLYMARKET CLOB ALPHA';
-        html = `
-          <div style="background:rgba(0,243,255,0.1); padding:10px; border-radius:4px; border:1px solid var(--border-cyan);">
-            <div style="color:var(--cyan); font-weight:700;">LIVE PROVEN ALPHA &amp; MAKER LIMIT ORDERS</div>
-            <div style="color:var(--text-dim); font-size:10px;">Reserved strictly for markets with confirmed net profit on Stake.</div>
-          </div>
-          <div><strong>EXECUTION MODE:</strong> GTC Maker Limit Orders (0% taker fee, earns spread)</div>
-          <div><strong>REALIZED NET PROFIT:</strong> +$217.26 (67 won maker limit orders)</div>
-        `;
-      } else if (nodeId === 'espn') {
-        title.textContent = 'SENSORY INGEST: ESPN PUBLIC API';
-        html = `
-          <div style="background:rgba(0,243,255,0.08); padding:10px; border-radius:4px; border:1px solid var(--border-cyan);">
-            <div style="color:var(--cyan); font-weight:700;">LIVE GAME CLOCKS &amp; PERIOD TRACKING</div>
-            <div style="color:var(--text-dim); font-size:10px;">Free public endpoint for live scores, quarters, halves, and clock times.</div>
-          </div>
-          <div><strong>FREQUENCY:</strong> Polled every 60s for active live events</div>
-          <div><strong>COVERAGE:</strong> NBA, NFL, WNBA, Soccer, MLB</div>
-          <div><strong>PURPOSE:</strong> Prevents betting on matches already started; feeds half/quarter boundaries</div>
-        `;
-      } else if (nodeId === 'nhl') {
-        title.textContent = 'SENSORY INGEST: NHL OFFICIAL WEB API';
-        html = `
-          <div style="background:rgba(0,243,255,0.08); padding:10px; border-radius:4px; border:1px solid var(--border-cyan);">
-            <div style="color:var(--cyan); font-weight:700;">api-web.nhle.com (FREE / ZERO COST)</div>
-            <div style="color:var(--text-dim); font-size:10px;">Directive 9: 100% Free / Public feed for ice hockey features.</div>
-          </div>
-          <div><strong>INGESTED FEATURES:</strong> Confirmed starting goalies, save percentages, rest day differentials, travel fatigue</div>
-          <div><strong>MARKETS:</strong> NHL Moneyline, Puckline, Over/Under 5.5, 6.0, 6.5, Period totals</div>
-        `;
-      } else if (nodeId === 'mlb') {
-        title.textContent = 'SENSORY INGEST: MLB STATS API';
-        html = `
-          <div style="background:rgba(0,243,255,0.08); padding:10px; border-radius:4px; border:1px solid var(--border-cyan);">
-            <div style="color:var(--cyan); font-weight:700;">statsapi.mlb.com (FREE / ZERO COST)</div>
-            <div style="color:var(--text-dim); font-size:10px;">Official Major League Baseball public stats data feed.</div>
-          </div>
-          <div><strong>INGESTED FEATURES:</strong> Probable starting pitchers, ERA, FIP, bullpen usage in last 3 days, home plate umpire strike zone</div>
-          <div><strong>MARKETS:</strong> MLB Moneyline, Run Line (-1.5), F5 (First 5 innings) totals</div>
-        `;
-      } else if (nodeId === 'weather') {
-        title.textContent = 'SENSORY INGEST: OPEN-METEO WEATHER';
-        html = `
-          <div style="background:rgba(0,243,255,0.08); padding:10px; border-radius:4px; border:1px solid var(--border-cyan);">
-            <div style="color:var(--cyan); font-weight:700;">OPEN-METEO WEATHER API</div>
-            <div style="color:var(--text-dim); font-size:10px;">Stadium geocoordinate weather forecasting.</div>
-          </div>
-          <div><strong>VARIABLES:</strong> Wind speed (km/h &amp; direction), temperature, precipitation probability, humidity</div>
-          <div><strong>ALPHA IMPACT:</strong> NFL outdoor totals, MLB Wrigley/Fenway wind direction, MLS totals</div>
-        `;
-      } else if (nodeId === 'polymarket') {
-        title.textContent = 'EXECUTION: POLYMARKET OPEN CLOB';
-        html = `
-          <div style="background:rgba(0,243,255,0.08); padding:10px; border-radius:4px; border:1px solid var(--border-cyan);">
-            <div style="color:var(--cyan); font-weight:700;">TIER 4 MAKER ORDER ENGINE</div>
-            <div style="color:var(--text-dim); font-size:10px;">Continuous WebSocket orderbook scan &amp; Maker Limit placements.</div>
-          </div>
-          <div><strong>FEE STRUCTURE:</strong> 0% taker fee (Maker post-only orders earn spread)</div>
-          <div><strong>STATUS:</strong> Reserved exclusively for markets with live proven Stake profit</div>
-        `;
-      } else if (nodeId === 'crucible') {
-        title.textContent = 'GATE: WALK-FORWARD CRUCIBLE';
-        html = `
-          <div style="background:rgba(255,183,3,0.08); padding:10px; border-radius:4px; border:1px solid var(--border-amber);">
-            <div style="color:var(--amber); font-weight:700;">THE WALK-FORWARD CRUCIBLE BENCHMARK</div>
-            <div style="color:var(--text-dim); font-size:10px;">Directive 7: Mandatory graduation gate for all candidate models.</div>
-          </div>
-          <div><strong>BACKTEST POOL:</strong> 97,000+ historical settled matches</div>
-          <div><strong>PASS HURDLE:</strong> Out-of-sample ROI &ge; +3.5%, Delta Brier &ge; -0.005, Max Drawdown &lt; 25%</div>
-        `;
-      } else if (nodeId === 'tourniquet') {
-        title.textContent = 'PORTFOLIO SHIELD: INTERIM TOURNIQUET';
-        html = `
-          <div style="background:rgba(255,0,85,0.08); padding:10px; border-radius:4px; border:1px solid var(--border-red);">
-            <div style="color:var(--red); font-weight:700;">CLOSED-LOOP DEFENSE &amp; REPAIR ARC</div>
-            <div style="color:var(--text-dim); font-size:10px;">Directive 6 &amp; 7: Dual dynamic capital defense.</div>
-          </div>
-          <div><strong>TRIGGER:</strong> Rolling ROI &lt; -3.0% over 4+ matches</div>
-          <div><strong>PHASE 1:</strong> $0.50 emergency tourniquet clamp + EV threshold (+3.5%)</div>
-          <div><strong>PHASE 2:</strong> $0.00 Shadow Incubator quarantine &amp; autonomous AI model repair</div>
-        `;
+      if (mode === 'active') {
+        activeBtn.classList.add('active');
+        settledBtn.classList.remove('active');
+        activeFeed.style.display = 'block';
+        settledFeed.style.display = 'none';
       } else {
-        title.textContent = `NODE: ${nodeId.toUpperCase()}`;
-        html = `<div>Inspecting telemetry node ${nodeId}...</div>`;
+        settledBtn.classList.add('active');
+        activeBtn.classList.remove('active');
+        settledFeed.style.display = 'block';
+        activeFeed.style.display = 'none';
       }
+    };
 
-      body.innerHTML = html;
-      drawer.classList.add('open');
+    // Show Toast Notification
+    function showToast(type, title, subtitle) {
+      const box = document.getElementById('superbrain-toast-box');
+      if (!box) return;
+      const toast = document.createElement('div');
+      toast.className = `toast-msg ${type}`;
+      toast.innerHTML = `<strong>${title}</strong><div style="color:var(--text-dim); margin-top:2px;">${subtitle}</div>`;
+      box.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.4s';
+        setTimeout(() => toast.remove(), 400);
+      }, 4500);
     }
 
-    function closeInspector() {
-      const drawer = document.getElementById('node-inspector-drawer');
-      if (drawer) drawer.classList.remove('open');
-    }
-
-    // ==========================================
-    // REAL-TIME TELEMETRY POLLING & HYDRATION
-    // ==========================================
-    let isInitialLoad = true;
-    const seenEventIds = new Set();
-
-    async function updateSuperbrain() {
+    // Main Polling Update Function
+    async function updateSuperbrainState() {
       try {
         const res = await fetch('/api/superbrain/state');
         if (!res.ok) return;
         const data = await res.json();
-        latestTelemetryState = data;
 
         // 1. Top HUD
         document.getElementById('hud-budapest-time').textContent = data.budapest_time || '--:--:--';
-        
         const sb = data.scoreboard || {};
+
         const pnlEl = document.getElementById('hud-pnl');
-        const pnlVal = sb.live_funded_pnl_usd ?? sb.total_realized_pnl ?? 0;
+        const pnlVal = sb.live_funded_pnl_usd ?? sb.total_realized_pnl ?? 0.0;
         pnlEl.textContent = `${pnlVal >= 0 ? '+' : ''}$${pnlVal.toFixed(2)}`;
         pnlEl.style.color = pnlVal >= 0 ? 'var(--green)' : 'var(--red)';
 
         const roiEl = document.getElementById('hud-roi');
-        const roiVal = sb.rolling_7d_roi_pct ?? sb.all_time_roi_pct ?? 0;
+        const roiVal = sb.rolling_7d_roi_pct ?? sb.all_time_roi_pct ?? 0.0;
         roiEl.textContent = `${roiVal >= 0 ? '+' : ''}${roiVal.toFixed(1)}%`;
         roiEl.style.color = roiVal >= 0 ? 'var(--green)' : 'var(--red)';
 
         const tier3 = data.tiers?.tier_3_stake || {};
-        const todayPicksCount = tier3.today_volume_picks ?? sb.today_picks ?? 0;
-        document.getElementById('hud-volume').textContent = `${todayPicksCount} / 100`;
+        const todayCount = tier3.today_volume_picks ?? sb.today_picks ?? 0;
+        document.getElementById('hud-volume').textContent = `${todayCount} / 100`;
+
+        const clog = data.clog_diagnostics || {};
+        const clogBadge = document.getElementById('clog-indicator-badge');
+        if (clog.is_clogged) {
+          clogBadge.textContent = '▲ WARNING: QUEUE BACKLOG DETECTED';
+          clogBadge.style.color = 'var(--red)';
+          clogBadge.style.borderColor = 'rgba(255,0,85,0.4)';
+        } else {
+          clogBadge.textContent = '● DUGULÁSMENTES: CONTINUOUS FLOW';
+          clogBadge.style.color = 'var(--green)';
+          clogBadge.style.borderColor = 'rgba(0,255,136,0.3)';
+        }
+        document.getElementById('hud-daemons-count').textContent = `${clog.running_daemons_count ?? 5}/${clog.total_daemons_count ?? 5} DAEMONS`;
 
         // 2. AI Quant Council State
-        const brainsList = Array.isArray(data.ai_brains) ? data.ai_brains : Object.values(data.ai_brains || {});
-        brainsList.forEach(b => {
-          const brainId = b.id;
-          const statusEl = document.getElementById(`brain-status-${brainId}`);
-          const reasoningEl = document.getElementById(`brain-reasoning-${brainId}`);
+        const brains = Array.isArray(data.ai_brains) ? data.ai_brains : Object.values(data.ai_brains || {});
+        brains.forEach(b => {
+          const statusEl = document.getElementById(`brain-status-${b.id}`);
+          const reasoningEl = document.getElementById(`brain-reasoning-${b.id}`);
           if (statusEl) statusEl.textContent = `${b.status || 'ACTIVE'} · ${b.model || ''}`;
-          if (reasoningEl) {
-            if (brainId === 'claude' && data.council_sessions && data.council_sessions.length > 0) {
-              const latestSession = data.council_sessions[0];
-              reasoningEl.textContent = `${latestSession.segment}: ${latestSession.target_formula || latestSession.hypothesis_title}`;
-            } else if (b.current_focus) {
-              reasoningEl.textContent = b.current_focus;
-            }
-          }
+          if (reasoningEl && b.current_focus) reasoningEl.textContent = b.current_focus;
         });
 
-        // 3. Code Models for Terminal
+        // 3. Codex Code Models
         const codeModels = data.tiers?.tier_1_rd?.latest_code_models || [];
         if (codeModels.length > 0 && (cachedCodeModels.length === 0 || codeModels[0].filename !== cachedCodeModels[0]?.filename)) {
           renderCodeTerminal(codeModels);
         }
 
-        // 4. Funnel Velocity Ribbon
-        const fv = data.funnel_velocity || {};
-        document.getElementById('funnel-vel-synth-1h').textContent = Number(fv.model_synthesis_rate_per_hour ?? 0).toFixed(1);
-        document.getElementById('funnel-vel-t2-1h').textContent = Number(fv.tier_2_admission_rate_per_hour ?? 0).toFixed(1);
-        document.getElementById('funnel-vel-t3-1h').textContent = Number(fv.tier_3_graduation_rate_per_hour ?? 0).toFixed(1);
-        document.getElementById('funnel-vel-demote-1h').textContent = Number(fv.tier_1_demotion_rate_per_hour ?? 0).toFixed(1);
-        
-        const netExpEl = document.getElementById('funnel-vel-net-24h');
-        const netExpVal = Number(fv.net_market_expansion_rate_per_hour ?? 0);
-        netExpEl.textContent = `${netExpVal >= 0 ? '+' : ''}${netExpVal.toFixed(1)}`;
-        netExpEl.style.color = netExpVal >= 0 ? 'var(--green)' : 'var(--amber)';
+        // 4. Quantum Math & Kelly Open Stake
+        document.getElementById('math-open-stake').textContent = `$${Number(tier3.open_bets_stake ?? 0).toFixed(2)}`;
+        document.getElementById('math-open-tickets').textContent = tier3.open_bets_count ?? 0;
 
-        document.getElementById('funnel-crucible-pass-24h').textContent = `${Number(fv.crucible_admission_rate_pct ?? 0).toFixed(1)}%`;
-
-        // Clog & Daemon Status
-        const clog = data.clog_diagnostics || {};
-        const clogBadge = document.getElementById('clog-indicator-badge');
-        const clogDetail = document.getElementById('clog-queue-detail');
-        const clogStrip = document.getElementById('clog-indicator-strip');
-
-        if (clog.is_clogged) {
-          clogStrip.classList.add('is-clogged');
-          clogBadge.textContent = '▲ WARNING: QUEUE BACKLOG DETECTED';
-        } else {
-          clogStrip.classList.remove('is-clogged');
-          clogBadge.textContent = '● DUGULÁSMENTES: OPTIMAL CONTINUOUS FLOW';
-        }
-        clogDetail.textContent = `QUEUED: ${clog.queued_jobs ?? 0} · COMPLETED: ${clog.completed_jobs ?? 0} · RETRY: ${clog.retry_jobs ?? 0}`;
-        document.getElementById('hud-daemons-count').textContent = `${clog.running_daemons_count ?? 5}/${clog.total_daemons_count ?? 5} RUNNING`;
-
-        // 5. 4-Tier Progression Stack
+        // 5. 4-Tier Progression Pod
         const t1 = data.tiers?.tier_1_rd || {};
         document.getElementById('tier1-count').textContent = `${t1.active_models_synthesized ?? 0} Active`;
         document.getElementById('tier1-rate').textContent = `${Number(t1.synthesis_rate_per_hour ?? 0).toFixed(1)} models/hr`;
@@ -1795,62 +1472,55 @@
         document.getElementById('tier2-rate').textContent = `${Number(t2.admission_rate_per_hour ?? 0).toFixed(1)} admitted/hr`;
 
         document.getElementById('tier3-count').textContent = `${tier3.active_graduated_markets_count ?? 0} Graduated`;
-        document.getElementById('tier3-today-picks').textContent = `${tier3.today_volume_picks ?? 0} / 100 Picks ($${Number(tier3.today_stake_funded ?? 0).toFixed(2)})`;
-        document.getElementById('tier3-progress-bar').style.width = `${Math.min(100, (tier3.today_volume_picks ?? 0))}%`;
+        document.getElementById('tier3-today-picks').textContent = `${todayCount} / 100 Picks ($${Number(tier3.today_stake_funded ?? 0).toFixed(2)})`;
+        document.getElementById('tier3-progress-bar').style.width = `${Math.min(100, todayCount)}%`;
 
         const t4 = data.tiers?.tier_4_polymarket || {};
         document.getElementById('tier4-count').textContent = `${t4.active_markets_count ?? 17} Elite`;
         document.getElementById('tier4-rate').textContent = `${Number(t4.promotion_rate_per_hour ?? 0).toFixed(2)} promoted/hr`;
 
-        // 6. League Radar
-        const leagueList = data.league_distribution || [];
-        if (leagueList.length > 0) {
-          const radarContainer = document.getElementById('league-radar-container');
-          if (radarContainer) {
-            radarContainer.innerHTML = leagueList.slice(0, 9).map(l => `
-              <div class="league-pill active"><span class="dot"></span>${l.league}: ${l.total_markets}</div>
-            `).join('');
-          }
+        // 6. League Constellation Grid
+        const leagues = data.league_distribution || [];
+        const leagueGrid = document.getElementById('league-tiles-grid');
+        if (leagueGrid && leagues.length > 0) {
+          leagueGrid.innerHTML = leagues.slice(0, 9).map(l => `
+            <div class="league-tile">
+              <div class="league-tile-name">${l.league}</div>
+              <div class="league-tile-count">${l.total_markets}</div>
+              <div class="league-tile-sub">T1: ${l.tier_1_research} · T2: ${l.tier_2_incubating}</div>
+            </div>
+          `).join('');
         }
 
-        // 7. Live Bet Ledger (Active Bets)
+        // 7. Active Executable Bets
         const activeBets = tier3.active_executable_bets || [];
         document.getElementById('count-active-bets').textContent = activeBets.length;
         const activeContainer = document.getElementById('feed-active-container');
-
         if (activeBets.length === 0) {
-          activeContainer.innerHTML = `
-            <div style="color:var(--text-dim); text-align:center; padding:20px; font-family:var(--font-mono); font-size:11px;">
-              No pending executable bets currently in queue.
-            </div>`;
+          activeContainer.innerHTML = '<div style="color:var(--text-dim); text-align:center; padding:12px;">No active bets in queue.</div>';
         } else {
           activeContainer.innerHTML = activeBets.map(b => {
             const evVal = b.ev_pct != null ? Number(b.ev_pct) : (b.expected_roi != null ? Number(b.expected_roi) : 0.0);
             let probPct = 50.0;
-            if (b.win_prob != null) {
-              probPct = Number(b.win_prob) <= 1.0 ? Number(b.win_prob) * 100 : Number(b.win_prob);
-            } else if (b.probability != null) {
-              probPct = Number(b.probability) <= 1.0 ? Number(b.probability) * 100 : Number(b.probability);
-            }
-            const timeStr = b.start_time ? b.start_time.slice(11, 16) + ' UTC' : (b.created_at ? b.created_at.slice(11, 16) + ' UTC' : '');
-            const tierStr = b.tier || 'TIER 3 (FUNDED)';
+            if (b.win_prob != null) probPct = Number(b.win_prob) <= 1.0 ? Number(b.win_prob) * 100 : Number(b.win_prob);
+            else if (b.probability != null) probPct = Number(b.probability) <= 1.0 ? Number(b.probability) * 100 : Number(b.probability);
+            const timeStr = b.start_time ? b.start_time.slice(11, 16) + ' UTC' : '';
             return `
-            <div class="bet-row">
-              <div class="bet-top-line">
-                <span>${b.home} vs ${b.away}</span>
-                <span class="quant-pill stake">$${Number(b.stake).toFixed(2)}</span>
+              <div class="bet-capsule">
+                <div class="bet-cap-top">
+                  <span>${b.home} vs ${b.away}</span>
+                  <span style="color:var(--green); font-family:var(--font-mono);">$${Number(b.stake).toFixed(2)}</span>
+                </div>
+                <div class="bet-cap-meta">
+                  <span style="color:var(--cyan); font-weight:600;">${b.league} · ${b.selection}</span>
+                  <span>${timeStr}</span>
+                </div>
+                <div class="bet-cap-badges">
+                  <span class="cap-badge odds">ODDS ${Number(b.odds).toFixed(2)}</span>
+                  <span class="cap-badge ev">EV +${evVal.toFixed(1)}%</span>
+                  <span class="cap-badge">PROB ${probPct.toFixed(1)}%</span>
+                </div>
               </div>
-              <div class="bet-meta-line">
-                <span style="color:var(--cyan); font-weight:600;">${b.league} · ${b.selection}</span>
-                <span>${timeStr}</span>
-              </div>
-              <div class="bet-quant-line">
-                <span class="quant-pill odds">ODDS ${Number(b.odds).toFixed(2)}</span>
-                <span class="quant-pill ev">EV +${evVal.toFixed(1)}%</span>
-                <span class="quant-pill">PROB ${probPct.toFixed(1)}%</span>
-                <span style="color:var(--text-dim); font-size:9px; margin-left:auto;">${tierStr}</span>
-              </div>
-            </div>
             `;
           }).join('');
         }
@@ -1859,78 +1529,63 @@
         const settlements = data.live_flow_events?.recent_settlements || [];
         document.getElementById('count-settled-bets').textContent = settlements.length;
         const settledContainer = document.getElementById('feed-settled-container');
-
         if (settlements.length === 0) {
-          settledContainer.innerHTML = `
-            <div style="color:var(--text-dim); text-align:center; padding:20px; font-family:var(--font-mono); font-size:11px;">
-              No recently settled bets recorded.
-            </div>`;
+          settledContainer.innerHTML = '<div style="color:var(--text-dim); text-align:center; padding:12px;">No recently settled bets.</div>';
         } else {
           settledContainer.innerHTML = settlements.map(s => {
             const isWin = s.result === 'won' || s.result === 'win' || s.status === 'won' || (Number(s.pnl) > 0);
             const resLabel = s.result || s.status || (isWin ? 'won' : 'lost');
-            const timeLabel = s.settled_at ? s.settled_at.slice(11, 19) + ' UTC' : (s.created_at ? s.created_at.slice(11, 19) + ' UTC' : '');
+            const timeStr = s.settled_at ? s.settled_at.slice(11, 19) + ' UTC' : '';
             return `
-              <div class="bet-row ${isWin ? 'settled-win' : 'settled-loss'}">
-                <div class="bet-top-line">
+              <div class="bet-capsule ${isWin ? 'is-win' : 'is-loss'}">
+                <div class="bet-cap-top">
                   <span>${s.home} vs ${s.away}</span>
                   <span style="font-weight:800; color:${isWin ? 'var(--green)' : 'var(--red)'}">
                     ${isWin ? '+' : ''}$${Number(s.pnl).toFixed(2)}
                   </span>
                 </div>
-                <div class="bet-meta-line">
+                <div class="bet-cap-meta">
                   <span>${s.league} · ${s.selection}</span>
                   <span style="font-weight:700; text-transform:uppercase; color:${isWin ? 'var(--green)' : 'var(--red)'}">
                     ${resLabel}
                   </span>
                 </div>
-                <div class="bet-quant-line">
-                  <span class="quant-pill odds">ODDS ${Number(s.odds).toFixed(2)}</span>
-                  <span class="quant-pill stake">STAKE $${Number(s.stake).toFixed(2)}</span>
-                  <span style="color:var(--text-dim); font-size:9px; margin-left:auto;">${timeLabel}</span>
+                <div class="bet-cap-badges">
+                  <span class="cap-badge odds">ODDS ${Number(s.odds).toFixed(2)}</span>
+                  <span class="cap-badge stake">STAKE $${Number(s.stake).toFixed(2)}</span>
+                  <span style="margin-left:auto; color:var(--text-dim);">${timeStr}</span>
                 </div>
               </div>
             `;
           }).join('');
         }
 
-        // 9. Event Monitoring & Toast Notifications
+        // 9. Real-Time Win/Loss Toasts
         settlements.forEach(s => {
           if (!seenEventIds.has(s.id)) {
             seenEventIds.add(s.id);
             if (!isInitialLoad) {
-              const isWin = s.result === 'win' || s.pnl > 0;
+              const isWin = s.result === 'won' || s.result === 'win' || s.status === 'won' || (Number(s.pnl) > 0);
               if (isWin) {
                 audioSynth.playWin();
-                showToast('win', 'WIN SETTLED!', `${s.home} vs ${s.away}`, `${s.league} · PnL: +$${Number(s.pnl).toFixed(2)}`);
+                showToast('win', `WIN SETTLED: +$${Number(s.pnl).toFixed(2)}`, `${s.home} vs ${s.away} · ${s.selection}`);
               } else {
                 audioSynth.playLoss();
-                showToast('loss', 'LOSS RECORDED · TOURNIQUET ACTIVE', `${s.home} vs ${s.away}`, `${s.league} · Re-evaluating candidate`);
+                showToast('loss', `LOSS SETTLED: -$${Math.abs(Number(s.pnl)).toFixed(2)}`, `${s.home} vs ${s.away} · ${s.selection}`);
               }
-            }
-          }
-        });
-
-        // Monitor Graduations for Toasts
-        (data.live_flow_events?.recent_graduations || []).forEach(g => {
-          const gradKey = `grad_${g.segment_key}_${g.graduated_at}`;
-          if (!seenEventIds.has(gradKey)) {
-            seenEventIds.add(gradKey);
-            if (!isInitialLoad) {
-              audioSynth.playGraduation();
-              showToast('grad', 'MARKET RE-GRADUATED!', g.segment_key, `Crucible Passed (${g.sample_size} matches, ROI: +${Number(g.roi).toFixed(1)}%)`);
             }
           }
         });
 
         isInitialLoad = false;
       } catch (err) {
-        console.debug('Error in superbrain update cycle:', err);
+        console.warn('Superbrain telemetry refresh warning:', err);
       }
     }
 
-    updateSuperbrain();
-    setInterval(updateSuperbrain, 3000);
+    // Poll every 3 seconds for high-cadence live operations
+    setInterval(updateSuperbrainState, 3000);
+    updateSuperbrainState();
   </script>
 </body>
 </html>
