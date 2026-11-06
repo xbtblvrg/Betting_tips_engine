@@ -132,6 +132,7 @@ def test_suspended_outcomes_and_conflicting_total_values_are_not_published():
 def test_discovery_queries_each_league_tournament_and_matches_both_team_orders():
     from datetime import timedelta
     from betting_engine.domain import utcnow,parse_time
+    from betting_engine.stake_api import TOURNAMENTS
     class Feed:
         def __init__(self):self.urls=[]
         def json(self,url,ttl):
@@ -141,7 +142,7 @@ def test_discovery_queries_each_league_tournament_and_matches_both_team_orders()
     feed=Feed();markets,events,issues=StakeSportsbook(feed).discover([g])
     assert not issues and len(markets)==2 and len(events)==1
     assert any('/schedule/sport/american-football/usa/tournament/nfl' in url for url in feed.urls)
-    assert len([url for url in feed.urls if '/schedule/' in url])==8
+    assert len([url for url in feed.urls if '/schedule/' in url])==len(TOURNAMENTS)
 
 def test_inventory_exposes_props_without_fabricating_a_model():
     from datetime import timedelta
