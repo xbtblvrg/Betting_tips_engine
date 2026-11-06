@@ -196,6 +196,12 @@ def record_cycle_funnel(
         log.debug("Resource governor metrics collection skipped: %s", exc)
 
     try:
+        from .model_funnel_telemetry import record_funnel_velocity_telemetry
+        funnel_summary['model_funnel_velocity'] = record_funnel_velocity_telemetry(data_dir=data_dir)
+    except Exception as exc:
+        log.debug("Model funnel velocity collection skipped: %s", exc)
+
+    try:
         atomic_json(data_dir / 'opportunity_funnel_status.json', funnel_summary)
     except Exception as exc:
         log.warning("Failed to persist opportunity funnel status: %s", exc)

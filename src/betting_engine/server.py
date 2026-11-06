@@ -251,6 +251,13 @@ def market_universe_status():
     from .providers import DATA
     return UnifiedMarketUniverse(DATA).get_summary()
 
+@app.get('/api/quant/funnel-velocity')
+@app.get('/api/model-funnel-velocity')
+def model_funnel_velocity_status():
+    from .model_funnel_telemetry import get_latest_funnel_velocity_report
+    from .providers import DATA
+    return english_payload(get_latest_funnel_velocity_report(DATA))
+
 @app.get('/api/inventory')
 @app.get('/api/canonical-inventory')
 def canonical_system_inventory_status():
