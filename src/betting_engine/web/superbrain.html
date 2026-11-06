@@ -88,20 +88,20 @@
       flex-direction: column;
     }
 
-    .hologram-pod:hover {
+    .hologram-pod:hover, .hologram-pod.focused-pod {
       border-color: var(--cyan);
       box-shadow: 0 14px 44px rgba(0, 243, 255, 0.35), inset 0 0 22px rgba(0, 243, 255, 0.15);
       z-index: 9999 !important;
     }
 
     .hologram-pod.glow-purple { border-color: rgba(181, 23, 158, 0.45); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.75), inset 0 0 16px rgba(181, 23, 158, 0.1); }
-    .hologram-pod.glow-purple:hover { border-color: var(--purple); box-shadow: 0 14px 44px rgba(181, 23, 158, 0.4); }
+    .hologram-pod.glow-purple:hover, .hologram-pod.glow-purple.focused-pod { border-color: var(--purple); box-shadow: 0 14px 44px rgba(181, 23, 158, 0.4); }
 
     .hologram-pod.glow-green { border-color: rgba(0, 255, 136, 0.45); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.75), inset 0 0 16px rgba(0, 255, 136, 0.1); }
-    .hologram-pod.glow-green:hover { border-color: var(--green); box-shadow: 0 14px 44px rgba(0, 255, 136, 0.4); }
+    .hologram-pod.glow-green:hover, .hologram-pod.glow-green.focused-pod { border-color: var(--green); box-shadow: 0 14px 44px rgba(0, 255, 136, 0.4); }
 
     .hologram-pod.glow-amber { border-color: rgba(255, 183, 3, 0.45); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.75), inset 0 0 16px rgba(255, 183, 3, 0.1); }
-    .hologram-pod.glow-amber:hover { border-color: var(--amber); box-shadow: 0 14px 44px rgba(255, 183, 3, 0.4); }
+    .hologram-pod.glow-amber:hover, .hologram-pod.glow-amber.focused-pod { border-color: var(--amber); box-shadow: 0 14px 44px rgba(255, 183, 3, 0.4); }
 
     .pod-header {
       padding: 8px 12px;
@@ -140,7 +140,7 @@
     #pod-ai-council { width: 340px; }
     #pod-code-synth { width: 400px; }
     #pod-math-core { width: 320px; }
-    #pod-4tier-pipeline { width: 350px; }
+    #pod-4tier-pipeline { width: 360px; }
     #pod-leagues { width: 310px; }
     #pod-bets-settlements { width: 380px; }
     #pod-sensory-ingest { width: 300px; }
@@ -290,16 +290,49 @@
     .league-tile-count { font-family: var(--font-mono); font-size: 12px; color: var(--cyan); font-weight: 800; margin-top: 2px; }
     .league-tile-sub { font-size: 8px; color: var(--text-dim); margin-top: 1px; }
 
-    /* Floating Autonomous Event Spotlight Beacon (Center HUD Pop-up) */
+    /* Floating Screensaver Ambient Banner */
+    #screensaver-mode-banner {
+      position: fixed;
+      top: 56px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1500;
+      background: rgba(4, 9, 24, 0.9);
+      border: 1px solid rgba(0, 243, 255, 0.35);
+      border-radius: 20px;
+      padding: 5px 16px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--cyan);
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.35s ease;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    #screensaver-mode-banner.interrupt-flash {
+      border-color: var(--green);
+      color: #fff;
+      background: rgba(0, 40, 25, 0.95);
+      box-shadow: 0 0 25px rgba(0, 255, 136, 0.5);
+    }
+
+    /* Floating Autonomous Event Spotlight Beacon */
     #autonomous-event-beacon {
       position: fixed;
-      top: 64px;
+      top: 92px;
       left: 50%;
       transform: translateX(-50%) translateY(-20px);
       z-index: 2000;
-      background: rgba(6, 12, 28, 0.94);
+      background: rgba(6, 12, 28, 0.95);
       border: 1px solid var(--cyan);
-      box-shadow: 0 0 32px rgba(0, 243, 255, 0.4), inset 0 0 16px rgba(0, 243, 255, 0.15);
+      box-shadow: 0 0 35px rgba(0, 243, 255, 0.45), inset 0 0 16px rgba(0, 243, 255, 0.15);
       border-radius: 8px;
       padding: 10px 18px;
       display: flex;
@@ -424,7 +457,7 @@
       left: 50%;
       transform: translateX(-50%);
       z-index: 1000;
-      background: rgba(4, 8, 20, 0.9);
+      background: rgba(4, 8, 20, 0.92);
       border: 1px solid rgba(0, 243, 255, 0.35);
       border-radius: 28px;
       backdrop-filter: blur(16px);
@@ -628,6 +661,16 @@
               <span>97,000+ settled match pool</span>
               <span id="tier1-rate">-- models/hr</span>
             </div>
+            <!-- Dynamic Queue Box for Tier 1 -->
+            <div id="tier1-queue-box" style="background:rgba(181,23,158,0.08); border:1px solid rgba(181,23,158,0.25); border-radius:4px; padding:6px 8px; margin-top:5px;">
+              <div style="color:var(--purple); font-weight:700; font-size:9px; display:flex; justify-content:space-between;">
+                <span>K+F JAVÍTÁSI SOR &amp; VELOCITÁS:</span>
+                <span id="tier1-queue-rate" style="color:#fff;">--/h</span>
+              </div>
+              <div id="tier1-queue-list" style="font-size:9px; color:#bed2ea; margin-top:3px; line-height:1.4;">
+                Betöltés...
+              </div>
+            </div>
           </div>
           <!-- Tier 2 -->
           <div class="tier-step-card t2">
@@ -742,6 +785,12 @@
     </div>
   </div>
 
+  <!-- Screensaver Mode Banner (Top Center) -->
+  <div id="screensaver-mode-banner">
+    <span class="hud-pulse-ring" style="width:7px; height:7px;"></span>
+    <span id="screensaver-mode-text">SCREENSAVER AKTÍV · MAKRO KOZMIKUS KERINGÉS</span>
+  </div>
+
   <!-- Autonomous Event Spotlight Beacon (Center HUD Pop-up) -->
   <div id="autonomous-event-beacon">
     <div id="beacon-emoji" class="beacon-emoji-box">⚡</div>
@@ -810,7 +859,7 @@
     <button class="nav-pill-btn" onclick="flyCameraTo('leagues_constellation')"><span>🏟️</span> LEAGUES</button>
     <button class="nav-pill-btn" onclick="flyCameraTo('bets_motor')"><span>⚡</span> REAL &amp; VIRTUAL</button>
     <button class="nav-pill-btn" onclick="flyCameraTo('sensory_hub')"><span>📡</span> SENSORY</button>
-    <button id="btn-auto-director" class="nav-pill-btn" onclick="toggleAutoDirector()" style="color:var(--cyan); border-color:rgba(0,243,255,0.4);"><span>🎬</span> AUTO-DIRECTOR: ON</button>
+    <button id="btn-screensaver-toggle" class="nav-pill-btn" onclick="toggleScreensaver()" style="color:var(--cyan); border-color:rgba(0,243,255,0.4);"><span>🎬</span> SCREENSAVER: AKTÍV</button>
     <button id="btn-auto-orbit" class="nav-pill-btn" onclick="toggleAutoOrbit()"><span>↺</span> AUTO-ORBIT: ON</button>
   </nav>
 
@@ -930,8 +979,9 @@
       targetPanY: 0,
       focalLength: 850,
       autoOrbit: true,
-      autoDirector: true,
-      lastUserInteraction: 0
+      screensaverActive: true,
+      lastUserInteraction: 0,
+      isInterruptLocked: false
     };
 
     function resizeCanvas() {
@@ -945,7 +995,7 @@
 
     // Cosmic Starfield Background Particles (Parallax Cosmos)
     const starfield = [];
-    for (let i = 0; i < 220; i++) {
+    for (let i = 0; i < 240; i++) {
       starfield.push({
         x: (Math.random() - 0.5) * 1600,
         y: (Math.random() - 0.5) * 1600,
@@ -1061,6 +1111,7 @@
     // Main 3D Animation & Rendering Loop
     let globalPulseTick = 0;
     let latestProjectedSomas = {};
+    let activeFocusNodeId = null;
 
     function renderNeuralUniverse() {
       globalPulseTick += 0.025;
@@ -1083,7 +1134,7 @@
 
       ctx.clearRect(0, 0, w, h);
 
-      // 1. Draw Cosmic Starfield Background
+      // 1. Cosmic Starfield Background
       starfield.forEach(st => {
         const p = project3D(st.x, st.y, st.z, cx, cy);
         if (p.visible && p.scale > 0) {
@@ -1097,10 +1148,11 @@
         }
       });
 
-      // 2. Project all neural somas
+      // 2. Project Neural Somas
       const projectedSomas = {};
       neuralSomas3D.forEach(node => {
-        const breath = Math.sin(globalPulseTick * 1.5 + node.x * 0.02) * 2.2;
+        const isFocused = (activeFocusNodeId === node.id || activeFocusNodeId === node.podId);
+        const breath = Math.sin(globalPulseTick * 1.5 + node.x * 0.02) * (isFocused ? 4.0 : 2.2);
         const p = project3D(node.x, node.y, node.z, cx, cy);
         if (p.visible) {
           projectedSomas[node.id] = {
@@ -1109,39 +1161,41 @@
             sy: p.sy,
             scale: p.scale,
             zDepth: p.zDepth,
+            isFocused,
             screenR: Math.max(5, (node.r + breath) * p.scale)
           };
         }
       });
       latestProjectedSomas = projectedSomas;
 
-      // 3. Draw Organic Curved Synaptic Axons with Dynamic Depth
+      // 3. Draw Curved Organic Axons
       neuralAxons.forEach((axon, idx) => {
         const pA = projectedSomas[axon.from];
         const pB = projectedSomas[axon.to];
         if (!pA || !pB) return;
 
+        const isHighlighted = (pA.isFocused || pB.isFocused);
         const avgZ = (pA.zDepth + pB.zDepth) / 2;
-        const depthAlpha = Math.max(0.12, Math.min(0.75, 0.45 + (avgZ / 400)));
+        let depthAlpha = Math.max(0.12, Math.min(0.75, 0.45 + (avgZ / 400)));
+        if (isHighlighted) depthAlpha = Math.min(1.0, depthAlpha * 1.6);
 
         ctx.save();
         ctx.beginPath();
         ctx.moveTo(pA.sx, pA.sy);
 
-        // Curved harmonic spline
         const midX = (pA.sx + pB.sx) / 2 + Math.sin(globalPulseTick + idx) * 10 * pA.scale;
         const midY = (pA.sy + pB.sy) / 2 + Math.cos(globalPulseTick + idx) * 10 * pA.scale;
         ctx.quadraticCurveTo(midX, midY, pB.sx, pB.sy);
 
         if (axon.dashed) ctx.setLineDash([5, 5]);
-        ctx.strokeStyle = axon.color;
+        ctx.strokeStyle = isHighlighted ? '#00f3ff' : axon.color;
         ctx.globalAlpha = depthAlpha;
-        ctx.lineWidth = Math.max(1, axon.strength * ((pA.scale + pB.scale) / 2));
+        ctx.lineWidth = Math.max(1, (isHighlighted ? 3.0 : axon.strength) * ((pA.scale + pB.scale) / 2));
         ctx.stroke();
         ctx.restore();
       });
 
-      // 4. Draw 4D Action Potential Waves
+      // 4. Action Potential Waves (Photons)
       actionPotentials.forEach(ap => {
         const axon = neuralAxons[ap.axonIdx];
         if (!axon) return;
@@ -1173,21 +1227,23 @@
         ctx.restore();
       });
 
-      // 5. Draw Neural Somas (Crystalline Nucleus + Breathing Corona)
+      // 5. Draw Neural Somas (Far to Near)
       const sortedSomas = Object.values(projectedSomas).sort((a, b) => b.zDepth - a.zDepth);
       sortedSomas.forEach(s => {
-        const depthAlpha = Math.max(0.2, Math.min(1.0, 0.6 + (s.zDepth / 400)));
+        let depthAlpha = Math.max(0.2, Math.min(1.0, 0.6 + (s.zDepth / 400)));
+        if (s.isFocused) depthAlpha = 1.0;
 
         ctx.save();
         // Corona Aura
-        const grad = ctx.createRadialGradient(s.sx, s.sy, s.screenR * 0.2, s.sx, s.sy, s.screenR * 2.4);
+        const auraMultiplier = s.isFocused ? 3.2 : 2.4;
+        const grad = ctx.createRadialGradient(s.sx, s.sy, s.screenR * 0.2, s.sx, s.sy, s.screenR * auraMultiplier);
         grad.addColorStop(0, s.color);
-        grad.addColorStop(0.5, s.color + '44');
+        grad.addColorStop(0.5, s.color + (s.isFocused ? '88' : '44'));
         grad.addColorStop(1, 'transparent');
         ctx.fillStyle = grad;
-        ctx.globalAlpha = depthAlpha * 0.75;
+        ctx.globalAlpha = depthAlpha * (s.isFocused ? 1.0 : 0.75);
         ctx.beginPath();
-        ctx.arc(s.sx, s.sy, s.screenR * 2.4, 0, Math.PI * 2);
+        ctx.arc(s.sx, s.sy, s.screenR * auraMultiplier, 0, Math.PI * 2);
         ctx.fill();
 
         // Inner Nucleus
@@ -1195,25 +1251,25 @@
         ctx.arc(s.sx, s.sy, s.screenR, 0, Math.PI * 2);
         ctx.fillStyle = '#040714';
         ctx.strokeStyle = s.color;
-        ctx.lineWidth = Math.max(1.5, 2.5 * s.scale);
+        ctx.lineWidth = Math.max(1.5, (s.isFocused ? 3.8 : 2.5) * s.scale);
         ctx.globalAlpha = depthAlpha;
         ctx.shadowColor = s.color;
-        ctx.shadowBlur = 12 * s.scale;
+        ctx.shadowBlur = (s.isFocused ? 24 : 12) * s.scale;
         ctx.fill();
         ctx.stroke();
 
         // Typography
         if (s.scale > 0.45) {
-          ctx.font = `bold ${Math.round(10 * s.scale)}px var(--font-mono)`;
-          ctx.fillStyle = '#fff';
+          ctx.font = `bold ${Math.round((s.isFocused ? 12 : 10) * s.scale)}px var(--font-mono)`;
+          ctx.fillStyle = s.isFocused ? '#00f3ff' : '#fff';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.shadowBlur = 6;
+          ctx.shadowBlur = 8;
           ctx.shadowColor = '#000';
           ctx.fillText(s.label, s.sx, s.sy - s.screenR - 10 * s.scale);
 
           ctx.font = `${Math.round(8 * s.scale)}px var(--font-sans)`;
-          ctx.fillStyle = 'rgba(212, 229, 247, 0.8)';
+          ctx.fillStyle = 'rgba(212, 229, 247, 0.85)';
           ctx.fillText(s.sub, s.sx, s.sy - s.screenR - 1 * s.scale);
         }
         ctx.restore();
@@ -1232,9 +1288,17 @@
           return;
         }
 
-        const clampedScale = Math.max(0.65, Math.min(1.05, p.scale));
-        const depthOpacity = Math.max(0.3, Math.min(1.0, 0.65 + (p.zDepth / 350)));
-        const zIndex = Math.round(100 + p.zDepth);
+        const isFocused = (activeFocusNodeId === node.id || activeFocusNodeId === node.podId);
+        if (isFocused) {
+          el.classList.add('focused-pod');
+        } else {
+          el.classList.remove('focused-pod');
+        }
+
+        const clampedScale = Math.max(0.65, Math.min(isFocused ? 1.15 : 1.05, p.scale * (isFocused ? 1.1 : 1.0)));
+        let depthOpacity = Math.max(0.3, Math.min(1.0, 0.65 + (p.zDepth / 350)));
+        if (isFocused) depthOpacity = 1.0;
+        const zIndex = isFocused ? 9999 : Math.round(100 + p.zDepth);
 
         const offsetX = 35 * clampedScale;
         const offsetY = -40 * clampedScale;
@@ -1252,7 +1316,7 @@
     requestAnimationFrame(renderNeuralUniverse);
 
     // ==========================================
-    // CAMERA CONTROLS & AUTONOMOUS EVENT DIRECTOR
+    // CAMERA CONTROLS & MANUAL OVERRIDE
     // ==========================================
     let isDragging = false;
     let prevMouseX = 0;
@@ -1346,10 +1410,11 @@
       initialTouchDist = null;
     });
 
-    // Fly Camera To Specific Lobe / Node
+    // Fly Camera To Node / Coordinates
     function flyCameraTo(targetKey) {
       camera.autoOrbit = false;
       updateAutoOrbitBtn();
+      activeFocusNodeId = targetKey;
 
       document.querySelectorAll('.nav-pill-btn').forEach(btn => btn.classList.remove('active'));
       const activeBtn = Array.from(document.querySelectorAll('.nav-pill-btn')).find(b => b.textContent.includes(targetKey.toUpperCase().replace('_', ' ')));
@@ -1361,6 +1426,7 @@
         camera.targetZoom = 1.0;
         camera.targetPanX = 0;
         camera.targetPanY = 0;
+        activeFocusNodeId = null;
         return;
       }
 
@@ -1387,18 +1453,21 @@
       }
     }
 
-    function toggleAutoDirector() {
-      camera.autoDirector = !camera.autoDirector;
-      const btn = document.getElementById('btn-auto-director');
+    function toggleScreensaver() {
+      camera.screensaverActive = !camera.screensaverActive;
+      const btn = document.getElementById('btn-screensaver-toggle');
+      const banner = document.getElementById('screensaver-mode-banner');
       if (btn) {
-        btn.textContent = camera.autoDirector ? '🎬 AUTO-DIRECTOR: ON' : '🎬 AUTO-DIRECTOR: OFF';
-        btn.style.color = camera.autoDirector ? 'var(--cyan)' : 'var(--text-dim)';
-        btn.style.borderColor = camera.autoDirector ? 'rgba(0,243,255,0.4)' : 'transparent';
+        btn.textContent = camera.screensaverActive ? '🎬 SCREENSAVER: AKTÍV' : '🎬 SCREENSAVER: PAUSED';
+        btn.style.color = camera.screensaverActive ? 'var(--cyan)' : 'var(--text-dim)';
+      }
+      if (banner) {
+        banner.style.display = camera.screensaverActive ? 'flex' : 'none';
       }
     }
-    window.toggleAutoDirector = toggleAutoDirector;
+    window.toggleScreensaver = toggleScreensaver;
 
-    // Toggle Fullscreen
+    // Fullscreen Toggle
     document.getElementById('btn-fullscreen-toggle')?.addEventListener('click', () => {
       if (!document.fullscreenElement) {
         document.documentElement.requestFullscreen().catch(() => {});
@@ -1408,14 +1477,72 @@
     });
 
     // ==========================================
-    // AUTONOMOUS EVENT SPOTLIGHT & DIRECTOR LOGIC
+    // AMBIENT CINEMATIC SCREENSAVER & INTERRUPT DIRECTOR
     // ==========================================
     let autonomousEventQueue = [];
-    let currentEventIndex = 0;
     let beaconTimer = null;
+    let interruptLockTimer = null;
 
-    function triggerAutonomousSpotlight(event) {
-      if (!event) return;
+    // 7-Stop Ambient Inspection Tour
+    const ambientTourSteps = [
+      {
+        id: 'ai_council',
+        title: 'AI KVANTUM TANÁCS · 4-AGYAS DÖNTÉSHOZATAL & TOKEN-ÁRAMLÁS',
+        subtitle: 'Gemini AGY (Architektúra) ↔ Claude (Fáradtság) ↔ Codex (Kernel) ↔ Grok (Audit)',
+        zoom: 1.35
+      },
+      {
+        id: 'codex_stream',
+        title: 'CODEX ASTRA KÓD-SZINTÉZIS FORGE · ÉLŐ PYTHON GENERÁLÁS',
+        subtitle: 'AST-validált matematikai eloszlások és Kelly-szabályok önálló szintézise',
+        zoom: 1.45
+      },
+      {
+        id: 'math_core',
+        title: 'KVANTUM TALAMUSZ · FOLYTONOS FRACTIONAL KELLY ÉS BRIER KALIBRÁCIÓ',
+        subtitle: 'EV = P · O - 1.0 > 0 szűrés, $0.50–$8.00 Kelly tőkeméretezés, zéró clamp',
+        zoom: 1.4
+      },
+      {
+        id: 'tiers_pipeline',
+        title: 'TIER 1 K+F TOLCSÉR & VÁRAKOZÁSI SOR MÉLYSÉG',
+        subtitle: '97 000+ meccs történeti bázisa, 564 modell, autonóm hibaelhárítási sor',
+        zoom: 1.35
+      },
+      {
+        id: 'tier_2',
+        title: 'TIER 2 SHADOW INKUBÁTOR · ÉLŐ VIRTUÁLIS PAPÍR-TRÉDEK ($0.00)',
+        subtitle: '118 piac élő oddsokon futó kockázatmentes forward tesztelése',
+        zoom: 1.4
+      },
+      {
+        id: 'leagues_constellation',
+        title: 'LIGA CSILLAGKÉP · 72 ÓRÁS LIKVID DIVERZIFIKÁCIÓ',
+        subtitle: 'NBA, NFL, NHL, WNBA, UCL, EPL, MLS, MLB és Tenisz piacok',
+        zoom: 1.35
+      },
+      {
+        id: 'bets_motor',
+        title: 'MOTOROS TRAKTUS · ÉLES STAKE AJÁNLÁSOK & AZONNALI ELSZÁMOLÁS',
+        subtitle: 'Napi 100 pick kényszer, lezárt nyertes és vesztes tételek könyvelése',
+        zoom: 1.35
+      },
+      {
+        id: 'macro',
+        title: 'MAKRO PERSPEKTÍVA · KOZMIKUS NEURÁLIS UNIVERZUM',
+        subtitle: 'Az autonóm kvantum trading szuperagy teljes rendszerszintű keringése',
+        zoom: 1.0
+      }
+    ];
+
+    let currentTourStepIndex = 0;
+
+    // Trigger Immediate Critical Event Interrupt ("HOPP!")
+    function triggerCriticalEventInterrupt(event) {
+      if (!camera.screensaverActive) return;
+
+      camera.isInterruptLocked = true;
+      clearTimeout(interruptLockTimer);
 
       const beaconEl = document.getElementById('autonomous-event-beacon');
       const emojiEl = document.getElementById('beacon-emoji');
@@ -1423,11 +1550,14 @@
       const badgeEl = document.getElementById('beacon-badge');
       const subEl = document.getElementById('beacon-sub');
       const detailEl = document.getElementById('beacon-detail');
+      const bannerText = document.getElementById('screensaver-mode-text');
+      const bannerEl = document.getElementById('screensaver-mode-banner');
 
       if (!beaconEl) return;
 
-      // Hydrate Beacon
-      emojiEl.textContent = event.emoji || getEmoji(event.league);
+      // Hydrate Event Beacon
+      const em = event.emoji || getEmoji(event.league);
+      emojiEl.textContent = em;
       titleEl.textContent = event.title;
       subEl.textContent = event.subtitle;
       detailEl.textContent = event.details;
@@ -1435,32 +1565,53 @@
       badgeEl.textContent = event.badge;
       badgeEl.className = `cap-badge ${event.badge_color || 'ev'}`;
 
-      // Smoothly steer camera to the event target node
-      if (camera.autoDirector && Date.now() - camera.lastUserInteraction > 5000) {
-        flyCameraTo(event.target_node || 'math_core');
+      // Update Top Banner with Interrupt Flash
+      if (bannerText && bannerEl) {
+        bannerText.textContent = `⚡ HOPP! ${em} ${event.title}: ${event.subtitle}`;
+        bannerEl.classList.add('interrupt-flash');
       }
+
+      // Fly camera directly to event target node
+      flyCameraTo(event.target_node || 'math_core');
 
       // Flash Beacon Popup
       beaconEl.classList.add('visible');
-      audioSynth.playBeacon();
+      if (event.type === 'bet_settlement' && event.badge_color === 'green') {
+        audioSynth.playWin();
+      } else if (event.type === 'bet_settlement' && event.badge_color === 'red') {
+        audioSynth.playLoss();
+      } else {
+        audioSynth.playBeacon();
+      }
 
       clearTimeout(beaconTimer);
       beaconTimer = setTimeout(() => {
         beaconEl.classList.remove('visible');
+        if (bannerEl) bannerEl.classList.remove('interrupt-flash');
       }, 4200);
+
+      // Release interrupt lock after 5 seconds so ambient tour resumes
+      interruptLockTimer = setTimeout(() => {
+        camera.isInterruptLocked = false;
+      }, 5200);
     }
 
-    // Auto-cycle through high-priority live events every 6.5 seconds
+    // Ambient Tour Loop (Csendes időszakban végigjárja a folyamatokat)
     setInterval(() => {
-      if (!camera.autoDirector) return;
-      if (Date.now() - camera.lastUserInteraction < 6000) return;
+      if (!camera.screensaverActive) return;
+      if (camera.isInterruptLocked) return;
+      if (Date.now() - camera.lastUserInteraction < 8000) return;
 
-      if (autonomousEventQueue.length > 0) {
-        currentEventIndex = (currentEventIndex + 1) % autonomousEventQueue.length;
-        const ev = autonomousEventQueue[currentEventIndex];
-        triggerAutonomousSpotlight(ev);
+      currentTourStepIndex = (currentTourStepIndex + 1) % ambientTourSteps.length;
+      const step = ambientTourSteps[currentTourStepIndex];
+
+      const bannerText = document.getElementById('screensaver-mode-text');
+      if (bannerText) {
+        bannerText.textContent = `🔍 ${step.title}`;
       }
-    }, 6500);
+
+      flyCameraTo(step.id);
+    }, 7500);
 
     // ==========================================
     // REAL-TIME TELEMETRY POLLING & HYDRATION
@@ -1469,6 +1620,7 @@
     let currentCodeIndex = 0;
     let isInitialLoad = true;
     const seenEventIds = new Set();
+    const seenSettledIds = new Set();
 
     // Token-based Python Syntax Highlighter
     function highlightPython(code) {
@@ -1631,10 +1783,25 @@
         document.getElementById('math-open-stake').textContent = `$${Number(tier3.open_bets_stake ?? 0).toFixed(2)}`;
         document.getElementById('math-open-tickets').textContent = tier3.open_bets_count ?? 0;
 
-        // 5. 4-Tier Progression Pod
+        // 5. 4-Tier Progression Pod & Tier 1 Queue Depth
         const t1 = data.tiers?.tier_1_rd || {};
         document.getElementById('tier1-count').textContent = `${t1.active_models_synthesized ?? 0} Active`;
         document.getElementById('tier1-rate').textContent = `${Number(t1.synthesis_rate_per_hour ?? 0).toFixed(1)} models/hr`;
+
+        // Hydrate Tier 1 Queue List (Hanyadik a sorban & velocitás)
+        const qListEl = document.getElementById('tier1-queue-list');
+        const qRateEl = document.getElementById('tier1-queue-rate');
+        if (qRateEl) qRateEl.textContent = `${Number(t1.synthesis_rate_per_hour ?? 0).toFixed(1)} model / óra`;
+        if (qListEl) {
+          const activeJobs = t1.active_queue_jobs || [];
+          if (activeJobs.length === 0) {
+            qListEl.textContent = 'A tolcsér teljesen tiszta, nincs felhalmozódott feladat (Optimális folyamat).';
+          } else {
+            qListEl.innerHTML = activeJobs.slice(0, 3).map((job, idx) => `
+              <div><strong>#${idx + 1}. [${job.league || 'SYSTEM'}]</strong> ${job.kind.replace(/_/g, ' ')} <span style="color:var(--cyan);">(${job.status})</span></div>
+            `).join('');
+          }
+        }
 
         const t2 = data.tiers?.tier_2_incubator || {};
         document.getElementById('tier2-count').textContent = `${t2.demoted_markets_count ?? 0} Shadow`;
@@ -1767,16 +1934,27 @@
           }
         }
 
-        // 10. Autonomous Event Queue Hydration
+        // 10. Autonomous Event Queue & Immediate Interrupt Trigger
         const liveQueue = data.live_flow_events?.live_event_queue || [];
         if (liveQueue.length > 0) {
           autonomousEventQueue = liveQueue;
+
+          // Check for brand-new critical events to interrupt the ambient tour ("HOPP!")
+          if (!isInitialLoad) {
+            const freshCritical = liveQueue.find(ev => ev.priority === 'critical' && !seenEventIds.has(ev.id));
+            if (freshCritical) {
+              seenEventIds.add(freshCritical.id);
+              triggerCriticalEventInterrupt(freshCritical);
+            }
+          }
+
+          liveQueue.forEach(ev => seenEventIds.add(ev.id));
         }
 
-        // 11. Real-Time Win/Loss Alerts
+        // 11. Settlements Audio Chimes & Toasts
         settlements.forEach(s => {
-          if (!seenEventIds.has(s.id)) {
-            seenEventIds.add(s.id);
+          if (!seenSettledIds.has(s.id)) {
+            seenSettledIds.add(s.id);
             if (!isInitialLoad) {
               const isWin = s.result === 'won' || s.result === 'win' || s.status === 'won' || (Number(s.pnl) > 0);
               const em = getEmoji(s.league);

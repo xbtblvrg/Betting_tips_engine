@@ -686,6 +686,7 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
         live_event_queue.append({
             "id": f"grad_{g.get('segment_key')}",
             "type": "crucible_graduation",
+            "priority": "critical",
             "target_node": "tiers_pipeline",
             "title": "CRUCIBLE GRADUATION (TIER 2 → TIER 3)",
             "subtitle": f"{g.get('segment_key')}",
@@ -703,6 +704,7 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
         live_event_queue.append({
             "id": f"dem_{d_item.get('segment_key')}",
             "type": "demotion_tourniquet",
+            "priority": "critical",
             "target_node": "tiers_pipeline",
             "title": "TOURNIQUET CLAMP & DEMOTION",
             "subtitle": f"{d_item.get('segment_key')}",
@@ -721,8 +723,9 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
         live_event_queue.append({
             "id": f"settle_{s.get('id')}",
             "type": "bet_settlement",
+            "priority": "critical",
             "target_node": "bets_motor",
-            "title": "WIN SETTLED 🟢" if is_win else "LOSS SETTLED 🔴",
+            "title": f"WIN SETTLED 🟢" if is_win else "LOSS SETTLED 🔴",
             "subtitle": f"{s.get('home')} vs {s.get('away')} ({s.get('selection')})",
             "league": leg,
             "emoji": get_league_emoji(leg),
@@ -738,6 +741,7 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
         live_event_queue.append({
             "id": f"funded_{b.get('id')}",
             "type": "real_bet_issued",
+            "priority": "critical",
             "target_node": "bets_motor",
             "title": "FUNDED STAKE EXECUTION INSTRUCTION",
             "subtitle": f"{b.get('home')} vs {b.get('away')} ({b.get('selection')})",
@@ -755,6 +759,7 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
         live_event_queue.append({
             "id": f"virtual_{v.get('id')}",
             "type": "virtual_paper_trade",
+            "priority": "routine",
             "target_node": "tier_2",
             "title": "SHADOW INCUBATOR TEST TRADE ($0.00)",
             "subtitle": f"{v.get('selection')}",
@@ -773,6 +778,7 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
         live_event_queue.append({
             "id": f"code_{m.get('filename')}",
             "type": "code_synthesis",
+            "priority": "routine",
             "target_node": "codex_stream",
             "title": "CODEX ASTRA MODEL SYNTHESIS COMPILED",
             "subtitle": f"{m.get('class_name')} ({target_seg})",
@@ -790,6 +796,7 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
         live_event_queue.append({
             "id": f"poly_{po.get('created_at', '')}_{po.get('selection', '')}",
             "type": "polymarket_order",
+            "priority": "critical",
             "target_node": "tier_4",
             "title": "POLYMARKET CLOB MAKER LIMIT ORDER",
             "subtitle": f"{po.get('game')} ({po.get('selection')})",
@@ -822,7 +829,9 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
                 "historical_match_backtest_pool": "97,000+ settled matches",
                 "recent_syntheses": syntheses,
                 "latest_code_models": latest_code_models,
-                "research_markets_list": research_markets_list
+                "research_markets_list": research_markets_list,
+                "active_queue_jobs": active_jobs,
+                "jobs_summary": jobs_summary
             },
             "tier_2_incubator": {
                 "name": "Tier 2: Shadow Incubator ($0.00 Live Forward Validation)",
