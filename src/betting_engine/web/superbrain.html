@@ -1271,55 +1271,44 @@
       { id: 'sensory_hub', label: 'SENSORY INGESTION', sub: 'ESPN, NHL, MLB, WEATHER', x: 0, y: -250, z: -40, r: 23, color: '#7086a3', podId: 'pod-sensory-ingest' }
     ];
 
-    // Synaptic Axon Connections (Curved Splines)
+    // Synaptic Axon Connections (Curved Splines - Streamlined Clean Topology)
     const neuralAxons = [
-      { from: 'sensory_hub', to: 'math_core', color: '#00f3ff', strength: 2.2 },
-      { from: 'sensory_hub', to: 'ai_council', color: '#b5179e', strength: 1.8 },
-      { from: 'sensory_hub', to: 'leagues_constellation', color: '#7086a3', strength: 1.2 },
+      // Sensory Ingestion into Central Thalamus & League Radar
+      { from: 'sensory_hub', to: 'math_core', color: '#00f3ff', strength: 2.0 },
+      { from: 'sensory_hub', to: 'leagues_constellation', color: '#7086a3', strength: 1.4 },
 
-      { from: 'ai_council', to: 'agy', color: '#00f3ff', strength: 2.0 },
-      { from: 'ai_council', to: 'claude', color: '#ffb703', strength: 1.8 },
-      { from: 'ai_council', to: 'codex', color: '#00ff88', strength: 2.0 },
-      { from: 'ai_council', to: 'grok', color: '#ff0055', strength: 1.8 },
-      { from: 'agy', to: 'codex', color: '#00f3ff', strength: 1.4 },
-      { from: 'claude', to: 'codex', color: '#ffb703', strength: 1.4 },
-      { from: 'codex', to: 'grok', color: '#ff0055', strength: 1.6 },
+      // AI Council deliberates directly with central Math Valuation
+      { from: 'ai_council', to: 'math_core', color: '#b5179e', strength: 2.2 },
 
-      { from: 'codex', to: 'codex_stream', color: '#00ff88', strength: 2.5 },
-      { from: 'codex_stream', to: 'tier_1', color: '#b5179e', strength: 2.0 },
+      // AI Brain spokes connecting to AI Council
+      { from: 'ai_council', to: 'agy', color: '#00f3ff', strength: 1.5 },
+      { from: 'ai_council', to: 'claude', color: '#ffb703', strength: 1.5 },
+      { from: 'ai_council', to: 'codex', color: '#00ff88', strength: 1.5 },
+      { from: 'ai_council', to: 'grok', color: '#ff0055', strength: 1.5 },
 
-      { from: 'ai_council', to: 'math_core', color: '#00f3ff', strength: 2.5 },
-      { from: 'math_core', to: 'tiers_pipeline', color: '#00ff88', strength: 2.5 },
+      // Codex Astra Forge feeds synthesized AST models to Tier 1 R&D
+      { from: 'codex', to: 'codex_stream', color: '#00ff88', strength: 1.8 },
+      { from: 'codex_stream', to: 'tier_1', color: '#00ff88', strength: 1.8 },
 
+      // Central Math feeds the 4-Tier closed-loop production backbone
+      { from: 'math_core', to: 'tiers_pipeline', color: '#00ff88', strength: 2.2 },
+
+      // Ascending 4-Tier Progression Backbone
       { from: 'tiers_pipeline', to: 'tier_1', color: '#b5179e', strength: 1.8 },
-      { from: 'tier_1', to: 'tier_2', color: '#ffb703', strength: 2.2 },
-      { from: 'tier_2', to: 'tier_3', color: '#00ff88', strength: 2.5 },
-      { from: 'tier_3', to: 'tier_4', color: '#00f3ff', strength: 2.2 },
+      { from: 'tier_1', to: 'tier_2', color: '#ffb703', strength: 1.8 },
+      { from: 'tier_2', to: 'tier_3', color: '#00ff88', strength: 2.0 },
+      { from: 'tier_3', to: 'tier_4', color: '#00f3ff', strength: 2.0 },
 
       // Emergency Tourniquet Loop (Tier 3 -> Tier 1)
-      { from: 'tier_3', to: 'tier_1', color: '#ff0055', strength: 2.0, dashed: true },
+      { from: 'tier_3', to: 'tier_1', color: '#ff0055', strength: 1.8, dashed: true },
 
-      { from: 'tier_3', to: 'bets_motor', color: '#00ff88', strength: 2.8 },
+      // Production Execution into Motor Tract
+      { from: 'tier_3', to: 'bets_motor', color: '#00ff88', strength: 2.2 },
       { from: 'tier_4', to: 'bets_motor', color: '#00f3ff', strength: 2.0 },
-      { from: 'math_core', to: 'bets_motor', color: '#00f3ff', strength: 2.0 },
 
-      { from: 'leagues_constellation', to: 'math_core', color: '#ffb703', strength: 2.0 },
-      { from: 'leagues_constellation', to: 'tiers_pipeline', color: '#ffb703', strength: 1.5 }
+      // 72-Hour Liquid League schedule into Central Math
+      { from: 'leagues_constellation', to: 'math_core', color: '#ffb703', strength: 1.6 }
     ];
-
-    // Living Bio-Neural Dendrites (Organic Synaptic Arborization)
-    const somaDendrites = {};
-    neuralSomas3D.forEach(node => {
-      const count = node.id === 'math_core' ? 9 : 5 + (Math.abs(Math.round(node.x)) % 3);
-      const branches = [];
-      for (let b = 0; b < count; b++) {
-        const baseAngle = (b / count) * Math.PI * 2 + (node.x * 0.015);
-        const len = (node.r * 1.45) + (b * 5) % 20 + 8;
-        const curl = ((b % 2 === 0 ? 1 : -1) * 0.32);
-        branches.push({ angle: baseAngle, length: len, curl: curl });
-      }
-      somaDendrites[node.id] = branches;
-    });
 
     // Semantic Tasks for Dynamic Synaptic Data Packets ("Futó gombócok")
     const SEMANTIC_PACKET_TASKS = [
@@ -1340,14 +1329,14 @@
       { label: '💨 Wind Speed 18 km/h', task: 'Open-Meteo Weather Impact', color: '#7086a3', priority: false }
     ];
 
-    // 4D Action Potential Waves (Semantic Data Packets)
+    // 4D Action Potential Waves (Calm, graceful energy quanta - 1 per active conduit)
     const actionPotentials = [];
-    for (let i = 0; i < 110; i++) {
+    for (let i = 0; i < neuralAxons.length; i++) {
       actionPotentials.push({
-        axonIdx: Math.floor(Math.random() * neuralAxons.length),
-        progress: Math.random(),
-        speed: 0.0035 + Math.random() * 0.007,
-        size: 2.2 + Math.random() * 2.2,
+        axonIdx: i,
+        progress: (i * 0.059) % 1.0,
+        speed: 0.0022 + (i % 3) * 0.0006,
+        size: 1.8,
         taskIdx: i % SEMANTIC_PACKET_TASKS.length,
         trail: []
       });
@@ -1487,41 +1476,7 @@
       });
       latestProjectedSomas = projectedSomas;
 
-      // 5. Draw Living Bio-Dendritic Arborization (Filaments branching into space)
-      neuralSomas3D.forEach(node => {
-        const p = projectedSomas[node.id];
-        const branches = somaDendrites[node.id];
-        if (!p || !branches || p.scale <= 0.25) return;
-
-        const avgAlpha = Math.max(0.12, Math.min(0.65, 0.4 + (p.zDepth / 500)));
-        ctx.save();
-        branches.forEach((br, bIdx) => {
-          const sway = Math.sin(globalPulseTick * 0.8 + bIdx * 0.6) * 0.12;
-          const curAngle = br.angle + sway;
-          const endX = p.sx + Math.cos(curAngle) * br.length * p.scale;
-          const endY = p.sy + Math.sin(curAngle) * br.length * p.scale;
-          const cX = p.sx + Math.cos(curAngle + br.curl) * (br.length * 0.55) * p.scale;
-          const cY = p.sy + Math.sin(curAngle + br.curl) * (br.length * 0.55) * p.scale;
-
-          ctx.beginPath();
-          ctx.moveTo(p.sx + Math.cos(curAngle) * p.screenR, p.sy + Math.sin(curAngle) * p.screenR);
-          ctx.quadraticCurveTo(cX, cY, endX, endY);
-          ctx.strokeStyle = node.color;
-          ctx.lineWidth = Math.max(0.7, 1.1 * p.scale);
-          ctx.globalAlpha = avgAlpha * 0.45;
-          ctx.stroke();
-
-          // Synaptic Bouton Bead at tip
-          ctx.beginPath();
-          ctx.arc(endX, endY, Math.max(1.0, 1.8 * p.scale), 0, Math.PI * 2);
-          ctx.fillStyle = node.color;
-          ctx.globalAlpha = avgAlpha * 0.85;
-          ctx.fill();
-        });
-        ctx.restore();
-      });
-
-      // 6. Draw 4-Tier Energy Spine Ladder & Orbital Toroids
+      // 5. Draw 4 Grand Tier Orbital Energy Rings (Clean Progression Backbone)
       const tierRingDefs = [
         { id: 'tier_1', label: 'TIER 1 · R&D DISCOVERY (97K+ MATCH POOL)', color: '#b5179e' },
         { id: 'tier_2', label: 'TIER 2 · SHADOW INCUBATOR ($0.00 FORWARD TRADES)', color: '#ffb703' },
@@ -1529,32 +1484,6 @@
         { id: 'tier_4', label: 'TIER 4 · POLYMARKET CLOB (PROVEN ALPHA)', color: '#00f3ff' }
       ];
 
-      // Draw ladder rungs between spine nodes (T1 -> T2 -> T3 -> T4)
-      for (let t = 0; t < tierRingDefs.length - 1; t++) {
-        const p1 = projectedSomas[tierRingDefs[t].id];
-        const p2 = projectedSomas[tierRingDefs[t + 1].id];
-        if (p1 && p2) {
-          ctx.save();
-          // Draw 3 transverse energy bars across the spine
-          for (let r = 1; r <= 3; r++) {
-            const frac = r / 4;
-            const rx = p1.sx + (p2.sx - p1.sx) * frac;
-            const ry = p1.sy + (p2.sy - p1.sy) * frac;
-            const perpX = -(p2.sy - p1.sy) * 0.12;
-            const perpY = (p2.sx - p1.sx) * 0.12;
-            ctx.beginPath();
-            ctx.moveTo(rx - perpX, ry - perpY);
-            ctx.lineTo(rx + perpX, ry + perpY);
-            ctx.strokeStyle = tierRingDefs[t + 1].color;
-            ctx.lineWidth = Math.max(1, 1.4 * ((p1.scale + p2.scale) / 2));
-            ctx.globalAlpha = 0.35;
-            ctx.stroke();
-          }
-          ctx.restore();
-        }
-      }
-
-      // Draw Grand Orbital Toroids for each Tier
       tierRingDefs.forEach((tDef, idx) => {
         const p = projectedSomas[tDef.id];
         if (!p || !p.visible) return;
@@ -1566,10 +1495,8 @@
         ctx.beginPath();
         ctx.ellipse(p.sx, p.sy + 4 * p.scale, rx, ry, Math.PI / 8, 0, Math.PI * 2);
         ctx.strokeStyle = tDef.color;
-        ctx.lineWidth = Math.max(1, 1.6 * p.scale);
-        ctx.globalAlpha = Math.max(0.2, Math.min(0.85, 0.45 + (p.zDepth / 400)));
-        ctx.shadowColor = tDef.color;
-        ctx.shadowBlur = 10 * p.scale;
+        ctx.lineWidth = Math.max(1, 1.4 * p.scale);
+        ctx.globalAlpha = Math.max(0.18, Math.min(0.75, 0.40 + (p.zDepth / 450)));
         ctx.stroke();
 
         // ONLY draw tier label if that tier or tiers_pipeline is under manual inspection, hovered, or alerting!
@@ -1579,65 +1506,44 @@
           ctx.fillStyle = tDef.color;
           ctx.textAlign = 'left';
           ctx.textBaseline = 'middle';
-          ctx.shadowBlur = 8;
+          ctx.shadowBlur = 6;
           ctx.shadowColor = tDef.color;
           ctx.fillText(`⌖ ${tDef.label}`, p.sx + rx + 8 * p.scale, p.sy + 4 * p.scale);
         }
         ctx.restore();
       });
 
-      // 7. Draw Multi-Pass Biophotonic Synaptic Axons
+      // 6. Draw Clean, Serene Synaptic Axons (Steady, calm colors · ZERO FLASHING)
       neuralAxons.forEach((axon, idx) => {
         const pA = projectedSomas[axon.from];
         const pB = projectedSomas[axon.to];
         if (!pA || !pB) return;
 
-        const isHighlighted = (pA.isManuallyFocused || pB.isManuallyFocused || pA.isAmbientTarget || pB.isAmbientTarget);
         const avgZ = (pA.zDepth + pB.zDepth) / 2;
-        let depthAlpha = Math.max(0.14, Math.min(0.85, 0.48 + (avgZ / 400)));
-        if (isHighlighted) depthAlpha = Math.min(1.0, depthAlpha * 1.5);
-
+        const depthAlpha = Math.max(0.18, Math.min(0.55, 0.34 + (avgZ / 500)));
         const avgScale = (pA.scale + pB.scale) / 2;
-        const midX = (pA.sx + pB.sx) / 2 + Math.sin(globalPulseTick * 0.6 + idx) * 3 * avgScale;
-        const midY = (pA.sy + pB.sy) / 2 + Math.cos(globalPulseTick * 0.6 + idx) * 3 * avgScale;
+
+        const midX = (pA.sx + pB.sx) / 2 + Math.sin(globalPulseTick * 0.4 + idx) * 2 * avgScale;
+        const midY = (pA.sy + pB.sy) / 2 + Math.cos(globalPulseTick * 0.4 + idx) * 2 * avgScale;
 
         ctx.save();
         if (axon.dashed) ctx.setLineDash([5, 5]);
 
-        // Pass A: Outer Biophotonic Sheath (Soft wide aura)
         ctx.beginPath();
         ctx.moveTo(pA.sx, pA.sy);
         ctx.quadraticCurveTo(midX, midY, pB.sx, pB.sy);
-        ctx.strokeStyle = isHighlighted ? '#00f3ff' : axon.color;
-        ctx.globalAlpha = depthAlpha * 0.16;
-        ctx.lineWidth = Math.max(2, 7.5 * avgScale);
+        ctx.strokeStyle = axon.color;
+        ctx.globalAlpha = depthAlpha;
+        ctx.lineWidth = Math.max(1.0, (axon.strength || 1.6) * 0.7 * avgScale);
+        ctx.shadowColor = axon.color;
+        ctx.shadowBlur = 4 * avgScale;
         ctx.stroke();
-
-        // Pass B: Inner Axonal Fiber Cord
-        ctx.beginPath();
-        ctx.moveTo(pA.sx, pA.sy);
-        ctx.quadraticCurveTo(midX, midY, pB.sx, pB.sy);
-        ctx.strokeStyle = isHighlighted ? '#00f3ff' : axon.color;
-        ctx.globalAlpha = depthAlpha * 0.75;
-        ctx.lineWidth = Math.max(1, (isHighlighted ? 2.6 : axon.strength) * avgScale);
-        ctx.stroke();
-
-        // Pass C: Hot Center Core Beam
-        if (isHighlighted || axon.strength >= 2.4) {
-          ctx.beginPath();
-          ctx.moveTo(pA.sx, pA.sy);
-          ctx.quadraticCurveTo(midX, midY, pB.sx, pB.sy);
-          ctx.strokeStyle = '#ffffff';
-          ctx.globalAlpha = depthAlpha * 0.65;
-          ctx.lineWidth = Math.max(0.6, 0.9 * avgScale);
-          ctx.stroke();
-        }
         ctx.restore();
       });
 
-      // 8. Draw Semantic Synaptic Data Packets ("Futó gombócok")
+      // 7. Draw Subtle Synaptic Photons (Calm, steady energy quanta · Loops smoothly on designated path)
       const renderedPackets = [];
-      actionPotentials.forEach((ap, pIdx) => {
+      actionPotentials.forEach((ap) => {
         const axon = neuralAxons[ap.axonIdx];
         if (!axon) return;
         const pA = projectedSomas[axon.from];
@@ -1646,31 +1552,30 @@
 
         ap.progress += ap.speed;
         if (ap.progress > 1.0) {
-          ap.progress = 0;
-          ap.axonIdx = Math.floor(Math.random() * neuralAxons.length);
+          ap.progress = 0; // loops smoothly on same axon, NO sudden jumping!
           ap.trail = [];
         }
 
         const t = ap.progress;
         const avgScale = (pA.scale + pB.scale) / 2;
-        const midX = (pA.sx + pB.sx) / 2 + Math.sin(globalPulseTick * 0.6 + ap.axonIdx) * 3 * avgScale;
-        const midY = (pA.sy + pB.sy) / 2 + Math.cos(globalPulseTick * 0.6 + ap.axonIdx) * 3 * avgScale;
+        const midX = (pA.sx + pB.sx) / 2 + Math.sin(globalPulseTick * 0.4 + ap.axonIdx) * 2 * avgScale;
+        const midY = (pA.sy + pB.sy) / 2 + Math.cos(globalPulseTick * 0.4 + ap.axonIdx) * 2 * avgScale;
         const px = (1 - t) * (1 - t) * pA.sx + 2 * (1 - t) * t * midX + t * t * pB.sx;
         const py = (1 - t) * (1 - t) * pA.sy + 2 * (1 - t) * t * midY + t * t * pB.sy;
 
         ap.trail.push({ x: px, y: py });
-        if (ap.trail.length > 6) ap.trail.shift();
+        if (ap.trail.length > 3) ap.trail.shift();
 
-        const taskDef = SEMANTIC_PACKET_TASKS[ap.taskIdx] || { label: 'Data Pulse', color: axon.color, priority: false };
+        const taskDef = SEMANTIC_PACKET_TASKS[ap.taskIdx] || { label: 'Data Pulse', color: axon.color };
         const pColor = taskDef.color || axon.color;
 
         renderedPackets.push({
-          x: px, y: py, radius: ap.size * 2.6 * avgScale,
+          x: px, y: py, radius: ap.size * 2.0 * avgScale,
           label: taskDef.label, task: taskDef.task, color: pColor
         });
 
         ctx.save();
-        // Phosphorescent Comet Motion Trail
+        // Subtle short motion trail
         if (ap.trail.length > 1) {
           ctx.beginPath();
           ctx.moveTo(ap.trail[0].x, ap.trail[0].y);
@@ -1678,50 +1583,24 @@
             ctx.lineTo(ap.trail[ti].x, ap.trail[ti].y);
           }
           ctx.strokeStyle = pColor;
-          ctx.lineWidth = Math.max(1, ap.size * 0.8 * avgScale);
-          ctx.globalAlpha = 0.32;
+          ctx.lineWidth = Math.max(1, 1.2 * avgScale);
+          ctx.globalAlpha = 0.22;
           ctx.stroke();
         }
 
-        // Luminous Soliton Nucleus
-        const grad = ctx.createRadialGradient(px, py, 0.4, px, py, ap.size * 2.5 * avgScale);
-        grad.addColorStop(0, '#ffffff');
-        grad.addColorStop(0.38, pColor);
-        grad.addColorStop(1, 'transparent');
+        // Gentle, soft photon bead
         ctx.beginPath();
-        ctx.arc(px, py, ap.size * 2.5 * avgScale, 0, Math.PI * 2);
-        ctx.fillStyle = grad;
-        ctx.globalAlpha = 0.95;
+        ctx.arc(px, py, ap.size * 1.5 * avgScale, 0, Math.PI * 2);
+        ctx.fillStyle = pColor;
+        ctx.globalAlpha = 0.72;
+        ctx.shadowColor = pColor;
+        ctx.shadowBlur = 5 * avgScale;
         ctx.fill();
-
-        // Heads-up Micro-badge only on priority packets when zoomed in
-        const showBadge = (taskDef.priority && pIdx % 4 === 0 && avgScale > 0.68 && (manualFocusNodeId || hoveredSomaId));
-        if (showBadge) {
-          ctx.font = `bold ${Math.round(8 * avgScale)}px var(--font-mono)`;
-          const textWidth = ctx.measureText(taskDef.label).width;
-          const badgeW = textWidth + 8 * avgScale;
-          const badgeH = 13 * avgScale;
-          const badgeX = px + 6 * avgScale;
-          const badgeY = py - 7 * avgScale;
-
-          ctx.fillStyle = 'rgba(3, 7, 18, 0.92)';
-          ctx.strokeStyle = pColor;
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 3 * avgScale);
-          ctx.fill();
-          ctx.stroke();
-
-          ctx.fillStyle = '#ffffff';
-          ctx.textAlign = 'left';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(taskDef.label, badgeX + 4 * avgScale, badgeY + badgeH / 2);
-        }
         ctx.restore();
       });
       activeProjectedPackets = renderedPackets;
 
-      // 9. Draw Neural Somas (Far to Near)
+      // 8. Draw Neural Somas (Far to Near)
       const sortedSomas = Object.values(projectedSomas).sort((a, b) => b.zDepth - a.zDepth);
       sortedSomas.forEach(s => {
         let depthAlpha = Math.max(0.25, Math.min(1.0, 0.62 + (s.zDepth / 400)));
