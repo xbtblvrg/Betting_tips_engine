@@ -931,57 +931,74 @@ class PolymarketAutonomousRunner:
 
         # 3. Enqueue identification and taxonomy gaps to learning_jobs for autonomous AI repair
         if self.db_path.exists() and (unmatched_events or unmapped_market_types):
-            try:
-                with sqlite3.connect(self.db_path, timeout=30.0) as conn:
-                    conn.execute("PRAGMA busy_timeout = 30000;")
-                    conn.execute("""
-                        CREATE TABLE IF NOT EXISTS learning_jobs (
-                            id TEXT PRIMARY KEY,
-                            kind TEXT NOT NULL,
-                            league TEXT,
-                            status TEXT NOT NULL,
-                            created_at TEXT NOT NULL,
-                            updated_at TEXT NOT NULL,
-                            next_attempt TEXT NOT NULL,
-                            payload TEXT NOT NULL
-                        );
-                    """)
-                    for unmatch in unmatched_events:
-                        if unmatch.get("reason") == "team_names_unmatched":
-                            u_title = unmatch.get("event_title", "")
-                            u_league = unmatch.get("league", "UNKNOWN")
-                            job_id = f"poly_id_{u_league.lower()}_{hashlib.sha256(u_title.encode()).hexdigest()[:12]}"
-                            payload = {
-                                "kind": "polymarket_identification_repair",
-                                "league": u_league,
-                                "event_title": u_title,
-                                "teams": unmatch.get("teams", []),
-                                "reason": "Polymarket team names failed to match calibrated domain tips. Update team aliases or schedule synchronization.",
-                                "priority": "HIGH",
-                                "timestamp": now_iso,
-                            }
-                            conn.execute("""
+            id_records = []
+            for unmatch in unmatched_events:
+                if unmatch.get("reason") == "team_names_unmatched":
+                    u_title = unmatch.get("event_title", "")
+                    u_league = unmatch.get("league", "UNKNOWN")
+                    job_id = f"poly_id_{u_league.lower()}_{hashlib.sha256(u_title.encode()).hexdigest()[:12]}"
+                    payload = {
+                        "kind": "polymarket_identification_repair",
+                        "league": u_league,
+                        "event_title": u_title,
+                        "teams": unmatch.get("teams", []),
+                        "reason": "Polymarket team names failed to match calibrated domain tips. Update team aliases or schedule synchronization.",
+                        "priority": "HIGH",
+                        "timestamp": now_iso,
+                    }
+                    id_records.append((job_id, u_league, now_iso, now_iso, now_iso, json.dumps(payload)))
+
+            tax_records = []
+            for m_type in unmapped_market_types:
+                job_id = f"poly_tax_{hashlib.sha256(m_type.encode()).hexdigest()[:12]}"
+                payload = {
+                    "kind": "polymarket_taxonomy_repair",
+                    "sports_market_type": m_type,
+                    "reason": f"Unmapped sportsMarketType '{m_type}' discovered on Polymarket. Propose mapping to canonical (scope, family).",
+                    "priority": "NORMAL",
+                    "timestamp": now_iso,
+                }
+                tax_records.append((job_id, now_iso, now_iso, now_iso, json.dumps(payload)))
+
+            import time as _t
+            for attempt in range(3):
+                try:
+                    with sqlite3.connect(self.db_path, timeout=45.0) as conn:
+                        conn.execute("PRAGMA busy_timeout = 45000;")
+                        conn.execute("""
+                            CREATE TABLE IF NOT EXISTS learning_jobs (
+                                id TEXT PRIMARY KEY,
+                                kind TEXT NOT NULL,
+                                league TEXT,
+                                status TEXT NOT NULL,
+                                created_at TEXT NOT NULL,
+                                updated_at TEXT NOT NULL,
+                                next_attempt TEXT NOT NULL,
+                                payload TEXT NOT NULL
+                            );
+                        """)
+                        if id_records:
+                            conn.executemany("""
                                 INSERT INTO learning_jobs (id, kind, league, status, created_at, updated_at, next_attempt, payload)
                                 VALUES (?, 'polymarket_identification_repair', ?, 'queued', ?, ?, ?, ?)
                                 ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, payload = excluded.payload;
-                            """, (job_id, u_league, now_iso, now_iso, now_iso, json.dumps(payload)))
-
-                    for m_type in unmapped_market_types:
-                        job_id = f"poly_tax_{hashlib.sha256(m_type.encode()).hexdigest()[:12]}"
-                        payload = {
-                            "kind": "polymarket_taxonomy_repair",
-                            "sports_market_type": m_type,
-                            "reason": f"Unmapped sportsMarketType '{m_type}' discovered on Polymarket. Propose mapping to canonical (scope, family).",
-                            "priority": "NORMAL",
-                            "timestamp": now_iso,
-                        }
-                        conn.execute("""
-                            INSERT INTO learning_jobs (id, kind, league, status, created_at, updated_at, next_attempt, payload)
-                            VALUES (?, 'polymarket_taxonomy_repair', 'ALL', 'queued', ?, ?, ?, ?)
-                            ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, payload = excluded.payload;
-                        """, (job_id, now_iso, now_iso, now_iso, json.dumps(payload)))
-            except Exception as exc:
-                log.warning(f"Could not persist Polymarket identification gaps into learning_jobs: {exc}")
+                            """, id_records)
+                        if tax_records:
+                            conn.executemany("""
+                                INSERT INTO learning_jobs (id, kind, league, status, created_at, updated_at, next_attempt, payload)
+                                VALUES (?, 'polymarket_taxonomy_repair', 'ALL', 'queued', ?, ?, ?, ?)
+                                ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, payload = excluded.payload;
+                            """, tax_records)
+                    break
+                except sqlite3.OperationalError as exc:
+                    if "locked" in str(exc).lower() and attempt < 2:
+                        _t.sleep(0.5 * (attempt + 1))
+                        continue
+                    log.warning(f"Could not persist Polymarket identification gaps into learning_jobs: {exc}")
+                    break
+                except Exception as exc:
+                    log.warning(f"Could not persist Polymarket identification gaps into learning_jobs: {exc}")
+                    break
 
         cycle_duration = round(time.time() - cycle_start, 3)
         result = {

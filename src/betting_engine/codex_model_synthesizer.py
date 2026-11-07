@@ -766,9 +766,9 @@ class {class_name}(BaseCandidateModel):
         )
 
         try:
-            with file_lock(DATA / "development" / "ai-locks" / "codex.lock", timeout=5.0) as acquired:
+            with file_lock(DATA / "development" / "ai-locks" / "codex.lock", timeout=60.0) as acquired:
                 if not acquired:
-                    log.warning(f"Codex lock busy (5.0s) for {segment_key}; yielding to Claude parallel fallback")
+                    log.warning(f"Codex lock busy (60.0s) for {segment_key}; yielding to Claude parallel fallback")
                     return None
                 res = self._invoke_codex_with_watchdog(codex_cfg, prompt, timeout=240.0, max_hard_ceiling=600.0, idle_timeout=60.0)
                 state, answer = decode('codex', res, codex_cfg.get('model'))
@@ -811,9 +811,9 @@ class {class_name}(BaseCandidateModel):
             f"and deduce a concrete mathematical formulation from first principles to capture this alpha. Output domain analysis only."
         )
         try:
-            with file_lock(DATA / "development" / "ai-locks" / "claude.lock", timeout=30.0) as acquired:
+            with file_lock(DATA / "development" / "ai-locks" / "claude.lock", timeout=60.0) as acquired:
                 if not acquired:
-                    log.warning(f"Failed to acquire claude.lock within 30.0s for hypothesis {segment_key}")
+                    log.warning(f"Failed to acquire claude.lock within 60.0s for hypothesis {segment_key}")
                     return None
                 res = invoke('claude', claude_cfg, prompt, timeout=60)
                 state, answer = decode('claude', res, claude_cfg.get('model'))
@@ -879,9 +879,9 @@ class {class_name}(BaseCandidateModel):
         )
 
         try:
-            with file_lock(DATA / "development" / "ai-locks" / "claude.lock", timeout=30.0) as acquired:
+            with file_lock(DATA / "development" / "ai-locks" / "claude.lock", timeout=60.0) as acquired:
                 if not acquired:
-                    log.warning(f"Failed to acquire claude.lock within 30.0s for {segment_key}")
+                    log.warning(f"Failed to acquire claude.lock within 60.0s for {segment_key}")
                     return None
                 res = invoke('claude', claude_cfg, prompt, timeout=240)
                 state, answer = decode('claude', res, claude_cfg.get('model'))

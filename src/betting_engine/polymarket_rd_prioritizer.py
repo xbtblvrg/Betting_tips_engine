@@ -245,27 +245,38 @@ class PolymarketRDPrioritizer:
         now_iso = utcnow().isoformat()
 
         if self.db_path.exists() and unproven_gaps:
-            try:
-                with sqlite3.connect(self.db_path, timeout=30.0) as conn:
-                    conn.execute("PRAGMA busy_timeout = 30000;")
-                    for gap in unproven_gaps:
-                        seg_key = gap["segment_key"]
-                        league = gap["league"]
-                        job_id = f"poly_gap_{seg_key.lower().replace('|', '_')}"
-                        payload = {
-                            "kind": "urgent_polymarket_model_repair",
-                            "segment_key": seg_key,
-                            "league": league,
-                            "scope": gap["scope"],
-                            "market_family": gap["market_family"],
-                            "sample_event": gap["sample_event"],
-                            "sample_token": gap["sample_token"],
-                            "priority_tag": "CRITICAL_URGENT_POLYMARKET",
-                            "objective": "Pass Crucible out-of-sample backtest (ROI >= +3.5%, Brier skill > 0) to graduate market into live Polymarket execution.",
-                            "timestamp": now_iso,
-                        }
+            records = []
+            for gap in unproven_gaps:
+                seg_key = gap["segment_key"]
+                league = gap["league"]
+                job_id = f"poly_gap_{seg_key.lower().replace('|', '_')}"
+                payload = {
+                    "kind": "urgent_polymarket_model_repair",
+                    "segment_key": seg_key,
+                    "league": league,
+                    "scope": gap["scope"],
+                    "market_family": gap["market_family"],
+                    "sample_event": gap["sample_event"],
+                    "sample_token": gap["sample_token"],
+                    "priority_tag": "CRITICAL_URGENT_POLYMARKET",
+                    "objective": "Pass Crucible out-of-sample backtest (ROI >= +3.5%, Brier skill > 0) to graduate market into live Polymarket execution.",
+                    "timestamp": now_iso,
+                }
+                records.append((
+                    job_id,
+                    league,
+                    now_iso,
+                    now_iso,
+                    now_iso,
+                    json.dumps(payload),
+                ))
 
-                        conn.execute(
+            import time as _t
+            for attempt in range(3):
+                try:
+                    with sqlite3.connect(self.db_path, timeout=45.0) as conn:
+                        conn.execute("PRAGMA busy_timeout = 45000;")
+                        conn.executemany(
                             """
                             INSERT INTO learning_jobs (
                                 id, kind, league, status, created_at, updated_at, next_attempt, payload
@@ -274,18 +285,19 @@ class PolymarketRDPrioritizer:
                                 updated_at=excluded.updated_at,
                                 payload=excluded.payload;
                             """,
-                            (
-                                job_id,
-                                league,
-                                now_iso,
-                                now_iso,
-                                now_iso,
-                                json.dumps(payload),
-                            ),
+                            records,
                         )
-                        enqueued_count += 1
-            except Exception as exc:
-                log.error(f"Failed to enqueue Polymarket R&D repair jobs into SQLite: {exc}")
+                    enqueued_count = len(records)
+                    break
+                except sqlite3.OperationalError as exc:
+                    if "locked" in str(exc).lower() and attempt < 2:
+                        _t.sleep(0.5 * (attempt + 1))
+                        continue
+                    log.error(f"Failed to enqueue Polymarket R&D repair jobs into SQLite: {exc}")
+                    break
+                except Exception as exc:
+                    log.error(f"Failed to enqueue Polymarket R&D repair jobs into SQLite: {exc}")
+                    break
 
         log.info(
             f"Polymarket R&D Gap Analysis complete: {len(discovered_segments)} reachable segments, "
