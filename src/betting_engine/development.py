@@ -1335,7 +1335,7 @@ class DevelopmentWorker:
             if source.exists():
                 shutil.copytree(source, self.workspace / 'data' / relative, dirs_exist_ok=True, copy_function=workspace_copy2,
                     ignore=shutil.ignore_patterns('verified_history','source_evidence'))
-        for relative in ('games.json', 'periods/scores.json', 'segments/mlb_scores.json'):
+        for relative in ('games.json', 'periods/scores.json', 'segments/mlb_scores.json', 'tennis_results_archive.json', 'context_sources.json', 'pitching_sources.json'):
             source = self.root / 'data' / relative
             if source.exists():
                 target = self.workspace / 'data' / relative; target.parent.mkdir(parents=True, exist_ok=True)

@@ -47,7 +47,8 @@ DATA = {'players', 'model_evidence', 'games.json', 'validation_sources',
         'controller_validation', 'release-failure-evidence-manifest.json',
         'engineering-evidence-manifest.json', 'engineering-evidence', 'release-failure-evidence',
         'task_diagnostics', 'root-recovery-package.json', 'rebase',
-        'development-inputs-error.json', 'sports-source-evidence-error.json'}
+        'development-inputs-error.json', 'sports-source-evidence-error.json',
+        'tennis_results_archive.json', 'context_sources.json', 'pitching_sources.json'}
 
 
 def _sha(body):
