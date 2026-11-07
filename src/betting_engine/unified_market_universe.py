@@ -102,13 +102,29 @@ class UnifiedMarketProfile:
             base_fam = fam.split(':')[-1] if ':' in fam else fam
             base_sub = sub.split(':')[-1] if ':' in sub else sub
 
-            fam_aliases = {fam, base_fam}
-            if sub:
-                fam_aliases.add(sub)
-                fam_aliases.add(base_sub)
+            # Inspect segment_key suffix for concrete market intent
+            k = (self.segment_key or '').lower().strip()
+            if ':' in k:
+                k_suf = k.split(':')[-1]
+                if k_suf in ('three_way', 'totals', 'spreads', 'moneyline', 'both_score', 'asian_total', 'asian_totals', 'asian_handicap', 'set_handicap', 'total_sets', 'double_chance', 'home_total', 'away_total', 'draw_no_bet'):
+                    base_sub = k_suf
+                    sub = k_suf
 
+            # Disambiguate container families: when a concrete sub_family is present,
+            # prioritize the sub_family over the container name so that e.g. asian_lines:asian_total
+            # is recognized as totals rather than leaking spreads.
+            is_container = fam in ('american_derivatives', 'asian_lines', 'bivariate_derivatives', 'tennis_sets')
+            if is_container and (sub or base_sub):
+                target_candidates = {sub, base_sub}
+            else:
+                target_candidates = {fam, base_fam}
+                if sub:
+                    target_candidates.add(sub)
+                    target_candidates.add(base_sub)
+
+            fam_aliases = set(target_candidates)
             # Contract aliases identical to contracts.py:is_supported_stake_contract
-            for candidate in list(fam_aliases):
+            for candidate in list(target_candidates):
                 if candidate in ('winner', 'match_winner', 'draw_no_bet', 'set_winner'):
                     fam_aliases.add('moneyline')
                 elif candidate in ('asian_lines', 'asian_line', 'asian_handicap', 'handicap', 'game_handicap'):
@@ -125,11 +141,6 @@ class UnifiedMarketProfile:
                     fam_aliases.add('three_way')
                     if lg in {'EPL', 'MLS', 'UCL', 'UEL', 'LALIGA', 'BUNDESLIGA', 'SERIEA'}:
                         fam_aliases.add('moneyline')
-
-            # Special case for container families with specific sub_family
-            if fam in ('american_derivatives', 'asian_lines', 'bivariate_derivatives', 'tennis_sets'):
-                if base_sub in ('totals', 'spreads', 'moneyline', 'three_way', 'both_score', 'set_handicap', 'total_sets'):
-                    fam_aliases.add(base_sub)
 
             for p_type, (p_sc, p_fam, p_leagues) in POLYMARKET_STRUCTURED_TAXONOMY.items():
                 if lg in p_leagues and p_sc == sc and p_fam in fam_aliases:
@@ -392,13 +403,15 @@ class UnifiedMarketUniverse:
                     # any historical graduation records (Constitutional Commandments 6 & 7).
                     clean_fam = fam.split(':')[-1] if ':' in fam else fam
                     clean_sub = sub_fam.split(':')[-1] if sub_fam and ':' in sub_fam else (sub_fam or fam)
+                    is_cont = fam in ('asian_lines', 'american_derivatives', 'bivariate_derivatives', 'tennis_sets')
+                    target_match_families = (sub_fam, clean_sub) if is_cont and clean_sub else (fam, sub_fam, clean_fam, clean_sub)
                     keys_to_demote = [
                         k for k, p in roster.items()
                         if p.league == lg and p.scope == sc and (
-                            p.family in (fam, sub_fam, clean_fam, clean_sub)
-                            or p.sub_family in (fam, sub_fam, clean_fam, clean_sub)
-                            or k.endswith(f":{clean_fam}")
-                            or k.endswith(f":{clean_sub}")
+                            (p.family in target_match_families and not (is_cont and p.sub_family and p.sub_family not in target_match_families))
+                            or p.sub_family in target_match_families
+                            or (not is_cont and (k.endswith(f":{clean_fam}") or k.endswith(f":{clean_sub}")))
+                            or (is_cont and k.endswith(f":{clean_sub}"))
                             or k in (seg_key, canonical_k, sub_k)
                         )
                     ]

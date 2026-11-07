@@ -127,3 +127,30 @@ def test_soccer_three_way_outcome_probability_mapping():
     assert model_prob_home_yes == 0.55
     model_prob_home_no = 1.0 - model_prob_home_yes
     assert model_prob_home_no == pytest.approx(0.45)
+
+
+def test_container_family_exact_disambiguation():
+    """Verifies that container families (asian_lines, american_derivatives) never misidentify totals or three_way."""
+    UnifiedMarketUniverse.invalidate_cache()
+    roster = UnifiedMarketUniverse().build_universe_roster(force_refresh=True)
+
+    # 1. Asian totals must map to totals, never spreads
+    for k in (
+        'EPL|full_game|asian_lines:asian_total',
+        'UCL|half_1|asian_lines:asian_total',
+        'UCL|half_2|asian_lines:asian_total',
+        'MLS|half_1|asian_lines:asian_totals',
+        'MLS|half_2|asian_lines:asian_totals',
+        'NBA|half_1|asian_lines:asian_total',
+    ):
+        if k in roster:
+            prof = roster[k]
+            assert prof.is_dual_polymarket is True
+            assert 'totals' in prof.polymarket_pairing, f"Expected totals pairing for {k} but got {prof.polymarket_pairing}"
+
+    # 2. Halftime three-way in soccer must map to soccer_halftime_result, never spreads
+    if 'EPL|half_1|american_derivatives:three_way' in roster:
+        prof = roster['EPL|half_1|american_derivatives:three_way']
+        assert prof.is_dual_polymarket is True
+        assert prof.polymarket_pairing == 'soccer_halftime_result', f"Expected soccer_halftime_result but got {prof.polymarket_pairing}"
+
