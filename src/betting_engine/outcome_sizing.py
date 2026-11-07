@@ -386,12 +386,16 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
         if universe_prof.tier in (1, 2) or universe_prof.stake_cap == 0.0:
             caps['demoted_market_defense_clamp'] = 0.00
 
-    if (
+    is_officially_demoted_or_quarantined = (
         tip.get('is_demoted') is True
-        or (not is_test_cand and check_keys & set(gov.get('quarantine_list', [])))
-        or (not is_test_cand and ((games_val >= 4 and pnl_val <= -2.00) or (games_val >= 6 and pnl_val < 0.0)))
-    ):
+        or (not is_test_cand and bool(check_keys & set(gov.get('quarantine_list', []))))
+        or (not is_test_cand and bool(check_keys & set(gov.get('demoted_list', []))))
+    )
+    if is_officially_demoted_or_quarantined:
         caps['demoted_market_defense_clamp'] = 0.00
+    elif not is_test_cand and ((games_val >= 4 and pnl_val <= -2.00) or (games_val >= 6 and pnl_val < 0.0)):
+        # Phase 1: Interim Capital Defense ($0.50 Tourniquet) per Commandment 6
+        caps['capital_defense_clamp'] = 0.50
 
     if settings.get('capital_defense', False):
         try:
@@ -410,12 +414,10 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
 
             # Demoted Market Quarantine (Constitution Commandment 6):
             # Any demoted or quarantined market is strictly suspended to $0.00 ($0.00 quarantine).
-            if (
-                tip.get('is_demoted') is True
-                or (not is_test_cand and check_keys & set(gov.get('quarantine_list', [])))
-                or (not is_test_cand and ((games_val >= 4 and pnl_val <= -2.00) or (games_val >= 6 and pnl_val < 0.0)))
-            ):
+            if is_officially_demoted_or_quarantined:
                 caps['demoted_market_defense_clamp'] = 0.00
+            elif not is_test_cand and ((games_val >= 4 and pnl_val <= -2.00) or (games_val >= 6 and pnl_val < 0.0)):
+                caps['capital_defense_clamp'] = 0.50
 
             # Portfolio Profit Shield (Layer 2): Protect winning alpha by capping unproven markets to $1.00
             # Alpha Acceleration ($2.50 to $8.00) is reserved strictly for verified positive alpha

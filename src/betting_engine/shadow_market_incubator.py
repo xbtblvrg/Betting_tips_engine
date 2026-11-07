@@ -1619,7 +1619,20 @@ class ShadowMarketIncubator:
                     win_side = 'home' if h_s > a_s else ('away' if a_s > h_s else 'draw')
                     outcome_res = 'won' if win_side == side else 'lost'
                 elif sub_family in ('moneyline', 'draw_no_bet') or family in ('moneyline', 'draw_no_bet'):
-                    if h_s == a_s:
+                    if league in ('ATP', 'WTA', 'CHALLENGER'):
+                        sets_h = float(game.context.get('sets_home', 0))
+                        sets_a = float(game.context.get('sets_away', 0))
+                        if sets_h == 0 and sets_a == 0:
+                            set_scores = game.context.get('set_scores') or []
+                            if set_scores:
+                                sets_h = sum(1 for s in set_scores if len(s) >= 2 and s[0] > s[1])
+                                sets_a = sum(1 for s in set_scores if len(s) >= 2 and s[1] > s[0])
+                        if sets_h > 0 or sets_a > 0:
+                            win_side = 'home' if sets_h > sets_a else 'away'
+                        else:
+                            win_side = 'home' if h_s > a_s else 'away'
+                        outcome_res = 'won' if win_side == side else 'lost'
+                    elif h_s == a_s:
                         outcome_res = 'push'
                     else:
                         win_side = 'home' if h_s > a_s else 'away'

@@ -1268,7 +1268,7 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                         amount = u_cap
                         c['stake_note'] = (c.get('stake_note') or note or '') + f' Capped at ${u_cap:.2f} by Unified Universe Profile ({u_phase}).'
 
-            c['stake']=amount;c['stake_note']=c.get('stake_note') or (note if amount else 'Your remaining limit or fractional Kelly calculation does not support a stake of at least $1.');remaining-=amount
+            c['stake']=amount;c['stake_note']=c.get('stake_note') or (note if amount else 'Your remaining limit or fractional Kelly calculation does not support a stake of at least $0.50.');remaining-=amount
             if amount and limits_enabled and (event_stakes[c['game_id']]+amount>event_stake_cap+1e-9):
                 amount=0.;c['stake']=0.;c['allocation_code']='event_stake_limit';c['allocation_reason']=f'The ${event_stake_cap:.0f} per-game stake cap would be exceeded.'
             elif amount:
@@ -1281,7 +1281,7 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                 c['stake_note'] = c['allocation_reason']
             else:
                 c['allocation_code']='stake_below_minimum'
-            c['allocation_reason']='Qualified at the current Stake price.' if amount else (c.get('allocation_reason') or 'Stake sizing or the remaining allocation is below $1.')
+            c['allocation_reason']='Qualified at the current Stake price.' if amount else (c.get('allocation_reason') or 'Stake sizing or the remaining allocation is below $0.50.')
             if amount and continuous and tier(c) in (1,2):
                 preference_allocations.add((c['game_id'],bases[c['id']]['tier']));new_preference_events.add(c['game_id'])
                 c['allocation_reason']=(f'Positive current-model expected value; stress threshold not passed. A current-model pick sized at ${amount:.2f}.' if tier(c)==2 else (f'Selected for model win probability; model expected return is not positive. Calculated non-Kelly base-unit allocation ${amount:.2f}, not a value-bet claim.' if settings.get('model_pick_sizing_policy')=='all_tiers_weighted_v3' else 'Selected for model win probability; model expected return is not positive. Explicit $1 preference allocation, not a value-bet claim.'))
