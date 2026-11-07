@@ -133,10 +133,15 @@ def audit_components(payload,worker,catalog,research,now=None,closing=None):
         'state': cat_state,
     }
     catalog_issues = catalog.get('issues') or [] if isinstance(catalog, dict) else []
+    critical_catalog_issues = [
+        i for i in catalog_issues
+        if i.get('reason') not in ('stake_seed_identity_unresolved', 'stake_fixture_not_active', 'stake_fixture_identity_conflict', 'stake_fixture_endpoint_error')
+        and i.get('stage') != 'fixture_endpoints'
+    ]
     cat_detail = f'{catalog.get("fixtures_fetched",0)}/{catalog.get("discovered_fixtures",0)} fixtures fetched; {catalog.get("complete_endpoint_responses",0)} responses. Last check: {catalog.get("checked_at","missing")}'
     if cat_state != 'fresh':
         cat_detail = f'Catalogue evidence is {cat_state}. {cat_detail}'
-    cat_state_final = 'healthy' if cat_state == 'fresh' and not catalog_issues else 'degraded'
+    cat_state_final = 'healthy' if cat_state == 'fresh' and not critical_catalog_issues else 'degraded'
     add('Full market catalogue', cat_state_final, cat_detail)
     checks[-1]['freshness'] = cat_freshness
     checks[-1]['issues'] = deepcopy(catalog_issues)
