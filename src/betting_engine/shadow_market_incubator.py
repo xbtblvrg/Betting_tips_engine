@@ -2521,9 +2521,13 @@ class ShadowMarketIncubator:
                 sub_key = f"{league}|{scope}|{family}:{sub_family}" if sub_family else segment_key
                 recalibrated_at = recalibrated_map.get(segment_key) or recalibrated_map.get(canonical_key) or recalibrated_map.get(sub_key)
                 if recalibrated_at:
-                    records = [r for r in records if len(r) > 11 and r[11] and str(r[11]) > recalibrated_at]
-                    if not records:
-                        continue
+                    if demoted_at and len(records) >= 25:
+                        # Post-demotion Crucible validation is authoritative; do not let diagnostic repair wipe out valid track records
+                        pass
+                    else:
+                        records = [r for r in records if len(r) > 11 and r[11] and str(r[11]) > recalibrated_at]
+                        if not records:
+                            continue
 
 
                 records.sort(key=lambda r: str(r[-1] or ''))
@@ -3506,6 +3510,14 @@ class ShadowMarketIncubator:
             """, (min_samples,))
             stuck_candidates = cur.fetchall()
 
+            demoted_map = {}
+            try:
+                cur.execute("SELECT segment_key, demoted_at FROM demoted_markets")
+                for sk, da in cur.fetchall():
+                    demoted_map[sk] = da
+            except Exception:
+                pass
+
             repaired_records = []
             repairs_to_insert = []
             rd_repairs_to_enqueue = []
@@ -3525,6 +3537,25 @@ class ShadowMarketIncubator:
 
                 if is_already_graduated:
                     continue
+
+                # If market is incubating in Tier 2 with a new model, check post-demotion performance
+                # rather than poisoning its forward test with lifetime historical wagers
+                dem_cutoff = demoted_map.get(sub_key) or demoted_map.get(canonical_key)
+                if dem_cutoff:
+                    cur.execute("""
+                        SELECT count(*), sum(pnl), avg(brier_market - brier_model)
+                        FROM incubated_wagers
+                        WHERE status = 'settled' AND league = ? AND scope = ? AND family = ? AND sub_family = ?
+                          AND (settled_at > ? OR ? IS NULL)
+                    """, (league, scope, family, sub_family, dem_cutoff, dem_cutoff))
+                    p_row = cur.fetchone()
+                    if p_row and p_row[0] and p_row[0] >= 10:
+                        p_n = p_row[0]
+                        p_pnl = float(p_row[1] or 0.0)
+                        p_roi = p_pnl / float(p_n)
+                        p_delta = float(p_row[2] or 0.0)
+                        if p_roi > 0.0 and p_delta > 0.0:
+                            continue  # Active candidate model is winning post-demotion; do not reset recalibration!
 
                 segment_key = sub_key
                 total_stake = float(n_samples)

@@ -30,7 +30,7 @@ log = logging.getLogger(__name__)
 
 RUNNER_STATE_FILE = DATA / "polymarket_runner_state.json"
 _RUNNER_CYCLE_LOCK = threading.Lock()
-DEFAULT_RUNNER_LEAGUES: Tuple[str, ...] = ("NBA", "NFL", "NHL", "EPL", "UCL", "UEL", "MLS", "NCAAF", "CBB", "NCAAW", "ATP", "WTA")
+DEFAULT_RUNNER_LEAGUES: Tuple[str, ...] = ("NBA", "NFL", "NHL", "EPL", "UCL", "UEL", "MLS", "NCAAF", "CBB", "NCAAM", "NCAAW", "CWBB", "ATP", "WTA")
 
 # Explicit Canonical Taxonomy Mapping for Polymarket Gamma API sportsMarketType
 # Qualified with authoritative sport/league scope to prevent cross-sport taxonomic bleed
@@ -163,12 +163,20 @@ class PolymarketAutonomousRunner:
                 if not tbl:
                     return []
                 if leagues:
-                    placeholders = ",".join("?" for _ in leagues)
+                    expanded_leagues = set(str(l).upper() for l in leagues)
+                    if "CBB" in expanded_leagues or "NCAAM" in expanded_leagues:
+                        expanded_leagues.update(["CBB", "NCAAM", "NCAAB", "COLLEGE_BASKETBALL"])
+                    if "NCAAF" in expanded_leagues or "CFB" in expanded_leagues:
+                        expanded_leagues.update(["NCAAF", "CFB", "COLLEGE_FOOTBALL"])
+                    if "NCAAW" in expanded_leagues or "CWBB" in expanded_leagues:
+                        expanded_leagues.update(["NCAAW", "CWBB"])
+                    q_leagues = tuple(sorted(expanded_leagues))
+                    placeholders = ",".join("?" for _ in q_leagues)
                     rows = cur.execute(
                         f"""SELECT payload FROM tips 
                             WHERE json_extract(payload, '$.league') IN ({placeholders})
                             ORDER BY last_seen DESC LIMIT 4000;""",
-                        leagues,
+                        q_leagues,
                     ).fetchall()
                 else:
                     rows = cur.execute(
@@ -252,28 +260,74 @@ class PolymarketAutonomousRunner:
         if not league_tips:
             return (None, "no_domain_tips_for_league") if return_failure_reason else None
 
-        t_names = []
+        import unicodedata, re
+
+        def _clean_str(s: str) -> str:
+            if not s:
+                return ""
+            norm = unicodedata.normalize('NFKD', str(s)).encode('ASCII', 'ignore').decode('utf-8').lower()
+            norm = re.sub(r'\([a-zA-Z0-9\s\.]+\)', '', norm)
+            norm = re.sub(r'[^a-z0-9\s]', ' ', norm)
+            return ' '.join(norm.split())
+
+        def _name_variants(s: str) -> Set[str]:
+            cleaned = _clean_str(s)
+            if not cleaned:
+                return set()
+            variants = {cleaned}
+            if ',' in str(s):
+                parts = [_clean_str(p) for p in str(s).split(',') if p.strip()]
+                if len(parts) == 2:
+                    variants.add(f"{parts[1]} {parts[0]}")
+            for token in cleaned.split():
+                if len(token) >= 4 and token not in ('state', 'saint', 'north', 'south', 'east', 'west', 'city'):
+                    variants.add(token)
+            return variants
+
+        t_variants: Set[str] = set()
         poly_home_team = None
         poly_away_team = None
+        poly_home_vars: Set[str] = set()
+        poly_away_vars: Set[str] = set()
         for t in teams:
             if isinstance(t, dict):
-                if t.get("name"):
-                    t_names.append(t["name"].lower())
-                if t.get("alias"):
-                    t_names.append(t["alias"].lower())
+                n_str = t.get("name") or ""
+                a_str = t.get("alias") or ""
+                vars_t = _name_variants(n_str) | _name_variants(a_str)
+                t_variants |= vars_t
                 if t.get("ordering") == "home":
-                    poly_home_team = t.get("name") or t.get("alias")
+                    poly_home_team = n_str or a_str
+                    poly_home_vars = vars_t
                 elif t.get("ordering") == "away":
-                    poly_away_team = t.get("name") or t.get("alias")
-        t_abbr = [t.get("abbreviation", "").lower() for t in teams if isinstance(t, dict) and t.get("abbreviation")]
+                    poly_away_team = n_str or a_str
+                    poly_away_vars = vars_t
+        t_abbr = [_clean_str(t.get("abbreviation", "")) for t in teams if isinstance(t, dict) and t.get("abbreviation")]
+        t_abbr = [ab for ab in t_abbr if len(ab) >= 2]
+        title_cleaned = _clean_str(title)
 
         matched_tips = []
         for tip in league_tips:
-            h = tip.get("home", "").lower()
-            a = tip.get("away", "").lower()
+            h_raw = tip.get("home", "")
+            a_raw = tip.get("away", "")
+            h_clean = _clean_str(h_raw)
+            a_clean = _clean_str(a_raw)
+            h_vars = _name_variants(h_raw)
+            a_vars = _name_variants(a_raw)
 
-            h_match = any(tn in h for tn in t_names if len(tn) > 2) or any(ab in h for ab in t_abbr if len(ab) > 1) or h in title.lower()
-            a_match = any(tn in a for tn in t_names if len(tn) > 2) or any(ab in a for ab in t_abbr if len(ab) > 1) or a in title.lower()
+            h_match = (
+                bool(h_vars & poly_home_vars)
+                or any(v in h_clean for v in poly_home_vars if len(v) >= 3)
+                or any(v in h_clean for v in t_variants if len(v) >= 3)
+                or any(ab in h_clean.split() for ab in t_abbr)
+                or (h_clean and h_clean in title_cleaned)
+            )
+            a_match = (
+                bool(a_vars & poly_away_vars)
+                or any(v in a_clean for v in poly_away_vars if len(v) >= 3)
+                or any(v in a_clean for v in t_variants if len(v) >= 3)
+                or any(ab in a_clean.split() for ab in t_abbr)
+                or (a_clean and a_clean in title_cleaned)
+            )
 
             if h_match and a_match:
                 matched_tips.append(tip)
