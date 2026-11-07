@@ -1340,6 +1340,13 @@ class DevelopmentWorker:
             if source.exists():
                 target = self.workspace / 'data' / relative; target.parent.mkdir(parents=True, exist_ok=True)
                 workspace_copy2(source, target)
+        models_source = self.root / 'data' / 'models'
+        if models_source.exists():
+            models_target = self.workspace / 'data' / 'models'
+            models_target.mkdir(parents=True, exist_ok=True)
+            for model_file in models_source.glob('*.*'):
+                if model_file.is_file():
+                    workspace_copy2(model_file, models_target / model_file.name)
         for relative in ('research/catalog.json',):
             source = self.root / 'data' / relative
             if source.exists():
