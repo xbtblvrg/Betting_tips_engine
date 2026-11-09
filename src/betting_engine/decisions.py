@@ -26,7 +26,7 @@ DEFAULT_SETTINGS['alpha_acceleration']=True
 DEFAULT_SETTINGS['crucible_rules_mode']='shadow'
 DEFAULT_SETTINGS['min_odds']=None
 DEFAULT_SETTINGS['max_sport_per_cycle']=None
-DEFAULT_SETTINGS['max_picks_per_family']=3
+DEFAULT_SETTINGS['max_picks_per_family']=1
 
 def sport_of(league):
     l = (league or '').upper()

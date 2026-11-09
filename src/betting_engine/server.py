@@ -1285,7 +1285,7 @@ class Settings(BaseModel):
     max_per_event:int|None=Field(None,ge=1,le=4)
     max_period_per_event:int=Field(1,ge=1,le=2)
     max_stake_per_event:float=Field(5,ge=1,le=25)
-    max_picks_per_family:int=Field(2,ge=1,le=10)
+    max_picks_per_family:int=Field(1,ge=1,le=10)
     allow_event_additions:bool|None=Field(default=None)
     league_pregame_horizon_hours:dict|None=Field(default=None)
     max_daily_family_share:float=Field(.25,gt=0,le=.35)
