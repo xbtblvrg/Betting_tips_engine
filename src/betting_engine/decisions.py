@@ -1288,7 +1288,7 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
             c['_universe_phase'] = u_phase if not is_synthetic_test and c_league and roster else None
             c['_is_cap_defense_cand'] = is_cap_defense_cand
             c['_is_alpha_cand'] = is_alpha_cand
-            c['_cand_segs'] = cand_segs
+            c['_cand_segs'] = list(cand_segs)
 
             c['stake']=amount;c['stake_note']=c.get('stake_note') or (note if amount else 'Your remaining limit or fractional Kelly calculation does not support a stake of at least $0.50.');remaining-=amount
             if amount and limits_enabled and (event_stakes[c['game_id']]+amount>event_stake_cap+1e-9):
@@ -1407,7 +1407,7 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                 elif c.get('_is_alpha_cand') and amount > 0.0:
                     super_alphas = set(gov_status.get('super_alpha_list', []))
                     solid_alphas = set(gov_status.get('solid_alpha_list', []))
-                    c_cand_segs = c.get('_cand_segs') or set()
+                    c_cand_segs = set(c.get('_cand_segs') or [])
                     if c_cand_segs & super_alphas:
                         target_alpha = min(sizing_budget, max(4.00, min(8.00, amount * 2.0)))
                         if target_alpha > amount:
@@ -1440,5 +1440,7 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
     for a in alternatives:
         a['stake'] = 0.0
         a['alternative'] = True
+    for x in chosen + alternatives:
+        x.pop('_cand_segs', None)
     if dynamic:seal_batch(settings,held_event_roster,chosen+alternatives)
     return chosen,alternatives
