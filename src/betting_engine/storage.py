@@ -17,6 +17,11 @@ log = logging.getLogger(__name__)
 class Store:
     def __init__(self,path=None):
         self.path=Path(path or DATA/'engine.sqlite3');self.path.parent.mkdir(parents=True,exist_ok=True)
+        try:
+            with sqlite3.connect(self.path, timeout=60.0) as init_conn:
+                init_conn.execute('PRAGMA journal_mode=WAL')
+        except Exception:
+            pass
         with self.db() as c:c.executescript('''
         CREATE TABLE IF NOT EXISTS kv(key TEXT PRIMARY KEY,value TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS daily_target_checkpoints(id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -86,8 +91,8 @@ class Store:
             pass
     @contextmanager
     def db(self):
-        c=sqlite3.connect(self.path,timeout=30);c.row_factory=sqlite3.Row
-        c.execute('PRAGMA journal_mode=WAL');c.execute('PRAGMA busy_timeout=30000')
+        c=sqlite3.connect(self.path,timeout=60.0);c.row_factory=sqlite3.Row
+        c.execute('PRAGMA busy_timeout=60000')
         c.execute('PRAGMA synchronous=NORMAL');c.execute('PRAGMA cache_size=-32000');c.execute('PRAGMA temp_store=MEMORY')
         try:yield c;c.commit()
         except: c.rollback();raise
@@ -100,9 +105,9 @@ class Store:
             with self.db() as c:
                 yield c
                 return
-        c = sqlite3.connect(f"file:{Path(self.path).resolve()}?mode=ro", uri=True, timeout=30.0)
+        c = sqlite3.connect(f"file:{Path(self.path).resolve()}?mode=ro", uri=True, timeout=60.0)
         c.row_factory = sqlite3.Row
-        c.execute('PRAGMA busy_timeout=30000')
+        c.execute('PRAGMA busy_timeout=60000')
         c.execute('PRAGMA cache_size=-32000')
         try:
             yield c
@@ -193,12 +198,12 @@ class Store:
             if len(found)>=limit:return list(found.values())
         return list(found.values())
     def publish(self,payload,require_guard=False):
-        for attempt in range(5):
+        for attempt in range(8):
             try:
                 return self._do_publish(payload, require_guard=require_guard)
             except sqlite3.OperationalError as exc:
-                if 'locked' in str(exc).lower() and attempt < 4:
-                    time_mod.sleep(0.05 * (2 ** attempt))
+                if 'locked' in str(exc).lower() and attempt < 7:
+                    time_mod.sleep(0.1 * (1.5 ** attempt))
                     continue
                 raise
 
@@ -784,38 +789,38 @@ class Store:
         with self.db() as c:return pending(c)
     def claim_instruction_refill(self):
         from .instruction_refill import claim
-        for attempt in range(5):
+        for attempt in range(8):
             try:
                 with self.db() as c:
                     c.execute('BEGIN IMMEDIATE')
                     return claim(c)
             except sqlite3.OperationalError as exc:
-                if 'locked' in str(exc).lower() and attempt < 4:
-                    time_mod.sleep(0.05 * (2 ** attempt))
+                if 'locked' in str(exc).lower() and attempt < 7:
+                    time_mod.sleep(0.1 * (1.5 ** attempt))
                     continue
                 raise
     def complete_instruction_refill(self,receipt,error=None):
         from .instruction_refill import complete
-        for attempt in range(5):
+        for attempt in range(8):
             try:
                 with self.db() as c:
                     c.execute('BEGIN IMMEDIATE')
                     return complete(c,receipt,error=error)
             except sqlite3.OperationalError as exc:
-                if 'locked' in str(exc).lower() and attempt < 4:
-                    time_mod.sleep(0.05 * (2 ** attempt))
+                if 'locked' in str(exc).lower() and attempt < 7:
+                    time_mod.sleep(0.1 * (1.5 ** attempt))
                     continue
                 raise
     def recover_instruction_refill(self):
         from .instruction_refill import recover_interrupted
-        for attempt in range(5):
+        for attempt in range(8):
             try:
                 with self.db() as c:
                     c.execute('BEGIN IMMEDIATE')
                     return recover_interrupted(c)
             except sqlite3.OperationalError as exc:
-                if 'locked' in str(exc).lower() and attempt < 4:
-                    time_mod.sleep(0.05 * (2 ** attempt))
+                if 'locked' in str(exc).lower() and attempt < 7:
+                    time_mod.sleep(0.1 * (1.5 ** attempt))
                     continue
                 raise
     def instruction_refill_status(self,request_id=None):

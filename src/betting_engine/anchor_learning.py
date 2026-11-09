@@ -323,7 +323,7 @@ def publish_snapshot(folder,active):
 
 def iter_decisions(store):
     """Stream full original rows one at a time; retain only thin fitting inputs."""
-    with store.db() as db:
+    with store.ro_db() as db:
         for row in db.execute('SELECT tip_id,issued_at,payload,status,outcome_evidence FROM system_decisions ORDER BY issued_at,tip_id'):
             yield {**dict(row),'payload':json.loads(row['payload']),
                    'outcome_evidence':json.loads(row['outcome_evidence']) if row['outcome_evidence'] else None}
