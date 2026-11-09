@@ -116,11 +116,44 @@ def canonical_segment_aliases(league: str, scope: str, market: str) -> set:
             f"{league_str}|{scope_str}|bivariate_derivatives",
             f"{league_str}|{scope_str}|both_score",
         })
+    elif base_mkt in ('moneyline', 'winner', 'head_to_head'):
+        segs.update({
+            f"{league_str}|{scope_str}|american_derivatives:moneyline",
+            f"{league_str}|{scope_str}|american_derivatives",
+            f"{league_str}|{scope_str}|moneyline",
+        })
+    elif base_mkt in ('home_total', 'away_total', 'team_total'):
+        segs.update({
+            f"{league_str}|{scope_str}|american_derivatives:team_total",
+            f"{league_str}|{scope_str}|american_derivatives",
+            f"{league_str}|{scope_str}|team_total",
+            f"{league_str}|{scope_str}|{base_mkt}",
+        })
     elif base_mkt in ('set_handicap', 'game_handicap'):
         segs.update({
             f"{league_str}|{scope_str}|tennis_sets:set_handicap",
             f"{league_str}|{scope_str}|tennis_sets",
             f"{league_str}|{scope_str}|set_handicap",
+        })
+    elif base_mkt in ('total_sets', 'set_totals'):
+        segs.update({
+            f"{league_str}|{scope_str}|tennis_sets:total_sets",
+            f"{league_str}|{scope_str}|tennis_sets:set_totals",
+            f"{league_str}|{scope_str}|tennis_sets",
+            f"{league_str}|{scope_str}|total_sets",
+        })
+    elif base_mkt in ('set_winner',):
+        segs.update({
+            f"{league_str}|{scope_str}|tennis_sets:set_winner",
+            f"{league_str}|{scope_str}|tennis_sets:winner",
+            f"{league_str}|{scope_str}|tennis_sets",
+            f"{league_str}|{scope_str}|set_winner",
+        })
+    elif base_mkt in ('draw_no_bet', 'dnb'):
+        segs.update({
+            f"{league_str}|{scope_str}|bivariate_derivatives:draw_no_bet",
+            f"{league_str}|{scope_str}|bivariate_derivatives",
+            f"{league_str}|{scope_str}|draw_no_bet",
         })
     return segs
 

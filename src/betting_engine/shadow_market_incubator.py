@@ -412,6 +412,11 @@ def save_graduated_markets(graduated: Dict[str, Dict[str, Any]], data_dir: Path 
     """Atomically saves graduated market families to disk."""
     path = data_dir / 'graduated_markets.json'
     atomic_json(path, graduated)
+    try:
+        from .unified_market_universe import UnifiedMarketUniverse
+        UnifiedMarketUniverse.invalidate_cache()
+    except Exception:
+        pass
 
 
 def load_demoted_markets(data_dir: Path = DATA) -> Dict[str, Dict[str, Any]]:
@@ -2693,9 +2698,23 @@ class ShadowMarketIncubator:
                     # a) They were settled strictly AFTER demoted_at (standard live recovery)
                     # b) OR generated specifically by the designated champion model (model_id == active_champ_id)
                     # c) OR demotion was an administrative Tier 1 R&D seeding (not a live drawdown)
-                    is_admin_demote = any(admin_kw in str(demoted_reason_map.get(segment_key, '')).lower() 
-                                         for admin_kw in ('tier 1 r&d', 'deadlock reset', 'untraded', 'silent market', 'historical baseline', 'restored proven champion', 'auto-sync: tier 1'))
-                    active_champ_id = demoted_model_map.get(segment_key) or demoted_model_map.get(sub_key) or demoted_model_map.get(canonical_key)
+                    reason_check_str = " ".join([
+                        demoted_reason_map.get(segment_key, ''),
+                        demoted_reason_map.get(sub_key, ''),
+                        demoted_reason_map.get(clean_sub_key, ''),
+                        demoted_reason_map.get(canonical_key, ''),
+                    ]).lower()
+                    is_admin_demote = (
+                        any(admin_kw in reason_check_str 
+                            for admin_kw in ('tier 1 r&d', 'deadlock reset', 'untraded', 'silent market', 'historical baseline', 'restored proven champion', 'auto-sync: tier 1', 'tier 1 candidate r&d'))
+                        and not any(dw in reason_check_str for dw in ('live drawdown', 'continuous review', 'established live loss', 'fast-fail eviction', 'stagnation eviction'))
+                    )
+                    active_champ_id = (
+                        demoted_model_map.get(segment_key)
+                        or demoted_model_map.get(sub_key)
+                        or demoted_model_map.get(clean_sub_key)
+                        or demoted_model_map.get(canonical_key)
+                    )
 
                     def _is_wager_valid_post_demote(r_w):
                         settled_time = str(r_w[11] or '')
@@ -2709,7 +2728,13 @@ class ShadowMarketIncubator:
                         return False
 
                     records = [r for r in records if len(r) > 11 and r[11] and _is_wager_valid_post_demote(r)]
-                    n_oos_check = demoted_oos_map.get(segment_key, demoted_oos_map.get(canonical_key, 0))
+                    n_oos_check = (
+                        demoted_oos_map.get(segment_key)
+                        or demoted_oos_map.get(sub_key)
+                        or demoted_oos_map.get(clean_sub_key)
+                        or demoted_oos_map.get(canonical_key)
+                        or 0
+                    )
                     is_ft = (len(records) >= 10 and (float(len(records)) + 0.20 * min(float(n_oos_check), 200.0)) >= 50.0 and n_oos_check >= 100)
                     if len(records) < 25 and not is_ft:
                         continue
@@ -2727,7 +2752,7 @@ class ShadowMarketIncubator:
                             continue
 
 
-                records.sort(key=lambda r: str(r[-1] or ''))
+                records.sort(key=lambda r: str(r[11] or ''))
                 n_samples = len(records)
                 odds_list = [r[4] for r in records]
                 pnl_list = [r[5] for r in records]
@@ -3183,9 +3208,12 @@ class ShadowMarketIncubator:
             candidate_summaries = cur.fetchall()
 
             demoted_set = set()
+            demoted_reason_map = {}
             try:
-                cur.execute("SELECT segment_key FROM demoted_markets")
-                demoted_set = {r[0] for r in cur.fetchall()}
+                cur.execute("SELECT segment_key, reason FROM demoted_markets")
+                for r in cur.fetchall():
+                    demoted_set.add(r[0])
+                    demoted_reason_map[r[0]] = str(r[1] or "")
             except Exception:
                 pass
         finally:
@@ -3239,7 +3267,13 @@ class ShadowMarketIncubator:
 
                     if seg_key_c in allocated_keys or seg_key_c in current_graduated:
                         continue
-                    if seg_key_c in demoted_set or canonical_c in demoted_set:
+                    dem_r_c = " ".join([
+                        demoted_reason_map.get(seg_key_c, ""),
+                        demoted_reason_map.get(canonical_c, ""),
+                        demoted_reason_map.get(f"{canonical_c}:{sub_c}", ""),
+                    ]).lower()
+                    is_real_live_drawdown = any(dw in dem_r_c for dw in ("live drawdown", "continuous review", "established live loss", "fast-fail eviction", "stagnation eviction"))
+                    if is_real_live_drawdown:
                         continue
                     if cached_live_rows:
                         meta_c = {'league': league, 'scope': scope_c, 'family': fam_c, 'sub_family': sub_c, 'segment_key': seg_key_c}
@@ -3570,9 +3604,23 @@ class ShadowMarketIncubator:
                 if demoted_at:
                     # Constitutional Invariant (Prime Directives 6 & 7):
                     # Demoted markets cannot bypass quarantine. Must accumulate at least 25 post-demotion wagers.
-                    is_admin_demote = any(admin_kw in str(demoted_reason_map.get(segment_key, '')).lower() 
-                                         for admin_kw in ('tier 1 r&d', 'deadlock reset', 'untraded', 'silent market', 'historical baseline', 'restored proven champion', 'auto-sync: tier 1'))
-                    active_champ_id = demoted_model_map.get(segment_key) or demoted_model_map.get(sub_key) or demoted_model_map.get(canonical_key)
+                    reason_check_str = " ".join([
+                        demoted_reason_map.get(segment_key, ''),
+                        demoted_reason_map.get(sub_key, ''),
+                        demoted_reason_map.get(clean_sub_key, ''),
+                        demoted_reason_map.get(canonical_key, ''),
+                    ]).lower()
+                    is_admin_demote = (
+                        any(admin_kw in reason_check_str 
+                            for admin_kw in ('tier 1 r&d', 'deadlock reset', 'untraded', 'silent market', 'historical baseline', 'restored proven champion', 'auto-sync: tier 1', 'tier 1 candidate r&d'))
+                        and not any(dw in reason_check_str for dw in ('live drawdown', 'continuous review', 'established live loss', 'fast-fail eviction', 'stagnation eviction'))
+                    )
+                    active_champ_id = (
+                        demoted_model_map.get(segment_key)
+                        or demoted_model_map.get(sub_key)
+                        or demoted_model_map.get(clean_sub_key)
+                        or demoted_model_map.get(canonical_key)
+                    )
 
                     def _is_w_unlim(r_w):
                         st = str(r_w[10] or '')
@@ -3590,7 +3638,7 @@ class ShadowMarketIncubator:
                         continue
 
                 sub_key = f"{league}|{scope}|{family}:{sub_family}" if sub_family else segment_key
-                records.sort(key=lambda r: str(r[-1] or ''))
+                records.sort(key=lambda r: str(r[10] or ''))
                 n_samples = len(records)
                 odds_list = [r[4] for r in records]
                 pnl_list = [r[5] for r in records]
