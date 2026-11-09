@@ -334,6 +334,26 @@ def size_recommendation(tip, settings, remaining, related_count=0):
                     'binding_factors': [*base['binding_factors'], 'authorized_minimum_ticket_floor'],
                     'note': base['note'] + ' User-authorized $1 minimum ticket when affordable; this floor is not a positive-EV claim.'}
     if policy == 'legacy':
+        if settings.get('capital_defense', False) and base['amount'] > 0.50:
+            try:
+                from .decisions import _get_governor_status
+                from .contracts import canonical_segment_aliases
+                gov = _get_governor_status()
+                c_def = set(gov.get('capital_defense_list', []))
+                s_alpha = set(gov.get('super_alpha_list', [])) | set(gov.get('solid_alpha_list', []))
+                l = str(tip.get('league') or '').upper()
+                s = str(tip.get('model_scope', 'full_game'))
+                m = str(tip.get('market', '')).lower()
+                c_segs = canonical_segment_aliases(l, s, m) if l else set()
+                if bool(c_segs & c_def) and not bool(c_segs & s_alpha):
+                    base = {
+                        **base,
+                        'amount': 0.50,
+                        'binding_factors': [*base.get('binding_factors', []), 'capital_defense_clamp'],
+                        'note': base.get('note', '') + ' Capped at $0.50 emergency capital defense tourniquet.'
+                    }
+            except Exception:
+                pass
         return base
     evidence = tip.get('outcome_sizing_evidence')
     if not verify_summary(evidence) or evidence['segment'] != segment_key(tip):
