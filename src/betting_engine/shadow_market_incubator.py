@@ -2751,7 +2751,6 @@ class ShadowMarketIncubator:
                     n_oos >= 100
                 )
 
-                has_proven_alpha_sample = (n_samples >= 25 and roi_pre >= 0.08 and total_pnl_pre > 0.0 and dd_pre <= 0.18) if 'roi_pre' in locals() else (n_samples >= 25)
                 # Compute fast metrics for power evaluation
                 pnl_quick = [r[5] for r in records]
                 tot_pnl_quick = float(sum(pnl_quick))
