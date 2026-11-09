@@ -151,15 +151,15 @@ class LearningWorker:
 
     def enqueue(self,kind,key,payload=None,league=None,status='queued'):
         stamp=utcnow().isoformat();id=hashlib.sha256(f'{kind}:{key}'.encode()).hexdigest()[:24]
-        for attempt in range(5):
+        for attempt in range(8):
             try:
                 with self.store.db() as c:
                     c.execute('INSERT OR IGNORE INTO learning_jobs(id,kind,league,status,created_at,updated_at,next_attempt,payload) VALUES (?,?,?,?,?,?,?,?)',
                               (id,kind,league,status,stamp,stamp,stamp,json.dumps(payload or {})))
                 return id
             except sqlite3.OperationalError as exc:
-                if 'locked' in str(exc).lower() and attempt < 4:
-                    time.sleep(0.05 * (2 ** attempt))
+                if 'locked' in str(exc).lower() and attempt < 7:
+                    time.sleep(0.1 * (1.5 ** attempt))
                     continue
                 raise
         return id
@@ -880,6 +880,20 @@ class LearningWorker:
             incubator = ShadowMarketIncubator(self.data)
             repairs = incubator.diagnose_and_repair_stuck_incubator_markets()
             return {'executed_at': utcnow().isoformat(), 'repairs_count': len(repairs), 'repairs': repairs}
+        if job['kind']=='autonomous_bottleneck_repair':
+            import dataclasses
+            from .bottleneck_watchdog import BottleneckWatchdog
+            watchdog = BottleneckWatchdog(self.data)
+            rep = watchdog.audit_and_heal(force=True)
+            return {
+                'executed_at': utcnow().isoformat(),
+                'status': rep.status,
+                'total_graduated_markets': rep.total_graduated_markets,
+                'anomalies_detected_count': rep.anomalies_detected_count,
+                'anomalies_healed_count': rep.anomalies_healed_count,
+                'uncrowned_champions_crowned': rep.uncrowned_champions_crowned,
+                'details': dataclasses.asdict(rep),
+            }
         if job['kind']=='daily_council_briefing':
             from .daily_quant_council import convene_daily_quant_council
             directive = convene_daily_quant_council(store=self.store, data_dir=self.data)
