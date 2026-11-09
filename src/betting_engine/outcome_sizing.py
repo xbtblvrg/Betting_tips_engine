@@ -341,11 +341,11 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
     cand_league = str(tip.get('league', '')).upper()
     cand_scope = str(tip.get('model_scope', 'full_game'))
     base_mkt = market_val.split(':')[-1]
-    check_keys = {
-        f"{cand_league}|{cand_scope}|{market_val}",
-        f"{cand_league}|{cand_scope}|{base_mkt}",
-        f"{cand_league}|{cand_scope}|{cand_scope}:{base_mkt}"
-    }
+    from .contracts import canonical_segment_aliases
+    from .decisions import _get_graduated_segments
+    check_keys = canonical_segment_aliases(cand_league, cand_scope, market_val)
+    grad_segs = _get_graduated_segments()
+    is_cand_graduated = bool(tip.get('is_graduated')) or bool(check_keys & grad_segs)
 
     cand_id = str(tip.get('id', ''))
     game_id = str(tip.get('game_id', ''))
@@ -374,32 +374,36 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
             from .unified_market_universe import UnifiedMarketUniverse
             umu = UnifiedMarketUniverse()
             roster = umu.build_universe_roster(force_refresh=False)
-            for ck in check_keys:
-                if ck in roster:
-                    universe_prof = roster[ck]
-                    break
+            grad_profs = [roster[ck] for ck in check_keys if ck in roster and roster[ck].tier >= 3]
+            if grad_profs:
+                universe_prof = max(grad_profs, key=lambda p: p.stake_cap)
+            else:
+                for ck in check_keys:
+                    if ck in roster:
+                        universe_prof = roster[ck]
+                        break
         except Exception:
             universe_prof = None
 
     if universe_prof and universe_prof.stake_cap is not None:
         caps['universe_tier_stake_cap'] = universe_prof.stake_cap
-        if universe_prof.tier in (1, 2) or universe_prof.stake_cap == 0.0:
+        if (universe_prof.tier in (1, 2) or universe_prof.stake_cap == 0.0) and not is_cand_graduated:
             caps['demoted_market_defense_clamp'] = 0.00
 
     is_officially_demoted_or_quarantined = (
-        tip.get('is_demoted') is True
-        or (not is_test_cand and bool(check_keys & set(gov.get('quarantine_list', []))))
-        or (not is_test_cand and bool(check_keys & set(gov.get('demoted_list', []))))
+        (tip.get('is_demoted') is True and not is_cand_graduated)
+        or (not is_test_cand and not is_cand_graduated and bool(check_keys & set(gov.get('quarantine_list', []))))
+        or (not is_test_cand and not is_cand_graduated and bool(check_keys & set(gov.get('demoted_list', []))))
     )
     if is_officially_demoted_or_quarantined:
         caps['demoted_market_defense_clamp'] = 0.00
-    elif not is_test_cand and ((games_val >= 4 and pnl_val <= -2.00) or (games_val >= 6 and pnl_val < 0.0)):
+    elif not is_test_cand and not is_cand_graduated and ((games_val >= 4 and pnl_val <= -2.00) or (games_val >= 6 and pnl_val < 0.0)):
         # Phase 1: Interim Capital Defense ($0.50 Tourniquet) per Commandment 6
         caps['capital_defense_clamp'] = 0.50
 
     if settings.get('capital_defense', False):
         try:
-            if not is_test_cand:
+            if not is_test_cand and not is_cand_graduated:
                 if check_keys & set(gov.get('quarantine_list', [])):
                     caps['capital_defense_quarantine'] = 0.0
                 if check_keys & set(gov.get('capital_defense_list', [])):
@@ -408,15 +412,15 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
             # Evolutionary Probation Nursery Clamp:
             # Newly graduated markets are clamped to $0.50 nursery tourniquet until verified.
             # Proven Alpha markets (Spreads, Moneylines, 1X2) break out of nursery under Alpha Acceleration.
-            is_unproven_graduated = bool(tip.get('is_graduated', False) and (games_val < 5 or roi_val <= 0.0 or pnl_val <= 0.0))
+            is_unproven_graduated = bool(is_cand_graduated and (games_val < 5 or roi_val <= 0.0 or pnl_val <= 0.0))
             if is_unproven_graduated:
-                caps['probation_nursery_clamp'] = 0.50
+                caps['probation_nursery_clamp'] = max(def_unit, universe_prof.stake_cap if universe_prof and universe_prof.stake_cap is not None else 0.50)
 
             # Demoted Market Quarantine (Constitution Commandment 6):
             # Any demoted or quarantined market is strictly suspended to $0.00 ($0.00 quarantine).
             if is_officially_demoted_or_quarantined:
                 caps['demoted_market_defense_clamp'] = 0.00
-            elif not is_test_cand and ((games_val >= 4 and pnl_val <= -2.00) or (games_val >= 6 and pnl_val < 0.0)):
+            elif not is_test_cand and not is_cand_graduated and ((games_val >= 4 and pnl_val <= -2.00) or (games_val >= 6 and pnl_val < 0.0)):
                 caps['capital_defense_clamp'] = 0.50
 
             # Portfolio Profit Shield (Layer 2): Protect winning alpha by capping unproven markets to $1.00

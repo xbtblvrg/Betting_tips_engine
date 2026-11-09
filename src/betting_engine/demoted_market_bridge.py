@@ -30,24 +30,20 @@ INCUBATOR_DB = DATA / 'shadow_incubator.sqlite3'
 def is_market_graduated(segment_key: str, data_dir: Optional[Path] = None) -> bool:
     """Checks whether a market segment is officially graduated into Tier 3 live execution."""
     try:
+        from .contracts import canonical_segment_aliases
         from .decisions import _get_graduated_segments
         grad_segs = _get_graduated_segments()
-        if segment_key in grad_segs:
-            return True
         parts = segment_key.split('|')
-        if len(parts) == 3:
-            lg, sc, mkt = parts
-            base_mkt = mkt.split(':')[-1]
-            if f"{lg}|{sc}|{base_mkt}" in grad_segs:
-                return True
-            if f"{lg}|{base_mkt}" in grad_segs:
-                return True
+        lg = parts[0]
+        sc = parts[1] if len(parts) > 1 else 'full_game'
+        mkt = parts[2] if len(parts) > 2 else ''
+        aliases = canonical_segment_aliases(lg, sc, mkt)
+        if aliases & grad_segs:
+            return True
         from .shadow_market_incubator import load_graduated_markets
         target_dir = data_dir or DATA
         grads = load_graduated_markets(target_dir)
-        if segment_key in grads:
-            return True
-        if len(parts) == 3 and f"{parts[0]}|{parts[1]}|{parts[2].split(':')[-1]}" in grads:
+        if any(a in grads for a in aliases):
             return True
         return False
     except Exception:

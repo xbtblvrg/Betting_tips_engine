@@ -393,7 +393,7 @@ def build_dashboard(store,health,data_dir):
     # Strict Tier 3 Graduated Gate: Demoted or unproven research markets
     # must NEVER be published in the live recommendations list.
     from .decisions import _get_graduated_segments, _get_demoted_segments
-    from .contracts import split_market
+    from .contracts import split_market, canonical_segment_aliases
     grad_segs = _get_graduated_segments()
     dem_segs = _get_demoted_segments()
 
@@ -405,21 +405,12 @@ def build_dashboard(store,health,data_dir):
         c_league = str(t.get('league', '')).upper()
         c_scope = str(t.get('model_scope', 'full_game'))
         c_market = str(t.get('market', '')).lower()
-        try:
-            c_base_mkt = split_market(c_market)[1]
-        except Exception:
-            c_base_mkt = c_market
-        cand_segs = {
-            f"{c_league}|{c_scope}|{c_market}",
-            f"{c_league}|{c_scope}|{c_base_mkt}",
-        }
-        if c_scope != 'full_game':
-            cand_segs.add(f"{c_league}|{c_market}")
-            cand_segs.add(f"{c_league}|{c_base_mkt}")
-        is_dem = bool(t.get('is_demoted')) or bool(cand_segs & dem_segs)
+        cand_segs = canonical_segment_aliases(c_league, c_scope, c_market)
+        is_grad = bool(t.get('is_graduated')) or bool(cand_segs & grad_segs)
+        is_dem = (bool(t.get('is_demoted')) and not is_grad) or (bool(cand_segs & dem_segs) and not is_grad)
         if is_dem:
             return False
-        return bool(t.get('is_graduated')) or bool(cand_segs & grad_segs)
+        return is_grad
 
     raw_recs = [t for t in chosen if t.get('stake', 0) > 0 or t.get('id') in held_contracts]
     raw_recs += [t for t in alternatives if t.get('id') in held_contracts]

@@ -226,28 +226,36 @@ def evaluate_crucible_candidate(
 
         if candidate.get('id') and not str(candidate.get('id', '')).startswith(('test_', 'cand_test_')):
             try:
+                from .contracts import canonical_segment_aliases
+                from .decisions import _get_graduated_segments, _get_demoted_segments
+                cand_segs = canonical_segment_aliases(str(league).upper(), str(cand_scope), str(market).lower())
+                grad_segs = _get_graduated_segments()
+                is_graduated = bool(candidate.get('is_graduated')) or bool(cand_segs & grad_segs)
+
                 # Demoted markets quarantine check (Commandments 6 & 7: Strictly quarantined $0.00)
-                try:
-                    from .decisions import _get_demoted_segments
-                    dem_segs = _get_demoted_segments()
-                    matched_dem = ({seg_key, alt_key, alt_key2} & dem_segs)
-                    if matched_dem:
-                        hit_key = next(iter(matched_dem))
-                        return False, f"crucible_filter_gate:demoted_market_quarantine:{hit_key}", None
-                except Exception:
-                    pass
+                # Re-graduated Tier 3 markets have passed the Crucible and are in live production
+                if not is_graduated:
+                    try:
+                        dem_segs = _get_demoted_segments()
+                        matched_dem = (cand_segs & dem_segs)
+                        if matched_dem:
+                            hit_key = next(iter(matched_dem))
+                            return False, f"crucible_filter_gate:demoted_market_quarantine:{hit_key}", None
+                    except Exception:
+                        pass
 
                 from .autonomous_roi_governor import get_latest_governor_report
                 gov = get_latest_governor_report(DATA)
                 q_set = set(gov.get('quarantine_list', []))
                 d_set = set(gov.get('capital_defense_list', []))
 
-                matched_q = ({seg_key, alt_key, alt_key2} & q_set)
-                if matched_q:
-                    hit_key = next(iter(matched_q))
-                    return False, f"crucible_filter_gate:roi_governor_quarantine:{hit_key}", None
+                if not is_graduated:
+                    matched_q = (cand_segs & q_set)
+                    if matched_q:
+                        hit_key = next(iter(matched_q))
+                        return False, f"crucible_filter_gate:roi_governor_quarantine:{hit_key}", None
 
-                matched_d = ({seg_key, alt_key, alt_key2} & d_set)
+                matched_d = (cand_segs & d_set)
                 if matched_d:
                     eff_ev = float(candidate.get('expected_roi') or candidate.get('ev') or (p_orig * odds - 1.0))
                     if eff_ev < 0.035:

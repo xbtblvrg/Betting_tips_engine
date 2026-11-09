@@ -616,10 +616,10 @@ class StakeSportsbook:
                     is_demoted = False
                     if total_kind or name in {f'{base} (Incl. {expected_scope})' for base in ('Winner','Handicap','Total')} or name in full_derived:
                         base = total_kind or full_derived.get(name) or ('moneyline' if name.startswith('Winner (') else 'spreads' if name.startswith('Handicap (') else 'totals')
-                        is_graduated = any(_market_is_graduated(g, league, scope, base, name) for g in graduated.values())
-                        is_demoted = any(k in demoted_segments for k in (f"{league}|{scope}|{base}", f"{league}|{scope}|{name}"))
-                        if is_demoted:
-                            is_graduated = False
+                        from .contracts import canonical_segment_aliases
+                        cand_segs = canonical_segment_aliases(league, scope, base)
+                        is_graduated = any(_market_is_graduated(g, league, scope, base, name) for g in graduated.values()) or bool(cand_segs & set(graduated.keys()))
+                        is_demoted = False if is_graduated else any(k in demoted_segments for k in (f"{league}|{scope}|{base}", f"{league}|{scope}|{name}"))
                     else:
                         mapping = dict(named_scope_mapping)
                         if name not in mapping:
@@ -640,10 +640,10 @@ class StakeSportsbook:
                                         break
                         if name not in mapping:continue
                         scope,base=mapping[name]
-                        is_graduated = any(_market_is_graduated(g, league, scope, base, name) for g in graduated.values())
-                        is_demoted = any(k in demoted_segments for k in (f"{league}|{scope}|{base}", f"{league}|{scope}|{name}"))
-                        if is_demoted:
-                            is_graduated = False
+                        from .contracts import canonical_segment_aliases
+                        cand_segs = canonical_segment_aliases(league, scope, base)
+                        is_graduated = any(_market_is_graduated(g, league, scope, base, name) for g in graduated.values()) or bool(cand_segs & set(graduated.keys()))
+                        is_demoted = False if is_graduated else any(k in demoted_segments for k in (f"{league}|{scope}|{base}", f"{league}|{scope}|{name}"))
                         if base not in self.segment_markets.get((league,scope),()):continue
                     kind=base if scope=='full_game' else f'{scope}:{base}'
                     if league.startswith('NCAA') and scope == 'full_game' and base not in self.full_markets.get(league,()):continue
