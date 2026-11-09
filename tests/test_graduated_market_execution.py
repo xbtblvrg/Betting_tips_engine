@@ -640,4 +640,68 @@ def test_unproven_and_demoted_markets_strictly_blocked_from_live_issuance(tmp_pa
     assert unproven_pub_tip['id'] in alt_ids, 'Unproven held contract must remain in alternatives!'
 
 
+def test_canonical_segment_aliasing_end_to_end(tmp_path):
+    """Anti-tautological test: verifies that Crucible graduated markets aliased to sportsbook names
+    are correctly prioritized as graduated (Tier 3), bypassing demotion quarantine across all layers:
+    crucible_rules, markets, decisions, outcome_sizing, and storage."""
+    from betting_engine.contracts import canonical_segment_aliases
+    from betting_engine.crucible_rules import evaluate_crucible_candidate
+
+    # 1. Mathematical alias symmetry
+    nba_aliases = canonical_segment_aliases('NBA', 'half_1', 'spreads')
+    assert 'NBA|half_1|asian_lines:asian_handicap' in nba_aliases
+    assert 'NBA|half_1|spreads' in nba_aliases
+
+    nfl_total_aliases = canonical_segment_aliases('NFL', 'half_1', 'half_1:totals')
+    assert 'NFL|half_1|asian_lines:asian_total' in nfl_total_aliases
+    assert 'NFL|half_1|totals' in nfl_total_aliases
+
+    # 2. Crucible candidate evaluation: a graduated candidate must NOT be blocked by legacy demoted_markets
+    cand = {
+        'id': 'cand_nba_h1_spread_1',
+        'league': 'NBA',
+        'model_scope': 'half_1',
+        'market': 'half_1:spreads',
+        'selection': 'Charlotte Hornets +3.5',
+        'reference_odds': 2.08,
+        'probability': 0.55,
+        'stress_probability': 0.53,
+        'is_graduated': True,
+    }
+    crucible_passed, crucible_reason, crucible_metric = evaluate_crucible_candidate(cand)
+    assert crucible_passed is True, f"Crucible gate failed: {crucible_reason}"
+
+    # 3. Outcome sizing: graduated candidates receive probation floor ($0.50), not $0.00 demotion clamp
+    from betting_engine.outcome_sizing import apply_adjustment
+    base_sizing = {'amount': 0.50, 'note': 'base test unit', 'currency': 'USD'}
+    adjusted = apply_adjustment(base_sizing, cand, {'outcome_sizing_policy': 'historical_confidence_v3'}, remaining=10.0)
+    assert adjusted['amount'] >= 0.50
+    caps = adjusted.get('outcome_adjustment', {}).get('caps', {})
+    assert caps.get('universe_tier_stake_cap', 0.50) >= 0.50
+    assert caps.get('demoted_market_defense_clamp') is None or caps.get('demoted_market_defense_clamp') > 0.0
+
+    # 4. Decisions ranking: candidate receives funded status with stake >= $0.50
+    from betting_engine.decisions import DEFAULT_SETTINGS
+    test_settings = {
+        **DEFAULT_SETTINGS,
+        'family_selection_policy': 'continuous_probability_v4',
+        'is_test': False,
+        'minimum_roi': 0.02,
+    }
+    cand_for_decisions = {
+        **cand,
+        'odds': 2.08,
+        'minimum_odds': 1.80,
+        'expected_roi': 0.08,
+        'stress_roi': 0.05,
+        'push_probability': 0.0,
+        'game_id': 'NBA:game_test_alias_1',
+    }
+    chosen, alts = rank_and_size([cand_for_decisions], test_settings)
+    assert len(chosen) == 1
+    assert chosen[0]['stake'] >= 0.50
+    assert chosen[0]['allocation_code'] == 'funded'
+
+
+
 
