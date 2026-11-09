@@ -144,7 +144,7 @@ def check_live_flow(data_dir, supervisor, previous, now, dashboard_reader=None):
     try:
         if dashboard_reader:dashboard=dashboard_reader()
         else:
-            with urlopen('http://127.0.0.1:8765/api/dashboard',timeout=25) as response:dashboard=json.load(response)
+            with urlopen('http://127.0.0.1:8765/api/dashboard',timeout=60) as response:dashboard=json.load(response)
         from pathlib import Path
         registry_path=Path(data_dir)/'development/engineering.json'
         assignments={}

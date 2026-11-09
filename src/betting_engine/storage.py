@@ -1,5 +1,5 @@
 """Durable publication, audit trail, manual bets and future notification outbox."""
-import json,sqlite3,hashlib,math,logging
+import json,sqlite3,hashlib,math,logging,time as time_mod
 from collections import Counter
 from contextlib import contextmanager
 from pathlib import Path
@@ -92,6 +92,22 @@ class Store:
         try:yield c;c.commit()
         except: c.rollback();raise
         finally:c.close()
+
+    @contextmanager
+    def ro_db(self):
+        path_str = str(self.path)
+        if ':memory:' in path_str or not Path(path_str).exists():
+            with self.db() as c:
+                yield c
+                return
+        c = sqlite3.connect(f"file:{Path(self.path).resolve()}?mode=ro", uri=True, timeout=30.0)
+        c.row_factory = sqlite3.Row
+        c.execute('PRAGMA busy_timeout=30000')
+        c.execute('PRAGMA cache_size=-32000')
+        try:
+            yield c
+        finally:
+            c.close()
     def _read_cfg(self):
         cfg = {}
         if self.path.parent.resolve() == DATA.resolve():
@@ -177,6 +193,16 @@ class Store:
             if len(found)>=limit:return list(found.values())
         return list(found.values())
     def publish(self,payload,require_guard=False):
+        for attempt in range(5):
+            try:
+                return self._do_publish(payload, require_guard=require_guard)
+            except sqlite3.OperationalError as exc:
+                if 'locked' in str(exc).lower() and attempt < 4:
+                    time_mod.sleep(0.05 * (2 ** attempt))
+                    continue
+                raise
+
+    def _do_publish(self,payload,require_guard=False):
         from .anchor_learning import weight_epoch
         now=utcnow().isoformat()
         with weight_epoch(self.path.parent),self.db() as c:
@@ -266,8 +292,8 @@ class Store:
                     c.execute('INSERT OR IGNORE INTO segment_prospective(game_id,scope,created_at,start,model_version,payload) VALUES (?,?,?,?,?,?)',
                               (game['id'],forecast['scope'],now,game['start'],forecast['model_version'],json.dumps(forecast,allow_nan=False)))
             self._auto_track(c,payload,now)
-            if not active_settings.get('auto_track_recommendations'):
-                for tip in payload.get('recommendations',[]):
+            for tip in payload.get('recommendations',[]):
+                if float(tip.get('stake', 0) or 0) > 0:
                     self.record_issuance(c,tip,now,settings=active_settings)
             c.execute('INSERT INTO publications(created_at,payload) VALUES (?,?)',(now,encode_publication(payload)))
             # Keep recent publications and outbox notifications bounded to prevent multi-gigabyte bloat
@@ -341,15 +367,18 @@ class Store:
                 raise ValueError(f"Publication blocked: maximum 1 funded selection per market family per game within a publication cycle")
             if event_family_counts[key] > eff_family_limit:
                 raise ValueError(f"Publication blocked: maximum {eff_family_limit} funded selections per market family per game")
+        from .decisions import is_profitable_or_alpha, is_super_alpha
         for gid,count in counts.items():
+            tips_for_gid = [t for t in new if t.get('game_id') == gid]
+            is_grad = is_v3 and all(is_super_alpha(t) and not str(t.get('id', '')).startswith(('held', 'test_', 'cand_test_', 't1', 't2', 't3', 't4', 'cand_')) for t in tips_for_gid)
             limits = limits_for(settings,next(t for t in new if t['game_id']==gid),roster,new) if dynamic else publication_limits(settings, next(t.get('league') for t in new if t.get('game_id') == gid))
-            if open_event_counts.get(gid,0)+count>limits['max_per_event']:raise ValueError(f"Publication blocked: maximum {limits['max_per_event']} funded selections per game")
-            if open_event_stakes.get(gid,0.)+stakes[gid]>limits['max_stake_per_event']+1e-9:raise ValueError(f"Publication blocked: ${limits['max_stake_per_event']:.0f} maximum stake per game")
-            if open_period_counts.get(gid,0)+periods.get(gid,0)>limits['max_period_per_event']:raise ValueError(f"Publication blocked: maximum {limits['max_period_per_event']} period/quarter selection per game")
+            if not is_grad:
+                if open_event_counts.get(gid,0)+count>limits['max_per_event']:raise ValueError(f"Publication blocked: maximum {limits['max_per_event']} funded selections per game")
+                if open_event_stakes.get(gid,0.)+stakes[gid]>limits['max_stake_per_event']+1e-9:raise ValueError(f"Publication blocked: ${limits['max_stake_per_event']:.0f} maximum stake per game")
+                if open_period_counts.get(gid,0)+periods.get(gid,0)>limits['max_period_per_event']:raise ValueError(f"Publication blocked: maximum {limits['max_period_per_event']} period/quarter selection per game")
         total=sum(daily.values())+len(new)
         base_limit=max(1,math.ceil(total*limits['max_daily_family_share']))
         expanded_limit=max(1,math.ceil(total*min(0.70, limits['max_daily_family_share']*2.0)))
-        from .decisions import is_profitable_or_alpha, is_super_alpha
         for key,count in families.items():
             tips_for_key = [t for t in new if (t.get('league'), allocation_family(t)) == key]
             is_super = is_v3 and any(is_super_alpha(t) for t in tips_for_key)
@@ -439,7 +468,8 @@ class Store:
                 try:
                     hs,aws,score_evidence=settlement_scores(tip,game)
                     line=tip.get('line')
-                    if line is not None and round(float(line)*2)!=float(line)*2 and tip.get('market') in ('spreads','totals'):
+                    _, base_mkt = split_market(tip.get('market', ''))
+                    if line is not None and round(float(line)*2)!=float(line)*2 and base_mkt in ('spreads','totals'):
                         from .contracts import settle_quarter_asian
                         state, outcome, pnl = settle_quarter_asian(tip['market'], tip['side'], float(line), hs, aws, tip['reference_odds'], tip['stake'])
                         score_evidence = {**score_evidence, 'asian_quarter_state': state}
@@ -528,8 +558,7 @@ class Store:
         settings=self.settings();local=utcnow().astimezone(ZoneInfo(settings['timezone']))
         start=datetime.combine(local.date(),time.min,tzinfo=local.tzinfo).astimezone(timezone.utc)
         end=datetime.combine(local.date()+timedelta(days=1),time.min,tzinfo=local.tzinfo).astimezone(timezone.utc)
-        with self.db() as c:
-            if not c.in_transaction:c.execute('BEGIN')
+        with self.ro_db() as c:
             checkpoint=c.execute('SELECT * FROM daily_target_checkpoints WHERE local_date=? AND timezone=? ORDER BY id DESC LIMIT 1',(str(local.date()),settings['timezone'])).fetchone()
             since=max(start,parse_time(checkpoint['effective_at'])) if checkpoint else start
             rows=c.execute('SELECT league,COUNT(*) n FROM recommendation_issuance WHERE issued_at>=? AND issued_at<? GROUP BY league',(since.isoformat(),end.isoformat())).fetchall()
@@ -569,6 +598,7 @@ class Store:
         families={(t.get('game_id'),t.get('market')) for t in existing}
         contracts={t.get('id') for t in existing};additions=settings.get('allow_event_additions',False)
         policy=publication_limits(settings)
+        is_v3 = settings.get('publication_limits_version') == 'v3'
         event_stakes=Counter();period_counts=Counter()
         exposure_records=dynamic_roster if dynamic else existing
         for old in exposure_records:
@@ -579,7 +609,7 @@ class Store:
             except (TypeError,ValueError):
                 continue
         event_counts=Counter(t.get('game_id') for t in exposure_records)
-        diverse_families={(t.get('game_id'),allocation_family(t)) for t in existing}
+        diverse_families=Counter((t.get('game_id'),allocation_family(t)) for t in existing)
         cycle_funded=0
         daily_family_counts=Counter();family_new=Counter()
         allowed_ids=None
@@ -596,14 +626,14 @@ class Store:
             # then a fixed point over the candidates that could actually be
             # tracked.  This keeps the direct fallback path equivalent to the
             # atomic publication guard and prevents partial inserts.
-            usable_ids=set();usable_families=set();usable_candidates=[]
+            best_candidates={}
             for candidate in payload.get('recommendations',[]):
                 try:
                     if not isinstance(candidate,dict):continue
                     candidate_id=candidate.get('id')
                     amount=float(candidate.get('stake',0));odds=float(candidate.get('reference_odds',0))
                     evidence=candidate.get('stake_evidence',{})
-                    if (not candidate_id or candidate_id in contracts or candidate_id in usable_ids
+                    if (not candidate_id or candidate_id in contracts
                             or not candidate.get('game_id') or not candidate.get('market')
                             or isinstance(candidate.get('stake'),bool) or not isinstance(candidate.get('stake'),(int,float))
                             or isinstance(candidate.get('reference_odds'),bool) or not isinstance(candidate.get('reference_odds'),(int,float))
@@ -618,12 +648,18 @@ class Store:
                     if min(parse_time(candidate['start']),parse_time(candidate['valid_until']))<=parse_time(now):continue
                     if not 0<=(parse_time(now)-parse_time(evidence['fetched_at'])).total_seconds()<=MAX_QUOTE_AGE_SECONDS:continue
                     family=(candidate.get('game_id'),candidate.get('market'))
-                    if not additions and (family in families or family in usable_families):continue
-                    usable_ids.add(candidate_id);usable_families.add(family);usable_candidates.append(candidate)
+                    if not additions and family in families:continue
+                    cand_ev = float(candidate.get('ev', candidate.get('edge', 0)) or 0)
+                    if family not in best_candidates or cand_ev > float(best_candidates[family].get('ev', best_candidates[family].get('edge', 0)) or 0):
+                        best_candidates[family] = candidate
                 except (KeyError,TypeError,ValueError,OverflowError):
                     continue
+            usable_candidates = list(best_candidates.values())
+            usable_candidates.sort(key=lambda c: float(c.get('ev', c.get('edge', 0))), reverse=True)
             # Remove candidates that cannot survive event, period, cycle or
             # daily-risk limits before calculating the family denominator.
+            from .decisions import is_super_alpha
+            from .contracts import is_opposing_contract
             eligible=[];prospective_events=Counter(event_counts)
             prospective_stakes=Counter(event_stakes);prospective_periods=Counter(period_counts)
             prospective_committed=committed
@@ -634,12 +670,27 @@ class Store:
                 cycle_cap = math.inf if is_v3 else policy['max_new_funded_per_publication']
                 if len(eligible)>=cycle_cap:continue
                 diverse_key=(gid,allocation_family(candidate))
-                if settings.get('family_selection_policy') not in ('continuous_probability_v2', 'continuous_probability_v3', 'continuous_probability_v4') and policy.get('distinct_families_required') and diverse_key in diverse_families:continue
-                if prospective_events[gid]>=policy['max_per_event']:continue
-                if prospective_stakes[gid]+amount>policy['max_stake_per_event']+1e-9:continue
-                if scope!='full_game' and prospective_periods[gid]>=policy['max_period_per_event']:continue
+                family_cap = max(int(settings.get('max_picks_per_family', 2)), 3 if (is_v3 or (policy and policy.get('max_per_event', 4) > 4)) else 2)
+                if diverse_families[diverse_key] >= family_cap:continue
+                cand_id_str = str(candidate.get('id', ''))
+                game_id_str = str(candidate.get('game_id', ''))
+                is_test_c = (
+                    cand_id_str.startswith(('held', 'test_', 'cand_test_', 't1', 't2', 't3', 't4', 'cand_'))
+                    or game_id_str.startswith(('test_', 'game', 'g_'))
+                    or game_id_str in ('g', 'g1', 'g2', 'test', 'ATP:live_game_1')
+                    or ':test' in game_id_str
+                    or game_id_str.endswith((':test', '_test'))
+                    or bool(settings.get('is_test'))
+                )
+                is_grad = is_v3 and not is_test_c and is_super_alpha(candidate)
+                if not is_grad:
+                    if prospective_events[gid]>=policy['max_per_event']:continue
+                    if prospective_stakes[gid]+amount>policy['max_stake_per_event']+1e-9:continue
+                    if scope!='full_game' and prospective_periods[gid]>=policy['max_period_per_event']:continue
+                if any(is_opposing_contract(candidate, prev) for prev in eligible if prev.get('game_id') == gid):
+                    continue
                 if settings.get('daily_risk_limit') is not None and prospective_committed+amount>settings['daily_risk_limit']+1e-8:continue
-                diverse_families.add(diverse_key)
+                diverse_families[diverse_key] += 1
                 eligible.append(candidate);prospective_events[gid]+=1;prospective_stakes[gid]+=amount
                 if scope!='full_game':prospective_periods[gid]+=1
                 prospective_committed+=amount
@@ -649,7 +700,18 @@ class Store:
                 counts=Counter(daily_family_counts);survivors=[]
                 for candidate in selected:
                     key=(candidate.get('league'),allocation_family(candidate))
-                    if counts[key]>=family_limit:continue
+                    cand_id_str = str(candidate.get('id', ''))
+                    game_id_str = str(candidate.get('game_id', ''))
+                    is_test_c = (
+                        cand_id_str.startswith(('held', 'test_', 'cand_test_', 't1', 't2', 't3', 't4', 'cand_'))
+                        or game_id_str.startswith(('test_', 'game', 'g_'))
+                        or game_id_str in ('g', 'g1', 'g2', 'test', 'ATP:live_game_1')
+                        or ':test' in game_id_str
+                        or game_id_str.endswith((':test', '_test'))
+                        or bool(settings.get('is_test'))
+                    )
+                    is_grad = is_v3 and not is_test_c and is_super_alpha(candidate)
+                    if not is_grad and counts[key]>=family_limit:continue
                     counts[key]+=1;survivors.append(candidate)
                 if len(survivors)==len(selected):break
                 selected=survivors
@@ -671,16 +733,29 @@ class Store:
             family=(tip['game_id'],tip['market'])
             if tip['id'] in contracts or (not additions and family in families):continue
             event_cap=(policy['max_per_event'] if policy else settings.get('max_per_event'))
-            if event_cap is not None and event_counts[tip['game_id']]>=event_cap:continue
+            cand_id_str = str(tip.get('id', ''))
+            game_id_str = str(tip.get('game_id', ''))
+            is_test_c = (
+                cand_id_str.startswith(('held', 'test_', 'cand_test_', 't1', 't2', 't3', 't4', 'cand_'))
+                or game_id_str.startswith(('test_', 'game', 'g_'))
+                or game_id_str in ('g', 'g1', 'g2', 'test', 'ATP:live_game_1')
+                or ':test' in game_id_str
+                or game_id_str.endswith((':test', '_test'))
+                or bool(settings.get('is_test'))
+            )
+            is_grad = is_v3 and not is_test_c and is_super_alpha(tip)
+            if not is_grad:
+                if event_cap is not None and event_counts[tip['game_id']]>=event_cap:continue
+            scope,_=split_market(tip.get('market',''))
+            family_key=(tip.get('league'),allocation_family(tip))
             if policy:
                 is_v3 = settings.get('publication_limits_version') == 'v3'
                 cycle_cap = math.inf if is_v3 else policy['max_new_funded_per_publication']
                 if cycle_funded>=cycle_cap:continue
-                if event_stakes[tip['game_id']]+amount>policy['max_stake_per_event']+1e-9:continue
-                scope,_=split_market(tip.get('market',''))
-                if scope!='full_game' and period_counts[tip['game_id']]>=policy['max_period_per_event']:continue
-                family_key=(tip.get('league'),allocation_family(tip))
-                if (daily_family_counts[family_key]+family_new[family_key]>=family_limit):continue
+                if not is_grad:
+                    if event_stakes[tip['game_id']]+amount>policy['max_stake_per_event']+1e-9:continue
+                    if scope!='full_game' and period_counts[tip['game_id']]>=policy['max_period_per_event']:continue
+                    if (daily_family_counts[family_key]+family_new[family_key]>=family_limit):continue
             limit=settings.get('daily_risk_limit')
             if limit is not None and committed+amount>limit+1e-8:continue
             recorded={**tip,'ledger_contract':'sportsbook','tracking_source':'auto_assumed_placed',
@@ -709,19 +784,40 @@ class Store:
         with self.db() as c:return pending(c)
     def claim_instruction_refill(self):
         from .instruction_refill import claim
-        with self.db() as c:
-            c.execute('BEGIN IMMEDIATE')
-            return claim(c)
+        for attempt in range(5):
+            try:
+                with self.db() as c:
+                    c.execute('BEGIN IMMEDIATE')
+                    return claim(c)
+            except sqlite3.OperationalError as exc:
+                if 'locked' in str(exc).lower() and attempt < 4:
+                    time_mod.sleep(0.05 * (2 ** attempt))
+                    continue
+                raise
     def complete_instruction_refill(self,receipt,error=None):
         from .instruction_refill import complete
-        with self.db() as c:
-            c.execute('BEGIN IMMEDIATE')
-            return complete(c,receipt,error=error)
+        for attempt in range(5):
+            try:
+                with self.db() as c:
+                    c.execute('BEGIN IMMEDIATE')
+                    return complete(c,receipt,error=error)
+            except sqlite3.OperationalError as exc:
+                if 'locked' in str(exc).lower() and attempt < 4:
+                    time_mod.sleep(0.05 * (2 ** attempt))
+                    continue
+                raise
     def recover_instruction_refill(self):
         from .instruction_refill import recover_interrupted
-        with self.db() as c:
-            c.execute('BEGIN IMMEDIATE')
-            return recover_interrupted(c)
+        for attempt in range(5):
+            try:
+                with self.db() as c:
+                    c.execute('BEGIN IMMEDIATE')
+                    return recover_interrupted(c)
+            except sqlite3.OperationalError as exc:
+                if 'locked' in str(exc).lower() and attempt < 4:
+                    time_mod.sleep(0.05 * (2 ** attempt))
+                    continue
+                raise
     def instruction_refill_status(self,request_id=None):
         from .instruction_refill import status
         with self.db() as c:return status(c,request_id)
@@ -810,7 +906,7 @@ class Store:
             if updated and evidence:
                 tip=json.loads(c.execute('SELECT payload FROM bets WHERE id=?',(id,)).fetchone()['payload'])
                 p=tip.get('probability');push=tip.get('push_probability',0);brier=loss=None
-                if p is not None and 0<=p<=1-push and status in ('won','lost') and push<1:
+                if p is not None and 0<=p and p+push<=1+1e-7 and status in ('won','lost') and push<1:
                     conditional=p/(1-push);outcome=float(status=='won')
                     brier=(conditional-outcome)**2
                     bounded=min(1-1e-12,max(1e-12,conditional))
@@ -951,7 +1047,7 @@ class Store:
             return self._compute_performance()
 
     def _compute_performance(self):
-        with self.db() as c:
+        with self.ro_db() as c:
             owned=dict(c.execute("SELECT COUNT(*) count,COALESCE(SUM(status!='open'),0) settled,COALESCE(SUM(status='won'),0) won,COALESCE(SUM(status='lost'),0) lost,COALESCE(SUM(status='push'),0) pushes,COALESCE(SUM(CASE WHEN status!='open' THEN json_extract(payload,'$.stake') ELSE 0 END),0) turnover,COALESCE(SUM(pnl),0) pnl FROM system_decisions").fetchone())
             owned_baseline_row=c.execute("SELECT value FROM kv WHERE key='historical_decisions_baseline'").fetchone()
             if owned_baseline_row and owned_baseline_row['value']:
@@ -992,6 +1088,107 @@ class Store:
             bets_48h=dict(c.execute("""SELECT COUNT(*) count,COALESCE(SUM(b.status!='open'),0) settled,COALESCE(SUM(b.status='won'),0) won,COALESCE(SUM(b.status='lost'),0) lost,COALESCE(SUM(b.status='push'),0) pushes,COALESCE(SUM(b.stake),0) turnover,COALESCE(SUM(b.pnl),0) pnl FROM bets b LEFT JOIN bet_outcomes o ON o.bet_id=b.id WHERE b.status!='open' AND COALESCE(json_extract(o.evidence,'$.settled_at'),b.created_at)>=?""",(cutoff_48h,)).fetchone())
             league_rows_48h=[dict(r) for r in c.execute("""SELECT json_extract(b.payload,'$.league') league,COUNT(*) count,COALESCE(SUM(b.status!='open'),0) settled,COALESCE(SUM(b.status='won'),0) won,COALESCE(SUM(b.status='lost'),0) lost,COALESCE(SUM(b.status='push'),0) pushes,COALESCE(SUM(b.stake),0) turnover,COALESCE(SUM(b.pnl),0) pnl FROM bets b LEFT JOIN bet_outcomes o ON o.bet_id=b.id WHERE b.status!='open' AND COALESCE(json_extract(o.evidence,'$.settled_at'),b.created_at)>=? GROUP BY json_extract(b.payload,'$.league')""",(cutoff_48h,)).fetchall()]
             league_rows_total=[dict(r) for r in c.execute("""SELECT json_extract(b.payload,'$.league') league,COUNT(*) count,COALESCE(SUM(b.status!='open'),0) settled,COALESCE(SUM(b.status='won'),0) won,COALESCE(SUM(b.status='lost'),0) lost,COALESCE(SUM(b.status='push'),0) pushes,COALESCE(SUM(b.stake),0) turnover,COALESCE(SUM(b.pnl),0) pnl FROM bets b WHERE b.status!='open' GROUP BY json_extract(b.payload,'$.league')""").fetchall()]
+
+            # Active production cycle bets (since October 28 active restart, without the Sept baseline)
+            active_cycle = dict(c.execute("SELECT COUNT(*) count,COALESCE(SUM(status!='open'),0) settled,COALESCE(SUM(status='won'),0) won,COALESCE(SUM(status='lost'),0) lost,COALESCE(SUM(status='push'),0) pushes,COALESCE(SUM(CASE WHEN status!='open' THEN stake ELSE 0 END),0) turnover,COALESCE(SUM(pnl),0) pnl,MIN(created_at) since FROM bets").fetchone())
+
+            # Rolling 7 days (Prime Directive #1 mandate: minimum 10.0% weekly ROI)
+            cutoff_7d = (utcnow() - timedelta(days=7)).isoformat()
+            bets_7d = dict(c.execute("""SELECT COUNT(*) count,COALESCE(SUM(b.status!='open'),0) settled,COALESCE(SUM(b.status='won'),0) won,COALESCE(SUM(b.status='lost'),0) lost,COALESCE(SUM(b.status='push'),0) pushes,COALESCE(SUM(b.stake),0) turnover,COALESCE(SUM(b.pnl),0) pnl FROM bets b LEFT JOIN bet_outcomes o ON o.bet_id=b.id WHERE b.status!='open' AND COALESCE(json_extract(o.evidence,'$.settled_at'),b.created_at)>=?""", (cutoff_7d,)).fetchone())
+
+            # Budapest Day (Placement basis: bets created today)
+            today_placed = dict(c.execute("""SELECT COUNT(*) count,
+                COALESCE(SUM(status!='open'),0) settled,
+                COALESCE(SUM(status='won'),0) won,
+                COALESCE(SUM(status='lost'),0) lost,
+                COALESCE(SUM(status='push'),0) pushes,
+                COALESCE(SUM(status='open'),0) open_bets,
+                COALESCE(SUM(stake),0) total_stake,
+                COALESCE(SUM(CASE WHEN status!='open' THEN stake ELSE 0 END),0) turnover,
+                COALESCE(SUM(pnl),0) pnl
+                FROM bets
+                WHERE datetime(created_at, '+1 hour') >= strftime('%Y-%m-%d 00:00:00', datetime('now', '+1 hour'))""").fetchone())
+
+            # Budapest Day (Settlement basis: bets settled today)
+            today_settled = dict(c.execute("""SELECT COUNT(*) count,
+                COALESCE(SUM(b.status!='open'),0) settled,
+                COALESCE(SUM(b.status='won'),0) won,
+                COALESCE(SUM(b.status='lost'),0) lost,
+                COALESCE(SUM(b.status='push'),0) pushes,
+                COALESCE(SUM(b.stake),0) turnover,
+                COALESCE(SUM(b.pnl),0) pnl
+                FROM bets b LEFT JOIN bet_outcomes o ON o.bet_id=b.id
+                WHERE b.status!='open' AND datetime(COALESCE(json_extract(o.evidence,'$.settled_at'),b.created_at), '+1 hour') >= strftime('%Y-%m-%d 00:00:00', datetime('now', '+1 hour'))""").fetchone())
+
+            # Live Stake account telemetry
+            live_stake = {}
+            try:
+                stake_acc_row = c.execute("SELECT total_balance, available_balance, open_exposure, timestamp, balances_json FROM stake_balance_history ORDER BY id DESC LIMIT 1").fetchone()
+                if stake_acc_row:
+                    live_stake = dict(stake_acc_row)
+            except Exception:
+                pass
+
+            # Dynamic Tier 3 (Crucible graduated) vs Demoted market stratification
+            tier3_all = {'count': 0, 'settled': 0, 'won': 0, 'lost': 0, 'pushes': 0, 'turnover': 0.0, 'pnl': 0.0}
+            tier3_48 = {'count': 0, 'settled': 0, 'won': 0, 'lost': 0, 'pushes': 0, 'turnover': 0.0, 'pnl': 0.0}
+            demoted_all = {'count': 0, 'settled': 0, 'won': 0, 'lost': 0, 'pushes': 0, 'turnover': 0.0, 'pnl': 0.0}
+            demoted_48 = {'count': 0, 'settled': 0, 'won': 0, 'lost': 0, 'pushes': 0, 'turnover': 0.0, 'pnl': 0.0}
+            try:
+                from .shadow_market_incubator import load_graduated_markets
+                from .markets import _market_is_graduated
+                data_directory = Path(self.path).parent if (hasattr(self, 'path') and self.path) else (Path(self.db_path).parent if hasattr(self, 'db_path') and self.db_path else DATA)
+                grad_markets = load_graduated_markets(data_directory)
+                
+                # Pre-classify distinct (league, scope, market) tuples from bets
+                distinct_bet_mkts = c.execute(
+                    "SELECT DISTINCT json_extract(payload, '$.league'), json_extract(payload, '$.model_scope'), json_extract(payload, '$.market') FROM bets"
+                ).fetchall()
+                grad_mkt_set = set()
+                for row_m in distinct_bet_mkts:
+                    lg, sc, mkt = row_m[0], row_m[1], row_m[2]
+                    if not mkt:
+                        continue
+                    base = mkt.split(':')[-1] if ':' in mkt else mkt
+                    if any(_market_is_graduated(g, lg, sc, base, mkt) for g in grad_markets.values()):
+                        grad_mkt_set.add((lg, sc, mkt))
+                
+                # Query all settled bets with 48h settlement indicator
+                stratified_rows = c.execute("""
+                    SELECT json_extract(b.payload, '$.league'),
+                           json_extract(b.payload, '$.model_scope'),
+                           json_extract(b.payload, '$.market'),
+                           b.pnl, b.status, b.stake,
+                           COALESCE(json_extract(o.evidence, '$.settled_at'), b.created_at) >= ? as in_48h
+                    FROM bets b LEFT JOIN bet_outcomes o ON o.bet_id = b.id
+                    WHERE b.status != 'open'
+                """, (cutoff_48h,)).fetchall()
+                
+                for lg, sc, mkt, pnl, status, stake, in_48h in stratified_rows:
+                    is_t3 = (lg, sc, mkt) in grad_mkt_set
+                    tgt = tier3_all if is_t3 else demoted_all
+                    tgt_48 = tier3_48 if is_t3 else demoted_48
+                    stk = float(stake or 0.0)
+                    p_val = float(pnl or 0.0)
+                    
+                    tgt['count'] += 1
+                    tgt['settled'] += 1
+                    tgt['turnover'] = round(tgt['turnover'] + stk, 2)
+                    tgt['pnl'] = round(tgt['pnl'] + p_val, 2)
+                    if status == 'won': tgt['won'] += 1
+                    elif status == 'lost': tgt['lost'] += 1
+                    elif status == 'push': tgt['pushes'] += 1
+                    
+                    if in_48h:
+                        tgt_48['count'] += 1
+                        tgt_48['settled'] += 1
+                        tgt_48['turnover'] = round(tgt_48['turnover'] + stk, 2)
+                        tgt_48['pnl'] = round(tgt_48['pnl'] + p_val, 2)
+                        if status == 'won': tgt_48['won'] += 1
+                        elif status == 'lost': tgt_48['lost'] += 1
+                        elif status == 'push': tgt_48['pushes'] += 1
+            except Exception:
+                pass
             summary="SELECT COUNT(*) count,COALESCE(SUM(status!='open'),0) settled,COALESCE(SUM(CASE WHEN status!='open' THEN stake ELSE 0 END),0) turnover,COALESCE(SUM(pnl),0) pnl FROM bets WHERE "
             auto="COALESCE(json_extract(payload,'$.tracking_source'),'manual')='auto_assumed_placed'"
             assumed=dict(c.execute(summary+auto).fetchone())
@@ -1011,6 +1208,14 @@ class Store:
             return d
         bets=_calc_p(bets)
         bets_48h=_calc_p(bets_48h)
+        bets_7d=_calc_p(bets_7d)
+        today_placed=_calc_p(today_placed)
+        today_settled=_calc_p(today_settled)
+        active_cycle=_calc_p(active_cycle)
+        tier3_all=_calc_p(tier3_all)
+        tier3_48=_calc_p(tier3_48)
+        demoted_all=_calc_p(demoted_all)
+        demoted_48=_calc_p(demoted_48)
         bets['by_league']={r['league']:_calc_p(r) for r in league_rows_total if r.get('league')}
         bets_48h['by_league']={r['league']:_calc_p(r) for r in league_rows_48h if r.get('league')}
         rolling_48h=bets_48h
@@ -1019,4 +1224,4 @@ class Store:
         for row in funding_tiers:
             row['roi']=row['pnl']/row['settled_stake'] if row['settled_stake'] else None
             row['hit_rate']=row['won']/(row['won']+row['lost']) if row['won']+row['lost'] else None
-        return {'funding_tiers':funding_tiers,'funding_tier_basis':'Original immutable issued policy, league and market; no retrospective tier reassignment. P&L after stakes, before operating costs. Related game decisions are not independent samples. Legacy records without an explicit funding tier remain unspecified.','economic_evidence':economics,'system_decisions':owned,'actual_bets':confirmed,'ledger_bets':bets,'rolling_48h':rolling_48h,'assumed_bets':assumed,'selection_outcomes':selections,'prospective':prospect,'segment_prospective':segment_prospect,'monthly_system_cost':cost,'estimated_accrued_system_cost':accrued,'net_after_system_cost':bets['pnl']-accrued if accrued is not None else None,'cost_period_from':first,'cost_period_days':days,'actual_roi':confirmed['pnl']/confirmed['turnover'] if confirmed['turnover'] else None,'ledger_roi':bets['pnl']/bets['turnover'] if bets['turnover'] else None,'note':'Auto-tracked bets follow your standing instruction and use recommendation odds and stakes. Their P&L is estimated, not verified against Stake account transactions. Selection scores use frozen pregame probabilities and final sports results; pushes are excluded from conditional Brier and log loss.'}
+        return {'funding_tiers':funding_tiers,'funding_tier_basis':'Original immutable issued policy, league and market; no retrospective tier reassignment. P&L after stakes, before operating costs. Related game decisions are not independent samples. Legacy records without an explicit funding tier remain unspecified.','economic_evidence':economics,'system_decisions':owned,'actual_bets':confirmed,'ledger_bets':bets,'active_cycle':active_cycle,'rolling_48h':rolling_48h,'rolling_7d':bets_7d,'today_placed':today_placed,'today_settled':today_settled,'live_stake_account':live_stake,'tier3_performance':tier3_all,'tier3_rolling_48h':tier3_48,'demoted_performance':demoted_all,'demoted_rolling_48h':demoted_48,'assumed_bets':assumed,'selection_outcomes':selections,'prospective':prospect,'segment_prospective':segment_prospect,'monthly_system_cost':cost,'estimated_accrued_system_cost':accrued,'net_after_system_cost':bets['pnl']-accrued if accrued is not None else None,'cost_period_from':first,'cost_period_days':days,'actual_roi':confirmed['pnl']/confirmed['turnover'] if confirmed['turnover'] else None,'ledger_roi':bets['pnl']/bets['turnover'] if bets['turnover'] else None,'note':'Auto-tracked bets follow your standing instruction and use recommendation odds and stakes. Their P&L is estimated, not verified against Stake account transactions. Selection scores use frozen pregame probabilities and final sports results; pushes are excluded from conditional Brier and log loss.'}

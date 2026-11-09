@@ -93,6 +93,98 @@ class SynthesizedModelRecord:
         return asdict(self)
 
 
+def _fix_indentation(code: str) -> str:
+    """Attempts to recover from mixed or unexpected indentation in LLM-generated code."""
+    try:
+        ast.parse(code)
+        return code
+    except SyntaxError as e:
+        if 'unexpected indent' not in str(e):
+            return code
+
+    lines = code.splitlines()
+    in_doc = False
+    q_char = None
+    code_lines_indices = []
+    for i, line in enumerate(lines):
+        s = line.strip()
+        if not s:
+            continue
+        if not in_doc and (s.startswith('"""') or s.startswith("'''")):
+            q_char = '"""' if s.startswith('"""') else "'''"
+            if s.count(q_char) < 2:
+                in_doc = True
+            continue
+        if in_doc:
+            if q_char in line:
+                in_doc = False
+            continue
+        code_lines_indices.append(i)
+
+    if not code_lines_indices:
+        return code
+
+    first_idx = code_lines_indices[0]
+    first_line = lines[first_idx]
+    first_indent = len(first_line) - len(first_line.lstrip())
+    if first_indent > 0:
+        new_lines = list(lines[:first_idx])
+        for l in lines[first_idx:]:
+            if len(l) >= first_indent and l[:first_indent] == ' ' * first_indent:
+                new_lines.append(l[first_indent:])
+            elif not l.strip():
+                new_lines.append('')
+            else:
+                new_lines.append(l)
+        cand = '\n'.join(new_lines)
+        try:
+            ast.parse(cand)
+            return cand
+        except Exception:
+            pass
+    return code
+
+
+def _inject_imports_safely(code: str, new_imports: List[str]) -> str:
+    """Injects imports after any __future__ statements and module docstrings, preserving syntax validity."""
+    if not new_imports:
+        return code
+
+    import_block = "\n".join(new_imports) + "\n"
+    lines = code.splitlines()
+    insert_idx = 0
+
+    in_triple_quotes = False
+    quote_char = None
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            if not in_triple_quotes:
+                insert_idx = i + 1
+            continue
+        if not in_triple_quotes and (stripped.startswith('"""') or stripped.startswith("'''")):
+            quote_char = '"""' if stripped.startswith('"""') else "'''"
+            if stripped.count(quote_char) >= 2:
+                insert_idx = i + 1
+                continue
+            else:
+                in_triple_quotes = True
+                continue
+        if in_triple_quotes:
+            if quote_char in line:
+                in_triple_quotes = False
+                insert_idx = i + 1
+            continue
+        if stripped.startswith("from __future__"):
+            insert_idx = i + 1
+            continue
+        break
+
+    prefix = "\n".join(lines[:insert_idx])
+    suffix = "\n".join(lines[insert_idx:])
+    return (prefix + "\n" if prefix else "") + import_block + suffix
+
+
 def extract_clean_code(answer: str) -> str:
     """Robustly extracts executable Python source code from LLM response text."""
     if not answer or not answer.strip():
@@ -106,31 +198,32 @@ def extract_clean_code(answer: str) -> str:
     text = re.sub(r'<antThinking\b[^>]*>.*?</antThinking>', '', text, flags=re.DOTALL | re.IGNORECASE)
     text = text.strip()
 
+    import textwrap
     code = ""
     # 1. Closed code blocks: prioritize block containing 'class '
     blocks = re.findall(r'```(?:python)?\s*\n(.*?)\n```', text, re.DOTALL | re.IGNORECASE)
     for b in blocks:
         if 'class ' in b:
-            code = b.strip()
+            code = textwrap.dedent(b).strip()
             break
     if not code and blocks:
         for b in blocks:
             if b.strip():
-                code = b.strip()
+                code = textwrap.dedent(b).strip()
                 break
 
     if not code:
         inline_blocks = re.findall(r'```(?:python)?\s*(.*?)\s*```', text, re.DOTALL | re.IGNORECASE)
         for b in inline_blocks:
             if 'class ' in b:
-                code = b.strip()
+                code = textwrap.dedent(b).strip()
                 break
 
     # 2. Unclosed code block: starts with ```python or ``` but never closed
     if not code:
         unclosed = re.search(r'```(?:python)?\s*\n(.*)', text, re.DOTALL | re.IGNORECASE)
         if unclosed and 'class ' in unclosed.group(1):
-            code = unclosed.group(1).strip()
+            code = textwrap.dedent(unclosed.group(1)).strip()
 
     # 3. No fences: find first line of actual Python code (import, from, class, def, @)
     if not code:
@@ -144,23 +237,33 @@ def extract_clean_code(answer: str) -> str:
 
         if code_start_idx is not None:
             candidate_lines = lines[code_start_idx:]
-            cand = "\n".join(candidate_lines).strip()
+            cand = textwrap.dedent("\n".join(candidate_lines)).strip()
             if 'class ' in cand:
                 code = cand
 
     if not code:
         return ""
 
+    # Strip markdown blockquote prefixes if present
+    if code.startswith('>'):
+        code = '\n'.join(re.sub(r'^>\s?', '', line) for line in code.splitlines())
+    code = textwrap.dedent(code).strip()
+    code = _fix_indentation(code)
+
+    # Collect needed normalization imports
+    required_injections: List[str] = []
+
     # Auto-normalize base candidate imports if used
     if 'DiscreteDistribution' in code or 'build_universal_score_lattice' in code or 'BaseCandidateModel' in code:
         if 'from betting_engine.sandbox_models.base import' in code:
             code = re.sub(
-                r'from betting_engine\.sandbox_models\.base import [^\n]+',
+                r'from betting_engine\.sandbox_models\.base import (?:\([^)]*\)|[^\n]+)',
                 'from betting_engine.sandbox_models.base import BaseCandidateModel, DiscreteDistribution, build_universal_score_lattice',
-                code
+                code,
+                flags=re.DOTALL
             )
         elif 'from betting_engine.sandbox_models.base' not in code:
-            code = 'from betting_engine.sandbox_models.base import BaseCandidateModel, DiscreteDistribution, build_universal_score_lattice\n' + code
+            required_injections.append('from betting_engine.sandbox_models.base import BaseCandidateModel, DiscreteDistribution, build_universal_score_lattice')
 
     # Auto-normalize quant primitives imports if referenced
     quant_names = [
@@ -171,7 +274,10 @@ def extract_clean_code(answer: str) -> str:
     ]
     used_primitives = [p for p in quant_names if p in code and f'import {p}' not in code and '*' not in code]
     if used_primitives:
-        code = f"from betting_engine.quant_primitives import {', '.join(used_primitives)}\n" + code
+        required_injections.append(f"from betting_engine.quant_primitives import {', '.join(used_primitives)}")
+
+    if required_injections:
+        code = _inject_imports_safely(code, required_injections)
 
     return code
 
@@ -187,8 +293,12 @@ def check_ast_safety(source_code: str) -> Tuple[bool, Optional[str], Optional[st
 
     try:
         tree = ast.parse(source_code)
-    except SyntaxError as e:
-        return False, None, f"SyntaxError in generated code: {e}"
+    except SyntaxError:
+        source_code = _fix_indentation(source_code)
+        try:
+            tree = ast.parse(source_code)
+        except SyntaxError as e2:
+            return False, None, f"SyntaxError in generated code: {e2}"
 
     candidate_class = None
 
@@ -205,10 +315,22 @@ def check_ast_safety(source_code: str) -> Tuple[bool, Optional[str], Optional[st
                 if root_pkg in DISALLOWED_MODULES:
                     return False, None, f"Security violation: disallowed from-import '{root_pkg}'"
 
-        # Disallow exec, eval, __import__ calls
+        # Disallow exec, eval, open calls, and dangerous __import__ calls
         if isinstance(node, ast.Call):
-            if isinstance(node.func, ast.Name) and node.func.id in ('eval', 'exec', '__import__', 'open'):
-                return False, None, f"Security violation: disallowed function call '{node.func.id}'"
+            if isinstance(node.func, ast.Name):
+                func_id = node.func.id
+                if func_id in ('eval', 'exec', 'open'):
+                    return False, None, f"Security violation: disallowed function call '{func_id}'"
+                if func_id == '__import__':
+                    if not node.args:
+                        return False, None, "Security violation: empty __import__ call"
+                    arg0 = node.args[0]
+                    if isinstance(arg0, ast.Constant) and isinstance(arg0.value, str):
+                        mod_root = arg0.value.split('.')[0]
+                        if mod_root in DISALLOWED_MODULES:
+                            return False, None, f"Security violation: disallowed dynamic import '{mod_root}'"
+                    else:
+                        return False, None, "Security violation: dynamic non-literal __import__ call"
 
         # Find class that inherits from BaseCandidateModel
         if isinstance(node, ast.ClassDef):
@@ -519,6 +641,9 @@ class {class_name}(BaseCandidateModel):
         # 4. Totals in NBA / NFL / General: Two-Part Hurdle Negative Binomial
         elif 'totals' in family or tag == 'hurdle':
             class_name = f"NegativeBinomialHurdleModel_{league}_{scope}"
+            surge_mult = 1.30 if (league == 'NHL' and 'period_3' in scope) else 1.0
+            eff_disp = 0.10 if (league == 'NHL' and 'period_3' in scope) else disp_alpha
+            eff_zh = 0.0 if (league == 'NHL' and 'period_3' in scope) else zero_hurdle
             source_code = f'''from __future__ import annotations
 import math
 from typing import Any, Dict, Optional, Tuple
@@ -535,8 +660,8 @@ class {class_name}(BaseCandidateModel):
         league: str = "{league}",
         scope: str = "{scope}",
         family: str = "{family}",
-        zero_hurdle_prob: float = {zero_hurdle},
-        dispersion_alpha: float = {disp_alpha},
+        zero_hurdle_prob: float = {eff_zh},
+        dispersion_alpha: float = {eff_disp},
         metadata: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(
@@ -550,12 +675,13 @@ class {class_name}(BaseCandidateModel):
         )
         self.zero_hurdle_prob = zero_hurdle_prob
         self.dispersion_alpha = dispersion_alpha
+        self.surge_mult = {surge_mult}
 
     def predict_distribution(self, game_context: Dict[str, Any]) -> DiscreteDistribution:
         def_h = {def_h}
         def_a = {def_a}
-        h_mu = float(game_context.get('home_expected') or game_context.get('home_points') or def_h)
-        a_mu = float(game_context.get('away_expected') or game_context.get('away_points') or def_a)
+        h_mu = float(game_context.get('home_expected') or game_context.get('home_points') or def_h) * self.surge_mult
+        a_mu = float(game_context.get('away_expected') or game_context.get('away_points') or def_a) * self.surge_mult
 
         scores = build_universal_score_lattice(
             h_mu, a_mu, dispersion_alpha=self.dispersion_alpha, max_discrete_score=8 if h_mu < 12.0 else None
@@ -778,7 +904,32 @@ class {class_name}(BaseCandidateModel):
                     if is_safe and cls_name:
                         return clean_code, cls_name, f"Codex (gpt-6-astra) synthesized model addressing {domain_problem[:120]}"
                     else:
-                        log.warning(f"Codex AST check failed for {segment_key}: {err}; sample: {answer[:180]}")
+                        err_msg = err or "Class not found in AST"
+                        log.warning(f"Codex AST check failed for {segment_key}: {err_msg}; sample: {answer[:180]}")
+                        try:
+                            fb_rec = AIFeedbackRecord(
+                                id=f"synth_err_codex_{model_id}",
+                                segment_key=segment_key,
+                                league=league,
+                                scope=scope,
+                                family=family,
+                                model_id=f"{model_id}_codex_ast_err",
+                                class_name=cls_name or "SyntaxErrorModel",
+                                generator_provider="codex",
+                                source_file_path="",
+                                claude_hypothesis=claude_hypothesis,
+                                codex_rationale=f"AST check failed: {err_msg}",
+                                grok_critique=grok_critique,
+                                crucible_passed=False,
+                                current_tier=1,
+                                graduation_status="syntax_failed",
+                                failure_reason=f"Codex AST check failed: {err_msg}",
+                                validation_errors=[f"Codex AST check failed: {err_msg}"],
+                                learned_insight=f"Syntax/AST check failed: {err_msg}",
+                            )
+                            self.feedback_manager.record_synthesis_attempt(fb_rec)
+                        except Exception:
+                            pass
                 else:
                     log.warning(f"Codex decode returned state '{state}' for {segment_key}; rc: {res.get('returncode')}")
         except Exception as e:
@@ -891,7 +1042,32 @@ class {class_name}(BaseCandidateModel):
                     if is_safe and cls_name:
                         return clean_code, cls_name, f"Claude (claude-opus-5-5) synthesized model addressing {domain_problem[:120]}"
                     else:
-                        log.warning(f"Claude AST check failed for {segment_key}: {err}; sample: {answer[:180]}")
+                        err_msg = err or "Class not found in AST"
+                        log.warning(f"Claude AST check failed for {segment_key}: {err_msg}; sample: {answer[:180]}")
+                        try:
+                            fb_rec = AIFeedbackRecord(
+                                id=f"synth_err_claude_{model_id}",
+                                segment_key=segment_key,
+                                league=league,
+                                scope=scope,
+                                family=family,
+                                model_id=f"{model_id}_claude_ast_err",
+                                class_name=cls_name or "SyntaxErrorModel",
+                                generator_provider="claude",
+                                source_file_path="",
+                                claude_hypothesis=claude_hypothesis,
+                                codex_rationale=f"AST check failed: {err_msg}",
+                                grok_critique=grok_critique,
+                                crucible_passed=False,
+                                current_tier=1,
+                                graduation_status="syntax_failed",
+                                failure_reason=f"Claude AST check failed: {err_msg}",
+                                validation_errors=[f"Claude AST check failed: {err_msg}"],
+                                learned_insight=f"Syntax/AST check failed: {err_msg}",
+                            )
+                            self.feedback_manager.record_synthesis_attempt(fb_rec)
+                        except Exception:
+                            pass
                 else:
                     log.warning(f"Claude decode returned state '{state}' for {segment_key}; rc: {res.get('returncode')}")
         except Exception as e:
@@ -960,6 +1136,7 @@ class {class_name}(BaseCandidateModel):
         # 2. AST Safety & Structure Check
         is_safe, found_class, safety_err = check_ast_safety(source_code)
         if not is_safe or not found_class:
+            err_msg = safety_err or "Safety check failed"
             record = SynthesizedModelRecord(
                 model_id=model_id,
                 segment_key=canonical_seg,
@@ -970,10 +1147,34 @@ class {class_name}(BaseCandidateModel):
                 syntax_valid=False,
                 safety_valid=False,
                 validation_passed=False,
-                validation_errors=[safety_err or "Safety check failed"],
-                failure_reason=safety_err
+                validation_errors=[err_msg],
+                failure_reason=err_msg
             )
             self._append_log(record)
+            try:
+                fb_rec = AIFeedbackRecord(
+                    id=f"synth_{model_id}",
+                    segment_key=canonical_seg,
+                    league=league,
+                    scope=scope,
+                    family=family,
+                    model_id=model_id,
+                    class_name=class_name or "SyntaxErrorModel",
+                    generator_provider=provider,
+                    source_file_path="",
+                    claude_hypothesis=claude_hypothesis,
+                    codex_rationale=rationale,
+                    grok_critique=grok_critique,
+                    crucible_passed=False,
+                    current_tier=1,
+                    graduation_status="syntax_failed",
+                    failure_reason=err_msg,
+                    validation_errors=[err_msg],
+                    learned_insight=f"Syntax/AST safety error: {err_msg}",
+                )
+                self.feedback_manager.record_synthesis_attempt(fb_rec)
+            except Exception:
+                pass
             return record
 
         # 3. Instantiate in isolated scope
@@ -987,6 +1188,7 @@ class {class_name}(BaseCandidateModel):
                 family=family
             )
         except Exception as exc:
+            inst_err = f"Instantiation error: {exc}"
             record = SynthesizedModelRecord(
                 model_id=model_id,
                 segment_key=canonical_seg,
@@ -997,15 +1199,40 @@ class {class_name}(BaseCandidateModel):
                 syntax_valid=True,
                 safety_valid=True,
                 validation_passed=False,
-                validation_errors=[f"Instantiation error: {exc}"],
-                failure_reason=f"Instantiation error: {exc}"
+                validation_errors=[inst_err],
+                failure_reason=inst_err
             )
             self._append_log(record)
+            try:
+                fb_rec = AIFeedbackRecord(
+                    id=f"synth_{model_id}",
+                    segment_key=canonical_seg,
+                    league=league,
+                    scope=scope,
+                    family=family,
+                    model_id=model_id,
+                    class_name=found_class,
+                    generator_provider=provider,
+                    source_file_path="",
+                    claude_hypothesis=claude_hypothesis,
+                    codex_rationale=rationale,
+                    grok_critique=grok_critique,
+                    crucible_passed=False,
+                    current_tier=1,
+                    graduation_status="instantiation_failed",
+                    failure_reason=inst_err,
+                    validation_errors=[inst_err],
+                    learned_insight=inst_err,
+                )
+                self.feedback_manager.record_synthesis_attempt(fb_rec)
+            except Exception:
+                pass
             return record
 
         # 4. Pre-flight Validation (Latency, Axioms, Marginals)
         val_passed, val_errors = validate_candidate_model(model_instance, ctx)
         if not val_passed:
+            fail_reason = f"Pre-flight failed: {'; '.join(val_errors)}"
             record = SynthesizedModelRecord(
                 model_id=model_id,
                 segment_key=canonical_seg,
@@ -1017,13 +1244,38 @@ class {class_name}(BaseCandidateModel):
                 safety_valid=True,
                 validation_passed=False,
                 validation_errors=val_errors,
-                failure_reason=f"Pre-flight failed: {'; '.join(val_errors)}"
+                failure_reason=fail_reason
             )
             self._append_log(record)
+            try:
+                fb_rec = AIFeedbackRecord(
+                    id=f"synth_{model_id}",
+                    segment_key=canonical_seg,
+                    league=league,
+                    scope=scope,
+                    family=family,
+                    model_id=model_id,
+                    class_name=found_class,
+                    generator_provider=provider,
+                    source_file_path="",
+                    claude_hypothesis=claude_hypothesis,
+                    codex_rationale=rationale,
+                    grok_critique=grok_critique,
+                    crucible_passed=False,
+                    current_tier=1,
+                    graduation_status="preflight_failed",
+                    failure_reason=fail_reason,
+                    validation_errors=val_errors,
+                    learned_insight=fail_reason,
+                )
+                self.feedback_manager.record_synthesis_attempt(fb_rec)
+            except Exception:
+                pass
             return record
 
         # 5. Out-of-Sample Walk-Forward Crucible Evaluation on Historical Data
         # Reuses HistoricalCandidateTrainer with the instantiated model
+        validation_errors: List[str] = []
         wagers = self.trainer._fetch_settled_wagers(league, scope, family)
         split_idx = max(5, int(len(wagers) * 0.75))
         oos_wagers = wagers[split_idx:] if len(wagers) >= 10 else wagers
@@ -1038,17 +1290,35 @@ class {class_name}(BaseCandidateModel):
         running_pnl = 0.0
         peak_pnl = 0.0
         max_dd = 0.0
+        eval_errors: List[str] = []
 
         for row in oos_wagers:
             sel, line, odds, _, mkt_prob, side, res, orig_pnl, _ = row
             odds_val = float(odds or 2.0)
             mkt_p = float(mkt_prob or (1.0 / max(1.05, odds_val)))
 
+            ctx_wager = dict(ctx)
+            if line is not None:
+                ctx_wager['line'] = line
+                ctx_wager['total_line'] = line
+                ctx_wager['spread_line'] = line
+                ctx_wager['reference_total'] = line
+                ctx_wager['reference_spread'] = line
+                sel_str = str(sel or '').lower()
+                if side == 'home' or 'home' in sel_str:
+                    ctx_wager['home_spread'] = line
+                    ctx_wager['home_total_line'] = line
+                elif side == 'away' or 'away' in sel_str:
+                    ctx_wager['away_spread'] = line
+                    ctx_wager['away_total_line'] = line
+
             try:
                 prob, ev = model_instance.evaluate_market(
-                    canonical_seg, sel or '', line, odds_val, ctx, side=side
+                    canonical_seg, sel or '', line, odds_val, ctx_wager, side=side
                 )
-            except Exception:
+            except Exception as e_eval:
+                if len(eval_errors) < 3:
+                    eval_errors.append(f"{type(e_eval).__name__}: {e_eval}")
                 continue
 
             if ev >= 0.035:
@@ -1071,7 +1341,8 @@ class {class_name}(BaseCandidateModel):
                 running_pnl += sim_pnl
                 if running_pnl > peak_pnl:
                     peak_pnl = running_pnl
-                dd = (peak_pnl - running_pnl) / max(1.0, peak_pnl) if peak_pnl > 0 else 0.0
+                total_stake_so_far = float(oos_accepted)
+                dd = (peak_pnl - running_pnl) / max(1.0, peak_pnl + total_stake_so_far) if (peak_pnl > 0 or total_stake_so_far > 0) else 0.0
                 if dd > max_dd:
                     max_dd = dd
 
@@ -1081,13 +1352,20 @@ class {class_name}(BaseCandidateModel):
         brier_mkt = (sum_brier_mkt / max(1, oos_accepted)) if oos_accepted > 0 else 0.25
         delta_brier = brier_mkt - brier_m
 
-        # Admission gate (Commandment 6 Tier 1):
-        # In production (with historical wagers), strictly require N_oos >= 5, ROI >= +3.5%, Delta Brier >= -0.005, and DD < 25%.
-        # In synthetic test environments without historical database (len(wagers) == 0), allow pre-flight admission.
-        if len(wagers) == 0:
-            crucible_ok = True
-        else:
-            crucible_ok = (sim_roi >= 0.035 and delta_brier >= -0.005 and max_dd < 0.25) if oos_accepted >= 5 else False
+        # Admission gate (Commandment 6 Tier 1 & Anti-Tautological Invariant):
+        # Strictly require N_oos >= 5, ROI >= +3.5%, Delta Brier >= -0.005, and DD < 25%.
+        # If insufficient historical wagers exist in the ledger (oos_accepted < 5 or len(wagers) < 5),
+        # the model CANNOT be certified as having an empirical out-of-sample statistical edge.
+        crucible_ok = (sim_roi >= 0.035 and delta_brier >= -0.005 and max_dd < 0.25) if oos_accepted >= 5 else False
+        if not crucible_ok and not validation_errors:
+            if eval_errors and oos_accepted == 0:
+                validation_errors = [f"Model execution error during out-of-sample evaluation: {'; '.join(eval_errors)}"]
+            elif len(oos_wagers) < 5:
+                validation_errors = [f"Insufficient historical settled ground truth in database: {len(oos_wagers)} settled wagers available (minimum 5 required)."]
+            elif oos_accepted < 5:
+                validation_errors = [f"Crucible hurdle failed: Model accepted only {oos_accepted}/{len(oos_wagers)} wagers with EV >= +3.5% (minimum 5 required)."]
+            else:
+                validation_errors = [f"Crucible hurdle failed: ROI={sim_roi*100:.1f}% (hurdle +3.5%), delta_brier={delta_brier:+.4f}, max_dd={max_dd*100:.1f}%."]
 
         # 6. Admission to Shadow Incubator ($0.00)
         admitted = False
@@ -1116,6 +1394,35 @@ class {class_name}(BaseCandidateModel):
             except Exception:
                 pass
 
+            # Formally bind champion candidate model to demoted_markets in Shadow Incubator (Tier 2 $0.00)
+            try:
+                from .demoted_market_bridge import DemotedMarketIncubationBridge
+                from .historical_trainer import CandidateTrainingResult
+                bridge = DemotedMarketIncubationBridge(data_dir=self.data_dir)
+                cand_res = CandidateTrainingResult(
+                    segment_key=canonical_seg,
+                    model_id=model_id,
+                    model_archetype=found_class,
+                    model_params={'source_file': f"{model_id}.py", 'provider': provider},
+                    train_sample_size=0,
+                    oos_sample_size=oos_accepted,
+                    oos_win_rate=round(win_rate, 4),
+                    oos_simulated_roi=round(sim_roi, 4),
+                    oos_delta_brier=round(delta_brier, 4),
+                    oos_max_drawdown=round(max_dd, 4),
+                    is_qualified=True,
+                    scorecard_s=100.0,
+                )
+                b_ok = bridge.admit_champion_to_market(None, canonical_seg, cand_res)
+                if b_ok:
+                    admitted = True
+                    log.debug("[SYNTH_ADMIT_SUCCESS] Candidate model '%s' (%s) admitted to Tier 2 for '%s'", model_id, found_class, canonical_seg)
+                else:
+                    log.debug("[SYNTH_ADMIT_REJECTED] Bridge did not admit candidate '%s' for '%s'", model_id, canonical_seg)
+            except Exception as e_adm:
+                log.debug("Auto-admission to demoted_markets in Tier 2 non-fatal: %s", e_adm)
+
+        fail_msg = '; '.join(validation_errors) if (not crucible_ok and validation_errors) else None
         record = SynthesizedModelRecord(
             model_id=model_id,
             segment_key=canonical_seg,
@@ -1126,7 +1433,8 @@ class {class_name}(BaseCandidateModel):
             syntax_valid=True,
             safety_valid=True,
             validation_passed=True,
-            validation_errors=[],
+            validation_errors=validation_errors if not crucible_ok else [],
+            failure_reason=fail_msg,
             oos_sample_size=oos_accepted,
             oos_win_rate=round(win_rate, 4),
             oos_simulated_roi=round(sim_roi, 4),
@@ -1140,6 +1448,9 @@ class {class_name}(BaseCandidateModel):
         # 7. Record to AI Reinforcement Feedback Loop Memory
         try:
             source_path = str((GENERATED_MODELS_DIR / f"{model_id}.py").resolve()) if admitted else ""
+            learned = f"Crucible {'Passed' if crucible_ok else 'Failed'}: OOS ROI={sim_roi*100:.1f}%, DeltaBrier={delta_brier:.4f}, DD={max_dd*100:.1f}%"
+            if fail_msg:
+                learned += f" | Reason: {fail_msg}"
             fb_rec = AIFeedbackRecord(
                 id=f"synth_{model_id}",
                 segment_key=canonical_seg,
@@ -1160,8 +1471,10 @@ class {class_name}(BaseCandidateModel):
                 oos_max_drawdown=round(max_dd, 4),
                 crucible_passed=crucible_ok,
                 current_tier=2 if admitted else 1,
-                graduation_status="incubating" if admitted else "rejected",
-                learned_insight=f"Crucible {'Passed' if crucible_ok else 'Failed'}: OOS ROI={sim_roi*100:.1f}%, DeltaBrier={delta_brier:.4f}, DD={max_dd*100:.1f}%",
+                graduation_status="incubating" if admitted else "crucible_failed",
+                learned_insight=learned,
+                failure_reason=fail_msg,
+                validation_errors=validation_errors if not crucible_ok else None,
             )
             self.feedback_manager.record_synthesis_attempt(fb_rec)
         except Exception:

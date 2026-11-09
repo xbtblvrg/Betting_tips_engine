@@ -301,10 +301,36 @@ class PolymarketOutcomeSettler:
                     stake = float(row["stake_usd"])
                     shares = float(row["shares_count"])
 
-                    # Anti-Hallucination Guard: If shares / stake > 12.0 on an order with a maker slice,
-                    # verify whether the order contains a realistic taker slice in error_detail.
-                    # If so, settle strictly on the verified taker slice to prevent phantom maker payouts.
-                    if (shares / max(0.01, stake)) > 12.0 and "taker_slice" in str(row["error_detail"] or ""):
+                    # Anti-Hallucination & Execution Realism Guard:
+                    # If an order has a sliced structure with maker and taker slices:
+                    # Verify if the maker slice was fillable in a competitive book (gap <= 0.045, rel_gap <= 18%, price >= 0.08).
+                    # If the maker slice was in a wide or illiquid book, or shares / stake > 12.0,
+                    # settle strictly on the verified taker slice to prevent phantom maker payouts!
+                    if "taker_slice" in str(row["error_detail"] or "") and "maker_slice" in str(row["error_detail"] or ""):
+                        try:
+                            det = json.loads(row["error_detail"])
+                            tk = det.get("taker_slice", {})
+                            mk = det.get("maker_slice", {})
+                            tk_p = float(tk.get("price", 0.0))
+                            mk_p = float(mk.get("price", 0.0))
+                            gap = tk_p - mk_p
+                            rel_gap = gap / max(0.01, tk_p)
+                            is_unfillable_maker = (
+                                (shares / max(0.01, stake)) > 12.0
+                                or mk_p < 0.08
+                                or gap > 0.045
+                                or rel_gap > 0.18
+                            )
+                            if is_unfillable_maker and tk.get("shares") and tk_p >= 0.08:
+                                log.info(
+                                    f"[SETTLEMENT AUDIT] Overriding unfillable maker shares ({shares}) with realistic taker shares ({tk['shares']}) "
+                                    f"for {game_title} {selection}"
+                                )
+                                shares = float(tk["shares"])
+                                stake = float(tk.get("stake", stake))
+                        except Exception as e_sh:
+                            log.debug(f"Could not parse taker slice from error_detail: {e_sh}")
+                    elif (shares / max(0.01, stake)) > 12.0 and "taker_slice" in str(row["error_detail"] or ""):
                         try:
                             det = json.loads(row["error_detail"])
                             tk = det.get("taker_slice", {})
@@ -477,7 +503,11 @@ class PolymarketOutcomeSettler:
                             log.warning(f"Error evaluating contract value for order {oid}: {err}")
                             continue
 
-                        if c_val > 0:
+                        if row["status"] == "open" and token_id not in poly_positions:
+                            new_status = "unfilled_cancelled"
+                            pnl = 0.00
+                            settlement_source = "unfilled_resting_limit_cancelled"
+                        elif c_val > 0:
                             new_status = "won"
                             gross_payout = round(shares * 1.00, 2)
                             pnl = round(gross_payout - stake, 2)

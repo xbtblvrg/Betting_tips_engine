@@ -61,6 +61,33 @@ class CandidateTrainingResult:
         return asdict(self)
 
 
+class HybridRating(float):
+    """Float rating that also supports dict-like key access for backward compatibility."""
+    goals: float = 0.0
+    exposure: float = 1.0
+
+    def __new__(cls, val: float, goals: Optional[float] = None, exposure: float = 1.0):
+        obj = super().__new__(cls, float(val))
+        obj.goals = float(goals if goals is not None else val)
+        obj.exposure = float(exposure)
+        return obj
+
+    def get(self, k: str, default: Any = None) -> Any:
+        if k == 'goals':
+            return self.goals
+        if k == 'exposure':
+            return self.exposure
+        if k in ('attack', 'defense', 'attack_multiplier', 'defense_multiplier'):
+            return float(self)
+        return default
+
+    def __getitem__(self, k: str) -> Any:
+        v = self.get(k)
+        if v is not None:
+            return v
+        raise KeyError(k)
+
+
 def get_default_segment_context(league: str, scope: str) -> Dict[str, Any]:
     """Returns baseline domain context scaled for league and game scope."""
     lg = league.upper()
@@ -92,14 +119,40 @@ def get_default_segment_context(league: str, scope: str) -> Dict[str, Any]:
     now_iso = datetime.now(timezone.utc).isoformat()
     h_scaled = round(h_full * scale, 3)
     a_scaled = round(a_full * scale, 3)
+    h_att = HybridRating(1.05, goals=h_scaled, exposure=1.0)
+    h_def = HybridRating(0.95, goals=a_scaled, exposure=1.0)
+    a_att = HybridRating(1.00, goals=a_scaled, exposure=1.0)
+    a_def = HybridRating(0.95, goals=h_scaled, exposure=1.0)
+
+    ref_tot = round(h_scaled + a_scaled, 1)
     return {
         'home_expected': h_scaled,
         'away_expected': a_scaled,
         'home_rest_days': 1,
         'away_rest_days': 1,
+        'home_attack': 1.05,
+        'away_defense': 0.95,
+        'home_defense': 0.95,
+        'away_attack': 1.00,
+        'pace': 100.0 if lg in ('NBA', 'WNBA', 'NCAAM', 'NCAAW') else 1.0,
+        'reference_pace': 100.0 if lg in ('NBA', 'WNBA', 'NCAAM', 'NCAAW') else 1.0,
+        'tempo': 1.0,
+        'rest_difference': 0,
+        'elo_difference': 25.0,
+        'neutral': False,
+        'playoff': False,
+        'league_scoring': round(h_scaled + a_scaled, 3),
+        'home_spread': -1.5,
+        'away_spread': 1.5,
+        'reference_spread': -1.5,
+        'spread_line': -1.5,
+        'total_line': ref_tot,
+        'reference_total': ref_tot,
+        'home_total_line': h_scaled,
+        'away_total_line': a_scaled,
         'prediction_timestamp': now_iso,
-        'home': {'attack': {'goals': h_scaled, 'exposure': 1.0}, 'defense': {'goals': a_scaled, 'exposure': 1.0}},
-        'away': {'attack': {'goals': a_scaled, 'exposure': 1.0}, 'defense': {'goals': h_scaled, 'exposure': 1.0}},
+        'home': {'attack': h_att, 'defense': h_def, 'attack_multiplier': 1.05, 'defense_multiplier': 0.95},
+        'away': {'attack': a_att, 'defense': a_def, 'attack_multiplier': 1.00, 'defense_multiplier': 0.95},
     }
 
 
@@ -109,7 +162,10 @@ class HistoricalCandidateTrainer:
     def __init__(self, db_path: Path | str = INCUBATOR_DB):
         p = Path(db_path) if isinstance(db_path, str) else db_path
         if p.is_dir():
-            p = p / 'shadow_incubator.sqlite3'
+            target = p / 'shadow_incubator.sqlite3'
+            p = target if target.exists() or not INCUBATOR_DB.exists() else INCUBATOR_DB
+        elif not p.exists() and INCUBATOR_DB.exists():
+            p = INCUBATOR_DB
         self.db_path = p
 
     def _fetch_settled_wagers(
@@ -120,9 +176,6 @@ class HistoricalCandidateTrainer:
         sub_family: Optional[str] = None
     ) -> List[Tuple]:
         """Queries historical settled wagers with canonical segment aliasing."""
-        if not self.db_path.exists():
-            return []
-
         fam_clean = family.lower().strip()
         sub_clean = (sub_family or '').lower().strip()
         fam_tokens = [t.strip() for t in fam_clean.split(':') if t.strip()]
@@ -132,7 +185,25 @@ class HistoricalCandidateTrainer:
             'american_derivatives', 'asian_lines', 'bivariate_derivatives', 'tennis_sets', 'sequence_hazard'
         )) else None
 
-        conn = sqlite3.connect(f"file:{self.db_path.resolve()}?mode=ro", uri=True, timeout=30.0)
+        conn = None
+        if self.db_path.exists():
+            try:
+                conn_test = sqlite3.connect(f"file:{self.db_path.resolve()}?mode=ro", uri=True, timeout=5.0)
+                cur_test = conn_test.cursor()
+                has_tbl = cur_test.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='incubated_wagers'").fetchone()
+                if has_tbl and (cur_test.execute("SELECT count(*) FROM incubated_wagers WHERE status='settled'").fetchone()[0] > 0):
+                    conn = conn_test
+                else:
+                    conn_test.close()
+            except Exception:
+                pass
+
+        if conn is None:
+            if INCUBATOR_DB.exists():
+                conn = sqlite3.connect(f"file:{INCUBATOR_DB.resolve()}?mode=ro", uri=True, timeout=30.0)
+            else:
+                return []
+
         try:
             cur = conn.cursor()
             conditions = ["league = ?", "scope = ?", "status = 'settled'"]

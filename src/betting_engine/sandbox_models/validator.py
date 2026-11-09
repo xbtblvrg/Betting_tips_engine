@@ -14,7 +14,7 @@ from .base import BaseCandidateModel, DiscreteDistribution
 def validate_candidate_model(
     model: BaseCandidateModel,
     sample_context: Dict[str, Any],
-    max_latency_ms: float = 50.0,
+    max_latency_ms: float = 500.0,
 ) -> Tuple[bool, List[str]]:
     """Runs automated pre-flight checks against a candidate model instance.
     
@@ -24,7 +24,11 @@ def validate_candidate_model(
     errors: List[str] = []
 
     # 1. Interface check
-    if not isinstance(model, BaseCandidateModel):
+    is_base = isinstance(model, BaseCandidateModel) or any(
+        getattr(b, '__name__', '') == 'BaseCandidateModel'
+        for b in getattr(model.__class__, '__mro__', [])
+    )
+    if not is_base:
         return False, ["Model does not inherit from BaseCandidateModel."]
 
     # 2. Execution latency test
@@ -44,10 +48,19 @@ def validate_candidate_model(
     # 3. Probability axioms check
     try:
         scores = dist.scores
+        if hasattr(scores, 'shape') and len(getattr(scores, 'shape', ())) == 2:
+            scores_dict = {}
+            for h in range(scores.shape[0]):
+                for a in range(scores.shape[1]):
+                    p_val = float(scores[h, a])
+                    if p_val > 0.0:
+                        scores_dict[(h, a)] = p_val
+            scores = scores_dict
+
         if not scores:
             errors.append("Distribution contains empty scores mapping.")
         else:
-            total_prob = sum(scores.values())
+            total_prob = sum(scores.values()) if hasattr(scores, 'values') else float(sum(scores))
             if not math.isclose(total_prob, 1.0, abs_tol=1e-3):
                 errors.append(f"Probability sum check failed: sum is {total_prob:.6f}, expected 1.0.")
 

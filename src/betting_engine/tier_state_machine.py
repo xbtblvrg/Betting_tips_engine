@@ -60,8 +60,8 @@ def classify_tier(
     units_roll_pnl = rolling_pnl / max(0.50, avg_roll_st)
 
     # 1. Post-Repair Rapid Acceleration Gate
-    if has_deployed_patch and rolling_games >= 5 and rolling_roi >= 0.03 and rolling_pnl > 0.0:
-        if (units_roll_pnl >= 4.0 or rolling_pnl >= 4.0) and rolling_roi >= 0.15 and rolling_games >= 5:
+    if has_deployed_patch and rolling_games >= 5 and rolling_roi >= 0.035 and rolling_pnl > 0.0:
+        if units_roll_pnl >= 4.0 and rolling_roi >= 0.15 and rolling_games >= 5:
             return {
                 'tier': 'ALPHA_BOOST',
                 'sub_tier': 'SUPER_ALPHA',
@@ -116,7 +116,7 @@ def classify_tier(
             'action': 'Evolutionary Live Probation: strictly $0.50 floor until live settled games prove positive performance'
         }
     # 5. Alpha Boost: requires positive units and positive ROI, free from rolling degradation
-    elif (units_pnl >= 2.0 or pnl >= 2.0) and roi >= 0.03 and games_count >= 3:
+    elif (units_pnl >= 1.0 or units_roll_pnl >= 1.0) and roi >= 0.035 and games_count >= 3:
         if rolling_games >= 4 and (units_roll_pnl < 0.0 or rolling_roi < 0.0):
             return {
                 'tier': 'EXPLORATION',
@@ -126,7 +126,7 @@ def classify_tier(
                 'scaling_target': '$1.00–$1.50 cautious exploration',
                 'action': 'Historical Alpha held in Exploration due to flat/negative recent rolling performance'
             }
-        if (units_roll_pnl >= 4.0 or units_pnl >= 4.0 or pnl >= 5.0) and (rolling_roi >= 0.12 if rolling_games >= 4 else roi >= 0.12) and (rolling_games >= 5 if rolling_games >= 4 else games_count >= 5):
+        if (units_roll_pnl >= 4.0 or units_pnl >= 4.0) and (rolling_roi >= 0.12 if rolling_games >= 4 else roi >= 0.12) and (rolling_games >= 5 if rolling_games >= 4 else games_count >= 5):
             return {
                 'tier': 'ALPHA_BOOST',
                 'sub_tier': 'SUPER_ALPHA',

@@ -170,8 +170,21 @@ class DiscreteDistribution:
         return cls(probabilities={'home': p_home, 'draw': p_draw, 'away': p_away})
 
     @classmethod
-    def from_scores(cls, scores: Dict[Tuple[int, int], float]) -> DiscreteDistribution:
-        """Constructs and normalizes distribution from score matrix."""
+    def from_scores(cls, scores: Any) -> DiscreteDistribution:
+        """Constructs and normalizes distribution from score matrix or dict."""
+        if hasattr(scores, 'shape') and len(getattr(scores, 'shape', ())) == 2:
+            scores_dict = {}
+            for h in range(scores.shape[0]):
+                for a in range(scores.shape[1]):
+                    p_val = float(scores[h, a])
+                    if p_val > 0.0:
+                        scores_dict[(h, a)] = p_val
+            scores = scores_dict
+        elif not isinstance(scores, dict):
+            try:
+                scores = dict(scores)
+            except Exception:
+                pass
         total_p = sum(scores.values())
         if total_p <= 0.0:
             raise ValueError("Total probability mass must be strictly positive.")

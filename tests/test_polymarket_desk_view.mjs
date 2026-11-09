@@ -114,8 +114,59 @@ async function bootPolymarketDesk(t) {
       return {
         ok: true,
         json: async () => ({
-          proven_active_count: 3,
-          unproven_gaps_count: 25,
+          proven_active_count: 1,
+          unproven_gaps_count: 2,
+          all_reachable_markets: [
+            {
+              segment_key: 'NFL|full_game|totals',
+              league: 'NFL',
+              scope: 'full_game',
+              market_family: 'totals',
+              sample_event: 'Chiefs vs Bills',
+              rolling_games: 10,
+              live_games: 10,
+              games_needed: 0,
+              rolling_pnl: 2.45,
+              rolling_roi_pct: 28.8,
+              rolling_units: 3.17,
+              tier_status: 'TIER_4_PROVEN',
+              proximity_score: 1035.2,
+              stake_cap: 3.50,
+            },
+            {
+              segment_key: 'EPL|full_game|totals',
+              league: 'EPL',
+              scope: 'full_game',
+              market_family: 'totals',
+              sample_event: 'Arsenal vs Chelsea',
+              rolling_games: 8,
+              live_games: 8,
+              games_needed: 2,
+              rolling_pnl: 1.59,
+              rolling_roi_pct: 24.5,
+              rolling_units: 3.18,
+              conditions_met_count: 2,
+              tier_status: 'APPROACHING_TIER_4',
+              proximity_score: 824.5,
+              stake_cap: 0.00,
+            },
+            {
+              segment_key: 'NHL|full_game|moneyline',
+              league: 'NHL',
+              scope: 'full_game',
+              market_family: 'moneyline',
+              sample_event: 'Jets vs Hurricanes',
+              rolling_games: 0,
+              live_games: 0,
+              games_needed: 10,
+              rolling_pnl: 0.00,
+              rolling_roi_pct: 0.0,
+              rolling_units: 0.00,
+              tier_status: 'TIER_2_INCUBATING',
+              proximity_score: 50.0,
+              stake_cap: 0.00,
+            }
+          ],
           proven_markets: [
             {
               segment_key: 'NFL|full_game|totals',
@@ -123,16 +174,49 @@ async function bootPolymarketDesk(t) {
               scope: 'full_game',
               market_family: 'totals',
               sample_event: 'Chiefs vs Bills',
+              rolling_games: 10,
+              live_games: 10,
+              games_needed: 0,
+              rolling_pnl: 2.45,
+              rolling_roi_pct: 28.8,
+              rolling_units: 3.17,
+              tier_status: 'TIER_4_PROVEN',
+              proximity_score: 1035.2,
               stake_cap: 3.50,
             }
           ],
           unproven_gaps: [
+            {
+              segment_key: 'EPL|full_game|totals',
+              league: 'EPL',
+              scope: 'full_game',
+              market_family: 'totals',
+              sample_event: 'Arsenal vs Chelsea',
+              rolling_games: 8,
+              live_games: 8,
+              games_needed: 2,
+              rolling_pnl: 1.59,
+              rolling_roi_pct: 24.5,
+              rolling_units: 3.18,
+              conditions_met_count: 2,
+              tier_status: 'APPROACHING_TIER_4',
+              proximity_score: 824.5,
+              stake_cap: 0.00,
+            },
             {
               segment_key: 'NHL|full_game|moneyline',
               league: 'NHL',
               scope: 'full_game',
               market_family: 'moneyline',
               sample_event: 'Jets vs Hurricanes',
+              rolling_games: 0,
+              live_games: 0,
+              games_needed: 10,
+              rolling_pnl: 0.00,
+              rolling_roi_pct: 0.0,
+              rolling_units: 0.00,
+              tier_status: 'TIER_2_INCUBATING',
+              proximity_score: 50.0,
               stake_cap: 0.00,
             }
           ],
@@ -244,6 +328,28 @@ test('Polymarket Desk tab button navigates to view-polymarket and loads telemetr
   const mbody = d.querySelector('#poly-matrix-tbody');
   assert.match(mbody.textContent, /NFL\|full_game\|totals/);
   assert.match(mbody.textContent, /Tier 3 Proven/);
+  assert.match(mbody.textContent, /EPL\|full_game\|totals/);
+  assert.match(mbody.textContent, /Approaching Tier 4/);
+  assert.match(mbody.textContent, /2 more games needed/);
+  assert.match(mbody.textContent, /\+\$1\.59/);
+  assert.match(mbody.textContent, /NHL\|full_game\|moneyline/);
+  assert.match(mbody.textContent, /Tier 2 Incubating/);
+
+  // Check proximity ordering: Proven (NFL) -> Approaching (EPL) -> Incubating (NHL)
+  const rows = mbody.querySelectorAll('tr');
+  assert.equal(rows.length, 3, 'Must render exactly 3 markets');
+  assert.match(rows[0].textContent, /NFL\|full_game\|totals/, 'First row must be Tier 4 Proven Alpha');
+  assert.match(rows[0].textContent, /10 \/ 10/, 'Tier 4 row shows 10 / 10 matches');
+  assert.match(rows[0].textContent, /\$3\.50/, 'Tier 4 row shows allocated max stake');
+
+  assert.match(rows[1].textContent, /EPL\|full_game\|totals/, 'Second row must be Approaching Tier 4');
+  assert.match(rows[1].textContent, /8 \/ 10/, 'Approaching row shows 8 / 10 matches');
+  assert.match(rows[1].textContent, /2 more games needed/, 'Approaching row shows 2 more games needed');
+  assert.match(rows[1].textContent, /\$0\.00/, 'Approaching row has $0.00 Polymarket stake');
+
+  assert.match(rows[2].textContent, /NHL\|full_game\|moneyline/, 'Third row must be Incubating');
+  assert.match(rows[2].textContent, /0 \/ 10/, 'Incubating row shows 0 / 10 matches');
+  assert.match(rows[2].textContent, /No live bets yet/);
 });
 
 test('Polymarket Desk action buttons trigger runner cycle, reset-shadow, and auto-redeem API calls', async (t) => {

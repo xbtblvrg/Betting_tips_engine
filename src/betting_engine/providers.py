@@ -17,6 +17,7 @@ log = logging.getLogger(__name__)
 logging.getLogger('httpx').setLevel(logging.WARNING)
 
 import socket
+socket.setdefaulttimeout(15.0)
 _orig_getaddrinfo = socket.getaddrinfo
 _STAKE_EDGE_IPS = ('104.18.40.167', '172.64.147.89', '104.18.40.134', '172.64.147.122')
 _BLOCKED_STAKE_IPS = {'104.18.37.229', '172.64.150.27'}
@@ -49,7 +50,7 @@ class Fetcher:
     def __init__(self, root=DATA):
         self.root=Path(root)/'raw'; self.root.mkdir(parents=True,exist_ok=True)
         limits = httpx.Limits(max_keepalive_connections=20, max_connections=40, keepalive_expiry=30.0)
-        self.client=httpx.Client(timeout=httpx.Timeout(25.0, connect=10.0, read=20.0, write=10.0), limits=limits, follow_redirects=True, headers={'User-Agent':'BettingResearch/0.2'})
+        self.client=httpx.Client(timeout=httpx.Timeout(15.0, connect=5.0, read=10.0, write=10.0), limits=limits, follow_redirects=True, headers={'User-Agent':'BettingResearch/0.2'})
     def get(self,url,ttl=3600):
         key=hashlib.sha256(url.encode()).hexdigest(); m=self.root/(key+'.json')
         previous=json.loads(m.read_text()) if m.exists() else None
@@ -58,7 +59,7 @@ class Fetcher:
             if blob_path.is_file():
                 return blob_path.read_bytes(),previous
         error=None
-        for attempt in range(3):
+        for attempt in range(2):
             try:
                 r=self.client.get(url);r.raise_for_status();b=r.content
                 sha=hashlib.sha256(b).hexdigest(); blob=sha+'.data'
@@ -69,7 +70,7 @@ class Fetcher:
             except (httpx.HTTPError,OSError) as e:
                 error=e
                 # One ordinary retry for transient network/server errors. No auth bypass.
-                if isinstance(e,httpx.HTTPStatusError) and e.response.status_code in (401,403):break
+                if isinstance(e,httpx.HTTPStatusError) and e.response.status_code in (401,403,404):break
                 time.sleep(0.2 * (2 ** attempt))
         raise SourceError(f'{url.split("?")[0]}: {type(error).__name__}') from error
     def json(self,url,ttl=3600):
@@ -200,7 +201,7 @@ class SportsData:
             url=f'https://api-web.nhle.com/v1/club-schedule-season/{team}/{season-1}{season}'
             return self.fetcher.json(url,86400*7)
         with ThreadPoolExecutor(max_workers=4) as pool:
-            for d,m in pool.map(get_team,teams):
+            for d,m in pool.map(get_team,teams,timeout=30.0):
                 metas.append(m)
                 for r in d.get('games',[]):
                     if r.get('gameType') not in (2,3) or r.get('gameState') not in ('OFF','FINAL'):continue
@@ -215,7 +216,7 @@ class SportsData:
             url=f'https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/teams/{team}/schedule?season={season}'
             return self.fetcher.json(url,86400*7 if season<utcnow().year else 3600)
         with ThreadPoolExecutor(max_workers=6) as pool:
-            for d,m in pool.map(get_team,MLS_TEAMS):
+            for d,m in pool.map(get_team,MLS_TEAMS,timeout=30.0):
                 metas.append(m)
                 for e in d.get('events',[]):
                     competitions=e.get('competitions') or []
@@ -249,7 +250,7 @@ class SportsData:
             url=f'https://site.api.espn.com/apis/site/v2/sports/{espn_path}/teams/{team}/schedule?season={season}'
             return self.fetcher.json(url,86400*7 if season<utcnow().year else 3600)
         with ThreadPoolExecutor(max_workers=6) as pool:
-            for d,m in pool.map(get_team,teams):
+            for d,m in pool.map(get_team,teams,timeout=30.0):
                 metas.append(m)
                 for e in d.get('events',[]):
                     competitions=e.get('competitions') or []
@@ -444,68 +445,86 @@ class SportsData:
         if history_path.exists():
             try:
                 for r in json.loads(history_path.read_text()):
-                    if r.get('state') == 'final':
-                        games[r['id']] = Game(**r)
+                    games[r['id']] = Game(**r)
             except Exception as exc:
                 log.warning('Could not pre-seed historical games: %s', exc)
-        jobs={};year=utcnow().year
+        current_jobs={};history_jobs={};year=utcnow().year
         for league in leagues:
-            if league in ('NBA','WNBA','NHL'):
-                for s in range(2023,year+1+(league in ('NBA','NHL'))):
-                    if league=='NHL' and s==2023:jobs[f'NHL/{s}/official']=(self.nhl_official_season,(s,))
-                    else:jobs[f'{league}/{s}']=(self.sd_season,(league,s))
-            elif league=='MLB':
-                for s in range(2023,year+1):jobs[f'MLB/{s}']=(self.mlb,(s,))
-            elif league=='NFL':jobs['NFL/all']=(self.nfl,())
-            elif league=='MLS':
-                has_history = any(g.league=='MLS' and g.state=='final' for g in games.values())
-                start_season = year if has_history else 2023
-                for s in range(start_season,year+1):jobs[f'MLS/{s}']=(self.mls_official_season,(s,))
-                jobs['MLS/current']=(self.mls_current,())
-            elif league in ('EPL', 'UCL'):
-                has_history = any(g.league==league and g.state=='final' for g in games.values())
-                start_season = year if has_history else 2023
-                for s in range(start_season, year + 1):
-                    jobs[f'{league}/{s}'] = (self.soccer_official_season, (league, s))
-                jobs[f'{league}/current'] = (self.soccer_current, (league,))
-            elif league in ('ATP', 'WTA'):
-                jobs[f'{league}/current']=(self.tennis_current,(league,))
-                jobs['Tennis/archive'] = (self.tennis_archive_games, ())
-            elif league.startswith('NCAA'):
-                from .college import season,current
-                for s in range(2020 if league=='NCAAF' else 2023,year+1+(league!='NCAAF')):
-                    jobs[f'{league}/{s}']=(season,(self.fetcher,league,s))
-                jobs[f'{league}/current']=(current,(self.fetcher,league))
+            has_history = any(g.league==league and g.state=='final' for g in games.values())
+            if not has_history:
+                if league in ('NBA','WNBA','NHL'):
+                    for s in range(2023,year+1+(league in ('NBA','NHL'))):
+                        if league=='NHL' and s==2023:history_jobs[f'NHL/{s}/official']=(self.nhl_official_season,(s,))
+                        else:history_jobs[f'{league}/{s}']=(self.sd_season,(league,s))
+                elif league=='MLB':
+                    for s in range(2023,year+1):history_jobs[f'MLB/{s}']=(self.mlb,(s,))
+                elif league=='MLS':
+                    for s in range(2023,year+1):history_jobs[f'MLS/{s}']=(self.mls_official_season,(s,))
+                elif league in ('EPL', 'UCL'):
+                    for s in range(2023, year + 1):
+                        history_jobs[f'{league}/{s}'] = (self.soccer_official_season, (league, s))
+                elif league in ('NCAAF', 'NCAAM', 'NCAAW'):
+                    from .college import season
+                    for s in range(2020 if league=='NCAAF' else 2023,year+1+(league!='NCAAF')):
+                        history_jobs[f'{league}/{s}']=(season,(self.fetcher,league,s))
+            if league=='NFL':current_jobs['NFL/all']=(self.nfl,())
+            elif league=='MLS':current_jobs['MLS/current']=(self.mls_current,())
+            elif league in ('EPL', 'UCL'):current_jobs[f'{league}/current']=(self.soccer_current,(league,))
+            elif league in ('ATP', 'WTA', 'CHALLENGER'):
+                current_jobs[f'{league}/current']=(self.tennis_current,(league,))
+                if 'Tennis/archive' not in history_jobs and not has_history:
+                    history_jobs['Tennis/archive'] = (self.tennis_archive_games, ())
+            elif league in ('NCAAF', 'NCAAM', 'NCAAW'):
+                from .college import current
+                current_jobs[f'{league}/current']=(current,(self.fetcher,league))
         for league in ('NBA','WNBA'):
-            if league in leagues:jobs[f'{league}/current']=(self.basketball_current,(league,72))
+            if league in leagues:current_jobs[f'{league}/current']=(self.basketball_current,(league,72))
         if 'NHL' in leagues:
-            jobs['NHL/current']=(self.nhl_current,())
-            # The league schedule is forward-looking by hockey date. Keep the
-            # preceding week so yesterday's final games survive UTC rollover.
-            jobs['NHL/recent']=(self.nhl_current,((utcnow().date()-timedelta(days=7)).isoformat(),))
+            current_jobs['NHL/current']=(self.nhl_current,())
+            current_jobs['NHL/recent']=(self.nhl_current,((utcnow().date()-timedelta(days=7)).isoformat(),))
         status=[]
+
+        def merge_rows(rows):
+            for g in rows:
+                old=games.get(g.id)
+                if g.league=='NHL' and old:
+                    def priority(row):return (row.state=='final',row.source.startswith('https://api-web.nhle.com/'),row.fetched_at)
+                    if priority(g)>=priority(old):games[g.id]=g
+                elif g.league in ('NBA','WNBA') and old:
+                    def priority(row):return (row.state=='final',row.source.startswith('https://site.api.espn.com/'),row.fetched_at)
+                    if priority(g)>=priority(old):games[g.id]=g
+                elif not old or g.fetched_at>=old.fetched_at:games[g.id]=g
+
+        # Phase 1: High-priority current schedules (live upcoming fixtures across all sports)
         with ThreadPoolExecutor(max_workers=6) as pool:
-            futures={pool.submit(fn,*args):key for key,(fn,args) in jobs.items()}
-            for f in as_completed(futures):
-                key=futures[f]
+            futures={pool.submit(fn,*args):key for key,(fn,args) in current_jobs.items()}
+            try:
+                for f in as_completed(futures, timeout=30.0):
+                    key=futures[f]
+                    try:
+                        rows,meta=f.result()
+                        merge_rows(rows)
+                        status.append({'source':key,'ok':True,'rows':len(rows),'fetched_at':meta.get('fetched_at'),'url':meta.get('url'),'sha256':meta.get('sha256')})
+                    except Exception as e:status.append({'source':key,'ok':False,'error':str(e)})
+                    log.info('Loaded current schedule %s',status[-1])
+            except Exception as exc:
+                status.append({'source':'current_schedules_batch','ok':False,'error':str(exc)})
+
+        # Phase 2: Historical season updates (isolated so timeouts never discard current fixtures)
+        if history_jobs:
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                futures={pool.submit(fn,*args):key for key,(fn,args) in history_jobs.items()}
                 try:
-                    rows,meta=f.result()
-                    for g in rows:
-                        old=games.get(g.id)
-                        if g.league=='NHL' and old:
-                            # A newly downloaded season CSV must not replace an
-                            # official completed result with a scheduled row.
-                            def priority(row):return (row.state=='final',row.source.startswith('https://api-web.nhle.com/'),row.fetched_at)
-                            if priority(g)>=priority(old):games[g.id]=g
-                        elif g.league in ('NBA','WNBA') and old:
-                            # Current scoreboard identity/phase takes precedence
-                            # over season CSV omissions and stale scheduled rows.
-                            def priority(row):return (row.state=='final',row.source.startswith('https://site.api.espn.com/'),row.fetched_at)
-                            if priority(g)>=priority(old):games[g.id]=g
-                        elif not old or g.fetched_at>=old.fetched_at:games[g.id]=g
-                    status.append({'source':key,'ok':True,'rows':len(rows),'fetched_at':meta['fetched_at'],'url':meta['url'],'sha256':meta['sha256']})
-                except Exception as e:status.append({'source':key,'ok':False,'error':str(e)})
-                log.info('Loaded %s',status[-1])
+                    for f in as_completed(futures, timeout=30.0):
+                        key=futures[f]
+                        try:
+                            rows,meta=f.result()
+                            merge_rows(rows)
+                            status.append({'source':key,'ok':True,'rows':len(rows),'fetched_at':meta.get('fetched_at'),'url':meta.get('url'),'sha256':meta.get('sha256')})
+                        except Exception as e:status.append({'source':key,'ok':False,'error':str(e)})
+                        log.info('Loaded historical season %s',status[-1])
+                except Exception as exc:
+                    status.append({'source':'historical_schedules_batch','ok':False,'error':str(exc)})
         result=sorted(games.values(),key=lambda x:(x.start,x.id))
         DATA.mkdir(exist_ok=True,parents=True)
         # The caller publishes games.json only after stats/pitcher enrichment.

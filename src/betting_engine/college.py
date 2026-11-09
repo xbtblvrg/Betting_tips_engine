@@ -36,8 +36,62 @@ def season(fetcher,league,year):
     rows,meta=fetcher.csv(f'https://github.com/sportsdataverse/sportsdataverse-data/releases/download/{tag}/{short}_schedule_{year}.csv',900 if year>=utcnow().year else 86400*7)
     return parse_season(league,year,rows,meta),meta
 
+def current_college_basketball(fetcher,league,horizon_hours=72):
+    now=utcnow()
+    sport_path='mens-college-basketball' if league=='NCAAM' else 'womens-college-basketball'
+    games={};metas=[]
+    offsets=(-1,0,1,2,3)
+    season_year=now.year+(now.month>=7)
+    for offset in offsets:
+        day=(now+timedelta(days=offset)).strftime('%Y%m%d')
+        url=f'https://site.api.espn.com/apis/site/v2/sports/basketball/{sport_path}/scoreboard?dates={day}&limit=1000'
+        try:
+            payload,meta=fetcher.json(url,900)
+            metas.append(meta)
+        except Exception:
+            continue
+        for event in payload.get('events',[]):
+            comps=event.get('competitions') or []
+            if not comps:continue
+            c=comps[0]
+            status=(c.get('status') or event.get('status') or {}).get('type',{})
+            if status.get('name')!='STATUS_SCHEDULED' or status.get('state')!='pre':continue
+            start=c.get('date') or event.get('date')
+            if not start or not now<parse_time(start)<=now+timedelta(hours=horizon_hours):continue
+            home=[r['team'] for r in c.get('competitors',[]) if r.get('homeAway')=='home']
+            away=[r['team'] for r in c.get('competitors',[]) if r.get('homeAway')=='away']
+            if not home or not away:continue
+            h,a=home[0],away[0]
+            if not h.get('displayName') or not a.get('displayName'):continue
+            gid=f'{league}:{event["id"]}'
+            games[gid]=Game(
+                id=gid,league=league,start=start,
+                home=h.get('displayName',h.get('name')),
+                away=a.get('displayName',a.get('name')),
+                home_id=str(h.get('id','')),
+                away_id=str(a.get('id','')),
+                home_abbr=h.get('abbreviation',''),
+                away_abbr=a.get('abbreviation',''),
+                state='scheduled',
+                season=season_year,
+                neutral=truth(c.get('neutralSite')),
+                game_type='regular',
+                source=meta['url'],
+                fetched_at=meta['fetched_at'],
+                context={'college':True,'availability_model':'not_quantified'}
+            )
+    if games:
+        agg_meta=metas[0] if metas else {'url':f'espn_{sport_path}','fetched_at':now.isoformat(),'sha256':'espn'}
+        return validate_batch(list(games.values())),agg_meta
+    return season(fetcher,league,season_year)
+
 def current(fetcher,league):
     now=utcnow()
+    if league in ('NCAAM','NCAAW'):
+        try:
+            return current_college_basketball(fetcher,league)
+        except Exception:
+            pass
     if league!='NCAAF':return season(fetcher,league,now.year+(now.month>=7))
     # The historical CFB release contains completed games only. The public
     # unified schedule supplies future games. Team identities are joined by ID,

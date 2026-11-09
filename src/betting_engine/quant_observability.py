@@ -193,12 +193,15 @@ class LeadQuantObservabilityEngine:
             avg_ev = round(d['ev_sum'] / cnt * 100.0, 2) if cnt > 0 else 0.0
             break_even_wr = round(100.0 / avg_odds, 2) if avg_odds > 0 else 50.0
 
-            # Dynamic Tier Classification
-            if pnl > 0.0 and roi >= 10.0 and cnt >= 5:
+            avg_stake = (st / cnt) if cnt > 0 else 1.0
+            units_pnl = round(pnl / max(0.50, avg_stake), 2)
+
+            # Dynamic Tier Classification (Scale-Invariant Risk Units)
+            if pnl > 0.0 and roi >= 10.0 and cnt >= 5 and units_pnl >= 3.0:
                 tier = 'SUPER_ALPHA'
-            elif pnl > 0.0:
+            elif pnl > 0.0 and units_pnl >= 1.0:
                 tier = 'SOLID_ALPHA'
-            elif pnl < 0.0 and (roi < -3.0 or pnl <= -5.0) and cnt >= 4:
+            elif pnl < 0.0 and (roi < -3.0 or units_pnl <= -2.0) and cnt >= 4:
                 tier = 'CAPITAL_DEFENSE'
             else:
                 tier = 'EXPLORATION'
@@ -598,6 +601,74 @@ class LeadQuantObservabilityEngine:
                             })
                         except Exception:
                             pass
+            except Exception:
+                pass
+
+        # 9. Bottleneck Watchdog Anomalies & Self-Healing Events
+        watchdog_p = self.data_dir / 'bottleneck_watchdog_status.json'
+        if watchdog_p.exists():
+            try:
+                wd_data = json.loads(watchdog_p.read_text(encoding='utf-8'))
+                for anom in wd_data.get('anomalies', [])[-limit:]:
+                    is_healed = anom.get('self_healed', False)
+                    sev = anom.get('severity', 'INFO')
+                    events.append({
+                        'timestamp': anom.get('detected_at') or '',
+                        'component': 'bottleneck_watchdog',
+                        'event_type': anom.get('category', 'anomaly'),
+                        'severity': 'info' if is_healed else ('error' if sev in ('CRITICAL', 'HIGH') else 'warning'),
+                        'message': f"Bottleneck [{'HEALED' if is_healed else 'ACTIVE'}] {anom.get('league')} {anom.get('scope')} {anom.get('family')}: {anom.get('message')}",
+                        'data': anom
+                    })
+            except Exception:
+                pass
+
+        # 10. SQLite Learning Jobs Queue & Congestion Stream
+        if self.engine_db.exists():
+            try:
+                conn = sqlite3.connect(f"file:{self.engine_db.resolve()}?mode=ro", uri=True, timeout=3.0)
+                cur = conn.cursor()
+                cur.execute("""
+                    SELECT id, kind, league, status, created_at, updated_at
+                    FROM learning_jobs
+                    ORDER BY id DESC
+                    LIMIT ?
+                """, (limit,))
+                for row in cur.fetchall():
+                    events.append({
+                        'timestamp': row[5] or row[4] or '',
+                        'component': 'learning_jobs_queue',
+                        'event_type': f"job_{row[3]}",
+                        'severity': 'error' if row[3] == 'failed' else ('warning' if row[3] == 'stalled' else 'info'),
+                        'message': f"Learning Job #{row[0]} [{row[1]}] on {row[2] or 'SYSTEM'}: status={row[3]}",
+                        'data': {'job_id': row[0], 'kind': row[1], 'league': row[2], 'status': row[3], 'updated_at': row[5]}
+                    })
+                conn.close()
+            except Exception:
+                pass
+
+        # 11. Crucible Validation & AI Synthesis Feedback Loop
+        if self.incubator_db.exists():
+            try:
+                conn = sqlite3.connect(f"file:{self.incubator_db.resolve()}?mode=ro", uri=True, timeout=3.0)
+                cur = conn.cursor()
+                cur.execute("""
+                    SELECT model_id, class_name, league, scope, family, crucible_passed, oos_simulated_roi, created_at, graduation_status
+                    FROM ai_synthesis_feedback_loop
+                    ORDER BY id DESC
+                    LIMIT ?
+                """, (limit,))
+                for row in cur.fetchall():
+                    passed = bool(row[5])
+                    events.append({
+                        'timestamp': row[7] or '',
+                        'component': 'crucible_validation',
+                        'event_type': 'crucible_pass' if passed else 'crucible_eviction',
+                        'severity': 'info' if passed else 'warning',
+                        'message': f"Crucible {'PASSED' if passed else 'EVICTED'}: {row[1]} on {row[2]}|{row[3]}|{row[4]} (OOS ROI: {round((row[6] or 0.0)*100, 1)}%)",
+                        'data': {'model_id': row[0], 'league': row[2], 'scope': row[3], 'family': row[4], 'crucible_passed': passed, 'status': row[8]}
+                    })
+                conn.close()
             except Exception:
                 pass
 

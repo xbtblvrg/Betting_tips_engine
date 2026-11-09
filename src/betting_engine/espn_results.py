@@ -172,11 +172,14 @@ def parse_summary(raw, meta, tip, now=None, *, scheduled_start=None):
                 a2 = int(a_ls[1].get('displayValue', a_ls[1].get('value', 0)))
                 context['segment_scores'] = {
                     'half_1': {'home': h1, 'away': a1, 'complete': True, 'source': url, 'fetched_at': meta['fetched_at'], 'source_sha256': meta['sha256']},
-                    'half_2': {'home': h2, 'away': a2, 'complete': True, 'source': url, 'fetched_at': meta['fetched_at'], 'source_sha256': meta['sha256']}
+                    'half_2': {'home': h2, 'away': a2, 'complete': True, 'source': url, 'fetched_at': meta['fetched_at'], 'source_sha256': meta['sha256']},
+                    'regulation': {'home': h1 + h2, 'away': a1 + a2, 'complete': True, 'source': url, 'fetched_at': meta['fetched_at'], 'source_sha256': meta['sha256']},
                 }
+                source['scoped_scores_state'] = 'verified'
+                source.pop('scoped_scores_reason', None)
         except (ValueError, KeyError, TypeError, IndexError):
             pass
-    elif tip.get('league') in ('NBA', 'WNBA', 'NFL') and requires_scoped:
+    elif tip.get('league') in ('NBA', 'WNBA', 'NFL', 'NCAAF') and requires_scoped:
         game_type = {1: 'preseason', 2: 'regular', 3: 'playoff'}.get(header['season']['type'], 'regular')
         try:
             h_ls = teams['home'].get('linescores', [])
@@ -198,6 +201,25 @@ def parse_summary(raw, meta, tip, now=None, *, scheduled_start=None):
                     }
                     source['scoped_scores_state'] = 'verified'
                     source.pop('scoped_scores_reason', None)
+        except (ValueError, KeyError, TypeError, IndexError):
+            pass
+    elif tip.get('league') in ('NCAAM', 'NCAAW') and requires_scoped:
+        game_type = {1: 'preseason', 2: 'regular', 3: 'playoff'}.get(header['season']['type'], 'regular')
+        try:
+            h_ls = teams['home'].get('linescores', [])
+            a_ls = teams['away'].get('linescores', [])
+            if len(h_ls) >= 2 and len(a_ls) >= 2:
+                h1 = int(h_ls[0].get('displayValue', h_ls[0].get('value', 0)))
+                a1 = int(a_ls[0].get('displayValue', a_ls[0].get('value', 0)))
+                h2 = int(h_ls[1].get('displayValue', h_ls[1].get('value', 0)))
+                a2 = int(a_ls[1].get('displayValue', a_ls[1].get('value', 0)))
+                context['segment_scores'] = {
+                    'half_1': {'home': h1, 'away': a1, 'complete': True, 'source': url, 'fetched_at': meta['fetched_at'], 'source_sha256': meta['sha256']},
+                    'half_2': {'home': h2, 'away': a2, 'complete': True, 'source': url, 'fetched_at': meta['fetched_at'], 'source_sha256': meta['sha256']},
+                    'regulation': {'home': h1 + h2, 'away': a1 + a2, 'complete': True, 'source': url, 'fetched_at': meta['fetched_at'], 'source_sha256': meta['sha256']},
+                }
+                source['scoped_scores_state'] = 'verified'
+                source.pop('scoped_scores_reason', None)
         except (ValueError, KeyError, TypeError, IndexError):
             pass
     else:

@@ -148,26 +148,47 @@ class AutonomousModelDiscoveryEngine:
                    OR (dm.incubation_phase = 'incubating_with_new_model' AND (dm.incubated_model_id IS NULL OR dm.incubated_model_id = '' OR dm.historical_roi <= 0.0))
                 GROUP BY dm.id
                 ORDER BY 
-                    -- 1. Untouched markets with 0 attempts get top priority (ensures all 89 markets are reached immediately)
-                    CASE WHEN COUNT(fb.id) = 0 THEN 0 ELSE 1 END,
-                    -- 2. Strict Constitutional Mandate (Commandment 6.5): Prioritize Dual Reachable Markets (Stake + Polymarket CLOB)
+                    -- 0. Ground Truth Telemetry: Leagues with verified historical wagers come first (prevents zero-data synthesis loops)
+                    CASE WHEN dm.league IN ('NBA', 'MLS', 'ATP', 'WTA', 'EPL', 'NFL', 'NHL', 'NCAAF', 'UCL', 'WNBA', 'NCAAM', 'MLB', 'LALIGA', 'BUNDESLIGA', 'SERIEA', 'UEL') THEN 0 ELSE 1 END,
+                    -- 1. STRICT CONSTITUTIONAL MANDATE (Commandment 6.5): Prioritize Dual Reachable Markets (Stake + Polymarket CLOB)
                     CASE 
-                        WHEN (dm.league IN ('NBA', 'NFL', 'EPL', 'MLS', 'UCL', 'NHL', 'MLB', 'ATP', 'WTA')
-                              AND dm.scope IN ('full_game', 'half_1', 'half_2', 'quarter_1', 'quarter_2', 'quarter_3', 'quarter_4', 'period_1', 'period_2')
-                              AND (dm.family LIKE '%moneyline%' OR dm.family LIKE '%spread%' OR dm.family LIKE '%totals%' OR dm.family = 'totals' OR dm.family LIKE '%winner%' OR dm.family LIKE '%three_way%' OR dm.family LIKE '%both%')
-                              AND dm.family NOT LIKE '%home_total%' AND dm.family NOT LIKE '%away_total%' AND dm.family NOT LIKE '%team_total%')
+                        WHEN (dm.league IN ('NBA', 'NFL', 'NHL', 'MLB', 'WNBA', 'NCAAF', 'NCAAM', 'NCAAB', 'EPL', 'LALIGA', 'BUNDESLIGA', 'SERIEA', 'UCL', 'UEL', 'MLS', 'ATP', 'WTA')
+                              AND (
+                                  (dm.league IN ('NHL', 'MLB', 'WNBA', 'NCAAM', 'NCAAB') AND dm.scope = 'full_game')
+                                  OR (dm.league IN ('ATP', 'WTA') AND dm.scope IN ('full_game', 'period_1', 'period_2'))
+                                  OR (dm.league IN ('EPL', 'MLS', 'UCL', 'UEL', 'LALIGA', 'SERIEA', 'BUNDESLIGA') AND dm.scope IN ('full_game', 'half_1', 'half_2'))
+                                  OR (dm.league IN ('NBA', 'NFL', 'NCAAF') AND dm.scope IN ('full_game', 'half_1', 'half_2', 'quarter_1', 'quarter_2', 'quarter_3', 'quarter_4'))
+                              )
+                              AND (
+                                  dm.family LIKE '%moneyline%' OR dm.family LIKE '%spread%' OR dm.family LIKE '%total%' 
+                                  OR dm.family LIKE '%winner%' OR dm.family LIKE '%three_way%'
+                                  OR (dm.family LIKE '%both%' AND dm.league IN ('EPL', 'MLS', 'UCL', 'UEL', 'LALIGA', 'SERIEA', 'BUNDESLIGA'))
+                                  OR (dm.family IN ('set_handicap', 'total_sets', 'tennis_sets') AND dm.league IN ('ATP', 'WTA'))
+                                  OR dm.family LIKE '%handicap%' OR dm.family LIKE '%asian%' OR dm.family LIKE '%american%'
+                              )
+                              AND dm.family NOT LIKE '%home_total%' AND dm.family NOT LIKE '%away_total%' AND dm.family NOT LIKE '%team_total%'
+                              AND dm.family NOT LIKE '%exact_score%' AND dm.family NOT LIKE '%exact_total%'
+                              AND dm.family NOT LIKE '%winner_total%' AND dm.family NOT LIKE '%double_chance%' AND dm.family NOT LIKE '%draw_no_bet%')
                         THEN 0 ELSE 1
                     END,
+                    -- 2. Untouched markets with 0 attempts get top priority within data-rich leagues
+                    CASE WHEN COUNT(fb.id) = 0 THEN 0 ELSE 1 END,
                     -- 3. Leaky markets with negative rolling PnL (tourniquet turnaround)
                     CASE WHEN dm.rolling_pnl < 0.0 THEN 0 ELSE 1 END,
-                    -- 4. Tier 1 League preference
+                    -- 4. Strategic Sport Priority (1. NBA, 2. NFL, 3. NHL, 4. MLS, 5. NCAAF, 6. UCL, 7. EPL, 8. MLB, 9. ATP, 10. WTA)
                     CASE 
-                        WHEN dm.league IN ('NBA', 'NFL', 'EPL', 'MLS') THEN 0
-                        WHEN dm.league IN ('NHL', 'UCL') THEN 1
-                        WHEN dm.league IN ('MLB', 'ATP', 'WTA') THEN 2
-                        WHEN dm.league IN ('NCAAF', 'NCAAM', 'NCAAW') THEN 3
-                        ELSE 4
-                    END,
+                        WHEN dm.league = 'NBA' THEN 1
+                        WHEN dm.league = 'NFL' THEN 2
+                        WHEN dm.league = 'NHL' THEN 3
+                        WHEN dm.league = 'MLS' THEN 4
+                        WHEN dm.league IN ('NCAAF', 'CFB') THEN 5
+                        WHEN dm.league = 'UCL' THEN 6
+                        WHEN dm.league = 'EPL' THEN 7
+                        WHEN dm.league = 'MLB' THEN 8
+                        WHEN dm.league = 'ATP' THEN 9
+                        WHEN dm.league = 'WTA' THEN 10
+                        ELSE 99
+                    END ASC,
                     -- 5. Stratified Aging Round-Robin: oldest screened first
                     CASE WHEN dm.last_screened_at IS NULL THEN 0 ELSE 1 END,
                     COALESCE(dm.last_screened_at, '') ASC,
@@ -176,10 +197,11 @@ class AutonomousModelDiscoveryEngine:
                     dm.scope, dm.family
             """)
             raw_rows = [dict(r) for r in cur.fetchall()]
-            from .contracts import is_supported_stake_contract
+            from .contracts import is_supported_stake_contract, is_preferred_alpha_league
             actionable_rows = [
                 r for r in raw_rows
                 if is_supported_stake_contract(r.get('league', ''), r.get('scope', 'full_game'), r.get('family', ''), r.get('sub_family', ''))
+                and is_preferred_alpha_league(r.get('league', ''))
             ]
             return actionable_rows
         finally:
@@ -235,6 +257,37 @@ class AutonomousModelDiscoveryEngine:
             d_id = market.get('id')
 
             best_cand = archetype_results.get(segment_key)
+            if not best_cand or not best_cand.is_qualified:
+                # Check persistent AI feedback loop memory for pre-synthesized champion
+                try:
+                    with sqlite3.connect(f"file:{self.db_path.resolve()}?mode=ro", uri=True, timeout=5.0) as fb_conn:
+                        fb_row = fb_conn.execute("""
+                            SELECT model_id, class_name, oos_sample_size, oos_win_rate, oos_simulated_roi, oos_delta_brier, oos_max_drawdown
+                            FROM ai_synthesis_feedback_loop
+                            WHERE segment_key = ? 
+                              AND (crucible_passed = 1 OR (oos_sample_size >= 5 AND oos_simulated_roi >= 0.035 AND oos_delta_brier >= -0.005 AND oos_max_drawdown < 0.25))
+                            ORDER BY oos_sample_size DESC, oos_simulated_roi DESC
+                            LIMIT 1
+                        """, (segment_key,)).fetchone()
+                        if fb_row:
+                            from .historical_trainer import CandidateTrainingResult
+                            best_cand = CandidateTrainingResult(
+                                segment_key=segment_key,
+                                model_id=fb_row[0],
+                                model_archetype=fb_row[1],
+                                model_params={'source_file': f"{fb_row[0]}.py"},
+                                train_sample_size=0,
+                                oos_sample_size=fb_row[2] or 0,
+                                oos_win_rate=fb_row[3] or 0.0,
+                                oos_simulated_roi=fb_row[4] or 0.0,
+                                oos_delta_brier=fb_row[5] or 0.0,
+                                oos_max_drawdown=fb_row[6] or 0.0,
+                                is_qualified=True,
+                                scorecard_s=100.0,
+                            )
+                except Exception:
+                    pass
+
             if best_cand and best_cand.is_qualified:
                 try:
                     success = self.bridge.admit_champion_to_market(d_id, segment_key, best_cand)
@@ -278,6 +331,11 @@ class AutonomousModelDiscoveryEngine:
 
         # 2. Parallel Dual-AI Synthesis (Codex + Claude) for unresolved markets
         if unresolved_markets:
+            def _dual_synth_key(m):
+                from .contracts import is_dual_reachable_contract
+                return 0 if is_dual_reachable_contract(m.get('league'), m.get('scope'), m.get('family'), m.get('sub_family', '')) else 1
+            unresolved_markets.sort(key=_dual_synth_key)
+            ai_unresolved = unresolved_markets[:6]
             def _synthesize_market(m):
                 seg = m['segment_key']
                 d_id = m.get('id')
@@ -340,8 +398,8 @@ class AutonomousModelDiscoveryEngine:
                         pass
                 return None
 
-            with ThreadPoolExecutor(max_workers=2) as synth_pool:
-                synth_records = list(synth_pool.map(_synthesize_market, unresolved_markets))
+            with ThreadPoolExecutor(max_workers=min(4, max(1, len(ai_unresolved)))) as synth_pool:
+                synth_records = list(synth_pool.map(_synthesize_market, ai_unresolved))
                 for r in synth_records:
                     if r:
                         new_discoveries.append(r)

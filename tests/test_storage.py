@@ -79,3 +79,56 @@ def test_settle_forecasts_handles_alternative_probability_formats(tmp_path):
         assert row is not None
         assert row[0] is not None
 
+
+def test_performance_tier3_stratification(tmp_path):
+    import json
+    import sqlite3
+    s = Store(tmp_path / 'test.db')
+    # Create shadow_incubator DB with graduated market
+    incubator_path = tmp_path / 'shadow_incubator.sqlite3'
+    con_inc = sqlite3.connect(incubator_path)
+    con_inc.execute('''
+        CREATE TABLE graduated_markets (
+            segment_key TEXT PRIMARY KEY,
+            league TEXT,
+            scope TEXT,
+            family TEXT,
+            sub_family TEXT,
+            stats TEXT
+        )
+    ''')
+    con_inc.execute(
+        "INSERT INTO graduated_markets VALUES ('EPL|full_game|totals', 'EPL', 'full_game', 'totals', 'totals', '{}')"
+    )
+    con_inc.commit()
+    con_inc.close()
+
+    # Add 1 Tier 3 bet (EPL totals) and 1 Demoted bet (ATP moneyline)
+    tip1 = {'id': 't1', 'league': 'EPL', 'model_scope': 'full_game', 'market': 'totals', 'reference_odds': 2.0}
+    tip2 = {'id': 't2', 'league': 'ATP', 'model_scope': 'full_game', 'market': 'moneyline', 'reference_odds': 2.0}
+    s.publish({'recommendations': [tip1, tip2]})
+    b1 = s.add_bet('t1', 10.0, 2.0, 'book')
+    b2 = s.add_bet('t2', 10.0, 2.0, 'book')
+    s.settle(b1, 'won', 10.0)
+    s.settle(b2, 'lost', -10.0)
+
+    perf = s.performance()
+    t3 = perf['tier3_performance']
+    dem = perf['demoted_performance']
+    assert t3['settled'] == 1
+    assert t3['won'] == 1
+    assert t3['lost'] == 0
+    assert t3['pnl'] == 10.0
+    assert t3['turnover'] == 10.0
+    assert t3['roi'] == 1.0
+    assert t3['hit_rate'] == 1.0
+
+    assert dem['settled'] == 1
+    assert dem['won'] == 0
+    assert dem['lost'] == 1
+    assert dem['pnl'] == -10.0
+    assert dem['turnover'] == 10.0
+    assert dem['roi'] == -1.0
+    assert dem['hit_rate'] == 0.0
+
+

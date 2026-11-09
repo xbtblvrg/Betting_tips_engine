@@ -187,11 +187,13 @@ def settle_quarter_asian(market, side, line, home, away, odds, stake):
     l1, l2 = decompose_quarter_line(line)
     profit = 0.0
     states = []
+    scope, base = split_market(market) if ':' in str(market) else ('full_game', str(market))
+    side_norm = str(side).lower()
     for l in (l1, l2):
-        if market == 'spreads':
-            diff = (home - away if side == 'home' else away - home) + l
+        if base == 'spreads':
+            diff = (home - away if side_norm == 'home' else away - home) + l
         else:
-            diff = (home + away - l) * (1 if side == 'over' else -1)
+            diff = (home + away - l) * (1 if side_norm == 'over' else -1)
         if diff > 0:
             states.append('win')
             profit += (stake / 2.0) * (odds - 1.0)
@@ -230,21 +232,29 @@ def is_opposing_contract(t1, t2):
         s2, b2 = 'full_game', t2.get('market', '')
     if s1 != s2:
         return False
-    side1 = t1.get('side')
-    side2 = t2.get('side')
+    side1 = str(t1.get('side', '')).lower()
+    side2 = str(t2.get('side', '')).lower()
     if not side1 or not side2:
         return False
 
-    winner_bases = ('moneyline', 'three_way', 'spreads')
+    b1 = b1.lower()
+    b2 = b2.lower()
+
+    winner_bases = ('moneyline', 'three_way', 'spreads', '1x2', 'winner', 'draw_no_bet', 'asian_handicap')
     if b1 in winner_bases and b2 in winner_bases:
         if {side1, side2} == {'home', 'away'}:
             return True
 
-    if b1 == 'totals' and b2 == 'totals':
+    total_bases = ('totals', 'asian_totals', 'asian_total')
+    if b1 in total_bases and b2 in total_bases:
         if {side1, side2} == {'over', 'under'}:
             return True
 
-    if b1.endswith('_total') and b2 == b1:
+    if (b1.endswith('_total') and b2 == b1) or (
+        b1 in ('home_total', 'home_team_total') and b2 in ('home_total', 'home_team_total')
+    ) or (
+        b1 in ('away_total', 'away_team_total') and b2 in ('away_total', 'away_team_total')
+    ):
         if {side1, side2} == {'over', 'under'}:
             return True
 
@@ -312,7 +322,9 @@ def is_supported_stake_contract(league: str, scope: str, family: str, sub_family
         if lg in ('NBA', 'WNBA', 'MLB', 'ATP', 'WTA', 'CHALLENGER'):
             return False
 
-    # 5. Inning scopes strictly belong to baseball
+    # 5. Baseball scopes restricted to full_game and inning scopes
+    if lg in ('MLB', 'BASEBALL', 'NPB', 'KBO') and sc not in ('full_game', 'inning_1', 'innings_1_5'):
+        return False
     if 'inning' in sc and lg not in ('MLB', 'BASEBALL', 'NPB', 'KBO'):
         return False
 
@@ -320,6 +332,214 @@ def is_supported_stake_contract(league: str, scope: str, family: str, sub_family
     if lg in ('ATP', 'WTA', 'CHALLENGER') and sc not in ('full_game', 'period_1', 'period_2'):
         return False
 
+    # 7. Soccer scopes restricted to full_game, halves, and regulation
+    if lg in ('EPL', 'UCL', 'MLS', 'UEL', 'LALIGA', 'SERIEA', 'BUNDESLIGA', 'SOCCER') and sc not in ('full_game', 'half_1', 'half_2', 'regulation'):
+        return False
+
+    # 8. Hockey scopes restricted to full_game, periods, and regulation
+    if lg in ('NHL', 'NCAA_ICE_HOCKEY', 'NCAA_ICE_HOCKEY_WOMEN') and sc not in ('full_game', 'period_1', 'period_2', 'period_3', 'regulation'):
+        return False
+
+    # 9. Basketball and Football scopes restricted to full_game, halves, quarters, and regulation
+    if lg in ('NBA', 'WNBA', 'NCAAM', 'NCAAW', 'NFL', 'NCAAF') and sc not in ('full_game', 'half_1', 'half_2', 'half_2_ot', 'quarter_1', 'quarter_2', 'quarter_3', 'quarter_4', 'quarter_4_ot', 'regulation'):
+        return False
+
+    # 10. Volleyball scopes restricted to full_game and set periods
+    if lg in ('NCAA_VOLLEYBALL_WOMEN', 'VOLLEYBALL') and sc not in ('full_game', 'period_1', 'period_2', 'period_3'):
+        return False
+
     return True
+
+
+POLYMARKET_DUAL_LEAGUES = {
+    'NBA', 'NFL', 'NHL', 'MLB', 'WNBA', 'NCAAF', 'NCAAM', 'NCAAB', 'CFB', 'CBB',
+    'NCAAW', 'CWBB',
+    'EPL', 'LALIGA', 'BUNDESLIGA', 'SERIEA', 'UCL', 'UEL', 'MLS', 
+    'ATP', 'WTA', 'CHALLENGER'
+}
+
+# Strategic Liquidity & Market Viability Hierarchy
+# The 10 Supreme Priority Leagues in exact order (User Directive 2026-11-08):
+# 1. NBA, 2. NFL, 3. NHL, 4. MLS, 5. NCAAF, 6. UCL, 7. EPL, 8. MLB, 9. ATP, 10. WTA.
+SUPREME_PRIORITY_LEAGUES: Tuple[str, ...] = (
+    'NBA', 'NFL', 'NHL', 'MLS', 'NCAAF', 'UCL', 'EPL', 'MLB', 'ATP', 'WTA'
+)
+
+TIER_1_US_MAJORS: Tuple[str, ...] = (
+    'NBA', 'NFL', 'MLB', 'NHL', 'WNBA', 'NCAAF', 'NCAAM', 'NCAAB', 'CFB', 'CBB'
+)
+TIER_2_PREMIER_SOCCER: Tuple[str, ...] = (
+    'EPL', 'UCL', 'MLS', 'LALIGA', 'BUNDESLIGA', 'SERIEA', 'UEL'
+)
+TIER_3_ELITE_TENNIS: Tuple[str, ...] = (
+    'ATP', 'WTA'
+)
+TIER_4_FRINGE_LEAGUES: Tuple[str, ...] = (
+    'CHALLENGER', 'NCAAW', 'CWBB', 'NCAA_BASEBALL', 'NCAA_VOLLEYBALL_WOMEN',
+    'NCAA_ICE_HOCKEY', 'NCAA_ICE_HOCKEY_WOMEN'
+)
+PREFERRED_ALPHA_LEAGUES: Tuple[str, ...] = SUPREME_PRIORITY_LEAGUES
+
+# Strategic Priority Ranking (1 to 10 for the exact 10 Supreme Priority Leagues)
+SPORT_PRIORITY_TIER: Dict[str, int] = {
+    # 10 Supreme Priority Leagues (User Directive 2026-11-08)
+    'NBA': 1,
+    'NFL': 2,
+    'NHL': 3,
+    'MLS': 4,
+    'NCAAF': 5,
+    'CFB': 5,
+    'UCL': 6,
+    'EPL': 7,
+    'MLB': 8,
+    'ATP': 9,
+    'WTA': 10,
+
+    # Other secondary tracked leagues
+    'WNBA': 20,
+    'NCAAM': 21,
+    'CBB': 21,
+    'NCAAB': 21,
+    'LALIGA': 22,
+    'BUNDESLIGA': 23,
+    'SERIEA': 24,
+    'UEL': 25,
+
+    # Deprioritized fringe leagues (Blocked from consuming AI synthesis budget)
+    'CHALLENGER': 99,
+    'NCAAW': 99,
+    'CWBB': 99,
+    'NCAA_BASEBALL': 99,
+    'NCAA_VOLLEYBALL_WOMEN': 99,
+    'NCAA_ICE_HOCKEY': 99,
+    'NCAA_ICE_HOCKEY_WOMEN': 99,
+}
+
+
+def get_sport_priority(league: str) -> int:
+    """Returns strategic priority rank (1..10 = Supreme Priority Leagues, 20+ = Secondary, 99 = Fringe)."""
+    return SPORT_PRIORITY_TIER.get(str(league or '').upper().strip(), 99)
+
+
+def get_market_strategic_boost(league: str, scope: str = 'full_game', family: str = '', sub_family: str = '') -> float:
+    """Calculates continuous selection and ranking boost.
+    
+    Supreme Priority Rule (User Directive 2026-11-08):
+    1. Dual Markets (Stake + Polymarket) in the 10 Supreme Priority Leagues receive the TOP Alpha Boost (+0.42 to +0.60).
+    2. Single-platform Stake markets in the 10 Supreme Priority Leagues receive base priority boost (+0.17 to +0.35).
+    3. Secondary leagues receive 0.0.
+    4. Deprioritized fringe leagues receive penalty (-0.50).
+    """
+    lg = str(league or '').upper().strip()
+    prio = get_sport_priority(lg)
+    if prio > 10:
+        return -0.50 if prio >= 99 else 0.0
+    
+    # Base boost strictly graded by league priority rank 1..10 (0.35 down to 0.17)
+    base_boost = round(0.35 - (prio - 1) * 0.02, 4)
+    
+    # Dual Reachable Market Alpha Boost: +0.25 on top of base boost!
+    if is_dual_reachable_contract(lg, scope, family, sub_family):
+        return round(base_boost + 0.25, 4)
+    return base_boost
+
+
+def get_sport_priority_boost(league: str) -> float:
+    """Returns selection priority score boost based on unified strategic hierarchy."""
+    return get_market_strategic_boost(league)
+
+
+def get_sport_tier_name(league: str) -> str:
+    """Returns human-readable strategic tier name."""
+    prio = get_sport_priority(league)
+    if prio <= 10:
+        return f"Supreme Priority #{prio}: {league}"
+    elif prio <= 30:
+        return "Secondary Tracked League"
+    return "Tier 4: Deprioritized Fringe"
+
+
+def sort_leagues_by_priority(leagues: Any) -> List[str]:
+    """Sorts leagues strictly according to system strategic hierarchy."""
+    return sorted(leagues, key=lambda lg: (get_sport_priority(lg), str(lg)))
+
+
+def is_preferred_alpha_league(league: str) -> bool:
+    """Returns True iff league is one of the 10 Supreme Priority Leagues authorized for primary AI compute."""
+    return get_sport_priority(league) <= 10
+
+
+def is_dual_reachable_contract(league: str, scope: str, family: str, sub_family: str = '') -> bool:
+    """Authoritative canonical check for Dual Reachable Markets (Stake + Polymarket CLOB).
+    
+    Implements Constitutional Prime Directive Commandment 6.5:
+    A contract is Dual Reachable iff:
+    1. It is a valid, supported Stake contract (is_supported_stake_contract == True).
+    2. Its league is actively traded on Polymarket CLOB.
+    3. Its family/sub-family is a real liquid match-level or period-level market offered on Polymarket
+       (Moneyline, Spreads/Handicaps, Totals, 3-Way, BTTS for soccer, Tennis sets/handicaps).
+    4. Excludes Stake-exclusive derivatives (double_chance, draw_no_bet, regulation 3-way,
+       team totals, exact scores, winner_total combos, micro player props).
+    5. Respects sport-specific Polymarket scopes:
+       - NHL, MLB, WNBA, NCAAM, NCAAW: full_game only.
+       - Tennis: full_game, period_1 (1st set winner), period_2 (2nd set winner).
+       - Soccer: full_game, half_1, half_2.
+       - NFL, NBA, NCAAF: full_game, half_1, half_2, quarter_1, quarter_2, quarter_3, quarter_4.
+    """
+    lg = (league or '').upper().strip()
+    sc = (scope or 'full_game').lower().strip()
+    fam = (family or '').lower().strip()
+    sub = (sub_family or '').lower().strip()
+    
+    if not is_supported_stake_contract(lg, sc, fam, sub):
+        return False
+        
+    if lg not in POLYMARKET_DUAL_LEAGUES:
+        return False
+        
+    base = sub if (sub and sub != fam) else fam
+    if ':' in base:
+        base = base.split(':')[-1]
+        
+    # Explicit Stake-exclusive markets that do NOT exist on Polymarket CLOB:
+    if any(x in base for x in (
+        'home_total', 'away_total', 'team_total', 'exact_score', 'exact_total', 
+        'winner_total', 'double_chance', 'draw_no_bet', 'bivariate', 'odd_even'
+    )):
+        return False
+        
+    # Scopes: regulation, innings 1-5, inning 1, period 3 are Stake-only
+    if sc in ('regulation', 'inning_1', 'innings_1_5', 'period_3'):
+        return False
+        
+    # Valid Polymarket scopes per sport
+    if lg in ('ATP', 'WTA', 'CHALLENGER'):
+        if sc not in ('full_game', 'period_1', 'period_2'):
+            return False
+    elif lg in ('EPL', 'MLS', 'UCL', 'UEL', 'LALIGA', 'SERIEA', 'BUNDESLIGA'):
+        if sc not in ('full_game', 'half_1', 'half_2'):
+            return False
+    elif lg in ('NHL', 'MLB', 'WNBA', 'NCAAM', 'NCAAB', 'CBB', 'NCAAW', 'CWBB'):
+        # On Polymarket, NHL, MLB, College Basketball, and WNBA are only traded for full_game
+        if sc != 'full_game':
+            return False
+        if lg == 'NHL' and (base in ('american_derivatives', 'derivatives') or base not in ('moneyline', 'spreads', 'totals', 'spread', 'total')):
+            return False
+    elif lg in ('NBA', 'NFL', 'NCAAF', 'CFB'):
+        if sc not in ('full_game', 'half_1', 'half_2', 'quarter_1', 'quarter_2', 'quarter_3', 'quarter_4'):
+            return False
+
+    # Family checks:
+    # both_score / btts is strictly for soccer
+    if 'both' in base:
+        return lg in ('EPL', 'MLS', 'UCL', 'UEL', 'LALIGA', 'SERIEA', 'BUNDESLIGA')
+        
+    # Tennis specials:
+    if base in ('set_handicap', 'total_sets', 'tennis_sets'):
+        return lg in ('ATP', 'WTA', 'CHALLENGER')
+        
+    is_main_fam = any(k in base for k in ('moneyline', 'spread', 'total', 'winner', 'three_way', 'handicap', 'asian', 'american'))
+    return is_main_fam
+
 
 

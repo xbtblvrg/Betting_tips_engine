@@ -172,9 +172,10 @@ def compute_segment_scoreboard(conn: sqlite3.Connection) -> dict:
         else:
             exploration_segments.append(record)
 
-    alpha_segments.sort(key=lambda x: x['pnl'], reverse=True)
-    exploration_segments.sort(key=lambda x: x['games'], reverse=True)
-    underperforming_segments.sort(key=lambda x: x['pnl'])
+    from .contracts import get_sport_priority
+    alpha_segments.sort(key=lambda x: (get_sport_priority(x['league']), -x['pnl']))
+    exploration_segments.sort(key=lambda x: (get_sport_priority(x['league']), -x['games']))
+    underperforming_segments.sort(key=lambda x: (get_sport_priority(x['league']), x['pnl']))
 
     all_evaluated = alpha_segments + exploration_segments + underperforming_segments
     from .tier_state_machine import process_tier_transitions

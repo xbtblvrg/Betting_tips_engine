@@ -84,6 +84,8 @@ class AIFeedbackRecord:
     live_max_drawdown: float = 0.0
     graduation_status: str = "incubating"
     learned_insight: Optional[str] = None
+    validation_errors: Optional[List[str]] = None
+    failure_reason: Optional[str] = None
     created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
@@ -144,10 +146,18 @@ class AIFeedbackLoopManager:
                         live_max_drawdown REAL DEFAULT 0.0,
                         graduation_status TEXT DEFAULT 'incubating',
                         learned_insight TEXT,
+                        validation_errors TEXT,
+                        failure_reason TEXT,
                         created_at TEXT NOT NULL,
                         updated_at TEXT NOT NULL
                     )
                 """)
+                # Auto-migrate optional columns if not present
+                for col_def in ("validation_errors TEXT", "failure_reason TEXT"):
+                    try:
+                        conn.execute(f"ALTER TABLE ai_synthesis_feedback_loop ADD COLUMN {col_def}")
+                    except Exception:
+                        pass
                 conn.execute("""
                     CREATE INDEX IF NOT EXISTS idx_ai_fb_league_fam 
                     ON ai_synthesis_feedback_loop(league, family)
@@ -163,6 +173,7 @@ class AIFeedbackLoopManager:
     def record_synthesis_attempt(self, record: AIFeedbackRecord) -> bool:
         """Stores or updates synthesis record with historical Crucible results."""
         now_iso = datetime.now(timezone.utc).isoformat()
+        val_errs_json = json.dumps(record.validation_errors) if record.validation_errors else None
         for attempt in range(8):
             try:
                 with closing(self._get_connection()) as conn:
@@ -173,9 +184,9 @@ class AIFeedbackLoopManager:
                             codex_rationale, grok_critique, oos_sample_size, oos_win_rate,
                             oos_simulated_roi, oos_delta_brier, oos_max_drawdown,
                             crucible_passed, current_tier, graduation_status,
-                            learned_insight, created_at, updated_at
+                            learned_insight, validation_errors, failure_reason, created_at, updated_at
                         ) VALUES (
-                            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
                         )
                         ON CONFLICT(model_id) DO UPDATE SET
                             oos_sample_size = excluded.oos_sample_size,
@@ -184,6 +195,11 @@ class AIFeedbackLoopManager:
                             oos_delta_brier = excluded.oos_delta_brier,
                             oos_max_drawdown = excluded.oos_max_drawdown,
                             crucible_passed = excluded.crucible_passed,
+                            current_tier = excluded.current_tier,
+                            graduation_status = excluded.graduation_status,
+                            learned_insight = excluded.learned_insight,
+                            validation_errors = excluded.validation_errors,
+                            failure_reason = excluded.failure_reason,
                             updated_at = excluded.updated_at
                     """, (
                         record.id, record.segment_key, record.league.upper(), record.scope,
@@ -194,6 +210,7 @@ class AIFeedbackLoopManager:
                         record.oos_delta_brier, record.oos_max_drawdown,
                         1 if record.crucible_passed else 0, record.current_tier,
                         record.graduation_status, record.learned_insight,
+                        val_errs_json, record.failure_reason,
                         record.created_at or now_iso, now_iso
                     ))
                     conn.commit()
@@ -294,6 +311,118 @@ class AIFeedbackLoopManager:
                 return False
         return False
 
+    def record_settlements_batch(
+        self,
+        events: List[Tuple[str, str, float, float, Optional[float], Optional[float]]],
+    ) -> int:
+        """Batch-updates live performance metrics in a single SQLite transaction."""
+        if not events:
+            return 0
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        # Aggregate by model_id in memory first
+        by_model: Dict[str, List[Tuple[str, float, float, Optional[float], Optional[float]]]] = {}
+        for m_id, out_res, odds, pnl, mod_p, mkt_p in events:
+            by_model.setdefault(m_id, []).append((out_res, odds, pnl, mod_p, mkt_p))
+
+        updated_count = 0
+        for attempt in range(8):
+            try:
+                with closing(self._get_connection()) as conn:
+                    cur = conn.cursor()
+                    cur.execute("PRAGMA busy_timeout = 60000")
+                    model_ids = list(by_model.keys())
+                    for i in range(0, len(model_ids), 500):
+                        batch_ids = model_ids[i:i + 500]
+                        placeholders = ','.join(['?'] * len(batch_ids))
+                        rows = cur.execute(
+                            f"SELECT * FROM ai_synthesis_feedback_loop WHERE model_id IN ({placeholders})",
+                            batch_ids
+                        ).fetchall()
+                        row_map = {r["model_id"]: dict(r) for r in rows}
+
+                        updates = []
+                        for m_id in batch_ids:
+                            if m_id not in row_map:
+                                continue
+                            r = row_map[m_id]
+                            ev_list = by_model[m_id]
+
+                            games = r["live_games_settled"]
+                            wins = r["live_wins"]
+                            losses = r["live_losses"]
+                            pushes = r["live_pushes"]
+                            tot_pnl = r["live_realized_pnl"]
+                            brier_delta = r["live_brier_delta"]
+
+                            for out_res, odds, pnl, mod_p, mkt_p in ev_list:
+                                games += 1
+                                if out_res == "won":
+                                    wins += 1
+                                elif out_res == "lost":
+                                    losses += 1
+                                elif out_res == "push":
+                                    pushes += 1
+                                tot_pnl += pnl
+                                if mod_p is not None and mkt_p is not None and out_res != "push":
+                                    y = 1.0 if out_res == "won" else 0.0
+                                    bm = (mod_p - y) ** 2
+                                    bmkt = (mkt_p - y) ** 2
+                                    inst_delta = bmkt - bm
+                                    brier_delta = round((brier_delta * (games - 1) + inst_delta) / games, 5)
+
+                            win_rate = (wins / max(1, wins + losses)) if (wins + losses) > 0 else 0.0
+                            roi = tot_pnl / max(1, games)
+
+                            status = r["graduation_status"]
+                            tier = r["current_tier"]
+                            insight = r["learned_insight"] or ""
+
+                            if games >= 25 and roi >= 0.035 and status != "graduated":
+                                status = "graduated"
+                                tier = 3
+                                insight = f"CONFIRMED ALPHA: Sustained {roi*100:.1f}% live ROI across {games} settled matches."
+                            elif games >= 10 and roi < -0.05 and status != "demoted":
+                                status = "flagged_remedy"
+                                insight = f"VARIANCE WARNING: Live ROI dropped to {roi*100:.1f}%. Parameter shrinkage required."
+
+                            updates.append((
+                                games, wins, losses, pushes, round(win_rate, 4),
+                                round(roi, 4), round(tot_pnl, 2), brier_delta,
+                                status, tier, insight, now_iso, m_id
+                            ))
+
+                        if updates:
+                            cur.executemany("""
+                                UPDATE ai_synthesis_feedback_loop SET
+                                    live_games_settled = ?,
+                                    live_wins = ?,
+                                    live_losses = ?,
+                                    live_pushes = ?,
+                                    live_win_rate = ?,
+                                    live_realized_roi = ?,
+                                    live_realized_pnl = ?,
+                                    live_brier_delta = ?,
+                                    graduation_status = ?,
+                                    current_tier = ?,
+                                    learned_insight = ?,
+                                    updated_at = ?
+                                WHERE model_id = ?
+                            """, updates)
+                            updated_count += len(updates)
+                    conn.commit()
+                return updated_count
+            except sqlite3.OperationalError as e_sql:
+                if "locked" in str(e_sql) and attempt < 7:
+                    time.sleep(0.3 * (attempt + 1))
+                    continue
+                log.warning("Could not batch record settlement feedback: %s", e_sql)
+                return updated_count
+            except Exception as e:
+                log.warning("Could not batch record settlement feedback: %s", e)
+                return updated_count
+        return updated_count
+
     def get_in_context_learning_prompt(
         self,
         league: str,
@@ -340,6 +469,25 @@ class AIFeedbackLoopManager:
                 raw_failed = cur.fetchall()
                 failed_rows = [r for r in raw_failed if r['class_name'] not in succ_classes][:limit_failed]
 
+                # 3. Fetch recent observed runtime and pre-flight defects in this league
+                try:
+                    cur.execute("""
+                        SELECT class_name, failure_reason, learned_insight, graduation_status, created_at
+                        FROM ai_synthesis_feedback_loop
+                        WHERE league = ? AND (
+                            graduation_status IN ('preflight_failed', 'syntax_failed', 'instantiation_failed')
+                            OR failure_reason IS NOT NULL
+                            OR learned_insight LIKE '%Pre-flight failed%'
+                            OR learned_insight LIKE '%Instantiation error%'
+                            OR learned_insight LIKE '%Syntax%'
+                        )
+                        ORDER BY created_at DESC
+                        LIMIT 3
+                    """, (lg,))
+                    recent_defects = cur.fetchall()
+                except Exception:
+                    recent_defects = []
+
         except Exception as e:
             log.debug("Feedback retrieval error: %s", e)
             return ""
@@ -361,6 +509,16 @@ class AIFeedbackLoopManager:
                 sections.append(
                     f"- Empirical Deficit {idx}: Out-of-sample deficit: {r['oos_simulated_roi']*100:.1f}%\n"
                     f"  Observed Pathology: Uncalibrated probability mass dominated by bookmaker line; eliminate tail mispricing from first principles."
+                )
+
+        if recent_defects:
+            sections.append(f"\nRECENT OBSERVED RUNTIME IMPLEMENTATION PITFALLS IN {lg} (SYSTEM DEFECTS TO PREVENT IN CODE):")
+            for idx, r in enumerate(recent_defects, 1):
+                reason = r['failure_reason'] or r['learned_insight'] or "Execution/pre-flight validation error"
+                reason_clean = str(reason).replace('\n', ' ')[:200]
+                sections.append(
+                    f"- Observed Defect {idx}: {reason_clean}\n"
+                    f"  Requirement: Strictly ensure valid DiscreteDistribution output (non-negative probabilities summing to 1.0) and latency under 250ms."
                 )
 
         if not sections:

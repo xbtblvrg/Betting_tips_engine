@@ -30,15 +30,15 @@ log = logging.getLogger(__name__)
 
 RUNNER_STATE_FILE = DATA / "polymarket_runner_state.json"
 _RUNNER_CYCLE_LOCK = threading.Lock()
-DEFAULT_RUNNER_LEAGUES: Tuple[str, ...] = ("NBA", "NFL", "NHL", "EPL", "UCL", "UEL", "MLS", "NCAAF", "CBB", "NCAAM", "NCAAW", "CWBB", "ATP", "WTA")
+DEFAULT_RUNNER_LEAGUES: Tuple[str, ...] = ("NBA", "NFL", "NHL", "EPL", "UCL", "UEL", "MLS", "NCAAF", "CBB", "NCAAB", "NCAAM", "NCAAW", "CWBB", "ATP", "WTA")
 
 # Explicit Canonical Taxonomy Mapping for Polymarket Gamma API sportsMarketType
 # Qualified with authoritative sport/league scope to prevent cross-sport taxonomic bleed
 POLYMARKET_STRUCTURED_TAXONOMY: Dict[str, Tuple[str, str, Tuple[str, ...]]] = {
     # Full Game Main Markets (Core Leagues)
-    "moneyline": ("full_game", "moneyline", ("NBA", "NFL", "NHL", "MLB", "WNBA", "NCAAF", "CFB", "CBB", "NCAAB", "NCAAM", "NCAAW", "CWBB", "MLS", "EPL", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA", "ATP", "WTA")),
-    "spreads": ("full_game", "spreads", ("NBA", "NFL", "NHL", "MLB", "WNBA", "NCAAF", "CFB", "CBB", "NCAAB", "NCAAM", "NCAAW", "CWBB", "MLS", "EPL", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA", "ATP", "WTA")),
-    "totals": ("full_game", "totals", ("NBA", "NFL", "NHL", "MLB", "WNBA", "NCAAF", "CFB", "CBB", "NCAAB", "NCAAM", "NCAAW", "CWBB", "MLS", "EPL", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA", "ATP", "WTA")),
+    "moneyline": ("full_game", "moneyline", ("NBA", "NFL", "NHL", "MLB", "WNBA", "NCAAF", "CFB", "CBB", "NCAAB", "NCAAM", "NCAAW", "CWBB", "MLS", "EPL", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA", "ATP", "WTA", "CHALLENGER")),
+    "spreads": ("full_game", "spreads", ("NBA", "NFL", "NHL", "MLB", "WNBA", "NCAAF", "CFB", "CBB", "NCAAB", "NCAAM", "NCAAW", "CWBB", "MLS", "EPL", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA", "ATP", "WTA", "CHALLENGER")),
+    "totals": ("full_game", "totals", ("NBA", "NFL", "NHL", "MLB", "WNBA", "NCAAF", "CFB", "CBB", "NCAAB", "NCAAM", "NCAAW", "CWBB", "MLS", "EPL", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA", "ATP", "WTA", "CHALLENGER")),
 
     # Soccer Specific Markets (EPL, MLS, UCL, UEL, LALIGA, BUNDESLIGA, SERIEA)
     "both_teams_to_score": ("full_game", "both_score", ("EPL", "MLS", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA")),
@@ -47,37 +47,37 @@ POLYMARKET_STRUCTURED_TAXONOMY: Dict[str, Tuple[str, str, Tuple[str, ...]]] = {
     "soccer_halftime_result": ("half_1", "three_way", ("EPL", "MLS", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA")),
     "soccer_second_half_result": ("half_2", "three_way", ("EPL", "MLS", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA")),
 
-    # Tennis Specific Markets (ATP & WTA)
-    "tennis_first_set_winner": ("period_1", "moneyline", ("ATP", "WTA")),
-    "tennis_first_set_totals": ("period_1", "totals", ("ATP", "WTA")),
-    "tennis_set_winner": ("period_2", "moneyline", ("ATP", "WTA")),
-    "tennis_set_games_totals": ("period_2", "totals", ("ATP", "WTA")),
-    "tennis_game_handicap": ("full_game", "spreads", ("ATP", "WTA")),
-    "tennis_match_totals": ("full_game", "totals", ("ATP", "WTA")),
-    "tennis_set_handicap": ("full_game", "set_handicap", ("ATP", "WTA")),
-    "tennis_set_totals": ("full_game", "total_sets", ("ATP", "WTA")),
+    # Tennis Specific Markets (ATP, WTA, CHALLENGER)
+    "tennis_first_set_winner": ("period_1", "moneyline", ("ATP", "WTA", "CHALLENGER")),
+    "tennis_first_set_totals": ("period_1", "totals", ("ATP", "WTA", "CHALLENGER")),
+    "tennis_set_winner": ("period_2", "moneyline", ("ATP", "WTA", "CHALLENGER")),
+    "tennis_set_games_totals": ("period_2", "totals", ("ATP", "WTA", "CHALLENGER")),
+    "tennis_game_handicap": ("full_game", "spreads", ("ATP", "WTA", "CHALLENGER")),
+    "tennis_match_totals": ("full_game", "totals", ("ATP", "WTA", "CHALLENGER")),
+    "tennis_set_handicap": ("full_game", "set_handicap", ("ATP", "WTA", "CHALLENGER")),
+    "tennis_set_totals": ("full_game", "total_sets", ("ATP", "WTA", "CHALLENGER")),
 
     # Halves (Football, Basketball, Soccer)
-    "first_half_moneyline": ("half_1", "moneyline", ("NBA", "NFL", "NCAAF", "CFB", "CBB", "NCAAB", "WNBA")),
-    "first_half_spreads": ("half_1", "spreads", ("NBA", "NFL", "NCAAF", "CFB", "EPL", "MLS", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA")),
-    "first_half_totals": ("half_1", "totals", ("NBA", "NFL", "NCAAF", "CFB", "EPL", "MLS", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA")),
-    "second_half_moneyline": ("half_2", "moneyline", ("NBA", "NFL", "NCAAF", "CFB", "WNBA")),
-    "second_half_spreads": ("half_2", "spreads", ("NBA", "NFL", "NCAAF", "CFB", "EPL", "MLS", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA")),
-    "second_half_totals": ("half_2", "totals", ("NBA", "NFL", "NCAAF", "CFB", "EPL", "MLS", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA")),
+    "first_half_moneyline": ("half_1", "moneyline", ("NBA", "NFL", "NCAAF", "CFB", "CBB", "NCAAB", "NCAAM", "NCAAW", "CWBB", "WNBA")),
+    "first_half_spreads": ("half_1", "spreads", ("NBA", "NFL", "NCAAF", "CFB", "CBB", "NCAAB", "NCAAM", "NCAAW", "CWBB", "WNBA", "EPL", "MLS", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA")),
+    "first_half_totals": ("half_1", "totals", ("NBA", "NFL", "NCAAF", "CFB", "CBB", "NCAAB", "NCAAM", "NCAAW", "CWBB", "WNBA", "EPL", "MLS", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA")),
+    "second_half_moneyline": ("half_2", "moneyline", ("NBA", "NFL", "NCAAF", "CFB", "CBB", "NCAAB", "NCAAM", "NCAAW", "CWBB", "WNBA")),
+    "second_half_spreads": ("half_2", "spreads", ("NBA", "NFL", "NCAAF", "CFB", "CBB", "NCAAB", "NCAAM", "NCAAW", "CWBB", "WNBA", "EPL", "MLS", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA")),
+    "second_half_totals": ("half_2", "totals", ("NBA", "NFL", "NCAAF", "CFB", "CBB", "NCAAB", "NCAAM", "NCAAW", "CWBB", "WNBA", "EPL", "MLS", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA")),
 
-    # Quarters (NBA & NFL)
-    "q1_moneyline": ("quarter_1", "moneyline", ("NBA", "NFL", "NCAAF", "WNBA")),
-    "q1_spreads": ("quarter_1", "spreads", ("NBA", "NFL", "NCAAF", "WNBA")),
-    "q1_totals": ("quarter_1", "totals", ("NBA", "NFL", "NCAAF", "WNBA")),
-    "q2_moneyline": ("quarter_2", "moneyline", ("NBA", "NFL", "NCAAF", "WNBA")),
-    "q2_spreads": ("quarter_2", "spreads", ("NBA", "NFL", "NCAAF", "WNBA")),
-    "q2_totals": ("quarter_2", "totals", ("NBA", "NFL", "NCAAF", "WNBA")),
-    "q3_moneyline": ("quarter_3", "moneyline", ("NBA", "NFL", "NCAAF", "WNBA")),
-    "q3_spreads": ("quarter_3", "spreads", ("NBA", "NFL", "NCAAF", "WNBA")),
-    "q3_totals": ("quarter_3", "totals", ("NBA", "NFL", "NCAAF", "WNBA")),
-    "q4_moneyline": ("quarter_4", "moneyline", ("NBA", "NFL", "NCAAF", "WNBA")),
-    "q4_spreads": ("quarter_4", "spreads", ("NBA", "NFL", "NCAAF", "WNBA")),
-    "q4_totals": ("quarter_4", "totals", ("NBA", "NFL", "NCAAF", "WNBA")),
+    # Quarters (NBA, NFL, NCAAF, WNBA, NCAAM, NCAAW)
+    "q1_moneyline": ("quarter_1", "moneyline", ("NBA", "NFL", "NCAAF", "WNBA", "NCAAM", "NCAAW")),
+    "q1_spreads": ("quarter_1", "spreads", ("NBA", "NFL", "NCAAF", "WNBA", "NCAAM", "NCAAW")),
+    "q1_totals": ("quarter_1", "totals", ("NBA", "NFL", "NCAAF", "WNBA", "NCAAM", "NCAAW")),
+    "q2_moneyline": ("quarter_2", "moneyline", ("NBA", "NFL", "NCAAF", "WNBA", "NCAAM", "NCAAW")),
+    "q2_spreads": ("quarter_2", "spreads", ("NBA", "NFL", "NCAAF", "WNBA", "NCAAM", "NCAAW")),
+    "q2_totals": ("quarter_2", "totals", ("NBA", "NFL", "NCAAF", "WNBA", "NCAAM", "NCAAW")),
+    "q3_moneyline": ("quarter_3", "moneyline", ("NBA", "NFL", "NCAAF", "WNBA", "NCAAM", "NCAAW")),
+    "q3_spreads": ("quarter_3", "spreads", ("NBA", "NFL", "NCAAF", "WNBA", "NCAAM", "NCAAW")),
+    "q3_totals": ("quarter_3", "totals", ("NBA", "NFL", "NCAAF", "WNBA", "NCAAM", "NCAAW")),
+    "q4_moneyline": ("quarter_4", "moneyline", ("NBA", "NFL", "NCAAF", "WNBA", "NCAAM", "NCAAW")),
+    "q4_spreads": ("quarter_4", "spreads", ("NBA", "NFL", "NCAAF", "WNBA", "NCAAM", "NCAAW")),
+    "q4_totals": ("quarter_4", "totals", ("NBA", "NFL", "NCAAF", "WNBA", "NCAAM", "NCAAW")),
 }
 
 # Derived canonical map for backwards compatibility
@@ -270,6 +270,12 @@ class PolymarketAutonomousRunner:
             norm = re.sub(r'[^a-z0-9\s]', ' ', norm)
             return ' '.join(norm.split())
 
+        STOPWORDS = {
+            'state', 'saint', 'north', 'south', 'east', 'west', 'city',
+            'united', 'real', 'club', 'town', 'athletic', 'sporting', 'inter',
+            'fc', 'cf', 'sc', 'ac', 'as', 'afc', 'rb'
+        }
+
         def _name_variants(s: str) -> Set[str]:
             cleaned = _clean_str(s)
             if not cleaned:
@@ -280,7 +286,7 @@ class PolymarketAutonomousRunner:
                 if len(parts) == 2:
                     variants.add(f"{parts[1]} {parts[0]}")
             for token in cleaned.split():
-                if len(token) >= 4 and token not in ('state', 'saint', 'north', 'south', 'east', 'west', 'city'):
+                if len(token) >= 4 and token not in STOPWORDS:
                     variants.add(token)
             return variants
 
@@ -303,7 +309,24 @@ class PolymarketAutonomousRunner:
                     poly_away_vars = vars_t
         t_abbr = [_clean_str(t.get("abbreviation", "")) for t in teams if isinstance(t, dict) and t.get("abbreviation")]
         t_abbr = [ab for ab in t_abbr if len(ab) >= 2]
-        title_cleaned = _clean_str(title)
+        
+        # Extract base matchup title, resolving tournament prefixes and derivative suffixes
+        matchup_title = title or ""
+        if ":" in matchup_title:
+            parts = [p.strip() for p in matchup_title.split(":") if p.strip()]
+            for p in parts:
+                if " vs" in p.lower() or " v " in p.lower():
+                    matchup_title = p
+                    break
+        if " - " in matchup_title:
+            parts = [p.strip() for p in matchup_title.split(" - ") if p.strip()]
+            for p in parts:
+                if " vs" in p.lower() or " v " in p.lower():
+                    matchup_title = p
+                    break
+
+        title_cleaned = _clean_str(f"{matchup_title} {title}")
+        title_tokens = set(title_cleaned.split())
 
         matched_tips = []
         for tip in league_tips:
@@ -320,6 +343,8 @@ class PolymarketAutonomousRunner:
                 or any(v in h_clean for v in t_variants if len(v) >= 3)
                 or any(ab in h_clean.split() for ab in t_abbr)
                 or (h_clean and h_clean in title_cleaned)
+                or bool(h_vars & title_tokens)
+                or any(v in title_cleaned for v in h_vars if len(v) >= 4 and v not in STOPWORDS)
             )
             a_match = (
                 bool(a_vars & poly_away_vars)
@@ -327,6 +352,8 @@ class PolymarketAutonomousRunner:
                 or any(v in a_clean for v in t_variants if len(v) >= 3)
                 or any(ab in a_clean.split() for ab in t_abbr)
                 or (a_clean and a_clean in title_cleaned)
+                or bool(a_vars & title_tokens)
+                or any(v in title_cleaned for v in a_vars if len(v) >= 4 and v not in STOPWORDS)
             )
 
             if h_match and a_match:
@@ -444,8 +471,8 @@ class PolymarketAutonomousRunner:
             "away_prob": p_reg_away,
             "home_name": home_name or poly_home_team or "",
             "away_name": away_name or poly_away_team or "",
-            "poly_home_team": poly_home_team,
-            "poly_away_team": poly_away_team,
+            "poly_home_team": poly_home_team or home_name or "",
+            "poly_away_team": poly_away_team or away_name or "",
         }
         return (fc_result, None) if return_failure_reason else fc_result
 

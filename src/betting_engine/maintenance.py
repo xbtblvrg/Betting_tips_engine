@@ -13,9 +13,19 @@ def maintain(root=DATA):
     # 1. Prune raw cache
     if raw.is_dir():
         import os
-        kept = {entry.name[:-5] + '.data' for entry in os.scandir(raw) if entry.name.endswith('.json')}
-        blobs = [(p, p.stat()) for p in raw.glob('*.data')]
-        total = sum(s.st_size for _, s in blobs)
+        kept = set()
+        blobs = []
+        total = 0
+        for entry in os.scandir(raw):
+            if entry.name.endswith('.json'):
+                kept.add(entry.name[:-5] + '.data')
+            elif entry.name.endswith('.data'):
+                try:
+                    st = entry.stat()
+                    blobs.append((Path(entry.path), st))
+                    total += st.st_size
+                except OSError:
+                    pass
         for path, stat in sorted(blobs, key=lambda x: x[1].st_mtime):
             if path.name in kept or now - stat.st_mtime < 300:
                 continue
@@ -62,6 +72,8 @@ def maintain(root=DATA):
                 try:
                     shutil.rmtree(item)
                     workspaces_removed += 1
+                    if workspaces_removed >= 10:
+                        break
                 except Exception:
                     pass
 

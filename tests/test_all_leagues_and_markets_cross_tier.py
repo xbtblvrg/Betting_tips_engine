@@ -111,7 +111,7 @@ def test_tier_4_proven_alpha_criteria(universe_fixture):
 
     for key, prof, cap, reason in t4_markets:
         assert prof.is_dual_polymarket, f"Tier 4 market {key} is not marked dual polymarket"
-        assert prof.tier == 3, f"Tier 4 market {key} is not in Tier 3 (tier={prof.tier})"
+        assert prof.tier in (3, 4), f"Tier 4 market {key} is not in production Tier 3 or 4 (tier={prof.tier})"
         assert key not in demoted, f"Tier 4 market {key} is in demoted_markets!"
         assert 0.50 <= cap <= 8.00, f"Tier 4 market {key} stake cap out of bounds: {cap}"
         assert "LIVE_LEDGER_PROVEN_PROFIT" in reason or "TIER_4_LIVE_PROVEN_ALPHA" in reason, f"Unexpected reason: {reason}"
@@ -157,3 +157,66 @@ def test_stake_only_derivatives_rejected_on_polymarket(universe_fixture):
         ), (
             f"Expected STAKE_ONLY_MARKET, DEMOTED, or UNDERPERFORMING, got: {reason}"
         )
+
+
+def test_dual_reachable_markets_all_leagues_coverage(universe_fixture):
+    """Constitutional Prime Directive Commandment 6.5:
+    Verifies that Dual Reachable Markets (Stake + Polymarket CLOB) are comprehensively
+    and accurately identified across all 18 active sports leagues without omissions or leaks.
+    """
+    from betting_engine.contracts import is_dual_reachable_contract
+
+    # Positive invariants: Liquid Dual Reachable contracts
+    positive_cases = [
+        ("ATP", "full_game", "set_handicap", ""),
+        ("ATP", "period_1", "tennis_sets", "period_1:moneyline"),
+        ("WTA", "full_game", "total_sets", ""),
+        ("NHL", "full_game", "spreads", ""),
+        ("EPL", "full_game", "both_score", ""),
+        ("MLS", "half_1", "asian_lines", "asian_handicap"),
+        ("NBA", "quarter_1", "spreads", ""),
+        ("NFL", "half_2", "totals", ""),
+        ("WNBA", "full_game", "totals", ""),
+        ("NCAAF", "full_game", "spreads", ""),
+        ("NCAAM", "full_game", "totals", ""),
+        ("NCAAW", "full_game", "moneyline", ""),
+        ("CHALLENGER", "full_game", "total_sets", ""),
+        ("SERIEA", "full_game", "three_way", ""),
+        ("BUNDESLIGA", "half_1", "totals", ""),
+        ("LALIGA", "full_game", "both_score", ""),
+        ("UEL", "half_2", "spreads", ""),
+    ]
+    for lg, sc, fam, sub in positive_cases:
+        assert is_dual_reachable_contract(lg, sc, fam, sub) is True, f"Failed to recognize {lg}|{sc}|{fam} as dual reachable"
+
+    # Negative invariants: Excluded contracts (Stake-only derivatives, illiquid props, team totals, exact scores, single-platform collegiate niche)
+    negative_cases = [
+        ("NHL", "regulation", "regulation:three_way", ""),
+        ("WNBA", "quarter_4", "totals", ""),
+        ("UCL", "full_game", "draw_no_bet", ""),
+        ("EPL", "full_game", "double_chance", ""),
+        ("NBA", "full_game", "home_total", ""),
+        ("NFL", "half_1", "away_total", ""),
+        ("EPL", "full_game", "exact_score", ""),
+        ("NHL", "full_game", "winner_total", ""),
+        ("NCAA_BASEBALL", "full_game", "moneyline", ""),
+        ("NCAA_ICE_HOCKEY", "full_game", "moneyline", ""),
+        ("NCAA_VOLLEYBALL_WOMEN", "full_game", "moneyline", ""),
+    ]
+    for lg, sc, fam, sub in negative_cases:
+        assert is_dual_reachable_contract(lg, sc, fam, sub) is False, f"Erroneously recognized {lg}|{sc}|{fam} as dual reachable"
+
+    # Check universe roster coverage
+    roster = universe_fixture["roster"]
+    dual_profiles = [p for p in roster.values() if p.is_dual_polymarket]
+    assert len(dual_profiles) >= 300, f"Expected at least 300 dual profiles in roster, got {len(dual_profiles)}"
+    
+    dual_leagues_in_roster = set(p.league for p in dual_profiles)
+    expected_dual_leagues = {
+        "NBA", "NFL", "NHL", "MLB", "WNBA", "NCAAF", "NCAAM", "NCAAW",
+        "EPL", "LALIGA", "BUNDESLIGA", "SERIEA", "UCL", "UEL", "MLS",
+        "ATP", "WTA", "CHALLENGER"
+    }
+    missing_dual_leagues = expected_dual_leagues - dual_leagues_in_roster
+    assert not missing_dual_leagues, f"Missing dual leagues in roster: {missing_dual_leagues}"
+

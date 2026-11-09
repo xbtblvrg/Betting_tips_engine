@@ -150,7 +150,8 @@ def record_cycle_funnel(
             import sqlite3
             db_file = data_dir / 'engine.sqlite3'
             if db_file.exists():
-                with sqlite3.connect(db_file) as conn:
+                with sqlite3.connect(db_file, timeout=30.0) as conn:
+                    conn.execute("PRAGMA busy_timeout = 30000")
                     cur = conn.cursor()
                     cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='learning_jobs'")
                     if cur.fetchone():
@@ -200,6 +201,15 @@ def record_cycle_funnel(
         funnel_summary['model_funnel_velocity'] = record_funnel_velocity_telemetry(data_dir=data_dir)
     except Exception as exc:
         log.debug("Model funnel velocity collection skipped: %s", exc)
+
+    try:
+        from .bottleneck_watchdog import BottleneckWatchdog
+        from dataclasses import asdict
+        watchdog = BottleneckWatchdog(data_dir=data_dir)
+        wd_report = watchdog.audit_and_heal(candidates=candidates)
+        funnel_summary['bottleneck_watchdog'] = asdict(wd_report)
+    except Exception as exc:
+        log.warning("Bottleneck watchdog audit skipped: %s", exc)
 
     try:
         atomic_json(data_dir / 'opportunity_funnel_status.json', funnel_summary)

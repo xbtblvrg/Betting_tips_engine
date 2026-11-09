@@ -21,9 +21,9 @@ from .context import STAT_PRIORS
 
 FEATURES=('elo_difference','home_attack','home_defense','away_attack','away_defense','recent_margin_difference','home_rest','away_rest','rest_difference','home_games','away_games','neutral','playoff','league_scoring')
 # Explicit allowlist: neither odds nor lines nor market-derived ratings are input.
-PRIORS={'NBA':112.,'WNBA':80.,'MLB':4.5,'NHL':3.,'NFL':23.,'NCAAF':28.,'NCAAM':72.,'NCAAW':67.,'MLS':1.4,'EPL':1.4,'UCL':1.45,'ATP':22.5,'WTA':21.0,'CHALLENGER':22.0}
-WINDOW={'NBA':20,'WNBA':15,'MLB':30,'NHL':20,'NFL':8,'NCAAF':8,'NCAAM':20,'NCAAW':20,'MLS':15,'EPL':15,'UCL':10,'ATP':15,'WTA':15,'CHALLENGER':15}
-HOME_ADVANTAGE={'NFL':48.,'NCAAF':80.,'NCAAM':70.,'NCAAW':70.,'NBA':60.,'WNBA':60.,'MLB':25.,'NHL':35.,'MLS':65.,'EPL':65.,'UCL':50.,'ATP':0.,'WTA':0.,'CHALLENGER':0.}
+PRIORS={'NBA':112.,'WNBA':80.,'MLB':4.5,'NHL':3.,'NFL':23.,'NCAAF':28.,'NCAAM':72.,'NCAAW':67.,'MLS':1.4,'EPL':1.4,'UCL':1.45,'LALIGA':1.35,'BUNDESLIGA':1.55,'SERIEA':1.35,'UEL':1.40,'ATP':22.5,'WTA':21.0,'CHALLENGER':22.0}
+WINDOW={'NBA':20,'WNBA':15,'MLB':30,'NHL':20,'NFL':8,'NCAAF':8,'NCAAM':20,'NCAAW':20,'MLS':15,'EPL':15,'UCL':10,'LALIGA':15,'BUNDESLIGA':15,'SERIEA':15,'UEL':10,'ATP':15,'WTA':15,'CHALLENGER':15}
+HOME_ADVANTAGE={'NFL':48.,'NCAAF':80.,'NCAAM':70.,'NCAAW':70.,'NBA':60.,'WNBA':60.,'MLB':25.,'NHL':35.,'MLS':65.,'EPL':65.,'UCL':50.,'LALIGA':60.,'BUNDESLIGA':60.,'SERIEA':60.,'UEL':50.,'ATP':0.,'WTA':0.,'CHALLENGER':0.}
 PITCHER_FEATURES=('starter_earned_runs_per_nine','starter_whip','starter_strikeout_fraction','starter_walk_fraction','starter_home_run_fraction','starter_observed_batters','starter_known')
 
 # Fixed, reviewable hypotheses. Recipe selection belongs to the earlier

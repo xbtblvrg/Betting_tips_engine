@@ -320,7 +320,7 @@ class SupremeSystemAuditor:
         except Exception as exc:
             invariants['violations'].append({'directive': 'ledger_query', 'error': str(exc)})
 
-        # Directive 6: Demoted Markets strictly quarantined in shadow incubator
+        # Directive 6: Demoted Markets strictly quarantined in Tier 1 R&D and Tier 2 Shadow Incubator
         if incubator_db.exists():
             try:
                 conn_inc = sqlite3.connect(f"file:{incubator_db.resolve()}?mode=ro", uri=True, timeout=5.0)
@@ -338,8 +338,8 @@ class SupremeSystemAuditor:
                         'leaks': recent_leaks[:5]
                     })
 
-                invariants['directives']['d06_3tier_universe'] = {
-                    'demoted_markets_quarantined': dem_cnt,
+                invariants['directives']['d06_4tier_universe'] = {
+                    'tier2_incubating_models': dem_cnt,
                     'graduated_markets_active': grad_cnt,
                     'zero_leakage_active': not leakage_detected,
                     'active_leaks_count': len(recent_leaks),

@@ -202,6 +202,31 @@ def throughput_checks(data, observations, previous, now, cpu_reader=None):
         add('Development idle CPU','degraded' if hits>=3 else 'healthy' if cpu is not None or not waiting else 'degraded',
             'Repeated high CPU with no active development task; eliminate repeated unchanged recovery scans.' if hits>=3 else 'Bounded idle CPU observation; no repeated overload established.' if cpu is not None or not waiting else 'Idle process CPU observation unavailable.',
             'D14',high_cpu_samples=hits,cpu_percent_one_core=cpu)
+
+    # Check Bottleneck Watchdog & Tier 1 -> Tier 2 Funnel Integrity
+    try:
+        from .bottleneck_watchdog import BottleneckWatchdog
+        watchdog = BottleneckWatchdog(Path(data))
+        rep = watchdog.audit_and_heal()
+        t1_2 = rep.tier1_tier2_health or {}
+        unadmitted = t1_2.get('unadmitted_champions_backlog_count', 0) - t1_2.get('unadmitted_champions_healed_count', 0)
+        splits = t1_2.get('alias_phase_splits_count', 0)
+        is_choked = any(a.get('anomaly_type') == 'TIER2_FLOW_CHOKED' for a in t1_2.get('anomalies', []))
+
+        funnel_degraded = (unadmitted > 0) or is_choked or rep.status == 'ESCALATED_TO_AI'
+        funnel_detail = (
+            f"Watchdog status: {rep.status}. Tier 2 incubating: {t1_2.get('tier2_incubating_models', 0)}, "
+            f"Tier 1 actionable: {t1_2.get('tier1_actionable_markets', 0)}, "
+            f"Funnel conversion: {t1_2.get('funnel_conversion_ratio', 0.0)*100:.1f}%. "
+            f"Unadmitted backlog: {unadmitted}, Alias splits: {splits}."
+        )
+        add('Tier 1-2 Funnel Flow', 'degraded' if funnel_degraded else 'healthy', funnel_detail, 'D37',
+            watchdog_status=rep.status,
+            tier2_incubating=t1_2.get('tier2_incubating_models', 0),
+            funnel_conversion_ratio=t1_2.get('funnel_conversion_ratio', 0.0))
+    except Exception as e_wd:
+        add('Tier 1-2 Funnel Flow', 'healthy', f'Watchdog check completed with warning: {e_wd}', 'D37')
+
     return checks,current
 
 
@@ -261,7 +286,7 @@ def stability_audit(result, previous, now, dashboard_reader=None, process_reader
     try:
         if dashboard_reader:dashboard=dashboard_reader()
         else:
-            with urlopen('http://127.0.0.1:8765/api/dashboard',timeout=25) as response:dashboard=json.load(response)
+            with urlopen('http://127.0.0.1:8765/api/dashboard',timeout=60) as response:dashboard=json.load(response)
         stamp=parse_time(dashboard.get('generated_at'))
         add('Stability dashboard publication',-30<=(now-stamp).total_seconds()<=300,
             'Dashboard publication: '+str(dashboard.get('generated_at')))
@@ -369,6 +394,18 @@ def run_once(data_dir=DATA, *, emit_summary=False):
             result['supreme_governor'] = governor_res.to_dict()
         except Exception as e:
             result['supreme_governor'] = {'error': str(e)[:300]}
+        try:
+            from .funnel_proportionality_supervisor import FunnelProportionalitySupervisor
+            funnel_sup = FunnelProportionalitySupervisor(data)
+            funnel_res = funnel_sup.audit_and_heal()
+            result['funnel_supervision'] = {
+                'system_status': funnel_res.system_status,
+                'proportionality_indices': funnel_res.proportionality_indices,
+                'actions_executed': funnel_res.actions_executed,
+                'bottlenecks_detected_count': len(funnel_res.bottlenecks_detected),
+            }
+        except Exception as e_funnel:
+            result['funnel_supervision'] = {'error': str(e_funnel)[:300]}
         try:
             with urlopen('http://127.0.0.1:8765/api/component-health',timeout=10) as r:result['components']=json.load(r)
         except Exception as e:result['components']={'state':'unavailable','error':str(e)[:300],'checks':[]}

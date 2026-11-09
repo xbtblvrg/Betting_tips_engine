@@ -414,6 +414,7 @@ def test_strict_graduation_and_capital_defense_hard_gate(monkeypatch):
     import betting_engine.decisions
     monkeypatch.setattr(betting_engine.decisions, "_get_demoted_segments", lambda *a, **k: {'NHL|full_game|totals'})
     monkeypatch.setattr(betting_engine.decisions, "_get_governor_status", lambda *a, **k: {'quarantine_list': [], 'capital_defense_list': []})
+    monkeypatch.setattr(betting_engine.decisions, "_get_universe_roster", lambda *a, **k: {})
     from betting_engine.decisions import DEFAULT_SETTINGS
     settings = {
         **DEFAULT_SETTINGS,

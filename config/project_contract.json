@@ -1,6 +1,6 @@
 {
   "version": "2026-10-17.top10-supreme-constitution-v1",
-  "objective": "Strict execution of the 10 Supreme Mandatory Commandments: (1) Min. 10.0% sustained total weekly portfolio ROI and daily cumulative PnL uptrend, with mandatory active positive turnaround of any dragging segment/submarket to achieve the aggregate weekly target; (2) Min. 100 distinct funded recommendations per Budapest calendar day; (3) Zero hardcoded clamps (Anti-Constant Mandate: odds >= 1.40, continuous EV > 0); (4) Continuous fractional Kelly sizing bounded strictly within $0.50-$8.00 ($0.50 defense clamp, $8.00 ceiling, 16:1 ratio) with daily_risk_limit=null; (5) Dynamic 72-hour liquidity horizon across all active sports; (6) Dual dynamic capital: Alpha Acceleration ($2.50-$8.00) vs Mandatory Positive Turnaround under 4-Tier Progression (Tier 1 R&D -> Tier 2 Shadow Incubator $0.00 -> Tier 3 Stake Live Incubation $0.50-$8.00 -> Tier 4 Live Proven Alpha & Polymarket CLOB Execution $0.50-$8.00) with strict R&D and universe prioritization for Polymarket-reachable markets to maximize Tier 4 graduation and systemic capital extraction; (7) Law of Market Preservation: never drop or shut down markets permanently, convert via empirical evidence; (8) Autonomous structural and capability expansion mandate (dugul\u00e1smentes logika & pozit\u00edv fordulat); (9) Zero paid external sources ($0.00 data cost, free/open public APIs only) with Multi-AI Quant Council (Gemini 'agy', Claude, Codex, Grok); (10) Immutable betting ledger and manual Stake execution boundary under zero-regression standards.",
+  "objective": "Strict execution of the 10 Supreme Mandatory Commandments: (1) Min. 10.0% sustained total weekly portfolio ROI and daily cumulative PnL uptrend, with mandatory active positive turnaround of any dragging segment/submarket to achieve the aggregate weekly target; (2) Min. 100 distinct funded recommendations per Budapest calendar day; (3) Zero hardcoded clamps (Anti-Constant Mandate: odds >= 1.40, continuous EV > 0); (4) Continuous fractional Kelly sizing bounded strictly within $0.50-$8.00 ($0.50 defense clamp, $8.00 ceiling, 16:1 ratio) with daily_risk_limit=null; (5) Dynamic 72-hour liquidity horizon across all active sports; (6) Dual dynamic capital: Alpha Acceleration ($2.50-$8.00) vs Mandatory Positive Turnaround under 4-Tier Progression (Tier 1 R&D -> Tier 2 Shadow Incubator $0.00 -> Tier 3 Stake Live Incubation $0.50-$8.00 -> Tier 4 Live Proven Alpha & Polymarket CLOB Execution $0.50-$8.00) with strict R&D and universe prioritization for Polymarket-reachable markets to maximize Tier 4 graduation and systemic capital extraction; (7) Law of Market Preservation: never drop or shut down markets permanently, convert via empirical evidence; (8) Autonomous structural and capability expansion mandate (dugulásmentes logika & pozitív fordulat); (9) Zero paid external sources ($0.00 data cost, free/open public APIs only) with Multi-AI Quant Council (Gemini 'agy', Claude, Codex, Grok); (10) Immutable betting ledger and manual Stake execution boundary under zero-regression standards.",
   "profit_guaranteed": false,
   "requirements": [
     {
@@ -15,7 +15,7 @@
     },
     {
       "id": "R03",
-      "rule": "Scan NBA, MLB, NHL, NFL, WNBA and every NCAA sport currently available through Stake USA tournaments. Refresh upcoming 48-hour offers every 60 seconds and the complete returned fixture catalogue every 15 minutes where feeds and service are available. Discover NCAA availability dynamically; never treat absent validated models as supported.",
+      "rule": "Scan NBA, MLB, NHL, NFL, WNBA and every NCAA sport currently available through Stake USA tournaments. Refresh upcoming 72-hour offers every 60 seconds and the complete returned fixture catalogue every 15 minutes where feeds and service are available. Discover NCAA availability dynamically; never treat absent validated models as supported.",
       "implementation": "engine.py; markets.py"
     },
     {
@@ -30,7 +30,7 @@
     },
     {
       "id": "R06",
-      "rule": "All active tiers have USD1\u20135 funded stakes, maxUSD5, daily_risk_limit=null. User-authorized minimum ticket floor when actual event/available/bankroll caps afford USD1; preserve raw sizing amount and floor evidence. Historical/confidence sizing reproduces verified signed game-balanced outcomes. Dynamic event expansion is explicitly authorized through quality_roster_v2; original decisions and stakes remain immutable.",
+      "rule": "All active tiers have USD0.50–8.00 funded stakes, maxUSD8.00, daily_risk_limit=null. User-authorized minimum ticket floor when actual event/available/bankroll caps afford USD0.50; preserve raw sizing amount and floor evidence. Historical/confidence sizing reproduces verified signed game-balanced outcomes. Dynamic event expansion is explicitly authorized through quality_roster_v2; original decisions and stakes remain immutable.",
       "implementation": "decisions.py; EvidenceGuard"
     },
     {
@@ -45,7 +45,7 @@
     },
     {
       "id": "R09",
-      "rule": "English UI with exact Stake terminology. Main page contains only currently executable checked betting instructions with a concrete USD1\u20135 stake, in chronological order. Marking a bet moves it to Bet Tracker; the persistent checklist remains reversible and separate from outcome tracking. Label Model Pick and Probability Pick distinctly; disclose zero/negative nominal model returns and stressed returns without calling them positive value or guaranteed winners.",
+      "rule": "English UI with exact Stake terminology. Main page contains only currently executable checked betting instructions with a concrete USD0.50–8.00 stake, in chronological order. Marking a bet moves it to Bet Tracker; the persistent checklist remains reversible and separate from outcome tracking. Label Model Pick and Probability Pick distinctly; disclose zero/negative nominal model returns and stressed returns without calling them positive value or guaranteed winners.",
       "implementation": "web; presentation.py"
     },
     {
@@ -65,7 +65,7 @@
     },
     {
       "id": "R13",
-      "rule": "Main page remains a clear execution list of current checked USD1\u20135 funded instructions. Preserve original issued records and stakes in Bet Tracker. Qualified distinct same-game contracts remain eligible; never reissue an identical contract or rotate down weaker family alternatives to inflate counts. Research candidates are not funded instructions.",
+      "rule": "Main page remains a clear execution list of current checked USD0.50–8.00 funded instructions. Preserve original issued records and stakes in Bet Tracker. Qualified distinct same-game contracts remain eligible; never reissue an identical contract or rotate down weaker family alternatives to inflate counts. Research candidates are not funded instructions.",
       "implementation": "contract identity; lifecycle; Research view"
     },
     {
@@ -75,7 +75,7 @@
     },
     {
       "id": "R15",
-      "rule": "A rejected controlled retrain triggers a distinct model-hypothesis search. Select among predefined recipes on earlier chronological data, compare one selected candidate with the deployed model, retain results and avoid re-searching unchanged historical evidence. Keep daily volume and $1\u2013$5 stakes as objectives without inventing prices or model performance.",
+      "rule": "A rejected controlled retrain triggers a distinct model-hypothesis search. Select among predefined recipes on earlier chronological data, compare one selected candidate with the deployed model, retain results and avoid re-searching unchanged historical evidence. Keep daily volume and $0.50–$8.00 stakes as objectives without inventing prices or model performance.",
       "implementation": "experiments.py canonical sports-input identity; LearningWorker model_search; frozen-input studies"
     },
     {
@@ -100,12 +100,12 @@
     },
     {
       "id": "R20",
-      "rule": "Continuously audit every modeled league and MLS inventory for source failures, missing artifacts, matching failures and unmodeled market types. Run durable source recovery and exact approved-model restoration; retain unresolved implementation gaps after research jobs complete. Discover primary-source research separately for each league daily. Price stress_value instructions within $1\u2013$5 using stressed probability, exact odds and related-game exposure, and apply the active versioned sizing policy to fallback tiers without a tier-specific USD1 maximum under all_tiers_weighted_v3; retain original issued stakes. Without a bankroll, disclose bounded unit sizing as a heuristic, never personalized Kelly. Daily volume remains 100 distinct funded first issuances without fabricating edge or new contracts.",
+      "rule": "Continuously audit every modeled league and MLS inventory for source failures, missing artifacts, matching failures and unmodeled market types. Run durable source recovery and exact approved-model restoration; retain unresolved implementation gaps after research jobs complete. Discover primary-source research separately for each league daily. Price stress_value instructions within $1–$5 using stressed probability, exact odds and related-game exposure, and apply the active versioned sizing policy to fallback tiers without a tier-specific USD1 maximum under all_tiers_weighted_v3; retain original issued stakes. Without a bankroll, disclose bounded unit sizing as a heuristic, never personalized Kelly. Daily volume remains 100 distinct funded first issuances without fabricating edge or new contracts.",
       "implementation": "operations.py; LearningWorker operating_gaps; stake_assessment; per-league research sources; English coverage UI"
     },
     {
       "id": "R21",
-      "rule": "Model MLB 1st Inning and Innings 1 to 5 independently from actual official inning results. Preserve separate chronological selection and final tests, exact named Stake contracts, draw versus push semantics, $1\u2013$5 issuance, original records and scope-specific outcome tracking. Run daily controlled segment retraining; retain the champion unless validation and paired improvement gates pass. Missing or incomplete inning settlement evidence cannot be replaced with final game scores.",
+      "rule": "Model MLB 1st Inning and Innings 1 to 5 independently from actual official inning results. Preserve separate chronological selection and final tests, exact named Stake contracts, draw versus push semantics, $1–$5 issuance, original records and scope-specific outcome tracking. Run daily controlled segment retraining; retain the champion unless validation and paired improvement gates pass. Missing or incomplete inning settlement evidence cannot be replaced with final game scores.",
       "implementation": "segment_data.py; segments.py; scoped contracts; segment_prospective; segment_retrain"
     },
     {
@@ -145,7 +145,7 @@
     },
     {
       "id": "R29",
-      "rule": "Evaluate full-game Winner, Handicap and Total for every supported game and prioritize them among qualifying family winners. Allocate across less-exposed distinct games first without a hard one-bet-per-game ceiling. Other qualified same-game family winners remain eligible under the active funding policy and related-exposure rules. The fallback limits in R34 are separate from stress-qualified same-game additions. Hedging is allowed only with exact joint-payout, cost and risk evidence; an opposite selection is not automatically a hedge. Reproduce USD1\u20135 sizing without inventing bankroll or resizing original decisions.",
+      "rule": "Evaluate full-game Winner, Handicap and Total for every supported game and prioritize them among qualifying family winners. Allocate across less-exposed distinct games first without a hard one-bet-per-game ceiling. Other qualified same-game family winners remain eligible under the active funding policy and related-exposure rules. The fallback limits in R34 are separate from stress-qualified same-game additions. Hedging is allowed only with exact joint-payout, cost and risk evidence; an opposite selection is not automatically a hedge. Reproduce USD1–5 sizing without inventing bankroll or resizing original decisions.",
       "implementation": "core_market_audit; allocation order; versioned auditable stake sizing"
     },
     {
@@ -185,17 +185,17 @@
     },
     {
       "id": "R35",
-      "rule": "Historical release21 policy, superseded for active sizing by R36. Apply the latest explicit user authorization for calculated Model Pick USD1\u20135 using model_pick_sizing_policy=model_weighted_v2; preserve unit_cap_v1 as the default. Retain nominal-probability stake assessment, related-event discount, optional supplied-bankroll fractional Kelly and all current limits. Do not invent bankroll or round an unfundable amount up to USD1. Bind settings, funding-policy-v2 basis, guard and current execution/instruction review to the same mode. Keep legacy funding-policy-v1 receipts unchanged. Preserve original ticket amounts, including USD1 under a fresh weighted assessment; never top up, reissue or increment daily delivery for that old contract. Probability Pick stays at most USD1; strict/stress sizing, all evidence gates, allocation/lifetime limits and the current daily checkpoint remain unchanged. Show the actual recommended amount and disclose that nominal value does not pass the stress threshold or establish realized profit.",
+      "rule": "Historical release21 policy, superseded for active sizing by R36. Apply the latest explicit user authorization for calculated Model Pick USD1–5 using model_pick_sizing_policy=model_weighted_v2; preserve unit_cap_v1 as the default. Retain nominal-probability stake assessment, related-event discount, optional supplied-bankroll fractional Kelly and all current limits. Do not invent bankroll or round an unfundable amount up to USD1. Bind settings, funding-policy-v2 basis, guard and current execution/instruction review to the same mode. Keep legacy funding-policy-v1 receipts unchanged. Preserve original ticket amounts, including USD1 under a fresh weighted assessment; never top up, reissue or increment daily delivery for that old contract. Probability Pick stays at most USD1; strict/stress sizing, all evidence gates, allocation/lifetime limits and the current daily checkpoint remain unchanged. Show the actual recommended amount and disclose that nominal value does not pass the stress threshold or establish realized profit.",
       "implementation": "funding_policy.py; governance.py; instructions.py; settings; web/app.js"
     },
     {
       "id": "R36",
-      "rule": "Latest explicit correction: all current recommendations have a USD1\u20135 range, maximum USD5, with no tier-specific USD1 limit. Activate all_tiers_weighted_v3 (funding-policy-v3, model-pick-unit-v3, probability-pick-unit-v3). Preserve all legacy receipts exactly. Recalculate existing open exact contracts from fresh currently guarded models/quotes, excluding only their own contract from related exposure, without the old issue-time USD1 ceiling. A read-only Stake Sizing assessment shows recorded amount, current total target and signed difference; it is not a new funded instruction, additional ticket or daily first issuance. Original decisions/odds/stakes and the daily checkpoint stay unchanged. The execution amount cannot be retroactively rewritten: whether each current bet was actually placed is still unresolved; applying an unplaced replacement or already-placed supplement requires correct append-only lifecycle semantics, fresh transaction checks and current execution-state information. No fabricated execution or automatic sportsbook orders.",
+      "rule": "Latest explicit correction: all current recommendations have a USD1–5 range, maximum USD5, with no tier-specific USD1 limit. Activate all_tiers_weighted_v3 (funding-policy-v3, model-pick-unit-v3, probability-pick-unit-v3). Preserve all legacy receipts exactly. Recalculate existing open exact contracts from fresh currently guarded models/quotes, excluding only their own contract from related exposure, without the old issue-time USD1 ceiling. A read-only Stake Sizing assessment shows recorded amount, current total target and signed difference; it is not a new funded instruction, additional ticket or daily first issuance. Original decisions/odds/stakes and the daily checkpoint stay unchanged. The execution amount cannot be retroactively rewritten: whether each current bet was actually placed is still unresolved; applying an unplaced replacement or already-placed supplement requires correct append-only lifecycle semantics, fresh transaction checks and current execution-state information. No fabricated execution or automatic sportsbook orders.",
       "implementation": "funding_policy.py; instructions.py; stake_reassessment.py; dashboard_payload.py; server.py; web/app.js; tests/test_all_tier_sizing.py; tests/test_existing_stake_reassessment.py; tests/web_all_tier_sizing_cases.mjs"
     },
     {
       "id": "R37",
-      "rule": "Use measured Mac resources for useful development with a soft 70\u201380% CPU target and responsive live services. Explicit adaptive maximum six isolated jobs; native CPU/memory/swap/thermal/disk admission protection and gradual recovery. Standard+Nice5 development/release scheduling. No cancellation of running jobs or weakening of isolation, review, tests, publication or ledger rules. Preserve legacy maximum three without opt-in.",
+      "rule": "Use measured Mac resources for useful development with a soft 70–80% CPU target and responsive live services. Explicit adaptive maximum six isolated jobs; native CPU/memory/swap/thermal/disk admission protection and gradual recovery. Standard+Nice5 development/release scheduling. No cancellation of running jobs or weakening of isolation, review, tests, publication or ledger rules. Preserve legacy maximum three without opt-in.",
       "implementation": "resource_capacity.py; development.py; delivery.py; development_service.py; release_service.py",
       "evidence": "data/resource-capacity-20260930/verification-index.json"
     },
@@ -207,12 +207,12 @@
     },
     {
       "id": "R39",
-      "rule": "Latest user directive (2026-10-03): minimum100 distinct funded first issuances per Budapest day is the active delivery target, with no upper count cap. Activate it in durable settings without resetting the existing daily checkpoint or rewriting any prior decisions. Preserve all exact-contract, model/input, freshness, publication and USD1\u20135 checks. Persist timeout/error evidence and fixed deadlines; identify deterministic failures by actual retained logs and relevant input hashes, avoid repeated expensive unchanged attempts, and wake recovery on verified input changes. New declared model protocols/recipes must enqueue fresh isolated experiments without treating identical polls as new work; deploy only candidates that pass separated chronological promotion validation. Development activity and unvalidated hypotheses are not proof of accuracy or profit improvement.",
+      "rule": "Latest user directive (2026-10-03): minimum100 distinct funded first issuances per Budapest day is the active delivery target, with no upper count cap. Activate it in durable settings without resetting the existing daily checkpoint or rewriting any prior decisions. Preserve all exact-contract, model/input, freshness, publication and USD1–5 checks. Persist timeout/error evidence and fixed deadlines; identify deterministic failures by actual retained logs and relevant input hashes, avoid repeated expensive unchanged attempts, and wake recovery on verified input changes. New declared model protocols/recipes must enqueue fresh isolated experiments without treating identical polls as new work; deploy only candidates that pass separated chronological promotion validation. Development activity and unvalidated hypotheses are not proof of accuracy or profit improvement.",
       "implementation": "durable settings.daily_pick_target=100; tests/test_daily_target_forty.py; prior target20 tests retained for historical compatibility; D37 release evidence"
     },
     {
       "id": "R40",
-      "rule": "Implement the complete profit-learning directive A1\u2013GH14/O15: free source-verified references including Polymarket; confirmed starters and season context; learned market blending and calibration; evidence-driven USD1\u20135 sizing; near-breakeven fallback selection and timing; all-candidate shadow/closing evidence; league/family scoreboards; market-relative promotion and prospective challengers; bounded evidence-based allocation; version history, safe publication retention and receipt/manual-settlement repairs. Continuous existing guarded issuance remains active during isolated development. Never invent a sharp-book source, closing quote, bankroll, measured advantage or profit. See profit_learning_directive for precise work/acceptance mapping.",
+      "rule": "Implement the complete profit-learning directive A1–GH14/O15: free source-verified references including Polymarket; confirmed starters and season context; learned market blending and calibration; evidence-driven USD1–5 sizing; near-breakeven fallback selection and timing; all-candidate shadow/closing evidence; league/family scoreboards; market-relative promotion and prospective challengers; bounded evidence-based allocation; version history, safe publication retention and receipt/manual-settlement repairs. Continuous existing guarded issuance remains active during isolated development. Never invent a sharp-book source, closing quote, bankroll, measured advantage or profit. See profit_learning_directive for precise work/acceptance mapping.",
       "implementation": "Existing sports/model/closing/shadow pipeline plus separately reviewed versioned increments; capability status must distinguish candidate, tested, deployed and measured."
     },
     {
@@ -267,7 +267,7 @@
         "maximum_stake": 8,
         "basis": "Nominal model EV > 1e-9, stress threshold not passed; positive model estimate is not established edge.",
         "minimum_odds": "(1 - push_probability) / win_probability; executable quote strictly above this break-even.",
-        "sizing": "Nominal-probability sizing with related-event discount and optional bankroll fractional Kelly. Active all_tiers_weighted_v3 and legacy model_weighted_v2 permit USD0.50\u20138 subject to configured max_bet and available/bankroll bounds. Historical unit_cap_v1 capped at USD1. An amount below USD0.50 is unfunded. Original issued stakes are immutable; current read-only targets are separate.",
+        "sizing": "Nominal-probability sizing with related-event discount and optional bankroll fractional Kelly. Active all_tiers_weighted_v3 and legacy model_weighted_v2 permit USD0.50–8 subject to configured max_bet and available/bankroll bounds. Historical unit_cap_v1 capped at USD1. An amount below USD0.50 is unfunded. Original issued stakes are immutable; current read-only targets are separate.",
         "legacy_default_maximum_stake": 1
       },
       "probability_pick": {
@@ -328,16 +328,68 @@
     "date_basis": "Budapest match-start calendar dates.",
     "improvement_basis": "Hash-archived settled inputs and diagnostic findings feed existing supervised development. Promotion requires separate validation and controlled release."
   },
+  "strategic_league_priority_hierarchy": {
+    "version": "20261108-v2",
+    "directive": "Unified full-system league priority hierarchy directing modeling, screening, learning, allocation, and presentation to deep-liquidity American markets and premier sports (User Directive 2026-11-08).",
+    "supreme_priority_leagues": [
+      "NBA",
+      "NFL",
+      "NHL",
+      "MLS",
+      "NCAAF",
+      "UCL",
+      "EPL",
+      "MLB",
+      "ATP",
+      "WTA"
+    ],
+    "dual_markets_priority": "Contracts offered on Stake and traded on Polymarket CLOB (dual reachable) are the supreme primary markets receiving top priority across Tier 1 R&D synthesis, Tier 2 incubation graduation, Tier 3 Stake production selection boost, and Tier 4 Polymarket CLOB execution.",
+    "closed_loop_bidirectional_progression": "Tier 1 (R&D Edge Discovery & Historical Training, $0.00) -> Tier 2 (Shadow Incubator Live Forward Validation, $0.00) -> Tier 3 (Stake Production Probation, $0.50-$8.00) -> Tier 4 (Polymarket CLOB Proven Alpha, $0.50-$8.00). Backward circuit breaker: Underperformance or negative live PnL instantly drops a market out of Tier 4 to $0.00 Polymarket trading; persistent underperformance drops a market from Tier 3 back into Tier 1 R&D quarantine ($0.00 stakes) for root-cause forensic analysis and historical model training on 97k+ games before any admission to Tier 2 Shadow Incubator.",
+    "tier_1_us_majors": [
+      "NBA",
+      "NFL",
+      "MLB",
+      "NHL",
+      "WNBA",
+      "NCAAF",
+      "NCAAM",
+      "NCAAB"
+    ],
+    "tier_2_premier_soccer": [
+      "EPL",
+      "UCL",
+      "MLS",
+      "LALIGA",
+      "BUNDESLIGA",
+      "SERIEA",
+      "UEL"
+    ],
+    "tier_3_elite_tennis": [
+      "ATP",
+      "WTA"
+    ],
+    "tier_4_deprioritized_fringe": [
+      "CHALLENGER",
+      "NCAAW",
+      "CWBB",
+      "NCAA_BASEBALL",
+      "NCAA_VOLLEYBALL_WOMEN",
+      "NCAA_ICE_HOCKEY",
+      "NCAA_ICE_HOCKEY_WOMEN"
+    ]
+  },
   "profit_learning_directive": {
     "version": "profit-learning-directive-20261001-v1",
     "free_sources_only": true,
     "no_new_paid_provider_subscription": true,
     "primary_leagues": [
+      "NBA",
       "NFL",
-      "NHL",
       "MLB",
+      "NHL",
       "WNBA",
-      "NBA"
+      "NCAAF",
+      "NCAAM"
     ],
     "other_inventory": [
       "NCAA available sports",
@@ -510,7 +562,7 @@
       "approved independent source/model/scope",
       "positive nominal EV and stress-failure disclosure",
       "probability-only lifetime limits",
-      "USD1\u20135 sizing",
+      "USD1–5 sizing",
       "original stakes/decisions",
       "daily target40 without duplicate inflation"
     ],
@@ -534,7 +586,7 @@
       "max_stake_per_game_usd": 10.0,
       "max_daily_market_family_share": 0.35
     },
-    "historical_replay": "tests/test_publication_limits.py reproduces the 2026-10-02 17:00\u201317:10 UTC 158-tip shape and asserts the caps. Legacy v1 remains exactly replayable; v2 is opt-in and does not resize held contracts.",
+    "historical_replay": "tests/test_publication_limits.py reproduces the 2026-10-02 17:00–17:10 UTC 158-tip shape and asserts the caps. Legacy v1 remains exactly replayable; v2 is opt-in and does not resize held contracts.",
     "immutable": [
       "system_decisions",
       "bets",
@@ -609,7 +661,7 @@
     "coverage": "Keep all leagues and market types in search; preserve source, scope-model, price and funding guards with the latest v3 exposure limits.",
     "sizing_policy": "historical_game_weighted_v2",
     "evidence": "Original settled funded engine decisions, league x scope x canonical allocation family, equal-weight independent games; odds-adjusted win-rate surplus and realized ROI; past-only availability cutoff and reproducible digest.",
-    "limits": "USD1\u20135 per bet; max5; daily_risk_limit=null; publication_limits_version=v3:4-6/game,2-3 period/game,USD15-20/game,15/cycle,35% family share; sparse_league_overrides=[NFL,NHL,MLB]; originals unchanged; no automatic placement.",
+    "limits": "USD1–5 per bet; max5; daily_risk_limit=null; publication_limits_version=v3:4-6/game,2-3 period/game,USD15-20/game,15/cycle,35% family share; sparse_league_overrides=[NFL,NHL,MLB]; originals unchanged; no automatic placement.",
     "interpretation": "Historical outcome multiplier is a shrinkage heuristic, not proof of future profit or a probability estimate.",
     "historical_replay_policy": "historical_game_weighted_v1",
     "outcome_uplift": "v2 per-game score=min(1, game ROI/1.0, odds-adjusted WR surplus/0.5), signed negative scores retained; factor=1+4*max(0,sum(scores)/(independent_games+20)), positive aggregate ROI and WR surplus required. Preserve v1 exact replay. Historical heuristic, not new funding eligibility.",
@@ -939,7 +991,7 @@
     "status": "Backlog / Queued for implementation after observation period."
   },
   "autonomous_code_patching_authority_directive_20261013": {
-    "directive": "User standing directive (2026-10-13): Autonomous Patching & Code Repair Authority. Whenever the primary brain (Gemini / Google Antigravity via agy) deems that an architectural, code, query, model, or integration fix is necessary for system health, bottleneck elimination, or quantitative repair, it is explicitly authorized to execute the complete end-to-end repair flow\u2014planning, integration, implementation, testing, and patching\u2014without requiring prior user approval.",
+    "directive": "User standing directive (2026-10-13): Autonomous Patching & Code Repair Authority. Whenever the primary brain (Gemini / Google Antigravity via agy) deems that an architectural, code, query, model, or integration fix is necessary for system health, bottleneck elimination, or quantitative repair, it is explicitly authorized to execute the complete end-to-end repair flow—planning, integration, implementation, testing, and patching—without requiring prior user approval.",
     "flow": [
       "1. Forensic root cause identification (audit data flow, SQL, logs, or model inputs).",
       "2. Surgical repair planning and code modification.",
@@ -1014,7 +1066,7 @@
     "status": "Active, ratified, and verified in decisions.py, outcome_sizing.py, historical_trainer.py, demoted_market_bridge.py, tests, and Quant Council prompts."
   },
   "anti_tautological_testing_and_objective_verification_mandate_20261029": {
-    "directive": "User Supreme Directive (2026-10-29): Anti-Tautological Testing & Objective-Oriented Functional Validation Mandate. Szigor\u00faan tilos a k\u00f3d \u00f6nigazol\u00f3 (tautologikus) tesztel\u00e9se, ahol a teszt nem a val\u00f3s c\u00e9lt, a helyes matematikai funkci\u00f3t \u00e9s a gazdas\u00e1gi eredm\u00e9nyess\u00e9get m\u00e9ri, hanem csup\u00e1n azt ellen\u0151rzi, hogy a k\u00f3d azt csin\u00e1lja-e, amit le\u00edrtunk, m\u00e9g akkor is, ha a logika hib\u00e1s vagy hi\u00e1nyos.",
+    "directive": "User Supreme Directive (2026-10-29): Anti-Tautological Testing & Objective-Oriented Functional Validation Mandate. Szigorúan tilos a kód önigazoló (tautologikus) tesztelése, ahol a teszt nem a valós célt, a helyes matematikai funkciót és a gazdasági eredményességet méri, hanem csupán azt ellenőrzi, hogy a kód azt csinálja-e, amit leírtunk, még akkor is, ha a logika hibás vagy hiányos.",
     "mandate": [
       "Objective & Goal-Oriented Verification: Tests must validate against independent mathematical invariants (e.g. EV = P * O - 1.0, probability axioms, non-negative variance, Kelly bounds, Brier calibration on real binary outcomes), never merely asserting that flawed code reproduces its own flawed output.",
       "Ground-Truth External Fixtures: Performance and settlement must be tested against real, historical, and observed sports outcomes (ESPN, NHL, MLB, Stake verified scores) rather than synthetic, self-serving mocks that mask algorithmic bugs.",
@@ -1025,7 +1077,7 @@
     "status": "Active, ratified with User Supreme Approval (2026-10-29), recorded in project_contract.json, AGENTS.md, and Multi-AI controller instructions."
   },
   "zero_prompt_anchoring_and_cognitive_freedom_mandate_20261104": {
-    "directive": "User Supreme Directive (2026-11-04): Strict Prohibition of Prompt Anchoring, Exemplar Bias & Prescriptive Over-steering. Szigor\u00faan tilos b\u00e1rmilyen AI tan\u00e1csad\u00f3i, kutat\u00e1si, modellez\u00e9si vagy k\u00f3dgener\u00e1l\u00e1si promptban el\u0151re lehorgonyozni (anchoring) a modellt konkr\u00e9t megold\u00e1si receptekkel, p\u00e9ldafelsorol\u00e1sokkal vagy z\u00e1r\u00f3jeles sugallatokkal.",
+    "directive": "User Supreme Directive (2026-11-04): Strict Prohibition of Prompt Anchoring, Exemplar Bias & Prescriptive Over-steering. Szigorúan tilos bármilyen AI tanácsadói, kutatási, modellezési vagy kódgenerálási promptban előre lehorgonyozni (anchoring) a modellt konkrét megoldási receptekkel, példafelsorolásokkal vagy zárójeles sugallatokkal.",
     "mandate": [
       "Zero Exemplar Anchoring: Prohibits listing suggestive examples, model names, or formulas (e.g. Copula, Negative Binomial, Bayesian shrinkage) in prompts, as transformer attention clusters probability mass around mentioned tokens, inducing cognitive functional fixedness.",
       "Pure First-Principles Derivation: Prompts must supply only objective empirical facts, observed data moments (variance/mean dispersion, expected scores, loss breakdown by side), and the mathematical optimization target. The AI must independently derive the optimal formulation from domain physics and probability theory.",
@@ -1033,5 +1085,37 @@
       "Elimination of Static Pseudo-Synthesis: The system is strictly forbidden from querying an AI and then discarding or overriding its response with a hardcoded static decision table or fixed pre-written consensus text. Real AI responses must be dynamically parsed and directly utilized in synthesized hypotheses and directives."
     ],
     "status": "Active, ratified with User Supreme Directive (2026-11-04), recorded in project_contract.json, AGENTS.md, GEMINI.md, and Multi-AI controller instructions."
+  },
+  "autonomous_bottleneck_watchdog_and_self_healing_mandate_20261107": {
+    "directive": "User Supreme Directive (2026-11-07): Autonomous Bottleneck Watchdog & Self-Healing Defense System Mandate. A quant motor kiegészül a 4-szintű autonóm duguláselhárító és öngyógyító védelmi rendszerrel, amely megelőzi a néma alultermelést és csendes fallbackeket, folyamatosan ellenőrzi a modell- és eloszlás-integritást, és anomália esetén emberi jóváhagyás kérése nélkül, azonnal és önállóan végrehajtja a dinamikus öngyógyítást és AI feladat-eszkalációt.",
+    "mandate": [
+      "Continuous Pipeline Throughput Monitoring: BottleneckWatchdog continuously audits all 41 Tier 3 graduated markets in every pre-publication cycle for active champion model bindings, specialized discrete probability distributions, and activity gaps.",
+      "Autonomous Question-Free Remediation: In full adherence to the Standing Autonomous Repair Authority (2026-10-13, 2026-10-17), the watchdog resolves unmounted models and crowns qualifying tournament candidates on-the-fly without prompting the user for repetitive approvals.",
+      "Preservation of Existing Guards & Tier State Machine: The watchdog operates strictly upstream of EvidenceGuard and within the 4-Tier closed-loop boundaries; it never bypasses quote freshness, minimum EV, stake limits (zsh.50-.00), or the Crucible graduation standard.",
+      "Multi-AI Autonomous Escalation: Complex turnaround needs are automatically enqueued in SQLite learning_jobs ('autonomous_bottleneck_repair') for the Quant R&D Agent and the 4 AI brains to resolve autonomously.",
+      "Anti-Tautological Verification: Watchdog health and self-healing must be continuously validated by independent mathematical invariants, live endpoint telemetry (/api/watchdog/bottlenecks), and regression test suites."
+    ],
+    "status": "Active, ratified with User Directive (2026-11-07), synchronized with AGENTS.md, GEMINI.md, and project_contract.json."
+  },
+  "tier3_and_legacy_quarantine_metric_stratification_mandate_20261107": {
+    "directive": "User Supreme Directive (2026-11-07): Dynamic Stratified KPI Reporting & Anti-Chaos Transparency Mandate. A dashboard és a performance számítás köteles dinamikusan szétválasztani az aktív Tier 3 (Crucible-diplomás) termelő piacok valós eredményét (WR, ROI, PnL) a már leállított és karanténozott (Tier 2 $0.00) piacok múltbéli veszteségétől, valamint a történelmi indító baseline-tól. Tilos a friss modellteljesítményt elfedni a korábbi hibás állapotok összevonásával, miközben az immutable ledger elv (10. Rendszerparancs) szigorúan érintetlen marad.",
+    "mandate": [
+      "Dynamic Market Stratification: Store.performance() dynamically queries shadow_incubator.sqlite3 graduated_markets and classifies all settled bets into Tier 3 (Active Production) vs Demoted Quarantine Drag in real-time, adapting automatically as markets graduate or demote.",
+      "Transparent Multi-Tier KPI Cards: The main UI stat strip renders dedicated cards for Tier 3 48h WR/ROI, Tier 3 48h Net PnL, Tier 3 Cumulative Net PnL alongside the immutable Total Cumulative Net PnL and Demoted Quarantine Drag, eliminating cognitive confusion and chaos.",
+      "Preservation of Immutable Ledger: Zero historical bets or settled records are deleted or modified. The total ledger preserves all tracked bets since Sept 2026 baseline for complete auditability.",
+      "Zero-Regression & Anti-Tautological Compliance: All tests validate that stratified metrics sum exactly to total ledger totals and satisfy independent mathematical invariants (win rate = W / (W+L), ROI = PnL / turnover)."
+    ],
+    "status": "Active, ratified with User Directive (2026-11-07), synchronized with AGENTS.md, GEMINI.md, and project_contract.json."
+  },
+  "unthrottled_tier3_first_principles_architecture_20261107": {
+    "directive": "User Supreme Directive (2026-11-07): Unthrottled Tier 3 Volume & First-Principles Deduplication Architecture. A Tier 3-as graduált piacok már a Crucible szigorú tesztjén igazolt nyereséges modellek (+24.3% ROI). Tilos a profitábilis volument mesterséges korlátokkal (meccsenkénti tétplafon, darabszám-korlát, globális családi kvóta) lefojtani. A tőkevédelmet a kockázat-arányos frakcionált Kelly ($0.50-$8.00), a családonkénti egyedi deduplikáció (1 meccs = 1 champion vonal), és a gyengélkedő piacok azonnali automatikus karantén-demotálása ($0.00) garantálja.",
+    "mandate": [
+      "Inter-Game Independence: Fresh independent fixtures (distinct game_ids) are completely unconstrained by daily market-family quotas; every fixture with validated Tier 3 positive-EV edge receives funded recommendations without an artificial ceiling.",
+      "Intra-Game Pure Deduplication: Within the same fixture, exactly 1 champion bet per market family is authorized (the highest EV contract wins). Direct opposing contracts (Home vs Away, Over vs Under) and nested redundant lines are strictly prevented.",
+      "Elimination of Artificial Ceilings: Arbitrary static per-match bet count caps, period caps, and stake limits are eliminated for Tier 3 graduated markets in publication_limits_version=v3, naturally bounding bets per game by the underlying orthogonal family structure (averaging 1.96 bets/game).",
+      "Dynamic Closed-Loop Capital Protection: Risk is governed continuously by fractional Kelly ($0.50-$8.00) based on calibrated win probabilities and estimation uncertainty. Any market failing to maintain positive rolling metrics is automatically quarantined to $0.00 by the autonomous tier state machine.",
+      "Zero-Regression Integrity: Legacy v1 and v2 regression replays remain 100% intact, and all unit test suites and Happy-DOM frontend tests pass with 100% green compliance."
+    ],
+    "status": "Active, ratified with User Directive (2026-11-07), synchronized with AGENTS.md, GEMINI.md, and project_contract.json."
   }
 }

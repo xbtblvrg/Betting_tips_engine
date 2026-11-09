@@ -47,6 +47,9 @@ class CandidateStanding:
         return asdict(self)
 
 
+_GLOBAL_CANDIDATES_CACHE: Dict[str, List[Any]] = {}
+
+
 def calculate_crucible_scorecard(
     roi: float,
     sample_size: int,
@@ -237,6 +240,7 @@ class TournamentEngine:
         sample_context: Optional[Dict[str, Any]] = None,
     ) -> Tuple[bool, List[str]]:
         """Registers a candidate model into the segment's tournament after pre-flight validation."""
+        global _GLOBAL_CANDIDATES_CACHE
         # 1. Pre-flight validation
         ctx = sample_context or {'home_expected': 2.5, 'away_expected': 2.0}
         passed, errors = validate_candidate_model(model, ctx)
@@ -275,6 +279,8 @@ class TournamentEngine:
                 self.save_registry(reg)
                 if hasattr(self, '_runtime_classes'):
                     self._runtime_classes[model.__class__.__name__] = model.__class__
+                _GLOBAL_CANDIDATES_CACHE.pop(canonical_key, None)
+                _GLOBAL_CANDIDATES_CACHE.pop(segment_key, None)
                 return True, []
 
         t_data['candidates'][cand_id] = {
@@ -293,17 +299,104 @@ class TournamentEngine:
         self.save_registry(reg)
         if hasattr(self, '_runtime_classes'):
             self._runtime_classes[model.__class__.__name__] = model.__class__
+        _GLOBAL_CANDIDATES_CACHE.pop(canonical_key, None)
+        _GLOBAL_CANDIDATES_CACHE.pop(segment_key, None)
         return True, []
 
+    def register_candidates_batch(
+        self,
+        candidate_items: List[Tuple[str, BaseCandidateModel, Optional[Dict[str, Any]]]],
+    ) -> Dict[str, Tuple[bool, List[str]]]:
+        """Registers a batch of candidate models into their respective tournaments in a single I/O pass."""
+        global _GLOBAL_CANDIDATES_CACHE
+        if not candidate_items:
+            return {}
+
+        reg = self.load_registry()
+        tourneys = reg.setdefault('tournaments', {})
+        results: Dict[str, Tuple[bool, List[str]]] = {}
+        dirty = False
+        default_ctx = {'home_expected': 2.5, 'away_expected': 2.0}
+
+        for segment_key, model, sample_context in candidate_items:
+            canonical_key = normalize_segment_key(segment_key)
+            ctx = sample_context or default_ctx
+            passed, errors = validate_candidate_model(model, ctx)
+            if not passed:
+                results[segment_key] = (False, [f"Validation failed: {'; '.join(errors)}"])
+                continue
+
+            t_data = tourneys.setdefault(canonical_key, {
+                'segment_key': canonical_key,
+                'created_at': datetime.now(timezone.utc).isoformat(),
+                'candidates': {},
+                'status': 'active',
+            })
+
+            cand_id = model.model_id
+            model_sig = f"{model.model_id}:{model.version}:{model.__class__.__name__}"
+            sig_hash = hashlib.sha256(model_sig.encode('utf-8')).hexdigest()
+            if sig_hash in reg.get('rejected', []):
+                results[segment_key] = (False, ["Model signature is permanently blacklisted in tournament registry."])
+                continue
+
+            cand_params = model.metadata.get('params') or getattr(model, 'params', None) or model.metadata or {}
+            cand_sig = (model.__class__.__name__, json.dumps(cand_params, sort_keys=True))
+            dedup_updated = False
+            for existing_id, existing_meta in t_data.get('candidates', {}).items():
+                ex_cls = existing_meta.get('class_name')
+                ex_meta = existing_meta.get('metadata') or {}
+                ex_params = ex_meta.get('params') or existing_meta.get('params') or {}
+                ex_sig = (ex_cls, json.dumps(ex_params or ex_meta, sort_keys=True))
+                if ex_sig == cand_sig:
+                    existing_meta['version'] = model.version
+                    existing_meta['metadata'] = model.metadata
+                    existing_meta['status'] = 'incubating'
+                    dedup_updated = True
+                    dirty = True
+                    break
+
+            if not dedup_updated:
+                t_data['candidates'][cand_id] = {
+                    'model_id': model.model_id,
+                    'version': model.version,
+                    'class_name': model.__class__.__name__,
+                    'league': model.league,
+                    'scope': model.scope,
+                    'family': model.family,
+                    'registered_at': datetime.now(timezone.utc).isoformat(),
+                    'status': 'incubating',
+                    'signature_hash': sig_hash,
+                    'metadata': model.metadata,
+                }
+                dirty = True
+
+            if hasattr(self, '_runtime_classes'):
+                self._runtime_classes[model.__class__.__name__] = model.__class__
+            _GLOBAL_CANDIDATES_CACHE.pop(canonical_key, None)
+            _GLOBAL_CANDIDATES_CACHE.pop(segment_key, None)
+            results[segment_key] = (True, [])
+
+        if dirty:
+            self.save_registry(reg)
+
+        return results
+
+    _cached_class_map: Optional[Dict[str, type]] = None
+
     def _get_class_map(self) -> Dict[str, type]:
-        """Dynamically discovers all candidate model classes in archetypes and generated models."""
+        """Dynamically discovers all candidate model classes in archetypes with class caching."""
+        if TournamentEngine._cached_class_map is not None:
+            combined = dict(TournamentEngine._cached_class_map)
+            combined.update(getattr(self, '_runtime_classes', {}))
+            return combined
+
         class_map = dict(getattr(self, '_runtime_classes', {}))
         try:
             import importlib
             import inspect
             import pkgutil
             import sys
-            importlib.invalidate_caches()
             src_path = str(Path(__file__).resolve().parent.parent)
             if src_path not in sys.path:
                 sys.path.insert(0, src_path)
@@ -319,21 +412,6 @@ class TournamentEngine:
                             class_map[item_name] = item
                 except Exception:
                     pass
-
-            # Also discover synthesized classes from generated directory
-            gen_dir = Path(__file__).resolve().parent / 'sandbox_models' / 'generated'
-            if gen_dir.exists():
-                for py_file in gen_dir.glob('*.py'):
-                    if py_file.stem.startswith('__'):
-                        continue
-                    try:
-                        mod = importlib.import_module(f'.sandbox_models.generated.{py_file.stem}', package=pkg)
-                        for item_name, item in inspect.getmembers(mod, inspect.isclass):
-                            if (any(b.__name__ == 'BaseCandidateModel' for b in getattr(item, '__mro__', []))
-                                    and item.__name__ != 'BaseCandidateModel'):
-                                class_map[item_name] = item
-                    except Exception:
-                        pass
         except Exception:
             pass
 
@@ -350,6 +428,7 @@ class TournamentEngine:
                 'BivariateCopulaHazardModel': BivariateCopulaHazardModel,
                 'ZeroInflatedPoissonModel': ZeroInflatedPoissonModel,
             }
+        TournamentEngine._cached_class_map = class_map
         return class_map
 
     def _find_tournament_data(self, reg: Dict[str, Any], segment_key: str) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
@@ -444,17 +523,39 @@ class TournamentEngine:
         except Exception:
             return None
 
-    def get_active_candidates(self, segment_key: str) -> List[BaseCandidateModel]:
-        """Returns instantiated active candidate models for a given segment key with instance caching."""
+    def reject_candidate(self, segment_key: str, model_id: str, reason: str = "") -> bool:
+        """Explicitly marks an evicted candidate model as rejected and purges cache."""
+        global _GLOBAL_CANDIDATES_CACHE
         reg = self.load_registry()
-        if not hasattr(self, '_candidates_cache') or self._candidates_cache is None:
-            self._candidates_cache = {}
-        if segment_key in self._candidates_cache:
-            return self._candidates_cache[segment_key]
+        eff_key, t_data = self._find_tournament_data(reg, segment_key)
+        if not t_data:
+            return False
+        candidates = t_data.setdefault('candidates', {})
+        if model_id in candidates:
+            c_meta = candidates[model_id]
+            c_meta['status'] = 'rejected'
+            c_meta['rejection_reason'] = reason
+            c_meta['rejected_at'] = datetime.now(timezone.utc).isoformat()
+            sig_hash = c_meta.get('signature_hash')
+            if sig_hash:
+                rejected_list = reg.setdefault('rejected', [])
+                if sig_hash not in rejected_list:
+                    rejected_list.append(sig_hash)
+            self.save_registry(reg)
+            _GLOBAL_CANDIDATES_CACHE.clear()
+            return True
+        return False
 
+    def get_active_candidates(self, segment_key: str) -> List[BaseCandidateModel]:
+        """Returns instantiated active candidate models for a given segment key with global process caching."""
+        global _GLOBAL_CANDIDATES_CACHE
+        if segment_key in _GLOBAL_CANDIDATES_CACHE:
+            return _GLOBAL_CANDIDATES_CACHE[segment_key]
+
+        reg = self.load_registry()
         _, t_data = self._find_tournament_data(reg, segment_key)
         if not t_data:
-            self._candidates_cache[segment_key] = []
+            _GLOBAL_CANDIDATES_CACHE[segment_key] = []
             return []
 
         class_map = self._get_class_map()
@@ -499,6 +600,11 @@ class TournamentEngine:
                     'metadata': meta_dict,
                 }
                 kwargs.update(params)
+                import inspect
+                sig_target = inspect.signature(cls_target.__init__)
+                has_var_kw = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig_target.parameters.values())
+                if not has_var_kw:
+                    kwargs = {k: v for k, v in kwargs.items() if k in sig_target.parameters}
                 inst = cls_target(**kwargs)
                 instances.append(inst)
                 seen_signatures.add(sig)
@@ -506,7 +612,7 @@ class TournamentEngine:
             except Exception:
                 continue
 
-        self._candidates_cache[segment_key] = instances
+        _GLOBAL_CANDIDATES_CACHE[segment_key] = instances
         return instances
 
     def evaluate_tournament(

@@ -89,12 +89,18 @@ def test_universal_meritocracy_and_zero_hardcoded_privilege():
     roster = universe.build_universe_roster(force_refresh=True)
     
     # Check MLS spreads profile: if in roster, must have valid meritocratic tier.
-    # Due to recent rolling drawdown (-24.3% ROI), meritocratic capital defense clamps it to $0.50 tourniquet.
+    # Due to recent rolling drawdown (-24.3% ROI), meritocracy enforces either Capital Defense ($0.50)
+    # or Demoted Quarantine ($0.00), strictly forbidding any Alpha capital scaling.
     mls_prof = roster.get("MLS|full_game|spreads")
     if mls_prof:
-        assert mls_prof.tier == int(MarketTier.PRODUCTION_GRADUATED)
-        assert mls_prof.stake_cap == 0.50
-        assert "Capital Defense" in mls_prof.phase_detail
+        assert mls_prof.stake_cap <= 0.50
+        if mls_prof.tier == int(MarketTier.PRODUCTION_GRADUATED):
+            assert mls_prof.stake_cap == 0.50
+            assert "Capital Defense" in mls_prof.phase_detail
+        else:
+            assert mls_prof.tier in (int(MarketTier.RESEARCH_RND), int(MarketTier.SHADOW_INCUBATOR))
+            assert mls_prof.stake_cap == 0.00
+            assert any(k in mls_prof.phase_detail for k in ("Demotion", "Quarantined", "Live forward validation", "Incubating"))
 
 
 def test_every_tier1_market_has_owner_and_developer():

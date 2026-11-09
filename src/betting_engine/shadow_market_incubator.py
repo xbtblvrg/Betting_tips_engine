@@ -326,7 +326,12 @@ def load_graduated_markets(data_dir: Path = DATA) -> Dict[str, Dict[str, Any]]:
                         had_demoted_in_data = True
 
                 from .contracts import is_supported_stake_contract
-                rows = conn.execute("SELECT id, segment_key, league, scope, family, sub_family, graduated_at, stats FROM graduated_markets").fetchall()
+                col_names = {c[1] for c in conn.execute("PRAGMA table_info(graduated_markets)").fetchall()}
+                id_col = "id" if "id" in col_names else "segment_key AS id"
+                grad_at_col = "graduated_at" if "graduated_at" in col_names else "'' AS graduated_at"
+                subfam_col = "sub_family" if "sub_family" in col_names else "family AS sub_family"
+                stats_col = "stats" if "stats" in col_names else "'{}' AS stats"
+                rows = conn.execute(f"SELECT {id_col}, segment_key, league, scope, family, {subfam_col}, {grad_at_col}, {stats_col} FROM graduated_markets").fetchall()
                 # Demoted & Unsupported markets filter: ensure no demoted/probationary or phantom market lingers in SQLite
                 stale_keys_to_purge = [
                     r[1] for r in rows
@@ -540,6 +545,13 @@ def matches_live_decision_to_market(p: Dict[str, Any], meta: Dict[str, Any]) -> 
     if target_family in ('totals', 'alternative_total') and ('spread' in m_lower or 'moneyline' in m_lower):
         return False
 
+    # Disambiguation: Tennis game markets vs set markets must NEVER cross-match
+    if target_league in ('ATP', 'WTA', 'CHALLENGER'):
+        is_target_sets = (target_family == 'tennis_sets' or any(k in target_sub_family for k in ('set', 'sets')))
+        is_dec_sets = ('set' in m_lower or p.get('market_family') == 'tennis_sets' or p.get('family') == 'tennis_sets')
+        if is_target_sets != is_dec_sets:
+            return False
+
     # Canonical allocation family match
     try:
         from .contracts import allocation_family
@@ -573,11 +585,11 @@ def matches_live_decision_to_market(p: Dict[str, Any], meta: Dict[str, Any]) -> 
     if target_sub_family in ('first_to_score', 'sequence_hazard'):
         if any(k in m_lower for k in ('first_to_score', 'first to score', 'sequence_hazard')):
             return True
-    if target_sub_family in ('set_handicap', 'set_spread') and any(k in m_lower for k in ('set_handicap', 'set handicap', 'set_spread', 'spread')):
+    if target_sub_family in ('set_handicap', 'set_spread') and any(k in m_lower for k in ('set_handicap', 'set handicap', 'set_spread')):
         return True
-    if target_sub_family in ('set_totals', 'set_total') and any(k in m_lower for k in ('set_total', 'set total', 'set_totals', 'total')):
+    if target_sub_family in ('set_totals', 'set_total') and any(k in m_lower for k in ('set_total', 'set total', 'set_totals')):
         return True
-    if target_sub_family == 'set_winner' and any(k in m_lower for k in ('set_winner', 'set winner', 'moneyline', 'winner')):
+    if target_sub_family == 'set_winner' and any(k in m_lower for k in ('set_winner', 'set winner')):
         return True
     if target_sub_family in ('asian_handicap', 'asian handicap') and any(k in m_lower for k in ('asian_handicap', 'asian handicap')):
         return True
@@ -2174,8 +2186,7 @@ class ShadowMarketIncubator:
                 try:
                     from .ai_feedback_loop import AIFeedbackLoopManager
                     fb_mgr = AIFeedbackLoopManager(self.data_dir)
-                    for m_id, out_res, o_val, p_val, mod_p, mkt_p in settled_feedback_events:
-                        fb_mgr.record_settlement(m_id, out_res, o_val, p_val, model_prob=mod_p, market_prob=mkt_p)
+                    fb_mgr.record_settlements_batch(settled_feedback_events)
                 except Exception as e_fb:
                     log.debug("Settlement feedback ingestion error: %s", e_fb)
 
@@ -2202,7 +2213,7 @@ class ShadowMarketIncubator:
         """Tier 2 Lifecycle & Eviction Watchdog Engine.
         
         Evaluates all markets in Tier 2 (incubation_phase = 'incubating_with_new_model'):
-        1. Reachability Guard: Evicts phantom/unsupported contracts (not offered pre-match on Stake) to 'unsupported_phantom'.
+        1. Reachability Guard: Purges phantom/unsupported contracts (not offered pre-match on Stake) completely from demoted_markets.
         2. Off-Season & Hiatus Protection: Detects leagues in seasonal hiatus (no matches in past 14d or open) and preserves them without eviction or penalty.
         3. Fast-Fail Live Eviction: If N_live >= 10 and (ROI_live <= -15.0% or PnL_live <= -$5.00), resets to Tier 1 (research_training, model=NULL).
         4. Stagnation Eviction: If N_live >= 25 and (PnL_live < 0.0 or ROI_live < +3.5%), resets to Tier 1 for novel AI retraining.
@@ -2215,11 +2226,12 @@ class ShadowMarketIncubator:
             cur.execute("""
                 SELECT id, segment_key, league, scope, family, sub_family,
                        incubated_model_id, model_archetype, historical_roi, historical_sample_size,
-                       admitted_to_incubator_at
+                       admitted_to_incubator_at, demoted_at
                 FROM demoted_markets
                 WHERE incubation_phase = 'incubating_with_new_model'
             """)
             incubating_rows = cur.fetchall()
+            log.debug("[TIER2_LIFECYCLE_START] Evaluating Tier 2 lifecycle for %d incubating markets (as_of=%s)", len(incubating_rows), now_iso)
 
             if not incubating_rows:
                 return {
@@ -2240,6 +2252,12 @@ class ShadowMarketIncubator:
                 GROUP BY league
             """, (now_iso,))
             active_leagues = {r[0] for r in cur.fetchall()}
+            # Also include all in-season liquid leagues currently active
+            active_leagues.update({
+                'NBA', 'NFL', 'NHL', 'EPL', 'MLS', 'UCL', 'UEL',
+                'LALIGA', 'BUNDESLIGA', 'SERIEA', 'ATP', 'WTA',
+                'CHALLENGER', 'NCAAF', 'NCAAM', 'NCAAW'
+            })
         finally:
             conn.close()
 
@@ -2251,49 +2269,92 @@ class ShadowMarketIncubator:
         evicted_unverified: List[str] = []
         dormant_markets: List[str] = []
         retained_markets: List[str] = []
+        evicted_feedback_entries: List[Tuple[Any, ...]] = []
+        evicted_models_to_reject: List[Tuple[str, str, str]] = []
+        evicted_jobs_to_enqueue: List[Tuple[str, str, str, float, float, int]] = []
 
         for attempt in range(5):
             try:
                 with closing(sqlite3.connect(str(self.db_path), timeout=30.0, isolation_level=None)) as w_conn:
                     w_conn.execute("PRAGMA busy_timeout = 30000")
                     cur_w = w_conn.cursor()
+                    updates: List[Tuple[Any, ...]] = []
 
-                    # 1. Reachability Guard: Cleanse any unsupported phantom contracts across both Tier 1 and Tier 2
+                    # 1. Reachability Guard: Cleanse and permanently purge any unsupported phantom contracts from demoted_markets
+                    cur_w.execute("DELETE FROM demoted_markets WHERE incubation_phase = 'unsupported_phantom'")
+                    phantom_keys_to_delete: List[str] = []
                     cur_w.execute("""
                         SELECT id, segment_key, league, scope, family, sub_family
                         FROM demoted_markets
-                        WHERE incubation_phase = 'research_training'
                     """)
                     for r_row in cur_w.fetchall():
                         r_id, r_key, r_lg, r_sc, r_fam, r_sub = r_row
                         if not is_supported_stake_contract(r_lg, r_sc, r_fam, r_sub):
-                            cur_w.execute("""
-                                UPDATE demoted_markets
-                                SET incubation_phase = 'unsupported_phantom',
-                                    incubated_model_id = NULL,
-                                    model_archetype = NULL,
-                                    model_params = NULL,
-                                    reason = 'Unsupported contract: Not offered pre-match by Stake sportsbook'
-                                WHERE id = ? OR segment_key = ?
-                            """, (r_id, r_key))
+                            phantom_keys_to_delete.append(r_key)
                             evicted_phantom.append(r_key)
 
+                    if phantom_keys_to_delete:
+                        p_placeholders = ','.join('?' for _ in phantom_keys_to_delete)
+                        cur_w.execute(f"DELETE FROM demoted_markets WHERE segment_key IN ({p_placeholders})", phantom_keys_to_delete)
+
                     for row in incubating_rows:
-                        d_id, seg_key, league, scope, family, sub_fam, mid, arch, h_roi, h_n, adm_at = row
-                        
-                        # Reachability Guard on Tier 2 incubating candidates
-                        if not is_supported_stake_contract(league, scope, family, sub_fam):
-                            cur_w.execute("""
-                                UPDATE demoted_markets
-                                SET incubation_phase = 'unsupported_phantom',
-                                    incubated_model_id = NULL,
-                                    model_archetype = NULL,
-                                    model_params = NULL,
-                                    reason = 'Unsupported contract: Not offered pre-match by Stake sportsbook'
-                                WHERE id = ? OR segment_key = ?
-                            """, (d_id, seg_key))
-                            evicted_phantom.append(seg_key)
+                        d_id, seg_key, league, scope, family, sub_fam, mid, arch, h_roi, h_n, adm_at, dem_at = row
+                        if seg_key in phantom_keys_to_delete:
                             continue
+
+                        # 0. Candidate Model Integrity Guard
+                        # A market in Tier 2 MUST have an instantiated, registered candidate model.
+                        # If incubated_model_id is NULL or empty, reset to Tier 1 research_training for proper AI discovery.
+                        if not mid or not str(mid).strip() or not arch:
+                            reason_msg = "Tier 2 Integrity Reset: Missing candidate model ID or archetype; reset to Tier 1 R&D"
+                            updates.append(('research_training', None, None, None, reason_msg, d_id, seg_key))
+                            evicted_unverified.append(seg_key)
+                            continue
+
+
+                        # Rule 1: Demotion Precedence Guard (Commandment 6 & User Directive)
+                        # A demoted market can ONLY enter Tier 2 if it was admitted to incubator strictly AFTER the demotion timestamp!
+                        # If demoted_at is set and admitted_to_incubator_at is older, the candidate model failed in live play
+                        # and the market must be quarantined back to Tier 1 R&D.
+                        if dem_at and (not adm_at or dem_at > adm_at):
+                            reason_msg = f"Tier 2 Demotion Precedence: Demoted from live production at {dem_at}; reset to Tier 1 R&D for candidate model discovery"
+                            updates.append(('research_training', None, None, None, reason_msg, d_id, seg_key))
+                            evicted_unverified.append(seg_key)
+                            if mid:
+                                evicted_models_to_reject.append((seg_key, str(mid), reason_msg))
+                            continue
+
+                        # Calculate incubation tenure in hours
+                        try:
+                            adm_dt = datetime.fromisoformat(adm_at)
+                            now_dt = datetime.fromisoformat(now_iso)
+                            inc_hours = max(0.0, (now_dt - adm_dt).total_seconds() / 3600.0)
+                        except Exception:
+                            inc_hours = 0.0
+
+                        # Query settled incubated wagers
+                        cur_w.execute("""
+                            SELECT odds, pnl, brier_model, brier_market, settled_at
+                            FROM incubated_wagers
+                            WHERE status = 'settled'
+                              AND league = ? AND scope = ?
+                              AND (family = ? OR family LIKE '%' || ? || '%' OR ? LIKE '%' || family || '%')
+                              AND (settled_at > ? OR ? IS NULL)
+                            ORDER BY settled_at ASC
+                        """, (league, scope, family, family, family, adm_at, adm_at))
+                        w_rows = cur_w.fetchall()
+                        n_live = len(w_rows)
+                        live_pnls = [float(w[1] or 0.0) for w in w_rows]
+                        live_pnl = float(sum(live_pnls))
+                        live_roi = (live_pnl / float(n_live)) if n_live > 0 else 0.0
+
+                        # Check for open/pending wagers
+                        cur_w.execute("""
+                            SELECT count(*) FROM incubated_wagers
+                            WHERE status = 'open' AND league = ? AND scope = ?
+                              AND (family = ? OR family LIKE '%' || ? || '%' OR ? LIKE '%' || family || '%')
+                        """, (league, scope, family, family, family))
+                        n_open = cur_w.fetchone()[0] or 0
 
                         # 2. Off-Season & Hiatus Protection
                         if league not in active_leagues:
@@ -2301,80 +2362,146 @@ class ShadowMarketIncubator:
                                 dormant_markets.append(seg_key)
                                 continue
                             # If it was unverified before going dormant, it needs reset to Tier 1
-                            cur_w.execute("""
-                                UPDATE demoted_markets
-                                SET incubation_phase = 'research_training',
-                                    incubated_model_id = NULL,
-                                    model_archetype = NULL,
-                                    model_params = NULL,
-                                    reason = 'Tier 2 Deadlock Reset: Unverified historical baseline reset for rigorous AI R&D'
-                                WHERE id = ? OR segment_key = ?
-                            """, (d_id, seg_key))
+                            reason_msg = 'Tier 2 Deadlock Reset: Unverified historical baseline reset for rigorous AI R&D'
+                            updates.append(('research_training', None, None, None, reason_msg, d_id, seg_key))
                             evicted_unverified.append(seg_key)
                             continue
 
-                        # 3. Live Forward Performance Evaluation
-                        cur_w.execute("""
-                            SELECT count(*), sum(pnl)
-                            FROM incubated_wagers
-                            WHERE status = 'settled'
-                              AND league = ? AND scope = ?
-                              AND (family = ? OR family LIKE '%' || ? || '%' OR ? LIKE '%' || family || '%')
-                              AND (settled_at > ? OR ? IS NULL)
-                        """, (league, scope, family, family, family, adm_at, adm_at))
-                        res_p = cur_w.fetchone()
-                        n_live = res_p[0] or 0
-                        live_pnl = float(res_p[1] or 0.0)
-                        live_roi = (live_pnl / float(n_live)) if n_live > 0 else 0.0
 
-                        # Rule 3A: Fast-Fail Eviction (Deep losses early)
-                        if n_live >= 10 and (live_roi <= -0.15 or live_pnl <= -5.00):
-                            reason_msg = f"Tier 2 Fast-Fail Eviction: Live forward ROI {live_roi*100:.1f}%, PnL ${live_pnl:.2f} across {n_live} games"
-                            cur_w.execute("""
-                                UPDATE demoted_markets
-                                SET incubation_phase = 'research_training',
-                                    incubated_model_id = NULL,
-                                    model_archetype = NULL,
-                                    model_params = NULL,
-                                    reason = ?
-                                WHERE id = ? OR segment_key = ?
-                            """, (reason_msg, d_id, seg_key))
-                            evicted_fast_fail.append({'segment_key': seg_key, 'live_roi': live_roi, 'live_pnl': live_pnl, 'n_live': n_live})
-                            continue
-
-                        # Rule 3B: Stagnation Eviction (Failed to pass after full probation)
-                        if n_live >= 25 and (live_pnl < 0.0 or live_roi < 0.035):
-                            reason_msg = f"Tier 2 Stagnation Eviction: Failed graduation hurdle after {n_live} live games (ROI {live_roi*100:.1f}%, PnL ${live_pnl:.2f})"
-                            cur_w.execute("""
-                                UPDATE demoted_markets
-                                SET incubation_phase = 'research_training',
-                                    incubated_model_id = NULL,
-                                    model_archetype = NULL,
-                                    model_params = NULL,
-                                    reason = ?
-                                WHERE id = ? OR segment_key = ?
-                            """, (reason_msg, d_id, seg_key))
-                            evicted_stagnant.append({'segment_key': seg_key, 'live_roi': live_roi, 'live_pnl': live_pnl, 'n_live': n_live})
-                            continue
 
                         # Rule 3C: Unverified Deadlock Reset
                         h_roi_val = float(h_roi or 0.0)
                         h_n_val = int(h_n or 0)
                         if (h_roi_val <= 0.0 or h_n_val <= 0) and live_pnl <= 0.0:
                             reason_msg = f"Tier 2 Deadlock Reset: Unverified historical baseline (ROI {h_roi_val*100:.1f}%, N={h_n_val}) reset for rigorous AI R&D"
-                            cur_w.execute("""
-                                UPDATE demoted_markets
-                                SET incubation_phase = 'research_training',
-                                    incubated_model_id = NULL,
-                                    model_archetype = NULL,
-                                    model_params = NULL,
-                                    reason = ?
-                                WHERE id = ? OR segment_key = ?
-                            """, (reason_msg, d_id, seg_key))
+                            updates.append(('research_training', None, None, None, reason_msg, d_id, seg_key))
                             evicted_unverified.append(seg_key)
+                            if mid:
+                                evicted_models_to_reject.append((seg_key, str(mid), reason_msg))
+                            continue
+
+                        # Rule 3D: Inactivity Eviction (Dead / Silent Model Guard)
+                        # Requires at least 14 days (336 hours) of total inactivity across multiple weekly game cycles
+                        # to protect models against regular sports calendar gaps (e.g. NFL midweek, NCAAF weekly cadence, tennis breaks).
+                        if league in active_leagues:
+                            if inc_hours > 336.0 and n_live == 0 and n_open == 0:
+                                reason_msg = f"Tier 2 Inactivity Eviction: 0 wagers generated across {inc_hours:.1f}h (>=14d) incubation; reset to Tier 1 R&D"
+                                updates.append(('research_training', None, None, None, reason_msg, d_id, seg_key))
+                                evicted_stagnant.append({'segment_key': seg_key, 'live_roi': 0.0, 'live_pnl': 0.0, 'n_live': 0})
+                                if mid:
+                                    evicted_models_to_reject.append((seg_key, str(mid), reason_msg))
+                                    evicted_jobs_to_enqueue.append((seg_key, league, reason_msg, 0.0, 0.0, 0))
+                                continue
+                            if inc_hours > 504.0 and n_live < 5 and n_open == 0:
+                                reason_msg = f"Tier 2 Insufficient Activity Eviction: Only {n_live} wagers across {inc_hours:.1f}h (>=21d) incubation; reset to Tier 1 R&D"
+                                updates.append(('research_training', None, None, None, reason_msg, d_id, seg_key))
+                                evicted_stagnant.append({'segment_key': seg_key, 'live_roi': live_roi, 'live_pnl': live_pnl, 'n_live': n_live})
+                                if mid:
+                                    evicted_models_to_reject.append((seg_key, str(mid), reason_msg))
+                                    evicted_jobs_to_enqueue.append((seg_key, league, reason_msg, live_roi, live_pnl, n_live))
+                                continue
+
+                        # Rule 3A: Fast-Fail Eviction (Deep losses across adequate sample)
+                        # Requires at least 10 games to avoid evicting on 2-3 game binomial variance.
+                        live_units_val = live_pnl / 1.0
+                        if n_live >= 10 and (live_roi <= -0.15 or live_units_val <= -4.0):
+                            reason_msg = f"Tier 2 Fast-Fail Eviction: Live forward ROI {live_roi*100:.1f}%, PnL ${live_pnl:.2f} across {n_live} games"
+                            updates.append(('research_training', None, None, None, reason_msg, d_id, seg_key))
+                            evicted_fast_fail.append({'segment_key': seg_key, 'live_roi': live_roi, 'live_pnl': live_pnl, 'n_live': n_live})
+                            if mid:
+                                evicted_models_to_reject.append((seg_key, str(mid), reason_msg))
+                                evicted_feedback_entries.append((
+                                    f"feed_{hashlib.sha256(f'{mid}:{seg_key}:{now_iso}'.encode()).hexdigest()[:16]}",
+                                    str(mid), seg_key, league, scope, family,
+                                    arch or 'UNKNOWN', arch or 'UNKNOWN', live_roi, 0.0,
+                                    0.0, 0.0, 0, now_iso
+                                ))
+                                evicted_jobs_to_enqueue.append((seg_key, league, reason_msg, live_roi, live_pnl, n_live))
+                            continue
+
+                        # Rule 3B: Stagnation Eviction after Full Trial (N >= 25)
+                        if n_live >= 25:
+                            recent_20 = live_pnls[-20:]
+                            rec_sum = sum(recent_20) if len(recent_20) >= 4 else 0.0
+
+                            cumsum = np.cumsum(live_pnls)
+                            peaks = np.maximum.accumulate(cumsum)
+                            drawdowns = (peaks - cumsum) / np.maximum(1.0, peaks + float(n_live))
+                            max_dd = float(np.max(drawdowns)) if len(drawdowns) > 0 else 0.0
+
+                            brier_diffs = [(w[3] - w[2]) for w in w_rows if w[2] is not None and w[3] is not None]
+                            delta_brier = float(np.mean(brier_diffs)) if brier_diffs else 0.0
+
+                            has_grad_qualification = (live_pnl > 0.0 and live_roi >= 0.035 and delta_brier > 0.0005 and max_dd < 0.20 and rec_sum >= 0.0)
+                            if not has_grad_qualification:
+                                reason_msg = f"Tier 2 Stagnation Eviction: Failed graduation hurdle after {n_live} live games (ROI {live_roi*100:.1f}%, PnL ${live_pnl:.2f}, max_dd {max_dd:.2f})"
+                                updates.append(('research_training', None, None, None, reason_msg, d_id, seg_key))
+                                evicted_stagnant.append({'segment_key': seg_key, 'live_roi': live_roi, 'live_pnl': live_pnl, 'n_live': n_live})
+                                if mid:
+                                    evicted_models_to_reject.append((seg_key, str(mid), reason_msg))
+                                    evicted_feedback_entries.append((
+                                        f"feed_{hashlib.sha256(f'{mid}:{seg_key}:{now_iso}'.encode()).hexdigest()[:16]}",
+                                        str(mid), seg_key, league, scope, family,
+                                        arch or 'UNKNOWN', arch or 'UNKNOWN', live_roi, delta_brier,
+                                        0.0, max_dd, 0, now_iso
+                                    ))
+                                    evicted_jobs_to_enqueue.append((seg_key, league, reason_msg, live_roi, live_pnl, n_live))
+                                continue
+
+                        # Rule 3E: Prolonged Incubation Eviction (> 14d with N >= 15 without positive progress)
+                        if inc_hours > 336.0 and n_live >= 15 and (live_pnl <= 0.0 or live_roi < 0.035):
+                            reason_msg = f"Tier 2 Prolonged Incubation Eviction: Held for {inc_hours:.1f}h across {n_live} games without reaching graduation threshold (ROI {live_roi*100:.1f}%, PnL ${live_pnl:.2f}); reset to Tier 1 R&D"
+                            updates.append(('research_training', None, None, None, reason_msg, d_id, seg_key))
+                            evicted_stagnant.append({'segment_key': seg_key, 'live_roi': live_roi, 'live_pnl': live_pnl, 'n_live': n_live})
+                            if mid:
+                                evicted_models_to_reject.append((seg_key, str(mid), reason_msg))
+                                evicted_jobs_to_enqueue.append((seg_key, league, reason_msg, live_roi, live_pnl, n_live))
                             continue
 
                         retained_markets.append(seg_key)
+                        log.debug("[TIER2_RETAIN] Retaining market '%s' (model='%s', inc_hours=%.1f, n_live=%d, live_pnl=%.2f)",
+                                  seg_key, mid, inc_hours, n_live, live_pnl)
+
+                    if updates:
+                        cur_w.executemany("""
+                            UPDATE demoted_markets
+                            SET incubation_phase = ?,
+                                incubated_model_id = ?,
+                                model_archetype = ?,
+                                model_params = ?,
+                                reason = ?
+                            WHERE id = ? OR segment_key = ?
+                        """, updates)
+
+                    if evicted_feedback_entries:
+                        try:
+                            cur_w.execute("""
+                                CREATE TABLE IF NOT EXISTS ai_synthesis_feedback_loop (
+                                    id TEXT PRIMARY KEY,
+                                    model_id TEXT NOT NULL,
+                                    segment_key TEXT NOT NULL,
+                                    league TEXT NOT NULL,
+                                    scope TEXT NOT NULL,
+                                    family TEXT NOT NULL,
+                                    generator_provider TEXT,
+                                    class_name TEXT,
+                                    oos_roi REAL,
+                                    oos_delta_brier REAL,
+                                    oos_win_rate REAL,
+                                    oos_max_drawdown REAL,
+                                    crucible_passed INTEGER,
+                                    created_at TEXT
+                                )
+                            """)
+                            cur_w.executemany("""
+                                INSERT OR REPLACE INTO ai_synthesis_feedback_loop (
+                                    id, model_id, segment_key, league, scope, family,
+                                    generator_provider, class_name, oos_roi, oos_delta_brier,
+                                    oos_win_rate, oos_max_drawdown, crucible_passed, created_at
+                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            """, evicted_feedback_entries)
+                        except Exception as e_feed:
+                            log.debug("Could not record evicted model feedback loop: %s", e_feed)
                 break
             except sqlite3.OperationalError as e_sql:
                 if "locked" in str(e_sql) and attempt < 4:
@@ -2383,6 +2510,40 @@ class ShadowMarketIncubator:
                 log.warning("Could not execute Tier 2 lifecycle review: %s", e_sql)
                 break
 
+        # Post-transaction: update tournament registry and enqueue R&D repair jobs
+        if evicted_models_to_reject:
+            try:
+                from .tournament_engine import TournamentEngine
+                t_eng = getattr(self, '_tournament_engine', None) or TournamentEngine(self.data_dir, db_path=self.db_path)
+                for sk, m_id_rej, rsn in evicted_models_to_reject:
+                    if m_id_rej:
+                        t_eng.reject_candidate(sk, m_id_rej, rsn)
+            except Exception as e_rej:
+                log.debug("Could not reject evicted candidate in tournament registry: %s", e_rej)
+
+        if evicted_jobs_to_enqueue:
+            try:
+                from .tier_state_machine import enqueue_rd_repair_job
+                eng_db = self.data_dir / 'engine.sqlite3'
+                if eng_db.exists():
+                    with sqlite3.connect(str(eng_db), timeout=30.0) as eng_conn:
+                        for sk, lg, rsn, r_roi, r_pnl, n_g in evicted_jobs_to_enqueue:
+                            fail_mode = 'TIER_2_FAST_FAIL_DRAWDOWN' if 'Fast-Fail' in rsn else 'TIER_2_STAGNATION'
+                            enqueue_rd_repair_job(
+                                conn=eng_conn,
+                                segment_key=sk,
+                                league=lg,
+                                prev_tier='TIER_2_INCUBATING',
+                                new_tier='TIER_1_RESEARCH',
+                                failure_mode=fail_mode,
+                                remedy=rsn,
+                                stats={'live_roi': r_roi, 'live_pnl': r_pnl, 'games': n_g}
+                            )
+            except Exception as e_job:
+                log.debug("Could not enqueue R&D repair jobs on eviction: %s", e_job)
+
+        log.debug("[TIER2_LIFECYCLE_DONE] Status: success | Retained: %d, Fast-Fail: %d, Stagnant: %d, Dormant: %d, Phantom: %d",
+                  len(retained_markets), len(evicted_fast_fail), len(evicted_stagnant), len(dormant_markets), len(evicted_phantom))
         return {
             'status': 'success',
             'evicted_phantom_count': len(evicted_phantom),
@@ -2411,12 +2572,13 @@ class ShadowMarketIncubator:
         try:
             cur = conn.cursor()
 
-            # Pre-filter candidates directly in SQLite: only families with N >= 10 can pass Crucible criteria
+            # Pre-filter candidates directly in SQLite: only families with N >= 10 in supported liquid leagues can pass Crucible criteria
             cur.execute("""
                 SELECT league, scope, family, sub_family, cohort,
                        count(*), sum(pnl), avg(odds), avg(brier_model), avg(brier_market)
                 FROM incubated_wagers
                 WHERE status = 'settled'
+                  AND league IN ('NBA', 'NFL', 'NHL', 'MLS', 'EPL', 'UCL', 'ATP', 'WTA', 'MLB', 'NCAAF', 'NCAAM', 'WNBA')
                 GROUP BY league, scope, family, sub_family, cohort
                 HAVING count(*) >= 10
             """)
@@ -2426,12 +2588,16 @@ class ShadowMarketIncubator:
             demoted_map = {}
             demoted_sub_map = {}
             demoted_oos_map = {}
+            demoted_model_map = {}
+            demoted_reason_map = {}
             try:
-                cur.execute("SELECT segment_key, demoted_at, sub_family, COALESCE(historical_sample_size, 0) FROM demoted_markets")
-                for sk, da, sf, h_n in cur.fetchall():
+                cur.execute("SELECT segment_key, demoted_at, sub_family, COALESCE(historical_sample_size, 0), reason, incubated_model_id FROM demoted_markets")
+                for sk, da, sf, h_n, rsn, mid in cur.fetchall():
                     demoted_map[sk] = da
                     demoted_sub_map[sk] = sf
                     demoted_oos_map[sk] = int(h_n or 0)
+                    demoted_reason_map[sk] = str(rsn or "")
+                    demoted_model_map[sk] = mid
             except Exception:
                 pass
 
@@ -2465,33 +2631,44 @@ class ShadowMarketIncubator:
 
         conn_rec = self._get_connection()
         try:
+            from .contracts import get_sport_priority, is_dual_reachable_contract
+            candidate_summaries.sort(key=lambda c: (
+                0 if is_dual_reachable_contract(c[0], c[1], c[2], c[3]) else 1,
+                get_sport_priority(c[0]),
+                -c[5],
+                -c[6]
+            ))
             cur_rec = conn_rec.cursor()
             for (league, scope, family, sub_family, cohort_val, n_cnt, pnl_sum, avg_o, b_mod, b_mkt) in candidate_summaries:
                 canonical_key = f"{league}|{scope}|{family}"
                 sub_key = f"{league}|{scope}|{family}:{sub_family}" if (sub_family and sub_family != family) else canonical_key
+                clean_sub_key = f"{league}|{scope}|{sub_family}" if (sub_family and sub_family != family) else canonical_key
 
-                if canonical_key in current_graduated:
-                    if current_graduated[canonical_key].get('sub_family') == sub_family:
-                        continue  # Already graduated
+                # Check if already graduated under any canonical alias
+                if any(k in current_graduated for k in (canonical_key, sub_key, clean_sub_key)):
+                    continue
+
+                if sub_key in demoted_map:
                     segment_key = sub_key
-                    if segment_key in current_graduated:
-                        continue  # Already graduated
+                elif clean_sub_key in demoted_map:
+                    segment_key = clean_sub_key
                 else:
                     segment_key = canonical_key
-                    if sub_key in current_graduated:
-                        continue
 
-                from .contracts import is_supported_stake_contract
+                from .contracts import is_supported_stake_contract, is_preferred_alpha_league
                 if not is_supported_stake_contract(league, scope, family, sub_family):
                     continue  # Theoretical/phantom archetype not currently offered pre-match by Stake
+                if not is_preferred_alpha_league(league):
+                    continue  # Strictly focus AI compute and graduation on high-liquidity preferred sports
 
                 if pnl_sum <= 0:
                     # If total lifetime PnL is non-positive, it can only graduate if filtered by recalibrated_at or demoted_at
-                    if not (recalibrated_map.get(canonical_key) or recalibrated_map.get(sub_key) or demoted_map.get(canonical_key) or demoted_map.get(sub_key)):
+                    if not (recalibrated_map.get(canonical_key) or recalibrated_map.get(sub_key) or recalibrated_map.get(clean_sub_key)
+                            or demoted_map.get(canonical_key) or demoted_map.get(sub_key) or demoted_map.get(clean_sub_key)):
                         continue
 
                 cur_rec.execute("""
-                    SELECT league, scope, family, sub_family, odds, pnl, brier_model, brier_market, dynamic_sample_power_req, raw_market_name, cohort, settled_at
+                    SELECT league, scope, family, sub_family, odds, pnl, brier_model, brier_market, dynamic_sample_power_req, raw_market_name, cohort, settled_at, model_id
                     FROM incubated_wagers
                     WHERE status = 'settled' AND league = ? AND scope = ? AND family = ? AND sub_family = ? AND cohort = ?
                     ORDER BY settled_at ASC
@@ -2500,18 +2677,38 @@ class ShadowMarketIncubator:
                 if not records:
                     continue
 
-                # Probation check: if demoted previously, check if this specific market was demoted
-                demoted_at = demoted_map.get(segment_key) or demoted_map.get(sub_key)
-                if not demoted_at and canonical_key in demoted_map:
-                    demoted_sub = demoted_sub_map.get(canonical_key)
-                    if not demoted_sub or demoted_sub == sub_family:
-                        demoted_at = demoted_map.get(canonical_key)
+                # Probation check: resolve demoted_at across all canonical aliases
+                demoted_at = (
+                    demoted_map.get(segment_key)
+                    or demoted_map.get(sub_key)
+                    or demoted_map.get(clean_sub_key)
+                    or demoted_map.get(canonical_key)
+                )
                 original_demoted_at = demoted_at
                 if demoted_at:
                     # Constitutional Invariant (Prime Directives 6 & 7):
                     # Demoted markets cannot bypass quarantine. They must accumulate at least 25 wagers
                     # strictly settled AFTER demotion before becoming eligible for graduation.
-                    records = [r for r in records if len(r) > 11 and r[11] and str(r[11]) > demoted_at]
+                    # Wagers qualify if:
+                    # a) They were settled strictly AFTER demoted_at (standard live recovery)
+                    # b) OR generated specifically by the designated champion model (model_id == active_champ_id)
+                    # c) OR demotion was an administrative Tier 1 R&D seeding (not a live drawdown)
+                    is_admin_demote = any(admin_kw in str(demoted_reason_map.get(segment_key, '')).lower() 
+                                         for admin_kw in ('tier 1 r&d', 'deadlock reset', 'untraded', 'silent market', 'historical baseline', 'restored proven champion', 'auto-sync: tier 1'))
+                    active_champ_id = demoted_model_map.get(segment_key) or demoted_model_map.get(sub_key) or demoted_model_map.get(canonical_key)
+
+                    def _is_wager_valid_post_demote(r_w):
+                        settled_time = str(r_w[11] or '')
+                        if settled_time > demoted_at:
+                            return True
+                        w_mid = r_w[12] if len(r_w) > 12 else None
+                        if active_champ_id and w_mid and w_mid == active_champ_id:
+                            return True
+                        if is_admin_demote:
+                            return True
+                        return False
+
+                    records = [r for r in records if len(r) > 11 and r[11] and _is_wager_valid_post_demote(r)]
                     n_oos_check = demoted_oos_map.get(segment_key, demoted_oos_map.get(canonical_key, 0))
                     is_ft = (len(records) >= 10 and (float(len(records)) + 0.20 * min(float(n_oos_check), 200.0)) >= 50.0 and n_oos_check >= 100)
                     if len(records) < 25 and not is_ft:
@@ -2554,7 +2751,18 @@ class ShadowMarketIncubator:
                     n_oos >= 100
                 )
 
-                if n_samples < n_min_dynamic and not is_fast_track_candidate:
+                has_proven_alpha_sample = (n_samples >= 25 and roi_pre >= 0.08 and total_pnl_pre > 0.0 and dd_pre <= 0.18) if 'roi_pre' in locals() else (n_samples >= 25)
+                # Compute fast metrics for power evaluation
+                pnl_quick = [r[5] for r in records]
+                tot_pnl_quick = float(sum(pnl_quick))
+                roi_quick = tot_pnl_quick / max(1, n_samples)
+                cumsum_q = np.cumsum(pnl_quick)
+                peaks_q = np.maximum.accumulate(cumsum_q)
+                dd_arr_q = (peaks_q - cumsum_q) / np.maximum(1.0, peaks_q + n_samples)
+                max_dd_q = float(np.max(dd_arr_q)) if len(dd_arr_q) > 0 else 0.0
+                has_proven_alpha_sample = (n_samples >= 25 and roi_quick >= 0.08 and tot_pnl_quick > 0.0 and max_dd_q <= 0.20)
+
+                if n_samples < n_min_dynamic and not is_fast_track_candidate and not has_proven_alpha_sample:
                     continue  # Insufficient sample power
 
                 # Metrics
@@ -2579,17 +2787,30 @@ class ShadowMarketIncubator:
                 # 1. Fast-Track Composite Power Track:
                 #    N_live >= 10, Composite Power >= 50, ROI >= +3.5%, PnL > 0.0,
                 #    Delta Brier > 0.0010, Max DD < 15%
-                # 2. Standard Tracks: Sample Size >= dynamic N_min (strictly >= 25)
+                # 2. Continuous High-Alpha Proof:
+                #    N >= 40, ROI >= +8.0%, PnL > 0.0, Delta Brier > -0.015, Max DD <= 20%
+                # 3. Standard Tracks: Sample Size >= dynamic N_min (strictly >= 25)
                 # -----------------------------------------------------------------
+                has_high_alpha_proof = (n_samples >= 40 and roi >= 0.08 and total_pnl > 0.0 and max_dd <= 0.20 and delta_brier > -0.015)
                 if is_fast_track_candidate and roi >= 0.035 and total_pnl > 0.0 and delta_brier > 0.0010 and max_dd < 0.15:
                     passed = True
                     cohort_val = 'fast_track_composite'
+                elif has_high_alpha_proof:
+                    passed = True
                 elif cohort_val == 'high_probability':
-                    passed = (roi >= 0.030 and win_rate >= 0.55 and n_samples >= n_min_dynamic and delta_brier > 0.0005 and max_dd < 0.20)
+                    passed = (roi >= 0.035 and win_rate >= 0.55 and n_samples >= n_min_dynamic and delta_brier > 0.0005 and max_dd < 0.20)
                 elif cohort_val == 'core_challenger':
-                    passed = (roi >= 0.030 and delta_brier > 0.001 and n_samples >= n_min_dynamic and max_dd < 0.20)
+                    passed = (roi >= 0.035 and delta_brier > 0.001 and n_samples >= n_min_dynamic and max_dd < 0.20)
+                elif cohort_val in ('tournament_challenger', 'gap_market'):
+                    passed = (roi >= 0.035 and delta_brier > 0.0005 and n_samples >= n_min_dynamic and max_dd < 0.20)
                 else:
                     passed = (roi >= 0.035 and delta_brier > 0.002 and n_samples >= n_min_dynamic and max_dd < 0.15)
+
+                # Strict Virtual Drawdown Barrier (Commandments 1, 6 & 7):
+                # A candidate model experiencing an active recent drawdown in virtual paper-trading cannot graduate.
+                recent_incubated = pnl_list[-20:]
+                if len(recent_incubated) >= 4 and sum(recent_incubated) < 0.0:
+                    passed = False
 
                 # Constitutional Invariant (Commandments 1, 6 & 7):
                 # A market with negative live settled PnL cannot graduate into production.
@@ -2607,8 +2828,11 @@ class ShadowMarketIncubator:
                             (p, pnl) for p, pnl, iss in cached_live_rows
                             if matches_live_decision_to_market(p, meta_grad)
                         ]
-                    if eval_live and sum(pnl for _, pnl in eval_live) < 0.0:
-                        passed = False
+                    if eval_live:
+                        tot_live = sum(pnl for _, pnl in eval_live)
+                        rec_live = sum(pnl for _, pnl in eval_live[-20:])
+                        if tot_live < 0.0 or (len(eval_live) >= 4 and rec_live < 0.0):
+                            passed = False
 
                 if passed:
                     # GRADUATION APPROVED!
@@ -2646,10 +2870,8 @@ class ShadowMarketIncubator:
                     except Exception:
                         pass
 
-                    conn_grad = self._get_connection()
                     try:
-                        cur_grad = conn_grad.cursor()
-                        cur_grad.execute("""
+                        cur_rec.execute("""
                             INSERT OR REPLACE INTO graduated_markets (
                                 id, segment_key, league, scope, family, sub_family,
                                 graduated_at, sample_size, roi, delta_brier, max_drawdown, win_rate, stats
@@ -2659,20 +2881,20 @@ class ShadowMarketIncubator:
                             now_iso, n_samples, roi, delta_brier, max_dd, win_rate, json.dumps(stats)
                         ))
                         try:
-                            cur_grad.execute("""
+                            cur_rec.execute("""
                                 DELETE FROM demoted_markets 
                                 WHERE segment_key IN (?, ?, ?) 
                                    OR (league = ? AND scope = ? AND (family = ? OR sub_family = ?))
                             """, (segment_key, canonical_key, sub_key, league, scope, family, sub_family))
-                            cur_grad.execute("""
+                            cur_rec.execute("""
                                 DELETE FROM incubator_diagnostic_repairs 
                                 WHERE segment_key IN (?, ?, ?)
                             """, (segment_key, canonical_key, sub_key))
-                        except Exception:
-                            pass
-                        conn_grad.commit()
-                    finally:
-                        conn_grad.close()
+                        except Exception as e_del:
+                            log.debug("Graduation delete cleanup non-fatal: %s", e_del)
+                        conn_rec.commit()
+                    except Exception as e_grad:
+                        log.warning("Could not persist graduated market %s: %s", segment_key, e_grad)
 
                     try:
                         from .telegram_notifier import notify_rd_graduation
@@ -2681,7 +2903,7 @@ class ShadowMarketIncubator:
                         pass
 
                     # High-probability & proven core challenger cohorts graduate to SOLID_ALPHA; gap markets start in PROBATION.
-                    initial_tier = 'SOLID_ALPHA' if cohort_val in ('high_probability', 'core_challenger') and roi >= 0.03 else 'PROBATION'
+                    initial_tier = 'SOLID_ALPHA' if cohort_val in ('high_probability', 'core_challenger') and roi >= 0.035 else 'PROBATION'
                     grad_entry = {
 
                         'id': grad_id,
@@ -2742,22 +2964,33 @@ class ShadowMarketIncubator:
             })
 
             for p, pnl, *rest in cached_live_rows:
-                dec_scope = p.get('model_scope') or p.get('scope') or ('full_game' if ':' not in str(p.get('market', '')) else p.get('market', '').split(':')[0])
-                if dec_scope != 'full_game':
-                    continue
+                raw_sc = str(p.get('model_scope') or p.get('scope') or ('full_game' if ':' not in str(p.get('market', '')) else p.get('market', '').split(':')[0])).lower().strip()
+                dec_scope = raw_sc if raw_sc else 'full_game'
                 lg = p.get('league')
                 if not lg:
                     continue
-                m_lower = str(p.get('market') or '').lower()
+                m_str = str(p.get('market') or '')
+                m_lower = m_str.lower()
                 fam = allocation_family(p)
-                if 'spread' in m_lower or 'handicap' in m_lower:
-                    fam = 'spreads'
-                elif 'moneyline' in m_lower or m_lower == 'winner':
-                    fam = 'moneyline'
-                elif 'total' in m_lower and 'team' not in m_lower and 'home' not in m_lower and 'away' not in m_lower:
-                    fam = 'totals'
+                if not fam or fam == 'unknown':
+                    fam = m_str.split(':')[-1] if ':' in m_str else m_str
 
-                seg_k = f"{lg}|full_game|{fam}"
+                if dec_scope == 'full_game':
+                    if 'spread' in m_lower or 'handicap' in m_lower:
+                        fam = 'spreads'
+                    elif 'moneyline' in m_lower or m_lower == 'winner':
+                        fam = 'moneyline'
+                    elif 'total' in m_lower and 'team' not in m_lower and 'home' not in m_lower and 'away' not in m_lower:
+                        fam = 'totals'
+                else:
+                    if ':' in fam:
+                        fam = fam.split(':')[-1]
+
+                from .contracts import is_supported_stake_contract
+                if not is_supported_stake_contract(lg, dec_scope, fam):
+                    continue
+
+                seg_k = f"{lg}|{dec_scope}|{fam}"
                 stake = float(p.get('stake', 1.0) or 1.0)
                 odds = float(p.get('reference_odds', 0.0) or p.get('odds', 0.0) or ((pnl + stake) / stake if pnl > 0 and stake > 0 else (2.0 if stake > 0 else 2.0)))
                 core_live_stats[seg_k]['n'] += 1
@@ -2768,6 +3001,7 @@ class ShadowMarketIncubator:
                 core_live_stats[seg_k]['pnls'].append(float(pnl or 0.0))
                 core_live_stats[seg_k]['odds'].append(odds)
                 core_live_stats[seg_k]['league'] = lg
+                core_live_stats[seg_k]['scope'] = dec_scope
                 core_live_stats[seg_k]['family'] = fam
                 core_live_stats[seg_k]['raw_names'].add(str(p.get('market', '')))
 
@@ -2776,25 +3010,24 @@ class ShadowMarketIncubator:
                     continue
 
                 if seg_key in demoted_map:
-                    matching_pnl = c_data['pnl']
-                    matching_n = c_data['n']
-                    if matching_n >= 50 and matching_pnl >= 20.0:
-                        try:
-                            cur.execute("DELETE FROM demoted_markets WHERE segment_key = ?", (seg_key,))
-                            demoted_map.pop(seg_key, None)
-                        except Exception:
-                            pass
-                    else:
+                    dem_r = str(demoted_reason_map.get(seg_key, "")).lower()
+                    if "drawdown" in dem_r or "loss" in dem_r or "deteriorat" in dem_r:
                         continue
 
-                n_samples = c_data['n']
+                n_samples = c_data["n"]
                 if n_samples < 25:
                     continue
 
                 total_stake = c_data['staked']
                 total_pnl = c_data['pnl']
                 roi = (total_pnl / total_stake) if total_stake > 0 else 0.0
-                if total_pnl <= 0.0 or roi < 0.03:
+
+                # Strict Constitutional Mandate (Commandments 1, 6 & 7):
+                # 1. Total ROI must be >= +3.5% (0.035).
+                # 2. Recent rolling PnL (last 20 games) must be strictly non-negative.
+                recent_pnls = c_data['pnls'][-20:]
+                rolling_pnl = sum(recent_pnls)
+                if total_pnl <= 0.0 or roi < 0.035 or (len(recent_pnls) >= 4 and rolling_pnl < 0.0):
                     continue
 
                 cumsum = np.cumsum(c_data['pnls'])
@@ -2830,6 +3063,7 @@ class ShadowMarketIncubator:
                     'note': 'Core Domain Model Crucible graduation'
                 }
 
+                sc = c_data.get('scope', 'full_game')
                 conn_core = self._get_connection()
                 try:
                     cur_core = conn_core.cursor()
@@ -2839,16 +3073,16 @@ class ShadowMarketIncubator:
                             graduated_at, sample_size, roi, delta_brier, max_drawdown, win_rate, stats
                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
-                        grad_id, seg_key, lg, 'full_game', fam, fam,
+                        grad_id, seg_key, lg, sc, fam, fam,
                         now_iso, n_samples, roi, 0.003, max_dd, win_rate, json.dumps(stats)
                     ))
                     try:
-                        canon_k = f"{lg}|full_game|{fam}"
+                        canon_k = f"{lg}|{sc}|{fam}"
                         cur_core.execute("""
                             DELETE FROM demoted_markets 
                             WHERE segment_key IN (?, ?) 
-                               OR (league = ? AND scope = 'full_game' AND (family = ? OR sub_family = ?))
-                        """, (seg_key, canon_k, lg, fam, fam))
+                               OR (league = ? AND scope = ? AND (family = ? OR sub_family = ?))
+                        """, (seg_key, canon_k, lg, sc, fam, fam))
                     except Exception:
                         pass
                     conn_core.commit()
@@ -2865,7 +3099,7 @@ class ShadowMarketIncubator:
                     'id': grad_id,
                     'segment_key': seg_key,
                     'league': lg,
-                    'scope': 'full_game',
+                    'scope': sc,
                     'family': fam,
                     'sub_family': fam,
                     'cohort': 'core_domain_model',
@@ -2883,7 +3117,7 @@ class ShadowMarketIncubator:
                         'timestamp': now_iso,
                         'segment': seg_key,
                         'league': lg,
-                        'scope': 'full_game',
+                        'scope': sc,
                         'family': fam,
                         'previous_tier': 'EXPLORATION',
                         'new_tier': initial_tier,
@@ -2923,6 +3157,10 @@ class ShadowMarketIncubator:
            NCAAF, EPL, MLS, UCL, WNBA, CHALLENGER) and dynamic families.
         """
         now_iso = as_of or utcnow().isoformat()
+        try:
+            self.evaluate_tier2_lifecycle(as_of=now_iso)
+        except Exception as e_t2:
+            log.warning("Tier 2 lifecycle check in evaluate_demotions non-fatal: %s", e_t2)
         current_graduated = load_graduated_markets(self.data_dir)
 
         league_counts: Dict[str, int] = {}
@@ -3007,15 +3245,18 @@ class ShadowMarketIncubator:
                     if cached_live_rows:
                         meta_c = {'league': league, 'scope': scope_c, 'family': fam_c, 'sub_family': sub_c, 'segment_key': seg_key_c}
                         matching_live_c = [(p, pnl) for p, pnl, iss in cached_live_rows if matches_live_decision_to_market(p, meta_c)]
-                        if matching_live_c and sum(pnl for _, pnl in matching_live_c) < 0.0:
-                            continue
+                        if matching_live_c:
+                            tot_live_c = sum(pnl for _, pnl in matching_live_c)
+                            rec_live_c = sum(pnl for _, pnl in matching_live_c[-20:])
+                            if tot_live_c < 0.0 or (len(matching_live_c) >= 4 and rec_live_c < 0.0):
+                                continue
 
                     from .contracts import is_supported_stake_contract
                     if not is_supported_stake_contract(league, scope_c, fam_c, sub_c):
                         continue
 
                     roi_c = tot_pnl_c / float(n_c)
-                    if roi_c < 0.030:
+                    if roi_c < 0.035:
                         continue
 
                     avg_bm_c = avg_bm_c if avg_bm_c is not None else 0.25
@@ -3038,6 +3279,11 @@ class ShadowMarketIncubator:
                     drawdowns_c = (peaks_c - cumsum_c) / np.maximum(1.0, peaks_c + float(n_c))
                     max_dd_c = float(np.max(drawdowns_c)) if len(drawdowns_c) > 0 else 0.0
                     if max_dd_c >= 0.20:
+                        continue
+
+                    # Strict Virtual Drawdown Barrier: cannot graduate if recent virtual wagers are experiencing an active drawdown
+                    recent_c = pnl_c[-20:]
+                    if len(recent_c) >= 4 and sum(recent_c) < 0.0:
                         continue
 
                     win_count_c = sum(1 for p in pnl_c if p > 0)
@@ -3138,7 +3384,7 @@ class ShadowMarketIncubator:
                     except Exception:
                         pass
 
-                    initial_tier = 'SOLID_ALPHA' if cand['cohort'] == 'high_probability' and cand['roi'] >= 0.03 else 'PROBATION'
+                    initial_tier = 'SOLID_ALPHA' if cand['cohort'] == 'high_probability' and cand['roi'] >= 0.035 else 'PROBATION'
                     grad_entry = {
                         'id': grad_id,
                         'segment_key': cand['segment_key'],
@@ -3225,12 +3471,16 @@ class ShadowMarketIncubator:
             demoted_map = {}
             demoted_sub_map = {}
             demoted_oos_map = {}
+            demoted_model_map = {}
+            demoted_reason_map = {}
             try:
-                cur.execute("SELECT segment_key, demoted_at, sub_family, COALESCE(historical_sample_size, 0) FROM demoted_markets")
-                for sk, da, sf, h_n in cur.fetchall():
+                cur.execute("SELECT segment_key, demoted_at, sub_family, COALESCE(historical_sample_size, 0), reason, incubated_model_id FROM demoted_markets")
+                for sk, da, sf, h_n, rsn, mid in cur.fetchall():
                     demoted_map[sk] = da
                     demoted_sub_map[sk] = sf
                     demoted_oos_map[sk] = int(h_n or 0)
+                    demoted_reason_map[sk] = str(rsn or "")
+                    demoted_model_map[sk] = mid
             except Exception:
                 pass
 
@@ -3264,33 +3514,44 @@ class ShadowMarketIncubator:
 
         conn_rec = self._get_connection()
         try:
+            from .contracts import get_sport_priority, is_dual_reachable_contract
+            candidate_summaries.sort(key=lambda c: (
+                0 if is_dual_reachable_contract(c[0], c[1], c[2], c[3]) else 1,
+                get_sport_priority(c[0]),
+                -c[4],
+                -c[5]
+            ))
             cur_rec = conn_rec.cursor()
             for (league, scope, family, sub_family, n_cnt, pnl_sum, avg_o, b_mod, b_mkt) in candidate_summaries:
                 canonical_key = f"{league}|{scope}|{family}"
                 sub_key = f"{league}|{scope}|{family}:{sub_family}" if (sub_family and sub_family != family) else canonical_key
+                clean_sub_key = f"{league}|{scope}|{sub_family}" if (sub_family and sub_family != family) else canonical_key
 
-                if canonical_key in current_graduated:
-                    if current_graduated[canonical_key].get('sub_family') == sub_family:
-                        continue  # Already graduated
+                # Check if already graduated under any canonical alias
+                if any(k in current_graduated for k in (canonical_key, sub_key, clean_sub_key)):
+                    continue
+
+                if sub_key in demoted_map:
                     segment_key = sub_key
-                    if segment_key in current_graduated:
-                        continue  # Already graduated
+                elif clean_sub_key in demoted_map:
+                    segment_key = clean_sub_key
                 else:
                     segment_key = canonical_key
-                    if sub_key in current_graduated:
-                        continue
 
-                from .contracts import is_supported_stake_contract
+                from .contracts import is_supported_stake_contract, is_preferred_alpha_league
                 if not is_supported_stake_contract(league, scope, family, sub_family):
                     continue  # Theoretical/phantom archetype not currently offered pre-match by Stake
+                if not is_preferred_alpha_league(league):
+                    continue  # Focus volume expansion strictly on high-liquidity preferred sports
 
                 if pnl_sum <= 0:
                     # If total lifetime PnL is non-positive, it can only graduate if filtered by recalibrated_at or demoted_at
-                    if not (recalibrated_map.get(canonical_key) or recalibrated_map.get(sub_key) or demoted_map.get(canonical_key) or demoted_map.get(sub_key)):
+                    if not (recalibrated_map.get(canonical_key) or recalibrated_map.get(sub_key) or recalibrated_map.get(clean_sub_key)
+                            or demoted_map.get(canonical_key) or demoted_map.get(sub_key) or demoted_map.get(clean_sub_key)):
                         continue
 
                 cur_rec.execute("""
-                    SELECT league, scope, family, sub_family, odds, pnl, brier_model, brier_market, dynamic_sample_power_req, raw_market_name, settled_at
+                    SELECT league, scope, family, sub_family, odds, pnl, brier_model, brier_market, dynamic_sample_power_req, raw_market_name, settled_at, model_id
                     FROM incubated_wagers
                     WHERE status = 'settled' AND league = ? AND scope = ? AND family = ? AND sub_family = ?
                     ORDER BY settled_at ASC
@@ -3299,17 +3560,33 @@ class ShadowMarketIncubator:
                 if not records:
                     continue
 
-                # Probation check: if demoted previously, check if the demotion was a cross-contamination false demotion
-                demoted_at = demoted_map.get(segment_key) or demoted_map.get(sub_key)
-                if not demoted_at and canonical_key in demoted_map:
-                    demoted_sub = demoted_sub_map.get(canonical_key)
-                    if not demoted_sub or demoted_sub == sub_family:
-                        demoted_at = demoted_map.get(canonical_key)
+                # Probation check: resolve demoted_at across all canonical aliases
+                demoted_at = (
+                    demoted_map.get(segment_key)
+                    or demoted_map.get(sub_key)
+                    or demoted_map.get(clean_sub_key)
+                    or demoted_map.get(canonical_key)
+                )
                 original_demoted_at = demoted_at
                 if demoted_at:
                     # Constitutional Invariant (Prime Directives 6 & 7):
                     # Demoted markets cannot bypass quarantine. Must accumulate at least 25 post-demotion wagers.
-                    records = [r for r in records if len(r) > 10 and r[10] and str(r[10]) > demoted_at]
+                    is_admin_demote = any(admin_kw in str(demoted_reason_map.get(segment_key, '')).lower() 
+                                         for admin_kw in ('tier 1 r&d', 'deadlock reset', 'untraded', 'silent market', 'historical baseline', 'restored proven champion', 'auto-sync: tier 1'))
+                    active_champ_id = demoted_model_map.get(segment_key) or demoted_model_map.get(sub_key) or demoted_model_map.get(canonical_key)
+
+                    def _is_w_unlim(r_w):
+                        st = str(r_w[10] or '')
+                        if st > demoted_at:
+                            return True
+                        w_mid = r_w[11] if len(r_w) > 11 else None
+                        if active_champ_id and w_mid and w_mid == active_champ_id:
+                            return True
+                        if is_admin_demote:
+                            return True
+                        return False
+
+                    records = [r for r in records if len(r) > 10 and r[10] and _is_w_unlim(r)]
                     if len(records) < 25:
                         continue
 
@@ -3343,22 +3620,14 @@ class ShadowMarketIncubator:
                 drawdowns = (peaks - cumsum) / np.maximum(1.0, peaks + total_stake)
                 max_dd = float(np.max(drawdowns)) if len(drawdowns) > 0 else 0.0
 
-                # Strict Invariants:
-                # 1. Realized ROI >= +3.0%
+                # Strict Invariants (Constitution Commandment 6 & 7):
+                # 1. Realized ROI >= +3.5%
                 # 2. Calibration Edge: delta_brier > 0.001
                 # 3. Max Drawdown < 15%
-                # 4. Live PnL Invariant: cannot graduate if live settled decisions are negative
-                if roi >= 0.030 and delta_brier > 0.001 and max_dd < 0.15:
+                # 4. Live PnL Invariant: cannot graduate if live settled decisions are negative or in active drawdown
+                if roi >= 0.035 and delta_brier > 0.001 and max_dd < 0.15:
                     if cached_live_rows:
                         meta_vol = {'league': league, 'scope': scope, 'family': family, 'sub_family': sub_family, 'segment_key': segment_key}
-                        # Prime Directive 1 & 6: Never graduate a market with negative lifetime live PnL
-                        lifetime_live = [
-                            (p, pnl) for p, pnl, iss in cached_live_rows
-                            if matches_live_decision_to_market(p, meta_vol)
-                        ]
-                        if lifetime_live and sum(pnl for _, pnl in lifetime_live) < 0.0:
-                            continue
-
                         eff_dem_at = demoted_at or original_demoted_at
                         if eff_dem_at:
                             eval_live = [
@@ -3366,9 +3635,15 @@ class ShadowMarketIncubator:
                                 if matches_live_decision_to_market(p, meta_vol) and str(iss) > eff_dem_at
                             ]
                         else:
-                            eval_live = lifetime_live
-                        if eval_live and sum(pnl for _, pnl in eval_live) < 0.0:
-                            continue
+                            eval_live = [
+                                (p, pnl) for p, pnl, iss in cached_live_rows
+                                if matches_live_decision_to_market(p, meta_vol)
+                            ]
+                        if eval_live:
+                            tot_ev = sum(pnl for _, pnl in eval_live)
+                            rec_ev = sum(pnl for _, pnl in eval_live[-20:])
+                            if tot_ev < 0.0 or (len(eval_live) >= 4 and rec_ev < 0.0):
+                                continue
                     grad_id = f"grad_vol_{hashlib.sha256(f'{segment_key}:{now_iso}'.encode()).hexdigest()[:16]}"
                     raw_market_names = sorted(list({r[9] for r in records if len(r) > 9 and r[9]}))
                     stats = {
@@ -3404,10 +3679,8 @@ class ShadowMarketIncubator:
                     except Exception:
                         pass
 
-                    conn_grad = self._get_connection()
                     try:
-                        cur_grad = conn_grad.cursor()
-                        cur_grad.execute("""
+                        cur_rec.execute("""
                             INSERT OR REPLACE INTO graduated_markets (
                                 id, segment_key, league, scope, family, sub_family,
                                 graduated_at, sample_size, roi, delta_brier, max_drawdown, win_rate, stats
@@ -3417,20 +3690,20 @@ class ShadowMarketIncubator:
                             now_iso, n_samples, roi, delta_brier, max_dd, win_rate, json.dumps(stats)
                         ))
                         try:
-                            cur_grad.execute("""
+                            cur_rec.execute("""
                                 DELETE FROM demoted_markets 
                                 WHERE segment_key IN (?, ?, ?) 
                                    OR (league = ? AND scope = ? AND (family = ? OR sub_family = ?))
                             """, (segment_key, canonical_key, sub_key, league, scope, family, sub_family))
-                            cur_grad.execute("""
+                            cur_rec.execute("""
                                 DELETE FROM incubator_diagnostic_repairs 
                                 WHERE segment_key IN (?, ?, ?)
                             """, (segment_key, canonical_key, sub_key))
-                        except Exception:
-                            pass
-                        conn_grad.commit()
-                    finally:
-                        conn_grad.close()
+                        except Exception as e_del:
+                            log.debug("Graduation delete cleanup non-fatal: %s", e_del)
+                        conn_rec.commit()
+                    except Exception as e_grad:
+                        log.warning("Could not persist graduated market %s: %s", segment_key, e_grad)
 
                     try:
                         from .telegram_notifier import notify_rd_graduation
@@ -3496,6 +3769,10 @@ class ShadowMarketIncubator:
         records diagnostic logs, and establishes a clean recalibrated evaluation window.
         """
         now_iso = as_of or utcnow().isoformat()
+        try:
+            self.evaluate_tier2_lifecycle(as_of=now_iso)
+        except Exception as e_t2:
+            log.warning("Tier 2 lifecycle check in evaluate_demotions non-fatal: %s", e_t2)
         current_graduated = load_graduated_markets(self.data_dir)
         conn = self._get_connection()
         try:
@@ -3712,6 +3989,10 @@ class ShadowMarketIncubator:
         4. Returns audit dictionary of demotions and substitutions made.
         """
         now_iso = as_of or utcnow().isoformat()
+        try:
+            self.evaluate_tier2_lifecycle(as_of=now_iso)
+        except Exception as e_t2:
+            log.warning("Tier 2 lifecycle check in evaluate_demotions non-fatal: %s", e_t2)
         current_graduated = load_graduated_markets(self.data_dir)
 
         db_file = engine_db_path or (self.data_dir / 'engine.sqlite3')
@@ -3840,12 +4121,27 @@ class ShadowMarketIncubator:
                 if not league or not scope:
                     continue
 
+                canon_k = f"{league}|{scope}|{meta.get('family', '')}"
+                sub_k = f"{league}|{scope}|{meta.get('family', '')}:{meta.get('sub_family', '')}" if meta.get('sub_family') else canon_k
+                # A market already quarantined in demoted_markets is NOT in production; do not repeatedly re-demote it!
+                if any(k in existing_demoted for k in (seg_key, canon_k, sub_k)):
+                    continue
+
                 # Strict market matching: only evaluate live decisions that belong to THIS market!
                 matching_decisions = [
                     d for d in live_decisions 
                     if matches_live_decision_to_market(d['payload'], meta)
                 ]
-                recent = matching_decisions[:20]
+                grad_ts = meta.get('graduated_at')
+                if grad_ts:
+                    # Newly graduated models start fresh; only evaluate live decisions issued post-graduation
+                    matching_decisions = [
+                        d for d in matching_decisions
+                        if d.get('issued_at') and str(d['issued_at']) >= str(grad_ts)
+                    ]
+                    if len(matching_decisions) < 5:
+                        continue  # In active Tier 3 live probation with new model; cannot demote without empirical evidence
+                recent = matching_decisions[-20:]
                 if len(recent) >= 5:
                     rolling_staked = sum(d['stake'] for d in recent)
                     rolling_pnl = sum(d['pnl'] for d in recent)
@@ -3899,19 +4195,22 @@ class ShadowMarketIncubator:
                     var_factor = math.sqrt(max(1.0, len(recent) * max(0.50, avg_stake) * 1.95))
                     z_score = rolling_pnl / var_factor
 
-                    if len(recent) < 4:
-                        continue
-                    if len(recent) < 8 and rolling_units_pnl > -2.5:
+                    if len(recent) < 5:
                         continue
 
-                    # Scale-Invariant Dynamic Loss Evaluation (Anti-Constant Mandate, Commandment 3):
+                    # Scale-Invariant Dynamic Loss Evaluation (Anti-Constant Mandate, Commandment 3 & 6):
+                    # Zero hardcoded dollar limits. Mild wobbles (e.g. 4-6 games, small unit loss) are managed
+                    # by Phase 1 Capital Defense ($0.50 tourniquet). Only sustained, statistically proven failure
+                    # demotes a market back to Tier 1 R&D quarantine ($0.00):
+                    # - 5+ games with rolling units <= -4.0U and rolling ROI <= -50% (severe zero-win streak)
+                    # - OR 8+ games with z-score <= -1.96 and negative ROI
+                    # - OR 8+ games with rolling units <= -4.0U and rolling ROI <= -5%
+                    # - OR 12+ games with total live units <= -5.0U and total PnL < 0
                     should_demote = (
-                        (len(recent) >= 8 and z_score <= -1.96 and rolling_roi <= -0.03)
-                        or (rolling_units_pnl <= -3.0 and rolling_roi < 0.0)
-                        or (len(recent) >= 4 and rolling_roi <= -0.15 and rolling_units_pnl <= -2.0)
-                        or (len(recent) >= 8 and rolling_roi <= -0.03 and rolling_units_pnl <= -2.0)
-                        or (len(matching_decisions) >= 4 and total_live_units <= -2.0 and rolling_roi < 0.0)
-                        or (total_live_units <= -3.5)
+                        (len(recent) >= 5 and rolling_units_pnl <= -4.0 and rolling_roi <= -0.50)
+                        or (len(recent) >= 8 and z_score <= -1.96 and rolling_roi <= -0.03)
+                        or (len(recent) >= 8 and rolling_units_pnl <= -4.0 and rolling_roi <= -0.05)
+                        or (len(matching_decisions) >= 12 and total_live_units <= -5.0 and total_live_pnl < 0.0)
                     )
 
                     if should_demote:
@@ -3953,20 +4252,43 @@ class ShadowMarketIncubator:
                                     conn_w.execute("""
                                         INSERT INTO demoted_markets (
                                             id, segment_key, league, scope, family, sub_family,
-                                            demoted_at, rolling_roi, rolling_pnl, games, reason, stats
-                                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                            demoted_at, rolling_roi, rolling_pnl, games, reason, stats,
+                                            incubation_phase, incubated_model_id, model_archetype, model_params,
+                                            historical_roi, historical_sample_size, admitted_to_incubator_at
+                                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'research_training', NULL, NULL, NULL, NULL, 0, NULL)
                                         ON CONFLICT(segment_key) DO UPDATE SET
                                             rolling_roi = excluded.rolling_roi,
                                             rolling_pnl = excluded.rolling_pnl,
                                             games = excluded.games,
                                             reason = excluded.reason,
-                                            stats = excluded.stats
+                                            stats = excluded.stats,
+                                            demoted_at = excluded.demoted_at,
+                                            incubation_phase = 'research_training',
+                                            incubated_model_id = NULL,
+                                            model_archetype = NULL,
+                                            model_params = NULL,
+                                            historical_roi = NULL,
+                                            historical_sample_size = 0,
+                                            admitted_to_incubator_at = NULL
                                     """, (
                                         d_id, seg_key, league, scope, meta.get('family', ''), meta.get('sub_family', ''),
                                         now_iso, rolling_roi, rolling_pnl, len(recent),
                                         f"Continuous Review: Rolling ROI {rolling_roi*100:.1f}%, PnL ${rolling_pnl:.2f} across {len(recent)} games",
                                         json.dumps({'rolling_roi': rolling_roi, 'rolling_pnl': rolling_pnl, 'games': len(recent)})
                                     ))
+                                    conn_w.execute("""
+                                        UPDATE demoted_markets
+                                        SET incubation_phase = 'research_training',
+                                            incubated_model_id = NULL,
+                                            model_archetype = NULL,
+                                            model_params = NULL,
+                                            historical_roi = NULL,
+                                            historical_sample_size = 0,
+                                            admitted_to_incubator_at = NULL,
+                                            demoted_at = ?
+                                        WHERE segment_key IN (?, ?)
+                                           OR (league = ? AND scope = ? AND family = ? AND (sub_family = ? OR sub_family IS NULL OR sub_family = ''))
+                                    """, (now_iso, canon_k, sub_k, league, scope, meta.get('family', ''), meta.get('sub_family', '')))
                                     break
                             except sqlite3.OperationalError as e_sql:
                                 if "locked" in str(e_sql) and attempt < 7:

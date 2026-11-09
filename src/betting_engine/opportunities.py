@@ -64,7 +64,9 @@ def rolling_opportunities(payload, recorded, marks, now, minimum_roi):
         def inside(t):
             return bool(t.get('start')) and now < parse_time(t['start']) <= end
         rows = []
-        for league in sorted(set(LEAGUES)|set(snapshot['schedule_counts'])|{f['league'] for f in snapshot['fixtures']}):
+        from .contracts import get_sport_priority
+        all_candidate_leagues = set(LEAGUES) | set(snapshot['schedule_counts']) | {f['league'] for f in snapshot['fixtures']}
+        for league in sorted(all_candidate_leagues, key=lambda lg: (get_sport_priority(lg), str(lg))):
             fixtures = [f for f in snapshot['fixtures'] if f['league'] == league and inside(f)]
             counts = [m for f in fixtures for m in f['counts']]
             fresh = [m for f in fixtures if f['active'] for m in f['counts']

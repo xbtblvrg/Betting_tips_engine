@@ -1,7 +1,7 @@
 """Unit tests for Tier 2 Lifecycle & Eviction Watchdog Engine.
 
 Validates:
-1. Reachability Guard: Evicts phantom/unsupported contracts (e.g. basketball both_score, odd_even) to 'unsupported_phantom'.
+1. Reachability Guard: Evicts and permanently purges phantom/unsupported contracts (e.g. basketball both_score, odd_even) from demoted_markets.
 2. Off-Season & Hiatus Protection: Preserves legitimate models in leagues with zero recent/upcoming fixtures without eviction or penalty.
 3. Fast-Fail Live Eviction: Resets candidate models suffering severe drawdowns (N >= 10, ROI <= -15%) back to Tier 1 ('research_training', model=NULL).
 4. Stagnation Eviction: Evicts candidate models failing to reach +3.5% ROI after full trial (N >= 25) back to Tier 1.
@@ -108,7 +108,7 @@ def test_env(tmp_path: Path):
 
 
 def test_phantom_contract_eviction(test_env):
-    """Verifies that unoffered/phantom markets (e.g. basketball both_score, odd_even) are evicted to 'unsupported_phantom'."""
+    """Verifies that unoffered/phantom markets (e.g. basketball both_score, odd_even) are permanently purged from demoted_markets."""
     data_dir, db_path, incubator = test_env
     conn = sqlite3.connect(str(db_path))
     # Insert phantom market
@@ -130,13 +130,11 @@ def test_phantom_contract_eviction(test_env):
     assert res['evicted_phantom_count'] == 1
     assert 'NBA|full_game|both_score' in res['evicted_phantom']
 
-    # Verify in DB
+    # Verify permanently purged from demoted_markets (row no longer exists)
     conn = sqlite3.connect(str(db_path))
     row = conn.execute("SELECT incubation_phase, incubated_model_id, reason FROM demoted_markets WHERE segment_key = 'NBA|full_game|both_score'").fetchone()
     conn.close()
-    assert row[0] == 'unsupported_phantom'
-    assert row[1] is None
-    assert 'Unsupported contract' in row[2]
+    assert row is None
 
 
 def test_unverified_deadlock_reset(test_env):
@@ -339,3 +337,71 @@ def test_retained_healthy_model(test_env):
     conn.close()
     assert row[0] == 'incubating_with_new_model'
     assert row[1] == 'nba_spreads_healthy_v1'
+
+
+def test_evict_orphaned_model_without_id_or_archetype(test_env):
+    """Verifies that an orphaned market with NULL model_id or archetype is reset to Tier 1 R&D."""
+    data_dir, db_path, incubator = test_env
+    conn = sqlite3.connect(str(db_path))
+    conn.execute("INSERT INTO incubated_wagers (id, league, scope, family, captured_at, status) VALUES ('w_act4', 'NBA', 'full_game', 'totals', datetime('now'), 'open')")
+    conn.execute("""
+        INSERT INTO demoted_markets (
+            id, segment_key, league, scope, family, sub_family, demoted_at, rolling_roi, rolling_pnl, games,
+            reason, stats, incubated_model_id, model_archetype, historical_roi, historical_sample_size,
+            incubation_phase, admitted_to_incubator_at
+        ) VALUES (
+            'd_orphan', 'NBA|full_game|totals', 'NBA', 'full_game', 'totals', 'totals',
+            '2026-11-01T00:00:00Z', -0.10, -5.00, 20, 'Test', '{}',
+            NULL, NULL, 0.04, 30,
+            'incubating_with_new_model', '2026-11-01T00:00:00Z'
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+    res = incubator.evaluate_tier2_lifecycle()
+    assert res['evicted_unverified_count'] == 1
+    assert 'NBA|full_game|totals' in res['evicted_unverified']
+
+    conn = sqlite3.connect(str(db_path))
+    row = conn.execute("SELECT incubation_phase, incubated_model_id, reason FROM demoted_markets WHERE segment_key = 'NBA|full_game|totals'").fetchone()
+    conn.close()
+    assert row[0] == 'research_training'
+    assert row[1] is None
+    assert 'Tier 2 Integrity Reset' in row[2]
+
+
+def test_virtual_drawdown_barrier_prevents_graduation(test_env):
+    """Verifies that an active drawdown in recent virtual wagers prevents Crucible graduation."""
+    data_dir, db_path, incubator = test_env
+    conn = sqlite3.connect(str(db_path))
+
+    # Market has 30 wagers: first 20 won big, but last 10 lost in a row
+    # Total PnL: 20 * 1.5 - 10 * 1.0 = +20.0 (overall ROI = 20/30 = +66.7%), but recent 10 PnL = -10.0!
+    for i in range(20):
+        conn.execute(f"""
+            INSERT INTO incubated_wagers (
+                id, league, scope, family, sub_family, odds, pnl, brier_model, brier_market,
+                dynamic_sample_power_req, status, settled_at, cohort
+            ) VALUES (
+                'w_early_{i}', 'EPL', 'full_game', 'totals', 'totals', 2.50, 1.50, 0.15, 0.25,
+                25, 'settled', '2026-11-01T12:00:00Z', 'core_challenger'
+            )
+        """)
+    for i in range(10):
+        conn.execute(f"""
+            INSERT INTO incubated_wagers (
+                id, league, scope, family, sub_family, odds, pnl, brier_model, brier_market,
+                dynamic_sample_power_req, status, settled_at, cohort
+            ) VALUES (
+                'w_late_{i}', 'EPL', 'full_game', 'totals', 'totals', 2.50, -1.00, 0.25, 0.20,
+                25, 'settled', '2026-11-02T12:00:00Z', 'core_challenger'
+            )
+        """)
+    conn.commit()
+    conn.close()
+
+    grads = incubator.evaluate_graduation()
+    # Must NOT graduate because recent virtual wagers are experiencing an active drawdown!
+    assert not any(g['segment_key'] == 'EPL|full_game|totals' for g in grads)
+

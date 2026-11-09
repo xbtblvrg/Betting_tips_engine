@@ -10,10 +10,12 @@ from .domain import utcnow
 
 BASE='https://odds-data.stake.com'
 COLLEGE=('NCAAF','NCAAM','NCAAW')
-SPORTS={'NBA':'basketball','WNBA':'basketball','MLB':'baseball','NHL':'ice-hockey','NFL':'american-football',
-        'NCAAF':'american-football','NCAAM':'basketball','NCAAW':'basketball','MLS':'soccer','EPL':'soccer','UCL':'soccer',
-        'ATP':'tennis','WTA':'tennis','CHALLENGER':'tennis'}
-TOURNAMENTS={'NBA':'nba','WNBA':'wnba','MLB':'mlb','NHL':'nhl','NFL':'nfl','MLS':'major-league-soccer','EPL':'premier-league','UCL':'uefa-champions-league','NCAAF':'ncaa','NCAAM':'ncaa'}
+# Strategic Liquidity Hierarchy: US Majors -> Premier Soccer -> Elite Tennis -> Fringe
+SPORTS={'NBA':'basketball','NFL':'american-football','MLB':'baseball','NHL':'ice-hockey','WNBA':'basketball',
+        'NCAAF':'american-football','NCAAM':'basketball','EPL':'soccer','UCL':'soccer','MLS':'soccer',
+        'ATP':'tennis','WTA':'tennis','NCAAW':'basketball','CHALLENGER':'tennis'}
+TOURNAMENTS={'NBA':'nba','NFL':'nfl','MLB':'mlb','NHL':'nhl','WNBA':'wnba','NCAAF':'ncaa','NCAAM':'ncaa',
+             'EPL':'premier-league','UCL':'uefa-champions-league','MLS':'major-league-soccer'}
 TOURNAMENT_CATEGORIES={'EPL':'england','UCL':'international-clubs'}
 # Exact observed official tournament aliases; never substring-match NBA esports.
 TOURNAMENT_ALIASES={

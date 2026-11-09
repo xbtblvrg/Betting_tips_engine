@@ -19,6 +19,8 @@ import json
 import logging
 from pathlib import Path
 import sqlite3
+import threading
+import time
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from .domain import utcnow
@@ -32,19 +34,19 @@ log = logging.getLogger(__name__)
 DEFAULT_POLYMARKET_LEAGUES: Tuple[str, ...] = (
     "NBA",
     "NFL",
-    "NHL",
     "MLB",
+    "NHL",
     "WNBA",
     "NCAAF",
+    "NCAAM",
     "NCAAB",
-    "NCAAW",
-    "MLS",
     "EPL",
     "UCL",
-    "UEL",
+    "MLS",
     "LALIGA",
     "BUNDESLIGA",
     "SERIEA",
+    "UEL",
     "ATP",
     "WTA",
 )
@@ -52,6 +54,36 @@ DEFAULT_POLYMARKET_LEAGUES: Tuple[str, ...] = (
 
 class PolymarketRDPrioritizer:
     """Prioritizes model synthesis and calibration repairs for liquid Polymarket contracts."""
+
+    _cached_report: Optional[Dict[str, Any]] = None
+    _cached_at: float = 0.0
+    _cache_ttl_seconds: float = 60.0
+    _is_revalidating: bool = False
+    _revalidate_lock = threading.Lock()
+
+    @classmethod
+    def _load_disk_cache(cls) -> Optional[Dict[str, Any]]:
+        cache_file = DATA / "cache" / "polymarket_rd_priorities.json"
+        if cache_file.exists():
+            try:
+                data = json.loads(cache_file.read_text(encoding="utf-8"))
+                cls._cached_report = data
+                cls._cached_at = cache_file.stat().st_mtime
+                return data
+            except Exception:
+                pass
+        return None
+
+    @classmethod
+    def _save_disk_cache(cls, report: Dict[str, Any]):
+        cache_file = DATA / "cache" / "polymarket_rd_priorities.json"
+        try:
+            cache_file.parent.mkdir(parents=True, exist_ok=True)
+            temp = cache_file.with_suffix(".tmp")
+            temp.write_text(json.dumps(report, indent=2), encoding="utf-8")
+            temp.replace(cache_file)
+        except Exception as exc:
+            log.debug(f"Could not persist Polymarket RD priorities cache: {exc}")
 
     def __init__(
         self,
@@ -67,15 +99,54 @@ class PolymarketRDPrioritizer:
     def scan_and_prioritize_gaps(
         self,
         leagues: Optional[Tuple[str, ...]] = None,
+        force_refresh: bool = False,
+        allow_stale: bool = True,
     ) -> Dict[str, Any]:
         """Scans reachable contracts, identifies unproven gaps, and enqueues learning jobs."""
+        now_ts = time.time()
+        if PolymarketRDPrioritizer._cached_report is None:
+            PolymarketRDPrioritizer._load_disk_cache()
+
+        if not force_refresh and leagues is None and PolymarketRDPrioritizer._cached_report is not None:
+            age = now_ts - PolymarketRDPrioritizer._cached_at
+            if age < PolymarketRDPrioritizer._cache_ttl_seconds:
+                return dict(PolymarketRDPrioritizer._cached_report)
+            elif allow_stale:
+                with PolymarketRDPrioritizer._revalidate_lock:
+                    if not PolymarketRDPrioritizer._is_revalidating:
+                        PolymarketRDPrioritizer._is_revalidating = True
+                        t = threading.Thread(
+                            target=self._background_revalidate,
+                            daemon=True,
+                            name="poly-rd-revalidate",
+                        )
+                        t.start()
+                return dict(PolymarketRDPrioritizer._cached_report)
+
+        return self._execute_gap_scan(leagues=leagues)
+
+    def _background_revalidate(self):
+        try:
+            self._execute_gap_scan(leagues=None)
+        except Exception as exc:
+            log.debug(f"Background Polymarket RD revalidation error: {exc}")
+        finally:
+            PolymarketRDPrioritizer._is_revalidating = False
+
+    def _execute_gap_scan(self, leagues: Optional[Tuple[str, ...]] = None) -> Dict[str, Any]:
+        now_ts = time.time()
         target_leagues = leagues if leagues is not None else DEFAULT_POLYMARKET_LEAGUES
         discovered_segments: Set[str] = set()
         segment_details: Dict[str, Dict[str, Any]] = {}
 
         # 1. Seed standard full-game contract types across all target leagues
+        from .contracts import is_preferred_alpha_league, is_dual_reachable_contract, get_sport_priority
         for lg in target_leagues:
+            if not is_preferred_alpha_league(lg):
+                continue
             for fam in ("moneyline", "spreads", "totals"):
+                if not is_dual_reachable_contract(lg, "full_game", fam):
+                    continue
                 seg_key = f"{lg}|full_game|{fam}"
                 discovered_segments.add(seg_key)
                 segment_details[seg_key] = {
@@ -132,6 +203,11 @@ class PolymarketRDPrioritizer:
                         else:
                             m_fam = "moneyline"
 
+                    if not is_preferred_alpha_league(norm_league):
+                        continue
+                    if not is_dual_reachable_contract(norm_league, scope, m_fam):
+                        continue
+
                     seg_key = f"{norm_league}|{scope}|{m_fam}"
                     discovered_segments.add(seg_key)
 
@@ -182,17 +258,35 @@ class PolymarketRDPrioritizer:
             m_fam = details["market_family"]
 
             # Match scoreboard stats (using aliases if needed)
-            sb_match = None
-            for k, v in scoreboard_segs.items():
-                if v.get("league") == league and v.get("scope") == scope:
-                    f_name = v.get("family", "")
-                    if m_fam in f_name or f_name in m_fam or (m_fam == "moneyline" and f_name in ("three_way", "winner", "h2h")):
-                        sb_match = v
-                        break
+            sb_match = scoreboard_segs.get(seg_key)
+            if not sb_match:
+                clean_m = m_fam.split(":")[-1]
+                for k, v in scoreboard_segs.items():
+                    if v.get("league") == league and v.get("scope") == scope:
+                        f_name = v.get("family", "")
+                        clean_f = f_name.split(":")[-1]
+                        if clean_m in clean_f or clean_f in clean_m or (clean_m in ("moneyline", "winner", "h2h") and clean_f in ("three_way", "winner", "h2h", "moneyline")):
+                            sb_match = v
+                            break
 
             live_games = int(sb_match.get("games", 0)) if sb_match else 0
             live_pnl = float(sb_match.get("pnl", 0.0)) if sb_match else 0.0
             live_roi_pct = float(sb_match.get("roi_pct", 0.0)) if sb_match else 0.0
+            rolling_games = int(sb_match.get("rolling_games", live_games)) if sb_match else 0
+            rolling_pnl = float(sb_match.get("rolling_pnl", live_pnl)) if sb_match else 0.0
+            rolling_roi_pct = float(sb_match.get("rolling_roi_pct", live_roi_pct)) if sb_match else 0.0
+            rolling_units = float(sb_match.get("rolling_units", sb_match.get("units_pnl", 0.0))) if sb_match else 0.0
+            sub_tier = str(sb_match.get("sub_tier", "")) if sb_match else ""
+
+            # Tier 4 graduation conditions on Stake:
+            # 1. Sample size: Rolling N >= 10 (or games >= 10)
+            # 2. Rolling ROI >= +2.0%
+            # 3. Rolling Units >= +0.4U (or rolling PnL >= $2.00)
+            games_needed = max(0, 10 - rolling_games)
+            games_met = (rolling_games >= 10 or live_games >= 10)
+            roi_met = (rolling_roi_pct >= 2.0 or (rolling_pnl > 0.0 and rolling_roi_pct > 0.0))
+            units_met = (rolling_units >= 0.4)
+            conditions_met_count = sum(1 for c in (games_met, roi_met, units_met) if c)
 
             # Match model archetype from universe
             u_entry = roster.get(seg_key)
@@ -208,14 +302,26 @@ class PolymarketRDPrioritizer:
 
             if is_eligible:
                 tier_status = "TIER_4_PROVEN"
+                proximity_score = 1000.0 + rolling_roi_pct + (rolling_units * 2.0)
             elif "DEMOTED" in reason:
-                tier_status = "TIER_2_INCUBATING"
-            elif "UNDERPERFORMING" in reason or (live_pnl < 0.0 and live_games > 0):
-                tier_status = "TIER_2_UNDERPERFORMING"
-            elif live_pnl > 0.0 and live_games > 0:
+                tier_status = "TIER_1_RESEARCH"
+                proximity_score = 50.0
+            elif "UNDERPERFORMING" in reason or (rolling_games >= 4 and (rolling_pnl < 0.0 or rolling_roi_pct < 0.0)) or (live_pnl < 0.0 and live_games > 0):
+                tier_status = "TIER_1_UNDERPERFORMING"
+                proximity_score = -100.0 + max(-500.0, rolling_roi_pct)
+            elif (rolling_pnl > 0.0 or live_pnl > 0.0) and (rolling_roi_pct >= 2.0 or live_roi_pct >= 2.0) and rolling_games > 0:
+                if rolling_games >= 5 or conditions_met_count >= 2:
+                    tier_status = "APPROACHING_TIER_4"
+                    proximity_score = 500.0 + (rolling_games * 25.0) + (conditions_met_count * 50.0) + min(50.0, max(0.0, rolling_roi_pct))
+                else:
+                    tier_status = "TIER_3_PROBATION"
+                    proximity_score = 200.0 + (rolling_games * 15.0) + min(30.0, max(0.0, rolling_roi_pct))
+            elif (live_pnl > 0.0 or rolling_pnl > 0.0) and live_games > 0:
                 tier_status = "TIER_3_PROBATION"
+                proximity_score = 200.0 + (rolling_games * 15.0) + min(30.0, max(0.0, rolling_roi_pct))
             else:
                 tier_status = "TIER_2_INCUBATING"
+                proximity_score = 50.0
 
             seg_info = {
                 "segment_key": seg_key,
@@ -227,6 +333,17 @@ class PolymarketRDPrioritizer:
                 "live_games": live_games,
                 "live_pnl": round(live_pnl, 2),
                 "live_roi_pct": round(live_roi_pct, 1),
+                "rolling_games": rolling_games,
+                "rolling_pnl": round(rolling_pnl, 2),
+                "rolling_roi_pct": round(rolling_roi_pct, 1),
+                "rolling_units": round(rolling_units, 2),
+                "sub_tier": sub_tier,
+                "games_needed": games_needed,
+                "games_met": games_met,
+                "roi_met": roi_met,
+                "units_met": units_met,
+                "conditions_met_count": conditions_met_count,
+                "proximity_score": round(proximity_score, 1),
                 "is_profitable": (live_pnl > 0.0) if live_games > 0 else (False if live_games > 0 and live_pnl < 0.0 else None),
                 "tier_status": tier_status,
                 "sample_event": details["sample_event"],
@@ -304,13 +421,30 @@ class PolymarketRDPrioritizer:
             f"{len(proven_markets)} proven active, {len(unproven_gaps)} unproven gaps ({enqueued_count} enqueued)."
         )
 
-        return {
+        def _poly_strategic_key(x):
+            prio = get_sport_priority(x.get("league", ""))
+            score = x.get("proximity_score", 0.0)
+            return (prio, -score)
+
+        proven_markets.sort(key=_poly_strategic_key)
+        unproven_gaps.sort(key=_poly_strategic_key)
+        all_reachable_markets = sorted(
+            proven_markets + unproven_gaps,
+            key=_poly_strategic_key,
+        )
+
+        result = {
             "timestamp": now_iso,
             "reachable_segments_count": len(discovered_segments),
             "proven_active_count": len(proven_markets),
             "unproven_gaps_count": len(unproven_gaps),
             "proven_markets": proven_markets,
             "unproven_gaps": unproven_gaps,
-            "all_reachable_markets": proven_markets + unproven_gaps,
+            "all_reachable_markets": all_reachable_markets,
             "enqueued_jobs_count": enqueued_count,
         }
+        if leagues is None:
+            PolymarketRDPrioritizer._cached_report = result
+            PolymarketRDPrioritizer._cached_at = now_ts
+            PolymarketRDPrioritizer._save_disk_cache(result)
+        return result

@@ -93,7 +93,9 @@ class Engine:
             try:
                 hs,ass,score_evidence=settlement_scores(t,g)
                 line=t.get('line')
-                if line is not None and round(float(line)*2)!=float(line)*2 and t.get('market') in ('spreads','totals'):
+                from .contracts import split_market
+                _, base_mkt = split_market(t.get('market', ''))
+                if line is not None and round(float(line)*2)!=float(line)*2 and base_mkt in ('spreads','totals'):
                     from .contracts import settle_quarter_asian
                     state, outcome, pnl = settle_quarter_asian(t['market'], t['side'], float(line), hs, ass, b['odds'], b['stake'])
                     score_evidence = {**score_evidence, 'asian_quarter_state': state}
@@ -641,6 +643,20 @@ class Engine:
                     self.segment_models = resolve_graduated_segment_models(graduated, self.segment_models)
                     self.models = resolve_graduated_full_game_models(graduated, self.models)
                 status['market_incubator'] = incubator.get_incubator_status()
+
+                # Funnel Proportionality & Autonomous Unclogging (Commandments 1, 2, 6, 7)
+                try:
+                    from .funnel_proportionality_supervisor import FunnelProportionalitySupervisor
+                    funnel_sup = FunnelProportionalitySupervisor(DATA)
+                    funnel_res = funnel_sup.audit_and_heal()
+                    if funnel_res.actions_executed:
+                        log.info("Funnel supervisor healed: %s", funnel_res.actions_executed)
+                        from .graduated_models import resolve_graduated_segment_models, resolve_graduated_full_game_models
+                        graduated = load_graduated_markets(DATA)
+                        self.segment_models = resolve_graduated_segment_models(graduated, self.segment_models)
+                        self.models = resolve_graduated_full_game_models(graduated, self.models)
+                except Exception as exc_funnel:
+                    log.warning("Funnel supervisor non-fatal error: %s", exc_funnel)
             except Exception as exc:
                 log.exception('AMIE-GD shadow market incubator step failed: %s', exc)
                 status['market_incubator'] = {'error': str(exc)[:300]}

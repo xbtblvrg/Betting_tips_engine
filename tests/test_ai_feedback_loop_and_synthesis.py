@@ -133,3 +133,33 @@ def test_codex_synthesizer_integrates_feedback_manager(tmp_path):
         gen_file = GENERATED_MODELS_DIR / f"{res.model_id}.py"
         if gen_file.exists():
             gen_file.unlink()
+
+
+def test_feedback_loop_captures_preflight_and_runtime_defects(tmp_path):
+    """Verifies that pre-flight and runtime failures are logged and surfaced to subsequent prompts."""
+    db_file = tmp_path / "test_incubator.sqlite3"
+    mgr = AIFeedbackLoopManager(db_path=db_file)
+
+    rec_pf = AIFeedbackRecord(
+        id="fb_nba_pf_fail",
+        segment_key="NBA|full_game|spreads",
+        league="NBA",
+        scope="full_game",
+        family="spreads",
+        model_id="test_model_pf_fail",
+        class_name="BrokenDistributionModel",
+        generator_provider="codex",
+        source_file_path="",
+        crucible_passed=False,
+        current_tier=1,
+        graduation_status="preflight_failed",
+        failure_reason="Pre-flight failed: discrete probabilities sum to 0.85 (must be 1.0); latency 310ms > 250ms",
+        validation_errors=["discrete probabilities sum to 0.85", "latency 310ms > 250ms"],
+        learned_insight="Pre-flight failed: discrete probabilities sum to 0.85 (must be 1.0)",
+    )
+    assert mgr.record_synthesis_attempt(rec_pf) is True
+
+    prompt = mgr.get_in_context_learning_prompt(league="NBA", family="spreads")
+    assert "RECENT OBSERVED RUNTIME IMPLEMENTATION PITFALLS IN NBA" in prompt
+    assert "discrete probabilities sum to 0.85" in prompt
+    assert "BrokenDistributionModel" not in prompt  # Anti-anchoring rule: zero exemplar leak

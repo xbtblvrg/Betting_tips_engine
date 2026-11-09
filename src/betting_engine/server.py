@@ -258,11 +258,34 @@ def model_funnel_velocity_status():
     from .providers import DATA
     return english_payload(get_latest_funnel_velocity_report(DATA))
 
+@app.get('/api/watchdog/bottlenecks')
+def watchdog_bottlenecks_status():
+    from .bottleneck_watchdog import get_latest_bottleneck_watchdog_status
+    from .providers import DATA
+    return english_payload(get_latest_bottleneck_watchdog_status(DATA))
+
 @app.get('/api/superbrain/state')
 def superbrain_state_status():
     from .superbrain_telemetry import get_superbrain_state
     from .providers import DATA
     return english_payload(get_superbrain_state(DATA))
+
+@app.get('/api/funnel/supervision')
+def funnel_supervision_status():
+    from .funnel_proportionality_supervisor import get_latest_funnel_supervision_status, FunnelProportionalitySupervisor
+    from .providers import DATA
+    st = get_latest_funnel_supervision_status(DATA)
+    if st.get("status") == "not_initialized":
+        rep = FunnelProportionalitySupervisor(DATA).audit_and_heal()
+        return english_payload(rep.to_dict())
+    return english_payload(st)
+
+@app.post('/api/funnel/supervision/heal')
+def funnel_supervision_heal():
+    from .funnel_proportionality_supervisor import FunnelProportionalitySupervisor
+    from .providers import DATA
+    rep = FunnelProportionalitySupervisor(DATA).audit_and_heal(force=True)
+    return english_payload(rep.to_dict())
 
 @app.get('/api/inventory')
 @app.get('/api/canonical-inventory')

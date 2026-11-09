@@ -220,7 +220,7 @@ def execute_target_investigation_and_repair(conn: sqlite3.Connection, evaluation
 def run_target_self_evaluation(store, data_dir: Path, now: Optional[datetime] = None, force_investigation: bool = False) -> Dict[str, Any]:
     """Full scheduled entry point for target self-evaluation."""
     now = now or datetime.now(timezone.utc)
-    with store.db() as conn:
+    with (store.ro_db() if hasattr(store, 'ro_db') else store.db()) as conn:
         evaluation = evaluate_target_metrics(conn, now)
 
         investigation_result = None

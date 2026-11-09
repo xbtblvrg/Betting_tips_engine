@@ -140,7 +140,7 @@ class RuntimeTransport:
         if provider != 'claude' or model != 'claude-opus-5-5':
             raise ValueError('Unapproved fallback provider')
         from .ai_delegation import invoke, file_lock
-        with file_lock(self.root / 'data/development/ai-locks/claude.lock', timeout=15.0) as acquired:
+        with file_lock(self.root / 'data/development/ai-locks/claude.lock', timeout=60.0) as acquired:
             if not acquired:
                 raise ProviderUnavailable('Claude capacity is in use; retry later')
             result = invoke('claude', {'binary': self.config['claude_binary'],
@@ -374,18 +374,21 @@ def run_ai_step(worker, schema, output, prefix, prompt, timeout=1200,
                 elif route['provider'] == 'agy':
                     from .claude_development import prepare_step, apply_edits
                     from .agy_development import finish_agy_step
-                    with file_lock(worker.root / 'data/development/ai-locks/agy.lock', timeout=15.0) as acquired, tempfile.TemporaryDirectory(prefix='quant-agy-candidate-') as temporary:
+                    with file_lock(worker.root / 'data/development/ai-locks/agy.lock', timeout=60.0) as acquired, tempfile.TemporaryDirectory(prefix='quant-agy-candidate-') as temporary:
                         if not acquired:
                             raise ProviderUnavailable('Antigravity capacity is in use; candidate retained for retry')
                         agy_binary = runtime.config.get('agy_binary', '/Users/belavarga/.local/bin/agy')
                         prepared = prepare_step(worker.root, worker.workspace, Path(temporary).resolve(),
                             getattr(worker, 'current_task', {}), prompt, read_json(schema),
                             readonly=sandbox == 'read-only', binary=agy_binary,
-                            max_files=32, max_source_bytes=163840,
+                            max_files=16, max_source_bytes=65536,
                             protected_paths=(*__import__('betting_engine.development', fromlist=['PROTECTED']).PROTECTED,
                                 *(name for name in worker.readonly_input_paths() if name != '.git')),
                             preferred_paths=extract_task_preferred_paths(getattr(worker, 'current_task', {})))
-                        agy_cmd = [agy_binary, '-p', prepared['stdin'],
+                        p_payload = prepared['stdin']
+                        if len(p_payload) > 95000:
+                            p_payload = p_payload[:95000] + "\n\n[TRUNCATED SOURCE CONTEXT TO FIT CONTROLLER ARG_MAX LIMITS]"
+                        agy_cmd = [agy_binary, '-p', p_payload,
                             '--model', route['model'], '--output-format', 'json',
                             '--sandbox', '--disable-slash-commands']
                         remaining = deadline - time.monotonic()
@@ -404,7 +407,7 @@ def run_ai_step(worker, schema, output, prefix, prompt, timeout=1200,
                         atomic_json(output, result['report'])
                 else:
                     from .claude_development import prepare_step, finish_step, apply_edits
-                    with file_lock(worker.root / 'data/development/ai-locks/claude.lock', timeout=15.0) as acquired, tempfile.TemporaryDirectory(prefix='quant-claude-candidate-') as temporary:
+                    with file_lock(worker.root / 'data/development/ai-locks/claude.lock', timeout=60.0) as acquired, tempfile.TemporaryDirectory(prefix='quant-claude-candidate-') as temporary:
                         if not acquired:
                             raise ProviderUnavailable('Claude capacity is in use; candidate retained for retry')
                         prepared = prepare_step(worker.root, worker.workspace, Path(temporary).resolve(),

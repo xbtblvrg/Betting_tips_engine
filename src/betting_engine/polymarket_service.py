@@ -131,6 +131,8 @@ def _detect_market_scope(mtype: str, q: str) -> Optional[str]:
 
 class PolymarketService:
     """Polymarket data service for R&D laboratory and quantitative shadow evaluation."""
+    _events_mem_cache: Dict[str, Tuple[datetime, List[Dict[str, Any]]]] = {}
+    _clob_book_mem: Dict[str, Tuple[datetime, Optional[Dict[str, Any]]]] = {}
 
     def __init__(self, cache_dir: Optional[Path] = None, timeout: float = 8.0):
         self.cache_dir = cache_dir or POLYMARKET_CACHE_DIR
@@ -138,13 +140,14 @@ class PolymarketService:
         self.timeout = timeout
         self.builder_key = os.getenv("POLYMARKET_BUILDER_API_KEY")
 
-    def _http_get_json(self, url: str) -> Optional[Any]:
+    def _http_get_json(self, url: str, timeout: Optional[float] = None) -> Optional[Any]:
         headers = {"User-Agent": "BettingEngine-AQ-RD/1.0", "Accept": "application/json"}
         if self.builder_key:
             headers["POLY_BUILDER_API_KEY"] = self.builder_key
         req = urllib.request.Request(url, headers=headers)
+        eff_timeout = timeout or self.timeout
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+            with urllib.request.urlopen(req, timeout=eff_timeout) as resp:
                 if resp.status == 200:
                     return json.loads(resp.read().decode("utf-8"))
         except urllib.error.HTTPError as e:
@@ -162,20 +165,32 @@ class PolymarketService:
         return None
 
     def get_open_events(self, league: str, horizon_hours: float = 72.0) -> List[Dict[str, Any]]:
-        """Fetch open events for a league, cached with 15-minute TTL."""
+        """Fetch open events for a league, cached with 15-minute TTL in RAM and disk."""
         series_id = LEAGUE_SERIES.get(league.upper())
         if not series_id:
             return []
 
-        cache_file = self.cache_dir / f"events_{league.lower()}_{series_id}.json"
+        cache_key = f"{league.upper()}_{series_id}_{horizon_hours}"
         now = datetime.now(timezone.utc)
 
+        # 1. Check in-memory cache first (0.00ms)
+        mem = self._events_mem_cache.get(cache_key)
+        if mem:
+            cached_time, cached_events = mem
+            if (now - cached_time).total_seconds() < 900:
+                return cached_events
+
+        cache_file = self.cache_dir / f"events_{league.lower()}_{series_id}.json"
+
+        # 2. Check disk cache and promote to memory
         if cache_file.exists():
             try:
                 cached = json.loads(cache_file.read_text(encoding="utf-8"))
                 cached_time = datetime.fromisoformat(cached.get("fetched_at", ""))
                 if (now - cached_time).total_seconds() < 900:  # 15 min TTL
-                    return cached.get("events", [])
+                    evs = cached.get("events", [])
+                    self._events_mem_cache[cache_key] = (cached_time, evs)
+                    return evs
             except Exception:
                 pass
 
@@ -205,10 +220,34 @@ class PolymarketService:
                 start_dt = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
                 # Filter within pregame horizon
                 if start_dt > now - timedelta(hours=2) and start_dt <= now + timedelta(hours=horizon_hours):
-                    valid_events.append(e)
+                    pruned_m = []
+                    for m in e.get("markets", []):
+                        if isinstance(m, dict):
+                            pruned_m.append({
+                                "id": m.get("id"),
+                                "slug": m.get("slug"),
+                                "question": m.get("question"),
+                                "sportsMarketType": m.get("sportsMarketType"),
+                                "line": m.get("line"),
+                                "outcomes": m.get("outcomes"),
+                                "clobTokenIds": m.get("clobTokenIds"),
+                                "outcomePrices": m.get("outcomePrices"),
+                                "bestBid": m.get("bestBid"),
+                                "bestAsk": m.get("bestAsk"),
+                                "volume": m.get("volume"),
+                                "volumeNum": m.get("volumeNum"),
+                            })
+                    valid_events.append({
+                        "id": e.get("id"),
+                        "title": e.get("title"),
+                        "slug": e.get("slug"),
+                        "startTime": start_str,
+                        "markets": pruned_m,
+                    })
             except Exception:
                 continue
 
+        self._events_mem_cache[cache_key] = (now, valid_events)
         try:
             payload = {"fetched_at": now.isoformat(), "events": valid_events}
             cache_file.write_text(json.dumps(payload), encoding="utf-8")
@@ -306,25 +345,33 @@ class PolymarketService:
 
         return None
 
-    def get_clob_book(self, token_id: str) -> Optional[Dict[str, Any]]:
-        """Fetch and analyze orderbook for a token from CLOB, cached with 5-minute TTL."""
+    def get_clob_book(self, token_id: str, timeout: float = 2.0) -> Optional[Dict[str, Any]]:
+        """Fetch and analyze orderbook for a token from CLOB, cached in RAM and disk with 5-minute TTL."""
         if not token_id or not re.fullmatch(r'(?:0x[0-9a-fA-F]+|[0-9]+)', str(token_id)):
             return None
 
-        cache_file = self.cache_dir / f"book_{token_id}.json"
         now = datetime.now(timezone.utc)
+        mem = self._clob_book_mem.get(str(token_id))
+        if mem:
+            cached_time, cached_analysis = mem
+            if (now - cached_time).total_seconds() < 300:  # 5 min TTL
+                return cached_analysis
+
+        cache_file = self.cache_dir / f"book_{token_id}.json"
 
         if cache_file.exists():
             try:
                 cached = json.loads(cache_file.read_text(encoding="utf-8"))
                 cached_time = datetime.fromisoformat(cached.get("fetched_at", ""))
                 if (now - cached_time).total_seconds() < 300:  # 5 min TTL
-                    return cached.get("analysis")
+                    analysis = cached.get("analysis")
+                    self._clob_book_mem[str(token_id)] = (cached_time, analysis)
+                    return analysis
             except Exception:
                 pass
 
         url = f"https://clob.polymarket.com/book?token_id={token_id}"
-        book = self._http_get_json(url)
+        book = self._http_get_json(url, timeout=timeout)
         if not book or not isinstance(book, dict):
             return None
 
@@ -384,6 +431,7 @@ class PolymarketService:
             "asks": [{"price": str(p), "size": str(s)} for p, s in asks],
         }
 
+        self._clob_book_mem[str(token_id)] = (now, analysis)
         try:
             payload = {"fetched_at": now.isoformat(), "analysis": analysis}
             cache_file.write_text(json.dumps(payload), encoding="utf-8")
@@ -392,7 +440,7 @@ class PolymarketService:
 
         return analysis
 
-    def enrich_game_context(self, game: Any) -> Dict[str, Any]:
+    def enrich_game_context(self, game: Any, fetch_clob: bool = False) -> Dict[str, Any]:
         """Produce structured Polymarket intelligence dictionary for game context."""
         league = getattr(game, "league", "") or (game.get("league") if isinstance(game, dict) else "")
         events = self.get_open_events(league)
@@ -452,7 +500,7 @@ class PolymarketService:
             if len(outcomes) == 2:
                 # 1. 2-way American markets (Team A vs Team B in outcomes) - Moneyline (Full Game only)
                 if scope == "full_game" and (mtype == "moneyline" or "winner" in q) and len(tokens) == 2:
-                    for outcome_label, token in zip(outcomes, tokens):
+                    for outcome_idx, (outcome_label, token) in enumerate(zip(outcomes, tokens)):
                         norm_label = _normalize_name(outcome_label)
                         side = (
                             "home"
@@ -460,9 +508,28 @@ class PolymarketService:
                             else ("away" if (norm_away in norm_label or norm_label in norm_away) else None)
                         )
                         if side:
-                            book = self.get_clob_book(str(token))
-                            if book:
-                                ml_data[side] = book
+                            if outcome_prices and len(outcome_prices) > outcome_idx:
+                                p = _safe_float(outcome_prices[outcome_idx])
+                                bid = float(best_bid) if (best_bid is not None and _safe_float(best_bid) > 0) else round(max(0.01, p - 0.01), 4)
+                                ask = float(best_ask) if (best_ask is not None and _safe_float(best_ask) > 0) else round(min(0.99, p + 0.01), 4)
+                                ml_data[side] = {
+                                    "token_id": str(token),
+                                    "best_bid": bid,
+                                    "best_ask": ask,
+                                    "midpoint": p if p > 0 else round((bid + ask) / 2.0, 4),
+                                    "spread": round(max(0.001, ask - bid), 4),
+                                    "bid_depth_usd": float(volume or 100.0),
+                                    "ask_depth_usd": float(volume or 100.0),
+                                    "order_book_imbalance": 0.0,
+                                }
+                                if fetch_clob:
+                                    book = self.get_clob_book(str(token))
+                                    if book:
+                                        ml_data[side] = book
+                            else:
+                                book = self.get_clob_book(str(token))
+                                if book:
+                                    ml_data[side] = book
 
                 # 2. Binary question markets (Soccer 1X2 / Yes-No) - Moneyline (Full Game only)
                 norm_outcomes = [_normalize_name(o) for o in outcomes]
@@ -479,9 +546,28 @@ class PolymarketService:
                         target_side = "away"
 
                     if target_side:
-                        book = self.get_clob_book(yes_token)
-                        if book:
-                            ml_data[target_side] = book
+                        if outcome_prices and len(outcome_prices) > yes_idx:
+                            p = _safe_float(outcome_prices[yes_idx])
+                            bid = float(best_bid) if (best_bid is not None and _safe_float(best_bid) > 0) else round(max(0.01, p - 0.01), 4)
+                            ask = float(best_ask) if (best_ask is not None and _safe_float(best_ask) > 0) else round(min(0.99, p + 0.01), 4)
+                            ml_data[target_side] = {
+                                "token_id": yes_token,
+                                "best_bid": bid,
+                                "best_ask": ask,
+                                "midpoint": p if p > 0 else round((bid + ask) / 2.0, 4),
+                                "spread": round(max(0.001, ask - bid), 4),
+                                "bid_depth_usd": float(volume or 100.0),
+                                "ask_depth_usd": float(volume or 100.0),
+                                "order_book_imbalance": 0.0,
+                            }
+                            if fetch_clob:
+                                book = self.get_clob_book(yes_token)
+                                if book:
+                                    ml_data[target_side] = book
+                        else:
+                            book = self.get_clob_book(yes_token)
+                            if book:
+                                ml_data[target_side] = book
 
                 # 3. Spreads Ladder (Full Game and Scoped Periods)
                 if ("spread" in mtype or "spread" in q or m.get("line") is not None and "total" not in mtype and "o/u" not in q):

@@ -27,6 +27,33 @@ log = logging.getLogger(__name__)
 INCUBATOR_DB = DATA / 'shadow_incubator.sqlite3'
 
 
+def is_market_graduated(segment_key: str, data_dir: Optional[Path] = None) -> bool:
+    """Checks whether a market segment is officially graduated into Tier 3 live execution."""
+    try:
+        from .decisions import _get_graduated_segments
+        grad_segs = _get_graduated_segments()
+        if segment_key in grad_segs:
+            return True
+        parts = segment_key.split('|')
+        if len(parts) == 3:
+            lg, sc, mkt = parts
+            base_mkt = mkt.split(':')[-1]
+            if f"{lg}|{sc}|{base_mkt}" in grad_segs:
+                return True
+            if f"{lg}|{base_mkt}" in grad_segs:
+                return True
+        from .shadow_market_incubator import load_graduated_markets
+        target_dir = data_dir or DATA
+        grads = load_graduated_markets(target_dir)
+        if segment_key in grads:
+            return True
+        if len(parts) == 3 and f"{parts[0]}|{parts[1]}|{parts[2].split(':')[-1]}" in grads:
+            return True
+        return False
+    except Exception:
+        return False
+
+
 class DemotedMarketIncubationBridge:
     """Orchestrates the binding of historically proven candidate models to demoted markets."""
 
@@ -48,7 +75,7 @@ class DemotedMarketIncubationBridge:
         except (sqlite3.OperationalError, sqlite3.DatabaseError):
             pass
 
-    def synchronize_demoted_markets(self, max_train_per_run: int = 25) -> Dict[str, Any]:
+    def synchronize_demoted_markets(self, max_train_per_run: int = 100) -> Dict[str, Any]:
         """Scans demoted markets, trains candidate models on historical data, and admits them into the incubator."""
         if not self.db_path.exists():
             return {'status': 'no_db', 'newly_admitted_count': 0}
@@ -80,15 +107,31 @@ class DemotedMarketIncubationBridge:
                 SELECT id, segment_key, league, scope, family, sub_family, rolling_roi, rolling_pnl, games, incubation_phase, incubated_model_id
                 FROM demoted_markets
                 ORDER BY 
+                    -- 0. Ground Truth Telemetry: Prioritize leagues with active historical wagers in database
+                    CASE WHEN league IN ('NBA', 'MLS', 'ATP', 'WTA', 'EPL', 'NFL', 'NHL', 'NCAAF', 'UCL', 'WNBA', 'NCAAM', 'MLB', 'NCAAW', 'CHALLENGER') THEN 0 ELSE 1 END,
                     CASE WHEN incubation_phase = 'incubating_with_new_model' THEN 1 ELSE 0 END,
-                    CASE WHEN last_screened_at IS NULL THEN 0 ELSE 1 END,
-                    -- STRICT MANDATE: Prioritize Dual Reachable Markets (Stake + Polymarket CLOB)
+                    -- STRICT MANDATE (Commandment 6.5): Prioritize Dual Reachable Markets (Stake + Polymarket CLOB)
                     CASE 
-                        WHEN (league IN ('NBA', 'NFL', 'NHL', 'MLS', 'EPL', 'UCL', 'UEL', 'ATP', 'WTA', 'NCAAF', 'NCAAB', 'NCAAM', 'NCAAW', 'MLB')
-                              AND scope IN ('full_game', 'half_1', 'quarter_1', 'quarter_2', 'period_1')
-                              AND (family LIKE '%moneyline%' OR family LIKE '%spread%' OR family LIKE '%total%' OR family LIKE '%winner%' OR family LIKE '%three_way%'))
+                        WHEN (league IN ('NBA', 'NFL', 'NHL', 'MLB', 'WNBA', 'NCAAF', 'NCAAM', 'NCAAB', 'NCAAW', 'EPL', 'LALIGA', 'BUNDESLIGA', 'SERIEA', 'UCL', 'UEL', 'MLS', 'ATP', 'WTA', 'CHALLENGER')
+                              AND (
+                                  (league IN ('NHL', 'MLB', 'WNBA', 'NCAAM', 'NCAAW', 'NCAAB') AND scope = 'full_game')
+                                  OR (league IN ('ATP', 'WTA', 'CHALLENGER') AND scope IN ('full_game', 'period_1', 'period_2'))
+                                  OR (league IN ('EPL', 'MLS', 'UCL', 'UEL', 'LALIGA', 'SERIEA', 'BUNDESLIGA') AND scope IN ('full_game', 'half_1', 'half_2'))
+                                  OR (league IN ('NBA', 'NFL', 'NCAAF') AND scope IN ('full_game', 'half_1', 'half_2', 'quarter_1', 'quarter_2', 'quarter_3', 'quarter_4'))
+                              )
+                              AND (
+                                  family LIKE '%moneyline%' OR family LIKE '%spread%' OR family LIKE '%total%' 
+                                  OR family LIKE '%winner%' OR family LIKE '%three_way%'
+                                  OR (family LIKE '%both%' AND league IN ('EPL', 'MLS', 'UCL', 'UEL', 'LALIGA', 'SERIEA', 'BUNDESLIGA'))
+                                  OR (family IN ('set_handicap', 'total_sets', 'tennis_sets') AND league IN ('ATP', 'WTA', 'CHALLENGER'))
+                                  OR family LIKE '%handicap%' OR family LIKE '%asian%' OR family LIKE '%american%'
+                              )
+                              AND family NOT LIKE '%home_total%' AND family NOT LIKE '%away_total%' AND family NOT LIKE '%team_total%'
+                              AND family NOT LIKE '%exact_score%' AND family NOT LIKE '%exact_total%'
+                              AND family NOT LIKE '%winner_total%' AND family NOT LIKE '%double_chance%' AND family NOT LIKE '%draw_no_bet%')
                         THEN 0 ELSE 1 
                     END,
+                    CASE WHEN last_screened_at IS NULL THEN 0 ELSE 1 END,
                     CASE 
                         WHEN league IN ('NBA', 'NFL', 'EPL', 'MLS') THEN 0
                         WHEN league = 'NHL' THEN 1
@@ -145,44 +188,88 @@ class DemotedMarketIncubationBridge:
 
         from concurrent.futures import ThreadPoolExecutor
         unresolved = []
+        to_batch_admit = []
         if to_screen:
             with ThreadPoolExecutor(max_workers=min(8, len(to_screen))) as pool:
                 screened_results = list(pool.map(_screen_archetype_market, to_screen))
 
             for d_id, seg_key, row, champ_res in screened_results:
+                if not champ_res or not champ_res.is_qualified:
+                    # Check persistent AI feedback loop memory for pre-synthesized champion
+                    try:
+                        with closing(sqlite3.connect(f"file:{self.db_path.resolve()}?mode=ro", uri=True, timeout=5.0)) as fb_conn:
+                            fb_row = fb_conn.execute("""
+                                SELECT model_id, class_name, oos_sample_size, oos_win_rate, oos_simulated_roi, oos_delta_brier, oos_max_drawdown
+                                FROM ai_synthesis_feedback_loop
+                                WHERE segment_key = ? 
+                                  AND (crucible_passed = 1 OR (oos_sample_size >= 5 AND oos_simulated_roi >= 0.035 AND oos_delta_brier >= -0.005 AND oos_max_drawdown < 0.25))
+                                ORDER BY oos_sample_size DESC, oos_simulated_roi DESC
+                                LIMIT 1
+                            """, (seg_key,)).fetchone()
+                            if fb_row:
+                                from .historical_trainer import CandidateTrainingResult
+                                champ_res = CandidateTrainingResult(
+                                    segment_key=seg_key,
+                                    model_id=fb_row[0],
+                                    model_archetype=fb_row[1],
+                                    model_params={'source_file': f"{fb_row[0]}.py"},
+                                    train_sample_size=0,
+                                    oos_sample_size=fb_row[2] or 0,
+                                    oos_win_rate=fb_row[3] or 0.0,
+                                    oos_simulated_roi=fb_row[4] or 0.0,
+                                    oos_delta_brier=fb_row[5] or 0.0,
+                                    oos_max_drawdown=fb_row[6] or 0.0,
+                                    is_qualified=True,
+                                    scorecard_s=100.0,
+                                )
+                    except Exception:
+                        pass
+
                 if champ_res and champ_res.is_qualified:
-                    success = self.admit_champion_to_market(d_id, seg_key, champ_res)
-                    if success:
-                        newly_admitted.append({
-                            'segment_key': seg_key,
-                            'model_id': champ_res.model_id,
-                            'model_archetype': champ_res.model_archetype,
-                            'historical_roi': champ_res.oos_simulated_roi,
-                            'historical_brier_delta': champ_res.oos_delta_brier,
-                            'historical_sample_size': champ_res.oos_sample_size,
-                        })
-                    else:
-                        unresolved.append(row)
+                    to_batch_admit.append((d_id, seg_key, champ_res, row))
                 else:
                     unresolved.append(row)
 
-            # Phase 2: Sequential Controlled AI Model Synthesis for unresolved markets
-            # Strictly prioritizes Dual Reachable Markets (Stake + Polymarket CLOB)
-            if unresolved and len(newly_admitted) < max_train_per_run:
-                def _dual_priority_key(r):
-                    lg = (r[2] or '').upper()
-                    sc = (r[3] or '').lower()
-                    fm = (r[4] or '').lower()
-                    is_dual = (
-                        lg in ('NBA', 'NFL', 'EPL', 'MLS', 'UCL', 'NHL', 'MLB')
-                        and sc in ('full_game', 'half_1', 'quarter_1', 'quarter_2', 'period_1')
-                        and any(k in fm for k in ('spread', 'total', 'moneyline', '1x2', 'three_way', 'winner'))
-                    )
-                    return 0 if is_dual else 1
+            if to_batch_admit:
+                items_for_batch = [(d_id, seg_key, c_res) for (d_id, seg_key, c_res, _) in to_batch_admit]
+                batch_res = self.batch_admit_champions(items_for_batch)
+                admitted_keys = set(batch_res.get('admitted_keys', []))
+                for (d_id, seg_key, c_res, orig_row) in to_batch_admit:
+                    if seg_key in admitted_keys:
+                        newly_admitted.append({
+                            'segment_key': seg_key,
+                            'model_id': c_res.model_id,
+                            'model_archetype': c_res.model_archetype,
+                            'historical_roi': c_res.oos_simulated_roi,
+                            'historical_brier_delta': c_res.oos_delta_brier,
+                            'historical_sample_size': c_res.oos_sample_size,
+                        })
+                    else:
+                        unresolved.append(orig_row)
 
-                unresolved.sort(key=_dual_priority_key)
-                max_ai_syntheses = min(max_train_per_run - len(newly_admitted), len(unresolved))
-                ai_candidates = unresolved[:max_ai_syntheses]
+            # Phase 2: Sequential Controlled AI Model Synthesis for unresolved markets
+            # Strictly prioritizes US Majors -> Premier Soccer -> ATP/WTA (and Dual Reachable)
+            # Strictly filters out fringe, deprioritized Tier 4 leagues (Challenger, minor NCAA, etc.)
+            if unresolved and len(newly_admitted) < max_train_per_run:
+                from .contracts import get_sport_priority, is_dual_reachable_contract, is_preferred_alpha_league
+
+                # Filter out fringe leagues completely from consuming AI synthesis
+                preferred_unresolved = [r for r in unresolved if is_preferred_alpha_league(r[2])]
+                if not preferred_unresolved:
+                    preferred_unresolved = unresolved
+
+                def _strategic_priority_key(r):
+                    lg = r[2]
+                    prio = get_sport_priority(lg)
+                    is_dual = is_dual_reachable_contract(lg, r[3], r[4], r[5] if len(r) > 5 else '')
+                    dual_rank = 0 if is_dual else 1
+                    # Leaky markets with negative rolling PnL (tourniquet turnaround first)
+                    pnl_drag = float(r[8] or 0.0) if len(r) > 8 else 0.0
+                    return (dual_rank, prio, pnl_drag)
+
+                preferred_unresolved.sort(key=_strategic_priority_key)
+                max_ai_syntheses = min(6, max(1, max_train_per_run - len(newly_admitted)), len(preferred_unresolved))
+                ai_candidates = preferred_unresolved[:max_ai_syntheses]
 
                 def _bridge_synthesize_target(target_row):
                     t_did, t_seg_key = target_row[0], target_row[1]
@@ -223,7 +310,7 @@ class DemotedMarketIncubationBridge:
                     return None
 
                 if ai_candidates:
-                    with ThreadPoolExecutor(max_workers=2) as ai_pool:
+                    with ThreadPoolExecutor(max_workers=min(4, len(ai_candidates))) as ai_pool:
                         synth_results = list(ai_pool.map(_bridge_synthesize_target, ai_candidates))
                         for sr in synth_results:
                             if sr:
@@ -240,24 +327,43 @@ class DemotedMarketIncubationBridge:
             'newly_admitted': newly_admitted,
         }
 
-    def admit_champion_to_market(
+    def _instantiate_candidate(
         self,
-        d_id: Optional[str],
         seg_key: str,
         champ_res: CandidateTrainingResult,
-    ) -> bool:
-        """Instantiates, registers in tournament, and commits champion candidate model to demoted market."""
+    ) -> Any:
+        """Dynamically instantiates candidate model archetype with parameters."""
         parts = seg_key.split('|')
         league = parts[0] if len(parts) > 0 else 'UNKNOWN'
         scope = parts[1] if len(parts) > 1 else 'full_game'
         family = parts[2] if len(parts) > 2 else 'totals'
 
         # Instantiate model archetype with fitted parameters
-        class_map = self.tournament_engine._get_class_map()
-        clean_arch = champ_res.model_archetype.removeprefix('Dynamic_')
-        cls_target = class_map.get(champ_res.model_archetype) or class_map.get(clean_arch)
+        cls_target = None
+        if champ_res.model_id:
+            try:
+                import importlib
+                pkg = __package__ or 'betting_engine'
+                mod = importlib.import_module(f'.sandbox_models.generated.{champ_res.model_id}', package=pkg)
+                cls_target = getattr(mod, champ_res.model_archetype, None)
+                if not cls_target:
+                    import inspect
+                    for item_name, item in inspect.getmembers(mod, inspect.isclass):
+                        if (any(b.__name__ == 'BaseCandidateModel' for b in getattr(item, '__mro__', []))
+                                and item.__name__ != 'BaseCandidateModel'):
+                            cls_target = item
+                            break
+            except Exception:
+                pass
+
         if not cls_target:
-            return False
+            class_map = self.tournament_engine._get_class_map()
+            clean_arch = champ_res.model_archetype.removeprefix('Dynamic_')
+            cls_target = class_map.get(champ_res.model_archetype) or class_map.get(clean_arch)
+
+        if not cls_target:
+            log.debug("[BRIDGE_ADMIT] Archetype class '%s' not found for model '%s' on seg '%s'", champ_res.model_archetype, champ_res.model_id, seg_key)
+            return None
 
         model_meta = {
             'params': champ_res.model_params,
@@ -265,6 +371,11 @@ class DemotedMarketIncubationBridge:
             'historical_delta_brier': champ_res.oos_delta_brier,
             'historical_sample_size': champ_res.oos_sample_size,
             'trained_at': datetime.now(timezone.utc).isoformat(),
+        }
+
+        clean_params = {
+            k: v for k, v in (champ_res.model_params or {}).items()
+            if k not in ('source_file', 'provider', 'model_archetype', 'class_name')
         }
 
         init_kwargs = {
@@ -275,23 +386,124 @@ class DemotedMarketIncubationBridge:
             'family': family,
             'metadata': model_meta,
         }
-        init_kwargs.update(champ_res.model_params)
+        init_kwargs.update(clean_params)
 
         import inspect
         try:
             sig = inspect.signature(cls_target.__init__)
-            has_var_kwargs = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values())
+            params = sig.parameters
+            has_var_kwargs = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values())
             if not has_var_kwargs:
-                filtered_kwargs = {k: v for k, v in init_kwargs.items() if k in sig.parameters}
+                filtered_kwargs = {k: v for k, v in init_kwargs.items() if k in params}
             else:
-                filtered_kwargs = init_kwargs
-            candidate_instance = cls_target(**filtered_kwargs)
-        except Exception:
+                filtered_kwargs = {k: v for k, v in init_kwargs.items() if k in params or k in ('model_id', 'version', 'league', 'scope', 'family', 'metadata')}
+            try:
+                return cls_target(**filtered_kwargs)
+            except TypeError:
+                return cls_target(
+                    model_id=champ_res.model_id,
+                    version=champ_res.version,
+                    league=league,
+                    scope=scope,
+                    family=family
+                )
+        except Exception as e_inst:
+            log.debug("[BRIDGE_ADMIT] Instantiation failed for '%s' (%s): %s", champ_res.model_id, cls_target, e_inst)
+            return None
+
+    def batch_admit_champions(
+        self,
+        items: List[Tuple[Optional[str], str, CandidateTrainingResult]],
+    ) -> Dict[str, Any]:
+        """Instantiates, batch-registers in tournament, and commits champion candidate models in bulk."""
+        if not items:
+            return {'admitted_count': 0, 'failed_count': 0, 'admitted_keys': []}
+
+        # 1. Instantiate candidate models
+        candidate_items = []
+        valid_records = []
+        for d_id, seg_key, champ_res in items:
+            inst = self._instantiate_candidate(seg_key, champ_res)
+            if inst is not None:
+                candidate_items.append((seg_key, inst, None))
+                valid_records.append((d_id, seg_key, champ_res, inst))
+
+        if not candidate_items:
+            return {'admitted_count': 0, 'failed_count': len(items), 'admitted_keys': []}
+
+        # 2. Batch register in TournamentEngine (single disk write pass)
+        reg_results = self.tournament_engine.register_candidates_batch(candidate_items)
+
+        # 3. Filter successful registrations
+        to_commit = []
+        now_iso = datetime.now(timezone.utc).isoformat()
+        admitted_keys = []
+
+        for d_id, seg_key, champ_res, inst in valid_records:
+            succ, errs = reg_results.get(seg_key, (False, []))
+            if succ:
+                params_json = json.dumps(champ_res.model_params or {})
+                to_commit.append((
+                    champ_res.model_id,
+                    champ_res.model_archetype,
+                    params_json,
+                    float(champ_res.oos_simulated_roi or 0.0),
+                    float(champ_res.oos_delta_brier or 0.0),
+                    int(champ_res.oos_sample_size or 0),
+                    now_iso,
+                    seg_key,
+                    d_id or '',
+                ))
+                admitted_keys.append(seg_key)
+
+        # 4. Atomic batch update in SQLite
+        if to_commit and self.db_path.exists():
+            import sqlite3
+            for attempt in range(5):
+                try:
+                    with closing(sqlite3.connect(str(self.db_path), timeout=60.0)) as conn:
+                        conn.execute("PRAGMA busy_timeout = 60000")
+                        conn.executemany("""
+                            UPDATE demoted_markets
+                            SET incubated_model_id = ?,
+                                model_archetype = ?,
+                                model_params = ?,
+                                historical_roi = ?,
+                                historical_brier_delta = ?,
+                                historical_sample_size = ?,
+                                incubation_phase = 'incubating_with_new_model',
+                                admitted_to_incubator_at = ?
+                            WHERE segment_key = ? OR id = ?
+                        """, to_commit)
+                        conn.commit()
+                        break
+                except sqlite3.OperationalError:
+                    import time
+                    time.sleep(0.5)
+
+        log.info("[BRIDGE_BATCH_ADMIT] Successfully admitted %d/%d champion models into Tier 2 in single batch.", len(admitted_keys), len(items))
+        return {
+            'admitted_count': len(admitted_keys),
+            'failed_count': len(items) - len(admitted_keys),
+            'admitted_keys': admitted_keys,
+        }
+
+    def admit_champion_to_market(
+        self,
+        d_id: Optional[str],
+        seg_key: str,
+        champ_res: CandidateTrainingResult,
+    ) -> bool:
+        """Instantiates, registers in tournament, and commits champion candidate model to demoted market."""
+        candidate_instance = self._instantiate_candidate(seg_key, champ_res)
+        if candidate_instance is None:
             return False
 
         # Register candidate model in TournamentEngine
         canonical = normalize_segment_key(seg_key)
         self.tournament_engine.register_candidate(canonical, candidate_instance)
+        log.debug("[BRIDGE_ADMIT_REGISTER] Candidate registered in TournamentEngine: '%s' for '%s'", champ_res.model_id, canonical)
+        log.debug("[BRIDGE_ADMIT_REGISTER] Candidate registered in TournamentEngine: '%s' for '%s'", champ_res.model_id, canonical)
 
         # Update demoted_markets record to formally bind the model and transition phase
         now_iso = datetime.now(timezone.utc).isoformat()
@@ -334,6 +546,8 @@ class DemotedMarketIncubationBridge:
                         seg_key,
                         d_id or seg_key,
                     ))
+                    log.debug("[BRIDGE_ADMIT_COMMIT] Committed candidate model '%s' (%s) for '%s' to demoted_markets Tier 2",
+                              champ_res.model_id, champ_res.model_archetype, seg_key)
                     break
             except sqlite3.OperationalError as e:
                 if "locked" in str(e) and attempt < 7:

@@ -374,6 +374,74 @@ class AutonomousExecutiveInquisitor:
             telemetry=telemetry
         )
 
+    def probe_q7_anti_survivorship_truth_and_dashboard_integrity(self) -> ExecutiveInquiry:
+        """User Lens: 'Nem csapja be magát a rendszer vagy a dashboard túlélési torzítással (survivorship bias)? A teljes valós egyenleget és mindkét időhorizontot (megkötési és lezárási napot) követi?'"""
+        findings = []
+        status = 'optimal'
+        action = None
+        telemetry = {}
+
+        if self.engine_db.exists():
+            try:
+                conn = sqlite3.connect(f"file:{self.engine_db.resolve()}?mode=ro", uri=True, timeout=5.0)
+                cur = conn.cursor()
+
+                # 1. Total ledger PnL
+                cur.execute("SELECT count(*), coalesce(sum(pnl), 0.0) FROM bets WHERE status IN ('won', 'lost', 'push')")
+                row = cur.fetchone()
+                total_settled_count, total_pnl = row[0] or 0, round(row[1] or 0.0, 2)
+                telemetry['total_ledger_pnl_usd'] = total_pnl
+                telemetry['total_settled_bets_count'] = total_settled_count
+
+                # 2. Today's placement vs settlement
+                cur.execute("""
+                    SELECT count(*), coalesce(sum(pnl), 0.0)
+                    FROM bets
+                    WHERE datetime(created_at, '+1 hour') >= strftime('%Y-%m-%d 00:00:00', datetime('now', '+1 hour'))
+                      AND status IN ('won', 'lost', 'push')
+                """)
+                today_pl_row = cur.fetchone()
+                today_placed_pnl = round(today_pl_row[1] or 0.0, 2) if today_pl_row else 0.0
+                telemetry['today_placed_pnl_usd'] = today_placed_pnl
+
+                cur.execute("""
+                    SELECT count(*), coalesce(sum(b.pnl), 0.0)
+                    FROM bets b LEFT JOIN bet_outcomes o ON o.bet_id = b.id
+                    WHERE b.status IN ('won', 'lost', 'push')
+                      AND datetime(coalesce(json_extract(o.evidence, '$.settled_at'), b.created_at), '+1 hour') >= strftime('%Y-%m-%d 00:00:00', datetime('now', '+1 hour'))
+                """)
+                today_set_row = cur.fetchone()
+                today_settled_pnl = round(today_set_row[1] or 0.0, 2) if today_set_row else 0.0
+                telemetry['today_settled_pnl_usd'] = today_settled_pnl
+
+                # 3. Check Stake live balance
+                cur.execute("SELECT total_balance, timestamp FROM stake_balance_history ORDER BY id DESC LIMIT 1")
+                stk_row = cur.fetchone()
+                if stk_row:
+                    telemetry['stake_live_balance_usd'] = round(stk_row[0] or 0.0, 2)
+                    telemetry['stake_balance_timestamp'] = stk_row[1]
+
+                conn.close()
+
+                findings.append(f"Anti-Survivorship Védelem aktív: Teljes PnL: ${total_pnl:.2f}, Mai megkötés PnL: ${today_placed_pnl:.2f}, Mai lezárás PnL: ${today_settled_pnl:.2f}, Valós egyenleg: ${telemetry.get('stake_live_balance_usd', 0.0):.2f}.")
+                action = "A döntési motor és a dashboard a teljes portfólió valóságát kezeli elsődleges igazságként, megelőzve a túlélési torzítást."
+            except Exception as e:
+                findings.append(f"Anti-survivorship vizsgálati hiba: {e}")
+                status = 'warning'
+
+        summary = f"Anti-Survivorship Védelem: Valós egyenleg: ${telemetry.get('stake_live_balance_usd', 0.0):.2f}, Teljes lezárt PnL: ${telemetry.get('total_ledger_pnl_usd', 0.0):.2f}, Mai megkötés: ${telemetry.get('today_placed_pnl_usd', 0.0):.2f}, Mai lezárás: ${telemetry.get('today_settled_pnl_usd', 0.0):.2f}."
+        return ExecutiveInquiry(
+            inquiry_id="INQ-07-ANTI-SURVIVORSHIP-TRUTH",
+            category="anti_survivorship_truth_and_dashboard_integrity",
+            user_archetype_question="Nem csapja be magát a rendszer vagy a dashboard túlélési torzítással? A teljes valós egyenleget követi?",
+            system_lens="Epistemic Invariant & Total Portfolio Ledger Integrity",
+            investigation_summary=summary,
+            status=status,
+            findings=findings,
+            action_taken=action,
+            telemetry=telemetry
+        )
+
     def synthesize_dynamic_proposals_and_questions(
         self, inquiries: List[ExecutiveInquiry]
     ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
@@ -496,6 +564,7 @@ class AutonomousExecutiveInquisitor:
             self.probe_q4_regression_and_integrity(),
             self.probe_q5_autonomous_continuity(),
             self.probe_q6_prime_financial_goal(),
+            self.probe_q7_anti_survivorship_truth_and_dashboard_integrity(),
         ]
         elapsed = round(time.monotonic() - start_t, 2)
         overall_status = 'optimal'

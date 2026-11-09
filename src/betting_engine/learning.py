@@ -5,7 +5,9 @@ Unimplemented research remains explicit rather than being marked completed.
 """
 from datetime import timedelta
 from pathlib import Path
-import argparse,fcntl,hashlib,json,logging,time
+from typing import Any, Dict, List, Optional, Set, Tuple
+from concurrent.futures import ThreadPoolExecutor
+import argparse,fcntl,hashlib,json,logging,sqlite3,time
 from .domain import LEAGUES,utcnow,parse_time
 from .providers import DATA
 from .storage import Store
@@ -20,7 +22,7 @@ FEEDBACK_KINDS = frozenset(('outcome_review', 'closing_evaluation'))
 RECOVERY_KINDS = frozenset(('model_restore', 'segment_restore', 'period_restore'))
 PRIORITY = {'source_refresh':0, 'model_restore':0, 'segment_restore':0, 'period_restore':0,
     'outcome_review':1, 'closing_evaluation':1, 'shadow_evaluation':1, 'market_catalog':1, 'autonomous_system_audit':1, 'anti_constant_audit':1, 'autonomous_submarket_expansion':1, 'autorun_selector_repair':1,
-    'polymarket_identification_repair': 1, 'polymarket_taxonomy_repair': 1, 'autonomous_code_healing': 1, 'high_retry_task_root_cause_analysis': 1,
+    'polymarket_identification_repair': 1, 'polymarket_taxonomy_repair': 1, 'autonomous_code_healing': 1, 'high_retry_task_root_cause_analysis': 1, 'priority_model_synthesis': 1,
     'controlled_retrain':2, 'segment_retrain':2, 'period_retrain':2, 'segment_repair':2, 'submarket_turnaround_research': 2, 'target_evaluation':2, 'anchor_weight_learning':2, 'opportunity_funnel_repair':2, 'urgent_polymarket_model_repair':2,
     'daily_council_briefing': 2, 'incubator_market_repair': 2, 'autonomous_model_synthesis': 2, 'upstream_sports_sensor_synthesis': 2,
     'player_history_refresh':2, 'player_prop_audit':2, 'player_data_refresh':3, 'model_search':3, 'research_gap': 3, 'market_research': 3,
@@ -28,12 +30,10 @@ PRIORITY = {'source_refresh':0, 'model_restore':0, 'segment_restore':0, 'period_
 
 
 FAST_TRACK_KINDS = frozenset((
+    'priority_model_synthesis',
     'autorun_selector_repair',
     'polymarket_identification_repair',
     'polymarket_taxonomy_repair',
-    'source_refresh',
-    'outcome_review',
-    'closing_evaluation',
     'high_retry_task_root_cause_analysis',
     'model_restore',
     'segment_restore',
@@ -52,13 +52,20 @@ def choose_learning_job(rows, recent_attempts, now=None, lane='all'):
         runnable = [r for r in rows if r['status'] in ('queued','retry') and parse_time(r['next_attempt']) <= now]
     if not runnable: return None, {'version':SCHEDULING_VERSION, 'reason':'no_due_work'}
     eligible_at = lambda r: max(parse_time(r['created_at']), parse_time(r['next_attempt']))
-    ordinary = min(runnable, key=lambda r:(PRIORITY.get(r['kind'],5),eligible_at(r),r['id']))
+    def _strat_prio(r):
+        lg = r.get('league')
+        if not lg:
+            return 0
+        from .contracts import get_sport_priority
+        return get_sport_priority(lg)
+
+    ordinary = min(runnable, key=lambda r:(PRIORITY.get(r['kind'],5), _strat_prio(r), eligible_at(r), r['id']))
     # Preserve genuine model recovery at priority zero. Source refreshes are
     # ordinary recovery work and may be overtaken once settlement/feedback
     # evidence has exceeded its bounded service-level age.
     recovery = [r for r in runnable if r['kind'] in RECOVERY_KINDS]
     if recovery:
-        ordinary = min(recovery, key=lambda r:(PRIORITY.get(r['kind'],5),eligible_at(r),r['id']))
+        ordinary = min(recovery, key=lambda r:(PRIORITY.get(r['kind'],5), _strat_prio(r), eligible_at(r), r['id']))
     streak = 0
     for attempt in recent_attempts[:HIGH_PRIORITY_BUDGET]:
         if PRIORITY.get(attempt['kind'],5)>=2: break
@@ -125,6 +132,9 @@ class LearningWorker:
     def __init__(self,store=None,data_dir=DATA,trainer=None):
         self.store=store or Store();self.data=Path(data_dir);self.data.mkdir(parents=True,exist_ok=True)
         self.trainer=trainer
+        self._executor: Optional[ThreadPoolExecutor] = None
+        self._active_futures: Dict[Any, Tuple[Dict[str, Any], int, str, str]] = {}
+        self._lock_handle = None
         with self.store.db() as c:c.executescript('''
         CREATE TABLE IF NOT EXISTS learning_jobs(
           id TEXT PRIMARY KEY,kind TEXT NOT NULL,league TEXT,status TEXT NOT NULL,
@@ -141,9 +151,17 @@ class LearningWorker:
 
     def enqueue(self,kind,key,payload=None,league=None,status='queued'):
         stamp=utcnow().isoformat();id=hashlib.sha256(f'{kind}:{key}'.encode()).hexdigest()[:24]
-        with self.store.db() as c:
-            c.execute('INSERT OR IGNORE INTO learning_jobs(id,kind,league,status,created_at,updated_at,next_attempt,payload) VALUES (?,?,?,?,?,?,?,?)',
-                      (id,kind,league,status,stamp,stamp,stamp,json.dumps(payload or {})))
+        for attempt in range(5):
+            try:
+                with self.store.db() as c:
+                    c.execute('INSERT OR IGNORE INTO learning_jobs(id,kind,league,status,created_at,updated_at,next_attempt,payload) VALUES (?,?,?,?,?,?,?,?)',
+                              (id,kind,league,status,stamp,stamp,stamp,json.dumps(payload or {})))
+                return id
+            except sqlite3.OperationalError as exc:
+                if 'locked' in str(exc).lower() and attempt < 4:
+                    time.sleep(0.05 * (2 ** attempt))
+                    continue
+                raise
         return id
 
     def plan(self):
@@ -329,8 +347,16 @@ class LearningWorker:
         attempt history and the replacement job identity. A running job is
         never stolen.
         """
-        from .outcome_feedback import snapshot_outcomes, outcome_generation, VERSION as OUTCOME_VERSION
-        outcome_digest=outcome_generation(snapshot_outcomes(self.store))
+        from .outcome_feedback import VERSION as OUTCOME_VERSION
+        with self.store.db() as c:
+            row_chk = c.execute("SELECT count(*), max(rowid) FROM system_decisions WHERE status != 'open'").fetchone()
+            settled_sig = (row_chk[0] if row_chk else 0, row_chk[1] if row_chk else None)
+        if getattr(self, '_last_settled_sig', None) == settled_sig and hasattr(self, '_last_outcome_digest'):
+            outcome_digest = self._last_outcome_digest
+        else:
+            self._last_settled_sig = settled_sig
+            self._last_outcome_digest = hashlib.sha256(f"settled:{settled_sig[0]}:{settled_sig[1]}".encode()).hexdigest()[:24]
+            outcome_digest = self._last_outcome_digest
         job_id=self.enqueue('outcome_review',OUTCOME_VERSION+':'+now.strftime('%Y-%m-%dT%H')+':'+outcome_digest,
                             payload={'settled_evidence_sha256':outcome_digest,'feedback_version':OUTCOME_VERSION})
         with self.store.db() as c:
@@ -399,12 +425,24 @@ class LearningWorker:
         return job_id
 
     def snapshot(self):
-        with self.store.db() as c:
-            jobs=[dict(r) for r in c.execute('SELECT * FROM learning_jobs ORDER BY updated_at DESC LIMIT 100')]
+        with self.store.ro_db() as c:
+            jobs=[dict(r) for r in c.execute('SELECT * FROM learning_jobs ORDER BY updated_at DESC LIMIT 25')]
             counts={r['status']:r['n'] for r in c.execute('SELECT status,COUNT(*) n FROM learning_jobs GROUP BY status')}
         for job in jobs:
-            job['payload']=json.loads(job['payload']);job['result']=json.loads(job['result']) if job['result'] else None
-            if job['kind']=='research_watch' and not job['league']:
+            try:
+                job['payload']=json.loads(job['payload'])
+            except Exception:
+                pass
+            try:
+                if job['result']:
+                    r = json.loads(job['result'])
+                    if isinstance(r, dict) and len(str(r)) > 50_000:
+                        job['result'] = {'status': r.get('status') or r.get('state'), 'summary': str(r.get('summary') or r.get('conclusion') or '')[:500]}
+                    else:
+                        job['result'] = r
+            except Exception:
+                pass
+            if job['kind']=='research_watch' and not job['league'] and isinstance(job.get('payload'), dict):
                 job['league']=job['payload'].get('source',{}).get('league')
         return {'checked_at':utcnow().isoformat(),'mode':'Approved workflows with durable attempts and retry',
                 'code_self_modification':False,'counts':counts,'jobs':jobs}
@@ -429,15 +467,25 @@ class LearningWorker:
             with self.store.db() as c:
                 scoreboard = compute_segment_scoreboard(c)
             under = scoreboard.get('underperforming_segments', [])
-            # Strict Constitutional Mandate (Commandment 6.5): Prioritize Dual Reachable Markets (Stake + Polymarket CLOB)
+            # Strict Constitutional Mandate (Commandment 6.5 & Strategic Priority):
+            # Prioritize US Majors (1), Premier Soccer (2), ATP/WTA (3) and Dual Reachable Markets
             def _dual_repair_priority(seg_rec):
+                from .contracts import is_dual_reachable_contract, get_sport_priority
                 lg = (seg_rec.get('league') or '').upper()
                 s_key = (seg_rec.get('segment') or '').lower()
-                is_dual_league = lg in ('NBA', 'NFL', 'EPL', 'MLS', 'UCL', 'NHL', 'MLB', 'ATP', 'WTA')
-                is_dual_family = any(k in s_key for k in ('spread', 'total', 'moneyline', '1x2', 'three_way', 'both')) and not any(ex in s_key for ex in ('home_total', 'away_total', 'team_total'))
-                dual_rank = 0 if (is_dual_league and is_dual_family) else 1
-                return (dual_rank, seg_rec.get('pnl', 0.0))
+                sc = 'full_game'
+                fm = s_key
+                if '|' in s_key:
+                    parts = s_key.split('|')
+                    if len(parts) >= 3:
+                        lg, sc, fm = parts[0].upper(), parts[1].lower(), parts[2].lower()
+                prio = get_sport_priority(lg)
+                is_dual = is_dual_reachable_contract(lg, sc, fm)
+                dual_rank = 0 if is_dual else 1
+                return (dual_rank, prio, seg_rec.get('pnl', 0.0))
 
+            from .contracts import is_preferred_alpha_league
+            under = [s for s in under if is_preferred_alpha_league(s.get('league', ''))]
             under = sorted(under, key=_dual_repair_priority)
             now_iso = now.isoformat()
             for seg in under:
@@ -625,26 +673,26 @@ class LearningWorker:
         catalog_gaps=catalog_operating_gaps(catalog)
         audit['gaps'].extend(catalog_gaps)
         live_ids=[]
-        for gap in audit['gaps']:
-            live_ids.append(gap['id']);kind=gap['action'];league=gap['league']
-            cadence=15*60 if kind=='source_refresh' else (6 if audit['daily_progress']['shortfall'] else 24)*3600
-            with self.store.db() as c:
+        now_iso = now.isoformat()
+        with self.store.db() as c:
+            for gap in audit['gaps']:
+                live_ids.append(gap['id']);kind=gap['action'];league=gap['league']
+                cadence=15*60 if kind=='source_refresh' else (6 if audit['daily_progress']['shortfall'] else 24)*3600
                 prior=c.execute("SELECT id,status,updated_at,payload FROM learning_jobs WHERE kind=? AND league=? ORDER BY created_at DESC LIMIT 1",(kind,league)).fetchone()
-            active=prior and prior['status'] in ('queued','running','retry')
-            due=not prior or (now-parse_time(prior['updated_at'])).total_seconds()>=cadence
-            schema=[(m['section'],m['market'],m['supported_outcomes']>0) for m in payload['market_types'] if m['league']==league]
-            schema_digest=hashlib.sha256(json.dumps(sorted(schema)).encode()).hexdigest()
-            if kind=='market_research' and prior and json.loads(prior['payload']).get('market_schema_sha256')!=schema_digest:due=True
-            job_id=prior['id'] if prior else None
-            if not active and due:
-                job_id=self.enqueue(kind,f'{league}:{prior["id"] if prior else "initial"}',league=league,
-                    payload={'gap':gap,'publication_at':payload['generated_at'],'market_schema_sha256':schema_digest})
-            state='needs_implementation' if kind=='market_research' else 'repair_pending'
-            with self.store.db() as c:
+                active=prior and prior['status'] in ('queued','running','retry')
+                due=not prior or (now-parse_time(prior['updated_at'])).total_seconds()>=cadence
+                schema=[(m['section'],m['market'],m['supported_outcomes']>0) for m in payload['market_types'] if m['league']==league]
+                schema_digest=hashlib.sha256(json.dumps(sorted(schema)).encode()).hexdigest()
+                if kind=='market_research' and prior and json.loads(prior['payload']).get('market_schema_sha256')!=schema_digest:due=True
+                job_id=prior['id'] if prior else None
+                if not active and due:
+                    job_id=self.enqueue(kind,f'{league}:{prior["id"] if prior else "initial"}',league=league,
+                        payload={'gap':gap,'publication_at':payload['generated_at'],'market_schema_sha256':schema_digest})
+                state='needs_implementation' if kind=='market_research' else 'repair_pending'
                 c.execute('''INSERT INTO operating_gaps VALUES (?,?,?,?,?,?,?,NULL,?,?)
                   ON CONFLICT(id) DO UPDATE SET action=excluded.action,status=excluded.status,
                   last_seen=excluded.last_seen,resolved_at=NULL,job_id=excluded.job_id,evidence=excluded.evidence''',
-                  (gap['id'],league,gap['code'],kind,state,now.isoformat(),now.isoformat(),job_id,json.dumps(gap)))
+                  (gap['id'],league,gap['code'],kind,state,now_iso,now_iso,job_id,json.dumps(gap)))
         available={r['league'] for r in audit['leagues'] if r['state']!='source_unavailable'}
         if payload.get('api_audit') and not any(g['league']=='NCAA_DISCOVERY' for g in audit['gaps']):available.add('NCAA_DISCOVERY')
         with self.store.db() as c:
@@ -653,12 +701,18 @@ class LearningWorker:
                     if row['action']=='market_research':
                         c.execute("UPDATE operating_gaps SET status='not_currently_observed' WHERE id=?",(row['id'],))
                     else:c.execute("UPDATE operating_gaps SET status='resolved',resolved_at=? WHERE id=?",(now.isoformat(),row['id']))
-            # Prune stale unobserved gaps older than 7 days to maintain operational performance
-            cutoff = (now - timedelta(days=7)).isoformat()
+            # Prune stale unobserved gaps older than 24 hours to maintain operational performance
+            cutoff = (now - timedelta(hours=24)).isoformat()
             c.execute("DELETE FROM operating_gaps WHERE status='not_currently_observed' AND last_seen < ?", (cutoff,))
             gaps=[dict(r) for r in c.execute('''SELECT g.*,j.status job_status,j.last_error FROM operating_gaps g
-                LEFT JOIN learning_jobs j ON g.job_id=j.id ORDER BY g.status,g.league,g.code''')]
-        for g in gaps:g['evidence']=json.loads(g['evidence'])
+                LEFT JOIN learning_jobs j ON g.job_id=j.id 
+                WHERE g.status NOT IN ('not_currently_observed', 'resolved') OR g.last_seen >= datetime('now', '-2 hours')
+                ORDER BY g.status,g.league,g.code LIMIT 200''')]
+        for g in gaps:
+            try:
+                g['evidence']=json.loads(g['evidence'])
+            except Exception:
+                pass
         audit['tracked_gaps']=gaps
         atomic_json(self.data/'operations.json',audit)
 
@@ -672,7 +726,11 @@ class LearningWorker:
         if not rejected:return
         from .experiments import training_digest,study_identity,PROTOCOL
         from .domain import Game
-        games=[Game(**g) for g in json.loads(path.read_text())]
+        mtime = path.stat().st_mtime
+        if getattr(self, '_last_games_mtime', None) != mtime:
+            self._last_games_mtime = mtime
+            self._cached_games = [Game(**g) for g in json.loads(path.read_text())]
+        games = self._cached_games
         for league in sorted(rejected):
             digest=training_digest(games,league)
             study_id=study_identity(league,digest)
@@ -738,7 +796,7 @@ class LearningWorker:
             from .autonomous_capability_orchestrator import AutonomousCapabilityOrchestrator
             payload = json.loads(job['payload']) if isinstance(job['payload'], str) else (job['payload'] or {})
             target_segment = payload.get('segment')
-            with self.store.db() as c:
+            with self.store.ro_db() as c:
                 agent = SupervisedQuantRDAgent(c)
                 summary = agent.run_autonomous_cycle(target_segment=target_segment)
                 orch = AutonomousCapabilityOrchestrator(c)
@@ -749,7 +807,7 @@ class LearningWorker:
             }
         if job['kind']=='opportunity_funnel_repair':
             payload = json.loads(job['payload']) if isinstance(job['payload'], str) else (job['payload'] or {})
-            with self.store.db() as c:
+            with self.store.ro_db() as c:
                 from .quant_rd_agent import SupervisedQuantRDAgent
                 from .autonomous_capability_orchestrator import AutonomousCapabilityOrchestrator
                 agent = SupervisedQuantRDAgent(c)
@@ -802,7 +860,7 @@ class LearningWorker:
                 discovery_res = {'discovered_count': len(discovered), 'discoveries': [d.to_dict() for d in discovered]}
             except Exception as e:
                 discovery_res = {'error': str(e)}
-            with self.store.db() as c:
+            with self.store.ro_db() as c:
                 orch = AutonomousCapabilityOrchestrator(c, journal_path=self.data / 'research' / 'autonomous_evolution_journal.json')
                 evo_result = orch.run_supervised_evolution_cycle(max_segments=3)
             return {
@@ -893,11 +951,51 @@ class LearningWorker:
                 fam = 'moneyline'
             seg_key = f"{league}|full_game|{fam}"
 
+            # Check if market is already graduated in Tier 3 or actively incubating in Tier 2
+            inc_db = self.data / 'shadow_incubator.sqlite3'
+            if inc_db.exists():
+                try:
+                    import sqlite3
+                    with sqlite3.connect(f"file:{inc_db.resolve()}?mode=ro", uri=True, timeout=5.0) as chk_c:
+                        is_grad = chk_c.execute("SELECT 1 FROM graduated_markets WHERE segment_key = ?", (seg_key,)).fetchone()
+                        is_inc = chk_c.execute("SELECT 1 FROM demoted_markets WHERE segment_key = ? AND incubation_phase = 'incubating_with_new_model' AND incubated_model_id IS NOT NULL", (seg_key,)).fetchone()
+                        if is_grad or is_inc:
+                            with self.store.db() as c:
+                                if gap_id:
+                                    c.execute("UPDATE operating_gaps SET status='resolved', resolved_at=? WHERE id=?", (utcnow().isoformat(), gap_id))
+                            return {'status': 'already_graduated' if is_grad else 'already_incubating', 'segment_key': seg_key, 'skipped_re_synthesis': True}
+                except Exception:
+                    pass
+
             rec = None
+            synth_err = None
             try:
                 rec = synth.synthesize_and_screen_candidate(seg_key, domain_problem=f"Coverage expansion for observed market: {market}")
+                if rec and rec.crucible_passed:
+                    try:
+                        from .demoted_market_bridge import DemotedMarketIncubationBridge
+                        from .historical_trainer import CandidateTrainingResult
+                        bridge = DemotedMarketIncubationBridge(data_dir=self.data)
+                        cand_res = CandidateTrainingResult(
+                            segment_key=seg_key,
+                            model_id=rec.model_id,
+                            model_archetype=rec.class_name,
+                            model_params={'source_file': f"{rec.model_id}.py", 'provider': rec.generator_provider},
+                            train_sample_size=0,
+                            oos_sample_size=rec.oos_sample_size,
+                            oos_win_rate=rec.oos_win_rate,
+                            oos_simulated_roi=rec.oos_simulated_roi,
+                            oos_delta_brier=rec.oos_delta_brier,
+                            oos_max_drawdown=rec.oos_max_drawdown,
+                            is_qualified=True,
+                            scorecard_s=100.0,
+                        )
+                        bridge.admit_champion_to_market(None, seg_key, cand_res)
+                    except Exception as e_adm:
+                        logging.warning(f"Failed to auto-admit synthesized champion to Tier 2 in research_gap: {e_adm}")
             except Exception as e:
-                pass
+                synth_err = str(e)
+                logging.warning(f"Synthesis error in research_gap for {seg_key}: {e}")
 
             try:
                 with self.store.db() as c:
@@ -912,7 +1010,10 @@ class LearningWorker:
                 'gap_id': gap_id,
                 'league': league,
                 'market': market,
-                'candidate': rec.model_id if rec else None
+                'candidate': rec.model_id if rec else None,
+                'crucible_passed': rec.crucible_passed if rec else False,
+                'validation_errors': rec.validation_errors if rec else ([] if not synth_err else [synth_err]),
+                'failure_reason': rec.failure_reason if rec else synth_err,
             }
         if job['kind']=='source_refresh':
             request=self.store.request_source_refresh(f'Automatic recovery for {job["league"]}')
@@ -1015,15 +1116,68 @@ class LearningWorker:
         if job['kind']=='urgent_polymarket_model_repair':
             payload = json.loads(job['payload']) if isinstance(job['payload'], str) else (job['payload'] or {})
             seg_key = payload.get('segment_key') or f"{job.get('league')}|full_game|moneyline"
+            league = (job.get('league') or (seg_key.split('|')[0] if '|' in seg_key else '')).upper()
+            from .contracts import is_preferred_alpha_league
+            if not is_preferred_alpha_league(league):
+                return {
+                    'executed_at': utcnow().isoformat(),
+                    'status': 'skipped_deprioritized_league',
+                    'league': league,
+                    'segment_key': seg_key,
+                    'reason': 'Barred from AI compute: Non-preferred fringe league'
+                }
+
+            # Check if market is already graduated in Tier 3 or actively incubating in Tier 2
+            inc_db = self.data / 'shadow_incubator.sqlite3'
+            if inc_db.exists():
+                try:
+                    import sqlite3
+                    with sqlite3.connect(f"file:{inc_db.resolve()}?mode=ro", uri=True, timeout=5.0) as chk_c:
+                        is_grad = chk_c.execute("SELECT 1 FROM graduated_markets WHERE segment_key = ?", (seg_key,)).fetchone()
+                        is_inc = chk_c.execute("SELECT 1 FROM demoted_markets WHERE segment_key = ? AND incubation_phase = 'incubating_with_new_model' AND incubated_model_id IS NOT NULL", (seg_key,)).fetchone()
+                        if is_grad or is_inc:
+                            return {
+                                'executed_at': utcnow().isoformat(),
+                                'status': 'already_graduated' if is_grad else 'already_incubating',
+                                'segment_key': seg_key,
+                                'skipped_re_synthesis': True
+                            }
+                except Exception:
+                    pass
+
             from .codex_model_synthesizer import CodexModelSynthesizer
             synth = CodexModelSynthesizer(self.data)
             rec = None
+            synth_err = None
             try:
                 rec = synth.synthesize_and_screen_candidate(
                     segment_key=seg_key,
                     domain_problem=f"Polymarket continuous line pricing & Crucible pass for {seg_key}"
                 )
+                if rec and rec.crucible_passed and rec.is_admitted_to_incubator:
+                    try:
+                        from .demoted_market_bridge import DemotedMarketIncubationBridge
+                        from .historical_trainer import CandidateTrainingResult
+                        bridge = DemotedMarketIncubationBridge(data_dir=self.data)
+                        cand_res = CandidateTrainingResult(
+                            segment_key=seg_key,
+                            model_id=rec.model_id,
+                            model_archetype=rec.class_name,
+                            model_params={'source_file': f"{rec.model_id}.py", 'provider': rec.generator_provider},
+                            train_sample_size=0,
+                            oos_sample_size=rec.oos_sample_size,
+                            oos_win_rate=rec.oos_win_rate,
+                            oos_simulated_roi=rec.oos_simulated_roi,
+                            oos_delta_brier=rec.oos_delta_brier,
+                            oos_max_drawdown=rec.oos_max_drawdown,
+                            is_qualified=True,
+                            scorecard_s=100.0,
+                        )
+                        bridge.admit_champion_to_market(None, seg_key, cand_res)
+                    except Exception as e_adm:
+                        logging.warning(f"Failed to auto-admit synthesized champion to Tier 2: {e_adm}")
             except Exception as exc:
+                synth_err = str(exc)
                 logging.warning(f"Polymarket model synthesis error for {seg_key}: {exc}")
             return {
                 'executed_at': utcnow().isoformat(),
@@ -1033,7 +1187,22 @@ class LearningWorker:
                 'crucible_passed': rec.crucible_passed if rec else False,
                 'oos_roi': rec.oos_simulated_roi if rec else 0.0,
                 'oos_sample_size': rec.oos_sample_size if rec else 0,
+                'validation_errors': rec.validation_errors if rec else ([] if not synth_err else [synth_err]),
+                'failure_reason': rec.failure_reason if rec else synth_err,
                 'conclusion': 'Polymarket model repair evaluated; candidate screened in Walk-Forward Crucible.'
+            }
+        if job['kind'] == 'priority_model_synthesis':
+            payload = json.loads(job['payload']) if isinstance(job['payload'], str) else (job['payload'] or {})
+            seg_key = payload.get('segment_key')
+            from .demoted_market_bridge import DemotedMarketIncubationBridge
+            bridge = DemotedMarketIncubationBridge(data_dir=self.data)
+            res = bridge.synchronize_demoted_markets(max_train_per_run=5)
+            return {
+                'executed_at': utcnow().isoformat(),
+                'status': 'completed',
+                'segment_key': seg_key,
+                'result': res,
+                'conclusion': f"Priority model synthesis executed: {res.get('newly_admitted_count', 0)} candidates admitted to Tier 2."
             }
         raise ValueError('No approved handler for this task')
 
@@ -1169,21 +1338,217 @@ class LearningWorker:
                     logging.exception('Learning task failed; scheduled retry')
             result=self.snapshot();atomic_json(self.data/'learning_worker.json',result);return result
 
+    def _exclusivity_key(self, job: Dict[str, Any]) -> str:
+        """Returns a domain exclusivity key to prevent concurrent conflicts across parallel threads."""
+        kind = job.get('kind', '')
+        league = job.get('league') or ''
+        payload = job.get('payload')
+        if isinstance(payload, str):
+            try:
+                payload = json.loads(payload)
+            except Exception:
+                payload = {}
+        elif not isinstance(payload, dict):
+            payload = {}
+
+        if kind in ('controlled_retrain', 'model_search', 'source_refresh'):
+            return f"{kind}:{league}"
+        if kind in ('segment_repair', 'submarket_turnaround_research'):
+            return f"{kind}:{league}:{payload.get('segment') or ''}"
+        if kind == 'urgent_polymarket_model_repair':
+            return f"{kind}:{payload.get('segment_key') or league}"
+        if kind == 'polymarket_identification_repair':
+            return f"{kind}:{league}:{payload.get('event_title') or ''}"
+        if kind in (
+            'autonomous_submarket_expansion', 'market_catalog', 'target_evaluation',
+            'autonomous_system_audit', 'daily_council_briefing', 'opportunity_funnel_repair',
+            'anchor_weight_learning', 'outcome_review', 'shadow_evaluation'
+        ):
+            return f"singleton:{kind}"
+        return f"{kind}:{job.get('id', '')}"
+
+    def run_parallel_cycle(self, max_parallel: int = 4) -> Dict[str, Any]:
+        """Executes learning jobs concurrently across a thread pool of workers.
+        
+        Features:
+        - Thread-safe job selection with exclusivity keys to prevent duplicate collisions.
+        - Dispatches lightweight operational tasks via express lane.
+        - Keeps running jobs active in the background without blocking the scheduler.
+        - Commits job completions and retries cleanly to SQLite with WAL mode.
+        """
+        if self._executor is None:
+            self._executor = ThreadPoolExecutor(max_workers=max_parallel, thread_name_prefix='learning-worker')
+
+        lock_path = self.data / 'learning-worker.lock'
+        if self._lock_handle is None:
+            try:
+                self._lock_handle = lock_path.open('a')
+                fcntl.flock(self._lock_handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except (BlockingIOError, OSError):
+                if self._lock_handle:
+                    try: self._lock_handle.close()
+                    except Exception: pass
+                    self._lock_handle = None
+                return {'busy': True, 'mode': 'parallel', 'active_count': 0}
+
+        now = utcnow()
+        now_iso = now.isoformat()
+
+        # 1. On cold startup, mark any stale running jobs as retry
+        if not hasattr(self, '_stale_cleaned'):
+            self._stale_cleaned = True
+            with self.store.db() as c:
+                c.execute("UPDATE learning_attempts SET status='interrupted', finished_at=?, error='Worker restarted; task will retry' WHERE status='running'", (now_iso,))
+                c.execute("UPDATE learning_jobs SET status='retry', next_attempt=?, updated_at=?, last_error='Worker restarted; task will retry' WHERE status='running'", (now_iso, now_iso))
+
+        # 2. Reap completed futures from thread pool immediately (Unblock slots first!)
+        completed_jobs = []
+        failed_jobs = []
+        for future in list(self._active_futures):
+            if future.done():
+                job, attempt, started_at, excl_key = self._active_futures.pop(future)
+                job_id = job['id']
+                try:
+                    result = future.result()
+                    raw = json.dumps(result, allow_nan=False)
+                    stamp = utcnow().isoformat()
+                    with self.store.db() as c:
+                        if job['kind'] == 'shadow_evaluation' and isinstance(result, dict) and result.get('continuation_required'):
+                            c.execute("UPDATE learning_jobs SET status='retry', attempts=0, result=?, last_error=NULL, updated_at=?, next_attempt=? WHERE id=?", (raw, stamp, stamp, job_id))
+                            c.execute("UPDATE learning_attempts SET status='partial', result=?, finished_at=? WHERE id=?", (raw, stamp, attempt))
+                        else:
+                            c.execute("UPDATE learning_jobs SET status='completed', result=?, last_error=NULL, updated_at=? WHERE id=?", (raw, stamp, job_id))
+                            c.execute("UPDATE learning_attempts SET status='completed', result=?, finished_at=? WHERE id=?", (raw, stamp, attempt))
+                    completed_jobs.append({'id': job_id, 'kind': job['kind'], 'status': 'completed'})
+                except Exception as exc:
+                    stamp = utcnow()
+                    delay = min(21600, 60 * 2 ** min(job.get('attempts', 0), 9))
+                    error = f"{type(exc).__name__}: {exc}"[:2000]
+                    with self.store.db() as c:
+                        c.execute("UPDATE learning_jobs SET status='retry', last_error=?, updated_at=?, next_attempt=? WHERE id=?",
+                                  (error, stamp.isoformat(), (stamp + timedelta(seconds=delay)).isoformat(), job_id))
+                        c.execute("UPDATE learning_attempts SET status='failed', error=?, finished_at=? WHERE id=?", (error, stamp.isoformat(), attempt))
+                    failed_jobs.append({'id': job_id, 'kind': job['kind'], 'status': 'retry', 'error': error})
+                    logging.warning(f"Parallel learning job {job_id} ({job['kind']}) failed: {error}")
+
+        # 3. Fill free slots with runnable deep jobs immediately
+        available_slots = max_parallel - len(self._active_futures)
+        newly_dispatched = []
+
+        if available_slots > 0:
+            active_keys = {item[3] for item in self._active_futures.values()}
+            active_ids = {item[0]['id'] for item in self._active_futures.values()}
+
+            with self.store.ro_db() as c_ro:
+                fast_tuple = tuple(FAST_TRACK_KINDS)
+                placeholders = ','.join('?' for _ in fast_tuple)
+                deep_recent = [dict(r) for r in c_ro.execute(
+                    f"SELECT j.kind, a.status, a.started_at FROM learning_attempts a "
+                    f"JOIN learning_jobs j ON a.job_id=j.id "
+                    f"WHERE j.kind NOT IN ({placeholders}) "
+                    f"ORDER BY a.id DESC LIMIT ?",
+                    (*fast_tuple, HIGH_PRIORITY_BUDGET)
+                ).fetchall()]
+                recent = [dict(r) for r in c_ro.execute(
+                    "SELECT j.kind, a.status, a.started_at FROM learning_attempts a JOIN learning_jobs j ON a.job_id=j.id ORDER BY a.id DESC LIMIT ?",
+                    (HIGH_PRIORITY_BUDGET,)
+                ).fetchall()]
+
+                all_runnable = [dict(r) for r in c_ro.execute(
+                    "SELECT * FROM learning_jobs WHERE status IN ('queued', 'retry') AND next_attempt <= ?",
+                    (now_iso,)
+                ).fetchall()]
+
+            candidates_to_claim = []
+            for _ in range(available_slots):
+                runnable_candidates = [
+                    r for r in all_runnable 
+                    if r['id'] not in active_ids and self._exclusivity_key(r) not in active_keys
+                ]
+                if not runnable_candidates:
+                    break
+
+                job, admission = choose_learning_job(
+                    runnable_candidates, deep_recent if deep_recent else recent, now, lane='deep'
+                )
+                if not job:
+                    job, admission = choose_learning_job(runnable_candidates, recent, now, lane='all')
+                if not job:
+                    break
+
+                job_id = job['id']
+                excl_key = self._exclusivity_key(job)
+                active_keys.add(excl_key)
+                active_ids.add(job_id)
+                all_runnable = [r for r in all_runnable if r['id'] != job_id]
+                candidates_to_claim.append((job, excl_key))
+
+            if candidates_to_claim:
+                with self.store.db() as c:
+                    c.execute('BEGIN IMMEDIATE')
+                    for job, excl_key in candidates_to_claim:
+                        chk = c.execute("SELECT status FROM learning_jobs WHERE id=?", (job['id'],)).fetchone()
+                        if chk and chk['status'] in ('queued', 'retry'):
+                            is_cont = job['kind'] == 'shadow_evaluation' and bool(job.get('result') and 'continuation_required' in str(job['result']))
+                            att_inc = 0 if is_cont else 1
+                            c.execute("UPDATE learning_jobs SET status='running', attempts=attempts+?, updated_at=? WHERE id=?", (att_inc, now_iso, job['id']))
+                            attempt_id = c.execute("INSERT INTO learning_attempts(job_id, started_at, status) VALUES (?, ?, 'running')", (job['id'], now_iso)).lastrowid
+                            newly_dispatched.append((job, attempt_id, now_iso, excl_key))
+
+        # 4. Submit newly claimed jobs to the ThreadPoolExecutor
+        for job, attempt_id, started_iso, excl_key in newly_dispatched:
+            fut = self._executor.submit(self.execute, job)
+            self._active_futures[fut] = (job, attempt_id, started_iso, excl_key)
+
+        # 5. Express lane: fast-track lightweight operational tasks
+        fast_res = self.run_fast_track(max_jobs=3)
+
+        # 6. Re-plan periodically (every 120s)
+        if not hasattr(self, '_last_planned') or (now - self._last_planned).total_seconds() >= 120.0:
+            self._last_planned = now
+            try:
+                self.plan()
+            except Exception:
+                logging.exception('Learning planner failed in parallel cycle')
+
+        # 7. Write telemetry snapshots (throttled to every 5 seconds)
+        if not hasattr(self, '_last_snap_time') or (now - self._last_snap_time).total_seconds() >= 5.0 or newly_dispatched or completed_jobs:
+            self._last_snap_time = now
+            snap = self.snapshot()
+            snap['active_parallel_threads'] = len(self._active_futures)
+            snap['active_jobs'] = [{'id': v[0]['id'], 'kind': v[0]['kind'], 'started_at': v[2]} for v in self._active_futures.values()]
+            atomic_json(self.data / 'learning_worker.json', snap)
+
+        return {
+            'busy': False,
+            'mode': 'parallel',
+            'active_count': len(self._active_futures),
+            'dispatched_count': len(newly_dispatched),
+            'completed_count': len(completed_jobs),
+            'failed_count': len(failed_jobs),
+            'fast_track': fast_res,
+        }
+
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--once',action='store_true');args=parser.parse_args()
-    worker=LearningWorker()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--once', action='store_true')
+    parser.add_argument('--max-parallel', type=int, default=4)
+    args = parser.parse_args()
+    worker = LearningWorker()
+    if args.once:
+        worker.run_once()
+        return
+
+    logging.info(f"Starting Multi-Threaded Learning Engine with max_parallel={args.max_parallel}")
     while True:
         try:
-            worker.run_once()
-            had_work = bool(getattr(worker, '_last_executed_job', None))
-            # Yield gracefully when tasks are present, sleep longer only when idle
-            sleep_sec = 1.0 if had_work else 15.0
+            summary = worker.run_parallel_cycle(max_parallel=args.max_parallel)
+            had_work = summary.get('active_count', 0) > 0 or summary.get('dispatched_count', 0) > 0 or summary.get('completed_count', 0) > 0
+            sleep_sec = 0.5 if had_work else 5.0
         except Exception:
-            logging.exception('Learning planner failed; retry on next tick')
-            atomic_json(worker.data/'learning_worker.json',{'checked_at':utcnow().isoformat(),'error':'Planner failed; check learning-error.log','code_self_modification':False})
-            sleep_sec = 15.0
-        if args.once:break
+            logging.exception('Learning parallel loop failed; retry on next tick')
+            sleep_sec = 5.0
         time.sleep(sleep_sec)
 
 if __name__=='__main__':main()

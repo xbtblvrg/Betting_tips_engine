@@ -13,6 +13,7 @@ import json
 import logging
 import re
 from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 from pathlib import Path
 import sqlite3
 import subprocess
@@ -20,12 +21,13 @@ from typing import Any, Dict, List, Optional
 from contextlib import closing
 
 from .domain import utcnow
+from .funnel_proportionality_supervisor import get_latest_funnel_supervision_status
 from .model_funnel_telemetry import get_latest_funnel_velocity_report
 from .providers import DATA
 
 log = logging.getLogger(__name__)
 
-BUDAPEST_TZ = timezone(timedelta(hours=1))
+BUDAPEST_TZ = ZoneInfo("Europe/Budapest")
 
 LEAGUE_EMOJIS = {
     "NBA": "🏀",
@@ -109,7 +111,9 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
     net_expansion_rate = float(hourly.get("net_expansion_velocity_per_hour_24h", w24h.get("net_graduation_velocity_per_hour", 0.0)) or 0.0)
     crucible_pass_pct = float(hourly.get("crucible_pass_rate_pct_24h", w24h.get("crucible_pass_rate_pct", 0.0)) or 0.0)
 
-    demoted_markets_count = int(inventory.get("tier2_shadow_incubator_count", 0) or 0)
+    tier1_research_count = int(inventory.get("tier1_research_training_count", 0) or 0)
+    tier2_incubating_count = int(inventory.get("tier2_shadow_incubator_count", 0) or 0)
+    demoted_markets_count = tier1_research_count
     graduated_markets_count = int(inventory.get("tier3_production_graduated_count", 0) or 0)
     total_synthesized = int(w24h.get("syntheses_count", 0) or 0)
 
@@ -121,6 +125,8 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
         funnel_report["tier_4_alpha_promotion_rate_per_hour"] = tier4_prom_per_hour
         funnel_report["net_market_expansion_rate_per_hour"] = net_expansion_rate
         funnel_report["crucible_admission_rate_pct"] = crucible_pass_pct
+        funnel_report["demoted_tier1_research_count"] = tier1_research_count
+        funnel_report["tier2_incubating_markets_count"] = tier2_incubating_count
         funnel_report["demoted_incubator_markets_count"] = demoted_markets_count
         funnel_report["active_graduated_markets_count"] = graduated_markets_count
         funnel_report["total_synthesized_models"] = total_synthesized
@@ -839,12 +845,60 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
             "timestamp": job.get("created_at") or now_utc.isoformat()
         })
 
+    # 9. Bottleneck Watchdog Telemetry & Anomaly Stream
+    from .bottleneck_watchdog import get_latest_bottleneck_watchdog_status
+    watchdog_report = get_latest_bottleneck_watchdog_status(d)
+    for anom in watchdog_report.get("anomalies", [])[:5]:
+        leg = anom.get("league") or "SYSTEM"
+        is_healed = anom.get("self_healed", False)
+        live_event_queue.append({
+            "id": f"watchdog_{anom.get('anomaly_id')}",
+            "type": "bottleneck_anomaly",
+            "priority": "routine" if is_healed else "critical",
+            "target_node": "bottleneck_watchdog",
+            "title": f"BOTTLENECK [{'HEALED' if is_healed else 'ACTIVE'}] · {anom.get('category', '').upper()}",
+            "subtitle": f"{anom.get('league')} {anom.get('scope')} {anom.get('family')}",
+            "league": leg,
+            "emoji": get_league_emoji(leg),
+            "badge": "HEALED" if is_healed else "ACTION REQ",
+            "badge_color": "green" if is_healed else "red",
+            "details": anom.get("message") or "",
+            "timestamp": anom.get("detected_at") or now_utc.isoformat()
+        })
+
+    # 10. Autorun Execution Errors / Warnings
+    autorun_errors: List[Dict[str, Any]] = []
+    if eng_db.exists():
+        try:
+            with sqlite3.connect(f"file:{eng_db.resolve()}?mode=ro", uri=True, timeout=3.0) as conn:
+                c = conn.cursor()
+                c.execute("""
+                    SELECT logged_at, stage, severity, status, message, error_code, ai_remediation_hint
+                    FROM autorun_events
+                    WHERE severity IN ('WARN', 'ERROR')
+                    ORDER BY id DESC LIMIT 10
+                """)
+                for r in c.fetchall():
+                    autorun_errors.append({
+                        "logged_at": r[0],
+                        "stage": r[1],
+                        "severity": r[2],
+                        "status": r[3],
+                        "message": r[4],
+                        "error_code": r[5],
+                        "ai_remediation_hint": r[6],
+                    })
+        except Exception:
+            pass
+
     return {
         "timestamp_utc": now_utc.isoformat(),
-        "budapest_time": now_bp.strftime("%Y-%m-%d %H:%M:%S UTC+1"),
+        "budapest_time": now_bp.strftime("%Y-%m-%d %H:%M:%S %Z"),
         "budapest_date": now_bp.strftime("%Y-%m-%d"),
         "system_status": "OPTIMAL",
         "clog_diagnostics": clog_status,
+        "bottleneck_diagnostics": watchdog_report,
+        "recent_execution_errors": autorun_errors,
         "daemons": daemons,
         "ai_brains": ai_brains,
         "funnel_velocity": funnel_report,
@@ -861,15 +915,19 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
                 "recent_syntheses": syntheses,
                 "latest_code_models": latest_code_models,
                 "research_markets_list": research_markets_list,
+                "demoted_quarantined_markets_count": demoted_markets_count,
                 "active_queue_jobs": active_jobs,
                 "jobs_summary": jobs_summary
             },
             "tier_2_incubator": {
                 "name": "Tier 2: Shadow Incubator ($0.00 Live Forward Validation)",
-                "demoted_markets_count": demoted_markets_count,
                 "incubating_markets_count": tier2_incubating_count,
                 "admission_rate_per_hour": tier2_adm_per_hour,
                 "crucible_pass_rate_pct": crucible_pass_pct,
+                "funnel_conversion_ratio": watchdog_report.get("tier1_tier2_health", {}).get("funnel_conversion_ratio", 0.0),
+                "unadmitted_backlog_count": watchdog_report.get("tier1_tier2_health", {}).get("unadmitted_champions_backlog_count", 0),
+                "alias_splits_count": watchdog_report.get("tier1_tier2_health", {}).get("alias_phase_splits_count", 0),
+                "watchdog_health_status": watchdog_report.get("status", "HEALTHY"),
                 "virtual_stake": "$0.00 (Zero bankroll risk)",
                 "total_virtual_wagers": total_incubated_wagers,
                 "open_virtual_wagers": open_incubated_wagers,
@@ -985,5 +1043,6 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
                 "coverage": "Real-time maker liquidity & best bids/asks",
                 "updated_at": now_utc.isoformat()
             }
-        ]
+        ],
+        "funnel_supervision": get_latest_funnel_supervision_status(d)
     }

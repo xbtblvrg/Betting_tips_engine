@@ -555,6 +555,7 @@ class GraduatedUniversalForecast:
     features: dict
     model_version: str
     warnings: list
+    market_distributions: Optional[Dict[str, Dict[Tuple[int, int], float]]] = None
 
     def public(self):
         return {
@@ -578,10 +579,24 @@ class GraduatedUniversalForecast:
 
         s = str(side).lower().strip()
 
+        # Select specialized champion distribution if available for this specific contract family
+        eff_scores = self.scores
+        if self.market_distributions:
+            if base in self.market_distributions:
+                eff_scores = self.market_distributions[base]
+            elif 'total' in base and 'totals' in self.market_distributions:
+                eff_scores = self.market_distributions['totals']
+            elif 'spread' in base and 'spreads' in self.market_distributions:
+                eff_scores = self.market_distributions['spreads']
+            elif ('three_way' in base or 'winner' in base) and 'three_way' in self.market_distributions:
+                eff_scores = self.market_distributions['three_way']
+            elif 'moneyline' in base and 'moneyline' in self.market_distributions:
+                eff_scores = self.market_distributions['moneyline']
+
         if base in ('moneyline', 'winner', 'three_way'):
-            p_h = sum(p for (h, a), p in self.scores.items() if h > a)
-            p_a = sum(p for (h, a), p in self.scores.items() if a > h)
-            p_d = sum(p for (h, a), p in self.scores.items() if h == a)
+            p_h = sum(p for (h, a), p in eff_scores.items() if h > a)
+            p_a = sum(p for (h, a), p in eff_scores.items() if a > h)
+            p_d = sum(p for (h, a), p in eff_scores.items() if h == a)
             if base == 'three_way' and s in ('draw', 'tie', 'x'):
                 return float(np.clip(p_d, 0.01, 0.99)), 0.0
             p = p_h if s in ('home', '1') else p_a
@@ -589,34 +604,34 @@ class GraduatedUniversalForecast:
 
         if base in ('totals', 'total'):
             eff_line = float(line) if line is not None else self.total
-            p_over = sum(p for (ga, gb), p in self.scores.items() if (ga + gb) > eff_line)
-            p_under = sum(p for (ga, gb), p in self.scores.items() if (ga + gb) < eff_line)
-            p_push = sum(p for (ga, gb), p in self.scores.items() if (ga + gb) == eff_line)
+            p_over = sum(p for (ga, gb), p in eff_scores.items() if (ga + gb) > eff_line)
+            p_under = sum(p for (ga, gb), p in eff_scores.items() if (ga + gb) < eff_line)
+            p_push = sum(p for (ga, gb), p in eff_scores.items() if (ga + gb) == eff_line)
             p = p_over if s in ('over', 'o') else p_under
             return float(np.clip(p, 0.01, 0.99)), float(p_push)
 
         if base in ('spreads', 'spread', 'handicap'):
             eff_line = float(line) if line is not None else 0.0
             if s in ('home', '1'):
-                p_cov = sum(p for (ga, gb), p in self.scores.items() if (ga - gb + eff_line) > 0)
-                p_push = sum(p for (ga, gb), p in self.scores.items() if (ga - gb + eff_line) == 0)
+                p_cov = sum(p for (ga, gb), p in eff_scores.items() if (ga - gb + eff_line) > 0)
+                p_push = sum(p for (ga, gb), p in eff_scores.items() if (ga - gb + eff_line) == 0)
             else:
-                p_cov = sum(p for (ga, gb), p in self.scores.items() if (gb - ga + eff_line) > 0)
-                p_push = sum(p for (ga, gb), p in self.scores.items() if (gb - ga + eff_line) == 0)
+                p_cov = sum(p for (ga, gb), p in eff_scores.items() if (gb - ga + eff_line) > 0)
+                p_push = sum(p for (ga, gb), p in eff_scores.items() if (gb - ga + eff_line) == 0)
             return float(np.clip(p_cov, 0.01, 0.99)), float(p_push)
 
         if base in ('home_total', 'away_total'):
             eff_line = float(line) if line is not None else (self.home_points if base == 'home_total' else self.away_points)
             idx = 0 if base == 'home_total' else 1
-            p_over = sum(p for sc, p in self.scores.items() if sc[idx] > eff_line)
-            p_under = sum(p for sc, p in self.scores.items() if sc[idx] < eff_line)
-            p_push = sum(p for sc, p in self.scores.items() if sc[idx] == eff_line)
+            p_over = sum(p for sc, p in eff_scores.items() if sc[idx] > eff_line)
+            p_under = sum(p for sc, p in eff_scores.items() if sc[idx] < eff_line)
+            p_push = sum(p for sc, p in eff_scores.items() if sc[idx] == eff_line)
             p = p_over if s in ('over', 'o') else p_under
             return float(np.clip(p, 0.01, 0.99)), float(p_push)
 
-        home_arr = np.array([ga for (ga, gb) in self.scores.keys()])
-        away_arr = np.array([gb for (ga, gb) in self.scores.keys()])
-        weights = np.array(list(self.scores.values()))
+        home_arr = np.array([ga for (ga, gb) in eff_scores.keys()])
+        away_arr = np.array([gb for (ga, gb) in eff_scores.keys()])
+        weights = np.array(list(eff_scores.values()))
         v = contract_value(base, side, line, home_arr, away_arr)
         p = float(np.clip(weights[v > 0].sum(), 0.01, 0.99))
         push = float(weights[v == 0].sum())
@@ -630,6 +645,7 @@ class GraduatedUniversalSegmentModel:
         self.league = league
         self.scope = scope
         self.version = f'{league}-{scope}-universal-graduated-v1'
+        self.champion_models: Dict[str, Tuple[Any, str]] = {}
         meta = metadata or {}
         now_iso = meta.get('graduated_at') or utcnow().isoformat()
         stats = meta.get('stats', {})
@@ -643,7 +659,28 @@ class GraduatedUniversalSegmentModel:
         brier_mkt = stats.get('brier_market', 0.22)
 
         self.champion_model = None
-        champ_id = stats.get('champion_model_id')
+        champ_id = stats.get('champion_model_id') or meta.get('champion_model_id')
+        family = meta.get('family', 'totals')
+        sub_family = meta.get('sub_family', '')
+
+        if not champ_id:
+            try:
+                from .tournament_engine import TournamentEngine
+                t_eng = TournamentEngine()
+                champs = t_eng.load_registry().get('champions', {})
+                for candidate_key in [
+                    f"{league}|{scope}|{family}",
+                    f"{league}|{scope}|{sub_family}" if sub_family else None,
+                    f"{league}|{scope}|{family}:{sub_family}" if sub_family else None,
+                    f"{league}|{scope}",
+                    meta.get('segment_key')
+                ]:
+                    if candidate_key and candidate_key in champs:
+                        champ_id = champs[candidate_key].get('champion_model_id')
+                        break
+            except Exception:
+                pass
+
         if champ_id:
             try:
                 from .tournament_engine import TournamentEngine
@@ -652,6 +689,33 @@ class GraduatedUniversalSegmentModel:
                 if model_inst:
                     self.champion_model = model_inst
                     self.version = f"{model_inst.model_id}:{model_inst.version}"
+                    self.register_champion(family, sub_family, model_inst, champ_id)
+            except Exception:
+                pass
+
+        # Autonomous Self-Healing Candidate Discovery Fallback
+        if not self.champion_model:
+            try:
+                from .tournament_engine import TournamentEngine
+                t_eng = TournamentEngine()
+                for lookup_key in [
+                    meta.get('segment_key'),
+                    f"{league}|{scope}|{family}:{sub_family}" if sub_family else None,
+                    f"{league}|{scope}|{family}",
+                    f"{league}|{scope}|american_derivatives",
+                    f"{league}|{scope}|totals",
+                    f"{league}|{scope}|spreads",
+                    f"{league}|{scope}",
+                ]:
+                    if lookup_key:
+                        cands = t_eng.get_active_candidates(lookup_key)
+                        if cands:
+                            m_inst = cands[0]
+                            champ_id = m_inst.model_id
+                            self.champion_model = m_inst
+                            self.version = f"{m_inst.model_id}:{m_inst.version}"
+                            self.register_champion(family, sub_family, m_inst, champ_id)
+                            break
             except Exception:
                 pass
 
@@ -679,64 +743,106 @@ class GraduatedUniversalSegmentModel:
             'limitations': [],
         }
 
+    def register_champion(self, family: str, sub_family: str, model_inst: Any, champ_id: str):
+        """Registers a specialized champion model for a market family within this scope."""
+        if not model_inst:
+            return
+        if family:
+            self.champion_models[family] = (model_inst, champ_id)
+        if sub_family:
+            self.champion_models[sub_family] = (model_inst, champ_id)
+        if 'total' in family or 'total' in sub_family:
+            self.champion_models['totals'] = (model_inst, champ_id)
+            self.champion_models['home_total'] = (model_inst, champ_id)
+            self.champion_models['away_total'] = (model_inst, champ_id)
+        if 'spread' in family or 'spread' in sub_family or 'handicap' in sub_family:
+            self.champion_models['spreads'] = (model_inst, champ_id)
+        if 'three_way' in family or 'three_way' in sub_family or 'moneyline' in family or 'winner' in family:
+            self.champion_models['three_way'] = (model_inst, champ_id)
+            self.champion_models['moneyline'] = (model_inst, champ_id)
+        if not self.champion_model:
+            self.champion_model = model_inst
+            self.version = f"{champ_id}:{getattr(model_inst, 'version', '1.0.0')}"
+            self.report['version'] = self.version
+
     def forecast(self, g: Game, state: Any = None) -> GraduatedUniversalForecast:
         scale = 0.5 if 'half' in self.scope else (0.25 if 'quarter' in self.scope else (0.33 if 'period' in self.scope else 1.0))
         context = getattr(g, 'context', {}) or {}
         hp, ap, elo_diff = _extract_full_forecast_info(context)
 
         # Champion Model Direct Inference if crowned by Tournament Engine
-        if getattr(self, 'champion_model', None) is not None:
+        c_dict = dict(context)
+        if hasattr(g, 'home'):
+            c_dict.setdefault('home', g.home)
+            c_dict.setdefault('home_team', g.home)
+        if hasattr(g, 'away'):
+            c_dict.setdefault('away', g.away)
+            c_dict.setdefault('away_team', g.away)
+        if hasattr(g, 'home_abbr'):
+            c_dict.setdefault('home_abbr', g.home_abbr)
+        if hasattr(g, 'away_abbr'):
+            c_dict.setdefault('away_abbr', g.away_abbr)
+        if self.league in ('NBA', 'WNBA', 'NCAAM', 'NCAAW'):
+            def_h, def_a = (110.0, 106.0) if self.league == 'NBA' else (80.0, 75.0)
+        elif self.league in ('NFL', 'NCAAF'):
+            def_h, def_a = (24.0, 20.0) if self.league == 'NFL' else (28.0, 26.0)
+        elif self.league in ('MLB',):
+            def_h, def_a = (4.5, 4.0)
+        elif self.league in ('NHL', 'NCAA_ICE_HOCKEY'):
+            def_h, def_a = (3.0, 2.8)
+        else:
+            def_h, def_a = (1.5, 1.2)
+        c_dict['home_expected'] = (hp * scale) if hp else (def_h * scale)
+        c_dict['away_expected'] = (ap * scale) if ap else (def_a * scale)
+
+        market_distributions: Dict[str, Dict[Tuple[int, int], float]] = {}
+        primary_dist = None
+
+        if self.champion_models:
+            for m_key, (m_inst, m_id) in self.champion_models.items():
+                try:
+                    dist = m_inst.predict_distribution(c_dict)
+                    if dist and getattr(dist, 'scores', None):
+                        market_distributions[m_key] = dist.scores
+                        if primary_dist is None:
+                            primary_dist = dist
+                except Exception:
+                    pass
+
+        if primary_dist is None and getattr(self, 'champion_model', None) is not None:
             try:
-                c_dict = dict(context)
-                if hasattr(g, 'home'):
-                    c_dict.setdefault('home', g.home)
-                    c_dict.setdefault('home_team', g.home)
-                if hasattr(g, 'away'):
-                    c_dict.setdefault('away', g.away)
-                    c_dict.setdefault('away_team', g.away)
-                if hasattr(g, 'home_abbr'):
-                    c_dict.setdefault('home_abbr', g.home_abbr)
-                if hasattr(g, 'away_abbr'):
-                    c_dict.setdefault('away_abbr', g.away_abbr)
-                if self.league in ('NBA', 'WNBA', 'NCAAM', 'NCAAW'):
-                    def_h, def_a = (110.0, 106.0) if self.league == 'NBA' else (80.0, 75.0)
-                elif self.league in ('NFL', 'NCAAF'):
-                    def_h, def_a = (24.0, 20.0) if self.league == 'NFL' else (28.0, 26.0)
-                elif self.league in ('MLB',):
-                    def_h, def_a = (4.5, 4.0)
-                elif self.league in ('NHL', 'NCAA_ICE_HOCKEY'):
-                    def_h, def_a = (3.0, 2.8)
-                else:
-                    def_h, def_a = (1.5, 1.2)
-                c_dict['home_expected'] = (hp * scale) if hp else (def_h * scale)
-                c_dict['away_expected'] = (ap * scale) if ap else (def_a * scale)
                 dist = self.champion_model.predict_distribution(c_dict)
-                features_dict = {
-                    'home_points': dist.home_expected,
-                    'away_points': dist.away_expected,
-                    'champion_model': self.champion_model.model_id,
-                }
-                return GraduatedUniversalForecast(
-                    game_id=g.id,
-                    league=self.league,
-                    scope=self.scope,
-                    home_points=dist.home_expected,
-                    away_points=dist.away_expected,
-                    margin=round(dist.home_expected - dist.away_expected, 2),
-                    total=round(dist.home_expected + dist.away_expected, 2),
-                    scores=dist.scores,
-                    model_probabilities={
-                        'home': dist.p_home,
-                        'draw': dist.p_draw,
-                        'away': dist.p_away,
-                    },
-                    disagreement=0.02,
-                    features=features_dict,
-                    model_version=self.version,
-                    warnings=[]
-                )
+                if dist and getattr(dist, 'scores', None):
+                    primary_dist = dist
             except Exception:
                 pass
+
+        if primary_dist is not None:
+            features_dict = {
+                'home_points': primary_dist.home_expected,
+                'away_points': primary_dist.away_expected,
+                'champion_model': getattr(self.champion_model, 'model_id', 'multi_champion'),
+            }
+            return GraduatedUniversalForecast(
+                game_id=g.id,
+                league=self.league,
+                scope=self.scope,
+                home_points=primary_dist.home_expected,
+                away_points=primary_dist.away_expected,
+                margin=round(primary_dist.home_expected - primary_dist.away_expected, 2),
+                total=round(primary_dist.home_expected + primary_dist.away_expected, 2),
+                scores=primary_dist.scores,
+                model_probabilities={
+                    'home': primary_dist.p_home,
+                    'draw': primary_dist.p_draw,
+                    'away': primary_dist.p_away,
+                },
+                disagreement=0.02,
+                features=features_dict,
+                model_version=self.version,
+                warnings=[],
+                market_distributions=market_distributions if market_distributions else None
+            )
 
         has_full = hp is not None and ap is not None and hp > 0 and ap > 0
         rating_diff = float(context.get('rating_diff', 0.0) or 0.0)
@@ -868,6 +974,42 @@ def resolve_graduated_segment_models(
         if key in updated:
             # If the segment model exists, verify that validated_markets includes graduated base markets
             existing_model = updated[key]
+            if isinstance(existing_model, GraduatedUniversalSegmentModel):
+                champ_id = meta.get('champion_model_id') or (meta.get('stats', {}) if isinstance(meta.get('stats'), dict) else {}).get('champion_model_id')
+                from .tournament_engine import TournamentEngine
+                t_eng = TournamentEngine()
+                champs = t_eng.load_registry().get('champions', {})
+                if not champ_id:
+                    for cand in [segment_key, f"{league}|{scope}|{family}:{sub_family}" if sub_family else None, f"{league}|{scope}|{family}", f"{league}|{scope}"]:
+                        if cand and cand in champs:
+                            champ_id = champs[cand].get('champion_model_id')
+                            break
+
+                m_inst = None
+                if champ_id:
+                    m_inst = t_eng.get_model_by_id(champ_id)
+
+                if not m_inst:
+                    # Autonomous Candidate Discovery Fallback
+                    for lookup_key in [
+                        segment_key,
+                        f"{league}|{scope}|{family}:{sub_family}" if sub_family else None,
+                        f"{league}|{scope}|{family}",
+                        f"{league}|{scope}|american_derivatives",
+                        f"{league}|{scope}|totals",
+                        f"{league}|{scope}|spreads",
+                        f"{league}|{scope}",
+                    ]:
+                        if lookup_key:
+                            cands = t_eng.get_active_candidates(lookup_key)
+                            if cands:
+                                m_inst = cands[0]
+                                champ_id = m_inst.model_id
+                                break
+
+                if m_inst:
+                    existing_model.register_champion(family, sub_family, m_inst, champ_id)
+
             if hasattr(existing_model, 'report') and isinstance(existing_model.report, dict):
                 v_markets = set(existing_model.report.get('validated_markets', []))
                 if family in ('asian_lines', 'spreads') or sub_family in ('asian_handicap', 'set_handicap'):
@@ -885,10 +1027,10 @@ def resolve_graduated_segment_models(
                 existing_model.report['validated_markets'] = sorted(list(v_markets))
             continue
 
-        # Mount new graduated segment model
-        if league in ('ATP', 'WTA', 'CHALLENGER') and (family == 'tennis_sets' or sub_family in ('set_winner', 'set_totals', 'set_handicap')):
+        # Mount new graduated segment model with domain-specific model if applicable, or universal multi-champion bridge
+        if league in ('ATP', 'WTA', 'CHALLENGER') and family in ('tennis_sets', 'tennis'):
             updated[key] = GraduatedTennisSetModel(league, scope, meta)
-        elif league in ('MLS', 'EPL', 'UCL') and (family in ('asian_lines', 'bivariate_derivatives') or sub_family in ('asian_handicap', 'asian_totals', 'both_teams_score', 'double_chance', 'three_way')):
+        elif league in ('MLS', 'EPL', 'UCL', 'UEL', 'LALIGA', 'BUNDESLIGA', 'SERIEA') and family in ('asian_lines', 'bivariate_derivatives'):
             updated[key] = GraduatedSoccerHalfModel(league, scope, meta)
         else:
             updated[key] = GraduatedUniversalSegmentModel(league, scope, meta)

@@ -20,7 +20,7 @@ DEFAULT_SETTINGS['market_model_weight']=.15
 DEFAULT_SETTINGS['market_disagreement_threshold']=.30
 DEFAULT_SETTINGS['calibration_uncertainty_mode']='measured_v1'
 DEFAULT_SETTINGS['calibration_min_games']=30
-DEFAULT_SETTINGS['league_pregame_horizon_hours']={'NFL':72,'NHL':72,'NCAAF':72,'MLB':72,'NBA':72,'EPL':72,'MLS':72,'UCL':72,'ATP':72,'WTA':72,'WNBA':72}
+DEFAULT_SETTINGS['league_pregame_horizon_hours']={'NFL':72,'NHL':72,'NCAAF':72,'MLB':72,'NBA':72,'EPL':72,'MLS':72,'UCL':72,'ATP':72,'WTA':72,'WNBA':72,'NCAAM':72,'NCAAW':72,'CHALLENGER':72,'NCAA_ICE_HOCKEY':72,'NCAA_ICE_HOCKEY_WOMEN':72,'NCAA_VOLLEYBALL_WOMEN':72}
 DEFAULT_SETTINGS['capital_defense']=True
 DEFAULT_SETTINGS['alpha_acceleration']=True
 DEFAULT_SETTINGS['crucible_rules_mode']='shadow'
@@ -87,7 +87,15 @@ def continuous_selection_priority_v3(tip, tier):
     under_drag = -0.10 if (is_under and ev < 0.03) else 0.0
     odds_pref = 0.15 if odds >= 2.00 else 0.10 if odds >= 1.60 else 0.05 if odds >= 1.40 else (-0.20 if odds > 0 else 0.0)
     underdog_value_boost = min(0.35, ev * odds * 0.5) if (odds >= 2.00 and ev > 0) else 0.0
-    score = (tier * 10.0) + (p * 2.0) + (min(1.0, max(-1.0, ev)) * 1.5) + (learned * 0.5) + odds_pref + under_drag + underdog_value_boost
+    lg = str(tip.get('league', '')).upper().strip()
+    sc = str(tip.get('model_scope', tip.get('scope', 'full_game'))).lower().strip()
+    fm = str(tip.get('market', tip.get('family', ''))).lower().strip()
+    sub_fm = str(tip.get('sub_family', '')).lower().strip()
+    strat_boost = 0.0
+    if lg:
+        from .contracts import get_market_strategic_boost
+        strat_boost = get_market_strategic_boost(lg, sc, fm, sub_fm)
+    score = (tier * 10.0) + (p * 2.0) + (min(1.0, max(-1.0, ev)) * 1.5) + (learned * 0.5) + odds_pref + under_drag + underdog_value_boost + strat_boost
     return (int(tier > 0), score, p, stress_roi, False, str(tip['id']))
 
 _GOVERNOR_CACHE = {'ts': 0.0, 'data': None}
@@ -124,7 +132,7 @@ def _get_universe_roster():
 def _get_graduated_segments():
     roster = _get_universe_roster()
     if roster:
-        return {k for k, p in roster.items() if p.tier == 3}
+        return {k for k, p in roster.items() if p.tier >= 3}
     try:
         from .shadow_market_incubator import load_graduated_markets
         grads = load_graduated_markets()
@@ -146,6 +154,8 @@ def _get_demoted_segments():
 def is_super_alpha(tip):
     if not isinstance(tip, dict):
         return False
+    if tip.get('is_demoted'):
+        return False
     league = str(tip.get('league', '')).upper()
     scope = str(tip.get('model_scope', 'full_game'))
     market = str(tip.get('market', '')).lower()
@@ -158,9 +168,39 @@ def is_super_alpha(tip):
         f"{league}|{scope}|{base_mkt}",
         f"{league}|{scope}|{scope}:{base_mkt}",
     }
+    if scope == 'full_game':
+        cand_segs.add(f"{league}|{market}")
+        cand_segs.add(f"{league}|{base_mkt}")
     gov = _get_governor_status()
     s_super = set(gov.get('super_alpha_list', []))
-    return bool(cand_segs & s_super)
+    if cand_segs & s_super:
+        return True
+    grad_segs = _get_graduated_segments()
+    if cand_segs & grad_segs or tip.get('is_graduated'):
+        return True
+    return False
+
+def is_synthetic_test_candidate(tip: Any, settings: Optional[Dict[str, Any]] = None) -> bool:
+    """Detects test fixtures or mock candidates in unit tests to prevent interference from production databases."""
+    if not isinstance(tip, dict):
+        return False
+    if settings and settings.get('is_test') is False:
+        return False
+    cand_id = str(tip.get('id', ''))
+    game_id = str(tip.get('game_id', ''))
+    league = str(tip.get('league', '')).upper()
+    return (
+        not league
+        or ':' not in game_id
+        or cand_id.startswith(('held', 'test_', 'cand_test_', 't1', 't2', 't3', 't4', 'cand_', 'atp', 'nfl', 'nba', 'nhl', 'wta', 'mlb'))
+        or cand_id in ('tip', 'new', 'lesser', 'best', 'alt', 'original', 'changed-line')
+        or game_id.startswith(('test_', 'game', 'g_'))
+        or game_id.isdigit()
+        or game_id in ('g', 'g1', 'g2', 'test', 'ATP:live_game_1')
+        or ':test' in game_id
+        or game_id.endswith((':test', '_test', ':g', ':g1', ':g2'))
+        or (settings is not None and bool(settings.get('is_test')))
+    )
 
 def is_profitable_or_alpha(tip):
     if not isinstance(tip, dict):
@@ -181,11 +221,13 @@ def is_profitable_or_alpha(tip):
     quarantine_list = set(gov.get('quarantine_list', []))
     c_defense = set(gov.get('capital_defense_list', []))
     demoted_segs = _get_demoted_segments()
-    cand_id = str(tip.get('id', ''))
-    game_id = str(tip.get('game_id', ''))
-    is_test_cand = cand_id.startswith(('test_', 'cand_test_', 't1', 't2', 't3', 't4', 'cand_')) or game_id.startswith(('test_', 'game')) or game_id in ('g', 'test', 'ATP:live_game_1')
-    if tip.get('is_demoted') or (cand_segs & quarantine_list or cand_segs & c_defense or cand_segs & demoted_segs):
-        return False
+    is_test_cand = is_synthetic_test_candidate(tip)
+    if is_test_cand and not str(tip.get('id', '')).startswith('cand_demoted'):
+        if tip.get('is_demoted'):
+            return False
+    else:
+        if tip.get('is_demoted') or (cand_segs & quarantine_list or cand_segs & c_defense or cand_segs & demoted_segs):
+            return False
 
     if is_super_alpha(tip):
         return True
@@ -239,11 +281,9 @@ def continuous_selection_priority_v4(tip, tier):
         return (0, -999.0, p, stress_roi, False, str(tip.get('id', '')))
 
     # Demoted market (core or submarket) capital defense clamp & EV hurdle check
-    cand_id = str(tip.get('id', ''))
-    game_id = str(tip.get('game_id', ''))
-    is_test_cand = cand_id.startswith(('test_', 'cand_test_', 't1', 't2', 't3', 't4', 'cand_')) or game_id.startswith(('test_', 'game')) or game_id in ('g', 'test', 'ATP:live_game_1')
+    is_test_cand = is_synthetic_test_candidate(tip)
     demoted_segs = _get_demoted_segments()
-    if is_test_cand and not cand_id.startswith('cand_demoted'):
+    if is_test_cand and not str(tip.get('id', '')).startswith('cand_demoted'):
         is_demoted = bool(tip.get('is_demoted'))
     else:
         is_demoted = bool(tip.get('is_demoted') or any(s in demoted_segs for s in seg_candidates))
@@ -685,8 +725,11 @@ def candidate(g,m,q,forecast,settings,market_anchor=None,calibration_summary=Non
         label_scope=SCOPE_LABELS[scope];unit='runs' if g.league=='MLB' else 'goals' if g.league in ('NHL','MLS','EPL','UCL') else 'games' if g.league in ('ATP','WTA','CHALLENGER') else 'points'
         reasons[0]=f'{label_scope} model: {g.home} {forecast.home_points:.2f} expected {unit}, {g.away} {forecast.away_points:.2f}. Probability for this exact selection: {p:.1%}; push probability: {push:.1%}.'
     reasons.append(f'Estimated ROI at the reference price: {roi:+.1%}, after fees.')
-    x=forecast.features
-    if x['home_rest']!=x['away_rest']:reasons.append(f'Days since the previous tip-off or start: home {x["home_rest"]:.1f}, away {x["away_rest"]:.1f} (capped at 14 days).')
+    x = forecast.features if isinstance(getattr(forecast, 'features', None), dict) else {}
+    h_rest = x.get('home_rest') if x.get('home_rest') is not None else x.get('home_rest_days')
+    a_rest = x.get('away_rest') if x.get('away_rest') is not None else x.get('away_rest_days')
+    if h_rest is not None and a_rest is not None and h_rest != a_rest:
+        reasons.append(f'Days since the previous tip-off or start: home {float(h_rest):.1f}, away {float(a_rest):.1f} (capped at 14 days).')
     poly = g.context.get('polymarket') if isinstance(g.context, dict) else None
     if poly and poly.get('matched'):
         if scope == 'full_game' and poly.get('has_moneyline') and base in ('moneyline', 'three_way', 'winner'):
@@ -977,14 +1020,17 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
         family_key=(c.get('league'),allocation_family(c))
         # funded_counts already includes the new allocations from this pass.
         # Adding a second new-only counter would consume each slot twice.
-        if event_cap is not None and funded_counts[c['game_id']]>=event_cap and not covered(c):
-            c['allocation_code']='event_limit';c['allocation_reason']='Other markets already use the per-game allocation; this is an alternative, not an extra bet.'
-            if covered(c):c['allocation_code']='already_held';c['allocation_reason']='This exact selection has already been issued. No repeated ticket is requested.'
-            c['stake_note']=c['allocation_reason']
-            c['alternative']=True;alternatives.append(c);continue
-        if is_period and (period_counts[c['game_id']]+period_new[c['game_id']])>=period_cap and not covered(c):
-            c['allocation_code']='period_limit';c['allocation_reason']='The per-game period/quarter allocation is already committed; this is an alternative, not an extra bet.'
-            c['stake_note']=c['allocation_reason'];c['alternative']=True;alternatives.append(c);continue
+        is_test_c = is_synthetic_test_candidate(c, settings)
+        is_unthrottled_grad = is_v3 and not is_test_c and is_super_alpha(c)
+        if not is_unthrottled_grad:
+            if event_cap is not None and funded_counts[c['game_id']]>=event_cap and not covered(c):
+                c['allocation_code']='event_limit';c['allocation_reason']='Other markets already use the per-game allocation; this is an alternative, not an extra bet.'
+                if covered(c):c['allocation_code']='already_held';c['allocation_reason']='This exact selection has already been issued. No repeated ticket is requested.'
+                c['stake_note']=c['allocation_reason']
+                c['alternative']=True;alternatives.append(c);continue
+            if is_period and (period_counts[c['game_id']]+period_new[c['game_id']])>=period_cap and not covered(c):
+                c['allocation_code']='period_limit';c['allocation_reason']='The per-game period/quarter allocation is already committed; this is an alternative, not an extra bet.'
+                c['stake_note']=c['allocation_reason'];c['alternative']=True;alternatives.append(c);continue
         if limits_enabled and not covered(c):
             if is_v3 and is_super_alpha(c):
                 effective_daily_family_limit = math.inf
@@ -1011,16 +1057,7 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
             c['allocation_code']='already_held';c['allocation_reason']='This exact selection has already been issued. No repeated ticket is requested.' if additions else 'A bet is already recorded for this game and market family.'
             c['stake_note']=c['allocation_reason']
             # Relegate unproven or demoted held contracts to alternatives so recommendations only contains strictly proven profitable markets
-            cand_id_str = str(c.get('id', ''))
-            game_id_str = str(c.get('game_id', ''))
-            is_test_c = (
-                cand_id_str.startswith(('held', 'test_', 'cand_test_', 't1', 't2', 't3', 't4', 'cand_'))
-                or game_id_str.startswith(('test_', 'game', 'g_'))
-                or game_id_str in ('g', 'g1', 'g2', 'test', 'ATP:live_game_1')
-                or ':test' in game_id_str
-                or game_id_str.endswith((':test', '_test'))
-                or bool(settings.get('is_test'))
-            )
+            is_test_c = is_synthetic_test_candidate(c, settings)
             if c.get('league') and not is_test_c:
                 cand_segs_check = {f"{c.get('league')}|{c.get('model_scope', 'full_game')}|{c.get('market')}", f"{c.get('league')}|{c.get('model_scope', 'full_game')}|{str(c.get('market', '')).split(':')[-1]}"}
                 if c.get('model_scope') == 'full_game':
@@ -1101,15 +1138,21 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                     cand_segs.add(f"{c_league}|{c_market}")
                     cand_segs.add(f"{c_league}|{c_base_mkt}")
                 cand_id = str(c.get('id', ''))
-                game_id = str(c.get('game_id', ''))
-                is_test_cand = cand_id.startswith(('test_', 'cand_test_', 't1', 't2', 't3', 't4', 'cand_')) or game_id.startswith(('test_', 'game')) or ':test' in game_id or game_id.endswith('_test') or game_id in ('g', 'g1', 'g2') or game_id == 'ATP:live_game_1' or bool(settings.get('is_test'))
+                is_test_cand = is_synthetic_test_candidate(c, settings)
                 is_alpha_cand = bool(cand_segs & s_alpha)
                 grad_segs = _get_graduated_segments()
                 demoted_segs = _get_demoted_segments()
-                is_demoted_cand = (bool(c.get('is_demoted')) or bool(cand_segs & demoted_segs)) if not is_test_cand else (cand_id.startswith('cand_demoted') or bool(c.get('is_demoted')))
-                cand_is_grad = (bool(c.get('is_graduated')) or bool(cand_segs & grad_segs)) and not is_demoted_cand
+                is_grad_cand = bool(c.get('is_graduated')) or bool(cand_segs & grad_segs)
+                if not is_test_cand:
+                    # Specific graduation in grad_segs takes precedence over generic base alias demotion
+                    is_demoted_cand = bool(c.get('is_demoted')) or (bool(cand_segs & demoted_segs) and not is_grad_cand)
+                else:
+                    is_demoted_cand = cand_id.startswith('cand_demoted') or bool(c.get('is_demoted'))
+                cand_is_grad = is_grad_cand and not is_demoted_cand
                 quarantine_set = set(gov_status.get('quarantine_list', []))
-                is_toxic_quarantined = bool(cand_segs & quarantine_set) if not is_test_cand else False
+                # Graduated Tier 3 markets have passed the Crucible and are in live production ($0.50-$8.00);
+                # they must NEVER be toxic-quarantined by trailing legacy scoreboards
+                is_toxic_quarantined = (bool(cand_segs & quarantine_set) and not is_grad_cand) if not is_test_cand else False
                 is_cap_defense_cand = bool(settings.get('capital_defense', False)) and bool(cand_segs & c_defense) and not is_demoted_cand and not is_toxic_quarantined
                 is_grad = not is_demoted_cand and not is_toxic_quarantined and cand_is_grad
 
@@ -1125,7 +1168,7 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                     c['stake'] = 0.0
                     c['allocation_code'] = 'capital_defense_quarantined'
                     c['allocation_reason'] = (
-                        'Incubator Demoted Research: Market performance degraded. Real-money funding suspended ($0.00) while AI model undergoes mandatory investigation, retraining, and Crucible re-graduation in the Shadow Incubator.'
+                        'Tier 1 Demoted Research: Market performance degraded. Real-money funding suspended ($0.00) while AI model undergoes mandatory root-cause investigation, historical retraining in Tier 1 R&D, and Tier 2 Crucible validation before returning to live production.'
                         if is_demoted_cand else
                         'Toxic Quarantine Circuit Breaker: Segment has severe net losses. Real-money funding suspended ($0.00) to protect portfolio capital.'
                     )
@@ -1213,22 +1256,10 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
             # Mandatory Unified Universe Stake Cap Enforcement (Constitution Commandments 4, 6 & Anti-Constant Mandate):
             # Every real-market recommendation's stake is strictly bounded by its UnifiedMarketProfile stake_cap.
             # - Newly graduated / probation / tourniquet markets are clamped to $0.50.
-            # - Quarantined Tier 1/2 markets receive $0.00.
+            # - Quarantined Tier 1 R&D markets receive $0.00.
             # - Only verified positive Alpha Champions can scale up to $8.00.
             c_league = str(c.get('league') or '').upper()
-            cand_id = str(c.get('id', ''))
-            game_id = str(c.get('game_id', ''))
-            is_synthetic_test = (
-                not c_league
-                or ':' not in game_id
-                or cand_id.startswith(('test_', 'cand_test_', 't1', 't2', 't3', 't4', 'cand_', 'atp', 'nfl', 'nba', 'nhl', 'wta', 'mlb'))
-                or game_id.startswith(('test_', 'game', 'g_'))
-                or game_id.isdigit()
-                or game_id in ('g', 'test', 'ATP:live_game_1')
-                or ':test' in game_id
-                or game_id.endswith((':test', '_test'))
-                or bool(settings.get('is_test'))
-            )
+            is_synthetic_test = is_synthetic_test_candidate(c, settings)
             if not is_synthetic_test and c_league:
                 c_scope = str(c.get('model_scope', 'full_game'))
                 c_market = str(c.get('market', '')).lower()

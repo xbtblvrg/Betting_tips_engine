@@ -53,6 +53,7 @@ class PreflightResult:
     best_bid: float = 0.0
     best_ask: float = 0.0
     spread: float = 0.0
+    min_order_size: float = 5.0
 
 
 @dataclass
@@ -77,6 +78,15 @@ class SlicingPlan:
 class PolymarketAutonomousExecutor:
     """Autonomous Parallel Trading Channel for Polymarket CLOB."""
 
+    _cached_scoreboard: Optional[Dict[str, Any]] = None
+    _cached_scoreboard_db: Optional[str] = None
+    _scoreboard_cached_at: float = 0.0
+    _cached_graduated: Optional[Any] = None
+    _graduated_cached_at: float = 0.0
+    _cached_balance: Optional[float] = None
+    _balance_cached_at: float = 0.0
+    _ensured_dbs: Set[str] = set()
+
     def __init__(
         self,
         db_path: Optional[Path] = None,
@@ -100,11 +110,6 @@ class PolymarketAutonomousExecutor:
         self.builder_secret = os.getenv("POLYMARKET_BUILDER_SECRET")
         self.builder_passphrase = os.getenv("POLYMARKET_BUILDER_PASSPHRASE")
         self.relayer_api_key = os.getenv("POLYMARKET_RELAYER_API_KEY")
-
-        self._cached_scoreboard = None
-        self._scoreboard_cached_at = 0.0
-        self._cached_graduated = None
-        self._graduated_cached_at = 0.0
 
         self.client = client
         self._init_client_if_needed()
@@ -160,10 +165,17 @@ class PolymarketAutonomousExecutor:
                 signature_type=1,
                 builder_config=clob_builder_cfg,
             )
-            if hasattr(c, "create_or_derive_api_key"):
-                derived_creds = c.create_or_derive_api_key()
-            else:
+            if hasattr(c, "create_or_derive_api_creds"):
                 derived_creds = c.create_or_derive_api_creds()
+            elif hasattr(c, "derive_api_key"):
+                try:
+                    derived_creds = c.derive_api_key()
+                except Exception:
+                    derived_creds = c.create_api_key() if hasattr(c, "create_api_key") else None
+            elif hasattr(c, "create_api_key"):
+                derived_creds = c.create_api_key()
+            else:
+                derived_creds = None
             c.set_api_creds(derived_creds)
             self.client = c
             self.is_v2 = is_v2
@@ -174,6 +186,9 @@ class PolymarketAutonomousExecutor:
 
     def _ensure_table_exists(self):
         """Guarantees polymarket_orders schema is present with indices."""
+        db_key = str(self.db_path.resolve()) if self.db_path else ""
+        if db_key and db_key in PolymarketAutonomousExecutor._ensured_dbs:
+            return
         try:
             with sqlite3.connect(self.db_path, timeout=30) as conn:
                 conn.execute(
@@ -223,23 +238,31 @@ class PolymarketAutonomousExecutor:
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_poly_orders_status ON polymarket_orders(status);")
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_poly_orders_mode ON polymarket_orders(execution_mode);")
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_poly_orders_scope ON polymarket_orders(scope);")
+            if db_key:
+                PolymarketAutonomousExecutor._ensured_dbs.add(db_key)
         except Exception as exc:
             log.warning(f"Could not verify polymarket_orders table schema: {exc}")
 
     def _get_or_refresh_scoreboard(self) -> Dict[str, Any]:
         """Loads and caches SegmentScoreboard with a 60s cache TTL."""
         now_ts = time.time()
-        if self._cached_scoreboard is None or (now_ts - self._scoreboard_cached_at) > 60.0:
+        db_key = str(self.db_path.resolve()) if self.db_path else ""
+        if (
+            PolymarketAutonomousExecutor._cached_scoreboard is None
+            or PolymarketAutonomousExecutor._cached_scoreboard_db != db_key
+            or (now_ts - PolymarketAutonomousExecutor._scoreboard_cached_at) > 60.0
+        ):
             try:
                 from .segment_scoreboard import compute_segment_scoreboard
 
                 with sqlite3.connect(self.db_path, timeout=30) as conn:
-                    self._cached_scoreboard = compute_segment_scoreboard(conn)
-                    self._scoreboard_cached_at = now_ts
+                    PolymarketAutonomousExecutor._cached_scoreboard = compute_segment_scoreboard(conn)
+                    PolymarketAutonomousExecutor._cached_scoreboard_db = db_key
+                    PolymarketAutonomousExecutor._scoreboard_cached_at = now_ts
             except Exception as exc:
                 log.warning(f"Error inspecting SegmentScoreboard for Polymarket eligibility: {exc}")
-                self._cached_scoreboard = {}
-        return self._cached_scoreboard or {}
+                PolymarketAutonomousExecutor._cached_scoreboard = {}
+        return PolymarketAutonomousExecutor._cached_scoreboard or {}
 
     def is_market_eligible(
         self,
@@ -282,12 +305,28 @@ class PolymarketAutonomousExecutor:
             league_aliases = ["CWBB", "NCAAW"]
 
         family_aliases = [market_family]
-        if market_family in ("moneyline", "winner", "head_to_head", "h2h"):
-            family_aliases.extend(["moneyline", "winner", "h2h", f"{scope}:moneyline", f"{scope}:three_way"])
+        if market_family in ("moneyline", "winner", "head_to_head", "h2h", "three_way", "1x2"):
+            family_aliases.extend([
+                "moneyline", "winner", "h2h", "three_way", "1x2",
+                f"{scope}:moneyline", f"{scope}:three_way",
+                f"american_derivatives:{market_family}",
+                "american_derivatives:three_way",
+                "american_derivatives:moneyline"
+            ])
         elif market_family in ("spreads", "handicap", "run_line", "puck_line"):
-            family_aliases.extend(["spreads", "handicap", "asian_handicap", f"{scope}:spreads", f"{scope}:asian_handicap"])
+            family_aliases.extend([
+                "spreads", "handicap", "asian_handicap",
+                f"{scope}:spreads", f"{scope}:asian_handicap",
+                f"american_derivatives:{market_family}",
+                "american_derivatives:spreads"
+            ])
         elif market_family in ("totals", "over_under"):
-            family_aliases.extend(["totals", "asian_total", "asian_totals", f"{scope}:totals", f"{scope}:asian_total", f"{scope}:asian_totals"])
+            family_aliases.extend([
+                "totals", "asian_total", "asian_totals",
+                f"{scope}:totals", f"{scope}:asian_total", f"{scope}:asian_totals",
+                f"american_derivatives:{market_family}",
+                "american_derivatives:totals"
+            ])
 
         seg_keys = []
         for alias in family_aliases:
@@ -300,34 +339,39 @@ class PolymarketAutonomousExecutor:
         now_ts = time.time()
 
         # Gate 0a: Check demoted_markets in shadow_incubator.sqlite3
-        # If a market is currently demoted, it is strictly quarantined in Tier 1 R&D / Tier 2 Shadow Incubator ($0.00).
+        # If a market is currently demoted, it is strictly quarantined in Tier 1 R&D ($0.00).
         # Polymarket order generation is strictly suspended to $0.00 virtual stakes!
         try:
-            from .shadow_market_incubator import load_demoted_markets
+            from .shadow_market_incubator import load_demoted_markets, load_graduated_markets
+            from .tournament_engine import normalize_segment_key
             demoted = load_demoted_markets(self.db_path.parent)
+            graduated = load_graduated_markets(self.db_path.parent)
+            norm_seg_keys = {normalize_segment_key(k) for k in seg_keys}
+
             if demoted:
                 for k in seg_keys:
-                    if k in demoted:
+                    if k in demoted and k not in graduated:
                         d_info = demoted[k]
                         r_roi = float(d_info.get("rolling_roi", 0.0))
                         r_pnl = float(d_info.get("rolling_pnl", 0.0))
                         return (
                             False,
-                            f"DEMOTED_IN_SHADOW_INCUBATOR: Segment {k} is quarantined in Tier 1/2 (demoted_markets table: {r_roi*100:.1f}% ROI, ${r_pnl:.2f}). Real-money Polymarket trading strictly suspended ($0.00).",
+                            f"DEMOTED_IN_SHADOW_INCUBATOR: Segment {k} is quarantined in Tier 1 R&D (demoted_markets table: {r_roi*100:.1f}% ROI, ${r_pnl:.2f}). Real-money Polymarket trading strictly suspended ($0.00).",
                             0.0,
                         )
-                canon_pre = f"{league}|{scope}|"
+
                 for d_k, d_info in demoted.items():
-                    if d_k.startswith(canon_pre):
-                        d_fam = d_k.split("|")[2].lower()
-                        if any(a == d_fam or a in d_fam or d_fam in a for a in family_aliases):
-                            r_roi = float(d_info.get("rolling_roi", 0.0))
-                            r_pnl = float(d_info.get("rolling_pnl", 0.0))
-                            return (
-                                False,
-                                f"DEMOTED_IN_SHADOW_INCUBATOR: Segment {d_k} is quarantined in Tier 1/2 (demoted_markets table: {r_roi*100:.1f}% ROI, ${r_pnl:.2f}). Real-money Polymarket trading strictly suspended ($0.00).",
-                                0.0,
-                            )
+                    norm_dk = normalize_segment_key(d_k)
+                    if norm_dk in norm_seg_keys:
+                        if any(gk in graduated for gk in seg_keys):
+                            continue
+                        r_roi = float(d_info.get("rolling_roi", 0.0))
+                        r_pnl = float(d_info.get("rolling_pnl", 0.0))
+                        return (
+                            False,
+                            f"DEMOTED_IN_SHADOW_INCUBATOR: Segment {d_k} is quarantined in Tier 1 R&D (demoted_markets table: {r_roi*100:.1f}% ROI, ${r_pnl:.2f}). Real-money Polymarket trading strictly suspended ($0.00).",
+                            0.0,
+                        )
         except Exception as e_dem:
             log.debug(f"Could not check demoted_markets: {e_dem}")
 
@@ -342,36 +386,38 @@ class PolymarketAutonomousExecutor:
                 + self._cached_scoreboard.get("exploration_segments", [])
                 + self._cached_scoreboard.get("underperforming_segments", [])
             )
+            from .tournament_engine import normalize_segment_key
+            norm_seg_keys = {normalize_segment_key(k) for k in seg_keys}
 
             for s in all_segs:
-                if s.get("league") in league_aliases and s.get("scope") == scope:
-                    s_fam = s.get("family", "")
-                    if any(a == s_fam or a in s_fam or s_fam in a for a in family_aliases):
-                        pnl = float(s.get("pnl", 0.0))
-                        roi = float(s.get("roi_pct", 0.0))
-                        games = int(s.get("games", 0))
-                        tier = s.get("tier", "")
-                        rolling_games = int(s.get("rolling_games", 0))
-                        rolling_pnl = float(s.get("rolling_pnl", 0.0))
-                        rolling_roi = float(s.get("rolling_roi_pct", 0.0))
-                        rolling_units = float(s.get("rolling_units", 0.0))
+                s_key = s.get("segment") or f"{s.get('league')}|{s.get('scope')}|{s.get('family', '')}"
+                norm_s = normalize_segment_key(s_key)
+                if norm_s in norm_seg_keys:
+                    pnl = float(s.get("pnl", 0.0))
+                    roi = float(s.get("roi_pct", 0.0))
+                    games = int(s.get("games", 0))
+                    tier = s.get("tier", "")
+                    rolling_games = int(s.get("rolling_games", 0))
+                    rolling_pnl = float(s.get("rolling_pnl", 0.0))
+                    rolling_roi = float(s.get("rolling_roi_pct", 0.0))
+                    rolling_units = float(s.get("rolling_units", 0.0))
 
-                        # Check rolling degradation
-                        is_rolling_degraded = (
-                            rolling_games >= 4 and (rolling_roi <= -3.0 or rolling_units <= -2.0 or (rolling_pnl < 0.0 and rolling_roi < 0.0))
+                    # Check rolling degradation
+                    is_rolling_degraded = (
+                        rolling_games >= 4 and (rolling_roi <= -3.0 or rolling_units <= -2.0 or (rolling_pnl < 0.0 and rolling_roi < 0.0))
+                    )
+                    if pnl < 0.0 or roi < 0.0 or tier == "UNDERPERFORMING" or is_rolling_degraded:
+                        return (
+                            False,
+                            f"UNDERPERFORMING_IN_LIVE_BETS: Segment {s_key} has negative/degraded live performance (PnL: ${pnl:.2f}, Rolling ROI: {rolling_roi:.1f}%, Rolling PnL: ${rolling_pnl:.2f}, N={games}). Dropped from Tier 4 into Tier 1 R&D quarantine ($0.00).",
+                            0.0,
                         )
-                        if pnl < 0.0 or roi < 0.0 or tier == "UNDERPERFORMING" or is_rolling_degraded:
-                            return (
-                                False,
-                                f"UNDERPERFORMING_IN_LIVE_BETS: Segment {seg_keys[0]} has negative/degraded live performance (PnL: ${pnl:.2f}, Rolling ROI: {rolling_roi:.1f}%, Rolling PnL: ${rolling_pnl:.2f}, N={games}). Quarantined in Shadow Incubator ($0.00).",
-                                0.0,
-                            )
 
         # Gate 0b: Polymarket Contract Taxonomy Invariant:
         # 1. Strictly reject Stake sportsbook exclusive derivatives that have no Polymarket CLOB contract equivalent.
         if any(deriv in market_family for deriv in (
             "home_total", "away_total", "team_total", "team_totals",
-            "double_chance", "both_score", "both_teams_score", "draw_no_bet",
+            "double_chance", "draw_no_bet",
             "bivariate_derivatives", "odd_even", "sequence_hazard",
             "innings_1_5", "inning_1", "regulation", "correct_score"
         )):
@@ -380,6 +426,15 @@ class PolymarketAutonomousExecutor:
                 f"STAKE_ONLY_MARKET: Segment {league}|{scope}|{market_family} is a Stake sportsbook exclusive market with no corresponding Polymarket contract type.",
                 0.0,
             )
+
+        # 2. Both teams to score is exclusively supported for soccer on Polymarket CLOB
+        if any(btts in market_family for btts in ("both_score", "both_teams_score", "both_teams_to_score")):
+            if league not in ("EPL", "MLS", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA"):
+                return (
+                    False,
+                    f"STAKE_ONLY_MARKET: Segment {league}|{scope}|{market_family} (BTTS for non-soccer) has no Polymarket contract equivalent.",
+                    0.0,
+                )
 
         # 2. Dynamic Structured Taxonomy verification for derivative/period scopes (Zero Hardcoded Clamps)
         if scope != "full_game":
@@ -407,7 +462,7 @@ class PolymarketAutonomousExecutor:
                 log.debug(f"Dynamic taxonomy lookup fallback: {e_tax}")
 
         # Gate 0c: Check Unified Market Universe Roster
-        # Tier 4 on Polymarket requires active Tier 3 ($0.50-$8.00) status on Stake.
+        # Tier 4 on Polymarket requires active Tier 3 ($0.50-$8.00) or Tier 4 status on Stake.
         try:
             from .unified_market_universe import UnifiedMarketUniverse, MarketTier
             universe = UnifiedMarketUniverse(data_dir=self.db_path.parent)
@@ -416,10 +471,10 @@ class PolymarketAutonomousExecutor:
                 for k in seg_keys:
                     prof = roster.get(k)
                     if prof:
-                        if prof.tier != int(MarketTier.PRODUCTION_GRADUATED) or prof.stake_cap <= 0.0:
+                        if prof.tier not in (int(MarketTier.PRODUCTION_GRADUATED), int(MarketTier.LIVE_PROVEN_ALPHA)) or prof.stake_cap <= 0.0:
                             return (
                                 False,
-                                f"NOT_ACTIVE_IN_TIER_3: Segment {k} is in Tier {prof.tier} ({prof.tier_name}) on Stake with stake cap ${prof.stake_cap:.2f}. Must be active in Tier 3 to trade on Polymarket.",
+                                f"NOT_ACTIVE_IN_TIER_3_OR_4: Segment {k} is in Tier {prof.tier} ({prof.tier_name}) on Stake with stake cap ${prof.stake_cap:.2f}. Must be active in Tier 3 or Tier 4 to trade on Polymarket.",
                                 0.0,
                             )
                         break
@@ -438,51 +493,60 @@ class PolymarketAutonomousExecutor:
                 + [s for s in self._cached_scoreboard.get("exploration_segments", []) if s.get("pnl", 0.0) > 0.0 and s.get("roi_pct", 0.0) > 0.0]
             )
             alpha_keys = {s["segment"]: s for s in candidate_segments}
+            from .tournament_engine import normalize_segment_key
+            norm_seg_keys = {normalize_segment_key(k) for k in seg_keys}
+
+            matched_s = None
             for k in seg_keys:
-                matched_s = None
                 if k in alpha_keys:
                     matched_s = alpha_keys[k]
-                else:
-                    for ak, s_obj in alpha_keys.items():
-                        if any(ak.startswith(f"{l_alias}|{scope}|") for l_alias in league_aliases) and any(a in ak for a in family_aliases):
-                            matched_s = s_obj
-                            break
+                    break
+            if not matched_s:
+                for ak, s_obj in alpha_keys.items():
+                    if normalize_segment_key(ak) in norm_seg_keys:
+                        matched_s = s_obj
+                        break
+            if not matched_s:
+                for ak, s_obj in alpha_keys.items():
+                    if any(ak.startswith(f"{l_alias}|{scope}|") for l_alias in league_aliases) and any(a in ak for a in family_aliases):
+                        matched_s = s_obj
+                        break
 
-                if matched_s:
-                    roi = float(matched_s.get("roi_pct", 0.0))
-                    pnl = float(matched_s.get("pnl", 0.0))
-                    sample = int(matched_s.get("games", 0))
-                    sub_tier = matched_s.get("sub_tier", "SOLID_ALPHA")
+            if matched_s:
+                roi = float(matched_s.get("roi_pct", 0.0))
+                pnl = float(matched_s.get("pnl", 0.0))
+                sample = int(matched_s.get("games", 0))
+                sub_tier = matched_s.get("sub_tier", "SOLID_ALPHA")
 
-                    # Scale-invariant rolling window evaluation:
-                    has_rolling = "rolling_games" in matched_s and int(matched_s.get("rolling_games", 0)) > 0
-                    r_games = int(matched_s.get("rolling_games", sample))
-                    r_roi = float(matched_s.get("rolling_roi_pct", roi))
-                    r_pnl = float(matched_s.get("rolling_pnl", pnl))
-                    r_units = float(matched_s.get("rolling_units", matched_s.get("units_pnl", pnl / max(0.50, matched_s.get("stake", 1.0) / max(1, sample)))))
+                # Scale-invariant rolling window evaluation:
+                has_rolling = "rolling_games" in matched_s and int(matched_s.get("rolling_games", 0)) > 0
+                r_games = int(matched_s.get("rolling_games", sample))
+                r_roi = float(matched_s.get("rolling_roi_pct", roi))
+                r_pnl = float(matched_s.get("rolling_pnl", pnl))
+                r_units = float(matched_s.get("rolling_units", matched_s.get("units_pnl", pnl / max(0.50, matched_s.get("stake", 1.0) / max(1, sample)))))
 
-                    # Check Tier 4 Proven Alpha quorum: Sample >= 10 (or Rolling games >= 5), Rolling ROI >= +2.0%, Positive units profit
-                    is_tier_4_proven = (
-                        (sample >= 10 or r_games >= 10)
-                        and (r_roi >= 2.0 or (r_pnl > 0.0 and r_roi > 0.0))
-                        and (r_units >= 0.4 or r_pnl >= 2.0 or pnl >= 2.0)
+                # Check Tier 4 Proven Alpha quorum: Sample >= 10 (or Rolling games >= 5), Rolling ROI >= +2.0%, Positive units profit
+                is_tier_4_proven = (
+                    (sample >= 10 or r_games >= 10)
+                    and (r_roi >= 2.0 or (r_pnl > 0.0 and r_roi > 0.0))
+                    and r_units >= 0.4
+                )
+
+                if is_tier_4_proven:
+                    stake_cap = 8.0 if (sub_tier == "SUPER_ALPHA" or r_roi >= 15.0) else 3.50
+                    return (
+                        True,
+                        f"TIER_4_LIVE_PROVEN_ALPHA: Verified Live Profit on Stake (LIVE_LEDGER_PROVEN_PROFIT: Rolling ROI: +{r_roi:.1f}%, Units: +{r_units:.2f}U over {r_games} games, N={sample})",
+                        stake_cap,
                     )
-
-                    if is_tier_4_proven:
-                        stake_cap = 8.0 if (sub_tier == "SUPER_ALPHA" or r_roi >= 15.0) else 3.50
+                elif (r_pnl > 0.0 or pnl > 0.0):
+                    # Early positive probation (N < 10 or small profit): Eligible for Tier 3 Stake production, but NOT Polymarket Tier 4
+                    if require_live_profit:
                         return (
-                            True,
-                            f"TIER_4_LIVE_PROVEN_ALPHA: Verified Live Profit on Stake (LIVE_LEDGER_PROVEN_PROFIT: Rolling ROI: +{r_roi:.1f}%, Units: +{r_units:.2f}U over {r_games} games, N={sample})",
-                            stake_cap,
+                            False,
+                            f"PROBATION_INSUFFICIENT_SAMPLE: Segment {seg_keys[0]} has early live profit (Rolling ROI: +{r_roi:.1f}%, Units: +{r_units:.2f}U, N={r_games}), but has not met Tier 4 Proven Alpha standard (Rolling N >= 10, Rolling ROI >= +2.0%, Rolling Units >= +0.5U). Active in Tier 3 on Stake.",
+                            0.0,
                         )
-                    elif (r_pnl > 0.0 or pnl > 0.0):
-                        # Early positive probation (N < 10 or small profit): Eligible for Tier 3 Stake production, but NOT Polymarket Tier 4
-                        if require_live_profit:
-                            return (
-                                False,
-                                f"PROBATION_INSUFFICIENT_SAMPLE: Segment {seg_keys[0]} has early live profit (Rolling ROI: +{r_roi:.1f}%, Units: +{r_units:.2f}U, N={r_games}), but has not met Tier 4 Proven Alpha standard (Rolling N >= 10, Rolling ROI >= +2.0%, Rolling Units >= +0.5U). Active in Tier 3 on Stake.",
-                                0.0,
-                            )
 
         # If live profit is strictly required and not proven in live bets: reject
         if require_live_profit:
@@ -804,6 +868,13 @@ class PolymarketAutonomousExecutor:
             best_bid = max(0.01, round(best_ask - 0.01, 4))
         spread = max(0.001, round(best_ask - best_bid, 4))
 
+        min_order_sz = 0.0
+        if isinstance(book, dict) and book.get("min_order_size"):
+            try:
+                min_order_sz = float(book["min_order_size"])
+            except (ValueError, TypeError):
+                min_order_sz = 0.0
+
         return PreflightResult(
             ok=True,
             eff_price=round(eff_price, 4),
@@ -815,6 +886,7 @@ class PolymarketAutonomousExecutor:
             best_bid=round(best_bid, 4),
             best_ask=round(best_ask, 4),
             spread=round(spread, 4),
+            min_order_size=min_order_sz,
         )
 
     def calculate_continuous_stake(
@@ -852,6 +924,7 @@ class PolymarketAutonomousExecutor:
         best_bid: float,
         best_ask: float,
         model_prob: float,
+        min_order_size: float = 0.0,
     ) -> SlicingPlan:
         """Determines the optimal quantitative Maker/Taker split.
         
@@ -879,13 +952,16 @@ class PolymarketAutonomousExecutor:
 
         MIN_ORDER_USD = 1.00
         # Realistic Liquidity & Anti-Hallucination Guard:
-        # A maker limit order is viable ONLY if best bid is competitive (>= 0.08)
-        # and the spread gap to best ask is narrow (spread <= 0.08 and b_ask - maker_price <= 0.08).
-        # On wide or empty books, passive limit orders will not execute in real trading.
+        # A maker limit order is viable ONLY if best bid is competitive (>= 0.08),
+        # the absolute spread is narrow (<= 0.045), and the relative spread gap is <= 18%.
+        # On wide, skewed or empty books, passive limit orders will not execute in real trading.
+        gap = b_ask - maker_price
+        rel_gap = gap / max(0.01, b_ask)
         is_book_liquid_for_maker = (
             b_bid >= 0.08
-            and spread <= 0.08
-            and (b_ask - maker_price) <= 0.08
+            and spread <= 0.045
+            and gap <= 0.04
+            and rel_gap <= 0.18
             and maker_price >= 0.08
         )
 
@@ -952,6 +1028,26 @@ class PolymarketAutonomousExecutor:
             else:
                 maker_stake = 0.0
                 taker_stake = total_stake
+
+        # Check share viability for slices against Polymarket's minimum order size (INVALID_ORDER_MIN_SIZE guard)
+        tk_shares = taker_stake / max(0.01, b_ask)
+        mk_shares = maker_stake / max(0.01, maker_price)
+        if taker_stake > 0.0 and maker_stake > 0.0:
+            if tk_shares < min_order_size or mk_shares < min_order_size:
+                # One or both slices cannot meet the CLOB minimum order size!
+                # Collapse to indivisible execution (100% taker or 100% maker)
+                if taker_ratio >= 0.5:
+                    strategy = "indivisible_taker_min_size"
+                    taker_stake = total_stake
+                    maker_stake = 0.0
+                    taker_ratio = 1.0
+                    maker_ratio = 0.0
+                else:
+                    strategy = "indivisible_maker_min_size"
+                    taker_stake = 0.0
+                    maker_stake = total_stake
+                    taker_ratio = 0.0
+                    maker_ratio = 1.0
 
         is_sliced = (taker_stake > 0.0 and maker_stake > 0.0)
 
@@ -1114,6 +1210,34 @@ class PolymarketAutonomousExecutor:
         )
         shares_count = round(calibrated_stake / preflight.eff_price, 2)
 
+        # Stage 2: SIGNED & Stage 3: RELAYED / SUBMITTED
+        is_live_funded = False
+        if not self.dry_run and self.client:
+            try:
+                bal = self.get_collateral_balance()
+                is_live_funded = (bal > 0.05)
+            except Exception:
+                is_live_funded = False
+
+        # Enforce Polymarket CLOB minimum order size (INVALID_ORDER_MIN_SIZE guard)
+        min_order_shares = getattr(preflight, "min_order_size", 0.0) or 0.0
+        if is_live_funded and min_order_shares == 0.0:
+            min_order_shares = 5.0
+
+        if min_order_shares > 0.0 and shares_count < min_order_shares:
+            bumped_stake = round(min_order_shares * preflight.eff_price, 2)
+            if bumped_stake <= stake_cap and bumped_stake <= 8.00:
+                calibrated_stake = bumped_stake
+                shares_count = min_order_shares
+            else:
+                return {
+                    "ok": False,
+                    "status": "rejected",
+                    "client_order_id": client_order_id,
+                    "reason": f"MIN_ORDER_SIZE_EXCEEDS_CAP: Minimum order size is {min_order_shares:.0f} shares (${bumped_stake:.2f}), which exceeds risk cap ${stake_cap:.2f}.",
+                    "error_code": "INVALID_ORDER_MIN_SIZE",
+                }
+
         # 5. Dynamic Alpha Slicing Evaluation
         slicing_plan = None
         ot_upper = (order_type or "GTC").upper()
@@ -1125,16 +1249,8 @@ class PolymarketAutonomousExecutor:
                 best_bid=preflight.best_bid,
                 best_ask=preflight.best_ask,
                 model_prob=model_prob,
+                min_order_size=min_order_shares,
             )
-
-        # Stage 2: SIGNED & Stage 3: RELAYED / SUBMITTED
-        is_live_funded = False
-        if not self.dry_run and self.client:
-            try:
-                bal = self.get_collateral_balance()
-                is_live_funded = (bal > 0.05)
-            except Exception:
-                is_live_funded = False
 
         # --- Dynamic Split Execution: Sliced into Taker and Maker ---
         if slicing_plan and slicing_plan.is_sliced:
@@ -1160,9 +1276,13 @@ class PolymarketAutonomousExecutor:
             })
 
             # Check if maker slice is realistically fillable (Anti-Hallucination Guard)
+            gap = preflight.eff_price - mk_price
+            rel_gap = gap / max(0.01, preflight.eff_price)
             maker_is_fillable = (
                 mk_price >= 0.08
-                and (preflight.eff_price - mk_price) <= 0.08
+                and preflight.spread <= 0.045
+                and gap <= 0.04
+                and rel_gap <= 0.18
                 and blended_price >= 0.08
             )
 
@@ -1291,40 +1411,107 @@ class PolymarketAutonomousExecutor:
             else:
                 # Live funded execution
                 action_side = "BUY" if side.upper() in ("BUY", "OVER", "HOME", "YES") else "SELL"
+                tk_oid = None
+                mk_oid = None
+                tk_status = "unfilled"
+                mk_status = "unfilled"
+                err_tk = None
+                err_mk = None
+
+                # 1. Execute Taker Slice
                 try:
                     if getattr(self, "is_v2", False):
                         from py_clob_client_v2.clob_types import OrderArgsV2, OrderType
-                        args_tk = OrderArgsV2(token_id=token_id, price=round(preflight.eff_price, 2), size=tk_shares, side=action_side)
+                        args_tk = OrderArgsV2(token_id=token_id, price=round(preflight.eff_price, 3), size=tk_shares, side=action_side)
                         s_tk = self.client.create_order(args_tk)
                         resp_tk = self.client.post_order(s_tk, order_type=OrderType.FAK)
                     else:
                         from py_clob_client.clob_types import OrderArgs, OrderType
-                        args_tk = OrderArgs(token_id=token_id, price=round(preflight.eff_price, 2), size=tk_shares, side=action_side)
+                        args_tk = OrderArgs(token_id=token_id, price=round(preflight.eff_price, 3), size=tk_shares, side=action_side)
                         s_tk = self.client.create_order(args_tk)
                         resp_tk = self.client.post_order(s_tk, orderType=OrderType.FAK)
                     tk_oid = resp_tk.get("orderID") or resp_tk.get("id") or str(resp_tk)
+                    tk_status = "filled" if (isinstance(resp_tk, dict) and resp_tk.get("status") in ("matched", "filled")) else "open"
                 except Exception as e_tk:
+                    err_tk = str(e_tk)
+                    tk_status = "failed"
                     log.error(f"Live taker slice failed: {e_tk}")
 
+                # 2. Execute Maker Slice
                 try:
                     if getattr(self, "is_v2", False):
                         from py_clob_client_v2.clob_types import OrderArgsV2, OrderType
-                        args_mk = OrderArgsV2(token_id=token_id, price=round(mk_price, 2), size=mk_shares, side=action_side)
+                        args_mk = OrderArgsV2(token_id=token_id, price=round(mk_price, 3), size=mk_shares, side=action_side)
                         s_mk = self.client.create_order(args_mk)
                         resp_mk = self.client.post_order(s_mk, order_type=OrderType.GTC)
                     else:
                         from py_clob_client.clob_types import OrderArgs, OrderType
-                        args_mk = OrderArgs(token_id=token_id, price=round(mk_price, 2), size=mk_shares, side=action_side)
+                        args_mk = OrderArgs(token_id=token_id, price=round(mk_price, 3), size=mk_shares, side=action_side)
                         s_mk = self.client.create_order(args_mk)
                         resp_mk = self.client.post_order(s_mk, orderType=OrderType.GTC)
                     mk_oid = resp_mk.get("orderID") or resp_mk.get("id") or str(resp_mk)
+                    mk_status = "filled" if (isinstance(resp_mk, dict) and resp_mk.get("status") in ("matched", "filled")) else "open"
                 except Exception as e_mk:
+                    err_mk = str(e_mk)
+                    mk_status = "failed"
                     log.error(f"Live maker slice failed: {e_mk}")
 
-                self._update_order_status(client_order_id=client_order_id, status="sliced_relayed", execution_mode="live")
+                # If both failed on live submission -> graceful fallback to verified shadow paper trade
+                if not tk_oid and not mk_oid:
+                    simulated_order_id = f"shadow_{client_order_id}"
+                    simulated_tx = f"0xshadow_{client_order_id[:16]}"
+                    log.warning(
+                        f"[SHADOW FALLBACK] Live sliced orders failed (Taker: {err_tk}, Maker: {err_mk}). "
+                        f"Recording as verified SHADOW paper execution."
+                    )
+                    self._update_order_status(
+                        client_order_id=client_order_id,
+                        order_id=simulated_order_id,
+                        status="filled",
+                        tx_hash=simulated_tx,
+                        execution_mode="shadow",
+                        error_detail=slice_detail_json,
+                    )
+                    return {
+                        "ok": True,
+                        "status": "filled",
+                        "order_id": simulated_order_id,
+                        "client_order_id": client_order_id,
+                        "shares": total_shares,
+                        "price": blended_price,
+                        "stake_usd": calibrated_stake,
+                        "ev": blended_ev,
+                        "dry_run": True,
+                        "execution_mode": "shadow",
+                        "is_sliced": True,
+                        "slicing_plan": slicing_plan.to_dict(),
+                        "note": f"Live slices failed ({err_tk or err_mk}); recorded as shadow.",
+                    }
+
+                master_status = "sliced_relayed"
+                if tk_oid and not mk_oid:
+                    master_status = "partially_filled"
+                elif mk_oid and not tk_oid:
+                    master_status = "open"
+
+                # Update master position with live on-chain order IDs and sub-slice details
+                # (Preserving strict 1-to-1 ledger invariant with ZERO stake double-counting)
+                live_slice_detail = json.dumps({
+                    "strategy": slicing_plan.strategy,
+                    "taker_slice": {"client_order_id": tk_cid, "order_id": tk_oid, "stake": tk_stake, "shares": tk_shares, "price": preflight.eff_price, "status": tk_status, "error": err_tk},
+                    "maker_slice": {"client_order_id": mk_cid, "order_id": mk_oid, "stake": mk_stake, "shares": mk_shares, "price": mk_price, "status": mk_status, "error": err_mk},
+                })
+
+                self._update_order_status(
+                    client_order_id=client_order_id,
+                    order_id=mk_oid or tk_oid,
+                    status=master_status,
+                    execution_mode="live",
+                    error_detail=live_slice_detail,
+                )
                 return {
                     "ok": True,
-                    "status": "sliced_relayed",
+                    "status": master_status,
                     "client_order_id": client_order_id,
                     "shares": total_shares,
                     "price": blended_price,
@@ -1334,8 +1521,8 @@ class PolymarketAutonomousExecutor:
                     "execution_mode": "live",
                     "is_sliced": True,
                     "slicing_plan": slicing_plan.to_dict(),
-                    "taker_slice": {"client_order_id": tk_cid, "stake_usd": tk_stake, "price": preflight.eff_price},
-                    "maker_slice": {"client_order_id": mk_cid, "stake_usd": mk_stake, "price": mk_price},
+                    "taker_slice": {"client_order_id": tk_cid, "order_id": tk_oid, "stake_usd": tk_stake, "price": preflight.eff_price, "status": tk_status},
+                    "maker_slice": {"client_order_id": mk_cid, "order_id": mk_oid, "stake_usd": mk_stake, "price": mk_price, "status": mk_status},
                 }
 
         # --- Single Order Execution (Indivisible or Single-Strategy) ---
@@ -1407,17 +1594,29 @@ class PolymarketAutonomousExecutor:
             action_side = "BUY" if side.upper() in ("BUY", "OVER", "HOME", "YES") else "SELL"
 
             if getattr(self, "is_v2", False):
-                from py_clob_client_v2.clob_types import OrderArgsV2, OrderType
+                from py_clob_client_v2.clob_types import OrderArgsV2, MarketOrderArgsV2, OrderType
                 clob_ot = OrderType.FOK if ot_upper == "FOK" else (OrderType.FAK if ot_upper == "FAK" else OrderType.GTC)
-                order_args = OrderArgsV2(
-                    token_id=token_id,
-                    price=round(preflight.eff_price, 2),
-                    size=shares_count,
-                    side=action_side,
-                )
-                signed_order = self.client.create_order(order_args)
-                self._update_order_status(client_order_id=client_order_id, status="signed")
-                resp = self.client.post_order(signed_order, order_type=clob_ot)
+                if ot_upper == "MARKET":
+                    market_args = MarketOrderArgsV2(
+                        token_id=token_id,
+                        amount=calibrated_stake,
+                        side=action_side,
+                        price=round(preflight.eff_price, 3),
+                        order_type=OrderType.FOK,
+                    )
+                    signed_order = self.client.create_market_order(market_args)
+                    self._update_order_status(client_order_id=client_order_id, status="signed")
+                    resp = self.client.post_order(signed_order, order_type=OrderType.FOK)
+                else:
+                    order_args = OrderArgsV2(
+                        token_id=token_id,
+                        price=round(eff_order_price, 3),
+                        size=shares_count,
+                        side=action_side,
+                    )
+                    signed_order = self.client.create_order(order_args)
+                    self._update_order_status(client_order_id=client_order_id, status="signed")
+                    resp = self.client.post_order(signed_order, order_type=clob_ot)
             else:
                 from py_clob_client.clob_types import OrderArgs, MarketOrderArgs, OrderType
                 clob_ot = OrderType.FOK if ot_upper == "FOK" else (OrderType.FAK if ot_upper == "FAK" else OrderType.GTC)
@@ -1426,7 +1625,7 @@ class PolymarketAutonomousExecutor:
                         token_id=token_id,
                         amount=calibrated_stake,
                         side=action_side,
-                        price=round(preflight.eff_price, 2),
+                        price=round(preflight.eff_price, 3),
                         order_type=OrderType.FOK,
                     )
                     signed_order = self.client.create_market_order(market_args)
@@ -1435,7 +1634,7 @@ class PolymarketAutonomousExecutor:
                 else:
                     order_args = OrderArgs(
                         token_id=token_id,
-                        price=round(preflight.eff_price, 2),
+                        price=round(eff_order_price, 3),
                         size=shares_count,
                         side=action_side,
                     )
@@ -1502,8 +1701,30 @@ class PolymarketAutonomousExecutor:
                 "note": f"Live execution unavailable ({err_msg[:60]}); recorded as verified shadow paper trade."
             }
 
+    def cancel_order_by_id(self, order_id: str) -> Any:
+        """Cancels an order on CLOB supporting both py-clob-client v2 and v1."""
+        if not self.client or not order_id:
+            return None
+        try:
+            if hasattr(self.client, "cancel_orders"):
+                return self.client.cancel_orders([order_id])
+            elif hasattr(self.client, "cancel_order"):
+                try:
+                    from py_clob_client_v2.clob_types import OrderPayload
+                    return self.client.cancel_order(OrderPayload(orderID=order_id))
+                except Exception:
+                    return self.client.cancel_order({"orderID": order_id})
+            elif hasattr(self.client, "cancel"):
+                return self.client.cancel(order_id)
+            else:
+                log.warning(f"No cancel method available on client for order {order_id}")
+                return None
+        except Exception as exc:
+            log.warning(f"Error cancelling order {order_id} on CLOB: {exc}")
+            return None
+
     def sync_open_orders(self) -> List[Dict[str, Any]]:
-        """Synchronizes open and relayed orders with CLOB order states."""
+        """Synchronizes open, relayed, and sliced orders with CLOB order states."""
         if self.dry_run or not self.client:
             return []
 
@@ -1513,7 +1734,7 @@ class PolymarketAutonomousExecutor:
                 conn.row_factory = sqlite3.Row
                 cur = conn.cursor()
                 rows = cur.execute(
-                    "SELECT * FROM polymarket_orders WHERE status IN ('open', 'relayed', 'signed') AND order_id IS NOT NULL"
+                    "SELECT * FROM polymarket_orders WHERE status IN ('open', 'relayed', 'signed', 'sliced_relayed') AND order_id IS NOT NULL"
                 ).fetchall()
 
                 for row in rows:
@@ -1531,10 +1752,20 @@ class PolymarketAutonomousExecutor:
                                 new_status = "expired"
 
                             if new_status and new_status != row["status"]:
+                                det_str = row["error_detail"]
+                                if row["status"] == "sliced_relayed" and det_str:
+                                    try:
+                                        det = json.loads(det_str)
+                                        if "maker_slice" in det:
+                                            det["maker_slice"]["status"] = new_status
+                                            det_str = json.dumps(det)
+                                    except Exception:
+                                        pass
                                 self._update_order_status(
                                     client_order_id=row["client_order_id"],
                                     order_id=oid,
                                     status=new_status,
+                                    error_detail=det_str,
                                 )
                                 synced.append({"order_id": oid, "status": new_status})
                     except Exception as err:
@@ -1566,8 +1797,8 @@ class PolymarketAutonomousExecutor:
                 open_makers = conn.execute(
                     """
                     SELECT * FROM polymarket_orders 
-                    WHERE status = 'open' 
-                    AND (client_order_id LIKE '%_mk' OR execution_mode = 'live' OR error_code IS NULL)
+                    WHERE (status = 'open' AND (client_order_id LIKE '%_mk' OR execution_mode = 'live' OR error_code IS NULL))
+                    OR (status = 'sliced_relayed' AND error_detail LIKE '%"maker_slice"%' AND error_detail LIKE '%"status": "open"%')
                     """
                 ).fetchall()
 
@@ -1580,11 +1811,20 @@ class PolymarketAutonomousExecutor:
                     mins_left = 999.0
 
                 if mins_left <= 20.0:
-                    cid = row["client_order_id"]
-                    oid = row["order_id"]
+                    is_master_slice = (row["status"] == "sliced_relayed")
+                    det = {}
+                    if is_master_slice and row["error_detail"]:
+                        try:
+                            det = json.loads(row["error_detail"])
+                        except Exception:
+                            det = {}
+
+                    mk_data = det.get("maker_slice", {}) if is_master_slice else {}
+                    cid = mk_data.get("client_order_id", row["client_order_id"])
+                    oid = mk_data.get("order_id", row["order_id"])
                     tok = row["token_id"]
                     model_p = float(row["model_prob"])
-                    rem_stake = float(row["stake_usd"])
+                    rem_stake = float(mk_data.get("stake", row["stake_usd"]))
 
                     # Fetch fresh orderbook depth for token
                     preflight = self.preflight_check(
@@ -1603,13 +1843,19 @@ class PolymarketAutonomousExecutor:
                         )
                         # Cancel open maker order on CLOB if live
                         if not self.dry_run and self.client and oid:
-                            try:
-                                self.client.cancel(oid)
-                            except Exception as err:
-                                log.warning(f"Could not cancel maker order {oid} on CLOB: {err}")
+                            self.cancel_order_by_id(oid)
 
                         # Update maker status
-                        self._update_order_status(client_order_id=cid, status="fallback_converted")
+                        if is_master_slice:
+                            det["maker_slice"]["status"] = "fallback_converted"
+                            det["maker_slice"]["fallback_price"] = preflight.eff_price
+                            self._update_order_status(
+                                client_order_id=row["client_order_id"],
+                                status="filled",
+                                error_detail=json.dumps(det),
+                            )
+                        else:
+                            self._update_order_status(client_order_id=cid, status="fallback_converted")
 
                         # Place Taker fallback order
                         fb_client_id = f"{cid}_fb"
@@ -1643,15 +1889,21 @@ class PolymarketAutonomousExecutor:
                             f"Cancelling open Maker order because current EV={preflight.ev*100:.1f}% < Hurdle {min_ev_hurdle*100:.1f}%."
                         )
                         if not self.dry_run and self.client and oid:
-                            try:
-                                self.client.cancel(oid)
-                            except Exception as err:
-                                log.warning(f"Could not cancel maker order {oid} on CLOB: {err}")
-                        self._update_order_status(
-                            client_order_id=cid,
-                            status="canceled_adverse_selection",
-                            error_detail=f"Canceled before kickoff: EV {preflight.ev*100:.1f}% < {min_ev_hurdle*100:.1f}%",
-                        )
+                            self.cancel_order_by_id(oid)
+
+                        if is_master_slice:
+                            det["maker_slice"]["status"] = "canceled_adverse_selection"
+                            self._update_order_status(
+                                client_order_id=row["client_order_id"],
+                                status="partially_filled",
+                                error_detail=json.dumps(det),
+                            )
+                        else:
+                            self._update_order_status(
+                                client_order_id=cid,
+                                status="canceled_adverse_selection",
+                                error_detail=f"Canceled before kickoff: EV {preflight.ev*100:.1f}% < {min_ev_hurdle*100:.1f}%",
+                            )
                         actions.append({
                             "action": "maker_canceled_adverse_selection",
                             "client_order_id": cid,
@@ -1663,18 +1915,31 @@ class PolymarketAutonomousExecutor:
 
         return actions
 
-    def get_collateral_balance(self) -> float:
+    def get_collateral_balance(self, force_refresh: bool = False) -> float:
         """Returns current USDC balance on the Polygon proxy wallet."""
         if not self.client or self.dry_run:
             return 0.0
+        now_ts = time.time()
+        if not force_refresh and PolymarketAutonomousExecutor._cached_balance is not None and (now_ts - PolymarketAutonomousExecutor._balance_cached_at) < 30.0:
+            return PolymarketAutonomousExecutor._cached_balance
         try:
-            from py_clob_client.clob_types import BalanceAllowanceParams, AssetType
-            bal = self.client.get_balance_allowance(
-                BalanceAllowanceParams(asset_type=AssetType.COLLATERAL, signature_type=2)
-            )
-            return float(bal.get("balance", 0.0)) / 1e6
-        except Exception:
-            return 0.0
+            if getattr(self, "is_v2", False):
+                from py_clob_client_v2.clob_types import BalanceAllowanceParams, AssetType
+                bal = self.client.get_balance_allowance(
+                    BalanceAllowanceParams(asset_type=AssetType.COLLATERAL)
+                )
+            else:
+                from py_clob_client.clob_types import BalanceAllowanceParams, AssetType
+                bal = self.client.get_balance_allowance(
+                    BalanceAllowanceParams(asset_type=AssetType.COLLATERAL, signature_type=2)
+                )
+            res = float(bal.get("balance", 0.0)) / 1e6
+            PolymarketAutonomousExecutor._cached_balance = res
+            PolymarketAutonomousExecutor._balance_cached_at = now_ts
+            return res
+        except Exception as exc:
+            log.debug(f"Could not fetch collateral balance: {exc}")
+            return PolymarketAutonomousExecutor._cached_balance or 0.0
 
     def get_trader_status(self) -> Dict[str, Any]:
         """Provides full real-time telemetry of the parallel Polymarket trading channel,
@@ -1788,6 +2053,11 @@ class PolymarketAutonomousExecutor:
             l = seg.get("league", "")
             sc = seg.get("scope", "full_game")
             fam = seg.get("family", "")
+            clean_fam = fam.split(":")[-1] if ":" in fam else fam
+            if clean_fam not in ("moneyline", "spreads", "totals", "winner", "h2h"):
+                continue
+            if l in ("ATP", "WTA") and sc != "full_game":
+                continue
             is_elig, _, _ = self.is_market_eligible(l, sc, fam, require_tier_4=True)
             if is_elig:
                 t4_segments_count += 1

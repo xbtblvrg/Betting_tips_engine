@@ -20,6 +20,7 @@ LEAGUES = {
     'UCL': 'soccer/uefa.champions',
     'NCAAF': 'football/college-football',
     'NCAAM': 'basketball/mens-college-basketball',
+    'NCAAW': 'basketball/womens-college-basketball',
 }
 
 def instant(value):
@@ -37,7 +38,7 @@ def extract(payload, league, now):
         status = (c.get('status') or event.get('status') or {}).get('type', {})
         if status.get('name') != 'STATUS_SCHEDULED' or status.get('state') != 'pre' or c.get('timeValid') is False: continue
         start = instant(c.get('date') or event['date'])
-        if not now < start <= now + timedelta(hours=48): continue
+        if not now < start <= now + timedelta(hours=72): continue
         teams = c.get('competitors') or []
         home = [t['team']['displayName'] for t in teams if t.get('homeAway') == 'home']
         away = [t['team']['displayName'] for t in teams if t.get('homeAway') == 'away']
@@ -51,7 +52,7 @@ def extract(payload, league, now):
 
 def refresh(data_dir, now=None, fetch=None):
     now = now or datetime.now(timezone.utc)
-    dates = [(now + timedelta(days=offset)).strftime('%Y%m%d') for offset in (-1, 0, 1, 2)]
+    dates = [(now + timedelta(days=offset)).strftime('%Y%m%d') for offset in (-1, 0, 1, 2, 3)]
     def one(item):
         league, path = item
         urls = [f'https://site.api.espn.com/apis/site/v2/sports/{path}/scoreboard?dates={day}&limit=1000' for day in dates]

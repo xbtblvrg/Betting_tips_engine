@@ -117,7 +117,7 @@ def test_demoted_market_requires_post_demotion_wagers(tmp_path: Path):
     assert any(g['segment_key'] == 'MLS|half_1|totals' for g in graduated_post)
 
 def test_unified_universe_quarantines_past_live_losses(tmp_path: Path):
-    """Prime Directive 6: UnifiedMarketUniverse must quarantine markets with past live losses to Tier 2 ($0.00)."""
+    """Prime Directive 6: UnifiedMarketUniverse must quarantine markets with past live losses to Tier 1 R&D ($0.00)."""
     umu = UnifiedMarketUniverse(data_dir=tmp_path)
     engine_db = tmp_path / "engine.sqlite3"
     incubator_db = tmp_path / "shadow_incubator.sqlite3"

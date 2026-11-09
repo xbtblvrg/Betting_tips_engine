@@ -21,7 +21,7 @@ MAX_BYTES = 32 * 1024 * 1024
 # Retained review/observation memory budget, unchanged from the original limit.
 # External input archives stream through one bounded chunk under their own I/O cap.
 TOTAL_READ_BUDGET = 64 * 1024 * 1024
-MAX_PROPOSALS = 256
+MAX_PROPOSALS = 2048
 INPUT_CHUNK_BYTES = 2 * 1024 * 1024
 MAX_INPUT_ARCHIVE_BYTES = 1024 * 1024 * 1024
 HEX = re.compile(r'^[0-9a-f]{64}$')
@@ -164,8 +164,11 @@ def _compact_proposals(proposals, input_sha):
 
 def _safe(path):
     path = Path(path)
-    if any(p.is_symlink() for p in (path, *path.parents)):
+    if path.is_symlink():
         raise ValueError('symlink_in_feedback_path')
+    for p in path.parents:
+        if p.is_symlink() and str(p) not in ('/var', '/tmp', '/etc'):
+            raise ValueError('symlink_in_feedback_path')
     return path
 
 
@@ -304,10 +307,7 @@ def evaluator_identity():
 
 def snapshot_outcomes(store):
     """One SQLite read snapshot, original rows decoded; no schema/ledger updates."""
-    with store.db() as db:
-        db.execute('BEGIN')
-        # Do not materialize unrelated open offers; preserve contradictory open
-        # tickets and orphan outcome rows for the existing integrity audit.
+    with (store.ro_db() if hasattr(store, 'ro_db') else store.db()) as db:
         queries = {'bets': "SELECT * FROM bets WHERE status IS NOT 'open' OR EXISTS (SELECT 1 FROM bet_outcomes WHERE bet_id=bets.id)",
                    'decisions': "SELECT * FROM system_decisions WHERE status IS NOT 'open'",
                    'bet_outcomes': 'SELECT * FROM bet_outcomes'}

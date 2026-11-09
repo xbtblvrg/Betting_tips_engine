@@ -62,7 +62,13 @@
     "UCL": 72,
     "ATP": 72,
     "WTA": 72,
-    "WNBA": 72
+    "WNBA": 72,
+    "NCAAM": 72,
+    "NCAAW": 72,
+    "CHALLENGER": 72,
+    "NCAA_ICE_HOCKEY": 72,
+    "NCAA_ICE_HOCKEY_WOMEN": 72,
+    "NCAA_VOLLEYBALL_WOMEN": 72
   },
   "capital_defense": true,
   "alpha_acceleration": true,

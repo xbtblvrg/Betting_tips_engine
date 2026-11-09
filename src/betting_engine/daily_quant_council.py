@@ -23,6 +23,10 @@ from typing import Any, Dict, List, Optional
 
 from .ai_delegation import invoke, decode, read, file_lock
 from .domain import utcnow, parse_time
+try:
+    from .domain import ALL_TRACKED_LEAGUES
+except ImportError:
+    ALL_TRACKED_LEAGUES = ('NBA', 'MLB', 'NHL', 'NFL', 'WNBA', 'NCAAF', 'NCAAM', 'NCAAW', 'NCAA_BASEBALL', 'NCAA_ICE_HOCKEY', 'EPL', 'UCL', 'MLS', 'UEL', 'LALIGA', 'BUNDESLIGA', 'SERIEA', 'ATP', 'WTA', 'CHALLENGER')
 from .providers import DATA
 from .telegram_notifier import notify_daily_council_briefing
 
@@ -96,7 +100,7 @@ def _query_member_for_daily(
 
     root = Path(".").resolve()
     try:
-        with file_lock(DATA / "development" / "ai-locks" / f"{provider}.lock", timeout=15.0) as acquired:
+        with file_lock(DATA / "development" / "ai-locks" / f"{provider}.lock", timeout=60.0) as acquired:
             if not acquired:
                 return None
             res = invoke(provider, {**config, "_protected_root": str(root)}, prompt, timeout=timeout)
@@ -168,14 +172,27 @@ def convene_daily_quant_council(
         "MLB|full_game|totals",
     ]
 
+    # Fetch real-time bottleneck watchdog status for Quant Council review
+    from .bottleneck_watchdog import get_latest_bottleneck_watchdog_status
+    watchdog_stat = get_latest_bottleneck_watchdog_status(data_path)
+    t1_2_stat = watchdog_stat.get('tier1_tier2_health', {})
+
     brief = {
         "date": date_str,
         "daily_target": 100,
         "issued_today": issued_today,
         "daily_shortfall": daily_shortfall,
         "demoted_segments_in_quarantine": demoted_segments[:8],
-        "active_leagues": ["NFL", "NHL", "NBA", "WNBA", "MLB", "MLS", "ATP", "WTA"],
+        "active_leagues": list(ALL_TRACKED_LEAGUES),
         "capital_strategy": "Dual Dynamic: $2.50-$8.00 Alpha, $0.50 Tourniquet, $0.00 Incubator",
+        "tier1_tier2_funnel_health": {
+            "tier1_actionable_markets": t1_2_stat.get("tier1_actionable_markets", 0),
+            "tier2_incubating_models": t1_2_stat.get("tier2_incubating_models", 0),
+            "funnel_conversion_ratio": t1_2_stat.get("funnel_conversion_ratio", 0.0),
+            "unadmitted_champions_backlog": t1_2_stat.get("unadmitted_champions_backlog_count", 0),
+            "alias_splits_detected": t1_2_stat.get("alias_phase_splits_count", 0),
+            "watchdog_anomalies": [a.get("message") for a in t1_2_stat.get("anomalies", [])[:3]]
+        }
     }
 
     policy = policy_override if policy_override is not None else (read(COUNCIL_CONFIG_PATH, {}) if COUNCIL_CONFIG_PATH.exists() else {})
@@ -238,7 +255,7 @@ def convene_daily_quant_council(
 
     synthesis = (
         f"DAILY STRATEGIC DIRECTIVE ({date_str}):\n"
-        f"1. Volume Directive: Accelerate discovery across active leagues (NFL/NHL/NBA/MLB/Soccer) to meet the mandatory 100 picks/day floor.\n"
+        f"1. Volume Directive: Accelerate discovery across all {len(ALL_TRACKED_LEAGUES)} active leagues (NFL/NHL/NBA/WNBA/MLB/Soccer/Tennis/NCAA) to meet the mandatory 100 picks/day floor.\n"
         f"2. Alpha Capital Strategy: Prioritize high-EV contracts with $2.50-$8.00 dynamic Kelly sizing on primary liquid spreads and totals.\n"
         f"3. Capital Defense: Retain $0.50 interim tourniquets on wobbling markets while running autonomous model discovery in the Shadow Incubator ($0.00).\n"
         f"4. Council Consensus: {council_consensus}"

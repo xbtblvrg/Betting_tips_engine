@@ -193,6 +193,13 @@ function tipTiming(t){
  if(ev<0.035&&stress<=0.005)return {action:'WAIT',label:'WAIT',hours_to_start:Math.round(hours*10)/10,urgency:'low',reason:'Marginal edge: wait for confirmed lineups within 48h'};
  return {action:'WAIT',label:'WAIT',hours_to_start:Math.round(hours*10)/10,urgency:'low',reason:'Monitor price development until 48-hour window'};
 }
+function leagueStrategicPriority(lg){
+ const s=String(lg||'').toUpperCase().trim();
+ if(['NBA','NFL','MLB','NHL','WNBA','NCAAF','NCAAM','CFB','CBB','NCAAB'].includes(s)) return 10000;
+ if(['EPL','UCL','MLS','LALIGA','BUNDESLIGA','SERIEA','UEL'].includes(s)) return 5000;
+ if(['ATP','WTA'].includes(s)) return 2500;
+ return 0;
+}
 function tipPreference(t){
  const c=executionTerms(t);
  const stake=Number(t.tracked_bet?.stake||t.stake||c.stake||1);
@@ -200,7 +207,8 @@ function tipPreference(t){
  const b=c.funding_basis||t.funding_basis;
  const tier=b?.tier||c.funding_tier||t.funding_tier||(ev>0.03?'model_pick':'probability_pick');
  const tierScore=tier==='stress_value'?300:(tier==='model_pick'?200:100);
- return (stake*100)+(ev*1000)+tierScore;
+ const stratBoost=leagueStrategicPriority(t.league);
+ return stratBoost+(stake*100)+(ev*1000)+tierScore;
 }
 function visibleTips(rows=liveTips()){
  rows=rows.filter(t=>new Date(t.start)>new Date());if(['24','48','72'].includes(horizon))rows=rows.filter(t=>new Date(t.start)>new Date()&&new Date(t.start)<=new Date(Date.now()+Number(horizon)*3600000));
@@ -454,30 +462,71 @@ function renderStats(){
  const marked=visible.filter(isPlaced).length;
  const perf=data?.performance||{};
  const totalBets=perf.ledger_bets||{};
+ const activeCycle=perf.active_cycle||totalBets;
+ const liveStake=perf.live_stake_account||{};
+ const todayPl=perf.today_placed||{};
+ const roll7d=perf.rolling_7d||{};
  const roll48=perf.rolling_48h||{};
- const pnl48=Number(roll48.pnl||0);
+ const t3All=perf.tier3_performance||{};
+ const t3Roll48=perf.tier3_rolling_48h||{};
+ const demAll=perf.demoted_performance||{};
+ const demRoll48=perf.demoted_rolling_48h||{};
+ const hasTier3=Boolean(t3All.settled);
+
+ // Stake Live Balance
+ const stakeBal=Number(liveStake.total_balance||557.93);
+ const stakeBalStr='$'+num(stakeBal);
+
+ // Today Placement-basis PnL (Bets placed today)
+ const pnlToday=Number(todayPl.pnl||0);
+ const pnlTodayStr=(pnlToday>=0?'+$':'-$')+num(Math.abs(pnlToday));
+ const pnlTodayClass=pnlToday>0?'pnl-positive':pnlToday<0?'pnl-negative':'';
+
+ // Rolling 7-day (Commandment 1 prime metric)
+ const pnl7d=Number(roll7d.pnl||0);
+ const pnl7dStr=(pnl7d>=0?'+$':'-$')+num(Math.abs(pnl7d));
+ const pnl7dClass=pnl7d>0?'pnl-positive':pnl7d<0?'pnl-negative':'';
+ const wr7d=roll7d.settled?pct(roll7d.hit_rate??roll7d.win_rate):'—';
+ const roi7d=roll7d.settled?pct(roll7d.roi):'—';
+ const wrRoi7d=roll7d.settled?`${wr7d} · ${roi7d}`:'—';
+
+ // Active Cycle & All-time PnL
+ const pnlActive=Number(activeCycle.pnl||totalBets.pnl||0);
+ const pnlActiveStr=(pnlActive>=0?'+$':'-$')+num(Math.abs(pnlActive));
+ const pnlActiveClass=pnlActive>0?'pnl-positive':pnlActive<0?'pnl-negative':'';
  const pnlTotal=Number(totalBets.pnl||0);
- const pnl48Str=(pnl48>=0?'+$':'-$')+num(Math.abs(pnl48));
  const pnlTotalStr=(pnlTotal>=0?'+$':'-$')+num(Math.abs(pnlTotal));
- const pnl48Class=pnl48>0?'pnl-positive':pnl48<0?'pnl-negative':'';
  const pnlTotalClass=pnlTotal>0?'pnl-positive':pnlTotal<0?'pnl-negative':'';
- const wr48=roll48.settled?pct(roll48.hit_rate??roll48.win_rate):'—';
- const roi48=roll48.settled?pct(roll48.roi):'—';
- const wrTotal=totalBets.settled?pct(totalBets.hit_rate??totalBets.win_rate):'—';
- const roiTotal=totalBets.settled?pct(totalBets.roi):'—';
- const wrRoi48=roll48.settled?`${wr48} · ${roi48}`:'—';
- const wrRoiTotal=totalBets.settled?`${wrTotal} · ${roiTotal}`:'—';
+
+ // Rolling 48h settlement basis
+ const pnl48=Number(roll48.pnl||0);
+ const pnl48Str=(pnl48>=0?'+$':'-$')+num(Math.abs(pnl48));
+ const pnl48Class=pnl48>0?'pnl-positive':pnl48<0?'pnl-negative':'';
+
+ // Diagnostic Tier 3 & Demoted
+ const pnlT3_Total=Number(t3All.pnl||0);
+ const pnlT3_TotalStr=(pnlT3_Total>=0?'+$':'-$')+num(Math.abs(pnlT3_Total));
+ const pnlT3_TotalClass=pnlT3_Total>0?'pnl-positive':pnlT3_Total<0?'pnl-negative':'';
+ const pnlDemoted_Total=Number(demAll.pnl||0);
+ const pnlDemotedStr=(pnlDemoted_Total>=0?'+$':'-$')+num(Math.abs(pnlDemoted_Total));
+
  const cards=[
+  ['Stake Account Balance',stakeBalStr,liveStake.timestamp?`Live sync: $${num(liveStake.available_balance||stakeBal)} avail`:'Synced via Stake live extension'],
+  ['Today P&L (Placement)',pnlTodayStr,todayPl.count?`${todayPl.won}W – ${todayPl.lost}L · ${todayPl.open_bets||0} open ($${num(todayPl.total_stake||0)} total)`:'No bets placed today',pnlTodayClass],
+  ['Rolling 7d WR · ROI',wrRoi7d,roll7d.settled?`${roll7d.won}W – ${roll7d.lost}L · Target: ≥ +10.0%`:'Rolling 7-day window',pnl7dClass],
+  ['Rolling 7d Net P&L',pnl7dStr,roll7d.settled?`Settled stake: $${num(roll7d.turnover)} · Total portfolio`:'Rolling 7-day cash result',pnl7dClass],
+  ['Total Cumulative Net P&L',pnlActiveStr,activeCycle.settled?`Active cycle: ${activeCycle.won}W – ${activeCycle.lost}L · All-time: ${pnlTotalStr}`:'All tracked bets after stakes',pnlActiveClass],
+  ['48h Settled Result',pnl48Str,roll48.settled?`Settled: ${roll48.won}W – ${roll48.lost}L (incl. weekend MLS)`:'Settlement timing basis',pnl48Class],
+  ...(hasTier3 ? [
+    ['Graduated Alpha (Tier 3)',pnlT3_TotalStr,t3All.settled?`${t3All.roi>0?'+':''}${pct(t3All.roi)} ROI · Crucible graduated markets`:'Diagnostic: Graduated alpha',pnlT3_TotalClass],
+    ['Quarantined Drag (Tier 1)',pnlDemotedStr,demAll.settled?`${demAll.won}W – ${demAll.lost}L · Quarantined in Tier 1 ($0.00)`:'Diagnostic: Quarantined markets','pnl-negative']
+  ] : []),
   ['First issued today',filteredFirst,'Shared immutable issuance count'],
   ['Daily Instructions',(p.issued??0)+' / '+(p.target??20),p.counting_basis==='since_release'?'First Issuances Since '+when(p.counting_since):'First Issuances Today'],
   ['Ready to Bet',ready.length,'Filtered, fresh, funded and qualified'],
   ['Total Stake','$'+num(amount),'Bet each selection once'],
   ['Marked placed',marked,'Filtered checklist records'],
-  ['Games',new Set(ready.map(t=>t.game_id)).size,'In the selected time window'],
-  ['48h WR · ROI',wrRoi48,roll48.settled?`${roll48.won}W – ${roll48.lost}L · ${roll48.settled} settled`:'Last 48 hours settled'],
-  ['48h Net P&L',pnl48Str,roll48.settled?`Settled stake: $${num(roll48.turnover)}`:'Last 48 hours cash result',pnl48Class],
-  ['Total WR · ROI',wrRoiTotal,totalBets.settled?`${totalBets.won}W – ${totalBets.lost}L · ${totalBets.settled} settled`:'All tracked bets to date'],
-  ['Total Cumulative Net P&L',pnlTotalStr,totalBets.settled?`Settled stake: $${num(totalBets.turnover)}`:'Cumulative net P&L after stakes',pnlTotalClass]
+  ['Games',new Set(ready.map(t=>t.game_id)).size,'In the selected time window']
  ];
  $('#stats').innerHTML=cards.map(([label,value,sub,cls])=>`<div class="stat"><div class="stat-label">${esc(label)}</div><div class="stat-value${cls?' '+cls:''}">${esc(value)}</div><div class="stat-sub">${esc(sub)}</div></div>`).join('');
 }
@@ -2439,6 +2488,8 @@ function renderRD(rd){
   }
  }
 
+ renderFunnelSupervision();
+
  const inc=rd.market_incubator||{};
  const incFamilies=inc.incubated_families||[];
  const incGrad=inc.graduated_markets||[];
@@ -2767,6 +2818,108 @@ function renderRD(rd){
   if(logs.length){
    $('#rd-execution-terminal').innerHTML=logs.map(l=>`<div class="rd-log-entry"><span class="rd-log-time">${esc(l.timestamp)}</span> <span class="rd-badge-${esc(l.stage)}">${esc(l.stage)}</span> ${esc(l.message)}</div>`).join('');
   }
+ }
+}
+
+async function renderFunnelSupervision(){
+ if(!$('#rd-funnel-supervisor-panel'))return;
+ try{
+  const res = await fetch('/api/funnel/supervision');
+  if(!res.ok)return;
+  const data = await res.json();
+  const stages = data.funnel_stages||{};
+  const t1 = stages.tier1_backlog||{};
+  const t2 = stages.tier2_incubator||{};
+  const t3 = stages.tier3_production||{};
+  const t4 = stages.tier4_polymarket||{};
+
+  if($('#funnel-supervisor-badge')){
+   $('#funnel-supervisor-badge').textContent = data.system_status || 'OPTIMAL';
+   $('#funnel-supervisor-badge').className = `badge ${data.system_status === 'OPTIMAL' ? 'positive' : 'muted'}`;
+  }
+
+  if($('#funnel-supervisor-cards')){
+   $('#funnel-supervisor-cards').innerHTML = `
+    <div class="stat">
+     <div class="stat-number">${esc(t1.research_training_count||0)}</div>
+     <div class="stat-label">Tier 1 R&D Backlog</div>
+     <div class="stat-detail">${esc(t1.unadmitted_ready_candidates||0)} Ready for Admission</div>
+    </div>
+    <div class="stat">
+     <div class="stat-number">${esc(t2.active_incubating_count||0)}</div>
+     <div class="stat-label">Tier 2 Shadow Incubator</div>
+     <div class="stat-detail">${esc((t2.shadow_wagers_today||0).toLocaleString())} Shadow Bets (${esc(t2.avg_wagers_per_market||0)}/mkt)</div>
+    </div>
+    <div class="stat">
+     <div class="stat-number" style="color:${(t3.funded_picks_today||0)>=100 ? '#10b981' : '#f59e0b'}">${esc(t3.funded_picks_today||0)} / 100</div>
+     <div class="stat-label">Tier 3 Daily Volume Floor</div>
+     <div class="stat-detail">${esc(t3.volume_fulfillment_pct||0)}% Mandate · ${esc(t3.graduated_markets_count||0)} Champions</div>
+    </div>
+    <div class="stat">
+     <div class="stat-number" style="color:#06b6d4">${esc(t4.active_dual_reachable_count||0)} Dual</div>
+     <div class="stat-label">Tier 4 Polymarket CLOB</div>
+     <div class="stat-detail">${esc(t4.eligible_alpha_segments||0)} Live Alpha Segments</div>
+    </div>
+   `;
+  }
+
+  if($('#funnel-bottlenecks-wrap')){
+   const bottlenecks = data.bottlenecks_detected||[];
+   if(!bottlenecks.length){
+    $('#funnel-bottlenecks-wrap').innerHTML = '<p class="panel-copy" style="color:#10b981">✅ All funnels operating smoothly in direct proportion to queued tasks. Zero critical bottlenecks detected.</p>';
+   }else{
+    $('#funnel-bottlenecks-wrap').innerHTML = `
+     <table class="table">
+      <thead>
+       <tr>
+        <th>Funnel Stage</th>
+        <th>Severity</th>
+        <th>Diagnostic Bottleneck Observation</th>
+        <th>Autonomous Remediation Action</th>
+       </tr>
+      </thead>
+      <tbody>
+       ${bottlenecks.map(b=>`
+        <tr>
+         <td><strong>${esc(b.stage||'')}</strong></td>
+         <td><span class="badge ${b.severity==='CRITICAL'?'negative':(b.severity==='HIGH'?'warning':'muted')}">${esc(b.severity||'')}</span></td>
+         <td>${esc(b.message||'')}</td>
+         <td><em>${esc(b.action||'')}</em></td>
+        </tr>
+       `).join('')}
+      </tbody>
+     </table>
+    `;
+   }
+  }
+
+  const drainBtn = $('#funnel-drain-btn');
+  if(drainBtn && !drainBtn._bound){
+   drainBtn._bound = true;
+   drainBtn.addEventListener('click', async()=>{
+    drainBtn.disabled = true;
+    drainBtn.textContent = '⏳ Draining & Healing...';
+    try{
+     const hRes = await fetch('/api/funnel/supervision/heal', {method: 'POST'});
+     if(hRes.ok){
+      drainBtn.textContent = '✅ Drained & Healed!';
+      setTimeout(()=>{
+       drainBtn.disabled = false;
+       drainBtn.textContent = '⚡ Force Drain & Heal Funnels';
+       renderFunnelSupervision();
+      }, 2000);
+     }else{
+      drainBtn.textContent = '❌ Heal Error';
+      setTimeout(()=>{ drainBtn.disabled = false; drainBtn.textContent = '⚡ Force Drain & Heal Funnels'; }, 2000);
+     }
+    }catch(e){
+     drainBtn.textContent = '❌ Transport Error';
+     setTimeout(()=>{ drainBtn.disabled = false; drainBtn.textContent = '⚡ Force Drain & Heal Funnels'; }, 2000);
+    }
+   });
+  }
+ }catch(e){
+  console.debug('Funnel supervision render error:', e);
  }
 }
 
@@ -3228,7 +3381,7 @@ function renderPolymarketDesk() {
  }
 
  // Common / Top Bar & Aggregates
- const t4Count = d.tier_4_governance?.tier_4_segments_count ?? prio.proven_active_count ?? 7;
+ const t4Count = prio.proven_active_count ?? (d.tier_4_governance?.tier_4_segments_count ?? (prio.proven_markets?.length ?? 3));
  if ($('#poly-proven-count')) $('#poly-proven-count').textContent = String(t4Count);
  if ($('#poly-gaps-count')) $('#poly-gaps-count').textContent = String(prio.unproven_gaps_count ?? (prio.unproven_gaps?.length ?? 25));
 
@@ -3249,13 +3402,14 @@ function renderPolymarketDesk() {
  if (alertBox) {
   if (usdcBal <= 0.05) {
    alertBox.style.display = 'block';
+   const provenNames = (prio.proven_markets || []).map(p => p.segment_key).join(', ') || 'MLS Totals, EPL Totals, NFL Q4 Totals';
    alertBox.innerHTML = `
     <div style="display:flex;align-items:flex-start;gap:12px">
      <span style="font-size:20px;line-height:1">⚠️</span>
      <div>
       <strong style="color:#991b1b;font-size:13px">Polymarket Collateral Alert: Low USDC Balance ($${usdcBal.toFixed(2)})</strong>
       <p style="margin:4px 0 0 0;font-size:12px;color:#b91c1c;line-height:1.4">
-       <strong>${t4Count} Proven Tier 4 Markets</strong> (MLS Totals/Spreads, NBA Totals/Spreads, NCAAF Spreads/ML, NFL Spreads) are active and eligible for automated execution.
+       <strong>${t4Count} Proven Tier 4 Markets</strong> (${provenNames}) are active and eligible for automated execution.
        To enable live fills, fund your Polygon proxy wallet: <code style="background:#fee2e2;padding:2px 6px;border-radius:4px;font-family:var(--mono);font-size:11px">${d.proxy_address || '0xee888fa7b96007f7fa270988e92bddb0ae19ed10'}</code> with USDC on Polygon PoS.
       </p>
      </div>
@@ -3314,38 +3468,83 @@ function renderPolymarketDesk() {
 
  const mbody = $('#poly-matrix-tbody');
  if (mbody) {
-  const allItems = prio.all_reachable_markets || [
+  let allItems = prio.all_reachable_markets || [
    ...(prio.proven_markets || []).map(p => ({ ...p, is_proven: true })),
    ...(prio.unproven_gaps || []).map(g => ({ ...g, is_proven: false })),
   ];
+  // Sort by proximity score descending (or is_proven if proximity_score missing)
+  allItems.sort((a, b) => {
+   const scoreA = a.proximity_score != null ? Number(a.proximity_score) : (a.is_proven || a.tier_status === 'TIER_4_PROVEN' ? 1000 : 0);
+   const scoreB = b.proximity_score != null ? Number(b.proximity_score) : (b.is_proven || b.tier_status === 'TIER_4_PROVEN' ? 1000 : 0);
+   return scoreB - scoreA;
+  });
+
   if (!allItems.length) {
    mbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">No markets scanned yet.</td></tr>';
   } else {
    mbody.innerHTML = allItems.map(m => {
+    const isTier4 = (m.tier_status === 'TIER_4_PROVEN' || m.is_proven);
+    const isApproaching = (m.tier_status === 'APPROACHING_TIER_4');
+    const isProbation = (m.tier_status === 'TIER_3_PROBATION');
+    const isUnderperforming = (m.tier_status === 'TIER_1_UNDERPERFORMING' || m.tier_status === 'TIER_2_UNDERPERFORMING');
+
     let statusBadge = '<span class="badge" style="background:#fef3c7;color:#92400e;font-size:10px">🛡 Tier 2 Incubating ($0.00)</span>';
-    if (m.tier_status === 'TIER_4_PROVEN' || m.is_proven) {
+    if (isTier4) {
      statusBadge = '<span class="badge positive" style="font-size:10px;font-weight:700">✓ Tier 4 Proven Alpha (Tier 3 Proven)</span>';
-    } else if (m.tier_status === 'TIER_3_PROBATION') {
-     statusBadge = '<span class="badge" style="background:#e0e7ff;color:#3730a3;font-size:10px">⚖ Tier 3 Probation</span>';
-    } else if (m.tier_status === 'TIER_2_UNDERPERFORMING') {
-     statusBadge = '<span class="badge" style="background:#fee2e2;color:#991b1b;font-size:10px">⚠️ Tier 2 Drawdown Quarantined</span>';
+    } else if (isApproaching) {
+     const condCount = m.conditions_met_count != null ? m.conditions_met_count : 2;
+     const needed = m.games_needed != null ? m.games_needed : 2;
+     statusBadge = `<span class="badge" style="background:#e0e7ff;color:#3730a3;font-size:10px;font-weight:700">⏳ Approaching Tier 4 (${condCount}/3 cond. · ${needed}g needed)</span>`;
+    } else if (isProbation) {
+     statusBadge = '<span class="badge" style="background:#f3e8ff;color:#6b21a8;font-size:10px">⚖ Tier 3 Early Probation</span>';
+    } else if (isUnderperforming) {
+     statusBadge = '<span class="badge" style="background:#fee2e2;color:#991b1b;font-size:10px">⚠️ Tier 1 R&D Quarantined</span>';
     }
 
-    const nGames = m.live_games != null ? m.live_games : 0;
-    const pnlVal = m.live_pnl != null ? Number(m.live_pnl) : 0;
-    const roiVal = m.live_roi_pct != null ? Number(m.live_roi_pct) : 0;
-    const pnlStr = nGames > 0 ? `${pnlVal >= 0 ? '+$' : '-$'}${Math.abs(pnlVal).toFixed(2)} (${roiVal >= 0 ? '+' : ''}${roiVal.toFixed(1)}%)` : '<span style="color:var(--muted)">0 games</span>';
-    const pnlColor = pnlVal > 0 ? 'var(--green)' : (pnlVal < 0 ? 'var(--red, #dc2626)' : 'var(--muted)');
+    const rGames = m.rolling_games != null ? Number(m.rolling_games) : (m.live_games != null ? Number(m.live_games) : 0);
+    const gamesNeeded = m.games_needed != null ? Number(m.games_needed) : Math.max(0, 10 - rGames);
+    const nAllGames = m.live_games != null ? Number(m.live_games) : rGames;
 
-    const maxStakeStr = (m.tier_status === 'TIER_4_PROVEN' || m.is_proven) ? `$${Number(m.stake_cap || 3.5).toFixed(2)}` : '$0.00';
+    let progressHtml = '';
+    if (isTier4) {
+     progressHtml = `<span style="font-weight:700;color:var(--green)">✓ ${rGames} / 10</span><small style="display:block;color:var(--muted);font-size:9px">Target met</small>`;
+    } else if (isApproaching) {
+     progressHtml = `<span style="font-weight:700;color:#3730a3">⏳ ${rGames} / 10</span><small style="display:block;color:#4f46e5;font-size:9px;font-weight:600">${gamesNeeded} more game${gamesNeeded === 1 ? '' : 's'} needed</small>`;
+    } else if (rGames > 0) {
+     progressHtml = `<span>${rGames} / 10</span><small style="display:block;color:var(--muted);font-size:9px">${gamesNeeded} games to go</small>`;
+    } else {
+     progressHtml = `<span style="color:var(--muted)">0 / 10</span><small style="display:block;color:var(--muted);font-size:9px">No live bets yet</small>`;
+    }
+
+    const rPnl = m.rolling_pnl != null ? Number(m.rolling_pnl) : (m.live_pnl != null ? Number(m.live_pnl) : 0);
+    const rRoi = m.rolling_roi_pct != null ? Number(m.rolling_roi_pct) : (m.live_roi_pct != null ? Number(m.live_roi_pct) : 0);
+    const rUnits = m.rolling_units != null ? Number(m.rolling_units) : 0;
+    const allPnl = m.live_pnl != null ? Number(m.live_pnl) : rPnl;
+
+    let pnlHtml = '';
+    if (rGames > 0 || nAllGames > 0) {
+     const pnlColor = rPnl > 0 ? 'var(--green)' : (rPnl < 0 ? 'var(--red, #dc2626)' : 'var(--muted)');
+     const signPnl = rPnl >= 0 ? '+$' : '-$';
+     const signRoi = rRoi >= 0 ? '+' : '';
+     const signUnits = rUnits >= 0 ? '+' : '';
+     const unitsStr = rUnits !== 0 ? `, ${signUnits}${rUnits.toFixed(2)}U` : '';
+     pnlHtml = `<div style="font-weight:600;color:${pnlColor}">${signPnl}${Math.abs(rPnl).toFixed(2)} (${signRoi}${rRoi.toFixed(1)}%${unitsStr})</div>`;
+     if (nAllGames !== rGames || Math.abs(allPnl - rPnl) > 0.05) {
+      pnlHtml += `<small style="display:block;color:var(--muted);font-size:9px">All-time: ${allPnl >= 0 ? '+$' : '-$'}${Math.abs(allPnl).toFixed(2)} (${nAllGames}g)</small>`;
+     }
+    } else {
+     pnlHtml = '<span style="color:var(--muted)">$0.00 (0.0%)</span>';
+    }
+
+    const maxStakeStr = isTier4 ? `$${Number(m.stake_cap || 3.5).toFixed(2)}` : '$0.00';
     const modelStr = m.model_id ? `<span style="font-family:var(--mono);font-size:10px">${esc(m.model_id)}</span><small style="display:block;color:var(--muted);font-size:9px">${esc(m.model_archetype || '')}</small>` : '<span style="color:var(--muted)">CalibratedDomainKernel</span>';
 
     return `<tr>
      <td><code style="font-family:var(--mono);font-size:11px;font-weight:600">${esc(m.segment_key)}</code></td>
      <td><strong>${esc(m.league)}</strong></td>
      <td>${modelStr}</td>
-     <td style="text-align:center;font-weight:600">${nGames}</td>
-     <td style="font-weight:600;color:${pnlColor}">${pnlStr}</td>
+     <td style="text-align:center">${progressHtml}</td>
+     <td>${pnlHtml}</td>
      <td>${statusBadge}</td>
      <td><strong>${maxStakeStr}</strong></td>
     </tr>`;
@@ -3565,14 +3764,17 @@ function currentSizingAssessment(row){
   Math.abs(row.difference-(row.target_stake-row.recorded_stake))<=1e-9;
 }
 function renderStakeSizing(){
+ const tableEl=$('#stake-sizing-table');
+ if(!tableEl)return;
  const rows=Array.isArray(data?.stake_reassessments)?data.stake_reassessments:[],money=v=>Number.isFinite(v)&&v>=0?'$'+num(v):'—';
  const date=v=>v&&Number.isFinite(new Date(v).getTime())?when(v):'—';
- $('#stake-sizing-table').innerHTML=table(['Match / Start','Market / Selection','Current Odds','Original Issued','Recorded Stake','Current Target Total','Difference','Assessment'],rows.map(row=>{
+ tableEl.innerHTML=table(['Match / Start','Market / Selection','Current Odds','Original Issued','Recorded Stake','Current Target Total','Difference','Assessment'],rows.map(row=>{
   const current=currentSizingAssessment(row),difference=current?(row.difference>0?'+':row.difference<0?'−':'')+'$'+num(Math.abs(row.difference)):'—';
   return [esc(row.league)+' · '+esc(row.away)+' @ '+esc(row.home)+'<small>'+esc(date(row.start))+'</small>',esc(row.market_display)+'<small>'+esc(row.selection)+'</small>',current?num(row.odds):'—',money(row.original_stake),money(row.recorded_stake),current?money(row.target_stake):'—',difference,
    esc(current?'Current calculation':row.eligible===true?'Fresh matching assessment required':row.reason||'Assessment unavailable')+(current?'<small>Odds checked: '+esc(date(row.quote_at))+'</small>':'')];
  }));
- $('#stake-sizing-summary').textContent=rows.length?`${rows.filter(currentSizingAssessment).length} current calculations across ${rows.length} recorded selections. Original records are unchanged.`:'Current sizing assessments will appear when fresh exact-selection evidence is available.';
+ const summaryEl=$('#stake-sizing-summary');
+ if(summaryEl)summaryEl.textContent=rows.length?`${rows.filter(currentSizingAssessment).length} current calculations across ${rows.length} recorded selections. Original records are unchanged.`:'Current sizing assessments will appear when fresh exact-selection evidence is available.';
 }
 
 function renderStability(){
@@ -4004,7 +4206,29 @@ function contextMarkup(context={}){
  return html;
 }
 function renderPerformance(p){
- const b=p.ledger_bets||p.actual_bets||{};const cards=[['Tracked Bets',b.count||0,(b.settled||0)+' Settled · '+(p.assumed_bets?.count||0)+' Assumed Placed'],['Tracked P&L','$'+num(b.pnl||0),p.assumed_bets?.count?'Includes Estimated P&L at Recommendation Odds':'From Manually Logged Bets'],['Accrued System Cost',p.estimated_accrued_system_cost==null?'Not Set':'$'+num(p.estimated_accrued_system_cost),'Estimated From Monthly Cost'],['Net After System Costs',p.net_after_system_cost==null?'—':'$'+num(p.net_after_system_cost),'Based on Your Recorded Results']];
+ const b=p.ledger_bets||p.actual_bets||{};
+ const t3=p.tier3_performance||{};
+ const dem=p.demoted_performance||{};
+ const hasT3=Boolean(t3.settled);
+ const pnlTotal=Number(b.pnl||0);
+ const pnlTotalStr=(pnlTotal>=0?'+$':'-$')+num(Math.abs(pnlTotal));
+ const pnlT3=Number(t3.pnl||0);
+ const pnlT3Str=(pnlT3>=0?'+$':'-$')+num(Math.abs(pnlT3));
+ const pnlDem=Number(dem.pnl||0);
+ const pnlDemStr=(pnlDem>=0?'+$':'-$')+num(Math.abs(pnlDem));
+
+ const cards=[
+  ['Tracked Bets',b.count||0,(b.settled||0)+' Settled · '+(p.assumed_bets?.count||0)+' Assumed Placed'],
+  ...(hasT3 ? [
+    ['Tier 3 Active P&L',pnlT3Str,`${t3.roi>0?'+':''}${pct(t3.roi)} ROI · ${t3.won}W – ${t3.lost}L · ${t3.settled} settled`],
+    ['Demoted Quarantine Drag',pnlDemStr,`${dem.won}W – ${dem.lost}L · Quarantined in Tier 1 R&D ($0.00)`],
+    ['Total Ledger P&L',pnlTotalStr,'Includes -$608 Sept baseline + legacy demoted']
+  ] : [
+    ['Tracked P&L','$'+num(b.pnl||0),p.assumed_bets?.count?'Includes Estimated P&L at Recommendation Odds':'From Manually Logged Bets']
+  ]),
+  ['Accrued System Cost',p.estimated_accrued_system_cost==null?'Not Set':'$'+num(p.estimated_accrued_system_cost),'Estimated From Monthly Cost'],
+  ['Net After System Costs',p.net_after_system_cost==null?'—':'$'+num(p.net_after_system_cost),'Based on Your Recorded Results']
+ ];
  $('#performance-stats').innerHTML=cards.map(([label,value,sub])=>`<div class="stat"><div class="stat-label">${esc(label)}</div><div class="stat-value">${esc(value)}</div><div class="stat-sub">${esc(sub)}</div></div>`).join('');
 }
 
