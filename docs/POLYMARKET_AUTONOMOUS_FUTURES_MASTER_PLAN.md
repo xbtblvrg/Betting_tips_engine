@@ -36,7 +36,7 @@ A rendszer alapvető matematikai és stratégiai küldetése: **olyan többopci�
 | **Időhorizont** | 0 – 72 óra | Tetszőleges (napoktól több hónapig tartó lejárati létra) |
 | **Tétkorlátok** | Szigorú `$0.50 – $8.00` Frakcionális Kelly | **Nincs `$8` plafon**; portfóliószintű tőkeallokáció (kezdőtőke + periodikus DCA rátöltések) |
 | **Végrehajtási mód** | Stake-en manuális (`assumed manual`), szigorú Tier 1–4 kapukkal | **100% Autonóm CLOB végrehajtás** (`Maker` limit + `Taker` azonnali + automata `Order Slicer` + `Rebalancer`) |
-| **Adatbázis** | `data/engine.sqlite3` (100% érintetlen) | Saját, különálló SQLite adatbázis: `data/pm_futures_ledger.sqlite3` |
+| **Adatbázis** | [`data/engine.sqlite3`](file:///Users/belavarga/Betting_tips_engine/data/engine.sqlite3) (100% érintetlen) | Saját, különálló SQLite adatbázis: `data/pm_futures_ledger.sqlite3` |
 | **Szabályzat (`Governance`)** | `AGENTS.md` 1–10. Parancsolat | Külön projektmappa **VAGY** külön `11. Charter` az `AGENTS.md`-ben és `GEMINI.md`-ben |
 
 ---
@@ -70,35 +70,78 @@ Ahelyett, hogy minden kiválasztott kimenetelre mereven azonos darabszámot venn
 
 ### 3.3. A Négy Kötelező Risk/Reward ($R/R$) Kiértékelési Metrika
 
-1. **Passzív Alap-Hozam (`Baseline Hold-to-Maturity Return`)**
-2. **Aktívan Tradelt Életciklus-Hozam (`Active Lifecycle Return`)**
-3. **Korlátozott Maximális Tőkevisszaesés (`Bounded Max Drawdown`: $\text{MaxLoss}_{\text{guarded}} = \alpha_{\text{max}} \cdot B_t$)**
-4. **Valós Risk/Reward Arány (`Effective R/R Ratio`: $\text{R/R}_{\text{effective}} = \text{PnL}_{\text{net}} / \text{MaxLoss}_{\text{guarded}}$)**
+1. **Passzív Alap-Hozam (`Baseline Hold-to-Maturity Return`):**
+   - Garantált nettó dollárprofit és százalékos hozam mind az $S_{\text{alpha}}$, mind az $S_{\text{base}}$ kimeneteleken további kötések nélkül.
+2. **Aktívan Tradelt Életciklus-Hozam (`Active Lifecycle Return`):**
+   - Várható nettó profit a `Maker` limit árazás, a `clobRewards` jutalékok, az árfolyam-kiugrások részleges lefölözése (`Swing Trim`) és a periodikus ($\Delta B_k$) tőkeinjekciók diszkont-alapú (`Dip Accumulation`) elosztása mellett.
+3. **Korlátozott Maximális Tőkevisszaesés (`Bounded Max Drawdown / Downside Risk`):**
+   - Külön kimutatva a naiv lejáratkori kockázatot (`-100%`) és a **valós, autonóm módon védett kockázatot ($\text{MaxLoss}_{\text{guarded}} = \alpha_{\text{max}} \cdot B_t$)**. Mivel a kosárban lévő erős kimenetelek piaci eladási értéke (`Mark-to-Market Bid Value` = $\sum q_i \cdot \text{Bid}_i(t)$) végig likvid marad, egy kívülről érkező ($S_{\text{defer}}$ vagy új) kimenetel megerősödésekor az autonóm őrszem (`PositionGuardian`) időben végrehajtja a fedezést (`Auto-Hedge`) vagy a portfólió-lezárást (`Stop-Loss`).
+4. **Valós Risk/Reward Arány (`Effective R/R Ratio`):**
+   - $$\text{R/R}_{\text{effective}} = \frac{\text{PnL}_{\text{net}}}{\text{MaxLoss}_{\text{guarded}}}$$
+
+### 3.4. Többpiacos Tőkeforgási Sebesség (`Capital Velocity`), Szekvenciális Tőkegörgetés és Topológia-Adaptáció
+Amikor a rendszer párhuzamosan több különböző többopciós piacot ($\mathcal{E} = \{E_1, E_2, \dots, E_M\}$) értékel eltérő lejárati horizontokkal ($T_1 < T_2 < \dots < T_M$) és eltérő kiesési struktúrákkal, a tőkeallokációt három további első-elvű törvény vezérli:
+
+1. **Időarányos Tőkeforgási Sebesség (`Time-Normalized Capital Velocity`):**
+   - Két pozitív várható értékű és magas `Risk/Reward` arányú piac közül a rendszer nem csupán a statikus hozamot ($\text{ROI}_m$), hanem az **egységnyi lekötési időre jutó, kockázattal korrigált tőkeforgási sebességet** rangsorolja:
+     $$\mathcal{V}(E_m) = \frac{\mathbb{E}[\text{PnL}_{\text{active}}(E_m)]}{B_m \cdot (T_m - t_0)}$$
+   - A rövidebb lejáratú ($T_1 - t_0 \ll T_2 - t_0$), mélyebb kosár-diszkonttal ($\sum_{i \in S_{\text{alpha}} \cup S_{\text{base}}} p_i \ll \sum P_{\text{true}, i}$) és finomabb CLOB tick-lépésközzel rendelkező piacok magasabb prioritást kapnak az aktív tőkeallokációban.
+2. **Szekvenciális Tőkegörgetés (`Sequential Capital Rollover & Compounding`):**
+   - Eltérő lejárati idejű piacok ($T_1 < T_2$) esetén a rendszer nem kényszerül statikus „vagy–vagy” választásra:
+     - **1. Fázis ($t_0 \to T_1$):** Az aktív tőkét és a periodikus DCA-rátöltések fő tömegét a közelebbi lejáratú, gyorsabb tőkeforgású $E_1$ piacra koncentrálja (miközben a távolabbi $E_2$ piacon kizárólag mély diszkontú, passzív `Maker` csapda-limiteket tart fenn).
+     - **2. Fázis ($T_1 \to T_2$):** Amikor a korábbi $E_1$ piac a végjátékban profit-lockkal vagy elszámolással lezárul, a felszabaduló alaptőkét és a realizált profitot ($B_1 + \text{PnL}_1$) a rendszer **szekvenciálisan átforgatja (`Rollover`)** a későbbi lejáratú $E_2$ piacba közvetlenül annak magas információtartalmú, döntő szakasza előtt — így ugyanaz a tőke egyetlen éves cikluson belül többszörösen kamatozik.
+3. **Kieséses Topológia és Strukturális Variancia-Adaptáció (`Elimination Topology Adaptation`):**
+   - A valós győzelmi valószínűséget ($P_{\text{true}, i}$) és a kosárszélességet a rendszer mindig az adott piac **matematikai kiesési gráftopológiájából** vezeti le:
+     - **Útfüggő kiemelési és erőnyerési aszimmetria (`Path & Bye Asymmetry`):** Ha a verseny- vagy elszámolási struktúrában bizonyos pozíciók kevesebb túlélési fordulót ($k_i < k_{\text{max}}$), gyengébb ágrajzi szomszédságot vagy strukturális helyzeti előnyt biztosítanak, a modell a túlélési láncszorzatot ($\prod_{r=1}^{k_i} p_{i,r}$) árazza a nyers múltbeli győzelmi arány helyett.
+     - **Fordulónkénti mintaszám és kimeneteli variancia (`Single-Trial vs. Multi-Trial Variance`):** Ahol a kiesési fordulók egyetlen kísérletből ($n=1$, magas fordulónkénti variancia) állnak, ott a rendszer szélesebb valószínűségi lefedettséget ($\sum P_{\text{true}, i}$) és a végső fordulók előtti korai, kötelező részleges profit-rögzítést (`Pre-Final Profit-Lock`) alkalmaz; ahol viszont a továbbjutás többszörös mintavételű szérián ($n > 1$, alacsonyabb véletlen kiesési variancia) dől el, ott a szérián belüli állapotváltozásokra (`Intra-Series Swing Trim`) épít.
 
 ---
 
 ## 4. Dinamikus Életciklus-Kereskedés a Nyitástól a Lejáratig ($t_0 \to T$)
 
-1. **Folyamatos Fundamentális vs. Piaci Divergencia-Mérés:** Minden új eredmény vagy strukturális változás után frissíti az $\text{Edge}_i(t) = P_{\text{true}, i}(t) / p_{\text{mkt}, i}(t)$ arányt.
-2. **Aktív „Swing-Lefölözés” (`Free-Roll` tőketermelés):** Árfolyam-kiugráskor a többlet share-ek részleges (`20–35%`) eladásából ingyen növeli az éppen olcsó kosárbeli lábak share-számát; fundamentális összeomlás esetén időben leépíti a gyengülő lábat.
-3. **Periodikus Tőkeinjekciók ($\Delta B_t$) Határhaszon-Alapú Elosztása:** Diszkont-akkumuláció (`Buy the Dip`), a tőkevédelmi küszöb (`Floor`) utánhúzása az új $B_t$ össztőkéhez, és az újonnan felemelkedő esélyesek korai beemelése.
-4. **Időbeli Konvergencia-Aratás (`Elimination Harvesting`):** A kieső opciók árazási tömegének beáramlása folyamatosan emeli a kosár `Mark-to-Market` eladási értékét.
-5. **Önfinanszírozó Végjáték (`Endgame Lock-In & Early Exit`):** Garantált profit lezárása a könyvben (`Bid` összeg $\to 0.98–0.99$) vagy `$1.00 / share` lejáratkori kifizetés.
+A rendszer a megnyitott pozíciókat **5 összekapcsolt mechanizmussal** menedzseli végig a lejáratig:
+
+1. **Folyamatos Fundamentális vs. Piaci Divergencia-Mérés:**
+   - Minden új eredmény, részadat vagy strukturális változás után minden $i$ opcióra frissíti a valós esély ($P_{\text{true}, i}(t)$) és a piaci ár ($p_{\text{mkt}, i}(t)$) hányadosát ($\text{Edge}_i(t) = P_{\text{true}, i}(t) / p_{\text{mkt}, i}(t)$).
+2. **Aktív „Swing-Lefölözés” (`Free-Roll` tőketermelés):**
+   - Ha egy olcsón felhalmozott opció ára rövid távú túlreagálás miatt jelentősen kiugrik, a rendszer a többlet share-ek optimális hányadát eladja a magas `Bid` árba, és a felszabaduló készpénzből azonnal az éppen alulárazott kosárbeli lábakat tölti fel.
+   - Ha egy tartott opció fundamentuma tartósan összeomlik ($P_{\text{true}, i}(t) \to 0$), a rendszer nem várja meg a lejáratkori értéktelenedést, hanem még likvid `Bid` áron leépíti, és átmenti a tőkét az élő lábakba.
+3. **A Periodikus Tőkeinjekciók ($\Delta B_t$) Határhaszon-Alapú Elosztása:**
+   - Az új tőkét soha nem mechanikusan osztja szét, hanem mindig oda irányítja, ahol az egységnyi dollárra jutó kifizetési küszöb (`Payout Floor`) és a `Risk/Reward` a legnagyobbat nő:
+     - **Diszkont-akkumuláció (`Buy the Dip`):** A legerősebb fundamentumú, de átmenetileg leütött árú lábak olcsó felhalmozása.
+     - **A Tőkevédelmi Pajzs (`Floor`) utánhúzása** a megnövekedett $B_t$ össztőkéhez.
+     - **Új felemelkedő esélyes (`Emerging Contender`) korai, olcsó beemelése** a kosárba.
+4. **Időbeli Konvergencia-Aratás (`Elimination Harvesting`):**
+   - Ahogy közeledik a lejárat, a mezőny esélytelen kimenetelei kiesnek, és a róluk felszabaduló valószínűségi tömeg törvényszerűen beáramlik a kosarunkban lévő élmezőnybe, folyamatosan növelve a portfólió `Mark-to-Market` eladási értékét.
+5. **Önfinanszírozó Végjáték (`Endgame Lock-In & Early Exit`):**
+   - Amikor már csak a végső esélyesek maradtak versenyben, a rendszer vagy bezárja a garantált profitot a könyvben, vagy megvárja a végső elszámolási kifizetést, illetve szükség esetén a feldrágult lábak töredékéből önfinanszírozó módon fedezi az esetleges külső kihívót.
 
 ---
 
 ## 5. A Három Matematikai Védőfék a Kódban (`Profitability & Safety Guards`)
 
-1. **`Monotonic Payout Guard`:** Átcsoportosítás (`Rebalance / Swing`) csak akkor hajtható végre, ha a spread levonása után a garantált kifizetési szint vagy kockázattal korrigált érték szigorúan nő.
-2. **`Dynamic Tail-Risk Shield`:** Kívülről megerősödő kimenetel korai, alacsony áron történő automatikus levédése vagy a korlátozott `MaxLoss` Stop-Loss érvényesítése.
-3. **`Hard Budget & No-Naked-Leg Invariant`:** Jóváhagyott tőkekeret szigorú tiszteletben tartása, csonka kosár tilalma és azonnali `Kill-Switch`.
+1. **`Monotonic Payout Guard` (Túlkereskedés és Spread-Elvérzés Tilalma):**
+   - A rendszer **kizárólag akkor** hajthat végre átcsoportosítást (`Rebalance / Swing`), ha a tranzakciós `Bid/Ask` spread levonása után a portfólió garantált kifizetési szintje vagy kockázattal korrigált értéke **szigorúan magasabb lesz, mint a kötés előtt volt**.
+2. **`Dynamic Tail-Risk Shield` (Kívülről Érkező Esélyes Korai Levédése):**
+   - Amint egy kezdetben kívül hagyott opció valós teljesítmény-mutatója átlép egy objektív statisztikai küszöböt, a rendszer még korai, diszkont árszinten kötelezően beemeli a védelembe, vagy érvényesíti a korlátozott `MaxLoss` védelmet.
+3. **`Hard Budget & No-Naked-Leg Invariant`:**
+   - A rendszer soha nem lépheti túl a jóváhagyott tőkekeretet, soha nem hagyhat félbe csonka kosarat fedezetlenül, és egyetlen kapcsolóval (`Kill-Switch`) bármikor megállítható.
 
 ---
 
 ## 6. Az Autonóm Szoftverrendszer 5 Moduljának Felépítése
 
+```mermaid
+flowchart TD
+    A["1. MarketScanner & DeepEvaluator<br/>(Folyamatos PM Szkenner + Beküldött URL Elemző)"] --> B["2. RiskRewardBasketOptimizer<br/>(Első Elvekből R/R, Floor & MaxLoss Optimalizáló)"]
+    B --> C["3. AutonomousClobExecutor & FillManager<br/>(Taker Slicing + Maker GTC Limit & Auto-Pegging)"]
+    C --> D["4. AutonomousPositionGuardian<br/>(24/7 Orderbook, Élő Eredmény, Auto-Hedge & Swing Trim)"]
+    D --> E["5. DynamicDCARebalancer<br/>(Periodikus Tőkeallokátor & Lejárati Létra Forgató)"]
+    E --> B
+```
+
 1. **`MarketScanner & DeepEvaluator`:** Folyamatos Polymarket szkenner és beküldött URL-re azonnali, levágásmentes CLOB könyvmélység + külső tényadat-elemző.
 2. **`RiskRewardBasketOptimizer`:** Első elvekből kiszámítja az alternatív pozíció-struktúrák passzív és aktív profitját, a védett maximális tőkevisszaesést ($\text{MaxLoss}_{\text{guarded}}$) és az effektív `Risk/Reward` arányt.
 3. **`AutonomousClobExecutor & FillManager`:** A szűk spreadű lábakon azonnali szeletelt végrehajtást (`Order Slicing`), a szélesebb spreadű lábakon `Maker` (`GTC`) limit-kezelést végez automatikus utánállítással (`Cancel & Replace`).
 4. **`AutonomousPositionGuardian`:** 24/7 pozíció-, orderbook- és élő tényadat-figyelő démon, amely végrehajtja a `Swing Trim` lefölözéseket és az `Auto-Hedge / Stop-Loss` védelmet.
-5. **`DynamicDCARebalancer`:** A periodikus tőkeinjekciókat és a lejáró piacokról felszabaduló tőkét határhaszon-alapon osztja el.
+5. **`DynamicDCARebalancer`:** A periodikus tőkeinjekciókat (pl. heti DCA) és a lejáró piacokról felszabaduló tőkét határhaszon-alapon osztja el.
