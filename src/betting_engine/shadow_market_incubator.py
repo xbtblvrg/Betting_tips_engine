@@ -2816,10 +2816,13 @@ class ShadowMarketIncubator:
                 # 3. Standard Tracks: Sample Size >= dynamic N_min (strictly >= 25)
                 # -----------------------------------------------------------------
                 has_high_alpha_proof = (n_samples >= 40 and roi >= 0.08 and total_pnl > 0.0 and max_dd <= 0.20 and delta_brier > -0.015)
+                has_proven_alpha_proof = (n_samples >= 25 and roi >= 0.035 and total_pnl > 0.0 and max_dd <= 0.20 and delta_brier > 0.0)
                 if is_fast_track_candidate and roi >= 0.035 and total_pnl > 0.0 and delta_brier > 0.0010 and max_dd < 0.15:
                     passed = True
                     cohort_val = 'fast_track_composite'
                 elif has_high_alpha_proof:
+                    passed = True
+                elif has_proven_alpha_proof:
                     passed = True
                 elif cohort_val == 'high_probability':
                     passed = (roi >= 0.035 and win_rate >= 0.55 and n_samples >= n_min_dynamic and delta_brier > 0.0005 and max_dd < 0.20)

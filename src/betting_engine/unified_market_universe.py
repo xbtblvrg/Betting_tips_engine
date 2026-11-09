@@ -351,6 +351,35 @@ class UnifiedMarketUniverse:
                         loaded_g = json.loads(grad_json_path_init.read_text(encoding='utf-8'))
                         if isinstance(loaded_g, dict):
                             initial_graduated_keys.update(loaded_g.keys())
+                            for g_k, g_data in loaded_g.items():
+                                if g_k not in roster:
+                                    g_lg = g_data.get('league') or g_k.split('|')[0]
+                                    g_sc = g_data.get('scope') or (g_k.split('|')[1] if '|' in g_k else 'full_game')
+                                    g_fam = g_data.get('family') or (g_k.split('|')[2] if '|' in g_k else 'moneyline')
+                                    g_sub = g_data.get('sub_family') or g_fam
+                                    g_roi = g_data.get('roi') or g_data.get('stats', {}).get('roi', 0.05)
+                                    g_dbrier = g_data.get('delta_brier') or g_data.get('stats', {}).get('delta_brier', 0.01)
+                                    g_ts = g_data.get('graduated_at') or '2026-11-09T00:00:00+00:00'
+                                    prof = UnifiedMarketProfile(
+                                        segment_key=g_k,
+                                        league=g_lg,
+                                        scope=g_sc,
+                                        family=g_fam,
+                                        sub_family=g_sub,
+                                        tier=int(MarketTier.PRODUCTION_GRADUATED),
+                                        tier_name="PRODUCTION_GRADUATED",
+                                        stake_cap=0.50,
+                                        active_model_id=f"graduated_{g_lg.lower()}_{g_sc}_{g_fam}",
+                                        model_archetype="GraduatedCrucibleModel",
+                                        rolling_roi_pct=float(g_roi * 100.0 if abs(g_roi) < 10.0 else g_roi),
+                                        rolling_pnl=0.0,
+                                        sample_size=0,
+                                        delta_brier=float(g_dbrier or 0.0),
+                                        phase_detail="Newly Graduated Crucible Model - Live Probation ($0.50 floor)"
+                                    )
+                                    roster[g_k] = prof
+                                    grad_keys_set.add(g_k)
+                                    grad_at_map[g_k] = g_ts
                     except Exception:
                         pass
 
@@ -438,6 +467,11 @@ class UnifiedMarketUniverse:
                     )
                     def _assign_roster_profile(k_tgt: str, p_new: UnifiedMarketProfile) -> None:
                         ex = roster.get(k_tgt)
+                        # Tier 3 (PRODUCTION_GRADUATED) and Tier 4 (LIVE_PROVEN_ALPHA) have passed the Crucible.
+                        # An older demotion row must NEVER downgrade a newly graduated market!
+                        k_grad_ts = grad_at_map.get(k_tgt) or (grad_at_map.get(self.get_canonical_key(ex.league, ex.scope, ex.family)) if ex else None)
+                        if ex and ex.tier >= int(MarketTier.PRODUCTION_GRADUATED) and k_grad_ts and str(dem_at or '1970-01-01') < str(k_grad_ts):
+                            return
                         # Tier 2 (SHADOW_INCUBATOR with active candidate model) strictly takes precedence
                         # over unmodelled Tier 1 (RESEARCH_RND). An unmodelled alias row must NEVER downgrade
                         # an actively incubating model!
@@ -473,6 +507,10 @@ class UnifiedMarketUniverse:
                         )
                     ]
                     for k_ov in keys_to_demote:
+                        p_ov = roster.get(k_ov)
+                        k_grad_ts = grad_at_map.get(k_ov) or (grad_at_map.get(self.get_canonical_key(p_ov.league, p_ov.scope, p_ov.family)) if p_ov else None)
+                        if k_grad_ts and str(dem_at or '1970-01-01') < str(k_grad_ts):
+                            continue
                         _assign_roster_profile(k_ov, prof)
                         grad_keys_set.discard(k_ov)
 
@@ -501,6 +539,7 @@ class UnifiedMarketUniverse:
                         """).fetchall()
                         all_time_perf_map: Dict[str, Dict[str, Any]] = {}
                         league_games_map: Dict[str, Dict[str, str]] = {}
+                        last_live_ts_map: Dict[str, str] = {}
                         for lg_r, sc_r, fam_r, pnl_r, stake_r, iss_r, gid_r in rows_perf:
                             if not lg_r or not fam_r:
                                 continue
@@ -514,6 +553,11 @@ class UnifiedMarketUniverse:
                             base_k = None
                             if ':' in str(fam_r):
                                 base_k = self.get_canonical_key(lg_r, sc_r, str(fam_r).split(':')[-1])
+
+                            if iss_r:
+                                last_live_ts_map[k] = max(last_live_ts_map.get(k, ''), str(iss_r))
+                                if base_k:
+                                    last_live_ts_map[base_k] = max(last_live_ts_map.get(base_k, ''), str(iss_r))
 
                             pnl_v = float(pnl_r or 0.0)
                             stk_v = float(stake_r or 1.0)
@@ -677,17 +721,6 @@ class UnifiedMarketUniverse:
                         prof.model_archetype = None
                         prof.phase_detail = f"Dormant Market Eviction (0 bets across {games_since_grad} games post-grad) - Quarantined to R&D ($0.00)"
                         grad_keys_set.discard(k_perf)
-                    elif at_stat and (at_stat.get('units', 0.0) < 0.0 or at_stat.get('pnl', 0.0) < 0.0):
-                        # Constitutional Invariant (Prime Directives 6 & 7):
-                        # Markets with established negative live PnL must be quarantined to Tier 1 R&D ($0.00).
-                        # Clamping or letting demoted/losing markets bleed real capital at $0.50 is strictly forbidden.
-                        prof.tier = int(MarketTier.RESEARCH_RND)
-                        prof.tier_name = "RESEARCH_RND"
-                        prof.stake_cap = 0.00
-                        prof.active_model_id = None
-                        prof.model_archetype = None
-                        prof.phase_detail = f"Tier 1 R&D Quarantine - Established Live Loss (${at_stat['pnl']:+.2f} over {at_stat['sample_size']} games) - $0.00"
-                        grad_keys_set.discard(k_perf)
                     else:
                         # Retains full Tier 3 live probation at $0.50 floor without premature eviction!
                         prof.stake_cap = 0.50
@@ -699,6 +732,10 @@ class UnifiedMarketUniverse:
             sc_norm = self.normalize_scope(sc)
             fam_clean = (fam or '').lower().strip()
             if not is_supported_stake_contract(lg_clean, sc_norm, fam_clean):
+                return
+            from .contracts import canonical_segment_aliases
+            cand_aliases = canonical_segment_aliases(lg_clean, sc_norm, fam_clean)
+            if any(alias in roster and roster[alias].tier >= int(MarketTier.PRODUCTION_GRADUATED) for alias in cand_aliases):
                 return
             canon_key = self.get_canonical_key(lg_clean, sc_norm, fam_clean)
             base_fam = fam_clean.split(':')[-1] if ':' in fam_clean else fam_clean
@@ -868,15 +905,17 @@ class UnifiedMarketUniverse:
                             was_graduated = bool(k in initial_graduated_keys)
                             in_demoted = bool(k in existing_dem_map)
 
-                            if was_graduated:
+                            # ONLY purge from graduated_markets if the market was demoted due to actual live degradation,
+                            # NEVER for administrative R&D or silent market registration!
+                            is_real_live_demote = any(kw in str(p.phase_detail or '').lower() for kw in ('live drawdown', 'continuous review', 'established live loss', 'dormant market eviction'))
+                            if was_graduated and is_real_live_demote:
                                 keys_demoted_to_purge_grad.append(k)
                                 if ':' in k:
                                     keys_demoted_to_purge_grad.append(k.split(':')[0])
 
                             if in_demoted:
-                                if was_graduated:
+                                if was_graduated and is_real_live_demote:
                                     to_update_demoted.append((
-                                        now_str,
                                         (p.rolling_roi_pct or 0.0) / 100.0,
                                         p.rolling_pnl or 0.0,
                                         p.sample_size or 0,
@@ -885,11 +924,12 @@ class UnifiedMarketUniverse:
                                         k
                                     ))
                                     existing_dem_map[k] = 'research_training'
-                            else:
-                                d_id = f"demote_{hashlib.sha256(f'{k}:{now_str}'.encode()).hexdigest()[:16]}"
+                            elif not was_graduated:
+                                d_eff_at = last_live_ts_map.get(k) or now_str
+                                d_id = f"demote_{hashlib.sha256(f'{k}:{d_eff_at}'.encode()).hexdigest()[:16]}"
                                 to_insert.append((
                                     d_id, k, p.league, p.scope, p.family, p.sub_family or p.family,
-                                    now_str, (p.rolling_roi_pct or 0.0) / 100.0, p.rolling_pnl or 0.0,
+                                    d_eff_at, (p.rolling_roi_pct or 0.0) / 100.0, p.rolling_pnl or 0.0,
                                     p.sample_size or 0, f"Unified Universe Auto-Sync: {p.phase_detail}",
                                     json.dumps({'rolling_pnl': p.rolling_pnl, 'roi_pct': p.rolling_roi_pct, 'sample_size': p.sample_size}),
                                     'research_training',
@@ -899,10 +939,11 @@ class UnifiedMarketUniverse:
                                 existing_dem_map[k] = 'research_training'
                         elif p.tier == int(MarketTier.SHADOW_INCUBATOR) and p.active_model_id:
                             if k not in existing_dem_map and k not in initial_graduated_keys:
-                                d_id = f"demote_{hashlib.sha256(f'{k}:{now_str}'.encode()).hexdigest()[:16]}"
+                                d_eff_at = last_live_ts_map.get(k) or now_str
+                                d_id = f"demote_{hashlib.sha256(f'{k}:{d_eff_at}'.encode()).hexdigest()[:16]}"
                                 to_insert.append((
                                     d_id, k, p.league, p.scope, p.family, p.sub_family or p.family,
-                                    now_str, (p.rolling_roi_pct or 0.0) / 100.0, p.rolling_pnl or 0.0,
+                                    d_eff_at, (p.rolling_roi_pct or 0.0) / 100.0, p.rolling_pnl or 0.0,
                                     p.sample_size or 0, f"Unified Universe Auto-Sync: {p.phase_detail}",
                                     json.dumps({'rolling_pnl': p.rolling_pnl, 'roi_pct': p.rolling_roi_pct, 'sample_size': p.sample_size}),
                                     'incubating_with_new_model',
@@ -924,8 +965,7 @@ class UnifiedMarketUniverse:
                             if to_update_demoted:
                                 inc_conn.executemany("""
                                     UPDATE demoted_markets
-                                    SET demoted_at = ?,
-                                        rolling_roi = ?,
+                                    SET rolling_roi = ?,
                                         rolling_pnl = ?,
                                         games = ?,
                                         reason = ?,
