@@ -5,15 +5,26 @@
 
 ---
 
-## 1. Alapkoncepció és Stratégiai Cél
+## 1. Alapkoncepció és Első Elvekből Levezetett Optimalizációs Cél (Zero-Anchoring Invariáns)
 
-A cél egy **teljesen önálló, autonóm módon kereskedő Polymarket Multi-Option / `NegRisk` / Futures Kvant Rendszer** felépítése, amely:
-1. **Független a napi sportfogadási rendszertől:** Nem nyúl a meglévő `src/betting_engine/` kódhoz, a `data/engine.sqlite3` adatbázishoz, és nem vonatkoznak rá a napi sportfogadási korlátok (`$0.50–$8.00` tétplafon, 72 órás horizont, manuális Stake beküldés, Tier 1–4 napi sport-inkubátor).
-2. **2-Lépcsős Páncélozott Kosarakat (`Core + 0%-Loss Shield`) épít:** Többopciós, egymást kizáró (`NegRisk` / 1 győztes) piacokon kihasználja az opciók árazási aszimmetriáját, a külső referencia-piacoktól (Kalshi, ESPN, makró/iparági adatok) való eltéréseket és a CLOB `Bid/Ask` spreadeket.
-3. **Kétféle üzemmódban működik:**
-   - **On-Demand (Beküldéses) Elemző & Végrehajtó:** Egyetlen beküldött Polymarket esemény-URL alapján teljes mélységében kiértékeli a piacot (CLOB könyvmélység, tick-méretek, külső fundamentumok), megtervezi a `Core + Shield` rétegeket, és pozitív várható érték esetén autonóm módon felépíti és menedzseli a pozíciót.
-   - **Folyamatos Piac-Szkenner (`24/7 Scanner`):** Folyamatosan pásztázza a Polymarket összes témáját (Sport, AI/Tech, IPO/Cégek, Makró/Fed, Kultúra, Politika, Kriptó) a legjobb többopciós lehetőségek után.
-4. **100% Autonóm CLOB Végrehajtást és Pozíciómenedzsmentet végez:** A `.env`-ben meglévő Polymarket CLOB L2 és Builder kulcsokon keresztül önállóan ad be, szeletel (`Order Slicing`), figyel, módosít (`Cancel & Replace`) és zár le limit (`Maker`) és azonnali (`Taker`) megbízásokat, valamint kezeli a heti DCA (`+$500/hét`) tőkebevonást.
+A rendszer alapvető matematikai és stratégiai küldetése: **olyan pozíció- és portfólió-struktúrák autonóm felépítése és menedzselése, amelyek a lehető legnagyobb bizonyossággal kizárják a befektetett tőke elvesztését, miközben a hozam/kockázat (Risk/Reward) arányt a lehető legmagasabb szinten maximalizálják.**
+
+### 1.1. A Három Kötöttség- és Anchoring-Mentes Alaptörvény
+
+1. **Tőkemegőrzés + Maximális Risk/Reward Együttes Optimalizálása (Anti-Overinsurance & Anti-Ruin):**
+   - A rendszernek két szélsőséges hibát kell egyszerre elkerülnie:
+     - **A vak spekulációt** (amikor túl szűk lefedettség miatt magas a tőkevesztés kockázata), és
+     - **A hozamgyilkos túlbiztosítást** (amikor a kosár olyan kimeneteleket is drágán megvesz, amelyek piaci ára meghaladja a valós fundamentális esélyüket, ezzel a kifizetési plafont a lekötött tőkéhez képest elfogadhatatlanul alacsonyra nyomva).
+   - A matematikai célfüggvény minden $B$ tőkeallokációra:
+     $$\max_{\mathbf{q}} \quad \text{Risk/Reward}(\mathbf{q}) = \frac{\mathbb{E}[\text{Nettó Profit}(\mathbf{q})]}{\text{Lefedetlen Valós Kockázat}(\mathbf{q})}$$
+     azon peremfeltétel mellett, hogy a valós, fundamentálisan életképes kimenetelek halmazán a tőkevesztés valószínűsége ($P(\text{PnL} < 0)$) a lehető legközelebb szoruljon a nullához, miközben a nyertes ágakon a nettó hozam ($\frac{\text{Payout} - B}{B}$) maximális marad.
+
+2. **Teljes Módszertani Szabadság (Nulla Sablon-Kényszer / Zero Anchoring):**
+   - Tilos a rendszert előre rögzített darabszámú kosarakhoz, fix százalékos sémákhoz, előre kiválasztott piactípusokhoz vagy statikus receptekhez kötni.
+   - A rendszer minden egyes vizsgált piacon **első elvekből (first-principles)**, kizárólag a kifizetési mátrixból, a könyvmélységből, a lejárati időből és a valós idejű fundamentális eloszlásból vezeti le, hogy az adott helyzetben melyik struktúra (vagy azok milyen dinamikus kombinációja) adja a legmagasabb Risk/Reward arányt a legkisebb tőkekockázat mellett.
+
+3. **Szigorú Élő-Adat Invariáns (Zero Memory Rule):**
+   - Soha, semmilyen döntéshez nem használható a nyelvi modell belső emlékezete vagy korábbi feltételezése. Minden egyes tényállítást és valószínűségi súlyt kizárólag az adott pillanatban lekérdezett, levágás (`truncation`) nélkül ellenőrzött élő API- és könyvadatokból kell származtatni.
 
 ---
 
