@@ -896,30 +896,21 @@ def get_autorun_state_summary():
     
     conn = None
     try:
-        conn = sqlite3.connect(engine.store.path, timeout=5.0)
+        conn = sqlite3.connect(f"file:{Path(engine.store.path).resolve()}?mode=ro", uri=True, timeout=5.0)
         cur = conn.cursor()
-        cur.execute('''
-            CREATE TABLE IF NOT EXISTS autorun_placements (
-                tip_id TEXT PRIMARY KEY,
-                placed_at TEXT NOT NULL,
-                selection TEXT,
-                stake REAL,
-                odds REAL,
-                adapted INTEGER DEFAULT 0,
-                league TEXT,
-                source TEXT DEFAULT 'auto_runner'
-            )
-        ''')
-        cur.execute('SELECT placed_at, adapted FROM autorun_placements')
-        for placed_at_val, adapted_val in cur.fetchall():
-            try:
-                dt = datetime.fromisoformat(placed_at_val).astimezone(tz)
-                if dt.strftime("%Y-%m-%d") == today_str:
-                    autorun_placed_today += 1
-                    if adapted_val:
-                        autorun_adapted_today += 1
-            except Exception:
-                pass
+        try:
+            cur.execute('SELECT placed_at, adapted FROM autorun_placements')
+            for placed_at_val, adapted_val in cur.fetchall():
+                try:
+                    dt = datetime.fromisoformat(placed_at_val).astimezone(tz)
+                    if dt.strftime("%Y-%m-%d") == today_str:
+                        autorun_placed_today += 1
+                        if adapted_val:
+                            autorun_adapted_today += 1
+                except Exception:
+                    pass
+        except sqlite3.OperationalError:
+            pass
 
         cur.execute('''
             SELECT pc.tip_id, pc.placed_at, t.payload 
@@ -1159,46 +1150,25 @@ def stage_betslip_endpoint(data: StageBetslipRequest):
         return JSONResponse(english_payload(res), status_code=400)
 
     if res.get("placed") and data.auto_place and data.tip_id:
-        c_auto = None
         try:
-            import sqlite3
             from datetime import datetime, timezone
             now_iso = datetime.now(timezone.utc).isoformat()
-            c_auto = sqlite3.connect(engine.store.path, timeout=5.0)
-            c_auto.execute('''
-                CREATE TABLE IF NOT EXISTS autorun_placements (
-                    tip_id TEXT PRIMARY KEY,
-                    placed_at TEXT NOT NULL,
-                    selection TEXT,
-                    stake REAL,
-                    odds REAL,
-                    adapted INTEGER DEFAULT 0,
-                    league TEXT,
-                    source TEXT DEFAULT 'auto_runner'
-                )
-            ''')
-            c_auto.execute('''
-                INSERT OR REPLACE INTO autorun_placements (tip_id, placed_at, selection, stake, odds, adapted, league, source)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                data.tip_id or "",
-                now_iso,
-                res.get("selection") or data.selection or "",
-                float(res.get("stake") or data.stake or 0.0),
-                float(res.get("odds") or data.odds or 0.0),
-                1 if res.get("adapted") else 0,
-                league or "",
-                "auto_runner"
-            ))
-            c_auto.commit()
+            with engine.store.db() as c_auto:
+                c_auto.execute('''
+                    INSERT OR REPLACE INTO autorun_placements (tip_id, placed_at, selection, stake, odds, adapted, league, source)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    data.tip_id or "",
+                    now_iso,
+                    res.get("selection") or data.selection or "",
+                    float(res.get("stake") or data.stake or 0.0),
+                    float(res.get("odds") or data.odds or 0.0),
+                    1 if res.get("adapted") else 0,
+                    league or "",
+                    "auto_runner"
+                ))
         except Exception:
             pass
-        finally:
-            if c_auto:
-                try:
-                    c_auto.close()
-                except Exception:
-                    pass
 
     return english_payload(res)
 

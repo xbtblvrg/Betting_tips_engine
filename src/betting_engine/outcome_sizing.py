@@ -407,14 +407,14 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                 if check_keys & set(gov.get('quarantine_list', [])):
                     caps['capital_defense_quarantine'] = 0.0
                 if check_keys & set(gov.get('capital_defense_list', [])):
-                    caps['capital_defense_clamp'] = def_unit
+                    caps['capital_defense_clamp'] = 0.50
 
             # Evolutionary Probation Nursery Clamp:
             # Newly graduated markets are clamped to $0.50 nursery tourniquet until verified.
             # Proven Alpha markets (Spreads, Moneylines, 1X2) break out of nursery under Alpha Acceleration.
             is_unproven_graduated = bool(is_cand_graduated and (games_val < 5 or roi_val <= 0.0 or pnl_val <= 0.0))
             if is_unproven_graduated:
-                caps['probation_nursery_clamp'] = max(def_unit, universe_prof.stake_cap if universe_prof and universe_prof.stake_cap is not None else 0.50)
+                caps['probation_nursery_clamp'] = universe_prof.stake_cap if universe_prof and universe_prof.stake_cap is not None else 0.50
 
             # Demoted Market Quarantine (Constitution Commandment 6):
             # Any demoted or quarantined market is strictly suspended to $0.00 ($0.00 quarantine).
@@ -433,7 +433,6 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                 or gov_solid_check
                 or (tip.get('is_super_alpha') and pnl_val >= 0.0)
                 or (tip.get('is_solid_alpha') and pnl_val >= 0.0)
-                or (tip.get('is_graduated') and pnl_val >= 0.0)
             )
             if not is_proven_alpha and not is_test_cand:
                 caps['unproven_market_profit_shield_clamp'] = 1.00
@@ -443,8 +442,8 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
 
         avg_stake = staked_val / max(1, games_val) if games_val > 0 and staked_val > 0 else 1.0
         units_loss = summary.get('units_pnl', pnl_val / max(0.5, avg_stake)) if summary else pnl_val
-        if games_val >= 4 and (roi_val < -0.03 or units_loss <= -4.0):
-            caps['capital_defense_clamp'] = def_unit
+        if not is_proven_alpha and games_val >= 4 and (roi_val < -0.03 or units_loss <= -4.0):
+            caps['capital_defense_clamp'] = 0.50
         # Pure noise 50/50 coin flip clamp
         if 'odd_even' in market_val:
             caps['odd_even_defense_clamp'] = def_unit
@@ -514,7 +513,7 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
             # Dynamic Tier Scaling (Constitutional Mandate D40 - Kelly Stake Dominance Option B):
             # Scale-Invariant in Units of Stake (Super Alpha: >=4.0 units or >=$5.0; Solid Alpha: >=2.0 units or >=$2.0)
             grad_proven = bool(tip.get('is_graduated') and is_alpha_eligible_market)
-            has_defense = (
+            has_defense = not (gov_super or gov_solid) and (
                 any(k in caps for k in ('demoted_market_defense_clamp', 'capital_defense_clamp', 'capital_defense_quarantine'))
                 or (not is_test_cand and bool(check_keys & set(gov.get('capital_defense_list', []))))
             )
@@ -549,6 +548,7 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                     caps.pop('max_stake', None)
                     caps.pop('probation_nursery_clamp', None)
                     caps.pop('unproven_market_profit_shield_clamp', None)
+                    caps.pop('capital_defense_clamp', None)
                     if (gov_super and pnl_val >= 0.0) or (grad_proven and pnl_val >= 0.0):
                         caps.pop('totals_defense_clamp', None)
                 requested = max(requested, alpha_target)
@@ -565,6 +565,7 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                     caps.pop('max_stake', None)
                     caps.pop('probation_nursery_clamp', None)
                     caps.pop('unproven_market_profit_shield_clamp', None)
+                    caps.pop('capital_defense_clamp', None)
                     if (gov_solid and pnl_val >= 0.0) or (grad_proven and pnl_val >= 0.0):
                         caps.pop('totals_defense_clamp', None)
                 requested = max(requested, alpha_target)

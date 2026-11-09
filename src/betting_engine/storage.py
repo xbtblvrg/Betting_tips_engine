@@ -39,6 +39,16 @@ class Store:
           release_id TEXT NOT NULL,reason TEXT NOT NULL,prior_calendar_issued INTEGER NOT NULL,
           UNIQUE(effective_at,release_id));
         CREATE TABLE IF NOT EXISTS placement_checklist(tip_id TEXT PRIMARY KEY,placed_at TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS autorun_placements(
+            tip_id TEXT PRIMARY KEY,
+            placed_at TEXT NOT NULL,
+            selection TEXT,
+            stake REAL,
+            odds REAL,
+            adapted INTEGER DEFAULT 0,
+            league TEXT,
+            source TEXT DEFAULT 'auto_runner'
+        );
         CREATE TABLE IF NOT EXISTS recommendation_issuance(family TEXT PRIMARY KEY,tip_id TEXT NOT NULL,issued_at TEXT NOT NULL,league TEXT NOT NULL,start TEXT NOT NULL,stake REAL NOT NULL,odds REAL NOT NULL,source TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS system_decisions(family TEXT PRIMARY KEY,tip_id TEXT NOT NULL,issued_at TEXT NOT NULL,payload TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'open',pnl REAL,outcome_evidence TEXT);
         CREATE TABLE IF NOT EXISTS reported_bet_imports(source_id TEXT PRIMARY KEY,signature TEXT NOT NULL,bet_ids TEXT NOT NULL,created_at TEXT NOT NULL);
@@ -49,6 +59,9 @@ class Store:
         CREATE TABLE IF NOT EXISTS prospective(game_id TEXT PRIMARY KEY,created_at TEXT NOT NULL,start TEXT NOT NULL,league TEXT NOT NULL,model_version TEXT NOT NULL,payload TEXT NOT NULL,outcome REAL,brier REAL);
         CREATE TABLE IF NOT EXISTS segment_prospective(game_id TEXT NOT NULL,scope TEXT NOT NULL,created_at TEXT NOT NULL,start TEXT NOT NULL,model_version TEXT NOT NULL,payload TEXT NOT NULL,outcome TEXT,brier REAL,PRIMARY KEY(game_id,scope));
         CREATE TABLE IF NOT EXISTS bets(id INTEGER PRIMARY KEY AUTOINCREMENT,tip_id TEXT NOT NULL,created_at TEXT NOT NULL,stake REAL NOT NULL,odds REAL NOT NULL,platform TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'open',pnl REAL,payload TEXT NOT NULL);
+        CREATE INDEX IF NOT EXISTS idx_tips_last_seen ON tips(last_seen);
+        CREATE INDEX IF NOT EXISTS idx_bets_created_at ON bets(created_at);
+        CREATE INDEX IF NOT EXISTS idx_decisions_issued_at ON system_decisions(issued_at);
         CREATE TABLE IF NOT EXISTS bet_outcomes(bet_id INTEGER PRIMARY KEY,league TEXT,market TEXT,model_version TEXT,result TEXT NOT NULL,probability REAL,push_probability REAL,brier REAL,log_loss REAL,evidence TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS polymarket_orders(
             id INTEGER PRIMARY KEY AUTOINCREMENT,

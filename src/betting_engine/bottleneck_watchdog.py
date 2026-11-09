@@ -436,17 +436,26 @@ class BottleneckWatchdog:
                     JOIN ai_synthesis_feedback_loop fb ON dm.segment_key = fb.segment_key
                     WHERE dm.incubation_phase = 'research_training'
                       AND (fb.crucible_passed = 1 OR (fb.oos_sample_size >= 5 AND fb.oos_simulated_roi >= 0.035))
-                    ORDER BY dm.segment_key, fb.oos_simulated_roi DESC, fb.oos_sample_size DESC
+                    ORDER BY fb.oos_simulated_roi DESC, fb.oos_sample_size DESC
                 """)
                 unadmitted_rows = cur.fetchall()
                 seen_unadmitted: Set[str] = set()
                 unadmitted_candidates = []
-                import os
+                import os, hashlib
+                from .tournament_engine import TournamentEngine
+                t_eng = TournamentEngine(self.data_dir)
+                registry = t_eng.load_registry()
+                rejected_hashes = set(registry.get('rejected', [])) if registry else set()
                 for r in unadmitted_rows:
                     seg = r['segment_key']
                     if seg in seen_unadmitted:
                         continue
                     mid = r['model_id']
+                    cls_name = r['class_name']
+                    sig = f"{mid}:v1.0.0:{cls_name}"
+                    sig_hash = hashlib.sha256(sig.encode('utf-8')).hexdigest()
+                    if sig_hash in rejected_hashes:
+                        continue
                     src_file = self.data_dir.parent / 'src' / 'betting_engine' / 'sandbox_models' / 'generated' / f"{mid}.py"
                     if not src_file.exists():
                         src_file = Path('src/betting_engine/sandbox_models/generated') / f"{mid}.py"
@@ -467,7 +476,7 @@ class BottleneckWatchdog:
                         from .historical_trainer import CandidateTrainingResult
                         bridge = DemotedMarketIncubationBridge(self.data_dir)
                         items_for_batch = []
-                        for r in unadmitted_candidates[:25]:
+                        for r in unadmitted_candidates:
                             cand = CandidateTrainingResult(
                                 segment_key=r['segment_key'],
                                 model_id=r['model_id'],
@@ -482,11 +491,19 @@ class BottleneckWatchdog:
                                 is_qualified=True,
                                 scorecard_s=100.0,
                             )
-                            items_for_batch.append((r['demoted_id'], r['segment_key'], cand))
-                        batch_res = bridge.batch_admit_champions(items_for_batch)
-                        healed_now = batch_res.get('admitted_count', 0)
-                        health['unadmitted_champions_healed_count'] = healed_now
-                        log.info("[WATCHDOG] Self-healed %d unadmitted champion models into Tier 2 via batch admission.", healed_now)
+                            inst = bridge._instantiate_candidate(r['segment_key'], cand)
+                            if not inst:
+                                continue
+                            succ, errs = bridge.tournament_engine.register_candidate(r['segment_key'], inst)
+                            if succ:
+                                items_for_batch.append((r['demoted_id'], r['segment_key'], cand))
+                                if len(items_for_batch) >= 50:
+                                    break
+                        if items_for_batch:
+                            batch_res = bridge.batch_admit_champions(items_for_batch)
+                            healed_now = batch_res.get('admitted_count', 0)
+                            health['unadmitted_champions_healed_count'] = healed_now
+                            log.info("[WATCHDOG] Self-healed %d unadmitted champion models into Tier 2 via batch admission.", healed_now)
                     except Exception as e_heal:
                         log.warning("[WATCHDOG] Failed to self-heal unadmitted champions: %s", e_heal)
 

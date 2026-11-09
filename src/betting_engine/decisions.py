@@ -1222,23 +1222,6 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                     c['stake_note'] = (note or '') + f" Capped by {shield.get('rule_id')}: {shield.get('reason')}"
             except Exception:
                 pass
-            if is_cap_defense_cand and amount > 0.50:
-                amount = 0.50
-                c['stake_note'] = (c.get('stake_note') or note or '') + ' Capped at $0.50 emergency capital defense tourniquet.'
-            elif is_alpha_cand and amount > 0.0:
-                super_alphas = set(gov_status.get('super_alpha_list', []))
-                solid_alphas = set(gov_status.get('solid_alpha_list', []))
-                if cand_segs & super_alphas:
-                    target_alpha_stake = min(available, max(4.00, min(8.00, amount * 2.0)))
-                    if target_alpha_stake > amount:
-                        amount = target_alpha_stake
-                        c['stake_note'] = (c.get('stake_note') or note or '') + f' Super Alpha Acceleration: scaled to ${amount:.2f} based on verified positive ROI.'
-                elif cand_segs & solid_alphas:
-                    target_alpha_stake = min(available, max(2.50, min(3.50, amount * 1.5)))
-                    if target_alpha_stake > amount:
-                        amount = target_alpha_stake
-                        c['stake_note'] = (c.get('stake_note') or note or '') + f' Solid Alpha Acceleration: scaled to ${amount:.2f} based on verified positive ROI.'
-
             # Mandatory Unified Universe Stake Cap Enforcement (Constitution Commandments 4, 6 & Anti-Constant Mandate):
             # Every real-market recommendation's stake is strictly bounded by its UnifiedMarketProfile stake_cap.
             # - Newly graduated / probation / tourniquet markets are clamped to $0.50.
@@ -1399,32 +1382,7 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                 if math.isfinite(sizing_budget):
                     sizing_budget = round(sizing_budget, 2)
                 sizing=size_recommendation(c,settings,sizing_budget,related) if continuous or outcome_sizing else stake_assessment(c['stress_probability'],c['push_probability'] if c.get('reference_platform')=='Stake.com' else 0,c['reference_odds'],settings,sizing_budget,related)
-                amount = sizing['amount']
-                note = sizing['note']
-                if c.get('_is_cap_defense_cand') and amount > 0.50:
-                    amount = 0.50
-                    note = (note or '') + ' Capped at $0.50 emergency capital defense tourniquet.'
-                elif c.get('_is_alpha_cand') and amount > 0.0:
-                    super_alphas = set(gov_status.get('super_alpha_list', []))
-                    solid_alphas = set(gov_status.get('solid_alpha_list', []))
-                    c_cand_segs = set(c.get('_cand_segs') or [])
-                    if c_cand_segs & super_alphas:
-                        target_alpha = min(sizing_budget, max(4.00, min(8.00, amount * 2.0)))
-                        if target_alpha > amount:
-                            amount = target_alpha
-                            note = (note or '') + f' Super Alpha Acceleration: scaled to ${amount:.2f} based on verified positive ROI.'
-                    elif c_cand_segs & solid_alphas:
-                        target_alpha = min(sizing_budget, max(2.50, min(3.50, amount * 1.5)))
-                        if target_alpha > amount:
-                            amount = target_alpha
-                            note = (note or '') + f' Solid Alpha Acceleration: scaled to ${amount:.2f} based on verified positive ROI.'
-                u_cap = c.get('_universe_stake_cap')
-                if u_cap is not None and amount > u_cap:
-                    amount = u_cap
-                    note = (note or '') + f' Capped at ${u_cap:.2f} by Unified Universe Profile ({c.get("_universe_phase", "")}).'
-                sizing['amount'] = amount
-                sizing['note'] = note
-                c['stake_sizing']=sizing;c['stake']=amount;c['stake_note']=note
+                c['stake_sizing']=sizing;c['stake']=sizing['amount'];c['stake_note']=sizing['note']
                 c['allocation_policy']['exposure_basis']='held_plus_complete_publication_batch_v1'
                 c['reference_stake_executable']=c['stake']>=c.get('reference_minimum_notional',0) and c['stake']>0
                 if c['stake']:
