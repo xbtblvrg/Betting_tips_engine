@@ -341,20 +341,34 @@ class DemotedMarketIncubationBridge:
         # Instantiate model archetype with fitted parameters
         cls_target = None
         if champ_res.model_id:
-            try:
-                import importlib
-                pkg = __package__ or 'betting_engine'
-                mod = importlib.import_module(f'.sandbox_models.generated.{champ_res.model_id}', package=pkg)
-                cls_target = getattr(mod, champ_res.model_archetype, None)
-                if not cls_target:
-                    import inspect
-                    for item_name, item in inspect.getmembers(mod, inspect.isclass):
-                        if (any(b.__name__ == 'BaseCandidateModel' for b in getattr(item, '__mro__', []))
-                                and item.__name__ != 'BaseCandidateModel'):
-                            cls_target = item
-                            break
-            except Exception:
-                pass
+            candidate_module_names = [champ_res.model_id]
+            if champ_res.model_params and isinstance(champ_res.model_params, dict):
+                src_id = champ_res.model_params.get('source_model_id')
+                if src_id and src_id not in candidate_module_names:
+                    candidate_module_names.append(src_id)
+            if champ_res.model_id.startswith('dyn_'):
+                clean_id = champ_res.model_id.removeprefix('dyn_')
+                if clean_id not in candidate_module_names:
+                    candidate_module_names.append(clean_id)
+
+            for mod_name in candidate_module_names:
+                try:
+                    import importlib
+                    pkg = __package__ or 'betting_engine'
+                    mod = importlib.import_module(f'.sandbox_models.generated.{mod_name}', package=pkg)
+                    clean_arch = champ_res.model_archetype.removeprefix('Dynamic_')
+                    cls_target = getattr(mod, champ_res.model_archetype, None) or getattr(mod, clean_arch, None)
+                    if not cls_target:
+                        import inspect
+                        for item_name, item in inspect.getmembers(mod, inspect.isclass):
+                            if (any(b.__name__ == 'BaseCandidateModel' for b in getattr(item, '__mro__', []))
+                                    and item.__name__ != 'BaseCandidateModel'):
+                                cls_target = item
+                                break
+                    if cls_target:
+                        break
+                except Exception:
+                    pass
 
         if not cls_target:
             class_map = self.tournament_engine._get_class_map()
