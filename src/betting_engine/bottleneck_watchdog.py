@@ -619,35 +619,29 @@ class BottleneckWatchdog:
             )
         }
 
-        try:
-            with sqlite3.connect(db_path, timeout=30.0) as conn:
-                cur = conn.cursor()
-                cur.execute("""
-                    CREATE TABLE IF NOT EXISTS learning_jobs (
-                        id TEXT PRIMARY KEY,
-                        kind TEXT NOT NULL,
-                        league TEXT,
-                        status TEXT NOT NULL,
-                        created_at TEXT NOT NULL,
-                        updated_at TEXT,
-                        next_attempt TEXT,
-                        attempts INTEGER DEFAULT 0,
-                        payload TEXT,
-                        result TEXT,
-                        last_error TEXT
-                    )
-                """)
-                cur.execute("""
-                    INSERT INTO learning_jobs (id, kind, league, status, created_at, updated_at, next_attempt, attempts, payload)
-                    VALUES (?, 'autonomous_bottleneck_repair', 'MULTI', 'queued', ?, ?, ?, 0, ?)
-                    ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at
-                """, (job_id, now_iso, now_iso, now_iso, json.dumps(payload)))
-                conn.commit()
-                log.info("[WATCHDOG] Successfully enqueued autonomous repair job '%s' with %d anomalies.", job_id, len(anomalies))
-                return job_id
-        except Exception as exc:
-            log.error("[WATCHDOG] Could not enqueue learning_jobs repair: %s", exc)
-            return None
+        import time as _t
+        for attempt in range(8):
+            try:
+                with sqlite3.connect(db_path, timeout=60.0) as conn:
+                    conn.execute("PRAGMA busy_timeout = 60000;")
+                    cur = conn.cursor()
+                    cur.execute("""
+                        INSERT INTO learning_jobs (id, kind, league, status, created_at, updated_at, next_attempt, attempts, payload)
+                        VALUES (?, 'autonomous_bottleneck_repair', 'MULTI', 'queued', ?, ?, ?, 0, ?)
+                        ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at
+                    """, (job_id, now_iso, now_iso, now_iso, json.dumps(payload)))
+                    conn.commit()
+                    log.info("[WATCHDOG] Successfully enqueued autonomous repair job '%s' with %d anomalies.", job_id, len(anomalies))
+                    return job_id
+            except sqlite3.OperationalError as exc:
+                if "locked" in str(exc).lower() and attempt < 7:
+                    _t.sleep(0.1 * (1.5 ** attempt))
+                    continue
+                log.error("[WATCHDOG] Could not enqueue learning_jobs repair: %s", exc)
+                return None
+            except Exception as exc:
+                log.error("[WATCHDOG] Could not enqueue learning_jobs repair: %s", exc)
+                return None
 
 
 def get_latest_bottleneck_watchdog_status(data_dir: Path = DATA) -> Dict[str, Any]:
