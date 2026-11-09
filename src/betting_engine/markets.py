@@ -120,7 +120,7 @@ def _stake_categorical_side(base, name, game):
                  else 'away' if team_matches(label, game.away, game.away_abbr) else None for label in labels]
         return {frozenset(('home', 'draw')): 'home_draw', frozenset(('away', 'draw')): 'away_draw',
                 frozenset(('home', 'away')): 'home_away'}.get(frozenset(sides)) if len(sides) == 2 else None
-    team = re.sub(r'\s*\([+-]?\d+(?:\.\d+)?\)\s*$', '', name) if base == 'spreads' else name
+    team = re.sub(r'\s*\([+-]?\d+(?:\.\d+)?\)\s*$', '', name) if base in ('spreads', 'set_handicap') else name
     return ('draw' if base == 'three_way' and name == 'Draw' else 'home' if team_matches(team, game.home, game.home_abbr)
             else 'away' if team_matches(team, game.away, game.away_abbr) else None)
 

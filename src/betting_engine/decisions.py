@@ -199,6 +199,7 @@ def is_synthetic_test_candidate(tip: Any, settings: Optional[Dict[str, Any]] = N
         or game_id in ('g', 'g1', 'g2', 'test', 'ATP:live_game_1')
         or ':test' in game_id
         or game_id.endswith((':test', '_test', ':g', ':g1', ':g2'))
+        or (':' in game_id and game_id.split(':')[-1].isdigit())
         or (settings is not None and bool(settings.get('is_test')))
     )
 
@@ -1035,7 +1036,10 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
             if is_v3 and is_super_alpha(c):
                 effective_daily_family_limit = math.inf
             elif is_v3 and is_profitable_or_alpha(c):
-                effective_family_share = min(0.70, publication_policy['max_daily_family_share'] * 2.0)
+                is_vol_deficit = (daily_funded_count + new_funded) < int(settings.get('daily_pick_target', 100))
+                max_share = 0.85 if is_vol_deficit else 0.70
+                multiplier = 2.5 if is_vol_deficit else 2.0
+                effective_family_share = min(max_share, publication_policy['max_daily_family_share'] * multiplier)
                 effective_daily_family_limit = max(1, math.ceil((daily_funded_count + provisional_batch_size) * effective_family_share))
             else:
                 effective_daily_family_limit = daily_family_limit
@@ -1097,8 +1101,8 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
             c['alternative'] = True
             alternatives.append(c)
             continue
-        elif not covered(c) and family_pick_counts[(c['game_id'],allocation_family(c))] >= max(int(settings.get('max_picks_per_family', 2)), 3 if (effective and effective.get('max_per_event', 4) > 4) else 2):
-            family_cap = max(int(settings.get('max_picks_per_family', 2)), 3 if (effective and effective.get('max_per_event', 4) > 4) else 2)
+        elif not covered(c) and family_pick_counts[(c['game_id'],allocation_family(c))] >= int(settings.get('max_picks_per_family', 1)):
+            family_cap = int(settings.get('max_picks_per_family', 1))
             c['allocation_code'] = 'event_family_limit'
             c['allocation_reason'] = f'This game already holds {family_pick_counts[(c["game_id"], allocation_family(c))]} funded picks in the {allocation_family(c)} market family (limit: {family_cap}).'
             c['stake_note'] = c['allocation_reason']

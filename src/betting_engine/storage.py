@@ -403,8 +403,11 @@ class Store:
                 if open_event_stakes.get(gid,0.)+stakes[gid]>limits['max_stake_per_event']+1e-9:raise ValueError(f"Publication blocked: ${limits['max_stake_per_event']:.0f} maximum stake per game")
                 if open_period_counts.get(gid,0)+periods.get(gid,0)>limits['max_period_per_event']:raise ValueError(f"Publication blocked: maximum {limits['max_period_per_event']} period/quarter selection per game")
         total=sum(daily.values())+len(new)
+        is_vol_deficit = total < int(settings.get('daily_pick_target', 100)) if settings else False
+        max_share = 0.85 if is_vol_deficit else 0.70
+        multiplier = 2.5 if is_vol_deficit else 2.0
         base_limit=max(1,math.ceil(total*limits['max_daily_family_share']))
-        expanded_limit=max(1,math.ceil(total*min(0.70, limits['max_daily_family_share']*2.0)))
+        expanded_limit=max(1,math.ceil(total*min(max_share, limits['max_daily_family_share']*multiplier)))
         for key,count in families.items():
             tips_for_key = [t for t in new if (t.get('league'), allocation_family(t)) == key]
             is_super = is_v3 and any(is_super_alpha(t) for t in tips_for_key)
@@ -696,7 +699,7 @@ class Store:
                 cycle_cap = math.inf if is_v3 else policy['max_new_funded_per_publication']
                 if len(eligible)>=cycle_cap:continue
                 diverse_key=(gid,allocation_family(candidate))
-                family_cap = max(int(settings.get('max_picks_per_family', 2)), 3 if (is_v3 or (policy and policy.get('max_per_event', 4) > 4)) else 2)
+                family_cap = int(settings.get('max_picks_per_family', 1))
                 if diverse_families[diverse_key] >= family_cap:continue
                 cand_id_str = str(candidate.get('id', ''))
                 game_id_str = str(candidate.get('game_id', ''))
