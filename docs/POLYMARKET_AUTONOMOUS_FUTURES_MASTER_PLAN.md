@@ -41,21 +41,39 @@ A rendszer alapvető matematikai és stratégiai küldetése: **olyan többopci�
 
 ---
 
-## 3. Általánosított Risk/Reward ($R/R$) Kiértékelési és Tőkevédelmi Keretrendszer
+## 3. Általánosított Matematikai Logika és Risk/Reward ($R/R$) Keretrendszer
 
-Minden vizsgált piacra és tőkeallokációs tervre (legyen az egyszeri $B_0$ kezdőtőke vagy $B_t = B_0 + \sum \Delta B_k$ periodikus tőkebevonás) a rendszernek belépés előtt és futás közben is egzaktul ki kell számolnia a **4 kulcsmetrikát**:
+A rendszer bármely többopciós piacra ugyanazt a **négyfokozatú, első elvekből levezetett algoritmikus logikát** alkalmazza, mindenféle előre beégetett sablon nélkül:
 
-1. **Passzív Alap-Hozam (`Baseline Hold-to-Maturity Return`):**
-   - Mennyi a garantált nettó dollárprofit ($\text{PnL}_{\text{passive}} = q_i - B_t$) és százalékos hozam a fő profittermelő (`Core`) kimeneteleken, valamint a tőkemegőrző (`Shield`, $\text{Payout} \ge B_t \implies \$0$ veszteség) kimeneteleken, ha a pozíción a lejáratig egyetlen további kötést sem hajtanánk végre:
-     $$R_{\text{passive}} = \frac{1 - \sum_{j \in \text{Shield}} p_j}{\sum_{i \in \text{Core}} p_i} - 1$$
-2. **Aktívan Tradelt Életciklus-Hozam (`Active Lifecycle Return`):**
-   - Mennyi a várható nettó dollárprofit ($\text{PnL}_{\text{active}}$), amikor a rendszer a lejáratig tartó időszakban kihasználja a `Maker` limit árazást, a `clobRewards` jutalékokat, az átmeneti árfolyam-kiugrások részleges lefölözését (`Swing Trim`) és a periodikus ($\Delta B_k$) tőkeinjekciók diszkont-alapú (`Dip Accumulation`) elosztását.
-3. **Korlátozott Maximális Tőkevisszaesés (`Bounded Max Drawdown / Downside Risk`):**
-   - A rendszernek külön kell kimutatnia a **naiv (védelem nélküli) lejáratkori kockázatot** (`-100%`) és a **valós, autonóm módon védett kockázatot ($\text{MaxLoss}_{\text{guarded}}$)**. Mivel a kosárban lévő erős kimenetelek piaci eladási értéke (`Mark-to-Market Bid Value` = $\sum q_i \cdot \text{Bid}_i(t)$) végig likvid marad, egy kívülről érkező kimenetel megerősödésekor az autonóm őrszem (`PositionGuardian`) egy előre rögzített küszöbnél automatikusan végrehajtja a fedezést (`Auto-Hedge`) vagy a portfólió-lezárást (`Stop-Loss`), szigorúan korlátozva a maximális tőkevesztést:
-     $$\text{MaxLoss}_{\text{guarded}} = \alpha_{\text{max}} \cdot B_t \quad (\text{ahol tipikusan } \alpha_{\text{max}} \in [8\%, 15\%])$$
-4. **Valós Risk/Reward Arány (`Effective R/R Ratio`):**
-   - $$\text{R/R}_{\text{effective}} = \frac{\text{PnL}_{\text{net}}}{\text{MaxLoss}_{\text{guarded}}}$$
-   - A rendszer minden piacnál több alternatív szerkezetet egymás mellett értékel ki, hogy a tőkekorlát és a kívánt `R/R` profil alapján a legoptimálisabb szerkezet kerüljön végrehajtásra.
+### 3.1. A Kimenetelek Négy Funkcionális Halmazra Bontása (Élő Tényadatok vs. Orderbook Ár alapján)
+A pillanatnyi, levágásmentes külső tényadatokból számított valós esély ($P_{\text{true}, i}$) és az élő piaci végrehajtási ár ($p_{\text{mkt}, i}$) összevetésével a rendszer az összes $N$ opciót 4 diszjunkt halmazba sorolja:
+
+1. **Alulárazott Magas-Értékű Halmaz ($S_{\text{alpha}}$ — Fő Profittermelő Mag):**
+   - Fundamentálisan ép, erős kimenetelek, amelyeket a piac a valós esélyük alatt áraz ($p_{\text{mkt}, i} < P_{\text{true}, i}$). Itt a legmagasabb az egységnyi tőkére jutó kifizetési szorzó és az árfolyam-felértékelődési potenciál.
+2. **Teljes Áron Forgó Ép Favorit Halmaz ($S_{\text{base}}$ — Pozitív Bázis-Hozamú Pajzs):**
+   - Magas valós esélyű, de a piac által már drágán árazott kimenetelek ($p_{\text{mkt}, i} \approx P_{\text{true}, i}$). Kihagyásuk túl nagy tőkevesztési kockázatot jelentene, túlsúlyozásuk viszont elszívná a tőkét az $S_{\text{alpha}}$ halmaztól.
+3. **Időben Eltolandó / Fundamentálisan Romló Halmaz ($S_{\text{defer}}$ — Késleltetett Védelem):**
+   - Olyan kimenetelek, amelyeket a piac múltbeli hírnév vagy tehetetlenség miatt még magas áron tart ($p_{\text{mkt}, i} > P_{\text{true}, i}$), miközben az aktuális tényadatok (sérülések, negatív sokkok, nehéz ütemezés) alapján az áruk várhatóan esni fog. Ezekre a 0. napon tilos drágán tőkét égetni; védelmüket időben eltolva (mély csapda-limittel vagy későbbi tőkebevonási lépcsőből, alacsonyabb áron) építjük ki.
+4. **Kizárt / Zaj Halmaz ($S_{\text{noise}}$):**
+   - Olyan kimenetelek, amelyek valós végső győzelmi esélye elhanyagolható ($P_{\text{true}, i} \approx 0$).
+
+### 3.2. Kétszintű Aszimmetrikus Tőkeallokáció (`Graded Asymmetric Payout Optimization`)
+Ahelyett, hogy minden kiválasztott kimenetelre mereven azonos darabszámot vennénk (ami a drága $S_{\text{base}}$ favoritok miatt lenyomná az össz-hozamot), vagy a favoritokon `$0` profittal érnénk be, a $B$ tőkét két kifizetési lépcsőre osztjuk:
+
+1. **Pozitív Bázis-Hozam az Ép Favoritokon ($j \in S_{\text{base}}$):**
+   - Minden $j \in S_{\text{base}}$ opcióból olyan $q_{\text{base}} = B \cdot (1 + R_{\text{base}})$ darabszámot veszünk ($R_{\text{base}} > 0$), amely még a legdrágább papírforma győzelme esetén is érdemi, garantált pozitív nettó profitot fizet:
+     $$\text{Költség}_{\text{base}} = B \cdot (1 + R_{\text{base}}) \sum_{j \in S_{\text{base}}} p_j$$
+2. **Maximális Kifizetési Koncentráció az Alulárazott Magon ($i \in S_{\text{alpha}}$):**
+   - A fennmaradó tőkét ($B - \text{Költség}_{\text{base}}$) teljes egészében az alacsony összárú ($\sum_{i \in S_{\text{alpha}}} p_i \ll 1$) alulárazott halmazra koncentráljuk:
+     $$q_{\text{alpha}} = \frac{B - \text{Költség}_{\text{base}}}{\sum_{i \in S_{\text{alpha}}} p_i} \gg q_{\text{base}} > B$$
+   - Így az $S_{\text{alpha}}$ halmaz bármely elemének győzelme esetén kiemelkedő nettó profit ($\text{PnL}_{\text{alpha}} = q_{\text{alpha}} - B$) keletkezik, miközben az $S_{\text{base}}$ halmazon is biztosított a pozitív hozam ($\text{PnL}_{\text{base}} = q_{\text{base}} - B > 0$).
+
+### 3.3. A Négy Kötelező Risk/Reward ($R/R$) Kiértékelési Metrika
+
+1. **Passzív Alap-Hozam (`Baseline Hold-to-Maturity Return`)**
+2. **Aktívan Tradelt Életciklus-Hozam (`Active Lifecycle Return`)**
+3. **Korlátozott Maximális Tőkevisszaesés (`Bounded Max Drawdown`: $\text{MaxLoss}_{\text{guarded}} = \alpha_{\text{max}} \cdot B_t$)**
+4. **Valós Risk/Reward Arány (`Effective R/R Ratio`: $\text{R/R}_{\text{effective}} = \text{PnL}_{\text{net}} / \text{MaxLoss}_{\text{guarded}}$)**
 
 ---
 
