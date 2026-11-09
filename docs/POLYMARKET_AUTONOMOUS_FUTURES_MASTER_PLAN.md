@@ -81,9 +81,46 @@ Egy $N$ egymást kizáró opcióból álló `NegRisk` piacon (ahol pontosan 1 op
 
 ---
 
-## 5. A Polymarket Teljes Többopciós Piac-Térképe és a Top 10 Célpiac
+## 5. A Polymarket Teljes Többopciós Piac-Térképe: Top 10 Nem-Sport & Top 10 Sport Célpiac
 
-A **812 aktív Polymarket eseményből 396 db többopciós piacot** azonosítottunk (ebből **245 db tiszta `NegRisk` egymást kizáró piac**), amelyekből a tőke forgási sebességének maximalizálására **3-lépcsős lejárati létrát (Capital Velocity Ladder)** építettünk a **Top 10 konkrét piaccal**:
+A **812 aktív Polymarket eseményből 396 db többopciós piacot** azonosítottunk (ebből **187 db nem-sport egymást kizáró `NegRisk` piac** és **133 db nem-sport sávos piac**).
+
+### 5.1. TOP 10 NEM-SPORT Többopciós (`NegRisk` & Sávos) Célpiac
+
+1. **Tőzsde / Big Tech — `2nd & 3rd Largest Company (Nov & Dec 2026)`** (`2nd-largest-company-end-of-november-2026`, `2nd-largest-company-end-of-december-2026`, `3rd-largest-company-end-of-december-2026`)
+   - **Lejárat:** 2026. dec. 1. (3 hét) & 2027. jan. 1. (7 hét) | **Likviditás:** `$503k`
+   - **Árazás & Előny:** Csak 4 trilliárd dolláros vállalat (`NVIDIA`, `Apple`, `Microsoft`, `Alphabet`) érhet oda. Mivel a `Bid/Ask` spread széles, a 4 cég teljes 100%-os `Bid` összege **`0.852` (november)** és **`0.871` (december)** (+12–15% Maker kosár-rés 3–7 hét alatt!).
+2. **AI / Tech — `Best AI Model (End of Nov & End of 2026)`** (`which-company-has-the-best-ai-model-end-of-november`, `which-company-has-best-ai-model-end-of-2026`)
+   - **Lejárat:** 2026. dec. 1. & dec. 31. | **Likviditás:** `$2.42M` | **Maker Reward:** `$120/nap`
+   - **Árazás:** `Core = Google (0.650) + Anthropic (0.280)` (`0.930`), `Shield = OpenAI (0.041) + xAI (0.007)` (`Top 4 = 0.978`).
+3. **Vállalati / IPO — `Largest IPO in 2026` & `Anthropic IPO Closing Market Cap`** (`largest-ipo-by-market-cap-in-2026-287`, `anthropic-ipo-closing-market-cap-higher-st`)
+   - **Lejárat:** 2027. jan. 2. & 2028 | **Likviditás:** `$1.61M` | **Maker Reward:** **`$1,175/nap` (`$200` + `$975/nap`)**
+   - **Árazás:** `Largest IPO` mind a 12 opció = `0.973 Bid / 0.998 Ask`; `Anthropic IPO` Top 4 értékelési sáv = **`0.919 Bid`**.
+4. **Makró / Fed — `Fed Decision (Dec, Jan, Mar)` & `Fed decisions (Oct-Jan)`** (`fed-decision-in-december-20260729232808632`, `fed-decisions-oct-jan`, `fed-decision-in-march-20260729234003686`)
+   - **Lejárat:** 2026. dec. 10. – 2027. márc. 18. | **Likviditás:** `$3.99M` | **Maker Reward:** **`$1,020/nap`**
+   - **Árazás:** `Fed decisions (Oct-Jan)` Top 3 kamatpálya = **`0.918 Bid`**; márciusi Fed döntés Top 3 = **`0.927 Bid`**.
+5. **Heti Algó / Social — `Elon Musk # Tweets (Heti 25–30 sávos NegRisk piacok)`** (`elon-musk-of-tweets-november-6-november-13-2026`, `november-10-november-17`)
+   - **Lejárat:** **Minden héten (7 napos ciklus!)** | **Likviditás:** `$307k–$340k / hét` | **Maker Reward:** `$100/nap`
+   - **Árazás:** 25–30 egymást kizáró darabszám-sáv; élő X/Twitter poszt-számlálóval a középső 5 `Core` + 2 `Shield` sáv **`0.76–0.83 Bid`** áron felépíthető és naponta dinamikusan utánigazítható.
+6. **Kultúra / Google Trends — `#1 Searched Movie / TV Show / Actor on Google 2026`** (`1-searched-movie-on-google-2026`, `1-searched-tv-show-on-google-2026`)
+   - **Lejárat:** 2027. ápr. 1. | **Likviditás:** `$2.08M`
+   - **Árazás:** TV Show Top 5 (`Euphoria`, `Stranger Things`, `Monster`, `The Pitt`, `His & Hers`) = **`0.773 Bid`**; Movie Top 4 = **`0.900 Bid`** — közvetlenül mérhető a nyilvános Google Trends API-ból.
+7. **Film / Díjátadók — `Oscars 2027: Best Picture & Best Actor` + `Highest Grossing Movie 2026`** (`oscars-2027-best-picture-winner`, `highest-grossing-movie-in-2026`)
+   - **Lejárat:** 2027. jan. 8. & márc. | **Likviditás:** `$3.32M`
+   - **Árazás:** Oscar Best Picture Top 4 (`The Odyssey`, `You Can See Everything`, `La Bola Negra`, `Dune 3`) = **`0.925 Bid`**; Best Actor Top 4 = **`0.895 Bid`**.
+8. **Európai & Globális Politika — `Francia Elnökválasztás 2027`, `Izraeli PM`, `Spanyol PM`, `Svéd PM`** (`next-french-presidential-election`, `who-will-be-the-next-prime-minister-of-israel`)
+   - **Lejárat:** 2026. nov. 30. – 2027. ápr. 19. | **Likviditás:** **`$28.6M`** | **Maker Reward:** **`$3,640/nap`**
+   - **Árazás:** Francia elnökválasztás Top 5 jelölt = **`0.879 Bid`** (`$1,840/nap` reward!); Izraeli PM Top 3 = **`0.907 Bid`** (`$1,100/nap` reward!).
+9. **US Politika & Geopolitika — `Next leader out of power before 2027` & `Trump Administration / Press Secretary`**
+   - **Lejárat:** 2027. jan. 1. | **Likviditás:** `$1.66M` | **Maker Reward:** `$625/nap`
+   - **Árazás:** `Next leader out of power before 2027` Top 3 (`None`, `Netanyahu`, `Sánchez`) = **`0.875 Bid`**.
+10. **Kriptó & Árupiac (Sávos) — `Bitcoin, Ethereum, Solana & WTI Olaj Havi/Éves Ársávok`** (`what-price-will-bitcoin-hit-in-november-2026`, `what-price-will-wti-hit-in-november-2026`)
+    - **Lejárat:** 2026. dec. 1. & 2027. jan. 1. | **Likviditás:** **`$8.90M`**
+    - **Árazás:** 18–30 ársávos (`↑$80k`, `↓$70k`) piacok, Deribit/CME opciós implikált volatilitás elleni Range-Box arbitrázsra.
+
+---
+
+### 5.2. TOP 10 SPORT Többopciós (`NegRisk` Bajnoki Futures) Célpiac (3-Lépcsős Lejárati Létra)
 
 1. **MLS Cup Winner 2026 (`mls-cup-winner-2026`)** — Lejárat: 2026. dec. 21. | Likviditás: `$547k` | Top 8 Bid: `0.800`
 2. **Best AI Model End of 2026 (`which-company-has-best-ai-model-end-of-2026`)** — Lejárat: 2026. dec. 31. | Likviditás: `$1.49M` | Core 2 (Google + Anthropic) = `0.930`, Shield (OpenAI) = `0.041`
