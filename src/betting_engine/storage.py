@@ -1,5 +1,5 @@
 """Durable publication, audit trail, manual bets and future notification outbox."""
-import json,sqlite3,hashlib,math,logging,time as time_mod
+import json,sqlite3,hashlib,math,logging,time as time_mod,threading
 from collections import Counter
 from contextlib import contextmanager
 from pathlib import Path
@@ -13,6 +13,16 @@ from .freshness import MAX_QUOTE_AGE_SECONDS
 from .snapshots import encode_publication,decode_publication
 
 log = logging.getLogger(__name__)
+
+_DB_PATH_LOCKS = {}
+_DB_PATH_LOCKS_GUARD = threading.Lock()
+
+def _get_write_lock_for_path(path: Path) -> threading.RLock:
+    resolved = str(path.resolve()) if str(path) != ':memory:' else ':memory:'
+    with _DB_PATH_LOCKS_GUARD:
+        if resolved not in _DB_PATH_LOCKS:
+            _DB_PATH_LOCKS[resolved] = threading.RLock()
+        return _DB_PATH_LOCKS[resolved]
 
 class Store:
     def __init__(self,path=None):
@@ -91,12 +101,23 @@ class Store:
             pass
     @contextmanager
     def db(self):
-        c=sqlite3.connect(self.path,timeout=60.0);c.row_factory=sqlite3.Row
-        c.execute('PRAGMA busy_timeout=60000')
-        c.execute('PRAGMA synchronous=NORMAL');c.execute('PRAGMA cache_size=-32000');c.execute('PRAGMA temp_store=MEMORY')
-        try:yield c;c.commit()
-        except: c.rollback();raise
-        finally:c.close()
+        lock = _get_write_lock_for_path(self.path)
+        with lock:
+            c = sqlite3.connect(self.path, timeout=60.0)
+            c.row_factory = sqlite3.Row
+            c.execute('PRAGMA busy_timeout=60000')
+            c.execute('PRAGMA synchronous=NORMAL')
+            c.execute('PRAGMA cache_size=-32000')
+            c.execute('PRAGMA temp_store=MEMORY')
+            c.execute('PRAGMA wal_autocheckpoint=1000')
+            try:
+                yield c
+                c.commit()
+            except:
+                c.rollback()
+                raise
+            finally:
+                c.close()
 
     @contextmanager
     def ro_db(self):
