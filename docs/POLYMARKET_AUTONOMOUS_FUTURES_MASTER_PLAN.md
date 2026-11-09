@@ -1,0 +1,107 @@
+# Autonóm Polymarket Multi-Option & Futures Quant Engine — Mesterterv (Master Blueprint)
+
+**Mentés ideje:** 2026-11-09  
+**Státusz:** Tervezési és Stratégiai Konzultációs Fázis (a meglévő napi sportfogadási motor érintetlenül fut tovább)
+
+---
+
+## 1. Alapkoncepció és Stratégiai Cél
+
+A cél egy **teljesen önálló, autonóm módon kereskedő Polymarket Multi-Option / `NegRisk` / Futures Kvant Rendszer** felépítése, amely:
+1. **Független a napi sportfogadási rendszertől:** Nem nyúl a meglévő `src/betting_engine/` kódhoz, a `data/engine.sqlite3` adatbázishoz, és nem vonatkoznak rá a napi sportfogadási korlátok (`$0.50–$8.00` tétplafon, 72 órás horizont, manuális Stake beküldés, Tier 1–4 napi sport-inkubátor).
+2. **2-Lépcsős Páncélozott Kosarakat (`Core + 0%-Loss Shield`) épít:** Többopciós, egymást kizáró (`NegRisk` / 1 győztes) piacokon kihasználja az opciók árazási aszimmetriáját, a külső referencia-piacoktól (Kalshi, ESPN, makró/iparági adatok) való eltéréseket és a CLOB `Bid/Ask` spreadeket.
+3. **Kétféle üzemmódban működik:**
+   - **On-Demand (Beküldéses) Elemző & Végrehajtó:** Egyetlen beküldött Polymarket esemény-URL alapján teljes mélységében kiértékeli a piacot (CLOB könyvmélység, tick-méretek, külső fundamentumok), megtervezi a `Core + Shield` rétegeket, és pozitív várható érték esetén autonóm módon felépíti és menedzseli a pozíciót.
+   - **Folyamatos Piac-Szkenner (`24/7 Scanner`):** Folyamatosan pásztázza a Polymarket összes témáját (Sport, AI/Tech, IPO/Cégek, Makró/Fed, Kultúra, Politika, Kriptó) a legjobb többopciós lehetőségek után.
+4. **100% Autonóm CLOB Végrehajtást és Pozíciómenedzsmentet végez:** A `.env`-ben meglévő Polymarket CLOB L2 és Builder kulcsokon keresztül önállóan ad be, szeletel (`Order Slicing`), figyel, módosít (`Cancel & Replace`) és zár le limit (`Maker`) és azonnali (`Taker`) megbízásokat, valamint kezeli a heti DCA (`+$500/hét`) tőkebevonást.
+
+---
+
+## 2. Technikai és Szabályrendszeri Szétválasztás
+
+| Dimenzió | Meglévő Napi Sportfogadási Engine (`betting_engine`) | Új Autonóm Polymarket Futures Engine (`pm_futures_engine`) |
+| :--- | :--- | :--- |
+| **Fő feladat** | Napi 100+ rövid lejáratú sporttipp (Stake manuális + Tier 4 PM) | Hosszabb lejáratú, többopciós (`NegRisk` / Futures) kosarak (`Core + Shield`) |
+| **Időhorizont** | 0 – 72 óra | 2 héttől – 8 hónapig (3-lépcsős lejárati létra) |
+| **Tétkorlátok** | Szigorú `$0.50 – $8.00` Frakcionális Kelly | **Nincs `$8` plafon**; kosárszintű tőkeallokáció (pl. `$1,000` alap + heti `+$500` DCA) |
+| **Végrehajtási mód** | Stake-en manuális (`assumed manual`), szigorú Tier 1–4 kapukkal | **100% Autonóm CLOB végrehajtás** (`Maker` limit + `Taker` azonnali + automata `Order Slicer`) |
+| **Adatbázis** | `data/engine.sqlite3` (100% érintetlen) | Saját, különálló SQLite adatbázis: `data/pm_futures_ledger.sqlite3` |
+| **Szabályzat (`Governance`)** | `AGENTS.md` 1–10. Parancsolat | Külön projektmappa (`/Users/belavarga/Polymarket_Futures_Quant`) **VAGY** külön `11. Charter` az `AGENTS.md`-ben és `GEMINI.md`-ben |
+
+---
+
+## 3. Matematikai Modell: A 2-Lépcsős Páncélozott Kosár (`Core + Shield`)
+
+Egy $N$ egymást kizáró opcióból álló `NegRisk` piacon (ahol pontosan 1 opció fizet `$1.00`-t lejáratkor, a többi `$0.00`-t) a teljes $B$ tőkét (pl. `$1,000`) két halmazra osztjuk:
+
+1. **Pajzs Lábak (`Shield Tier` — 0% Veszteség / Tőkemegőrzés):**
+   - Ide kerülnek azok a favoritok vagy középcsapatok, amelyek drágák vagy sérülésekkel terheltek (pl. OKC, 76ers), de nem hagyhatók teljesen fedezetlenül.
+   - Minden `Shield` csapatból pontosan $S_{\text{shield}} = B$ darab (`1,000.00` db) `YES` share-t veszünk:
+     $$\text{Költség}_{\text{shield}} = B \cdot \sum_{j \in \text{Shield}} p_j$$
+   - **Eredmény, ha bármelyik `Shield` opció nyer:** A kifizetés pontosan $B$ (`$1,000.00`), vagyis a többi 12 vesztes fogadás levonása után is **`$0.00` a veszteség** (100% tőkevisszatérítés).
+
+2. **Fő Érték Lábak (`Core Value Tier` — Garantált Pozitív Profit):**
+   - Ide kerülnek az egészséges, fundamentálisan alulárazott esélyesek.
+   - A fennmaradó tőkét ($B - \text{Költség}_{\text{shield}}$) úgy osztjuk el közöttük, hogy minden `Core` csapatból azonos $S_{\text{core}} > B$ darab share-t kapjunk:
+     $$S_{\text{core}} = B \cdot \frac{1 - \sum_{j \in \text{Shield}} p_j}{\sum_{i \in \text{Core}} p_i}$$
+   - **Eredmény, ha bármelyik `Core` opció nyer:** A kifizetés $S_{\text{core}}$ dollár, a tiszta nettó profit pedig:
+     $$\text{Nettó Profit} = S_{\text{core}} - B = B \cdot \frac{1 - \sum_{k \in \text{Core} \cup \text{Shield}} p_k}{\sum_{i \in \text{Core}} p_i} > 0$$
+
+---
+
+## 4. Konkrét Referencia-Blueprint: NBA 2027 Champion (`$1,000` Alap + Heti `+$500` DCA)
+
+### 4.1. Fundamentális Aszimmetria (ESPN + Kalshi + PM összevetés)
+- **OKC Thunder (`0.150 Bid / 0.160 Ask`) súlyosan túlértékelt:** Jalen Williams (szárkapocscsont-törés + bokaszalag-rekonstrukció) és Cason Wallace (váll labrum műtét) gyakorlatilag a teljes szezonra kidőltek, Chet Holmgren (patella-ín szakadás) pedig 8–10+ hétig harcképtelen. Ezért az OKC-t nem `Core`, hanem `Shield` lábként kezeljük (vagy heti DCA során fokozatosan leépítjük).
+- **Alulárazott `Core` csapatok:**
+  - **Boston Celtics (`0.060 Bid / 0.070 Ask`):** 8-2 mérleg, `+10.7` NetDiff, #1 védelem (99.8 kapott pont), 0 sérült.
+  - **Minnesota Timberwolves (`0.060 Bid / 0.063 Ask`):** 8-3 mérleg, liga #1 `+11.1` NetDiff, Edwards januárban 100%-osan visszatér.
+  - **Houston Rockets (`0.047 Bid / 0.048 Ask`):** 7-3 mérleg, `+9.0` NetDiff, Durant + Sengun egészséges.
+  - **Golden State Warriors (`0.021 Bid / 0.022 Ask`):** Kalshin `0.040 Bid` (dupla ár!), a PM Nyugati Főcsoport piacán `0.050/0.069`.
+  - **San Antonio Spurs (`0.210 Bid / 0.220 Ask`):** 8-2 mérleg, `+10.3` NetDiff, Wembanyama + De'Aaron Fox.
+
+### 4.2. A 13-Csapatos Páncélozott Kosár (`$1,000` Kezdő Allokáció)
+
+| Réteg | Csapat | PM `Bid / Ask` | Tick méret | Vételi Stratégia | Vásárolt `YES` Share | Befektetett Tőke (`$`) | Kifizetés ha nyer (`$`) | Nettó Profit (minden más levonása után) |
+| :--- | :--- | :---: | :---: | :--- | :---: | :---: | :---: | :---: |
+| **CORE #1** | **San Antonio Spurs** | `0.210 / 0.220` | `0.01` (`1¢`) | Maker Limit (`0.210`–`0.215`) | `1,154.14 db` | `$242.37` | **`$1,154.14`** | **`+$154.14` (+15.4%)** |
+| **CORE #2** | **New York Knicks** | `0.070 / 0.080` | `0.01` (`1¢`) | Maker Limit (`0.070`–`0.075`) | `1,154.14 db` | `$80.79` | **`$1,154.14`** | **`+$154.14` (+15.4%)** |
+| **CORE #3** | **Boston Celtics** | `0.060 / 0.070` | `0.01` (`1¢`) | Maker Limit (`0.060`–`0.065`) | `1,154.14 db` | `$69.25` | **`$1,154.14`** | **`+$154.14` (+15.4%)** |
+| **CORE #4** | **Minnesota Timberwolves** | `0.060 / 0.063` | `0.001` (`0.1¢`) | Azonnali Ask / Slicing | `1,154.14 db` | `$69.25` | **`$1,154.14`** | **`+$154.14` (+15.4%)** |
+| **CORE #5** | **Houston Rockets** | `0.047 / 0.048` | `0.001` (`0.1¢`) | Azonnali Ask (`0.048`) | `1,154.14 db` | `$54.24` | **`$1,154.14`** | **`+$154.14` (+15.4%)** |
+| **CORE #6** | **Los Angeles Lakers** | `0.040 / 0.042` | `0.001` (`0.1¢`) | Azonnali Ask (`0.042`) | `1,154.14 db` | `$46.17` | **`$1,154.14`** | **`+$154.14` (+15.4%)** |
+| **CORE #7** | **Denver Nuggets** | `0.024 / 0.025` | `0.001` (`0.1¢`) | Azonnali Ask (`0.025`) | `1,154.14 db` | `$27.70` | **`$1,154.14`** | **`+$154.14` (+15.4%)** |
+| **CORE #8** | **Golden State Warriors** | `0.021 / 0.022` | `0.001` (`0.1¢`) | Azonnali Ask (`0.022`) | `1,154.14 db` | `$24.24` | **`$1,154.14`** | **`+$154.14` (+15.4%)** |
+| **SHIELD #1** | **Oklahoma City Thunder** | `0.150 / 0.160` | `0.01` (`1¢`) | Maker Limit (`0.150`) | `1,000.00 db` | `$150.00` | **`$1,000.00`** | **`$0.00` (0% veszteség)** |
+| **SHIELD #2** | **Philadelphia 76ers** | `0.133 / 0.135` | `0.001` (`0.1¢`) | Azonnali Ask (`0.135`) | `1,000.00 db` | `$133.00` | **`$1,000.00`** | **`$0.00` (0% veszteség)** |
+| **SHIELD #3** | **Detroit Pistons** | `0.045 / 0.047` | `0.001` (`0.1¢`) | Azonnali Ask (`0.047`) | `1,000.00 db` | `$45.00` | **`$1,000.00`** | **`$0.00` (0% veszteség)** |
+| **SHIELD #4** | **Toronto Raptors** | `0.035 / 0.036` | `0.001` (`0.1¢`) | Azonnali Ask (`0.036`) | `1,000.00 db` | `$35.00` | **`$1,000.00`** | **`$0.00` (0% veszteség)** |
+| **SHIELD #5** | **Cleveland Cavaliers** | `0.023 / 0.025` | `0.001` (`0.1¢`) | Azonnali Ask (`0.025`) | `1,000.00 db` | `$23.00` | **`$1,000.00`** | **`$0.00` (0% veszteség)** |
+| **ÖSSZESEN** | **13 Csapat (~98.5% lefedettség)** | **Sum: `0.918`** | — | **Vegyes (9 Taker + 4 Maker)** | — | **`$1,000.00`** | **`$1,000–$1,154`** | **`+$0.00` .. `+$154.14`** |
+
+---
+
+## 5. A Polymarket Teljes Többopciós Piac-Térképe és a Top 10 Célpiac
+
+A **812 aktív Polymarket eseményből 396 db többopciós piacot** azonosítottunk (ebből **245 db tiszta `NegRisk` egymást kizáró piac**), amelyekből a tőke forgási sebességének maximalizálására **3-lépcsős lejárati létrát (Capital Velocity Ladder)** építettünk a **Top 10 konkrét piaccal**:
+
+1. **MLS Cup Winner 2026 (`mls-cup-winner-2026`)** — Lejárat: 2026. dec. 21. | Likviditás: `$547k` | Top 8 Bid: `0.800`
+2. **Best AI Model End of 2026 (`which-company-has-best-ai-model-end-of-2026`)** — Lejárat: 2026. dec. 31. | Likviditás: `$1.49M` | Core 2 (Google + Anthropic) = `0.930`, Shield (OpenAI) = `0.041`
+3. **Largest IPO by Market Cap in 2026 (`largest-ipo-by-market-cap-in-2026-287`)** — Lejárat: 2027. jan. 2. | Likviditás: `$1.02M` | Mind a 12 opció = `0.973 Bid`, `$200/nap` Maker reward
+4. **NCAA Football 2026 National Champion (`ncaa-football-2026-national-champion`)** — Lejárat: 2027. feb. 9. | Likviditás: `$1.03M` | Mind a 16 opció = `0.912 Bid / 0.987 Ask`, Top 8 Bid = `0.874`
+5. **NFL Super Bowl 2027 Champion (`pro-football-2027-champion-20260729185915366`)** — Lejárat: 2027. feb. 7. | Likviditás: `$7.52M` | Top 8 Bid = `0.725`, Top 10 Bid = `0.804`
+6. **NBA 2027 Champion (`nba-2027-champion`)** — Lejárat: 2027. jún. | Likviditás: `$9.31M` | 13-csapatos páncélozott Bid = `0.918`, 12-csapatos Bid = `0.768`
+7. **UEFA Champions League 2027 (`uefa-champions-league-2027-champion-20260701202025549`)** — Lejárat: 2027. máj. 31. | Likviditás: `$11.59M` | Top 7 Bid = `0.885`, Top 9 Bid = `0.916`
+8. **Serie A 2027 Champion (`serie-a-2027-champion-20260701200118390`)** — Lejárat: 2027. máj. 25. | Likviditás: `$1.49M` | Mind a 20 csapat = `0.954 Bid`, Top 7 Bid = `0.953`
+9. **La Liga (`laliga-2027-champion-20260701200737375`) & Bundesliga (`bundesliga-2027-champion-20260708164840303`)** — Lejárat: 2027. máj. | Likviditás: `$6.08M` + `$912k` | La Liga Top 3 = `0.962`, Bundesliga Top 4 = `0.949`
+10. **NHL Stanley Cup 2027 (`nhl-2027-champion-20260612185656162`)** — Lejárat: 2027. jún. | Likviditás: `$2.48M` | Top 10 Bid = `0.721`
+
+---
+
+## 6. Az Autonóm Szoftverrendszer 5 Moduljának Terve
+
+1. **`MarketScanner & DeepEvaluator`:** Folyamatos Polymarket szkenner + beküldött URL-re azonnali CLOB könyvmélység és külső referencia-elemző (Kalshi, ESPN, makró).
+2. **`ArmoredBasketBuilder`:** `Core + 0%-Loss Shield` matematikai optimalizáló.
+3. **`AutonomousClobExecutor & FillManager`:** `0.1¢` Taker Order Slicing + `1¢` Maker GTC limit-kezelő automatikus utánállítással (`Cancel & Replace`).
+4. **`AutonomousPositionGuardian`:** 24/7 pozíció-, orderbook- és hír/sérülés-figyelő démon.
+5. **`WeeklyDCARebalancer`:** Heti `+$500` tőkeallokátor és lejárati létra átforgató.
