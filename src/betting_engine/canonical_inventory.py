@@ -71,23 +71,34 @@ def get_canonical_system_inventory(data_dir: Path = DATA, force_refresh: bool = 
     live_stake_avg = 0.0
 
     live_cache_file = data_dir / "live_stake_account_summary.json"
-    scratch_file = Path("/Users/belavarga/.gemini/antigravity/brain/67d3fd40-83e9-487d-8dd5-e93d9d2a0b41/scratch/live_stake_active_bets_20261031.json")
-    
-    bets_data = []
-    if scratch_file.exists():
+    if live_cache_file.exists():
         try:
-            bets_data = json.loads(scratch_file.read_text())
+            cache_data = json.loads(live_cache_file.read_text())
+            live_stake_count = int(cache_data.get("open_bets_count", 0))
+            live_stake_exposure = float(cache_data.get("open_exposure", 0.0))
+            active_bets = cache_data.get("active_bets", [])
+            if active_bets:
+                stakes = [float(b.get("amount", 0.0)) for b in active_bets if b.get("amount")]
+                if stakes:
+                    live_stake_min = round(min(stakes), 2)
+                    live_stake_max = round(max(stakes), 2)
+                    live_stake_avg = round(sum(stakes) / len(stakes), 2)
         except Exception:
             pass
-
-    if bets_data:
-        live_stake_count = len(bets_data)
-        stakes = [b.get("amount", 0.0) for b in bets_data]
-        if stakes:
-            live_stake_exposure = round(sum(stakes), 2)
-            live_stake_min = round(min(stakes), 2)
-            live_stake_max = round(max(stakes), 2)
-            live_stake_avg = round(sum(stakes) / len(stakes), 2)
+    elif engine_db.exists():
+        try:
+            with sqlite3.connect(f"file:{engine_db}?mode=ro", uri=True, timeout=5.0) as conn:
+                cur = conn.cursor()
+                cur.execute("SELECT stake FROM bets WHERE status = 'open'")
+                open_stakes = [float(r[0]) for r in cur.fetchall() if r[0] is not None]
+                if open_stakes:
+                    live_stake_count = len(open_stakes)
+                    live_stake_exposure = round(sum(open_stakes), 2)
+                    live_stake_min = round(min(open_stakes), 2)
+                    live_stake_max = round(max(open_stakes), 2)
+                    live_stake_avg = round(sum(open_stakes) / len(open_stakes), 2)
+        except Exception:
+            pass
 
     # 4. Supreme Autonomous Governor & Prime Directives Telemetry
     rolling_7d_roi = 0.0
