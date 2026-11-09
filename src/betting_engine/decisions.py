@@ -5,7 +5,7 @@ import hashlib,math,time
 from datetime import timedelta
 from .domain import utcnow,parse_time
 from .freshness import MAX_QUOTE_AGE_SECONDS
-from .contracts import split_market,allocation_family,SCOPE_LABELS,is_opposing_contract
+from .contracts import split_market,allocation_family,SCOPE_LABELS,is_opposing_contract,canonical_segment_aliases
 
 # The legacy sizing defaults remain backwards compatible for historical
 # receipts.  The live service enables a versioned publication policy in its
@@ -142,12 +142,14 @@ def _get_graduated_segments():
 
 def _get_demoted_segments():
     roster = _get_universe_roster()
+    grad = _get_graduated_segments()
     if roster:
-        return {k for k, p in roster.items() if p.tier in (1, 2)}
+        dem = {k for k, p in roster.items() if p.tier in (1, 2)}
+        return {k for k in dem if k not in grad}
     try:
         from .shadow_market_incubator import get_demoted_segments
         dem = get_demoted_segments()
-        return dem if dem else set()
+        return {k for k in (dem or set()) if k not in grad}
     except Exception:
         return set()
 
@@ -159,18 +161,7 @@ def is_super_alpha(tip):
     league = str(tip.get('league', '')).upper()
     scope = str(tip.get('model_scope', 'full_game'))
     market = str(tip.get('market', '')).lower()
-    try:
-        base_mkt = split_market(market)[1]
-    except Exception:
-        base_mkt = market
-    cand_segs = {
-        f"{league}|{scope}|{market}",
-        f"{league}|{scope}|{base_mkt}",
-        f"{league}|{scope}|{scope}:{base_mkt}",
-    }
-    if scope == 'full_game':
-        cand_segs.add(f"{league}|{market}")
-        cand_segs.add(f"{league}|{base_mkt}")
+    cand_segs = canonical_segment_aliases(league, scope, market)
     gov = _get_governor_status()
     s_super = set(gov.get('super_alpha_list', []))
     if cand_segs & s_super:
@@ -209,15 +200,7 @@ def is_profitable_or_alpha(tip):
     league = str(tip.get('league', '')).upper()
     scope = str(tip.get('model_scope', 'full_game'))
     market = str(tip.get('market', '')).lower()
-    try:
-        base_mkt = split_market(market)[1]
-    except Exception:
-        base_mkt = market
-    cand_segs = {
-        f"{league}|{scope}|{market}",
-        f"{league}|{scope}|{base_mkt}",
-        f"{league}|{scope}|{scope}:{base_mkt}",
-    }
+    cand_segs = canonical_segment_aliases(league, scope, market)
     gov = _get_governor_status()
     quarantine_list = set(gov.get('quarantine_list', []))
     c_defense = set(gov.get('capital_defense_list', []))
@@ -266,14 +249,7 @@ def continuous_selection_priority_v4(tip, tier):
     market = str(tip.get('market', '')).lower()
     league = str(tip.get('league', '')).upper()
     scope = str(tip.get('model_scope', 'full_game'))
-    base_mkt = split_market(market)[1]
-
-    # Canonical segment aliases
-    seg_candidates = {
-        f"{league}|{scope}|{market}",
-        f"{league}|{scope}|{base_mkt}",
-        f"{league}|{scope}|{scope}:{base_mkt}",
-    }
+    seg_candidates = canonical_segment_aliases(league, scope, market)
 
     # Governor quarantine check
     gov = _get_governor_status()
@@ -1133,14 +1109,7 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                     c_base_mkt = split_market(c_market)[1]
                 except Exception:
                     c_base_mkt = c_market
-                cand_segs = {
-                    f"{c_league}|{c_scope}|{c_market}",
-                    f"{c_league}|{c_scope}|{c_base_mkt}",
-                    f"{c_league}|{c_scope}|{c_scope}:{c_base_mkt}",
-                }
-                if c_scope == 'full_game':
-                    cand_segs.add(f"{c_league}|{c_market}")
-                    cand_segs.add(f"{c_league}|{c_base_mkt}")
+                cand_segs = canonical_segment_aliases(c_league, c_scope, c_market)
                 cand_id = str(c.get('id', ''))
                 is_test_cand = is_synthetic_test_candidate(c, settings)
                 is_alpha_cand = bool(cand_segs & s_alpha)
@@ -1271,24 +1240,23 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                     c_base_mkt = split_market(c_market)[1]
                 except Exception:
                     c_base_mkt = c_market
-                u_cand_segs = {
-                    f"{c_league}|{c_scope}|{c_market}",
-                    f"{c_league}|{c_scope}|{c_base_mkt}",
-                    f"{c_league}|{c_scope}|{c_scope}:{c_base_mkt}",
-                }
-                if c_scope == 'full_game':
-                    u_cand_segs.add(f"{c_league}|{c_market}")
-                    u_cand_segs.add(f"{c_league}|{c_base_mkt}")
+                u_cand_segs = canonical_segment_aliases(c_league, c_scope, c_market)
                 roster = _get_universe_roster()
                 if roster:
                     u_cap = None
                     u_phase = None
-                    for s in u_cand_segs:
-                        prof = roster.get(s)
-                        if prof:
-                            if u_cap is None or prof.stake_cap < u_cap:
-                                u_cap = prof.stake_cap
-                                u_phase = prof.phase_detail
+                    grad_profs = [roster[s] for s in u_cand_segs if s in roster and roster[s].tier >= 3]
+                    if grad_profs:
+                        prof = max(grad_profs, key=lambda p: p.stake_cap)
+                        u_cap = prof.stake_cap
+                        u_phase = prof.phase_detail
+                    else:
+                        for s in u_cand_segs:
+                            prof = roster.get(s)
+                            if prof:
+                                if u_cap is None or prof.stake_cap < u_cap:
+                                    u_cap = prof.stake_cap
+                                    u_phase = prof.phase_detail
 
                     if u_cap is None:
                         u_cap = 0.50

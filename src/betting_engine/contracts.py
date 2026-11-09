@@ -62,6 +62,68 @@ def equivalent_contract_ids(tip):
         ids.add(hashlib.sha256(key.encode()).hexdigest()[:20])
     return ids
 
+def canonical_segment_aliases(league: str, scope: str, market: str) -> set:
+    """Generates canonical cross-taxonomy aliases for a league, scope, and market.
+    
+    Ensures that identical physical contracts across American (Stake) and international/canonical (Incubator)
+    taxonomies (e.g. half_1:spreads <-> half_1:asian_lines:asian_handicap, half_1:totals <-> half_1:asian_lines:asian_total)
+    map to the same graduated or demoted segment keys.
+    """
+    league_str = str(league or '').upper()
+    scope_str = str(scope or 'full_game')
+    market_str = str(market or '').lower()
+    try:
+        base_mkt = split_market(market_str)[1]
+    except Exception:
+        base_mkt = market_str.split(':')[-1]
+
+    segs = {
+        f"{league_str}|{scope_str}|{market_str}",
+        f"{league_str}|{scope_str}|{base_mkt}",
+        f"{league_str}|{scope_str}|{scope_str}:{base_mkt}",
+        f"{league_str}|{market_str}",
+        f"{league_str}|{base_mkt}",
+    }
+
+    if base_mkt in ('spreads', 'handicap', 'asian_handicap'):
+        segs.update({
+            f"{league_str}|{scope_str}|asian_lines",
+            f"{league_str}|{scope_str}|asian_lines:asian_handicap",
+            f"{league_str}|{scope_str}|american_derivatives:spreads",
+            f"{league_str}|{scope_str}|american_derivatives",
+            f"{league_str}|{scope_str}|spreads",
+        })
+    elif base_mkt in ('totals', 'total', 'asian_total', 'asian_totals'):
+        segs.update({
+            f"{league_str}|{scope_str}|asian_lines:asian_total",
+            f"{league_str}|{scope_str}|american_derivatives:totals",
+            f"{league_str}|{scope_str}|totals",
+        })
+    elif base_mkt in ('three_way', '1x2'):
+        segs.update({
+            f"{league_str}|{scope_str}|american_derivatives:three_way",
+            f"{league_str}|{scope_str}|bivariate_derivatives:three_way",
+            f"{league_str}|{scope_str}|three_way",
+        })
+    elif base_mkt in ('double_chance',):
+        segs.update({
+            f"{league_str}|{scope_str}|bivariate_derivatives:double_chance",
+            f"{league_str}|{scope_str}|double_chance",
+        })
+    elif base_mkt in ('both_score', 'both_teams_score'):
+        segs.update({
+            f"{league_str}|{scope_str}|bivariate_derivatives:both_teams_score",
+            f"{league_str}|{scope_str}|bivariate_derivatives",
+            f"{league_str}|{scope_str}|both_score",
+        })
+    elif base_mkt in ('set_handicap', 'game_handicap'):
+        segs.update({
+            f"{league_str}|{scope_str}|tennis_sets:set_handicap",
+            f"{league_str}|{scope_str}|tennis_sets",
+            f"{league_str}|{scope_str}|set_handicap",
+        })
+    return segs
+
 def market_stress(kind,league,line,disagreement,calibration=None):
     """Return the conservative probability deduction for this contract.
 
