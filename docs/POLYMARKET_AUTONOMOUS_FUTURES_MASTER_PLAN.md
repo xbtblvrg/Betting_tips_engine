@@ -248,7 +248,7 @@ A rendszer teljes irányítása **kizárólag a chat-felületen keresztül** tö
 ### 7.1. A 3-Utas Atomi Igazság-Egyeztetés (`Three-Way Truth Reconciliation Loop`)
 A rendszer **soha nem bízik vakon** abban, hogy egy beküldött megbízás (`post_order`) valóban teljesült. Minden művelet előtt, közben és után három független adatforrást egyeztet össze:
 
-1. **Tervezett Cél-Vektor (`Target Basket State` — $\mathbf{q}^{\text{target}}$ a `data/pm_futures_ledger.sqlite3` főkönyvben):**
+1. **Tervezett Cél-Vektor (`Target Basket State` — $\mathbf{q}^{\text{target}}$ az adott piac saját `data/pm_markets/<market_slug>.sqlite3` adatbázisában):**
    - Minden $i \in S_{\text{basket}}$ opcióra a jóváhagyott terv szerinti cél-darabszám ($q_i^{\text{target}}$) és maximális megengedett bekerülési ár ($\bar{p}_i$).
 2. **Valódi On-Chain Tárca-Készlet (`Verified Wallet Inventory` — $\mathbf{q}^{\text{wallet}}(t)$):**
    - Közvetlenül lekérdezve a hitelesített `ClobClientV2.get_balance_allowance(BalanceAllowanceParams(asset_type=AssetType.CONDITIONAL, token_id=i, signature_type=1))` végpontról (amely közvetlenül a `POLYMARKET_PROXY` tárca `ERC-1155` kondicionális token-egyenlegét és `NegRisk` engedélyeit olvassa ki), kiegészítve a szabad `USDC.e` fedezettel (`AssetType.COLLATERAL, signature_type=1`).
@@ -276,3 +276,18 @@ Amikor egy kosár felépítése vagy rátöltése során valamelyik `Maker` limi
      1. **Tervezett Pozíció (`Target Plan`):** Cél-darabszám és célár,
      2. **Tárcában Hitelesített Pozíció (`On-Chain Wallet Verified`):** Ténylegesen birtokolt darabszám és valós súlyozott átlagár (`VWAP`),
      3. **Nyitott CLOB Megbízások & Korrekciós Státusz (`Open Orders & Reconciliation Action`):** Minden esetlegesen még dolgozó limit order pontos állapota és a következő automatikus lépés.
+
+### 7.3. Piaconkénti Teljes Szétválasztás: Külön Adatbázis, Külön Kassza és Egyedi Stratégiai Folyamat Egységes Alapelvekkel (`Strict Per-Market Database, Cash-Vault & Strategy Isolation`)
+Annak érdekében, hogy a közös Polymarket tárcán (`POLYMARKET_PROXY`) keresztül se a tőke, se a megbízások, se az eltérő piaci logikák **soha ne keveredhessenek össze**, a rendszer minden egyes elindított piacot **teljesen különálló, hermetikusan elzárt egységként** kezel:
+
+1. **Piaconkénti Külön Adatbázis (`1 Piac = 1 Saját SQLite Fájl`):**
+   - Minden elindított piac saját, fizikailag különálló SQLite adatbázist kap a `data/pm_markets/<market_slug>.sqlite3` útvonalon (pl. `data/pm_markets/nba_2027_champion.sqlite3`, `data/pm_markets/<masik_piac>.sqlite3`).
+   - Egyetlen piac folyamata sem írhat vagy módosíthat egy másik piac adatbázisában.
+2. **Szigorú Token-Fehérlista és Saját Dedikált Kassza (`Token-Whitelist & Dedicated Market Cash Vault`):**
+   - **Fizikai Token-Szétválasztás:** A Polymarketen minden piac kimenetelei globálisan egyedi `ERC-1155 token_id` azonosítóval rendelkeznek. Minden piac folyamata kizárólag a saját adatbázisában regisztrált `token_id`-khoz és `order_id`-khoz nyúlhat hozzá (`cancel_order` vagy `post_order` más piac tokenjére matematikailag és kód-szinten is tiltott).
+   - **Zárt Piac-Kassza (`Market Cash Vault`):** Bár a tárcán az `USDC.e` egyenleg közös, egy adott $m$ piac folyamata **soha nem a tárca teljes szabad `USDC.e` egyenlegét** tekinti elkölthetőnek, hanem kizárólag a **saját könyvelt kasszáját**:
+     $$\text{AvailableCash}_m(t) = \text{ApprovedDeposits}_m(t) - \text{NetBuyCost}_m(t) + \text{RealizedSellProceeds}_m(t) - \text{OpenBuyLocks}_m(t)$$
+   - Így ha a tárcára új összeg érkezik egy másik piacra, vagy egy másik piac eladásból `USDC.e`-t szabadít fel, ahhoz az $m$ piac folyamata **egyetlen cent erejéig sem férhet hozzá**.
+3. **Névre Szóló Tőkeallokáció és Piac-Specifikus Életciklus (`Explicit Market-Targeted Capital & Custom Strategy Engine`):**
+   - A tőkeinjekciókat soha nem szórjuk szét automatikusan a piacok között: minden kezdőtőke és minden rátöltés **kifejezetten a felhasználó által megnevezett piacra** vonatkozik (pl. az `NBA` piacnak saját `$1,000` kezdő + heti `+$500` DCA szabálya van; egy másik piacnak lehet egyszeri `$300` kezdőtőkéje DCA nélkül, vagy teljesen eltérő gyakoriságú rátöltése).
+   - Minden piac a **saját szerkezetére szabott, egyedi végrehajtási és menedzselési stratégiát** futtatja (legyen az többopciós kosár, sávos korlát-folyosó, rövid lejáratú esemény-arbitrázs vagy egyedi swing pozíció), miközben mindegyikre ugyanaz az egységes matematikai alkotmány (`Zero-Anchoring`, `Valós Bid Könyv-Integrál`, `3-Utas On-Chain Tárca-Verifikáció`) érvényes.
