@@ -91,10 +91,16 @@ class DataIntegritySupervisor:
         """Audits all 14 leagues against contract thresholds."""
         games_raw = []
         if self.games_file.exists():
-            try:
-                games_raw = json.loads(self.games_file.read_text())
-            except Exception as e:
-                log.error("Failed to read games.json during data integrity audit: %s", e)
+            for attempt in range(2):
+                try:
+                    games_raw = json.loads(self.games_file.read_text(encoding="utf-8"))
+                    break
+                except Exception as e:
+                    if attempt == 0:
+                        import time
+                        time.sleep(0.2)
+                        continue
+                    log.error("Failed to read games.json during data integrity audit: %s", e)
 
         by_league: Dict[str, List[Dict[str, Any]]] = {lg: [] for lg in LEAGUES}
         for g in games_raw:
