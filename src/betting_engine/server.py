@@ -258,6 +258,13 @@ def model_funnel_velocity_status():
     from .providers import DATA
     return english_payload(get_latest_funnel_velocity_report(DATA))
 
+@app.get('/api/quant/algorithmic-velocity')
+@app.get('/api/algorithmic-codex-velocity')
+def algorithmic_codex_velocity_status():
+    from .model_funnel_telemetry import get_algorithmic_codex_velocity
+    from .providers import DATA
+    return english_payload(get_algorithmic_codex_velocity(DATA))
+
 @app.get('/api/watchdog/bottlenecks')
 def watchdog_bottlenecks_status():
     from .bottleneck_watchdog import get_latest_bottleneck_watchdog_status

@@ -130,6 +130,10 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
         funnel_report["demoted_incubator_markets_count"] = demoted_markets_count
         funnel_report["active_graduated_markets_count"] = graduated_markets_count
         funnel_report["total_synthesized_models"] = total_synthesized
+        funnel_report["archetype_expansion_rate_per_hour"] = float(hourly.get("archetype_expansion_velocity_per_hour_24h", 0.0) or 0.0)
+        funnel_report["total_distilled_archetypes"] = int(inventory.get("total_distilled_archetypes_count", 0) or 0)
+        funnel_report["active_distilled_archetypes"] = int(inventory.get("active_distilled_archetypes_count", 0) or 0)
+        funnel_report["algorithmic_synthesis_rate_per_hour"] = float(hourly.get("algorithmic_synthesis_rate_per_hour_24h", 0.0) or 0.0)
 
     # 2. Daemon & Clog Diagnostics
     daemons = get_daemon_status()
@@ -845,6 +849,25 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
             "timestamp": job.get("created_at") or now_utc.isoformat()
         })
 
+    # 8b. Algorithmic Codex Synthesizer Expansion Velocity
+    total_arch_cnt = int(inventory.get("total_distilled_archetypes_count", 0) or 0)
+    arch_exp_rate = float(hourly.get("archetype_expansion_velocity_per_hour_24h", 0.0) or 0.0)
+    if total_arch_cnt > 0:
+        live_event_queue.append({
+            "id": "algorithmic_synthesizer_velocity_telemetry",
+            "type": "archetype_telemetry",
+            "priority": "routine",
+            "target_node": "tier_1",
+            "title": "ALGORITHMIC CODEX ENGINE · VELOCITY TELEMETRY",
+            "subtitle": f"{total_arch_cnt} distilled mathematical archetypes active in library",
+            "league": "MULTI",
+            "emoji": "⚡",
+            "badge": f"+{arch_exp_rate:.1f} ARCH/HR",
+            "badge_color": "purple",
+            "details": f"Algorithmic library: {total_arch_cnt} archetypes ({len(inventory.get('archetypes_by_category', {}))} categories), auto-harvesting Crucible champions.",
+            "timestamp": now_utc.isoformat()
+        })
+
     # 9. Bottleneck Watchdog Telemetry & Anomaly Stream
     from .bottleneck_watchdog import get_latest_bottleneck_watchdog_status
     watchdog_report = get_latest_bottleneck_watchdog_status(d)
@@ -917,7 +940,17 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
                 "research_markets_list": research_markets_list,
                 "demoted_quarantined_markets_count": demoted_markets_count,
                 "active_queue_jobs": active_jobs,
-                "jobs_summary": jobs_summary
+                "jobs_summary": jobs_summary,
+                "algorithmic_codex_engine": {
+                    "total_distilled_archetypes": int(inventory.get("total_distilled_archetypes_count", 0) or 0),
+                    "active_archetypes": int(inventory.get("active_distilled_archetypes_count", 0) or 0),
+                    "expansion_velocity_per_hour_24h": float(hourly.get("archetype_expansion_velocity_per_hour_24h", 0.0) or 0.0),
+                    "categories_count": int(inventory.get("archetype_categories_count", 0) or 0),
+                    "categories_breakdown": inventory.get("archetypes_by_category", {}),
+                    "algorithmic_synthesis_rate_per_hour": float(hourly.get("algorithmic_synthesis_rate_per_hour_24h", 0.0) or 0.0),
+                    "total_instantiations": int(inventory.get("total_archetype_instantiations", 0) or 0),
+                    "total_crucible_passes": int(inventory.get("total_archetype_crucible_passes", 0) or 0),
+                }
             },
             "tier_2_incubator": {
                 "name": "Tier 2: Shadow Incubator ($0.00 Live Forward Validation)",
@@ -996,6 +1029,7 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
             {"source": "GROK 4.7", "text": "Adversarial stress-test: zero static odds clamps detected, EV hurdle >= 3.5% verified on candidate pool.", "color": "#ff0055"},
             {"source": "QUANTUM THALAMUS", "text": f"Fractional Kelly sizing ($0.50-$8.00): today funded volume {today_bets_count}/100 picks (${today_bets_stake:.2f} allocated).", "color": "#00f3ff"},
             {"source": "TIER-1 R&D FORGE", "text": f"Crucible historical training: 97,000+ settled match backtest pool active, {synth_rate_per_hour:.1f} models/hour synthesis rate.", "color": "#b5179e"},
+            {"source": "ALGORITHMIC CODEX ENGINE", "text": f"Dynamic mathematical archetype library: {total_arch_cnt} active archetypes (+{arch_exp_rate:.1f} arch/hr expansion velocity), autonomous champion distillation online.", "color": "#9d4edd"},
             {"source": "TIER-2 SHADOW INCUBATOR", "text": f"High-velocity forward paper trade stream: {total_incubated_wagers:,} virtual test bets processed at $0.00 stakes.", "color": "#ffb703"},
             {"source": "TIER-3 STAKE PRODUCTION", "text": f"Active graduated production: {graduated_markets_count} markets live under dynamic 72h horizon on Stake sportsbook.", "color": "#00ff88"},
             {"source": "TIER-4 POLYMARKET CLOB", "text": f"Live proven alpha tier: automated maker limit orders active on Polymarket CLOB (0% taker fee).", "color": "#00f3ff"},

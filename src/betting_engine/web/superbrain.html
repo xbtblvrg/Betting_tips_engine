@@ -1614,7 +1614,7 @@
               <span class="cap-badge purple">${t1.active_models_synthesized || 540} Models</span>
             </div>
             <div class="job-meta-row">
-              <span>97,000+ match backtest pool · AST models</span>
+              <span>97k+ matches · Algo: ${t1.algorithmic_codex_engine?.active_archetypes || 14} arch (+${(t1.algorithmic_codex_engine?.expansion_velocity_per_hour_24h || 0).toFixed(1)}/hr)</span>
               <span style="color:#fff;">${(t1.synthesis_rate_per_hour || 0).toFixed(1)}/hr</span>
             </div>
           </div>
@@ -1673,6 +1673,7 @@
         const codeModels = t1.latest_code_models || [];
         const topModel = codeModels[0] || {};
         const qJobs = t1.active_queue_jobs || [];
+        const algoEngine = t1.algorithmic_codex_engine || {};
 
         container.innerHTML = `
           <div class="deck-tier-banner t1">
@@ -1683,6 +1684,26 @@
             <div style="display:flex; justify-content:space-between; margin-top:6px; font-size:9.5px;">
               <span>ACTIVE MODELS: <strong style="color:#fff;">${t1.active_models_synthesized || 540}</strong></span>
               <span>SYNTHESIS RATE: <strong style="color:var(--purple);">${(t1.synthesis_rate_per_hour || 22.5).toFixed(1)}/hr</strong></span>
+            </div>
+          </div>
+
+          <div class="deck-sec-heading">ALGORITHMIC CODEX ENGINE · ARCHETYPE EXPANSION VELOCITY:</div>
+          <div class="job-task-card" style="border-left:3px solid var(--purple);">
+            <div class="job-title-row">
+              <span style="font-weight:700; color:#fff;">DYNAMIC MATHEMATICAL ARCHETYPES</span>
+              <span class="cap-badge purple">+${(algoEngine.expansion_velocity_per_hour_24h || 0).toFixed(1)} ARCH/HR</span>
+            </div>
+            <div class="job-meta-row" style="margin-top:4px;">
+              <span>Active Catalog: <strong style="color:var(--cyan);">${algoEngine.active_archetypes || 14} models</strong> (${algoEngine.categories_count || 5} categories)</span>
+              <span>Algo Synthesis: <strong style="color:var(--green);">${(algoEngine.algorithmic_synthesis_rate_per_hour || 0).toFixed(1)}/hr</strong></span>
+            </div>
+            <div style="font-size:9px; color:#a0aec0; margin-top:6px; display:flex; flex-wrap:wrap; gap:4px;">
+              ${Object.entries(algoEngine.categories_breakdown || {}).map(([cat, cnt]) => `
+                <span style="background:rgba(255,255,255,0.06); padding:2px 6px; border-radius:4px; border:1px solid rgba(255,255,255,0.1);">${cat}: <strong>${cnt}</strong></span>
+              `).join('')}
+            </div>
+            <div style="font-size:8.5px; color:#718096; margin-top:4px;">
+              Auto-harvests Walk-Forward Crucible champions (&ge;+3.5% ROI) into instant &le;5ms production fallbacks.
             </div>
           </div>
 
