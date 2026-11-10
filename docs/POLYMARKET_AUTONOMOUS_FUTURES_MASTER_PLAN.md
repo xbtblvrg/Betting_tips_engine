@@ -1,6 +1,6 @@
 # Autonóm Polymarket Multi-Option & Futures Quant Engine — Mesterterv (Master Blueprint)
 
-**Frissítve:** 2026-11-09  
+**Frissítve:** 2026-11-10  
 **Státusz:** Általánosított, Anchoring-Mentes Matematikai és Architektúrális Specifikáció (a meglévő napi sportfogadási motor érintetlenül fut tovább)
 
 ---
@@ -19,37 +19,35 @@ A rendszer alapvető matematikai és stratégiai küldetése: **olyan többopci�
      $$\max_{\mathbf{q}} \quad \text{Risk/Reward}(\mathbf{q}) = \frac{\mathbb{E}[\text{Nettó Profit}(\mathbf{q})]}{\text{Védett Maximális Tőkevisszaesés}(\mathbf{q})}$$
      azon peremfeltétel mellett, hogy a valós, fundamentálisan életképes kimenetelek halmazán a tőkevesztés valószínűsége ($P(\text{PnL} < 0)$) a lehető legközelebb szoruljon a nullához, miközben a fő profittermelő ágakon a nettó hozam ($\frac{\text{Payout} - B_t}{B_t}$) maximális marad.
 
-2. **Teljes Módszertani Szabadság és Túlkorlátozás-Tilalom (`Zero Anchoring & Anti-Overconstraint Mandate`):**
-   - Tilos a rendszert előre rögzített darabszámú kosarakhoz, fix százalékos sémákhoz, előre kiválasztott témákhoz vagy merev elutasító szűrőkhöz kötni.
-   - Új piac vizsgálatakor **kizárólag az alapvető matematikai célokat** kell kötelező érvényűnek tekinteni:
-     1. **A legrosszabb esetbeli veszteség minimalizálása ($\min \text{MaxLoss}_{\text{guarded}}$),**
-     2. **A maximális elérhető profit ($\max \text{MaxProfit}$) és a reális várható profit ($\max \mathbb{E}[\text{PnL}]$) maximalizálása,**
-     3. **A hozam/kockázat arány ($\text{Risk/Reward}$) maximalizálása valós könyv- és tényadatok alapján.**
-   - **Konstruktív Megoldáskeresés a Statikus Elutasítás Helyett (`Dynamic Time- & Schedule-Decomposed Engineering`):** Ha egy piacon az összes esélyes egyidejű, azonnali ($t_0$-beli) spot megvásárlása drágának ($\sum_i p_{\text{spot}, i}(t_0) \to 1$) vagy pillanatnyilag szűk könyvűnek látszik, a rendszernek tilos pusztán a statikus pillanatkép alapján elvetnie a piacot. Ehelyett ki kell számítania, hogy **időben szétbontott passzív `Maker` limitekkel, az egymás elleni fordulók / események okozta átmeneti visszaesések ($\tau_i$) lekereskedésével, a periodikus ($\Delta B_t$) tőkeinjekciókkal és a közbenső `Swing Trim` profitok visszaforgatásával** előállítható-e olyan szintetikus bekerülési összár:
-     $$\Sigma_{\text{eff}} = \sum_{i \in S} \bar{p}_i(\tau_i) - \text{ReinvestedSwingRebate} \ll \sum_{i \in S} p_{\text{spot}, i}(t_0)$$
-     amely mellett a pozíció magas `Risk/Reward` arányt és minimális veszteségkockázatot ér el. A `3.` fejezetben felsorolt matematikai eszközök **építőelemek és szabadságfokok**, nem pedig a megoldáskeresést leszűkítő tiltólisták.
+2. **Realitás-Elsődlegesség, Teljes Módszertani Szabadság és Őszinte `GO / NO-GO` Mérlegelés (`Reality-First Evaluation & Zero Template Anchoring`):**
+   - **Soha Nem a Meglévő Sémákból Indulunk Ki (`Reality & Feasibility First, Toolbox Second`):** Új piac elemzésekor a `3.` fejezetben szereplő matematikai összefüggések és strukturális lehetőségek **felhasználhatók eszközként, de soha nem szolgálhatnak kiindulópontként vagy ráerőltetett sablonként**. A vizsgálatnak minden esetben a konkrét piac nyers valóságából és az alábbi **négy első-elvű kérdésből** kell kiindulnia:
+     1. **Teljesül-e a profitábilis megvalósíthatóság:** Elérhető-e pozitív várható értékű, korlátozott veszteségű ($\min \text{MaxLoss}_{\text{guarded}}$) és magas hozamú ($\max \text{MaxProfit}, \max \mathbb{E}[\text{PnL}]$) pozíció az adott piacon?
+     2. **Mennyire reális a megvalósítás (`Strict Execution Realism`):** A feltételezett bekerülési árak, passzív `Maker` teljesülések, diszkont-leütések ($\tau_i$) és közbenső `Swing Trim` nyereségek **valóban reálisan kivitelezhetők-e** a piac hátralévő időtartama ($T - t_0$), a valószínűségi tömegmegmaradás ($\sum_i P_i(t) = 1$, vagyis amikor az egyik esélyes veszít és esik az ára, a legyőzője törvényszerűen drágul) és a tényleges könyvmélység fényében? Tilos mind a statikus pillanatkép alapján történő reflexszerű elutasítás, mind a csak papíron működő, irreálisan optimista („minden lábat egyszerre a saját lokális mélypontján veszünk meg”) feltételezés.
+     3. **Mi a konkrét piacra adható legjobb megoldás és hogyan alakul az $R/R$:** A lehetséges megközelítések (azonnali pozíció, időben szétbontott belépés, részhalmaz-arbitrázs, célzott konvergencia-kereskedés vagy korai profit-zárás) közül melyik adja a legmagasabb **valós, reálisan végrehajtható** `Risk/Reward` arányt?
+     4. **Őszinte `GO` vs. `NO-GO` Döntés a Hátralévő Időtartam és $R/R$ Alapján:** Ha a piac hátralévő időtartama ($T - t_0$), előrehaladottsági fázisa vagy árazási kompressziója nem optimális a nyereség/veszteség kockázathoz képest — és így nem létezik **valóban reális**, magas `Risk/Reward` arányú profitábilis megoldás —, akkor az egyértelmű és elfogadott döntés a **`NO-GO`**. Ha viszont létezik reálisan kivitelezhető, profitábilis és jó `Risk/Reward` arányú megoldás, akkor a rendszer azt dolgozza ki és hajtja végre.
 
 3. **Szigorú Élő-Adat Invariáns (`Zero Memory Rule`):**
    - Soha, semmilyen döntéshez nem használható a nyelvi modell belső emlékezete vagy korábbi feltételezése. Minden egyes tényállítást és valószínűségi súlyt kizárólag az adott pillanatban lekérdezett, levágás (`truncation`) nélkül ellenőrzött élő API- és könyvadatokból kell származtatni.
 
 ---
 
-## 2. Technikai és Szabályrendszeri Szétválasztás
+## 2. Technikai, Repository- és Szabályrendszeri Szétválasztás
 
-| Dimenzió | Meglévő Napi Sportfogadási Engine (`betting_engine`) | Új Autonóm Polymarket Multi-Market & Futures Engine (`pm_markets_engine`) |
+| Dimenzió | Meglévő Napi Sportfogadási Engine (`Betting_tips_engine`) | Új Autonóm Polymarket Multi-Market & Futures Engine (`polymarket-futures-and-regrisk-markets`) |
 | :--- | :--- | :--- |
+| **Git Repository** | `Betting_tips_engine` (100% érintetlenül fut tovább) | **Saját, önálló Git repository:** `git@github.com:xbtblvrg/polymarket-futures-and-regrisk-markets.git` |
 | **Fő feladat** | Rövid lejáratú napi mérkőzés-fogadások | Többopciós (`NegRisk` / Futures / Korlát / Egyedi) piacok autonóm építése és végigkereskedése |
 | **Időhorizont** | Rövid távú mérkőzés-ablak | Tetszőleges (rövidtől több ciklusig tartó lejárati létra) |
 | **Tétkorlátok** | Egyedi mérkőzésenkénti korlátos Frakcionális Kelly | **Nincs egyedi tétplafon**; piac-specifikus, névre szóló tőkeallokáció ($B_{m,0}$ kezdőtőke + $\Delta B_{m,t}$ rátöltések) |
 | **Végrehajtási mód** | Stake-en manuális (`assumed manual`) + párhuzamos PM | **100% Autonóm, Piaconként Izolált CLOB végrehajtás** (`src/pm_markets_engine/`) |
-| **Adatbázis** | [`data/engine.sqlite3`](file:///Users/belavarga/Betting_tips_engine/data/engine.sqlite3) (100% érintetlen) | Piaconként különálló SQLite adatbázis: `data/pm_markets/<market_slug>.sqlite3` + `_wallet_guard.sqlite3` |
-| **Vezérlés & Szabályzat** | `AGENTS.md` 1–10. Parancsolat (érintetlenül fut tovább) | Chat-vezérelt jóváhagyás + jelen `Master Blueprint` (`Zero-Anchoring & Zero-Memory` alkotmány) |
+| **Adatbázis** | `Betting_tips_engine/data/engine.sqlite3` (100% érintetlen) | Piaconként különálló SQLite adatbázis az új repóban: `data/pm_markets/<market_slug>.sqlite3` + `_wallet_guard.sqlite3` |
+| **Vezérlés & Szabályzat** | Saját szabályzat (érintetlenül fut tovább) | Chat-vezérelt jóváhagyás + jelen `Master Blueprint` (`Zero-Anchoring & Zero-Memory` alkotmány) |
 
 ---
 
-## 3. Általánosított Matematikai Logika és Risk/Reward ($R/R$) Keretrendszer
+## 3. Általánosított Matematikai Eszköztár (`Toolbox`) és Risk/Reward ($R/R$) Keretrendszer
 
-A rendszer bármely többopciós piacra ugyanazt a **négyfokozatú, első elvekből levezetett algoritmikus logikát** alkalmazza, mindenféle előre beégetett sablon nélkül:
+Az alábbi matematikai összefüggések és strukturális mechanizmusok a rendszer **felhasználható logikai eszköztárát (`Toolbox`)** alkotják. Új piac elemzésekor a rendszer **soha nem ezekből a sémákból indul ki**, hanem először a piac valós hátralévő időtartamát ($T - t_0$), könyvmélységét, a profitábilis megvalósítás realitását és a konkrét piacra szabott legjobb `Risk/Reward` megoldást vizsgálja meg — és az alábbi építőelemekből kizárólag azokat (vagy azok új kombinációját) használja fel, amelyek a valós piaci adatok alapján reálisan kivitelezhetők:
 
 ### 3.1. A Kimenetelek Négy Funkcionális Halmazra Bontása (Élő Tényadatok vs. Orderbook Ár alapján)
 A pillanatnyi, levágásmentes külső tényadatokból számított valós esély ($P_{\text{true}, i}$) és az élő piaci végrehajtási ár ($p_{\text{mkt}, i}$) összevetésével a rendszer az összes $N$ opciót 4 diszjunkt halmazba sorolja:
