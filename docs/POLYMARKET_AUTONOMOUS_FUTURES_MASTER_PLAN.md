@@ -251,10 +251,10 @@ A rendszer **soha nem bízik vakon** abban, hogy egy beküldött megbízás (`po
 1. **Tervezett Cél-Vektor (`Target Basket State` — $\mathbf{q}^{\text{target}}$ a `data/pm_futures_ledger.sqlite3` főkönyvben):**
    - Minden $i \in S_{\text{basket}}$ opcióra a jóváhagyott terv szerinti cél-darabszám ($q_i^{\text{target}}$) és maximális megengedett bekerülési ár ($\bar{p}_i$).
 2. **Valódi On-Chain Tárca-Készlet (`Verified Wallet Inventory` — $\mathbf{q}^{\text{wallet}}(t)$):**
-   - Közvetlenül lekérdezve a Polymarket Data API-ból (`GET https://data-api.polymarket.com/positions?user=<POLYMARKET_PROXY>`) és a `ClobClient.get_balance_allowance(AssetType.CONDITIONAL, token_id=i)` végpontról, kiegészítve a szabad `USDC.e` fedezettel (`AssetType.COLLATERAL`).
-   - Kizárólag a fizikailag a tárcában lévő (`settled on-chain`) share-ek számítanak ténylegesen birtokolt védelemnek.
-3. **Élő CLOB Nyitott Megbízások és Kötéstörténet (`Live CLOB Open Orders & Trades` — $\mathbf{q}^{\text{open}}(t), \mathbf{q}^{\text{matched}}(t)$):**
-   - Közvetlenül lekérdezve a `ClobClient.get_orders()` és `ClobClient.get_trades()` végpontokról.
+   - Közvetlenül lekérdezve a hitelesített `ClobClientV2.get_balance_allowance(BalanceAllowanceParams(asset_type=AssetType.CONDITIONAL, token_id=i, signature_type=1))` végpontról (amely közvetlenül a `POLYMARKET_PROXY` tárca `ERC-1155` kondicionális token-egyenlegét és `NegRisk` engedélyeit olvassa ki), kiegészítve a szabad `USDC.e` fedezettel (`AssetType.COLLATERAL, signature_type=1`).
+   - Kizárólag a fizikailag a tárcában lévő (`settled on-chain`, `wallet_sh / 1e6`) share-ek számítanak ténylegesen birtokolt védelemnek.
+3. **Élő CLOB Nyitott Megbízások és Háttér-Őrszem (`Live CLOB Open Orders & Background Reconciler` — $\mathbf{q}^{\text{open}}(t)$):**
+   - Közvetlenül lekérdezve a `ClobClientV2.get_open_orders()` és `ClobClientV2.get_order(order_id)` végpontokról. Mivel a chat-felület csak üzenetváltáskor aktív, a nyitott `Maker` megbízások figyelését, utánállítását (`Auto-Pegging`) és a tárca-szinkronizációt egy **önálló helyi háttér-démon (`pm_futures_guardian_daemon`)** végzi folyamatosan a megbízások teljesüléséig.
    - Minden $i$ lábra a rendszer folyamatosan számítja a **Valós Teljesülési Hiányt (`Unfilled Discrepancy`)**:
      $$\Delta q_i(t) = q_i^{\text{target}} - \left( q_i^{\text{wallet}}(t) + q_i^{\text{matched\_pending}}(t) \right)$$
    - Egy kosár vagy rátöltési ciklus **kizárólag akkor** kap `VERIFIED_ON_CHAIN` státuszt, ha minden $i \in S_{\text{basket}}$ lábra:
