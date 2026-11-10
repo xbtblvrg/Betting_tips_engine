@@ -53,7 +53,7 @@ A pillanatnyi, levágásmentes külső tényadatokból számított valós esély
 2. **Teljes Áron Forgó Ép Favorit Halmaz ($S_{\text{base}}$ — Pozitív Bázis-Hozamú Pajzs):**
    - Magas valós esélyű, de a piac által már drágán árazott kimenetelek ($p_{\text{mkt}, i} \approx P_{\text{true}, i}$). Kihagyásuk túl nagy tőkevesztési kockázatot jelentene, túlsúlyozásuk viszont elszívná a tőkét az $S_{\text{alpha}}$ halmaztól.
 3. **Időben Eltolandó / Fundamentálisan Romló Halmaz ($S_{\text{defer}}$ — Késleltetett Védelem):**
-   - Olyan kimenetelek, amelyeket a piac múltbeli hírnév vagy tehetetlenség miatt még magas áron tart ($p_{\text{mkt}, i} > P_{\text{true}, i}$), miközben az aktuális tényadatok (sérülések, negatív sokkok, nehéz ütemezés) alapján az áruk várhatóan esni fog. Ezekre a 0. napon tilos drágán tőkét égetni; védelmüket időben eltolva (mély csapda-limittel vagy későbbi tőkebevonási lépcsőből, alacsonyabb áron) építjük ki.
+   - Olyan kimenetelek, amelyeket a piac múltbeli tehetetlenség miatt még magas áron tart ($p_{\text{mkt}, i} > P_{\text{true}, i}$), miközben az aktuális empirikus tényadatok és a hátralévő folyamat-struktúra alapján az áruk várhatóan korrigálni fog. Ezekre a 0. napon tilos drágán tőkét égetni; védelmüket időben eltolva, alacsonyabb árszinten építjük ki.
 4. **Kizárt / Zaj Halmaz ($S_{\text{noise}}$):**
    - Olyan kimenetelek, amelyek valós végső győzelmi esélye elhanyagolható ($P_{\text{true}, i} \approx 0$).
 
@@ -134,6 +134,21 @@ A többpiacos univerzum pásztázása és a portfóliószintű tőkeallokáció 
    - Amikor a szkenner több olyan magas `Risk/Reward` piacot talál, amelyek ugyanarra az alapfolyamatra vagy részben átfedő kimenetel-halmazokra épülnek ($\text{Cov}(E_a, E_b) > 0$), a rendszer **soha nem allokál párhuzamos teljes tőkét mindkét átfedő piacra**, mert az megsokszorozná az azonos faktor-kockázatot (`Factor Concentration`).
    - Ehelyett az átfedő klaszterből kiválasztja a magasabb effektív `Risk/Reward` és gyorsabb tőkeforgási sebességű ($\mathcal{V}$) reprezentánst — vagy a főpiacot felbontja egymással páronként diszjunkt, függetlenül nyerő rész-piacokra ($E_{b,1} \cap E_{b,2} = \emptyset$, amelyek egyszerre is fizethetnek és korábban járnak le) —, így a teljes portfólió kizárólag **egymástól ortogonális (korrelálatlan) alfa-forrásokból** épül fel.
 
+### 3.7. Bayes-féle Időstruktúra-Megmaradás, Valós Könyvmélység-Audit és Koncentrációs Entrópia Szűrők
+Az önellenőrző matematikai és mikrostruktúra-auditok alapján a rendszer négy további szigorú szűrőt érvényesít minden vizsgált piacra:
+
+1. **Bayes-féle Naptári Időérték-Megmaradási Törvény (`Bayesian Term-Structure Theta Conservation Law`):**
+   - Ha ugyanarra a megállási időre ($\tau$) két egymásba ágyazott lejáratú bináris szerződés ($T_1 < T_2$, $\{\tau \le T_1\} \subset \{\tau \le T_2\}$) létezik, a teljes valószínűség törvénye miatt $p(\text{NO}_{T_1}) + p(\text{YES}_{T_2}) = (1 - P_1) + (P_1 + \Delta P_{1 \to 2}) = 1 + \Delta P_{1 \to 2}$.
+   - Amennyiben a $T_1$ lejáratig az esemény nem következik be ($\tau > T_1$), a hosszabb lejáratú $\text{YES}_{T_2}$ opció árából a $P_1$ komponens **teljesen lenullázódik**, és $T_1$-kori kondicionális értéke a Bayes-tétel szerint $\frac{\Delta P_{1 \to 2}}{1 - P_1}$ szintre esik vissza — ami a tranzakciós spreadekkel együtt kioltja a $\text{NO}_{T_1}$ lábon realizált alap-nyereséget. Ezért egyedi bináris ugráskockázatú piacokon a naptári ellentétes láb **nem használható ingyenes tőkevédelmi pajzsként**.
+2. **Aktív vs. Fantom Könyvmélység Szétválasztása (`Effective Contender Depth vs. Dead-Tail Liquidity Filter`):**
+   - A rendszer soha nem az esemény összesített (főoldali) likviditását ($\sum_{i=1}^N L_i$) veszi alapul, mert annak meghatározó része esélytelen, szélső ($p_i \to 0$) opciók passzív eladási falaiban (`Dead-Tail Liquidity`) ülhet.
+   - A végrehajthatósági szűrő kizárólag az érdemi esélyesek halmazának ($i \in S_{\text{alpha}} \cup S_{\text{base}}$) a célzott belépési ársávon belüli kumulatív könyvmélységét ($L_{\text{eff}}$), az azonnali `Taker` csúszást (`Slippage`) és a tényleges minimum árlépésközt (`orderPriceMinTickSize`) méri.
+3. **Koncentrációs Entrópia, Duopólium-Kompresszió és Állapotváltozási Katalizátor (`Entropy & State-Transition Catalyst Requirement`):**
+   - Egy `NegRisk` ($\sum Y_i = 1$) piac csak akkor alkalmas magas `Risk/Reward` kosár-allokációra, ha a valószínűségi tömeg kellő entrópiával oszlik meg több életképes opció között, így a kiválasztott kosár belépési összára a célzott `Risk/Reward` és a tranzakciós költségek függvényében elégséges diszkont-marzsot biztosít ($\sum_{i \in S_{\text{basket}}} p_i \le 1 - \delta(\text{Spread}, \sigma, \text{R/R})$).
+   - Ha a piac két domináns opció szűk duopóliumává préselődött össze ($p_1 + p_2 \to 1$), a kosár-arbitrázs marzsa eltűnik. Kétlépcsős éllovas-korrekciós (`Mean-Reversion`) stratégiát pedig kizárólag akkor szabad indítani, ha a hátralévő időszakban előre ismert, kötelező állapotváltozási események kényszerítik az éllovast folyamatos kockázatvállalásra; stacionárius, kényszerítő esemény nélküli folyamatokban a középértékhez való visszatérés nem feltételezhető.
+4. **Várakozó Limit vs. Teljesült Pozíció Jutalom-Elszámolás (`Resting-Order vs. Filled-Inventory Accounting`):**
+   - A CLOB likviditási jutalmak (`clobRewards`) kizárólag a könyvben várakozó, még nem teljesült (`unfilled resting limit`) megbízások időarányos jelenlétéért járnak; a már teljesült és megtartott (`filled inventory`) pozíciók várható hozamába tilos napi jutalom-hozamot beszámítani.
+
 ---
 
 ## 4. Dinamikus Életciklus-Kereskedés a Nyitástól a Lejáratig ($t_0 \to T$)
@@ -183,4 +198,4 @@ flowchart TD
 2. **`RiskRewardBasketOptimizer`:** Első elvekből kiszámítja az alternatív pozíció-struktúrák passzív és aktív profitját, a védett maximális tőkevisszaesést ($\text{MaxLoss}_{\text{guarded}}$) és az effektív `Risk/Reward` arányt.
 3. **`AutonomousClobExecutor & FillManager`:** A szűk spreadű lábakon azonnali szeletelt végrehajtást (`Order Slicing`), a szélesebb spreadű lábakon `Maker` (`GTC`) limit-kezelést végez automatikus utánállítással (`Cancel & Replace`).
 4. **`AutonomousPositionGuardian`:** 24/7 pozíció-, orderbook- és élő tényadat-figyelő démon, amely végrehajtja a `Swing Trim` lefölözéseket és az `Auto-Hedge / Stop-Loss` védelmet.
-5. **`DynamicDCARebalancer`:** A periodikus tőkeinjekciókat (pl. heti DCA) és a lejáró piacokról felszabaduló tőkét határhaszon-alapon osztja el.
+5. **`DynamicDCARebalancer`:** A periodikus tőkeinjekciókat és a lejáró piacokról felszabaduló tőkét határhaszon-alapon osztja el.
