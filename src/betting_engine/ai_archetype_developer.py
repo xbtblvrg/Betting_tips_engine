@@ -215,7 +215,14 @@ class AIArchetypeDeveloperAgent:
             # Evaluate with sample context
             sample_ctx = {"home_expected": 2.5, "away_expected": 2.0}
             dist = instance.predict_distribution(sample_ctx)
-            if not isinstance(dist, DiscreteDistribution) or (dist.p_home + dist.p_away + getattr(dist, 'p_draw', 0.0)) <= 0.0:
+            has_valid_dist = (
+                isinstance(dist, DiscreteDistribution)
+                and (
+                    (dist.p_home + dist.p_away + getattr(dist, 'p_draw', 0.0)) > 0.0
+                    or (bool(dist.scores) and sum(dist.scores.values()) > 0.0)
+                )
+            )
+            if not has_valid_dist:
                 log.debug("Distillation rejected model %s: invalid distribution output", model_id)
                 return None
         except Exception as e_run:
