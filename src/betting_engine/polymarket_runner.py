@@ -99,7 +99,7 @@ class PolymarketAutonomousRunner:
         service: Optional[PolymarketService] = None,
         db_path: Optional[Path] = None,
         state_file: Optional[Path] = None,
-        min_ev_hurdle: float = 0.025,
+        min_ev_hurdle: float = 0.04,
         execution_window_hours: float = 72.0,
         min_pregame_minutes: float = 10.0,
         require_tier_4: bool = True,
@@ -899,6 +899,20 @@ class PolymarketAutonomousRunner:
 
                     # Pre-screen: Only check depth if contract is liquid and offers positive nominal EV
                     if poly_price <= 0.05 or poly_price >= 0.95:
+                        continue
+
+                    # Disagreement & Information Asymmetry Guard:
+                    # An extreme divergence (> 0.20) between domain model and CLOB market price
+                    # is overwhelmingly indicative of missing real-time context (injuries, roster scratches,
+                    # transfer portal) or model miscalibration, particularly on small/college leagues.
+                    disagreement = abs(model_prob - poly_price)
+                    max_disagreement = 0.20 if league in ("NCAAF", "CBB", "NCAAB", "CFB", "CWBB", "NCAAW") else 0.25
+                    if disagreement > max_disagreement:
+                        log.info(
+                            f"[MARKET DISAGREEMENT GUARD] {title} {outcome_label}: "
+                            f"Model prob ({model_prob:.3f}) diverges by {disagreement:.3f} from Polymarket ({poly_price:.3f}). "
+                            f"Exceeds max allowed {max_disagreement:.2f}. Rejected."
+                        )
                         continue
 
                     nominal_ev = (model_prob / poly_price) - 1.0

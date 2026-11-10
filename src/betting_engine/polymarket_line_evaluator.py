@@ -205,7 +205,8 @@ class ContinuousLineEvaluator:
         target_line: float,
         target_side: str,
         scope: str = "full_game",
-    ) -> float:
+        max_sigma_shift: float = 1.0,
+    ) -> Optional[float]:
         """Projects total probability from baseline line to target line.
 
         Example:
@@ -231,6 +232,14 @@ class ContinuousLineEvaluator:
 
         # 3. Shift quantile by line difference: delta = (target - base) / sigma
         delta_z = (target_line - eff_base_line) / max(0.1, sigma)
+
+        # Tail Extrapolation Invariant (Anti-Phantom Edge Protection):
+        # Parametric Gaussian continuous line shifts degrade rapidly beyond 1.0 standard deviations.
+        # Extrapolating extreme alternate totals (e.g., NFL Under 26.5 from 48.0 baseline) generates
+        # artificial fat tails and phantom EV. Contracts beyond max_sigma_shift are strictly rejected.
+        if abs(delta_z) > max_sigma_shift:
+            return None
+
         z_target = z_base + delta_z
 
         # 4. Target P(Over target_line) = 1 - Phi(z_target)
@@ -284,7 +293,8 @@ class ContinuousLineEvaluator:
         target_line: float,
         target_side: str,
         scope: str = "full_game",
-    ) -> float:
+        max_sigma_shift: float = 1.2,
+    ) -> Optional[float]:
         """Projects spread probability from baseline handicap to target handicap.
 
         Note on lines: A spread of -3.5 means the favorite must win by 4+.
@@ -309,6 +319,11 @@ class ContinuousLineEvaluator:
         # Required hurdle change: Delta_Hurdle = -target_line - (-base_line) = -(target_line - base_line)
         # Therefore: delta_z = -(target_line - eff_base_line) / max(0.1, sigma)
         delta_z = -(target_line - eff_base_line) / max(0.1, sigma)
+
+        # Tail Extrapolation Invariant: Reject spreads beyond max_sigma_shift
+        if abs(delta_z) > max_sigma_shift:
+            return None
+
         z_target = z_base + delta_z
 
         p_target = 1.0 - norm_cdf(z_target)
@@ -320,7 +335,7 @@ class ContinuousLineEvaluator:
         self,
         model_prob: float,
         poly_price: float,
-        min_ev_hurdle: float = 0.025,
+        min_ev_hurdle: float = 0.04,
     ) -> Dict[str, Any]:
         """Calculates expected value, fair price, and eligibility against Polymarket quote."""
         if poly_price <= 0.0 or poly_price >= 1.0:

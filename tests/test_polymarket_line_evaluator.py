@@ -131,3 +131,36 @@ def test_empirical_period_proportions_and_variance_additivity():
     var_sum = ((sigma_full * s1) ** 2) + ((sigma_full * s2) ** 2) + ((sigma_full * s3) ** 2) + ((sigma_full * s4) ** 2)
     assert pytest.approx(var_full, abs=1e-4) == var_sum
 
+
+def test_totals_tail_clamping_rejects_extreme_lines():
+    """Verifies that evaluate_total rejects extreme line extrapolation beyond 1.0 sigma."""
+    evaluator = ContinuousLineEvaluator()
+    base_line = 47.5
+    base_prob = 0.50
+
+    # 1. Normal line within 1.0 sigma (diff = 5.0, sigma = 13.5 => delta_z = 0.37)
+    p_valid = evaluator.evaluate_total("NFL", base_line, base_prob, "over", 42.5, "over")
+    assert p_valid is not None
+    assert 0.0 < p_valid < 1.0
+
+    # 2. Extreme tail line beyond 1.0 sigma (diff = 21.0, sigma = 13.5 => delta_z = 1.55)
+    # Under 26.5 from 47.5 baseline must be strictly rejected (returns None)
+    p_extreme = evaluator.evaluate_total("NFL", base_line, base_prob, "over", 26.5, "under")
+    assert p_extreme is None
+
+
+def test_spread_tail_clamping_rejects_extreme_lines():
+    """Verifies that evaluate_spread rejects extreme line extrapolation beyond 1.2 sigma."""
+    evaluator = ContinuousLineEvaluator()
+    base_line = -3.5
+    base_prob = 0.52
+
+    # Normal shift within 1.2 sigma (diff = 3.0, sigma = 12.0 => delta_z = 0.25)
+    p_valid = evaluator.evaluate_spread("NBA", base_line, base_prob, "home", -6.5, "home")
+    assert p_valid is not None
+
+    # Extreme spread shift beyond 1.2 sigma (diff = 18.0, sigma = 12.0 => delta_z = 1.5)
+    p_extreme = evaluator.evaluate_spread("NBA", base_line, base_prob, "home", -21.5, "home")
+    assert p_extreme is None
+
+

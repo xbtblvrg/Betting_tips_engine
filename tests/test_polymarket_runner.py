@@ -140,7 +140,7 @@ def test_runner_status_telemetry(runner_env):
     status = runner.get_runner_status()
     assert "runner_active" in status
     assert "min_ev_hurdle_pct" in status
-    assert status["min_ev_hurdle_pct"] == 2.5
+    assert status["min_ev_hurdle_pct"] == 4.0
     assert "execution_window_hours" in status
 
 
