@@ -121,9 +121,10 @@ class PolymarketAutonomousExecutor:
         if self.client is not None:
             return
 
-        if not self.private_key:
-            log.warning("POLYMARKET_PRIVATE_KEY missing; forcing dry-run execution mode.")
-            self.dry_run = True
+        if self.dry_run or not self.private_key:
+            if not self.private_key:
+                log.warning("POLYMARKET_PRIVATE_KEY missing; forcing dry-run execution mode.")
+                self.dry_run = True
             return
 
         try:
