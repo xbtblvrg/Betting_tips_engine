@@ -197,9 +197,10 @@ class AIArchetypeDeveloperAgent:
         from .codex_model_synthesizer import check_ast_safety, instantiate_synthesized_class
 
         # 1. Safety check
+        log.debug("[DISTILL] Starting candidate validation for %s (%s|%s|%s, oos_roi=%.2f%%)", model_id, league, scope, family, (oos_roi or 0.0) * 100.0)
         is_safe, found_class, err = check_ast_safety(source_code)
         if not is_safe or not found_class:
-            log.debug("Distillation rejected unsafe or malformed code for %s: %s", model_id, err)
+            log.debug("[DISTILL] Rejected unsafe or malformed code for %s: %s", model_id, err)
             return None
 
         # 2. Runtime sanity instantiation test
@@ -223,10 +224,10 @@ class AIArchetypeDeveloperAgent:
                 )
             )
             if not has_valid_dist:
-                log.debug("Distillation rejected model %s: invalid distribution output", model_id)
+                log.debug("[DISTILL] Rejected model %s: distribution has zero mass or invalid type", model_id)
                 return None
         except Exception as e_run:
-            log.debug("Distillation runtime test failed for %s: %s", model_id, e_run)
+            log.debug("[DISTILL] Runtime test execution error for %s: %s", model_id, e_run)
             return None
 
         # 3. Categorize & generate archetype ID
@@ -235,6 +236,7 @@ class AIArchetypeDeveloperAgent:
         )
         safe_name = re.sub(r'[^a-zA-Z0-9_]', '_', found_class)
         archetype_id = f"arch_{category}_{safe_name[:30]}_{league.lower()}"
+        log.debug("[DISTILL] Categorized model %s into '%s' (compatible with %d leagues, %d families)", model_id, category, len(comp_leagues), len(comp_families))
 
         # 4. Extract parameter spec
         param_spec: Dict[str, Any] = {
@@ -266,7 +268,11 @@ class AIArchetypeDeveloperAgent:
         )
 
         # 5. Commit to catalog & save to file
-        self.save_archetype(record)
+        saved = self.save_archetype(record)
+        if saved:
+            log.info("[DISTILL] Successfully distilled champion model %s into archetype %s (Category: %s, OOS ROI: +%.1f%%)", model_id, record.archetype_id, record.category, record.historical_oos_roi * 100.0)
+        else:
+            log.warning("[DISTILL] Failed to save distilled archetype %s to catalog or disk", record.archetype_id)
         return record
 
     def save_archetype(self, record: DistilledArchetypeRecord) -> bool:
@@ -275,6 +281,7 @@ class AIArchetypeDeveloperAgent:
         file_path = self.archetypes_dir / f"{record.archetype_id}.py"
         try:
             file_path.write_text(record.source_template_code, encoding="utf-8")
+            log.debug("[DISTILL] Wrote archetype template file to %s (%d bytes)", file_path, len(record.source_template_code))
         except Exception as e_file:
             log.warning("Could not write archetype file %s: %s", file_path, e_file)
             return False
@@ -318,6 +325,7 @@ class AIArchetypeDeveloperAgent:
                         record.created_at,
                         now,
                     ))
+            log.debug("[DISTILL] Registered archetype %s in SQLite catalog at %s", record.archetype_id, self.db_path)
             log.info("Successfully registered distilled archetype: %s (%s)", record.archetype_id, record.name)
             return True
         except Exception as e_db:
@@ -338,6 +346,7 @@ class AIArchetypeDeveloperAgent:
         lg_u = league.upper().strip()
         fam_l = family.lower().strip()
 
+        log.debug("[DISTILL-CATALOG] Querying archetypes for league=%s scope=%s family=%s (catalog_path=%s)", lg_u, scope, fam_l, self.db_path)
         records: List[DistilledArchetypeRecord] = []
         try:
             with closing(sqlite3.connect(f"file:{self.db_path.resolve()}?mode=ro", uri=True, timeout=5.0)) as conn:
@@ -384,14 +393,16 @@ class AIArchetypeDeveloperAgent:
                     ))
                     if len(records) >= limit:
                         break
+            log.debug("[DISTILL-CATALOG] Found %d matching archetypes for %s|%s|%s", len(records), lg_u, scope, fam_l)
         except Exception as e:
-            log.debug("Error querying distilled archetypes: %s", e)
+            log.debug("[DISTILL-CATALOG] Error querying distilled archetypes: %s", e)
 
         return records
 
     def bootstrap_from_existing_champions(self, min_roi: float = 0.035, limit: int = 100) -> int:
         """Scans ai_synthesis_feedback_loop for existing champion models and distills them."""
         if not self.db_path.exists():
+            log.debug("[DISTILL-BOOTSTRAP] Database %s does not exist, skipping bootstrap", self.db_path)
             return 0
 
         harvested_count = 0
@@ -408,6 +419,7 @@ class AIArchetypeDeveloperAgent:
                 """, (min_roi, limit))
                 rows = cur.fetchall()
 
+            log.debug("[DISTILL-BOOTSTRAP] Scanned feedback loop, found %d champion candidate models (min_roi=%.2f%%)", len(rows), min_roi * 100.0)
             for r in rows:
                 mid, cls_name, lg, sc, fam, fpath, oos_roi, delta_brier, provider = r
                 # Find source file
@@ -438,8 +450,10 @@ class AIArchetypeDeveloperAgent:
                     )
                     if rec:
                         harvested_count += 1
+                else:
+                    log.debug("[DISTILL-BOOTSTRAP] Could not find source code for champion %s (checked %s)", mid, candidate_paths)
         except Exception as e:
-            log.warning("Bootstrap from existing champions encountered error: %s", e)
+            log.warning("[DISTILL-BOOTSTRAP] Bootstrap from existing champions encountered error: %s", e)
 
-        log.info("Bootstrapped %d distilled archetypes from existing champions.", harvested_count)
+        log.info("[DISTILL-BOOTSTRAP] Bootstrapped %d distilled archetypes from existing champions.", harvested_count)
         return harvested_count

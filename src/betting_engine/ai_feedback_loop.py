@@ -217,6 +217,8 @@ class AIFeedbackLoopManager:
 
                 # Real-time Distillation of Champion Models by AIArchetypeDeveloperAgent
                 if record.crucible_passed:
+                    log.info("[FEEDBACK-LOOP] Champion model detected (crucible_passed=1, model_id=%s, oos_roi=%.2f%%); triggering real-time distillation",
+                             record.model_id, (record.oos_simulated_roi or 0.0) * 100.0)
                     try:
                         from pathlib import Path
                         from .ai_archetype_developer import AIArchetypeDeveloperAgent
@@ -224,7 +226,7 @@ class AIFeedbackLoopManager:
                         if fpath and fpath.exists():
                             code_text = fpath.read_text(encoding="utf-8")
                             agent = AIArchetypeDeveloperAgent(db_path=self.db_path)
-                            agent.distill_from_candidate(
+                            distilled = agent.distill_from_candidate(
                                 model_id=record.model_id,
                                 source_code=code_text,
                                 class_name=record.class_name,
@@ -235,8 +237,15 @@ class AIFeedbackLoopManager:
                                 delta_brier=record.oos_delta_brier,
                                 provider=record.generator_provider,
                             )
+                            if distilled:
+                                log.info("[FEEDBACK-LOOP] Distillation succeeded for champion %s -> Archetype: %s (%s)",
+                                         record.model_id, distilled.archetype_id, distilled.name)
+                            else:
+                                log.debug("[FEEDBACK-LOOP] Model %s was not eligible for archetype distillation", record.model_id)
+                        else:
+                            log.debug("[FEEDBACK-LOOP] Champion source file not found for %s: %s", record.model_id, fpath)
                     except Exception as e_dist:
-                        log.debug("Real-time distillation skipped for %s: %s", record.model_id, e_dist)
+                        log.debug("[FEEDBACK-LOOP] Real-time distillation skipped for %s: %s", record.model_id, e_dist)
 
                 return True
             except sqlite3.OperationalError as e_sql:

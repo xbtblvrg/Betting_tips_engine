@@ -325,7 +325,8 @@ class BottleneckWatchdog:
         # Ensure newly validated champion models are distilled into generic archetypes
         try:
             from .ai_archetype_developer import AIArchetypeDeveloperAgent
-            AIArchetypeDeveloperAgent.get_instance().bootstrap_from_existing_champions(min_roi=0.035, limit=20)
+            bootstrapped = AIArchetypeDeveloperAgent.get_instance().bootstrap_from_existing_champions(min_roi=0.035, limit=20)
+            log.debug("[WATCHDOG] Periodic archetype distillation completed; harvested %d archetypes", bootstrapped)
         except Exception as e_distill:
             log.debug("[WATCHDOG] Periodic archetype distillation skipped: %s", e_distill)
 

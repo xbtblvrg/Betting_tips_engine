@@ -471,9 +471,14 @@ class CodexModelSynthesizer:
         # 0. Smart Algorithmic Resolution: Query Distilled Archetype Catalog (if not forced to a legacy template)
         if not archetype_hint:
             try:
+                log.debug("[SMART-ALGO] Checking distilled archetype catalog for %s|%s|%s (model_id=%s)", league, scope, family, model_id)
                 distilled_matches = self.registry.get_distilled_archetypes_for_market(league, scope, family, limit=3)
                 if distilled_matches:
                     best_arch = distilled_matches[0]
+                    log.debug(
+                        "[SMART-ALGO] Selected best archetype '%s' (Category: %s, Historical OOS ROI: +%.1f%%, instantiations=%d)",
+                        best_arch.name, best_arch.category, best_arch.historical_oos_roi * 100.0, best_arch.times_instantiated
+                    )
                     # Adapt model_id in the distilled source code
                     adapted_code = re.sub(
                         r'model_id(?:\s*:\s*str)?\s*=\s*[\'"][^\'"]+[\'"]',
@@ -483,9 +488,17 @@ class CodexModelSynthesizer:
                     is_safe, cls_name, err = check_ast_safety(adapted_code)
                     if is_safe and cls_name:
                         rationale = f"Smart Algorithmic Distillation: Adapted proven archetype '{best_arch.name}' (Category: {best_arch.category}, Historical ROI: +{best_arch.historical_oos_roi*100:.1f}%)"
+                        log.info(
+                            "[SMART-ALGO] Successfully instantiated model %s from distilled archetype '%s' (%s)",
+                            model_id, best_arch.name, cls_name
+                        )
                         return adapted_code, cls_name, rationale
+                    else:
+                        log.warning("[SMART-ALGO] Distilled archetype %s adaptation AST safety failed: %s", best_arch.archetype_id, err)
+                else:
+                    log.debug("[SMART-ALGO] No matching distilled archetype found in catalog for %s|%s|%s; falling back to mathematical baseline", league, scope, family)
             except Exception as e_distill:
-                log.debug("Smart distilled archetype resolution fell back to baseline: %s", e_distill)
+                log.debug("[SMART-ALGO] Smart distilled archetype resolution fell back to baseline: %s", e_distill)
 
         lg_u = league.upper()
         if archetype_hint:
