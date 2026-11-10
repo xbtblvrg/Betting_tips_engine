@@ -150,17 +150,21 @@ class LearningWorker:
           job_id TEXT,evidence TEXT NOT NULL);
         ''')
 
-    def enqueue(self,kind,key,payload=None,league=None,status='queued'):
+    def enqueue(self,kind,key,payload=None,league=None,status='queued',conn=None):
         stamp=utcnow().isoformat();id=hashlib.sha256(f'{kind}:{key}'.encode()).hexdigest()[:24]
-        for attempt in range(8):
+        if conn is not None:
+            conn.execute('INSERT OR IGNORE INTO learning_jobs(id,kind,league,status,created_at,updated_at,next_attempt,payload) VALUES (?,?,?,?,?,?,?,?)',
+                         (id,kind,league,status,stamp,stamp,stamp,json.dumps(payload or {})))
+            return id
+        for attempt in range(10):
             try:
                 with self.store.db() as c:
                     c.execute('INSERT OR IGNORE INTO learning_jobs(id,kind,league,status,created_at,updated_at,next_attempt,payload) VALUES (?,?,?,?,?,?,?,?)',
                               (id,kind,league,status,stamp,stamp,stamp,json.dumps(payload or {})))
                 return id
             except sqlite3.OperationalError as exc:
-                if 'locked' in str(exc).lower() and attempt < 7:
-                    time.sleep(0.1 * (1.5 ** attempt))
+                if 'locked' in str(exc).lower() and attempt < 9:
+                    time.sleep(0.15 * (1.5 ** attempt))
                     continue
                 raise
         return id
@@ -688,7 +692,7 @@ class LearningWorker:
                 job_id=prior['id'] if prior else None
                 if not active and due:
                     job_id=self.enqueue(kind,f'{league}:{prior["id"] if prior else "initial"}',league=league,
-                        payload={'gap':gap,'publication_at':payload['generated_at'],'market_schema_sha256':schema_digest})
+                        payload={'gap':gap,'publication_at':payload['generated_at'],'market_schema_sha256':schema_digest},conn=c)
                 state='needs_implementation' if kind=='market_research' else 'repair_pending'
                 c.execute('''INSERT INTO operating_gaps VALUES (?,?,?,?,?,?,?,NULL,?,?)
                   ON CONFLICT(id) DO UPDATE SET action=excluded.action,status=excluded.status,

@@ -213,12 +213,12 @@ def append_tier_transition(event: Dict[str, Any]) -> None:
 def enqueue_rd_repair_job(
     conn: sqlite3.Connection,
     segment_key: str,
-    league: Optional[str],
-    prev_tier: str,
-    new_tier: str,
-    failure_mode: str,
-    remedy: str,
-    stats: Dict[str, Any]
+    league: Optional[str] = None,
+    prev_tier: str = 'TIER_3_PRODUCTION',
+    new_tier: str = 'TIER_1_RD',
+    failure_mode: str = 'UNKNOWN',
+    remedy: str = 'Automatic repair',
+    stats: Optional[Dict[str, Any]] = None
 ) -> Optional[str]:
     """Enqueues an autonomous repair task into learning_jobs for degraded segments."""
     try:
@@ -243,7 +243,7 @@ def enqueue_rd_repair_job(
             'new_tier': new_tier,
             'failure_mode': failure_mode,
             'actionable_remedy': remedy,
-            'stats': stats,
+            'stats': stats or {'trigger': 'loss_settlement'},
             'directive': 'Smart Autonomous Quant Self-Repair Directive (AGENTS.md)'
         })
 

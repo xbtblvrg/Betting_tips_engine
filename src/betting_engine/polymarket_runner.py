@@ -1043,10 +1043,10 @@ class PolymarketAutonomousRunner:
                 tax_records.append((job_id, now_iso, now_iso, now_iso, json.dumps(payload)))
 
             import time as _t
-            for attempt in range(8):
+            from .db_accelerator import get_optimized_connection
+            for attempt in range(10):
                 try:
-                    with closing(sqlite3.connect(self.db_path, timeout=60.0)) as conn:
-                        conn.execute("PRAGMA busy_timeout = 60000;")
+                    with closing(get_optimized_connection(self.db_path, timeout=60.0)) as conn:
                         conn.execute("""
                             CREATE TABLE IF NOT EXISTS learning_jobs(
                                 id TEXT PRIMARY KEY,
@@ -1075,8 +1075,8 @@ class PolymarketAutonomousRunner:
                         conn.commit()
                     break
                 except sqlite3.OperationalError as exc:
-                    if "locked" in str(exc).lower() and attempt < 7:
-                        _t.sleep(0.1 * (1.5 ** attempt))
+                    if "locked" in str(exc).lower() and attempt < 9:
+                        _t.sleep(0.15 * (1.5 ** attempt))
                         continue
                     log.warning(f"Could not persist Polymarket identification gaps into learning_jobs: {exc}")
                     break

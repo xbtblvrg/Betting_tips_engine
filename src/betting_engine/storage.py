@@ -927,29 +927,36 @@ class Store:
     def open_exposure(self):
         with self.db() as c:return float(c.execute("SELECT COALESCE(SUM(stake),0) FROM bets WHERE status='open'").fetchone()[0])
     def settle(self,id,status,pnl,evidence=None):
-        with self.db() as c:
-            c.execute('BEGIN IMMEDIATE')
-            current=c.execute('SELECT stake,odds,payload FROM bets WHERE id=?', (id,)).fetchone()
-            # A settlement worker may have read its ticket before an explicit
-            # unplaced resize. Resolve cash from the locked execution terms.
-            if (current and json.loads(current['payload']).get('execution_revision')
-                    and evidence and evidence.get('basis')=='verified_score_in_contract_scope'
-                    and status in ('won','lost','push')):
-                pnl=current['stake']*(current['odds']-1) if status=='won' else (-current['stake'] if status=='lost' else 0.)
-            updated=c.execute("UPDATE bets SET status=?,pnl=? WHERE id=? AND status='open'",(status,pnl,id)).rowcount==1
-            if updated and evidence:
-                tip=json.loads(c.execute('SELECT payload FROM bets WHERE id=?',(id,)).fetchone()['payload'])
-                p=tip.get('probability');push=tip.get('push_probability',0);brier=loss=None
-                if p is not None and 0<=p and p+push<=1+1e-7 and status in ('won','lost') and push<1:
-                    conditional=p/(1-push);outcome=float(status=='won')
-                    brier=(conditional-outcome)**2
-                    bounded=min(1-1e-12,max(1e-12,conditional))
-                    loss=-(outcome*math.log(bounded)+(1-outcome)*math.log(1-bounded))
-                c.execute('INSERT OR IGNORE INTO bet_outcomes VALUES (?,?,?,?,?,?,?,?,?,?)',
-                          (id,tip.get('league'),tip.get('market'),tip.get('model_version'),status,p,push,brier,loss,json.dumps(evidence)))
-        if updated:
-            self.invalidate_held_caches()
-        return updated
+        for attempt in range(10):
+            try:
+                with self.db() as c:
+                    c.execute('BEGIN IMMEDIATE')
+                    current=c.execute('SELECT stake,odds,payload FROM bets WHERE id=?', (id,)).fetchone()
+                    # A settlement worker may have read its ticket before an explicit
+                    # unplaced resize. Resolve cash from the locked execution terms.
+                    if (current and json.loads(current['payload']).get('execution_revision')
+                            and evidence and evidence.get('basis')=='verified_score_in_contract_scope'
+                            and status in ('won','lost','push')):
+                        pnl=current['stake']*(current['odds']-1) if status=='won' else (-current['stake'] if status=='lost' else 0.)
+                    updated=c.execute("UPDATE bets SET status=?,pnl=? WHERE id=? AND status='open'",(status,pnl,id)).rowcount==1
+                    if updated and evidence:
+                        tip=json.loads(c.execute('SELECT payload FROM bets WHERE id=?',(id,)).fetchone()['payload'])
+                        p=tip.get('probability');push=tip.get('push_probability',0);brier=loss=None
+                        if p is not None and 0<=p and p+push<=1+1e-7 and status in ('won','lost') and push<1:
+                            conditional=p/(1-push);outcome=float(status=='won')
+                            brier=(conditional-outcome)**2
+                            bounded=min(1-1e-12,max(1e-12,conditional))
+                            loss=-(outcome*math.log(bounded)+(1-outcome)*math.log(1-bounded))
+                        c.execute('INSERT OR IGNORE INTO bet_outcomes VALUES (?,?,?,?,?,?,?,?,?,?)',
+                                  (id,tip.get('league'),tip.get('market'),tip.get('model_version'),status,p,push,brier,loss,json.dumps(evidence)))
+                if updated:
+                    self.invalidate_held_caches()
+                return updated
+            except sqlite3.OperationalError as exc:
+                if 'locked' in str(exc).lower() and attempt < 9:
+                    time_mod.sleep(0.15 * (1.5 ** attempt))
+                    continue
+                raise
 
     def risk_committed(self):
         local=utcnow().astimezone(ZoneInfo(self.settings()['timezone']))

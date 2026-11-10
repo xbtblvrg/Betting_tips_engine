@@ -1422,16 +1422,18 @@ class PolymarketAutonomousExecutor:
 
                 # 1. Execute Taker Slice
                 try:
-                    if getattr(self, "is_v2", False):
-                        from py_clob_client_v2.clob_types import OrderArgsV2, OrderType
-                        args_tk = OrderArgsV2(token_id=token_id, price=round(preflight.eff_price, 3), size=tk_shares, side=action_side)
-                        s_tk = self.client.create_order(args_tk)
-                        resp_tk = self.client.post_order(s_tk, order_type=OrderType.FAK)
-                    else:
-                        from py_clob_client.clob_types import OrderArgs, OrderType
-                        args_tk = OrderArgs(token_id=token_id, price=round(preflight.eff_price, 3), size=tk_shares, side=action_side)
-                        s_tk = self.client.create_order(args_tk)
-                        resp_tk = self.client.post_order(s_tk, orderType=OrderType.FAK)
+                    is_v2 = getattr(self, "is_v2", False)
+                    try:
+                        if is_v2:
+                            from py_clob_client_v2.clob_types import OrderArgsV2 as OrderArgsTaker, OrderType
+                        else:
+                            from py_clob_client.clob_types import OrderArgs as OrderArgsTaker, OrderType
+                    except ImportError:
+                        from py_clob_client.clob_types import OrderArgs as OrderArgsTaker, OrderType
+                    args_tk = OrderArgsTaker(token_id=token_id, price=round(preflight.eff_price, 3), size=tk_shares, side=action_side)
+                    s_tk = self.client.create_order(args_tk)
+                    post_kw = {"order_type": getattr(OrderType, "FAK", "FAK")} if is_v2 else {"orderType": getattr(OrderType, "FAK", "FAK")}
+                    resp_tk = self.client.post_order(s_tk, **post_kw)
                     tk_oid = resp_tk.get("orderID") or resp_tk.get("id") or str(resp_tk)
                     tk_status = "filled" if (isinstance(resp_tk, dict) and resp_tk.get("status") in ("matched", "filled")) else "open"
                 except Exception as e_tk:
@@ -1441,16 +1443,18 @@ class PolymarketAutonomousExecutor:
 
                 # 2. Execute Maker Slice
                 try:
-                    if getattr(self, "is_v2", False):
-                        from py_clob_client_v2.clob_types import OrderArgsV2, OrderType
-                        args_mk = OrderArgsV2(token_id=token_id, price=round(mk_price, 3), size=mk_shares, side=action_side)
-                        s_mk = self.client.create_order(args_mk)
-                        resp_mk = self.client.post_order(s_mk, order_type=OrderType.GTC)
-                    else:
-                        from py_clob_client.clob_types import OrderArgs, OrderType
-                        args_mk = OrderArgs(token_id=token_id, price=round(mk_price, 3), size=mk_shares, side=action_side)
-                        s_mk = self.client.create_order(args_mk)
-                        resp_mk = self.client.post_order(s_mk, orderType=OrderType.GTC)
+                    is_v2 = getattr(self, "is_v2", False)
+                    try:
+                        if is_v2:
+                            from py_clob_client_v2.clob_types import OrderArgsV2 as OrderArgsMaker, OrderType
+                        else:
+                            from py_clob_client.clob_types import OrderArgs as OrderArgsMaker, OrderType
+                    except ImportError:
+                        from py_clob_client.clob_types import OrderArgs as OrderArgsMaker, OrderType
+                    args_mk = OrderArgsMaker(token_id=token_id, price=round(mk_price, 3), size=mk_shares, side=action_side)
+                    s_mk = self.client.create_order(args_mk)
+                    post_kw = {"order_type": getattr(OrderType, "GTC", "GTC")} if is_v2 else {"orderType": getattr(OrderType, "GTC", "GTC")}
+                    resp_mk = self.client.post_order(s_mk, **post_kw)
                     mk_oid = resp_mk.get("orderID") or resp_mk.get("id") or str(resp_mk)
                     mk_status = "filled" if (isinstance(resp_mk, dict) and resp_mk.get("status") in ("matched", "filled")) else "open"
                 except Exception as e_mk:

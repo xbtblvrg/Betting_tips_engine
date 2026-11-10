@@ -333,3 +333,48 @@ def test_enqueue_rd_repair_job_readonly_connection_fallback(tmp_path, monkeypatc
     assert row[2] == "NBA"
     chk_conn.close()
     ro_conn.close()
+
+
+def test_enqueue_rd_repair_job_defaults(tmp_path, monkeypatch):
+    from betting_engine.tier_state_machine import enqueue_rd_repair_job
+    db_file = tmp_path / "engine.sqlite3"
+    w_conn = sqlite3.connect(str(db_file))
+    w_conn.execute("""
+        CREATE TABLE learning_jobs (
+            id TEXT PRIMARY KEY,
+            kind TEXT NOT NULL,
+            league TEXT,
+            status TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            next_attempt TEXT NOT NULL,
+            attempts INTEGER NOT NULL DEFAULT 0,
+            payload TEXT NOT NULL,
+            result TEXT,
+            last_error TEXT
+        )
+    """)
+    w_conn.commit()
+    monkeypatch.setattr('betting_engine.providers.DATA', tmp_path)
+
+    # Call with minimal parameters (as called in engine.py and storage.py on settled losses)
+    job_id = enqueue_rd_repair_job(
+        conn=w_conn,
+        segment_key="WTA|full_game|set_handicap",
+        league="WTA",
+        failure_mode="SETTLED_LOSS_TRIGGER",
+        remedy="Automatic post-loss forensic investigation and crucible repair"
+    )
+    assert job_id is not None
+
+    row = w_conn.execute("SELECT id, status, league, payload FROM learning_jobs WHERE id=?", (job_id,)).fetchone()
+    assert row is not None
+    assert row[1] == "queued"
+    assert row[2] == "WTA"
+    payload = json.loads(row[3])
+    assert payload['previous_tier'] == 'TIER_3_PRODUCTION'
+    assert payload['new_tier'] == 'TIER_1_RD'
+    assert payload['failure_mode'] == 'SETTLED_LOSS_TRIGGER'
+    assert payload['stats']['trigger'] == 'loss_settlement'
+    w_conn.close()
+

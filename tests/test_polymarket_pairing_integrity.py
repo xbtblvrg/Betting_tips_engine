@@ -27,9 +27,9 @@ def test_zero_cross_sport_taxonomic_bleed():
         pair = prof.polymarket_pairing
         lg = prof.league
 
-        # Rule 1: Tennis-specific contracts belong ONLY to ATP or WTA
+        # Rule 1: Tennis-specific contracts belong ONLY to ATP, WTA, CHALLENGER, or ITF
         if pair.startswith("tennis_"):
-            assert lg in ("ATP", "WTA"), f"Cross-sport violation: {seg_key} paired with {pair} in non-tennis league {lg}"
+            assert lg in ("ATP", "WTA", "CHALLENGER", "ITF"), f"Cross-sport violation: {seg_key} paired with {pair} in non-tennis league {lg}"
 
         # Rule 2: Soccer-specific contracts belong ONLY to Soccer leagues
         if pair.startswith("soccer_") or pair.startswith("both_teams_to_score"):
