@@ -25,6 +25,10 @@ class ReadOnlyStore(Store):
     def db(self):
         yield self.connection
 
+    @contextmanager
+    def ro_db(self):
+        yield self.connection
+
     def close(self):
         self.connection.close()
 

@@ -334,7 +334,11 @@ def size_recommendation(tip, settings, remaining, related_count=0):
                     'binding_factors': [*base['binding_factors'], 'authorized_minimum_ticket_floor'],
                     'note': base['note'] + ' User-authorized $1 minimum ticket when affordable; this floor is not a positive-EV claim.'}
     if policy == 'legacy':
-        if settings.get('capital_defense', False) and base['amount'] > 0.50:
+        if (
+            settings.get('capital_defense', False)
+            and settings.get('family_selection_policy') in ('continuous_probability_v2', 'continuous_probability_v3', 'continuous_probability_v4')
+            and base['amount'] > 0.50
+        ):
             try:
                 from .decisions import _get_governor_status
                 from .contracts import canonical_segment_aliases

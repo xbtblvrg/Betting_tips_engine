@@ -389,13 +389,13 @@ class Store:
             key=(tip.get('league'),allocation_family(tip));families[key]=families.get(key,0)+1
         from .model_allocation import held_inventory
         held_families = held_inventory(c)[0] if settings.get('publication_limits_version') == 'v3' else set()
-        family_limit = int(settings['max_picks_per_family']) if settings.get('max_picks_per_family') is not None else 1
+        family_limit = int(settings['max_picks_per_family']) if settings.get('max_picks_per_family') is not None else 3
         event_family_counts = Counter((t.get('game_id'), allocation_family(t)) for t in roster if float(t.get('stake', 0)) > 0)
         cycle_family_counts = Counter()
         additions_enabled = settings.get('allow_event_additions', False)
         for tip in new:
             effective = limits_for(settings,tip,roster,new) if dynamic else publication_limits(settings, tip.get('league'))
-            eff_family_limit = int(settings.get('max_picks_per_family', 1))
+            eff_family_limit = int(settings.get('max_picks_per_family', 3))
             key=(tip.get('game_id'), allocation_family(tip))
             if not continuous_probability_allocation(settings) and effective.get('distinct_families_required') and key in held_families:
                 raise ValueError('Publication blocked: sparse league requires distinct scope/market families')

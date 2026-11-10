@@ -26,7 +26,7 @@ DEFAULT_SETTINGS['alpha_acceleration']=True
 DEFAULT_SETTINGS['crucible_rules_mode']='shadow'
 DEFAULT_SETTINGS['min_odds']=None
 DEFAULT_SETTINGS['max_sport_per_cycle']=None
-DEFAULT_SETTINGS['max_picks_per_family']=1
+DEFAULT_SETTINGS['max_picks_per_family']=3
 
 def sport_of(league):
     l = (league or '').upper()
@@ -1083,8 +1083,8 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
             c['alternative'] = True
             alternatives.append(c)
             continue
-        elif not covered(c) and family_pick_counts[(c['game_id'],allocation_family(c))] >= int(settings.get('max_picks_per_family', 1)):
-            family_cap = int(settings.get('max_picks_per_family', 1))
+        elif not covered(c) and family_pick_counts[(c['game_id'],allocation_family(c))] >= int(settings.get('max_picks_per_family', 3)):
+            family_cap = int(settings.get('max_picks_per_family', 3))
             c['allocation_code'] = 'event_family_limit'
             c['allocation_reason'] = f'This game already holds {family_pick_counts[(c["game_id"], allocation_family(c))]} funded picks in the {allocation_family(c)} market family (limit: {family_cap}).'
             c['stake_note'] = c['allocation_reason']

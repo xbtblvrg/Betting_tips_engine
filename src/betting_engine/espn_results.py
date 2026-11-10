@@ -179,7 +179,7 @@ def parse_summary(raw, meta, tip, now=None, *, scheduled_start=None):
                 source.pop('scoped_scores_reason', None)
         except (ValueError, KeyError, TypeError, IndexError):
             pass
-    elif tip.get('league') in ('NBA', 'WNBA', 'NFL', 'NCAAF') and requires_scoped:
+    elif tip.get('league') in ('NBA', 'WNBA', 'NFL') and requires_scoped:
         game_type = {1: 'preseason', 2: 'regular', 3: 'playoff'}.get(header['season']['type'], 'regular')
         try:
             h_ls = teams['home'].get('linescores', [])
