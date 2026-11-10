@@ -129,6 +129,55 @@ class DataclassTestModel(BaseCandidateModel):
 
 
 def test_codex_model_synthesizer_end_to_end(tmp_path):
+    import sqlite3
+    db_file = tmp_path / "shadow_incubator.sqlite3"
+    with sqlite3.connect(str(db_file)) as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS incubated_wagers (
+                id TEXT PRIMARY KEY,
+                game_id TEXT,
+                league TEXT,
+                scope TEXT,
+                family TEXT,
+                sub_family TEXT,
+                selection TEXT,
+                line REAL,
+                odds REAL,
+                model_prob REAL,
+                market_prob REAL,
+                side TEXT,
+                result TEXT,
+                pnl REAL,
+                captured_at TEXT,
+                status TEXT
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS demoted_markets (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                market_key TEXT UNIQUE,
+                league TEXT,
+                scope TEXT,
+                family TEXT,
+                incubation_phase TEXT DEFAULT 'research_rnd',
+                incubated_model_id TEXT,
+                model_archetype TEXT,
+                model_params TEXT,
+                historical_roi REAL,
+                historical_sample_size INTEGER
+            )
+        """)
+        pattern = ['won', 'won', 'won', 'won', 'lost'] * 6
+        for i, res_str in enumerate(pattern):
+            odds_val = 2.00
+            pnl_val = 1.0 if res_str == 'won' else -1.0
+            day = (i % 28) + 1
+            conn.execute(f"""
+                INSERT INTO incubated_wagers (id, game_id, league, scope, family, sub_family, selection, line, odds, model_prob, market_prob, side, result, pnl, captured_at, status)
+                VALUES ('w_{i}', 'g_{i}', 'NHL', 'period_3', 'totals', 'totals', 'Over 1.5', 1.5, {odds_val}, 0.65, 0.48, 'over', '{res_str}', {pnl_val}, '2026-10-{day:02d}T12:00:00Z', 'settled')
+            """)
+        conn.commit()
+
     synthesizer = CodexModelSynthesizer(data_dir=tmp_path)
     res = synthesizer.synthesize_and_screen_candidate(
         segment_key="NHL|period_3|totals",

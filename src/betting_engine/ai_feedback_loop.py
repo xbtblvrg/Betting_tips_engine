@@ -214,6 +214,29 @@ class AIFeedbackLoopManager:
                         record.created_at or now_iso, now_iso
                     ))
                     conn.commit()
+
+                # Real-time Distillation of Champion Models by AIArchetypeDeveloperAgent
+                if record.crucible_passed:
+                    try:
+                        from pathlib import Path
+                        from .ai_archetype_developer import AIArchetypeDeveloperAgent
+                        fpath = Path(record.source_file_path) if record.source_file_path else None
+                        if fpath and fpath.exists():
+                            code_text = fpath.read_text(encoding="utf-8")
+                            AIArchetypeDeveloperAgent.get_instance().distill_from_candidate(
+                                model_id=record.model_id,
+                                source_code=code_text,
+                                class_name=record.class_name,
+                                league=record.league,
+                                scope=record.scope,
+                                family=record.family,
+                                oos_roi=record.oos_simulated_roi,
+                                delta_brier=record.oos_delta_brier,
+                                provider=record.generator_provider,
+                            )
+                    except Exception as e_dist:
+                        log.debug("Real-time distillation skipped for %s: %s", record.model_id, e_dist)
+
                 return True
             except sqlite3.OperationalError as e_sql:
                 if "locked" in str(e_sql) and attempt < 7:

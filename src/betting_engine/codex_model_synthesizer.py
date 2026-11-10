@@ -444,7 +444,7 @@ class CodexModelSynthesizer:
         self.feedback_manager = AIFeedbackLoopManager(self.data_dir)
         self.autopsy_analyzer = MarketAutopsyAnalyzer(self.data_dir / "shadow_incubator.sqlite3")
         self.brief_builder = TargetedSynthesisBriefBuilder()
-        self.registry = DynamicArchetypeRegistry.get_instance()
+        self.registry = DynamicArchetypeRegistry(db_path=self.data_dir / "shadow_incubator.sqlite3") if (self.data_dir / "shadow_incubator.sqlite3").exists() else DynamicArchetypeRegistry.get_instance()
 
     def _append_log(self, record: SynthesizedModelRecord) -> None:
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
@@ -468,6 +468,25 @@ class CodexModelSynthesizer:
         Returns:
             (source_code, class_name, rationale)
         """
+        # 0. Smart Algorithmic Resolution: Query Distilled Archetype Catalog (if not forced to a legacy template)
+        if not archetype_hint:
+            try:
+                distilled_matches = self.registry.get_distilled_archetypes_for_market(league, scope, family, limit=3)
+                if distilled_matches:
+                    best_arch = distilled_matches[0]
+                    # Adapt model_id in the distilled source code
+                    adapted_code = re.sub(
+                        r'model_id(?:\s*:\s*str)?\s*=\s*[\'"][^\'"]+[\'"]',
+                        f'model_id: str = "{model_id}"',
+                        best_arch.source_template_code
+                    )
+                    is_safe, cls_name, err = check_ast_safety(adapted_code)
+                    if is_safe and cls_name:
+                        rationale = f"Smart Algorithmic Distillation: Adapted proven archetype '{best_arch.name}' (Category: {best_arch.category}, Historical ROI: +{best_arch.historical_oos_roi*100:.1f}%)"
+                        return adapted_code, cls_name, rationale
+            except Exception as e_distill:
+                log.debug("Smart distilled archetype resolution fell back to baseline: %s", e_distill)
+
         lg_u = league.upper()
         if archetype_hint:
             tag = archetype_hint

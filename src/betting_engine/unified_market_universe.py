@@ -934,7 +934,7 @@ class UnifiedMarketUniverse:
                                         k
                                     ))
                                     existing_dem_map[k] = 'research_training'
-                            elif not was_graduated:
+                            else:
                                 d_eff_at = last_live_ts_map.get(k) or now_str
                                 d_id = f"demote_{hashlib.sha256(f'{k}:{d_eff_at}'.encode()).hexdigest()[:16]}"
                                 to_insert.append((

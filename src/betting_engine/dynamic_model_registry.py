@@ -193,3 +193,20 @@ class DynamicArchetypeRegistry:
                     log.debug("Could not instantiate dynamic model %s for %s: %s", mid, league, e_inst)
 
         return candidates
+
+    def get_distilled_archetypes_for_market(
+        self,
+        league: str,
+        scope: str,
+        family: str,
+        limit: int = 5
+    ) -> List[Any]:
+        """Queries the active distilled archetype catalog for high-performing generic archetypes."""
+        try:
+            from .ai_archetype_developer import AIArchetypeDeveloperAgent
+            agent = AIArchetypeDeveloperAgent(db_path=self.db_path)
+            return agent.get_distilled_archetypes_for_market(league, scope, family, limit=limit)
+        except Exception as e:
+            log.debug("Error retrieving distilled archetypes from registry: %s", e)
+            return []
+
