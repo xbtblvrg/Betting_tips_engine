@@ -881,7 +881,9 @@ class UnifiedMarketUniverse:
         # Ensures that every actionable contract in every liquid league is tracked in the 4-tier loop
         # and made available for candidate model training (Commandments 1, 2, 6 & 7).
         try:
-            from .domain import LEAGUES as ALL_TRACKED_LEAGUES
+            from .domain import LEAGUES
+            EXTRA_DUAL_LEAGUES = ('LALIGA', 'BUNDESLIGA', 'SERIEA', 'UEL', 'CHALLENGER')
+            ALL_TRACKED_LEAGUES = tuple(dict.fromkeys(LEAGUES + EXTRA_DUAL_LEAGUES))
             from .contracts import SCORE_SCOPES, SCORE_MARKETS
             all_possible_scopes = ('full_game',) + tuple(SCORE_SCOPES)
             for cand_lg in ALL_TRACKED_LEAGUES:

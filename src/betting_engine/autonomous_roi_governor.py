@@ -206,14 +206,12 @@ class AutonomousROIGovernor:
                 seg_key in demoted_markets_set
                 or canon_k in demoted_markets_set
                 or base_canon_k in demoted_markets_set
-                or any(d_k.startswith(f"{league}|{scope}|") and (market in d_k or base_mkt in d_k) for d_k in demoted_markets_set)
             ) and not is_grad_seg
 
             is_sb_underperforming = bool(
                 seg_key in sb_underperforming_set
                 or canon_k in sb_underperforming_set
                 or base_canon_k in sb_underperforming_set
-                or any(u_k.startswith(f"{league}|{scope}|") and (market in u_k or base_mkt in u_k) for u_k in sb_underperforming_set)
             )
 
             # Evaluate recent rolling cohort (last 10 wagers) for rolling health
@@ -264,8 +262,7 @@ class AutonomousROIGovernor:
             # - N >= 8 games with rolling units <= -4.0U and negative ROI
             # - OR N >= 12 games with total units <= -5.0U and ROI <= -10%
             elif (
-                (len(rec_bets) >= 5 and rec_units <= -4.0 and rec_roi <= -50.0)
-                or (len(rec_bets) >= 8 and rec_units <= -4.0 and rec_roi <= -5.0)
+                (len(rec_bets) >= 8 and rec_units <= -4.0 and rec_roi <= -20.0)
                 or (cnt >= 12 and units_pnl <= -5.0 and roi <= -10.0)
             ):
                 tier = 'TOXIC_QUARANTINE'
