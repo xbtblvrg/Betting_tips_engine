@@ -2835,8 +2835,16 @@ class ShadowMarketIncubator:
 
                 # Strict Virtual Drawdown Barrier (Commandments 1, 6 & 7):
                 # A candidate model experiencing an active recent drawdown in virtual paper-trading cannot graduate.
-                recent_incubated = pnl_list[-20:]
-                if len(recent_incubated) >= 4 and sum(recent_incubated) < 0.0:
+                # Rejects if medium-term rolling PnL is negative (last 20 wagers),
+                # OR acute tail collapse: last 8+ consecutive losses or severe recent losses (last 10 wagers <= -5.0).
+                recent_20 = pnl_list[-20:]
+                recent_10 = pnl_list[-10:]
+                recent_8 = pnl_list[-8:]
+                if len(recent_20) >= 15 and sum(recent_20) < 0.0:
+                    passed = False
+                elif len(recent_10) >= 10 and sum(recent_10) <= -5.0:
+                    passed = False
+                elif len(recent_8) >= 8 and all(p < 0.0 for p in recent_8):
                     passed = False
 
                 # Constitutional Invariant (Commandments 1, 6 & 7):
