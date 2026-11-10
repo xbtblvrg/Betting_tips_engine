@@ -22,7 +22,7 @@ from zoneinfo import ZoneInfo
 log = logging.getLogger(__name__)
 
 ROOT = Path(__file__).resolve().parent.parent.parent
-LOG_DIR = ROOT / "data" / "logs"
+LOG_DIR = ROOT / "data" / "research" / "logs"
 JSONL_LOG_PATH = LOG_DIR / "autorun.jsonl"
 DEFAULT_DB_PATH = ROOT / "data" / "engine.sqlite3"
 

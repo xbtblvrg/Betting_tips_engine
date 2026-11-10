@@ -16,7 +16,7 @@ from typing import Any, Dict, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
-CACHE_DIR = Path("data/cache/weather")
+CACHE_DIR = Path("data/research/cache/weather")
 CACHE_TTL_SECONDS = 3600  # 1 hour
 
 # Outdoor MLB stadiums with home plate -> center field compass orientation

@@ -35,7 +35,7 @@ from .in_memory_cache import GLOBAL_IN_MEMORY_CACHE
 
 logger = logging.getLogger(__name__)
 
-FREE_CACHE_DIR = DATA / "cache" / "free_sources"
+FREE_CACHE_DIR = DATA / "research" / "cache" / "free_sources"
 FREE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 
