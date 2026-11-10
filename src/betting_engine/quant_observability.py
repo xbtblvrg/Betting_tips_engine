@@ -672,6 +672,32 @@ class LeadQuantObservabilityEngine:
             except Exception:
                 pass
 
+        # 12. Distilled Archetype Expansion & Codex Distillation Stream
+        if self.incubator_db.exists():
+            try:
+                conn = sqlite3.connect(f"file:{self.incubator_db.resolve()}?mode=ro", uri=True, timeout=3.0)
+                cur = conn.cursor()
+                has_arch_tbl = cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='distilled_archetype_catalog'").fetchone()[0] > 0
+                if has_arch_tbl:
+                    cur.execute("""
+                        SELECT archetype_id, name, category, historical_oos_roi, times_crucible_passed, created_at, origin_model_id
+                        FROM distilled_archetype_catalog
+                        ORDER BY id DESC
+                        LIMIT ?
+                    """, (limit,))
+                    for row in cur.fetchall():
+                        events.append({
+                            'timestamp': row[5] or '',
+                            'component': 'algorithmic_codex_engine',
+                            'event_type': 'archetype_distilled',
+                            'severity': 'info',
+                            'message': f"Archetype Catalog: {row[1]} [{row[2]}] (OOS ROI: +{round((row[3] or 0.0)*100, 1)}%, Origin: {row[6]})",
+                            'data': {'archetype_id': row[0], 'category': row[2], 'oos_roi': row[3], 'crucible_passes': row[4], 'origin_model_id': row[6]}
+                        })
+                conn.close()
+            except Exception:
+                pass
+
         # Filter by component if requested
         if component:
             events = [e for e in events if e['component'] == component]
