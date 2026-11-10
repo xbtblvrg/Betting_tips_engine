@@ -223,7 +223,8 @@ class AIFeedbackLoopManager:
                         fpath = Path(record.source_file_path) if record.source_file_path else None
                         if fpath and fpath.exists():
                             code_text = fpath.read_text(encoding="utf-8")
-                            AIArchetypeDeveloperAgent.get_instance().distill_from_candidate(
+                            agent = AIArchetypeDeveloperAgent(db_path=self.db_path)
+                            agent.distill_from_candidate(
                                 model_id=record.model_id,
                                 source_code=code_text,
                                 class_name=record.class_name,
