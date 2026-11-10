@@ -214,7 +214,7 @@ def is_profitable_or_alpha(tip):
     c_defense = set(gov.get('capital_defense_list', []))
     demoted_segs = _get_demoted_segments()
     is_test_cand = is_synthetic_test_candidate(tip)
-    if is_test_cand and not str(tip.get('id', '')).startswith('cand_demoted'):
+    if is_test_cand and not ('demoted' in str(tip.get('id', '')).lower()):
         if tip.get('is_demoted'):
             return False
     else:
@@ -268,7 +268,7 @@ def continuous_selection_priority_v4(tip, tier):
     # Demoted market (core or submarket) capital defense clamp & EV hurdle check
     is_test_cand = is_synthetic_test_candidate(tip)
     demoted_segs = _get_demoted_segments()
-    if is_test_cand and not str(tip.get('id', '')).startswith('cand_demoted'):
+    if is_test_cand and not ('demoted' in str(tip.get('id', '')).lower()):
         is_demoted = bool(tip.get('is_demoted'))
     else:
         is_demoted = bool(tip.get('is_demoted') or any(s in demoted_segs for s in seg_candidates))
@@ -1128,12 +1128,11 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                 is_alpha_cand = bool(cand_segs & s_alpha)
                 grad_segs = _get_graduated_segments()
                 demoted_segs = _get_demoted_segments()
-                is_grad_cand = bool(c.get('is_graduated')) or bool(cand_segs & grad_segs)
-                if not is_test_cand:
-                    # Specific graduation in grad_segs takes precedence over generic base alias demotion
-                    is_demoted_cand = (bool(c.get('is_demoted')) and not is_grad_cand) or (bool(cand_segs & demoted_segs) and not is_grad_cand)
+                is_grad_cand = bool(c.get('is_graduated')) or (bool(cand_segs & grad_segs) and not bool(cand_segs & demoted_segs))
+                if not is_test_cand or ('demoted' in cand_id.lower()):
+                    is_demoted_cand = bool(c.get('is_demoted')) or (bool(cand_segs & demoted_segs) and not bool(c.get('is_graduated')))
                 else:
-                    is_demoted_cand = cand_id.startswith('cand_demoted') or (bool(c.get('is_demoted')) and not is_grad_cand)
+                    is_demoted_cand = bool(c.get('is_demoted')) and not is_grad_cand
                 cand_is_grad = is_grad_cand and not is_demoted_cand
                 quarantine_set = set(gov_status.get('quarantine_list', []))
                 # Graduated Tier 3 markets have passed the Crucible and are in live production ($0.50-$8.00);
@@ -1253,6 +1252,10 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                                 if u_cap is None or prof.stake_cap < u_cap:
                                     u_cap = prof.stake_cap
                                     u_phase = prof.phase_detail
+
+                    if (c.get('is_graduated') or is_grad) and (u_cap is None or u_cap < 0.50):
+                        u_cap = max(0.50, u_cap or 0.50)
+                        u_phase = "Tier 3 Live Probation Nursery ($0.50 floor)"
 
                     if u_cap is None:
                         u_cap = 0.50
