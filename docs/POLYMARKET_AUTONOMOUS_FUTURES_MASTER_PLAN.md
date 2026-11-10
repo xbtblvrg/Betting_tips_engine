@@ -149,6 +149,31 @@ Az önellenőrző matematikai és mikrostruktúra-auditok alapján a rendszer n�
 4. **Várakozó Limit vs. Teljesült Pozíció Jutalom-Elszámolás (`Resting-Order vs. Filled-Inventory Accounting`):**
    - A CLOB likviditási jutalmak (`clobRewards`) kizárólag a könyvben várakozó, még nem teljesült (`unfilled resting limit`) megbízások időarányos jelenlétéért járnak; a már teljesült és megtartott (`filled inventory`) pozíciók várható hozamába tilos napi jutalom-hozamot beszámítani.
 
+### 3.8. Hat Általánosított, Anchoring-Mentes Logikai Invariáns (`First-Principles Structural & Microstructural Laws`)
+A többpiacos könyv-, folyamat- és fundamentális auditokból a rendszer hat egyetemes, minden konkrét témától és rögzített számtól független logikai törvényt érvényesít:
+
+1. **A Valós Kiszállási Kockázat Könyv-Integrál Törvénye (`Endogenous Orderbook Liquidation Risk vs. Assumed Stop-Loss`):**
+   - A védett maximális tőkevisszaesés ($\text{MaxLoss}_{\text{guarded}}$) **soha nem lehet kívülről feltételezett konstans vagy statikus százalék**.
+   - Minden $t$ időpontban a ténylegesen realizálható kiszállási értéket kizárólag az élő vételi könyv (`Bid Ladder`) kumulatív mélységi integrálja és a folyamat egy lépésben bekövetkező maximális ugrása ($\Delta p_i$) határozza meg:
+     $$\text{Valós Likvidációs Érték}(\mathbf{q}, t) = \sum_{i \in S} \int_{0}^{q_i} \text{Bid}_i(u, t)\,du$$
+   - Korlátozott tőkevisszaesés ($\text{MaxLoss}_{\text{guarded}} \ll B$) kizárólag ott létezik, ahol (a) a vételi könyv mélysége a tartott $q_i$ mennyiségen belül elnyeli a megbízást, és (b) az alapfolyamat két kereskedési ablak között nem tartalmaz elnyelő ($\Delta p_i = -p_i$) szakadékot. Ahol ez a két feltétel nem teljesül, ott a rendszer a teljes befektetett összeget ($B$) tekinti valós kockázatnak.
+2. **A Kétirányú Könyv-Aszimmetria és Végrehajtási Szétválasztás Törvénye (`Bid-Depth vs. Ask-Depth Decoupling`):**
+   - A legfelső `Best Bid / Best Ask` különbözet önmagában elégtelen mutató, mert a belépési súrlódást az **eladási könyv (`Ask Ladder`) integrálja**, míg a kiszállási biztonságot a **vételi könyv (`Bid Ladder`) integrálja** határozza meg.
+   - Ha egy opció vételi (`Bid`) fala mély (azonnali kiszállási védelem biztosított), de az eladási (`Ask`) oldala sekély, a rendszernek tilos `Taker` megbízással felvernie az árat vagy eldobnia az opciót: a belépést **automatikusan passzív `Maker` akkumulációra kell kapcsolnia**, kihasználva az alattunk álló vételi fal által nyújtott aszimmetrikus védelmet.
+3. **Fázisváltó Stochasztikus Folyamatok Törvénye (`Non-Absorbing Diffusion Phase vs. Absorbing Elimination Phase`):**
+   - Hosszú futamidejű többopciós folyamatokat tilos a nyitástól a lejáratig ($[t_0, T]$) homogén rezsimként kezelni. A rendszer matematikailag különválasztja a két fázist:
+     - **Diffúziós / Akkumulációs Rezsim ($t \in [t_0, T_{\text{absorb}})$):** Nincs végleges kiesés ($P(\text{abszorpció}_i) = 0$), az elemi események csak kis ($\Delta p_i \ll p_i$) árelmozdulást okoznak, és a túlértékelt opciók lokális korrekciós ciklusokon mennek keresztül. Ebben a fázisban a rendszer a belső értékhez való konvergenciát (`Convergence Harvesting`) és a diszkont-akkumulációt maximalizálja.
+     - **Elnyelő / Kieséses Rezsim ($t \in [T_{\text{absorb}}, T]$):** Aktiválódnak a $p_i \to 0$ elnyelő korlátok. A rezsimváltás határán ($T_{\text{absorb}}$) a rendszer kötelezően vagy **likvidálja a felértékelődött pozíciót a mély `Bid` könyvbe**, vagy **zárt partícióvá (`Closed Partition Lock-In`) egészíti ki az állva maradt halmazt**, nullára szorítva a fedezetlen kiesési kockázatot.
+4. **Folytonos Belső Intenzitás-Jel vs. Zajos Bináris Felszíni Mutató (`Latent Continuous Signal vs. Noisy Binary Tally`):**
+   - Kis és közepes mintaszámnál a durva bináris kimenetel-számlálók (pl. nyers győzelem/vereség arány vagy pillanatnyi helyezés) magas véletlen varianciát hordoznak, míg a folytonos kumulatív teljesítmény-intenzitási mutatók (pl. egységnyi kísérletre jutó nettó hatékonyság- vagy különbség-eloszlás) sokkal magasabb jel/zaj aránnyal jelzik előre a végső eloszlást.
+   - A legmagasabb kockázat/hozam arányú (`$S_{\text{alpha}}$`) lehetőségek ott keletkeznek, ahol a piac a zajos bináris felszíni mutatót árazza, miközben a folytonos belső intenzitás-mutató alapján az opció valós ereje megegyezik a többszörös áron forgó éllovaséval.
+5. **Atomi Állapot-Szinkronizáció és Elsődleges Likviditási Gravitáció (`Atomic State Synchronization & Primary-Pool Dominance`):**
+   - Keresztpiaci vagy fundamentális összevetés kizárólag **ugyanazon $t$ időpillanatban, atomi módon lekérdezett teljes könyv- és állapotadatok** alapján végezhető; korábbi rész-állapotok összevetése szigorúan tilos.
+   - Ha egy eseménycsaládon belül a főpiac effektív könyvmélysége ($L_{\text{eff}}$) nagyságrendekkel meghaladja a rész-piacokét és a `Bid-Ask` spreadje töredéke azokénak, a rendszer az elsődleges likviditási medencét részesíti előnyben, mert a garantált kiszállási mélység magasabb valós, csúszással korrigált `Risk/Reward` arányt biztosít.
+6. **Önfinanszírozó Likviditási Tartalék és Dinamikus Partíció-Zárás (`Cash-Buffer Optionality & Self-Financing Partition Closure`):**
+   - Amikor egy domináns opció a diffúziós fázisban túlhevült áron forog ($p_{\text{mkt}, 1} \gg P_{\text{true}, 1}$), a rendszer sem a hozamgyilkos azonnali túlfizetést, sem a fedezetlenül hagyott 100%-os tőkeelköltést nem választja.
+   - Ehelyett a tőke meghatározott hányadát ($(1-\alpha)B$) dedikált likvid tartalékban / diszkont `Maker` limitben tartja, és az alulárazott $S_{\text{alpha}}$ mag konvergencia-nyereségének részleges lefölözésével (`Swing Trim`) kombinálva **önfinanszírozó módon zárja be a hiányzó éllovas lábat** még az elnyelő fázis kezdete előtt.
+
 ---
 
 ## 4. Dinamikus Életciklus-Kereskedés a Nyitástól a Lejáratig ($t_0 \to T$)
