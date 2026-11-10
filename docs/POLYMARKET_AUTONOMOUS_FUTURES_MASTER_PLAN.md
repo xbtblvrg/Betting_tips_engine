@@ -238,3 +238,41 @@ flowchart TD
 3. **`AutonomousClobExecutor & FillManager`:** A szűk spreadű lábakon azonnali szeletelt végrehajtást (`Order Slicing`), a szélesebb spreadű lábakon `Maker` (`GTC`) limit-kezelést végez automatikus utánállítással (`Cancel & Replace`).
 4. **`AutonomousPositionGuardian`:** 24/7 pozíció-, orderbook- és élő tényadat-figyelő démon, amely végrehajtja a `Swing Trim` lefölözéseket és az `Auto-Hedge / Stop-Loss` védelmet.
 5. **`DynamicDCARebalancer`:** A periodikus tőkeinjekciókat és a lejáró piacokról felszabaduló tőkét határhaszon-alapon osztja el.
+
+---
+
+## 7. Chat-Vezérelt Tárca-Végrehajtás, 3-Utas On-Chain Verifikáció és Nem Teljesülő Limit Megbízások Adaptív Újratervezése
+
+A rendszer teljes irányítása **kizárólag a chat-felületen keresztül** történik, miközben az AI közvetlen, hitelesített (`L1/L2 ClobClient` + `POLYMARKET_PRIVATE_KEY` + `POLYMARKET_PROXY`) hozzáféréssel rendelkezik a tárcához, az élő CLOB megbízási könyvhöz és a Polygon blokklánc / Data API egyenlegekhez.
+
+### 7.1. A 3-Utas Atomi Igazság-Egyeztetés (`Three-Way Truth Reconciliation Loop`)
+A rendszer **soha nem bízik vakon** abban, hogy egy beküldött megbízás (`post_order`) valóban teljesült. Minden művelet előtt, közben és után három független adatforrást egyeztet össze:
+
+1. **Tervezett Cél-Vektor (`Target Basket State` — $\mathbf{q}^{\text{target}}$ a `data/pm_futures_ledger.sqlite3` főkönyvben):**
+   - Minden $i \in S_{\text{basket}}$ opcióra a jóváhagyott terv szerinti cél-darabszám ($q_i^{\text{target}}$) és maximális megengedett bekerülési ár ($\bar{p}_i$).
+2. **Valódi On-Chain Tárca-Készlet (`Verified Wallet Inventory` — $\mathbf{q}^{\text{wallet}}(t)$):**
+   - Közvetlenül lekérdezve a Polymarket Data API-ból (`GET https://data-api.polymarket.com/positions?user=<POLYMARKET_PROXY>`) és a `ClobClient.get_balance_allowance(AssetType.CONDITIONAL, token_id=i)` végpontról, kiegészítve a szabad `USDC.e` fedezettel (`AssetType.COLLATERAL`).
+   - Kizárólag a fizikailag a tárcában lévő (`settled on-chain`) share-ek számítanak ténylegesen birtokolt védelemnek.
+3. **Élő CLOB Nyitott Megbízások és Kötéstörténet (`Live CLOB Open Orders & Trades` — $\mathbf{q}^{\text{open}}(t), \mathbf{q}^{\text{matched}}(t)$):**
+   - Közvetlenül lekérdezve a `ClobClient.get_orders()` és `ClobClient.get_trades()` végpontokról.
+   - Minden $i$ lábra a rendszer folyamatosan számítja a **Valós Teljesülési Hiányt (`Unfilled Discrepancy`)**:
+     $$\Delta q_i(t) = q_i^{\text{target}} - \left( q_i^{\text{wallet}}(t) + q_i^{\text{matched\_pending}}(t) \right)$$
+   - Egy kosár vagy rátöltési ciklus **kizárólag akkor** kap `VERIFIED_ON_CHAIN` státuszt, ha minden $i \in S_{\text{basket}}$ lábra:
+     $$\left| q_i^{\text{target}} - q_i^{\text{wallet}}(t) \right| \le \epsilon_{\text{dust}} \quad \text{és} \quad q_i^{\text{open}}(t) = 0$$
+
+### 7.2. Négyfokozatú Adaptív Protokoll Nem Teljesülő vagy Részben Teljesülő Megbízásokra (`Unfilled-Order Re-Optimization Protocol`)
+Amikor egy kosár felépítése vagy rátöltése során valamelyik `Maker` limit megbízás (vagy részlegesen teljesült `FAK / GTC` megbízás) nem teljesül azonnal ($\Delta q_i(t) > 0$), a rendszernek szigorúan tilos csonka kosarat (`Naked Leg`) hátrahagynia. Ehelyett az alábbi **4-fokozatú döntési ciklust** futtatja le:
+
+1. **1. Fokozat — Bázis-Gerinc Azonnali Biztosítása + Passzív Limit Szétválasztás (`T = 0`):**
+   - A mély `Ask` könyvű és szűk spreadű lábakon a rendszer azonnal (`Taker / Crossing GTC`) megszerzi a pozíciót, míg a vékony `Ask` oldalú vagy szélesebb spreadű lábakon beáll a `Best Bid` tetejére (`Maker GTC`), tiszteletben tartva az adott tábla pontos `orderPriceMinTickSize` (`0.01` vagy `0.001`) lépésközét és a minimum darabszám-korlátot (`min_order_size`).
+2. **2. Fokozat — Automatikus Mikro-Utánhúzás (`Auto-Pegging / Cancel & Replace`):**
+   - Ha a nyitott `Maker` limitünk elé más szereplők magasabb `Bid` megbízást tesznek (`Queue Loss`), de az új `Best Bid + 1 tick` ár még mindig nem lépi túl a láb maximális célárát ($\bar{p}_i$), a rendszer automatikusan törli (`cancel_order`) a hátraszorult megbízást, és az új `Best Bid` szintre helyezi át.
+3. **3. Fokozat — Matematikai Újratervezés Elmozduló Ár Esetén (`Dynamic Basket Re-Optimization`):**
+   - Ha egy nyitott limit megbízás meghatározott időablakon belül nem teljesül, mert a könyv eladási (`Ask`) ára felfelé mozdult el, az AI **újrafuttatja a kosár-optimalizálót a már tárcában lévő ($\mathbf{q}^{\text{wallet}}$) lábak peremfeltételével**, és két út közül választja a magasabb `Risk/Reward` értékűt:
+     - **A) Költségvetésen Belüli `Taker` Lezárás (`Controlled Taker Completion`):** Ha a hiányzó $\Delta q_i$ mennyiség azonnali `Ask` áron történő megvásárlása csak minimális ($\le \Delta R_{\text{tol}}$) mértékben csökkenti a kosár kifizetési küszöbét, a rendszer törli a beragadt `Maker` limitet, és azonnal megveszi a hiányzó mennyiséget az `Ask` könyvből, 100%-ra zárva a kosarat.
+     - **B) Dinamikus Kosár-Átsúlyozás (`Role Reclassification & Surplus Redistribution`):** Ha az adott opció ára hirtelen túlhevült ($p_{\text{Ask}, i}(t) \gg P_{\text{true}, i}(t)$), a rendszer **nem üldözi a megugrott árat**: törli a beragadt limitet, az elszállt opció cél-darabszámát visszasorolja az alacsonyabb $S_{\text{base}}$ védelmi szintre (vagy a késleltetett $S_{\text{defer}}$ tartalékba), a felszabaduló `USDC.e` összeget pedig szétosztja a többi, még diszkont áron forgó $S_{\text{alpha}}$ láb között.
+4. **4. Fokozat — Hitelesített Chat-Jelentés (`3-Column Verified Execution Receipt`):**
+   - Minden végrehajtási és egyeztetési kör végén az AI itt a chatben egy **3-oszlopos ellenőrző táblázatot** prezentál:
+     1. **Tervezett Pozíció (`Target Plan`):** Cél-darabszám és célár,
+     2. **Tárcában Hitelesített Pozíció (`On-Chain Wallet Verified`):** Ténylegesen birtokolt darabszám és valós súlyozott átlagár (`VWAP`),
+     3. **Nyitott CLOB Megbízások & Korrekciós Státusz (`Open Orders & Reconciliation Action`):** Minden esetlegesen még dolgozó limit order pontos állapota és a következő automatikus lépés.
