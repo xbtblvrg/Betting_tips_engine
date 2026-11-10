@@ -1283,6 +1283,7 @@ class LearningWorker:
                                   (error, stamp.isoformat(), (stamp + timedelta(seconds=delay)).isoformat(), job_id))
                         c.execute("UPDATE learning_attempts SET status='failed', error=?, finished_at=? WHERE id=?", (error, stamp.isoformat(), attempt))
                     dispatched.append({'id': job_id, 'kind': job['kind'], 'status': 'retry', 'error': error})
+                    logging.warning('[FAST-TRACK] Learning task #%s (%s) failed: %s; scheduled retry in %ds', job_id, job['kind'], error, delay)
 
                 rows = [r for r in rows if r['id'] != job_id]
 

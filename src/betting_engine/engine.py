@@ -127,8 +127,8 @@ class Engine:
                                 failure_mode='SETTLED_LOSS_TRIGGER',
                                 remedy='Automatic post-loss forensic investigation and crucible repair'
                             )
-                except Exception:
-                    pass
+                except Exception as e_repair:
+                    log.warning("[ENGINE-SETTLE] Failed to enqueue R&D repair job after loss on %s: %s", t.get('market'), e_repair)
     def recover_nhl_results(self):
         """Keep unresolved NHL finals pending even if recovery persistence fails."""
         from .nhl_results import recover_pending_nhl

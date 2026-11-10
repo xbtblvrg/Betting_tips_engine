@@ -451,8 +451,8 @@ class CodexModelSynthesizer:
         try:
             with self.log_file.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(record.to_dict()) + "\n")
-        except Exception:
-            pass
+        except Exception as e_log:
+            log.debug("[SYNTH-LOG] Failed to write synthesis log record to %s: %s", self.log_file, e_log)
 
     def _generate_algorithmic_archetype(
         self,
@@ -1134,8 +1134,8 @@ class {class_name}(BaseCandidateModel):
         if not claude_hypothesis and not force_archetype:
             try:
                 claude_hypothesis = self._query_claude_for_domain_hypothesis(canonical_seg, targeted_problem)
-            except Exception:
-                pass
+            except Exception as e_hypo:
+                log.debug("[SYNTH-HYPOTHESIS] Claude hypothesis generation skipped or failed for %s: %s", canonical_seg, e_hypo)
 
         # 1. Generate code via Codex (with Claude 1:1 fallback, then algorithmic fallback)
         provider = "codex"
@@ -1205,8 +1205,8 @@ class {class_name}(BaseCandidateModel):
                     learned_insight=f"Syntax/AST safety error: {err_msg}",
                 )
                 self.feedback_manager.record_synthesis_attempt(fb_rec)
-            except Exception:
-                pass
+            except Exception as e_fb:
+                log.debug("[SYNTH-FEEDBACK] Failed to record syntax failure feedback for %s: %s", model_id, e_fb)
             return record
 
         # 3. Instantiate in isolated scope
@@ -1257,8 +1257,8 @@ class {class_name}(BaseCandidateModel):
                     learned_insight=inst_err,
                 )
                 self.feedback_manager.record_synthesis_attempt(fb_rec)
-            except Exception:
-                pass
+            except Exception as e_fb:
+                log.debug("[SYNTH-FEEDBACK] Failed to record instantiation failure feedback for %s: %s", model_id, e_fb)
             return record
 
         # 4. Pre-flight Validation (Latency, Axioms, Marginals)
@@ -1301,8 +1301,8 @@ class {class_name}(BaseCandidateModel):
                     learned_insight=fail_reason,
                 )
                 self.feedback_manager.record_synthesis_attempt(fb_rec)
-            except Exception:
-                pass
+            except Exception as e_fb:
+                log.debug("[SYNTH-FEEDBACK] Failed to record preflight failure feedback for %s: %s", model_id, e_fb)
             return record
 
         # 5. Out-of-Sample Walk-Forward Crucible Evaluation on Historical Data
@@ -1423,8 +1423,8 @@ class {class_name}(BaseCandidateModel):
                     oos_roi=sim_roi,
                     delta_brier=delta_brier
                 )
-            except Exception:
-                pass
+            except Exception as e_reg:
+                log.warning("[SYNTH-REGISTRY] Failed to register new champion model %s in dynamic registry: %s", model_id, e_reg)
 
             # Formally bind champion candidate model to demoted_markets in Shadow Incubator (Tier 2 $0.00)
             try:
@@ -1509,7 +1509,7 @@ class {class_name}(BaseCandidateModel):
                 validation_errors=validation_errors if not crucible_ok else None,
             )
             self.feedback_manager.record_synthesis_attempt(fb_rec)
-        except Exception:
-            pass
+        except Exception as e_fb:
+            log.warning("[SYNTH-FEEDBACK] Failed to record final synthesis attempt for %s: %s", model_id, e_fb)
 
         return record

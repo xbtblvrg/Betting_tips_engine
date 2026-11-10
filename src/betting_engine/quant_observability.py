@@ -682,7 +682,7 @@ class LeadQuantObservabilityEngine:
                     cur.execute("""
                         SELECT archetype_id, name, category, historical_oos_roi, times_crucible_passed, created_at, origin_model_id
                         FROM distilled_archetype_catalog
-                        ORDER BY id DESC
+                        ORDER BY created_at DESC
                         LIMIT ?
                     """, (limit,))
                     for row in cur.fetchall():
@@ -695,8 +695,8 @@ class LeadQuantObservabilityEngine:
                             'data': {'archetype_id': row[0], 'category': row[2], 'oos_roi': row[3], 'crucible_passes': row[4], 'origin_model_id': row[6]}
                         })
                 conn.close()
-            except Exception:
-                pass
+            except Exception as e_arch:
+                log.debug("[QUANT-OBSERVABILITY] Failed to stream archetype catalog events: %s", e_arch)
 
         # Filter by component if requested
         if component:
