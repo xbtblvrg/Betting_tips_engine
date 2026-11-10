@@ -704,7 +704,7 @@ class Store:
                 cycle_cap = math.inf if is_v3 else policy['max_new_funded_per_publication']
                 if len(eligible)>=cycle_cap:continue
                 diverse_key=(gid,allocation_family(candidate))
-                family_cap = int(settings.get('max_picks_per_family', 1))
+                family_cap = int(settings.get('max_picks_per_family', 3))
                 if diverse_families[diverse_key] >= family_cap:continue
                 cand_id_str = str(candidate.get('id', ''))
                 game_id_str = str(candidate.get('game_id', ''))

@@ -27,7 +27,7 @@
   "max_new_funded_per_publication": 15,
   "max_period_per_event": 2,
   "max_stake_per_event": 15.0,
-  "max_picks_per_family": 1,
+  "max_picks_per_family": 3,
   "max_daily_family_share": 0.35,
   "recommendation_policy": "continuous_model_v1",
   "model_pick_sizing_policy": "all_tiers_weighted_v3",
