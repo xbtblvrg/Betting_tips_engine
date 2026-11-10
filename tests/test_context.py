@@ -1,4 +1,4 @@
-from betting_engine.context import efficiency
+from betting_engine.context import efficiency, SportContext
 from betting_engine.models import FormState
 from betting_engine.domain import Game
 import numpy as np
@@ -12,3 +12,16 @@ def test_pitching_uses_outs_not_decimal_innings_and_only_previous_appearances():
     state.update(g)
     assert state.pitchers['99']['outs']==17
     assert not np.array_equal(before,state.features(g))
+
+def test_official_basketball_season_empty_targets():
+    ctx = SportContext()
+    res = ctx.official_basketball_season([], 2026, 'NBA')
+    assert res['ok'] is True
+    assert res['rows'] == 0
+
+def test_official_football_season_empty_targets():
+    ctx = SportContext()
+    res = ctx.official_football_season([], 2026, 'NFL')
+    assert res['ok'] is True
+    assert res['rows'] == 0
+

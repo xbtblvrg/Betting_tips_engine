@@ -96,7 +96,7 @@ def train(refresh=False,leagues=LEAGUES,controlled=True,recipe_override=None):
             destination=out/(league+'.joblib')
             champion_raw=destination.read_bytes() if controlled and destination.exists() else None
             champion=joblib.load(io.BytesIO(champion_raw)) if champion_raw is not None else None
-            if league in ('EPL', 'UCL'):
+            if league in ('EPL', 'UCL', 'MLS', 'BUNDESLIGA', 'SERIEA', 'LALIGA', 'UEL'):
                 from .soccer_model import SoccerModel
                 fit_at = utcnow()
                 model = SoccerModel.load_or_create(league, champion=champion)

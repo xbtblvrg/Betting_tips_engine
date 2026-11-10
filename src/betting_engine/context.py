@@ -138,6 +138,131 @@ class SportContext:
                 'sha256':hashlib.sha256(''.join(sorted(m['sha256'] for m in metas)).encode()).hexdigest() if metas else None,
                 'fetched_at':max((m['fetched_at'] for m in metas),default=None),
                 'recovered_from':original_source,'recovery_reason':recovery_reason or 'Historical export has no game_id; joined official identities and reconciled player totals instead.'}
+    def official_basketball_season(self,games,season,league,original_source=None,*,recovery_reason=None):
+        targets=[g for g in games if g.league==league and g.season==season and g.state=='final' and not g.context.get('box')]
+        metas=[];errors=[]
+        if not targets:
+            return {'source':f'{league}/{season}/box','ok':True,'rows':0,'target_rows':0,'rejected':0,
+                    'error':None,'recovery_errors':[],'url':f'https://site.api.espn.com/apis/site/v2/sports/basketball/{league.lower()}/summary?event=[id]',
+                    'sha256':None,'fetched_at':utcnow().isoformat(),'recovered_from':original_source,
+                    'recovery_reason':'All basketball boxscores verified in cache'}
+        sport='nba' if league=='NBA' else 'wnba'
+        for g in targets:
+            gid=g.id.split(':')[1] if ':' in g.id else g.id
+            url=f'https://site.api.espn.com/apis/site/v2/sports/basketball/{sport}/summary?event={gid}'
+            try:
+                data,m=self.fetcher.json(url,86400*7)
+                teams=data.get('boxscore',{}).get('teams',[])
+                if len(teams)==2:
+                    parsed_teams={}
+                    for t in teams:
+                        stats_map={s.get('name'):s.get('displayValue') for s in t.get('statistics',[])}
+                        fg=str(stats_map.get('fieldGoalsMade-fieldGoalsAttempted','0-0')).split('-')
+                        fgm,fga=float(fg[0]),float(fg[1]) if len(fg)>1 else 0.0
+                        tp=str(stats_map.get('threePointFieldGoalsMade-threePointFieldGoalsAttempted','0-0')).split('-')
+                        tpm=float(tp[0])
+                        ft=str(stats_map.get('freeThrowsMade-freeThrowsAttempted','0-0')).split('-')
+                        fta=float(ft[1]) if len(ft)>1 else 0.0
+                        oreb=float(stats_map.get('offensiveRebounds',0))
+                        dreb=float(stats_map.get('defensiveRebounds',0))
+                        to=float(stats_map.get('totalTurnovers',stats_map.get('turnovers',0)))
+                        t_name=t.get('team',{}).get('displayName','')
+                        parsed_teams[t_name]={
+                            'field_goals_made':fgm,'field_goals_attempted':fga,
+                            'three_point_field_goals_made':tpm,'free_throws_attempted':fta,
+                            'offensive_rebounds':oreb,'defensive_rebounds':dreb,
+                            'total_turnovers':to,
+                        }
+                    h_stat=parsed_teams.get(g.home)
+                    a_stat=parsed_teams.get(g.away)
+                    if not h_stat or not a_stat:
+                        h_stat=list(parsed_teams.values())[1]
+                        a_stat=list(parsed_teams.values())[0]
+                    h_stat['team_score']=g.home_score
+                    a_stat['team_score']=g.away_score
+                    stats={'home':efficiency(league,h_stat,a_stat),'away':efficiency(league,a_stat,h_stat)}
+                    g.context['box']=stats
+                    g.context['box_source']={'url':m['url'],'sha256':m['sha256'],'fetched_at':m['fetched_at']}
+                    metas.append(g.context['box_source'])
+                else:
+                    errors.append({'game_id':g.id,'error':'ESPN boxscore teams incomplete'})
+            except Exception as e:
+                errors.append({'game_id':g.id,'error':str(e)[:200]})
+        import hashlib
+        return {'source':f'{league}/{season}/box','ok':bool(metas) and not errors,'rows':len(metas),'target_rows':len(targets),'rejected':len(errors),
+                'error':None if metas and not errors else 'Official basketball boxscore recovery incomplete','recovery_errors':errors,
+                'url':f'https://site.api.espn.com/apis/site/v2/sports/basketball/{sport}/summary?event=[id]',
+                'sha256':hashlib.sha256(''.join(sorted(m['sha256'] for m in metas)).encode()).hexdigest() if metas else None,
+                'fetched_at':max((m['fetched_at'] for m in metas),default=None),
+                'recovered_from':original_source,
+                'recovery_reason':recovery_reason or 'Bulk export has no matching game IDs; recovered official stats from ESPN public API.'}
+    def official_football_season(self,games,season,league='NFL',original_source=None,*,recovery_reason=None):
+        targets=[g for g in games if g.league==league and g.season==season and g.state=='final' and not g.context.get('box')]
+        metas=[];errors=[]
+        if not targets:
+            return {'source':f'{league}/{season}/box','ok':True,'rows':0,'target_rows':0,'rejected':0,
+                    'error':None,'recovery_errors':[],'url':'https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=[id]',
+                    'sha256':None,'fetched_at':utcnow().isoformat(),'recovered_from':original_source,
+                    'recovery_reason':'All football boxscores verified in cache'}
+        from datetime import timedelta
+        for g in targets:
+            d_str=g.start[:10].replace('-','')
+            sb_url=f'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates={d_str}'
+            try:
+                sb_data,_=self.fetcher.json(sb_url,86400*7)
+                eid=None
+                for ev in sb_data.get('events',[]):
+                    names=[c.get('team',{}).get('displayName','') for c in ev.get('competitions',[{}])[0].get('competitors',[])]
+                    if g.home in names or g.away in names:
+                        eid=ev.get('id')
+                        break
+                if not eid:
+                    d_prev=(parse_time(g.start)-timedelta(days=1)).strftime('%Y%m%d')
+                    sb_url_prev=f'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates={d_prev}'
+                    sb_data_prev,_=self.fetcher.json(sb_url_prev,86400*7)
+                    for ev in sb_data_prev.get('events',[]):
+                        names=[c.get('team',{}).get('displayName','') for c in ev.get('competitions',[{}])[0].get('competitors',[])]
+                        if g.home in names or g.away in names:
+                            eid=ev.get('id')
+                            break
+                if eid:
+                    sum_url=f'https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event={eid}'
+                    sum_data,m=self.fetcher.json(sum_url,86400*7)
+                    teams=sum_data.get('boxscore',{}).get('teams',[])
+                    if len(teams)==2:
+                        parsed_teams={}
+                        for t in teams:
+                            stats_map={s.get('name'):s.get('displayValue') for s in t.get('statistics',[])}
+                            t_name=t.get('team',{}).get('displayName','')
+                            parsed_teams[t_name]=stats_map
+                        h_stat=parsed_teams.get(g.home)
+                        a_stat=parsed_teams.get(g.away)
+                        if not h_stat or not a_stat:
+                            h_stat=list(parsed_teams.values())[1]
+                            a_stat=list(parsed_teams.values())[0]
+                        stats={'home':efficiency('NFL',h_stat,a_stat),'away':efficiency('NFL',a_stat,h_stat)}
+                        g.context['box']=stats
+                        g.context['box_source']={'url':m['url'],'sha256':m['sha256'],'fetched_at':m['fetched_at']}
+                        try:
+                            from .advanced_metrics import calculate_nfl_epa_efficiency
+                            g.context['advanced_metrics']=calculate_nfl_epa_efficiency(stats)
+                        except Exception:
+                            pass
+                        metas.append(g.context['box_source'])
+                    else:
+                        errors.append({'game_id':g.id,'error':'Teams incomplete in NFL summary'})
+                else:
+                    errors.append({'game_id':g.id,'error':'Could not match ESPN event id for NFL game'})
+            except Exception as e:
+                errors.append({'game_id':g.id,'error':str(e)[:200]})
+        import hashlib
+        return {'source':f'{league}/{season}/box','ok':bool(metas) and not errors,'rows':len(metas),'target_rows':len(targets),'rejected':len(errors),
+                'error':None if metas and not errors else 'Official football boxscore recovery incomplete','recovery_errors':errors,
+                'url':'https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=[id]',
+                'sha256':hashlib.sha256(''.join(sorted(m['sha256'] for m in metas)).encode()).hexdigest() if metas else None,
+                'fetched_at':max((m['fetched_at'] for m in metas),default=None),
+                'recovered_from':original_source,
+                'recovery_reason':recovery_reason or 'Bulk export has no matching game IDs; recovered official stats from ESPN public API.'}
     def enrich_boxes(self,games):
         mapping={g.id:g for g in games if g.state=='final' and getattr(g,'game_type','regular')!='preseason' and not g.context.get('box')};status=[]
         if not mapping:
@@ -190,6 +315,12 @@ class SportContext:
                                     g.context['advanced_metrics'] = calculate_nfl_epa_efficiency(stats)
                             except Exception:
                                 pass
+                        if accepted == 0 and league in ('NBA', 'WNBA'):
+                            status.append(self.official_basketball_season(games, season, league, meta))
+                            continue
+                        if accepted == 0 and league == 'NFL':
+                            status.append(self.official_football_season(games, season, league, meta))
+                            continue
                         status.append({'source':f'{league}/{season}/box','ok':accepted>0,'error':None if accepted else 'No rows could be matched using verified game IDs','rows':accepted,'rejected':rejected,**{k:meta[k] for k in ('url','sha256','fetched_at')}})
                     except Exception as e:status.append({'source':f'{league}/{season}/box','ok':False,'error':str(e)})
             except Exception as e_batch:
