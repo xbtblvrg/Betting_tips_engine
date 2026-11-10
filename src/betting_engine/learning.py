@@ -7,6 +7,7 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 import argparse,fcntl,hashlib,json,logging,sqlite3,time
 from .domain import LEAGUES,utcnow,parse_time
 from .providers import DATA
@@ -969,8 +970,7 @@ class LearningWorker:
             inc_db = self.data / 'shadow_incubator.sqlite3'
             if inc_db.exists():
                 try:
-                    import sqlite3
-                    with sqlite3.connect(f"file:{inc_db.resolve()}?mode=ro", uri=True, timeout=5.0) as chk_c:
+                    with closing(sqlite3.connect(f"file:{inc_db.resolve()}?mode=ro", uri=True, timeout=5.0)) as chk_c:
                         is_grad = chk_c.execute("SELECT 1 FROM graduated_markets WHERE segment_key = ?", (seg_key,)).fetchone()
                         is_inc = chk_c.execute("SELECT 1 FROM demoted_markets WHERE segment_key = ? AND incubation_phase = 'incubating_with_new_model' AND incubated_model_id IS NOT NULL", (seg_key,)).fetchone()
                         if is_grad or is_inc:
@@ -1145,8 +1145,7 @@ class LearningWorker:
             inc_db = self.data / 'shadow_incubator.sqlite3'
             if inc_db.exists():
                 try:
-                    import sqlite3
-                    with sqlite3.connect(f"file:{inc_db.resolve()}?mode=ro", uri=True, timeout=5.0) as chk_c:
+                    with closing(sqlite3.connect(f"file:{inc_db.resolve()}?mode=ro", uri=True, timeout=5.0)) as chk_c:
                         is_grad = chk_c.execute("SELECT 1 FROM graduated_markets WHERE segment_key = ?", (seg_key,)).fetchone()
                         is_inc = chk_c.execute("SELECT 1 FROM demoted_markets WHERE segment_key = ? AND incubation_phase = 'incubating_with_new_model' AND incubated_model_id IS NOT NULL", (seg_key,)).fetchone()
                         if is_grad or is_inc:

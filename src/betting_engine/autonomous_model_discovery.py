@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 import json
 from pathlib import Path
 import sqlite3
@@ -88,7 +89,7 @@ class AutonomousModelDiscoveryEngine:
         if not self.db_path.exists():
             return
         try:
-            with sqlite3.connect(str(self.db_path), timeout=30.0) as conn:
+            with closing(sqlite3.connect(str(self.db_path), timeout=30.0)) as conn:
                 conn.execute("PRAGMA busy_timeout = 30000")
                 conn.execute("""
                     CREATE TABLE IF NOT EXISTS ai_synthesis_feedback_loop (
@@ -224,7 +225,7 @@ class AutonomousModelDiscoveryEngine:
         # Batch touch last_screened_at immediately so the queue advances even if a worker crashes
         now_iso = datetime.now(timezone.utc).isoformat()
         try:
-            with sqlite3.connect(str(self.db_path), timeout=30.0) as touch_conn:
+            with closing(sqlite3.connect(str(self.db_path), timeout=30.0)) as touch_conn:
                 touch_conn.execute("PRAGMA busy_timeout = 30000")
                 touch_conn.execute(
                     f"UPDATE demoted_markets SET last_screened_at = ? WHERE id IN ({','.join('?' for _ in tier1_markets)})",
@@ -260,7 +261,7 @@ class AutonomousModelDiscoveryEngine:
             if not best_cand or not best_cand.is_qualified:
                 # Check persistent AI feedback loop memory for pre-synthesized champion
                 try:
-                    with sqlite3.connect(f"file:{self.db_path.resolve()}?mode=ro", uri=True, timeout=5.0) as fb_conn:
+                    with closing(sqlite3.connect(f"file:{self.db_path.resolve()}?mode=ro", uri=True, timeout=5.0)) as fb_conn:
                         fb_row = fb_conn.execute("""
                             SELECT model_id, class_name, oos_sample_size, oos_win_rate, oos_simulated_roi, oos_delta_brier, oos_max_drawdown
                             FROM ai_synthesis_feedback_loop
@@ -317,7 +318,7 @@ class AutonomousModelDiscoveryEngine:
                     pass
                 finally:
                     try:
-                        with sqlite3.connect(str(self.db_path), timeout=10.0) as fin_conn:
+                        with closing(sqlite3.connect(str(self.db_path), timeout=10.0)) as fin_conn:
                             fin_conn.execute("PRAGMA busy_timeout = 10000")
                             fin_conn.execute(
                                 "UPDATE demoted_markets SET last_screened_at = ? WHERE id = ?",
@@ -387,7 +388,7 @@ class AutonomousModelDiscoveryEngine:
                     pass
                 finally:
                     try:
-                        with sqlite3.connect(str(self.db_path), timeout=10.0) as fin_conn:
+                        with closing(sqlite3.connect(str(self.db_path), timeout=10.0)) as fin_conn:
                             fin_conn.execute("PRAGMA busy_timeout = 10000")
                             fin_conn.execute(
                                 "UPDATE demoted_markets SET last_screened_at = ? WHERE id = ?",

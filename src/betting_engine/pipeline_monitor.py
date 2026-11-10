@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 import json
 import logging
 from pathlib import Path
+from contextlib import closing
 from typing import Any, Dict, List, Optional
 
 from .domain import utcnow
@@ -150,7 +151,7 @@ def record_cycle_funnel(
             import sqlite3
             db_file = data_dir / 'engine.sqlite3'
             if db_file.exists():
-                with sqlite3.connect(db_file, timeout=30.0) as conn:
+                with closing(sqlite3.connect(db_file, timeout=30.0)) as conn:
                     conn.execute("PRAGMA busy_timeout = 30000")
                     cur = conn.cursor()
                     cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='learning_jobs'")

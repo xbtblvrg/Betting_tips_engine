@@ -22,6 +22,7 @@ import math
 import os
 from pathlib import Path
 import sqlite3
+from contextlib import closing
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -190,7 +191,7 @@ class PolymarketAutonomousExecutor:
         if db_key and db_key in PolymarketAutonomousExecutor._ensured_dbs:
             return
         try:
-            with sqlite3.connect(self.db_path, timeout=30) as conn:
+            with closing(sqlite3.connect(self.db_path, timeout=30)) as conn:
                 conn.execute(
                     """
                     CREATE TABLE IF NOT EXISTS polymarket_orders(
@@ -238,6 +239,7 @@ class PolymarketAutonomousExecutor:
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_poly_orders_status ON polymarket_orders(status);")
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_poly_orders_mode ON polymarket_orders(execution_mode);")
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_poly_orders_scope ON polymarket_orders(scope);")
+                conn.commit()
             if db_key:
                 PolymarketAutonomousExecutor._ensured_dbs.add(db_key)
         except Exception as exc:
@@ -255,7 +257,7 @@ class PolymarketAutonomousExecutor:
             try:
                 from .segment_scoreboard import compute_segment_scoreboard
 
-                with sqlite3.connect(self.db_path, timeout=30) as conn:
+                with closing(sqlite3.connect(self.db_path, timeout=30)) as conn:
                     PolymarketAutonomousExecutor._cached_scoreboard = compute_segment_scoreboard(conn)
                     PolymarketAutonomousExecutor._cached_scoreboard_db = db_key
                     PolymarketAutonomousExecutor._scoreboard_cached_at = now_ts
@@ -1142,7 +1144,7 @@ class PolymarketAutonomousExecutor:
         # Atomic DB deduplication guard: Ensure token is not already actively placed
         if self.db_path.exists():
             try:
-                with sqlite3.connect(self.db_path, timeout=30.0) as conn:
+                with closing(sqlite3.connect(self.db_path, timeout=30.0)) as conn:
                     conn.execute("PRAGMA busy_timeout = 30000;")
                     active_row = conn.execute(
                         "SELECT id FROM polymarket_orders WHERE token_id = ? AND status IN ('open', 'filled', 'staged', 'signed', 'relayed')",
@@ -1730,7 +1732,7 @@ class PolymarketAutonomousExecutor:
 
         synced: List[Dict[str, Any]] = []
         try:
-            with sqlite3.connect(self.db_path, timeout=30) as conn:
+            with closing(sqlite3.connect(self.db_path, timeout=30)) as conn:
                 conn.row_factory = sqlite3.Row
                 cur = conn.cursor()
                 rows = cur.execute(
@@ -1792,7 +1794,7 @@ class PolymarketAutonomousExecutor:
         now = utcnow()
 
         try:
-            with sqlite3.connect(self.db_path, timeout=30) as conn:
+            with closing(sqlite3.connect(self.db_path, timeout=30)) as conn:
                 conn.row_factory = sqlite3.Row
                 open_makers = conn.execute(
                     """
@@ -1971,7 +1973,7 @@ class PolymarketAutonomousExecutor:
         live_won_count = 0
 
         try:
-            with sqlite3.connect(self.db_path, timeout=30) as conn:
+            with closing(sqlite3.connect(self.db_path, timeout=30)) as conn:
                 conn.row_factory = sqlite3.Row
                 cur = conn.cursor()
                 rows = cur.execute(
@@ -2128,7 +2130,7 @@ class PolymarketAutonomousExecutor:
     def reset_shadow_portfolio(self) -> Dict[str, Any]:
         """Cleans/resets shadow paper trading portfolio, preserving a fresh clean slate."""
         try:
-            with sqlite3.connect(self.db_path, timeout=30) as conn:
+            with closing(sqlite3.connect(self.db_path, timeout=30)) as conn:
                 deleted_cnt = conn.execute(
                     "DELETE FROM polymarket_orders WHERE execution_mode = 'shadow' OR status IN ('rejected', 'staged');"
                 ).rowcount
@@ -2169,7 +2171,7 @@ class PolymarketAutonomousExecutor:
         """Atomically inserts/updates polymarket_orders and appends to jsonl log."""
         now_iso = utcnow().isoformat()
         try:
-            with sqlite3.connect(self.db_path, timeout=30) as conn:
+            with closing(sqlite3.connect(self.db_path, timeout=30)) as conn:
                 conn.execute(
                     """
                     INSERT INTO polymarket_orders (
@@ -2220,6 +2222,7 @@ class PolymarketAutonomousExecutor:
                         scope,
                     ),
                 )
+                conn.commit()
         except Exception as exc:
             log.error(f"Failed to record polymarket order in SQLite: {exc}")
 
@@ -2269,7 +2272,7 @@ class PolymarketAutonomousExecutor:
         """Updates status of an existing order and appends transition event."""
         now_iso = utcnow().isoformat()
         try:
-            with sqlite3.connect(self.db_path, timeout=30) as conn:
+            with closing(sqlite3.connect(self.db_path, timeout=30)) as conn:
                 conn.execute(
                     """
                     UPDATE polymarket_orders SET
@@ -2297,6 +2300,7 @@ class PolymarketAutonomousExecutor:
                         client_order_id,
                     ),
                 )
+                conn.commit()
         except Exception as exc:
             log.error(f"Failed to update polymarket order status: {exc}")
 

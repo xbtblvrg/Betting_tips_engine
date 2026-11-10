@@ -15,6 +15,7 @@ import hashlib
 import json
 import logging
 from pathlib import Path
+from contextlib import closing
 
 log = logging.getLogger(__name__)
 import sqlite3
@@ -261,7 +262,7 @@ def enqueue_rd_repair_job(
         except sqlite3.OperationalError as op_err:
             if "readonly" in str(op_err).lower():
                 from .providers import DATA
-                with sqlite3.connect(str(DATA / 'engine.sqlite3'), timeout=30.0) as w_conn:
+                with closing(sqlite3.connect(str(DATA / 'engine.sqlite3'), timeout=30.0)) as w_conn:
                     w_conn.execute("PRAGMA busy_timeout = 30000")
                     w_conn.execute("""
                         INSERT INTO learning_jobs (id, kind, league, status, created_at, updated_at, next_attempt, attempts, payload)

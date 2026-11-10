@@ -21,6 +21,7 @@ import json
 import logging
 from pathlib import Path
 import sqlite3
+from contextlib import closing
 from typing import Any, Dict, List, Optional, Tuple
 
 from .domain import utcnow
@@ -162,7 +163,7 @@ class AutonomousROIGovernor:
 
         try:
             from .segment_scoreboard import compute_segment_scoreboard
-            with sqlite3.connect(self.db_path, timeout=10.0) as sb_conn:
+            with closing(sqlite3.connect(self.db_path, timeout=10.0)) as sb_conn:
                 sb_obj = compute_segment_scoreboard(sb_conn)
                 sb_underperforming_set = {s["segment"] for s in sb_obj.get("underperforming_segments", [])}
         except Exception as e_sb:

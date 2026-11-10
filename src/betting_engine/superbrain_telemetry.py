@@ -148,7 +148,7 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
 
     if eng_db.exists():
         try:
-            with sqlite3.connect(f"file:{eng_db.resolve()}?mode=ro", uri=True, timeout=5.0) as conn:
+            with closing(sqlite3.connect(f"file:{eng_db.resolve()}?mode=ro", uri=True, timeout=5.0)) as conn:
                 c = conn.cursor()
 
                 # Bets summary
@@ -306,7 +306,7 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
 
     if inc_db.exists():
         try:
-            with sqlite3.connect(f"file:{inc_db.resolve()}?mode=ro", uri=True, timeout=5.0) as conn:
+            with closing(sqlite3.connect(f"file:{inc_db.resolve()}?mode=ro", uri=True, timeout=5.0)) as conn:
                 c = conn.cursor()
 
                 # Fast counts on shadow wagers pool
@@ -870,7 +870,7 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
     autorun_errors: List[Dict[str, Any]] = []
     if eng_db.exists():
         try:
-            with sqlite3.connect(f"file:{eng_db.resolve()}?mode=ro", uri=True, timeout=3.0) as conn:
+            with closing(sqlite3.connect(f"file:{eng_db.resolve()}?mode=ro", uri=True, timeout=3.0)) as conn:
                 c = conn.cursor()
                 c.execute("""
                     SELECT logged_at, stage, severity, status, message, error_code, ai_remediation_hint

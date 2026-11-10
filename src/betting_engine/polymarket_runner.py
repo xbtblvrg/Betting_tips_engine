@@ -14,6 +14,7 @@ import logging
 import os
 from pathlib import Path
 import sqlite3
+from contextlib import closing
 import threading
 import time
 from typing import Any, Dict, List, Optional, Set, Tuple
@@ -123,7 +124,7 @@ class PolymarketAutonomousRunner:
         if not self.db_path.exists():
             return set()
         try:
-            with sqlite3.connect(self.db_path, timeout=30.0) as conn:
+            with closing(sqlite3.connect(self.db_path, timeout=30.0)) as conn:
                 conn.execute("PRAGMA busy_timeout = 30000;")
                 cur = conn.cursor()
                 rows = cur.execute(
@@ -139,7 +140,7 @@ class PolymarketAutonomousRunner:
         if not self.db_path.exists():
             return set()
         try:
-            with sqlite3.connect(self.db_path, timeout=30.0) as conn:
+            with closing(sqlite3.connect(self.db_path, timeout=30.0)) as conn:
                 conn.execute("PRAGMA busy_timeout = 30000;")
                 cur = conn.cursor()
                 rows = cur.execute(
@@ -155,7 +156,7 @@ class PolymarketAutonomousRunner:
         if not self.db_path.exists():
             return []
         try:
-            with sqlite3.connect(self.db_path, timeout=30.0) as conn:
+            with closing(sqlite3.connect(self.db_path, timeout=30.0)) as conn:
                 conn.execute("PRAGMA busy_timeout = 30000;")
                 cur = conn.cursor()
                 # Check if tips table exists
@@ -1044,8 +1045,21 @@ class PolymarketAutonomousRunner:
             import time as _t
             for attempt in range(8):
                 try:
-                    with sqlite3.connect(self.db_path, timeout=60.0) as conn:
+                    with closing(sqlite3.connect(self.db_path, timeout=60.0)) as conn:
                         conn.execute("PRAGMA busy_timeout = 60000;")
+                        conn.execute("""
+                            CREATE TABLE IF NOT EXISTS learning_jobs(
+                                id TEXT PRIMARY KEY,
+                                kind TEXT NOT NULL,
+                                league TEXT NOT NULL,
+                                status TEXT NOT NULL,
+                                created_at TEXT NOT NULL,
+                                updated_at TEXT NOT NULL,
+                                next_attempt TEXT NOT NULL,
+                                attempts INTEGER NOT NULL DEFAULT 0,
+                                payload TEXT NOT NULL
+                            );
+                        """)
                         if id_records:
                             conn.executemany("""
                                 INSERT INTO learning_jobs (id, kind, league, status, created_at, updated_at, next_attempt, payload)
@@ -1058,6 +1072,7 @@ class PolymarketAutonomousRunner:
                                 VALUES (?, 'polymarket_taxonomy_repair', 'ALL', 'queued', ?, ?, ?, ?)
                                 ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, payload = excluded.payload;
                             """, tax_records)
+                        conn.commit()
                     break
                 except sqlite3.OperationalError as exc:
                     if "locked" in str(exc).lower() and attempt < 7:

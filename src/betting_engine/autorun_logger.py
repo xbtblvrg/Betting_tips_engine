@@ -13,6 +13,7 @@ import logging
 import os
 import sqlite3
 import time
+from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -75,7 +76,7 @@ def init_autorun_db(db_path: Optional[Path] = None) -> None:
     target_path = db_path or _get_db_path()
     try:
         target_path.parent.mkdir(parents=True, exist_ok=True)
-        with sqlite3.connect(target_path, timeout=5.0) as conn:
+        with closing(sqlite3.connect(target_path, timeout=5.0)) as conn:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS autorun_events (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -181,7 +182,7 @@ def log_autorun_event(
     db_path = _get_db_path(store)
     try:
         init_autorun_db(db_path)
-        with sqlite3.connect(db_path, timeout=5.0) as conn:
+        with closing(sqlite3.connect(db_path, timeout=5.0)) as conn:
             conn.execute(
                 """
                 INSERT INTO autorun_events (
@@ -235,7 +236,7 @@ def get_autorun_logs(
 
     if db_path.exists():
         try:
-            with sqlite3.connect(db_path, timeout=5.0) as conn:
+            with closing(sqlite3.connect(db_path, timeout=5.0)) as conn:
                 conn.row_factory = sqlite3.Row
                 query = "SELECT * FROM autorun_events WHERE 1=1"
                 params = []
@@ -307,7 +308,7 @@ def get_autorun_diagnostics(hours: float = 24.0, store: Any = None) -> Dict[str,
 
     if db_path.exists():
         try:
-            with sqlite3.connect(db_path, timeout=5.0) as conn:
+            with closing(sqlite3.connect(db_path, timeout=5.0)) as conn:
                 conn.row_factory = sqlite3.Row
                 cur = conn.cursor()
                 cur.execute(

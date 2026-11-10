@@ -2531,7 +2531,7 @@ class ShadowMarketIncubator:
                 from .tier_state_machine import enqueue_rd_repair_job
                 eng_db = self.data_dir / 'engine.sqlite3'
                 if eng_db.exists():
-                    with sqlite3.connect(str(eng_db), timeout=30.0) as eng_conn:
+                    with closing(sqlite3.connect(str(eng_db), timeout=30.0)) as eng_conn:
                         for sk, lg, rsn, r_roi, r_pnl, n_g in evicted_jobs_to_enqueue:
                             fail_mode = 'TIER_2_FAST_FAIL_DRAWDOWN' if 'Fast-Fail' in rsn else 'TIER_2_STAGNATION'
                             enqueue_rd_repair_job(

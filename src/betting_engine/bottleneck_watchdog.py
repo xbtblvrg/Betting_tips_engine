@@ -13,6 +13,7 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
+from contextlib import closing
 import json
 import logging
 from pathlib import Path
@@ -350,7 +351,7 @@ class BottleneckWatchdog:
             return health
 
         try:
-            with sqlite3.connect(db_path, timeout=15.0) as conn:
+            with closing(sqlite3.connect(db_path, timeout=15.0)) as conn:
                 conn.row_factory = sqlite3.Row
                 cur = conn.cursor()
 
@@ -639,7 +640,7 @@ class BottleneckWatchdog:
         import time as _t
         for attempt in range(8):
             try:
-                with sqlite3.connect(db_path, timeout=60.0) as conn:
+                with closing(sqlite3.connect(db_path, timeout=60.0)) as conn:
                     conn.execute("PRAGMA busy_timeout = 60000;")
                     cur = conn.cursor()
                     cur.execute("""

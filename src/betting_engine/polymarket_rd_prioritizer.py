@@ -14,6 +14,7 @@ Prime Directives:
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from contextlib import closing
 import hashlib
 import json
 import logging
@@ -239,7 +240,7 @@ class PolymarketRDPrioritizer:
         try:
             from .segment_scoreboard import compute_segment_scoreboard
             if self.db_path.exists():
-                with sqlite3.connect(self.db_path, timeout=30.0) as conn:
+                with closing(sqlite3.connect(self.db_path, timeout=30.0)) as conn:
                     conn.execute("PRAGMA busy_timeout = 30000;")
                     sb = compute_segment_scoreboard(conn)
                     for s in (sb.get("alpha_segments", []) + sb.get("exploration_segments", []) + sb.get("underperforming_segments", [])):
@@ -391,8 +392,21 @@ class PolymarketRDPrioritizer:
             import time as _t
             for attempt in range(3):
                 try:
-                    with sqlite3.connect(self.db_path, timeout=45.0) as conn:
+                    with closing(sqlite3.connect(self.db_path, timeout=45.0)) as conn:
                         conn.execute("PRAGMA busy_timeout = 45000;")
+                        conn.execute("""
+                            CREATE TABLE IF NOT EXISTS learning_jobs(
+                                id TEXT PRIMARY KEY,
+                                kind TEXT NOT NULL,
+                                league TEXT NOT NULL,
+                                status TEXT NOT NULL,
+                                created_at TEXT NOT NULL,
+                                updated_at TEXT NOT NULL,
+                                next_attempt TEXT NOT NULL,
+                                attempts INTEGER NOT NULL DEFAULT 0,
+                                payload TEXT NOT NULL
+                            );
+                        """)
                         conn.executemany(
                             """
                             INSERT INTO learning_jobs (
@@ -404,6 +418,7 @@ class PolymarketRDPrioritizer:
                             """,
                             records,
                         )
+                        conn.commit()
                     enqueued_count = len(records)
                     break
                 except sqlite3.OperationalError as exc:

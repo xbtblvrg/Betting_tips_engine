@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import sqlite3
+from contextlib import closing
 import subprocess
 import tempfile
 from datetime import datetime, timezone
@@ -48,7 +49,7 @@ def ingest(source: Path, output: Path) -> dict:
     files = list(walk(source))
     output.mkdir(parents=True, exist_ok=True)
     records = []
-    with sqlite3.connect(output / "library.sqlite") as db:
+    with closing(sqlite3.connect(output / "library.sqlite")) as db:
         db.execute("CREATE VIRTUAL TABLE IF NOT EXISTS pages USING fts5(book_id UNINDEXED, locator UNINDEXED, text)")
         for path in files:
             record = {"path": str(path), "name": path.name,
@@ -87,7 +88,7 @@ def ingest(source: Path, output: Path) -> dict:
 def search(database: Path, query: str, limit: int = 10) -> list[dict]:
     if not 1 <= limit <= 100:
         raise ValueError("limit must be between 1 and 100")
-    with sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True) as db:
+    with closing(sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True)) as db:
         rows = db.execute("SELECT book_id, locator, snippet(pages, 2, '[', ']', '…', 30) "
                           "FROM pages WHERE pages MATCH ? ORDER BY rank LIMIT ?",
                           (query, limit)).fetchall()

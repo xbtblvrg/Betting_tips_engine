@@ -8,6 +8,7 @@ atomically records realized net PnL in SQLite, and emits telemetry events.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from contextlib import closing
 import json
 import logging
 import os
@@ -275,7 +276,7 @@ class PolymarketOutcomeSettler:
         gamma_res_cache: Dict[str, Optional[Dict[str, Any]]] = {}
 
         try:
-            with sqlite3.connect(self.db_path, timeout=30.0) as conn:
+            with closing(sqlite3.connect(self.db_path, timeout=30.0)) as conn:
                 conn.execute("PRAGMA busy_timeout = 30000;")
                 conn.row_factory = sqlite3.Row
                 cur = conn.cursor()

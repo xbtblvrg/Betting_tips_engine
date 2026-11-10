@@ -192,9 +192,10 @@ def seal_batch(settings,held,tips,issued_ids=None):
         try:
             from .providers import DATA
             import sqlite3
+            from contextlib import closing
             db_path = DATA / 'engine.sqlite3'
             if db_path.exists():
-                with sqlite3.connect(f"file:{db_path.resolve()}?immutable=1", uri=True, timeout=15.0) as conn:
+                with closing(sqlite3.connect(f"file:{db_path.resolve()}?immutable=1", uri=True, timeout=15.0)) as conn:
                     cur = conn.cursor()
                     issued = {r[0] for r in cur.execute("SELECT tip_id FROM recommendation_issuance").fetchall()}
         except Exception:

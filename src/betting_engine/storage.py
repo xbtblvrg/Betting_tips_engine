@@ -1,7 +1,7 @@
 """Durable publication, audit trail, manual bets and future notification outbox."""
 import json,sqlite3,hashlib,math,logging,time as time_mod,threading
 from collections import Counter
-from contextlib import contextmanager
+from contextlib import contextmanager, closing
 from pathlib import Path
 from .providers import DATA
 from .domain import utcnow,parse_time
@@ -28,7 +28,7 @@ class Store:
     def __init__(self,path=None):
         self.path=Path(path or DATA/'engine.sqlite3');self.path.parent.mkdir(parents=True,exist_ok=True)
         try:
-            with sqlite3.connect(self.path, timeout=60.0) as init_conn:
+            with closing(sqlite3.connect(self.path, timeout=60.0)) as init_conn:
                 init_conn.execute('PRAGMA journal_mode=WAL')
         except Exception:
             pass

@@ -702,6 +702,16 @@ class UnifiedMarketUniverse:
                         prof.phase_detail = f"Live Probation ({stat['sample_size']} games, {stat['units']:+.1f}U) - $0.50 floor"
                 else:
                     # No post-graduation live decisions yet (0 live settled games with new model)
+                    if at_stat and at_stat['pnl'] < 0.0:
+                        prof.tier = int(MarketTier.RESEARCH_RND)
+                        prof.tier_name = "RESEARCH_RND"
+                        prof.stake_cap = 0.00
+                        prof.active_model_id = None
+                        prof.model_archetype = None
+                        prof.phase_detail = f"Past Live Loss Demotion ({at_stat['roi_pct']:.1f}% ROI, ${at_stat['pnl']:.2f} over {at_stat['sample_size']} games) - Quarantined to R&D ($0.00)"
+                        grad_keys_set.discard(k_perf)
+                        continue
+
                     # Fixture-Aware Silent Market Eviction Guard (Commandments 1, 2, 6, 7 & 10):
                     # Check how many distinct match opportunities have occurred in this league since graduation.
                     grad_ts = grad_at_map.get(k_perf) or grad_at_map.get(f"{prof.league}|{prof.scope}|{prof.family}") or '1970-01-01'

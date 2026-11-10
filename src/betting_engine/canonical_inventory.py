@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
+from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -52,7 +53,7 @@ def get_canonical_system_inventory(data_dir: Path = DATA, force_refresh: bool = 
     open_bets_db = 0
     if engine_db.exists():
         try:
-            with sqlite3.connect(f"file:{engine_db}?mode=ro", uri=True, timeout=5.0) as conn:
+            with closing(sqlite3.connect(f"file:{engine_db}?mode=ro", uri=True, timeout=5.0)) as conn:
                 cur = conn.cursor()
                 cur.execute("SELECT COUNT(*) FROM system_decisions")
                 total_decisions = cur.fetchone()[0]
@@ -87,7 +88,7 @@ def get_canonical_system_inventory(data_dir: Path = DATA, force_refresh: bool = 
             pass
     elif engine_db.exists():
         try:
-            with sqlite3.connect(f"file:{engine_db}?mode=ro", uri=True, timeout=5.0) as conn:
+            with closing(sqlite3.connect(f"file:{engine_db}?mode=ro", uri=True, timeout=5.0)) as conn:
                 cur = conn.cursor()
                 cur.execute("SELECT stake FROM bets WHERE status = 'open'")
                 open_stakes = [float(r[0]) for r in cur.fetchall() if r[0] is not None]

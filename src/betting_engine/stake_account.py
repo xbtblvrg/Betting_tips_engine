@@ -12,6 +12,7 @@ import logging
 import os
 from pathlib import Path
 import sqlite3
+from contextlib import closing
 import subprocess
 import sys
 import time
@@ -979,7 +980,7 @@ def stage_betslip_in_safari(
         try:
             db_path = Path(__file__).resolve().parent.parent.parent / "data" / "engine.sqlite3"
             if db_path.exists():
-                with sqlite3.connect(f"file:{db_path.resolve()}?mode=ro", uri=True, timeout=30.0) as sconn:
+                with closing(sqlite3.connect(f"file:{db_path.resolve()}?mode=ro", uri=True, timeout=30.0)) as sconn:
                     scur = sconn.cursor()
                     scur.execute("SELECT payload FROM system_decisions WHERE tip_id = ? LIMIT 1", (tip_id,))
                     srow = scur.fetchone()
@@ -1324,7 +1325,7 @@ def stage_betslip_in_safari(
         try:
             db_path = Path(__file__).resolve().parent.parent.parent / "data" / "engine.sqlite3"
             if db_path.exists():
-                with sqlite3.connect(f"file:{db_path.resolve()}?mode=ro", uri=True, timeout=30.0) as sconn:
+                with closing(sqlite3.connect(f"file:{db_path.resolve()}?mode=ro", uri=True, timeout=30.0)) as sconn:
                     scur = sconn.cursor()
                     scur.execute("SELECT value FROM kv WHERE key = 'stake_live_sync'")
                     srow = scur.fetchone()
@@ -2710,7 +2711,7 @@ def stage_betslip_in_safari(
                 try:
                     db_path = Path(__file__).resolve().parent.parent.parent / "data" / "engine.sqlite3"
                     if db_path.exists():
-                        with sqlite3.connect(db_path, timeout=30.0) as job_conn:
+                        with closing(sqlite3.connect(db_path, timeout=30.0)) as job_conn:
                             job_conn.execute("PRAGMA busy_timeout = 30000")
                             j_cur = job_conn.cursor()
                             job_id = f"repair_selector_{tip_id}"

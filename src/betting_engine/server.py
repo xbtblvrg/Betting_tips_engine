@@ -8,7 +8,7 @@ try:
         resource.setrlimit(resource.RLIMIT_NOFILE, (target, hard))
 except Exception:
     pass
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, closing
 from pathlib import Path
 log=logging.getLogger(__name__)
 from typing import Literal, Optional
@@ -448,7 +448,7 @@ def polymarket_trader_orders(limit: int = 500, status: Optional[str] = None, mod
     orders = []
     if db_p.exists():
         try:
-            with sqlite3.connect(f"file:{db_p.resolve()}?mode=ro", uri=True, timeout=5.0) as conn:
+            with closing(sqlite3.connect(f"file:{db_p.resolve()}?mode=ro", uri=True, timeout=5.0)) as conn:
                 conn.row_factory = sqlite3.Row
                 cur = conn.cursor()
                 query = "SELECT * FROM polymarket_orders"
