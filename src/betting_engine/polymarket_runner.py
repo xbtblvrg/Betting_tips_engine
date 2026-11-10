@@ -520,6 +520,8 @@ class PolymarketAutonomousRunner:
         rejected_candidates: List[Dict[str, Any]] = []
         unmatched_events: List[Dict[str, Any]] = []
         unmapped_market_types: Set[str] = set()
+        data_deficiency_gaps: List[Dict[str, Any]] = []
+        model_deficit_gaps: List[Dict[str, Any]] = []
         clob_checks_count = 0
 
         # 0. Smart Order Routing: Process open Maker fallbacks & adverse selection circuit breaker
@@ -794,6 +796,16 @@ class PolymarketAutonomousRunner:
                             target_side=side,
                             scope=scope,
                         )
+                        if model_prob is None:
+                            model_deficit_gaps.append({
+                                "league": league,
+                                "scope": scope,
+                                "family": family,
+                                "segment_key": f"{league}|{scope}|{family}",
+                                "title": title,
+                                "line": line_val,
+                                "reason": f"Extreme alternate total line {line_val} on {title} exceeds Gaussian shift bounds. AI model must synthesize discrete distribution archetype (e.g. Negative Binomial / Poisson) for tail pricing.",
+                            })
                     elif forecast and family == "spreads" and line_val is not None:
                         # Outcome spread handicap:
                         # Polymarket defines line_val for Outcome 0 (Named Team in question).
@@ -913,6 +925,18 @@ class PolymarketAutonomousRunner:
                             f"Model prob ({model_prob:.3f}) diverges by {disagreement:.3f} from Polymarket ({poly_price:.3f}). "
                             f"Exceeds max allowed {max_disagreement:.2f}. Rejected."
                         )
+                        data_deficiency_gaps.append({
+                            "league": league,
+                            "scope": scope,
+                            "family": family,
+                            "segment_key": f"{league}|{scope}|{family}",
+                            "title": title,
+                            "selection": outcome_label,
+                            "model_prob": model_prob,
+                            "poly_price": poly_price,
+                            "disagreement": disagreement,
+                            "reason": f"Information asymmetry / context deficit ({disagreement:.1%} divergence): model prob {model_prob:.3f} vs market {poly_price:.3f} on {title} {outcome_label}. Ingest real-time player/injury feeds or calibrate rating variance.",
+                        })
                         continue
 
                     nominal_ev = (model_prob / poly_price) - 1.0
@@ -1025,8 +1049,8 @@ class PolymarketAutonomousRunner:
         # 2. Trigger Outcome Settlement & Token Auto-Redemption
         settle_res = self.settler.settle_orders()
 
-        # 3. Enqueue identification and taxonomy gaps to learning_jobs for autonomous AI repair
-        if self.db_path.exists() and (unmatched_events or unmapped_market_types):
+        # 3. Enqueue identification, taxonomy, data context, and model gaps to learning_jobs for autonomous AI repair
+        if self.db_path.exists() and (unmatched_events or unmapped_market_types or data_deficiency_gaps or model_deficit_gaps):
             id_records = []
             for unmatch in unmatched_events:
                 if unmatch.get("reason") == "team_names_unmatched":
@@ -1055,6 +1079,41 @@ class PolymarketAutonomousRunner:
                     "timestamp": now_iso,
                 }
                 tax_records.append((job_id, now_iso, now_iso, now_iso, json.dumps(payload)))
+
+            data_records = []
+            for d_gap in data_deficiency_gaps:
+                seg_k = d_gap.get("segment_key") or f"{d_gap.get('league')}|full_game|moneyline"
+                lg = d_gap.get("league", "UNKNOWN")
+                job_id = f"gap_data_{lg.lower()}_{hashlib.sha256((d_gap.get('title', '') + d_gap.get('selection', '')).encode()).hexdigest()[:12]}"
+                payload = {
+                    "kind": "upstream_sports_sensor_synthesis",
+                    "task_id": job_id,
+                    "league": lg,
+                    "segment_key": seg_k,
+                    "event_title": d_gap.get("title"),
+                    "selection": d_gap.get("selection"),
+                    "divergence": d_gap.get("disagreement"),
+                    "reason": d_gap.get("reason"),
+                    "priority": "HIGH",
+                    "timestamp": now_iso,
+                }
+                data_records.append((job_id, lg, now_iso, now_iso, now_iso, json.dumps(payload)))
+
+            model_records = []
+            for m_gap in model_deficit_gaps:
+                seg_k = m_gap.get("segment_key") or f"{m_gap.get('league')}|full_game|totals"
+                lg = m_gap.get("league", "UNKNOWN")
+                job_id = f"gap_model_{lg.lower()}_{hashlib.sha256((seg_k + str(m_gap.get('line', ''))).encode()).hexdigest()[:12]}"
+                payload = {
+                    "kind": "urgent_polymarket_model_repair",
+                    "league": lg,
+                    "segment_key": seg_k,
+                    "line": m_gap.get("line"),
+                    "reason": m_gap.get("reason"),
+                    "priority": "HIGH",
+                    "timestamp": now_iso,
+                }
+                model_records.append((job_id, lg, now_iso, now_iso, now_iso, json.dumps(payload)))
 
             import time as _t
             from .db_accelerator import get_optimized_connection
@@ -1086,6 +1145,18 @@ class PolymarketAutonomousRunner:
                                 VALUES (?, 'polymarket_taxonomy_repair', 'ALL', 'queued', ?, ?, ?, ?)
                                 ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, payload = excluded.payload;
                             """, tax_records)
+                        if data_records:
+                            conn.executemany("""
+                                INSERT INTO learning_jobs (id, kind, league, status, created_at, updated_at, next_attempt, payload)
+                                VALUES (?, 'upstream_sports_sensor_synthesis', ?, 'queued', ?, ?, ?, ?)
+                                ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, payload = excluded.payload;
+                            """, data_records)
+                        if model_records:
+                            conn.executemany("""
+                                INSERT INTO learning_jobs (id, kind, league, status, created_at, updated_at, next_attempt, payload)
+                                VALUES (?, 'urgent_polymarket_model_repair', ?, 'queued', ?, ?, ?, ?)
+                                ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, payload = excluded.payload;
+                            """, model_records)
                         conn.commit()
                     break
                 except sqlite3.OperationalError as exc:
