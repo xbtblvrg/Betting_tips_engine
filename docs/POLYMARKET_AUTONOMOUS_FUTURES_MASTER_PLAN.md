@@ -30,14 +30,14 @@ A rendszer alapvető matematikai és stratégiai küldetése: **olyan többopci�
 
 ## 2. Technikai és Szabályrendszeri Szétválasztás
 
-| Dimenzió | Meglévő Napi Sportfogadási Engine (`betting_engine`) | Új Autonóm Polymarket Futures Engine (`pm_futures_engine`) |
+| Dimenzió | Meglévő Napi Sportfogadási Engine (`betting_engine`) | Új Autonóm Polymarket Multi-Market & Futures Engine (`pm_markets_engine`) |
 | :--- | :--- | :--- |
-| **Fő feladat** | Rövid lejáratú napi mérkőzés-fogadások | Többopciós (`NegRisk` / Futures / Korlát) portfóliók autonóm építése és végigkereskedése |
+| **Fő feladat** | Rövid lejáratú napi mérkőzés-fogadások | Többopciós (`NegRisk` / Futures / Korlát / Egyedi) piacok autonóm építése és végigkereskedése |
 | **Időhorizont** | Rövid távú mérkőzés-ablak | Tetszőleges (rövidtől több ciklusig tartó lejárati létra) |
-| **Tétkorlátok** | Egyedi mérkőzésenkénti korlátos Frakcionális Kelly | **Nincs egyedi tétplafon**; piac-specifikus tőkeallokáció ($B_{m,0}$ kezdőtőke + $\Delta B_{m,t}$ rátöltések) |
-| **Végrehajtási mód** | Stake-en manuális (`assumed manual`), szigorú Tier 1–4 kapukkal | **100% Autonóm CLOB végrehajtás** (`Maker` limit + `Taker` azonnali + automata `Order Slicer` + `Rebalancer`) |
+| **Tétkorlátok** | Egyedi mérkőzésenkénti korlátos Frakcionális Kelly | **Nincs egyedi tétplafon**; piac-specifikus, névre szóló tőkeallokáció ($B_{m,0}$ kezdőtőke + $\Delta B_{m,t}$ rátöltések) |
+| **Végrehajtási mód** | Stake-en manuális (`assumed manual`) + párhuzamos PM | **100% Autonóm, Piaconként Izolált CLOB végrehajtás** (`src/pm_markets_engine/`) |
 | **Adatbázis** | [`data/engine.sqlite3`](file:///Users/belavarga/Betting_tips_engine/data/engine.sqlite3) (100% érintetlen) | Piaconként különálló SQLite adatbázis: `data/pm_markets/<market_slug>.sqlite3` + `_wallet_guard.sqlite3` |
-| **Szabályzat (`Governance`)** | `AGENTS.md` 1–10. Parancsolat | Külön projektmappa **VAGY** külön `11. Charter` az `AGENTS.md`-ben és `GEMINI.md`-ben |
+| **Vezérlés & Szabályzat** | `AGENTS.md` 1–10. Parancsolat (érintetlenül fut tovább) | Chat-vezérelt jóváhagyás + jelen `Master Blueprint` (`Zero-Anchoring & Zero-Memory` alkotmány) |
 
 ---
 
@@ -80,16 +80,14 @@ Ahelyett, hogy minden kiválasztott kimenetelre mereven azonos darabszámot venn
    - $$\text{R/R}_{\text{effective}} = \frac{\text{PnL}_{\text{net}}}{\text{MaxLoss}_{\text{guarded}}}$$
 
 ### 3.4. Többpiacos Tőkeforgási Sebesség (`Capital Velocity`), Szekvenciális Tőkegörgetés és Topológia-Adaptáció
-Amikor a rendszer párhuzamosan több különböző többopciós piacot ($\mathcal{E} = \{E_1, E_2, \dots, E_M\}$) értékel eltérő lejárati horizontokkal ($T_1 < T_2 < \dots < T_M$) és eltérő kiesési struktúrákkal, a tőkeallokációt három további első-elvű törvény vezérli:
+Amikor a rendszer párhuzamosan több különböző piacot ($\mathcal{E} = \{E_1, E_2, \dots, E_M\}$) értékel eltérő lejárati horizontokkal ($T_1 < T_2 < \dots < T_M$) és eltérő kiesési struktúrákkal, a piackutatási rangsorolást és a chatben előterjesztett tőkejavaslatokat három első-elvű törvény vezérli (miközben a tényleges tőkeallokáció mindig piaconként külön kasszában, kifejezett felhasználói jóváhagyással történik a `7.3.` fejezet szerint):
 
 1. **Időarányos Tőkeforgási Sebesség (`Time-Normalized Capital Velocity`):**
-   - Két pozitív várható értékű és magas `Risk/Reward` arányú piac közül a rendszer nem csupán a statikus hozamot ($\text{ROI}_m$), hanem az **egységnyi lekötési időre jutó, kockázattal korrigált tőkeforgási sebességet** rangsorolja:
+   - Két pozitív várható értékű és magas `Risk/Reward` arányú piac összehasonlításakor a rendszer nem csupán a statikus hozamot ($\text{ROI}_m$), hanem az **egységnyi lekötési időre jutó, kockázattal korrigált tőkeforgási sebességet** rangsorolja:
      $$\mathcal{V}(E_m) = \frac{\mathbb{E}[\text{PnL}_{\text{active}}(E_m)]}{B_m \cdot (T_m - t_0)}$$
-   - A rövidebb lejáratú ($T_1 - t_0 \ll T_2 - t_0$), mélyebb kosár-diszkonttal ($\sum_{i \in S_{\text{alpha}} \cup S_{\text{base}}} p_i \ll \sum P_{\text{true}, i}$) és finomabb CLOB tick-lépésközzel rendelkező piacok magasabb prioritást kapnak az aktív tőkeallokációban.
-2. **Szekvenciális Tőkegörgetés (`Sequential Capital Rollover & Compounding`):**
-   - Eltérő lejárati idejű piacok ($T_1 < T_2$) esetén a rendszer nem kényszerül statikus „vagy–vagy” választásra:
-     - **1. Fázis ($t_0 \to T_1$):** Az aktív tőkét és a periodikus DCA-rátöltések fő tömegét a közelebbi lejáratú, gyorsabb tőkeforgású $E_1$ piacra koncentrálja (miközben a távolabbi $E_2$ piacon kizárólag mély diszkontú, passzív `Maker` csapda-limiteket tart fenn).
-     - **2. Fázis ($T_1 \to T_2$):** Amikor a korábbi $E_1$ piac a végjátékban profit-lockkal vagy elszámolással lezárul, a felszabaduló alaptőkét és a realizált profitot ($B_1 + \text{PnL}_1$) a rendszer **szekvenciálisan átforgatja (`Rollover`)** a későbbi lejáratú $E_2$ piacba közvetlenül annak magas információtartalmú, döntő szakasza előtt — így ugyanaz a tőke egyetlen éves cikluson belül többszörösen kamatozik.
+   - A rövidebb lejáratú ($T_1 - t_0 \ll T_2 - t_0$), mélyebb diszkonttal és finomabb CLOB tick-lépésközzel rendelkező piacok magasabb ajánlási prioritást kapnak új piac indításakor.
+2. **Szekvenciális Tőkegörgetés (`User-Approved Sequential Capital Rollover`):**
+   - Eltérő lejárati idejű piacok ($T_1 < T_2$) esetén, amikor egy korábbi $E_1$ piac a végjátékban profit-lockkal vagy elszámolással lezárul, a felszabaduló alaptőke és realizált profit ($B_1 + \text{PnL}_1$) az $E_1$ piac saját kasszájába folyik vissza, és a felhasználó chat-jóváhagyásával **szekvenciálisan átforgatható (`Rollover`)** egy későbbi lejáratú $E_2$ piac dedikált kasszájába — így ugyanaz a tőke több cikluson keresztül kamatozhat anélkül, hogy az aktív piacok kasszái engedély nélkül keverednének.
 3. **Kieséses Topológia és Strukturális Variancia-Adaptáció (`Elimination Topology Adaptation`):**
    - A valós győzelmi valószínűséget ($P_{\text{true}, i}$) és a kosárszélességet a rendszer mindig az adott piac **matematikai kiesési gráftopológiájából** vezeti le:
      - **Útfüggő kiemelési és erőnyerési aszimmetria (`Path & Bye Asymmetry`):** Ha a verseny- vagy elszámolási struktúrában bizonyos pozíciók kevesebb túlélési fordulót ($k_i < k_{\text{max}}$), gyengébb ágrajzi szomszédságot vagy strukturális helyzeti előnyt biztosítanak, a modell a túlélési láncszorzatot ($\prod_{r=1}^{k_i} p_{i,r}$) árazza a nyers múltbeli győzelmi arány helyett.
@@ -110,7 +108,7 @@ Amikor a vizsgált esemény nem egymást kizáró partíciókból ($\sum Y_i = 1
      - **Optimális megállási időérték-stop (`Mid-Horizon Theta Stop-Loss`):** Ha a hátralévő futamidő matematikailag meghatározott kritikus hányadáig egyik belső korlát sem kerül érintésközelbe, az őrszem (`PositionGuardian`) a felértékelődött külső `NO` pajzsokkal együtt lezárja a pozíciót, szigorúan korlát alatt tartva a maximális tőkevisszaesést ($\text{MaxLoss}_{\text{guarded}}$).
 3. **Árazási Hatékonyság és Könyvmélység-Szűrés (`Efficiency & Liquidity-Adjusted R/R Filter`):**
    - Azokon a piacokon, ahol az opciós árakat folyamatos algoritmikus volatilitás-modellek jegyzik (így az implikált érintési valószínűség szorosan követi a realizált ugrásos-diffúziós volatilitást, az aktív korlátok könyvmélysége pedig sekély a célzott $B$ allokációhoz képest), az elérhető matematikai él (`Edge`) és az effektív `Risk/Reward` törvényszerűen alacsonyabb, mint a lassan frissülő, emberi/fundamentális konszenzus által félreárazott piacokon.
-   - A rendszer ezért minden piacot a **likviditással és csúszással (`Slippage`) korrigált effektív `Risk/Reward`** alapján rangsorol, és a tőkét automatikusan a mély könyvű, magas strukturális félreárazású piacok felé súlyozza.
+   - A rendszer ezért minden vizsgált piacot a **likviditással és csúszással (`Slippage`) korrigált effektív `Risk/Reward`** alapján rangsorol, és kizárólag a mély könyvű, magas strukturális félreárazású piacokat javasolja indításra.
 
 ### 3.6. Hierarchikus Részhalmaz-Monotonitás, Kétlépcsős Éllovas-Korrekció, Ugráskockázati Szűrés és Keresztpiaci Ortogonalizáció
 A többpiacos univerzum pásztázása és a portfóliószintű tőkeallokáció során a rendszer öt további, első elvekből levezetett matematikai invariánst érvényesít:
@@ -222,22 +220,22 @@ A rendszer a megnyitott pozíciókat **5 összekapcsolt mechanizmussal** menedzs
 
 ---
 
-## 6. Az Autonóm Szoftverrendszer 5 Moduljának Felépítése
+## 6. Az Autonóm Szoftverrendszer 5 Moduljának Felépítése (`src/pm_markets_engine/`)
 
 ```mermaid
 flowchart TD
-    A["1. MarketScanner & DeepEvaluator<br/>(Folyamatos PM Szkenner + Beküldött URL Elemző)"] --> B["2. RiskRewardBasketOptimizer<br/>(Első Elvekből R/R, Floor & MaxLoss Optimalizáló)"]
+    A["1. MarketScanner & DeepEvaluator<br/>(Folyamatos PM Szkenner + Beküldött Piac Elemző)"] --> B["2. MarketStrategyOptimizer<br/>(Piac-Specifikus R/R, Kosár / Korlát / Egyedi Struktúra Optimalizáló)"]
     B --> C["3. AutonomousClobExecutor & FillManager<br/>(Taker Slicing + Maker GTC Limit & Auto-Pegging)"]
-    C --> D["4. AutonomousPositionGuardian<br/>(24/7 Orderbook, Élő Eredmény, Auto-Hedge & Swing Trim)"]
-    D --> E["5. DynamicDCARebalancer<br/>(Periodikus Tőkeallokátor & Lejárati Létra Forgató)"]
+    C --> D["4. AutonomousMarketsGuardian<br/>(24/7 Orderbook, Élő Eredmény, Auto-Hedge & Swing Trim)"]
+    D --> E["5. MarketVault & DCARebalancer<br/>(Piaconként Izolált Kassza & Névre Szóló DCA Allokátor)"]
     E --> B
 ```
 
-1. **`MarketScanner & DeepEvaluator`:** Folyamatos Polymarket szkenner és beküldött URL-re azonnali, levágásmentes CLOB könyvmélység + külső tényadat-elemző.
-2. **`RiskRewardBasketOptimizer`:** Első elvekből kiszámítja az alternatív pozíció-struktúrák passzív és aktív profitját, a védett maximális tőkevisszaesést ($\text{MaxLoss}_{\text{guarded}}$) és az effektív `Risk/Reward` arányt.
+1. **`MarketScanner & DeepEvaluator`:** Folyamatos Polymarket szkenner és beküldött piacra azonnali, levágásmentes CLOB könyvmélység + külső tényadat-elemző.
+2. **`MarketStrategyOptimizer`:** Első elvekből kiválasztja és optimalizálja az adott $m$ piac matematikai szerkezetéhez illeszkedő pozíció-vektort ($\mathbf{q}_m^{\text{target}}$ — legyen az többopciós partíciós kosár, korlát-folyosó vagy egyedi több-lábas pozíció), kiszámítva a passzív és aktív profitot, a védett maximális tőkevisszaesést ($\text{MaxLoss}_{\text{guarded}}$) és az effektív `Risk/Reward` arányt.
 3. **`AutonomousClobExecutor & FillManager`:** A szűk spreadű lábakon azonnali szeletelt végrehajtást (`Order Slicing`), a szélesebb spreadű lábakon `Maker` (`GTC`) limit-kezelést végez automatikus utánállítással (`Cancel & Replace`).
-4. **`AutonomousPositionGuardian`:** 24/7 pozíció-, orderbook- és élő tényadat-figyelő démon, amely végrehajtja a `Swing Trim` lefölözéseket és az `Auto-Hedge / Stop-Loss` védelmet.
-5. **`DynamicDCARebalancer`:** A periodikus tőkeinjekciókat és a lejáró piacokról felszabaduló tőkét határhaszon-alapon osztja el.
+4. **`AutonomousMarketsGuardian` (`pm_markets_guardian`):** 24/7 pozíció-, orderbook- és élő tényadat-figyelő démon, amely sorban végigjárja az aktív piacok adatbázisait, és végrehajtja a `Swing Trim` lefölözéseket, a limit-utánhúzásokat és az `Auto-Hedge / Stop-Loss` védelmet.
+5. **`MarketVault & DCARebalancer`:** Minden $m$ piac saját adatbázisában kezeli a névre szóló tőkekeretet, és a felhasználó által az adott $m$ piacra jóváhagyott $\Delta B_{m,t}$ rátöltéseket kizárólag az $m$ piac saját lábai között osztja el határhaszon-alapon.
 
 ---
 
@@ -246,31 +244,31 @@ flowchart TD
 A rendszer **nem használja és nem osztja meg** a régi napi sportfogadási motorhoz írt `src/betting_engine/polymarket_executor.py` modult (amely egyedi mérkőzés-fogadási tétkorlátokra, `SegmentScoreboard` diplomákra és statikus ár-intervallumokra épült). Ehelyett egy **100%-ban új, nulláról megírt, önálló végrehajtó motort (`src/pm_markets_engine/pm_markets_executor.py`)** kap, amely közvetlenül a `py_clob_client_v2.ClobClient` L1/L2 protokolljára csatlakozik, és általánosított többopciós / futures / egyedi Polymarket kampányokra van tervezve. A teljes irányítás **kizárólag a chat-felületen keresztül** történik.
 
 ### 7.1. A 3-Utas Atomi Igazság-Egyeztetés (`Three-Way Truth Reconciliation Loop`)
-A rendszer **soha nem bízik vakon** abban, hogy egy beküldött megbízás (`post_order`) valóban teljesült. Minden művelet előtt, közben és után három független adatforrást egyeztet össze:
+A rendszer **soha nem bízik vakon** abban, hogy egy beküldött megbízás (`post_order`) valóban teljesült. Minden $m \in \mathcal{M}$ piac minden művelete előtt, közben és után három független adatforrást egyeztet össze:
 
-1. **Tervezett Cél-Vektor (`Target Basket State` — $\mathbf{q}^{\text{target}}$ az adott piac saját `data/pm_markets/<market_slug>.sqlite3` adatbázisában):**
-   - Minden $i \in S_{\text{basket}}$ opcióra a jóváhagyott terv szerinti cél-darabszám ($q_i^{\text{target}}$) és maximális megengedett bekerülési ár ($\bar{p}_i$).
-2. **Valódi On-Chain Tárca-Készlet (`Verified Wallet Inventory` — $\mathbf{q}^{\text{wallet}}(t)$):**
+1. **Tervezett Cél-Vektor (`Target Position State` — $\mathbf{q}_m^{\text{target}}$ az adott $m$ piac saját `data/pm_markets/<market_slug>.sqlite3` adatbázisában):**
+   - Az adott $m$ piac stratégiai profiljában kiválasztott minden $i \in S_m$ lábra a jóváhagyott terv szerinti cél-darabszám ($q_{m,i}^{\text{target}}$) és maximális megengedett bekerülési ár ($\bar{p}_{m,i}$).
+2. **Valódi On-Chain Tárca-Készlet (`Verified Wallet Inventory` — $\mathbf{q}_m^{\text{wallet}}(t)$):**
    - Közvetlenül lekérdezve a hitelesített `ClobClientV2.get_balance_allowance(BalanceAllowanceParams(asset_type=AssetType.CONDITIONAL, token_id=i, signature_type=1))` végpontról (amely közvetlenül a `POLYMARKET_PROXY` tárca `ERC-1155` kondicionális token-egyenlegét és `NegRisk` engedélyeit olvassa ki), kiegészítve a szabad `USDC.e` fedezettel (`AssetType.COLLATERAL, signature_type=1`).
-   - Kizárólag a fizikailag a tárcában lévő (`settled on-chain`, `wallet_sh / 1e6`) share-ek számítanak ténylegesen birtokolt védelemnek.
-3. **Élő CLOB Nyitott Megbízások és Háttér-Őrszem (`Live CLOB Open Orders & Background Reconciler` — $\mathbf{q}^{\text{open}}(t)$):**
-   - Közvetlenül lekérdezve a `ClobClientV2.get_open_orders()` és `ClobClientV2.get_order(order_id)` végpontokról. Mivel a chat-felület csak üzenetváltáskor aktív, a nyitott `Maker` megbízások figyelését, utánállítását (`Auto-Pegging`) és a tárca-szinkronizációt egy **önálló helyi háttér-démon (`pm_futures_guardian_daemon`)** végzi folyamatosan a megbízások teljesüléséig.
-   - Minden $i$ lábra a rendszer folyamatosan számítja a **Valós Teljesülési Hiányt (`Unfilled Discrepancy`)**:
-     $$\Delta q_i(t) = q_i^{\text{target}} - \left( q_i^{\text{wallet}}(t) + q_i^{\text{matched\_pending}}(t) \right)$$
-   - Egy kosár vagy rátöltési ciklus **kizárólag akkor** kap `VERIFIED_ON_CHAIN` státuszt, ha minden $i \in S_{\text{basket}}$ lábra:
-     $$\left| q_i^{\text{target}} - q_i^{\text{wallet}}(t) \right| \le \epsilon_{\text{dust}} \quad \text{és} \quad q_i^{\text{open}}(t) = 0$$
+   - Kizárólag a fizikailag a tárcában lévő (`settled on-chain`, `wallet_sh / 1e6`) share-ek számítanak ténylegesen birtokolt pozíciónak.
+3. **Élő CLOB Nyitott Megbízások és Háttér-Őrszem (`Live CLOB Open Orders & Background Reconciler` — $\mathbf{q}_m^{\text{open}}(t)$):**
+   - Közvetlenül lekérdezve a `ClobClientV2.get_open_orders()` és `ClobClientV2.get_order(order_id)` végpontokról. Mivel a chat-felület csak üzenetváltáskor aktív, a nyitott `Maker` megbízások figyelését, utánállítását (`Auto-Pegging`) és a tárca-szinkronizációt az **önálló helyi háttér-démon (`pm_markets_guardian`)** végzi folyamatosan a megbízások teljesüléséig.
+   - Minden $i \in S_m$ lábra a rendszer folyamatosan számítja a **Valós Teljesülési Hiányt (`Unfilled Discrepancy`)**:
+     $$\Delta q_{m,i}(t) = q_{m,i}^{\text{target}} - \left( q_{m,i}^{\text{wallet}}(t) + q_{m,i}^{\text{matched\_pending}}(t) \right)$$
+   - Egy végrehajtási vagy rátöltési ciklus **kizárólag akkor** kap `VERIFIED_ON_CHAIN` státuszt, ha minden $i \in S_m$ lábra:
+     $$\left| q_{m,i}^{\text{target}} - q_{m,i}^{\text{wallet}}(t) \right| \le \epsilon_{\text{dust}} \quad \text{és} \quad q_{m,i}^{\text{open}}(t) = 0$$
 
 ### 7.2. Négyfokozatú Adaptív Protokoll Nem Teljesülő vagy Részben Teljesülő Megbízásokra (`Unfilled-Order Re-Optimization Protocol`)
-Amikor egy kosár felépítése vagy rátöltése során valamelyik `Maker` limit megbízás (vagy részlegesen teljesült `FAK / GTC` megbízás) nem teljesül azonnal ($\Delta q_i(t) > 0$), a rendszernek szigorúan tilos csonka kosarat (`Naked Leg`) hátrahagynia. Ehelyett az alábbi **4-fokozatú döntési ciklust** futtatja le:
+Amikor egy $m$ piac pozícióinak felépítése vagy rátöltése során valamelyik `Maker` limit megbízás (vagy részlegesen teljesült `FAK / GTC` megbízás) nem teljesül azonnal ($\Delta q_{m,i}(t) > 0$), a rendszernek szigorúan tilos csonka, fedezetlen struktúrát (`Naked Leg`) hátrahagynia. Ehelyett az alábbi **4-fokozatú döntési ciklust** futtatja le:
 
-1. **1. Fokozat — Bázis-Gerinc Azonnali Biztosítása + Passzív Limit Szétválasztás (`T = 0`):**
+1. **1. Fokozat — Alap-Gerinc Azonnali Biztosítása + Passzív Limit Szétválasztás (`T = 0`):**
    - A mély `Ask` könyvű és szűk spreadű lábakon a rendszer azonnal (`Taker / Crossing GTC`) megszerzi a pozíciót, míg a vékony `Ask` oldalú vagy szélesebb spreadű lábakon beáll a `Best Bid` tetejére (`Maker GTC`), tiszteletben tartva az adott opció élő könyvéből kiolvasott pontos árlépésközt (`orderPriceMinTickSize` = $\Delta p_{\text{tick}, i}$) és a minimum darabszám-korlátot (`min_order_size` = $q_{\min, i}$).
 2. **2. Fokozat — Automatikus Mikro-Utánhúzás (`Auto-Pegging / Cancel & Replace`):**
-   - Ha a nyitott `Maker` limitünk elé más szereplők magasabb `Bid` megbízást tesznek (`Queue Loss`), de az új `Best Bid` $+\,\Delta p_{\text{tick}, i}$ ár még mindig nem lépi túl a láb maximális célárát ($\bar{p}_i$), a rendszer automatikusan törli (`cancel_order`) a hátraszorult megbízást, és az új `Best Bid` szintre helyezi át.
-3. **3. Fokozat — Matematikai Újratervezés Elmozduló Ár Esetén (`Dynamic Basket Re-Optimization`):**
-   - Ha egy nyitott limit megbízás meghatározott időablakon belül nem teljesül, mert a könyv eladási (`Ask`) ára felfelé mozdult el, az AI **újrafuttatja a kosár-optimalizálót a már tárcában lévő ($\mathbf{q}^{\text{wallet}}$) lábak peremfeltételével**, és két út közül választja a magasabb `Risk/Reward` értékűt:
-     - **A) Költségvetésen Belüli `Taker` Lezárás (`Controlled Taker Completion`):** Ha a hiányzó $\Delta q_i$ mennyiség azonnali `Ask` áron történő megvásárlása csak minimális ($\le \Delta R_{\text{tol}}$) mértékben csökkenti a kosár kifizetési küszöbét, a rendszer törli a beragadt `Maker` limitet, és azonnal megveszi a hiányzó mennyiséget az `Ask` könyvből, 100%-ra zárva a kosarat.
-     - **B) Dinamikus Kosár-Átsúlyozás (`Role Reclassification & Surplus Redistribution`):** Ha az adott opció ára hirtelen túlhevült ($p_{\text{Ask}, i}(t) \gg P_{\text{true}, i}(t)$), a rendszer **nem üldözi a megugrott árat**: törli a beragadt limitet, az elszállt opció cél-darabszámát visszasorolja az alacsonyabb $S_{\text{base}}$ védelmi szintre (vagy a késleltetett $S_{\text{defer}}$ tartalékba), a felszabaduló `USDC.e` összeget pedig szétosztja a többi, még diszkont áron forgó $S_{\text{alpha}}$ láb között.
+   - Ha a nyitott `Maker` limitünk elé más szereplők magasabb `Bid` megbízást tesznek (`Queue Loss`), de az új `Best Bid` $+\,\Delta p_{\text{tick}, i}$ ár még mindig nem lépi túl a láb maximális célárát ($\bar{p}_{m,i}$), a rendszer automatikusan törli (`cancel_order`) a hátraszorult megbízást, és az új `Best Bid` szintre helyezi át.
+3. **3. Fokozat — Matematikai Újratervezés Elmozduló Ár Esetén (`Dynamic Strategy Re-Optimization`):**
+   - Ha egy nyitott limit megbízás meghatározott időablakon belül nem teljesül, mert a könyv eladási (`Ask`) ára felfelé mozdult el, az AI **újrafuttatja az adott $m$ piac stratégiai optimalizálóját (`MarketStrategyOptimizer`) a már tárcában lévő ($\mathbf{q}_m^{\text{wallet}}$) lábak peremfeltételével**, és két út közül választja a magasabb `Risk/Reward` értékűt:
+     - **A) Költségvetésen Belüli `Taker` Lezárás (`Controlled Taker Completion`):** Ha a hiányzó $\Delta q_{m,i}$ mennyiség azonnali `Ask` áron történő megvásárlása csak minimális ($\le \Delta R_{\text{tol}}$) mértékben csökkenti a pozíció kifizetési küszöbét, a rendszer törli a beragadt `Maker` limitet, és azonnal megveszi a hiányzó mennyiséget az `Ask` könyvből, 100%-ra zárva a tervet.
+     - **B) Dinamikus Súly-Átsorolás (`Role Reclassification & Surplus Redistribution`):** Ha az adott opció ára hirtelen túlhevült ($p_{\text{Ask}, i}(t) \gg P_{\text{true}, i}(t)$), a rendszer **nem üldözi a megugrott árat**: törli a beragadt limitet, és az $m$ piac saját stratégiai logikája szerint vagy alacsonyabb védelmi szintre ($S_{\text{base}} / S_{\text{defer}}$) sorolja vissza a lábat a felszabaduló `USDC.e`-t a többi diszkont lábra csoportosítva (többopciós kosárnál), vagy lezárja / újrasúlyozza a párosított lábat (egyedi vagy kétlábú stratégiánál).
 4. **4. Fokozat — Hitelesített Chat-Jelentés (`3-Column Verified Execution Receipt`):**
    - Minden végrehajtási és egyeztetési kör végén az AI itt a chatben egy **3-oszlopos ellenőrző táblázatot** prezentál:
      1. **Tervezett Pozíció (`Target Plan`):** Cél-darabszám és célár,
@@ -282,15 +280,17 @@ Annak érdekében, hogy a közös Polymarket tárcán (`POLYMARKET_PROXY`) keres
 
 1. **1. Szint — Piaconkénti Külön Adatbázis és Egyedi Stratégiai Motor (`1 Piac = 1 Saját SQLite Fájl`):**
    - Minden elindított $m \in \mathcal{M}$ piac saját, fizikailag különálló SQLite adatbázist kap a `data/pm_markets/<market_slug>.sqlite3` útvonalon.
-   - Minden $m$ piacnak saját, zárt kassza-egyenlege van az adatbázisában:
-     $$\text{AvailableCash}_m(t) = \text{ApprovedDeposits}_m(t) - \text{NetBuyCost}_m(t) + \text{RealizedSellProceeds}_m(t) - \text{OpenBuyLocks}_m(t)$$
+   - Minden $m$ piacnak saját, zárt kassza-könyvelése van az adatbázisában, amely külön nyilvántartja a még egyetlen megbízásban sem lekötött **szabad kasszát (`AvailableCash_m`)** és a könyvben pihenő `Maker` megbízásokban lekötött **fedezetet (`OpenBuyLocks_m`)**:
+     $$\text{TotalUnspentCash}_m(t) = \text{ApprovedDeposits}_m(t) - \text{NetBuyCost}_m(t) + \text{RealizedSellProceeds}_m(t)$$
+     $$\text{AvailableCash}_m(t) = \text{TotalUnspentCash}_m(t) - \text{OpenBuyLocks}_m(t)$$
    - A tőkeinjekciókat soha nem szórjuk szét automatikusan: minden $B_{m,0}$ kezdőtőke és minden $\Delta B_{m,t}$ rátöltés **névre szólóan a felhasználó által megnevezett $m$ piac adatbázisába** kerül, az adott piac saját ütemezési és allokációs szabályai szerint.
    - Minden $m$ piac a **saját matematikai szerkezetére szabott, egyedi végrehajtási és menedzselési stratégiát** futtatja, miközben mindegyikre ugyanaz az egységes matematikai alkotmány (`Zero-Anchoring`, `Valós Bid Könyv-Integrál`, `3-Utas On-Chain Tárca-Verifikáció`) érvényes.
 2. **2. Szint — Központi Tárca-Zsilip a 4 Technikai Csapda Ellen (`data/pm_markets/_wallet_guard.sqlite3`):**
    Mivel a különálló `.sqlite3` adatbázisok önmagukban nem látnák egymás nyitott `Maker` megbízásait a közös blokklánc-tárcán, egy vékony központi védőréteg (`_wallet_guard.sqlite3`) az alábbi **4 fizikai garanciát** kényszeríti ki minden tranzakció előtt:
-   - **A) Nyitott `Maker` Fedezet Levonása (`Maker-Collateral Double-Spend Guard`):** A Polymarketen a könyvben pihenő `Maker` vételi limit megbízások még nem vonják le az `USDC.e`-t az on-chain `get_balance_allowance(COLLATERAL)` egyenlegből. Ezért a `_wallet_guard` minden új piac indításakor és minden megbízás előtt ellenőrzi a **valóban szabad, le nem kötött tárca-egyenleget**:
-     $$\text{TrulyFreeWalletUSDC}(t) = \text{WalletUSDC}_{\text{on-chain}}(t) - \sum_{m \in \mathcal{M}} \left( \text{AvailableCash}_m(t) + \text{OpenBuyLocks}_m(t) \right)$$
-     Így egyetlen $m'$ piac sem költheti el azt az `USDC.e`-t, amely a tárcán még szabadként látszik ugyan, de valójában egy másik $m$ piac nyitott `Maker` limit megbízásának a fedezete.
+   - **A) Nyitott `Maker` Fedezet Levonása és Kettős Fedezet-Ellenőrzés (`Maker-Collateral & Solvency Guard`):** A Polymarketen a könyvben pihenő `Maker` vételi limit megbízások még nem vonják le az `USDC.e`-t az on-chain `get_balance_allowance(COLLATERAL)` egyenlegből. Ezért a `_wallet_guard`:
+     1. **Új tőkeallokációkor ($\Delta B_{m,t}$ jóváírása előtt)** ellenőrzi, hogy a tárcán lévő fizikai `USDC.e` egyenlegből levonva az összes meglévő piac még el nem költött kasszáját ($\sum_{k \in \mathcal{M}} \text{TotalUnspentCash}_k(t)$), valóban rendelkezésre áll-e az új $\Delta B_{m,t}$ összeg:
+        $$\text{TrulyUnallocatedWalletUSDC}(t) = \text{WalletUSDC}_{\text{on-chain}}(t) - \sum_{k \in \mathcal{M}} \text{TotalUnspentCash}_k(t) \ge \Delta B_{m,t}$$
+     2. **Megbízás beküldésekor (`OrderCost` értékben az $m$ piacon)** ellenőrzi, hogy az összeg az $m$ piac saját szabad kasszájában ($\text{OrderCost} \le \text{AvailableCash}_m(t)$) ÉS a többi piac nyitott `Maker` fedezete feletti fizikai tárca-egyenlegen ($\text{OrderCost} + \sum_{k \in \mathcal{M}} \text{OpenBuyLocks}_k(t) \le \text{WalletUSDC}_{\text{on-chain}}(t)$) egyaránt megvan-e. Így egyetlen $m'$ piac sem költheti el egy másik $m$ piac nyitott `Maker` limit megbízásának a fedezetét.
    - **B) Globális `token_id` Kizárólagossági Zár (`Token Ownership Lock`):** A `_wallet_guard` tárolja a `token_ownership(token_id PRIMARY KEY, market_slug NOT NULL)` regisztert. Egy adott `ERC-1155 token_id` egyszerre csak egyetlen piac adatbázisához tartozhat, és egy piac kizárólag a saját `order_id` azonosítóit törölheti (`client.cancel_all()` és `cancel_market_orders()` meghívása kód-szinten tiltott).
    - **C) Szekvenciális Végrehajtási Mutex (`flock` Szinkronizáció és Egyetlen Multiplexelt Őrszem):** Ahelyett, hogy több különálló háttérfolyamat párhuzamosan versengene ugyanazon az API-kulcson a CLOB végpontokért (`Rate-Limit` és `Balance Race Condition`), **egyetlen központi háttér-ciklus (`pm_markets_guardian`)** járja végig sorban, atomi fájlzár (`flock`) mellett a különálló `data/pm_markets/*.sqlite3` adatbázisokat.
    - **D) Teljes Függetlenség a Párhuzamosan Futó `betting_engine`-től (`Zero Interference with Parallel Betting Engine`):** A meglévő napi sportfogadási motor (`betting_engine`) teljesen függetlenül, párhuzamosan fut és kereskedik tovább — ahhoz a rendszerhez soha nem nyúlunk hozzá, nem állítjuk le és nem korlátozzuk. Az új, önálló `src/pm_markets_engine/` kizárólag a saját `data/pm_markets/<market_slug>.sqlite3` adatbázisaiban regisztrált piacokat, saját `token_id`-kat, saját `order_id`-kat és a saját névre szóló keretét (`AvailableCash_m`) kezeli.
