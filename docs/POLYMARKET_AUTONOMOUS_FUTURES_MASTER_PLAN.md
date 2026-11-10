@@ -241,9 +241,9 @@ flowchart TD
 
 ---
 
-## 7. Chat-Vezérelt Tárca-Végrehajtás, 3-Utas On-Chain Verifikáció és Nem Teljesülő Limit Megbízások Adaptív Újratervezése
+## 7. Teljesen Új, Önálló Polymarket Futures/Markets Executor (`src/pm_markets_engine/`), 3-Utas On-Chain Verifikáció és Adaptív Megbízás-Kezelés
 
-A rendszer teljes irányítása **kizárólag a chat-felületen keresztül** történik, miközben az AI közvetlen, hitelesített (`L1/L2 ClobClient` + `POLYMARKET_PRIVATE_KEY` + `POLYMARKET_PROXY`) hozzáféréssel rendelkezik a tárcához, az élő CLOB megbízási könyvhöz és a Polygon blokklánc / Data API egyenlegekhez.
+A rendszer **nem használja és nem osztja meg** a régi napi sportfogadási motorhoz írt `src/betting_engine/polymarket_executor.py` modult (amely napi `$0.50–$8.00`-os meccsfogadásokra, `SegmentScoreboard` diplomákra és `[0.05, 0.95]` árkorlátokra épült). Ehelyett egy **100%-ban új, nulláról megírt, önálló végrehajtó motort (`src/pm_markets_engine/pm_markets_executor.py`)** kap, amely közvetlenül a `py_clob_client_v2.ClobClient` L1/L2 protokolljára csatlakozik, és kizárólag a többopciós / futures / egyedi Polymarket kampányokra van tervezve. A teljes irányítás **kizárólag a chat-felületen keresztül** történik.
 
 ### 7.1. A 3-Utas Atomi Igazság-Egyeztetés (`Three-Way Truth Reconciliation Loop`)
 A rendszer **soha nem bízik vakon** abban, hogy egy beküldött megbízás (`post_order`) valóban teljesült. Minden művelet előtt, közben és után három független adatforrást egyeztet össze:
