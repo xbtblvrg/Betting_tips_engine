@@ -39,6 +39,7 @@ FAST_TRACK_KINDS = frozenset((
     'model_restore',
     'segment_restore',
     'period_restore',
+    'market_catalog',
 ))
 
 
