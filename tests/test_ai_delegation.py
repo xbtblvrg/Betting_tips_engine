@@ -241,13 +241,13 @@ def test_invoke_progress_watchdog_permits_active_streaming_past_base_timeout(tmp
     with cli.open('w', encoding='utf-8') as f:
         f.write('#!' + sys.executable + '\n')
         f.write('import time, sys\n')
-        f.write('sys.stdout.write("{\\"result\\": \\"")\n')
+        f.write('sys.stdout.write(\'{"result": "\')\n')
         f.write('sys.stdout.flush()\n')
         f.write('time.sleep(0.35)\n')
         f.write('sys.stdout.write("progress part 1 ")\n')
         f.write('sys.stdout.flush()\n')
         f.write('time.sleep(0.35)\n')
-        f.write('sys.stdout.write("completed\\"}\\n")\n')
+        f.write("sys.stdout.write('completed\"}\\n')\n")
         f.write('sys.stdout.flush()\n')
     cli.chmod(0o700)
 
@@ -265,7 +265,7 @@ def test_invoke_progress_watchdog_aborts_when_stream_goes_idle_past_timeout(tmp_
     with cli.open('w', encoding='utf-8') as f:
         f.write('#!' + sys.executable + '\n')
         f.write('import time, sys\n')
-        f.write('sys.stdout.write("{\\"result\\": \\"")\n')
+        f.write("sys.stdout.write('{\"result\": \"')\n")
         f.write('sys.stdout.flush()\n')
         f.write('time.sleep(2.0)\n')
     cli.chmod(0o700)
