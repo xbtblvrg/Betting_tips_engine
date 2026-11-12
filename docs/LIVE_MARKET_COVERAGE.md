@@ -1,13 +1,13 @@
 # Live Stake market coverage
 
-Checked: 2026-11-12T16:28:48.768066+00:00
+Checked: 2026-11-12T16:52:33.684125+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
 | League | Observed titles | Activity unverified | Offered now | Complete 10/10 | Incomplete offered | Evaluated | Funding supported | Ready now | Issued today |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | NFL | 78 | 1 | 48 | 0 | 48 | 19 | 6 | 3 | 6 |
-| NHL | 72 | 5 | 60 | 0 | 60 | 42 | 6 | 5 | 12 |
+| NHL | 77 | 5 | 65 | 0 | 65 | 42 | 6 | 5 | 12 |
 | MLB | 9 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | NBA | 148 | 3 | 91 | 0 | 91 | 49 | 16 | 15 | 47 |
 | WNBA | 7 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
@@ -25,7 +25,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | MLB | Milwaukee Brewers Total (Incl. Extra Innings) | standard | full_game | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | MLB | Tampa Bay Rays Total (Incl. Extra Innings) | standard | full_game | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | MLB | Winner (Incl. Extra Innings) | standard | full_game | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
-| NBA | 1st Half - 1x2 | standard | half_1 | offered_now | 5/10 | partial 5/12 | verified 12/12 | partial 5/12 | partial 5/12 | partial 5/12 | verified 5/5 | verified 5/5 | verified 35/35 | verified 35/35 | partial 35/36 | 0 |
+| NBA | 1st Half - 1x2 | standard | half_1 | offered_now | 5/10 | partial 6/12 | verified 12/12 | partial 6/12 | partial 6/12 | partial 6/12 | verified 6/6 | verified 6/6 | verified 35/35 | verified 35/35 | partial 35/36 | 0 |
 | NBA | 1st Half - Asian Handicap | standard | half_1 | offered_now | 8/10 | verified 24/24 | verified 24/24 | verified 24/24 | verified 24/24 | verified 24/24 | verified 24/24 | verified 24/24 | partial 24/26 | verified 26/26 | partial 26/27 | 0 |
 | NBA | 1st Half - Asian Total | standard | half_1 | offered_now | 9/10 | verified 40/40 | verified 40/40 | verified 40/40 | verified 40/40 | verified 40/40 | verified 40/40 | verified 40/40 | verified 63/63 | verified 63/63 | partial 63/64 | 0 |
 | NBA | 1st Half - Atlanta Hawks Total | standard | half_1 | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 3/3 | verified 3/3 | awaiting_measurement 3/4 | 0 |
@@ -49,7 +49,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | 1st Half - San Antonio Spurs Total | standard | half_1 | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NBA | 1st Half - Toronto Raptors Total | standard | half_1 | offered_now | 9/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 1/1 | verified 1/1 | partial 1/2 | 0 |
 | NBA | 1st Half - Washington Wizards Total | standard | half_1 | offered_now | 9/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 1/1 | verified 1/1 | partial 1/2 | 0 |
-| NBA | 1st Quarter - 1x2 | standard | quarter_1 | offered_now | 5/10 | partial 11/12 | verified 12/12 | partial 11/12 | partial 11/12 | partial 11/12 | verified 11/11 | verified 11/11 | verified 50/50 | verified 50/50 | partial 50/51 | 0 |
+| NBA | 1st Quarter - 1x2 | standard | quarter_1 | offered_now | 5/10 | partial 10/12 | verified 12/12 | partial 10/12 | partial 10/12 | partial 10/12 | verified 10/10 | verified 10/10 | verified 50/50 | verified 50/50 | partial 50/51 | 0 |
 | NBA | 1st Quarter - Brooklyn Nets total | standard | quarter_1 | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NBA | 1st Quarter - Charlotte Hornets total | standard | quarter_1 | offered_now | 9/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 1/1 | verified 1/1 | partial 1/2 | 0 |
 | NBA | 1st Quarter - Chicago Bulls total | standard | quarter_1 | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 3/3 | verified 3/3 | awaiting_measurement 0/4 | 0 |
@@ -261,13 +261,18 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NHL | 1st Period - Last Team to Score | standard | period_1 | offered_now | 0/10 | not_observed 0/33 | not_observed 0/33 | not_observed 0/33 | not_observed 0/33 | not_observed 0/33 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 1st Period - Odd/Even | standard | period_1 | offered_now | 1/10 | not_observed 0/22 | verified 22/22 | not_observed 0/22 | not_observed 0/22 | not_observed 0/22 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 1st Period - Total | standard | period_1 | offered_now | 8/10 | verified 22/22 | verified 22/22 | verified 22/22 | verified 22/22 | verified 22/22 | verified 22/22 | verified 22/22 | verified 8/8 | partial 6/7 | partial 7/8 | 1 |
+| NHL | 1st period - 1st faceoff winner | standard | period_1 | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NHL | 1st period 5 minutes - 1x2 from 20:00 to 15:01 remaining | standard | period_1 | offered_now | 0/10 | not_observed 0/3 | not_observed 0/3 | not_observed 0/3 | not_observed 0/3 | not_observed 0/3 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NHL | 1st period 5 minutes - Carolina Hurricanes to score a goal from 20:00 to 15:01 remaining | standard | period_1 | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NHL | 1st period 5 minutes - Seattle Kraken to score a goal from 20:00 to 15:01 remaining | standard | period_1 | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NHL | 1st period 5 minutes - a goal to be scored from 20:00 to 15:01 remaining | standard | period_1 | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 1x2 | standard | regulation | offered_now | 3/10 | partial 10/33 | verified 33/33 | partial 10/33 | partial 10/33 | partial 10/33 | verified 10/10 | verified 10/10 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 1x2 & Total | standard | regulation | offered_now | 1/10 | not_observed 0/66 | verified 66/66 | partial 44/66 | partial 44/66 | not_observed 0/66 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 2nd Period - 1st Goal | standard | period_2 | offered_now | 0/10 | not_observed 0/33 | not_observed 0/33 | not_observed 0/33 | not_observed 0/33 | not_observed 0/33 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 2nd Period - 1x2 | standard | period_2 | offered_now | 9/10 | verified 33/33 | verified 33/33 | verified 33/33 | verified 33/33 | verified 33/33 | verified 33/33 | verified 33/33 | verified 8/8 | verified 8/8 | partial 8/9 | 0 |
 | NHL | 2nd Period - Both Teams to Score | standard | period_2 | offered_now | 1/10 | not_observed 0/22 | verified 22/22 | not_observed 0/22 | not_observed 0/22 | not_observed 0/22 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 2nd Period - Double Chance | standard | period_2 | offered_now | 7/10 | verified 33/33 | verified 33/33 | verified 33/33 | verified 33/33 | verified 33/33 | verified 33/33 | verified 33/33 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
-| NHL | 2nd Period - Draw No Bet | standard | period_2 | offered_now | 1/10 | not_observed 0/22 | verified 22/22 | partial 2/22 | partial 2/22 | not_observed 0/22 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NHL | 2nd Period - Draw No Bet | standard | period_2 | offered_now | 1/10 | not_observed 0/22 | verified 22/22 | partial 1/22 | partial 1/22 | not_observed 0/22 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 2nd Period - Handicap | standard | period_2 | offered_now | 9/10 | verified 22/22 | verified 22/22 | verified 22/22 | verified 22/22 | verified 22/22 | verified 22/22 | verified 22/22 | verified 7/7 | verified 7/7 | partial 5/8 | 0 |
 | NHL | 2nd Period - Last Team to Score | standard | period_2 | offered_now | 0/10 | not_observed 0/33 | not_observed 0/33 | not_observed 0/33 | not_observed 0/33 | not_observed 0/33 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 2nd Period - Odd/Even | standard | period_2 | offered_now | 1/10 | not_observed 0/22 | verified 22/22 | not_observed 0/22 | not_observed 0/22 | not_observed 0/22 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
