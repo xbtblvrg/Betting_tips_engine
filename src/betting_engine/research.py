@@ -92,7 +92,21 @@ def fetch_feed(query):
 
 def discover(source,data_dir,fetch=fetch_feed):
     data=Path(data_dir);folder=data/'research';folder.mkdir(parents=True,exist_ok=True)
-    raw,url=fetch(source['query']);received=parse_feed(raw)
+    try:
+        raw,url=fetch(source['query'])
+    except Exception as e:
+        if '429' in str(e) or isinstance(e, (TimeoutError, OSError)):
+            return {
+                'source': source.get('id', 'unknown'),
+                'checked_at': utcnow().isoformat(),
+                'state': 'rate_limited',
+                'reason': f'External research feed throttled: {e}',
+                'discovered': 0,
+                'new_or_changed': 0,
+                'automatic_implementation': False,
+            }
+        raise
+    received=parse_feed(raw)
     papers=[p for p in received if topic_relevance(p,source)]
     rejected=[{'id':p['id'],'title':p['title'],'url':p['url'],'content_sha256':p['content_sha256'],
                'source':source['id'],'reason':'League acronym without required sport context'}

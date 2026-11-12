@@ -532,7 +532,18 @@ class FunnelProportionalitySupervisor:
             with closing(sqlite3.connect(str(self.engine_db), timeout=30.0)) as eng_conn:
                 cur_eng = eng_conn.cursor()
                 for seg_key, lg, sc, fam, sub_fam in to_enqueue:
-                    job_id = f"funnel_priority_synth_{hashlib.sha256(f'{seg_key}:{now_iso[:13]}'.encode()).hexdigest()[:12]}"
+                    # Deduplication guard: Check if an active/queued job already exists for this exact segment
+                    cur_eng.execute("""
+                        SELECT 1 FROM learning_jobs 
+                        WHERE kind = 'priority_model_synthesis' 
+                          AND status IN ('queued', 'running', 'retry')
+                          AND payload LIKE ?
+                        LIMIT 1
+                    """, (f'%"{seg_key}"%',))
+                    if cur_eng.fetchone():
+                        continue
+
+                    job_id = f"funnel_priority_synth_{hashlib.sha256(seg_key.encode()).hexdigest()[:16]}"
                     payload = {
                         'segment_key': seg_key,
                         'league': lg,
@@ -546,7 +557,7 @@ class FunnelProportionalitySupervisor:
                     cur_eng.execute("""
                         INSERT INTO learning_jobs (id, kind, league, status, created_at, updated_at, next_attempt, attempts, payload)
                         VALUES (?, 'priority_model_synthesis', ?, 'queued', ?, ?, ?, 0, ?)
-                        ON CONFLICT(id) DO NOTHING
+                        ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at
                     """, (job_id, lg, now_iso, now_iso, now_iso, json.dumps(payload)))
                 eng_conn.commit()
         except Exception as e_enq:
