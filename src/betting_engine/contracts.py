@@ -87,10 +87,8 @@ def canonical_segment_aliases(league: str, scope: str, market: str) -> set:
 
     if base_mkt in ('spreads', 'handicap', 'asian_handicap'):
         segs.update({
-            f"{league_str}|{scope_str}|asian_lines",
             f"{league_str}|{scope_str}|asian_lines:asian_handicap",
             f"{league_str}|{scope_str}|american_derivatives:spreads",
-            f"{league_str}|{scope_str}|american_derivatives",
             f"{league_str}|{scope_str}|spreads",
         })
     elif base_mkt in ('totals', 'total', 'asian_total', 'asian_totals'):
@@ -113,46 +111,40 @@ def canonical_segment_aliases(league: str, scope: str, market: str) -> set:
     elif base_mkt in ('both_score', 'both_teams_score'):
         segs.update({
             f"{league_str}|{scope_str}|bivariate_derivatives:both_teams_score",
-            f"{league_str}|{scope_str}|bivariate_derivatives",
             f"{league_str}|{scope_str}|both_score",
         })
     elif base_mkt in ('moneyline', 'winner', 'head_to_head'):
         segs.update({
             f"{league_str}|{scope_str}|american_derivatives:moneyline",
-            f"{league_str}|{scope_str}|american_derivatives",
             f"{league_str}|{scope_str}|moneyline",
         })
     elif base_mkt in ('home_total', 'away_total', 'team_total'):
         segs.update({
             f"{league_str}|{scope_str}|american_derivatives:team_total",
-            f"{league_str}|{scope_str}|american_derivatives",
+            f"{league_str}|{scope_str}|american_derivatives:{base_mkt}",
             f"{league_str}|{scope_str}|team_total",
             f"{league_str}|{scope_str}|{base_mkt}",
         })
     elif base_mkt in ('set_handicap', 'game_handicap'):
         segs.update({
             f"{league_str}|{scope_str}|tennis_sets:set_handicap",
-            f"{league_str}|{scope_str}|tennis_sets",
             f"{league_str}|{scope_str}|set_handicap",
         })
     elif base_mkt in ('total_sets', 'set_totals'):
         segs.update({
             f"{league_str}|{scope_str}|tennis_sets:total_sets",
             f"{league_str}|{scope_str}|tennis_sets:set_totals",
-            f"{league_str}|{scope_str}|tennis_sets",
             f"{league_str}|{scope_str}|total_sets",
         })
     elif base_mkt in ('set_winner',):
         segs.update({
             f"{league_str}|{scope_str}|tennis_sets:set_winner",
             f"{league_str}|{scope_str}|tennis_sets:winner",
-            f"{league_str}|{scope_str}|tennis_sets",
             f"{league_str}|{scope_str}|set_winner",
         })
     elif base_mkt in ('draw_no_bet', 'dnb'):
         segs.update({
             f"{league_str}|{scope_str}|bivariate_derivatives:draw_no_bet",
-            f"{league_str}|{scope_str}|bivariate_derivatives",
             f"{league_str}|{scope_str}|draw_no_bet",
         })
     return segs

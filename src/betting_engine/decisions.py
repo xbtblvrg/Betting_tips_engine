@@ -141,23 +141,15 @@ def _get_graduated_segments():
         return set()
 
 def _get_demoted_segments():
-    from .contracts import canonical_segment_aliases
     roster = _get_universe_roster()
     grad = _get_graduated_segments()
-    all_grad = set()
-    for g in grad:
-        parts = g.split('|')
-        l = parts[0]
-        s = parts[1] if len(parts) > 1 else 'full_game'
-        m = parts[2] if len(parts) > 2 else ''
-        all_grad.update(canonical_segment_aliases(l, s, m))
     if roster:
         dem = {k for k, p in roster.items() if p.tier in (1, 2)}
-        return {k for k in dem if k not in all_grad}
+        return {k for k in dem if k not in grad}
     try:
         from .shadow_market_incubator import get_demoted_segments
         dem = get_demoted_segments()
-        return {k for k in (dem or set()) if k not in all_grad}
+        return {k for k in (dem or set()) if k not in grad}
     except Exception:
         return set()
 
@@ -170,6 +162,9 @@ def is_super_alpha(tip):
     scope = str(tip.get('model_scope', 'full_game'))
     market = str(tip.get('market', '')).lower()
     cand_segs = canonical_segment_aliases(league, scope, market)
+    dem_segs = _get_demoted_segments()
+    if cand_segs & dem_segs:
+        return False
     gov = _get_governor_status()
     s_super = set(gov.get('super_alpha_list', []))
     if cand_segs & s_super:
@@ -224,7 +219,7 @@ def is_profitable_or_alpha(tip):
     if is_super_alpha(tip):
         return True
     grad_segs = _get_graduated_segments()
-    if not tip.get('is_demoted') and (cand_segs & grad_segs or tip.get('is_graduated')):
+    if not tip.get('is_demoted') and not (cand_segs & demoted_segs) and (cand_segs & grad_segs or tip.get('is_graduated')):
         return True
     s_alpha = set(gov.get('solid_alpha_list', []))
     if cand_segs & s_alpha:
@@ -789,8 +784,14 @@ def candidate(g,m,q,forecast,settings,market_anchor=None,calibration_summary=Non
         cand_segs = canonical_segment_aliases(g.league, scope, m.kind)
         grad_segs = _get_graduated_segments()
         dem_segs = _get_demoted_segments()
-        is_grad = bool(cand_segs & grad_segs) or bool((getattr(m, 'metadata', None) or {}).get('is_graduated', False))
-        is_demoted = False if is_grad else bool((getattr(m, 'metadata', None) or {}).get('is_demoted', False) or bool(cand_segs & dem_segs))
+        is_dem = bool((getattr(m, 'metadata', None) or {}).get('is_demoted', False) or bool(cand_segs & dem_segs))
+        is_grad_meta = bool((getattr(m, 'metadata', None) or {}).get('is_graduated', False))
+        if is_dem:
+            is_demoted = True
+            is_grad = False
+        else:
+            is_demoted = False
+            is_grad = is_grad_meta or bool(cand_segs & grad_segs)
     result={'id':id,'game_id':g.id,'league':g.league,'home':g.home,'away':g.away,'start':g.start,'market':m.kind,'side':m.side,'line':m.line,'selection':m.selection,'model_scope':scope,'period':SCOPE_LABELS[scope],'settlement':('Only the named scoring scope counts. Ties push in two-way Winner and lose in 1x2 unless Draw is selected.' if scope!='full_game' else 'Includes overtime. Check the sportsbook settlement rules if the Winner market can end in a tie.'),'probability':p,'push_probability':push,'stress_probability':conservative,'stress_note':('Prospective, game-clustered calibration uncertainty; legacy floor retained until the segment reaches the independent-game minimum.' if calibration_summary else 'Sensitivity scenario, not a statistical confidence interval.'),'fair_odds':fair,'minimum_odds':threshold,'reference_odds':display_odds,'reference_price':q.price,'reference_fee_per_share':q.fee_per_share,'reference_effective_cost':q.effective_cost,'reference_minimum_notional':q.minimum_notional,'maximum_poly_effective_cost':required_poly_cost,'reference_platform':m.platform,'reference_url':m.url,'reference_market_id':m.id,'quote_at':q.fetched_at,'valid_until':min(parse_time(g.start),parse_time(q.fetched_at)+timedelta(seconds=MAX_QUOTE_AGE_SECONDS)).isoformat(),'expected_roi':roi,'stress_roi':stress_roi,'label':label,'reasons':reasons,'warnings':list(forecast.warnings),'model_version':forecast.model_version,'model_trained_at':model_trained_at,'model_probabilities':forecast.model_probabilities,'predicted_home_points':forecast.home_points,'predicted_away_points':forecast.away_points,'game_context':g.context,'source_url':g.source,'stake':0.,'stake_note':'','created_at':now.isoformat(),'rank_score':stress_roi,'basis':'The model uses sports data. Market odds are used only to assess value after the probability estimate.','reference_contract_description':m.description,'is_graduated':is_grad,'is_demoted':is_demoted}
 
     if support_policy != LEGACY_PROBABILITY_SUPPORT:
@@ -1046,8 +1047,8 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
             is_test_c = is_synthetic_test_candidate(c, settings)
             if c.get('league') and not is_test_c:
                 cand_segs_check = canonical_segment_aliases(str(c.get('league')).upper(), str(c.get('model_scope', 'full_game')), str(c.get('market', '')).lower())
-                is_grad_held = bool(c.get('is_graduated')) or bool(cand_segs_check & _get_graduated_segments())
-                is_dem_held = (bool(c.get('is_demoted')) and not is_grad_held) or (bool(cand_segs_check & _get_demoted_segments()) and not is_grad_held)
+                is_dem_held = bool(c.get('is_demoted')) or bool(cand_segs_check & _get_demoted_segments())
+                is_grad_held = not is_dem_held and (bool(c.get('is_graduated')) or bool(cand_segs_check & _get_graduated_segments()))
                 if not is_grad_held or is_dem_held:
                     c['alternative'] = True
                     alternatives.append(c)
@@ -1128,12 +1129,14 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                 is_alpha_cand = bool(cand_segs & s_alpha)
                 grad_segs = _get_graduated_segments()
                 demoted_segs = _get_demoted_segments()
-                is_grad_cand = bool(c.get('is_graduated')) or (bool(cand_segs & grad_segs) and not bool(cand_segs & demoted_segs))
+                matched_dem = bool(cand_segs & demoted_segs)
+                is_explicitly_graduated = bool(c.get('is_graduated')) and not bool(c.get('is_demoted'))
                 if not is_test_cand or ('demoted' in cand_id.lower()):
-                    is_demoted_cand = bool(c.get('is_demoted')) or (bool(cand_segs & demoted_segs) and not bool(c.get('is_graduated')))
+                    is_demoted_cand = bool(c.get('is_demoted')) or (matched_dem and not is_explicitly_graduated)
                 else:
-                    is_demoted_cand = bool(c.get('is_demoted')) and not is_grad_cand
-                cand_is_grad = is_grad_cand and not is_demoted_cand
+                    is_demoted_cand = bool(c.get('is_demoted'))
+                cand_is_grad = is_explicitly_graduated or (bool(cand_segs & grad_segs) and not matched_dem)
+                is_grad_cand = cand_is_grad
                 quarantine_set = set(gov_status.get('quarantine_list', []))
                 # Graduated Tier 3 markets have passed the Crucible and are in live production ($0.50-$8.00);
                 # they must NEVER be toxic-quarantined by trailing legacy scoreboards

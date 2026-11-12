@@ -703,5 +703,63 @@ def test_canonical_segment_aliasing_end_to_end(tmp_path):
     assert chosen[0]['allocation_code'] == 'funded'
 
 
+def test_demoted_derivative_markets_strictly_quarantined_at_zero_stake():
+    """Constitutional Invariant (Commandments 1, 6 & 7):
+    Demoted markets in Tier 1 R&D must NEVER bleed capital at $0.50.
+    Broad aliases (e.g. american_derivatives) must never cause demoted derivatives
+    (like NBA away_total) to inherit graduation from other markets (like NBA spreads)."""
+    from betting_engine.contracts import canonical_segment_aliases
+    from betting_engine.crucible_rules import evaluate_crucible_candidate
+    from betting_engine.decisions import DEFAULT_SETTINGS, rank_and_size
+    from betting_engine.outcome_sizing import apply_adjustment
+
+    # 1. Aliases of away_total and spreads must be mutually disjoint
+    away_aliases = canonical_segment_aliases('NBA', 'full_game', 'away_total')
+    spread_aliases = canonical_segment_aliases('NBA', 'full_game', 'spreads')
+    assert len(away_aliases & spread_aliases) == 0, "away_total and spreads must not share umbrella aliases!"
+
+    # 2. NBA away_total candidate (demoted market)
+    demoted_cand = {
+        'id': 'fe0222846d745b5a4221',
+        'league': 'NBA',
+        'model_scope': 'full_game',
+        'market': 'away_total',
+        'selection': 'Boston Celtics Over 110.5',
+        'reference_odds': 1.95,
+        'probability': 0.56,
+        'stress_probability': 0.53,
+        'expected_roi': 0.09,
+        'stress_roi': 0.05,
+        'odds': 1.95,
+        'minimum_odds': 1.80,
+        'game_id': 'NBA:game_real_1',
+    }
+
+    # Crucible check: must be rejected with demoted_market_quarantine
+    c_pass, c_reason, _ = evaluate_crucible_candidate(demoted_cand)
+    assert c_pass is False, "Demoted NBA away_total must be rejected by Crucible gate!"
+    assert 'demoted_market_quarantine' in c_reason
+
+    # Outcome sizing check: stake must be clamped to $0.00
+    base_sizing = {'amount': 1.0, 'note': 'base', 'currency': 'USD'}
+    res = apply_adjustment(base_sizing, demoted_cand, {'outcome_sizing_policy': 'historical_confidence_v3', 'is_test': False}, 10.0)
+    assert res['amount'] == 0.0, "Demoted market must be capped to $0.00 stake!"
+    assert res.get('outcome_adjustment', {}).get('caps', {}).get('demoted_market_defense_clamp') == 0.0
+
+    # Decisions rank_and_size: must never be in chosen, must be quarantined in alternatives
+    test_settings = {
+        **DEFAULT_SETTINGS,
+        'family_selection_policy': 'continuous_probability_v4',
+        'is_test': False,
+        'minimum_roi': 0.02,
+    }
+    chosen, alts = rank_and_size([demoted_cand], test_settings)
+    assert len(chosen) == 0, "Demoted NBA away_total must NEVER be funded in chosen recommendations!"
+    assert len(alts) == 1
+    assert alts[0]['allocation_code'] == 'capital_defense_quarantined'
+    assert alts[0]['stake'] == 0.0
+
+
+
 
 

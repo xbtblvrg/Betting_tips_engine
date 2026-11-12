@@ -27,6 +27,7 @@ HISTORY_FILE = DATA / 'segment_tier_history.json'
 TRANSITIONS_LOG = DATA / 'tier_transitions.jsonl'
 
 TIER_RANKS = {
+    'DEMOTED_QUARANTINE': -1,
     'CAPITAL_DEFENSE': 0,
     'PROBATION': 1,
     'EXPLORATION': 2,
@@ -45,7 +46,8 @@ def classify_tier(
     rolling_roi: float = 0.0,
     has_deployed_patch: bool = False,
     staked: float = 0.0,
-    rolling_staked: float = 0.0
+    rolling_staked: float = 0.0,
+    is_demoted: bool = False
 ) -> Dict[str, Any]:
     """Classifies a market slice into its canonical tier and operational parameters.
     
@@ -55,6 +57,19 @@ def classify_tier(
     Scale-Invariant Dynamic Risk Units (Anti-Constant Mandate, Commandment 3):
     Evaluates progression and defense in units of average stake (Units = PnL / avg_stake).
     """
+    # Phase 2: Demoted Market Quarantine (Commandment 6 & 7)
+    # When a market officially deteriorates into demoted_markets, all real-money betting
+    # is strictly suspended ($0.00 stake).
+    if is_demoted:
+        return {
+            'tier': 'UNDERPERFORMING',
+            'sub_tier': 'DEMOTED_QUARANTINE',
+            'stake_cap': 0.00,
+            'min_ev': 0.05,
+            'scaling_target': '$0.00 demoted quarantine',
+            'action': 'Demoted market quarantine ($0.00 stake); all real-money betting suspended; Tier 1/2 R&D model retraining'
+        }
+
     avg_st = (staked / games_count) if (staked > 0 and games_count > 0) else 1.0
     units_pnl = pnl / max(0.50, avg_st)
     avg_roll_st = (rolling_staked / rolling_games) if (rolling_staked > 0 and rolling_games > 0) else 1.0

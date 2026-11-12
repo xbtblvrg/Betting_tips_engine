@@ -230,19 +230,18 @@ def evaluate_crucible_candidate(
                 from .decisions import _get_graduated_segments, _get_demoted_segments
                 cand_segs = canonical_segment_aliases(str(league).upper(), str(cand_scope), str(market).lower())
                 grad_segs = _get_graduated_segments()
-                is_graduated = bool(candidate.get('is_graduated')) or bool(cand_segs & grad_segs)
+                dem_segs = _get_demoted_segments()
+
+                matched_dem = (cand_segs & dem_segs)
+                is_explicitly_graduated = bool(candidate.get('is_graduated')) and not bool(candidate.get('is_demoted'))
 
                 # Demoted markets quarantine check (Commandments 6 & 7: Strictly quarantined $0.00)
-                # Re-graduated Tier 3 markets have passed the Crucible and are in live production
-                if not is_graduated:
-                    try:
-                        dem_segs = _get_demoted_segments()
-                        matched_dem = (cand_segs & dem_segs)
-                        if matched_dem:
-                            hit_key = next(iter(matched_dem))
-                            return False, f"crucible_filter_gate:demoted_market_quarantine:{hit_key}", None
-                    except Exception:
-                        pass
+                # Demoted markets represent active quarantine and strictly override historical graduation.
+                if matched_dem and not is_explicitly_graduated:
+                    hit_key = next(iter(matched_dem))
+                    return False, f"crucible_filter_gate:demoted_market_quarantine:{hit_key}", None
+
+                is_graduated = is_explicitly_graduated or (bool(cand_segs & grad_segs) and not matched_dem)
 
                 from .autonomous_roi_governor import get_latest_governor_report
                 gov = get_latest_governor_report(DATA)
