@@ -135,7 +135,7 @@ def audit_components(payload,worker,catalog,research,now=None,closing=None):
     catalog_issues = catalog.get('issues') or [] if isinstance(catalog, dict) else []
     critical_catalog_issues = [
         i for i in catalog_issues
-        if i.get('reason') not in ('stake_seed_identity_unresolved', 'stake_fixture_not_active', 'stake_fixture_identity_conflict', 'stake_fixture_endpoint_error')
+        if i.get('reason') not in ('stake_seed_identity_unresolved', 'stake_fixture_not_active', 'stake_fixture_identity_conflict', 'stake_fixture_endpoint_error', 'stake_endpoint_market_difference')
         and i.get('stage') != 'fixture_endpoints'
     ]
     cat_detail = f'{catalog.get("fixtures_fetched",0)}/{catalog.get("discovered_fixtures",0)} fixtures fetched; {catalog.get("complete_endpoint_responses",0)} responses. Last check: {catalog.get("checked_at","missing")}'
