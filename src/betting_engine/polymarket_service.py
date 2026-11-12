@@ -141,7 +141,11 @@ class PolymarketService:
         self.builder_key = os.getenv("POLYMARKET_BUILDER_API_KEY")
 
     def _http_get_json(self, url: str, timeout: Optional[float] = None) -> Optional[Any]:
-        headers = {"User-Agent": "BettingEngine-AQ-RD/1.0", "Accept": "application/json"}
+        headers = {
+            "User-Agent": "BettingEngine-AQ-RD/1.0",
+            "Accept": "application/json",
+            "Accept-Encoding": "gzip, deflate"
+        }
         if self.builder_key:
             headers["POLY_BUILDER_API_KEY"] = self.builder_key
         req = urllib.request.Request(url, headers=headers)
@@ -149,7 +153,11 @@ class PolymarketService:
         try:
             with urllib.request.urlopen(req, timeout=eff_timeout) as resp:
                 if resp.status == 200:
-                    return json.loads(resp.read().decode("utf-8"))
+                    raw = resp.read()
+                    if raw.startswith(b"\x1f\x8b") or resp.headers.get("Content-Encoding") == "gzip":
+                        import gzip
+                        raw = gzip.decompress(raw)
+                    return json.loads(raw.decode("utf-8"))
         except urllib.error.HTTPError as e:
             if e.code == 404:
                 logger.debug("Polymarket resource 404 (empty book or no trades) for %s", url)
