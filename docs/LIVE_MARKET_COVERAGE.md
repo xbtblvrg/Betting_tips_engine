@@ -1,13 +1,13 @@
 # Live Stake market coverage
 
-Checked: 2026-11-12T19:48:21.825932+00:00
+Checked: 2026-11-12T20:09:31.608850+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
 | League | Observed titles | Activity unverified | Offered now | Complete 10/10 | Incomplete offered | Evaluated | Funding supported | Ready now | Issued today |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | NFL | 78 | 1 | 60 | 0 | 60 | 35 | 8 | 4 | 36 |
-| NHL | 71 | 5 | 58 | 0 | 58 | 39 | 5 | 4 | 13 |
+| NHL | 71 | 5 | 58 | 0 | 58 | 39 | 6 | 4 | 15 |
 | MLB | 9 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | NBA | 148 | 3 | 91 | 0 | 91 | 49 | 17 | 15 | 47 |
 | WNBA | 7 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
@@ -250,14 +250,14 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NFL | Will There be Overtime | standard | regulation | offered_now | 6/10 | partial 7/12 | verified 12/12 | verified 12/12 | verified 12/12 | verified 12/12 | verified 7/7 | verified 7/7 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Winner (Incl. Overtime) | standard | full_game | offered_now | 9/10 | verified 18/18 | verified 18/18 | verified 18/18 | verified 18/18 | verified 18/18 | verified 18/18 | verified 18/18 | verified 7/7 | verified 7/7 | partial 7/8 | 0 |
 | NFL | Winning Margin | standard | regulation | offered_now | 0/10 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NFL | 1st half anytime touchdown | swishMarkets.playerProps | half_1 | observed_activity_unverified | 0/10 | activity_unverified 0/728 | activity_unverified 0/728 | activity_unverified 0/728 | activity_unverified 0/728 | activity_unverified 0/728 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NFL | 1st half anytime touchdown | swishMarkets.playerProps | half_1 | observed_activity_unverified | 0/10 | activity_unverified 0/732 | activity_unverified 0/732 | activity_unverified 0/732 | activity_unverified 0/732 | activity_unverified 0/732 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 1st Goal | standard | regulation | offered_now | 0/10 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 1st Period - 1st Goal | standard | period_1 | offered_now | 0/10 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 1st Period - 1x2 | standard | period_1 | offered_now | 9/10 | verified 30/30 | verified 30/30 | verified 30/30 | verified 30/30 | verified 30/30 | verified 30/30 | verified 30/30 | verified 10/10 | verified 10/10 | partial 10/11 | 0 |
 | NHL | 1st Period - Both Teams to Score | standard | period_1 | offered_now | 1/10 | not_observed 0/20 | verified 20/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 1st Period - Double Chance | standard | period_1 | offered_now | 7/10 | verified 30/30 | verified 30/30 | verified 30/30 | verified 30/30 | verified 30/30 | verified 30/30 | verified 30/30 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
 | NHL | 1st Period - Draw No Bet | standard | period_1 | offered_now | 8/10 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 11/11 | partial 4/11 | partial 11/12 | 0 |
-| NHL | 1st Period - Handicap | standard | period_1 | offered_now | 9/10 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 11/11 | verified 8/8 | partial 8/9 | 3 |
+| NHL | 1st Period - Handicap | standard | period_1 | offered_now | 9/10 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 11/11 | verified 9/9 | partial 8/10 | 3 |
 | NHL | 1st Period - Last Team to Score | standard | period_1 | offered_now | 0/10 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 1st Period - Odd/Even | standard | period_1 | offered_now | 1/10 | not_observed 0/20 | verified 20/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 1st Period - Total | standard | period_1 | offered_now | 8/10 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 8/8 | partial 6/7 | partial 7/8 | 1 |
@@ -273,11 +273,11 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NHL | 2nd Period - Odd/Even | standard | period_2 | offered_now | 1/10 | not_observed 0/20 | verified 20/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 2nd Period - Total | standard | period_2 | offered_now | 9/10 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 18/18 | verified 18/18 | partial 18/19 | 0 |
 | NHL | 3rd Period - 1st Goal | standard | period_3 | offered_now | 0/10 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NHL | 3rd Period - 1x2 | standard | period_3 | offered_now | 8/10 | verified 30/30 | verified 30/30 | verified 30/30 | verified 30/30 | verified 30/30 | verified 30/30 | verified 30/30 | verified 10/10 | partial 3/5 | partial 5/6 | 5 |
+| NHL | 3rd Period - 1x2 | standard | period_3 | offered_now | 8/10 | verified 30/30 | verified 30/30 | verified 30/30 | verified 30/30 | verified 30/30 | verified 30/30 | verified 30/30 | verified 10/10 | partial 4/6 | partial 5/7 | 5 |
 | NHL | 3rd Period - Both Teams to Score | standard | period_3 | offered_now | 1/10 | not_observed 0/20 | verified 20/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 3rd Period - Double Chance | standard | period_3 | offered_now | 9/10 | verified 30/30 | verified 30/30 | verified 30/30 | verified 30/30 | verified 30/30 | verified 30/30 | verified 30/30 | verified 9/9 | verified 9/9 | partial 9/10 | 0 |
 | NHL | 3rd Period - Draw No Bet | standard | period_3 | offered_now | 1/10 | not_observed 0/20 | verified 20/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NHL | 3rd Period - Handicap | standard | period_3 | offered_now | 8/10 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 12/12 | partial 9/12 | partial 12/13 | 0 |
+| NHL | 3rd Period - Handicap | standard | period_3 | offered_now | 8/10 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 14/14 | partial 9/12 | partial 12/13 | 2 |
 | NHL | 3rd Period - Last Team to Score | standard | period_3 | offered_now | 0/10 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 3rd Period - Odd/Even | standard | period_3 | offered_now | 1/10 | not_observed 0/20 | verified 20/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 3rd Period - Total | standard | period_3 | offered_now | 9/10 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 5/5 | verified 5/5 | partial 5/6 | 0 |
@@ -296,7 +296,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NHL | Double Chance | standard | regulation | offered_now | 7/10 | partial 27/30 | verified 30/30 | verified 30/30 | verified 30/30 | partial 27/30 | verified 27/27 | verified 27/27 | verified 5/5 | verified 5/5 | partial 5/6 | 0 |
 | NHL | Edmonton Oilers Total | standard | regulation | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NHL | Florida Panthers Total | standard | regulation | offered_now | 3/10 | partial 4/6 | verified 6/6 | partial 4/6 | partial 4/6 | partial 4/6 | verified 4/4 | verified 4/4 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
-| NHL | Handicap (Incl. Overtime and Penalties) | standard | full_game | offered_now | 9/10 | verified 92/92 | verified 92/92 | verified 92/92 | verified 92/92 | verified 92/92 | verified 92/92 | verified 92/92 | verified 15/15 | verified 15/15 | partial 15/16 | 0 |
+| NHL | Handicap (Incl. Overtime and Penalties) | standard | full_game | offered_now | 9/10 | verified 96/96 | verified 96/96 | verified 96/96 | verified 96/96 | verified 96/96 | verified 96/96 | verified 96/96 | verified 15/15 | verified 15/15 | partial 15/16 | 0 |
 | NHL | Last Goal | standard | regulation | offered_now | 0/10 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Los Angeles Kings Total | standard | regulation | offered_now | 5/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | verified 1/1 | verified 1/1 | partial 1/2 | 0 |
 | NHL | Minnesota Wild Total | standard | regulation | offered_now | 3/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
