@@ -1,6 +1,6 @@
 # Live Stake market coverage
 
-Checked: 2026-11-12T20:09:31.608850+00:00
+Checked: 2026-11-12T20:37:46.116034+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
@@ -199,7 +199,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NFL | 3rd Quarter - 1x2 | standard | quarter_3 | offered_now | 1/10 | not_observed 0/27 | verified 27/27 | not_observed 0/27 | not_observed 0/27 | not_observed 0/27 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 3rd Quarter - Draw No Bet | standard | quarter_3 | offered_now | 3/10 | not_observed 0/18 | verified 18/18 | partial 4/18 | partial 4/18 | not_observed 0/18 | not_observed 0/0 | not_observed 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NFL | 3rd Quarter - Handicap | standard | quarter_3 | offered_now | 5/10 | partial 4/22 | verified 22/22 | partial 4/22 | partial 4/22 | partial 4/22 | verified 4/4 | verified 4/4 | verified 4/4 | verified 4/4 | partial 4/5 | 0 |
-| NFL | 3rd Quarter - Total | standard | quarter_3 | offered_now | 5/10 | partial 4/22 | verified 22/22 | partial 4/22 | partial 4/22 | partial 4/22 | verified 4/4 | verified 4/4 | verified 6/6 | verified 6/6 | partial 6/7 | 0 |
+| NFL | 3rd Quarter - Total | standard | quarter_3 | offered_now | 5/10 | partial 5/22 | verified 22/22 | partial 5/22 | partial 5/22 | partial 5/22 | verified 5/5 | verified 5/5 | verified 6/6 | verified 6/6 | partial 6/7 | 0 |
 | NFL | 4th Quarter - 1x2 | standard | quarter_4 | offered_now | 1/10 | not_observed 0/27 | verified 27/27 | not_observed 0/27 | not_observed 0/27 | not_observed 0/27 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 4th Quarter - Draw No Bet | standard | quarter_4 | offered_now | 1/10 | not_observed 0/18 | verified 18/18 | partial 2/18 | partial 2/18 | not_observed 0/18 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 4th Quarter - Draw No Bet (incl. Overtime) | standard | quarter_4_ot | offered_now | 1/10 | not_observed 0/18 | verified 18/18 | partial 2/18 | partial 2/18 | not_observed 0/18 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
@@ -257,7 +257,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NHL | 1st Period - Both Teams to Score | standard | period_1 | offered_now | 1/10 | not_observed 0/20 | verified 20/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 1st Period - Double Chance | standard | period_1 | offered_now | 7/10 | verified 30/30 | verified 30/30 | verified 30/30 | verified 30/30 | verified 30/30 | verified 30/30 | verified 30/30 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
 | NHL | 1st Period - Draw No Bet | standard | period_1 | offered_now | 8/10 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 11/11 | partial 4/11 | partial 11/12 | 0 |
-| NHL | 1st Period - Handicap | standard | period_1 | offered_now | 9/10 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 11/11 | verified 9/9 | partial 8/10 | 3 |
+| NHL | 1st Period - Handicap | standard | period_1 | offered_now | 9/10 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 11/11 | verified 9/9 | partial 9/10 | 3 |
 | NHL | 1st Period - Last Team to Score | standard | period_1 | offered_now | 0/10 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 1st Period - Odd/Even | standard | period_1 | offered_now | 1/10 | not_observed 0/20 | verified 20/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 1st Period - Total | standard | period_1 | offered_now | 8/10 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 8/8 | partial 6/7 | partial 7/8 | 1 |
@@ -273,7 +273,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NHL | 2nd Period - Odd/Even | standard | period_2 | offered_now | 1/10 | not_observed 0/20 | verified 20/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 2nd Period - Total | standard | period_2 | offered_now | 9/10 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 18/18 | verified 18/18 | partial 18/19 | 0 |
 | NHL | 3rd Period - 1st Goal | standard | period_3 | offered_now | 0/10 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NHL | 3rd Period - 1x2 | standard | period_3 | offered_now | 8/10 | verified 30/30 | verified 30/30 | verified 30/30 | verified 30/30 | verified 30/30 | verified 30/30 | verified 30/30 | verified 10/10 | partial 4/6 | partial 5/7 | 5 |
+| NHL | 3rd Period - 1x2 | standard | period_3 | offered_now | 8/10 | verified 30/30 | verified 30/30 | verified 30/30 | verified 30/30 | verified 30/30 | verified 30/30 | verified 30/30 | verified 10/10 | partial 4/6 | partial 6/7 | 5 |
 | NHL | 3rd Period - Both Teams to Score | standard | period_3 | offered_now | 1/10 | not_observed 0/20 | verified 20/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 3rd Period - Double Chance | standard | period_3 | offered_now | 9/10 | verified 30/30 | verified 30/30 | verified 30/30 | verified 30/30 | verified 30/30 | verified 30/30 | verified 30/30 | verified 9/9 | verified 9/9 | partial 9/10 | 0 |
 | NHL | 3rd Period - Draw No Bet | standard | period_3 | offered_now | 1/10 | not_observed 0/20 | verified 20/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
