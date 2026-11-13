@@ -474,8 +474,8 @@ class Store:
             c_scope = str(tip.get('model_scope', 'full_game'))
             c_market = str(tip.get('market', '')).lower()
             cand_segs = canonical_segment_aliases(c_league, c_scope, c_market)
-            is_grad = bool(tip.get('is_graduated')) or bool(cand_segs & grad_segs)
-            is_dem = (bool(tip.get('is_demoted')) and not is_grad) or (bool(cand_segs & dem_segs) and not is_grad)
+            is_dem = bool(tip.get('is_demoted')) or bool(cand_segs & dem_segs)
+            is_grad = False if is_dem else (bool(tip.get('is_graduated')) or bool(cand_segs & grad_segs))
             cand_is_grad = is_grad and not is_dem
             if not cand_is_grad:
                 return
