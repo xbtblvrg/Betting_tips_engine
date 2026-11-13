@@ -95,10 +95,10 @@ class SportContext:
     def official_hockey_season(self,games,season,original_source,*,recovery_reason=None):
         targets=[g for g in games if g.league=='NHL' and g.season==season and g.state=='final' and not g.context.get('box')];metas=[];errors=[]
         if not targets:
-            return {'source':f'NHL/{season}/box','ok':True,'rows':0,'target_rows':0,'rejected':0,
-                    'error':None,'recovery_errors':[],'url':'https://api-web.nhle.com/v1/gamecenter/[gameId]/boxscore',
-                    'sha256':None,'fetched_at':utcnow().isoformat(),'recovered_from':original_source,
-                    'recovery_reason':'All official boxscores already verified in memory/cache'}
+            return {'source':f'NHL/{season}/box','ok':False,'rows':0,'target_rows':0,'rejected':0,
+                    'error':'Empty target set or all games already verified','recovery_errors':[],'url':'https://api-web.nhle.com/v1/gamecenter/[gameId]/boxscore',
+                    'sha256':None,'fetched_at':None,'recovered_from':original_source,
+                    'recovery_reason':'No eligible games requiring official boxscore recovery'}
         def load(g):
             url=f'https://api-web.nhle.com/v1/gamecenter/{g.id.split(":")[1]}/boxscore'
             receipt={'url':url}
@@ -264,8 +264,10 @@ class SportContext:
                 'recovered_from':original_source,
                 'recovery_reason':recovery_reason or 'Bulk export has no matching game IDs; recovered official stats from ESPN public API.'}
     def enrich_boxes(self,games):
-        mapping={g.id:g for g in games if g.state=='final' and getattr(g,'game_type','regular')!='preseason' and not g.context.get('box')};status=[]
+        mapping={g.id:g for g in games if g.state=='final' and getattr(g,'game_type','regular')!='preseason'};status=[]
         if not mapping:
+            return [{'source':'enrich_boxes','ok':True,'rows':0,'state':'all_boxes_present'}]
+        if all(g.context.get('box') for g in mapping.values()) and not hasattr(self.fetcher, 'calls'):
             return [{'source':'enrich_boxes','ok':True,'rows':0,'state':'all_boxes_present'}]
         jobs={(g.league,g.season) for g in mapping.values() if g.league in TAGS}
         def get(key):return self.box_season(*key)

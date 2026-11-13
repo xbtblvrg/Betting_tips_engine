@@ -141,7 +141,7 @@ def audit_components(payload,worker,catalog,research,now=None,closing=None):
     cat_detail = f'{catalog.get("fixtures_fetched",0)}/{catalog.get("discovered_fixtures",0)} fixtures fetched; {catalog.get("complete_endpoint_responses",0)} responses. Last check: {catalog.get("checked_at","missing")}'
     if cat_state != 'fresh':
         cat_detail = f'Catalogue evidence is {cat_state}. {cat_detail}'
-    cat_state_final = 'healthy' if cat_state == 'fresh' and not critical_catalog_issues else 'degraded'
+    cat_state_final = 'healthy' if cat_state == 'fresh' and not catalog_issues else 'degraded'
     add('Full market catalogue', cat_state_final, cat_detail)
     checks[-1]['freshness'] = cat_freshness
     checks[-1]['issues'] = deepcopy(catalog_issues)

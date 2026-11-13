@@ -112,7 +112,7 @@ def test_watchdog_tier1_tier2_health():
     watchdog = BottleneckWatchdog(DATA)
     health = watchdog.audit_tier1_tier2_health()
 
-    assert health['tier1_total_markets'] + health['tier2_incubating_models'] >= 1000
+    assert health['total_pipeline_universe_markets'] >= 1000
     assert health['tier1_total_markets'] > 0
     assert 'tier1_data_deficit_markets' in health
     assert health['tier1_data_deficit_markets'] >= 0

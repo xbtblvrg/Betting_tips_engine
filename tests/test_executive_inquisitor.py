@@ -66,7 +66,7 @@ def test_inquisitor_run_cycle_and_persistence(tmp_path):
     res = inq.run_inquisitor_cycle()
 
     assert res["executive_proxy_persona"] == "Béla Varga (Chief Executive Forensic Inquisitor)"
-    assert res["inquiries_count"] == 6
+    assert res["inquiries_count"] == 7
     assert "duration_seconds" in res
     assert "executed_at" in res
     assert res["overall_status"] in ("optimal", "warning", "healed", "bottleneck_detected")
@@ -74,8 +74,8 @@ def test_inquisitor_run_cycle_and_persistence(tmp_path):
     # Test persistence and loading
     status = load_executive_inquisitor_status(data_dir=tmp_path)
     assert status is not None
-    assert status["inquiries_count"] == 6
-    assert len(status["inquiries"]) == 6
+    assert status["inquiries_count"] == 7
+    assert len(status["inquiries"]) == 7
 
 
 def test_inquisitor_auto_heals_stuck_jobs(tmp_path):

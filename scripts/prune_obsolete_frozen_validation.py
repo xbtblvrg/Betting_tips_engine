@@ -21,7 +21,7 @@ from betting_engine.release_sports_fixture_inputs import verify_release_sports_f
 
 NAME = re.compile(r'release-validation-[0-9a-f]{32}\Z')
 EMPTY_DB_SHA = '959c2e4ee7aea301f6378cb602e9f01f6ba11df440904ee9fd121f3d491f17c6'
-EMPTY_TABLES = {'bet_outcomes','bet_reconciliation','bets','daily_target_checkpoints',
+EMPTY_TABLES = {'autorun_placements','bet_outcomes','bet_reconciliation','bets','daily_target_checkpoints',
     'instruction_refill_events','instruction_refill_requests','instruction_refill_triggers','kv',
     'outbox','placement_checklist','polymarket_orders','prospective','publications','recommendation_issuance',
     'reported_bet_imports','segment_prospective','sqlite_sequence','system_decisions','tips'}

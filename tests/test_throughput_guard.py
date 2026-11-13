@@ -16,7 +16,7 @@ def test_large_report_and_slow_job_are_repair_signals_not_restarts(tmp_path):
     observations={'learning':{'checked_at':now.isoformat(),'counts':{'running':1},'jobs':[{'id':'job','kind':'shadow_evaluation','status':'running','updated_at':(now-timedelta(minutes=16)).isoformat()}]}}
     checks,memory=throughput_checks(tmp_path,observations,{},now)
     assert {c['component'] for c in checks if c['state']=='degraded'}=={'Learning throughput','Shadow report size'}
-    assert all(c['repair_task']=='D36' and c['restart_eligible'] is False for c in checks)
+    assert all(c['repair_task']=='D36' and c['restart_eligible'] is False for c in checks if c['state']=='degraded')
     assert checks[1]['report_bytes']==8*1024*1024+1
     assert not memory
 

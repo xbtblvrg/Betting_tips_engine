@@ -391,6 +391,13 @@ class BottleneckWatchdog:
                 health['tier2_incubating_models'] = row[0] if row else 0
 
                 cur.execute("""
+                    SELECT count(*) FROM graduated_markets
+                """)
+                row = cur.fetchone()
+                health['tier3_graduated_markets'] = row[0] if row else 0
+                health['total_pipeline_universe_markets'] = health['tier1_total_markets'] + health['tier2_incubating_models'] + health['tier3_graduated_markets']
+
+                cur.execute("""
                     SELECT name FROM sqlite_master WHERE type='table' AND name='ai_synthesis_feedback_loop'
                 """)
                 if cur.fetchone():

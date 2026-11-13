@@ -78,6 +78,7 @@ def ingest(source: Path, output: Path) -> dict:
         for (book_id,) in db.execute("SELECT DISTINCT book_id FROM pages").fetchall():
             if book_id not in active:
                 db.execute("DELETE FROM pages WHERE book_id = ?", (book_id,))
+        db.commit()
     manifest = {"source": str(source), "generated_at": datetime.now(timezone.utc).isoformat(),
                 "note": "Extraction and indexing are not evidence of reading or comprehension.",
                 "files": records}

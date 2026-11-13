@@ -177,8 +177,8 @@ def test_pillar_3_cross_market_risk_synergy() -> bool:
 
     # B. Quarantined Toxic Submarket Exclusion
     quarantined_cand = {
-        'id': 'cand_toxic_wta_spreads',
-        'league': 'WTA',
+        'id': 'cand_toxic_nhl_spreads',
+        'league': 'NHL',
         'market': 'spreads',
         'model_scope': 'full_game',
         'side': 'home',
