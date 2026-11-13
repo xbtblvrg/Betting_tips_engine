@@ -81,9 +81,10 @@ def canonical_segment_aliases(league: str, scope: str, market: str) -> set:
         f"{league_str}|{scope_str}|{market_str}",
         f"{league_str}|{scope_str}|{base_mkt}",
         f"{league_str}|{scope_str}|{scope_str}:{base_mkt}",
-        f"{league_str}|{market_str}",
-        f"{league_str}|{base_mkt}",
     }
+    if scope_str == 'full_game':
+        segs.add(f"{league_str}|{market_str}")
+        segs.add(f"{league_str}|{base_mkt}")
 
     if base_mkt in ('spreads', 'handicap', 'asian_handicap'):
         segs.update({

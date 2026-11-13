@@ -760,6 +760,36 @@ def test_demoted_derivative_markets_strictly_quarantined_at_zero_stake():
     assert alts[0]['stake'] == 0.0
 
 
+def test_non_full_game_scopes_do_not_collide_with_full_game_graduation():
+    """Constitutional Invariant (Commandments 1, 6 & 7):
+    Non-full-game periods/quarters/halves (e.g. NBA quarter_3 spreads) must NEVER
+    inherit graduation from full-game markets (e.g. NBA full_game spreads).
+    Their alias sets must remain strictly disjoint so that demoted period derivatives
+    cannot bypass quarantine through scope bleed."""
+    from betting_engine.contracts import canonical_segment_aliases
+    
+    # 1. Spreads scope isolation
+    q3_spreads = canonical_segment_aliases('NBA', 'quarter_3', 'quarter_3:spreads')
+    fg_spreads = canonical_segment_aliases('NBA', 'full_game', 'spreads')
+    assert len(q3_spreads & fg_spreads) == 0, f"quarter_3 spreads collided with full_game spreads: {q3_spreads & fg_spreads}"
+    assert 'NBA|spreads' not in q3_spreads
+    assert 'NBA|spreads' in fg_spreads
+
+    # 2. Totals scope isolation
+    q1_totals = canonical_segment_aliases('NBA', 'quarter_1', 'quarter_1:totals')
+    fg_totals = canonical_segment_aliases('NBA', 'full_game', 'totals')
+    assert len(q1_totals & fg_totals) == 0, f"quarter_1 totals collided with full_game totals: {q1_totals & fg_totals}"
+    assert 'NBA|totals' not in q1_totals
+    assert 'NBA|totals' in fg_totals
+
+    # 3. Moneyline scope isolation
+    q4_ml = canonical_segment_aliases('NFL', 'quarter_4', 'quarter_4:moneyline')
+    fg_ml = canonical_segment_aliases('NFL', 'full_game', 'moneyline')
+    assert len(q4_ml & fg_ml) == 0, f"quarter_4 moneyline collided with full_game moneyline: {q4_ml & fg_ml}"
+    assert 'NFL|moneyline' not in q4_ml
+    assert 'NFL|moneyline' in fg_ml
+
+
 
 
 
