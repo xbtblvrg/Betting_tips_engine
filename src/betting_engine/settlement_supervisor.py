@@ -63,7 +63,8 @@ class SettlementSupervisor:
         cutoff = now - timedelta(hours=horizon_hours)
         cutoff_iso = cutoff.isoformat()
 
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self.db_path, timeout=45.0)
+        conn.execute("PRAGMA busy_timeout=45000")
         c = conn.cursor()
 
         c.execute("""
@@ -249,7 +250,8 @@ class SettlementSupervisor:
         if not past_due:
             return {'settled_walkovers': 0, 'details': []}
 
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self.db_path, timeout=45.0)
+        conn.execute("PRAGMA busy_timeout=45000")
         c = conn.cursor()
 
         settled_details = []
@@ -404,7 +406,8 @@ class SettlementSupervisor:
         if status not in ('won', 'lost', 'push'):
             return {'success': False, 'error': f'Invalid status: {status}'}
 
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self.db_path, timeout=45.0)
+        conn.execute("PRAGMA busy_timeout=45000")
         c = conn.cursor()
         now = utcnow()
 

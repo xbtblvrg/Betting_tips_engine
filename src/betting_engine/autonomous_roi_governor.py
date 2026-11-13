@@ -65,7 +65,8 @@ class AutonomousROIGovernor:
         if not self.db_path.exists():
             return {'status': 'error', 'reason': 'database_missing'}
 
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self.db_path, timeout=45.0)
+        conn.execute("PRAGMA busy_timeout=45000")
         c = conn.cursor()
 
         cutoff_str = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()

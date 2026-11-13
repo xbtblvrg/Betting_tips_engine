@@ -1,6 +1,6 @@
 # Live Stake market coverage
 
-Checked: 2026-11-13T12:27:59.575451+00:00
+Checked: 2026-11-13T13:09:31.384261+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
@@ -9,7 +9,7 @@ Observed feed titles; not proof of complete Stake website coverage. Funding supp
 | NFL | 73 | 1 | 62 | 0 | 62 | 44 | 9 | 0 | 5 |
 | NHL | 64 | 5 | 42 | 0 | 42 | 25 | 7 | 5 | 7 |
 | MLB | 9 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| NBA | 160 | 3 | 120 | 0 | 120 | 65 | 18 | 2 | 44 |
+| NBA | 161 | 3 | 120 | 0 | 120 | 65 | 19 | 2 | 44 |
 | WNBA | 7 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 
 Current stages require outcome-level evidence; original issuance, settlement and feedback are explicitly historical. 10/10 records observed execution, not proven profitability or automatic model promotion.
@@ -45,6 +45,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | 1st Half - Milwaukee Bucks Total | standard | half_1 | offered_now | 9/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 1/1 | verified 1/1 | partial 1/2 | 0 |
 | NBA | 1st Half - Minnesota Timberwolves Total | standard | half_1 | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NBA | 1st Half - New Orleans Pelicans Total | standard | half_1 | offered_now | 9/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 1/1 | verified 1/1 | partial 1/2 | 0 |
+| NBA | 1st Half - New York Knicks Total | standard | half_1 | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | 1st Half - Odd/Even | standard | half_1 | offered_now | 0/10 | not_observed 0/18 | not_observed 0/18 | not_observed 0/18 | not_observed 0/18 | not_observed 0/18 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | 1st Half - Oklahoma City Thunder Total | standard | half_1 | offered_now | 9/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 3/3 | verified 3/3 | partial 3/4 | 0 |
 | NBA | 1st Half - Orlando Magic Total | standard | half_1 | offered_now | 9/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 1/1 | verified 1/1 | partial 1/2 | 0 |
@@ -316,10 +317,10 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NHL | Vancouver Canucks Total | standard | regulation | offered_now | 3/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
 | NHL | Vegas Golden Knights Total | standard | regulation | offered_now | 3/10 | partial 4/6 | verified 6/6 | partial 4/6 | partial 4/6 | partial 4/6 | verified 4/4 | verified 4/4 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
 | NHL | Washington Capitals Total | standard | regulation | historical_only | 1/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | not_observed 0/1 | awaiting_measurement 1/2 | 0 |
-| NHL | Winner (Incl. Overtime and Penalties) | standard | full_game | offered_now | 5/10 | partial 3/4 | verified 4/4 | partial 3/4 | partial 3/4 | partial 3/4 | verified 3/3 | verified 3/3 | verified 21/21 | verified 21/21 | partial 21/22 | 0 |
+| NHL | Winner (Incl. Overtime and Penalties) | standard | full_game | offered_now | 5/10 | partial 2/4 | verified 4/4 | partial 2/4 | partial 2/4 | partial 2/4 | verified 2/2 | verified 2/2 | verified 21/21 | verified 21/21 | partial 21/22 | 0 |
 | NHL | moneyline | swishMarkets.matchMarkets | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/8 | activity_unverified 0/8 | activity_unverified 0/8 | activity_unverified 0/8 | activity_unverified 0/8 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | spread | swishMarkets.matchMarkets | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/8 | activity_unverified 0/8 | activity_unverified 0/8 | activity_unverified 0/8 | activity_unverified 0/8 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NHL | goals against | swishMarkets.playerProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/128 | activity_unverified 0/128 | activity_unverified 0/128 | activity_unverified 0/128 | activity_unverified 0/128 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NHL | goals against | swishMarkets.playerProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/134 | activity_unverified 0/134 | activity_unverified 0/134 | activity_unverified 0/134 | activity_unverified 0/134 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | plus minus | swishMarkets.playerProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/276 | activity_unverified 0/276 | activity_unverified 0/276 | activity_unverified 0/276 | activity_unverified 0/276 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | shutouts | swishMarkets.playerProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/16 | activity_unverified 0/16 | activity_unverified 0/16 | activity_unverified 0/16 | activity_unverified 0/16 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | WNBA | 1st Half - Asian Total | standard | half_1 | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 3/3 | verified 3/3 | awaiting_measurement 3/4 | 0 |

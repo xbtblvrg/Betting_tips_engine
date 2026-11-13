@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 import logging
+import time
 from pathlib import Path
 from contextlib import closing
 
@@ -275,21 +276,29 @@ def enqueue_rd_repair_job(
             """, (job_id, league, now_iso, now_iso, now_iso, payload))
             conn.commit()
         except sqlite3.OperationalError as op_err:
-            if "readonly" in str(op_err).lower():
+            err_str = str(op_err).lower()
+            if "readonly" in err_str or "locked" in err_str or "busy" in err_str:
                 from .providers import DATA
-                with closing(sqlite3.connect(str(DATA / 'engine.sqlite3'), timeout=30.0)) as w_conn:
-                    w_conn.execute("PRAGMA busy_timeout = 30000")
-                    w_conn.execute("""
-                        INSERT INTO learning_jobs (id, kind, league, status, created_at, updated_at, next_attempt, attempts, payload)
-                        VALUES (?, 'segment_repair', ?, 'queued', ?, ?, ?, 0, ?)
-                        ON CONFLICT(id) DO UPDATE SET
-                            status = CASE WHEN status = 'running' THEN status ELSE 'queued' END,
-                            updated_at = excluded.updated_at,
-                            next_attempt = excluded.next_attempt,
-                            attempts = CASE WHEN status = 'running' THEN attempts ELSE 0 END,
-                            payload = excluded.payload
-                    """, (job_id, league, now_iso, now_iso, now_iso, payload))
-                    w_conn.commit()
+                for attempt in range(5):
+                    try:
+                        time.sleep(0.15 * (attempt + 1))
+                        with closing(sqlite3.connect(str(DATA / 'engine.sqlite3'), timeout=45.0)) as w_conn:
+                            w_conn.execute("PRAGMA busy_timeout = 45000")
+                            w_conn.execute("""
+                                INSERT INTO learning_jobs (id, kind, league, status, created_at, updated_at, next_attempt, attempts, payload)
+                                VALUES (?, 'segment_repair', ?, 'queued', ?, ?, ?, 0, ?)
+                                ON CONFLICT(id) DO UPDATE SET
+                                    status = CASE WHEN status = 'running' THEN status ELSE 'queued' END,
+                                    updated_at = excluded.updated_at,
+                                    next_attempt = excluded.next_attempt,
+                                    attempts = CASE WHEN status = 'running' THEN attempts ELSE 0 END,
+                                    payload = excluded.payload
+                            """, (job_id, league, now_iso, now_iso, now_iso, payload))
+                            w_conn.commit()
+                            break
+                    except Exception:
+                        if attempt == 4:
+                            raise
             else:
                 raise
 
