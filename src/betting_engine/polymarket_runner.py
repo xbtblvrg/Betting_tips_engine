@@ -804,7 +804,7 @@ class PolymarketAutonomousRunner:
                                 "segment_key": f"{league}|{scope}|{family}",
                                 "title": title,
                                 "line": line_val,
-                                "reason": f"Extreme alternate total line {line_val} on {title} exceeds Gaussian shift bounds. AI model must synthesize discrete distribution archetype (e.g. Negative Binomial / Poisson) for tail pricing.",
+                                "reason": f"Extreme alternate total line {line_val} on {title} exceeds Gaussian shift bounds. Formulate calibrated discrete tail distribution from first principles for tail pricing.",
                             })
                     elif forecast and family == "spreads" and line_val is not None:
                         # Outcome spread handicap:

@@ -5,13 +5,12 @@ Consistent high betting volume (minimum 100+ bets/Budapest day) with a
 minimum weekly +5% to +10% portfolio ROI.
 
 Operates across 3 dynamic control vectors:
-1. Alpha Acceleration: Heavily scales capital ($3.00–$5.00) into demonstrably
+1. Alpha Acceleration: Heavily scales capital ($2.50–$8.00) into demonstrably
    winning segments (MLB spreads/totals, WNBA ML, NFL spreads, MLS, ATP ML).
 2. Capital Defense Clamp: Instantly clamps underperforming segments
-   (ROI < -3%, net loss <= -$5.00) to $1.00 flat and requires +3.5% min EV.
+   (rolling ROI < -3% or negative PnL over 4+ games) to $0.50 tourniquet and requires +3.5% min EV.
 3. Toxic Micro-Market Quarantine: Completely suppresses negative outlier
-   markets (e.g. NHL regulation both teams to score, Win Rate < 25%) to prevent
-   catastrophic profit drain.
+   markets (Tier 1/2 R&D $0.00 stake) to prevent catastrophic profit drain.
 """
 from __future__ import annotations
 from dataclasses import dataclass, asdict
