@@ -412,6 +412,15 @@ def synthesize_capability_expansion_plan(
         ))
         patch_scope = "Synthesize Sharp CLV benchmark devigging and Bayesian calibration shrinkage."
 
+    # Mandate Phase 1 Emergency $0.50 Liquidity Tourniquet for any wobbling/negative segment
+    if (pnl < 0.0 or roi_pct < -3.0) and not any(r.action == 'clamp_stake' for r in portfolio_rules):
+        portfolio_rules.append(PortfolioShieldRule(
+            rule_id=f"rule_{clean_seg}_clamp_stake",
+            action='clamp_stake',
+            condition="max_stake <= 0.50",
+            enacted=True,
+            rationale='Phase 1 Capital Defense: emergency $0.50 liquidity tourniquet on negative-ROI segment under active research.'
+        ))
 
     return CapabilityExpansionPlan(
         plan_id=plan_id,

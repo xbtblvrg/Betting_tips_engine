@@ -114,6 +114,8 @@ def _get_governor_status():
         return {}
 
 _ROSTER_CACHE = {'ts': 0.0, 'data': None}
+_GRADUATED_CACHE = {'ts': 0.0, 'data': None}
+_DEMOTED_CACHE = {'ts': 0.0, 'data': None}
 
 def _get_universe_roster():
     import time
@@ -125,33 +127,51 @@ def _get_universe_roster():
         roster = UnifiedMarketUniverse().build_universe_roster()
         _ROSTER_CACHE['ts'] = now
         _ROSTER_CACHE['data'] = roster
+        _GRADUATED_CACHE['ts'] = 0.0
+        _DEMOTED_CACHE['ts'] = 0.0
         return roster
     except Exception:
         return {}
 
 def _get_graduated_segments():
+    import time
+    now = time.time()
+    if now - _GRADUATED_CACHE['ts'] < 60.0 and _GRADUATED_CACHE['data'] is not None:
+        return _GRADUATED_CACHE['data']
     roster = _get_universe_roster()
     if roster:
-        return {k for k, p in roster.items() if p.tier >= 3}
-    try:
-        from .shadow_market_incubator import load_graduated_markets
-        grads = load_graduated_markets()
-        return set(grads.keys()) if grads else set()
-    except Exception:
-        return set()
+        res = {k for k, p in roster.items() if p.tier >= 3}
+    else:
+        try:
+            from .shadow_market_incubator import load_graduated_markets
+            grads = load_graduated_markets()
+            res = set(grads.keys()) if grads else set()
+        except Exception:
+            res = set()
+    _GRADUATED_CACHE['ts'] = now
+    _GRADUATED_CACHE['data'] = res
+    return res
 
 def _get_demoted_segments():
+    import time
+    now = time.time()
+    if now - _DEMOTED_CACHE['ts'] < 60.0 and _DEMOTED_CACHE['data'] is not None:
+        return _DEMOTED_CACHE['data']
     roster = _get_universe_roster()
     grad = _get_graduated_segments()
     if roster:
         dem = {k for k, p in roster.items() if p.tier in (1, 2)}
-        return {k for k in dem if k not in grad}
-    try:
-        from .shadow_market_incubator import get_demoted_segments
-        dem = get_demoted_segments()
-        return {k for k in (dem or set()) if k not in grad}
-    except Exception:
-        return set()
+        res = {k for k in dem if k not in grad}
+    else:
+        try:
+            from .shadow_market_incubator import get_demoted_segments
+            dem = get_demoted_segments()
+            res = {k for k in (dem or set()) if k not in grad}
+        except Exception:
+            res = set()
+    _DEMOTED_CACHE['ts'] = now
+    _DEMOTED_CACHE['data'] = res
+    return res
 
 def is_super_alpha(tip):
     if not isinstance(tip, dict):
@@ -1228,7 +1248,9 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
             c['stake_sizing']=sizing;amount,note=sizing['amount'],sizing['note']
             try:
                 from .capability_expansion import check_portfolio_shield
-                shield = check_portfolio_shield(c) if not is_synthetic_test else None
+                shield = check_portfolio_shield(c)
+                if is_synthetic_test and shield and shield.get('action') == 'clamp_stake':
+                    shield = None
                 if continuous and bases.get(c['id'], {}).get('tier') == 'probability_pick' and shield and shield.get('action') == 'ev_insufficient':
                     shield = None
                 if shield and shield.get('action') == 'quarantine':

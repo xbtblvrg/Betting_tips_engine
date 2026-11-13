@@ -419,11 +419,25 @@ def run_governor_cycle(data_dir: Path = DATA) -> Dict[str, Any]:
     return governor.analyze_weekly_performance(days=7)
 
 
+import time
+
+_REPORT_CACHE: Dict[str, Any] = {'ts': 0.0, 'mtime': 0.0, 'data': None}
+
+
 def get_latest_governor_report(data_dir: Path = DATA) -> Dict[str, Any]:
     """Returns the cached governor report or runs an on-demand audit."""
-    if STATUS_PATH.exists():
+    target_status = Path(data_dir) / 'roi_governor_status.json' if data_dir else STATUS_PATH
+    if target_status.exists():
         try:
-            return json.loads(STATUS_PATH.read_text(encoding='utf-8'))
+            mtime = target_status.stat().st_mtime
+            now = time.time()
+            if _REPORT_CACHE['data'] is not None and (now - _REPORT_CACHE['ts'] < 10.0) and (_REPORT_CACHE['mtime'] == mtime):
+                return _REPORT_CACHE['data']
+            data = json.loads(target_status.read_text(encoding='utf-8'))
+            _REPORT_CACHE['ts'] = now
+            _REPORT_CACHE['mtime'] = mtime
+            _REPORT_CACHE['data'] = data
+            return data
         except Exception:
             pass
     return run_governor_cycle(data_dir)

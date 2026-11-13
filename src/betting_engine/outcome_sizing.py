@@ -271,11 +271,16 @@ def summary_for(snapshot, tip):
     return result
 
 
+_SUMMARY_VERIFY_CACHE: Dict[str, bool] = {}
+
+
 def verify_summary(summary):
     """Cheap numeric/digest consistency; not a substitute for ledger replay."""
     if not isinstance(summary, dict):
         return False
     sha = summary.get('summary_sha256')
+    if isinstance(sha, str) and sha in _SUMMARY_VERIFY_CACHE:
+        return _SUMMARY_VERIFY_CACHE[sha]
     try:
         if summary.get('version') != VERSION or summary.get('policy') != POLICY or summary.get('sparse_below_games') != SPARSE_BELOW_GAMES:
             return False
@@ -293,7 +298,12 @@ def verify_summary(summary):
             if _number(game['stake']) <= 0 or _number(game['pnl']) < -game['stake'] - 1e-8 or not 0 <= _number(game['inverse_odds_sum']) <= game['wins'] + game['losses']:
                 return False
         rebuilt = _aggregate(summary['games'])
-        return all(summary[k] == value for k, value in rebuilt.items()) and 1 <= summary['factor'] < 2
+        res = all(summary[k] == value for k, value in rebuilt.items()) and 1 <= summary['factor'] < 2
+        if isinstance(sha, str):
+            if len(_SUMMARY_VERIFY_CACHE) > 1000:
+                _SUMMARY_VERIFY_CACHE.clear()
+            _SUMMARY_VERIFY_CACHE[sha] = res
+        return res
     except (ValueError, TypeError, KeyError, AttributeError, OverflowError):
         return False
 
