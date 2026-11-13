@@ -468,9 +468,10 @@ class BottleneckWatchdog:
                         continue
                     mid = r['model_id']
                     cls_name = r['class_name']
-                    sig = f"{mid}:v1.0.0:{cls_name}"
-                    sig_hash = hashlib.sha256(sig.encode('utf-8')).hexdigest()
-                    if sig_hash in rejected_hashes:
+                    # Check both 1.0.0 and v1.0.0 representations against rejected hashes to prevent clogged loops
+                    h1 = hashlib.sha256(f"{mid}:1.0.0:{cls_name}".encode('utf-8')).hexdigest()
+                    h2 = hashlib.sha256(f"{mid}:v1.0.0:{cls_name}".encode('utf-8')).hexdigest()
+                    if h1 in rejected_hashes or h2 in rejected_hashes:
                         continue
                     src_file = self.data_dir.parent / 'src' / 'betting_engine' / 'sandbox_models' / 'generated' / f"{mid}.py"
                     if not src_file.exists():
