@@ -482,9 +482,9 @@ class PolymarketService:
             target_spreads = spreads_data if scope == "full_game" else period_spreads.setdefault(scope, {})
             target_totals = totals_data if scope == "full_game" else period_totals.setdefault(scope, {})
 
-            outcomes = m.get("outcomes", [])
-            tokens = m.get("clobTokenIds", [])
-            outcome_prices = m.get("outcomePrices", [])
+            outcomes = m.get("outcomes") or []
+            tokens = m.get("clobTokenIds") or []
+            outcome_prices = m.get("outcomePrices") or []
             best_bid = m.get("bestBid")
             best_ask = m.get("bestAsk")
             volume = m.get("volumeNum") or m.get("volume") or 0.0
@@ -494,16 +494,24 @@ class PolymarketService:
                     outcomes = json.loads(outcomes)
                 except Exception:
                     pass
+            if not isinstance(outcomes, list):
+                outcomes = []
+
             if isinstance(tokens, str):
                 try:
                     tokens = json.loads(tokens)
                 except Exception:
                     pass
+            if not isinstance(tokens, list):
+                tokens = []
+
             if isinstance(outcome_prices, str):
                 try:
                     outcome_prices = json.loads(outcome_prices)
                 except Exception:
                     pass
+            if not isinstance(outcome_prices, list):
+                outcome_prices = []
 
             if len(outcomes) == 2:
                 # 1. 2-way American markets (Team A vs Team B in outcomes) - Moneyline (Full Game only)
