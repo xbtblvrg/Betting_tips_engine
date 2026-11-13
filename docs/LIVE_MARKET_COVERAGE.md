@@ -1,6 +1,6 @@
 # Live Stake market coverage
 
-Checked: 2026-11-13T09:28:17.664125+00:00
+Checked: 2026-11-13T09:47:49.365576+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
@@ -131,7 +131,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | Golden State Warriors Total (Incl. Overtime) | standard | full_game | offered_now | 9/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 3/3 | verified 3/3 | partial 3/4 | 0 |
 | NBA | Golden State Warriors Total Maximum Consecutive Points | standard | regulation | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Halftime/Fulltime | standard | regulation | offered_now | 0/10 | not_observed 0/81 | not_observed 0/81 | not_observed 0/81 | not_observed 0/81 | not_observed 0/81 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NBA | Handicap (Incl. Overtime) | standard | full_game | offered_now | 8/10 | verified 122/122 | verified 122/122 | verified 122/122 | verified 122/122 | verified 122/122 | verified 122/122 | verified 122/122 | verified 284/284 | partial 243/257 | partial 257/258 | 7 |
+| NBA | Handicap (Incl. Overtime) | standard | full_game | offered_now | 8/10 | verified 126/126 | verified 126/126 | verified 126/126 | verified 126/126 | verified 126/126 | verified 126/126 | verified 126/126 | verified 284/284 | partial 243/257 | partial 257/258 | 7 |
 | NBA | Handicap (including OT) & Total (including OT) | standard | regulation | offered_now | 0/10 | not_observed 0/36 | not_observed 0/36 | not_observed 0/36 | not_observed 0/36 | not_observed 0/36 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Highest Scoring Quarter | standard | regulation | offered_now | 0/10 | not_observed 0/40 | not_observed 0/40 | not_observed 0/40 | not_observed 0/40 | not_observed 0/40 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Highest scoring quarter - total | standard | regulation | offered_now | 0/10 | not_observed 0/18 | not_observed 0/18 | not_observed 0/18 | not_observed 0/18 | not_observed 0/18 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
@@ -174,7 +174,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | San Antonio Spurs Total Maximum Consecutive Points | standard | regulation | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Team to win all quarters | standard | regulation | offered_now | 0/10 | not_observed 0/27 | not_observed 0/27 | not_observed 0/27 | not_observed 0/27 | not_observed 0/27 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Toronto Raptors Total (Incl. Overtime) | standard | full_game | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 17/17 | verified 17/17 | awaiting_measurement 17/18 | 0 |
-| NBA | Total (Incl. Overtime) | standard | full_game | offered_now | 9/10 | verified 122/122 | verified 122/122 | verified 122/122 | verified 122/122 | verified 122/122 | verified 122/122 | verified 122/122 | verified 213/213 | verified 213/213 | partial 213/214 | 0 |
+| NBA | Total (Incl. Overtime) | standard | full_game | offered_now | 9/10 | verified 126/126 | verified 126/126 | verified 126/126 | verified 126/126 | verified 126/126 | verified 126/126 | verified 126/126 | verified 213/213 | verified 213/213 | partial 213/214 | 0 |
 | NBA | Total (Over-Exact-Under) | standard | regulation | offered_now | 0/10 | not_observed 0/27 | not_observed 0/27 | not_observed 0/27 | not_observed 0/27 | not_observed 0/27 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Utah Jazz Total (Incl. Overtime) | standard | full_game | offered_now | 8/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 13/13 | partial 10/13 | partial 13/14 | 0 |
 | NBA | Utah Jazz Total Maximum Consecutive Points | standard | regulation | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
