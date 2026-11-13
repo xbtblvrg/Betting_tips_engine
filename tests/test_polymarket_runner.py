@@ -421,3 +421,42 @@ def test_adaptive_depth_stake_resilience_and_candidate_fallback(runner_env):
     assert placed["token_id"] == "tok_fallback_48_over"
     assert placed["ok"] is True
 
+
+def test_certainty_adjusted_candidate_selection_prioritizes_liquid_consensus_line(runner_env):
+    """Verifies that between a balanced consensus line (p=0.50) and a high-variance alternate tail line,
+    the runner chooses the balanced consensus line due to Certainty-Adjusted Alpha weighting."""
+    runner = runner_env["runner"]
+
+    mock_events = [
+        {
+            "title": "Kansas City Chiefs vs Buffalo Bills",
+            "startDate": future_start_time(),
+            "markets": [
+                {
+                    "question": "Chiefs vs Bills: Over/Under 44.5",
+                    "sportsMarketType": "totals",
+                    "line": 44.5,
+                    "clobTokenIds": ["tok_alt_44_over", "tok_alt_44_under"],
+                    "outcomes": ["Over", "Under"],
+                    "outcomePrices": ["0.68", "0.32"],
+                },
+                {
+                    "question": "Chiefs vs Bills: Over/Under 47.5",
+                    "sportsMarketType": "totals",
+                    "line": 47.5,
+                    "clobTokenIds": ["tok_prim_47_over", "tok_prim_47_under"],
+                    "outcomes": ["Over", "Under"],
+                    "outcomePrices": ["0.50", "0.50"],
+                },
+            ],
+            "tags": [{"label": "NFL"}],
+        }
+    ]
+
+    res = runner.run_execution_cycle(leagues=("NFL",), mock_events=mock_events)
+    assert res["orders_placed_count"] >= 1
+    placed = res["orders_placed"][0]
+    # Primary line near 0.50 must be chosen over the skewed 0.68 line
+    assert placed["token_id"] == "tok_prim_47_over"
+
+

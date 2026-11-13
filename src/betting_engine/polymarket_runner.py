@@ -1021,7 +1021,12 @@ class PolymarketAutonomousRunner:
                 def candidate_rank(c):
                     ev_val = float(c.get("ev", 0.0))
                     pref = c.get("preflight")
-                    p_eff = float(getattr(pref, "eff_price", 0.50) if pref else 0.50)
+                    if isinstance(pref, dict):
+                        p_eff = float(pref.get("eff_price", 0.50))
+                    elif hasattr(pref, "eff_price"):
+                        p_eff = float(pref.eff_price)
+                    else:
+                        p_eff = 0.50
                     density_weight = max(0.1, 1.0 - abs(p_eff - 0.50))
                     return (ev_val * density_weight, ev_val)
 
