@@ -248,6 +248,13 @@ def automation_status(data_dir):
                     {k: t[k] for k in ('league', 'market', 'tabs', 'family', 'scope', 'dependencies') if k in t}
                     for t in value['types']
                 ]
+        if name=='shadow_evidence':
+            value.pop('continuation', None)
+            if 'prospective_trials' in value and isinstance(value['prospective_trials'], list):
+                value['prospective_trials'] = [
+                    {k: t[k] for k in ('trial_id', 'model_version', 'study_id', 'as_of', 'families') if k in t}
+                    for t in value['prospective_trials'] if t.get('families')
+                ][:60]
         result[name]=value
     try:
         from .shadow_market_incubator import ShadowMarketIncubator
