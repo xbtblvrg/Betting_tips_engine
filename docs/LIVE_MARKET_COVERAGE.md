@@ -1,6 +1,6 @@
 # Live Stake market coverage
 
-Checked: 2026-11-13T07:42:50.863150+00:00
+Checked: 2026-11-13T08:08:24.838538+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
@@ -305,7 +305,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NHL | Nashville Predators Total | standard | regulation | offered_now | 9/10 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 1/1 | verified 1/1 | partial 1/2 | 0 |
 | NHL | New Jersey Devils Total | standard | regulation | historical_only | 1/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 3/3 | not_observed 0/3 | awaiting_measurement 3/4 | 0 |
 | NHL | New York Islanders Total | standard | regulation | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
-| NHL | New York Rangers Total | standard | regulation | offered_now | 7/10 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
+| NHL | New York Rangers Total | standard | regulation | offered_now | 7/10 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
 | NHL | Odd/Even (Incl. Overtime and Penalties) | standard | full_game | offered_now | 1/10 | not_observed 0/4 | verified 4/4 | not_observed 0/4 | not_observed 0/4 | not_observed 0/4 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Ottawa Senators Total | standard | regulation | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 2/2 | verified 2/2 | awaiting_measurement 2/3 | 0 |
 | NHL | Philadelphia Flyers Total | standard | regulation | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 3/3 | verified 3/3 | awaiting_measurement 3/4 | 0 |
@@ -313,7 +313,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NHL | San Jose Sharks Total | standard | regulation | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NHL | Tampa Bay Lightning Total | standard | regulation | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 2/2 | verified 2/2 | awaiting_measurement 2/3 | 0 |
 | NHL | Total (Incl. Overtime and Penalties) | standard | full_game | offered_now | 4/10 | partial 17/20 | verified 20/20 | partial 17/20 | partial 17/20 | partial 17/20 | verified 17/17 | verified 17/17 | verified 27/27 | partial 13/27 | partial 27/28 | 0 |
-| NHL | Vancouver Canucks Total | standard | regulation | offered_now | 7/10 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
+| NHL | Vancouver Canucks Total | standard | regulation | offered_now | 3/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
 | NHL | Vegas Golden Knights Total | standard | regulation | offered_now | 3/10 | partial 1/2 | verified 2/2 | partial 1/2 | partial 1/2 | partial 1/2 | verified 1/1 | verified 1/1 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
 | NHL | Washington Capitals Total | standard | regulation | historical_only | 1/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | not_observed 0/1 | awaiting_measurement 1/2 | 0 |
 | NHL | Winner (Incl. Overtime and Penalties) | standard | full_game | offered_now | 5/10 | partial 3/4 | verified 4/4 | partial 3/4 | partial 3/4 | partial 3/4 | verified 3/3 | verified 3/3 | verified 21/21 | verified 21/21 | partial 21/22 | 0 |
