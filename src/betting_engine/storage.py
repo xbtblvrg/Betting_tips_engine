@@ -162,7 +162,7 @@ class Store:
 
     def settings(self):
         cfg = self._read_cfg()
-        with self.db() as c:r=c.execute('SELECT value FROM kv WHERE key=?',('settings',)).fetchone()
+        with self.ro_db() as c:r=c.execute('SELECT value FROM kv WHERE key=?',('settings',)).fetchone()
         db_settings = json.loads(r['value']) if r else {}
         from .anchor_learning import runtime_settings
         return runtime_settings({**DEFAULT_SETTINGS, **cfg, **db_settings}, self.path.parent)
@@ -182,17 +182,19 @@ class Store:
             c.execute("INSERT INTO kv VALUES ('source_refresh_request',?)",(json.dumps(value),))
         return value
     def pending_source_refresh(self):
-        with self.db() as c:r=c.execute("SELECT value FROM kv WHERE key='source_refresh_request'").fetchone()
+        with self.ro_db() as c:r=c.execute("SELECT value FROM kv WHERE key='source_refresh_request'").fetchone()
         return json.loads(r['value']) if r else None
     def acknowledge_source_refresh(self,request):
         if request:
-            with self.db() as c:c.execute("DELETE FROM kv WHERE key='source_refresh_request' AND value=?",(json.dumps(request),))
+            with self.db() as c:
+                c.execute('BEGIN IMMEDIATE')
+                c.execute("DELETE FROM kv WHERE key='source_refresh_request' AND value=?",(json.dumps(request),))
     def latest(self):
-        with self.db() as c:r=c.execute('SELECT id,payload FROM publications ORDER BY id DESC LIMIT 1').fetchone()
+        with self.ro_db() as c:r=c.execute('SELECT id,payload FROM publications ORDER BY id DESC LIMIT 1').fetchone()
         return {**decode_publication(r['payload']),'version':r['id']} if r else None
 
     def latest_version(self):
-        with self.db() as c:r=c.execute('SELECT id FROM publications ORDER BY id DESC LIMIT 1').fetchone()
+        with self.ro_db() as c:r=c.execute('SELECT id FROM publications ORDER BY id DESC LIMIT 1').fetchone()
         return r['id'] if r else 0
 
     def compress_publication_history(self,limit=20):
@@ -221,7 +223,7 @@ class Store:
         # Read the durable tip ledger rather than repeatedly parsing full
         # publication snapshots. Withdrawn historical tips remain available
         # here after the active Stake feed has replaced the recommendation set.
-        with self.db() as c:rows=c.execute('SELECT last_seen,payload FROM tips ORDER BY last_seen DESC LIMIT 500').fetchall()
+        with self.ro_db() as c:rows=c.execute('SELECT last_seen,payload FROM tips ORDER BY last_seen DESC LIMIT 500').fetchall()
         for row in rows:
             try:tip=json.loads(row['payload'])
             except (TypeError,json.JSONDecodeError):continue
@@ -538,7 +540,7 @@ class Store:
                         pass
 
     def system_decisions(self):
-        with self.db() as c:rows=c.execute('SELECT * FROM system_decisions ORDER BY issued_at DESC').fetchall()
+        with self.ro_db() as c:rows=c.execute('SELECT * FROM system_decisions ORDER BY issued_at DESC').fetchall()
         return [{**dict(r),'payload':json.loads(r['payload']),'outcome_evidence':json.loads(r['outcome_evidence']) if r['outcome_evidence'] else None} for r in rows]
 
     def adopt_legacy_reported_decisions(self):
@@ -807,10 +809,10 @@ class Store:
             if policy and scope!='full_game':period_counts[tip['game_id']]+=1
             if policy:family_new[family_key]+=1
     def get_tip(self,id):
-        with self.db() as c:r=c.execute('SELECT payload FROM tips WHERE id=?',(id,)).fetchone()
+        with self.ro_db() as c:r=c.execute('SELECT payload FROM tips WHERE id=?',(id,)).fetchone()
         return json.loads(r['payload']) if r else None
     def placement_marks(self):
-        with self.db() as c:rows=c.execute('SELECT tip_id,placed_at FROM placement_checklist').fetchall()
+        with self.ro_db() as c:rows=c.execute('SELECT tip_id,placed_at FROM placement_checklist').fetchall()
         return {r['tip_id']:r['placed_at'] for r in rows}
     def mark_placed(self,tip_id,placed):
         from .instruction_refill import mark_placed
@@ -819,7 +821,7 @@ class Store:
             return mark_placed(c,tip_id,placed)
     def pending_instruction_refill(self):
         from .instruction_refill import pending
-        with self.db() as c:return pending(c)
+        with self.ro_db() as c:return pending(c)
     def claim_instruction_refill(self):
         from .instruction_refill import claim
         for attempt in range(8):
@@ -858,7 +860,7 @@ class Store:
                 raise
     def instruction_refill_status(self,request_id=None):
         from .instruction_refill import status
-        with self.db() as c:return status(c,request_id)
+        with self.ro_db() as c:return status(c,request_id)
     def add_bet(self,tip_id,stake,odds,platform,request_id=None,settlement_mode="manual"):
         tip=self.get_tip(tip_id)
         if not tip:raise ValueError('Unknown recommendation')
@@ -877,12 +879,12 @@ class Store:
         self.invalidate_held_caches()
         return bid
     def bet(self, bet_id: int):
-        with self.db() as c:
+        with self.ro_db() as c:
             r = c.execute('SELECT * FROM bets WHERE id = ?', (bet_id,)).fetchone()
             if not r: return None
             return {**dict(r), 'payload': json.loads(r['payload'])}
     def bets(self, limit: int = 500):
-        with self.db() as c:
+        with self.ro_db() as c:
             query = 'SELECT * FROM bets ORDER BY id DESC'
             if limit: query += f' LIMIT {limit}'
             rows = c.execute(query).fetchall()
@@ -926,10 +928,10 @@ class Store:
         return reprice_unplaced(self, request_id, tip_ids, authorization)
 
     def open_bets(self):
-        with self.db() as c:rows=c.execute("SELECT * FROM bets WHERE status='open' ORDER BY id").fetchall()
+        with self.ro_db() as c:rows=c.execute("SELECT * FROM bets WHERE status='open' ORDER BY id").fetchall()
         return [{**dict(r),'payload':json.loads(r['payload'])} for r in rows]
     def open_exposure(self):
-        with self.db() as c:return float(c.execute("SELECT COALESCE(SUM(stake),0) FROM bets WHERE status='open'").fetchone()[0])
+        with self.ro_db() as c:return float(c.execute("SELECT COALESCE(SUM(stake),0) FROM bets WHERE status='open'").fetchone()[0])
     def settle(self,id,status,pnl,evidence=None):
         for attempt in range(10):
             try:
@@ -965,13 +967,13 @@ class Store:
     def risk_committed(self):
         local=utcnow().astimezone(ZoneInfo(self.settings()['timezone']))
         start=datetime.combine(local.date(),time.min,tzinfo=local.tzinfo).astimezone(timezone.utc).isoformat()
-        with self.db() as c:return float(c.execute("SELECT COALESCE(SUM(stake),0) FROM bets WHERE created_at>=? OR status='open'",(start,)).fetchone()[0])
+        with self.ro_db() as c:return float(c.execute("SELECT COALESCE(SUM(stake),0) FROM bets WHERE created_at>=? OR status='open'",(start,)).fetchone()[0])
     def held_families(self):
-        with self.db() as c:rows=c.execute("SELECT payload FROM bets WHERE status='open'").fetchall()
+        with self.ro_db() as c:rows=c.execute("SELECT payload FROM bets WHERE status='open'").fetchall()
         return {(t['game_id'],t['market']) for r in rows if (t:=json.loads(r['payload'])) and 'game_id' in t and 'market' in t}
     def _populate_held_caches(self):
         from .contracts import equivalent_contract_ids, allocation_family
-        with self.db() as c:
+        with self.ro_db() as c:
             sd_rows = c.execute('SELECT tip_id, payload FROM system_decisions').fetchall()
             extra_bets = c.execute('SELECT tip_id, payload FROM bets WHERE tip_id NOT IN (SELECT tip_id FROM system_decisions)').fetchall()
         held = set()
@@ -1001,17 +1003,17 @@ class Store:
         return set(Store._held_contracts_cache[key])
     def held_event_counts(self):
         from collections import Counter
-        with self.db() as c:rows=c.execute("SELECT tip_id,payload FROM bets WHERE status='open'").fetchall()
+        with self.ro_db() as c:rows=c.execute("SELECT tip_id,payload FROM bets WHERE status='open'").fetchall()
         return dict(Counter(t['game_id'] for t in {r['tip_id']:json.loads(r['payload']) for r in rows}.values() if t.get('game_id')))
     def held_event_stakes(self):
         """Open recorded stake by game for the live $5 exposure cap."""
-        with self.db() as c:
+        with self.ro_db() as c:
             rows=c.execute("SELECT json_extract(payload,'$.game_id') game_id,COALESCE(SUM(stake),0) amount FROM bets WHERE status='open' GROUP BY game_id").fetchall()
         return {r['game_id']:float(r['amount'] or 0.) for r in rows if r['game_id']}
     def held_period_counts(self):
         """Open period/quarter/inning tickets by game."""
         from .contracts import split_market
-        with self.db() as c:rows=c.execute("SELECT payload FROM bets WHERE status='open'").fetchall()
+        with self.ro_db() as c:rows=c.execute("SELECT payload FROM bets WHERE status='open'").fetchall()
         result={}
         for row in rows:
             try:
@@ -1027,7 +1029,7 @@ class Store:
         settings=self.settings();local=utcnow().astimezone(ZoneInfo(settings['timezone']))
         start=datetime.combine(local.date(),time.min,tzinfo=local.tzinfo).astimezone(timezone.utc).isoformat()
         end=datetime.combine(local.date()+timedelta(days=1),time.min,tzinfo=local.tzinfo).astimezone(timezone.utc).isoformat()
-        with self.db() as c:
+        with self.ro_db() as c:
             rows=c.execute("SELECT i.league,d.payload FROM recommendation_issuance i JOIN system_decisions d ON d.family=i.family WHERE i.issued_at>=? AND i.issued_at<?",(start,end)).fetchall()
         result={}
         for row in rows:
@@ -1042,7 +1044,7 @@ class Store:
             self._populate_held_caches()
         return set(Store._held_allocation_families_cache[key])
     def held_preference_allocations(self):
-        with self.db() as c:
+        with self.ro_db() as c:
             return {(r['game_id'],r['tier']) for r in c.execute("SELECT DISTINCT json_extract(payload,'$.game_id') game_id,json_extract(payload,'$.funding_basis.tier') tier FROM system_decisions WHERE json_extract(payload,'$.funding_basis.tier') IN ('model_pick','probability_pick') AND json_extract(payload,'$.stake')>0")}
     def settle_forecasts(self,games):
         final={g.id:g for g in games if g.state=='final'}
