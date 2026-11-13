@@ -851,6 +851,7 @@ class PolymarketAutonomousRunner:
                                 is_home=is_home,
                                 spread_line=outcome_spread,
                                 scope=scope,
+                                max_sigma_shift=1.25,
                             )
                         elif forecast.get("proj_spread") is not None:
                             proj_h_eff = 0.0
@@ -862,7 +863,10 @@ class PolymarketAutonomousRunner:
                                 is_home=is_home,
                                 spread_line=outcome_spread,
                                 scope=scope,
+                                max_sigma_shift=1.25,
                             )
+                        if model_prob is None:
+                            continue
                     elif forecast and family in ("moneyline", "three_way") and forecast.get("home_prob") is not None:
                         h_name = (forecast.get("home_name") or "").lower()
                         a_name = (forecast.get("away_name") or "").lower()
@@ -909,8 +913,9 @@ class PolymarketAutonomousRunner:
                     if model_prob is None or model_prob <= 0.01 or model_prob >= 0.99:
                         continue
 
-                    # Pre-screen: Only check depth if contract is liquid and offers positive nominal EV
-                    if poly_price <= 0.05 or poly_price >= 0.95:
+                    # Pre-screen: Only check depth if contract is liquid, within price bounds and offers positive nominal EV
+                    # Under Commandment 3 (Odds >= 1.40 floor), contracts with poly_price > 1.0 / 1.40 (~0.714) are ineligible.
+                    if poly_price <= 0.05 or poly_price > (1.0 / 1.40):
                         continue
 
                     # Disagreement & Information Asymmetry Guard:
@@ -1009,7 +1014,18 @@ class PolymarketAutonomousRunner:
                 if max_orders_per_cycle is not None and len(orders_placed) >= max_orders_per_cycle:
                     break
 
-                sorted_cands = sorted(cands, key=lambda c: c["ev"], reverse=True)
+                # Rank candidates by Certainty-Adjusted Alpha:
+                # We weight EV by the density/liquidity weight (1.0 - abs(price - 0.50))
+                # to prevent adverse selection into illiquid, high-variance extreme tail lines.
+                # Core liquid lines near consensus (odds 1.50 - 2.20, price 0.45 - 0.67) receive highest priority.
+                def candidate_rank(c):
+                    ev_val = float(c.get("ev", 0.0))
+                    pref = c.get("preflight")
+                    p_eff = float(getattr(pref, "eff_price", 0.50) if pref else 0.50)
+                    density_weight = max(0.1, 1.0 - abs(p_eff - 0.50))
+                    return (ev_val * density_weight, ev_val)
+
+                sorted_cands = sorted(cands, key=candidate_rank, reverse=True)
 
                 # Pacing Guard: Secondary leagues act as complements and cannot overtake NBA/NFL
                 if league not in PRIMARY_LEAGUES:

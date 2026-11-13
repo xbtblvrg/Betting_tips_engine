@@ -257,7 +257,8 @@ class ContinuousLineEvaluator:
         is_home: bool,
         spread_line: float,
         scope: str = "full_game",
-    ) -> float:
+        max_sigma_shift: Optional[float] = None,
+    ) -> Optional[float]:
         """Projects team spread covering probability directly from projected scores.
 
         First-principles Gaussian margin formulation:
@@ -281,6 +282,13 @@ class ContinuousLineEvaluator:
         else:
             z = (spread_line - mu) / max(0.1, sigma)
             prob = norm_cdf(z)
+
+        # Tail Extrapolation Invariant (Anti-Phantom Edge Protection):
+        # Parametric Gaussian continuous line shifts degrade rapidly beyond max_sigma_shift.
+        # Extrapolating extreme alternate spreads (e.g., NBA -14.5 or -11.5 from a -3.5 consensus)
+        # generates artificial fat tails and phantom EV on illiquid CLOB contracts.
+        if max_sigma_shift is not None and abs(z) > max_sigma_shift:
+            return None
 
         return max(0.01, min(0.99, round(prob, 4)))
 

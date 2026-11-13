@@ -971,15 +971,15 @@ class PolymarketAutonomousExecutor:
         MIN_ORDER_USD = 1.00
         # Realistic Liquidity & Anti-Hallucination Guard:
         # A maker limit order is viable ONLY if best bid is competitive (>= 0.08),
-        # the absolute spread is narrow (<= 0.045), and the relative spread gap is <= 18%.
+        # the absolute spread is reasonable (<= 0.08), and the relative spread gap is <= 25%.
         # On wide, skewed or empty books, passive limit orders will not execute in real trading.
         gap = b_ask - maker_price
         rel_gap = gap / max(0.01, b_ask)
         is_book_liquid_for_maker = (
             b_bid >= 0.08
-            and spread <= 0.045
-            and gap <= 0.04
-            and rel_gap <= 0.18
+            and spread <= 0.08
+            and gap <= 0.08
+            and rel_gap <= 0.25
             and maker_price >= 0.08
         )
 
@@ -989,7 +989,12 @@ class PolymarketAutonomousExecutor:
             maker_ratio = 0.0
         elif total_stake < 2.0 * MIN_ORDER_USD:
             # Indivisible stake (< $2.00)
-            if minutes_to_start <= 30.0:
+            if spread >= 0.08:
+                # Spread Defense: Never take liquidity across a wide 8+ cent spread
+                strategy = "indivisible_maker_wide_spread"
+                taker_ratio = 0.0
+                maker_ratio = 1.0
+            elif minutes_to_start <= 30.0:
                 strategy = "indivisible_taker_urgency"
                 taker_ratio = 1.0
                 maker_ratio = 0.0
@@ -999,7 +1004,12 @@ class PolymarketAutonomousExecutor:
                 maker_ratio = 1.0
         else:
             # Divisible stake (>= $2.00)
-            if minutes_to_start <= 25.0:
+            if spread >= 0.08:
+                # Spread Defense: Never cross excessive 8+ cent spread as taker
+                strategy = "wide_spread_maker_harvest"
+                taker_ratio = 0.0
+                maker_ratio = 1.0
+            elif minutes_to_start <= 25.0:
                 strategy = "pregame_urgency_slicing"
                 taker_ratio = 0.80
                 maker_ratio = 0.20

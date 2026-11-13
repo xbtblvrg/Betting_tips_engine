@@ -108,6 +108,20 @@ def test_dynamic_slicing_plan_computation(slicing_env):
     assert plan4.taker_stake == 0.0 or plan4.maker_stake == 0.0
     assert (plan4.taker_stake + plan4.maker_stake) == 1.50
 
+    # 5. Wide Spread Alpha Slicing (Spread = 0.06, EV >= 8.0%): 40% Taker / 60% Maker
+    plan5 = pe.compute_dynamic_alpha_slicing(
+        ev=0.090,
+        start_time=start_4h,
+        total_stake=5.00,
+        best_bid=0.46,
+        best_ask=0.52,  # Spread = 0.06
+        model_prob=0.57,
+    )
+    assert plan5.strategy == "ultra_alpha_wide_spread_slicing"
+    assert plan5.is_sliced is True
+    assert plan5.taker_stake == 2.00
+    assert plan5.maker_stake == 3.00
+
 
 def test_sliced_order_execution_and_ledger_integrity(slicing_env):
     """Verifies that sliced execution creates exactly one master ledger record with blended metrics."""
