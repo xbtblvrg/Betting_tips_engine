@@ -361,10 +361,24 @@ def feedback_ids(data_dir):
         return [], str(exc)
 
 
-def build_from_store(store, publication, catalog, data_dir, now=None):
+def _compute_live_coverage_from_store(store, publication, catalog, data_dir, now=None):
     with store.db() as connection:
         decisions = read_decisions(connection)
     ids, evidence = feedback_ids(data_dir)
     report = build_live_coverage(publication, catalog, decisions, ids, now)
     report['feedback_evidence'] = evidence
     return report
+
+
+def build_from_store(store, publication, catalog, data_dir, now=None):
+    try:
+        from .in_memory_cache import GLOBAL_IN_MEMORY_CACHE
+        version = getattr(store, 'latest_version', lambda: 0)()
+        cache_key = f"live_coverage:{version}"
+        return GLOBAL_IN_MEMORY_CACHE.get_or_compute(
+            cache_key,
+            lambda: _compute_live_coverage_from_store(store, publication, catalog, data_dir, now),
+            ttl_seconds=15.0
+        )
+    except Exception:
+        return _compute_live_coverage_from_store(store, publication, catalog, data_dir, now)
