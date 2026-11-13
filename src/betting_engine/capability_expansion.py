@@ -532,7 +532,7 @@ def check_portfolio_shield(candidate: Dict[str, Any]) -> Optional[Dict[str, Any]
                 }
 
         # 3. Force capital defense clamp
-        elif action == 'force_capital_defense_clamp':
+        elif action in ('force_capital_defense_clamp', 'clamp_stake'):
             if 'require_confirmed_starter' in rule_id or 'missing_confirmed_pitcher' in rule.get('condition', ''):
                 if candidate.get('missing_confirmed_pitcher') or candidate.get('starter_unconfirmed'):
                     return {
