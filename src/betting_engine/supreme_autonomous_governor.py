@@ -525,6 +525,9 @@ class SupremeAutonomousGovernor:
             res_count, res_actions = resolver.resolve_stuck_tasks()
             if res_count > 0:
                 actions.append({'action': 'autonomous_retry_resolution', 'count': res_count, 'resolutions': [a.to_dict() for a in res_actions]})
+            queue_metrics = resolver.audit_and_heal_learning_queue()
+            if any(v > 0 for v in queue_metrics.values()):
+                actions.append({'action': 'learning_queue_healed', 'metrics': queue_metrics})
         except Exception as e:
             log.warning('Autonomous retry resolver error: %s', e)
 

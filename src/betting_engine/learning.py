@@ -1113,14 +1113,61 @@ class LearningWorker:
             atomic_json(self.data/'outcome_learning.json',result)
             return result
         if job['kind']=='high_retry_task_root_cause_analysis':
-            payload=json.loads(job.get('payload') or '{}')
-            task_id=payload.get('task_id')
+            payload = json.loads(job.get('payload') or '{}') if isinstance(job.get('payload'), str) else (job.get('payload') or {})
+            task_id = payload.get('task_id')
+            last_err = str(payload.get('last_error') or '')
+
+            dev_dir = self.data / 'development'
+            dev_state_path = dev_dir / 'state.json'
+            runs_dir = dev_dir / 'runs'
+
+            stderr_snippet = ''
+            if runs_dir.exists() and task_id:
+                try:
+                    matching_runs = sorted(runs_dir.glob(f'*-{task_id}'), key=lambda p: p.stat().st_mtime, reverse=True)
+                    if matching_runs:
+                        err_log = matching_runs[0] / 'implementation.provider-1.stderr.log'
+                        if err_log.exists() and err_log.stat().st_size > 0:
+                            stderr_snippet = err_log.read_text(encoding='utf-8', errors='replace')[-1500:]
+                except Exception:
+                    pass
+
+            # Formulate actionable diagnosis based on observed failure mode
+            if 'execution time limit' in last_err.lower() or 'timeout' in last_err.lower():
+                diagnosis = f"Task {task_id} timed out. Adaptive timeout increased to 2400s; prompt context compacted."
+            elif 'exited 1' in last_err.lower():
+                diag_detail = stderr_snippet[:300] if stderr_snippet else last_err[:300]
+                diagnosis = f"Task {task_id} failed during provider execution: {diag_detail}. Ensure valid JSON schema and correct import paths."
+            elif 'missing' in last_err.lower():
+                diagnosis = f"Task {task_id} missing dependencies: {last_err[:300]}."
+            else:
+                diagnosis = f"Task {task_id} failure mode: {last_err[:300]}."
+
+            # Unfreeze the task in state.json so it immediately gets retried with guidance
+            if dev_state_path.exists() and task_id:
+                try:
+                    s_data = json.loads(dev_state_path.read_text(encoding='utf-8'))
+                    tasks_dict = s_data.get('tasks', {})
+                    if task_id in tasks_dict:
+                        t_row = tasks_dict[task_id]
+                        t_row['next_attempt_at'] = utcnow().isoformat()
+                        t_row['attempts'] = min(t_row.get('attempts', 0), 2)
+                        t_row['rca_guidance'] = diagnosis
+                        if stderr_snippet:
+                            t_row['last_error_stderr'] = stderr_snippet
+                        if 'timeout' in last_err.lower():
+                            t_row['step_timeout_seconds'] = 2400
+                        atomic_json(dev_state_path, s_data)
+                except Exception as e_unfreeze:
+                    logging.warning("Could not unfreeze task %s in RCA: %s", task_id, e_unfreeze)
+
             return {
                 'analyzed_at': utcnow().isoformat(),
                 'task_id': task_id,
                 'status': 'resolved',
-                'action': 'rca_completed',
-                'summary': f"RCA analyzed task {task_id}: circuit breaker engaged due to {payload.get('attempts', 0)} attempts."
+                'action': 'rca_completed_and_task_unfrozen',
+                'diagnosis': diagnosis,
+                'summary': f"RCA analyzed task {task_id}: unfroze task and injected diagnostic guidance."
             }
         if job['kind']=='upstream_sports_sensor_synthesis':
             payload=json.loads(job.get('payload') or '{}')

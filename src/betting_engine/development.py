@@ -1764,7 +1764,10 @@ ROOT-OWNED PASSIVE RELEASE PROFILE: {json.dumps(release_policy.get('profiles', {
 NEW PASSIVE UTILITY DISCOVERY ENABLED: {json.dumps(release_policy.get('review_new_passive_utilities') is True)}. Prefer an existing exact profile when it fits the actual task. If discovery is enabled, new ordinary passive utility modules, new regression tests and source-evidence documentation may be proposed at appropriate new paths; do not force an unrelated old profile filename. The trusted root coordinator must bind the exact proposal, run full sandbox tests and independent Codex review, then verify release authority and live health. This does not authorize self-approval, editing protected files/policy or existing regression tests, changing model parameters or runtime activation. If discovery is disabled, paths outside the exact profile need a separate root policy change. A utility release never enables a betting model.
 TASK: {json.dumps(task)}
 TARGETED RECOVERY WORK (original TASK acceptance remains mandatory): {json.dumps(row.get('recovery_work'))}
+ROOT CAUSE ANALYSIS (RCA) GUIDANCE: {json.dumps(row.get('rca_guidance') or 'None recorded. Implement directly against TASK requirements.')}
 PREVIOUS ATTEMPT: {json.dumps({k: row.get(k) for k in ('attempts', 'last_error', 'remaining')})}
+PREVIOUS ATTEMPT STDERR TRACEBACK:
+{row.get('last_error_stderr') or 'No unhandled stderr captured.'}
 PREVIOUS CANDIDATE (read-only repair evidence if present): {self.folder/'runs'/str(row.get('previous_run_id'))/'files'}
 ''' + developer_regression_instructions(self.workspace)
 

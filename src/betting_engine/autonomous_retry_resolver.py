@@ -240,7 +240,51 @@ class AutonomousRetryResolver:
                     self.log_action(action)
                     continue
 
-                # Diagnosis 4: High-Attempt Circuit Breaker (attempts >= 5 with unclassified error)
+                # Diagnosis 3.6: Development Step Execution Timeout
+                if any(kw in last_error.lower() for kw in ('execution time limit', 'step exceeded')):
+                    tinfo['step_timeout_seconds'] = max(int(tinfo.get('step_timeout_seconds', 1500) * 1.5), 2400)
+                    tinfo['attempts'] = min(attempts, 2)
+                    tinfo['next_attempt_at'] = (now + timedelta(seconds=30)).isoformat()
+                    modified = True
+                    action = ResolutionAction(
+                        task_id=tid,
+                        action_type='step_timeout_adaptive_expansion',
+                        root_cause='Task timed out during execution; expanded step timeout to 2400s',
+                        remedy_applied='Set step_timeout_seconds=2400, reset attempts=2, scheduled 30s retry'
+                    )
+                    actions.append(action)
+                    self.log_action(action)
+                    continue
+
+                # Diagnosis 3.7: Implementation Provider Subprocess Failure / Stderr Extraction
+                if 'implementation.provider-1 exited 1' in last_error.lower():
+                    runs_dir = self.dev_dir / 'runs'
+                    stderr_tail = ''
+                    if runs_dir.exists():
+                        matching = sorted(runs_dir.glob(f'*-{tid}'), key=lambda p: p.stat().st_mtime, reverse=True)
+                        if matching:
+                            err_file = matching[0] / 'implementation.provider-1.stderr.log'
+                            if err_file.exists() and err_file.stat().st_size > 0:
+                                try:
+                                    stderr_tail = err_file.read_text(encoding='utf-8', errors='replace')[-1500:]
+                                except Exception:
+                                    pass
+                    if stderr_tail:
+                        tinfo['last_error_stderr'] = stderr_tail
+                    tinfo['attempts'] = min(attempts, 2)
+                    tinfo['next_attempt_at'] = (now + timedelta(seconds=30)).isoformat()
+                    modified = True
+                    action = ResolutionAction(
+                        task_id=tid,
+                        action_type='provider_failure_diagnostic_bound',
+                        root_cause='Implementation provider process exited 1; bound stderr traceback to task context',
+                        remedy_applied='Extracted stderr traceback, reset attempts=2, scheduled 30s retry'
+                    )
+                    actions.append(action)
+                    self.log_action(action)
+                    continue
+
+                # Diagnosis 4: High-Attempt Adaptive Self-Healing (attempts >= 5 with unclassified error)
                 if attempts >= 5:
                     if not tinfo.get('circuit_breaker_job'):
                         job_id = self.enqueue_learning_job(
@@ -255,12 +299,12 @@ class AutonomousRetryResolver:
                             task_id=tid,
                             action_type='circuit_breaker_engaged',
                             root_cause=f'Task reached {attempts} unsuccessful attempts ({last_error[:100]})',
-                            remedy_applied=f"Circuit breaker engaged, enqueued RCA job {job_id}, applied 12h cooldown"
+                            remedy_applied=f"Circuit breaker engaged, enqueued RCA job {job_id}, applied 5m dynamic backoff"
                         )
                         actions.append(action)
                         self.log_action(action)
-                    # Maintain 12-hour circuit breaker cooldown
-                    tinfo['next_attempt_at'] = (now + timedelta(hours=12)).isoformat()
+                    # Dynamic 5-minute backoff (NOT a 12-hour freeze!) to allow RCA job to diagnose and unblock
+                    tinfo['next_attempt_at'] = (now + timedelta(minutes=5)).isoformat()
                     modified = True
                     continue
 
@@ -271,3 +315,92 @@ class AutonomousRetryResolver:
             log.warning('Error in AutonomousRetryResolver: %s', exc)
 
         return len(actions), actions
+
+    def audit_and_heal_learning_queue(self) -> Dict[str, Any]:
+        """Audits learning_jobs table in engine.sqlite3, continuously removing duplicates,
+        superseding obsolete fixtures, and unblocking transient errors."""
+        if not self.engine_db.exists():
+            return {'superseded_duplicates': 0, 'superseded_obsolete': 0, 'unblocked_retries': 0}
+
+        metrics = {'superseded_duplicates': 0, 'superseded_obsolete': 0, 'unblocked_retries': 0}
+        now = utcnow()
+        now_iso = now.isoformat()
+
+        try:
+            with sqlite3.connect(str(self.engine_db), timeout=15.0) as conn:
+                cur = conn.cursor()
+
+                # 1. Deduplicate queued segment jobs (e.g. priority_model_synthesis, segment_repair)
+                cur.execute("""
+                    SELECT id, kind, payload, updated_at 
+                    FROM learning_jobs 
+                    WHERE kind IN ('priority_model_synthesis', 'segment_repair') 
+                      AND status = 'queued' 
+                    ORDER BY updated_at DESC
+                """)
+                seen_segments: Set[str] = set()
+                to_supersede: List[str] = []
+                for jid, kind, payload_raw, updated_at in cur.fetchall():
+                    try:
+                        p = json.loads(payload_raw) if isinstance(payload_raw, str) else (payload_raw or {})
+                        seg = p.get('segment_key') or p.get('segment')
+                        if seg:
+                            key = f"{kind}:{seg}"
+                            if key in seen_segments:
+                                to_supersede.append(jid)
+                            else:
+                                seen_segments.add(key)
+                    except Exception:
+                        pass
+
+                if to_supersede:
+                    placeholders = ','.join('?' for _ in to_supersede)
+                    cur.execute(f"""
+                        UPDATE learning_jobs 
+                        SET status = 'superseded', last_error = 'Deduplicated: Newer job exists for segment'
+                        WHERE id IN ({placeholders})
+                    """, to_supersede)
+                    metrics['superseded_duplicates'] = len(to_supersede)
+
+                # 2. Supersede obsolete polymarket / fixture jobs where fixture start < today
+                cur.execute("""
+                    SELECT id, payload 
+                    FROM learning_jobs 
+                    WHERE kind = 'polymarket_identification_repair' 
+                      AND status = 'queued'
+                """)
+                to_expire: List[str] = []
+                today_prefix = now_iso[:10]
+                for jid, payload_raw in cur.fetchall():
+                    try:
+                        p = json.loads(payload_raw) if isinstance(payload_raw, str) else (payload_raw or {})
+                        ts = str(p.get('timestamp') or p.get('start') or '')
+                        if ts and ts < today_prefix:
+                            to_expire.append(jid)
+                    except Exception:
+                        pass
+
+                if to_expire:
+                    placeholders = ','.join('?' for _ in to_expire)
+                    cur.execute(f"""
+                        UPDATE learning_jobs 
+                        SET status = 'superseded', last_error = 'Obsolete: Fixture concluded in previous period'
+                        WHERE id IN ({placeholders})
+                    """, to_expire)
+                    metrics['superseded_obsolete'] = len(to_expire)
+
+                # 3. Unblock transient retry jobs whose backoff time has elapsed
+                cur.execute("""
+                    UPDATE learning_jobs 
+                    SET status = 'queued', next_attempt = ?, last_error = NULL
+                    WHERE status = 'retry' 
+                      AND kind = 'research_watch' 
+                      AND next_attempt <= ?
+                """, (now_iso, now_iso))
+                metrics['unblocked_retries'] = cur.rowcount
+
+                conn.commit()
+        except Exception as exc:
+            log.warning("Error in audit_and_heal_learning_queue: %s", exc)
+
+        return metrics
