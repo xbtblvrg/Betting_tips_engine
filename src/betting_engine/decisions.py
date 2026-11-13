@@ -213,7 +213,6 @@ def is_synthetic_test_candidate(tip: Any, settings: Optional[Dict[str, Any]] = N
         or game_id in ('g', 'g1', 'g2', 'test', 'ATP:live_game_1')
         or ':test' in game_id
         or game_id.endswith((':test', '_test', ':g', ':g1', ':g2'))
-        or (':' in game_id and game_id.split(':')[-1].isdigit())
         or (settings is not None and bool(settings.get('is_test')))
     )
 
