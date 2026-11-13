@@ -289,6 +289,24 @@ def test_subsecond_preflight_slippage_guard(test_env):
     assert res_good.shares > 0.0
     assert res_good.reason == "PREFLIGHT_PASSED"
 
+    # 5. Odds below constitutional minimum floor (odds < 1.40, price > 0.714)
+    low_odds_book = {
+        "asks": [
+            {"price": "0.85", "size": "50.0"},  # odds = 1.176 < 1.40
+        ]
+    }
+    res_low_odds = pe.preflight_check(
+        token_id="tok_low_odds",
+        side="BUY",
+        requested_stake=5.00,
+        model_prob=0.95,  # Nominal EV = (0.95 / 0.85) - 1 = +11.8%
+        min_ev=0.025,
+        mock_book=low_odds_book,
+    )
+    assert res_low_odds.ok is False
+    assert "ODDS_BELOW_MINIMUM" in res_low_odds.reason
+    assert res_low_odds.eff_odds < 1.40
+
 
 def test_7_stage_order_lifecycle_tracking(test_env):
     """Verifies that an order traverses the lifecycle and logs to SQLite and JSONL."""

@@ -824,6 +824,21 @@ class PolymarketAutonomousExecutor:
                 depth_shares=total_depth,
             )
 
+        # Constitutional Minimum Odds Guard (Commandment 3: Odds >= 1.40 floor)
+        # Contracts priced above 1 / 1.40 = ~0.714286 yield decimal odds < 1.40,
+        # creating severe asymmetric downside risks on heavy favorites.
+        MIN_ODDS_FLOOR = 1.40
+        if eff_odds < MIN_ODDS_FLOOR:
+            return PreflightResult(
+                ok=False,
+                eff_price=round(eff_price, 4),
+                eff_odds=round(eff_odds, 3),
+                shares=shares_accumulated,
+                ev=round(ev, 4),
+                reason=f"ODDS_BELOW_MINIMUM: Effective odds {eff_odds:.3f} below constitutional floor {MIN_ODDS_FLOOR:.2f} (Price {eff_price:.3f} > {1.0/MIN_ODDS_FLOOR:.3f})",
+                depth_shares=total_depth,
+            )
+
         # Extreme Sanity Guard: An EV exceeding 85% on a liquid contract signals model misspecification or tail artifact
         MAX_SANITY_EV = 0.85
         if ev > MAX_SANITY_EV:
