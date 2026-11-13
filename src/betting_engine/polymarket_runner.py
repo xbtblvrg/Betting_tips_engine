@@ -786,7 +786,13 @@ class PolymarketAutonomousRunner:
                     model_prob = None
                     outcome_spread = None
                     if forecast and forecast.get("proj_total") is not None and line_val is not None and family == "totals":
-                        side = "over" if "over" in outcome_label.lower() or outcome_label == "Yes" else "under"
+                        out_clean = outcome_label.lower().strip()
+                        q_clean = (q or "").lower()
+                        is_question_under = ("under" in q_clean and "over" not in q_clean)
+                        if is_question_under:
+                            side = "under" if (out_clean in ("yes", "under") or "under" in out_clean) else "over"
+                        else:
+                            side = "over" if (out_clean in ("yes", "over") or "over" in out_clean) else "under"
                         model_prob = self.line_evaluator.evaluate_total(
                             league=league,
                             base_line=float(forecast["proj_total"]),
@@ -851,7 +857,7 @@ class PolymarketAutonomousRunner:
                                 is_home=is_home,
                                 spread_line=outcome_spread,
                                 scope=scope,
-                                max_sigma_shift=1.25,
+                                max_sigma_shift=1.0,
                             )
                         elif forecast.get("proj_spread") is not None:
                             proj_h_eff = 0.0
@@ -863,7 +869,7 @@ class PolymarketAutonomousRunner:
                                 is_home=is_home,
                                 spread_line=outcome_spread,
                                 scope=scope,
-                                max_sigma_shift=1.25,
+                                max_sigma_shift=1.0,
                             )
                         if model_prob is None:
                             continue
@@ -921,9 +927,9 @@ class PolymarketAutonomousRunner:
                     # Disagreement & Information Asymmetry Guard:
                     # An extreme divergence (> 0.20) between domain model and CLOB market price
                     # is overwhelmingly indicative of missing real-time context (injuries, roster scratches,
-                    # transfer portal) or model miscalibration, particularly on small/college leagues.
+                    # transfer portal) or model miscalibration. Fail closed to prevent adverse selection!
                     disagreement = abs(model_prob - poly_price)
-                    max_disagreement = 0.20 if league in ("NCAAF", "CBB", "NCAAB", "CFB", "CWBB", "NCAAW") else 0.25
+                    max_disagreement = 0.20
                     if disagreement > max_disagreement:
                         log.info(
                             f"[MARKET DISAGREEMENT GUARD] {title} {outcome_label}: "

@@ -170,13 +170,13 @@ def test_team_spread_tail_clamping_rejects_extreme_lines():
     # Celtics projected by 3 points over Magic (mu = -3.0, sigma = 12.0)
     ph, pa = 110.0, 113.0
 
-    # Normal line (-5.5): z = (-(-5.5) - (-3.0)) / 12.0 = 8.5 / 12.0 = 0.71 <= 1.25
-    p_normal = evaluator.evaluate_team_spread("NBA", ph, pa, is_home=True, spread_line=-5.5, max_sigma_shift=1.25)
+    # Normal line (-5.5): z = (-(-5.5) - (-3.0)) / 12.0 = 8.5 / 12.0 = 0.71 <= 1.0
+    p_normal = evaluator.evaluate_team_spread("NBA", ph, pa, is_home=True, spread_line=-5.5, max_sigma_shift=1.0)
     assert p_normal is not None
     assert 0.0 < p_normal < 1.0
 
-    # Extreme alternate line (-20.5): z = (-(-20.5) - (-3.0)) / 12.0 = 23.5 / 12.0 = 1.96 > 1.25
-    p_extreme = evaluator.evaluate_team_spread("NBA", ph, pa, is_home=True, spread_line=-20.5, max_sigma_shift=1.25)
+    # Extreme alternate line (-20.5): z = (-(-20.5) - (-3.0)) / 12.0 = 23.5 / 12.0 = 1.96 > 1.0
+    p_extreme = evaluator.evaluate_team_spread("NBA", ph, pa, is_home=True, spread_line=-20.5, max_sigma_shift=1.0)
     assert p_extreme is None
 
 
