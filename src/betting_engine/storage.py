@@ -61,7 +61,11 @@ class Store:
         CREATE TABLE IF NOT EXISTS bets(id INTEGER PRIMARY KEY AUTOINCREMENT,tip_id TEXT NOT NULL,created_at TEXT NOT NULL,stake REAL NOT NULL,odds REAL NOT NULL,platform TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'open',pnl REAL,payload TEXT NOT NULL);
         CREATE INDEX IF NOT EXISTS idx_tips_last_seen ON tips(last_seen);
         CREATE INDEX IF NOT EXISTS idx_bets_created_at ON bets(created_at);
+        CREATE INDEX IF NOT EXISTS idx_bets_status ON bets(status);
+        CREATE INDEX IF NOT EXISTS idx_bets_tip_id ON bets(tip_id);
         CREATE INDEX IF NOT EXISTS idx_decisions_issued_at ON system_decisions(issued_at);
+        CREATE INDEX IF NOT EXISTS idx_decisions_status ON system_decisions(status);
+        CREATE INDEX IF NOT EXISTS idx_rec_issuance_tip ON recommendation_issuance(tip_id);
         CREATE TABLE IF NOT EXISTS bet_outcomes(bet_id INTEGER PRIMARY KEY,league TEXT,market TEXT,model_version TEXT,result TEXT NOT NULL,probability REAL,push_probability REAL,brier REAL,log_loss REAL,evidence TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS polymarket_orders(
             id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -399,7 +399,21 @@ class SupremeAutonomousGovernor:
                 now_iso = utcnow().isoformat()
 
                 for seg in all_targets:
-                    job_id = hashlib.sha256(f'turnaround:{seg}'.encode()).hexdigest()[:24]
+                    # Check if there is already an active job for this segment
+                    active_job = cur.execute(
+                        """
+                        SELECT id FROM learning_jobs 
+                        WHERE kind = 'submarket_turnaround_research' 
+                          AND status IN ('queued', 'running')
+                          AND payload LIKE ?
+                        LIMIT 1
+                        """,
+                        (f'%"{seg}"%',)
+                    ).fetchone()
+                    if active_job:
+                        continue
+
+                    job_id = hashlib.sha256(f'turnaround:{seg}:{now_iso}'.encode()).hexdigest()[:24]
                     league = seg.split('|')[0] if '|' in seg else 'UNKNOWN'
                     payload = json.dumps({
                         'segment': seg,
@@ -409,15 +423,14 @@ class SupremeAutonomousGovernor:
                     })
                     cur.execute(
                         """
-                        INSERT OR IGNORE INTO learning_jobs (
+                        INSERT INTO learning_jobs (
                             id, kind, league, status, created_at, updated_at, next_attempt, payload
                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         (job_id, 'submarket_turnaround_research', league, 'queued', now_iso, now_iso, now_iso, payload)
                     )
-                    if cur.rowcount > 0:
-                        leaks_repaired += 1
-                        self.log_event('alpha_repair_job_enqueued', {'job_id': job_id, 'segment': seg, 'league': league})
+                    leaks_repaired += 1
+                    self.log_event('alpha_repair_job_enqueued', {'job_id': job_id, 'segment': seg, 'league': league})
 
                 conn.commit()
                 conn.close()

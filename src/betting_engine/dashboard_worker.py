@@ -18,8 +18,16 @@ class ReadOnlyStore(Store):
         self.connection=sqlite3.connect(self.path.as_uri()+'?mode=ro',uri=True,timeout=30.0)
         self.connection.row_factory=sqlite3.Row
         self.connection.execute('PRAGMA query_only=ON')
+        self.connection.execute('PRAGMA mmap_size=268435456')
+        self.connection.execute('PRAGMA cache_size=-64000')
         # Every ledger/settings/checklist read belongs to one SQLite snapshot.
         self.connection.execute('BEGIN')
+        self._system_decisions_cache = None
+
+    def system_decisions(self):
+        if self._system_decisions_cache is None:
+            self._system_decisions_cache = super().system_decisions()
+        return self._system_decisions_cache
 
     @contextmanager
     def db(self):

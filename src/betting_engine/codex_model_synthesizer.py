@@ -918,15 +918,15 @@ class {class_name}(BaseCandidateModel):
             f"     All standard mathematical helpers, numerical distribution solvers, empirical score lattices, and state trackers are loaded into scope.\n"
             f"     You are NOT constrained to any specific tool: formulate custom equations, probability distributions, or composite architectures independently from first principles based purely on the observed data moments and sports mechanics.\n"
             f"4. DOMAIN FEATURES: game_context provides rich situational features: 'home_expected', 'away_expected', 'home_rest_days', 'away_rest_days', 'home' attack/defense, 'away' attack/defense, weather (wind_speed, is_dome, temp), and venue.\n"
-            f"5. SAFETY BOUNDARY: Pure deterministic computation only. Do NOT import OS/process/network modules (os, sys, subprocess, socket, requests, urllib).\n"
+            f"5. SAFETY BOUNDARY: Pure deterministic computation only. Do NOT import OS/process/network modules (os, sys, subprocess, socket, requests, urllib). Do NOT use __import__, eval, exec, or dynamic reflection; use standard top-level imports only.\n"
             f"6. Constructor must take model_id='{model_id}', version='1.0.0', league='{league}', scope='{scope}', family='{family}'.\n"
             f"7. Return ONLY valid executable Python code in your response without markdown chat filler."
         )
 
         try:
-            with file_lock(DATA / "development" / "ai-locks" / "codex.lock", timeout=180.0) as acquired:
+            with file_lock(DATA / "development" / "ai-locks" / "codex.lock", timeout=60.0) as acquired:
                 if not acquired:
-                    log.warning(f"Codex lock busy (180.0s) for {segment_key}; yielding to Claude parallel fallback")
+                    log.info(f"Codex lock busy (60.0s) for {segment_key}; yielding to Claude parallel fallback")
                     return None
                 res = self._invoke_codex_with_watchdog(codex_cfg, prompt, timeout=240.0, max_hard_ceiling=600.0, idle_timeout=60.0)
                 state, answer = decode('codex', res, codex_cfg.get('model'))
@@ -994,9 +994,9 @@ class {class_name}(BaseCandidateModel):
             f"and deduce a concrete mathematical formulation from first principles to capture this alpha. Output domain analysis only."
         )
         try:
-            with file_lock(DATA / "development" / "ai-locks" / "claude.lock", timeout=120.0) as acquired:
+            with file_lock(DATA / "development" / "ai-locks" / "claude.lock", timeout=45.0) as acquired:
                 if not acquired:
-                    log.warning(f"Failed to acquire claude.lock within 120.0s for hypothesis {segment_key}")
+                    log.info(f"Claude lock busy (45.0s) for hypothesis {segment_key}; skipping hypothesis")
                     return None
                 res = invoke('claude', claude_cfg, prompt, timeout=60)
                 state, answer = decode('claude', res, claude_cfg.get('model'))
@@ -1053,7 +1053,7 @@ class {class_name}(BaseCandidateModel):
             f"     All standard mathematical helpers, numerical distribution solvers, empirical score lattices, and state trackers are loaded into scope.\n"
             f"     You are NOT constrained to any specific tool: formulate custom equations, probability distributions, or composite architectures independently from first principles based purely on the observed data moments and sports mechanics.\n"
             f"4. DOMAIN FEATURES: game_context provides rich situational features: 'home_expected', 'away_expected', 'home_rest_days', 'away_rest_days', 'home' attack/defense, 'away' attack/defense, weather (wind_speed, is_dome, temp), and venue.\n"
-            f"5. SAFETY BOUNDARY: Pure deterministic computation only. Do NOT import OS/process/network modules (os, sys, subprocess, socket, requests, urllib).\n"
+            f"5. SAFETY BOUNDARY: Pure deterministic computation only. Do NOT import OS/process/network modules (os, sys, subprocess, socket, requests, urllib). Do NOT use __import__, eval, exec, or dynamic reflection; use standard top-level imports only.\n"
             f"6. Constructor must take model_id='{model_id}', version='1.0.0', league='{league}', scope='{scope}', family='{family}'.\n"
             f"7. CRITICAL HEADLESS INSTRUCTION: You are executing in non-interactive batch generation mode.\n"
             f"   - Do NOT output XML tags, tool invocations (<invoke>), or conversational preface.\n"
@@ -1062,9 +1062,9 @@ class {class_name}(BaseCandidateModel):
         )
 
         try:
-            with file_lock(DATA / "development" / "ai-locks" / "claude.lock", timeout=180.0) as acquired:
+            with file_lock(DATA / "development" / "ai-locks" / "claude.lock", timeout=60.0) as acquired:
                 if not acquired:
-                    log.warning(f"Failed to acquire claude.lock within 180.0s for {segment_key}")
+                    log.info(f"Claude lock busy (60.0s) for {segment_key}; skipping or deferring cycle")
                     return None
                 res = invoke('claude', claude_cfg, prompt, timeout=240)
                 state, answer = decode('claude', res, claude_cfg.get('model'))
