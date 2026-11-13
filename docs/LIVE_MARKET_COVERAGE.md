@@ -1,15 +1,15 @@
 # Live Stake market coverage
 
-Checked: 2026-11-13T20:48:18.348607+00:00
+Checked: 2026-11-13T21:12:04.011244+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
 | League | Observed titles | Activity unverified | Offered now | Complete 10/10 | Incomplete offered | Evaluated | Funding supported | Ready now | Issued today |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| NFL | 73 | 1 | 63 | 0 | 63 | 44 | 9 | 6 | 5 |
+| NFL | 73 | 1 | 63 | 0 | 63 | 44 | 9 | 7 | 5 |
 | NHL | 66 | 5 | 46 | 0 | 46 | 29 | 8 | 6 | 12 |
 | MLB | 9 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| NBA | 162 | 3 | 126 | 0 | 126 | 69 | 18 | 2 | 45 |
+| NBA | 162 | 3 | 126 | 0 | 126 | 69 | 19 | 2 | 45 |
 | WNBA | 7 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 
 Current stages require outcome-level evidence; original issuance, settlement and feedback are explicitly historical. 10/10 records observed execution, not proven profitability or automatic model promotion.
@@ -228,7 +228,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NFL | Detroit Lions Total (Incl. Overtime) | standard | full_game | offered_now | 9/10 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 1/1 | verified 1/1 | partial 1/2 | 0 |
 | NFL | Green Bay Packers Total (Incl. Overtime) | standard | full_game | offered_now | 7/10 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
 | NFL | Halftime/Fulltime | standard | regulation | offered_now | 0/10 | not_observed 0/108 | not_observed 0/108 | not_observed 0/108 | not_observed 0/108 | not_observed 0/108 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NFL | Handicap (Incl. Overtime) | standard | full_game | offered_now | 8/10 | verified 104/104 | verified 104/104 | verified 104/104 | verified 104/104 | verified 104/104 | verified 104/104 | verified 104/104 | partial 62/63 | verified 63/63 | partial 63/64 | 0 |
+| NFL | Handicap (Incl. Overtime) | standard | full_game | offered_now | 8/10 | verified 112/112 | verified 112/112 | verified 112/112 | verified 112/112 | verified 112/112 | verified 112/112 | verified 112/112 | partial 62/63 | verified 63/63 | partial 63/64 | 0 |
 | NFL | Highest Scoring Half | standard | regulation | offered_now | 0/10 | not_observed 0/36 | not_observed 0/36 | not_observed 0/36 | not_observed 0/36 | not_observed 0/36 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Highest Scoring Quarter | standard | regulation | offered_now | 0/10 | not_observed 0/60 | not_observed 0/60 | not_observed 0/60 | not_observed 0/60 | not_observed 0/60 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Houston Texans Total (Incl. Overtime) | standard | full_game | offered_now | 7/10 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
@@ -250,8 +250,8 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NFL | Seattle Seahawks Total (Incl. Overtime) | standard | full_game | offered_now | 9/10 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 1/1 | verified 1/1 | partial 1/2 | 0 |
 | NFL | Tampa Bay Buccaneers Total (Incl. Overtime) | standard | full_game | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NFL | Tennessee Titans Total (Incl. Overtime) | standard | full_game | offered_now | 7/10 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
-| NFL | Total (Incl. Overtime) | standard | full_game | offered_now | 9/10 | verified 104/104 | verified 104/104 | verified 104/104 | verified 104/104 | verified 104/104 | verified 104/104 | verified 104/104 | verified 30/30 | verified 30/30 | partial 30/31 | 0 |
-| NFL | Total field goals made (incl. overtime) | standard | full_game | offered_now | 2/10 | not_observed 0/16 | not_observed 0/16 | not_observed 0/16 | not_observed 0/16 | not_observed 0/16 | not_observed 0/0 | not_observed 0/0 | verified 6/6 | verified 6/6 | awaiting_measurement 6/7 | 0 |
+| NFL | Total (Incl. Overtime) | standard | full_game | offered_now | 9/10 | verified 112/112 | verified 112/112 | verified 112/112 | verified 112/112 | verified 112/112 | verified 112/112 | verified 112/112 | verified 30/30 | verified 30/30 | partial 30/31 | 0 |
+| NFL | Total field goals made (incl. overtime) | standard | full_game | offered_now | 2/10 | not_observed 0/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/0 | not_observed 0/0 | verified 6/6 | verified 6/6 | awaiting_measurement 6/7 | 0 |
 | NFL | Total sacks (incl. overtime) | standard | full_game | offered_now | 2/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NFL | Total touchdowns (incl. overtime) | standard | full_game | offered_now | 0/10 | not_observed 0/24 | not_observed 0/24 | not_observed 0/24 | not_observed 0/24 | not_observed 0/24 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Total turnovers (incl. overtime) | standard | full_game | offered_now | 0/10 | not_observed 0/14 | not_observed 0/14 | not_observed 0/14 | not_observed 0/14 | not_observed 0/14 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
@@ -276,7 +276,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NHL | 2nd Period - 1x2 | standard | period_2 | offered_now | 9/10 | verified 12/12 | verified 12/12 | verified 12/12 | verified 12/12 | verified 12/12 | verified 12/12 | verified 12/12 | verified 8/8 | verified 8/8 | partial 8/9 | 0 |
 | NHL | 2nd Period - Both Teams to Score | standard | period_2 | offered_now | 1/10 | not_observed 0/8 | verified 8/8 | not_observed 0/8 | not_observed 0/8 | not_observed 0/8 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 2nd Period - Double Chance | standard | period_2 | offered_now | 7/10 | verified 12/12 | verified 12/12 | verified 12/12 | verified 12/12 | verified 12/12 | verified 12/12 | verified 12/12 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
-| NHL | 2nd Period - Draw No Bet | standard | period_2 | offered_now | 1/10 | not_observed 0/8 | verified 8/8 | partial 2/8 | partial 2/8 | not_observed 0/8 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NHL | 2nd Period - Draw No Bet | standard | period_2 | offered_now | 1/10 | not_observed 0/8 | verified 8/8 | partial 3/8 | partial 3/8 | not_observed 0/8 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 2nd Period - Handicap | standard | period_2 | offered_now | 9/10 | verified 8/8 | verified 8/8 | verified 8/8 | verified 8/8 | verified 8/8 | verified 8/8 | verified 8/8 | verified 9/9 | verified 7/7 | partial 7/8 | 2 |
 | NHL | 2nd Period - Last Team to Score | standard | period_2 | offered_now | 0/10 | not_observed 0/12 | not_observed 0/12 | not_observed 0/12 | not_observed 0/12 | not_observed 0/12 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 2nd Period - Odd/Even | standard | period_2 | offered_now | 1/10 | not_observed 0/8 | verified 8/8 | not_observed 0/8 | not_observed 0/8 | not_observed 0/8 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
@@ -301,7 +301,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NHL | Detroit Red Wings Total | standard | regulation | historical_only | 1/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 2/2 | not_observed 0/2 | awaiting_measurement 2/3 | 0 |
 | NHL | Double Chance | standard | regulation | offered_now | 7/10 | partial 10/12 | verified 12/12 | verified 12/12 | verified 12/12 | partial 10/12 | verified 10/10 | verified 10/10 | verified 5/5 | verified 5/5 | partial 5/6 | 0 |
 | NHL | Edmonton Oilers Total | standard | regulation | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
-| NHL | Handicap (Incl. Overtime and Penalties) | standard | full_game | offered_now | 9/10 | verified 28/28 | verified 28/28 | verified 28/28 | verified 28/28 | verified 28/28 | verified 28/28 | verified 28/28 | verified 15/15 | verified 15/15 | partial 15/16 | 0 |
+| NHL | Handicap (Incl. Overtime and Penalties) | standard | full_game | offered_now | 9/10 | verified 32/32 | verified 32/32 | verified 32/32 | verified 32/32 | verified 32/32 | verified 32/32 | verified 32/32 | verified 15/15 | verified 15/15 | partial 15/16 | 0 |
 | NHL | Last Goal | standard | regulation | offered_now | 0/10 | not_observed 0/12 | not_observed 0/12 | not_observed 0/12 | not_observed 0/12 | not_observed 0/12 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Los Angeles Kings Total | standard | regulation | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NHL | Nashville Predators Total | standard | regulation | offered_now | 5/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | verified 1/1 | verified 1/1 | partial 1/2 | 0 |
