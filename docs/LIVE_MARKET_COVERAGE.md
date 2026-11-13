@@ -1,6 +1,6 @@
 # Live Stake market coverage
 
-Checked: 2026-11-13T18:28:48.338221+00:00
+Checked: 2026-11-13T18:48:48.603913+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
@@ -195,7 +195,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NFL | 1st Quarter - 1x2 | standard | quarter_1 | offered_now | 1/10 | not_observed 0/36 | verified 36/36 | not_observed 0/36 | not_observed 0/36 | not_observed 0/36 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 1st Quarter - Draw No Bet | standard | quarter_1 | offered_now | 1/10 | not_observed 0/24 | verified 24/24 | partial 8/24 | partial 8/24 | not_observed 0/24 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 1st Quarter - Handicap | standard | quarter_1 | offered_now | 4/10 | partial 6/24 | verified 24/24 | partial 6/24 | partial 6/24 | partial 6/24 | verified 6/6 | verified 6/6 | verified 18/18 | partial 10/11 | partial 11/12 | 1 |
-| NFL | 1st Quarter - Total | standard | quarter_1 | offered_now | 3/10 | partial 5/24 | verified 24/24 | partial 5/24 | partial 5/24 | partial 5/24 | verified 5/5 | verified 5/5 | partial 20/22 | partial 17/22 | partial 22/23 | 0 |
+| NFL | 1st Quarter - Total | standard | quarter_1 | offered_now | 3/10 | partial 6/24 | verified 24/24 | partial 6/24 | partial 6/24 | partial 6/24 | verified 6/6 | verified 6/6 | partial 20/22 | partial 17/22 | partial 22/23 | 0 |
 | NFL | 1st field goal made (incl. overtime) | standard | full_game | offered_now | 0/10 | not_observed 0/24 | not_observed 0/24 | not_observed 0/24 | not_observed 0/24 | not_observed 0/24 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 1x2 | standard | regulation | offered_now | 6/10 | partial 35/36 | verified 36/36 | verified 36/36 | verified 36/36 | verified 36/36 | verified 35/35 | verified 35/35 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 2nd Half - 1x2 (Incl. Overtime) | standard | half_2_ot | offered_now | 5/10 | partial 9/36 | verified 36/36 | partial 9/36 | partial 9/36 | partial 9/36 | verified 9/9 | verified 9/9 | verified 6/6 | verified 6/6 | partial 6/7 | 0 |
