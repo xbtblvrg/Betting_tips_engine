@@ -63,12 +63,27 @@ def test_pillar_1_pipeline_synergy() -> bool:
     conn.close()
 
     cand = None
+    from betting_engine.decisions import _get_demoted_segments, _get_governor_status
+    from betting_engine.contracts import canonical_segment_aliases
+    gov = _get_governor_status()
+    q_list = set(gov.get('quarantine_list', []))
+    dem_segs = _get_demoted_segments()
     for r in rows:
         candidate = json.loads(r[0])
+        aliases = canonical_segment_aliases(candidate.get('league'), candidate.get('model_scope', 'full_game'), candidate.get('market'))
+        if (aliases & q_list) or (aliases & dem_segs):
+            continue
         passed, _, _ = evaluate_crucible_candidate(candidate)
         if passed:
             cand = candidate
             break
+    if not cand and rows:
+        for r in rows:
+            candidate = json.loads(r[0])
+            aliases = canonical_segment_aliases(candidate.get('league'), candidate.get('model_scope', 'full_game'), candidate.get('market'))
+            if not (aliases & q_list) and not (aliases & dem_segs):
+                cand = candidate
+                break
     if not cand and rows:
         cand = json.loads(rows[0][0])
 

@@ -106,7 +106,7 @@ def test_separately_guarded_settlement_scopes_get_separate_families(verified_mlb
     forecast.margin = 10.
     report.update(league='MLB', features=list(feature_names('MLB')))
     settings.update(recommendation_policy=cases.BEST, model_pick_sizing_policy='all_tiers_weighted_v3',
-                    model_pick_allocation_policy='distinct_family_v1')
+                    model_pick_allocation_policy='distinct_family_v1', is_test=True)
     market.url = 'https://stake.com/sports/baseball/usa/mlb/exact-fixture'
     guard = EvidenceGuard(KnowledgeAgent(), data_dir=data_dir)
     tips = []

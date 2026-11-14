@@ -74,14 +74,14 @@ def test_alpha_acceleration_and_capital_defense():
     wins = [decision(i) for i in range(10)]
     losses = [decision(i, 'lost') for i in range(10)]
     
-    # Capital defense active: losing segment clamps strictly to $1.00
+    # Capital defense active: losing segment clamps strictly to $0.50 tourniquet per Commandments 4 & 6
     tip_loss = {**decision('new')['payload'], 'probability': .8,
                 'market_anchor': {'status': 'usable', 'model_probability': .8, 'market_probability': .8, 'disagreement_threshold': .3},
                 'input_readiness': {'passed': True, 'state': 'ready', 'checks': {'model_features': {'required': 10, 'missing': [], 'invalid': []}}}}
     tip_loss['outcome_sizing_evidence'] = summary_for(build_snapshot(losses, AS_OF), tip_loss)
     clamped = apply_adjustment({'amount': 1., 'maximum_stake': 5, 'event_discount': 1},
                                tip_loss, {'outcome_sizing_policy': POLICY_V3, 'capital_defense': True}, 5)
-    assert clamped['amount'] == 1.0
+    assert clamped['amount'] == 0.50
 
     # Alpha acceleration active: proven winning segment scales up to $2.50 - $5.00
     tip_win = {**decision('new')['payload'], 'probability': .8,

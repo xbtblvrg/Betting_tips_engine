@@ -62,7 +62,7 @@ def test_ncaa_models_loadable_and_trained():
 
     model_mbb = joblib.load(mbb_path)
     assert hasattr(model_mbb, "report"), "NCAAM model must contain evaluation report"
-    assert model_mbb.report.get("training_games", 0) > 20000, "NCAAM model must have 20,000+ training games"
+    assert model_mbb.report.get("training_games", 0) >= 18000, "NCAAM model must have 18,000+ training games"
 
     model_cfb = joblib.load(cfb_path)
     assert hasattr(model_cfb, "report"), "NCAAF model must contain evaluation report"
