@@ -1,13 +1,13 @@
 # Live Stake market coverage
 
-Checked: 2026-11-14T12:09:11.248703+00:00
+Checked: 2026-11-14T12:29:43.453467+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
 | League | Observed titles | Activity unverified | Offered now | Complete 10/10 | Incomplete offered | Evaluated | Funding supported | Ready now | Issued today |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | NFL | 128 | 56 | 65 | 0 | 65 | 46 | 9 | 6 | 2 |
-| NHL | 83 | 16 | 66 | 0 | 66 | 49 | 7 | 5 | 19 |
+| NHL | 83 | 16 | 66 | 0 | 66 | 49 | 8 | 5 | 19 |
 | MLB | 9 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | NBA | 188 | 38 | 97 | 0 | 97 | 48 | 14 | 4 | 14 |
 | WNBA | 7 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
@@ -214,7 +214,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | two made | swishMarkets.playerProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/44 | activity_unverified 0/44 | activity_unverified 0/44 | activity_unverified 0/44 | activity_unverified 0/44 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | team points | swishMarkets.teamProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/26 | activity_unverified 0/26 | activity_unverified 0/26 | activity_unverified 0/26 | activity_unverified 0/26 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 1st Half - 1x2 | standard | half_1 | offered_now | 2/10 | not_observed 0/39 | not_observed 0/39 | not_observed 0/39 | not_observed 0/39 | not_observed 0/39 | not_observed 0/0 | not_observed 0/0 | verified 10/10 | verified 10/10 | awaiting_measurement 10/11 | 0 |
-| NFL | 1st Half - Asian Handicap | standard | half_1 | offered_now | 5/10 | partial 10/26 | verified 26/26 | partial 10/26 | partial 10/26 | partial 10/26 | verified 10/10 | verified 10/10 | verified 10/10 | verified 2/2 | partial 2/3 | 0 |
+| NFL | 1st Half - Asian Handicap | standard | half_1 | offered_now | 5/10 | partial 9/26 | verified 26/26 | partial 9/26 | partial 9/26 | partial 9/26 | verified 9/9 | verified 9/9 | verified 10/10 | verified 2/2 | partial 2/3 | 0 |
 | NFL | 1st Half - Asian Total | standard | half_1 | offered_now | 4/10 | partial 11/26 | verified 26/26 | partial 11/26 | partial 11/26 | partial 11/26 | verified 11/11 | verified 11/11 | verified 23/23 | partial 13/15 | partial 15/16 | 0 |
 | NFL | 1st Half - Draw No Bet | standard | half_1 | offered_now | 2/10 | not_observed 0/26 | not_observed 0/26 | not_observed 0/26 | not_observed 0/26 | not_observed 0/26 | not_observed 0/0 | not_observed 0/0 | verified 6/6 | verified 6/6 | awaiting_measurement 6/7 | 0 |
 | NFL | 1st Half - Odd/Even | standard | half_1 | offered_now | 1/10 | not_observed 0/26 | verified 26/26 | not_observed 0/26 | not_observed 0/26 | not_observed 0/26 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
@@ -278,9 +278,9 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NFL | Tennessee Titans Total (Incl. Overtime) | standard | full_game | offered_now | 7/10 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
 | NFL | Total (Incl. Overtime) | standard | full_game | offered_now | 9/10 | verified 126/126 | verified 126/126 | verified 126/126 | verified 126/126 | verified 126/126 | verified 126/126 | verified 126/126 | verified 30/30 | verified 30/30 | partial 30/31 | 0 |
 | NFL | Total field goals made (incl. overtime) | standard | full_game | offered_now | 2/10 | not_observed 0/24 | not_observed 0/24 | not_observed 0/24 | not_observed 0/24 | not_observed 0/24 | not_observed 0/0 | not_observed 0/0 | verified 6/6 | verified 6/6 | awaiting_measurement 6/7 | 0 |
-| NFL | Total sacks (incl. overtime) | standard | full_game | offered_now | 2/10 | not_observed 0/22 | not_observed 0/22 | not_observed 0/22 | not_observed 0/22 | not_observed 0/22 | not_observed 0/0 | not_observed 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
+| NFL | Total sacks (incl. overtime) | standard | full_game | offered_now | 2/10 | not_observed 0/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/0 | not_observed 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NFL | Total touchdowns (incl. overtime) | standard | full_game | offered_now | 0/10 | not_observed 0/26 | not_observed 0/26 | not_observed 0/26 | not_observed 0/26 | not_observed 0/26 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NFL | Total turnovers (incl. overtime) | standard | full_game | offered_now | 0/10 | not_observed 0/22 | not_observed 0/22 | not_observed 0/22 | not_observed 0/22 | not_observed 0/22 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NFL | Total turnovers (incl. overtime) | standard | full_game | offered_now | 0/10 | not_observed 0/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Washington Commanders Total (Incl. Overtime) | standard | full_game | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NFL | Will There be Overtime | standard | regulation | offered_now | 6/10 | partial 11/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 11/11 | verified 11/11 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Winner (Incl. Overtime) | standard | full_game | offered_now | 9/10 | verified 26/26 | verified 26/26 | verified 26/26 | verified 26/26 | verified 26/26 | verified 26/26 | verified 26/26 | verified 7/7 | verified 7/7 | partial 7/8 | 0 |
