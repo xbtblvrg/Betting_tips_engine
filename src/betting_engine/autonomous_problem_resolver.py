@@ -559,7 +559,8 @@ class AutonomousProblemResolver:
             return resolutions
         try:
             from .portfolio_invariants import check_portfolio_invariants
-            conn = sqlite3.connect(self.engine_db, timeout=20.0)
+            conn = sqlite3.connect(self.engine_db, timeout=45.0)
+            conn.execute("PRAGMA busy_timeout = 60000")
             c = conn.cursor()
             c.execute("SELECT payload FROM bets WHERE status = 'open'")
             open_bets = []
@@ -666,7 +667,8 @@ class AutonomousProblemResolver:
                 learning_enqueued = 0
                 if self.engine_db.exists():
                     try:
-                        with closing(sqlite3.connect(self.engine_db, timeout=10.0)) as conn:
+                        with closing(sqlite3.connect(self.engine_db, timeout=45.0)) as conn:
+                            conn.execute("PRAGMA busy_timeout = 60000")
                             cur = conn.cursor()
                             pending_tasks = set()
                             try:
@@ -878,7 +880,8 @@ class AutonomousProblemResolver:
         ]
         now_iso = utcnow().isoformat()
         try:
-            conn = sqlite3.connect(self.engine_db, timeout=30.0)
+            conn = sqlite3.connect(self.engine_db, timeout=45.0)
+            conn.execute("PRAGMA busy_timeout = 60000")
             cur = conn.cursor()
             for league, scope, market in target_gaps:
                 job_id = hashlib.sha256(f"gap_synthesis:{league}:{scope}:{market}".encode()).hexdigest()[:24]
