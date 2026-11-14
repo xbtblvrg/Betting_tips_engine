@@ -1,6 +1,6 @@
 # Live Stake market coverage
 
-Checked: 2026-11-14T10:04:27.616471+00:00
+Checked: 2026-11-14T10:23:15.635779+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
@@ -9,7 +9,7 @@ Observed feed titles; not proof of complete Stake website coverage. Funding supp
 | NFL | 128 | 56 | 65 | 0 | 65 | 46 | 9 | 6 | 2 |
 | NHL | 83 | 16 | 66 | 0 | 66 | 49 | 7 | 5 | 19 |
 | MLB | 9 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| NBA | 188 | 38 | 97 | 0 | 97 | 48 | 13 | 3 | 13 |
+| NBA | 188 | 38 | 97 | 0 | 97 | 48 | 13 | 4 | 14 |
 | WNBA | 7 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 
 Current stages require outcome-level evidence; original issuance, settlement and feedback are explicitly historical. 10/10 records observed execution, not proven profitability or automatic model promotion.
@@ -97,7 +97,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | 2nd Half - Odd/Even | standard | half_2 | offered_now | 1/10 | not_observed 0/10 | verified 10/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | 2nd Quarter - 1x2 | standard | quarter_2 | offered_now | 9/10 | verified 15/15 | verified 15/15 | verified 15/15 | verified 15/15 | verified 15/15 | verified 15/15 | verified 15/15 | verified 18/18 | verified 18/18 | partial 18/19 | 0 |
 | NBA | 2nd Quarter - Draw No Bet | standard | quarter_2 | offered_now | 9/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 1/1 | verified 1/1 | partial 1/2 | 0 |
-| NBA | 2nd Quarter - Handicap | standard | quarter_2 | offered_now | 9/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 11/11 | verified 11/11 | partial 11/12 | 0 |
+| NBA | 2nd Quarter - Handicap | standard | quarter_2 | offered_now | 9/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 12/12 | verified 11/11 | partial 11/12 | 1 |
 | NBA | 2nd Quarter - Last Point | standard | quarter_2 | offered_now | 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | 2nd Quarter - Odd/Even | standard | quarter_2 | offered_now | 1/10 | not_observed 0/10 | verified 10/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | 2nd Quarter - Total | standard | quarter_2 | offered_now | 9/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 2/2 | verified 2/2 | partial 2/3 | 0 |
