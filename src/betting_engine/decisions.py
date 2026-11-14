@@ -1465,4 +1465,37 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
     for x in chosen + alternatives:
         x.pop('_cand_segs', None)
     if dynamic:seal_batch(settings,held_event_roster,chosen+alternatives)
+    try:
+        from .verbose_logger import get_verbose_logger
+        vl = get_verbose_logger()
+        for c in chosen:
+            if c.get('stake', 0) > 0:
+                vl.trace_decision(
+                    candidate_id=c.get('id', ''),
+                    fixture=f"{c.get('home')} vs {c.get('away')}",
+                    market=f"{c.get('market')}:{c.get('selection')}",
+                    prob=float(c.get('probability', 0.0)),
+                    odds=float(c.get('reference_odds', 0.0) or 0.0),
+                    ev=float(c.get('expected_roi', 0.0) or 0.0),
+                    kelly_fraction=float(c.get('stake_sizing', {}).get('full_kelly_fraction', 0.0)),
+                    final_stake=float(c.get('stake', 0.0)),
+                    accepted=True,
+                    details={'allocation_code': c.get('allocation_code'), 'league': c.get('league')}
+                )
+        for a in alternatives[:10]:
+            vl.trace_decision(
+                candidate_id=a.get('id', ''),
+                fixture=f"{a.get('home')} vs {a.get('away')}",
+                market=f"{a.get('market')}:{a.get('selection')}",
+                prob=float(a.get('probability', 0.0)),
+                odds=float(a.get('reference_odds', 0.0) or 0.0),
+                ev=float(a.get('expected_roi', 0.0) or 0.0),
+                kelly_fraction=0.0,
+                final_stake=0.0,
+                accepted=False,
+                rejection_reason=a.get('allocation_code') or a.get('allocation_reason'),
+                details={'league': a.get('league')}
+            )
+    except Exception:
+        pass
     return chosen,alternatives

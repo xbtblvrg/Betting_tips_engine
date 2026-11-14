@@ -14,6 +14,8 @@ from .io_utils import atomic_json
 from .feed_health import market_feed_health
 from .governance import KnowledgeAgent,EvidenceGuard,LearningAgent,coverage_summary
 from .contracts import contract_value,settlement_scores,split_market,SEGMENT_SCOPES,PERIOD_SCOPES
+from .verbose_logger import setup_verbose_logging
+setup_verbose_logging()
 
 log=logging.getLogger(__name__)
 class Engine:

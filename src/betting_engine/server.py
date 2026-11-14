@@ -10,6 +10,8 @@ except Exception:
     pass
 from contextlib import asynccontextmanager, closing
 from pathlib import Path
+from .verbose_logger import setup_verbose_logging
+setup_verbose_logging()
 log=logging.getLogger(__name__)
 from typing import Literal, Optional
 from urllib.parse import urlparse

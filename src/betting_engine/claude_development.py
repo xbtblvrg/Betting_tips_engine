@@ -300,6 +300,14 @@ def prepare_step(root, workspace, directory, task, prompt, result_schema, *, rea
                'workspace': str(workspace), 'workspace_identity': _identity(workspace.stat()),
                'readonly': readonly, 'protected_paths': protected, 'result_schema': result_schema,
                'output_schema': schema, 'source_bundle': bundle}
+    telemetry_text = ""
+    try:
+        from .verbose_logger import get_verbose_logger
+        vl = get_verbose_logger()
+        telemetry_text = vl.format_telemetry_for_ai(task=task, prompt=prompt, max_chars=12000)
+    except Exception:
+        pass
+    telemetry_section = f'\nRUNTIME VERBOSE DEBUG TELEMETRY (REAL SYSTEM EVIDENCE):\n{telemetry_text}\n' if telemetry_text else ''
     instruction = ('You are the temporarily authorized Claude Opus developer. Produce real complete source-file edits, '
         'not advisory suggestions. You have NO tools or project access. Use only the source bundle below. '
         'Return the schema envelope with report and edits; content is the complete UTF-8 replacement file. '
@@ -310,6 +318,7 @@ def prepare_step(root, workspace, directory, task, prompt, result_schema, *, rea
         'If omitted inputs prevent a safe change, report the exact follow-up in remaining; do not invent missing data. '
         + ('This is an independent read-only review: edits MUST be empty. ' if readonly else '')
         + '\nCONTROLLER TASK AND INSTRUCTIONS:\n' + prompt + '\nTASK:\n' + _json(task)
+        + telemetry_section
         + '\nPROTECTED PATHS:\n' + _json(protected) + '\nBOUNDED SOURCE BUNDLE:\n' + _json(bundle))
     if len(instruction.encode()) > 1536 * 1024:
         raise ValueError('Bounded prompt exceeds transport limit')

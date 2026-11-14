@@ -1143,6 +1143,15 @@ class LearningWorker:
             else:
                 diagnosis = f"Task {task_id} failure mode: {last_err[:300]}."
 
+            # Retrieve rich verbose debug telemetry for AI guidance
+            recent_telemetry = []
+            try:
+                from .verbose_logger import get_verbose_logger
+                vl = get_verbose_logger(self.data)
+                recent_telemetry = vl.get_recent_telemetry(limit=10)
+            except Exception:
+                pass
+
             # Unfreeze the task in state.json so it immediately gets retried with guidance
             if dev_state_path.exists() and task_id:
                 try:
@@ -1155,6 +1164,8 @@ class LearningWorker:
                         t_row['rca_guidance'] = diagnosis
                         if stderr_snippet:
                             t_row['last_error_stderr'] = stderr_snippet
+                        if recent_telemetry:
+                            t_row['last_error_telemetry'] = recent_telemetry[-5:]
                         if 'timeout' in last_err.lower():
                             t_row['step_timeout_seconds'] = 2400
                         atomic_json(dev_state_path, s_data)

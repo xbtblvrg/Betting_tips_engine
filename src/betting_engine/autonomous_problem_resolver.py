@@ -137,6 +137,19 @@ class AutonomousProblemResolver:
         except Exception as exc:
             log.warning('Failed to write problem solver status: %s', exc)
 
+        try:
+            from .verbose_logger import get_verbose_logger
+            vl = get_verbose_logger(self.data)
+            vl.log_event(
+                "autonomous_problem_resolver",
+                "scan_and_resolve_completed",
+                f"Autonomous scan finished with {len(resolutions)} resolutions. Status: {status_report['system_health_status']}",
+                data=status_report["resolved_categories"],
+                level=logging.INFO if resolutions else logging.DEBUG
+            )
+        except Exception:
+            pass
+
         return status_report
 
     def resolve_supervisor_degradations(self) -> List[ProblemResolution]:
