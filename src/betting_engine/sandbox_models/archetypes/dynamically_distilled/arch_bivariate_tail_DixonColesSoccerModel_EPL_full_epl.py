@@ -9,7 +9,7 @@ class DixonColesSoccerModel_EPL_full_game(BaseCandidateModel):
 
     def __init__(
         self,
-        model_id: str = "codex_synth_epl_full_game_1104_052735",
+        model_id: str = "codex_synth_epl_full_game_1102_225521",
         version: str = "1.0.0",
         league: str = "EPL",
         scope: str = "full_game",
