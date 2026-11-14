@@ -94,11 +94,14 @@ class SportContext:
         return pq.read_table(pa.BufferReader(raw)).to_pylist(),meta
     def official_hockey_season(self,games,season,original_source,*,recovery_reason=None):
         targets=[g for g in games if g.league=='NHL' and g.season==season and g.state=='final' and not g.context.get('box')];metas=[];errors=[]
+        final_games = [g for g in games if g.league == 'NHL' and g.season == season and g.state == 'final']
         if not targets:
-            return {'source':f'NHL/{season}/box','ok':False,'rows':0,'target_rows':0,'rejected':0,
-                    'error':'Empty target set or all games already verified','recovery_errors':[],'url':'https://api-web.nhle.com/v1/gamecenter/[gameId]/boxscore',
-                    'sha256':None,'fetched_at':None,'recovered_from':original_source,
-                    'recovery_reason':'No eligible games requiring official boxscore recovery'}
+            all_verified = bool(final_games) and all(g.context.get('box') for g in final_games)
+            return {'source': f'NHL/{season}/box', 'ok': all_verified or not final_games, 'rows': len(final_games), 'target_rows': 0, 'rejected': 0,
+                    'error': None if (all_verified or not final_games) else 'Empty target set or games unverified',
+                    'recovery_errors': [], 'url': 'https://api-web.nhle.com/v1/gamecenter/[gameId]/boxscore',
+                    'sha256': None, 'fetched_at': None, 'recovered_from': original_source,
+                    'recovery_reason': 'All eligible games already verified with official boxscore' if all_verified else 'No eligible games requiring official boxscore recovery'}
         def load(g):
             url=f'https://api-web.nhle.com/v1/gamecenter/{g.id.split(":")[1]}/boxscore'
             receipt={'url':url}

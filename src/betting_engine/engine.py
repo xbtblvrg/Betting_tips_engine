@@ -322,6 +322,12 @@ class Engine:
                 self.data_integrity_status = integrity_sup.audit_and_heal(engine_instance=self)
             except Exception as exc:
                 log.warning('Data integrity supervisor execution failed: %s', exc)
+            try:
+                from .autonomous_problem_resolver import AutonomousProblemResolver
+                problem_resolver = AutonomousProblemResolver(DATA.parent)
+                self.problem_resolver_status = problem_resolver.scan_and_resolve_all()
+            except Exception as exc:
+                log.warning('Autonomous problem resolver execution failed: %s', exc)
             outcome_evidence=outcome_snapshot(self.store.system_decisions(),now) if outcome_enabled else None
             outcome_summaries={}
             horizons=settings.get('league_pregame_horizon_hours') or {}

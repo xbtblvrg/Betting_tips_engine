@@ -407,6 +407,11 @@ def run_once(data_dir=DATA, *, emit_summary=False):
         except Exception as e_funnel:
             result['funnel_supervision'] = {'error': str(e_funnel)[:300]}
         try:
+            from .autonomous_problem_resolver import run_autonomous_problem_resolution_cycle
+            result['autonomous_problem_resolver'] = run_autonomous_problem_resolution_cycle(data.parent)
+        except Exception as e_apr:
+            result['autonomous_problem_resolver'] = {'error': str(e_apr)[:300]}
+        try:
             with urlopen('http://127.0.0.1:8765/api/component-health',timeout=10) as r:result['components']=json.load(r)
         except Exception as e:result['components']={'state':'unavailable','error':str(e)[:300],'checks':[]}
         try:
