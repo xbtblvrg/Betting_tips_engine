@@ -200,3 +200,55 @@ def test_portfolio_invariant_risks_resolution(mock_problem_env):
     assert res.severity == 'CRITICAL'
     assert 'contradictory' in res.remedy_applied.lower()
 
+
+def test_financial_roi_gap_resolution(mock_problem_env):
+    resolver = AutonomousProblemResolver(root=mock_problem_env)
+    db_file = resolver.data_dir / 'engine.sqlite3'
+    import sqlite3
+    conn = sqlite3.connect(db_file)
+    conn.execute("CREATE TABLE IF NOT EXISTS bets (id INT, status TEXT, stake REAL, pnl REAL, created_at TEXT, payload TEXT)")
+    conn.execute("CREATE TABLE IF NOT EXISTS learning_jobs (id INTEGER PRIMARY KEY, kind TEXT, status TEXT, payload TEXT, created_at TEXT, attempts INT)")
+    conn.commit()
+    conn.close()
+
+    # When portfolio has no bets or is below 10%, it enforces capital defense and enqueues learning jobs
+    resolutions = resolver.resolve_financial_roi_gap()
+    assert len(resolutions) == 1
+    res = resolutions[0]
+    assert res.category == 'prime_financial_objective'
+    assert res.status == 'SELF_HEALED'
+    assert '10.0% Weekly ROI' in res.root_cause
+    assert 'portfolio_roi_pct' in res.details
+
+
+def test_daily_volume_shortfall_resolution(mock_problem_env):
+    resolver = AutonomousProblemResolver(root=mock_problem_env)
+    db_file = resolver.data_dir / 'engine.sqlite3'
+    import sqlite3
+    conn = sqlite3.connect(db_file)
+    conn.execute("CREATE TABLE IF NOT EXISTS recommendation_issuance (id INT, tip_id TEXT, league TEXT, start TEXT, issued_at TEXT, family TEXT)")
+    conn.commit()
+    conn.close()
+
+    # With 0 issued picks, shortfall is 100
+    resolutions = resolver.resolve_daily_volume_shortfall()
+    assert len(resolutions) == 1
+    res = resolutions[0]
+    assert res.category == 'prime_volume_objective'
+    assert res.status == 'SELF_HEALED'
+    assert res.details['shortfall'] == 100
+    assert '100+' in res.remedy_applied
+
+
+def test_scan_and_resolve_all_prime_mandates_alignment(mock_problem_env):
+    resolver = AutonomousProblemResolver(root=mock_problem_env)
+    report = resolver.scan_and_resolve_all()
+
+    assert 'prime_objectives_mandate' in report
+    mandate = report['prime_objectives_mandate']
+    assert '10.0% Weekly Portfolio ROI' in mandate['prime_directive_1']
+    assert '100 Funded Recommendations' in mandate['prime_directive_2']
+    assert 'prime_financial_objective' in report['resolved_categories']
+    assert 'prime_volume_objective' in report['resolved_categories']
+
+
