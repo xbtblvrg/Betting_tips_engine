@@ -4,15 +4,15 @@ from typing import Any, Dict, Optional
 from scipy.stats import poisson
 from betting_engine.sandbox_models.base import BaseCandidateModel, DiscreteDistribution
 
-class DixonColesSoccerModel_EPL_half_1(BaseCandidateModel):
+class DixonColesSoccerModel_EPL_half_2(BaseCandidateModel):
     """Dixon-Coles bivariate Poisson with low-scoring dependency parameter."""
 
     def __init__(
         self,
-        model_id: str = "codex_synth_epl_half_1_1103_020641",
+        model_id: str = "codex_synth_epl_half_2_1104_072724",
         version: str = "1.0.0",
         league: str = "EPL",
-        scope: str = "half_1",
+        scope: str = "half_2",
         family: str = "spreads",
         rho: float = -0.11,
         metadata: Optional[Dict[str, Any]] = None,
