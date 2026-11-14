@@ -148,3 +148,55 @@ def test_end_to_end_scan_and_resolve(mock_problem_env):
     assert status_file.exists()
     status_data = json.loads(status_file.read_text())
     assert status_data['total_resolutions_count'] >= 3
+
+
+def test_database_maintenance_resolution(mock_problem_env):
+    resolver = AutonomousProblemResolver(root=mock_problem_env)
+    db_file = resolver.data_dir / 'engine.sqlite3'
+    import sqlite3
+    conn = sqlite3.connect(db_file)
+    conn.execute("CREATE TABLE test_data (id INT, val TEXT)")
+    conn.commit()
+    conn.close()
+
+    wal_file = Path(f"{db_file}-wal")
+    # Simulate a bloated WAL file (> 32MB)
+    with open(wal_file, 'wb') as f:
+        f.seek(33 * 1024 * 1024)
+        f.write(b'\0')
+
+    resolutions = resolver.resolve_database_maintenance()
+    assert len(resolutions) == 1
+    res = resolutions[0]
+    assert res.category == 'database_maintenance'
+    assert res.status == 'SELF_HEALED'
+    assert 'PRAGMA wal_checkpoint' in res.remedy_applied
+
+
+def test_portfolio_invariant_risks_resolution(mock_problem_env):
+    resolver = AutonomousProblemResolver(root=mock_problem_env)
+    db_file = resolver.data_dir / 'engine.sqlite3'
+    import sqlite3
+    conn = sqlite3.connect(db_file)
+    conn.execute("CREATE TABLE IF NOT EXISTS bets (id INT, status TEXT, payload TEXT)")
+    # Insert two contradictory bets for the same game (Home and Away)
+    bet1 = {
+        'id': 'b1', 'game_id': 'NBA:1001', 'league': 'NBA', 'market': 'moneyline',
+        'side': 'home', 'selection': 'Lakers', 'stake': 2.0
+    }
+    bet2 = {
+        'id': 'b2', 'game_id': 'NBA:1001', 'league': 'NBA', 'market': 'moneyline',
+        'side': 'away', 'selection': 'Celtics', 'stake': 2.0
+    }
+    conn.execute("INSERT INTO bets VALUES (1, 'open', ?)", (json.dumps(bet1),))
+    conn.execute("INSERT INTO bets VALUES (2, 'open', ?)", (json.dumps(bet2),))
+    conn.commit()
+    conn.close()
+
+    resolutions = resolver.resolve_portfolio_invariant_risks()
+    assert len(resolutions) == 1
+    res = resolutions[0]
+    assert res.category == 'portfolio_risk'
+    assert res.severity == 'CRITICAL'
+    assert 'contradictory' in res.remedy_applied.lower()
+
