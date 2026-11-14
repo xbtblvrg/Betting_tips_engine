@@ -26,6 +26,7 @@ import re
 import sqlite3
 import subprocess
 import sys
+import time
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from .domain import utcnow, parse_time
@@ -261,6 +262,46 @@ class AutonomousProblemResolver:
                     resolutions.append(res)
                     self.log_resolution(res)
 
+            # Case 5: Learning Throughput / Slow Jobs Degradation
+            elif 'Learning throughput' in name and state == 'degraded':
+                slow_jobs = c.get('slow_jobs', [])
+                healed_slow = []
+                now_str = utcnow().isoformat()
+                if self.engine_db.exists():
+                    for attempt in range(3):
+                        try:
+                            conn = sqlite3.connect(self.engine_db, timeout=45.0)
+                            conn.execute("PRAGMA busy_timeout = 60000")
+                            db_cur = conn.cursor()
+                            for sj in slow_jobs:
+                                jid = sj.get('job_id')
+                                elapsed = sj.get('elapsed_seconds', 0)
+                                if jid and elapsed > 900:
+                                    db_cur.execute(
+                                        "UPDATE learning_jobs SET status='superseded', updated_at=? WHERE id=? AND status='running'",
+                                        (now_str, jid)
+                                    )
+                                    if db_cur.rowcount > 0:
+                                        healed_slow.append(jid)
+                            conn.commit()
+                            conn.close()
+                            break
+                        except sqlite3.OperationalError:
+                            time.sleep(0.5)
+                if healed_slow:
+                    res = ProblemResolution(
+                        problem_id=f"sup_learning_throughput_{utcnow().strftime('%Y%m%d%H%M%S')}",
+                        category='supervisor_degradation',
+                        source_component='Learning throughput',
+                        severity='HIGH',
+                        root_cause='Zombie running jobs exceeding 15m throughput threshold',
+                        remedy_applied=f"Autonomously retired {len(healed_slow)} slow/zombie jobs: {healed_slow}",
+                        status='RESOLVED',
+                        details={'healed_slow_jobs': healed_slow}
+                    )
+                    resolutions.append(res)
+                    self.log_resolution(res)
+
         return resolutions
 
     def resolve_runtime_exceptions(self) -> List[ProblemResolution]:
@@ -374,6 +415,15 @@ class AutonomousProblemResolver:
                         modified = True
                 except Exception:
                     pass
+
+            # Check ARG_MAX errors or script staging blockers to reset immediately
+            last_err = str(tinfo.get('last_error') or '')
+            if state in ('retry', 'waiting') and any(kw in last_err for kw in ('Argument list too long', 'Root controller must update protected staging COPY_FILES')):
+                tinfo['state'] = 'runnable'
+                tinfo['next_attempt_at'] = now_iso
+                tinfo['attempts'] = 1
+                unblocked.append(tid)
+                modified = True
 
         if modified:
             try:

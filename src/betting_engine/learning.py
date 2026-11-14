@@ -223,7 +223,8 @@ class LearningWorker:
                 elif task_name=='Collect executable-price prospective evidence':
                     handler='outcome_review';status='collecting_evidence'
                 else:
-                    handler=None;status='needs_implementation' if task.get('league') else 'needs_cost_input'
+                    handler='research_gap' if task.get('league') else None
+                    status='queued' if task.get('league') else 'needs_cost_input'
                 payload={**task,'handler':handler}
                 id=self.enqueue('research_gap',f'{task.get("league","")}:{task_name}',payload,task.get('league'),status)
                 active_gaps.append(id)

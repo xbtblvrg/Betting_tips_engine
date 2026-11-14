@@ -74,7 +74,8 @@ def command(provider, config, directory, prompt):
         stdin = prompt
     elif provider == 'agy':
         keys = ('GEMINI_API_KEY', 'GOOGLE_API_KEY')
-        argv = [binary, '--print', prompt, '--output-format', 'stream-json', '--mode', 'plan',
+        bounded_prompt = prompt if len(prompt) <= 65536 else prompt[:65536] + "\n\n[TRUNCATED TO FIT OS ARG_MAX]"
+        argv = [binary, '--print', bounded_prompt, '--output-format', 'stream-json', '--mode', 'plan',
                 '--sandbox', '--disable-slash-commands', '--print-timeout', '80s', *model]
         stdin = None
     elif provider == 'grok':
@@ -86,8 +87,9 @@ def command(provider, config, directory, prompt):
         stdin = None
     elif provider == 'codex':
         keys = ('OPENAI_API_KEY', 'CODEX_HOME')
+        bounded_prompt = str(prompt) if len(str(prompt)) <= 65536 else str(prompt)[:65536] + "\n\n[TRUNCATED TO FIT OS ARG_MAX]"
         argv = [binary, 'exec', '--sandbox', 'read-only', '--skip-git-repo-check',
-                '--ephemeral', '--color', 'never', *model, str(prompt)]
+                '--ephemeral', '--color', 'never', *model, bounded_prompt]
         stdin = None
     else:
         raise ValueError(f'Unknown provider {provider}')

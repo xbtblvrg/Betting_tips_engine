@@ -32,7 +32,11 @@ COPY_FILES = ('AGENTS.md', 'GEMINI.md', 'pyproject.toml', 'package.json', 'packa
               'config/project_contract.json', 'config/development_plan.json', 'config/ai_delegation.json', 'config/release_policy.json', 'config/validation_sources.json',
               'scripts/development_service.py', 'scripts/release_service.py',
               'scripts/archive_offline_databases.py', 'scripts/archive_obsolete_workspace_inputs.py',
-              'scripts/deduplicate_workspace_inputs.py', 'scripts/schedule_service.py', 'config/development_runner.json', 'config/provider_recovery.json')
+              'scripts/deduplicate_workspace_inputs.py', 'scripts/schedule_service.py',
+              'scripts/bootstrap.py', 'scripts/prune_obsolete_frozen_validation.py',
+              'scripts/prune_obsolete_manifest_inputs.py', 'scripts/prune_obsolete_release_staging.py',
+              'scripts/install_sqlite_runtime.py', 'scripts/verify_system_synergy.py',
+              'config/development_runner.json', 'config/provider_recovery.json')
 PROTECTED = ('config/validation_sources.json', 'AGENTS.md', 'GEMINI.md', 'pyproject.toml', 'package.json', 'package-lock.json',
     'src/betting_engine/__init__.py',
     'src/betting_engine/development.py', 'src/betting_engine/delivery.py',
