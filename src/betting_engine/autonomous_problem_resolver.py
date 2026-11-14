@@ -634,6 +634,9 @@ class AutonomousProblemResolver:
                             # Enqueue autonomous repair for dragging segments
                             for seg in (quarantined + clamped)[:3]:
                                 if seg not in pending_tasks:
+                                    now_str = utcnow().isoformat()
+                                    job_id = f"auto_repair_{hashlib.sha256(f'{seg}_{now_str}'.encode()).hexdigest()[:12]}"
+                                    lg = seg.split('|')[0] if '|' in seg else None
                                     payload_str = json.dumps({
                                         'segment': seg,
                                         'reason': 'financial_turnaround_mandate_10pct_roi',
@@ -642,10 +645,10 @@ class AutonomousProblemResolver:
                                         'gap_pct': gap_pct,
                                         'objective': 'Synthesize and calibrate candidate domain model on historical games to pass Crucible'
                                     })
-                                    cur.execute(
-                                        "INSERT INTO learning_jobs (kind, status, payload, created_at, attempts) VALUES (?, 'pending', ?, ?, 0)",
-                                        ('autonomous_alpha_recovery', payload_str, utcnow().isoformat())
-                                    )
+                                    cur.execute("""
+                                        INSERT INTO learning_jobs (id, kind, league, status, created_at, updated_at, next_attempt, attempts, payload)
+                                        VALUES (?, 'autonomous_alpha_recovery', ?, 'pending', ?, ?, ?, 0, ?)
+                                    """, (job_id, lg, now_str, now_str, now_str, payload_str))
                                     conn.commit()
                                     learning_enqueued += 1
                     except Exception as e_job:
