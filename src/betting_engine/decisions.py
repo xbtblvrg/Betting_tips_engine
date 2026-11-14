@@ -1140,6 +1140,7 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
         elif tier(c)>0 and new_funded<cycle_cap:
             is_cap_defense_cand = False
             is_alpha_cand = False
+            is_grad = bool(c.get('is_graduated'))
             c_league = str(c.get('league') or '').upper()
             c_scope = str(c.get('model_scope', 'full_game'))
             c_market = str(c.get('market', '')).lower()

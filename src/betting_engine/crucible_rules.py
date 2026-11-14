@@ -144,6 +144,13 @@ def evaluate_crucible_candidate(
                 if eff_ev < 0.045:
                     return False, "crucible_filter_gate:nfl_period_min_ev_4.5pct_hurdle", None
 
+        if league == 'WTA':
+            # WTA Game Spreads Capital Defense Hurdle Gate (high break-of-serve noise)
+            if 'spread' in market or 'handicap' in market:
+                eff_ev = float(candidate.get('expected_roi') or candidate.get('ev') or (p_orig * odds - 1.0))
+                if eff_ev < 0.045:
+                    return False, "crucible_filter_gate:hyp_wta_spreads_defense_v1:wta_spreads_low_edge_quarantined", None
+
         is_challenger_event = (
             league in ('CHALLENGER', 'ITF')
             or 'challenger' in str(candidate.get('tournament', '')).lower()
