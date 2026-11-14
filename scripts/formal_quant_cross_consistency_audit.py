@@ -114,7 +114,7 @@ else:
 # ====================================================================
 print('\n--- 2. Shadow Incubator Invariants (data/shadow_incubator.sqlite3) ---')
 
-conn_s = sqlite3.connect(f'file:{Path(DATA / "shadow_incubator.sqlite3").resolve()}?immutable=1', uri=True)
+conn_s = sqlite3.connect(f'file:{Path(DATA / "shadow_incubator.sqlite3").resolve()}?mode=ro', uri=True)
 cur_s = conn_s.cursor()
 
 cur_s.execute('SELECT COUNT(*) FROM incubated_wagers')
@@ -166,7 +166,7 @@ else:
 # ====================================================================
 print('\n--- 3. Bankroll & Ledger Isolation Invariants ---')
 
-conn_e = sqlite3.connect(f'file:{Path(DATA / "engine.sqlite3").resolve()}?immutable=1', uri=True)
+conn_e = sqlite3.connect(f'file:{Path(DATA / "engine.sqlite3").resolve()}?mode=ro', uri=True)
 cur_e = conn_e.cursor()
 
 # 3.1 Strict Isolation between Shadow and Live
