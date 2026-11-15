@@ -857,7 +857,7 @@ class PolymarketAutonomousRunner:
                                 is_home=is_home,
                                 spread_line=outcome_spread,
                                 scope=scope,
-                                max_sigma_shift=1.0,
+                                max_sigma_shift=0.35,
                             )
                         elif forecast.get("proj_spread") is not None:
                             proj_h_eff = 0.0
@@ -869,7 +869,7 @@ class PolymarketAutonomousRunner:
                                 is_home=is_home,
                                 spread_line=outcome_spread,
                                 scope=scope,
-                                max_sigma_shift=1.0,
+                                max_sigma_shift=0.35,
                             )
                         if model_prob is None:
                             continue
@@ -919,9 +919,11 @@ class PolymarketAutonomousRunner:
                     if model_prob is None or model_prob <= 0.01 or model_prob >= 0.99:
                         continue
 
-                    # Pre-screen: Only check depth if contract is liquid, within price bounds and offers positive nominal EV
-                    # Under Commandment 3 (Odds >= 1.40 floor), contracts with poly_price > 1.0 / 1.40 (~0.714) are ineligible.
-                    if poly_price <= 0.05 or poly_price > (1.0 / 1.40):
+                    # Core Market Price Bracket Guard:
+                    # Restrict trading strictly to liquid core market contracts [0.35, 0.65] (odds 1.54 - 2.85).
+                    # Reject tail underdogs (poly_price < 0.35) and heavy favorites (poly_price > 0.65)
+                    # to prevent phantom EV from Gaussian tail extrapolation and favorite variance traps.
+                    if poly_price < 0.35 or poly_price > 0.65:
                         continue
 
                     # Disagreement & Information Asymmetry Guard:

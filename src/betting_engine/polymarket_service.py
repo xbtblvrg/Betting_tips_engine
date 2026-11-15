@@ -85,6 +85,27 @@ def _canonical_match_key(norm_name: str) -> str:
     }
     for src, tgt in aliases.items():
         k = k.replace(src, tgt)
+
+    # NCAA Mascot and Suffix Stripping for accurate college sports matching
+    ncaa_mascots = (
+        "nittanylions", "crimsontide", "fightingirish", "goldenhurricane", "bluedevils",
+        "tarheels", "gamecocks", "wolverines", "buckeyes", "seminoles", "commodores",
+        "mountaineers", "cavaliers", "cornhuskers", "longhorns", "aggies", "sooners",
+        "jayhawks", "wildcats", "tigers", "bulldogs", "bruins", "trojans", "cougars",
+        "cardinals", "spartans", "badgers", "gators", "razorbacks", "volunteers",
+        "hoosiers", "boilermakers", "hawkeyes", "terrapins", "scarletknights",
+        "goldengophers", "sundevils", "yellowjackets", "demondeacons", "thunderingherd",
+        "redraiders", "hornedfrogs", "goldeneagles", "meangreen", "blueraiders",
+        "greenwave", "blackknights", "midshipmen", "rattlers", "bison", "ospreys",
+        "highlanders", "peacocks", "chanticleers", "chargers", "mustangs", "bobcats",
+        "skyhawks", "cyclones", "flames", "knights", "huskies", "panthers", "rams",
+        "bears", "ducks", "beavers", "utes", "buffalos", "lobos"
+    )
+    for m in ncaa_mascots:
+        if k.endswith(m) and len(k) >= len(m) + 3:
+            k = k[:-len(m)]
+            break
+
     return k
 
 

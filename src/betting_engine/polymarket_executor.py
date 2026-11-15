@@ -661,8 +661,10 @@ class PolymarketAutonomousExecutor:
         side: str,
         requested_stake: float,
         model_prob: float,
-        min_ev: float = 0.025,
+        min_ev: float = 0.040,
         mock_book: Optional[Dict[str, Any]] = None,
+        min_price: Optional[float] = 0.35,
+        max_price: Optional[float] = 0.65,
     ) -> PreflightResult:
         """Sub-second point-in-time orderbook depth & slippage verification."""
         if not token_id:
@@ -836,6 +838,20 @@ class PolymarketAutonomousExecutor:
                 shares=shares_accumulated,
                 ev=round(ev, 4),
                 reason=f"ODDS_BELOW_MINIMUM: Effective odds {eff_odds:.3f} below constitutional floor {MIN_ODDS_FLOOR:.2f} (Price {eff_price:.3f} > {1.0/MIN_ODDS_FLOOR:.3f})",
+                depth_shares=total_depth,
+            )
+
+        # Core Market Price Bracket Guard (Anti-Extrapolation & Tail Hazard Invariant):
+        # Contracts priced outside [min_price, max_price] suffer from extreme
+        # Gaussian parametric tail extrapolation distortion or asymmetric favorite downside.
+        if (min_price is not None and eff_price < min_price) or (max_price is not None and eff_price > max_price):
+            return PreflightResult(
+                ok=False,
+                eff_price=round(eff_price, 4),
+                eff_odds=round(eff_odds, 3),
+                shares=shares_accumulated,
+                ev=round(ev, 4),
+                reason=f"PRICE_OUTSIDE_CORE_BRACKET: Effective price {eff_price:.3f} outside core market bracket [{min_price:.2f}, {max_price:.2f}] (odds {eff_odds:.2f})",
                 depth_shares=total_depth,
             )
 
@@ -1193,8 +1209,10 @@ class PolymarketAutonomousExecutor:
             side=side,
             requested_stake=staged_stake,
             model_prob=model_prob,
-            min_ev=0.025,
+            min_ev=0.040,
             mock_book=mock_book,
+            min_price=0.35,
+            max_price=0.65,
         )
 
         if not preflight.ok:
