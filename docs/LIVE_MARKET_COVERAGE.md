@@ -1,6 +1,6 @@
 # Live Stake market coverage
 
-Checked: 2026-11-15T17:05:54.727400+00:00
+Checked: 2026-11-15T17:26:09.738732+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
@@ -9,7 +9,7 @@ Observed feed titles; not proof of complete Stake website coverage. Funding supp
 | NFL | 77 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 13 |
 | NHL | 65 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 8 |
 | MLB | 9 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| NBA | 165 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 22 |
+| NBA | 165 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 23 |
 | WNBA | 7 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 
 Current stages require outcome-level evidence; original issuance, settlement and feedback are explicitly historical. 10/10 records observed execution, not proven profitability or automatic model promotion.
@@ -101,7 +101,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | 2nd Half - Odd/Even | standard | half_2 | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | 2nd Quarter - 1x2 | standard | quarter_2 | catalogue_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 18/18 | verified 18/18 | awaiting_measurement 18/19 | 0 |
 | NBA | 2nd Quarter - Draw No Bet | standard | quarter_2 | catalogue_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
-| NBA | 2nd Quarter - Handicap | standard | quarter_2 | catalogue_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 21/21 | verified 16/16 | awaiting_measurement 16/17 | 5 |
+| NBA | 2nd Quarter - Handicap | standard | quarter_2 | catalogue_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 22/22 | verified 16/16 | awaiting_measurement 16/17 | 6 |
 | NBA | 2nd Quarter - Last Point | standard | quarter_2 | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | 2nd Quarter - Odd/Even | standard | quarter_2 | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | 2nd Quarter - Total | standard | quarter_2 | catalogue_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 2/2 | verified 2/2 | awaiting_measurement 2/3 | 0 |
