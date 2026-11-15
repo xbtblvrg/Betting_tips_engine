@@ -16,7 +16,7 @@ Key Principles:
 from __future__ import annotations
 
 from dataclasses import dataclass, asdict
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import hashlib
 import json
 import logging
@@ -2663,8 +2663,8 @@ class ShadowMarketIncubator:
                 from .contracts import is_supported_stake_contract, is_preferred_alpha_league
                 if not is_supported_stake_contract(league, scope, family, sub_family):
                     continue  # Theoretical/phantom archetype not currently offered pre-match by Stake
-                if not is_preferred_alpha_league(league):
-                    continue  # Strictly focus AI compute and graduation on high-liquidity preferred sports
+                if not is_preferred_alpha_league(league) and league not in ('NCAAM', 'WNBA'):
+                    continue  # Strictly focus AI compute and graduation on high-liquidity preferred sports and active college leagues
 
                 if pnl_sum <= 0:
                     # If total lifetime PnL is non-positive, it can only graduate if filtered by recalibrated_at or demoted_at
@@ -2859,9 +2859,11 @@ class ShadowMarketIncubator:
                             if matches_live_decision_to_market(p, meta_grad) and str(iss) > eff_dem_at
                         ]
                     else:
+                        # For markets without active demotion, evaluate recent live decisions (last 7 days)
+                        cutoff_recent = (utcnow() - timedelta(days=7)).isoformat()
                         eval_live = [
                             (p, pnl) for p, pnl, iss in cached_live_rows
-                            if matches_live_decision_to_market(p, meta_grad)
+                            if matches_live_decision_to_market(p, meta_grad) and str(iss) >= cutoff_recent
                         ]
                     if eval_live:
                         tot_live = sum(pnl for _, pnl in eval_live)
@@ -3585,8 +3587,8 @@ class ShadowMarketIncubator:
                 from .contracts import is_supported_stake_contract, is_preferred_alpha_league
                 if not is_supported_stake_contract(league, scope, family, sub_family):
                     continue  # Theoretical/phantom archetype not currently offered pre-match by Stake
-                if not is_preferred_alpha_league(league):
-                    continue  # Focus volume expansion strictly on high-liquidity preferred sports
+                if not is_preferred_alpha_league(league) and league not in ('NCAAM', 'WNBA'):
+                    continue  # Focus volume expansion strictly on high-liquidity preferred sports and college basketball
 
                 if pnl_sum <= 0:
                     # If total lifetime PnL is non-positive, it can only graduate if filtered by recalibrated_at or demoted_at

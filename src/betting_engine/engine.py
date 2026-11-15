@@ -170,6 +170,32 @@ class Engine:
             bets=self.store.open_bets();decisions=self.store.system_decisions()
             pending_ids_building=set()
             existing_finals={game.id for game in self.games if game.state=='final'}
+            # Also include open shadow incubator wagers for supported leagues to prevent settlement stagnation
+            try:
+                import sqlite3
+                inc_db = DATA / 'shadow_incubator.sqlite3'
+                if inc_db.exists():
+                    games_by_id = {game.id: game for game in self.games}
+                    with sqlite3.connect(f"file:{inc_db}?mode=ro", uri=True) as inc_conn:
+                        for r_fix, r_lg in inc_conn.execute("SELECT DISTINCT fixture_id, league FROM incubated_wagers WHERE status = 'open'").fetchall():
+                            if r_lg in LEAGUE_PATHS and r_fix in games_by_id and r_fix not in existing_finals:
+                                g_match = games_by_id[r_fix]
+                                try:
+                                    if parse_time(g_match.start) < now:
+                                        decisions.append({
+                                            'status': 'open',
+                                            'payload': {
+                                                'game_id': r_fix,
+                                                'league': r_lg,
+                                                'home': g_match.home,
+                                                'away': g_match.away,
+                                                'start': g_match.start,
+                                            }
+                                        })
+                                except Exception:
+                                    pass
+            except Exception as e_inc:
+                log.debug("Shadow incubator game recovery scan non-fatal: %s", e_inc)
             for row in bets+decisions:
                 tip=row.get('payload',{})
                 gid=tip.get('game_id')

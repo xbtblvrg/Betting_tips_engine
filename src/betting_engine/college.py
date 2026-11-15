@@ -40,7 +40,7 @@ def current_college_basketball(fetcher,league,horizon_hours=72):
     now=utcnow()
     sport_path='mens-college-basketball' if league=='NCAAM' else 'womens-college-basketball'
     games={};metas=[]
-    offsets=(-1,0,1,2,3)
+    offsets=(-2,-1,0,1,2,3)
     season_year=now.year+(now.month>=7)
     for offset in offsets:
         day=(now+timedelta(days=offset)).strftime('%Y%m%d')
@@ -55,25 +55,34 @@ def current_college_basketball(fetcher,league,horizon_hours=72):
             if not comps:continue
             c=comps[0]
             status=(c.get('status') or event.get('status') or {}).get('type',{})
-            if status.get('name')!='STATUS_SCHEDULED' or status.get('state')!='pre':continue
+            is_sched = status.get('name')=='STATUS_SCHEDULED' or status.get('state')=='pre'
+            is_final = status.get('state') in ('post', 'final') or status.get('name') in ('STATUS_FINAL', 'STATUS_FINAL_OVERTIME')
+            if not is_sched and not is_final:continue
             start=c.get('date') or event.get('date')
-            if not start or not now<parse_time(start)<=now+timedelta(hours=horizon_hours):continue
-            home=[r['team'] for r in c.get('competitors',[]) if r.get('homeAway')=='home']
-            away=[r['team'] for r in c.get('competitors',[]) if r.get('homeAway')=='away']
+            if is_sched and (not start or not now<parse_time(start)<=now+timedelta(hours=horizon_hours)):continue
+            home=[r for r in c.get('competitors',[]) if r.get('homeAway')=='home']
+            away=[r for r in c.get('competitors',[]) if r.get('homeAway')=='away']
             if not home or not away:continue
-            h,a=home[0],away[0]
-            if not h.get('displayName') or not a.get('displayName'):continue
+            h_cand, a_cand = home[0], away[0]
+            h_team, a_team = h_cand.get('team', {}), a_cand.get('team', {})
+            h_name = h_team.get('displayName') or h_cand.get('team', {}).get('name')
+            a_name = a_team.get('displayName') or a_cand.get('team', {}).get('name')
+            if not h_name or not a_name:continue
+            h_score = num(h_cand.get('score')) if is_final else None
+            a_score = num(a_cand.get('score')) if is_final else None
             gid=f'{league}:{event["id"]}'
             games[gid]=Game(
                 id=gid,league=league,start=start,
-                home=h.get('displayName',h.get('name')),
-                away=a.get('displayName',a.get('name')),
-                home_id=str(h.get('id','')),
-                away_id=str(a.get('id','')),
-                home_abbr=h.get('abbreviation',''),
-                away_abbr=a.get('abbreviation',''),
-                state='scheduled',
+                home=h_name,
+                away=a_name,
+                home_id=str(h_team.get('id', '')),
+                away_id=str(a_team.get('id', '')),
+                home_abbr=h_team.get('abbreviation', ''),
+                away_abbr=a_team.get('abbreviation', ''),
+                state='final' if is_final else 'scheduled',
                 season=season_year,
+                home_score=h_score,
+                away_score=a_score,
                 neutral=truth(c.get('neutralSite')),
                 game_type='regular',
                 source=meta['url'],
@@ -84,6 +93,58 @@ def current_college_basketball(fetcher,league,horizon_hours=72):
         agg_meta=metas[0] if metas else {'url':f'espn_{sport_path}','fetched_at':now.isoformat(),'sha256':'espn'}
         return validate_batch(list(games.values())),agg_meta
     return season(fetcher,league,season_year)
+
+def recent_college_football(fetcher, horizon_days=5):
+    now=utcnow()
+    games={};metas=[]
+    season_year=now.year
+    for offset in range(-horizon_days, 1):
+        day=(now+timedelta(days=offset)).strftime('%Y%m%d')
+        url=f'https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates={day}&limit=1000'
+        try:
+            payload,meta=fetcher.json(url,900)
+            metas.append(meta)
+        except Exception:
+            continue
+        for event in payload.get('events',[]):
+            comps=event.get('competitions') or []
+            if not comps:continue
+            c=comps[0]
+            status=(c.get('status') or event.get('status') or {}).get('type',{})
+            is_final = status.get('state') in ('post', 'final') or status.get('name') in ('STATUS_FINAL', 'STATUS_FINAL_OVERTIME')
+            if not is_final:continue
+            start=c.get('date') or event.get('date')
+            home=[r for r in c.get('competitors',[]) if r.get('homeAway')=='home']
+            away=[r for r in c.get('competitors',[]) if r.get('homeAway')=='away']
+            if not home or not away:continue
+            h_cand, a_cand = home[0], away[0]
+            h_team, a_team = h_cand.get('team', {}), a_cand.get('team', {})
+            h_name = h_team.get('displayName') or h_cand.get('team', {}).get('name')
+            a_name = a_team.get('displayName') or a_cand.get('team', {}).get('name')
+            if not h_name or not a_name:continue
+            h_score = num(h_cand.get('score'))
+            a_score = num(a_cand.get('score'))
+            if h_score is None or a_score is None:continue
+            gid=f'NCAAF:{event["id"]}'
+            games[gid]=Game(
+                id=gid,league='NCAAF',start=start,
+                home=h_name,
+                away=a_name,
+                home_id=str(h_team.get('id', '')),
+                away_id=str(a_team.get('id', '')),
+                home_abbr=h_team.get('abbreviation', ''),
+                away_abbr=a_team.get('abbreviation', ''),
+                state='final',
+                season=season_year,
+                home_score=h_score,
+                away_score=a_score,
+                neutral=truth(c.get('neutralSite')),
+                game_type='regular',
+                source=meta['url'],
+                fetched_at=meta['fetched_at'],
+                context={'college':True,'availability_model':'not_quantified'}
+            )
+    return list(games.values()), metas
 
 def current(fetcher,league):
     now=utcnow()
@@ -101,7 +162,15 @@ def current(fetcher,league):
     raw,meta=fetcher.get(url,900)
     teams,team_meta=fetcher.csv(f'https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_cfb_teams/cfb_teams_{now.year}.csv',86400)
     rows=pq.read_table(io.BytesIO(raw)).to_pylist()
-    return parse_future_football(rows,teams,meta,team_meta),{**meta,'team_identity_source':team_meta}
+    future_games = parse_future_football(rows,teams,meta,team_meta)
+    try:
+        completed_cfb, _ = recent_college_football(fetcher)
+        all_cfb = {g.id: g for g in future_games}
+        for cg in completed_cfb:
+            all_cfb[cg.id] = cg
+        return validate_batch(list(all_cfb.values())), {**meta,'team_identity_source':team_meta}
+    except Exception:
+        return future_games, {**meta,'team_identity_source':team_meta}
 
 def parse_future_football(rows,teams,meta,team_meta):
     identities={str(int(t['team_id'])):t for t in teams if num(t.get('team_id')) is not None}

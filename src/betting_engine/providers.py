@@ -493,6 +493,9 @@ class SportsData:
                 elif g.league in ('NBA','WNBA') and old:
                     def priority(row):return (row.state=='final',row.source.startswith('https://site.api.espn.com/'),row.fetched_at)
                     if priority(g)>=priority(old):games[g.id]=g
+                elif g.league in ('NCAAF','NCAAM','NCAAW') and old:
+                    def priority(row):return (row.state=='final',row.source.startswith('https://site.api.espn.com/'),row.fetched_at)
+                    if priority(g)>=priority(old):games[g.id]=g
                 elif not old or g.fetched_at>=old.fetched_at:games[g.id]=g
 
         # Phase 1: High-priority current schedules (live upcoming fixtures across all sports)
