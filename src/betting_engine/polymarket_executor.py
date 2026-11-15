@@ -667,10 +667,17 @@ class PolymarketAutonomousExecutor:
         max_price: Optional[float] = 0.65,
     ) -> PreflightResult:
         """Sub-second point-in-time orderbook depth & slippage verification."""
+        def _ret(res: PreflightResult) -> PreflightResult:
+            if res.ok:
+                log.debug(f"[PREFLIGHT_DEBUG] token={token_id}: ok=True, price={res.eff_price:.3f}, ev=+{res.ev*100:.1f}%, depth={res.depth_shares}")
+            else:
+                log.debug(f"[PREFLIGHT_DEBUG] token={token_id}: ok=False, reason={res.reason}")
+            return res
+
         if not token_id:
-            return PreflightResult(
+            return _ret(PreflightResult(
                 ok=False, eff_price=0.0, eff_odds=0.0, shares=0.0, ev=-1.0, reason="TOKEN_ID_MISSING"
-            )
+            ))
 
         # 1. Fetch live order book from CLOB or mock
         book: Optional[Dict[str, Any]] = mock_book
@@ -734,14 +741,14 @@ class PolymarketAutonomousExecutor:
             }
 
         if not book or not isinstance(book, dict):
-            return PreflightResult(
+            return _ret(PreflightResult(
                 ok=False,
                 eff_price=0.0,
                 eff_odds=0.0,
                 shares=0.0,
                 ev=-1.0,
                 reason=f"NO_LIQUIDITY: Orderbook unavailable or empty for {token_id}",
-            )
+            ))
 
         # If buying, we absorb asks; selling absorbs bids
         side_upper = side.upper()
@@ -750,14 +757,14 @@ class PolymarketAutonomousExecutor:
 
         if not orders:
             side_name = "asks" if is_buy else "bids"
-            return PreflightResult(
+            return _ret(PreflightResult(
                 ok=False,
                 eff_price=0.0,
                 eff_odds=0.0,
                 shares=0.0,
                 ev=-1.0,
                 reason=f"NO_LIQUIDITY: Orderbook has 0 {side_name} for token {token_id}",
-            )
+            ))
 
         # Sort orders: asks ascending by price, bids descending by price
         try:
@@ -773,14 +780,14 @@ class PolymarketAutonomousExecutor:
         first_order = sorted_orders[0]
         best_price = float(first_order.get("price", 0.0) if isinstance(first_order, dict) else getattr(first_order, "price", 0.0))
         if best_price <= 0.04 or best_price >= 0.96:
-            return PreflightResult(
+            return _ret(PreflightResult(
                 ok=False,
                 eff_price=best_price,
                 eff_odds=round(1.0 / max(0.01, best_price), 2),
                 shares=0.0,
                 ev=-1.0,
                 reason=f"PRICE_BOUNDS_VIOLATION: Best quote {best_price:.3f} outside [0.05, 0.95]",
-            )
+            ))
 
         target_shares = round(requested_stake / best_price, 2)
         remaining_shares = target_shares
@@ -800,7 +807,7 @@ class PolymarketAutonomousExecutor:
         total_depth = sum(float(o.get("size", 0.0) if isinstance(o, dict) else getattr(o, "size", 0.0)) for o in sorted_orders)
 
         if shares_accumulated <= 0.0:
-            return PreflightResult(
+            return _ret(PreflightResult(
                 ok=False,
                 eff_price=best_price,
                 eff_odds=0.0,
@@ -808,7 +815,7 @@ class PolymarketAutonomousExecutor:
                 ev=-1.0,
                 reason="ZERO_SHARES_ACCUMULATED",
                 depth_shares=total_depth,
-            )
+            ))
 
         eff_price = total_cost / shares_accumulated
         eff_odds = 1.0 / eff_price
@@ -816,7 +823,7 @@ class PolymarketAutonomousExecutor:
 
         # Slippage Guard: If slippage pushes EV below minimum hurdle, fail closed
         if ev < min_ev:
-            return PreflightResult(
+            return _ret(PreflightResult(
                 ok=False,
                 eff_price=round(eff_price, 4),
                 eff_odds=round(eff_odds, 3),
@@ -824,14 +831,14 @@ class PolymarketAutonomousExecutor:
                 ev=round(ev, 4),
                 reason=f"INSUFFICIENT_EV_AFTER_SLIPPAGE: EV {ev*100:.2f}% < Hurdle {min_ev*100:.2f}% (Price slipped to {eff_price:.3f})",
                 depth_shares=total_depth,
-            )
+            ))
 
         # Constitutional Minimum Odds Guard (Commandment 3: Odds >= 1.40 floor)
         # Contracts priced above 1 / 1.40 = ~0.714286 yield decimal odds < 1.40,
         # creating severe asymmetric downside risks on heavy favorites.
         MIN_ODDS_FLOOR = 1.40
         if eff_odds < MIN_ODDS_FLOOR:
-            return PreflightResult(
+            return _ret(PreflightResult(
                 ok=False,
                 eff_price=round(eff_price, 4),
                 eff_odds=round(eff_odds, 3),
@@ -839,13 +846,13 @@ class PolymarketAutonomousExecutor:
                 ev=round(ev, 4),
                 reason=f"ODDS_BELOW_MINIMUM: Effective odds {eff_odds:.3f} below constitutional floor {MIN_ODDS_FLOOR:.2f} (Price {eff_price:.3f} > {1.0/MIN_ODDS_FLOOR:.3f})",
                 depth_shares=total_depth,
-            )
+            ))
 
         # Core Market Price Bracket Guard (Anti-Extrapolation & Tail Hazard Invariant):
         # Contracts priced outside [min_price, max_price] suffer from extreme
         # Gaussian parametric tail extrapolation distortion or asymmetric favorite downside.
         if (min_price is not None and eff_price < min_price) or (max_price is not None and eff_price > max_price):
-            return PreflightResult(
+            return _ret(PreflightResult(
                 ok=False,
                 eff_price=round(eff_price, 4),
                 eff_odds=round(eff_odds, 3),
@@ -853,12 +860,12 @@ class PolymarketAutonomousExecutor:
                 ev=round(ev, 4),
                 reason=f"PRICE_OUTSIDE_CORE_BRACKET: Effective price {eff_price:.3f} outside core market bracket [{min_price:.2f}, {max_price:.2f}] (odds {eff_odds:.2f})",
                 depth_shares=total_depth,
-            )
+            ))
 
         # Extreme Sanity Guard: An EV exceeding 85% on a liquid contract signals model misspecification or tail artifact
         MAX_SANITY_EV = 0.85
         if ev > MAX_SANITY_EV:
-            return PreflightResult(
+            return _ret(PreflightResult(
                 ok=False,
                 eff_price=round(eff_price, 4),
                 eff_odds=round(eff_odds, 3),
@@ -866,7 +873,7 @@ class PolymarketAutonomousExecutor:
                 ev=round(ev, 4),
                 reason=f"EXCESSIVE_EV_ANOMALY_REJECTED: EV {ev*100:.2f}% > Max Sanity {MAX_SANITY_EV*100:.1f}% (Model divergence or tail artifact)",
                 depth_shares=total_depth,
-            )
+            ))
 
         # Determine best bid, best ask and spread from book for dynamic maker/taker pricing
         best_bid = 0.0
@@ -909,7 +916,7 @@ class PolymarketAutonomousExecutor:
             except (ValueError, TypeError):
                 min_order_sz = 0.0
 
-        return PreflightResult(
+        return _ret(PreflightResult(
             ok=True,
             eff_price=round(eff_price, 4),
             eff_odds=round(eff_odds, 3),
@@ -921,7 +928,7 @@ class PolymarketAutonomousExecutor:
             best_ask=round(best_ask, 4),
             spread=round(spread, 4),
             min_order_size=min_order_sz,
-        )
+        ))
 
     def calculate_continuous_stake(
         self,

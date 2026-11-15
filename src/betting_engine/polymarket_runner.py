@@ -914,9 +914,11 @@ class PolymarketAutonomousRunner:
                             model_prob = float(forecast["home_prob"]) if is_home else (1.0 - float(forecast["home_prob"]))
                     else:
                         # Strictly skip unmodeled or uncalibrated contracts - synthetic price shifts are forbidden!
+                        log.debug(f"[RUNNER_DEBUG] {title} {outcome_label}: Unmodeled contract family {family}, skipping.")
                         continue
 
                     if model_prob is None or model_prob <= 0.01 or model_prob >= 0.99:
+                        log.debug(f"[RUNNER_DEBUG] {title} {outcome_label}: Model prob {model_prob} out of bounds or uncomputable, skipping.")
                         continue
 
                     # Core Market Price Bracket Guard:
@@ -924,6 +926,7 @@ class PolymarketAutonomousRunner:
                     # Reject tail underdogs (poly_price < 0.35) and heavy favorites (poly_price > 0.65)
                     # to prevent phantom EV from Gaussian tail extrapolation and favorite variance traps.
                     if poly_price < 0.35 or poly_price > 0.65:
+                        log.debug(f"[RUNNER_DEBUG] {title} {outcome_label}: Poly price {poly_price:.3f} outside core bracket [0.35, 0.65], skipping.")
                         continue
 
                     # Disagreement & Information Asymmetry Guard:
@@ -954,6 +957,7 @@ class PolymarketAutonomousRunner:
 
                     nominal_ev = (model_prob / poly_price) - 1.0
                     if nominal_ev < self.min_ev_hurdle:
+                        log.debug(f"[RUNNER_DEBUG] {title} {outcome_label}: Nominal EV {nominal_ev:.1%} below hurdle {self.min_ev_hurdle:.1%}, skipping.")
                         continue
 
                     if max_clob_checks is not None and clob_checks_count >= max_clob_checks:
@@ -968,6 +972,7 @@ class PolymarketAutonomousRunner:
                         model_prob=model_prob,
                         min_ev=self.min_ev_hurdle,
                     )
+                    log.debug(f"[RUNNER_DEBUG] {title} {outcome_label}: Preflight check result: ok={preflight.ok}, reason={preflight.reason}, ev={preflight.ev}")
 
                     # Dynamic Stake Resilience: If full stake_cap causes slippage,
                     # adaptively check if a smaller viable stake down to the constitutional floor ($0.50)
