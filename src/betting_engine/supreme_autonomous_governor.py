@@ -689,6 +689,22 @@ class SupremeAutonomousGovernor:
         except Exception as exc:
             log.warning('Superintelligent profit engine sweep error: %s', exc)
 
+        # 8e. Autonomous Bottleneck Watchdog & Zero-Clog Invariant Sweep (Constitution Commandments 2 & 8)
+        try:
+            from .bottleneck_watchdog import BottleneckWatchdog
+            watchdog = BottleneckWatchdog(data_dir=self.data_dir)
+            watchdog_rep = watchdog.audit_and_heal()
+            if watchdog_rep.anomalies_detected_count > 0 or watchdog_rep.anomalies_healed_count > 0:
+                actions.append({
+                    'action': 'bottleneck_watchdog_sweep',
+                    'status': watchdog_rep.status,
+                    'anomalies_detected': watchdog_rep.anomalies_detected_count,
+                    'anomalies_healed': watchdog_rep.anomalies_healed_count,
+                    'learning_jobs_enqueued': watchdog_rep.learning_jobs_enqueued
+                })
+        except Exception as exc:
+            log.warning('Bottleneck watchdog sweep error: %s', exc)
+
         summary = AutonomousSweepSummary(
             cycle_id=cycle_id,
             timestamp=utcnow().isoformat(),
