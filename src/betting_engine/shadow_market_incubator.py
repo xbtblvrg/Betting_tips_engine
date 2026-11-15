@@ -404,7 +404,7 @@ def load_graduated_markets(data_dir: Path = DATA) -> Dict[str, Dict[str, Any]]:
     from .contracts import is_supported_stake_contract
     return {
         k: v for k, v in data.items()
-        if is_supported_stake_contract(v.get('league', ''), v.get('scope', 'full_game'), v.get('family', ''), v.get('sub_family', ''))
+        if isinstance(v, dict) and is_supported_stake_contract(v.get('league', ''), v.get('scope', 'full_game'), v.get('family', ''), v.get('sub_family', ''))
     }
 
 
@@ -2676,7 +2676,8 @@ class ShadowMarketIncubator:
                     SELECT league, scope, family, sub_family, odds, pnl, brier_model, brier_market, dynamic_sample_power_req, raw_market_name, cohort, settled_at, model_id
                     FROM incubated_wagers
                     WHERE status = 'settled' AND league = ? AND scope = ? AND family = ? AND sub_family = ? AND cohort = ?
-                    ORDER BY settled_at ASC
+                    GROUP BY fixture_id, selection, line
+                    ORDER BY settled_at ASC, id ASC
                 """, (league, scope, family, sub_family, cohort_val))
                 records = cur_rec.fetchall()
                 if not records:
@@ -2812,11 +2813,11 @@ class ShadowMarketIncubator:
                 #    N_live >= 10, Composite Power >= 50, ROI >= +3.5%, PnL > 0.0,
                 #    Delta Brier > 0.0010, Max DD < 15%
                 # 2. Continuous High-Alpha Proof:
-                #    N >= 40, ROI >= +8.0%, PnL > 0.0, Delta Brier > -0.015, Max DD <= 20%
+                #    N >= 40, ROI >= +8.0%, PnL > 0.0, Delta Brier > -0.12, Max DD <= 20%
                 # 3. Standard Tracks: Sample Size >= dynamic N_min (strictly >= 25)
                 # -----------------------------------------------------------------
-                has_high_alpha_proof = (n_samples >= 40 and roi >= 0.08 and total_pnl > 0.0 and max_dd <= 0.20 and delta_brier > -0.015)
-                has_proven_alpha_proof = (n_samples >= 25 and roi >= 0.035 and total_pnl > 0.0 and max_dd <= 0.20 and delta_brier > 0.0)
+                has_high_alpha_proof = (n_samples >= 40 and roi >= 0.08 and total_pnl > 0.0 and max_dd <= 0.20 and delta_brier > -0.12)
+                has_proven_alpha_proof = (n_samples >= 25 and roi >= 0.035 and total_pnl > 0.0 and max_dd <= 0.20 and delta_brier > -0.05)
                 if is_fast_track_candidate and roi >= 0.035 and total_pnl > 0.0 and delta_brier > 0.0010 and max_dd < 0.15:
                     passed = True
                     cohort_val = 'fast_track_composite'
@@ -2930,6 +2931,14 @@ class ShadowMarketIncubator:
                         except Exception as e_del:
                             log.debug("Graduation delete cleanup non-fatal: %s", e_del)
                         conn_rec.commit()
+                        grad_dict_val = {
+                            'id': grad_id, 'segment_key': segment_key, 'league': league,
+                            'scope': scope, 'family': family, 'sub_family': sub_family,
+                            'graduated_at': now_iso, 'initial_tier': 'EXPLORATION',
+                            'stats': stats,
+                        }
+                        for _gk in (segment_key, canonical_key, sub_key, clean_sub_key):
+                            current_graduated[_gk] = grad_dict_val
                     except Exception as e_grad:
                         log.warning("Could not persist graduated market %s: %s", segment_key, e_grad)
 
@@ -3762,6 +3771,14 @@ class ShadowMarketIncubator:
                         except Exception as e_del:
                             log.debug("Graduation delete cleanup non-fatal: %s", e_del)
                         conn_rec.commit()
+                        grad_dict_val = {
+                            'id': grad_id, 'segment_key': segment_key, 'league': league,
+                            'scope': scope, 'family': family, 'sub_family': sub_family,
+                            'graduated_at': now_iso, 'initial_tier': 'EXPLORATION',
+                            'stats': stats,
+                        }
+                        for _gk in (segment_key, canonical_key, sub_key, clean_sub_key):
+                            current_graduated[_gk] = grad_dict_val
                     except Exception as e_grad:
                         log.warning("Could not persist graduated market %s: %s", segment_key, e_grad)
 
