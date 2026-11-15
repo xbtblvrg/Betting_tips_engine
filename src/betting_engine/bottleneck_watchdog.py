@@ -12,17 +12,19 @@ Constitutional Mandate (AGENTS.md Commandments 1, 2, 6, 7 & 8):
 from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass, field, asdict
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from contextlib import closing
+import hashlib
 import json
 import logging
 from pathlib import Path
 import sqlite3
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-from .domain import utcnow
+from .domain import utcnow, parse_time
 from .io_utils import atomic_json
 from .providers import DATA
+from .verbose_logger import get_verbose_logger
 
 log = logging.getLogger(__name__)
 
@@ -32,7 +34,7 @@ WATCHDOG_STATUS_PATH = DATA / 'bottleneck_watchdog_status.json'
 @dataclass
 class BottleneckAnomaly:
     anomaly_id: str
-    category: str  # 'missing_champion', 'unmounted_distribution', 'uncrowned_winner', 'silent_undergeneration'
+    category: str  # 'missing_champion', 'unmounted_distribution', 'uncrowned_winner', 'silent_undergeneration', 'score_gap', 'zero_volume_fixtures', 'stagnant_quarantine', 'pre_graduation_anchor', 'wager_duplication'
     league: str
     scope: str
     family: str
@@ -57,6 +59,9 @@ class BottleneckWatchdogReport:
     learning_jobs_enqueued: List[str]
     status: str  # 'HEALTHY', 'SELF_HEALED', 'ESCALATED_TO_AI'
     tier1_tier2_health: Optional[Dict[str, Any]] = None
+    score_gaps_count: int = 0
+    zero_volume_leagues_count: int = 0
+    stagnant_quarantine_count: int = 0
 
 
 _GLOBAL_WATCHDOG_CACHE: Optional[Tuple[datetime, BottleneckWatchdogReport]] = None
@@ -276,7 +281,46 @@ class BottleneckWatchdog:
                         undergenerating.append(seg_key)
 
         # -------------------------------------------------------------
-        # CHECK 3: Enqueue Learning Jobs for Unhealed Anomalies
+        # CHECK 3: Score-Gap Sentinel (Scores missing on past-due games)
+        # -------------------------------------------------------------
+        score_gap_anomalies, score_healed = self._check_score_gaps()
+        anomalies.extend(score_gap_anomalies)
+        healed_count += score_healed
+
+        # -------------------------------------------------------------
+        # CHECK 4: Zero-Volume Fixture Sentinel (Liquid leagues with 0 bets)
+        # -------------------------------------------------------------
+        zero_vol_anomalies, zero_vol_healed = self._check_zero_volume_fixtures(
+            upcoming_fixtures=upcoming_fixtures,
+            graduated=graduated,
+            active_segment_models=active_segment_models
+        )
+        anomalies.extend(zero_vol_anomalies)
+        healed_count += zero_vol_healed
+
+        # -------------------------------------------------------------
+        # CHECK 5: Stagnant Quarantine Sentinel (Demoted markets without R&D)
+        # -------------------------------------------------------------
+        stagnant_anomalies, stagnant_healed = self._check_stagnant_quarantine()
+        anomalies.extend(stagnant_anomalies)
+        healed_count += stagnant_healed
+
+        # -------------------------------------------------------------
+        # CHECK 6: Pre-Graduation Loss Sentinel (Prevents Catch-22 demotions)
+        # -------------------------------------------------------------
+        pregrad_anomalies, pregrad_healed = self._check_pre_graduation_suppression(graduated)
+        anomalies.extend(pregrad_anomalies)
+        healed_count += pregrad_healed
+
+        # -------------------------------------------------------------
+        # CHECK 7: Wager Duplication Sentinel (Prevents artificial streak loss)
+        # -------------------------------------------------------------
+        dup_anomalies, dup_healed = self._check_wager_duplication()
+        anomalies.extend(dup_anomalies)
+        healed_count += dup_healed
+
+        # -------------------------------------------------------------
+        # CHECK 8: Enqueue Learning Jobs for Unhealed Anomalies
         # -------------------------------------------------------------
         unhealed_anomalies = [a for a in anomalies if not a.self_healed]
         if unhealed_anomalies:
@@ -285,7 +329,7 @@ class BottleneckWatchdog:
                 jobs_enqueued.append(job_id)
 
         # -------------------------------------------------------------
-        # CHECK 4: Tier 1 & Tier 2 Pipeline Health Diagnostic
+        # CHECK 9: Tier 1 & Tier 2 Pipeline Health Diagnostic
         # -------------------------------------------------------------
         tier1_2_health = self.audit_tier1_tier2_health()
 
@@ -319,7 +363,10 @@ class BottleneckWatchdog:
             undergenerating_markets=undergenerating[:10],
             learning_jobs_enqueued=jobs_enqueued,
             status=status,
-            tier1_tier2_health=tier1_2_health
+            tier1_tier2_health=tier1_2_health,
+            score_gaps_count=len(score_gap_anomalies),
+            zero_volume_leagues_count=len(zero_vol_anomalies),
+            stagnant_quarantine_count=len(stagnant_anomalies)
         )
 
         # Ensure newly validated champion models are distilled into generic archetypes
