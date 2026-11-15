@@ -1,12 +1,12 @@
 # Live Stake market coverage
 
-Checked: 2026-11-15T17:26:09.738732+00:00
+Checked: 2026-11-15T18:01:58.399482+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
 | League | Observed titles | Activity unverified | Offered now | Complete 10/10 | Incomplete offered | Evaluated | Funding supported | Ready now | Issued today |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| NFL | 77 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 13 |
+| NFL | 77 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 14 |
 | NHL | 65 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 8 |
 | MLB | 9 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | NBA | 165 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 23 |
@@ -205,7 +205,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NFL | 1st quarter 1x2 & 1st quarter total | standard | quarter_1 | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 1st quarter handicap & 1st quarter total | standard | quarter_1 | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 1x2 | standard | regulation | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NFL | 2nd Half - 1x2 (Incl. Overtime) | standard | half_2_ot | catalogue_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 9/9 | verified 6/6 | awaiting_measurement 6/7 | 3 |
+| NFL | 2nd Half - 1x2 (Incl. Overtime) | standard | half_2_ot | catalogue_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 10/10 | verified 6/6 | awaiting_measurement 6/7 | 4 |
 | NFL | 2nd Half - Draw No Bet (Incl. Overtime) | standard | half_2_ot | catalogue_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NFL | 2nd Half - Handicap (Incl. Overtime) | standard | half_2_ot | catalogue_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 4/4 | verified 4/4 | awaiting_measurement 4/5 | 0 |
 | NFL | 2nd Half - Total (Incl. Overtime) | standard | half_2_ot | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | partial 29/30 | partial 26/30 | awaiting_measurement 30/31 | 0 |
