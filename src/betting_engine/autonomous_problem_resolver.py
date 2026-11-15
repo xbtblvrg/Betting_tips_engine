@@ -449,6 +449,8 @@ class AutonomousProblemResolver:
         """Audits graduated champions and heals funnel flow chokes."""
         resolutions: List[ProblemResolution] = []
         try:
+            from .verbose_logger import get_verbose_logger
+            vl = get_verbose_logger(self.data_dir)
             from .bottleneck_watchdog import BottleneckWatchdog
             watchdog = BottleneckWatchdog(self.data_dir)
             rep = watchdog.audit_and_heal(force=True)
@@ -459,13 +461,32 @@ class AutonomousProblemResolver:
                     category='market_bottleneck',
                     source_component='BottleneckWatchdog',
                     severity='HIGH',
-                    root_cause=f"{rep.anomalies_detected_count} unmounted champions / alias splits detected",
+                    root_cause=f"{rep.anomalies_detected_count} anomalies (unmounted champions / score gaps / zero-volume / alias splits) detected",
                     remedy_applied=f"Autonomously healed {rep.anomalies_healed_count} market anomalies into Tier 2 / active models",
                     status='SELF_HEALED',
                     details={'healed_count': rep.anomalies_healed_count, 'uncrowned_champions': rep.uncrowned_champions_crowned}
                 )
                 resolutions.append(res)
                 self.log_resolution(res)
+                vl.log_event("autonomous_problem_resolver", "watchdog_self_healed",
+                             f"Autonomously healed {rep.anomalies_healed_count} watchdog anomalies", data=res.to_dict())
+
+            unhealed = [a for a in rep.anomalies if not a.get('self_healed', False)]
+            if unhealed:
+                res_unhealed = ProblemResolution(
+                    problem_id=f"watchdog_escalate_{utcnow().strftime('%Y%m%d%H%M%S')}",
+                    category='market_bottleneck',
+                    source_component='BottleneckWatchdog',
+                    severity='CRITICAL' if any(a.get('severity') == 'CRITICAL' for a in unhealed) else 'HIGH',
+                    root_cause=f"{len(unhealed)} unhealed anomalies requiring autonomous AI repair: {[a.get('anomaly_id') for a in unhealed[:3]]}",
+                    remedy_applied=f"Enqueued high-priority learning jobs ({rep.learning_jobs_enqueued}) for autonomous AI synthesis and repair.",
+                    status='ESCALATED_TO_COUNCIL',
+                    details={'unhealed_anomalies': unhealed, 'learning_jobs': rep.learning_jobs_enqueued}
+                )
+                resolutions.append(res_unhealed)
+                self.log_resolution(res_unhealed)
+                vl.log_event("autonomous_problem_resolver", "watchdog_escalated_to_ai",
+                             f"Escalated {len(unhealed)} unhealed anomalies to AI learning pipeline", data=res_unhealed.to_dict(), level=logging.WARNING)
 
             # Ensure Tier 1 -> Tier 2 funnel has 0 unadmitted backlog
             t1_2 = rep.tier1_tier2_health or {}
@@ -699,7 +720,7 @@ class AutonomousProblemResolver:
                                     })
                                     cur.execute("""
                                         INSERT INTO learning_jobs (id, kind, league, status, created_at, updated_at, next_attempt, attempts, payload)
-                                        VALUES (?, 'autonomous_alpha_recovery', ?, 'pending', ?, ?, ?, 0, ?)
+                                        VALUES (?, 'autonomous_alpha_recovery', ?, 'queued', ?, ?, ?, 0, ?)
                                     """, (job_id, lg, now_str, now_str, now_str, payload_str))
                                     conn.commit()
                                     learning_enqueued += 1

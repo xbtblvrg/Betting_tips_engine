@@ -24,6 +24,7 @@ RECOVERY_KINDS = frozenset(('model_restore', 'segment_restore', 'period_restore'
 PRIORITY = {'source_refresh':0, 'model_restore':0, 'segment_restore':0, 'period_restore':0,
     'outcome_review':1, 'closing_evaluation':1, 'shadow_evaluation':1, 'market_catalog':1, 'autonomous_system_audit':1, 'anti_constant_audit':1, 'autonomous_submarket_expansion':1, 'autorun_selector_repair':1,
     'polymarket_identification_repair': 1, 'polymarket_taxonomy_repair': 1, 'autonomous_code_healing': 1, 'high_retry_task_root_cause_analysis': 1, 'priority_model_synthesis': 1,
+    'autonomous_bottleneck_repair': 1, 'autonomous_alpha_recovery': 1, 'market_gap_model_synthesis': 1,
     'controlled_retrain':2, 'segment_retrain':2, 'period_retrain':2, 'segment_repair':2, 'submarket_turnaround_research': 2, 'target_evaluation':2, 'anchor_weight_learning':2, 'opportunity_funnel_repair':2, 'urgent_polymarket_model_repair':2,
     'daily_council_briefing': 2, 'incubator_market_repair': 2, 'autonomous_model_synthesis': 2, 'upstream_sports_sensor_synthesis': 2,
     'player_history_refresh':2, 'player_prop_audit':2, 'player_data_refresh':3, 'model_search':3, 'research_gap': 3, 'market_research': 3,
@@ -32,6 +33,7 @@ PRIORITY = {'source_refresh':0, 'model_restore':0, 'segment_restore':0, 'period_
 
 FAST_TRACK_KINDS = frozenset((
     'priority_model_synthesis',
+    'autonomous_bottleneck_repair',
     'autorun_selector_repair',
     'polymarket_identification_repair',
     'polymarket_taxonomy_repair',
@@ -889,17 +891,207 @@ class LearningWorker:
             return {'executed_at': utcnow().isoformat(), 'repairs_count': len(repairs), 'repairs': repairs}
         if job['kind']=='autonomous_bottleneck_repair':
             import dataclasses
+            from .verbose_logger import get_verbose_logger
+            vl = get_verbose_logger(self.data)
+            payload = json.loads(job['payload']) if isinstance(job['payload'], str) else (job['payload'] or {})
+            anomalies = payload.get('anomalies', [])
+            vl.log_event("learning_worker", "autonomous_bottleneck_repair_start",
+                         f"Starting autonomous bottleneck repair for {len(anomalies)} anomalies", data=payload)
+
             from .bottleneck_watchdog import BottleneckWatchdog
             watchdog = BottleneckWatchdog(self.data)
+
+            healed_actions = []
+            for anom in anomalies:
+                cat = anom.get('category')
+                seg = f"{anom.get('league')}|{anom.get('scope')}|{anom.get('family')}"
+                if cat in ('missing_champion', 'unmounted_distribution'):
+                    try:
+                        from .codex_model_synthesizer import CodexModelSynthesizer
+                        synth = CodexModelSynthesizer(self.data)
+                        rec = synth.synthesize_and_screen_candidate(seg, domain_problem=f"Watchdog repair for {seg}")
+                        if rec and rec.crucible_passed:
+                            from .demoted_market_bridge import DemotedMarketIncubationBridge
+                            from .historical_trainer import CandidateTrainingResult
+                            bridge = DemotedMarketIncubationBridge(data_dir=self.data)
+                            cand_res = CandidateTrainingResult(
+                                segment_key=seg,
+                                model_id=rec.model_id,
+                                model_archetype=rec.class_name,
+                                model_params={'source_file': f"{rec.model_id}.py", 'provider': rec.generator_provider},
+                                train_sample_size=0,
+                                oos_sample_size=rec.oos_sample_size,
+                                oos_win_rate=rec.oos_win_rate,
+                                oos_simulated_roi=rec.oos_simulated_roi,
+                                oos_delta_brier=rec.oos_delta_brier,
+                                oos_max_drawdown=rec.oos_max_drawdown,
+                                is_qualified=True,
+                                scorecard_s=100.0,
+                            )
+                            bridge.admit_champion_to_market(None, seg, cand_res)
+                            healed_actions.append(f"Synthesized and admitted champion {rec.model_id} for {seg}")
+                    except Exception as e_syn:
+                        logging.warning("[LEARNING_REPAIR] Synthesis error for %s: %s", seg, e_syn)
+                elif cat == 'score_gap':
+                    try:
+                        from .settlement_supervisor import SettlementSupervisor
+                        sup = SettlementSupervisor(data_dir=self.data)
+                        c_res = sup.run_settlement_cycle()
+                        healed_actions.append(f"Triggered score recovery: recovered {c_res.get('recovered_games', 0)} games")
+                    except Exception as e_sc:
+                        logging.warning("[LEARNING_REPAIR] Score gap recovery error: %s", e_sc)
+                elif cat in ('stagnant_quarantine', 'zero_volume_fixtures'):
+                    try:
+                        from .codex_model_synthesizer import CodexModelSynthesizer
+                        synth = CodexModelSynthesizer(self.data)
+                        rec = synth.synthesize_and_screen_candidate(seg, domain_problem=f"Watchdog turnaround for {seg}")
+                        if rec and rec.crucible_passed:
+                            healed_actions.append(f"Turnaround candidate {rec.model_id} admitted for {seg}")
+                    except Exception as e_t:
+                        logging.warning("[LEARNING_REPAIR] Turnaround error for %s: %s", seg, e_t)
+
             rep = watchdog.audit_and_heal(force=True)
+            vl.log_event("learning_worker", "autonomous_bottleneck_repair_complete",
+                         f"Bottleneck repair completed: status={rep.status}, healed={len(healed_actions)}",
+                         data={'healed_actions': healed_actions, 'status': rep.status})
             return {
                 'executed_at': utcnow().isoformat(),
                 'status': rep.status,
+                'healed_actions': healed_actions,
                 'total_graduated_markets': rep.total_graduated_markets,
                 'anomalies_detected_count': rep.anomalies_detected_count,
                 'anomalies_healed_count': rep.anomalies_healed_count,
                 'uncrowned_champions_crowned': rep.uncrowned_champions_crowned,
-                'details': dataclasses.asdict(rep),
+                'details': dataclasses.asdict(rep) if (dataclasses.is_dataclass(rep) and not isinstance(rep, type)) else (rep if isinstance(rep, dict) else str(rep)),
+            }
+        if job['kind']=='autonomous_alpha_recovery':
+            from .verbose_logger import get_verbose_logger
+            vl = get_verbose_logger(self.data)
+            payload = json.loads(job['payload']) if isinstance(job['payload'], str) else (job['payload'] or {})
+            seg_key = payload.get('segment') or payload.get('segment_key') or f"{job.get('league')}|full_game|moneyline"
+            vl.log_event("learning_worker", "autonomous_alpha_recovery_start", f"Starting alpha turnaround for {seg_key}", data=payload)
+
+            inc_db = self.data / 'shadow_incubator.sqlite3'
+            if inc_db.exists():
+                try:
+                    with closing(sqlite3.connect(f"file:{inc_db.resolve()}?mode=ro", uri=True, timeout=5.0)) as chk_c:
+                        is_grad = chk_c.execute("SELECT 1 FROM graduated_markets WHERE segment_key = ?", (seg_key,)).fetchone()
+                        is_inc = chk_c.execute("SELECT 1 FROM demoted_markets WHERE segment_key = ? AND incubation_phase = 'incubating_with_new_model' AND incubated_model_id IS NOT NULL", (seg_key,)).fetchone()
+                        if is_grad or is_inc:
+                            return {'status': 'already_graduated' if is_grad else 'already_incubating', 'segment_key': seg_key, 'skipped': True}
+                except Exception:
+                    pass
+
+            from .codex_model_synthesizer import CodexModelSynthesizer
+            synth = CodexModelSynthesizer(self.data)
+            rec = None
+            synth_err = None
+            try:
+                rec = synth.synthesize_and_screen_candidate(
+                    segment_key=seg_key,
+                    domain_problem=payload.get('objective', f"Autonomous alpha turnaround and Crucible pass for {seg_key}")
+                )
+                if rec and rec.crucible_passed:
+                    from .demoted_market_bridge import DemotedMarketIncubationBridge
+                    from .historical_trainer import CandidateTrainingResult
+                    bridge = DemotedMarketIncubationBridge(data_dir=self.data)
+                    cand_res = CandidateTrainingResult(
+                        segment_key=seg_key,
+                        model_id=rec.model_id,
+                        model_archetype=rec.class_name,
+                        model_params={'source_file': f"{rec.model_id}.py", 'provider': rec.generator_provider},
+                        train_sample_size=0,
+                        oos_sample_size=rec.oos_sample_size,
+                        oos_win_rate=rec.oos_win_rate,
+                        oos_simulated_roi=rec.oos_simulated_roi,
+                        oos_delta_brier=rec.oos_delta_brier,
+                        oos_max_drawdown=rec.oos_max_drawdown,
+                        is_qualified=True,
+                        scorecard_s=100.0,
+                    )
+                    bridge.admit_champion_to_market(None, seg_key, cand_res)
+                    vl.log_event("learning_worker", "autonomous_alpha_recovery_admitted", f"Candidate {rec.model_id} admitted to Tier 2 for {seg_key}", level=logging.INFO)
+            except Exception as exc:
+                synth_err = str(exc)
+                logging.warning(f"Autonomous alpha recovery error for {seg_key}: {exc}")
+                vl.trace_runtime_anomaly("learning_worker", "alpha_recovery_error", {'segment_key': seg_key, 'error': synth_err}, exc=exc)
+
+            return {
+                'executed_at': utcnow().isoformat(),
+                'status': 'graduated_candidate_admitted' if (rec and rec.crucible_passed) else 'screened',
+                'segment_key': seg_key,
+                'candidate_model_id': rec.model_id if rec else None,
+                'crucible_passed': rec.crucible_passed if rec else False,
+                'oos_roi': rec.oos_simulated_roi if rec else 0.0,
+                'oos_sample_size': rec.oos_sample_size if rec else 0,
+                'validation_errors': rec.validation_errors if rec else ([] if not synth_err else [synth_err]),
+                'failure_reason': rec.failure_reason if rec else synth_err,
+                'conclusion': 'Autonomous alpha recovery candidate evaluated and screened via Crucible.'
+            }
+        if job['kind']=='market_gap_model_synthesis':
+            from .verbose_logger import get_verbose_logger
+            vl = get_verbose_logger(self.data)
+            payload = json.loads(job['payload']) if isinstance(job['payload'], str) else (job['payload'] or {})
+            league = payload.get('league') or job.get('league') or 'MULTI'
+            scope = payload.get('model_scope', 'full_game')
+            market = payload.get('market', 'spreads')
+            seg_key = f"{league}|{scope}|{market}"
+            vl.log_event("learning_worker", "market_gap_model_synthesis_start", f"Synthesizing gap model for {seg_key}", data=payload)
+
+            inc_db = self.data / 'shadow_incubator.sqlite3'
+            if inc_db.exists():
+                try:
+                    with closing(sqlite3.connect(f"file:{inc_db.resolve()}?mode=ro", uri=True, timeout=5.0)) as chk_c:
+                        is_grad = chk_c.execute("SELECT 1 FROM graduated_markets WHERE segment_key = ?", (seg_key,)).fetchone()
+                        is_inc = chk_c.execute("SELECT 1 FROM demoted_markets WHERE segment_key = ? AND incubation_phase = 'incubating_with_new_model' AND incubated_model_id IS NOT NULL", (seg_key,)).fetchone()
+                        if is_grad or is_inc:
+                            return {'status': 'already_graduated' if is_grad else 'already_incubating', 'segment_key': seg_key, 'skipped': True}
+                except Exception:
+                    pass
+
+            from .codex_model_synthesizer import CodexModelSynthesizer
+            synth = CodexModelSynthesizer(self.data)
+            rec = None
+            synth_err = None
+            try:
+                rec = synth.synthesize_and_screen_candidate(
+                    segment_key=seg_key,
+                    domain_problem=payload.get('objective', f"Market gap model synthesis for {seg_key}")
+                )
+                if rec and rec.crucible_passed:
+                    from .demoted_market_bridge import DemotedMarketIncubationBridge
+                    from .historical_trainer import CandidateTrainingResult
+                    bridge = DemotedMarketIncubationBridge(data_dir=self.data)
+                    cand_res = CandidateTrainingResult(
+                        segment_key=seg_key,
+                        model_id=rec.model_id,
+                        model_archetype=rec.class_name,
+                        model_params={'source_file': f"{rec.model_id}.py", 'provider': rec.generator_provider},
+                        train_sample_size=0,
+                        oos_sample_size=rec.oos_sample_size,
+                        oos_win_rate=rec.oos_win_rate,
+                        oos_simulated_roi=rec.oos_simulated_roi,
+                        oos_delta_brier=rec.oos_delta_brier,
+                        oos_max_drawdown=rec.oos_max_drawdown,
+                        is_qualified=True,
+                        scorecard_s=100.0,
+                    )
+                    bridge.admit_champion_to_market(None, seg_key, cand_res)
+                    vl.log_event("learning_worker", "market_gap_model_synthesis_admitted", f"Candidate {rec.model_id} admitted for {seg_key}", level=logging.INFO)
+            except Exception as exc:
+                synth_err = str(exc)
+                logging.warning(f"Market gap synthesis error for {seg_key}: {exc}")
+                vl.trace_runtime_anomaly("learning_worker", "gap_synthesis_error", {'segment_key': seg_key, 'error': synth_err}, exc=exc)
+
+            return {
+                'executed_at': utcnow().isoformat(),
+                'status': 'graduated_candidate_admitted' if (rec and rec.crucible_passed) else 'screened',
+                'segment_key': seg_key,
+                'candidate_model_id': rec.model_id if rec else None,
+                'crucible_passed': rec.crucible_passed if rec else False,
+                'oos_roi': rec.oos_simulated_roi if rec else 0.0,
+                'failure_reason': rec.failure_reason if rec else synth_err,
+                'conclusion': f"Market gap model synthesis for {seg_key} evaluated."
             }
         if job['kind']=='daily_council_briefing':
             from .daily_quant_council import convene_daily_quant_council

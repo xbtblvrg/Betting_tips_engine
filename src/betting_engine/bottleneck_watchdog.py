@@ -17,6 +17,7 @@ from contextlib import closing
 import hashlib
 import json
 import logging
+import os
 from pathlib import Path
 import sqlite3
 from typing import Any, Dict, List, Optional, Set, Tuple
@@ -69,6 +70,8 @@ _GLOBAL_WATCHDOG_CACHE: Optional[Tuple[datetime, BottleneckWatchdogReport]] = No
 
 class BottleneckWatchdog:
     """Autonomous watchdog guarding against quant engine bottlenecks and silent alpha leakage."""
+
+    _LAST_SCORE_GAP_HEAL_AT: Optional[datetime] = None
 
     def __init__(self, data_dir: Path = DATA):
         self.data_dir = data_dir
@@ -681,6 +684,448 @@ class BottleneckWatchdog:
             log.warning("[WATCHDOG] Tier 1 & 2 audit error: %s", e)
 
         return health
+
+    def _check_score_gaps(self) -> Tuple[List[BottleneckAnomaly], int]:
+        """Detects completed or past-due matches missing final scores and triggers autonomous recovery."""
+        anomalies: List[BottleneckAnomaly] = []
+        healed_count = 0
+        from .verbose_logger import get_verbose_logger
+        vl = get_verbose_logger(self.data_dir)
+        now_dt = utcnow()
+        cutoff_dt = now_dt - timedelta(hours=18)
+        cutoff_iso = cutoff_dt.isoformat()
+
+        games_path = self.data_dir / 'games.json'
+        past_unscored: List[Dict[str, Any]] = []
+        if games_path.exists():
+            try:
+                with open(games_path, 'r', encoding='utf-8') as f:
+                    games = json.load(f)
+                for g in games:
+                    st = g.get('start')
+                    if st and st < cutoff_iso and g.get('state') in ('pre', 'scheduled') and g.get('home_score') is None:
+                        past_unscored.append(g)
+            except Exception as e_read:
+                log.warning("[WATCHDOG_SCORE_GAP] Failed to read games.json: %s", e_read)
+
+        # Also check open wagers in shadow incubator
+        inc_db = self.data_dir / 'shadow_incubator.sqlite3'
+        stale_wagers_count = 0
+        if inc_db.exists():
+            try:
+                with closing(sqlite3.connect(f"file:{inc_db}?mode=ro", uri=True, timeout=10.0)) as conn:
+                    cur = conn.cursor()
+                    cur.execute("""
+                        SELECT count(*) FROM incubated_wagers
+                        WHERE status = 'open' AND captured_at < ?
+                    """, (cutoff_iso,))
+                    row = cur.fetchone()
+                    stale_wagers_count = row[0] if row else 0
+            except Exception as e_w:
+                log.debug("[WATCHDOG_SCORE_GAP] Stale wager scan: %s", e_w)
+
+        if past_unscored or stale_wagers_count > 0:
+            msg = f"Detected {len(past_unscored)} past-due games (> 18h) and {stale_wagers_count} stale incubator wagers missing final scores."
+            vl.log_event("bottleneck_watchdog", "score_gap_detected", msg, data={
+                'unscored_games_count': len(past_unscored),
+                'stale_wagers_count': stale_wagers_count,
+                'sample_game_ids': [g.get('id') for g in past_unscored[:5]],
+            }, level=logging.WARNING)
+
+            # Autonomous Self-Healing: Trigger ESPN recovery & college score refresh (throttled to 1 per 5m)
+            recovery_success = False
+            last_heal = BottleneckWatchdog._LAST_SCORE_GAP_HEAL_AT
+            is_testing = bool(os.environ.get('PYTEST_CURRENT_TEST'))
+            should_run_sup = not is_testing and (last_heal is None or (now_dt - last_heal).total_seconds() >= 300.0)
+            if should_run_sup:
+                try:
+                    BottleneckWatchdog._LAST_SCORE_GAP_HEAL_AT = now_dt
+                    from .settlement_supervisor import SettlementSupervisor
+                    sup = SettlementSupervisor(data_dir=self.data_dir)
+                    cycle_res = sup.run_settlement_cycle()
+                    recovered_count = cycle_res.get('recovered_games', 0)
+                    settled_count = cycle_res.get('settled_count', 0)
+                    recovery_success = (recovered_count > 0 or settled_count > 0)
+                    if recovery_success:
+                        healed_count += 1
+                        vl.log_event("bottleneck_watchdog", "score_gap_healed",
+                                     f"Autonomously recovered {recovered_count} game scores and settled {settled_count} bets.",
+                                     data=cycle_res, level=logging.INFO)
+                except Exception as e_sup:
+                    log.warning("[WATCHDOG_SCORE_GAP] SettlementSupervisor recovery error: %s", e_sup)
+
+            anomalies.append(BottleneckAnomaly(
+                anomaly_id=f"score_gap_{now_dt.strftime('%Y%m%d_%H')}",
+                category='score_gap',
+                league='MULTI',
+                scope='full_game',
+                family='settlement',
+                sub_family=None,
+                severity='HIGH',
+                message=msg,
+                self_healed=recovery_success,
+                remediation_action="Triggered ESPN scoreboard and college sports recovery" if recovery_success else "Pending ESPN final score publication"
+            ))
+
+        return anomalies, healed_count
+
+    def _check_zero_volume_fixtures(
+        self,
+        upcoming_fixtures: Optional[List[Any]],
+        graduated: Dict[str, Any],
+        active_segment_models: Optional[Dict[Tuple[str, str], Any]]
+    ) -> Tuple[List[BottleneckAnomaly], int]:
+        """Detects liquid leagues with upcoming fixtures within 72h that lack funded bets."""
+        anomalies: List[BottleneckAnomaly] = []
+        healed_count = 0
+        from .verbose_logger import get_verbose_logger
+        vl = get_verbose_logger(self.data_dir)
+
+        now_dt = utcnow()
+        horizon_iso = (now_dt + timedelta(hours=72)).isoformat()
+        now_iso = now_dt.isoformat()
+
+        # Load upcoming liquid fixtures if not provided
+        fixtures = upcoming_fixtures
+        if fixtures is None:
+            games_path = self.data_dir / 'games.json'
+            if games_path.exists():
+                try:
+                    with open(games_path, 'r', encoding='utf-8') as f:
+                        raw_games = json.load(f)
+                    fixtures = [
+                        g for g in raw_games
+                        if g.get('start') and now_iso <= g.get('start') <= horizon_iso
+                        and g.get('state') in ('pre', 'scheduled')
+                    ]
+                except Exception:
+                    fixtures = []
+            else:
+                fixtures = []
+
+        league_fixtures: Dict[str, int] = {}
+        for g in fixtures:
+            lg = getattr(g, 'league', None) or (g.get('league') if isinstance(g, dict) else None)
+            if lg:
+                league_fixtures[lg] = league_fixtures.get(lg, 0) + 1
+
+        liquid_leagues = {'NFL', 'NHL', 'NBA', 'MLB', 'NCAAF', 'NCAAM', 'EPL', 'UCL', 'MLS', 'ATP', 'WTA'}
+        engine_db = self.data_dir / 'engine.sqlite3'
+        if not engine_db.exists():
+            return anomalies, healed_count
+
+        open_bets_by_league: Dict[str, int] = {}
+        try:
+            with closing(sqlite3.connect(f"file:{engine_db}?mode=ro", uri=True, timeout=10.0)) as conn:
+                cur = conn.cursor()
+                cur.execute("""
+                    SELECT json_extract(payload, '$.league') as lg, count(*)
+                    FROM bets
+                    WHERE status = 'open'
+                    GROUP BY lg
+                """)
+                for r in cur.fetchall():
+                    if r[0]:
+                        open_bets_by_league[r[0]] = r[1]
+        except Exception as e_bets:
+            log.debug("[WATCHDOG_ZERO_VOL] Failed to read open bets: %s", e_bets)
+
+        for lg in liquid_leagues:
+            fix_count = league_fixtures.get(lg, 0)
+            bet_count = open_bets_by_league.get(lg, 0)
+
+            # If league has >= 5 upcoming fixtures in next 72h but 0 open bets
+            if fix_count >= 5 and bet_count == 0:
+                grad_keys = [k for k in graduated if k.startswith(f"{lg}|")]
+                has_grad = len(grad_keys) > 0
+
+                msg = f"League '{lg}' has {fix_count} upcoming fixtures within 72h but 0 funded open bets."
+                vl.log_event("bottleneck_watchdog", "zero_volume_detected", msg, data={
+                    'league': lg,
+                    'upcoming_fixtures': fix_count,
+                    'open_bets': bet_count,
+                    'graduated_markets_count': len(grad_keys)
+                }, level=logging.WARNING)
+
+                self_healed = False
+                remedy = None
+
+                if has_grad and active_segment_models is not None:
+                    try:
+                        from .graduated_models import resolve_graduated_segment_models
+                        sub_grad = {k: graduated[k] for k in grad_keys}
+                        resolved = resolve_graduated_segment_models(sub_grad, active_segment_models)
+                        active_segment_models.update(resolved)
+                        self_healed = True
+                        healed_count += 1
+                        remedy = f"Mounted {len(resolved)} graduated models for {lg} into active memory."
+                    except Exception as e_res:
+                        remedy = f"Failed to mount models: {e_res}"
+                elif not has_grad:
+                    remedy = f"Enqueued candidate model synthesis for {lg} in learning_jobs."
+                    self._enqueue_league_synthesis(lg)
+                    self_healed = True
+                    healed_count += 1
+
+                anomalies.append(BottleneckAnomaly(
+                    anomaly_id=f"zero_vol_{lg}_{now_dt.strftime('%Y%m%d_%H')}",
+                    category='zero_volume_fixtures',
+                    league=lg,
+                    scope='full_game',
+                    family='volume',
+                    sub_family=None,
+                    severity='HIGH',
+                    message=msg,
+                    self_healed=self_healed,
+                    remediation_action=remedy
+                ))
+
+        return anomalies, healed_count
+
+    def _check_stagnant_quarantine(self) -> Tuple[List[BottleneckAnomaly], int]:
+        """Detects markets sitting in demoted_markets for > 24 hours without active R&D."""
+        anomalies: List[BottleneckAnomaly] = []
+        healed_count = 0
+        from .verbose_logger import get_verbose_logger
+        vl = get_verbose_logger(self.data_dir)
+
+        inc_db = self.data_dir / 'shadow_incubator.sqlite3'
+        engine_db = self.data_dir / 'engine.sqlite3'
+        if not inc_db.exists() or not engine_db.exists():
+            return anomalies, healed_count
+
+        now_dt = utcnow()
+        cutoff_iso = (now_dt - timedelta(hours=24)).isoformat()
+
+        stagnant_rows = []
+        try:
+            with closing(sqlite3.connect(f"file:{inc_db}?mode=ro", uri=True, timeout=10.0)) as conn:
+                conn.row_factory = sqlite3.Row
+                cur = conn.cursor()
+                cur.execute("""
+                    SELECT id, segment_key, league, scope, family, sub_family, demoted_at, reason
+                    FROM demoted_markets
+                    WHERE incubation_phase IN ('research_rnd', 'research_training')
+                      AND (demoted_at IS NULL OR demoted_at < ?)
+                    LIMIT 20
+                """, (cutoff_iso,))
+                stagnant_rows = cur.fetchall()
+        except Exception as e_stag:
+            log.debug("[WATCHDOG_STAGNANT] Query error: %s", e_stag)
+
+        if not stagnant_rows:
+            return anomalies, healed_count
+
+        active_segs = set()
+        try:
+            with closing(sqlite3.connect(f"file:{engine_db}?mode=ro", uri=True, timeout=10.0)) as conn_eng:
+                cur_eng = conn_eng.cursor()
+                cur_eng.execute("SELECT payload FROM learning_jobs WHERE status IN ('queued', 'running', 'retry')")
+                for r in cur_eng.fetchall():
+                    try:
+                        p = json.loads(r[0])
+                        seg = p.get('segment') or p.get('segment_key')
+                        if seg:
+                            active_segs.add(seg)
+                    except Exception:
+                        pass
+        except Exception as e_lj:
+            log.debug("[WATCHDOG_STAGNANT] Learning jobs scan: %s", e_lj)
+
+        unserviced = [r for r in stagnant_rows if r['segment_key'] not in active_segs]
+        if unserviced:
+            sample_segs = [r['segment_key'] for r in unserviced[:5]]
+            msg = f"Detected {len(unserviced)} stagnant demoted markets (> 24h) without active R&D jobs: {sample_segs}"
+            vl.log_event("bottleneck_watchdog", "stagnant_quarantine_detected", msg, data={
+                'stagnant_count': len(unserviced),
+                'sample_segments': sample_segs
+            }, level=logging.INFO)
+
+            enqueued_count = 0
+            for r in unserviced[:5]:
+                try:
+                    seg = r['segment_key']
+                    job_id = f"auto_repair_{hashlib.sha256(f'{seg}_{now_dt.isoformat()}'.encode()).hexdigest()[:12]}"
+                    payload = json.dumps({
+                        'segment': seg,
+                        'reason': f"watchdog_stagnant_quarantine_turnaround: {r['reason'] or 'demoted'}",
+                        'target_roi': 10.0,
+                        'objective': f"Synthesize and calibrate candidate domain model on historical games for {seg} to pass Crucible"
+                    })
+                    with closing(sqlite3.connect(engine_db, timeout=45.0)) as conn_w:
+                        conn_w.execute("PRAGMA busy_timeout = 60000")
+                        conn_w.execute("""
+                            INSERT INTO learning_jobs (id, kind, league, status, created_at, updated_at, next_attempt, attempts, payload)
+                            VALUES (?, 'autonomous_alpha_recovery', ?, 'queued', ?, ?, ?, 0, ?)
+                            ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at
+                        """, (job_id, r['league'], now_dt.isoformat(), now_dt.isoformat(), now_dt.isoformat(), payload))
+                        conn_w.commit()
+                        enqueued_count += 1
+                except Exception as e_enq:
+                    log.warning("[WATCHDOG_STAGNANT] Failed to enqueue repair for %s: %s", r['segment_key'], e_enq)
+
+            if enqueued_count > 0:
+                healed_count += enqueued_count
+
+            anomalies.append(BottleneckAnomaly(
+                anomaly_id=f"stagnant_quarantine_{now_dt.strftime('%Y%m%d_%H')}",
+                category='stagnant_quarantine',
+                league='MULTI',
+                scope='full_game',
+                family='turnaround',
+                sub_family=None,
+                severity='MEDIUM',
+                message=msg,
+                self_healed=(enqueued_count > 0),
+                remediation_action=f"Enqueued {enqueued_count} autonomous_alpha_recovery turnaround jobs in learning_jobs."
+            ))
+
+        return anomalies, healed_count
+
+    def _check_pre_graduation_suppression(self, graduated: Dict[str, Any]) -> Tuple[List[BottleneckAnomaly], int]:
+        """Ensures that newly graduated markets are never demoted by historical pre-graduation losses."""
+        anomalies: List[BottleneckAnomaly] = []
+        healed_count = 0
+        inc_db = self.data_dir / 'shadow_incubator.sqlite3'
+        if not inc_db.exists():
+            return anomalies, healed_count
+
+        try:
+            with closing(sqlite3.connect(f"file:{inc_db}?mode=ro", uri=True, timeout=10.0)) as conn:
+                cur = conn.cursor()
+                cur.execute("""
+                    SELECT dm.segment_key, dm.reason
+                    FROM demoted_markets dm
+                    JOIN graduated_markets gm ON dm.segment_key = gm.segment_key
+                    WHERE dm.incubation_phase IN ('research_rnd', 'research_training')
+                """)
+                conflicts = cur.fetchall()
+                if conflicts:
+                    from .verbose_logger import get_verbose_logger
+                    vl = get_verbose_logger(self.data_dir)
+                    msg = f"Detected {len(conflicts)} graduated markets mistakenly flagged as demoted: {[c[0] for c in conflicts]}"
+                    vl.log_event("bottleneck_watchdog", "pre_graduation_suppression_detected", msg, level=logging.WARNING)
+
+                    try:
+                        with closing(sqlite3.connect(inc_db, timeout=30.0)) as heal_conn:
+                            heal_conn.execute("PRAGMA busy_timeout = 30000")
+                            for c in conflicts:
+                                heal_conn.execute("DELETE FROM demoted_markets WHERE segment_key = ?", (c[0],))
+                            heal_conn.commit()
+                        healed_count += len(conflicts)
+                        anomalies.append(BottleneckAnomaly(
+                            anomaly_id=f"pre_grad_suppression_{utcnow().strftime('%Y%m%d_%H')}",
+                            category='pre_graduation_anchor',
+                            league='MULTI',
+                            scope='full_game',
+                            family='graduation',
+                            sub_family=None,
+                            severity='HIGH',
+                            message=msg,
+                            self_healed=True,
+                            remediation_action=f"Purged {len(conflicts)} conflicting demoted records for active graduated markets."
+                        ))
+                    except Exception as e_h:
+                        log.warning("[WATCHDOG] Failed to purge conflicting demoted records: %s", e_h)
+        except Exception as e_chk:
+            log.debug("[WATCHDOG] Pre-graduation suppression check error: %s", e_chk)
+
+        return anomalies, healed_count
+
+    def _check_wager_duplication(self) -> Tuple[List[BottleneckAnomaly], int]:
+        """Detects and deduplicates inflated in-flight wagers in shadow_incubator."""
+        anomalies: List[BottleneckAnomaly] = []
+        healed_count = 0
+        from .verbose_logger import get_verbose_logger
+        vl = get_verbose_logger(self.data_dir)
+
+        inc_db = self.data_dir / 'shadow_incubator.sqlite3'
+        if not inc_db.exists():
+            return anomalies, healed_count
+
+        try:
+            with closing(sqlite3.connect(inc_db, timeout=30.0)) as conn:
+                conn.execute("PRAGMA busy_timeout = 30000")
+                cur = conn.cursor()
+                cur.execute("""
+                    SELECT fixture_id, selection, line, count(*) as cnt
+                    FROM incubated_wagers
+                    WHERE status = 'open'
+                    GROUP BY fixture_id, selection, line
+                    HAVING count(*) > 3
+                """)
+                dups = cur.fetchall()
+                if dups:
+                    msg = f"Detected {len(dups)} fixture/line tuples with > 3 duplicate open wagers."
+                    vl.log_event("bottleneck_watchdog", "wager_duplication_detected", msg, data={
+                        'duplicate_groups_count': len(dups),
+                        'sample_dups': [(d[0], d[1], d[2], d[3]) for d in dups[:3]]
+                    }, level=logging.INFO)
+
+                    deleted_total = 0
+                    for d in dups:
+                        cur.execute("""
+                            DELETE FROM incubated_wagers
+                            WHERE fixture_id = ? AND selection = ? AND (line = ? OR (line IS NULL AND ? IS NULL))
+                              AND status = 'open'
+                              AND id NOT IN (
+                                  SELECT min(id) FROM incubated_wagers
+                                  WHERE fixture_id = ? AND selection = ? AND (line = ? OR (line IS NULL AND ? IS NULL))
+                                    AND status = 'open'
+                              )
+                        """, (d[0], d[1], d[2], d[2], d[0], d[1], d[2], d[2]))
+                        deleted_total += cur.rowcount
+                    conn.commit()
+
+                    healed_count += 1
+                    vl.log_event("bottleneck_watchdog", "wager_duplication_healed",
+                                 f"Deduplicated {deleted_total} redundant incubator records.", level=logging.INFO)
+
+                    anomalies.append(BottleneckAnomaly(
+                        anomaly_id=f"wager_dup_{utcnow().strftime('%Y%m%d_%H')}",
+                        category='wager_duplication',
+                        league='MULTI',
+                        scope='incubator',
+                        family='deduplication',
+                        sub_family=None,
+                        severity='INFO',
+                        message=msg,
+                        self_healed=True,
+                        remediation_action=f"Deduplicated {deleted_total} redundant records in incubated_wagers."
+                    ))
+        except Exception as e_dup:
+            log.debug("[WATCHDOG_DUP] Deduplication scan error: %s", e_dup)
+
+        return anomalies, healed_count
+
+    def _enqueue_league_synthesis(self, league: str) -> None:
+        """Enqueues candidate model synthesis for a zero-volume liquid league."""
+        engine_db = self.data_dir / 'engine.sqlite3'
+        if not engine_db.exists():
+            return
+        now_dt = utcnow()
+        now_iso = now_dt.isoformat()
+        job_id = f"vol_synth_{league}_{now_dt.strftime('%Y%m%d_%H')}"
+        payload = json.dumps({
+            'job_kind': 'market_gap_model_synthesis',
+            'league': league,
+            'model_scope': 'full_game',
+            'market': 'moneyline' if league in ('ATP', 'WTA', 'CHALLENGER') else 'spreads',
+            'objective': f"Synthesize and calibrate candidate model for zero-volume liquid league {league}",
+            'created_by': 'BottleneckWatchdog'
+        })
+        try:
+            with closing(sqlite3.connect(engine_db, timeout=45.0)) as conn:
+                conn.execute("PRAGMA busy_timeout = 60000")
+                conn.execute("""
+                    INSERT INTO learning_jobs (id, kind, league, status, created_at, updated_at, next_attempt, attempts, payload)
+                    VALUES (?, 'market_gap_model_synthesis', ?, 'queued', ?, ?, ?, 0, ?)
+                    ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at
+                """, (job_id, league, now_iso, now_iso, now_iso, payload))
+                conn.commit()
+                log.info("[WATCHDOG] Enqueued market_gap_model_synthesis for league %s", league)
+        except Exception as e:
+            log.warning("[WATCHDOG] Failed to enqueue league synthesis for %s: %s", league, e)
 
     def _enqueue_autonomous_repair(self, anomalies: List[BottleneckAnomaly]) -> Optional[str]:
         """Atomically enqueues a high-priority repair job in SQLite learning_jobs."""
