@@ -8,11 +8,11 @@ class MarkovChainTennisModel_WTA_period_1(BaseCandidateModel):
 
     def __init__(
         self,
-        model_id: str = "codex_synth_wta_period_1_1102_171721",
+        model_id: str = "codex_synth_wta_period_1_1107_065407",
         version: str = "1.0.0",
         league: str = "WTA",
         scope: str = "period_1",
-        family: str = "moneyline",
+        family: str = "tennis_sets",
         serve_win_prob_a: float = 0.65,
         serve_win_prob_b: float = 0.61,
         metadata: Optional[Dict[str, Any]] = None,
