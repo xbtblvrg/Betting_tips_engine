@@ -403,22 +403,23 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
 
     is_officially_demoted_or_quarantined = (
         is_demoted_market
-        or (tip.get('is_demoted') is True and not is_cand_graduated)
-        or (not is_test_cand and not is_cand_graduated and bool(check_keys & set(gov.get('quarantine_list', []))))
-        or (not is_test_cand and not is_cand_graduated and bool(check_keys & set(gov.get('demoted_list', []))))
+        or (tip.get('is_demoted') is True)
+        or (not is_test_cand and bool(check_keys & set(gov.get('quarantine_list', []))))
+        or (not is_test_cand and bool(check_keys & set(gov.get('demoted_list', []))))
     )
     if is_officially_demoted_or_quarantined:
         caps['demoted_market_defense_clamp'] = 0.00
+        caps['capital_defense_quarantine'] = 0.00
     elif not is_test_cand and not is_cand_graduated and ((games_val >= 4 and pnl_val <= -2.00) or (games_val >= 6 and pnl_val < 0.0)):
         # Phase 1: Interim Capital Defense ($0.50 Tourniquet) per Commandment 6
         caps['capital_defense_clamp'] = 0.50
 
     if settings.get('capital_defense', False):
         try:
-            if not is_test_cand and not is_cand_graduated:
+            if not is_test_cand:
                 if check_keys & set(gov.get('quarantine_list', [])):
                     caps['capital_defense_quarantine'] = 0.0
-                if check_keys & set(gov.get('capital_defense_list', [])):
+                if check_keys & set(gov.get('capital_defense_list', [])) and not is_cand_graduated:
                     caps['capital_defense_clamp'] = 0.50
 
             # Evolutionary Probation Nursery Clamp:
