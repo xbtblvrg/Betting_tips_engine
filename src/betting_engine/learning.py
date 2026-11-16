@@ -169,15 +169,16 @@ class LearningWorker:
 
     def enqueue(self,kind,key,payload=None,league=None,status='queued',conn=None):
         stamp=utcnow().isoformat();id=hashlib.sha256(f'{kind}:{key}'.encode()).hexdigest()[:24]
+        league_val = league or ''
         if conn is not None:
             conn.execute('INSERT OR IGNORE INTO learning_jobs(id,kind,league,status,created_at,updated_at,next_attempt,payload) VALUES (?,?,?,?,?,?,?,?)',
-                         (id,kind,league,status,stamp,stamp,stamp,json.dumps(payload or {})))
+                         (id,kind,league_val,status,stamp,stamp,stamp,json.dumps(payload or {})))
             return id
         for attempt in range(10):
             try:
                 with self.store.db() as c:
                     c.execute('INSERT OR IGNORE INTO learning_jobs(id,kind,league,status,created_at,updated_at,next_attempt,payload) VALUES (?,?,?,?,?,?,?,?)',
-                              (id,kind,league,status,stamp,stamp,stamp,json.dumps(payload or {})))
+                              (id,kind,league_val,status,stamp,stamp,stamp,json.dumps(payload or {})))
                 return id
             except sqlite3.OperationalError as exc:
                 if 'locked' in str(exc).lower() and attempt < 9:
