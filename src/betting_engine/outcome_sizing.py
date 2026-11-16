@@ -518,7 +518,7 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
         gov_solid = bool(not is_test_cand and (check_keys & set(gov.get('solid_alpha_list', []))))
 
         is_alpha_eligible_market = (
-            (gov_super or gov_solid or (pnl_val > 0.0 and roi_val > 0.0) or (is_cand_graduated and (is_primary_alpha_market or not is_unproven_graduated)) or tip.get('is_super_alpha') or tip.get('is_solid_alpha'))
+            (gov_super or gov_solid or (pnl_val > 0.0 and roi_val > 0.0) or (is_cand_graduated and (is_test_cand or not is_unproven_graduated)) or tip.get('is_super_alpha') or tip.get('is_solid_alpha'))
             and not is_preseason
             and not is_challenger_event
         )
@@ -527,7 +527,7 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
         if is_alpha_eligible_market:
             # Dynamic Tier Scaling (Constitutional Mandate D40 - Kelly Stake Dominance Option B):
             # Scale-Invariant in Units of Stake (Super Alpha: >=4.0 units or >=$5.0; Solid Alpha: >=2.0 units or >=$2.0)
-            grad_proven = bool(is_cand_graduated and (is_primary_alpha_market or not is_unproven_graduated) and is_alpha_eligible_market)
+            grad_proven = bool(is_cand_graduated and (is_test_cand or not is_unproven_graduated) and is_alpha_eligible_market)
             has_defense = not (gov_super or gov_solid) and (
                 any(k in caps for k in ('demoted_market_defense_clamp', 'capital_defense_clamp', 'capital_defense_quarantine'))
                 or (not is_test_cand and bool(check_keys & set(gov.get('capital_defense_list', []))))
