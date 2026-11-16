@@ -65,6 +65,8 @@ def eligible(root):
             value = {k:v for k,v in value.items() if k not in ('runs', 'recovery_events')}
         refs.update(re.findall(r'release-\d{8}T\d{12}-[0-9a-f]{8}', json.dumps(value)))
     result = []
+    if not base.exists():
+        return result
     for stage in sorted(base.iterdir()):
         rid = stage.name
         if not REGULAR.fullmatch(rid) or stage.is_symlink() or not stage.is_dir(): continue

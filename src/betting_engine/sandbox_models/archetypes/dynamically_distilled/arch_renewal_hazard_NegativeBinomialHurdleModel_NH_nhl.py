@@ -9,7 +9,7 @@ class NegativeBinomialHurdleModel_NHL_period_3(BaseCandidateModel):
 
     def __init__(
         self,
-        model_id: str = "codex_synth_nhl_period_3_1113_202012",
+        model_id: str = "codex_synth_nhl_period_3_1116_201929",
         version: str = "1.0.0",
         league: str = "NHL",
         scope: str = "period_3",

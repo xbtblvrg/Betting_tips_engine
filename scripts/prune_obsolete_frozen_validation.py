@@ -104,7 +104,10 @@ def eligible(root):
         if path.name.endswith('.inventory.json'):continue
         name='release-validation-'+path.stem.removeprefix('frozen-validation-')
         proof_paths.setdefault(name,[]).append(path)
-    for stage in sorted((root/'data/releases/staging').iterdir()):
+    staging_dir = root/'data/releases/staging'
+    if not staging_dir.exists():
+        return result
+    for stage in sorted(staging_dir.iterdir()):
         if not NAME.fullmatch(stage.name) or stage.is_symlink() or not stage.is_dir() or stage.name in explicit:continue
         try:path,proof,inv=proof_for(root,stage.name,proof_paths.get(stage.name,[]))
         except (ValueError,KeyError,FileNotFoundError):continue
