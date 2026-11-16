@@ -561,6 +561,7 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                     caps.pop('probation_nursery_clamp', None)
                     caps.pop('unproven_market_profit_shield_clamp', None)
                     caps.pop('capital_defense_clamp', None)
+                    caps.pop('universe_tier_stake_cap', None)
                     if (gov_super and pnl_val >= 0.0) or (grad_proven and pnl_val >= 0.0):
                         caps.pop('totals_defense_clamp', None)
                 requested = max(requested, alpha_target)
@@ -578,6 +579,7 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                     caps.pop('probation_nursery_clamp', None)
                     caps.pop('unproven_market_profit_shield_clamp', None)
                     caps.pop('capital_defense_clamp', None)
+                    caps.pop('universe_tier_stake_cap', None)
                     if (gov_solid and pnl_val >= 0.0) or (grad_proven and pnl_val >= 0.0):
                         caps.pop('totals_defense_clamp', None)
                 requested = max(requested, alpha_target)

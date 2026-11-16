@@ -1170,15 +1170,20 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                 matched_dem = bool(cand_segs & demoted_segs)
                 is_explicitly_graduated = bool(c.get('is_graduated')) and not bool(c.get('is_demoted'))
                 if not is_test_cand or ('demoted' in cand_id.lower()):
-                    is_demoted_cand = bool(c.get('is_demoted')) or (matched_dem and not is_explicitly_graduated)
+                    # Constitutional Anti-Loss Invariant (Commandment 6 & 7):
+                    # A historical graduation diploma CAN NEVER override negative live reality.
+                    # If a market is currently demoted or deteriorated, it is demoted ($0.00).
+                    is_demoted_cand = bool(c.get('is_demoted')) or matched_dem
                 else:
                     is_demoted_cand = bool(c.get('is_demoted'))
                 cand_is_grad = is_explicitly_graduated or (bool(cand_segs & grad_segs) and not matched_dem)
                 is_grad_cand = cand_is_grad
                 quarantine_set = set(gov_status.get('quarantine_list', []))
-                # Graduated Tier 3 markets have passed the Crucible and are in live production ($0.50-$8.00);
-                # they must NEVER be toxic-quarantined by trailing legacy scoreboards
-                is_toxic_quarantined = (bool(cand_segs & quarantine_set) and not is_grad_cand) if not is_test_cand else False
+                # Constitutional Mandate (Commandment 6 & 7):
+                # When a segment suffers statistically significant sustained losses,
+                # the Governor's toxic quarantine circuit breaker suspends real capital ($0.00).
+                # A historical backtest diploma cannot override live capital protection!
+                is_toxic_quarantined = bool(cand_segs & quarantine_set) if not is_test_cand else False
                 is_cap_defense_cand = bool(settings.get('capital_defense', False)) and bool(cand_segs & c_defense) and not is_demoted_cand and not is_toxic_quarantined
                 is_grad = not is_demoted_cand and not is_toxic_quarantined and cand_is_grad
 
