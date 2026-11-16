@@ -818,11 +818,17 @@ class GraduatedUniversalSegmentModel:
                 pass
 
         if primary_dist is not None:
-            features_dict = {
-                'home_points': primary_dist.home_expected,
-                'away_points': primary_dist.away_expected,
+            feats = (
+                state.features(g)
+                if state and hasattr(state, 'features')
+                else np.zeros(len(self.report['features']))
+            )
+            features_dict = dict(zip(self.report['features'], map(float, feats)))
+            features_dict.update({
+                'home_points': float(primary_dist.home_expected),
+                'away_points': float(primary_dist.away_expected),
                 'champion_model': getattr(self.champion_model, 'model_id', 'multi_champion'),
-            }
+            })
             return GraduatedUniversalForecast(
                 game_id=g.id,
                 league=self.league,

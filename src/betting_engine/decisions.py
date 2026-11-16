@@ -1332,13 +1332,20 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                     available_family = max(0., max_fam_stake - event_family_stakes[fam_key])
                     available = min(available, available_family)
 
+                if u_cap is not None:
+                    available = min(available, float(u_cap))
+                if shield and shield.get('action') == 'clamp_stake':
+                    available = min(available, 0.50)
+
                 sizing = size_recommendation(c, settings, available, funded_counts[c['game_id']]) if continuous or outcome_sizing else stake_assessment(c['stress_probability'], c['push_probability'] if c.get('reference_platform') == 'Stake.com' else 0, c['reference_odds'], settings, available, funded_counts[c['game_id']])
                 c['stake_sizing'] = sizing; amount, note = sizing['amount'], sizing['note']
                 if shield and shield.get('action') == 'clamp_stake' and amount > 0.50:
                     amount = 0.50
-                    c['stake_note'] = (note or '') + f" Capped by {shield.get('rule_id')}: {shield.get('reason')}"
                 if u_cap is not None and amount > u_cap:
                     amount = u_cap
+                if shield and shield.get('action') == 'clamp_stake':
+                    c['stake_note'] = (note or '') + f" Capped by {shield.get('rule_id')}: {shield.get('reason')}"
+                elif u_cap is not None and u_cap < 8.0:
                     c['stake_note'] = (c.get('stake_note') or note or '') + f' Capped at ${u_cap:.2f} by Unified Universe Profile ({u_phase}).'
                 if c.get('stake_sizing'):
                     c['stake_sizing']['amount'] = amount

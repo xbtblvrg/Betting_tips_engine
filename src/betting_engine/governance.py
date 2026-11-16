@@ -118,7 +118,12 @@ def verify_publication(tip,now,active_settings=None,max_quote_age=MAX_QUOTE_AGE_
         if settings.get('alpha_acceleration') and guard.get('sizing_settings',{}).get('max_bet'):
             settings['max_bet']=max(settings['max_bet'],guard['sizing_settings']['max_bet'])
         reproduced=size_recommendation(tip,settings,rem_cap,sizing['related_contracts']) if policy!='strict' or outcome!='legacy' else stake_assessment(tip['stress_probability'],tip['push_probability'],tip['reference_odds'],settings,sizing['maximum_stake'],sizing['related_contracts'])
-        if reproduced!=sizing or stake!=reproduced['amount']:raise ValueError('Publication blocked: stake sizing does not reproduce')
+        if reproduced!=sizing or stake!=reproduced['amount']:
+            diffs = {k: (sizing.get(k), reproduced.get(k)) for k in set(sizing.keys()) | set(reproduced.keys()) if sizing.get(k) != reproduced.get(k)}
+            import logging
+            logging.error("[GOVERNANCE_DEBUG] Tip %s (%s|%s): stake=%s, rep_amt=%s, sz_amt=%s. Diffs: %s",
+                          tip.get('id'), tip.get('league'), tip.get('market'), stake, reproduced.get('amount'), sizing.get('amount'), diffs)
+            raise ValueError(f"Publication blocked: stake sizing does not reproduce for {tip.get('id')} ({tip.get('league')}|{tip.get('market')}): diffs={diffs}")
     # The market anchor is part of the pricing contract.  New receipts carry
     # the exact mode, weight and disagreement policy used by the guard; a
     # later settings change cannot silently reinterpret an issued decision.
