@@ -184,7 +184,9 @@ else:
 # 3.2 Live Stake Ceiling & Bounds ($0.50 - $8.00 per Constitution Commandment 4)
 cur_e.execute('SELECT COUNT(*), MIN(stake), MAX(stake) FROM bets WHERE stake > 0')
 bet_cnt, min_stk, max_stk = cur_e.fetchone()
-if min_stk >= 0.50 and max_stk <= 8.00:
+if bet_cnt == 0 or min_stk is None:
+    record_pass('Risk Sizing', 'Strict Stake Range [$0.50, $8.00]', 'No active bets in ledger to check; bounds invariant holds')
+elif min_stk >= 0.50 and max_stk <= 8.00:
     record_pass('Risk Sizing', 'Strict Stake Range [$0.50, $8.00]', f'Checked {bet_cnt} bets, range=[${min_stk:.2f}, ${max_stk:.2f}]')
 else:
     record_fail('Risk Sizing', 'Strict Stake Range', f'Range=[{min_stk}, {max_stk}] violates [$0.50, $8.00]')
