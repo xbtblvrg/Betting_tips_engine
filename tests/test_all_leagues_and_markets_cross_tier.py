@@ -21,6 +21,49 @@ def universe_fixture():
     governor = AutonomousROIGovernor()
     poly = PolymarketAutonomousExecutor()
     demoted = load_demoted_markets(universe.incubator_db_path.parent)
+
+    # Hermetic Test Invariant:
+    # If the live ledger has zero settled decisions (e.g. fresh environment or waiting for live fixtures),
+    # seed realistic alpha and probation scoreboard fixtures so cross-tier invariants are verified hermetically.
+    if not scoreboard.get("alpha_segments"):
+        scoreboard = {
+            "alpha_segments": [
+                {
+                    "segment": "MLS|full_game|totals",
+                    "league": "MLS",
+                    "scope": "full_game",
+                    "family": "totals",
+                    "pnl": 240.73,
+                    "roi_pct": 28.0,
+                    "games": 357,
+                    "rolling_games": 20,
+                    "rolling_roi_pct": 18.5,
+                    "rolling_pnl": 12.50,
+                    "rolling_units": 6.2,
+                    "sub_tier": "SUPER_ALPHA",
+                }
+            ],
+            "exploration_segments": [
+                {
+                    "segment": "NBA|full_game|spreads",
+                    "league": "NBA",
+                    "scope": "full_game",
+                    "family": "spreads",
+                    "pnl": 1.50,
+                    "roi_pct": 15.0,
+                    "games": 3,
+                    "rolling_games": 3,
+                    "rolling_roi_pct": 15.0,
+                    "rolling_pnl": 1.50,
+                    "rolling_units": 0.8,
+                    "sub_tier": "PROBATION",
+                }
+            ],
+            "underperforming_segments": [],
+        }
+        poly._cached_scoreboard = scoreboard
+        poly._scoreboard_cached_at = 9999999999.0
+
     return {
         "universe": universe,
         "roster": roster,
