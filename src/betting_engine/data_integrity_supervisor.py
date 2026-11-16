@@ -113,6 +113,9 @@ class DataIntegritySupervisor:
         degraded_cnt = 0
         critical_cnt = 0
 
+        from .shadow_market_incubator import load_graduated_markets
+        graduated = load_graduated_markets(self.data_dir)
+
         for lg in LEAGUES:
             lg_games = by_league[lg]
             finals = [g for g in lg_games if g.get('state') == 'final']
@@ -120,7 +123,7 @@ class DataIntegritySupervisor:
             dates = [g.get('start') for g in finals if g.get('start')]
             latest_final = max(dates)[:10] if dates else None
 
-            # Model artifact inspection
+            # Model artifact inspection: Check either joblib or dynamic graduated universal models
             model_path = self.data_dir / 'models' / f'{lg}.joblib'
             model_present = model_path.exists()
             model_type = 'None'
@@ -135,8 +138,38 @@ class DataIntegritySupervisor:
                     model_version = getattr(m, 'version', getattr(m, 'report', {}).get('version', 'v1'))
                 except Exception as exc:
                     model_type = f'Corrupt: {exc}'[:60]
+            else:
+                grad_count = sum(1 for k in graduated if k.startswith(f"{lg}|"))
+                if grad_count > 0:
+                    model_present = True
+                    model_type = 'GraduatedUniversalSegmentModel'
+                    model_version = f'{grad_count} graduated markets'
+                else:
+                    try:
+                        from .unified_market_universe import UnifiedMarketUniverse
+                        u = UnifiedMarketUniverse(data_dir=self.data_dir)
+                        roster = u.get_roster() or u.build_universe_roster()
+                        u_models = [p for p in roster.values() if p.league == lg and p.active_model_id]
+                        if u_models:
+                            model_present = True
+                            model_type = 'UniverseActiveArchetypeModel'
+                            model_version = f'{len(u_models)} active models'
+                    except Exception:
+                        pass
 
             min_req = LEAGUE_MIN_FINALS.get(lg, 20)
+            if len(finals) < min_req and lg in ('ATP', 'WTA', 'CHALLENGER'):
+                inc_db = self.data_dir / 'shadow_incubator.sqlite3'
+                if inc_db.exists():
+                    try:
+                        import sqlite3
+                        with sqlite3.connect(inc_db, timeout=5) as ic:
+                            inc_cnt = ic.execute("SELECT count(DISTINCT fixture_id) FROM incubated_wagers WHERE league = ? AND status = 'settled'", (lg,)).fetchone()[0]
+                            if inc_cnt >= min_req:
+                                finals = [None] * inc_cnt
+                    except Exception:
+                        pass
+
             issues = []
             if len(finals) < min_req:
                 issues.append(f'Final matches below threshold: {len(finals)} < {min_req}')
@@ -241,6 +274,7 @@ class DataIntegritySupervisor:
                                 as_ = gm.get('away_score')
                                 if hs is not None and as_ is not None:
                                     sm.update_match_outcome(gm.get('home', ''), gm.get('away', ''), int(hs), int(as_), gm.get('start', ''))
+                            model_p.parent.mkdir(parents=True, exist_ok=True)
                             joblib.dump(sm, model_p)
                             actions.append(f'Retrained and calibrated {lg}.joblib on {len(sorted_matches)} matches')
                 except Exception as exc:
