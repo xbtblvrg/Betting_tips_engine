@@ -196,6 +196,28 @@ class Engine:
                                     pass
             except Exception as e_inc:
                 log.debug("Shadow incubator game recovery scan non-fatal: %s", e_inc)
+            # Also recover any scheduled game in LEAGUE_PATHS that started > 3 hours ago
+            past_cutoff = now - timedelta(hours=3)
+            recovered_extra = 0
+            for g in self.games:
+                if g.league in LEAGUE_PATHS and g.state in ('pre', 'scheduled') and g.id not in existing_finals:
+                    try:
+                        if parse_time(g.start) < past_cutoff:
+                            decisions.append({
+                                'status': 'open',
+                                'payload': {
+                                    'game_id': g.id,
+                                    'league': g.league,
+                                    'home': g.home,
+                                    'away': g.away,
+                                    'start': g.start,
+                                }
+                            })
+                            recovered_extra += 1
+                            if recovered_extra >= 12:
+                                break
+                    except Exception:
+                        pass
             for row in bets+decisions:
                 tip=row.get('payload',{})
                 gid=tip.get('game_id')

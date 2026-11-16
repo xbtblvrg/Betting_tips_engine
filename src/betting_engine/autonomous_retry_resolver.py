@@ -329,6 +329,12 @@ class AutonomousRetryResolver:
         try:
             with sqlite3.connect(str(self.engine_db), timeout=15.0) as conn:
                 cur = conn.cursor()
+                cur.execute("PRAGMA table_info(learning_jobs)")
+                cols = {row[1] for row in cur.fetchall()}
+                if "result" not in cols:
+                    conn.execute("ALTER TABLE learning_jobs ADD COLUMN result TEXT")
+                if "last_error" not in cols:
+                    conn.execute("ALTER TABLE learning_jobs ADD COLUMN last_error TEXT")
 
                 # 1. Deduplicate queued segment jobs (e.g. priority_model_synthesis, segment_repair)
                 cur.execute("""

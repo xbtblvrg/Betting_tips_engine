@@ -697,18 +697,21 @@ class BottleneckWatchdog:
 
         games_path = self.data_dir / 'games.json'
         past_unscored: List[Dict[str, Any]] = []
+        game_starts: Dict[str, str] = {}
         if games_path.exists():
             try:
                 with open(games_path, 'r', encoding='utf-8') as f:
                     games = json.load(f)
                 for g in games:
                     st = g.get('start')
+                    if st:
+                        game_starts[g.get('id')] = st
                     if st and st < cutoff_iso and g.get('state') in ('pre', 'scheduled') and g.get('home_score') is None:
                         past_unscored.append(g)
             except Exception as e_read:
                 log.warning("[WATCHDOG_SCORE_GAP] Failed to read games.json: %s", e_read)
 
-        # Also check open wagers in shadow incubator
+        # Also check open wagers in shadow incubator whose fixture started > 18h ago
         inc_db = self.data_dir / 'shadow_incubator.sqlite3'
         stale_wagers_count = 0
         if inc_db.exists():
@@ -716,11 +719,17 @@ class BottleneckWatchdog:
                 with closing(sqlite3.connect(f"file:{inc_db}?mode=ro", uri=True, timeout=10.0)) as conn:
                     cur = conn.cursor()
                     cur.execute("""
-                        SELECT count(*) FROM incubated_wagers
-                        WHERE status = 'open' AND captured_at < ?
-                    """, (cutoff_iso,))
-                    row = cur.fetchone()
-                    stale_wagers_count = row[0] if row else 0
+                        SELECT fixture_id, captured_at FROM incubated_wagers
+                        WHERE status = 'open'
+                    """)
+                    cutoff_36h_iso = (now_dt - timedelta(hours=36)).isoformat()
+                    for fid, cap_at in cur.fetchall():
+                        g_start = game_starts.get(fid)
+                        if g_start:
+                            if g_start < cutoff_iso:
+                                stale_wagers_count += 1
+                        elif cap_at and cap_at < cutoff_36h_iso:
+                            stale_wagers_count += 1
             except Exception as e_w:
                 log.debug("[WATCHDOG_SCORE_GAP] Stale wager scan: %s", e_w)
 

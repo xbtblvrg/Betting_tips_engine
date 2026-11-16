@@ -14,6 +14,12 @@ from .providers import DATA
 from .storage import Store
 from .io_utils import atomic_json
 
+# Pre-import core candidate architectures to avoid thread race conditions in importlib
+from . import sandbox_models
+from .sandbox_models import archetypes
+from . import historical_trainer
+from . import demoted_market_bridge
+
 
 SCHEDULING_VERSION = 'bounded-learning-fairness-v2'
 HIGH_PRIORITY_BUDGET = 3
@@ -139,7 +145,8 @@ class LearningWorker:
         self._executor: Optional[ThreadPoolExecutor] = None
         self._active_futures: Dict[Any, Tuple[Dict[str, Any], int, str, str]] = {}
         self._lock_handle = None
-        with self.store.db() as c:c.executescript('''
+        with self.store.db() as c:
+            c.executescript('''
         CREATE TABLE IF NOT EXISTS learning_jobs(
           id TEXT PRIMARY KEY,kind TEXT NOT NULL,league TEXT,status TEXT NOT NULL,
           created_at TEXT NOT NULL,updated_at TEXT NOT NULL,next_attempt TEXT NOT NULL,
@@ -152,6 +159,13 @@ class LearningWorker:
           status TEXT NOT NULL,first_seen TEXT NOT NULL,last_seen TEXT NOT NULL,resolved_at TEXT,
           job_id TEXT,evidence TEXT NOT NULL);
         ''')
+            cur = c.cursor()
+            cur.execute("PRAGMA table_info(learning_jobs)")
+            cols = {row[1] for row in cur.fetchall()}
+            if "result" not in cols:
+                c.execute("ALTER TABLE learning_jobs ADD COLUMN result TEXT")
+            if "last_error" not in cols:
+                c.execute("ALTER TABLE learning_jobs ADD COLUMN last_error TEXT")
 
     def enqueue(self,kind,key,payload=None,league=None,status='queued',conn=None):
         stamp=utcnow().isoformat();id=hashlib.sha256(f'{kind}:{key}'.encode()).hexdigest()[:24]
