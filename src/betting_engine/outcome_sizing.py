@@ -364,6 +364,8 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
     else:
         is_demoted_market = bool(tip.get('is_demoted')) or bool(check_keys & dem_segs)
     is_cand_graduated = (bool(tip.get('is_graduated')) or bool(check_keys & grad_segs)) and not is_demoted_market
+    is_unproven_graduated = bool(is_cand_graduated and (games_val < 5 or roi_val <= 0.0 or pnl_val <= 0.0))
+    is_primary_alpha_market = bool(cand_scope == 'full_game' and any(k in market_val for k in ('spread', 'moneyline', '1x2', 'three_way', 'draw_no_bet')))
     gov = {}
     if not is_test_cand:
         try:
@@ -516,7 +518,7 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
         gov_solid = bool(not is_test_cand and (check_keys & set(gov.get('solid_alpha_list', []))))
 
         is_alpha_eligible_market = (
-            (gov_super or gov_solid or (pnl_val > 0.0 and roi_val > 0.0) or tip.get('is_graduated') or tip.get('is_super_alpha') or tip.get('is_solid_alpha'))
+            (gov_super or gov_solid or (pnl_val > 0.0 and roi_val > 0.0) or (is_cand_graduated and (is_primary_alpha_market or not is_unproven_graduated)) or tip.get('is_super_alpha') or tip.get('is_solid_alpha'))
             and not is_preseason
             and not is_challenger_event
         )
@@ -525,7 +527,7 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
         if is_alpha_eligible_market:
             # Dynamic Tier Scaling (Constitutional Mandate D40 - Kelly Stake Dominance Option B):
             # Scale-Invariant in Units of Stake (Super Alpha: >=4.0 units or >=$5.0; Solid Alpha: >=2.0 units or >=$2.0)
-            grad_proven = bool(tip.get('is_graduated') and is_alpha_eligible_market)
+            grad_proven = bool(is_cand_graduated and (is_primary_alpha_market or not is_unproven_graduated) and is_alpha_eligible_market)
             has_defense = not (gov_super or gov_solid) and (
                 any(k in caps for k in ('demoted_market_defense_clamp', 'capital_defense_clamp', 'capital_defense_quarantine'))
                 or (not is_test_cand and bool(check_keys & set(gov.get('capital_defense_list', []))))
@@ -563,7 +565,7 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                     caps.pop('unproven_market_profit_shield_clamp', None)
                     caps.pop('capital_defense_clamp', None)
                     caps.pop('universe_tier_stake_cap', None)
-                    if (gov_super and pnl_val >= 0.0) or (grad_proven and pnl_val >= 0.0):
+                    if (gov_super and pnl_val >= 0.0) or (tip.get('is_super_alpha') and pnl_val >= 0.0):
                         caps.pop('totals_defense_clamp', None)
                 requested = max(requested, alpha_target)
             elif is_solid_alpha:
@@ -581,7 +583,7 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                     caps.pop('unproven_market_profit_shield_clamp', None)
                     caps.pop('capital_defense_clamp', None)
                     caps.pop('universe_tier_stake_cap', None)
-                    if (gov_solid and pnl_val >= 0.0) or (grad_proven and pnl_val >= 0.0):
+                    if (gov_solid and pnl_val >= 0.0) or (tip.get('is_solid_alpha') and pnl_val >= 0.0):
                         caps.pop('totals_defense_clamp', None)
                 requested = max(requested, alpha_target)
 

@@ -525,7 +525,8 @@ def stake_assessment(pwin,ppush,odds,settings,remaining,related_count=0):
     if bankroll is not None and (isinstance(bankroll,bool) or not isinstance(bankroll,(int,float)) or not math.isfinite(bankroll) or bankroll<=0):
         raise ValueError('Invalid supplied bankroll')
     limits=[]
-    min_stake = min(1., float(settings['unit_stake']))
+    has_050 = bool(settings.get('family_selection_policy') in ('continuous_probability_v2', 'continuous_probability_v3', 'continuous_probability_v4') or float(settings.get('unit_stake', 1.0)) <= 0.50)
+    min_stake = 0.50 if has_050 else min(1., float(settings['unit_stake']))
     unit=float(settings['unit_stake'])
     if bankroll is None:
         mode='edge_weighted_units'
@@ -1240,39 +1241,6 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                     alternatives.append(c)
                     continue
 
-            # Stake pushes refund the stake; use the contract's push probability.
-            available_event=max(0.,event_stake_cap-event_stakes[c['game_id']])
-            available=min(remaining,available_event)
-            fam_key = (c['game_id'], allocation_family(c))
-            if settings.get('max_family_stake_per_event') is not None:
-                max_fam_stake = float(settings['max_family_stake_per_event'])
-                available_family = max(0., max_fam_stake - event_family_stakes[fam_key])
-                available = min(available, available_family)
-            sizing=size_recommendation(c,settings,available,funded_counts[c['game_id']]) if continuous or outcome_sizing else stake_assessment(c['stress_probability'],c['push_probability'] if c.get('reference_platform')=='Stake.com' else 0,c['reference_odds'],settings,available,funded_counts[c['game_id']])
-            c['stake_sizing']=sizing;amount,note=sizing['amount'],sizing['note']
-            try:
-                from .capability_expansion import check_portfolio_shield
-                shield = check_portfolio_shield(c)
-                if is_synthetic_test and shield and shield.get('action') == 'clamp_stake':
-                    shield = None
-                if continuous and bases.get(c['id'], {}).get('tier') == 'probability_pick' and shield and shield.get('action') == 'ev_insufficient':
-                    shield = None
-                if shield and shield.get('action') == 'quarantine':
-                    amount = 0.0
-                    c['allocation_code'] = 'portfolio_shield_quarantined'
-                    c['allocation_reason'] = shield.get('reason')
-                    c['stake_note'] = c['allocation_reason']
-                elif shield and shield.get('action') == 'ev_insufficient':
-                    if not volume_deficit:
-                        amount = 0.0
-                        c['allocation_code'] = 'portfolio_shield_ev_insufficient'
-                        c['allocation_reason'] = shield.get('reason')
-                        c['stake_note'] = c['allocation_reason']
-                elif shield and shield.get('action') == 'clamp_stake' and amount > 0.50:
-                    amount = 0.50
-                    c['stake_note'] = (note or '') + f" Capped by {shield.get('rule_id')}: {shield.get('reason')}"
-            except Exception:
-                pass
             # Mandatory Unified Universe Stake Cap Enforcement (Constitution Commandments 4, 6 & Anti-Constant Mandate):
             # Every real-market recommendation's stake is strictly bounded by its UnifiedMarketProfile stake_cap.
             # - Newly graduated / probation / tourniquet markets are clamped to $0.50.
@@ -1280,6 +1248,9 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
             # - Only verified positive Alpha Champions can scale up to $8.00.
             c_league = str(c.get('league') or '').upper()
             is_synthetic_test = is_synthetic_test_candidate(c, settings)
+            u_cap = None
+            u_phase = None
+            roster = None
             if not is_synthetic_test and c_league:
                 c_scope = str(c.get('model_scope', 'full_game'))
                 c_market = str(c.get('market', '')).lower()
@@ -1290,8 +1261,6 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                 u_cand_segs = canonical_segment_aliases(c_league, c_scope, c_market)
                 roster = _get_universe_roster()
                 if roster:
-                    u_cap = None
-                    u_phase = None
                     grad_profs = [roster[s] for s in u_cand_segs if s in roster and roster[s].tier >= 3]
                     if grad_profs:
                         prof = max(grad_profs, key=lambda p: p.stake_cap)
@@ -1313,20 +1282,68 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                         u_cap = 0.50
                         u_phase = "Unregistered Market - Default Live Probation ($0.50 floor)"
 
-                    if u_cap <= 0.0:
-                        amount = 0.0
-                        c['allocation_code'] = 'universe_quarantined'
-                        c['allocation_reason'] = f'Unified Market Universe Quarantine ($0.00): {u_phase}'
-                        c['stake_note'] = c['allocation_reason']
-                    elif amount > u_cap:
-                        amount = u_cap
-                        c['stake_note'] = (c.get('stake_note') or note or '') + f' Capped at ${u_cap:.2f} by Unified Universe Profile ({u_phase}).'
-
             c['_universe_stake_cap'] = u_cap if not is_synthetic_test and c_league and roster else None
             c['_universe_phase'] = u_phase if not is_synthetic_test and c_league and roster else None
             c['_is_cap_defense_cand'] = is_cap_defense_cand
             c['_is_alpha_cand'] = is_alpha_cand
             c['_cand_segs'] = list(cand_segs)
+
+            shield = None
+            try:
+                from .capability_expansion import check_portfolio_shield
+                shield = check_portfolio_shield(c)
+                if is_synthetic_test and shield and shield.get('action') == 'clamp_stake':
+                    shield = None
+                if continuous and bases.get(c['id'], {}).get('tier') == 'probability_pick' and shield and shield.get('action') == 'ev_insufficient':
+                    shield = None
+            except Exception:
+                pass
+
+            if u_cap is not None and u_cap <= 0.0:
+                amount = 0.0
+                c['allocation_code'] = 'universe_quarantined'
+                c['allocation_reason'] = f'Unified Market Universe Quarantine ($0.00): {u_phase}'
+                c['stake_note'] = c['allocation_reason']
+                c['stake_sizing'] = {'version': 'quarantined', 'amount': 0.0, 'note': c['allocation_reason']}
+                note = c['allocation_reason']
+            elif shield and shield.get('action') == 'quarantine':
+                amount = 0.0
+                c['allocation_code'] = 'portfolio_shield_quarantined'
+                c['allocation_reason'] = shield.get('reason')
+                c['stake_note'] = c['allocation_reason']
+                c['stake_sizing'] = {'version': 'quarantined', 'amount': 0.0, 'note': c['allocation_reason']}
+                note = c['allocation_reason']
+            elif shield and shield.get('action') == 'ev_insufficient' and not volume_deficit:
+                amount = 0.0
+                c['allocation_code'] = 'portfolio_shield_ev_insufficient'
+                c['allocation_reason'] = shield.get('reason')
+                c['stake_note'] = c['allocation_reason']
+                c['stake_sizing'] = {'version': 'ev_insufficient', 'amount': 0.0, 'note': c['allocation_reason']}
+                note = c['allocation_reason']
+            else:
+                # Stake pushes refund the stake; use the contract's push probability.
+                available_event = max(0., event_stake_cap - event_stakes[c['game_id']])
+                available = min(remaining, available_event)
+                fam_key = (c['game_id'], allocation_family(c))
+                if settings.get('max_family_stake_per_event') is not None:
+                    max_fam_stake = float(settings['max_family_stake_per_event'])
+                    available_family = max(0., max_fam_stake - event_family_stakes[fam_key])
+                    available = min(available, available_family)
+                if u_cap is not None:
+                    available = min(available, u_cap)
+                if shield and shield.get('action') == 'clamp_stake':
+                    available = min(available, 0.50)
+
+                sizing = size_recommendation(c, settings, available, funded_counts[c['game_id']]) if continuous or outcome_sizing else stake_assessment(c['stress_probability'], c['push_probability'] if c.get('reference_platform') == 'Stake.com' else 0, c['reference_odds'], settings, available, funded_counts[c['game_id']])
+                c['stake_sizing'] = sizing; amount, note = sizing['amount'], sizing['note']
+                if shield and shield.get('action') == 'clamp_stake' and amount > 0.50:
+                    amount = 0.50
+                    c['stake_note'] = (note or '') + f" Capped by {shield.get('rule_id')}: {shield.get('reason')}"
+                if u_cap is not None and amount > u_cap:
+                    amount = u_cap
+                    c['stake_note'] = (c.get('stake_note') or note or '') + f' Capped at ${u_cap:.2f} by Unified Universe Profile ({u_phase}).'
+                if c.get('stake_sizing'):
+                    c['stake_sizing']['amount'] = amount
 
             c['stake']=amount;c['stake_note']=c.get('stake_note') or (note if amount else 'Your remaining limit or fractional Kelly calculation does not support a stake of at least $0.50.');remaining-=amount
             if amount and limits_enabled and (event_stakes[c['game_id']]+amount>event_stake_cap+1e-9):
@@ -1444,6 +1461,8 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                     raw_fam_available = max_fam_stake - event_family_stakes[fam_key] - batch_family_stakes[fam_key]
                     fam_available = round(raw_fam_available, 2) if math.isfinite(raw_fam_available) else raw_fam_available
                     sizing_budget = min(sizing_budget, max(0., fam_available))
+                if c.get('_universe_stake_cap') is not None:
+                    sizing_budget = min(sizing_budget, c['_universe_stake_cap'])
                 if math.isfinite(sizing_budget):
                     sizing_budget = round(sizing_budget, 2)
                 sizing=size_recommendation(c,settings,sizing_budget,related) if continuous or outcome_sizing else stake_assessment(c['stress_probability'],c['push_probability'] if c.get('reference_platform')=='Stake.com' else 0,c['reference_odds'],settings,sizing_budget,related)
@@ -1451,6 +1470,8 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                 if c.get('_universe_stake_cap') is not None and c['stake'] > c['_universe_stake_cap']:
                     c['stake'] = c['_universe_stake_cap']
                     c['stake_note'] = (c.get('stake_note') or '') + f' Capped at ${c["_universe_stake_cap"]:.2f} by Unified Universe Profile.'
+                    if c.get('stake_sizing'):
+                        c['stake_sizing']['amount'] = c['stake']
                 c['allocation_policy']['exposure_basis']='held_plus_complete_publication_batch_v1'
                 c['reference_stake_executable']=c['stake']>=c.get('reference_minimum_notional',0) and c['stake']>0
                 if c['stake']:
