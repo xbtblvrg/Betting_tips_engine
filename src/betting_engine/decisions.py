@@ -290,8 +290,7 @@ def continuous_selection_priority_v4(tip, tier):
         tip['is_demoted'] = True
         # Constitutional Commandment 6 & TierStateMachine:
         # Demoted segments are demoted from ranking and quarantined ($0.00 stake) in candidate selection.
-        if ev < 0.035:
-            return (0, -999.0, p, stress_roi, False, str(tip.get('id', '')))
+        return (0, -999.0, p, stress_roi, False, str(tip.get('id', '')))
 
     # Alpha acceleration & Capital defense boosts
     super_alpha = set(gov.get('super_alpha_list', []))

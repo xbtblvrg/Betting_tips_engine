@@ -141,6 +141,42 @@ class AutonomousROIGovernor:
         capital_defense = []
         toxic_quarantine = []
 
+        def _add_quarantine(k: str):
+            if k not in toxic_quarantine:
+                toxic_quarantine.append(k)
+            parts = k.split('|')
+            if len(parts) == 3 and ':' in parts[2]:
+                base_k = f"{parts[0]}|{parts[1]}|{parts[2].split(':')[-1]}"
+                if base_k not in toxic_quarantine:
+                    toxic_quarantine.append(base_k)
+
+        def _add_capital_defense(k: str):
+            if k not in capital_defense:
+                capital_defense.append(k)
+            parts = k.split('|')
+            if len(parts) == 3 and ':' in parts[2]:
+                base_k = f"{parts[0]}|{parts[1]}|{parts[2].split(':')[-1]}"
+                if base_k not in capital_defense:
+                    capital_defense.append(base_k)
+
+        def _add_super_alpha(k: str):
+            if k not in super_alpha:
+                super_alpha.append(k)
+            parts = k.split('|')
+            if len(parts) == 3 and ':' in parts[2]:
+                base_k = f"{parts[0]}|{parts[1]}|{parts[2].split(':')[-1]}"
+                if base_k not in super_alpha:
+                    super_alpha.append(base_k)
+
+        def _add_solid_alpha(k: str):
+            if k not in solid_alpha:
+                solid_alpha.append(k)
+            parts = k.split('|')
+            if len(parts) == 3 and ':' in parts[2]:
+                base_k = f"{parts[0]}|{parts[1]}|{parts[2].split(':')[-1]}"
+                if base_k not in solid_alpha:
+                    solid_alpha.append(base_k)
+
         grad_markets = set()
         demoted_markets_set = set()
         sb_underperforming_set = set()
@@ -206,7 +242,9 @@ class AutonomousROIGovernor:
                 seg_key in demoted_markets_set
                 or canon_k in demoted_markets_set
                 or base_canon_k in demoted_markets_set
-            ) and not is_grad_seg
+            )
+            if is_demoted_seg:
+                is_grad_seg = False
 
             is_sb_underperforming = bool(
                 seg_key in sb_underperforming_set
@@ -229,7 +267,7 @@ class AutonomousROIGovernor:
                 stake_cap = 0.0
                 min_ev = 0.10
                 action = 'Quarantined: demoted to Tier 1 R&D ($0.00) for historical training'
-                toxic_quarantine.append(seg_key)
+                _add_quarantine(seg_key)
 
             # 2. Quarantined lower-tier circuits (Challenger/ITF) receive zero stake allocation UNLESS graduated via Crucible
             elif ((league in ('CHALLENGER', 'ITF') or 'challenger' in league.lower() or 'challenger' in seg_key.lower())
@@ -238,7 +276,7 @@ class AutonomousROIGovernor:
                 stake_cap = 0.0
                 min_ev = 0.10
                 action = 'Quarantined: lower-tier circuit zero stake allocation until formal promotion'
-                toxic_quarantine.append(seg_key)
+                _add_quarantine(seg_key)
 
             # 3. Pure noise 50/50 markets (odd/even): zero fundamental edge, negative bookmaker vig
             elif 'odd_even' in str(market).lower():
@@ -246,19 +284,10 @@ class AutonomousROIGovernor:
                 stake_cap = 0.0
                 min_ev = 0.10
                 action = 'Quarantined: odd/even coin-flip market suppressed'
-                toxic_quarantine.append(seg_key)
+                _add_quarantine(seg_key)
 
-            # 4. Rolling Breakdown / Degradation Invariant (Recent drawdown overrides ancient history)
-            elif is_rolling_degraded or is_sb_underperforming:
-                tier = 'CAPITAL_DEFENSE'
-                stake_cap = 0.50
-                min_ev = 0.035
-                action = f'Capital defense tourniquet: rolling drawdown ({rec_roi:.1f}% ROI, {rec_units:.1f}U over {len(rec_bets)} bets)'
-                capital_defense.append(seg_key)
-
-            # 5. Dynamic Loss Circuit Breaker (Scale-Invariant in Risk Units - Commandment 3 & 6):
-            # Zero hardcoded dollar limits. A normal 2-3 bet wobble is protected by Phase 1 Capital Defense ($0.50 clamp).
-            # Placed in TOXIC_QUARANTINE ($0.00 stake) ONLY upon statistically significant sustained failure:
+            # 4. Dynamic Loss Circuit Breaker (Scale-Invariant in Risk Units - Commandment 3 & 6):
+            # Placed in TOXIC_QUARANTINE ($0.00 stake) upon statistically significant sustained failure:
             # - N >= 8 games with rolling units <= -4.0U and negative ROI
             # - OR N >= 12 games with total units <= -5.0U and ROI <= -10%
             elif (
@@ -269,7 +298,16 @@ class AutonomousROIGovernor:
                 stake_cap = 0.0
                 min_ev = 0.08
                 action = f'Quarantined: sustained breakdown ({units_pnl:.1f} units, {roi:+.1f}% ROI over {cnt} games) triggered zero-bleed circuit breaker'
-                toxic_quarantine.append(seg_key)
+                _add_quarantine(seg_key)
+
+            # 5. Rolling Breakdown / Mild Drawdown Tourniquet (Recent drawdown overrides ancient history)
+            # A normal 2-3 bet wobble is protected by Phase 1 Capital Defense ($0.50 clamp).
+            elif is_rolling_degraded or is_sb_underperforming:
+                tier = 'CAPITAL_DEFENSE'
+                stake_cap = 0.50
+                min_ev = 0.035
+                action = f'Capital defense tourniquet: rolling drawdown ({rec_roi:.1f}% ROI, {rec_units:.1f}U over {len(rec_bets)} bets)'
+                _add_capital_defense(seg_key)
 
             # 6. Super Alpha: Rolling ROI >= +12%, PnL >= +3 units with 5+ games (verified major markets only)
             elif cnt >= 5 and roi >= 12.0 and units_pnl >= 3.0 and league not in ('CHALLENGER', 'ITF') and not is_rolling_degraded and not is_sb_underperforming and not is_demoted_seg and rec_pnl >= 0.0:
@@ -277,7 +315,7 @@ class AutonomousROIGovernor:
                 stake_cap = 8.00
                 min_ev = 0.015
                 action = 'Super Alpha Acceleration: maximum confidence scaling ($4.00–$8.00)'
-                super_alpha.append(seg_key)
+                _add_super_alpha(seg_key)
 
             # 7. Solid Alpha: Rolling ROI >= +5%, PnL >= +1 unit with 3+ games
             #    OR Large-Sample Empirical Alpha: cnt >= 15, ROI >= +3.5%, PnL >= +3 units
@@ -287,7 +325,7 @@ class AutonomousROIGovernor:
                 stake_cap = 3.50
                 min_ev = 0.010
                 action = 'Solid Alpha Acceleration: prioritized scaling ($2.50–$3.50)'
-                solid_alpha.append(seg_key)
+                _add_solid_alpha(seg_key)
 
             # 8. Capital Defense ($0.50 Tourniquet - Commandment 6):
             # Reserved strictly for exploratory trials (cnt in (1, 2, 3) with minor drawdown in risk units)
@@ -296,7 +334,7 @@ class AutonomousROIGovernor:
                 stake_cap = 0.50
                 min_ev = 0.035
                 action = 'Capital defense clamp: $0.50 flat stake, +3.5% min EV hurdle'
-                capital_defense.append(seg_key)
+                _add_capital_defense(seg_key)
 
             elif is_grad_seg:
                 # Retain normal graduated standing without defense clamping if healthy

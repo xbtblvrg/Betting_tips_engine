@@ -700,6 +700,21 @@ class UnifiedMarketUniverse:
                     else:
                         prof.stake_cap = 0.50
                         prof.phase_detail = f"Live Probation ({stat['sample_size']} games, {stat['units']:+.1f}U) - $0.50 floor"
+                elif bool(sb_alpha_map.get(k_perf)):
+                    a_info = sb_alpha_map[k_perf]
+                    prof.tier = int(MarketTier.LIVE_PROVEN_ALPHA)
+                    prof.tier_name = "LIVE_PROVEN_ALPHA"
+                    a_roi = a_info.get("roi_pct", 0.0)
+                    a_cnt = a_info.get("settled_count", 0)
+                    if a_cnt >= 5 and a_roi >= 12.0:
+                        prof.stake_cap = 8.00
+                        prof.phase_detail = f"Tier 4 Super Alpha Acceleration ({a_roi:+.1f}% ROI over {a_cnt} games) - $8.00 cap"
+                    elif a_cnt >= 3 and a_roi >= 5.0:
+                        prof.stake_cap = 3.50
+                        prof.phase_detail = f"Tier 4 Proven Alpha ({a_roi:+.1f}% ROI over {a_cnt} games) - $3.50 cap"
+                    else:
+                        prof.stake_cap = 2.50
+                        prof.phase_detail = f"Tier 4 Live Proven Alpha ({a_roi:+.1f}% ROI over {a_cnt} games) - Scaled Production"
                 else:
                     # No post-graduation live decisions yet (0 live settled games with new champion model).
                     # Newly graduated Crucible models start fresh on Tier 3 Live Probation ($0.50 floor)

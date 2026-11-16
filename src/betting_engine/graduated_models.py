@@ -1063,9 +1063,29 @@ def resolve_graduated_full_game_models(
         if not league or scope != 'full_game':
             continue
 
-        if league in updated:
-            model = updated[league]
-            if hasattr(model, 'report') and isinstance(model.report, dict):
+        if league not in updated:
+            updated[league] = GraduatedUniversalSegmentModel(league, 'full_game', meta)
+
+        model = updated[league]
+        if hasattr(model, 'register_champion'):
+            from .tournament_engine import TournamentEngine
+            try:
+                t_eng = TournamentEngine()
+                for l_key in [
+                    f"{league}|full_game|{family}:{sub_family}" if sub_family else None,
+                    f"{league}|full_game|{family}",
+                    f"{league}|full_game",
+                    segment_key
+                ]:
+                    if l_key:
+                        cands = t_eng.get_active_candidates(l_key)
+                        if cands:
+                            model.register_champion(family, sub_family, cands[0], cands[0].model_id)
+                            break
+            except Exception:
+                pass
+
+        if hasattr(model, 'report') and isinstance(model.report, dict):
                 v_markets = set(model.report.get('validated_markets') or [])
                 if family in ('asian_lines', 'spreads') or sub_family in ('asian_handicap', 'set_handicap'):
                     v_markets.update(['spreads', 'totals'])
