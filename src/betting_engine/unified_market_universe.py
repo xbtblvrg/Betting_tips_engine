@@ -717,33 +717,40 @@ class UnifiedMarketUniverse:
                         prof.phase_detail = f"Tier 4 Live Proven Alpha ({a_roi:+.1f}% ROI over {a_cnt} games) - Scaled Production"
                 else:
                     # No post-graduation live decisions yet (0 live settled games with new champion model).
-                    # Newly graduated Crucible models start fresh on Tier 3 Live Probation ($0.50 floor)
-                    # and must NEVER be disqualified by ancient pre-graduation losses of superseded models.
-
-                    # Fixture-Aware Silent Market Eviction Guard (Commandments 1, 2, 6, 7 & 10):
-                    # Check how many distinct match opportunities have occurred in this league since graduation.
-                    grad_ts = grad_at_map.get(k_perf) or grad_at_map.get(f"{prof.league}|{prof.scope}|{prof.family}") or '1970-01-01'
-                    lg_key = (prof.league or '').upper().strip()
-                    games_since_grad = 0
-                    if lg_key in league_games_map:
-                        games_since_grad = sum(1 for g_ts in league_games_map[lg_key].values() if g_ts >= grad_ts)
-
-                    MIN_FIXTURE_OPPORTUNITIES = 5
-                    if games_since_grad >= MIN_FIXTURE_OPPORTUNITIES:
-                        # Genuine execution bottleneck: The league had >= 5 matches, but market emitted 0 bets.
-                        # Evicted from Tier 3 to Tier 1 R&D for bottleneck diagnostics.
+                    if at_stat and (at_stat.get('pnl', 0.0) < 0.0 or at_stat.get('roi_pct', 0.0) < 0.0):
                         prof.tier = int(MarketTier.RESEARCH_RND)
                         prof.tier_name = "RESEARCH_RND"
                         prof.stake_cap = 0.00
                         prof.active_model_id = None
                         prof.model_archetype = None
-                        prof.phase_detail = f"Dormant Market Eviction (0 bets across {games_since_grad} games post-grad) - Quarantined to R&D ($0.00)"
+                        prof.phase_detail = f"Past Live Loss Quarantine (${at_stat['pnl']:.2f}, {at_stat['sample_size']} games) - Quarantined ($0.00)"
                         grad_keys_set.discard(k_perf)
                     else:
-                        # Retains full Tier 3 live probation at $0.50 floor without premature eviction!
-                        prof.stake_cap = 0.50
-                        games_info = f"{games_since_grad}/5 games seen" if games_since_grad > 0 else "pending fixtures"
-                        prof.phase_detail = f"Newly Graduated Crucible Model - Live Probation ($0.50 floor, {games_info})"
+                        # Newly graduated Crucible models start fresh on Tier 3 Live Probation ($0.50 floor)
+                        # Fixture-Aware Silent Market Eviction Guard (Commandments 1, 2, 6, 7 & 10):
+                        # Check how many distinct match opportunities have occurred in this league since graduation.
+                        grad_ts = grad_at_map.get(k_perf) or grad_at_map.get(f"{prof.league}|{prof.scope}|{prof.family}") or '1970-01-01'
+                        lg_key = (prof.league or '').upper().strip()
+                        games_since_grad = 0
+                        if lg_key in league_games_map:
+                            games_since_grad = sum(1 for g_ts in league_games_map[lg_key].values() if g_ts >= grad_ts)
+
+                        MIN_FIXTURE_OPPORTUNITIES = 5
+                        if games_since_grad >= MIN_FIXTURE_OPPORTUNITIES:
+                            # Genuine execution bottleneck: The league had >= 5 matches, but market emitted 0 bets.
+                            # Evicted from Tier 3 to Tier 1 R&D for bottleneck diagnostics.
+                            prof.tier = int(MarketTier.RESEARCH_RND)
+                            prof.tier_name = "RESEARCH_RND"
+                            prof.stake_cap = 0.00
+                            prof.active_model_id = None
+                            prof.model_archetype = None
+                            prof.phase_detail = f"Dormant Market Eviction (0 bets across {games_since_grad} games post-grad) - Quarantined to R&D ($0.00)"
+                            grad_keys_set.discard(k_perf)
+                        else:
+                            # Retains full Tier 3 live probation at $0.50 floor without premature eviction!
+                            prof.stake_cap = 0.50
+                            games_info = f"{games_since_grad}/5 games seen" if games_since_grad > 0 else "pending fixtures"
+                            prof.phase_detail = f"Newly Graduated Crucible Model - Live Probation ($0.50 floor, {games_info})"
 
         def _register_market_candidate(lg: str, sc: str, fam: str, model_id: Optional[str], archetype: str) -> None:
             lg_clean = (lg or '').upper().strip()

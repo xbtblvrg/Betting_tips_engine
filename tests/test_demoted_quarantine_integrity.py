@@ -35,15 +35,18 @@ def test_demoted_markets_strictly_blocked_by_rank_and_size():
     store = Store()
     settings = store.settings()
 
-    test_cands = [
-        {
-            'id': 'a1b2c3d4e5f607182930',
-            'game_id': 'NHL:2026020309',
-            'league': 'NHL',
-            'market': 'spreads',
-            'model_scope': 'full_game',
+    sample_segs = [s for s in sorted(dem_segs) if s.count('|') == 2 and ':' not in s.split('|')[2] and s.split('|')[1] in ('full_game', 'half_1', 'period_1')][:3]
+    test_cands = []
+    for i, seg in enumerate(sample_segs):
+        lg, sc, fam = seg.split('|')
+        test_cands.append({
+            'id': f'dem_cand_{i}',
+            'game_id': f'{lg}:game_{i}',
+            'league': lg,
+            'market': fam,
+            'model_scope': sc,
             'side': 'home',
-            'line': -1.5,
+            'line': 0.0,
             'expected_roi': 0.20,
             'stress_roi': 0.15,
             'probability': 0.65,
@@ -54,46 +57,7 @@ def test_demoted_markets_strictly_blocked_by_rank_and_size():
             'start': '2026-11-14T00:00:00Z',
             'created_at': '2026-11-13T12:00:00Z',
             'reasons': []
-        },
-        {
-            'id': 'b1c2d3e4f5a607182931',
-            'game_id': 'EPL:401879250',
-            'league': 'EPL',
-            'market': 'totals',
-            'model_scope': 'full_game',
-            'side': 'over',
-            'line': 2.5,
-            'expected_roi': 0.25,
-            'stress_roi': 0.18,
-            'probability': 0.70,
-            'stress_probability': 0.65,
-            'push_probability': 0.0,
-            'reference_odds': 1.90,
-            'reference_platform': 'Stake.com',
-            'start': '2026-11-14T15:00:00Z',
-            'created_at': '2026-11-13T12:00:00Z',
-            'reasons': []
-        },
-        {
-            'id': 'c1d2e3f4a5b607182932',
-            'game_id': 'NBA:401909892',
-            'league': 'NBA',
-            'market': 'three_way',
-            'model_scope': 'half_1',
-            'side': 'home',
-            'line': 0.0,
-            'expected_roi': 0.30,
-            'stress_roi': 0.20,
-            'probability': 0.65,
-            'stress_probability': 0.60,
-            'push_probability': 0.05,
-            'reference_odds': 2.10,
-            'reference_platform': 'Stake.com',
-            'start': '2026-11-14T01:00:00Z',
-            'created_at': '2026-11-13T12:00:00Z',
-            'reasons': []
-        }
-    ]
+        })
 
     chosen, alts = rank_and_size(test_cands, settings, held_event_roster={})
 

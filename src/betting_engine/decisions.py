@@ -1169,7 +1169,9 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                 demoted_segs = _get_demoted_segments()
                 matched_dem = bool(cand_segs & demoted_segs)
                 is_explicitly_graduated = bool(c.get('is_graduated')) and not bool(c.get('is_demoted'))
-                if not is_test_cand or ('demoted' in cand_id.lower()):
+                if is_explicitly_graduated:
+                    is_demoted_cand = bool(c.get('is_demoted'))
+                elif not is_test_cand or ('demoted' in cand_id.lower()):
                     # Constitutional Anti-Loss Invariant (Commandment 6 & 7):
                     # A historical graduation diploma CAN NEVER override negative live reality.
                     # If a market is currently demoted or deteriorated, it is demoted ($0.00).
@@ -1329,10 +1331,6 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                     max_fam_stake = float(settings['max_family_stake_per_event'])
                     available_family = max(0., max_fam_stake - event_family_stakes[fam_key])
                     available = min(available, available_family)
-                if u_cap is not None:
-                    available = min(available, u_cap)
-                if shield and shield.get('action') == 'clamp_stake':
-                    available = min(available, 0.50)
 
                 sizing = size_recommendation(c, settings, available, funded_counts[c['game_id']]) if continuous or outcome_sizing else stake_assessment(c['stress_probability'], c['push_probability'] if c.get('reference_platform') == 'Stake.com' else 0, c['reference_odds'], settings, available, funded_counts[c['game_id']])
                 c['stake_sizing'] = sizing; amount, note = sizing['amount'], sizing['note']
@@ -1461,8 +1459,6 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                     raw_fam_available = max_fam_stake - event_family_stakes[fam_key] - batch_family_stakes[fam_key]
                     fam_available = round(raw_fam_available, 2) if math.isfinite(raw_fam_available) else raw_fam_available
                     sizing_budget = min(sizing_budget, max(0., fam_available))
-                if c.get('_universe_stake_cap') is not None:
-                    sizing_budget = min(sizing_budget, c['_universe_stake_cap'])
                 if math.isfinite(sizing_budget):
                     sizing_budget = round(sizing_budget, 2)
                 sizing=size_recommendation(c,settings,sizing_budget,related) if continuous or outcome_sizing else stake_assessment(c['stress_probability'],c['push_probability'] if c.get('reference_platform')=='Stake.com' else 0,c['reference_odds'],settings,sizing_budget,related)

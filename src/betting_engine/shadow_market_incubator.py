@@ -2676,7 +2676,6 @@ class ShadowMarketIncubator:
                     SELECT league, scope, family, sub_family, odds, pnl, brier_model, brier_market, dynamic_sample_power_req, raw_market_name, cohort, settled_at, model_id
                     FROM incubated_wagers
                     WHERE status = 'settled' AND league = ? AND scope = ? AND family = ? AND sub_family = ? AND cohort = ?
-                    GROUP BY fixture_id, selection, line
                     ORDER BY settled_at ASC, id ASC
                 """, (league, scope, family, sub_family, cohort_val))
                 records = cur_rec.fetchall()
@@ -2860,11 +2859,9 @@ class ShadowMarketIncubator:
                             if matches_live_decision_to_market(p, meta_grad) and str(iss) > eff_dem_at
                         ]
                     else:
-                        # For markets without active demotion, evaluate recent live decisions (last 7 days)
-                        cutoff_recent = (utcnow() - timedelta(days=7)).isoformat()
                         eval_live = [
                             (p, pnl) for p, pnl, iss in cached_live_rows
-                            if matches_live_decision_to_market(p, meta_grad) and str(iss) >= cutoff_recent
+                            if matches_live_decision_to_market(p, meta_grad)
                         ]
                     if eval_live:
                         tot_live = sum(pnl for _, pnl in eval_live)
