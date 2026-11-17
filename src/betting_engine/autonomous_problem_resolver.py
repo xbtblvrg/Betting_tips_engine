@@ -693,12 +693,17 @@ class AutonomousProblemResolver:
                             cur = conn.cursor()
                             pending_tasks = set()
                             try:
-                                rows = cur.execute("SELECT payload FROM learning_jobs WHERE status IN ('pending', 'running', 'retry')").fetchall()
+                                rows = cur.execute("SELECT payload FROM learning_jobs WHERE status IN ('queued', 'pending', 'running', 'retry')").fetchall()
                                 for r in rows:
                                     try:
                                         p_load = json.loads(r[0])
-                                        if p_load.get('segment'):
-                                            pending_tasks.add(p_load['segment'])
+                                        s_val = p_load.get('segment') or p_load.get('segment_key')
+                                        if s_val:
+                                            pending_tasks.add(s_val)
+                                            if ':' in s_val:
+                                                parts = s_val.split('|')
+                                                if len(parts) == 3 and ':' in parts[2]:
+                                                    pending_tasks.add(f"{parts[0]}|{parts[1]}|{parts[2].split(':')[-1]}")
                                     except Exception:
                                         pass
                             except Exception:
@@ -706,7 +711,14 @@ class AutonomousProblemResolver:
 
                             # Enqueue autonomous repair for dragging segments
                             for seg in (quarantined + clamped)[:3]:
-                                if seg not in pending_tasks:
+                                base_seg = seg
+                                if ':' in seg:
+                                    parts = seg.split('|')
+                                    if len(parts) == 3 and ':' in parts[2]:
+                                        base_seg = f"{parts[0]}|{parts[1]}|{parts[2].split(':')[-1]}"
+                                if seg not in pending_tasks and base_seg not in pending_tasks:
+                                    pending_tasks.add(seg)
+                                    pending_tasks.add(base_seg)
                                     now_str = utcnow().isoformat()
                                     job_id = f"auto_repair_{hashlib.sha256(f'{seg}_{now_str}'.encode()).hexdigest()[:12]}"
                                     lg = seg.split('|')[0] if '|' in seg else None

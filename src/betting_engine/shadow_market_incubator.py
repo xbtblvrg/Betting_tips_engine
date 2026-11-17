@@ -2337,16 +2337,25 @@ class ShadowMarketIncubator:
                         except Exception:
                             inc_hours = 0.0
 
-                        # Query settled incubated wagers
+                        eff_sub = (sub_fam or family or '').split(':')[-1].strip()
+                        eff_fam = (family or '').split(':')[-1].strip()
+
+                        # Query settled incubated wagers matching exact sub_family/family
                         cur_w.execute("""
                             SELECT odds, pnl, brier_model, brier_market, settled_at
                             FROM incubated_wagers
                             WHERE status = 'settled'
                               AND league = ? AND scope = ?
-                              AND (family = ? OR family LIKE '%' || ? || '%' OR ? LIKE '%' || family || '%')
+                              AND (
+                                  sub_family = ?
+                                  OR (
+                                      (sub_family IS NULL OR sub_family = '' OR sub_family = family)
+                                      AND (family = ? OR family = ? OR family LIKE '%' || ? || '%')
+                                  )
+                              )
                               AND (settled_at > ? OR ? IS NULL)
                             ORDER BY settled_at ASC
-                        """, (league, scope, family, family, family, adm_at, adm_at))
+                        """, (league, scope, eff_sub, eff_sub, eff_fam, eff_sub, adm_at, adm_at))
                         w_rows = cur_w.fetchall()
                         n_live = len(w_rows)
                         live_pnls = [float(w[1] or 0.0) for w in w_rows]
@@ -2357,8 +2366,14 @@ class ShadowMarketIncubator:
                         cur_w.execute("""
                             SELECT count(*) FROM incubated_wagers
                             WHERE status = 'open' AND league = ? AND scope = ?
-                              AND (family = ? OR family LIKE '%' || ? || '%' OR ? LIKE '%' || family || '%')
-                        """, (league, scope, family, family, family))
+                              AND (
+                                  sub_family = ?
+                                  OR (
+                                      (sub_family IS NULL OR sub_family = '' OR sub_family = family)
+                                      AND (family = ? OR family = ? OR family LIKE '%' || ? || '%')
+                                  )
+                              )
+                        """, (league, scope, eff_sub, eff_sub, eff_fam, eff_sub))
                         n_open = cur_w.fetchone()[0] or 0
 
                         # 2. Off-Season & Hiatus Protection
@@ -2583,7 +2598,7 @@ class ShadowMarketIncubator:
                        count(*), sum(pnl), avg(odds), avg(brier_model), avg(brier_market)
                 FROM incubated_wagers
                 WHERE status = 'settled'
-                  AND league IN ('NBA', 'NFL', 'NHL', 'MLS', 'EPL', 'UCL', 'ATP', 'WTA', 'MLB', 'NCAAF', 'NCAAM', 'WNBA')
+                  AND league IN ('NBA', 'NFL', 'NHL', 'MLS', 'EPL', 'UCL', 'ATP', 'WTA', 'MLB', 'NCAAF', 'NCAAM', 'NCAAW', 'WNBA')
                 GROUP BY league, scope, family, sub_family, cohort
                 HAVING count(*) >= 10
             """)
@@ -2663,7 +2678,7 @@ class ShadowMarketIncubator:
                 from .contracts import is_supported_stake_contract, is_preferred_alpha_league
                 if not is_supported_stake_contract(league, scope, family, sub_family):
                     continue  # Theoretical/phantom archetype not currently offered pre-match by Stake
-                if not is_preferred_alpha_league(league) and league not in ('NCAAM', 'WNBA'):
+                if not is_preferred_alpha_league(league) and league not in ('NCAAM', 'NCAAW', 'WNBA'):
                     continue  # Strictly focus AI compute and graduation on high-liquidity preferred sports and active college leagues
 
                 if pnl_sum <= 0:

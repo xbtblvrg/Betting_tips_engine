@@ -501,7 +501,7 @@ class BottleneckWatchdog:
                     FROM demoted_markets dm
                     JOIN ai_synthesis_feedback_loop fb ON dm.segment_key = fb.segment_key
                     WHERE dm.incubation_phase = 'research_training'
-                      AND (fb.crucible_passed = 1 OR (fb.oos_sample_size >= 5 AND fb.oos_simulated_roi >= 0.035))
+                      AND fb.oos_sample_size >= 5 AND fb.oos_simulated_roi >= 0.035
                     ORDER BY fb.oos_simulated_roi DESC, fb.oos_sample_size DESC
                 """)
                 unadmitted_rows = cur.fetchall()
@@ -1160,6 +1160,11 @@ class BottleneckWatchdog:
                 with closing(sqlite3.connect(db_path, timeout=60.0)) as conn:
                     conn.execute("PRAGMA busy_timeout = 60000;")
                     cur = conn.cursor()
+                    cur.execute("""
+                        UPDATE learning_jobs
+                        SET status = 'superseded', updated_at = ?
+                        WHERE kind = 'autonomous_bottleneck_repair' AND status = 'queued'
+                    """, (now_iso,))
                     cur.execute("""
                         INSERT INTO learning_jobs (id, kind, league, status, created_at, updated_at, next_attempt, attempts, payload)
                         VALUES (?, 'autonomous_bottleneck_repair', 'MULTI', 'queued', ?, ?, ?, 0, ?)
