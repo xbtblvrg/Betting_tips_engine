@@ -1,15 +1,15 @@
 # Live Stake market coverage
 
-Checked: 2026-11-17T20:22:47.115342+00:00
+Checked: 2026-11-17T20:40:34.481643+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
 | League | Observed titles | Activity unverified | Offered now | Complete 10/10 | Incomplete offered | Evaluated | Funding supported | Ready now | Issued today |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | NFL | 70 | 1 | 40 | 0 | 40 | 20 | 7 | 0 | 6 |
-| NHL | 72 | 5 | 60 | 0 | 60 | 42 | 12 | 12 | 45 |
+| NHL | 72 | 5 | 60 | 0 | 60 | 42 | 13 | 13 | 45 |
 | MLB | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| NBA | 126 | 3 | 99 | 0 | 99 | 48 | 7 | 3 | 21 |
+| NBA | 126 | 3 | 99 | 0 | 99 | 49 | 10 | 6 | 21 |
 | WNBA | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 
 Current stages require outcome-level evidence; original issuance, settlement and feedback are explicitly historical. 10/10 records observed execution, not proven profitability or automatic model promotion.
@@ -59,7 +59,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | 1st Quarter - Portland Trail Blazers total | standard | quarter_1 | offered_now | 9/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 1/1 | verified 1/1 | partial 1/2 | 0 |
 | NBA | 1st Quarter - San Antonio Spurs total | standard | quarter_1 | offered_now | 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | 1st Quarter - Toronto Raptors total | standard | quarter_1 | offered_now | 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NBA | 1st Quarter - Total | standard | quarter_1 | offered_now | 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NBA | 1st Quarter - Total | standard | quarter_1 | offered_now | 7/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | 1st Quarter - Utah Jazz total | standard | quarter_1 | offered_now | 8/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 1/1 | not_observed 0/0 | partial 0/1 | 1 |
 | NBA | 1st Quarter - Winning Margin | standard | quarter_1 | offered_now | 0/10 | not_observed 0/15 | not_observed 0/15 | not_observed 0/15 | not_observed 0/15 | not_observed 0/15 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | 1st half 1x2 & 1st half total | standard | half_1 | offered_now | 0/10 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
@@ -266,7 +266,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NHL | Philadelphia Flyers Total | standard | regulation | offered_now | 4/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | verified 1/1 | not_observed 0/0 | partial 0/1 | 1 |
 | NHL | San Jose Sharks Total | standard | regulation | offered_now | 3/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
 | NHL | St. Louis Blues Total | standard | regulation | offered_now | 4/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | verified 1/1 | not_observed 0/0 | partial 0/1 | 1 |
-| NHL | Tampa Bay Lightning Total | standard | regulation | offered_now | 4/10 | partial 4/6 | verified 6/6 | partial 4/6 | partial 4/6 | partial 4/6 | verified 4/4 | verified 4/4 | verified 1/1 | not_observed 0/0 | partial 0/1 | 1 |
+| NHL | Tampa Bay Lightning Total | standard | regulation | offered_now | 4/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | verified 1/1 | not_observed 0/0 | partial 0/1 | 1 |
 | NHL | Toronto Maple Leafs Total | standard | regulation | offered_now | 7/10 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Total (Incl. Overtime and Penalties) | standard | full_game | offered_now | 5/10 | partial 93/110 | verified 110/110 | partial 93/110 | partial 93/110 | partial 93/110 | verified 93/93 | verified 93/93 | verified 7/7 | verified 2/2 | partial 1/3 | 5 |
 | NHL | Utah Mammoth Total | standard | regulation | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 0/2 | 0 |
