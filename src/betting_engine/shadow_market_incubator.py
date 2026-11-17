@@ -4277,10 +4277,12 @@ class ShadowMarketIncubator:
                     # by Phase 1 Capital Defense ($0.50 tourniquet). Only sustained breakdown
                     # demotes a market back to Tier 1 R&D quarantine ($0.00):
                     # - 5+ games with rolling units <= -3.5U and rolling ROI <= -40%
+                    # - OR 6+ games with rolling units <= -2.0U and rolling ROI <= -20%
                     # - OR 8+ games with (rolling units <= -2.5U and ROI <= -15%) or (rolling units <= -1.5U and ROI <= -20%) or (rolling units <= -4.0U and ROI <= -5%) or z-score <= -1.96
                     # - OR 12+ games with total live units <= -3.0U and total PnL < 0
                     should_demote = (
                         (len(recent) >= 5 and rolling_units_pnl <= -3.5 and rolling_roi <= -0.40)
+                        or (len(recent) >= 6 and rolling_units_pnl <= -2.0 and rolling_roi <= -0.20)
                         or (len(recent) >= 8 and (
                             (rolling_units_pnl <= -2.5 and rolling_roi <= -0.15)
                             or (rolling_units_pnl <= -1.5 and rolling_roi <= -0.20)

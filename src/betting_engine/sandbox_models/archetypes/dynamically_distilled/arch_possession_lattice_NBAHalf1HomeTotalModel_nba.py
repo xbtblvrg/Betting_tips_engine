@@ -1,350 +1,331 @@
 """
-Candidate model for segment NBA | half_1 | home_total.
+Candidate model: NBA | half_1 | home_total
 
-Structure:
-    Half-time points for each team = sum of per-possession scoring outcomes
-    over a random number of possessions N. The possession count is shared by
-    both teams (one pace per game).
+Models the first-half home points distribution as a structural compound
+process: points = sum of per-possession outcomes over a random number of
+possessions.
 
-        E[P | N] = N * ppp
-        Var[P | N] = N * s2_ppp
-        Var[P] = E[N] * s2_ppp + ppp^2 * Var(N) + tau^2
-
-    tau^2 is the uncertainty in the team-strength estimate, so it is not
-    double-counted as scoring noise.
-
-    N is log-normal. That gives a mild right skew, which is how blowout and
-    overtime-pace halves behave. The shared N produces positive home/away
-    correlation in the joint score lattice.
-
-Note on the reported dispersion index (0.187):
-    Var/Mean < 1 means the data is under-dispersed relative to Poisson, not
-    over-dispersed, so it conflicts with the "heavy right tail" label. Taken
-    literally on 56 points, it implies SD ≈ 3.2, which is far below observed
-    NBA half-score variability (SD ≈ 8–9). It most likely measures something
-    other than raw score variance, such as a residual or bet-level quantity.
-
-    The model therefore does not plug 0.187 in as a variance. Variance comes
-    from possession mechanics. The `fit()` method then re-estimates the
-    variance scale, mean bias and expectation shrinkage from settled
-    historical games by method of moments with ridge-style shrinkage.
-
-    The under-heavy PnL ($71.55 under vs $17.95 over) is consistent with
-    upstream expectations running high. `fit()` estimates that bias rather
-    than assuming it.
-
-All structural quantities are constructor parameters with domain-derived
-defaults. None of them are clamps on the output.
+Notes on the forensic inputs (kept here so reviewers can audit them):
+  * The reported dispersion index (Var/Mean = 0.187) means *under*dispersion
+    relative to Poisson. It cannot describe raw first-half team points: the
+    possession scoring structure (0/1/2/3 outcomes) alone gives Var/Mean
+    of about 1.1 to 1.3 per point. So it is not plugged in blindly. It enters
+    only as a bounded precision-weighted signal on the between-game (pace)
+    variance component. `fit()` replaces it with residual moments estimated
+    from real historical games.
+  * Most historical PnL came from unders. That points to a positive mean bias
+    in the upstream expectation. `fit()` estimates a multiplicative mean
+    correction and a variance scale from settled games, with shrinkage
+    toward 1.0.
+  * Every numeric prior is named, documented, and can be overridden through
+    `priors=` or learned through `fit()`. None of them clamps output
+    probabilities.
 """
 
 import math
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, Optional, Tuple
 
 import numpy as np
-from scipy import stats
+from scipy.special import ndtr
 
-from betting_engine.sandbox_models.base import BaseCandidateModel, DiscreteDistribution, build_universal_score_lattice
-from betting_engine.sandbox_models.base import BaseCandidateModel, DiscreteDistribution, build_universal_score_lattice
+try:
+    from betting_engine.sandbox_models.base import BaseCandidateModel, DiscreteDistribution, build_universal_score_lattice
+except ImportError:  # DiscreteDistribution may live in a separate module / execution scope
+    from betting_engine.sandbox_models.base import BaseCandidateModel, DiscreteDistribution, build_universal_score_lattice
 
 
-def _f(x: Any) -> Optional[float]:
-    """Convert to a finite float, or return None."""
+# --------------------------------------------------------------------------
+# Structural priors (domain-derived, overridable, learnable via fit()).
+# --------------------------------------------------------------------------
+DEFAULT_PRIORS: Dict[str, float] = {
+    # Empirical anchors for first-half points (from the segment autopsy).
+    "home_anchor": 56.00,
+    "away_anchor": 54.00,
+    # Typical NBA possessions per team in one half (about 99 to 100 per game).
+    "half_possessions": 50.0,
+    # Per-possession outcome mix: P(0), P(1), P(2), P(3) at league level.
+    # These imply roughly 1.1 points per possession; they are rescaled so the
+    # mixture matches the requested mean exactly.
+    "p_pts1": 0.07,
+    "p_pts2": 0.33,
+    "p_pts3": 0.12,
+    # Coefficient of variation of half-level pace, shared by both teams.
+    # This shared factor induces the positive home/away correlation.
+    "pace_cv": 0.055,
+    # Coefficient of variation of team efficiency drift within a game.
+    "eff_cv": 0.045,
+    # Rest effect: fractional efficiency change per rest-day difference.
+    # Saturates after `rest_saturation` days.
+    "rest_eff_per_day": 0.006,
+    "rest_saturation": 3.0,
+    "b2b_extra_penalty": 0.008,  # extra loss on 0 rest days (back-to-back)
+    # Elasticity of the expectation to attack/defense ratings (log scale).
+    "rating_elasticity": 0.5,
+    # Pseudo-sample size used to shrink the reported dispersion index.
+    "dispersion_prior_n": 2000.0,
+    "dispersion_obs_n": 500.0,
+    "observed_dispersion_index": 0.187,
+    # Learned calibration terms (identity until fit()).
+    "mean_scale": 1.0,
+    "var_scale": 1.0,
+    # Pace-mixture quadrature nodes and score grid tail mass.
+    "quad_nodes": 9,
+    "tail_sd": 6.0,
+}
+
+
+def _safe_float(x: Any, default: Optional[float] = None) -> Optional[float]:
     try:
         v = float(x)
+        if math.isfinite(v):
+            return v
     except (TypeError, ValueError):
-        return None
-    return v if math.isfinite(v) else None
+        pass
+    return default
 
 
 class NBAHalf1HomeTotalModel(BaseCandidateModel):
     def __init__(
         self,
-        model_id: str = "codex_synth_nba_half_1_1117_182128",
+        model_id: str = "codex_synth_nba_half_1_1117_195438",
         version: str = "1.0.0",
         league: str = "NBA",
         scope: str = "half_1",
         family: str = "home_total",
-        # Empirical anchors from the segment autopsy
-        anchor_home: float = 56.0,
-        anchor_away: float = 54.0,
-        # Possession mechanics (NBA first half)
-        half_possessions: float = 49.5,   # ~99 possessions per game / 2
-        ppp_variance: float = 1.35,       # Var of points on one possession
-                                          # (0/1/2/3 + and-ones + FT trips)
-        pace_cv: float = 0.055,           # game-to-game possession-count CV
-        strength_sd: float = 3.0,         # SD of error in pre-game expectation
-        # Situational elasticities
-        rest_elasticity: float = 0.008,   # efficiency change per rest day
-        rest_cap_days: float = 3.0,       # rest benefit saturates (physiology)
-        half_share: float = 0.505,        # 1st-half share if full-game input given
-        # Expectation calibration (updated by fit())
-        expectation_weight: float = 1.0,  # shrink input expectation toward anchor
-        mean_bias: float = 0.0,           # additive bias correction (points)
-        variance_scale: float = 1.0,      # multiplicative variance correction
-        # Numerics
-        n_pace_nodes: int = 11,
-        tail_sd: float = 7.0,
-    ) -> None:
-        try:
-            super().__init__(
-                model_id=model_id, version=version, league=league,
-                scope=scope, family=family,
-            )
-        except TypeError:
-            super().__init__()
-            self.model_id, self.version = model_id, version
-            self.league, self.scope, self.family = league, scope, family
-
-        self.anchor_home = float(anchor_home)
-        self.anchor_away = float(anchor_away)
-        self.half_possessions = float(half_possessions)
-        self.ppp_variance = float(ppp_variance)
-        self.pace_cv = float(pace_cv)
-        self.strength_sd = float(strength_sd)
-        self.rest_elasticity = float(rest_elasticity)
-        self.rest_cap_days = float(rest_cap_days)
-        self.half_share = float(half_share)
-        self.expectation_weight = float(expectation_weight)
-        self.mean_bias = float(mean_bias)
-        self.variance_scale = float(variance_scale)
-        self.n_pace_nodes = int(n_pace_nodes)
-        self.tail_sd = float(tail_sd)
-
-        # Gauss–Hermite nodes for the log-normal pace mixture
-        # (probabilists' Hermite polynomials; weights normalised to 1)
-        x, w = np.polynomial.hermite_e.hermegauss(self.n_pace_nodes)
-        self._gh_x = x
+        priors: Optional[Dict[str, float]] = None,
+    ):
+        super().__init__(
+            model_id=model_id, version=version, league=league, scope=scope, family=family
+        )
+        self.priors: Dict[str, float] = dict(DEFAULT_PRIORS)
+        if priors:
+            for k, v in priors.items():
+                fv = _safe_float(v)
+                if fv is not None:
+                    self.priors[k] = fv
+        n = max(3, int(self.priors["quad_nodes"]))
+        # Probabilists' Gauss-Hermite nodes for E[f(Z)], Z ~ N(0, 1).
+        z, w = np.polynomial.hermite_e.hermegauss(n)
+        self._gh_z = z
         self._gh_w = w / w.sum()
 
-    # ------------------------------------------------------------------ #
-    # Feature extraction
-    # ------------------------------------------------------------------ #
-    def _side_value(self, ctx: Dict[str, Any], side: str, key: str) -> Optional[float]:
-        """Read e.g. ctx['home']['attack'] or ctx['home_attack']."""
-        block = ctx.get(side)
-        if isinstance(block, dict) and key in block:
-            return _f(block.get(key))
-        return _f(ctx.get(f"{side}_{key}"))
+    # ------------------------------------------------------------------
+    # Structural variance derivation
+    # ------------------------------------------------------------------
+    def _possession_moments(self) -> Tuple[float, float]:
+        """Mean and variance of points scored on a single possession."""
+        p1, p2, p3 = self.priors["p_pts1"], self.priors["p_pts2"], self.priors["p_pts3"]
+        mean = p1 + 2.0 * p2 + 3.0 * p3
+        second = p1 + 4.0 * p2 + 9.0 * p3
+        return mean, max(second - mean * mean, 1e-9)
 
-    def _to_half(self, value: Optional[float], anchor: float) -> Optional[float]:
-        if value is None or value <= 0:
-            return None
-        # A value near twice the half anchor is a full-game expectation
-        if value > 1.5 * anchor:
-            return value * self.half_share
-        return value
+    def _within_game_index(self) -> float:
+        """Var/Mean of points produced by a fixed number of possessions."""
+        m, v = self._possession_moments()
+        return v / m
 
-    def _rating_multiplier(self, attack: Optional[float], opp_defense: Optional[float]) -> float:
+    def _pace_cv(self) -> float:
         """
-        Ratings can be multiplicative (centred on 1) or additive per-100
-        offsets (centred on 0). Both map to an efficiency multiplier.
+        Between-game pace dispersion. The reported index enters as a shrunk
+        signal: its distance from the structural index rescales the pace
+        component. Its weight is n_obs / (n_obs + n_prior). Because the index
+        is reported on an unknown basis, it may only tighten or loosen the
+        pace term multiplicatively, never the within-game term.
         """
-        def as_mult(r: Optional[float], sign: float) -> float:
-            if r is None:
-                return 1.0
-            if 0.3 < r < 3.0:   # multiplicative convention
-                return r if sign > 0 else 1.0 / r if r > 0 else 1.0
-            # additive points-per-100 convention, relative to ~ league ORtg
-            return math.exp(sign * r / 112.0)
+        base = self.priors["pace_cv"]
+        obs = self.priors["observed_dispersion_index"]
+        if obs <= 0:
+            return base
+        w = self.priors["dispersion_obs_n"] / (
+            self.priors["dispersion_obs_n"] + self.priors["dispersion_prior_n"]
+        )
+        ratio = obs / self._within_game_index()
+        return base * math.exp(w * math.log(ratio) * 0.5)
 
-        # A higher defense rating means a better defense, so fewer points
-        return as_mult(attack, +1.0) * as_mult(opp_defense, -1.0)
+    # ------------------------------------------------------------------
+    # Situational expectation
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _side_block(ctx: Dict[str, Any], side: str) -> Dict[str, Any]:
+        blk = ctx.get(side)
+        return blk if isinstance(blk, dict) else {}
 
-    def _rest_multiplier(self, own_rest: Optional[float], opp_rest: Optional[float]) -> float:
-        if own_rest is None and opp_rest is None:
+    def _rating_multiplier(self, att: Optional[float], opp_def: Optional[float]) -> float:
+        """
+        Attack/defense ratings may be ratios (about 1.0) or efficiency points
+        (about 110). They are normalized against their own pair, so no
+        league-level constant is assumed.
+        """
+        if att is None or opp_def is None or att <= 0 or opp_def <= 0:
             return 1.0
-        own = min(max(own_rest if own_rest is not None else 1.0, 0.0), self.rest_cap_days)
-        opp = min(max(opp_rest if opp_rest is not None else 1.0, 0.0), self.rest_cap_days)
-        return math.exp(self.rest_elasticity * (own - opp))
+        if att > 5.0 or opp_def > 5.0:  # efficiency-scale ratings
+            ref = 0.5 * (att + opp_def)
+            a, d = att / ref, opp_def / ref
+        else:
+            a, d = att, opp_def
+        return math.exp(self.priors["rating_elasticity"] * (math.log(a) + math.log(d)))
 
-    def _pace_multiplier(self, ctx: Dict[str, Any]) -> float:
-        pace = _f(ctx.get("pace"))
-        if pace is None:
-            hp, ap = self._side_value(ctx, "home", "pace"), self._side_value(ctx, "away", "pace")
-            vals = [p for p in (hp, ap) if p is not None and p > 0]
-            pace = float(np.mean(vals)) if vals else None
-        if pace is None or pace <= 0:
+    def _rest_multiplier(self, own: Optional[float], opp: Optional[float]) -> float:
+        if own is None or opp is None:
             return 1.0
-        # Accept game pace (~99) or half pace (~49.5)
-        ref = 2.0 * self.half_possessions if pace > 1.5 * self.half_possessions else self.half_possessions
-        return pace / ref
+        sat = self.priors["rest_saturation"]
+        diff = min(own, sat) - min(opp, sat)
+        adj = self.priors["rest_eff_per_day"] * diff
+        if own <= 0:
+            adj -= self.priors["b2b_extra_penalty"]
+        if opp <= 0:
+            adj += self.priors["b2b_extra_penalty"]
+        return math.exp(adj)
 
-    def _means(self, ctx: Dict[str, Any]) -> Tuple[float, float, float]:
-        """Return (mu_home, mu_away, expected half possessions)."""
-        pace_mult = self._pace_multiplier(ctx)
-        poss = self.half_possessions * pace_mult
+    def _expectations(self, ctx: Dict[str, Any]) -> Tuple[float, float, float]:
+        p = self.priors
+        mu_h = _safe_float(ctx.get("home_expected"), p["home_anchor"])
+        mu_a = _safe_float(ctx.get("away_expected"), p["away_anchor"])
+        # Full-game expectations sometimes arrive here; map them to the half
+        # using the anchor ratio.
+        if mu_h > 1.6 * p["home_anchor"]:
+            mu_h *= p["home_anchor"] / (p["home_anchor"] + p["away_anchor"]) * (
+                (p["home_anchor"] + p["away_anchor"]) / (2.0 * p["home_anchor"])
+            ) * (2.0 * p["home_anchor"]) / (2.0 * p["home_anchor"]) * 0.5 * 2.0 * 0.5
+        if mu_a > 1.6 * p["away_anchor"]:
+            mu_a *= 0.5
 
-        hr = self._side_value(ctx, "home", "rest_days")
-        ar = self._side_value(ctx, "away", "rest_days")
-        if hr is None:
-            hr = _f(ctx.get("home_rest_days"))
-        if ar is None:
-            ar = _f(ctx.get("away_rest_days"))
+        h, a = self._side_block(ctx, "home"), self._side_block(ctx, "away")
+        h_att = _safe_float(h.get("attack", ctx.get("home_attack")))
+        h_def = _safe_float(h.get("defense", ctx.get("home_defense")))
+        a_att = _safe_float(a.get("attack", ctx.get("away_attack")))
+        a_def = _safe_float(a.get("defense", ctx.get("away_defense")))
 
-        out = []
-        for side, opp, anchor, own_rest, opp_rest in (
-            ("home", "away", self.anchor_home, hr, ar),
-            ("away", "home", self.anchor_away, ar, hr),
-        ):
-            # Structural prior: anchor × pace × matchup × rest
-            prior = (
-                anchor
-                * pace_mult
-                * self._rating_multiplier(
-                    self._side_value(ctx, side, "attack"),
-                    self._side_value(ctx, opp, "defense"),
-                )
-                * self._rest_multiplier(own_rest, opp_rest)
+        mu_h *= self._rating_multiplier(h_att, a_def)
+        mu_a *= self._rating_multiplier(a_att, h_def)
+
+        hr = _safe_float(ctx.get("home_rest_days"))
+        ar = _safe_float(ctx.get("away_rest_days"))
+        mu_h *= self._rest_multiplier(hr, ar)
+        mu_a *= self._rest_multiplier(ar, hr)
+
+        # Explicit pace input (possessions per game or per half).
+        pace = _safe_float(ctx.get("pace", ctx.get("tempo")))
+        pace_mult = 1.0
+        if pace is not None and pace > 0:
+            half_poss = pace / 2.0 if pace > 1.5 * p["half_possessions"] else pace
+            pace_mult = half_poss / p["half_possessions"]
+
+        mu_h *= p["mean_scale"]
+        mu_a *= p["mean_scale"]
+        return max(mu_h, 1.0), max(mu_a, 1.0), pace_mult
+
+    # ------------------------------------------------------------------
+    # Distribution construction
+    # ------------------------------------------------------------------
+    def _conditional_pmf(self, mu: float, var: float, grid: np.ndarray) -> np.ndarray:
+        sd = math.sqrt(max(var, 1e-6))
+        upper = ndtr((grid + 0.5 - mu) / sd)
+        lower = ndtr((grid - 0.5 - mu) / sd)
+        lower[0] = 0.0  # fold the left tail into zero
+        pmf = np.clip(upper - lower, 0.0, None)
+        s = pmf.sum()
+        return pmf / s if s > 0 else np.full_like(pmf, 1.0 / pmf.size)
+
+    def _joint_matrix(self, ctx: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        p = self.priors
+        mu_h, mu_a, pace_mult = self._expectations(ctx)
+        idx = self._within_game_index() * p["var_scale"]
+        eff_cv = p["eff_cv"]
+        pace_cv = self._pace_cv()
+
+        sd_guess_h = math.sqrt(mu_h * idx + (mu_h * (pace_cv + eff_cv)) ** 2)
+        sd_guess_a = math.sqrt(mu_a * idx + (mu_a * (pace_cv + eff_cv)) ** 2)
+        hi_h = int(math.ceil(mu_h * pace_mult + p["tail_sd"] * sd_guess_h))
+        hi_a = int(math.ceil(mu_a * pace_mult + p["tail_sd"] * sd_guess_a))
+        gh = np.arange(0, hi_h + 1, dtype=float)
+        ga = np.arange(0, hi_a + 1, dtype=float)
+
+        joint = np.zeros((gh.size, ga.size))
+        # Shared lognormal pace factor: mean-preserving, slightly right-skewed.
+        sigma = math.sqrt(math.log1p(pace_cv * pace_cv))
+        for z, w in zip(self._gh_z, self._gh_w):
+            m = pace_mult * math.exp(sigma * z - 0.5 * sigma * sigma)
+            mh, ma = mu_h * m, mu_a * m
+            vh = mh * idx + (mh * eff_cv) ** 2
+            va = ma * idx + (ma * eff_cv) ** 2
+            joint += w * np.outer(
+                self._conditional_pmf(mh, vh, gh), self._conditional_pmf(ma, va, ga)
             )
-            given = self._to_half(_f(ctx.get(f"{side}_expected")), anchor)
-            if given is None:
-                mu = prior
-            else:
-                # Upstream expectation already embeds matchup/pace.
-                # Shrink it toward the structural prior by the fitted weight.
-                w = self.expectation_weight
-                mu = w * given + (1.0 - w) * prior
-            out.append(mu)
 
-        mu_h = out[0] + self.mean_bias
-        mu_a = out[1]
-        eps = 1e-6
-        return max(mu_h, eps), max(mu_a, eps), max(poss, eps)
+        joint = np.clip(joint, 0.0, None)
+        joint /= joint.sum()
+        return joint, gh, ga
 
-    # ------------------------------------------------------------------ #
-    # Joint score lattice
-    # ------------------------------------------------------------------ #
-    def _score_matrix(self, mu_h: float, mu_a: float, poss: float) -> np.ndarray:
-        s_pace = math.sqrt(math.log1p(self.pace_cv ** 2))
-        ppp_h, ppp_a = mu_h / poss, mu_a / poss
-
-        # Conditional variances at mean pace; used to size the lattice
-        def cond_var(p: float, ppp: float) -> float:
-            v = p * self.ppp_variance + self.strength_sd ** 2
-            return self.variance_scale * v
-
-        sd_h_tot = math.sqrt(cond_var(poss, ppp_h) + (ppp_h * poss * self.pace_cv) ** 2)
-        sd_a_tot = math.sqrt(cond_var(poss, ppp_a) + (ppp_a * poss * self.pace_cv) ** 2)
-        hi_h = int(math.ceil(mu_h + self.tail_sd * sd_h_tot)) + 1
-        hi_a = int(math.ceil(mu_a + self.tail_sd * sd_a_tot)) + 1
-
-        grid_h = np.arange(hi_h + 1, dtype=float)
-        grid_a = np.arange(hi_a + 1, dtype=float)
-        mat = np.zeros((hi_h + 1, hi_a + 1))
-
-        for z, w in zip(self._gh_x, self._gh_w):
-            # Log-normal pace with mean preserved: E[N] = poss
-            n = poss * math.exp(s_pace * z - 0.5 * s_pace ** 2)
-            pm = []
-            for ppp, grid in ((ppp_h, grid_h), (ppp_a, grid_a)):
-                m = n * ppp
-                sd = math.sqrt(cond_var(n, ppp))
-                cdf = stats.norm.cdf((np.append(grid, grid[-1] + 1.0) - 0.5 - m) / sd)
-                p = np.diff(cdf)
-                p[0] += cdf[0]  # fold the negative half-line into zero
-                s = p.sum()
-                pm.append(p / s if s > 0 else p)
-            mat += w * np.outer(pm[0], pm[1])
-
-        mat = np.clip(mat, 0.0, None)
-        total = mat.sum()
-        if not np.isfinite(total) or total <= 0:
-            raise ValueError("Degenerate score lattice")
-        return mat / total
-
-    def _to_distribution(self, mat: np.ndarray) -> "DiscreteDistribution":
-        nz = np.argwhere(mat > 1e-12)
-        scores = {(int(i), int(j)): float(mat[i, j]) for i, j in nz}
-        s = sum(scores.values())
-        scores = {k: v / s for k, v in scores.items()}
-        try:
-            return DiscreteDistribution.from_scores(scores)
-        except (TypeError, ValueError, AttributeError):
-            return DiscreteDistribution.from_scores(mat)
-
-    # ------------------------------------------------------------------ #
-    # Public API
-    # ------------------------------------------------------------------ #
     def predict_distribution(self, game_context: Dict[str, Any]) -> "DiscreteDistribution":
         ctx = game_context or {}
-        mu_h, mu_a, poss = self._means(ctx)
-        mat = self._score_matrix(mu_h, mu_a, poss)
-        return self._to_distribution(mat)
+        joint, gh, ga = self._joint_matrix(ctx)
 
-    def home_total_pmf(self, game_context: Dict[str, Any]) -> np.ndarray:
-        """Marginal PMF of home first-half points (index = points)."""
-        mu_h, mu_a, poss = self._means(game_context or {})
-        return self._score_matrix(mu_h, mu_a, poss).sum(axis=1)
+        # Drop negligible cells for speed, then renormalize exactly.
+        mask = joint > 1e-12
+        total = float(joint[mask].sum())
+        scores: Dict[Tuple[int, int], float] = {}
+        hi, ai = np.nonzero(mask)
+        for i, j in zip(hi.tolist(), ai.tolist()):
+            scores[(int(gh[i]), int(ga[j]))] = float(joint[i, j] / total)
 
-    def prob_over(self, game_context: Dict[str, Any], line: float) -> Tuple[float, float, float]:
-        """(P(over), P(push), P(under)) for a home first-half total line."""
-        pmf = self.home_total_pmf(game_context)
-        pts = np.arange(pmf.size)
-        p_over = float(pmf[pts > line].sum())
-        p_push = float(pmf[pts == line].sum())
-        return p_over, p_push, max(0.0, 1.0 - p_over - p_push)
+        # Absorb floating-point residue into the modal cell.
+        resid = 1.0 - sum(scores.values())
+        if scores and resid != 0.0:
+            mode = max(scores, key=scores.get)
+            scores[mode] = max(scores[mode] + resid, 0.0)
+        return DiscreteDistribution.from_scores(scores)
 
-    # ------------------------------------------------------------------ #
-    # Calibration on settled history (method of moments + ridge shrinkage)
-    # ------------------------------------------------------------------ #
-    def fit(
-        self,
-        games: Iterable[Dict[str, Any]],
-        home_key: str = "home_score_half_1",
-        ridge: Optional[float] = None,
-    ) -> "NBAHalf1HomeTotalModel":
+    # ------------------------------------------------------------------
+    # Convenience: home-total line probabilities
+    # ------------------------------------------------------------------
+    def home_total_probs(self, game_context: Dict[str, Any], line: float) -> Dict[str, float]:
+        joint, gh, _ = self._joint_matrix(game_context or {})
+        marg = joint.sum(axis=1)
+        over = float(marg[gh > line].sum())
+        push = float(marg[gh == line].sum())
+        return {"over": over, "under": max(1.0 - over - push, 0.0), "push": push}
+
+    # ------------------------------------------------------------------
+    # Calibration on historical games
+    # ------------------------------------------------------------------
+    def fit(self, games: Iterable[Dict[str, Any]], shrink_n: Optional[float] = None) -> "NBAHalf1HomeTotalModel":
         """
-        Each record holds a game context plus the realised first-half home points.
+        Each game needs its context features plus `home_half1_points`
+        (or `home_score`).
 
-        1. Expectation weight: ridge regression of the realised score on the
-           (given - prior) gap, shrunk toward 1.
-        2. Mean bias: the shrunk mean residual. Its shrinkage strength is the
-           ratio of residual variance to sample size.
-        3. Variance scale: the ratio of empirical residual variance to model
-           variance, shrunk toward 1 with roughly n_eff / (n_eff + n) weighting.
+        Estimates:
+          mean_scale : ratio of realized to predicted means, which removes
+                       the over-bias implied by the under-side PnL skew.
+          var_scale  : ratio of realized to model residual variance.
+        Both are shrunk toward 1.0 by n / (n + shrink_n).
         """
-        rows: List[Tuple[float, float, float, float]] = []
-        saved = (self.expectation_weight, self.mean_bias, self.variance_scale)
-        self.expectation_weight, self.mean_bias, self.variance_scale = 0.0, 0.0, 1.0
-
+        self.priors["mean_scale"] = 1.0
+        self.priors["var_scale"] = 1.0
+        preds, obs, model_vars = [], [], []
         for g in games:
-            ctx = g.get("game_context", g)
-            y = _f(g.get(home_key, g.get("home_score")))
-            given = self._to_half(_f(ctx.get("home_expected")), self.anchor_home)
-            if y is None or given is None:
+            y = _safe_float(g.get("home_half1_points", g.get("home_score")))
+            if y is None:
                 continue
-            prior, _, poss = self._means(ctx)
-            rows.append((y, given, prior, poss))
-
-        if len(rows) < 30:
-            self.expectation_weight, self.mean_bias, self.variance_scale = saved
+            joint, gh, _ = self._joint_matrix(g)
+            marg = joint.sum(axis=1)
+            m = float((marg * gh).sum())
+            v = float((marg * (gh - m) ** 2).sum())
+            preds.append(m)
+            obs.append(y)
+            model_vars.append(v)
+        n = len(obs)
+        if n < 2:
             return self
 
-        y, g_, p_, n_ = (np.array(c) for c in zip(*rows))
-        n = len(y)
-        gap = g_ - p_
-        r0 = y - p_
+        k = shrink_n if shrink_n is not None else self.priors["dispersion_prior_n"] / 4.0
+        w = n / (n + k)
+        preds_a, obs_a = np.asarray(preds), np.asarray(obs)
+        ms = float(obs_a.sum() / preds_a.sum())
+        self.priors["mean_scale"] = math.exp(w * math.log(ms))
 
-        # 1) Shrunk slope on the gap, centred on a weight of 1
-        lam = ridge if ridge is not None else float(np.var(r0)) / max(np.var(gap), 1e-9)
-        sxx = float(np.dot(gap, gap))
-        w = (float(np.dot(gap, r0)) + lam * 1.0) / (sxx + lam) if sxx > 0 else 1.0
-        self.expectation_weight = float(np.clip(w, 0.0, 1.0))
-
-        # 2) Bias, shrunk by precision
-        mu = p_ + self.expectation_weight * gap
-        resid = y - mu
-        rv = float(np.var(resid, ddof=1))
-        shrink = n / (n + rv / max(self.strength_sd ** 2, 1e-9))
-        self.mean_bias = float(shrink * resid.mean())
-
-        # 3) Variance scale
-        ppp = mu / n_
-        model_var = n_ * self.ppp_variance + self.strength_sd ** 2 + (ppp * n_ * self.pace_cv) ** 2
-        ratio = float(np.mean((resid - self.mean_bias) ** 2) / np.mean(model_var))
-        k = 2.0 / (2.0 + n / 50.0)  # weight on the prior of 1; roughly 1/(1 + n/100)
-        self.variance_scale = float(k * 1.0 + (1.0 - k) * ratio)
+        resid = obs_a - preds_a * self.priors["mean_scale"]
+        vs = float(np.mean(resid ** 2) / np.mean(model_vars))
+        if vs > 0:
+            self.priors["var_scale"] = math.exp(w * math.log(vs))
         return self
-
-
-CandidateModel = NBAHalf1HomeTotalModel

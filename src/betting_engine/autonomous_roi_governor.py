@@ -289,10 +289,12 @@ class AutonomousROIGovernor:
             # 4. Dynamic Loss Circuit Breaker (Scale-Invariant in Risk Units - Commandment 3 & 6):
             # Placed in TOXIC_QUARANTINE ($0.00 stake) upon statistically significant sustained failure:
             # - N >= 5 games with rolling units <= -3.5U and ROI <= -40%
+            # - N >= 6 games with rolling units <= -2.0U and ROI <= -20%
             # - N >= 8 games with (units <= -2.5U and ROI <= -15%) or (units <= -1.5U and ROI <= -20%) or (units <= -4.0U and ROI <= -5%)
             # - OR N >= 12 games with total units <= -3.0U and ROI <= -10%
             elif (
                 (len(rec_bets) >= 5 and rec_units <= -3.5 and rec_roi <= -40.0)
+                or (len(rec_bets) >= 6 and rec_units <= -2.0 and rec_roi <= -20.0)
                 or (len(rec_bets) >= 8 and (
                     (rec_units <= -2.5 and rec_roi <= -15.0)
                     or (rec_units <= -1.5 and rec_roi <= -20.0)

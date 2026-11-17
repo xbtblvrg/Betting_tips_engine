@@ -2,7 +2,13 @@
 from pathlib import Path
 from contextlib import closing
 import json, time, shutil, sqlite3, os
-from .providers import DATA
+try:
+    from .providers import DATA
+except ImportError:
+    try:
+        from betting_engine.providers import DATA
+    except ImportError:
+        DATA = Path(__file__).resolve().parent.parent.parent / "data"
 
 def maintain(root=DATA):
     root = Path(root)
@@ -191,3 +197,7 @@ def maintain(root=DATA):
         'quote_max_bytes': 256 * 1024**2,
         'quote_retention_days': 30
     }
+
+if __name__ == '__main__':
+    res = maintain()
+    print("Maintenance run complete:", res)

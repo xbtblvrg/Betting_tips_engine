@@ -1,15 +1,15 @@
 # Live Stake market coverage
 
-Checked: 2026-11-17T19:47:12.113954+00:00
+Checked: 2026-11-17T20:05:28.537865+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
 | League | Observed titles | Activity unverified | Offered now | Complete 10/10 | Incomplete offered | Evaluated | Funding supported | Ready now | Issued today |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| NFL | 64 | 1 | 40 | 0 | 40 | 20 | 7 | 0 | 6 |
+| NFL | 68 | 1 | 40 | 0 | 40 | 20 | 7 | 0 | 6 |
 | NHL | 72 | 5 | 60 | 0 | 60 | 42 | 12 | 12 | 45 |
 | MLB | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| NBA | 126 | 3 | 99 | 0 | 99 | 49 | 10 | 5 | 21 |
+| NBA | 126 | 3 | 99 | 0 | 99 | 49 | 7 | 1 | 21 |
 | WNBA | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 
 Current stages require outcome-level evidence; original issuance, settlement and feedback are explicitly historical. 10/10 records observed execution, not proven profitability or automatic model promotion.
@@ -172,6 +172,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NFL | 4th Quarter - Handicap | standard | quarter_4 | offered_now | 4/10 | partial 1/2 | verified 2/2 | partial 1/2 | partial 1/2 | partial 1/2 | verified 1/1 | verified 1/1 | verified 1/1 | not_observed 0/0 | awaiting_measurement 0/1 | 1 |
 | NFL | 4th Quarter - Total | standard | quarter_4 | offered_now | 1/10 | not_observed 0/2 | verified 2/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Arizona Cardinals Total (Incl. Overtime) | standard | full_game | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NFL | Atlanta Falcons Total (Incl. Overtime) | standard | full_game | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Baltimore Ravens Total (Incl. Overtime) | standard | full_game | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Buffalo Bills Total (Incl. Overtime) | standard | full_game | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Carolina Panthers Total (Incl. Overtime) | standard | full_game | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
@@ -191,12 +192,15 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NFL | Las Vegas Raiders Total (Incl. Overtime) | standard | full_game | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Los Angeles Chargers Total (Incl. Overtime) | standard | full_game | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 0/2 | 0 |
 | NFL | Miami Dolphins Total (Incl. Overtime) | standard | full_game | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NFL | Minnesota Vikings Total (Incl. Overtime) | standard | full_game | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | New Orleans Saints Total (Incl. Overtime) | standard | full_game | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | New York Giants Total (Incl. Overtime) | standard | full_game | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | New York Jets Total (Incl. Overtime) | standard | full_game | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Odd/Even (Incl. Overtime) | standard | full_game | offered_now | 1/10 | not_observed 0/2 | verified 2/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Philadelphia Eagles Total (Incl. Overtime) | standard | full_game | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Pittsburgh Steelers Total (Incl. Overtime) | standard | full_game | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NFL | San Francisco 49ers Total (Incl. Overtime) | standard | full_game | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NFL | Seattle Seahawks Total (Incl. Overtime) | standard | full_game | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Tampa Bay Buccaneers Total (Incl. Overtime) | standard | full_game | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Tennessee Titans Total (Incl. Overtime) | standard | full_game | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Total (Incl. Overtime) | standard | full_game | offered_now | 7/10 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
@@ -205,7 +209,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NFL | Will There be Overtime | standard | regulation | offered_now | 6/10 | partial 1/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 1/1 | verified 1/1 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Winner (Incl. Overtime) | standard | full_game | offered_now | 7/10 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Winning Margin | standard | regulation | offered_now | 0/10 | not_observed 0/7 | not_observed 0/7 | not_observed 0/7 | not_observed 0/7 | not_observed 0/7 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NFL | 1st half anytime touchdown | swishMarkets.playerProps | half_1 | observed_activity_unverified | 0/10 | activity_unverified 0/96 | activity_unverified 0/96 | activity_unverified 0/96 | activity_unverified 0/96 | activity_unverified 0/96 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NFL | 1st half anytime touchdown | swishMarkets.playerProps | half_1 | observed_activity_unverified | 0/10 | activity_unverified 0/100 | activity_unverified 0/100 | activity_unverified 0/100 | activity_unverified 0/100 | activity_unverified 0/100 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 1st Goal | standard | regulation | offered_now | 0/10 | not_observed 0/33 | not_observed 0/33 | not_observed 0/33 | not_observed 0/33 | not_observed 0/33 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 1st Period - 1st Goal | standard | period_1 | offered_now | 0/10 | not_observed 0/33 | not_observed 0/33 | not_observed 0/33 | not_observed 0/33 | not_observed 0/33 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 1st Period - 1x2 | standard | period_1 | offered_now | 9/10 | verified 33/33 | verified 33/33 | verified 33/33 | verified 33/33 | verified 33/33 | verified 33/33 | verified 33/33 | verified 11/11 | verified 2/2 | partial 1/3 | 9 |
