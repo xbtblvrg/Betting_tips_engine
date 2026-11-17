@@ -1,7 +1,7 @@
 """Bounded generated caches. Decisions, model versions and user ledger are durable."""
 from pathlib import Path
 from contextlib import closing
-import json, time, shutil, sqlite3
+import json, time, shutil, sqlite3, os
 from .providers import DATA
 
 def maintain(root=DATA):
@@ -64,19 +64,60 @@ def maintain(root=DATA):
                 except Exception:
                     pass
 
-    # 4. Automated cleanup of old development workspaces older than 4 hours
+    # 4. Automated cleanup of old development workspaces older than 2 hours
     workspaces = root / 'development' / 'workspaces'
     workspaces_removed = 0
     if workspaces.is_dir():
         for item in workspaces.iterdir():
-            if item.is_dir() and (now - item.stat().st_mtime > 14400):
+            if item.is_dir() and (now - item.stat().st_mtime > 7200):
                 try:
                     shutil.rmtree(item)
                     workspaces_removed += 1
-                    if workspaces_removed >= 10:
+                    if workspaces_removed >= 200:
                         break
                 except Exception:
                     pass
+
+    # 4b. Automated cleanup of excessive engineering evidence older than 48 hours
+    eng_evidence = root / 'development' / 'engineering-evidence'
+    if eng_evidence.is_dir():
+        ev_count = 0
+        try:
+            for item in os.scandir(eng_evidence):
+                ev_count += 1
+                if ev_count > 50000 or (item.name.endswith('.json') and (now - item.stat().st_mtime > 172800)):
+                    try:
+                        os.unlink(item.path)
+                    except OSError:
+                        pass
+        except Exception:
+            pass
+
+    # 4c. Automated cleanup of outcome feedback inputs/observations older than 48 hours
+    for of_dir_name in ('inputs', 'observations'):
+        of_dir = root / 'outcome_feedback' / of_dir_name
+        if of_dir.is_dir():
+            try:
+                for item in os.scandir(of_dir):
+                    if now - item.stat().st_mtime > 172800:
+                        try:
+                            os.unlink(item.path)
+                        except OSError:
+                            pass
+            except Exception:
+                pass
+
+    # 4d. Automated cleanup of market catalog versions (retain latest 5)
+    cat_versions = root / 'market_catalog' / 'versions'
+    if cat_versions.is_dir():
+        try:
+            v_dirs = [d for d in cat_versions.iterdir() if d.is_dir()]
+            if len(v_dirs) > 5:
+                v_dirs.sort(key=lambda d: d.stat().st_mtime)
+                for old_v in v_dirs[:-5]:
+                    shutil.rmtree(old_v, ignore_errors=True)
+        except Exception:
+            pass
 
     # 5. Automated cleanup of discard receipts older than 7 days
     for receipt_dir_name in ('release-staging-discard-receipts', 'workspace-input-discard-receipts'):
