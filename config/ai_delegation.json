@@ -22,7 +22,8 @@
       "enabled": true,
       "binary": "/Users/belavarga/.local/bin/agy",
       "role": "primary",
-      "model": "gemini-3.8-flash-high"
+      "model": "gemini-4-argon-high",
+      "primary_fallback_model": "gemini-3.8-flash-high"
     },
     "grok": {
       "enabled": true,
@@ -44,7 +45,8 @@
     "configuration": "config/provider_recovery.json",
     "when": "Verified provider quota/unavailability recovery where eligible",
     "provider": "agy",
-    "model": "gemini-3.8-flash-high",
+    "model": "gemini-4-argon-high",
+    "primary_fallback_model": "gemini-3.8-flash-high",
     "secondary_fallback_provider": "codex",
     "secondary_fallback_model": "gpt-6-astra",
     "scope": "Google Antigravity agy leads candidate implementation and review; helper/deputy calls remain advisory; final production review agy."
