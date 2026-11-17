@@ -1,6 +1,6 @@
 # Live Stake market coverage
 
-Checked: 2026-11-17T19:13:23.347342+00:00
+Checked: 2026-11-17T19:29:53.593700+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
@@ -9,7 +9,7 @@ Observed feed titles; not proof of complete Stake website coverage. Funding supp
 | NFL | 64 | 1 | 40 | 0 | 40 | 20 | 7 | 0 | 6 |
 | NHL | 72 | 5 | 60 | 0 | 60 | 42 | 12 | 12 | 45 |
 | MLB | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| NBA | 126 | 3 | 99 | 0 | 99 | 49 | 11 | 6 | 21 |
+| NBA | 126 | 3 | 99 | 0 | 99 | 48 | 7 | 2 | 21 |
 | WNBA | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 
 Current stages require outcome-level evidence; original issuance, settlement and feedback are explicitly historical. 10/10 records observed execution, not proven profitability or automatic model promotion.
@@ -59,7 +59,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | 1st Quarter - Portland Trail Blazers total | standard | quarter_1 | offered_now | 9/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 1/1 | verified 1/1 | partial 1/2 | 0 |
 | NBA | 1st Quarter - San Antonio Spurs total | standard | quarter_1 | offered_now | 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | 1st Quarter - Toronto Raptors total | standard | quarter_1 | offered_now | 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NBA | 1st Quarter - Total | standard | quarter_1 | offered_now | 7/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NBA | 1st Quarter - Total | standard | quarter_1 | offered_now | 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | 1st Quarter - Utah Jazz total | standard | quarter_1 | offered_now | 8/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 1/1 | not_observed 0/0 | partial 0/1 | 1 |
 | NBA | 1st Quarter - Winning Margin | standard | quarter_1 | offered_now | 0/10 | not_observed 0/15 | not_observed 0/15 | not_observed 0/15 | not_observed 0/15 | not_observed 0/15 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | 1st half 1x2 & 1st half total | standard | half_1 | offered_now | 0/10 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
@@ -85,7 +85,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | 4th Quarter - Draw No Bet | standard | quarter_4 | offered_now | 7/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | 4th Quarter - Handicap | standard | quarter_4 | offered_now | 9/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 2/2 | verified 1/1 | partial 0/2 | 1 |
 | NBA | 4th Quarter - Odd/Even | standard | quarter_4 | offered_now | 1/10 | not_observed 0/10 | verified 10/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NBA | 4th Quarter - Total | standard | quarter_4 | offered_now | 7/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NBA | 4th Quarter - Total | standard | quarter_4 | offered_now | 7/10 | verified 8/8 | verified 8/8 | verified 8/8 | verified 8/8 | verified 8/8 | verified 8/8 | verified 8/8 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | 4th Quarter - Winning Margin | standard | quarter_4 | offered_now | 0/10 | not_observed 0/15 | not_observed 0/15 | not_observed 0/15 | not_observed 0/15 | not_observed 0/15 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Any Team Total Maximum Consecutive Points | standard | regulation | offered_now | 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Any team to win both halves | standard | regulation | offered_now | 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
@@ -100,7 +100,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | Halftime/Fulltime | standard | regulation | offered_now | 0/10 | not_observed 0/45 | not_observed 0/45 | not_observed 0/45 | not_observed 0/45 | not_observed 0/45 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Handicap (Incl. Overtime) | standard | full_game | offered_now | 9/10 | verified 70/70 | verified 70/70 | verified 70/70 | verified 70/70 | verified 70/70 | verified 70/70 | verified 70/70 | verified 13/13 | verified 8/8 | partial 7/9 | 6 |
 | NBA | Handicap (including OT) & Total (including OT) | standard | regulation | offered_now | 0/10 | not_observed 0/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NBA | Highest Scoring Half | standard | regulation | offered_now | 0/10 | not_observed 0/15 | not_observed 0/15 | not_observed 0/15 | not_observed 0/15 | not_observed 0/15 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NBA | Highest Scoring Half | standard | regulation | offered_now | 0/10 | not_observed 0/12 | not_observed 0/12 | not_observed 0/12 | not_observed 0/12 | not_observed 0/12 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Highest Scoring Quarter | standard | regulation | offered_now | 0/10 | not_observed 0/25 | not_observed 0/25 | not_observed 0/25 | not_observed 0/25 | not_observed 0/25 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Highest scoring quarter - total | standard | regulation | offered_now | 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Los Angeles Clippers Total (Incl. Overtime) | standard | full_game | offered_now | 8/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 1/1 | not_observed 0/0 | partial 0/1 | 1 |
@@ -140,7 +140,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | match rebounds | standard | regulation | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | team turnovers | standard | regulation | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | match rebounds | swishMarkets.matchProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/84 | activity_unverified 0/84 | activity_unverified 0/84 | activity_unverified 0/84 | activity_unverified 0/84 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NBA | first scorer | swishMarkets.playerProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/194 | activity_unverified 0/194 | activity_unverified 0/194 | activity_unverified 0/194 | activity_unverified 0/194 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NBA | first scorer | swishMarkets.playerProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/196 | activity_unverified 0/196 | activity_unverified 0/196 | activity_unverified 0/196 | activity_unverified 0/196 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | team turnovers | swishMarkets.teamProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/42 | activity_unverified 0/42 | activity_unverified 0/42 | activity_unverified 0/42 | activity_unverified 0/42 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 1st Half - 1x2 | standard | half_1 | offered_now | 0/10 | not_observed 0/3 | not_observed 0/3 | not_observed 0/3 | not_observed 0/3 | not_observed 0/3 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 1st Half - Asian Handicap | standard | half_1 | offered_now | 3/10 | partial 1/2 | verified 2/2 | partial 1/2 | partial 1/2 | partial 1/2 | verified 1/1 | verified 1/1 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
