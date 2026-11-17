@@ -633,13 +633,18 @@ class UnifiedMarketUniverse:
 
                     # Scale-Invariant Degradation Guard (Anti-Constant Mandate, Commandment 3 & 6):
                     # Zero hardcoded dollar limits. A normal 2-3 bet wobble is managed by Phase 1 Capital Defense ($0.50 clamp).
-                    # A market is ONLY demoted to Tier 1 R&D quarantine ($0.00) upon sustained, statistically significant breakdown:
-                    # - Sustained rolling drawdown across N >= 8 games with rolling units <= -4.0U and negative ROI
-                    # - OR all-time deep failure across N >= 12 games with total units <= -5.0U and ROI <= -10%
+                    # A market is demoted to Tier 1 R&D quarantine ($0.00) upon sustained breakdown:
+                    # - N >= 5 games with units <= -3.5U and ROI <= -40%
+                    # - OR N >= 8 games with (units <= -2.5U and ROI <= -15%) or (units <= -1.5U and ROI <= -20%) or (units <= -4.0U and ROI <= -5%)
+                    # - OR all-time deep failure across N >= 12 games with total units <= -3.0U and ROI <= -10%
                     is_sb_degraded = (
-                        (r_games >= 5 and r_units <= -4.0 and r_roi <= -50.0)
-                        or (r_games >= 8 and r_units <= -4.0 and r_roi <= -5.0)
-                        or (tot_games >= 12 and tot_units <= -5.0 and tot_roi <= -10.0)
+                        (r_games >= 5 and r_units <= -3.5 and r_roi <= -40.0)
+                        or (r_games >= 8 and (
+                            (r_units <= -2.5 and r_roi <= -15.0)
+                            or (r_units <= -1.5 and r_roi <= -20.0)
+                            or (r_units <= -4.0 and r_roi <= -5.0)
+                        ))
+                        or (tot_games >= 12 and tot_units <= -3.0 and tot_roi <= -10.0)
                     )
                     if is_sb_degraded:
                         prof.tier = int(MarketTier.RESEARCH_RND)
@@ -664,14 +669,19 @@ class UnifiedMarketUniverse:
                     prof.sample_size = stat['sample_size']
 
                     # Scale-Invariant Degradation Guard (Anti-Constant Mandate, Commandment 3 & 6):
-                    # Zero hardcoded dollar limits. A market is ONLY demoted to Tier 1 R&D quarantine ($0.00)
-                    # upon sustained, statistically significant breakdown across an established sample:
-                    # - N >= 8 games with units <= -4.0U and ROI <= -5%
-                    # - OR N >= 12 games with units <= -5.0U and ROI <= -10%
+                    # Zero hardcoded dollar limits. A market is demoted to Tier 1 R&D quarantine ($0.00)
+                    # upon sustained breakdown across an established sample:
+                    # - N >= 5 games with units <= -3.5U and ROI <= -40%
+                    # - OR N >= 8 games with (units <= -2.5U and ROI <= -15%) or (units <= -1.5U and ROI <= -20%) or (units <= -4.0U and ROI <= -5%)
+                    # - OR N >= 12 games with units <= -3.0U and ROI <= -10%
                     is_stat_degraded = (
-                        (stat['sample_size'] >= 5 and stat['units'] <= -4.0 and stat['roi_pct'] <= -50.0)
-                        or (stat['sample_size'] >= 8 and stat['units'] <= -4.0 and stat['roi_pct'] <= -5.0)
-                        or (stat['sample_size'] >= 12 and stat['units'] <= -5.0 and stat['roi_pct'] <= -10.0)
+                        (stat['sample_size'] >= 5 and stat['units'] <= -3.5 and stat['roi_pct'] <= -40.0)
+                        or (stat['sample_size'] >= 8 and (
+                            (stat['units'] <= -2.5 and stat['roi_pct'] <= -15.0)
+                            or (stat['units'] <= -1.5 and stat['roi_pct'] <= -20.0)
+                            or (stat['units'] <= -4.0 and stat['roi_pct'] <= -5.0)
+                        ))
+                        or (stat['sample_size'] >= 12 and stat['units'] <= -3.0 and stat['roi_pct'] <= -10.0)
                     )
                     if is_stat_degraded:
                         prof.tier = int(MarketTier.RESEARCH_RND)

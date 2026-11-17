@@ -4274,17 +4274,20 @@ class ShadowMarketIncubator:
 
                     # Scale-Invariant Dynamic Loss Evaluation (Anti-Constant Mandate, Commandment 3 & 6):
                     # Zero hardcoded dollar limits. Mild wobbles (e.g. 4-6 games, small unit loss) are managed
-                    # by Phase 1 Capital Defense ($0.50 tourniquet). Only sustained, statistically proven failure
+                    # by Phase 1 Capital Defense ($0.50 tourniquet). Only sustained breakdown
                     # demotes a market back to Tier 1 R&D quarantine ($0.00):
-                    # - 5+ games with rolling units <= -4.0U and rolling ROI <= -50% (severe zero-win streak)
-                    # - OR 8+ games with z-score <= -1.96 and negative ROI
-                    # - OR 8+ games with rolling units <= -4.0U and rolling ROI <= -5%
-                    # - OR 12+ games with total live units <= -5.0U and total PnL < 0
+                    # - 5+ games with rolling units <= -3.5U and rolling ROI <= -40%
+                    # - OR 8+ games with (rolling units <= -2.5U and ROI <= -15%) or (rolling units <= -1.5U and ROI <= -20%) or (rolling units <= -4.0U and ROI <= -5%) or z-score <= -1.96
+                    # - OR 12+ games with total live units <= -3.0U and total PnL < 0
                     should_demote = (
-                        (len(recent) >= 5 and rolling_units_pnl <= -4.0 and rolling_roi <= -0.50)
-                        or (len(recent) >= 8 and z_score <= -1.96 and rolling_roi <= -0.03)
-                        or (len(recent) >= 8 and rolling_units_pnl <= -4.0 and rolling_roi <= -0.05)
-                        or (len(matching_decisions) >= 12 and total_live_units <= -5.0 and total_live_pnl < 0.0)
+                        (len(recent) >= 5 and rolling_units_pnl <= -3.5 and rolling_roi <= -0.40)
+                        or (len(recent) >= 8 and (
+                            (rolling_units_pnl <= -2.5 and rolling_roi <= -0.15)
+                            or (rolling_units_pnl <= -1.5 and rolling_roi <= -0.20)
+                            or (rolling_units_pnl <= -4.0 and rolling_roi <= -0.05)
+                            or (z_score <= -1.96 and rolling_roi <= -0.03)
+                        ))
+                        or (len(matching_decisions) >= 12 and total_live_units <= -3.0 and total_live_pnl < 0.0)
                     )
 
                     if should_demote:
