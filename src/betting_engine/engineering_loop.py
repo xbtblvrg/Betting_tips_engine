@@ -729,6 +729,8 @@ def sync_engineering_loop(root, plan, state=None, *, payload=None, operations=No
             if first or transition in ('created', 'reopened') or previous_digest != digest:
                 events.append({'at': now.isoformat(), 'gap_id': identity, 'event': transition,
                     'evidence_sha256': digest, 'due_at': prior['due_at']})
+                if previous_digest and previous_digest != digest:
+                    (folder / 'engineering-evidence' / (previous_digest + '.json')).unlink(missing_ok=True)
         # A root-only, source-bound requirement receipt may close a validation
         # gap after explicit acceptance; an old receipt cannot close a regression.
         from .delivery import verify_release_receipt
@@ -757,9 +759,12 @@ def sync_engineering_loop(root, plan, state=None, *, payload=None, operations=No
             digest = _digest(proof); archive = folder / 'engineering-evidence' / (digest + '.json')
             if not archive.exists():
                 atomic_json(archive, proof)
+            previous_res = row.get('resolution_sha256')
             row.update(state='resolved', resolved_at=now.isoformat(), last_observed_at=proof['observed_at'],
                 resolution_sha256=digest, resolution_path=str(archive.relative_to(root)))
             events.append({'at': now.isoformat(), 'gap_id': identity, 'event': 'resolved', 'evidence_sha256': digest})
+            if previous_res and previous_res != digest:
+                (folder / 'engineering-evidence' / (previous_res + '.json')).unlink(missing_ok=True)
         for row in registry['gaps'].values():
             row['overdue'] = row['state'] != 'resolved' and now >= parse_time(row['due_at'])
         focus = _tasks(registry, plan, state, now)

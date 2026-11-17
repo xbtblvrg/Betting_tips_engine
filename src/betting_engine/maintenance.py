@@ -119,6 +119,21 @@ def maintain(root=DATA):
         except Exception:
             pass
 
+    # 4e. Automated cleanup of stake_api_archive older than 7 days (or when > 50,000 files)
+    stake_archive = root / 'stake_api_archive'
+    if stake_archive.is_dir():
+        try:
+            arch_count = 0
+            for item in os.scandir(stake_archive):
+                arch_count += 1
+                if arch_count > 50000 or (item.name.endswith('.json.gz') and (now - item.stat().st_mtime > 7 * 86400)):
+                    try:
+                        os.unlink(item.path)
+                    except OSError:
+                        pass
+        except Exception:
+            pass
+
     # 5. Automated cleanup of discard receipts older than 7 days
     for receipt_dir_name in ('release-staging-discard-receipts', 'workspace-input-discard-receipts'):
         rdir = root / receipt_dir_name
@@ -148,6 +163,22 @@ def maintain(root=DATA):
                 conn.execute('PRAGMA wal_checkpoint(PASSIVE)')
         except Exception:
             pass
+
+    # 7. Automated log truncation (prevent runaway log files > 50MB)
+    logs_dir = root / 'logs'
+    if logs_dir.is_dir():
+        for log_file in logs_dir.glob('*'):
+            if log_file.is_file() and log_file.suffix in ('.log', '.jsonl'):
+                try:
+                    if log_file.stat().st_size > 50 * 1024 * 1024:
+                        chunk = 10 * 1024 * 1024
+                        with open(log_file, 'rb') as f:
+                            f.seek(-chunk, os.SEEK_END)
+                            tail_bytes = f.read()
+                        with open(log_file, 'wb') as f:
+                            f.write(tail_bytes)
+                except Exception:
+                    pass
 
     return {
         'raw_bytes': total,
