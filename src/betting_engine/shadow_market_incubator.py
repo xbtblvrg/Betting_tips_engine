@@ -2791,7 +2791,7 @@ class ShadowMarketIncubator:
                     is_admin_demote = (
                         any(admin_kw in reason_check_str 
                             for admin_kw in ('tier 1 r&d', 'deadlock reset', 'untraded', 'silent market', 'historical baseline', 'restored proven champion', 'auto-sync: tier 1', 'tier 1 candidate r&d'))
-                        and not any(dw in reason_check_str for dw in ('live drawdown', 'continuous review', 'established live loss', 'fast-fail eviction', 'stagnation eviction'))
+                        and not any(dw in reason_check_str for dw in ('live drawdown', 'continuous review', 'established live loss', 'fast-fail eviction', 'stagnation eviction', 'dormant market eviction'))
                     )
                     active_champ_id = (
                         demoted_model_map.get(segment_key)
@@ -3716,7 +3716,7 @@ class ShadowMarketIncubator:
                     is_admin_demote = (
                         any(admin_kw in reason_check_str 
                             for admin_kw in ('tier 1 r&d', 'deadlock reset', 'untraded', 'silent market', 'historical baseline', 'restored proven champion', 'auto-sync: tier 1', 'tier 1 candidate r&d'))
-                        and not any(dw in reason_check_str for dw in ('live drawdown', 'continuous review', 'established live loss', 'fast-fail eviction', 'stagnation eviction'))
+                        and not any(dw in reason_check_str for dw in ('live drawdown', 'continuous review', 'established live loss', 'fast-fail eviction', 'stagnation eviction', 'dormant market eviction'))
                     )
                     active_champ_id = (
                         demoted_model_map.get(segment_key)

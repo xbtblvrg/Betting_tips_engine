@@ -519,12 +519,42 @@ class UnifiedMarketUniverse:
 
         # 3. Ingest active Baseline Production markets with actual settled performance
         perf_map: Dict[str, Dict[str, Any]] = {}
+        league_games_map: Dict[str, Dict[str, str]] = {}
+        open_decisions_ts_map: Dict[str, str] = {}
+        if self.incubator_db_path.exists():
+            try:
+                with closing(sqlite3.connect(f"file:{self.incubator_db_path}?mode=ro", uri=True, timeout=2.0)) as inc_g_conn:
+                    for lg_i, gid_i, sat_i in inc_g_conn.execute("""
+                        SELECT league, game_id, min(settled_at)
+                        FROM incubated_wagers
+                        WHERE status = 'settled' AND settled_at IS NOT NULL AND game_id IS NOT NULL
+                        GROUP BY league, game_id
+                    """).fetchall():
+                        if lg_i and gid_i and sat_i:
+                            league_games_map.setdefault(str(lg_i).upper().strip(), {})[str(gid_i).strip()] = str(sat_i)
+            except Exception:
+                pass
         if self.engine_db_path.exists():
             try:
                 with closing(sqlite3.connect(f"file:{self.engine_db_path}?mode=ro", uri=True, timeout=2.0)) as eng_conn:
                     # Pre-calculate performance metrics for all markets across settled decisions
                     # Graduated markets are evaluated on decisions issued AFTER their graduation timestamp.
                     try:
+                        for lg_o, sc_o, fam_o, iss_o in eng_conn.execute("""
+                            SELECT
+                                json_extract(payload, '$.league'),
+                                COALESCE(json_extract(payload, '$.model_scope'), json_extract(payload, '$.period')),
+                                json_extract(payload, '$.market'),
+                                issued_at
+                            FROM system_decisions
+                            WHERE status = 'open'
+                        """).fetchall():
+                            if lg_o and fam_o and iss_o:
+                                ko = self.get_canonical_key(lg_o, sc_o, fam_o)
+                                open_decisions_ts_map[ko] = max(open_decisions_ts_map.get(ko, ''), str(iss_o))
+                                if ':' in str(fam_o):
+                                    bko = self.get_canonical_key(lg_o, sc_o, str(fam_o).split(':')[-1])
+                                    open_decisions_ts_map[bko] = max(open_decisions_ts_map.get(bko, ''), str(iss_o))
                         rows_perf = eng_conn.execute("""
                             SELECT 
                                 json_extract(payload, '$.league'),
@@ -538,7 +568,6 @@ class UnifiedMarketUniverse:
                             WHERE status IN ('won', 'lost', 'push')
                         """).fetchall()
                         all_time_perf_map: Dict[str, Dict[str, Any]] = {}
-                        league_games_map: Dict[str, Dict[str, str]] = {}
                         last_live_ts_map: Dict[str, str] = {}
                         for lg_r, sc_r, fam_r, pnl_r, stake_r, iss_r, gid_r in rows_perf:
                             if not lg_r or not fam_r:
@@ -749,8 +778,13 @@ class UnifiedMarketUniverse:
                         if lg_key in league_games_map:
                             games_since_grad = sum(1 for g_ts in league_games_map[lg_key].values() if g_ts >= grad_ts)
 
+                        base_fam_chk = (prof.sub_family or prof.family or '').split(':')[-1]
+                        base_k_chk = self.get_canonical_key(prof.league, prof.scope, base_fam_chk)
+                        latest_open_ts = max(open_decisions_ts_map.get(k_perf, ''), open_decisions_ts_map.get(base_k_chk, ''))
+                        has_open_post_grad = bool(latest_open_ts and latest_open_ts >= grad_ts)
+
                         MIN_FIXTURE_OPPORTUNITIES = 5
-                        if games_since_grad >= MIN_FIXTURE_OPPORTUNITIES:
+                        if games_since_grad >= MIN_FIXTURE_OPPORTUNITIES and not has_open_post_grad:
                             # Genuine execution bottleneck: The league had >= 5 matches, but market emitted 0 bets.
                             # Evicted from Tier 3 to Tier 1 R&D for bottleneck diagnostics.
                             prof.tier = int(MarketTier.RESEARCH_RND)
@@ -763,7 +797,7 @@ class UnifiedMarketUniverse:
                         else:
                             # Retains full Tier 3 live probation at $0.50 floor without premature eviction!
                             prof.stake_cap = 0.50
-                            games_info = f"{games_since_grad}/5 games seen" if games_since_grad > 0 else "pending fixtures"
+                            games_info = "active open bets" if has_open_post_grad else (f"{games_since_grad}/5 games seen" if games_since_grad > 0 else "pending fixtures")
                             prof.phase_detail = f"Newly Graduated Crucible Model - Live Probation ($0.50 floor, {games_info})"
 
         def _register_market_candidate(lg: str, sc: str, fam: str, model_id: Optional[str], archetype: str) -> None:
@@ -957,6 +991,7 @@ class UnifiedMarketUniverse:
                             if in_demoted:
                                 if was_graduated and is_real_live_demote:
                                     to_update_demoted.append((
+                                        now_str,
                                         (p.rolling_roi_pct or 0.0) / 100.0,
                                         p.rolling_pnl or 0.0,
                                         p.sample_size or 0,
@@ -966,7 +1001,7 @@ class UnifiedMarketUniverse:
                                     ))
                                     existing_dem_map[k] = 'research_training'
                             else:
-                                d_eff_at = last_live_ts_map.get(k) or now_str
+                                d_eff_at = now_str if is_real_live_demote else (last_live_ts_map.get(k) or now_str)
                                 d_id = f"demote_{hashlib.sha256(f'{k}:{d_eff_at}'.encode()).hexdigest()[:16]}"
                                 to_insert.append((
                                     d_id, k, p.league, p.scope, p.family, p.sub_family or p.family,
@@ -1006,7 +1041,8 @@ class UnifiedMarketUniverse:
                             if to_update_demoted:
                                 inc_conn.executemany("""
                                     UPDATE demoted_markets
-                                    SET rolling_roi = ?,
+                                    SET demoted_at = ?,
+                                        rolling_roi = ?,
                                         rolling_pnl = ?,
                                         games = ?,
                                         reason = ?,

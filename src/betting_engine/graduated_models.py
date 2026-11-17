@@ -162,7 +162,7 @@ class GraduatedTennisSetModel:
             'training_data_fingerprint': f'{league.lower()}_{scope}_shadow_incubator_graduated_v1',
             'features': list(feature_names(league)),
             'odds_used': False,
-            'validated_markets': ['moneyline', 'spreads', 'totals'],
+            'validated_markets': ['moneyline', 'spreads', 'totals', 'set_handicap', 'total_sets'],
             'promotion_gate': {'promote': True},
             'beats_constant_baseline': True,
             'beats_elo_brier': True,
@@ -436,7 +436,7 @@ class GraduatedSoccerHalfModel:
             'training_data_fingerprint': f'{league.lower()}_{scope}_shadow_incubator_graduated_v1',
             'features': list(feature_names(league)),
             'odds_used': False,
-            'validated_markets': ['three_way', 'moneyline', 'spreads', 'totals', 'both_score', 'double_chance'],
+            'validated_markets': ['three_way', 'moneyline', 'spreads', 'totals', 'home_total', 'away_total', 'both_score', 'double_chance'],
             'promotion_gate': {'promote': True},
             'beats_constant_baseline': True,
             'beats_elo_brier': True,
@@ -1021,15 +1021,19 @@ def resolve_graduated_segment_models(
                 if family in ('asian_lines', 'spreads') or sub_family in ('asian_handicap', 'set_handicap'):
                     v_markets.update(['spreads', 'totals'])
                 elif family in ('tennis_sets', 'tennis') or sub_family in ('set_winner', 'set_totals', 'set_handicap'):
-                    v_markets.update(['moneyline', 'spreads', 'totals'])
+                    v_markets.update(['moneyline', 'spreads', 'totals', 'set_handicap', 'total_sets'])
                 elif family in ('bivariate_derivatives', 'derivatives') or sub_family in ('both_teams_score', 'double_chance', 'three_way'):
                     v_markets.update(['both_score', 'double_chance', 'three_way', 'totals', 'spreads'])
                 elif family == 'sequence_hazard' or sub_family == 'first_to_score':
                     v_markets.update(['moneyline', 'three_way'])
-                elif family == 'american_derivatives' or sub_family == 'team_total':
+                elif family in ('american_derivatives', 'home_total', 'away_total') or sub_family in ('team_total', 'home_total', 'away_total'):
                     v_markets.update(['moneyline', 'spreads', 'totals', 'three_way', 'home_total', 'away_total'])
                 else:
                     v_markets.update(['moneyline', 'spreads', 'totals', 'three_way'])
+                if family and family not in ('american_derivatives', 'bivariate_derivatives', 'asian_lines', 'tennis_sets'):
+                    v_markets.add(family.split(':')[-1])
+                if sub_family and sub_family not in ('american_derivatives', 'bivariate_derivatives', 'asian_lines', 'tennis_sets'):
+                    v_markets.add(sub_family.split(':')[-1])
                 existing_model.report['validated_markets'] = sorted(list(v_markets))
             continue
 
@@ -1098,13 +1102,17 @@ def resolve_graduated_full_game_models(
                 elif family in ('bivariate_derivatives', 'derivatives') or sub_family in ('both_teams_score', 'double_chance', 'three_way'):
                     v_markets.update(['both_score', 'double_chance', 'three_way'])
                 elif family in ('tennis_sets', 'tennis') or sub_family in ('set_winner', 'set_totals', 'set_handicap'):
-                    v_markets.update(['moneyline', 'spreads', 'totals'])
+                    v_markets.update(['moneyline', 'spreads', 'totals', 'set_handicap', 'total_sets'])
                 elif family == 'sequence_hazard' or sub_family == 'first_to_score':
                     v_markets.update(['moneyline', 'three_way'])
-                elif family == 'american_derivatives' or sub_family == 'team_total':
+                elif family in ('american_derivatives', 'home_total', 'away_total') or sub_family in ('team_total', 'home_total', 'away_total'):
                     v_markets.update(['moneyline', 'spreads', 'totals', 'three_way', 'home_total', 'away_total'])
                 else:
                     v_markets.update(['moneyline', 'spreads', 'totals'])
+                if family and family not in ('american_derivatives', 'bivariate_derivatives', 'asian_lines', 'tennis_sets'):
+                    v_markets.add(family.split(':')[-1])
+                if sub_family and sub_family not in ('american_derivatives', 'bivariate_derivatives', 'asian_lines', 'tennis_sets'):
+                    v_markets.add(sub_family.split(':')[-1])
                 model.report['validated_markets'] = sorted(list(v_markets))
 
     return updated
