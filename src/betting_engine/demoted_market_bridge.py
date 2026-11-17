@@ -106,7 +106,10 @@ class DemotedMarketIncubationBridge:
                     -- 0. Ground Truth Telemetry: Prioritize leagues with active historical wagers in database
                     CASE WHEN league IN ('NBA', 'MLS', 'ATP', 'WTA', 'EPL', 'NFL', 'NHL', 'NCAAF', 'UCL', 'WNBA', 'NCAAM', 'MLB', 'NCAAW', 'CHALLENGER') THEN 0 ELSE 1 END,
                     CASE WHEN incubation_phase = 'incubating_with_new_model' THEN 1 ELSE 0 END,
-                    -- STRICT MANDATE (Commandment 6.5): Prioritize Dual Reachable Markets (Stake + Polymarket CLOB)
+                    -- 1. Never-screened markets first, then hourly round-robin buckets so no market starves
+                    CASE WHEN last_screened_at IS NULL THEN 0 ELSE 1 END,
+                    substr(COALESCE(last_screened_at, ''), 1, 13) ASC,
+                    -- 2. STRICT MANDATE (Commandment 6.5): Prioritize Dual Reachable Markets (Stake + Polymarket CLOB) within each screening bucket
                     CASE 
                         WHEN (league IN ('NBA', 'NFL', 'NHL', 'MLB', 'WNBA', 'NCAAF', 'NCAAM', 'NCAAB', 'NCAAW', 'EPL', 'LALIGA', 'BUNDESLIGA', 'SERIEA', 'UCL', 'UEL', 'MLS', 'ATP', 'WTA', 'CHALLENGER')
                               AND (
@@ -127,7 +130,6 @@ class DemotedMarketIncubationBridge:
                               AND family NOT LIKE '%winner_total%' AND family NOT LIKE '%double_chance%' AND family NOT LIKE '%draw_no_bet%')
                         THEN 0 ELSE 1 
                     END,
-                    CASE WHEN last_screened_at IS NULL THEN 0 ELSE 1 END,
                     CASE 
                         WHEN league IN ('NBA', 'NFL', 'EPL', 'MLS') THEN 0
                         WHEN league = 'NHL' THEN 1

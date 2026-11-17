@@ -144,14 +144,19 @@ class AutonomousModelDiscoveryEngine:
                 SELECT dm.id, dm.segment_key, dm.league, dm.scope, dm.family, dm.sub_family, dm.rolling_roi, dm.rolling_pnl, dm.games, dm.demoted_at, dm.last_screened_at,
                        COUNT(fb.id) as attempts
                 FROM demoted_markets dm
-                LEFT JOIN ai_synthesis_feedback_loop fb ON dm.segment_key = fb.segment_key
+                LEFT JOIN ai_synthesis_feedback_loop fb 
+                  ON fb.segment_key = dm.segment_key 
+                  OR fb.segment_key = (dm.league || '|' || dm.scope || '|' || COALESCE(dm.sub_family, dm.family))
                 WHERE dm.incubation_phase = 'research_training' 
                    OR (dm.incubation_phase = 'incubating_with_new_model' AND (dm.incubated_model_id IS NULL OR dm.incubated_model_id = '' OR dm.historical_roi <= 0.0))
                 GROUP BY dm.id
                 ORDER BY 
                     -- 0. Ground Truth Telemetry: Leagues with verified historical wagers come first (prevents zero-data synthesis loops)
                     CASE WHEN dm.league IN ('NBA', 'MLS', 'ATP', 'WTA', 'EPL', 'NFL', 'NHL', 'NCAAF', 'UCL', 'WNBA', 'NCAAM', 'MLB', 'LALIGA', 'BUNDESLIGA', 'SERIEA', 'UEL') THEN 0 ELSE 1 END,
-                    -- 1. STRICT CONSTITUTIONAL MANDATE (Commandment 6.5): Prioritize Dual Reachable Markets (Stake + Polymarket CLOB)
+                    -- 1. Never-screened markets first, then hourly round-robin bucket so recently screened markets rotate to the back
+                    CASE WHEN dm.last_screened_at IS NULL THEN 0 ELSE 1 END,
+                    substr(COALESCE(dm.last_screened_at, ''), 1, 13) ASC,
+                    -- 2. STRICT CONSTITUTIONAL MANDATE (Commandment 6.5): Prioritize Dual Reachable Markets (Stake + Polymarket CLOB)
                     CASE 
                         WHEN (dm.league IN ('NBA', 'NFL', 'NHL', 'MLB', 'WNBA', 'NCAAF', 'NCAAM', 'NCAAB', 'EPL', 'LALIGA', 'BUNDESLIGA', 'SERIEA', 'UCL', 'UEL', 'MLS', 'ATP', 'WTA')
                               AND (
@@ -172,11 +177,11 @@ class AutonomousModelDiscoveryEngine:
                               AND dm.family NOT LIKE '%winner_total%' AND dm.family NOT LIKE '%double_chance%' AND dm.family NOT LIKE '%draw_no_bet%')
                         THEN 0 ELSE 1
                     END,
-                    -- 2. Untouched markets with 0 attempts get top priority within data-rich leagues
+                    -- 3. Untouched markets with 0 attempts get top priority within the current hourly bucket
                     CASE WHEN COUNT(fb.id) = 0 THEN 0 ELSE 1 END,
-                    -- 3. Leaky markets with negative rolling PnL (tourniquet turnaround)
+                    -- 4. Leaky markets with negative rolling PnL (tourniquet turnaround)
                     CASE WHEN dm.rolling_pnl < 0.0 THEN 0 ELSE 1 END,
-                    -- 4. Strategic Sport Priority (1. NBA, 2. NFL, 3. NHL, 4. MLS, 5. NCAAF, 6. UCL, 7. EPL, 8. MLB, 9. ATP, 10. WTA)
+                    -- 5. Strategic Sport Priority (1. NBA, 2. NFL, 3. NHL, 4. MLS, 5. NCAAF, 6. UCL, 7. EPL, 8. MLB, 9. ATP, 10. WTA)
                     CASE 
                         WHEN dm.league = 'NBA' THEN 1
                         WHEN dm.league = 'NFL' THEN 2
@@ -190,11 +195,9 @@ class AutonomousModelDiscoveryEngine:
                         WHEN dm.league = 'WTA' THEN 10
                         ELSE 99
                     END ASC,
-                    -- 5. Stratified Aging Round-Robin: oldest screened first
-                    CASE WHEN dm.last_screened_at IS NULL THEN 0 ELSE 1 END,
-                    COALESCE(dm.last_screened_at, '') ASC,
-                    -- 6. Fewest attempts first (prevent 400+ repeat attempts)
+                    -- 6. Fewest attempts first, then exact timestamp
                     COUNT(fb.id) ASC,
+                    COALESCE(dm.last_screened_at, '') ASC,
                     dm.scope, dm.family
             """)
             raw_rows = [dict(r) for r in cur.fetchall()]
