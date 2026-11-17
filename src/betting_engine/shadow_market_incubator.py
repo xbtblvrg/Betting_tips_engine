@@ -1697,6 +1697,25 @@ class ShadowMarketIncubator:
                     win_period = '1st' if g1 > g2 else ('2nd' if g2 > g1 else 'equal')
                     s_text = (str(selection) or side or '').lower()
                     outcome_res = 'won' if (win_period in s_text) else 'lost'
+                elif sub_family == 'halftime_fulltime':
+                    h1 = game.context.get('segment_scores', {}).get('half_1', {})
+                    h1_h = float(h1.get('home', home_score * 0.48))
+                    h1_a = float(h1.get('away', away_score * 0.48))
+                    r1 = '1' if h1_h > h1_a else ('2' if h1_a > h1_h else 'x')
+                    rft = '1' if home_score > away_score else ('2' if away_score > home_score else 'x')
+                    h_name = (game.home or '').lower().strip()
+                    a_name = (game.away or '').lower().strip()
+                    w1_name = h_name if r1 == '1' else (a_name if r1 == '2' else 'draw')
+                    wft_name = h_name if rft == '1' else (a_name if rft == '2' else 'draw')
+                    w1_side = 'home' if r1 == '1' else ('away' if r1 == '2' else 'draw')
+                    wft_side = 'home' if rft == '1' else ('away' if rft == '2' else 'draw')
+                    s_text = (str(selection) or side or '').lower().strip()
+                    valid_cells = {
+                        f'{r1}/{rft}', f'{r1} / {rft}',
+                        f'{w1_side}/{wft_side}', f'{w1_side} / {wft_side}',
+                        f'{w1_name}/{wft_name}', f'{w1_name} / {wft_name}',
+                    }
+                    outcome_res = 'won' if any(c and c in s_text for c in valid_cells) else 'lost'
                 pnl = (stake * (odds - 1.0)) if outcome_res == 'won' else (0.0 if outcome_res == 'push' else -stake)
 
             # Settle Tennis Sets
@@ -1884,6 +1903,8 @@ class ShadowMarketIncubator:
                         gid = r.get('id')
                         if gid:
                             game_data[gid] = {
+                                'home': r.get('home'),
+                                'away': r.get('away'),
                                 'home_score': r.get('home_score'),
                                 'away_score': r.get('away_score'),
                                 'state': r.get('state'),
@@ -2088,6 +2109,54 @@ class ShadowMarketIncubator:
                         elif sub_family == 'odd_even' or family == 'odd_even':
                             tot = int(round(h_s + a_s))
                             outcome_res = 'won' if ((tot % 2 == 1 and side == 'odd') or (tot % 2 == 0 and side == 'even')) else 'lost'
+                        elif sub_family == 'winning_margin':
+                            s_text = (str(selection) or side or '').lower()
+                            is_home = 'home' in s_text or '1' in s_text
+                            is_away = 'away' in s_text or '2' in s_text
+                            diff = (h_s - a_s) if is_home else ((a_s - h_s) if is_away else abs(h_s - a_s))
+                            m_band = re.search(r'(\d+)\s*[-–]\s*(\d+)', s_text)
+                            m_plus = re.search(r'(\d+)\+', s_text)
+                            if m_band:
+                                l = float(m_band.group(1)); u = float(m_band.group(2))
+                                outcome_res = 'won' if (diff > 0 and l <= diff <= u) else 'lost'
+                            elif m_plus:
+                                l = float(m_plus.group(1))
+                                outcome_res = 'won' if (diff > 0 and diff >= l) else 'lost'
+                            else:
+                                outcome_res = 'lost'
+                        elif sub_family == 'overtime':
+                            ctx = g_info.get('context') or {}
+                            had_ot = bool(ctx.get('overtime')) or (scope == 'full_game' and h_s == a_s)
+                            outcome_res = 'won' if ((had_ot and side == 'yes') or (not had_ot and side == 'no')) else 'lost'
+                        elif sub_family == 'highest_scoring_period':
+                            ctx = g_info.get('context') or {}
+                            h1 = ctx.get('segment_scores', {}).get('half_1', {})
+                            h2 = ctx.get('segment_scores', {}).get('half_2', {})
+                            g1 = float(h1.get('home', 0)) + float(h1.get('away', 0))
+                            g2 = float(h2.get('home', 0)) + float(h2.get('away', 0))
+                            win_period = '1st' if g1 > g2 else ('2nd' if g2 > g1 else 'equal')
+                            s_text = (str(selection) or side or '').lower()
+                            outcome_res = 'won' if (win_period in s_text) else 'lost'
+                        elif sub_family == 'halftime_fulltime':
+                            ctx = g_info.get('context') or {}
+                            h1 = ctx.get('segment_scores', {}).get('half_1', {})
+                            h1_h = float(h1.get('home', home_score * 0.48))
+                            h1_a = float(h1.get('away', away_score * 0.48))
+                            r1 = '1' if h1_h > h1_a else ('2' if h1_a > h1_h else 'x')
+                            rft = '1' if home_score > away_score else ('2' if away_score > home_score else 'x')
+                            h_name = (g_info.get('home') or '').lower().strip()
+                            a_name = (g_info.get('away') or '').lower().strip()
+                            w1_name = h_name if r1 == '1' else (a_name if r1 == '2' else 'draw')
+                            wft_name = h_name if rft == '1' else (a_name if rft == '2' else 'draw')
+                            w1_side = 'home' if r1 == '1' else ('away' if r1 == '2' else 'draw')
+                            wft_side = 'home' if rft == '1' else ('away' if rft == '2' else 'draw')
+                            s_text = (str(selection) or side or '').lower().strip()
+                            valid_cells = {
+                                f'{r1}/{rft}', f'{r1} / {rft}',
+                                f'{w1_side}/{wft_side}', f'{w1_side} / {wft_side}',
+                                f'{w1_name}/{wft_name}', f'{w1_name} / {wft_name}',
+                            }
+                            outcome_res = 'won' if any(c and c in s_text for c in valid_cells) else 'lost'
                         pnl = (stake * (odds - 1.0)) if outcome_res == 'won' else (0.0 if outcome_res == 'push' else -stake)
 
                     # Settle Tennis Sets

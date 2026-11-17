@@ -714,6 +714,7 @@ class BottleneckWatchdog:
         # Also check open wagers in shadow incubator whose fixture started > 18h ago
         inc_db = self.data_dir / 'shadow_incubator.sqlite3'
         stale_wagers_count = 0
+        open_fixture_ids: Set[str] = set()
         if inc_db.exists():
             try:
                 with closing(sqlite3.connect(f"file:{inc_db}?mode=ro", uri=True, timeout=10.0)) as conn:
@@ -724,6 +725,8 @@ class BottleneckWatchdog:
                     """)
                     cutoff_36h_iso = (now_dt - timedelta(hours=36)).isoformat()
                     for fid, cap_at in cur.fetchall():
+                        if fid:
+                            open_fixture_ids.add(fid)
                         g_start = game_starts.get(fid)
                         if g_start:
                             if g_start < cutoff_iso:
@@ -732,6 +735,9 @@ class BottleneckWatchdog:
                             stale_wagers_count += 1
             except Exception as e_w:
                 log.debug("[WATCHDOG_SCORE_GAP] Stale wager scan: %s", e_w)
+
+        # Only flag past_unscored games that actually have open incubator wagers or recent start
+        past_unscored = [g for g in past_unscored if g.get('id') in open_fixture_ids]
 
         if past_unscored or stale_wagers_count > 0:
             msg = f"Detected {len(past_unscored)} past-due games (> 18h) and {stale_wagers_count} stale incubator wagers missing final scores."
@@ -752,9 +758,10 @@ class BottleneckWatchdog:
                     from .settlement_supervisor import SettlementSupervisor
                     sup = SettlementSupervisor(data_dir=self.data_dir)
                     cycle_res = sup.run_settlement_cycle()
-                    recovered_count = cycle_res.get('recovered_games', 0)
-                    settled_count = cycle_res.get('settled_count', 0)
-                    recovery_success = (recovered_count > 0 or settled_count > 0)
+                    inc_rec = cycle_res.get('incubator_reconciliation') or {}
+                    recovered_count = int(cycle_res.get('recovered_games', 0)) + int(cycle_res.get('walkover_void_settled', 0))
+                    settled_count = int(cycle_res.get('settled_count', 0)) + int(cycle_res.get('feed_settled_bets', 0)) + int(inc_rec.get('total_settled', 0))
+                    recovery_success = (recovered_count > 0 or settled_count > 0 or cycle_res.get('final_past_due', 1) == 0)
                     if recovery_success:
                         healed_count += 1
                         vl.log_event("bottleneck_watchdog", "score_gap_healed",

@@ -361,7 +361,7 @@ class SettlementSupervisor:
             from .shadow_market_incubator import ShadowMarketIncubator
             incubator = ShadowMarketIncubator(data_dir=self.data_dir)
             games_list = getattr(engine_instance, 'games', None) if engine_instance else None
-            incubator_results = incubator.reconcile_aged_and_completed_wagers(min_age_hours=36.0, games=games_list)
+            incubator_results = incubator.reconcile_aged_and_completed_wagers(min_age_hours=18.0, games=games_list)
         except Exception as exc:
             log.warning('Shadow incubator reconciliation warning: %s', exc)
             incubator_results = {'error': str(exc)}
