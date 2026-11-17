@@ -1,6 +1,6 @@
 # Live Stake market coverage
 
-Checked: 2026-11-17T18:55:44.879248+00:00
+Checked: 2026-11-17T19:13:23.347342+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
@@ -9,7 +9,7 @@ Observed feed titles; not proof of complete Stake website coverage. Funding supp
 | NFL | 64 | 1 | 40 | 0 | 40 | 20 | 7 | 0 | 6 |
 | NHL | 72 | 5 | 60 | 0 | 60 | 42 | 12 | 12 | 45 |
 | MLB | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| NBA | 126 | 3 | 99 | 0 | 99 | 49 | 10 | 6 | 21 |
+| NBA | 126 | 3 | 99 | 0 | 99 | 49 | 11 | 6 | 21 |
 | WNBA | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 
 Current stages require outcome-level evidence; original issuance, settlement and feedback are explicitly historical. 10/10 records observed execution, not proven profitability or automatic model promotion.
@@ -140,7 +140,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | match rebounds | standard | regulation | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | team turnovers | standard | regulation | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | match rebounds | swishMarkets.matchProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/84 | activity_unverified 0/84 | activity_unverified 0/84 | activity_unverified 0/84 | activity_unverified 0/84 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NBA | first scorer | swishMarkets.playerProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/192 | activity_unverified 0/192 | activity_unverified 0/192 | activity_unverified 0/192 | activity_unverified 0/192 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NBA | first scorer | swishMarkets.playerProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/194 | activity_unverified 0/194 | activity_unverified 0/194 | activity_unverified 0/194 | activity_unverified 0/194 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | team turnovers | swishMarkets.teamProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/42 | activity_unverified 0/42 | activity_unverified 0/42 | activity_unverified 0/42 | activity_unverified 0/42 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 1st Half - 1x2 | standard | half_1 | offered_now | 0/10 | not_observed 0/3 | not_observed 0/3 | not_observed 0/3 | not_observed 0/3 | not_observed 0/3 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 1st Half - Asian Handicap | standard | half_1 | offered_now | 3/10 | partial 1/2 | verified 2/2 | partial 1/2 | partial 1/2 | partial 1/2 | verified 1/1 | verified 1/1 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
@@ -248,7 +248,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NHL | Double Chance | standard | regulation | offered_now | 5/10 | partial 28/33 | verified 33/33 | verified 33/33 | verified 33/33 | partial 28/33 | verified 28/28 | verified 28/28 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Edmonton Oilers Total | standard | regulation | offered_now | 3/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Florida Panthers Total | standard | regulation | offered_now | 3/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
-| NHL | Handicap (Incl. Overtime and Penalties) | standard | full_game | offered_now | 9/10 | verified 94/94 | verified 94/94 | verified 94/94 | verified 94/94 | verified 94/94 | verified 94/94 | verified 94/94 | verified 13/13 | verified 2/2 | partial 1/3 | 11 |
+| NHL | Handicap (Incl. Overtime and Penalties) | standard | full_game | offered_now | 9/10 | verified 102/102 | verified 102/102 | verified 102/102 | verified 102/102 | verified 102/102 | verified 102/102 | verified 102/102 | verified 13/13 | verified 2/2 | partial 1/3 | 11 |
 | NHL | Last Goal | standard | regulation | offered_now | 0/10 | not_observed 0/33 | not_observed 0/33 | not_observed 0/33 | not_observed 0/33 | not_observed 0/33 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Los Angeles Kings Total | standard | regulation | offered_now | 3/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Minnesota Wild Total | standard | regulation | offered_now | 4/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | verified 1/1 | not_observed 0/0 | partial 0/1 | 1 |
