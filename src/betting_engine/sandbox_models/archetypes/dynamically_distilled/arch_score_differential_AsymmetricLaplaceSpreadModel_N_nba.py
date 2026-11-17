@@ -9,7 +9,7 @@ class AsymmetricLaplaceSpreadModel_NBA_half_2(BaseCandidateModel):
 
     def __init__(
         self,
-        model_id: str = "codex_synth_nba_half_2_1031_170232",
+        model_id: str = "codex_synth_nba_half_2_1031_171718",
         version: str = "1.0.0",
         league: str = "NBA",
         scope: str = "half_2",
