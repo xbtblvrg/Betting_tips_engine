@@ -258,7 +258,7 @@ class UnifiedMarketUniverse:
             return roster
 
         sb_underperforming_map: Dict[str, Dict[str, Any]] = {}
-        sb_alpha_map: Dict[str, Dict[str, Any]] = {}
+        sb_alpha_map: Dict[str, Any] = {}
         if self.engine_db_path.exists():
             try:
                 from .segment_scoreboard import compute_segment_scoreboard
@@ -521,17 +521,28 @@ class UnifiedMarketUniverse:
         perf_map: Dict[str, Dict[str, Any]] = {}
         league_games_map: Dict[str, Dict[str, str]] = {}
         open_decisions_ts_map: Dict[str, str] = {}
+        games_json_path = self.data_dir / 'games.json'
+        if games_json_path.exists():
+            try:
+                for g_obj in json.loads(games_json_path.read_text(encoding='utf-8')):
+                    if g_obj.get('state') in ('post', 'final', 'completed') and g_obj.get('start') and g_obj.get('id') and g_obj.get('league'):
+                        league_games_map.setdefault(str(g_obj['league']).upper().strip(), {})[str(g_obj['id']).strip()] = str(g_obj['start'])
+            except Exception:
+                pass
         if self.incubator_db_path.exists():
             try:
-                with closing(sqlite3.connect(f"file:{self.incubator_db_path}?mode=ro", uri=True, timeout=2.0)) as inc_g_conn:
-                    for lg_i, gid_i, sat_i in inc_g_conn.execute("""
+                with closing(sqlite3.connect(f"file:{self.incubator_db_path}?mode=ro", uri=True, timeout=2.0)) as inc_conn2:
+                    for lg_g, gm_g, st_g in inc_conn2.execute("""
                         SELECT league, game_id, min(settled_at)
                         FROM incubated_wagers
-                        WHERE status = 'settled' AND settled_at IS NOT NULL AND game_id IS NOT NULL
+                        WHERE status = 'settled'
+                          AND scope = 'full_game'
+                          AND family IN ('totals', 'moneyline', 'spreads')
+                          AND sub_family IN ('totals', 'moneyline', 'spreads')
                         GROUP BY league, game_id
                     """).fetchall():
-                        if lg_i and gid_i and sat_i:
-                            league_games_map.setdefault(str(lg_i).upper().strip(), {})[str(gid_i).strip()] = str(sat_i)
+                        if lg_g and gm_g and st_g:
+                            league_games_map.setdefault(str(lg_g).upper().strip(), {})[str(gm_g).strip()] = str(st_g)
             except Exception:
                 pass
         if self.engine_db_path.exists():
