@@ -49,19 +49,21 @@ def build_universal_score_lattice(
     scores: Dict[Tuple[int, int], float] = {}
 
     if home_mu < 15.0 and away_mu < 15.0:
-        lim_h = max_discrete_score or max(8, int(math.ceil(home_mu * 2.8)))
-        lim_a = max_discrete_score or max(8, int(math.ceil(away_mu * 2.8)))
+        lim_h = max(int(max_discrete_score or 8), int(math.ceil(home_mu * 2.5 + 4)))
+        lim_a = max(int(max_discrete_score or 8), int(math.ceil(away_mu * 2.5 + 4)))
+        eff_h_mu = home_mu / max(0.65, 1.0 - zero_inflation_pi * 0.75) if zero_inflation_pi > 0.01 else home_mu
+        eff_a_mu = away_mu / max(0.65, 1.0 - zero_inflation_pi * 0.75) if zero_inflation_pi > 0.01 else away_mu
 
         if dispersion_alpha > 0.01:
             n_h = 1.0 / dispersion_alpha
-            p_h = n_h / (n_h + home_mu)
+            p_h = n_h / (n_h + eff_h_mu)
             n_a = 1.0 / dispersion_alpha
-            p_a = n_a / (n_a + away_mu)
+            p_a = n_a / (n_a + eff_a_mu)
             pmf_h = [float(nbinom.pmf(h, n_h, p_h)) for h in range(lim_h + 1)]
             pmf_a = [float(nbinom.pmf(a, n_a, p_a)) for a in range(lim_a + 1)]
         else:
-            pmf_h = [float(poisson.pmf(h, home_mu)) for h in range(lim_h + 1)]
-            pmf_a = [float(poisson.pmf(a, away_mu)) for a in range(lim_a + 1)]
+            pmf_h = [float(poisson.pmf(h, eff_h_mu)) for h in range(lim_h + 1)]
+            pmf_a = [float(poisson.pmf(a, eff_a_mu)) for a in range(lim_a + 1)]
 
         if zero_inflation_pi > 0.01:
             pmf_h[0] = zero_inflation_pi + (1.0 - zero_inflation_pi) * pmf_h[0]
@@ -89,8 +91,8 @@ def build_universal_score_lattice(
                     scores[(h, a)] = pmf_h[h] * pmf_a[a]
     else:
         is_bball = (home_mu > 50.0 or away_mu > 50.0)
-        step = 2 if is_bball else 1
-        radius = 18 if is_bball else 12
+        step = 1
+        radius = 24 if is_bball else 16
         h_center = int(round(home_mu))
         a_center = int(round(away_mu))
         sigma_scale = math.sqrt(1.0 + dispersion_alpha * 2.0) if dispersion_alpha > 0.01 else 1.0

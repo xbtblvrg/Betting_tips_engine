@@ -93,8 +93,14 @@ def get_default_segment_context(league: str, scope: str) -> Dict[str, Any]:
     lg = league.upper()
     sc = scope.lower()
 
-    if lg in ('NBA', 'WNBA', 'NCAAM', 'NCAAW'):
-        h_full, a_full = (112.0, 108.0) if lg == 'NBA' else (80.0, 75.0)
+    if lg == 'NBA':
+        h_full, a_full = 113.5, 110.5
+    elif lg == 'WNBA':
+        h_full, a_full = 82.5, 79.5
+    elif lg == 'NCAAM':
+        h_full, a_full = 74.5, 70.5
+    elif lg == 'NCAAW':
+        h_full, a_full = 68.5, 64.5
     elif lg in ('NFL', 'NCAAF'):
         h_full, a_full = (24.5, 21.5) if lg == 'NFL' else (28.0, 25.0)
     elif lg in ('MLB',):

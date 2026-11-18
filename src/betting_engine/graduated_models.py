@@ -582,16 +582,21 @@ class GraduatedUniversalForecast:
         # Select specialized champion distribution if available for this specific contract family
         eff_scores = self.scores
         if self.market_distributions:
+            cand_scores = None
             if base in self.market_distributions:
-                eff_scores = self.market_distributions[base]
+                cand_scores = self.market_distributions[base]
             elif 'total' in base and 'totals' in self.market_distributions:
-                eff_scores = self.market_distributions['totals']
+                cand_scores = self.market_distributions['totals']
             elif 'spread' in base and 'spreads' in self.market_distributions:
-                eff_scores = self.market_distributions['spreads']
+                cand_scores = self.market_distributions['spreads']
             elif ('three_way' in base or 'winner' in base) and 'three_way' in self.market_distributions:
-                eff_scores = self.market_distributions['three_way']
+                cand_scores = self.market_distributions['three_way']
             elif 'moneyline' in base and 'moneyline' in self.market_distributions:
-                eff_scores = self.market_distributions['moneyline']
+                cand_scores = self.market_distributions['moneyline']
+            if cand_scores:
+                # Outcome-only 3-point distributions {(1,0),(0,0),(0,1)} are only valid for moneyline/three_way/winner
+                if base in ('moneyline', 'winner', 'three_way') or len(cand_scores) > 4:
+                    eff_scores = cand_scores
 
         if base in ('moneyline', 'winner', 'three_way'):
             p_h = sum(p for (h, a), p in eff_scores.items() if h > a)
@@ -766,34 +771,100 @@ class GraduatedUniversalSegmentModel:
             self.report['version'] = self.version
 
     def forecast(self, g: Game, state: Any = None) -> GraduatedUniversalForecast:
-        scale = 0.5 if 'half' in self.scope else (0.25 if 'quarter' in self.scope else (0.33 if 'period' in self.scope else 1.0))
+        from .historical_trainer import HybridRating, get_default_segment_context
+
+        if 'innings_1_5' in self.scope:
+            scale = 0.55
+        elif 'inning' in self.scope:
+            scale = 0.12
+        elif 'half' in self.scope:
+            scale = 0.50
+        elif 'quarter' in self.scope:
+            scale = 0.25
+        elif 'period' in self.scope or 'set' in self.scope:
+            scale = 0.40 if self.league in ('ATP', 'WTA', 'CHALLENGER') else 0.33
+        else:
+            scale = 1.0
         context = getattr(g, 'context', {}) or {}
         hp, ap, elo_diff = _extract_full_forecast_info(context)
 
-        # Champion Model Direct Inference if crowned by Tournament Engine
-        c_dict = dict(context)
-        if hasattr(g, 'home'):
-            c_dict.setdefault('home', g.home)
-            c_dict.setdefault('home_team', g.home)
-        if hasattr(g, 'away'):
-            c_dict.setdefault('away', g.away)
-            c_dict.setdefault('away_team', g.away)
-        if hasattr(g, 'home_abbr'):
-            c_dict.setdefault('home_abbr', g.home_abbr)
-        if hasattr(g, 'away_abbr'):
-            c_dict.setdefault('away_abbr', g.away_abbr)
-        if self.league in ('NBA', 'WNBA', 'NCAAM', 'NCAAW'):
-            def_h, def_a = (110.0, 106.0) if self.league == 'NBA' else (80.0, 75.0)
+        has_full = hp is not None and ap is not None and hp > 0 and ap > 0
+        rating_diff = float(context.get('rating_diff', 0.0) or 0.0)
+        if rating_diff == 0.0 and elo_diff != 0.0:
+            rating_diff = elo_diff
+
+        if self.league == 'NBA':
+            def_h, def_a = 113.5, 110.5
+        elif self.league == 'WNBA':
+            def_h, def_a = 82.5, 79.5
+        elif self.league == 'NCAAM':
+            def_h, def_a = 74.5, 70.5
+        elif self.league == 'NCAAW':
+            def_h, def_a = 68.5, 64.5
         elif self.league in ('NFL', 'NCAAF'):
-            def_h, def_a = (24.0, 20.0) if self.league == 'NFL' else (28.0, 26.0)
+            def_h, def_a = (24.0, 21.0) if self.league == 'NFL' else (28.0, 25.0)
         elif self.league in ('MLB',):
-            def_h, def_a = (4.5, 4.0)
+            def_h, def_a = (4.6, 4.2)
+        elif self.league in ('ATP', 'WTA', 'CHALLENGER'):
+            def_h, def_a = (12.6, 11.8)
         elif self.league in ('NHL', 'NCAA_ICE_HOCKEY'):
-            def_h, def_a = (3.0, 2.8)
+            def_h, def_a = (3.1, 2.8)
         else:
             def_h, def_a = (1.5, 1.2)
-        c_dict['home_expected'] = (hp * scale) if hp else (def_h * scale)
-        c_dict['away_expected'] = (ap * scale) if ap else (def_a * scale)
+
+        def_h_scaled = max(0.2, def_h * scale)
+        def_a_scaled = max(0.2, def_a * scale)
+        h_exp = max(0.2, hp * scale) if has_full else max(0.2, (def_h + rating_diff * 0.15) * scale)
+        a_exp = max(0.2, ap * scale) if has_full else max(0.2, (def_a - rating_diff * 0.15) * scale)
+
+        # Champion Model Direct Inference if crowned by Tournament Engine:
+        # Build full schema-compliant context with HybridRating dicts so models never crash on c_dict['home'].get('attack')
+        c_dict = get_default_segment_context(self.league, self.scope)
+        for k_ctx, v_ctx in context.items():
+            if k_ctx in ('home', 'away') and isinstance(v_ctx, str):
+                c_dict[f'{k_ctx}_team'] = v_ctx
+            else:
+                c_dict[k_ctx] = v_ctx
+        if hasattr(g, 'home') and g.home:
+            c_dict['home_team'] = g.home
+        if hasattr(g, 'away') and g.away:
+            c_dict['away_team'] = g.away
+        if hasattr(g, 'home_abbr') and g.home_abbr:
+            c_dict.setdefault('home_abbr', g.home_abbr)
+        if hasattr(g, 'away_abbr') and g.away_abbr:
+            c_dict.setdefault('away_abbr', g.away_abbr)
+
+        h_mult = max(0.65, min(1.45, h_exp / def_h_scaled))
+        a_mult = max(0.65, min(1.45, a_exp / def_a_scaled))
+        c_dict['home_expected'] = h_exp
+        c_dict['away_expected'] = a_exp
+        c_dict['baseline_home'] = def_h_scaled
+        c_dict['baseline_away'] = def_a_scaled
+        c_dict['home_attack'] = round(h_mult, 4)
+        c_dict['away_attack'] = round(a_mult, 4)
+        c_dict['home_defense'] = round(max(0.65, min(1.45, 2.0 - a_mult)), 4)
+        c_dict['away_defense'] = round(max(0.65, min(1.45, 2.0 - h_mult)), 4)
+        c_dict['elo_difference'] = elo_diff if elo_diff != 0.0 else round(rating_diff * 25.0, 2)
+        c_dict['total_line'] = round(h_exp + a_exp, 1)
+        c_dict['reference_total'] = round(h_exp + a_exp, 1)
+        c_dict['spread_line'] = round(a_exp - h_exp, 1)
+        c_dict['reference_spread'] = round(a_exp - h_exp, 1)
+        if not isinstance(c_dict.get('home'), dict):
+            c_dict['home'] = {}
+        c_dict['home'].update({
+            'attack': HybridRating(h_mult, goals=h_exp, exposure=1.0),
+            'defense': HybridRating(max(0.65, min(1.45, 2.0 - a_mult)), goals=a_exp, exposure=1.0),
+            'attack_multiplier': round(h_mult, 4),
+            'defense_multiplier': round(max(0.65, min(1.45, 2.0 - a_mult)), 4),
+        })
+        if not isinstance(c_dict.get('away'), dict):
+            c_dict['away'] = {}
+        c_dict['away'].update({
+            'attack': HybridRating(a_mult, goals=a_exp, exposure=1.0),
+            'defense': HybridRating(max(0.65, min(1.45, 2.0 - h_mult)), goals=h_exp, exposure=1.0),
+            'attack_multiplier': round(a_mult, 4),
+            'defense_multiplier': round(max(0.65, min(1.45, 2.0 - h_mult)), 4),
+        })
 
         market_distributions: Dict[str, Dict[Tuple[int, int], float]] = {}
         primary_dist = None
@@ -804,7 +875,7 @@ class GraduatedUniversalSegmentModel:
                     dist = m_inst.predict_distribution(c_dict)
                     if dist and getattr(dist, 'scores', None):
                         market_distributions[m_key] = dist.scores
-                        if primary_dist is None:
+                        if primary_dist is None and len(dist.scores) > 4:
                             primary_dist = dist
                 except Exception:
                     pass
@@ -812,7 +883,7 @@ class GraduatedUniversalSegmentModel:
         if primary_dist is None and getattr(self, 'champion_model', None) is not None:
             try:
                 dist = self.champion_model.predict_distribution(c_dict)
-                if dist and getattr(dist, 'scores', None):
+                if dist and getattr(dist, 'scores', None) and len(dist.scores) > 4:
                     primary_dist = dist
             except Exception:
                 pass
@@ -850,36 +921,28 @@ class GraduatedUniversalSegmentModel:
                 market_distributions=market_distributions if market_distributions else None
             )
 
-        has_full = hp is not None and ap is not None and hp > 0 and ap > 0
-        rating_diff = float(context.get('rating_diff', 0.0) or 0.0)
-        if rating_diff == 0.0 and elo_diff != 0.0:
-            rating_diff = elo_diff
-
         if self.league in ('NBA', 'WNBA', 'NCAAM', 'NCAAW'):
-            if has_full:
-                h_exp = max(5.0, hp * scale)
-                a_exp = max(5.0, ap * scale)
-            else:
-                base_total = 210.0 if self.league == 'NBA' else 155.0
-                h_exp = max(5.0, (base_total / 2.0 + rating_diff * 0.2) * scale)
-                a_exp = max(5.0, (base_total / 2.0 - rating_diff * 0.2) * scale)
-            std = math.sqrt(max(2.0, h_exp))
+            base_sigma = 11.5 if self.league == 'NBA' else (10.2 if self.league == 'NCAAM' else 9.8)
+            std = max(3.8, base_sigma * math.sqrt(scale))
+            rho = 0.18  # Shared game pace correlation between home and away scoring
+            det = max(0.1, 1.0 - rho * rho)
+            radius = max(14, min(32, int(round(2.8 * std))))
+            h_center = int(round(h_exp))
+            a_center = int(round(a_exp))
             scores: Dict[Tuple[int, int], float] = {}
-            for dh in range(-12, 13, 2):
-                for da in range(-12, 13, 2):
-                    h_pt = int(round(h_exp + dh))
-                    a_pt = int(round(a_exp + da))
-                    if h_pt >= 0 and a_pt >= 0:
-                        p_val = math.exp(-0.5 * ((dh / std)**2 + (da / std)**2))
-                        scores[(h_pt, a_pt)] = p_val
+            for dh in range(-radius, radius + 1):
+                h_pt = h_center + dh
+                if h_pt < 0:
+                    continue
+                z_h = (h_pt - h_exp) / std
+                for da in range(-radius, radius + 1):
+                    a_pt = a_center + da
+                    if a_pt < 0:
+                        continue
+                    z_a = (a_pt - a_exp) / std
+                    quad = (z_h * z_h + z_a * z_a - 2.0 * rho * z_h * z_a) / (2.0 * det)
+                    scores[(h_pt, a_pt)] = math.exp(max(-12.0, -quad))
         elif self.league in ('NFL', 'NCAAF'):
-            if has_full:
-                h_exp = max(2.0, hp * scale)
-                a_exp = max(2.0, ap * scale)
-            else:
-                base_total = 44.0 if self.league == 'NFL' else 54.0
-                h_exp = max(2.0, (base_total / 2.0 + rating_diff * 0.15) * scale)
-                a_exp = max(2.0, (base_total / 2.0 - rating_diff * 0.15) * scale)
             scores = {}
             if scale < 0.6:
                 football_pts = (0, 3, 6, 7, 9, 10, 13, 14, 17, 20, 21, 24, 28)
@@ -894,34 +957,27 @@ class GraduatedUniversalSegmentModel:
                     p_val = math.exp(-0.5 * (((h_pt - h_exp) / sigma)**2 + ((a_pt - a_exp) / sigma)**2)) * key_boost
                     scores[(h_pt, a_pt)] = p_val
         elif self.league in ('NHL', 'NCAA_ICE_HOCKEY'):
-            if has_full:
-                h_exp = max(0.2, hp * scale)
-                a_exp = max(0.2, ap * scale)
-            else:
-                base_total = 5.8
-                h_exp = max(0.2, (base_total / 2.0 + rating_diff * 0.05) * scale)
-                a_exp = max(0.2, (base_total / 2.0 - rating_diff * 0.05) * scale)
+            # Account for late empty-net goal hazard in period_3 and full_game
+            en_boost = 0.16 if self.scope in ('full_game', 'period_3') else 0.0
+            h_eff = h_exp + en_boost * (h_exp / max(0.4, h_exp + a_exp))
+            a_eff = a_exp + en_boost * (a_exp / max(0.4, h_exp + a_exp))
+            draw_boost = 1.35 if 'period' in self.scope else 1.25
+            scores = {}
+            for h in range(10):
+                for a in range(10):
+                    p_base = (math.exp(-h_eff) * (h_eff**h) / math.factorial(h)) * (math.exp(-a_eff) * (a_eff**a) / math.factorial(a))
+                    if h == a:
+                        p_base *= draw_boost
+                    elif abs(h - a) == 1 and self.scope in ('full_game', 'period_3'):
+                        # Late pulled-goalie state shifts mass from 1-goal margin toward 2-goal empty-net finish
+                        p_base *= 0.88
+                    elif abs(h - a) == 2 and self.scope in ('full_game', 'period_3') and (h + a) >= 4:
+                        p_base *= 1.18
+                    scores[(h, a)] = p_base
+        else:
             scores = {}
             for h in range(8):
                 for a in range(8):
-                    p_base = (math.exp(-h_exp) * (h_exp**h) / math.factorial(h)) * (math.exp(-a_exp) * (a_exp**a) / math.factorial(a))
-                    # Empirical draw & low-scoring correlation in hockey regulation/periods (Dixon-Coles adjustment)
-                    if h == a:
-                        p_base *= 1.25
-                    elif abs(h - a) == 1:
-                        p_base *= 1.05
-                    scores[(h, a)] = p_base
-        else:
-            if has_full:
-                h_exp = max(0.2, hp * scale)
-                a_exp = max(0.2, ap * scale)
-            else:
-                base_total = 2.7 if self.league in ('MLS', 'EPL', 'UCL') else 8.5
-                h_exp = max(0.2, (base_total / 2.0 + rating_diff * 0.05) * scale)
-                a_exp = max(0.2, (base_total / 2.0 - rating_diff * 0.05) * scale)
-            scores = {}
-            for h in range(7):
-                for a in range(7):
                     scores[(h, a)] = (math.exp(-h_exp) * (h_exp**h) / math.factorial(h)) * (math.exp(-a_exp) * (a_exp**a) / math.factorial(a))
 
         tot_p = sum(scores.values()) or 1.0

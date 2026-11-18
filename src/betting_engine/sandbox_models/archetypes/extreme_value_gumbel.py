@@ -58,16 +58,16 @@ class ExtremeValueGumbelModel(BaseCandidateModel):
         is_high_scoring = (h_mu > 15.0 or a_mu > 15.0)
 
         if not is_high_scoring:
-            # Low scoring: discrete Gumbel discretization
-            lim_h = max(8, int(math.ceil(h_mu * 2.8)))
-            lim_a = max(8, int(math.ceil(a_mu * 2.8)))
-            scale_h = max(0.4, math.sqrt(h_mu) * self.tail_scale_beta * 0.78)
-            scale_a = max(0.4, math.sqrt(a_mu) * self.tail_scale_beta * 0.78)
-            loc_h = h_mu - 0.5772 * scale_h
-            loc_a = a_mu - 0.5772 * scale_a
+            # Low scoring: discrete Gumbel discretization calibrated to preserve exact mean h_mu and a_mu
+            lim_h = max(8, int(math.ceil(h_mu * 2.8 + 4)))
+            lim_a = max(8, int(math.ceil(a_mu * 2.8 + 4)))
+            scale_h = max(0.45, math.sqrt(h_mu) * self.tail_scale_beta * 0.78)
+            scale_a = max(0.45, math.sqrt(a_mu) * self.tail_scale_beta * 0.78)
+            loc_h = h_mu - 0.35 * scale_h
+            loc_a = a_mu - 0.35 * scale_a
 
-            pmf_h = [max(1e-6, float(gumbel_r.pdf(h + 0.5, loc=loc_h, scale=scale_h))) for h in range(lim_h + 1)]
-            pmf_a = [max(1e-6, float(gumbel_r.pdf(a + 0.5, loc=loc_a, scale=scale_a))) for a in range(lim_a + 1)]
+            pmf_h = [max(1e-6, float(gumbel_r.cdf(h + 0.5, loc=loc_h, scale=scale_h) - (gumbel_r.cdf(h - 0.5, loc=loc_h, scale=scale_h) if h > 0 else 0.0))) for h in range(lim_h + 1)]
+            pmf_a = [max(1e-6, float(gumbel_r.cdf(a + 0.5, loc=loc_a, scale=scale_a) - (gumbel_r.cdf(a - 0.5, loc=loc_a, scale=scale_a) if a > 0 else 0.0))) for a in range(lim_a + 1)]
             sum_h, sum_a = sum(pmf_h), sum(pmf_a)
             pmf_h = [p / sum_h for p in pmf_h]
             pmf_a = [p / sum_a for p in pmf_a]
@@ -76,11 +76,11 @@ class ExtremeValueGumbelModel(BaseCandidateModel):
                 for a in range(lim_a + 1):
                     scores[(h, a)] = pmf_h[h] * pmf_a[a]
         else:
-            # High scoring: lattice discretization around expectation
+            # High scoring: unit-step lattice discretization around expectation
             h_center, a_center = int(round(h_mu)), int(round(a_mu))
             scale = math.sqrt(h_mu + a_mu) * 0.75 * self.tail_scale_beta
-            step = 2 if (h_mu > 50.0) else 1
-            radius = 20 if (h_mu > 50.0) else 14
+            step = 1
+            radius = 24 if (h_mu > 50.0) else 16
 
             for dh in range(-radius, radius + 1, step):
                 h_val = h_center + dh
