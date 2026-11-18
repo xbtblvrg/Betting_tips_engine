@@ -1,6 +1,6 @@
 # Live Stake market coverage
 
-Checked: 2026-11-18T11:39:48.297339+00:00
+Checked: 2026-11-18T11:56:50.066779+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
@@ -209,7 +209,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | two made | standard | regulation | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | moneyline | swishMarkets.matchMarkets | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/4 | activity_unverified 0/4 | activity_unverified 0/4 | activity_unverified 0/4 | activity_unverified 0/4 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | spread | swishMarkets.matchMarkets | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/16 | activity_unverified 0/16 | activity_unverified 0/16 | activity_unverified 0/16 | activity_unverified 0/16 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NBA | totals | swishMarkets.matchMarkets | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/16 | activity_unverified 0/16 | activity_unverified 0/16 | activity_unverified 0/16 | activity_unverified 0/16 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NBA | totals | swishMarkets.matchMarkets | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/20 | activity_unverified 0/20 | activity_unverified 0/20 | activity_unverified 0/20 | activity_unverified 0/20 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | match assists | swishMarkets.matchProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/8 | activity_unverified 0/8 | activity_unverified 0/8 | activity_unverified 0/8 | activity_unverified 0/8 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | match blocks | swishMarkets.matchProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/4 | activity_unverified 0/4 | activity_unverified 0/4 | activity_unverified 0/4 | activity_unverified 0/4 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | match rebounds | swishMarkets.matchProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/8 | activity_unverified 0/8 | activity_unverified 0/8 | activity_unverified 0/8 | activity_unverified 0/8 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
