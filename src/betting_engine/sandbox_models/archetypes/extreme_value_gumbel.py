@@ -63,8 +63,8 @@ class ExtremeValueGumbelModel(BaseCandidateModel):
             lim_a = max(8, int(math.ceil(a_mu * 2.8 + 4)))
             scale_h = max(0.45, math.sqrt(h_mu) * self.tail_scale_beta * 0.78)
             scale_a = max(0.45, math.sqrt(a_mu) * self.tail_scale_beta * 0.78)
-            loc_h = h_mu - 0.35 * scale_h
-            loc_a = a_mu - 0.35 * scale_a
+            loc_h = h_mu - 0.55 * scale_h
+            loc_a = a_mu - 0.55 * scale_a
 
             pmf_h = [max(1e-6, float(gumbel_r.cdf(h + 0.5, loc=loc_h, scale=scale_h) - (gumbel_r.cdf(h - 0.5, loc=loc_h, scale=scale_h) if h > 0 else 0.0))) for h in range(lim_h + 1)]
             pmf_a = [max(1e-6, float(gumbel_r.cdf(a + 0.5, loc=loc_a, scale=scale_a) - (gumbel_r.cdf(a - 0.5, loc=loc_a, scale=scale_a) if a > 0 else 0.0))) for a in range(lim_a + 1)]

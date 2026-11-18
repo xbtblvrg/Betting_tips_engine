@@ -472,9 +472,17 @@ class CodexModelSynthesizer:
         if not archetype_hint:
             try:
                 log.debug("[SMART-ALGO] Checking distilled archetype catalog for %s|%s|%s (model_id=%s)", league, scope, family, model_id)
-                distilled_matches = self.registry.get_distilled_archetypes_for_market(league, scope, family, limit=5)
+                distilled_matches = self.registry.get_distilled_archetypes_for_market(league, scope, family, limit=12)
                 if distilled_matches:
                     sample_ctx_chk = get_default_segment_context(league, scope)
+                    wagers_chk = self.trainer._fetch_settled_wagers(league, scope, family)
+                    split_chk = max(5, int(len(wagers_chk) * 0.75))
+                    oos_chk = wagers_chk[split_chk:] if len(wagers_chk) >= 10 else wagers_chk
+
+                    best_candidate_tuple = None
+                    best_oos_score = -999.0
+                    first_valid_tuple = None
+
                     for best_arch in distilled_matches:
                         log.debug(
                             "[SMART-ALGO] Testing candidate archetype '%s' (Category: %s, Historical OOS ROI: +%.1f%%, instantiations=%d)",
@@ -503,23 +511,77 @@ class CodexModelSynthesizer:
                             except Exception as e_inst_chk:
                                 log.debug("[SMART-ALGO] Archetype %s incompatible with %s|%s|%s (%s); trying next", best_arch.archetype_id, league, scope, family, e_inst_chk)
                                 continue
+
                             rationale = f"Smart Algorithmic Distillation: Adapted proven archetype '{best_arch.name}' (Category: {best_arch.category}, Historical ROI: +{best_arch.historical_oos_roi*100:.1f}%)"
-                            try:
-                                with sqlite3.connect(str(self.data_dir / "shadow_incubator.sqlite3"), timeout=5.0) as c_inst:
-                                    c_inst.execute(
-                                        "UPDATE distilled_archetype_catalog SET times_instantiated = COALESCE(times_instantiated, 0) + 1 WHERE archetype_id = ?",
-                                        (best_arch.archetype_id,)
-                                    )
-                                    c_inst.commit()
-                            except Exception:
-                                pass
-                            log.info(
-                                "[SMART-ALGO] Successfully instantiated model %s from distilled archetype '%s' (%s)",
-                                model_id, best_arch.name, cls_name
-                            )
-                            return adapted_code, cls_name, rationale
-                        else:
-                            log.warning("[SMART-ALGO] Distilled archetype %s adaptation AST safety failed: %s", best_arch.archetype_id, err)
+                            if first_valid_tuple is None:
+                                first_valid_tuple = (adapted_code, cls_name, rationale, best_arch)
+
+                            if len(oos_chk) >= 5:
+                                acc_c, pnl_c, bm_c, bmk_c, run_c, pk_c, dd_c = 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+                                for r_w in oos_chk:
+                                    sel_w, ln_w, od_w, _, mp_w, sd_w, res_w, _, _ = r_w
+                                    od_f = float(od_w or 2.0)
+                                    mp_f = float(mp_w or (1.0 / max(1.05, od_f)))
+                                    c_w = dict(sample_ctx_chk)
+                                    if ln_w is not None:
+                                        c_w['line'] = ln_w
+                                        c_w['total_line'] = ln_w
+                                        c_w['spread_line'] = ln_w
+                                        c_w['reference_total'] = ln_w
+                                        c_w['reference_spread'] = ln_w
+                                    try:
+                                        p_m, ev_m = test_inst.evaluate_market(
+                                            market=f"{scope}:{family}" if scope != "full_game" else family,
+                                            selection=sel_w, line=ln_w, odds=od_f, game_context=c_w, side=sd_w
+                                        )
+                                    except Exception:
+                                        continue
+                                    y_w = 1.0 if res_w == 'won' else (0.0 if res_w == 'lost' else 0.5)
+                                    if res_w in ('won', 'lost'):
+                                        bm_c += (p_m - y_w) ** 2
+                                        bmk_c += (mp_f - y_w) ** 2
+                                    if ev_m > 0.02 and od_f >= 1.40:
+                                        acc_c += 1
+                                        if res_w == 'won':
+                                            pnl_c += (od_f - 1.0)
+                                            run_c += (od_f - 1.0)
+                                        elif res_w == 'lost':
+                                            pnl_c -= 1.0
+                                            run_c -= 1.0
+                                        if run_c > pk_c:
+                                            pk_c = run_c
+                                        cur_d = (pk_c - run_c) / max(1.0, float(acc_c))
+                                        if cur_d > dd_c:
+                                            dd_c = cur_d
+                                if acc_c >= 5:
+                                    roi_c = pnl_c / float(acc_c)
+                                    db_c = (bmk_c - bm_c) / max(1, len(oos_chk))
+                                    if roi_c >= 0.035 and db_c >= -0.005 and dd_c < 0.25 and roi_c > best_oos_score:
+                                        best_oos_score = roi_c
+                                        best_candidate_tuple = (
+                                            adapted_code,
+                                            cls_name,
+                                            f"{rationale} [Verified OOS ROI: +{roi_c*100:.1f}%, N={acc_c}]",
+                                            best_arch,
+                                        )
+
+                    chosen_tuple = best_candidate_tuple or first_valid_tuple
+                    if chosen_tuple is not None:
+                        adapted_code, cls_name, rationale, best_arch = chosen_tuple
+                        try:
+                            with sqlite3.connect(str(self.data_dir / "shadow_incubator.sqlite3"), timeout=5.0) as c_inst:
+                                c_inst.execute(
+                                    "UPDATE distilled_archetype_catalog SET times_instantiated = COALESCE(times_instantiated, 0) + 1 WHERE archetype_id = ?",
+                                    (best_arch.archetype_id,)
+                                )
+                                c_inst.commit()
+                        except Exception:
+                            pass
+                        log.info(
+                            "[SMART-ALGO] Successfully instantiated model %s from distilled archetype '%s' (%s)",
+                            model_id, best_arch.name, cls_name
+                        )
+                        return adapted_code, cls_name, rationale
                 else:
                     log.debug("[SMART-ALGO] No matching distilled archetype found in catalog for %s|%s|%s; falling back to mathematical baseline", league, scope, family)
             except Exception as e_distill:

@@ -726,7 +726,8 @@ class UnifiedMarketUniverse:
                     # - OR N >= 8 games with (units <= -2.5U and ROI <= -15%) or (units <= -1.5U and ROI <= -20%) or (units <= -4.0U and ROI <= -5%)
                     # - OR N >= 12 games with units <= -3.0U and ROI <= -10%
                     is_stat_degraded = (
-                        (stat['sample_size'] >= 5 and stat['units'] <= -3.5 and stat['roi_pct'] <= -40.0)
+                        (stat['sample_size'] >= 4 and stat['units'] <= -3.5 and stat['roi_pct'] <= -75.0)
+                        or (stat['sample_size'] >= 5 and stat['units'] <= -3.5 and stat['roi_pct'] <= -40.0)
                         or (stat['sample_size'] >= 6 and stat['units'] <= -2.0 and stat['roi_pct'] <= -20.0)
                         or (stat['sample_size'] >= 8 and (
                             (stat['units'] <= -2.5 and stat['roi_pct'] <= -15.0)
@@ -747,7 +748,7 @@ class UnifiedMarketUniverse:
                     elif stat['units'] < 0.0 or stat['roi_pct'] < 0.0:
                         prof.stake_cap = 0.50
                         prof.phase_detail = f"Capital Defense Tourniquet ({stat['roi_pct']:+.1f}% ROI, {stat['units']:+.1f}U over {stat['sample_size']} games) - $0.50 clamp"
-                    elif (stat['sample_size'] >= 2 and stat['units'] > 0.0 and stat['roi_pct'] > 0.0) or bool(sb_alpha_map.get(k_perf)):
+                    elif (stat['sample_size'] >= 2 and stat['units'] >= 0.30 and stat['roi_pct'] >= 3.0) or bool(sb_alpha_map.get(k_perf)):
                         # Elite Tier 4: Live Proven Alpha Execution ($0.50-$8.00 dynamic Kelly & Polymarket CLOB)
                         prof.tier = int(MarketTier.LIVE_PROVEN_ALPHA)
                         prof.tier_name = "LIVE_PROVEN_ALPHA"

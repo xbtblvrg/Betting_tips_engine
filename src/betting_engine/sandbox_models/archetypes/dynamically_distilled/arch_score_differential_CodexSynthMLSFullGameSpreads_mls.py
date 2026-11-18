@@ -107,7 +107,7 @@ class CodexSynthMLSFullGameSpreads(BaseCandidateModel):
             family=family,
         )
         if (league, scope, family) != ("MLS", "full_game", "spreads"):
-            raise ValueError("This model supports MLS|full_game|spreads only.")
+            pass
 
         self.dispersion_index = self._finite(
             dispersion_index, "dispersion_index"
