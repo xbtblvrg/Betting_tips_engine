@@ -1,6 +1,6 @@
 # Live Stake market coverage
 
-Checked: 2026-11-18T23:12:35.957172+00:00
+Checked: 2026-11-18T23:34:44.617181+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
@@ -102,7 +102,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | 4th Quarter - Draw No Bet | standard | quarter_4 | offered_now | 7/10 | verified 24/24 | verified 24/24 | verified 24/24 | verified 24/24 | verified 24/24 | verified 24/24 | verified 24/24 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | 4th Quarter - Handicap | standard | quarter_4 | offered_now | 9/10 | verified 24/24 | verified 24/24 | verified 24/24 | verified 24/24 | verified 24/24 | verified 24/24 | verified 24/24 | verified 6/6 | verified 3/3 | partial 3/4 | 0 |
 | NBA | 4th Quarter - Odd/Even | standard | quarter_4 | offered_now | 1/10 | not_observed 0/24 | verified 24/24 | not_observed 0/24 | not_observed 0/24 | not_observed 0/24 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NBA | 4th Quarter - Total | standard | quarter_4 | offered_now | 7/10 | verified 16/16 | verified 16/16 | verified 16/16 | verified 16/16 | verified 16/16 | verified 16/16 | verified 16/16 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NBA | 4th Quarter - Total | standard | quarter_4 | offered_now | 7/10 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | verified 20/20 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | 4th Quarter - Winning Margin | standard | quarter_4 | offered_now | 0/10 | not_observed 0/36 | not_observed 0/36 | not_observed 0/36 | not_observed 0/36 | not_observed 0/36 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Any Team Total Maximum Consecutive Points | standard | regulation | offered_now | 0/10 | not_observed 0/24 | not_observed 0/24 | not_observed 0/24 | not_observed 0/24 | not_observed 0/24 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Any team to win both halves | standard | regulation | offered_now | 0/10 | not_observed 0/24 | not_observed 0/24 | not_observed 0/24 | not_observed 0/24 | not_observed 0/24 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
@@ -127,7 +127,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | Halftime/Fulltime | standard | regulation | offered_now | 0/10 | not_observed 0/108 | not_observed 0/108 | not_observed 0/108 | not_observed 0/108 | not_observed 0/108 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Handicap (Incl. Overtime) | standard | full_game | offered_now | 9/10 | verified 276/276 | verified 276/276 | verified 276/276 | verified 276/276 | verified 276/276 | verified 276/276 | verified 276/276 | verified 25/25 | verified 13/13 | partial 13/14 | 0 |
 | NBA | Handicap (including OT) & Total (including OT) | standard | regulation | offered_now | 0/10 | not_observed 0/48 | not_observed 0/48 | not_observed 0/48 | not_observed 0/48 | not_observed 0/48 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NBA | Highest Scoring Half | standard | regulation | offered_now | 0/10 | not_observed 0/24 | not_observed 0/24 | not_observed 0/24 | not_observed 0/24 | not_observed 0/24 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NBA | Highest Scoring Half | standard | regulation | offered_now | 0/10 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Highest Scoring Quarter | standard | regulation | offered_now | 0/10 | not_observed 0/60 | not_observed 0/60 | not_observed 0/60 | not_observed 0/60 | not_observed 0/60 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Highest scoring quarter - total | standard | regulation | offered_now | 0/10 | not_observed 0/24 | not_observed 0/24 | not_observed 0/24 | not_observed 0/24 | not_observed 0/24 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Houston Rockets Total (Incl. Overtime) | standard | full_game | offered_now | 7/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
