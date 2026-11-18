@@ -152,6 +152,22 @@ class DynamicArchetypeRegistry:
             oos_simulated_roi=oos_roi,
             oos_delta_brier=delta_brier,
         )
+        try:
+            from .ai_archetype_developer import AIArchetypeDeveloperAgent
+            agent = AIArchetypeDeveloperAgent(db_path=self.db_path)
+            agent.distill_from_candidate(
+                model_id=model_id,
+                source_code=source_code,
+                class_name=found_cls,
+                league=league,
+                scope=scope,
+                family=family,
+                oos_roi=oos_roi,
+                delta_brier=delta_brier,
+                provider="codex",
+            )
+        except Exception as e_dist:
+            log.debug("Could not auto-distill newly registered model %s: %s", model_id, e_dist)
         return True
 
     def get_dynamic_candidates_for_segment(

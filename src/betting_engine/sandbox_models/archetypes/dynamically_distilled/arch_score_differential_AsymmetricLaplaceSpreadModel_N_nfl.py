@@ -4,17 +4,17 @@ from typing import Any, Dict, Optional, Tuple
 from scipy.stats import norm
 from betting_engine.sandbox_models.base import BaseCandidateModel, DiscreteDistribution, build_universal_score_lattice
 
-class AsymmetricLaplaceSpreadModel_NFL_quarter_2(BaseCandidateModel):
+class AsymmetricLaplaceSpreadModel_NFL_quarter_4_ot(BaseCandidateModel):
     """Asymmetric Laplace difference model capturing sharp modal peaks and heavy score differential tails."""
 
     def __init__(
         self,
-        model_id: str = "codex_synth_nfl_quarter_2_1104_173550",
+        model_id: str = "codex_synth_nfl_quarter_4_ot_1031_180002",
         version: str = "1.0.0",
         league: str = "NFL",
-        scope: str = "quarter_2",
-        family: str = "three_way",
-        asymmetry_kappa: float = 1.0,
+        scope: str = "quarter_4_ot",
+        family: str = "spreads",
+        asymmetry_kappa: float = 1.08,
         metadata: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(
@@ -29,8 +29,8 @@ class AsymmetricLaplaceSpreadModel_NFL_quarter_2(BaseCandidateModel):
         self.asymmetry_kappa = asymmetry_kappa
 
     def predict_distribution(self, game_context: Dict[str, Any]) -> DiscreteDistribution:
-        def_h = 6.125
-        def_a = 5.375
+        def_h = 2.8 if self.league == "NHL" else (110.0 if self.league in ("NBA", "WNBA") else 1.4)
+        def_a = 2.4 if self.league == "NHL" else (106.0 if self.league in ("NBA", "WNBA") else 1.1)
         h_mu = float(game_context.get('home_expected') or game_context.get('home_points') or def_h) * self.asymmetry_kappa
         a_mu = float(game_context.get('away_expected') or game_context.get('away_points') or def_a)
 

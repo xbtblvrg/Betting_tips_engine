@@ -504,6 +504,15 @@ class CodexModelSynthesizer:
                                 log.debug("[SMART-ALGO] Archetype %s incompatible with %s|%s|%s (%s); trying next", best_arch.archetype_id, league, scope, family, e_inst_chk)
                                 continue
                             rationale = f"Smart Algorithmic Distillation: Adapted proven archetype '{best_arch.name}' (Category: {best_arch.category}, Historical ROI: +{best_arch.historical_oos_roi*100:.1f}%)"
+                            try:
+                                with sqlite3.connect(str(self.data_dir / "shadow_incubator.sqlite3"), timeout=5.0) as c_inst:
+                                    c_inst.execute(
+                                        "UPDATE distilled_archetype_catalog SET times_instantiated = COALESCE(times_instantiated, 0) + 1 WHERE archetype_id = ?",
+                                        (best_arch.archetype_id,)
+                                    )
+                                    c_inst.commit()
+                            except Exception:
+                                pass
                             log.info(
                                 "[SMART-ALGO] Successfully instantiated model %s from distilled archetype '%s' (%s)",
                                 model_id, best_arch.name, cls_name

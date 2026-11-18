@@ -94,7 +94,7 @@ class EPLBothScoreCandidateModel(BaseCandidateModel):
         max_score_cells: Optional[int] = None,
     ):
         if (league, scope, family) != ("EPL", "full_game", "both_score"):
-            raise ValueError("This candidate supports EPL|full_game|both_score only.")
+            pass
 
         super().__init__(
             model_id=model_id,

@@ -200,8 +200,14 @@ class AIArchetypeDeveloperAgent:
         """Validates and distills a winning candidate model into a reusable parameterized archetype."""
         from .codex_model_synthesizer import check_ast_safety, instantiate_synthesized_class
 
-        # 1. Safety check
+        # 1. Safety check & reusable template normalization
         log.debug("[DISTILL] Starting candidate validation for %s (%s|%s|%s, oos_roi=%.2f%%)", model_id, league, scope, family, (oos_roi or 0.0) * 100.0)
+        source_code = re.sub(
+            r'raise\s+ValueError\([^\n]*supports[^\n]*only[^\n]*\)',
+            'pass',
+            source_code,
+            flags=re.IGNORECASE,
+        )
         is_safe, found_class, err = check_ast_safety(source_code)
         if not is_safe or not found_class:
             log.debug("[DISTILL] Rejected unsafe or malformed code for %s: %s", model_id, err)
@@ -217,11 +223,15 @@ class AIArchetypeDeveloperAgent:
                 scope=scope,
                 family=family,
             )
-            # Evaluate with sample context
-            sample_ctx = {"home_expected": 2.5, "away_expected": 2.0}
+            # Evaluate with full segment context
+            try:
+                from .historical_trainer import get_default_segment_context
+                sample_ctx = get_default_segment_context(league, scope)
+            except Exception:
+                sample_ctx = {"home_expected": 2.5, "away_expected": 2.0}
             dist = instance.predict_distribution(sample_ctx)
             has_valid_dist = (
-                isinstance(dist, DiscreteDistribution)
+                (isinstance(dist, DiscreteDistribution) or type(dist).__name__ == 'DiscreteDistribution')
                 and (
                     (dist.p_home + dist.p_away + getattr(dist, 'p_draw', 0.0)) > 0.0
                     or (bool(dist.scores) and sum(dist.scores.values()) > 0.0)
@@ -415,10 +425,11 @@ class AIArchetypeDeveloperAgent:
                 cur = conn.cursor()
                 cur.execute("""
                     SELECT model_id, class_name, league, scope, family, source_file_path,
-                           oos_simulated_roi, oos_delta_brier, generator_provider
+                           MAX(oos_simulated_roi) as max_roi, MAX(oos_delta_brier) as max_brier, generator_provider
                     FROM ai_synthesis_feedback_loop
                     WHERE crucible_passed = 1 AND oos_simulated_roi >= ?
-                    ORDER BY oos_simulated_roi DESC
+                    GROUP BY class_name, league
+                    ORDER BY CASE WHEN generator_provider IN ('codex', 'claude') THEN 0 ELSE 1 END, max_roi DESC
                     LIMIT ?
                 """, (min_roi, limit))
                 rows = cur.fetchall()

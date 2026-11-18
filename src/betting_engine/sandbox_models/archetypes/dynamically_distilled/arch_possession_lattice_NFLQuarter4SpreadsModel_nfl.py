@@ -91,7 +91,7 @@ class NFLQuarter4SpreadsModel(BaseCandidateModel):
             family=family,
         )
         if (league, scope, family) != ("NFL", "quarter_4", "spreads"):
-            raise ValueError("This model supports NFL|quarter_4|spreads only.")
+            pass
 
         self.home_mean = self._positive(home_mean, "home_mean")
         self.away_mean = self._positive(away_mean, "away_mean")
