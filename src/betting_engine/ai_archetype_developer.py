@@ -134,10 +134,10 @@ class AIArchetypeDeveloperAgent:
             category = "general_divergent"
 
         # 2. Compatible Leagues
-        basketball = ["NBA", "WNBA", "NCAAM"]
+        basketball = ["NBA", "WNBA", "NCAAM", "NCAAW"]
         football = ["NFL", "NCAAF"]
         hockey = ["NHL"]
-        soccer = ["MLS", "EPL", "UCL"]
+        soccer = ["MLS", "EPL", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA"]
         tennis = ["ATP", "WTA", "CHALLENGER"]
         baseball = ["MLB"]
 
@@ -174,8 +174,12 @@ class AIArchetypeDeveloperAgent:
             for extra in ("totals", "home_total", "away_total"):
                 if extra not in compatible_families:
                     compatible_families.append(extra)
-        elif any(t in fam_l for t in ("tennis_sets", "sets", "spreads", "moneyline", "three_way")):
-            for extra in ("tennis_sets", "sets", "spreads", "moneyline", "three_way"):
+        elif any(t in fam_l for t in ("tennis_sets", "sets", "spreads", "moneyline", "three_way", "double_chance")):
+            for extra in ("tennis_sets", "sets", "spreads", "moneyline", "three_way", "double_chance"):
+                if extra not in compatible_families:
+                    compatible_families.append(extra)
+        if "scores" in code:
+            for extra in ("totals", "home_total", "away_total", "spreads", "moneyline", "three_way", "double_chance", "both_score", "asian_lines", "tennis_sets", "sets", "set_handicap"):
                 if extra not in compatible_families:
                     compatible_families.append(extra)
 
