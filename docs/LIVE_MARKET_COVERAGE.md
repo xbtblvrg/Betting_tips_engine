@@ -1,6 +1,6 @@
 # Live Stake market coverage
 
-Checked: 2026-11-18T11:07:17.078941+00:00
+Checked: 2026-11-18T11:39:48.297339+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
@@ -9,7 +9,7 @@ Observed feed titles; not proof of complete Stake website coverage. Funding supp
 | NFL | 83 | 9 | 40 | 0 | 40 | 19 | 7 | 6 | 1 |
 | NHL | 74 | 12 | 44 | 0 | 44 | 26 | 1 | 1 | 6 |
 | MLB | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| NBA | 229 | 38 | 145 | 0 | 145 | 79 | 8 | 4 | 78 |
+| NBA | 229 | 38 | 145 | 0 | 145 | 79 | 8 | 4 | 79 |
 | WNBA | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 
 Current stages require outcome-level evidence; original issuance, settlement and feedback are explicitly historical. 10/10 records observed execution, not proven profitability or automatic model promotion.
@@ -93,7 +93,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | 3rd Quarter - 1x2 | standard | quarter_3 | offered_now | 7/10 | verified 33/33 | verified 33/33 | verified 33/33 | verified 33/33 | verified 33/33 | verified 33/33 | verified 33/33 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | 3rd Quarter - Handicap | standard | quarter_3 | offered_now | 7/10 | verified 22/22 | verified 22/22 | verified 22/22 | verified 22/22 | verified 22/22 | verified 22/22 | verified 22/22 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | 3rd Quarter - Odd/Even | standard | quarter_3 | offered_now | 1/10 | not_observed 0/22 | verified 22/22 | not_observed 0/22 | not_observed 0/22 | not_observed 0/22 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NBA | 3rd Quarter - Total | standard | quarter_3 | offered_now | 9/10 | verified 22/22 | verified 22/22 | verified 22/22 | verified 22/22 | verified 22/22 | verified 22/22 | verified 22/22 | verified 8/8 | verified 1/1 | partial 1/2 | 8 |
+| NBA | 3rd Quarter - Total | standard | quarter_3 | offered_now | 9/10 | verified 22/22 | verified 22/22 | verified 22/22 | verified 22/22 | verified 22/22 | verified 22/22 | verified 22/22 | verified 9/9 | verified 1/1 | partial 1/2 | 9 |
 | NBA | 3rd Quarter - Winning Margin | standard | quarter_3 | offered_now | 0/10 | not_observed 0/33 | not_observed 0/33 | not_observed 0/33 | not_observed 0/33 | not_observed 0/33 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | 4th Quarter - 1x2 | standard | quarter_4 | offered_now | 9/10 | verified 33/33 | verified 33/33 | verified 33/33 | verified 33/33 | verified 33/33 | verified 33/33 | verified 33/33 | verified 11/11 | verified 6/6 | partial 6/7 | 6 |
 | NBA | 4th Quarter - Draw No Bet | standard | quarter_4 | offered_now | 7/10 | verified 22/22 | verified 22/22 | verified 22/22 | verified 22/22 | verified 22/22 | verified 22/22 | verified 22/22 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
@@ -121,7 +121,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | Golden State Warriors Total (Incl. Overtime) | standard | full_game | offered_now | 7/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Golden State Warriors Total Maximum Consecutive Points | standard | regulation | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Halftime/Fulltime | standard | regulation | offered_now | 0/10 | not_observed 0/99 | not_observed 0/99 | not_observed 0/99 | not_observed 0/99 | not_observed 0/99 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NBA | Handicap (Incl. Overtime) | standard | full_game | offered_now | 9/10 | verified 168/168 | verified 168/168 | verified 168/168 | verified 168/168 | verified 168/168 | verified 168/168 | verified 168/168 | verified 25/25 | verified 13/13 | partial 13/14 | 12 |
+| NBA | Handicap (Incl. Overtime) | standard | full_game | offered_now | 9/10 | verified 154/154 | verified 154/154 | verified 154/154 | verified 154/154 | verified 154/154 | verified 154/154 | verified 154/154 | verified 25/25 | verified 13/13 | partial 13/14 | 12 |
 | NBA | Handicap (including OT) & Total (including OT) | standard | regulation | offered_now | 0/10 | not_observed 0/44 | not_observed 0/44 | not_observed 0/44 | not_observed 0/44 | not_observed 0/44 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Highest Scoring Quarter | standard | regulation | offered_now | 0/10 | not_observed 0/55 | not_observed 0/55 | not_observed 0/55 | not_observed 0/55 | not_observed 0/55 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Highest scoring quarter - total | standard | regulation | offered_now | 0/10 | not_observed 0/22 | not_observed 0/22 | not_observed 0/22 | not_observed 0/22 | not_observed 0/22 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
