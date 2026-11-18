@@ -2685,7 +2685,22 @@ class ShadowMarketIncubator:
                 GROUP BY league, scope, family, sub_family, cohort
                 HAVING count(*) >= 10
             """)
-            candidate_summaries = cur.fetchall()
+            candidate_summaries = list(cur.fetchall())
+            try:
+                cur.execute("""
+                    SELECT league, scope, family, sub_family, 'model:' || model_id,
+                           count(*), sum(pnl), avg(odds), avg(brier_model), avg(brier_market)
+                    FROM incubated_wagers
+                    WHERE status = 'settled'
+                      AND league IN ('NBA', 'NFL', 'NHL', 'MLS', 'EPL', 'UCL', 'ATP', 'WTA', 'MLB', 'NCAAF', 'NCAAM', 'NCAAW', 'WNBA')
+                      AND model_id IS NOT NULL AND model_id != '' AND model_id != 'baseline'
+                      AND lower(model_id) LIKE lower(league) || '_%'
+                    GROUP BY league, scope, family, sub_family, model_id
+                    HAVING count(*) >= 25 AND sum(pnl) > 0
+                """)
+                candidate_summaries.extend(cur.fetchall())
+            except Exception:
+                pass
 
             # Demoted / probation map and historical out-of-sample sample size
             demoted_map = {}
@@ -2783,12 +2798,22 @@ class ShadowMarketIncubator:
                             or demoted_map.get(canonical_key) or demoted_map.get(sub_key) or demoted_map.get(clean_sub_key)):
                         continue
 
-                cur_rec.execute("""
-                    SELECT league, scope, family, sub_family, odds, pnl, brier_model, brier_market, dynamic_sample_power_req, raw_market_name, cohort, settled_at, model_id
-                    FROM incubated_wagers
-                    WHERE status = 'settled' AND league = ? AND scope = ? AND family = ? AND sub_family = ? AND cohort = ?
-                    ORDER BY settled_at ASC, id ASC
-                """, (league, scope, family, sub_family, cohort_val))
+                if str(cohort_val).startswith('model:'):
+                    target_mid = str(cohort_val).split(':', 1)[1]
+                    cohort_val = 'tournament_challenger'
+                    cur_rec.execute("""
+                        SELECT league, scope, family, sub_family, odds, pnl, brier_model, brier_market, dynamic_sample_power_req, raw_market_name, cohort, settled_at, model_id
+                        FROM incubated_wagers
+                        WHERE status = 'settled' AND league = ? AND scope = ? AND family = ? AND sub_family = ? AND model_id = ?
+                        ORDER BY settled_at ASC, id ASC
+                    """, (league, scope, family, sub_family, target_mid))
+                else:
+                    cur_rec.execute("""
+                        SELECT league, scope, family, sub_family, odds, pnl, brier_model, brier_market, dynamic_sample_power_req, raw_market_name, cohort, settled_at, model_id
+                        FROM incubated_wagers
+                        WHERE status = 'settled' AND league = ? AND scope = ? AND family = ? AND sub_family = ? AND cohort = ?
+                        ORDER BY settled_at ASC, id ASC
+                    """, (league, scope, family, sub_family, cohort_val))
                 records = cur_rec.fetchall()
                 if not records:
                     continue

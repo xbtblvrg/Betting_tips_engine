@@ -338,6 +338,8 @@ class UnifiedMarketUniverse:
                     roster[seg_key] = prof
                     grad_keys_set.add(seg_key)
                     grad_at_map[seg_key] = grad_at or '1970-01-01'
+                    canon_g_k = self.get_canonical_key(lg, sc, sub_fam or fam)
+                    grad_at_map[canon_g_k] = grad_at or '1970-01-01'
                     if sub_fam and sub_fam != fam:
                         sub_k = f"{lg}|{sc}|{fam}:{sub_fam}"
                         from dataclasses import replace as dc_replace
@@ -707,8 +709,9 @@ class UnifiedMarketUniverse:
                         prof.phase_detail = f"Capital Defense Tourniquet ({r_roi:+.1f}% ROI, {r_units:+.1f}U over {r_games} games) - $0.50 clamp"
                     continue
 
-                stat = perf_map.get(k_perf)
-                at_stat = all_time_perf_map.get(k_perf)
+                canon_perf_k = self.get_canonical_key(prof.league, prof.scope, prof.sub_family or prof.family)
+                stat = perf_map.get(k_perf) or perf_map.get(canon_perf_k)
+                at_stat = all_time_perf_map.get(k_perf) or all_time_perf_map.get(canon_perf_k)
 
                 if stat and stat['sample_size'] > 0:
                     prof.rolling_pnl = stat['pnl']
