@@ -569,7 +569,8 @@ class CodexModelSynthesizer:
                     if chosen_tuple is not None:
                         adapted_code, cls_name, rationale, best_arch = chosen_tuple
                         try:
-                            with sqlite3.connect(str(self.data_dir / "shadow_incubator.sqlite3"), timeout=5.0) as c_inst:
+                            with sqlite3.connect(str(self.data_dir / "shadow_incubator.sqlite3"), timeout=30.0) as c_inst:
+                                c_inst.execute("PRAGMA busy_timeout=30000;")
                                 c_inst.execute(
                                     "UPDATE distilled_archetype_catalog SET times_instantiated = COALESCE(times_instantiated, 0) + 1 WHERE archetype_id = ?",
                                     (best_arch.archetype_id,)

@@ -300,51 +300,61 @@ class AIArchetypeDeveloperAgent:
             log.warning("Could not write archetype file %s: %s", file_path, e_file)
             return False
 
-        # 2. Insert or replace in SQLite
+        # 2. Insert or replace in SQLite (with WAL busy_timeout and retry backoff for multi-worker concurrency)
         now = datetime.now(timezone.utc).isoformat()
-        try:
-            with closing(sqlite3.connect(f"file:{self.db_path.resolve()}", uri=True, timeout=10.0)) as conn:
-                with conn:
-                    conn.execute("""
-                        INSERT INTO distilled_archetype_catalog (
-                            archetype_id, name, base_class_name, category, compatible_leagues,
-                            compatible_families, source_template_code, parameter_spec, origin_model_id,
-                            origin_provider, historical_oos_roi, historical_delta_brier, times_instantiated,
-                            times_crucible_passed, is_active, created_at, updated_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        ON CONFLICT(archetype_id) DO UPDATE SET
-                            historical_oos_roi = MAX(distilled_archetype_catalog.historical_oos_roi, excluded.historical_oos_roi),
-                            times_crucible_passed = distilled_archetype_catalog.times_crucible_passed + 1,
-                            compatible_leagues = excluded.compatible_leagues,
-                            compatible_families = excluded.compatible_families,
-                            parameter_spec = excluded.parameter_spec,
-                            source_template_code = excluded.source_template_code,
-                            updated_at = excluded.updated_at
-                    """, (
-                        record.archetype_id,
-                        record.name,
-                        record.base_class_name,
-                        record.category,
-                        json.dumps(record.compatible_leagues),
-                        json.dumps(record.compatible_families),
-                        record.source_template_code,
-                        json.dumps(record.parameter_spec),
-                        record.origin_model_id,
-                        record.origin_provider,
-                        record.historical_oos_roi,
-                        record.historical_delta_brier,
-                        record.times_instantiated,
-                        record.times_crucible_passed,
-                        1 if record.is_active else 0,
-                        record.created_at,
-                        now,
-                    ))
-            log.debug("[DISTILL] Registered archetype %s in SQLite catalog at %s", record.archetype_id, self.db_path)
-            log.info("Successfully registered distilled archetype: %s (%s)", record.archetype_id, record.name)
-            return True
-        except Exception as e_db:
-            log.error("Failed to commit archetype %s to database: %s", record.archetype_id, e_db)
-            return False
+        import time
+        last_err = None
+        for attempt in range(4):
+            try:
+                with closing(sqlite3.connect(f"file:{self.db_path.resolve()}", uri=True, timeout=30.0)) as conn:
+                    conn.execute("PRAGMA journal_mode=WAL;")
+                    conn.execute("PRAGMA busy_timeout=30000;")
+                    with conn:
+                        conn.execute("""
+                            INSERT INTO distilled_archetype_catalog (
+                                archetype_id, name, base_class_name, category, compatible_leagues,
+                                compatible_families, source_template_code, parameter_spec, origin_model_id,
+                                origin_provider, historical_oos_roi, historical_delta_brier, times_instantiated,
+                                times_crucible_passed, is_active, created_at, updated_at
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            ON CONFLICT(archetype_id) DO UPDATE SET
+                                historical_oos_roi = MAX(distilled_archetype_catalog.historical_oos_roi, excluded.historical_oos_roi),
+                                times_crucible_passed = distilled_archetype_catalog.times_crucible_passed + 1,
+                                compatible_leagues = excluded.compatible_leagues,
+                                compatible_families = excluded.compatible_families,
+                                parameter_spec = excluded.parameter_spec,
+                                source_template_code = excluded.source_template_code,
+                                updated_at = excluded.updated_at
+                        """, (
+                            record.archetype_id,
+                            record.name,
+                            record.base_class_name,
+                            record.category,
+                            json.dumps(record.compatible_leagues),
+                            json.dumps(record.compatible_families),
+                            record.source_template_code,
+                            json.dumps(record.parameter_spec),
+                            record.origin_model_id,
+                            record.origin_provider,
+                            record.historical_oos_roi,
+                            record.historical_delta_brier,
+                            record.times_instantiated,
+                            record.times_crucible_passed,
+                            1 if record.is_active else 0,
+                            record.created_at,
+                            now,
+                        ))
+                log.debug("[DISTILL] Registered archetype %s in SQLite catalog at %s", record.archetype_id, self.db_path)
+                log.info("Successfully registered distilled archetype: %s (%s)", record.archetype_id, record.name)
+                return True
+            except sqlite3.OperationalError as e_lock:
+                last_err = e_lock
+                time.sleep(0.25 * (attempt + 1))
+            except Exception as e_db:
+                log.error("Failed to commit archetype %s to database: %s", record.archetype_id, e_db)
+                return False
+        log.error("Failed to commit archetype %s to database after retries: %s", record.archetype_id, last_err)
+        return False
 
     def get_distilled_archetypes_for_market(
         self,
