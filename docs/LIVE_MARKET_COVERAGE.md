@@ -1,6 +1,6 @@
 # Live Stake market coverage
 
-Checked: 2026-11-18T12:15:36.029145+00:00
+Checked: 2026-11-18T12:34:02.722234+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
@@ -9,7 +9,7 @@ Observed feed titles; not proof of complete Stake website coverage. Funding supp
 | NFL | 83 | 9 | 40 | 0 | 40 | 19 | 7 | 6 | 1 |
 | NHL | 74 | 12 | 44 | 0 | 44 | 26 | 1 | 1 | 6 |
 | MLB | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| NBA | 232 | 38 | 149 | 0 | 149 | 81 | 8 | 4 | 79 |
+| NBA | 232 | 38 | 149 | 0 | 149 | 81 | 8 | 5 | 79 |
 | WNBA | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 
 Current stages require outcome-level evidence; original issuance, settlement and feedback are explicitly historical. 10/10 records observed execution, not proven profitability or automatic model promotion.
