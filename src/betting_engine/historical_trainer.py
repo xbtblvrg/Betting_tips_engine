@@ -242,8 +242,12 @@ class HistoricalCandidateTrainer:
                                PARTITION BY COALESCE(game_id, selection), line, side, date(captured_at)
                                ORDER BY captured_at ASC
                            ) as rn
-                    FROM incubated_wagers
-                    WHERE {' AND '.join(conditions)} AND ({' OR '.join(family_filters)})
+                    FROM (
+                        SELECT game_id, selection, line, odds, model_prob, market_prob, side, result, pnl, captured_at
+                        FROM incubated_wagers
+                        WHERE {' AND '.join(conditions)} AND ({' OR '.join(family_filters)})
+                        ORDER BY rowid DESC LIMIT 4000
+                    )
                 )
                 WHERE rn = 1
                 ORDER BY captured_at ASC
