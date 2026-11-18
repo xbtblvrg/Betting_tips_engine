@@ -14,9 +14,12 @@ from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
 import json
+import logging
 from pathlib import Path
 import sqlite3
 from typing import Any, Dict, List, Optional, Tuple
+
+log = logging.getLogger(__name__)
 
 from .demoted_market_bridge import DemotedMarketIncubationBridge
 from .historical_trainer import HistoricalCandidateTrainer, CandidateTrainingResult
