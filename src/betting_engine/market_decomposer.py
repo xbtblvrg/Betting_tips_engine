@@ -35,8 +35,26 @@ class DecomposedContract:
 
 
 def extract_line(market_name: str, specifiers: str = "", outcome_name: str = "") -> Optional[float]:
-    """Dynamically extracts numeric line from specifiers, market name, or outcome text."""
-    # 1. Specifiers check (e.g. 'total=2.25' or 'hcp=-0.75')
+    """Dynamically extracts numeric line from outcome text, specifiers, or market name."""
+    # 1. Outcome-specific text in parentheses (e.g. 'Buffalo Bills (-10.5)' or 'Over (+2.25)')
+    if outcome_name:
+        m_par_out = re.search(r'\(([+-]?\d+(?:\.\d+)?)\)', outcome_name)
+        if m_par_out:
+            try:
+                return float(m_par_out.group(1))
+            except ValueError:
+                pass
+        # Explicit signed handicap in outcome text (e.g. 'Buffalo Bills -10.5' or 'San Francisco 49ers -6.5')
+        m_signed_out = re.search(r'(?:^|[\s(])([+-]\d+(?:\.\d+)?)(?=\b|\)|$)', outcome_name)
+        if m_signed_out:
+            try:
+                val = float(m_signed_out.group(1))
+                if abs(val) < 250:
+                    return val
+            except ValueError:
+                pass
+
+    # 2. Specifiers check (e.g. 'total=2.25' or 'hcp=-0.75')
     if specifiers:
         m = re.search(r'(?:total|hcp|handicap|spread)=([+-]?\d+(?:\.\d+)?)', specifiers, re.I)
         if m:
@@ -45,16 +63,17 @@ def extract_line(market_name: str, specifiers: str = "", outcome_name: str = "")
             except ValueError:
                 pass
 
-    # 2. Text in parentheses (e.g. 'Over (+2.25)' or 'Handicap (-0.75)')
-    m_par = re.search(r'\(([+-]?\d+(?:\.\d+)?)\)', outcome_name or market_name)
+    # 3. Market name in parentheses (e.g. 'Handicap (-0.75)')
+    m_par = re.search(r'\(([+-]?\d+(?:\.\d+)?)\)', market_name or "")
     if m_par:
         try:
             return float(m_par.group(1))
         except ValueError:
             pass
 
-    # 3. Numeric trailing line (e.g. 'Total Games 9.5' or 'Over 2.5')
-    m_num = re.search(r'\b([+-]?\d+(?:\.\d+)?)\b', outcome_name or market_name)
+    # 4. Signed or unsigned numeric line (preserving +/- sign and avoiding team numbers like '49ers' / '76ers')
+    target_txt = outcome_name or market_name or ""
+    m_num = re.search(r'(?:^|[\s(])([+-]?\d+(?:\.\d+)?)(?!\s*(?:ers|st|nd|rd|th)\b)(?=\b|\)|$)', target_txt, re.I)
     if m_num:
         try:
             val = float(m_num.group(1))

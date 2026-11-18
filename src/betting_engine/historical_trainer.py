@@ -249,7 +249,31 @@ class HistoricalCandidateTrainer:
                 ORDER BY captured_at ASC
             """
             rows = cur.execute(query, params).fetchall()
-            return rows
+            scale_factor = 1.0
+            if len(rows) < 8 and scope != 'full_game':
+                fb_params = [league, 'full_game'] + params[2:]
+                rows = cur.execute(query, fb_params).fetchall()
+                if 'quarter_' in scope:
+                    scale_factor = 0.25
+                elif 'half_' in scope:
+                    scale_factor = 0.48
+                elif 'period_' in scope:
+                    scale_factor = 0.33
+
+            import re
+            cleaned_rows = []
+            for r in rows:
+                sel_r, line_r, odds_r, mp_r, mkp_r, side_r, res_r, pnl_r, cap_r = r
+                if line_r is not None:
+                    lv = float(line_r)
+                    sel_s = str(sel_r or '')
+                    if lv > 0 and ('(-' in sel_s or re.search(r'(?:^|\s)-\d+(?:\.\d+)?(?=\b|$)', sel_s)):
+                        lv = -abs(lv)
+                    if scale_factor != 1.0:
+                        lv = round(lv * scale_factor * 2.0) / 2.0
+                    line_r = lv
+                cleaned_rows.append((sel_r, line_r, odds_r, mp_r, mkp_r, side_r, res_r, pnl_r, cap_r))
+            return cleaned_rows
         finally:
             conn.close()
 
@@ -484,9 +508,24 @@ class HistoricalCandidateTrainer:
                 odds_val = float(odds or 2.0)
                 mkt_p = float(mkt_prob or (1.0 / max(1.05, odds_val)))
 
+                ctx_wager = dict(ctx)
+                if line is not None:
+                    ctx_wager['line'] = line
+                    ctx_wager['total_line'] = line
+                    ctx_wager['spread_line'] = line
+                    ctx_wager['reference_total'] = line
+                    ctx_wager['reference_spread'] = line
+                    sel_str = str(sel or '').lower()
+                    if side == 'home' or 'home' in sel_str:
+                        ctx_wager['home_spread'] = line
+                        ctx_wager['home_total_line'] = line
+                    elif side == 'away' or 'away' in sel_str:
+                        ctx_wager['away_spread'] = line
+                        ctx_wager['away_total_line'] = line
+
                 try:
                     prob, ev = model.evaluate_market(
-                        segment_key, sel or '', line, odds_val, ctx, side=side
+                        segment_key, sel or '', line, odds_val, ctx_wager, side=side
                     )
                 except Exception:
                     continue
