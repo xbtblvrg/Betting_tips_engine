@@ -3027,7 +3027,9 @@ class ShadowMarketIncubator:
                         'raw_market_names': raw_market_names,
                     }
 
-                    # Evaluate Multi-Model Tournament Champions
+                    # Evaluate Multi-Model Tournament Champions & Persist Winning Model ID
+                    if str(cohort_val).startswith('model_id:'):
+                        stats['champion_model_id'] = str(cohort_val).split(':', 1)[1]
                     try:
                         from .tournament_engine import TournamentEngine
                         t_eng = getattr(self, '_tournament_engine', None) or TournamentEngine(self.data_dir)
@@ -3037,11 +3039,21 @@ class ShadowMarketIncubator:
                         if not champ and sub_family:
                             champ = t_eng.crown_champion(f"{league}|{scope}|{sub_family}")
                         if champ:
-                            stats['champion_model_id'] = champ.model_id
+                            stats.setdefault('champion_model_id', champ.model_id)
                             stats['champion_version'] = champ.version
                             stats['tournament_scorecard_s'] = champ.scorecard_s
                     except Exception:
                         pass
+                    if not stats.get('champion_model_id'):
+                        try:
+                            dm_row = cur_rec.execute(
+                                "SELECT incubated_model_id FROM demoted_markets WHERE segment_key IN (?, ?, ?) AND incubated_model_id IS NOT NULL AND incubated_model_id != '' LIMIT 1",
+                                (segment_key, canonical_key, sub_key)
+                            ).fetchone()
+                            if dm_row and dm_row[0]:
+                                stats['champion_model_id'] = dm_row[0]
+                        except Exception:
+                            pass
 
                     try:
                         cur_rec.execute("""
@@ -3880,7 +3892,9 @@ class ShadowMarketIncubator:
                         'shortfall_context': daily_shortfall
                     }
 
-                    # Evaluate Multi-Model Tournament Champions
+                    # Evaluate Multi-Model Tournament Champions & Persist Winning Model ID
+                    if str(cohort_val).startswith('model_id:'):
+                        stats['champion_model_id'] = str(cohort_val).split(':', 1)[1]
                     try:
                         from .tournament_engine import TournamentEngine
                         t_eng = getattr(self, '_tournament_engine', None) or TournamentEngine(self.data_dir)
@@ -3890,11 +3904,21 @@ class ShadowMarketIncubator:
                         if not champ and sub_family:
                             champ = t_eng.crown_champion(f"{league}|{scope}|{sub_family}")
                         if champ:
-                            stats['champion_model_id'] = champ.model_id
+                            stats.setdefault('champion_model_id', champ.model_id)
                             stats['champion_version'] = champ.version
                             stats['tournament_scorecard_s'] = champ.scorecard_s
                     except Exception:
                         pass
+                    if not stats.get('champion_model_id'):
+                        try:
+                            dm_row = cur_rec.execute(
+                                "SELECT incubated_model_id FROM demoted_markets WHERE segment_key IN (?, ?, ?) AND incubated_model_id IS NOT NULL AND incubated_model_id != '' LIMIT 1",
+                                (segment_key, canonical_key, sub_key)
+                            ).fetchone()
+                            if dm_row and dm_row[0]:
+                                stats['champion_model_id'] = dm_row[0]
+                        except Exception:
+                            pass
 
                     try:
                         cur_rec.execute("""

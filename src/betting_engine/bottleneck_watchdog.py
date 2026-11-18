@@ -723,7 +723,7 @@ class BottleneckWatchdog:
                         SELECT fixture_id, game_id, captured_at FROM incubated_wagers
                         WHERE status = 'open'
                     """)
-                    cutoff_36h_iso = (now_dt - timedelta(hours=36)).isoformat()
+                    cutoff_90h_iso = (now_dt - timedelta(hours=90)).isoformat()
                     for fid, gid, cap_at in cur.fetchall():
                         if fid:
                             open_fixture_ids.add(fid)
@@ -733,7 +733,7 @@ class BottleneckWatchdog:
                         if g_start:
                             if g_start < cutoff_iso:
                                 stale_wagers_count += 1
-                        elif cap_at and cap_at < cutoff_36h_iso:
+                        elif cap_at and cap_at < cutoff_90h_iso:
                             stale_wagers_count += 1
             except Exception as e_w:
                 log.debug("[WATCHDOG_SCORE_GAP] Stale wager scan: %s", e_w)

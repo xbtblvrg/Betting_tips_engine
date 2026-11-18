@@ -133,37 +133,25 @@ class AIArchetypeDeveloperAgent:
         else:
             category = "general_divergent"
 
-        # 2. Compatible Leagues
-        basketball = ["NBA", "WNBA", "NCAAM", "NCAAW"]
-        football = ["NFL", "NCAAF"]
-        hockey = ["NHL"]
-        soccer = ["MLS", "EPL", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA"]
-        tennis = ["ATP", "WTA", "CHALLENGER"]
-        baseball = ["MLB"]
+        # 2. Compatible Leagues (Strict Sport-Domain Affinity; never match 'nfl' inside 'inflation')
+        basketball = ["NBA", "WNBA", "NCAAM", "NCAAW", "EUROBASKET"]
+        football = ["NFL", "NCAAF", "CFL"]
+        hockey = ["NHL", "NCAA_ICE_HOCKEY", "KHL", "SHL"]
+        soccer = ["MLS", "EPL", "UCL", "UEL", "EUROPA_LEAGUE", "LALIGA", "BUNDESLIGA", "SERIEA", "SERIE_A", "LIGUE_1"]
+        tennis = ["ATP", "WTA", "CHALLENGER", "ITF"]
+        baseball = ["MLB", "NCAA_BASEBALL", "NPB", "KBO"]
 
-        if lg_u in basketball:
+        if lg_u in basketball or "basketball" in lg_u:
             compatible_leagues = basketball
-        elif lg_u in football:
+        elif lg_u in football or "football" in lg_u:
             compatible_leagues = football
-        elif lg_u in hockey:
+        elif lg_u in hockey or "hockey" in lg_u:
             compatible_leagues = hockey
-        elif lg_u in soccer:
+        elif lg_u in soccer or "soccer" in lg_u:
             compatible_leagues = soccer
-        elif lg_u in tennis:
+        elif lg_u in tennis or "tennis" in lg_u:
             compatible_leagues = tennis
-        elif lg_u in baseball:
-            compatible_leagues = baseball
-        elif "nba" in combined or "wnba" in combined:
-            compatible_leagues = basketball
-        elif "nfl" in combined or "ncaaf" in combined:
-            compatible_leagues = football
-        elif "nhl" in combined or "empty_net" in combined:
-            compatible_leagues = hockey
-        elif "soccer" in combined or "dixon" in combined:
-            compatible_leagues = soccer
-        elif "tennis" in combined or "atp" in combined or "wta" in combined:
-            compatible_leagues = tennis
-        elif "baseball" in combined or "mlb" in combined:
+        elif lg_u in baseball or "baseball" in lg_u:
             compatible_leagues = baseball
         else:
             compatible_leagues = [lg_u]

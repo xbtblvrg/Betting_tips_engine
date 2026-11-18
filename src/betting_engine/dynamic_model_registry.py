@@ -208,6 +208,42 @@ class DynamicArchetypeRegistry:
                 except Exception as e_inst:
                     log.debug("Could not instantiate dynamic model %s for %s: %s", mid, league, e_inst)
 
+        # Also include top sport-matched distilled AI archetypes from distilled_archetype_catalog
+        try:
+            import re
+            from .codex_model_synthesizer import instantiate_synthesized_class
+            distilled_list = self.get_distilled_archetypes_for_market(league, scope, family, limit=8)
+            seen_cls = {c[0] for c in candidates}
+            for d_arch in distilled_list:
+                d_label = f"Distilled_{d_arch.base_class_name}"
+                if d_label in seen_cls:
+                    continue
+                try:
+                    clean_code = re.sub(
+                        r'raise\s+ValueError\([^\n]*supports[^\n]*only[^\n]*\)',
+                        'pass',
+                        d_arch.source_template_code,
+                        flags=re.IGNORECASE,
+                    )
+                    inst_d = instantiate_synthesized_class(
+                        clean_code,
+                        d_arch.base_class_name,
+                        model_id=f"distilled_{d_arch.archetype_id[:36]}",
+                        league=league,
+                        scope=scope,
+                        family=family,
+                    )
+                    candidates.append((
+                        d_label,
+                        inst_d,
+                        {'archetype_id': d_arch.archetype_id, 'historical_roi': d_arch.historical_oos_roi}
+                    ))
+                    seen_cls.add(d_label)
+                except Exception:
+                    continue
+        except Exception as e_dcat:
+            log.debug("Could not load distilled catalog candidates for %s|%s|%s: %s", league, scope, family, e_dcat)
+
         return candidates
 
     def get_distilled_archetypes_for_market(
