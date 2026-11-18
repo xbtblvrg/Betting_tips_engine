@@ -63,11 +63,27 @@ def choose_learning_job(rows, recent_attempts, now=None, lane='all'):
     if not runnable: return None, {'version':SCHEDULING_VERSION, 'reason':'no_due_work'}
     eligible_at = lambda r: max(parse_time(r['created_at']), parse_time(r['next_attempt']))
     def _strat_prio(r):
-        lg = r.get('league')
+        lg = str(r.get('league') or '').upper().strip()
         if not lg:
-            return 0
-        from .contracts import get_sport_priority
-        return get_sport_priority(lg)
+            return (0, 0, 0)
+        from .contracts import get_sport_priority, get_live_active_leagues, is_dual_reachable_contract
+        live_active = get_live_active_leagues()
+        is_inactive = 0 if lg in live_active else 1
+        is_non_dual = 1
+        try:
+            pl = json.loads(r['payload']) if isinstance(r.get('payload'), str) else (r.get('payload') or {})
+            seg = str(pl.get('segment_key') or pl.get('segment') or '')
+            if '|' in seg:
+                parts = seg.split('|')
+                if len(parts) >= 3:
+                    sc_p = parts[1]
+                    fam_p = parts[2]
+                    sub_p = fam_p.split(':')[-1] if ':' in fam_p else fam_p
+                    if is_dual_reachable_contract(lg, sc_p, fam_p, sub_p):
+                        is_non_dual = 0
+        except Exception:
+            pass
+        return (is_inactive, is_non_dual, get_sport_priority(lg))
 
     ordinary = min(runnable, key=lambda r:(PRIORITY.get(r['kind'],5), _strat_prio(r), eligible_at(r), r['id']))
     # Preserve genuine model recovery at priority zero. Source refreshes are

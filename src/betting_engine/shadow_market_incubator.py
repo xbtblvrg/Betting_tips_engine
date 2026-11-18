@@ -2698,9 +2698,11 @@ class ShadowMarketIncubator:
                     GROUP BY league, scope, family, sub_family, model_id
                     HAVING count(*) >= 25 AND sum(pnl) > 0
                 """)
-                candidate_summaries.extend(cur.fetchall())
-            except Exception:
-                pass
+                model_cand_rows = cur.fetchall()
+                candidate_summaries.extend(model_cand_rows)
+                log.debug("[GRADUATION_MODEL_CANDIDATES] Loaded %d individual model_id Crucible candidates alongside cohort summaries", len(model_cand_rows))
+            except Exception as e_mc:
+                log.debug("[GRADUATION_MODEL_CANDIDATES_ERR] Failed to query individual model_id candidates: %s", e_mc)
 
             # Demoted / probation map and historical out-of-sample sample size
             demoted_map = {}

@@ -552,6 +552,41 @@ def sort_leagues_by_priority(leagues: Any) -> List[str]:
     return sorted(leagues, key=lambda lg: (get_sport_priority(lg), str(lg)))
 
 
+_LIVE_ACTIVE_LEAGUES_CACHE: Dict[str, Any] = {'ts': 0.0, 'dir': '', 'leagues': set()}
+
+
+def get_live_active_leagues(data_dir: Any = None) -> set:
+    """Returns set of leagues that currently have scheduled/live upcoming fixtures in games.json."""
+    import json
+    import time
+    from datetime import datetime, timedelta, timezone
+    from pathlib import Path
+    now_ts = time.time()
+    d_path = Path(data_dir or 'data')
+    d_str = str(d_path)
+    if _LIVE_ACTIVE_LEAGUES_CACHE['leagues'] and _LIVE_ACTIVE_LEAGUES_CACHE['dir'] == d_str and (now_ts - _LIVE_ACTIVE_LEAGUES_CACHE['ts']) < 60.0:
+        return set(_LIVE_ACTIVE_LEAGUES_CACHE['leagues'])
+
+    games_file = d_path / 'games.json'
+    active: set = set()
+    if games_file.exists():
+        try:
+            cutoff = (datetime.now(timezone.utc) - timedelta(hours=12)).strftime('%Y-%m-%d')
+            for g in json.loads(games_file.read_text(encoding='utf-8')):
+                if g.get('state') in ('pre', 'scheduled', 'in', 'live') and str(g.get('start', '')) >= cutoff:
+                    lg = str(g.get('league') or '').upper().strip()
+                    if lg:
+                        active.add(lg)
+        except Exception:
+            pass
+    if not active:
+        active = {'NBA', 'NFL', 'NHL', 'MLS', 'NCAAF', 'NCAAM', 'NCAAW', 'ATP', 'EPL', 'UCL', 'MLB', 'WTA', 'WNBA'}
+    _LIVE_ACTIVE_LEAGUES_CACHE['ts'] = now_ts
+    _LIVE_ACTIVE_LEAGUES_CACHE['dir'] = d_str
+    _LIVE_ACTIVE_LEAGUES_CACHE['leagues'] = set(active)
+    return active
+
+
 def is_preferred_alpha_league(league: str) -> bool:
     """Returns True iff league is one of the 10 Supreme Priority Leagues authorized for primary AI compute."""
     return get_sport_priority(league) <= 10

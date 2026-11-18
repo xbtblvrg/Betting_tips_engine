@@ -530,8 +530,8 @@ class UnifiedMarketUniverse:
                 for g_obj in json.loads(games_json_path.read_text(encoding='utf-8')):
                     if g_obj.get('state') in ('post', 'final', 'completed') and g_obj.get('start') and g_obj.get('id') and g_obj.get('league'):
                         league_games_map.setdefault(str(g_obj['league']).upper().strip(), {})[str(g_obj['id']).strip()] = str(g_obj['start'])
-            except Exception:
-                pass
+            except Exception as e_gj:
+                logger.debug("[UNIVERSE_GAMES_JSON_ERR] Failed to read games.json for fixture horizon: %s", e_gj)
         if self.incubator_db_path.exists():
             try:
                 with closing(sqlite3.connect(f"file:{self.incubator_db_path.resolve()}?mode=ro", uri=True, timeout=5.0)) as inc_conn2:
@@ -550,8 +550,8 @@ class UnifiedMarketUniverse:
                             prev_ts = league_games_map.setdefault(lg_u_g, {}).get(gm_s_g)
                             if prev_ts is None or str(st_g) > prev_ts:
                                 league_games_map[lg_u_g][gm_s_g] = str(st_g)
-            except Exception:
-                pass
+            except Exception as e_inc_g:
+                logger.debug("[UNIVERSE_INCUBATOR_GAMES_ERR] Failed to query settled games from incubator: %s", e_inc_g)
         if self.engine_db_path.exists():
             try:
                 with closing(sqlite3.connect(f"file:{self.engine_db_path}?mode=ro", uri=True, timeout=2.0)) as eng_conn:
@@ -743,6 +743,7 @@ class UnifiedMarketUniverse:
                         prof.model_archetype = None
                         prof.phase_detail = f"Live Drawdown Demotion ({stat['roi_pct']:.1f}% ROI, {stat['units']:.1f}U over {stat['sample_size']} games) - Quarantined ($0.00)"
                         grad_keys_set.discard(k_perf)
+                        logger.debug("[TIER3_DRAWDOWN_DEMOTION] Evicting %s to Tier 1 R&D: ROI=%.1f%%, units=%.1fU, N=%d", k_perf, stat['roi_pct'], stat['units'], stat['sample_size'])
                     elif stat['units'] < 0.0 or stat['roi_pct'] < 0.0:
                         prof.stake_cap = 0.50
                         prof.phase_detail = f"Capital Defense Tourniquet ({stat['roi_pct']:+.1f}% ROI, {stat['units']:+.1f}U over {stat['sample_size']} games) - $0.50 clamp"
@@ -759,6 +760,7 @@ class UnifiedMarketUniverse:
                         else:
                             prof.stake_cap = 2.50
                             prof.phase_detail = f"Tier 4 Live Proven Alpha ({stat['roi_pct']:+.1f}% ROI, {stat['units']:+.1f}U over {stat['sample_size']} games) - Scaled Production"
+                        logger.debug("[TIER4_ALPHA_PROMOTION] Promoted %s to Tier 4 Live Proven Alpha (N=%d, ROI=%.1f%%, cap=$%.2f)", k_perf, stat['sample_size'], stat['roi_pct'], prof.stake_cap)
                     else:
                         prof.stake_cap = 0.50
                         prof.phase_detail = f"Live Probation ({stat['sample_size']} games, {stat['units']:+.1f}U) - $0.50 floor"
@@ -813,6 +815,7 @@ class UnifiedMarketUniverse:
                             prof.model_archetype = None
                             prof.phase_detail = f"Dormant Market Eviction (0 bets across {games_since_grad} games post-grad) - Quarantined to R&D ($0.00)"
                             grad_keys_set.discard(k_perf)
+                            logger.debug("[TIER3_DORMANT_EVICTION] Evicting silent graduated market %s to Tier 1 R&D (0 bets across %d games since %s)", k_perf, games_since_grad, grad_ts)
                         else:
                             # Retains full Tier 3 live probation at $0.50 floor without premature eviction!
                             prof.stake_cap = 0.50

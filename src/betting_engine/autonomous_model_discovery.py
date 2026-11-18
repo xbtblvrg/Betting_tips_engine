@@ -201,12 +201,32 @@ class AutonomousModelDiscoveryEngine:
                     dm.scope, dm.family
             """)
             raw_rows = [dict(r) for r in cur.fetchall()]
-            from .contracts import is_supported_stake_contract, is_preferred_alpha_league
+            from .contracts import is_supported_stake_contract, is_preferred_alpha_league, get_live_active_leagues, is_dual_reachable_contract, get_sport_priority
+            live_active = get_live_active_leagues(self.data_dir)
             actionable_rows = [
                 r for r in raw_rows
                 if is_supported_stake_contract(r.get('league', ''), r.get('scope', 'full_game'), r.get('family', ''), r.get('sub_family', ''))
-                and is_preferred_alpha_league(r.get('league', ''))
+                and (is_preferred_alpha_league(r.get('league', '')) or str(r.get('league', '')).upper() in ('NCAAM', 'NCAAW'))
             ]
+            actionable_rows.sort(key=lambda r: (
+                0 if str(r.get('league', '')).upper().strip() in live_active else 1,
+                0 if is_dual_reachable_contract(r.get('league', ''), r.get('scope', 'full_game'), r.get('family', ''), r.get('sub_family', '')) else 1,
+                0 if not r.get('last_screened_at') else 1,
+                str(r.get('last_screened_at') or '')[:13],
+                0 if int(r.get('attempts') or 0) == 0 else 1,
+                0 if float(r.get('rolling_pnl') or 0.0) < 0.0 else 1,
+                get_sport_priority(r.get('league', '')),
+                int(r.get('attempts') or 0),
+                str(r.get('last_screened_at') or ''),
+                str(r.get('scope') or ''),
+                str(r.get('family') or ''),
+            ))
+            log.debug(
+                "[TIER1_ACTIVE_DUAL_PRIORITY] Scanned %d actionable Tier 1 markets (live_active_leagues=%s, top_candidates=%s)",
+                len(actionable_rows),
+                sorted(live_active),
+                [r.get('segment_key') for r in actionable_rows[:5]],
+            )
             return actionable_rows
         finally:
             conn.close()

@@ -100,47 +100,33 @@ class DemotedMarketIncubationBridge:
         try:
             cur = conn.cursor()
             cur.execute("""
-                SELECT id, segment_key, league, scope, family, sub_family, rolling_roi, rolling_pnl, games, incubation_phase, incubated_model_id
+                SELECT id, segment_key, league, scope, family, sub_family, rolling_roi, rolling_pnl, games, incubation_phase, incubated_model_id, last_screened_at
                 FROM demoted_markets
-                ORDER BY 
-                    -- 0. Ground Truth Telemetry: Prioritize leagues with active historical wagers in database
-                    CASE WHEN league IN ('NBA', 'MLS', 'ATP', 'WTA', 'EPL', 'NFL', 'NHL', 'NCAAF', 'UCL', 'WNBA', 'NCAAM', 'MLB', 'NCAAW', 'CHALLENGER') THEN 0 ELSE 1 END,
-                    CASE WHEN incubation_phase = 'incubating_with_new_model' THEN 1 ELSE 0 END,
-                    -- 1. Never-screened markets first, then hourly round-robin buckets so no market starves
-                    CASE WHEN last_screened_at IS NULL THEN 0 ELSE 1 END,
-                    substr(COALESCE(last_screened_at, ''), 1, 13) ASC,
-                    -- 2. STRICT MANDATE (Commandment 6.5): Prioritize Dual Reachable Markets (Stake + Polymarket CLOB) within each screening bucket
-                    CASE 
-                        WHEN (league IN ('NBA', 'NFL', 'NHL', 'MLB', 'WNBA', 'NCAAF', 'NCAAM', 'NCAAB', 'NCAAW', 'EPL', 'LALIGA', 'BUNDESLIGA', 'SERIEA', 'UCL', 'UEL', 'MLS', 'ATP', 'WTA', 'CHALLENGER')
-                              AND (
-                                  (league IN ('NHL', 'MLB', 'WNBA', 'NCAAM', 'NCAAW', 'NCAAB') AND scope = 'full_game')
-                                  OR (league IN ('ATP', 'WTA', 'CHALLENGER') AND scope IN ('full_game', 'period_1', 'period_2'))
-                                  OR (league IN ('EPL', 'MLS', 'UCL', 'UEL', 'LALIGA', 'SERIEA', 'BUNDESLIGA') AND scope IN ('full_game', 'half_1', 'half_2'))
-                                  OR (league IN ('NBA', 'NFL', 'NCAAF') AND scope IN ('full_game', 'half_1', 'half_2', 'quarter_1', 'quarter_2', 'quarter_3', 'quarter_4'))
-                              )
-                              AND (
-                                  family LIKE '%moneyline%' OR family LIKE '%spread%' OR family LIKE '%total%' 
-                                  OR family LIKE '%winner%' OR family LIKE '%three_way%'
-                                  OR (family LIKE '%both%' AND league IN ('EPL', 'MLS', 'UCL', 'UEL', 'LALIGA', 'SERIEA', 'BUNDESLIGA'))
-                                  OR (family IN ('set_handicap', 'total_sets', 'tennis_sets') AND league IN ('ATP', 'WTA', 'CHALLENGER'))
-                                  OR family LIKE '%handicap%' OR family LIKE '%asian%' OR family LIKE '%american%'
-                              )
-                              AND family NOT LIKE '%home_total%' AND family NOT LIKE '%away_total%' AND family NOT LIKE '%team_total%'
-                              AND family NOT LIKE '%exact_score%' AND family NOT LIKE '%exact_total%'
-                              AND family NOT LIKE '%winner_total%' AND family NOT LIKE '%double_chance%' AND family NOT LIKE '%draw_no_bet%')
-                        THEN 0 ELSE 1 
-                    END,
-                    CASE 
-                        WHEN league IN ('NBA', 'NFL', 'EPL', 'MLS') THEN 0
-                        WHEN league = 'NHL' THEN 1
-                        WHEN league IN ('MLB', 'UCL', 'ATP', 'WTA') THEN 2
-                        ELSE 3
-                    END,
-                    CASE WHEN rolling_pnl < 0.0 THEN 0 ELSE 1 END,
-                    COALESCE(last_screened_at, '') ASC,
-                    id ASC
             """)
-            all_demoted = cur.fetchall()
+            raw_demoted = cur.fetchall()
+            from .contracts import get_live_active_leagues, is_dual_reachable_contract, get_sport_priority
+            live_active = get_live_active_leagues(self.data_dir)
+
+            def _bridge_sort_key(r):
+                d_id, seg_key, lg, sc, fam, sub_fam, r_roi, r_pnl, g_cnt, phase, mid, l_scr = r
+                lg_u = str(lg or '').upper().strip()
+                is_inc = 1 if (phase == 'incubating_with_new_model' and mid) else 0
+                is_live_lg = 0 if lg_u in live_active else 1
+                is_dual = 0 if is_dual_reachable_contract(lg_u, sc or 'full_game', fam or '', sub_fam or '') else 1
+                never_scr = 0 if not l_scr else 1
+                scr_bucket = str(l_scr or '')[:13]
+                sp_prio = get_sport_priority(lg_u)
+                neg_pnl = 0 if float(r_pnl or 0.0) < 0.0 else 1
+                return (is_inc, is_live_lg, is_dual, never_scr, scr_bucket, sp_prio, neg_pnl, str(l_scr or ''), str(d_id))
+
+            raw_demoted.sort(key=_bridge_sort_key)
+            all_demoted = [r[:11] for r in raw_demoted]
+            log.debug(
+                "[BRIDGE_ACTIVE_DUAL_PRIORITY] Sorted %d demoted markets (live_active=%s, top_5=%s)",
+                len(all_demoted),
+                sorted(live_active),
+                [r[1] for r in all_demoted[:5]],
+            )
         finally:
             conn.close()
 
