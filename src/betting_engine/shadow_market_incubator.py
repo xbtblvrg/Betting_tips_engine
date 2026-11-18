@@ -313,11 +313,25 @@ def load_graduated_markets(data_dir: Path = DATA) -> Dict[str, Dict[str, Any]]:
                 conn.execute("PRAGMA busy_timeout = 30000")
                 # Demoted markets filter: ensure no demoted/probationary market lingers in memory or JSON
                 demoted_keys = set()
+                demoted_triples = set()
                 try:
-                    d_rows = conn.execute("SELECT segment_key FROM demoted_markets").fetchall()
-                    demoted_keys = {r[0] for r in d_rows}
+                    d_rows = conn.execute("SELECT segment_key, league, scope, family, sub_family FROM demoted_markets").fetchall()
+                    for d_sk, d_lg, d_sc, d_fam, d_sf in d_rows:
+                        demoted_keys.add(d_sk)
+                        c_sf = (d_sf or d_fam or '').split(':')[-1]
+                        if d_lg and d_sc and c_sf:
+                            demoted_triples.add((d_lg, d_sc, c_sf))
+                            demoted_keys.add(f"{d_lg}|{d_sc}|{c_sf}")
+                            if d_fam:
+                                demoted_keys.add(f"{d_lg}|{d_sc}|{d_fam}:{c_sf}")
                 except Exception:
                     pass
+
+                for k_chk, v_chk in list(data.items()):
+                    if isinstance(v_chk, dict):
+                        c_sf_v = (v_chk.get('sub_family') or v_chk.get('family') or '').split(':')[-1]
+                        if (v_chk.get('league'), v_chk.get('scope', 'full_game'), c_sf_v) in demoted_triples:
+                            demoted_keys.add(k_chk)
 
                 had_demoted_in_data = False
                 for dk in list(demoted_keys):
@@ -2679,14 +2693,25 @@ class ShadowMarketIncubator:
             demoted_oos_map = {}
             demoted_model_map = {}
             demoted_reason_map = {}
+            exact_demoted_keys = set()
             try:
-                cur.execute("SELECT segment_key, demoted_at, sub_family, COALESCE(historical_sample_size, 0), reason, incubated_model_id FROM demoted_markets")
-                for sk, da, sf, h_n, rsn, mid in cur.fetchall():
-                    demoted_map[sk] = da
-                    demoted_sub_map[sk] = sf
-                    demoted_oos_map[sk] = int(h_n or 0)
-                    demoted_reason_map[sk] = str(rsn or "")
-                    demoted_model_map[sk] = mid
+                cur.execute("SELECT segment_key, demoted_at, sub_family, COALESCE(historical_sample_size, 0), reason, incubated_model_id, league, scope, family FROM demoted_markets")
+                for sk, da, sf, h_n, rsn, mid, lg_d, sc_d, fam_d in cur.fetchall():
+                    exact_demoted_keys.add(sk)
+                    c_sf_d = (sf or fam_d or '').split(':')[-1]
+                    alias_keys = [sk]
+                    if lg_d and sc_d and c_sf_d:
+                        alias_keys.append(f"{lg_d}|{sc_d}|{c_sf_d}")
+                        if fam_d:
+                            alias_keys.append(f"{lg_d}|{sc_d}|{fam_d}:{c_sf_d}")
+                    for ak in alias_keys:
+                        if ak not in demoted_map or str(da or '') > str(demoted_map.get(ak) or ''):
+                            demoted_map[ak] = da
+                            demoted_sub_map[ak] = sf
+                            demoted_oos_map[ak] = max(int(h_n or 0), demoted_oos_map.get(ak, 0))
+                            demoted_reason_map[ak] = str(rsn or "")
+                            if mid:
+                                demoted_model_map[ak] = mid
             except Exception:
                 pass
 
@@ -2737,9 +2762,11 @@ class ShadowMarketIncubator:
                 if any(k in current_graduated for k in (canonical_key, sub_key, clean_sub_key)):
                     continue
 
-                if sub_key in demoted_map:
+                if canonical_key in exact_demoted_keys:
+                    segment_key = canonical_key
+                elif sub_key in exact_demoted_keys:
                     segment_key = sub_key
-                elif clean_sub_key in demoted_map:
+                elif clean_sub_key in exact_demoted_keys:
                     segment_key = clean_sub_key
                 else:
                     segment_key = canonical_key
@@ -3609,14 +3636,25 @@ class ShadowMarketIncubator:
             demoted_oos_map = {}
             demoted_model_map = {}
             demoted_reason_map = {}
+            exact_demoted_keys = set()
             try:
-                cur.execute("SELECT segment_key, demoted_at, sub_family, COALESCE(historical_sample_size, 0), reason, incubated_model_id FROM demoted_markets")
-                for sk, da, sf, h_n, rsn, mid in cur.fetchall():
-                    demoted_map[sk] = da
-                    demoted_sub_map[sk] = sf
-                    demoted_oos_map[sk] = int(h_n or 0)
-                    demoted_reason_map[sk] = str(rsn or "")
-                    demoted_model_map[sk] = mid
+                cur.execute("SELECT segment_key, demoted_at, sub_family, COALESCE(historical_sample_size, 0), reason, incubated_model_id, league, scope, family FROM demoted_markets")
+                for sk, da, sf, h_n, rsn, mid, lg_d, sc_d, fam_d in cur.fetchall():
+                    exact_demoted_keys.add(sk)
+                    c_sf_d = (sf or fam_d or '').split(':')[-1]
+                    alias_keys = [sk]
+                    if lg_d and sc_d and c_sf_d:
+                        alias_keys.append(f"{lg_d}|{sc_d}|{c_sf_d}")
+                        if fam_d:
+                            alias_keys.append(f"{lg_d}|{sc_d}|{fam_d}:{c_sf_d}")
+                    for ak in alias_keys:
+                        if ak not in demoted_map or str(da or '') > str(demoted_map.get(ak) or ''):
+                            demoted_map[ak] = da
+                            demoted_sub_map[ak] = sf
+                            demoted_oos_map[ak] = max(int(h_n or 0), demoted_oos_map.get(ak, 0))
+                            demoted_reason_map[ak] = str(rsn or "")
+                            if mid:
+                                demoted_model_map[ak] = mid
             except Exception:
                 pass
 
@@ -3667,9 +3705,11 @@ class ShadowMarketIncubator:
                 if any(k in current_graduated for k in (canonical_key, sub_key, clean_sub_key)):
                     continue
 
-                if sub_key in demoted_map:
+                if canonical_key in exact_demoted_keys:
+                    segment_key = canonical_key
+                elif sub_key in exact_demoted_keys:
                     segment_key = sub_key
-                elif clean_sub_key in demoted_map:
+                elif clean_sub_key in exact_demoted_keys:
                     segment_key = clean_sub_key
                 else:
                     segment_key = canonical_key

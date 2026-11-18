@@ -340,7 +340,8 @@ class UnifiedMarketUniverse:
                     grad_at_map[seg_key] = grad_at or '1970-01-01'
                     if sub_fam and sub_fam != fam:
                         sub_k = f"{lg}|{sc}|{fam}:{sub_fam}"
-                        roster[sub_k] = prof
+                        from dataclasses import replace as dc_replace
+                        roster[sub_k] = dc_replace(prof, segment_key=sub_k)
                         grad_keys_set.add(sub_k)
                         grad_at_map[sub_k] = grad_at or '1970-01-01'
 
@@ -531,18 +532,22 @@ class UnifiedMarketUniverse:
                 pass
         if self.incubator_db_path.exists():
             try:
-                with closing(sqlite3.connect(f"file:{self.incubator_db_path}?mode=ro", uri=True, timeout=2.0)) as inc_conn2:
+                with closing(sqlite3.connect(f"file:{self.incubator_db_path.resolve()}?mode=ro", uri=True, timeout=5.0)) as inc_conn2:
                     for lg_g, gm_g, st_g in inc_conn2.execute("""
                         SELECT league, game_id, min(settled_at)
                         FROM incubated_wagers
                         WHERE status = 'settled'
                           AND scope = 'full_game'
-                          AND family IN ('totals', 'moneyline', 'spreads')
-                          AND sub_family IN ('totals', 'moneyline', 'spreads')
+                          AND family IN ('totals', 'moneyline', 'spreads', 'american_derivatives', 'bivariate_derivatives', 'asian_lines', 'tennis_sets')
+                          AND sub_family IN ('totals', 'moneyline', 'spreads', 'three_way', 'asian_handicap', 'set_handicap')
                         GROUP BY league, game_id
                     """).fetchall():
                         if lg_g and gm_g and st_g:
-                            league_games_map.setdefault(str(lg_g).upper().strip(), {})[str(gm_g).strip()] = str(st_g)
+                            lg_u_g = str(lg_g).upper().strip()
+                            gm_s_g = str(gm_g).strip()
+                            prev_ts = league_games_map.setdefault(lg_u_g, {}).get(gm_s_g)
+                            if prev_ts is None or str(st_g) > prev_ts:
+                                league_games_map[lg_u_g][gm_s_g] = str(st_g)
             except Exception:
                 pass
         if self.engine_db_path.exists():
@@ -587,7 +592,7 @@ class UnifiedMarketUniverse:
                             if gid_r and iss_r:
                                 gid_clean = str(gid_r).strip()
                                 cur_ts = league_games_map.setdefault(lg_clean_u, {}).get(gid_clean)
-                                if cur_ts is None or str(iss_r) < cur_ts:
+                                if cur_ts is None:
                                     league_games_map[lg_clean_u][gid_clean] = str(iss_r)
                             k = self.get_canonical_key(lg_r, sc_r, fam_r)
                             base_k = None
@@ -998,6 +1003,10 @@ class UnifiedMarketUniverse:
                                 keys_demoted_to_purge_grad.append(k)
                                 if ':' in k:
                                     keys_demoted_to_purge_grad.append(k.split(':')[0])
+                                clean_sf_p = (p.sub_family or p.family or '').split(':')[-1]
+                                if clean_sf_p:
+                                    keys_demoted_to_purge_grad.append(f"{p.league}|{p.scope}|{clean_sf_p}")
+                                    keys_demoted_to_purge_grad.append(f"{p.league}|{p.scope}|{p.family}:{clean_sf_p}")
 
                             if in_demoted:
                                 if was_graduated and is_real_live_demote:
