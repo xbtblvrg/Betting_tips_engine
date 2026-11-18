@@ -235,10 +235,13 @@ class DemotedMarketIncubationBridge:
             # Strictly prioritizes US Majors -> Premier Soccer -> ATP/WTA (and Dual Reachable)
             # Strictly filters out fringe, deprioritized Tier 4 leagues (Challenger, minor NCAA, etc.)
             if unresolved and len(newly_admitted) < max_train_per_run:
-                from .contracts import get_sport_priority, is_dual_reachable_contract, is_preferred_alpha_league
+                from .contracts import get_sport_priority, is_dual_reachable_contract, is_preferred_alpha_league, get_live_active_leagues
+                live_active_p2 = get_live_active_leagues(self.data_dir)
 
-                # Filter out fringe leagues completely from consuming AI synthesis
-                preferred_unresolved = [r for r in unresolved if is_preferred_alpha_league(r[2])]
+                # Filter to active leagues first, then preferred alpha leagues
+                preferred_unresolved = [r for r in unresolved if str(r[2] or '').upper().strip() in live_active_p2 and (is_preferred_alpha_league(r[2]) or str(r[2] or '').upper() in ('NCAAM', 'NCAAW'))]
+                if not preferred_unresolved:
+                    preferred_unresolved = [r for r in unresolved if is_preferred_alpha_league(r[2])]
                 if not preferred_unresolved:
                     preferred_unresolved = unresolved
 
