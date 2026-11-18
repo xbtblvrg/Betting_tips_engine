@@ -720,14 +720,16 @@ class BottleneckWatchdog:
                 with closing(sqlite3.connect(f"file:{inc_db}?mode=ro", uri=True, timeout=10.0)) as conn:
                     cur = conn.cursor()
                     cur.execute("""
-                        SELECT fixture_id, captured_at FROM incubated_wagers
+                        SELECT fixture_id, game_id, captured_at FROM incubated_wagers
                         WHERE status = 'open'
                     """)
                     cutoff_36h_iso = (now_dt - timedelta(hours=36)).isoformat()
-                    for fid, cap_at in cur.fetchall():
+                    for fid, gid, cap_at in cur.fetchall():
                         if fid:
                             open_fixture_ids.add(fid)
-                        g_start = game_starts.get(fid)
+                        if gid:
+                            open_fixture_ids.add(gid)
+                        g_start = game_starts.get(fid) or game_starts.get(gid)
                         if g_start:
                             if g_start < cutoff_iso:
                                 stale_wagers_count += 1

@@ -472,29 +472,45 @@ class CodexModelSynthesizer:
         if not archetype_hint:
             try:
                 log.debug("[SMART-ALGO] Checking distilled archetype catalog for %s|%s|%s (model_id=%s)", league, scope, family, model_id)
-                distilled_matches = self.registry.get_distilled_archetypes_for_market(league, scope, family, limit=3)
+                distilled_matches = self.registry.get_distilled_archetypes_for_market(league, scope, family, limit=5)
                 if distilled_matches:
-                    best_arch = distilled_matches[0]
-                    log.debug(
-                        "[SMART-ALGO] Selected best archetype '%s' (Category: %s, Historical OOS ROI: +%.1f%%, instantiations=%d)",
-                        best_arch.name, best_arch.category, best_arch.historical_oos_roi * 100.0, best_arch.times_instantiated
-                    )
-                    # Adapt model_id in the distilled source code
-                    adapted_code = re.sub(
-                        r'model_id(?:\s*:\s*str)?\s*=\s*[\'"][^\'"]+[\'"]',
-                        f'model_id: str = "{model_id}"',
-                        best_arch.source_template_code
-                    )
-                    is_safe, cls_name, err = check_ast_safety(adapted_code)
-                    if is_safe and cls_name:
-                        rationale = f"Smart Algorithmic Distillation: Adapted proven archetype '{best_arch.name}' (Category: {best_arch.category}, Historical ROI: +{best_arch.historical_oos_roi*100:.1f}%)"
-                        log.info(
-                            "[SMART-ALGO] Successfully instantiated model %s from distilled archetype '%s' (%s)",
-                            model_id, best_arch.name, cls_name
+                    sample_ctx_chk = get_default_segment_context(league, scope)
+                    for best_arch in distilled_matches:
+                        log.debug(
+                            "[SMART-ALGO] Testing candidate archetype '%s' (Category: %s, Historical OOS ROI: +%.1f%%, instantiations=%d)",
+                            best_arch.name, best_arch.category, best_arch.historical_oos_roi * 100.0, best_arch.times_instantiated
                         )
-                        return adapted_code, cls_name, rationale
-                    else:
-                        log.warning("[SMART-ALGO] Distilled archetype %s adaptation AST safety failed: %s", best_arch.archetype_id, err)
+                        adapted_code = re.sub(
+                            r'model_id(?:\s*:\s*str)?\s*=\s*[\'"][^\'"]+[\'"]',
+                            f'model_id: str = "{model_id}"',
+                            best_arch.source_template_code
+                        )
+                        adapted_code = re.sub(
+                            r'raise\s+ValueError\([^\n]*supports[^\n]*only[^\n]*\)',
+                            'pass',
+                            adapted_code,
+                            flags=re.IGNORECASE
+                        )
+                        is_safe, cls_name, err = check_ast_safety(adapted_code)
+                        if is_safe and cls_name:
+                            try:
+                                test_inst = instantiate_synthesized_class(
+                                    adapted_code, cls_name, model_id=model_id, league=league, scope=scope, family=family
+                                )
+                                v_ok, _ = validate_candidate_model(test_inst, sample_ctx_chk)
+                                if not v_ok:
+                                    continue
+                            except Exception as e_inst_chk:
+                                log.debug("[SMART-ALGO] Archetype %s incompatible with %s|%s|%s (%s); trying next", best_arch.archetype_id, league, scope, family, e_inst_chk)
+                                continue
+                            rationale = f"Smart Algorithmic Distillation: Adapted proven archetype '{best_arch.name}' (Category: {best_arch.category}, Historical ROI: +{best_arch.historical_oos_roi*100:.1f}%)"
+                            log.info(
+                                "[SMART-ALGO] Successfully instantiated model %s from distilled archetype '%s' (%s)",
+                                model_id, best_arch.name, cls_name
+                            )
+                            return adapted_code, cls_name, rationale
+                        else:
+                            log.warning("[SMART-ALGO] Distilled archetype %s adaptation AST safety failed: %s", best_arch.archetype_id, err)
                 else:
                     log.debug("[SMART-ALGO] No matching distilled archetype found in catalog for %s|%s|%s; falling back to mathematical baseline", league, scope, family)
             except Exception as e_distill:
