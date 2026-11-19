@@ -494,7 +494,7 @@ class CodexModelSynthesizer:
                             best_arch.source_template_code
                         )
                         adapted_code = re.sub(
-                            r'raise\s+ValueError\([^\n]*supports[^\n]*only[^\n]*\)',
+                            r'raise\s+ValueError\([^\n]*(?:supports[^\n]*only|not both)[^\n]*\)',
                             'pass',
                             adapted_code,
                             flags=re.IGNORECASE
@@ -517,7 +517,7 @@ class CodexModelSynthesizer:
                                 first_valid_tuple = (adapted_code, cls_name, rationale, best_arch)
 
                             if len(oos_chk) >= 5:
-                                acc_c, pnl_c, bm_c, bmk_c, run_c, pk_c, dd_c = 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+                                acc_c, pnl_c, bm_c, bmk_c, run_c, pk_c, dd_u = 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
                                 for r_w in oos_chk:
                                     sel_w, ln_w, od_w, orig_mp_w, mp_w, sd_w, res_w, _, _ = r_w
                                     od_f = float(od_w or 2.0)
@@ -544,10 +544,11 @@ class CodexModelSynthesizer:
                                             run_c -= 1.0
                                         if run_c > pk_c:
                                             pk_c = run_c
-                                        cur_d = (pk_c - run_c) / max(1.0, float(acc_c))
-                                        if cur_d > dd_c:
-                                            dd_c = cur_d
+                                        cur_d = pk_c - run_c
+                                        if cur_d > dd_u:
+                                            dd_u = cur_d
                                 if acc_c >= 5:
+                                    dd_c = dd_u / max(10.0, float(acc_c) + pk_c)
                                     roi_c = pnl_c / float(acc_c)
                                     db_c = (bmk_c - bm_c) / max(1, acc_c)
                                     if roi_c >= 0.035 and db_c >= -0.005 and dd_c < 0.25 and roi_c > best_oos_score:
@@ -1441,11 +1442,11 @@ class {class_name}(BaseCandidateModel):
                 running_pnl += sim_pnl
                 if running_pnl > peak_pnl:
                     peak_pnl = running_pnl
-                total_stake_so_far = float(oos_accepted)
-                dd = (peak_pnl - running_pnl) / max(1.0, peak_pnl + total_stake_so_far) if (peak_pnl > 0 or total_stake_so_far > 0) else 0.0
-                if dd > max_dd:
-                    max_dd = dd
+                dd_u = peak_pnl - running_pnl
+                if dd_u > max_dd:
+                    max_dd = dd_u
 
+        max_dd = (max_dd / max(10.0, float(oos_accepted) + peak_pnl)) if oos_accepted > 0 else 0.0
         sim_roi = (oos_pnl / max(1, oos_accepted)) if oos_accepted > 0 else 0.0
         win_rate = (oos_wins / max(1, oos_wins + oos_losses)) if (oos_wins + oos_losses) > 0 else 0.0
         brier_m = (sum_brier_m / max(1, oos_accepted)) if oos_accepted > 0 else 0.25
