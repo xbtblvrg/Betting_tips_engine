@@ -228,7 +228,7 @@ class DynamicArchetypeRegistry:
                     inst_d = instantiate_synthesized_class(
                         clean_code,
                         d_arch.base_class_name,
-                        model_id=f"distilled_{d_arch.archetype_id[:36]}",
+                        model_id=f"distilled_{d_arch.archetype_id}",
                         league=league,
                         scope=scope,
                         family=family,

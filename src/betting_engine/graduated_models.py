@@ -698,8 +698,13 @@ class GraduatedUniversalSegmentModel:
             except Exception:
                 pass
 
-        # Autonomous Self-Healing Candidate Discovery Fallback
-        if not self.champion_model:
+        _legacy_cls = {
+            'NegativeBinomialOverdispersionModel', 'ExtremeValueGumbelModel', 'ZeroInflatedPoissonModel',
+            'OddsDampedKellyShrinkageModel', 'SituationalFatigueModel', 'BivariateCopulaHazardModel',
+            'MarkovChainTennisModel', 'WeibullRenewalHazardModel', 'DixonColesSoccerModel', 'SkellamDifferentialModel'
+        }
+        # Autonomous Self-Healing Candidate & Distilled AI Archetype Discovery
+        if not self.champion_model or type(self.champion_model).__name__ in _legacy_cls:
             try:
                 from .tournament_engine import TournamentEngine
                 t_eng = TournamentEngine()
@@ -715,12 +720,14 @@ class GraduatedUniversalSegmentModel:
                     if lookup_key:
                         cands = t_eng.get_active_candidates(lookup_key)
                         if cands:
-                            m_inst = cands[0]
-                            champ_id = m_inst.model_id
-                            self.champion_model = m_inst
-                            self.version = f"{m_inst.model_id}:{m_inst.version}"
-                            self.register_champion(family, sub_family, m_inst, champ_id)
-                            break
+                            ai_cands = [c for c in cands if type(c).__name__ not in _legacy_cls]
+                            m_inst = ai_cands[0] if ai_cands else cands[0]
+                            if not self.champion_model or type(m_inst).__name__ not in _legacy_cls:
+                                champ_id = m_inst.model_id
+                                self.champion_model = m_inst
+                                self.version = f"{m_inst.model_id}:{m_inst.version}"
+                                self.register_champion(family, sub_family, m_inst, champ_id)
+                                break
             except Exception:
                 pass
 
@@ -1051,8 +1058,13 @@ def resolve_graduated_segment_models(
                 if champ_id:
                     m_inst = t_eng.get_model_by_id(champ_id)
 
-                if not m_inst:
-                    # Autonomous Candidate Discovery Fallback
+                _legacy_cls = {
+                    'NegativeBinomialOverdispersionModel', 'ExtremeValueGumbelModel', 'ZeroInflatedPoissonModel',
+                    'OddsDampedKellyShrinkageModel', 'SituationalFatigueModel', 'BivariateCopulaHazardModel',
+                    'MarkovChainTennisModel', 'WeibullRenewalHazardModel', 'DixonColesSoccerModel', 'SkellamDifferentialModel'
+                }
+                if not m_inst or type(m_inst).__name__ in _legacy_cls:
+                    # Autonomous Candidate & Distilled AI Archetype Discovery
                     for lookup_key in [
                         segment_key,
                         f"{league}|{scope}|{family}:{sub_family}" if sub_family else None,
@@ -1065,9 +1077,15 @@ def resolve_graduated_segment_models(
                         if lookup_key:
                             cands = t_eng.get_active_candidates(lookup_key)
                             if cands:
-                                m_inst = cands[0]
-                                champ_id = m_inst.model_id
-                                break
+                                ai_cands = [c for c in cands if type(c).__name__ not in _legacy_cls]
+                                if ai_cands:
+                                    m_inst = ai_cands[0]
+                                    champ_id = m_inst.model_id
+                                    break
+                                elif not m_inst:
+                                    m_inst = cands[0]
+                                    champ_id = m_inst.model_id
+                                    break
 
                 if m_inst:
                     existing_model.register_champion(family, sub_family, m_inst, champ_id)

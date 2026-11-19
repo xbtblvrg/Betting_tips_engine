@@ -385,7 +385,7 @@ class TournamentEngine:
     _cached_class_map: Optional[Dict[str, type]] = None
 
     def _get_class_map(self) -> Dict[str, type]:
-        """Dynamically discovers all candidate model classes in archetypes with class caching."""
+        """Dynamically discovers all candidate model classes in archetypes & dynamically_distilled with class caching."""
         if TournamentEngine._cached_class_map is not None:
             combined = dict(TournamentEngine._cached_class_map)
             combined.update(getattr(self, '_runtime_classes', {}))
@@ -404,6 +404,8 @@ class TournamentEngine:
             pkg = __package__ or 'betting_engine'
             from .sandbox_models import archetypes as arch_pkg
             for finder, mod_name, ispkg in pkgutil.iter_modules(arch_pkg.__path__):
+                if ispkg:
+                    continue
                 try:
                     mod = importlib.import_module(f'.sandbox_models.archetypes.{mod_name}', package=pkg)
                     for item_name, item in inspect.getmembers(mod, inspect.isclass):
@@ -431,6 +433,106 @@ class TournamentEngine:
         TournamentEngine._cached_class_map = class_map
         return class_map
 
+    def _instantiate_from_source_or_class(
+        self,
+        cls_name: Optional[str],
+        model_id: str,
+        league: str,
+        scope: str,
+        family: str,
+        params: Optional[Dict[str, Any]] = None,
+        meta_dict: Optional[Dict[str, Any]] = None,
+        version: str = '1.0.0',
+    ) -> Optional[BaseCandidateModel]:
+        """Resolves and instantiates a candidate model from class_map, generated/*.py, or distilled_archetype_catalog."""
+        import inspect
+        import re
+        class_map = self._get_class_map()
+        clean_cls = re.sub(r'^(?:Distilled_|Dynamic_)', '', str(cls_name or '')).strip()
+        cls_target = class_map.get(cls_name or '') or class_map.get(clean_cls)
+
+        if cls_target is not None:
+            try:
+                kwargs = {
+                    'model_id': model_id,
+                    'version': version,
+                    'league': league,
+                    'scope': scope,
+                    'family': family,
+                    'metadata': meta_dict or {},
+                }
+                if params:
+                    kwargs.update(params)
+                sig = inspect.signature(cls_target.__init__)
+                has_var_kw = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values())
+                if not has_var_kw:
+                    valid_keys = set(sig.parameters.keys()) - {'self'}
+                    kwargs = {k: v for k, v in kwargs.items() if k in valid_keys}
+                return cls_target(**kwargs)
+            except Exception:
+                pass
+
+        # Dynamic AI source resolution: check generated/*.py and distilled_archetype_catalog
+        source_code = None
+        target_cls = clean_cls
+        clean_mid = re.sub(r'^(?:dyn_|distilled_)', '', str(model_id or '')).strip()
+        gen_dir = Path(__file__).resolve().parent / 'sandbox_models' / 'generated'
+        dist_dir = Path(__file__).resolve().parent / 'sandbox_models' / 'archetypes' / 'dynamically_distilled'
+
+        if clean_mid and (gen_dir / f"{clean_mid}.py").exists():
+            try:
+                source_code = (gen_dir / f"{clean_mid}.py").read_text(encoding='utf-8')
+            except Exception:
+                pass
+        if not source_code and clean_mid and (dist_dir / f"{clean_mid}.py").exists():
+            try:
+                source_code = (dist_dir / f"{clean_mid}.py").read_text(encoding='utf-8')
+            except Exception:
+                pass
+
+        if not source_code and self.db_path.exists():
+            try:
+                with closing(sqlite3.connect(f"file:{self.db_path.resolve()}?mode=ro", uri=True, timeout=10.0)) as conn:
+                    cur = conn.cursor()
+                    row = cur.execute("""
+                        SELECT base_class_name, source_template_code
+                        FROM distilled_archetype_catalog
+                        WHERE base_class_name = ? OR archetype_id = ? OR origin_model_id = ?
+                           OR archetype_id LIKE ?
+                        ORDER BY historical_oos_roi DESC LIMIT 1
+                    """, (clean_cls, clean_mid, clean_mid, f"{clean_mid}%")).fetchone()
+                    if row and row[1]:
+                        target_cls = row[0] or clean_cls
+                        source_code = row[1]
+            except Exception:
+                pass
+
+        if source_code:
+            try:
+                from .codex_model_synthesizer import check_ast_safety, instantiate_synthesized_class
+                clean_src = re.sub(
+                    r'raise\s+ValueError\([^\n]*(?:supports[^\n]*only|not both)[^\n]*\)',
+                    'pass',
+                    source_code,
+                    flags=re.IGNORECASE,
+                )
+                if not target_cls:
+                    _, found_c, _ = check_ast_safety(clean_src)
+                    target_cls = found_c or clean_cls
+                if target_cls:
+                    inst = instantiate_synthesized_class(
+                        clean_src, target_cls, model_id=model_id, league=league, scope=scope, family=family
+                    )
+                    if inst is not None:
+                        if TournamentEngine._cached_class_map is not None:
+                            TournamentEngine._cached_class_map[target_cls] = inst.__class__
+                            if cls_name:
+                                TournamentEngine._cached_class_map[cls_name] = inst.__class__
+                        return inst
+            except Exception:
+                pass
+        return None
+
     def _find_tournament_data(self, reg: Dict[str, Any], segment_key: str) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
         """Resolves tournament data across exact, normalized, and scoped alias keys."""
         tourneys = reg.get('tournaments', {})
@@ -455,7 +557,9 @@ class TournamentEngine:
         return None, None
 
     def get_model_by_id(self, model_id: str) -> Optional[BaseCandidateModel]:
-        """Looks up and instantiates any registered candidate model by its model_id with DB fallback."""
+        """Looks up and instantiates any registered candidate model by its model_id with DB and AI catalog fallback."""
+        if not model_id:
+            return None
         reg = self.load_registry()
         target_meta = None
         for t_data in reg.get('tournaments', {}).values():
@@ -463,7 +567,6 @@ class TournamentEngine:
                 target_meta = t_data['candidates'][model_id]
                 break
 
-        # Fail-safe fallback: look up directly from demoted_markets in DB if missing from JSON
         if not target_meta and self.db_path.exists():
             try:
                 with closing(sqlite3.connect(str(self.db_path), timeout=30.0)) as conn:
@@ -474,54 +577,45 @@ class TournamentEngine:
                         FROM demoted_markets
                         WHERE incubated_model_id = ?
                     """, (model_id,)).fetchone()
-                if row:
-                    m_id, arch, p_json, lg, sc, fam = row
-                    params = json.loads(p_json) if p_json else {}
-                    target_meta = {
-                        'model_id': m_id,
-                        'class_name': arch,
-                        'league': lg,
-                        'scope': sc,
-                        'family': fam,
-                        'params': params,
-                        'metadata': {'params': params},
-                    }
+                    if row:
+                        m_id, arch, p_json, lg, sc, fam = row
+                        params = json.loads(p_json) if p_json else {}
+                        target_meta = {
+                            'model_id': m_id,
+                            'class_name': arch,
+                            'league': lg,
+                            'scope': sc,
+                            'family': fam,
+                            'params': params,
+                            'metadata': {'params': params},
+                        }
             except Exception:
                 pass
 
-        if not target_meta:
-            return None
-
-        class_map = self._get_class_map()
-        cls_name = target_meta.get('class_name')
-        cls_target = class_map.get(cls_name)
-        if not cls_target:
-            return None
-        try:
+        if target_meta:
             meta_dict = target_meta.get('metadata') or {}
             params = meta_dict.get('params') or target_meta.get('params') or {}
-            kwargs = {
-                'model_id': target_meta['model_id'],
-                'version': target_meta.get('version', '1.0.0'),
-                'league': target_meta.get('league', 'UNKNOWN'),
-                'scope': target_meta.get('scope', 'full_game'),
-                'family': target_meta.get('family', 'totals'),
-                'metadata': meta_dict,
-            }
-            kwargs.update(params)
+            inst = self._instantiate_from_source_or_class(
+                cls_name=target_meta.get('class_name'),
+                model_id=target_meta['model_id'],
+                league=target_meta.get('league', 'UNKNOWN'),
+                scope=target_meta.get('scope', 'full_game'),
+                family=target_meta.get('family', 'totals'),
+                params=params,
+                meta_dict=meta_dict,
+                version=target_meta.get('version', '1.0.0'),
+            )
+            if inst is not None:
+                return inst
 
-            import inspect
-            sig = inspect.signature(cls_target.__init__)
-            has_var_kw = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values())
-            if not has_var_kw:
-                valid_keys = set(sig.parameters.keys()) - {'self'}
-                filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_keys}
-            else:
-                filtered_kwargs = kwargs
-
-            return cls_target(**filtered_kwargs)
-        except Exception:
-            return None
+        # Direct AI file or distilled catalog fallback by model_id even if not in tournament_registry.json
+        return self._instantiate_from_source_or_class(
+            cls_name=None,
+            model_id=model_id,
+            league='NBA',
+            scope='full_game',
+            family='totals',
+        )
 
     def reject_candidate(self, segment_key: str, model_id: str, reason: str = "") -> bool:
         """Explicitly marks an evicted candidate model as rejected and purges cache."""
@@ -547,70 +641,118 @@ class TournamentEngine:
         return False
 
     def get_active_candidates(self, segment_key: str) -> List[BaseCandidateModel]:
-        """Returns instantiated active candidate models for a given segment key with global process caching."""
+        """Returns instantiated active candidate models for a given segment key with AI catalog & DB integration."""
         global _GLOBAL_CANDIDATES_CACHE
         if segment_key in _GLOBAL_CANDIDATES_CACHE:
             return _GLOBAL_CANDIDATES_CACHE[segment_key]
 
         reg = self.load_registry()
         _, t_data = self._find_tournament_data(reg, segment_key)
-        if not t_data:
-            _GLOBAL_CANDIDATES_CACHE[segment_key] = []
-            return []
 
-        class_map = self._get_class_map()
+        parts = str(segment_key).split('|')
+        lg_seg = parts[0].upper().strip() if len(parts) > 0 else 'UNKNOWN'
+        sc_seg = parts[1].lower().strip() if len(parts) > 1 else 'full_game'
+        fam_seg = parts[2].lower().strip() if len(parts) > 2 else 'totals'
+        base_fam_seg = fam_seg.split(':')[-1]
+
         instances: List[BaseCandidateModel] = []
+        seen_ids: Set[str] = set()
         seen_archetypes: Dict[str, int] = {}
         seen_signatures: Set[Tuple[str, str]] = set()
 
-        cand_items = list(t_data.get('candidates', {}).items())
-        status_rank = {'champion': 0, 'qualified': 1, 'incubating': 2}
-        cand_items.sort(key=lambda x: (
-            status_rank.get(x[1].get('status'), 3),
-            str(x[1].get('registered_at', ''))
-        ))
-
-        for cand_id, meta in cand_items:
-            if meta.get('status') not in ('incubating', 'qualified', 'champion'):
-                continue
-            cls_name = meta.get('class_name')
-            cls_target = class_map.get(cls_name)
-            if not cls_target:
-                continue
+        # 1. Priority 1: Directly admitted incubated_model_id from demoted_markets in SQLite
+        if self.db_path.exists():
             try:
+                norm_k = normalize_segment_key(segment_key)
+                with closing(sqlite3.connect(f"file:{self.db_path.resolve()}?mode=ro", uri=True, timeout=10.0)) as conn:
+                    cur = conn.cursor()
+                    has_dm = cur.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='demoted_markets'").fetchone()
+                    if has_dm:
+                        dm_rows = cur.execute("""
+                            SELECT incubated_model_id, model_archetype, model_params, league, scope, family
+                            FROM demoted_markets
+                            WHERE (segment_key IN (?, ?) OR (league = ? AND scope = ? AND (family = ? OR sub_family = ?)))
+                              AND incubated_model_id IS NOT NULL AND incubated_model_id != ''
+                        """, (segment_key, norm_k, lg_seg, sc_seg, fam_seg, base_fam_seg)).fetchall()
+                        for m_id, arch, p_json, lg_d, sc_d, fam_d in dm_rows:
+                            if m_id in seen_ids:
+                                continue
+                            params = json.loads(p_json) if p_json else {}
+                            inst = self._instantiate_from_source_or_class(
+                                cls_name=arch, model_id=m_id, league=lg_d or lg_seg,
+                                scope=sc_d or sc_seg, family=fam_d or fam_seg,
+                                params=params, meta_dict={'params': params}
+                            )
+                            if inst is not None:
+                                instances.append(inst)
+                                seen_ids.add(m_id)
+            except Exception:
+                pass
+
+        # 2. Priority 2: Registered candidates in tournament_registry.json (sorted newest first!)
+        if t_data:
+            cand_items = list(t_data.get('candidates', {}).items())
+            status_rank = {'champion': 0, 'qualified': 1, 'incubating': 2}
+            cand_items.sort(key=lambda x: (
+                status_rank.get(x[1].get('status'), 3),
+                -int(bool('synth' in str(x[0]).lower() or 'distilled' in str(x[0]).lower() or 'dyn_' in str(x[0]).lower())),
+                tuple(-ord(c) for c in str(x[1].get('registered_at', ''))[:19]),
+            ))
+
+            for cand_id, meta in cand_items:
+                if cand_id in seen_ids:
+                    continue
+                if meta.get('status') not in ('incubating', 'qualified', 'champion'):
+                    continue
+                cls_name = meta.get('class_name')
                 meta_dict = meta.get('metadata') or {}
                 params = meta_dict.get('params') or meta.get('params') or {}
 
-                # Anti-Clone: prevent running identical duplicate parameter sets
                 sig_params = json.dumps(params or meta_dict, sort_keys=True)
                 sig = (cls_name, sig_params)
                 if sig in seen_signatures:
                     continue
-
-                # Diversity Cap: allow at most 2 distinct parameter variations per archetype
                 if seen_archetypes.get(cls_name, 0) >= 2:
                     continue
 
-                kwargs = {
-                    'model_id': meta['model_id'],
-                    'version': meta.get('version', '1.0.0'),
-                    'league': meta.get('league', 'UNKNOWN'),
-                    'scope': meta.get('scope', 'full_game'),
-                    'family': meta.get('family', 'totals'),
-                    'metadata': meta_dict,
-                }
-                kwargs.update(params)
-                import inspect
-                sig_target = inspect.signature(cls_target.__init__)
-                has_var_kw = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig_target.parameters.values())
-                if not has_var_kw:
-                    kwargs = {k: v for k, v in kwargs.items() if k in sig_target.parameters}
-                inst = cls_target(**kwargs)
-                instances.append(inst)
-                seen_signatures.add(sig)
-                seen_archetypes[cls_name] = seen_archetypes.get(cls_name, 0) + 1
+                inst = self._instantiate_from_source_or_class(
+                    cls_name=cls_name,
+                    model_id=meta['model_id'],
+                    league=meta.get('league', lg_seg),
+                    scope=meta.get('scope', sc_seg),
+                    family=meta.get('family', fam_seg),
+                    params=params,
+                    meta_dict=meta_dict,
+                    version=meta.get('version', '1.0.0'),
+                )
+                if inst is not None:
+                    instances.append(inst)
+                    seen_ids.add(cand_id)
+                    seen_signatures.add(sig)
+                    seen_archetypes[cls_name] = seen_archetypes.get(cls_name, 0) + 1
+
+        # 3. Priority 3: Top sport-matched AI archetypes from distilled_archetype_catalog
+        if (t_data or instances or self.db_path.resolve() == INCUBATOR_DB.resolve()) and self.db_path.exists():
+            try:
+                from .ai_archetype_developer import AIArchetypeDeveloperAgent
+                agent = AIArchetypeDeveloperAgent(db_path=self.db_path)
+                distilled_top = agent.get_distilled_archetypes_for_market(lg_seg, sc_seg, base_fam_seg, limit=2)
+                for d_rec in distilled_top:
+                    d_mid = f"distilled_{d_rec.archetype_id}"
+                    if d_mid in seen_ids or any(inst.__class__.__name__ == d_rec.base_class_name for inst in instances):
+                        continue
+                    inst_d = self._instantiate_from_source_or_class(
+                        cls_name=d_rec.base_class_name,
+                        model_id=d_mid,
+                        league=lg_seg,
+                        scope=sc_seg,
+                        family=base_fam_seg,
+                    )
+                    if inst_d is not None:
+                        instances.append(inst_d)
+                        seen_ids.add(d_mid)
             except Exception:
-                continue
+                pass
 
         _GLOBAL_CANDIDATES_CACHE[segment_key] = instances
         return instances
