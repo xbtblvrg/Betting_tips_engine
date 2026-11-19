@@ -379,7 +379,9 @@ def load_graduated_markets(data_dir: Path = DATA) -> Dict[str, Dict[str, Any]]:
             db_keys = {r[1] for r in rows}
             missing_in_db = [
                 v for k, v in data.items()
-                if k not in db_keys and k not in demoted_keys and isinstance(v, dict) and v.get('segment_key')
+                if isinstance(v, dict) and v.get('segment_key')
+                and k not in db_keys and v.get('segment_key') not in db_keys
+                and k not in demoted_keys and v.get('segment_key') not in demoted_keys
                 and is_supported_stake_contract(v.get('league', ''), v.get('scope', 'full_game'), v.get('family', ''), v.get('sub_family', ''))
             ]
             if missing_in_db:
