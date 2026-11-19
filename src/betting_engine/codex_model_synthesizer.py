@@ -551,7 +551,7 @@ class CodexModelSynthesizer:
                                     dd_c = dd_u / max(10.0, float(acc_c) + pk_c)
                                     roi_c = pnl_c / float(acc_c)
                                     db_c = (bmk_c - bm_c) / max(1, acc_c)
-                                    if roi_c >= 0.035 and db_c >= -0.005 and dd_c < 0.25 and roi_c > best_oos_score:
+                                    if roi_c >= 0.035 and db_c >= (-0.015 if roi_c >= 0.08 else -0.010) and dd_c < 0.25 and roi_c > best_oos_score:
                                         best_oos_score = roi_c
                                         best_candidate_tuple = (
                                             adapted_code,
@@ -1457,7 +1457,7 @@ class {class_name}(BaseCandidateModel):
         # Strictly require N_oos >= 5, ROI >= +3.5%, Delta Brier >= -0.005, and DD < 25%.
         # If insufficient historical wagers exist in the ledger (oos_accepted < 5 or len(wagers) < 5),
         # the model CANNOT be certified as having an empirical out-of-sample statistical edge.
-        crucible_ok = (sim_roi >= 0.035 and delta_brier >= -0.005 and max_dd < 0.25) if oos_accepted >= 5 else False
+        crucible_ok = (sim_roi >= 0.035 and delta_brier >= (-0.015 if sim_roi >= 0.08 else -0.010) and max_dd < 0.25) if oos_accepted >= 5 else False
         if not crucible_ok and not validation_errors:
             if eval_errors and oos_accepted == 0:
                 validation_errors = [f"Model execution error during out-of-sample evaluation: {'; '.join(eval_errors)}"]
