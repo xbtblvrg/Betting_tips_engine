@@ -2692,6 +2692,12 @@ class ShadowMarketIncubator:
 
     def evaluate_graduation(self, as_of: Optional[str] = None) -> List[Dict[str, Any]]:
         """Evaluates all settled shadow families against dynamic Crucible invariants and graduates winners."""
+        is_prod_db = (as_of is None and self.db_path.resolve() == (DATA / 'shadow_incubator.sqlite3').resolve())
+        if is_prod_db:
+            cache_entry = getattr(ShadowMarketIncubator, '_prod_grad_eval_cache', None)
+            if cache_entry and (time.monotonic() - cache_entry[0]) < 120.0:
+                return list(cache_entry[1])
+
         now_iso = as_of or utcnow().isoformat()
         try:
             self.evaluate_tier2_lifecycle(as_of=now_iso)
@@ -2725,9 +2731,20 @@ class ShadowMarketIncubator:
                     GROUP BY league, scope, family, sub_family, model_id
                     HAVING count(*) >= 25 AND sum(pnl) > 0
                 """)
-                model_cand_rows = cur.fetchall()
-                candidate_summaries.extend(model_cand_rows)
-                log.debug("[GRADUATION_MODEL_CANDIDATES] Loaded %d individual model_id Crucible candidates alongside cohort summaries", len(model_cand_rows))
+                model_cand_rows = list(cur.fetchall())
+                model_cand_rows.sort(
+                    key=lambda r: (float(r[6] or 0.0), float(r[9] or 0.0) - float(r[8] or 0.0), int(r[5] or 0)),
+                    reverse=True,
+                )
+                per_seg_counts: Dict[Tuple[str, str, str, str], int] = {}
+                top_model_cands = []
+                for r in model_cand_rows:
+                    sk_t = (str(r[0]), str(r[1]), str(r[2]), str(r[3]))
+                    if per_seg_counts.get(sk_t, 0) < 3:
+                        per_seg_counts[sk_t] = per_seg_counts.get(sk_t, 0) + 1
+                        top_model_cands.append(r)
+                candidate_summaries.extend(top_model_cands)
+                log.debug("[GRADUATION_MODEL_CANDIDATES] Loaded %d top-3 individual model_id Crucible candidates (from %d total) alongside cohort summaries", len(top_model_cands), len(model_cand_rows))
             except Exception as e_mc:
                 log.debug("[GRADUATION_MODEL_CANDIDATES_ERR] Failed to query individual model_id candidates: %s", e_mc)
 
@@ -3358,6 +3375,9 @@ class ShadowMarketIncubator:
         if graduated_records:
             save_graduated_markets(current_graduated, self.data_dir)
 
+        if locals().get('is_prod_db'):
+            ShadowMarketIncubator._prod_grad_eval_cache = (time.monotonic(), list(graduated_records))
+
         return graduated_records
 
     def enforce_minimum_league_quotas(
@@ -3659,6 +3679,9 @@ class ShadowMarketIncubator:
 
         if graduated_records:
             save_graduated_markets(current_graduated, self.data_dir)
+
+        if locals().get('is_prod_db'):
+            ShadowMarketIncubator._prod_grad_eval_cache = (time.monotonic(), list(graduated_records))
 
         return graduated_records
 
@@ -4031,6 +4054,9 @@ class ShadowMarketIncubator:
 
         if graduated_records:
             save_graduated_markets(current_graduated, self.data_dir)
+
+        if locals().get('is_prod_db'):
+            ShadowMarketIncubator._prod_grad_eval_cache = (time.monotonic(), list(graduated_records))
 
         return graduated_records
 

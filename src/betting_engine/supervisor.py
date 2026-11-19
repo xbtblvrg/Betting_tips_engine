@@ -422,17 +422,19 @@ def run_once(data_dir=DATA, *, emit_summary=False):
             result['development']={'state':delivery['state'],'fully_ready':delivery['fully_ready'],
                 'overdue_checkpoints':delivery.get('overdue_checkpoints',[]),'progress':delivery.get('progress',{})}
         except Exception as e:result['development']={'state':'error','error':str(e)[:300],'fully_ready':False}
-        checks, result['throughput_memory'] = throughput_checks(data, observations, previous, utcnow())
+        now_final = utcnow()
+        result['checked_at'] = now_final.isoformat()
+        checks, result['throughput_memory'] = throughput_checks(data, observations, previous, now_final)
         result['components'].setdefault('checks', []).extend(checks)
         if any(check['state']=='degraded' for check in checks):
             result['components']['state']='degraded'
-        result['stability_audit']=stability_audit(result, previous, utcnow())
+        result['stability_audit']=stability_audit(result, previous, now_final)
         # Retain actual observation timestamps; cached checks are not fresh evidence.
         result['components'].setdefault('checks',[]).extend(result['stability_audit']['checks'])
         if result['stability_audit']['error_count']:
             result['components']['state']='degraded'
         from .flow_checker import check_live_flow
-        result['flow_checker']=check_live_flow(data,result,previous.get('flow_checker',{}),utcnow())
+        result['flow_checker']=check_live_flow(data,result,previous.get('flow_checker',{}),now_final)
         result['components'].setdefault('checks',[]).extend(result['flow_checker']['checks'])
         if result['flow_checker']['failure_count']:
             result['components']['state']='degraded'

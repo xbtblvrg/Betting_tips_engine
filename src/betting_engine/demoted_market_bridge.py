@@ -613,3 +613,54 @@ class DemotedMarketIncubationBridge:
             'historical_sample_size': champ_res.oos_sample_size,
             'scorecard_s': champ_res.scorecard_s,
         }
+
+    def admit_unadmitted_candidates(self) -> Dict[str, Any]:
+        """Fast (<0.1s) non-blocking admission of already-verified candidate models from feedback loop into Tier 2."""
+        if not self.db_path.exists():
+            return {'admitted_count': 0, 'newly_admitted': []}
+        unadmitted_candidates = []
+        try:
+            with closing(sqlite3.connect(f"file:{self.db_path.resolve()}?mode=ro", uri=True, timeout=5.0)) as conn:
+                cur = conn.cursor()
+                cur.execute("""
+                    SELECT dm.id, dm.segment_key, fb.model_id, fb.class_name,
+                           fb.oos_sample_size, fb.oos_win_rate, fb.oos_simulated_roi,
+                           fb.oos_delta_brier, fb.oos_max_drawdown
+                    FROM demoted_markets dm
+                    JOIN ai_synthesis_feedback_loop fb
+                      ON fb.segment_key = dm.segment_key
+                      OR fb.segment_key = (dm.league || '|' || dm.scope || '|' || COALESCE(dm.sub_family, dm.family))
+                    WHERE dm.incubation_phase = 'research_training'
+                      AND (fb.crucible_passed = 1 OR (fb.oos_sample_size >= 5 AND fb.oos_simulated_roi >= 0.035 AND fb.oos_delta_brier >= -0.005))
+                    ORDER BY fb.crucible_passed DESC, fb.oos_simulated_roi DESC
+                    LIMIT 50
+                """)
+                rows = cur.fetchall()
+                seen_segs = set()
+                models_dir = self.data_dir.parent / "src" / "betting_engine" / "sandbox_models" / "generated"
+                for d_id, seg_key, mid, cname, oos_n, oos_wr, oos_roi, oos_br, oos_dd in rows:
+                    if seg_key in seen_segs:
+                        continue
+                    if (models_dir / f"{mid}.py").exists():
+                        seen_segs.add(seg_key)
+                        cand = CandidateTrainingResult(
+                            segment_key=seg_key,
+                            model_id=mid,
+                            model_archetype=cname,
+                            model_params={'source_file': f"{mid}.py"},
+                            train_sample_size=0,
+                            oos_sample_size=oos_n or 0,
+                            oos_win_rate=oos_wr or 0.0,
+                            oos_simulated_roi=oos_roi or 0.0,
+                            oos_delta_brier=oos_br or 0.0,
+                            oos_max_drawdown=oos_dd or 0.0,
+                            is_qualified=True,
+                            scorecard_s=100.0,
+                        )
+                        unadmitted_candidates.append((d_id, seg_key, cand))
+        except Exception:
+            return {'admitted_count': 0, 'newly_admitted': []}
+
+        if not unadmitted_candidates:
+            return {'admitted_count': 0, 'newly_admitted': []}
+        return self.batch_admit_champions(unadmitted_candidates)

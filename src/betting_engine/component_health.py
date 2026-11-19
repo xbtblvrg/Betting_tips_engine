@@ -185,14 +185,25 @@ def audit_components(payload,worker,catalog,research,now=None,closing=None):
     except Exception:
         add('Software telemetry & anomaly sensor', 'healthy', 'Software telemetry sensor operational.')
 
-    # Polymarket Autonomous Parallel Executor sensor
+    # Polymarket Autonomous Parallel Executor sensor (pure read-only query, zero network or write lock)
     try:
-        from .polymarket_executor import PolymarketAutonomousExecutor
-        pe = PolymarketAutonomousExecutor()
-        p_status = pe.get_trader_status()
-        st = 'healthy'
-        msg = f"Parallel CLOB trader active: {p_status.get('total_orders', 0)} orders, {p_status.get('filled_orders', 0)} filled, ${p_status.get('realized_pnl', 0.0):+.2f} PnL."
-        add('Polymarket CLOB Execution Engine', st, msg)
+        from contextlib import closing
+        import sqlite3
+        from .providers import DATA
+        eng_db = DATA / 'engine.sqlite3'
+        total_orders, filled_orders, realized_pnl = 0, 0, 0.0
+        if eng_db.exists():
+            with closing(sqlite3.connect(f"file:{eng_db.resolve()}?mode=ro", uri=True, timeout=3.0)) as p_conn:
+                p_cur = p_conn.cursor()
+                row_p = p_cur.execute(
+                    "SELECT COUNT(*), SUM(CASE WHEN status IN ('filled','matched','live','won','lost') THEN 1 ELSE 0 END), COALESCE(SUM(pnl), 0.0) FROM polymarket_orders"
+                ).fetchone()
+                if row_p:
+                    total_orders = int(row_p[0] or 0)
+                    filled_orders = int(row_p[1] or 0)
+                    realized_pnl = float(row_p[2] or 0.0)
+        msg = f"Parallel CLOB trader active: {total_orders} orders, {filled_orders} filled, ${realized_pnl:+.2f} PnL."
+        add('Polymarket CLOB Execution Engine', 'healthy', msg)
     except Exception as exc:
         add('Polymarket CLOB Execution Engine', 'healthy', f'Polymarket parallel channel standby: {exc}')
 
