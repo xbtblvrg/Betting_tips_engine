@@ -570,15 +570,16 @@ class SupremeAutonomousGovernor:
         except Exception as e:
             log.warning('Demoted tournaments sync error: %s', e)
 
-        # 6c. Autonomous Historical Model Training & Demoted Market Binding
+        # 6c. Fast Admission of Already-Verified Candidate Models (heavy training runs in learning worker)
         try:
             from .demoted_market_bridge import DemotedMarketIncubationBridge
             bridge = DemotedMarketIncubationBridge(data_dir=self.data_dir)
-            bridge_res = bridge.synchronize_demoted_markets(max_train_per_run=25)
-            if bridge_res.get('newly_admitted_count', 0) > 0:
+            bridge_res = bridge.admit_unadmitted_candidates()
+            admitted_cnt = bridge_res.get('admitted_count', 0) or bridge_res.get('newly_admitted_count', 0)
+            if admitted_cnt > 0:
                 actions.append({
                     'action': 'demoted_markets_bound_to_new_models',
-                    'newly_admitted': bridge_res['newly_admitted_count'],
+                    'newly_admitted': admitted_cnt,
                 })
         except sqlite3.OperationalError:
             log.debug("Demoted markets bridge deferred: database is currently busy.")

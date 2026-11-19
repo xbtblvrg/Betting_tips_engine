@@ -362,29 +362,38 @@ class Engine:
                 # cohort, so this cycle cannot invalidate its own snapshot.
                 self.settle_bets();self.store.settle_system_decisions(self.games)
             now=utcnow()
-            try:
-                from .autonomous_roi_governor import run_governor_cycle
-                run_governor_cycle(DATA)
-            except Exception as exc:
-                log.warning('ROI governor execution failed: %s', exc)
-            try:
-                from .settlement_supervisor import SettlementSupervisor
-                supervisor = SettlementSupervisor(DATA)
-                self.settlement_supervisor_status = supervisor.run_settlement_cycle(engine_instance=self)
-            except Exception as exc:
-                log.warning('Settlement supervisor execution failed: %s', exc)
-            try:
-                from .data_integrity_supervisor import DataIntegritySupervisor
-                integrity_sup = DataIntegritySupervisor(DATA)
-                self.data_integrity_status = integrity_sup.audit_and_heal(engine_instance=self)
-            except Exception as exc:
-                log.warning('Data integrity supervisor execution failed: %s', exc)
-            try:
-                from .autonomous_problem_resolver import AutonomousProblemResolver
-                problem_resolver = AutonomousProblemResolver(DATA.parent)
-                self.problem_resolver_status = problem_resolver.scan_and_resolve_all()
-            except Exception as exc:
-                log.warning('Autonomous problem resolver execution failed: %s', exc)
+            run_heavy_supervisors = (time.time() - getattr(self, '_last_heavy_supervisors', 0.0)) >= 300.0
+            if run_heavy_supervisors:
+                self._last_heavy_supervisors = time.time()
+                try:
+                    from .autonomous_roi_governor import run_governor_cycle
+                    run_governor_cycle(DATA)
+                except Exception as exc:
+                    log.warning('ROI governor execution failed: %s', exc)
+                try:
+                    from .settlement_supervisor import SettlementSupervisor
+                    supervisor = SettlementSupervisor(DATA)
+                    self.settlement_supervisor_status = supervisor.run_settlement_cycle(engine_instance=self)
+                except Exception as exc:
+                    log.warning('Settlement supervisor execution failed: %s', exc)
+                try:
+                    from .data_integrity_supervisor import DataIntegritySupervisor
+                    integrity_sup = DataIntegritySupervisor(DATA)
+                    self.data_integrity_status = integrity_sup.audit_and_heal(engine_instance=self)
+                except Exception as exc:
+                    log.warning('Data integrity supervisor execution failed: %s', exc)
+                try:
+                    from .autonomous_problem_resolver import AutonomousProblemResolver
+                    problem_resolver = AutonomousProblemResolver(DATA.parent)
+                    self.problem_resolver_status = problem_resolver.scan_and_resolve_all()
+                except Exception as exc:
+                    log.warning('Autonomous problem resolver execution failed: %s', exc)
+            else:
+                try:
+                    from .autonomous_problem_resolver import AutonomousProblemResolver
+                    AutonomousProblemResolver(DATA.parent).resolve_runtime_exceptions()
+                except Exception as exc:
+                    log.debug('Fast runtime exception scan warning: %s', exc)
             outcome_evidence=outcome_snapshot(self.store.system_decisions(),now) if outcome_enabled else None
             outcome_summaries={}
             horizons=settings.get('league_pregame_horizon_hours') or {}
@@ -676,24 +685,28 @@ class Engine:
                     log.warning('High-probability cohort incubation warning: %s', exc)
 
                 incubator.settle_incubated_wagers(self.games)
-                incubator.reconcile_aged_and_completed_wagers(min_age_hours=36.0, games=self.games)
                 new_grads = incubator.evaluate_graduation()
-                # Mandatory Volume-Deficit & Dynamic Catalogue Diversity Expansion (Constitution Commandments 1, 2, 8)
-                shortfall = self.store.daily_progress().get('shortfall', 0)
-                from .shadow_market_incubator import load_graduated_markets
-                current_active = load_graduated_markets(DATA)
-                DIVERSITY_TARGET_SUBMARKETS = 2500
-                diversity_shortfall = max(0, DIVERSITY_TARGET_SUBMARKETS - len(current_active))
-                effective_expansion = max(shortfall, diversity_shortfall, 100)
-                if effective_expansion > 0:
-                    exp_grads = incubator.trigger_volume_deficit_expansion(daily_shortfall=effective_expansion)
-                    if exp_grads:
-                        new_grads.extend(exp_grads)
-                # Unlimited Maximum & Mandatory Proven Graduation (Commandments 1, 3, 6, 8)
-                quota_grads = incubator.enforce_unlimited_proven_graduation()
-                if quota_grads:
-                    new_grads.extend(quota_grads)
-                review_result = incubator.evaluate_demotions_and_substitutions(engine_db_path=self.store.path)
+                run_heavy_inc = (time.time() - getattr(self, '_last_heavy_incubator_audit', 0.0)) >= 300.0
+                review_result = {}
+                if run_heavy_inc:
+                    self._last_heavy_incubator_audit = time.time()
+                    incubator.reconcile_aged_and_completed_wagers(min_age_hours=36.0, games=self.games)
+                    # Mandatory Volume-Deficit & Dynamic Catalogue Diversity Expansion (Constitution Commandments 1, 2, 8)
+                    shortfall = self.store.daily_progress().get('shortfall', 0)
+                    from .shadow_market_incubator import load_graduated_markets
+                    current_active = load_graduated_markets(DATA)
+                    DIVERSITY_TARGET_SUBMARKETS = 2500
+                    diversity_shortfall = max(0, DIVERSITY_TARGET_SUBMARKETS - len(current_active))
+                    effective_expansion = max(shortfall, diversity_shortfall, 100)
+                    if effective_expansion > 0:
+                        exp_grads = incubator.trigger_volume_deficit_expansion(daily_shortfall=effective_expansion)
+                        if exp_grads:
+                            new_grads.extend(exp_grads)
+                    # Unlimited Maximum & Mandatory Proven Graduation (Commandments 1, 3, 6, 8)
+                    quota_grads = incubator.enforce_unlimited_proven_graduation()
+                    if quota_grads:
+                        new_grads.extend(quota_grads)
+                    review_result = incubator.evaluate_demotions_and_substitutions(engine_db_path=self.store.path)
                 if new_grads or review_result.get('demotions') or review_result.get('substitutions'):
                     if new_grads:
                         log.info('AMIE-GD graduated %d market families: %s', len(new_grads), [g['segment_key'] for g in new_grads])
@@ -701,6 +714,7 @@ class Engine:
                         log.info('AMIE-GD demoted %d degrading markets to research: %s', len(review_result['demotions']), [d['segment_key'] for d in review_result['demotions']])
                     if review_result.get('substitutions'):
                         log.info('AMIE-GD promoted %d substitute markets: %s', len(review_result['substitutions']), [s['segment_key'] for s in review_result['substitutions']])
+                    from .shadow_market_incubator import load_graduated_markets
                     from .graduated_models import resolve_graduated_segment_models, resolve_graduated_full_game_models
                     graduated = load_graduated_markets(DATA)
                     self.segment_models = resolve_graduated_segment_models(graduated, self.segment_models)
@@ -708,18 +722,20 @@ class Engine:
                 status['market_incubator'] = incubator.get_incubator_status()
 
                 # Funnel Proportionality & Autonomous Unclogging (Commandments 1, 2, 6, 7)
-                try:
-                    from .funnel_proportionality_supervisor import FunnelProportionalitySupervisor
-                    funnel_sup = FunnelProportionalitySupervisor(DATA)
-                    funnel_res = funnel_sup.audit_and_heal()
-                    if funnel_res.actions_executed:
-                        log.info("Funnel supervisor healed: %s", funnel_res.actions_executed)
-                        from .graduated_models import resolve_graduated_segment_models, resolve_graduated_full_game_models
-                        graduated = load_graduated_markets(DATA)
-                        self.segment_models = resolve_graduated_segment_models(graduated, self.segment_models)
-                        self.models = resolve_graduated_full_game_models(graduated, self.models)
-                except Exception as exc_funnel:
-                    log.warning("Funnel supervisor non-fatal error: %s", exc_funnel)
+                if run_heavy_inc:
+                    try:
+                        from .funnel_proportionality_supervisor import FunnelProportionalitySupervisor
+                        funnel_sup = FunnelProportionalitySupervisor(DATA)
+                        funnel_res = funnel_sup.audit_and_heal()
+                        if funnel_res.actions_executed:
+                            log.info("Funnel supervisor healed: %s", funnel_res.actions_executed)
+                            from .shadow_market_incubator import load_graduated_markets
+                            from .graduated_models import resolve_graduated_segment_models, resolve_graduated_full_game_models
+                            graduated = load_graduated_markets(DATA)
+                            self.segment_models = resolve_graduated_segment_models(graduated, self.segment_models)
+                            self.models = resolve_graduated_full_game_models(graduated, self.models)
+                    except Exception as exc_funnel:
+                        log.warning("Funnel supervisor non-fatal error: %s", exc_funnel)
             except Exception as exc:
                 log.exception('AMIE-GD shadow market incubator step failed: %s', exc)
                 status['market_incubator'] = {'error': str(exc)[:300]}
