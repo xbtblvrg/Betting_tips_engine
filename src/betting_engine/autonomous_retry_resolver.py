@@ -91,35 +91,35 @@ class AutonomousRetryResolver:
         job_id = hashlib.sha256(f"{job_kind}:{task_id}:{now_iso}".encode()).hexdigest()[:24]
         try:
             if self.engine_db.exists():
-                conn = sqlite3.connect(self.engine_db, timeout=45.0)
-                cur = conn.cursor()
-                # Deduplication: do not enqueue if an active job already exists for this task
-                cur.execute(
-                    "SELECT id FROM learning_jobs WHERE kind = ? AND status IN ('queued', 'running', 'retry') AND payload LIKE ?",
-                    (job_kind, f'%"task_id": "{task_id}"%')
-                )
-                if cur.fetchone():
-                    conn.close()
-                    return ""
+                from contextlib import closing
+                with closing(sqlite3.connect(self.engine_db, timeout=45.0)) as conn:
+                    conn.execute("PRAGMA busy_timeout = 45000")
+                    cur = conn.cursor()
+                    # Deduplication: do not enqueue if an active job already exists for this task
+                    cur.execute(
+                        "SELECT id FROM learning_jobs WHERE kind = ? AND status IN ('queued', 'running', 'retry') AND payload LIKE ?",
+                        (job_kind, f'%"task_id": "{task_id}"%')
+                    )
+                    if cur.fetchone():
+                        return ""
 
-                payload = json.dumps({
-                    'task_id': task_id,
-                    'job_kind': job_kind,
-                    'created_by': 'AutonomousRetryResolver',
-                    'mandate': 'Multi-AI Autonomous Blocker Resolution',
-                    'assigned_council': 'Gemini Antigravity (agy), Claude Opus, Codex, Grok',
-                    **payload_dict
-                })
-                cur.execute(
-                    """
-                    INSERT OR IGNORE INTO learning_jobs (
-                        id, kind, league, status, created_at, updated_at, next_attempt, payload
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (job_id, job_kind, league or 'SYSTEM', 'queued', now_iso, now_iso, now_iso, payload)
-                )
-                conn.commit()
-                conn.close()
+                    payload = json.dumps({
+                        'task_id': task_id,
+                        'job_kind': job_kind,
+                        'created_by': 'AutonomousRetryResolver',
+                        'mandate': 'Multi-AI Autonomous Blocker Resolution',
+                        'assigned_council': 'Gemini Antigravity (agy), Claude Opus, Codex, Grok',
+                        **payload_dict
+                    })
+                    cur.execute(
+                        """
+                        INSERT OR IGNORE INTO learning_jobs (
+                            id, kind, league, status, created_at, updated_at, next_attempt, payload
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (job_id, job_kind, league or 'SYSTEM', 'queued', now_iso, now_iso, now_iso, payload)
+                    )
+                    conn.commit()
         except Exception as exc:
             log.warning('Failed to enqueue learning job: %s', exc)
         return job_id
@@ -327,7 +327,8 @@ class AutonomousRetryResolver:
         now_iso = now.isoformat()
 
         try:
-            with sqlite3.connect(str(self.engine_db), timeout=30.0) as conn:
+            from contextlib import closing
+            with closing(sqlite3.connect(str(self.engine_db), timeout=30.0)) as conn:
                 conn.execute("PRAGMA busy_timeout=30000;")
                 cur = conn.cursor()
                 cur.execute("PRAGMA table_info(learning_jobs)")

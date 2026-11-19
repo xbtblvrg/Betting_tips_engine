@@ -13,6 +13,8 @@ from .domain import LEAGUES,utcnow,parse_time
 from .providers import DATA
 from .storage import Store
 from .io_utils import atomic_json
+from .verbose_logger import setup_verbose_logging
+setup_verbose_logging()
 
 # Pre-import core candidate architectures to avoid thread race conditions in importlib
 from . import sandbox_models
@@ -28,8 +30,9 @@ FEEDBACK_AGE_SLA_SECONDS = 300
 FEEDBACK_KINDS = frozenset(('outcome_review', 'closing_evaluation'))
 RECOVERY_KINDS = frozenset(('model_restore', 'segment_restore', 'period_restore'))
 PRIORITY = {'source_refresh':0, 'model_restore':0, 'segment_restore':0, 'period_restore':0,
+    'runtime_exception_auto_repair':0, 'autonomous_code_healing':0,
     'outcome_review':1, 'closing_evaluation':1, 'shadow_evaluation':1, 'market_catalog':1, 'autonomous_system_audit':1, 'anti_constant_audit':1, 'autonomous_submarket_expansion':1, 'autorun_selector_repair':1,
-    'polymarket_identification_repair': 1, 'polymarket_taxonomy_repair': 1, 'autonomous_code_healing': 1, 'high_retry_task_root_cause_analysis': 1, 'priority_model_synthesis': 1,
+    'polymarket_identification_repair': 1, 'polymarket_taxonomy_repair': 1, 'high_retry_task_root_cause_analysis': 1, 'priority_model_synthesis': 1,
     'autonomous_bottleneck_repair': 1, 'autonomous_alpha_recovery': 1, 'market_gap_model_synthesis': 1,
     'controlled_retrain':2, 'segment_retrain':2, 'period_retrain':2, 'segment_repair':2, 'submarket_turnaround_research': 2, 'target_evaluation':2, 'anchor_weight_learning':2, 'opportunity_funnel_repair':2, 'urgent_polymarket_model_repair':2,
     'daily_council_briefing': 2, 'incubator_market_repair': 2, 'autonomous_model_synthesis': 2, 'upstream_sports_sensor_synthesis': 2,
@@ -38,6 +41,8 @@ PRIORITY = {'source_refresh':0, 'model_restore':0, 'segment_restore':0, 'period_
 
 
 FAST_TRACK_KINDS = frozenset((
+    'runtime_exception_auto_repair',
+    'autonomous_code_healing',
     'priority_model_synthesis',
     'autonomous_bottleneck_repair',
     'autorun_selector_repair',
@@ -1137,7 +1142,7 @@ class LearningWorker:
             from .supreme_system_auditor import SupremeSystemAuditor
             auditor = SupremeSystemAuditor(root=self.data.parent, data_dir=self.data)
             return auditor.run_full_system_audit(include_pytest=True)
-        if job['kind']=='autonomous_code_healing':
+        if job['kind'] in ('autonomous_code_healing', 'runtime_exception_auto_repair'):
             payload = json.loads(job['payload']) if isinstance(job['payload'], str) else (job['payload'] or {})
             from .supreme_system_auditor import SupremeSystemAuditor
             auditor = SupremeSystemAuditor(root=self.data.parent, data_dir=self.data)

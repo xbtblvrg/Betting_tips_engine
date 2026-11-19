@@ -26,6 +26,8 @@ import uuid
 
 from .domain import utcnow, parse_time
 from .io_utils import atomic_bytes, atomic_json
+from .verbose_logger import setup_verbose_logging
+setup_verbose_logging()
 from .development import DevelopmentWorker, tree_manifest, COPY_DIRS, COPY_FILES, PROTECTED
 from .parallel_development import _read_acceptance
 from .delivery import task_release_verified, verify_release_receipt

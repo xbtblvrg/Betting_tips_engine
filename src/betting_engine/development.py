@@ -24,6 +24,8 @@ from datetime import timedelta
 from .delivery import read_json, READY_TASK_STATES, apply_task_releases
 from .domain import utcnow, parse_time
 from .io_utils import atomic_bytes, atomic_json
+from .verbose_logger import setup_verbose_logging
+setup_verbose_logging()
 from .workspace_copy import copy2 as workspace_copy2
 from .ai_delegation import collect as collect_advice, validate_reviews, REVIEW_PROPERTY
 

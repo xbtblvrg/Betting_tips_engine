@@ -270,21 +270,20 @@ class AutonomousProblemResolver:
                 if self.engine_db.exists():
                     for attempt in range(3):
                         try:
-                            conn = sqlite3.connect(self.engine_db, timeout=45.0)
-                            conn.execute("PRAGMA busy_timeout = 60000")
-                            db_cur = conn.cursor()
-                            for sj in slow_jobs:
-                                jid = sj.get('job_id')
-                                elapsed = sj.get('elapsed_seconds', 0)
-                                if jid and elapsed > 900:
-                                    db_cur.execute(
-                                        "UPDATE learning_jobs SET status='superseded', updated_at=? WHERE id=? AND status='running'",
-                                        (now_str, jid)
-                                    )
-                                    if db_cur.rowcount > 0:
-                                        healed_slow.append(jid)
-                            conn.commit()
-                            conn.close()
+                            with closing(sqlite3.connect(self.engine_db, timeout=45.0)) as conn:
+                                conn.execute("PRAGMA busy_timeout = 60000")
+                                db_cur = conn.cursor()
+                                for sj in slow_jobs:
+                                    jid = sj.get('job_id')
+                                    elapsed = sj.get('elapsed_seconds', 0)
+                                    if jid and elapsed > 900:
+                                        db_cur.execute(
+                                            "UPDATE learning_jobs SET status='superseded', updated_at=? WHERE id=? AND status='running'",
+                                            (now_str, jid)
+                                        )
+                                        if db_cur.rowcount > 0:
+                                            healed_slow.append(jid)
+                                conn.commit()
                             break
                         except sqlite3.OperationalError:
                             time.sleep(0.5)
@@ -930,27 +929,26 @@ class AutonomousProblemResolver:
         ]
         now_iso = utcnow().isoformat()
         try:
-            conn = sqlite3.connect(self.engine_db, timeout=45.0)
-            conn.execute("PRAGMA busy_timeout = 60000")
-            cur = conn.cursor()
-            for league, scope, market in target_gaps:
-                job_id = hashlib.sha256(f"gap_synthesis:{league}:{scope}:{market}".encode()).hexdigest()[:24]
-                payload = json.dumps({
-                    'job_kind': 'market_gap_model_synthesis',
-                    'league': league,
-                    'model_scope': scope,
-                    'market': market,
-                    'objective': 'Synthesize and calibrate candidate domain model on historical games',
-                    'created_by': 'AutonomousProblemResolver'
-                })
-                cur.execute(
-                    "INSERT OR IGNORE INTO learning_jobs (id, kind, league, status, created_at, updated_at, next_attempt, payload) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    (job_id, 'market_gap_model_synthesis', league, 'queued', now_iso, now_iso, now_iso, payload)
-                )
-                if cur.rowcount > 0:
-                    enqueued.append(f"{league}|{scope}|{market}")
-            conn.commit()
-            conn.close()
+            with closing(sqlite3.connect(self.engine_db, timeout=45.0)) as conn:
+                conn.execute("PRAGMA busy_timeout = 60000")
+                cur = conn.cursor()
+                for league, scope, market in target_gaps:
+                    job_id = hashlib.sha256(f"gap_synthesis:{league}:{scope}:{market}".encode()).hexdigest()[:24]
+                    payload = json.dumps({
+                        'job_kind': 'market_gap_model_synthesis',
+                        'league': league,
+                        'model_scope': scope,
+                        'market': market,
+                        'objective': 'Synthesize and calibrate candidate domain model on historical games',
+                        'created_by': 'AutonomousProblemResolver'
+                    })
+                    cur.execute(
+                        "INSERT OR IGNORE INTO learning_jobs (id, kind, league, status, created_at, updated_at, next_attempt, payload) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                        (job_id, 'market_gap_model_synthesis', league, 'queued', now_iso, now_iso, now_iso, payload)
+                    )
+                    if cur.rowcount > 0:
+                        enqueued.append(f"{league}|{scope}|{market}")
+                conn.commit()
         except Exception as exc:
             log.warning('Failed to enqueue gap learning jobs: %s', exc)
         return enqueued

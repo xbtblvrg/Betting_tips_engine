@@ -94,13 +94,14 @@ class AutonomousExecutiveInquisitor:
                 telemetry['stuck_running_jobs'] = stuck_jobs
                 if stuck_jobs > 0:
                     try:
-                        heal_conn = sqlite3.connect(str(self.engine_db), timeout=30.0)
-                        heal_conn.execute(
-                            "UPDATE learning_jobs SET status = 'queued', updated_at = ? WHERE status = 'running' AND datetime(updated_at, '+30 minutes') < datetime(?)",
-                            (now_iso, now_iso)
-                        )
-                        heal_conn.commit()
-                        heal_conn.close()
+                        from contextlib import closing
+                        with closing(sqlite3.connect(str(self.engine_db), timeout=30.0)) as heal_conn:
+                            heal_conn.execute("PRAGMA busy_timeout = 30000")
+                            heal_conn.execute(
+                                "UPDATE learning_jobs SET status = 'queued', updated_at = ? WHERE status = 'running' AND datetime(updated_at, '+30 minutes') < datetime(?)",
+                                (now_iso, now_iso)
+                            )
+                            heal_conn.commit()
                         action = f"Autonóm beavatkozás: {stuck_jobs} db beragadt futó feladat visszaállítva 'queued' sorba."
                         status = 'healed'
                     except Exception as ex:

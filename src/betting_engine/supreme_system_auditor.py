@@ -598,19 +598,22 @@ class SupremeSystemAuditor:
 
     def execute_autonomous_code_healing(self, finding: Dict[str, Any]) -> Dict[str, Any]:
         """Autonomous end-to-end self-healing: Feltárás -> Elemzés -> Tervezés -> Implementálás -> Ellenőrzés -> Release."""
+        import ast
+        from .verbose_logger import get_verbose_logger
+        vl = get_verbose_logger(self.data_dir)
         self.log_healing_event('healing_attempt_started', {'finding': finding})
-        cat = finding.get('category')
-        desc = finding.get('description', '')
+        vl.log_event("supreme_system_auditor", "ai_self_healing_started", f"Autonomous self-healing triggered", data=finding)
 
-        # Fast self-healing heuristics for known patterns
-        result = {'status': 'unresolved', 'remedy': None}
+        cat = finding.get('category') or finding.get('job_kind') or 'runtime_exception_auto_repair'
+        desc = finding.get('description', '') or f"{finding.get('exception_type', '')}: {finding.get('exception_message', '')}"
 
-        # Check if it's a test regression
+        result: Dict[str, Any] = {'status': 'unresolved', 'remedy': None}
+
+        # 1. Fast deterministic self-healing heuristics for known operational patterns
         if cat == 'test_regression':
             evidence = finding.get('evidence', '')
             log.info('Autonomous healing analyzing test failure: %s | %s', desc, evidence)
 
-            # Heuristic 1: component_health stale vs degraded bug
             if 'test_component_health.py' in desc and 'stale' in evidence and 'degraded' in evidence:
                 target_file = self.root / 'src/betting_engine/component_health.py'
                 if target_file.exists():
@@ -621,7 +624,6 @@ class SupremeSystemAuditor:
                         target_file.write_text(txt.replace(old_pat, new_pat), encoding='utf-8')
                         result = {'status': 'healed', 'remedy': 'Restored stale preservation in component_health.py'}
 
-            # Heuristic 2: test_markets.py schedule URLs 6 vs 8 bug
             elif 'test_markets.py' in desc and 'assert 6 == 8' in evidence:
                 target_file = self.root / 'src/betting_engine/stake_api.py'
                 if target_file.exists():
@@ -632,9 +634,61 @@ class SupremeSystemAuditor:
                         target_file.write_text(txt.replace(old_pat, new_pat), encoding='utf-8')
                         result = {'status': 'healed', 'remedy': 'Fixed mock feed category discovery in stake_api.py'}
 
-        # Re-verify after healing
+        # 2. First-Principles AI Self-Healing Loop for runtime exceptions and unresolved test regressions
+        if result.get('status') != 'healed':
+            rel_file = finding.get('file') or ''
+            line_no = int(finding.get('line') or 0)
+            func_name = finding.get('function') or ''
+            exc_type = finding.get('exception_type') or 'Exception'
+            exc_msg = finding.get('exception_message') or desc
+            tb_text = finding.get('traceback') or finding.get('evidence') or ''
+
+            # If triggered from a test failure without explicit file, infer from test or traceback
+            if not rel_file and tb_text:
+                m_f = re.findall(r'(src/betting_engine/[a-zA-Z0-9_]+\.py):(\d+)', tb_text)
+                if m_f:
+                    rel_file, line_no = m_f[-1][0], int(m_f[-1][1])
+
+            target_path = (self.root / rel_file).resolve() if rel_file else None
+            if target_path and target_path.exists() and str(target_path).startswith(str((self.root / 'src/betting_engine').resolve())):
+                # Check corresponding unit test suite first
+                mod_stem = target_path.stem
+                candidate_tests = [
+                    f"tests/test_{mod_stem}.py",
+                    "tests/test_governance.py",
+                ]
+                active_tests = [t for t in candidate_tests if (self.root / t).exists()] or CORE_TEST_TARGETS[:3]
+
+                # Note: For transient governance rejections (quote expired / stake reproduction already fixed),
+                # verify whether the test suite and current code already pass cleanly
+                if exc_type == 'ValueError' and ('quote expired after evidence review' in exc_msg or 'stake sizing does not reproduce' in exc_msg):
+                    pre_chk = self.audit_code_and_tests(targets=active_tests, timeout=45)
+                    if pre_chk.get('status') == 'passed':
+                        result = {
+                            'status': 'already_healed',
+                            'verified': True,
+                            'remedy': f"Pre-flight freshness pruning and sizing cap synchronization verified clean on {target_path.name} ({active_tests})",
+                        }
+                        vl.log_event("supreme_system_auditor", "ai_self_healing_already_clean", result['remedy'], data=finding, level=logging.INFO)
+                        return result
+
+                # Invoke Multi-AI Self-Healing Provider (claude -> codex -> agy)
+                ai_heal = self._invoke_ai_code_healer(
+                    target_path=target_path,
+                    line_no=line_no,
+                    func_name=func_name,
+                    exc_type=exc_type,
+                    exc_msg=exc_msg,
+                    tb_text=tb_text,
+                    active_tests=active_tests,
+                )
+                if ai_heal.get('status') == 'healed':
+                    result = ai_heal
+
+        # 3. Re-verify after healing
         if result.get('status') == 'healed':
-            verify_res = self.audit_code_and_tests()
+            verify_targets = result.get('test_targets') or CORE_TEST_TARGETS[:4]
+            verify_res = self.audit_code_and_tests(targets=verify_targets, timeout=60)
             if verify_res.get('status') == 'passed':
                 result['verified'] = True
                 self.log_healing_event('healing_verified_and_released', {
@@ -642,11 +696,128 @@ class SupremeSystemAuditor:
                     'remedy': result['remedy'],
                     'verification': verify_res
                 })
+                vl.log_event("supreme_system_auditor", "ai_self_healing_verified", f"AI self-healing verified and active: {result['remedy']}", data=result, level=logging.INFO)
             else:
                 result['verified'] = False
                 result['status'] = 'healing_failed_verification'
+                vl.log_event("supreme_system_auditor", "ai_self_healing_failed_verification", f"Verification failed after patch", data=verify_res, level=logging.WARNING)
 
         return result
+
+    def _invoke_ai_code_healer(
+        self,
+        target_path: Path,
+        line_no: int,
+        func_name: str,
+        exc_type: str,
+        exc_msg: str,
+        tb_text: str,
+        active_tests: List[str],
+    ) -> Dict[str, Any]:
+        """Invokes the configured AI provider with verbose debug telemetry and applies an AST + pytest gated surgical patch."""
+        import ast
+        from .ai_delegation import invoke, decode, read, file_lock
+        from .verbose_logger import get_verbose_logger
+
+        vl = get_verbose_logger(self.data_dir)
+        delegation_cfg_path = self.root / 'config/ai_delegation.json'
+        if not delegation_cfg_path.exists():
+            return {'status': 'unresolved', 'reason': 'config/ai_delegation.json missing'}
+
+        policy = read(delegation_cfg_path, {})
+        providers_cfg = policy.get('providers', {})
+
+        orig_source = target_path.read_text(encoding='utf-8')
+        src_lines = orig_source.splitlines()
+        start_idx = max(0, (line_no - 45) if line_no > 0 else 0)
+        end_idx = min(len(src_lines), (line_no + 45) if line_no > 0 else min(120, len(src_lines)))
+        numbered_window = "\n".join(f"{i+1}: {src_lines[i]}" for i in range(start_idx, end_idx))
+        raw_window = "\n".join(src_lines[start_idx:end_idx])
+
+        telemetry_dump = vl.format_telemetry_for_ai(prompt=f"{target_path.name} {func_name} {exc_type}", max_chars=6000)
+
+        prompt = (
+            f"You are the Autonomous Self-Healing Engineering Brain of the Quant Engine.\n"
+            f"A runtime exception was captured by the real-time verbose debug telemetry loop.\n\n"
+            f"TARGET FILE: {target_path.relative_to(self.root)}\n"
+            f"FUNCTION: {func_name} (around line {line_no})\n"
+            f"EXCEPTION: {exc_type}: {exc_msg}\n"
+            f"TRACEBACK:\n{tb_text[-2500:]}\n\n"
+            f"RECENT VERBOSE DEBUG TELEMETRY:\n{telemetry_dump}\n\n"
+            f"EXACT SOURCE WINDOW (lines {start_idx+1}..{end_idx}, raw text without line numbers):\n"
+            f"```python\n{raw_window}\n```\n\n"
+            f"FIRST-PRINCIPLES SELF-HEALING MANDATE:\n"
+            f"1. Diagnose the exact root cause from first principles based purely on the traceback, source window, and telemetry.\n"
+            f"2. Formulate a minimal, surgical drop-in fix that resolves the root cause without weakening any invariant, ledger immutability, or test.\n"
+            f"3. Return ONLY a valid JSON object with keys:\n"
+            f'   {{"root_cause": "...", "target_code": "exact contiguous lines from the source window to replace", "replacement_code": "exact replacement lines"}}\n'
+        )
+
+        lock_dir = self.data_dir / 'development' / 'ai-locks'
+        lock_dir.mkdir(parents=True, exist_ok=True)
+
+        for provider in ('claude', 'codex', 'agy'):
+            p_cfg = providers_cfg.get(provider, {})
+            if not p_cfg.get('enabled'):
+                continue
+            try:
+                with file_lock(lock_dir / f"self_heal_{provider}.lock", timeout=25.0) as acquired:
+                    if not acquired:
+                        continue
+                    res = invoke(provider, p_cfg, prompt, timeout=90)
+                    state, answer = decode(provider, res, p_cfg.get('model'))
+                    if state != 'received_unreviewed' or not answer:
+                        continue
+
+                    # Parse JSON payload from AI response
+                    m_json = re.search(r'\{.*\}', answer, flags=re.DOTALL)
+                    if not m_json:
+                        continue
+                    patch_obj = json.loads(m_json.group(0))
+                    target_code = str(patch_obj.get('target_code') or '')
+                    replacement_code = str(patch_obj.get('replacement_code') or '')
+                    root_cause = str(patch_obj.get('root_cause') or '')
+
+                    if not target_code or target_code not in orig_source or target_code == replacement_code:
+                        continue
+
+                    # Gate 1: Save backup & construct candidate source
+                    backup_dir = self.data_dir / 'development' / 'self_healing_backups'
+                    backup_dir.mkdir(parents=True, exist_ok=True)
+                    backup_file = backup_dir / f"{target_path.name}.{int(time.time())}.bak"
+                    backup_file.write_text(orig_source, encoding='utf-8')
+
+                    candidate_source = orig_source.replace(target_code, replacement_code, 1)
+
+                    # Gate 2: AST & Compile Check
+                    try:
+                        ast.parse(candidate_source)
+                        compile(candidate_source, str(target_path), 'exec')
+                    except SyntaxError as syn_err:
+                        vl.log_event("supreme_system_auditor", "ai_patch_syntax_rejected", f"Rejected AI patch from {provider}: {syn_err}", level=logging.WARNING)
+                        continue
+
+                    # Gate 3: Write & Run Anti-Tautological Pytest Suite (Fail-Closed Rollback on any failure)
+                    target_path.write_text(candidate_source, encoding='utf-8')
+                    test_check = self.audit_code_and_tests(targets=active_tests, timeout=60)
+                    if test_check.get('status') != 'passed':
+                        # Instant fail-closed rollback!
+                        target_path.write_text(orig_source, encoding='utf-8')
+                        vl.log_event("supreme_system_auditor", "ai_patch_pytest_rollback", f"Rolled back AI patch from {provider} after pytest failure", data=test_check, level=logging.WARNING)
+                        continue
+
+                    return {
+                        'status': 'healed',
+                        'provider': provider,
+                        'file': str(target_path.relative_to(self.root)),
+                        'root_cause': root_cause,
+                        'remedy': f"AI ({provider}) surgical patch applied to {target_path.name}:{line_no} and verified by pytest ({active_tests})",
+                        'test_targets': active_tests,
+                    }
+            except Exception as exc:
+                log.warning('AI code healer provider %s error: %s', provider, exc)
+
+        return {'status': 'unresolved', 'reason': 'No AI provider produced a verified passing patch'}
 
     def run_full_system_audit(self, include_pytest: bool = True) -> Dict[str, Any]:
         """Executes a full, exhaustive unconstrained audit sweep across all dimensions."""

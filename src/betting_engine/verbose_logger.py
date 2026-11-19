@@ -6,16 +6,20 @@ Enriches AI autonomous learning and self-healing prompts with real runtime telem
 """
 from __future__ import annotations
 
+from contextlib import closing
+import hashlib
 import json
 import logging
 from logging.handlers import RotatingFileHandler
 import os
 from pathlib import Path
+import re
+import sqlite3
 import sys
 import threading
 import time
 import traceback
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from .domain import utcnow
 
@@ -26,21 +30,29 @@ if not DATA.is_absolute():
 
 VERBOSE_LOG_NAME = "verbose_debug.log"
 VERBOSE_JSONL_NAME = "verbose_debug.jsonl"
+SELF_HEALING_TRIGGERS_NAME = "self_healing_triggers.jsonl"
 DEFAULT_MAX_BYTES = 20 * 1024 * 1024  # 20 MB
 DEFAULT_BACKUP_COUNT = 5
+TRIGGER_COOLDOWN_SECONDS = 300.0
 
 _LOCK = threading.RLock()
 _INITIALIZED = False
+_TRIGGER_COOLDOWN: Dict[str, float] = {}
+_IN_TRIGGER_HOOK = threading.local()
 
 
 class JsonlLogHandler(logging.Handler):
-    """Appends structured JSONL log records for machine ingestion and AI analysis."""
+    """Appends structured JSONL log records for machine ingestion and AI analysis,
+    and triggers the real-time autonomous AI self-healing loop on runtime errors.
+    """
 
     def __init__(self, filepath: Path, max_bytes: int = DEFAULT_MAX_BYTES):
         super().__init__()
         self.filepath = Path(filepath)
         self.max_bytes = max_bytes
         self.filepath.parent.mkdir(parents=True, exist_ok=True)
+        self.triggers_filepath = self.filepath.parent / SELF_HEALING_TRIGGERS_NAME
+        self.data_dir = self.filepath.parent.parent
 
     def emit(self, record: logging.LogRecord) -> None:
         try:
@@ -74,8 +86,99 @@ class JsonlLogHandler(logging.Handler):
             line = json.dumps(entry, ensure_ascii=False) + "\n"
             with open(self.filepath, "a", encoding="utf-8") as f:
                 f.write(line)
+
+            # Real-Time Log-Triggered AI Self-Healing Loop:
+            # Intercept ERROR/CRITICAL records or tracebacks from betting_engine and enqueue
+            # immediate Priority-0 autonomous AI code healing.
+            if (
+                (record.levelno >= logging.ERROR or "exception" in entry or "Traceback (most recent call last):" in msg)
+                and not getattr(record, "_skip_self_healing", False)
+                and not getattr(_IN_TRIGGER_HOOK, "active", False)
+            ):
+                self._trigger_self_healing_from_log(record, entry)
         except Exception:
             self.handleError(record)
+
+    def _trigger_self_healing_from_log(self, record: logging.LogRecord, entry: Dict[str, Any]) -> None:
+        """Extracts frame & debug context from an error log and triggers Priority-0 AI self-healing."""
+        _IN_TRIGGER_HOOK.active = True
+        try:
+            exc_info_dict = entry.get("exception") or {}
+            tb_text = exc_info_dict.get("traceback") or (entry.get("message") if "Traceback" in str(entry.get("message")) else "")
+            exc_type = exc_info_dict.get("type") or "RuntimeError"
+            exc_msg = exc_info_dict.get("message") or str(entry.get("message") or "")[:300]
+
+            target_file = getattr(record, "pathname", "") or ""
+            target_line = int(getattr(record, "lineno", 0) or 0)
+            target_func = getattr(record, "funcName", "") or ""
+            code_line = ""
+
+            if tb_text:
+                frame_pattern = re.compile(r'  File "([^"]+)", line (\d+), in ([a-zA-Z0-9_<>]+)\n    ([^\n]+)')
+                for fm in frame_pattern.finditer(tb_text):
+                    fp, lno, fn, cline = fm.groups()
+                    p_cand = Path(fp).resolve()
+                    if "src/betting_engine" in str(p_cand):
+                        target_file = str(p_cand)
+                        target_line = int(lno)
+                        target_func = fn
+                        code_line = cline.strip()
+
+            if not target_file or "src/betting_engine" not in str(Path(target_file).resolve()):
+                return
+
+            rel_file = str(Path(target_file).resolve().relative_to(ROOT)) if str(Path(target_file).resolve()).startswith(str(ROOT)) else target_file
+            sig_key = f"{rel_file}:{target_line}:{exc_type}"
+            now_mono = time.monotonic()
+            with _LOCK:
+                last_trig = _TRIGGER_COOLDOWN.get(sig_key, 0.0)
+                if (now_mono - last_trig) < TRIGGER_COOLDOWN_SECONDS:
+                    return
+                _TRIGGER_COOLDOWN[sig_key] = now_mono
+
+            now_iso = utcnow().isoformat()
+            job_id = hashlib.sha256(f"log_trigger_heal:{sig_key}:{exc_msg[:60]}".encode()).hexdigest()[:24]
+            trigger_payload = {
+                "job_kind": "runtime_exception_auto_repair",
+                "trigger_source": "verbose_logger_realtime_hook",
+                "triggered_at": now_iso,
+                "file": rel_file,
+                "line": target_line,
+                "function": target_func,
+                "code_line": code_line,
+                "exception_type": exc_type,
+                "exception_message": exc_msg[:400],
+                "traceback": tb_text[-4000:] if tb_text else "",
+                "logger": entry.get("logger"),
+                "quant_data": entry.get("quant_data", {}),
+            }
+
+            # 1. Persist durable trigger receipt to self_healing_triggers.jsonl
+            try:
+                with open(self.triggers_filepath, "a", encoding="utf-8") as tf:
+                    tf.write(json.dumps({"job_id": job_id, **trigger_payload}, ensure_ascii=False) + "\n")
+            except Exception:
+                pass
+
+            # 2. Enqueue Priority-0 fast-track job in engine.sqlite3 (learning_jobs)
+            engine_db = self.data_dir / "engine.sqlite3"
+            if engine_db.exists():
+                try:
+                    with closing(sqlite3.connect(str(engine_db), timeout=15.0)) as conn:
+                        conn.execute("PRAGMA busy_timeout = 15000")
+                        conn.execute(
+                            """
+                            INSERT OR IGNORE INTO learning_jobs (
+                                id, kind, league, status, created_at, updated_at, next_attempt, attempts, payload
+                            ) VALUES (?, 'runtime_exception_auto_repair', 'SYSTEM', 'queued', ?, ?, ?, 0, ?)
+                            """,
+                            (job_id, now_iso, now_iso, now_iso, json.dumps(trigger_payload, ensure_ascii=False)),
+                        )
+                        conn.commit()
+                except Exception:
+                    pass
+        finally:
+            _IN_TRIGGER_HOOK.active = False
 
 
 class QuantVerboseLogger:
@@ -319,8 +422,13 @@ class QuantVerboseLogger:
         """
         sections: List[str] = []
 
-        # 1. Error logs from service-error.log and supervisor-error.log if present
-        err_logs = [self.logs_dir / "service-error.log", self.logs_dir / "supervisor-error.log"]
+        # 1. Error logs from service-error.log, supervisor-error.log, learning-error.log, and self_healing_triggers.jsonl if present
+        err_logs = [
+            self.logs_dir / "service-error.log",
+            self.logs_dir / "supervisor-error.log",
+            self.logs_dir / "learning-error.log",
+            self.logs_dir / SELF_HEALING_TRIGGERS_NAME,
+        ]
         error_snippets: List[str] = []
         for p in err_logs:
             if p.exists() and p.stat().st_size > 0:

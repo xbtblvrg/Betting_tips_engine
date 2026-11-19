@@ -330,49 +330,49 @@ class SupremeAutonomousGovernor:
         today_prefix = now.strftime('%Y-%m-%d')
 
         try:
-            conn = sqlite3.connect(engine_db, timeout=45.0)
-            cur = conn.cursor()
+            from contextlib import closing
+            with closing(sqlite3.connect(engine_db, timeout=45.0)) as conn:
+                conn.execute("PRAGMA busy_timeout = 45000")
+                cur = conn.cursor()
 
-            # 1. Audit SYSTEM:daily_delivery
-            cur.execute("SELECT count(*) FROM bets WHERE substr(created_at, 1, 10) = ?", (today_prefix,))
-            row = cur.fetchone()
-            today_bets = row[0] if row else 0
+                # 1. Audit SYSTEM:daily_delivery
+                cur.execute("SELECT count(*) FROM bets WHERE substr(created_at, 1, 10) = ?", (today_prefix,))
+                row = cur.fetchone()
+                today_bets = row[0] if row else 0
 
-            if today_bets >= 100:
-                cur.execute("SELECT status FROM operating_gaps WHERE id = 'SYSTEM:daily_delivery'")
-                gap_row = cur.fetchone()
-                if gap_row and gap_row[0] != 'resolved':
-                    evidence = {
-                        'resolved_by': 'SupremeAutonomousGovernor',
-                        'today_funded_bets': today_bets,
-                        'minimum_mandate': 100,
-                        'verified_at': now_iso,
-                        'status': f'Budapest calendar day requirement fulfilled with {today_bets} distinct funded picks'
-                    }
-                    cur.execute(
-                        "UPDATE operating_gaps SET status = 'resolved', resolved_at = ?, evidence = ? WHERE id = 'SYSTEM:daily_delivery'",
-                        (now_iso, json.dumps(evidence))
-                    )
-                    conn.commit()
-                    resolved.append('SYSTEM:daily_delivery')
-                    self.log_event('operating_gap_resolved', {
-                        'gap_id': 'SYSTEM:daily_delivery',
-                        'today_bets': today_bets,
-                        'minimum_target': 100
-                    })
+                if today_bets >= 100:
+                    cur.execute("SELECT status FROM operating_gaps WHERE id = 'SYSTEM:daily_delivery'")
+                    gap_row = cur.fetchone()
+                    if gap_row and gap_row[0] != 'resolved':
+                        evidence = {
+                            'resolved_by': 'SupremeAutonomousGovernor',
+                            'today_funded_bets': today_bets,
+                            'minimum_mandate': 100,
+                            'verified_at': now_iso,
+                            'status': f'Budapest calendar day requirement fulfilled with {today_bets} distinct funded picks'
+                        }
+                        cur.execute(
+                            "UPDATE operating_gaps SET status = 'resolved', resolved_at = ?, evidence = ? WHERE id = 'SYSTEM:daily_delivery'",
+                            (now_iso, json.dumps(evidence))
+                        )
+                        conn.commit()
+                        resolved.append('SYSTEM:daily_delivery')
+                        self.log_event('operating_gap_resolved', {
+                            'gap_id': 'SYSTEM:daily_delivery',
+                            'today_bets': today_bets,
+                            'minimum_target': 100
+                        })
 
-            # 2. Prune obsolete not_currently_observed gaps older than 7 days
-            cutoff_iso = (now - timedelta(days=7)).isoformat()
-            cur.execute("DELETE FROM operating_gaps WHERE status = 'not_currently_observed' AND last_seen < ?", (cutoff_iso,))
-            pruned = cur.rowcount
-            if pruned > 0:
+                # 2. Prune obsolete not_currently_observed gaps older than 7 days
+                cutoff_iso = (now - timedelta(days=7)).isoformat()
+                cur.execute("DELETE FROM operating_gaps WHERE status = 'not_currently_observed' AND last_seen < ?", (cutoff_iso,))
+                pruned = cur.rowcount
                 conn.commit()
-                self.log_event('stale_operating_gaps_pruned', {
-                    'pruned_count': pruned,
-                    'cutoff': cutoff_iso
-                })
-
-            conn.close()
+                if pruned > 0:
+                    self.log_event('stale_operating_gaps_pruned', {
+                        'pruned_count': pruned,
+                        'cutoff': cutoff_iso
+                    })
         except Exception as exc:
             log.warning('Error resolving operating gaps: %s', exc)
 
@@ -395,46 +395,47 @@ class SupremeAutonomousGovernor:
                 all_targets = sorted(list(set(quarantined) | set(clamped)))
                 leaks_audited = len(all_targets)
 
-                conn = sqlite3.connect(engine_db, timeout=45.0)
-                cur = conn.cursor()
-                now_iso = utcnow().isoformat()
+                from contextlib import closing
+                with closing(sqlite3.connect(engine_db, timeout=45.0)) as conn:
+                    conn.execute("PRAGMA busy_timeout = 45000")
+                    cur = conn.cursor()
+                    now_iso = utcnow().isoformat()
 
-                for seg in all_targets:
-                    # Check if there is already an active job for this segment
-                    active_job = cur.execute(
-                        """
-                        SELECT id FROM learning_jobs 
-                        WHERE kind = 'submarket_turnaround_research' 
-                          AND status IN ('queued', 'running')
-                          AND payload LIKE ?
-                        LIMIT 1
-                        """,
-                        (f'%"{seg}"%',)
-                    ).fetchone()
-                    if active_job:
-                        continue
+                    for seg in all_targets:
+                        # Check if there is already an active job for this segment
+                        active_job = cur.execute(
+                            """
+                            SELECT id FROM learning_jobs 
+                            WHERE kind = 'submarket_turnaround_research' 
+                              AND status IN ('queued', 'running')
+                              AND payload LIKE ?
+                            LIMIT 1
+                            """,
+                            (f'%"{seg}"%',)
+                        ).fetchone()
+                        if active_job:
+                            continue
 
-                    job_id = hashlib.sha256(f'turnaround:{seg}:{now_iso}'.encode()).hexdigest()[:24]
-                    league = seg.split('|')[0] if '|' in seg else 'UNKNOWN'
-                    payload = json.dumps({
-                        'segment': seg,
-                        'mandate': 'Active Positive Alpha Repair (turn negative PnL into positive net contributor)',
-                        'action': 'positive_alpha_repair',
-                        'assigned_council': 'Gemini Antigravity (agy), Claude Opus, Codex, Grok'
-                    })
-                    cur.execute(
-                        """
-                        INSERT INTO learning_jobs (
-                            id, kind, league, status, created_at, updated_at, next_attempt, payload
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                        """,
-                        (job_id, 'submarket_turnaround_research', league, 'queued', now_iso, now_iso, now_iso, payload)
-                    )
-                    leaks_repaired += 1
-                    self.log_event('alpha_repair_job_enqueued', {'job_id': job_id, 'segment': seg, 'league': league})
+                        job_id = hashlib.sha256(f'turnaround:{seg}:{now_iso}'.encode()).hexdigest()[:24]
+                        league = seg.split('|')[0] if '|' in seg else 'UNKNOWN'
+                        payload = json.dumps({
+                            'segment': seg,
+                            'mandate': 'Active Positive Alpha Repair (turn negative PnL into positive net contributor)',
+                            'action': 'positive_alpha_repair',
+                            'assigned_council': 'Gemini Antigravity (agy), Claude Opus, Codex, Grok'
+                        })
+                        cur.execute(
+                            """
+                            INSERT OR IGNORE INTO learning_jobs (
+                                id, kind, league, status, created_at, updated_at, next_attempt, payload
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                            """,
+                            (job_id, 'submarket_turnaround_research', league, 'queued', now_iso, now_iso, now_iso, payload)
+                        )
+                        leaks_repaired += 1
+                        self.log_event('alpha_repair_job_enqueued', {'job_id': job_id, 'segment': seg, 'league': league})
 
-                conn.commit()
-                conn.close()
+                    conn.commit()
             except Exception as exc:
                 log.warning('Alpha leak repair audit error: %s', exc)
 
@@ -462,51 +463,50 @@ class SupremeAutonomousGovernor:
             return guard
 
         try:
-            conn = sqlite3.connect(engine_db, timeout=45.0)
-            cur = conn.cursor()
+            from contextlib import closing
+            with closing(sqlite3.connect(f"file:{engine_db.resolve()}?mode=ro", uri=True, timeout=15.0)) as conn:
+                cur = conn.cursor()
 
-            # 1. Daily volume and stake bounds today (funded recommendations)
-            today_prefix = now.strftime('%Y-%m-%d')
-            cur.execute(
-                "SELECT count(*), min(stake), max(stake), min(odds) FROM bets WHERE substr(created_at, 1, 10) = ? AND status IN ('open', 'won', 'lost', 'push')",
-                (today_prefix,)
-            )
-            r = cur.fetchone()
-            if r and r[0] is not None:
-                c, min_s, max_s, min_o = r
-                guard['daily_volume_count'] = c
-                guard['daily_volume_floor_met'] = (c >= 100)
-                guard['stake_bounds_compliant'] = bool(min_s is not None and min_s >= 0.50 and max_s <= 8.00)
-                guard['min_odds_compliant'] = bool(min_o is not None and min_o >= 1.40)
+                # 1. Daily volume and stake bounds today (funded recommendations)
+                today_prefix = now.strftime('%Y-%m-%d')
+                cur.execute(
+                    "SELECT count(*), min(stake), max(stake), min(odds) FROM bets WHERE substr(created_at, 1, 10) = ? AND status IN ('open', 'won', 'lost', 'push')",
+                    (today_prefix,)
+                )
+                r = cur.fetchone()
+                if r and r[0] is not None:
+                    c, min_s, max_s, min_o = r
+                    guard['daily_volume_count'] = c
+                    guard['daily_volume_floor_met'] = (c >= 100)
+                    guard['stake_bounds_compliant'] = bool(min_s is not None and min_s >= 0.50 and max_s <= 8.00)
+                    guard['min_odds_compliant'] = bool(min_o is not None and min_o >= 1.40)
 
-            # 2. Active leagues in last 72 hours
-            since_72h = (now - timedelta(hours=72)).isoformat()
-            cur.execute(
-                "SELECT DISTINCT json_extract(payload, '$.league') FROM bets WHERE created_at >= ?",
-                (since_72h,)
-            )
-            leagues = [row[0] for row in cur.fetchall() if row[0]]
-            guard['active_leagues_72h'] = sorted(leagues)
+                # 2. Active leagues in last 72 hours
+                since_72h = (now - timedelta(hours=72)).isoformat()
+                cur.execute(
+                    "SELECT DISTINCT json_extract(payload, '$.league') FROM bets WHERE created_at >= ?",
+                    (since_72h,)
+                )
+                leagues = [row[0] for row in cur.fetchall() if row[0]]
+                guard['active_leagues_72h'] = sorted(leagues)
 
-            # 3. Rolling 7-day ROI & PnL
-            since_7d = (now - timedelta(days=7)).isoformat()
-            cur.execute(
-                """
-                SELECT count(*), round(sum(stake), 2), round(sum(pnl), 2)
-                FROM bets
-                WHERE created_at >= ? AND status IN ('won', 'lost', 'push')
-                """,
-                (since_7d,)
-            )
-            s_row = cur.fetchone()
-            if s_row and s_row[0] and s_row[1] and s_row[1] > 0:
-                count, staked, pnl = s_row
-                guard['rolling_7d_settled_count'] = count
-                guard['rolling_7d_staked_usd'] = staked
-                guard['rolling_7d_pnl_usd'] = pnl or 0.0
-                guard['rolling_7d_roi_pct'] = round(((pnl or 0.0) / staked) * 100.0, 2)
-
-            conn.close()
+                # 3. Rolling 7-day ROI & PnL
+                since_7d = (now - timedelta(days=7)).isoformat()
+                cur.execute(
+                    """
+                    SELECT count(*), round(sum(stake), 2), round(sum(pnl), 2)
+                    FROM bets
+                    WHERE created_at >= ? AND status IN ('won', 'lost', 'push')
+                    """,
+                    (since_7d,)
+                )
+                s_row = cur.fetchone()
+                if s_row and s_row[0] and s_row[1] and s_row[1] > 0:
+                    count, staked, pnl = s_row
+                    guard['rolling_7d_settled_count'] = count
+                    guard['rolling_7d_staked_usd'] = staked
+                    guard['rolling_7d_pnl_usd'] = pnl or 0.0
+                    guard['rolling_7d_roi_pct'] = round(((pnl or 0.0) / staked) * 100.0, 2)
         except Exception as exc:
             log.warning('Prime directives guard audit error: %s', exc)
 

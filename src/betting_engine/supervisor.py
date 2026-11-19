@@ -5,6 +5,8 @@ from urllib.request import urlopen
 from .domain import utcnow,parse_time
 from .providers import DATA
 from .io_utils import atomic_json
+from .verbose_logger import setup_verbose_logging
+setup_verbose_logging()
 
 LABELS={'engine':'hu.belavarga.betting-quant-engine','learning':'hu.belavarga.betting-quant-learning'}
 DEVELOPMENT_LABEL='hu.belavarga.betting-quant-development'
