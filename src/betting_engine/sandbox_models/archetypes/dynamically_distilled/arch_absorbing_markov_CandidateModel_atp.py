@@ -193,7 +193,7 @@ class CandidateModel(BaseCandidateModel):
 
     def __init__(
         self,
-        model_id: str = "codex_synth_atp_full_game_1107_135831",
+        model_id: str = "codex_synth_atp_full_game_1119_102910",
         version: str = "1.0.0",
         league: str = "ATP",
         scope: str = "full_game",
