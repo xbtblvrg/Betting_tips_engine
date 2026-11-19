@@ -132,9 +132,9 @@ def reference_report(evidence, champion):
 class ReferenceForecast:
     """The selected reference cannot accidentally price score/scoped contracts."""
     def __init__(self, base):
-        self.__dict__.update(base.__dict__)
+        self.__dict__.update({k: v for k, v in base.__dict__.items() if not k.startswith('_') and not callable(v)})
     def public(self):
-        return {k: v for k, v in self.__dict__.items() if k != 'residuals'}
+        return {k: v for k, v in self.__dict__.items() if k != 'residuals' and not k.startswith('_') and not callable(v)}
     def market_probability(self, kind, side, line=None):
         if kind != 'moneyline' or side not in ('home', 'away') or line is not None:
             raise ValueError('Winner reference cannot price another contract family')

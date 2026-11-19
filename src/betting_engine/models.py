@@ -153,7 +153,7 @@ class Forecast:
     warnings:list
     residuals:np.ndarray
     def public(self):
-        return {k:v for k,v in self.__dict__.items() if k!='residuals'}
+        return {k:v for k,v in self.__dict__.items() if k!='residuals' and not k.startswith('_') and not callable(v)}
     def market_probability(self,kind,side,line=None):
         if ':' in kind:raise ValueError('A full-game forecast cannot price a segment contract')
         if kind=='moneyline':

@@ -55,7 +55,7 @@ class SoccerForecast:
     soccer_model: Optional[Any] = None
 
     def public(self):
-        return {k: v for k, v in self.__dict__.items() if k not in ('residuals', 'soccer_model')}
+        return {k: v for k, v in self.__dict__.items() if k not in ('residuals', 'soccer_model') and not k.startswith('_') and not callable(v)}
 
     def market_probability(self, kind: str, side: str, line: Optional[float] = None) -> Tuple[float, float]:
         if ':' in kind:

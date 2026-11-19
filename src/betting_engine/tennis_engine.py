@@ -275,7 +275,7 @@ class TennisForecast:
     uncertainty: float = 0.0
 
     def public(self):
-        return {k: v for k, v in self.__dict__.items() if k not in ('residuals', 'sim_result', 'sim_totals', 'sim_margins')}
+        return {k: v for k, v in self.__dict__.items() if k not in ('residuals', 'sim_result', 'sim_totals', 'sim_margins') and not k.startswith('_') and not callable(v)}
 
     def market_probability(self, kind: str, side: str, line: Optional[float] = None) -> Tuple[float, float]:
         if ':' in str(kind):

@@ -89,7 +89,7 @@ class SegmentForecast:
         h,a,w=self.scores
         v=contract_value(base,side,line,h,a)
         return float(w[v>0].sum()),float(w[v==0].sum())
-    def public(self):return {**{k:v for k,v in self.__dict__.items() if k!='scores'},'margin':self.margin,'total':self.total,'model_probabilities':self.model_probabilities}
+    def public(self):return {**{k:v for k,v in self.__dict__.items() if k!='scores' and not k.startswith('_') and not callable(v)},'margin':self.margin,'total':self.total,'model_probabilities':self.model_probabilities}
 
 class SegmentModel:
     def __init__(self,scope,alpha,family):self.scope=scope;self.alpha=alpha;self.family=family

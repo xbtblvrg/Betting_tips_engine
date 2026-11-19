@@ -225,12 +225,30 @@ def extract_clean_code(answer: str) -> str:
         if unclosed and 'class ' in unclosed.group(1):
             code = textwrap.dedent(unclosed.group(1)).strip()
 
-    # 3. No fences: find first line of actual Python code (import, from, class, def, @)
+    # 3. No fences: check if full text is already valid Python or find first top-level statement outside docstrings
+    if not code:
+        try:
+            ast.parse(text)
+            if 'class ' in text:
+                code = text
+        except SyntaxError:
+            pass
     if not code:
         lines = text.splitlines()
         code_start_idx = None
+        in_doc = False
+        doc_delim = '"""'
         for idx, line in enumerate(lines):
             stripped = line.strip()
+            if not in_doc and (stripped.startswith('"""') or stripped.startswith("'''")):
+                doc_delim = '"""' if stripped.startswith('"""') else "'''"
+                if stripped.count(doc_delim) < 2:
+                    in_doc = True
+                continue
+            if in_doc:
+                if doc_delim in stripped:
+                    in_doc = False
+                continue
             if stripped.startswith(('import ', 'from ', 'class ', 'def ', '@')):
                 code_start_idx = idx
                 break
