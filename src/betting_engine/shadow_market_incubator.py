@@ -3028,8 +3028,9 @@ class ShadowMarketIncubator:
                     }
 
                     # Evaluate Multi-Model Tournament Champions & Persist Winning Model ID
-                    if str(cohort_val).startswith('model_id:'):
-                        stats['champion_model_id'] = str(cohort_val).split(':', 1)[1]
+                    _coh = str(locals().get('cohort_val') or '')
+                    if _coh.startswith('model_id:'):
+                        stats['champion_model_id'] = _coh.split(':', 1)[1]
                     try:
                         from .tournament_engine import TournamentEngine
                         t_eng = getattr(self, '_tournament_engine', None) or TournamentEngine(self.data_dir)
@@ -3893,8 +3894,9 @@ class ShadowMarketIncubator:
                     }
 
                     # Evaluate Multi-Model Tournament Champions & Persist Winning Model ID
-                    if str(cohort_val).startswith('model_id:'):
-                        stats['champion_model_id'] = str(cohort_val).split(':', 1)[1]
+                    _coh = str(locals().get('cohort_val') or '')
+                    if _coh.startswith('model_id:'):
+                        stats['champion_model_id'] = _coh.split(':', 1)[1]
                     try:
                         from .tournament_engine import TournamentEngine
                         t_eng = getattr(self, '_tournament_engine', None) or TournamentEngine(self.data_dir)
