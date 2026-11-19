@@ -1466,15 +1466,14 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                     raw_fam_available = max_fam_stake - event_family_stakes[fam_key] - batch_family_stakes[fam_key]
                     fam_available = round(raw_fam_available, 2) if math.isfinite(raw_fam_available) else raw_fam_available
                     sizing_budget = min(sizing_budget, max(0., fam_available))
+                if not (continuous or outcome_sizing) and c.get('_universe_stake_cap') is not None:
+                    sizing_budget = min(sizing_budget, float(c['_universe_stake_cap']))
                 if math.isfinite(sizing_budget):
                     sizing_budget = round(sizing_budget, 2)
                 sizing=size_recommendation(c,settings,sizing_budget,related) if continuous or outcome_sizing else stake_assessment(c['stress_probability'],c['push_probability'] if c.get('reference_platform')=='Stake.com' else 0,c['reference_odds'],settings,sizing_budget,related)
                 c['stake_sizing']=sizing;c['stake']=sizing['amount'];c['stake_note']=sizing['note']
-                if not (continuous or outcome_sizing) and c.get('_universe_stake_cap') is not None and c['stake'] > c['_universe_stake_cap']:
-                    c['stake'] = c['_universe_stake_cap']
+                if not (continuous or outcome_sizing) and c.get('_universe_stake_cap') is not None and c['_universe_stake_cap'] < 8.0:
                     c['stake_note'] = (c.get('stake_note') or '') + f' Capped at ${c["_universe_stake_cap"]:.2f} by Unified Universe Profile.'
-                    if c.get('stake_sizing'):
-                        c['stake_sizing']['amount'] = c['stake']
                 c['allocation_policy']['exposure_basis']='held_plus_complete_publication_batch_v1'
                 c['reference_stake_executable']=c['stake']>=c.get('reference_minimum_notional',0) and c['stake']>0
                 if c['stake']:

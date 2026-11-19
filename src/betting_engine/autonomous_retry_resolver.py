@@ -327,7 +327,8 @@ class AutonomousRetryResolver:
         now_iso = now.isoformat()
 
         try:
-            with sqlite3.connect(str(self.engine_db), timeout=15.0) as conn:
+            with sqlite3.connect(str(self.engine_db), timeout=30.0) as conn:
+                conn.execute("PRAGMA busy_timeout=30000;")
                 cur = conn.cursor()
                 cur.execute("PRAGMA table_info(learning_jobs)")
                 cols = {row[1] for row in cur.fetchall()}

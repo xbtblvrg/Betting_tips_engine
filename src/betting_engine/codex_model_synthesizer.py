@@ -30,7 +30,7 @@ from typing import Any, Dict, List, Optional, Tuple, Type
 from .ai_delegation import invoke, decode, read, file_lock
 from .ai_feedback_loop import AIFeedbackLoopManager, AIFeedbackRecord
 from .dynamic_model_registry import DynamicArchetypeRegistry
-from .historical_trainer import HistoricalCandidateTrainer, get_default_segment_context
+from .historical_trainer import HistoricalCandidateTrainer, enrich_wager_context, get_default_segment_context
 from .market_autopsy import MarketAutopsy, MarketAutopsyAnalyzer, TargetedSynthesisBriefBuilder
 from .providers import DATA
 from .sandbox_models.base import (
@@ -519,16 +519,10 @@ class CodexModelSynthesizer:
                             if len(oos_chk) >= 5:
                                 acc_c, pnl_c, bm_c, bmk_c, run_c, pk_c, dd_c = 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
                                 for r_w in oos_chk:
-                                    sel_w, ln_w, od_w, _, mp_w, sd_w, res_w, _, _ = r_w
+                                    sel_w, ln_w, od_w, orig_mp_w, mp_w, sd_w, res_w, _, _ = r_w
                                     od_f = float(od_w or 2.0)
                                     mp_f = float(mp_w or (1.0 / max(1.05, od_f)))
-                                    c_w = dict(sample_ctx_chk)
-                                    if ln_w is not None:
-                                        c_w['line'] = ln_w
-                                        c_w['total_line'] = ln_w
-                                        c_w['spread_line'] = ln_w
-                                        c_w['reference_total'] = ln_w
-                                        c_w['reference_spread'] = ln_w
+                                    c_w = enrich_wager_context(sample_ctx_chk, family, sel_w, ln_w, orig_mp_w, mp_f, sd_w)
                                     try:
                                         p_m, ev_m = test_inst.evaluate_market(
                                             market=f"{scope}:{family}" if scope != "full_game" else family,
@@ -540,7 +534,7 @@ class CodexModelSynthesizer:
                                     if res_w in ('won', 'lost'):
                                         bm_c += (p_m - y_w) ** 2
                                         bmk_c += (mp_f - y_w) ** 2
-                                    if ev_m > 0.02 and od_f >= 1.40:
+                                    if ev_m >= 0.035 and od_f >= 1.40:
                                         acc_c += 1
                                         if res_w == 'won':
                                             pnl_c += (od_f - 1.0)
@@ -555,7 +549,7 @@ class CodexModelSynthesizer:
                                             dd_c = cur_d
                                 if acc_c >= 5:
                                     roi_c = pnl_c / float(acc_c)
-                                    db_c = (bmk_c - bm_c) / max(1, len(oos_chk))
+                                    db_c = (bmk_c - bm_c) / max(1, acc_c)
                                     if roi_c >= 0.035 and db_c >= -0.005 and dd_c < 0.25 and roi_c > best_oos_score:
                                         best_oos_score = roi_c
                                         best_candidate_tuple = (
@@ -565,7 +559,7 @@ class CodexModelSynthesizer:
                                             best_arch,
                                         )
 
-                    chosen_tuple = best_candidate_tuple or first_valid_tuple
+                    chosen_tuple = best_candidate_tuple or (first_valid_tuple if (len(oos_chk) < 5 or len(distilled_matches) == 1) else None)
                     if chosen_tuple is not None:
                         adapted_code, cls_name, rationale, best_arch = chosen_tuple
                         try:
@@ -1413,24 +1407,10 @@ class {class_name}(BaseCandidateModel):
         eval_errors: List[str] = []
 
         for row in oos_wagers:
-            sel, line, odds, _, mkt_prob, side, res, orig_pnl, _ = row
+            sel, line, odds, orig_mp, mkt_prob, side, res, orig_pnl, _ = row
             odds_val = float(odds or 2.0)
             mkt_p = float(mkt_prob or (1.0 / max(1.05, odds_val)))
-
-            ctx_wager = dict(ctx)
-            if line is not None:
-                ctx_wager['line'] = line
-                ctx_wager['total_line'] = line
-                ctx_wager['spread_line'] = line
-                ctx_wager['reference_total'] = line
-                ctx_wager['reference_spread'] = line
-                sel_str = str(sel or '').lower()
-                if side == 'home' or 'home' in sel_str:
-                    ctx_wager['home_spread'] = line
-                    ctx_wager['home_total_line'] = line
-                elif side == 'away' or 'away' in sel_str:
-                    ctx_wager['away_spread'] = line
-                    ctx_wager['away_total_line'] = line
+            ctx_wager = enrich_wager_context(ctx, family, sel, line, orig_mp, mkt_p, side)
 
             try:
                 prob, ev = model_instance.evaluate_market(

@@ -166,6 +166,106 @@ def get_default_segment_context(league: str, scope: str) -> Dict[str, Any]:
     }
 
 
+def enrich_wager_context(
+    ctx: Dict[str, Any],
+    family: str,
+    sel: Optional[str],
+    line: Optional[float],
+    orig_mp: Optional[float],
+    mkt_p: float,
+    side: Optional[str],
+) -> Dict[str, Any]:
+    """Reconstructs match-specific pre-game expected scoring from the historical contract."""
+    import math
+    ctx_wager = dict(ctx)
+    base_h = max(0.2, float(ctx.get('baseline_home') or ctx.get('home_expected') or 1.5))
+    base_a = max(0.2, float(ctx.get('baseline_away') or ctx.get('away_expected') or 1.2))
+    base_tot = base_h + base_a
+    fam_l = (family or '').lower()
+    sel_str = str(sel or '').lower().strip()
+    sd_str = str(side or '').lower().strip()
+
+    from scipy.stats import norm
+    p_mkt = max(0.03, min(0.97, float(mkt_p) * 0.965 + 0.0175))  # De-vigged baseline probability
+    z_mkt = float(norm.ppf(p_mkt))
+    sigma_m = max(0.85, math.sqrt(base_tot) * (0.95 if base_tot >= 15.0 else 1.02))
+    sigma_t = max(0.65, sigma_m * 0.7071)
+    base_margin = base_h - base_a
+
+    h_exp, a_exp = base_h, base_a
+    if line is not None:
+        lv = float(line)
+        ctx_wager['line'] = lv
+        ctx_wager['total_line'] = lv
+        ctx_wager['spread_line'] = lv
+        ctx_wager['reference_total'] = lv
+        ctx_wager['reference_spread'] = lv
+        if sd_str == 'home' or 'home' in sel_str:
+            ctx_wager['home_spread'] = lv
+            ctx_wager['home_total_line'] = lv
+        elif sd_str == 'away' or 'away' in sel_str:
+            ctx_wager['away_spread'] = lv
+            ctx_wager['away_total_line'] = lv
+
+        is_over = sd_str in ('over', 'o') or 'over' in sel_str
+        is_under = sd_str in ('under', 'u') or 'under' in sel_str
+        if 'home_total' in fam_l:
+            implied_h = lv + z_mkt * sigma_t * (1.0 if is_over else -1.0)
+            h_exp = max(0.2, 0.72 * implied_h + 0.28 * base_h)
+        elif 'away_total' in fam_l:
+            implied_a = lv + z_mkt * sigma_t * (1.0 if is_over else -1.0)
+            a_exp = max(0.2, 0.72 * implied_a + 0.28 * base_a)
+        elif 'total' in fam_l or is_over or is_under:
+            if lv > 0.3:
+                implied_tot = lv + z_mkt * sigma_m * (1.0 if is_over else -1.0)
+                match_tot = max(0.4, 0.72 * implied_tot + 0.28 * base_tot)
+                h_exp = max(0.2, match_tot * (base_h / base_tot))
+                a_exp = max(0.2, match_tot * (base_a / base_tot))
+        elif 'spread' in fam_l or 'handicap' in fam_l or 'sets' in fam_l:
+            is_away = sd_str in ('away', '2', 'a') or ('away' in sel_str and 'home' not in sel_str)
+            edge_shift = z_mkt * sigma_m
+            implied_margin = (lv - edge_shift) if is_away else (-lv + edge_shift)
+            exp_margin = 0.72 * implied_margin + 0.28 * base_margin
+            h_exp = max(0.2, (base_tot + exp_margin) / 2.0)
+            a_exp = max(0.2, (base_tot - exp_margin) / 2.0)
+    else:
+        is_away = sd_str in ('away', '2', 'a') or ('away' in sel_str and 'home' not in sel_str)
+        is_draw = sd_str in ('draw', 'tie', 'x') or 'draw' in sel_str or 'tie' in sel_str
+        if is_draw:
+            exp_margin = 0.0
+        elif is_away:
+            implied_margin = -z_mkt * sigma_m
+            exp_margin = 0.72 * implied_margin + 0.28 * base_margin
+        else:
+            implied_margin = z_mkt * sigma_m
+            exp_margin = 0.72 * implied_margin + 0.28 * base_margin
+        h_exp = max(0.2, (base_tot + exp_margin) / 2.0)
+        a_exp = max(0.2, (base_tot - exp_margin) / 2.0)
+
+    h_mult = max(0.60, min(1.55, h_exp / base_h))
+    a_mult = max(0.60, min(1.55, a_exp / base_a))
+    ctx_wager['home_expected'] = round(h_exp, 3)
+    ctx_wager['away_expected'] = round(a_exp, 3)
+    ctx_wager['home_attack'] = round(h_mult, 4)
+    ctx_wager['away_attack'] = round(a_mult, 4)
+    ctx_wager['home_defense'] = round(max(0.60, min(1.55, 2.0 - a_mult)), 4)
+    ctx_wager['away_defense'] = round(max(0.60, min(1.55, 2.0 - h_mult)), 4)
+    ctx_wager['elo_difference'] = round((h_exp - a_exp) * (25.0 if base_tot > 30.0 else 90.0), 2)
+    ctx_wager['home'] = {
+        'attack': HybridRating(h_mult, goals=h_exp, exposure=1.0),
+        'defense': HybridRating(max(0.60, min(1.55, 2.0 - a_mult)), goals=a_exp, exposure=1.0),
+        'attack_multiplier': round(h_mult, 4),
+        'defense_multiplier': round(max(0.60, min(1.55, 2.0 - a_mult)), 4),
+    }
+    ctx_wager['away'] = {
+        'attack': HybridRating(a_mult, goals=a_exp, exposure=1.0),
+        'defense': HybridRating(max(0.60, min(1.55, 2.0 - h_mult)), goals=h_exp, exposure=1.0),
+        'attack_multiplier': round(a_mult, 4),
+        'defense_multiplier': round(max(0.60, min(1.55, 2.0 - h_mult)), 4),
+    }
+    return ctx_wager
+
+
 class HistoricalCandidateTrainer:
     """Trains, tunes, and screens candidate model archetypes on historical settled games."""
 
@@ -216,7 +316,7 @@ class HistoricalCandidateTrainer:
 
         try:
             cur = conn.cursor()
-            conditions = ["league = ?", "scope = ?", "status = 'settled'"]
+            conditions = ["league = ?", "scope = ?", "status = 'settled'", "result IN ('won', 'lost')"]
             params: List[Any] = [league, scope]
 
             family_filters = []
@@ -264,15 +364,29 @@ class HistoricalCandidateTrainer:
             """
             rows = cur.execute(query, params).fetchall()
             scale_factor = 1.0
-            if len(rows) < 8 and scope != 'full_game':
+            if len(rows) < 28 and scope != 'full_game':
                 fb_params = [league, 'full_game'] + params[2:]
-                rows = cur.execute(query, fb_params).fetchall()
-                if 'quarter_' in scope:
-                    scale_factor = 0.25
-                elif 'half_' in scope:
-                    scale_factor = 0.48
-                elif 'period_' in scope:
-                    scale_factor = 0.33
+                fb_rows = cur.execute(query, fb_params).fetchall()
+                if len(fb_rows) > len(rows):
+                    rows = fb_rows
+                    if 'quarter_' in scope:
+                        scale_factor = 0.25
+                    elif 'half_' in scope:
+                        scale_factor = 0.48
+                    elif 'period_' in scope:
+                        scale_factor = 0.33
+            if len(rows) < 28:
+                # Cross-scope same-family fallback within the same league so 75/25 split always has >= 7 OOS wagers
+                any_scope_query = query.replace("AND scope = ?", "")
+                any_rows = cur.execute(any_scope_query, [league] + params[2:]).fetchall()
+                if len(any_rows) > len(rows):
+                    rows = any_rows
+                    if 'quarter_' in scope:
+                        scale_factor = 0.25
+                    elif 'half_' in scope:
+                        scale_factor = 0.48
+                    elif 'period_' in scope:
+                        scale_factor = 0.33
 
             import re
             cleaned_rows = []
@@ -518,24 +632,10 @@ class HistoricalCandidateTrainer:
             running_pnl = 0.0
 
             for row in oos_wagers:
-                sel, line, odds, _, mkt_prob, side, res, orig_pnl, _ = row
+                sel, line, odds, orig_mp, mkt_prob, side, res, orig_pnl, _ = row
                 odds_val = float(odds or 2.0)
                 mkt_p = float(mkt_prob or (1.0 / max(1.05, odds_val)))
-
-                ctx_wager = dict(ctx)
-                if line is not None:
-                    ctx_wager['line'] = line
-                    ctx_wager['total_line'] = line
-                    ctx_wager['spread_line'] = line
-                    ctx_wager['reference_total'] = line
-                    ctx_wager['reference_spread'] = line
-                    sel_str = str(sel or '').lower()
-                    if side == 'home' or 'home' in sel_str:
-                        ctx_wager['home_spread'] = line
-                        ctx_wager['home_total_line'] = line
-                    elif side == 'away' or 'away' in sel_str:
-                        ctx_wager['away_spread'] = line
-                        ctx_wager['away_total_line'] = line
+                ctx_wager = enrich_wager_context(ctx, family, sel, line, orig_mp, mkt_p, side)
 
                 try:
                     prob, ev = model.evaluate_market(

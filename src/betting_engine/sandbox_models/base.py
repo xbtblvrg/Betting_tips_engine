@@ -234,13 +234,14 @@ class DiscreteDistribution:
             raise ValueError(f"Unknown spread side: {side}")
         return max(0.01, min(0.99, round(p, 4)))
 
-    def moneyline_prob(self, side: str = 'home') -> float:
-        """Calculates moneyline win probability."""
+    def moneyline_prob(self, side: str = 'home', two_way: bool = False) -> float:
+        """Calculates moneyline win probability (2-way conditional on non-draw when two_way=True)."""
         side = side.lower()
+        denom = max(1e-6, self.p_home + self.p_away) if two_way else 1.0
         if side in ('home', '1', 'h'):
-            return self.p_home
+            return max(0.01, min(0.99, round(self.p_home / denom, 4))) if two_way else self.p_home
         elif side in ('away', '2', 'a'):
-            return self.p_away
+            return max(0.01, min(0.99, round(self.p_away / denom, 4))) if two_way else self.p_away
         elif side in ('draw', 'tie', 'x'):
             return max(0.01, min(0.99, round(self.p_draw, 4)))
         else:
@@ -378,26 +379,27 @@ class BaseCandidateModel(ABC):
             prob = dist.spread_prob(eff_line, side=spread_side)
         else:
             # Moneyline / Three-way / Match winner
+            is_two_way = ('three_way' not in m_lower and '1x2' not in m_lower)
             if s_lower in ('draw', 'tie', 'x') or 'draw' in sel_lower or 'tie' in sel_lower:
-                prob = dist.moneyline_prob('draw')
+                prob = dist.moneyline_prob('draw', two_way=False)
             elif s_lower in ('home', '1', 'h'):
-                prob = dist.moneyline_prob('home')
+                prob = dist.moneyline_prob('home', two_way=is_two_way)
             elif s_lower in ('away', '2', 'a'):
-                prob = dist.moneyline_prob('away')
+                prob = dist.moneyline_prob('away', two_way=is_two_way)
             else:
                 home_team = str(game_context.get('home_team') or game_context.get('home') or '').lower()
                 away_team = str(game_context.get('away_team') or game_context.get('away') or '').lower()
                 tokens = set(sel_lower.split())
                 if home_team and home_team in sel_lower:
-                    prob = dist.moneyline_prob('home')
+                    prob = dist.moneyline_prob('home', two_way=is_two_way)
                 elif away_team and away_team in sel_lower:
-                    prob = dist.moneyline_prob('away')
+                    prob = dist.moneyline_prob('away', two_way=is_two_way)
                 elif 'home' in tokens or '1' in tokens:
-                    prob = dist.moneyline_prob('home')
+                    prob = dist.moneyline_prob('home', two_way=is_two_way)
                 elif 'away' in tokens or '2' in tokens:
-                    prob = dist.moneyline_prob('away')
+                    prob = dist.moneyline_prob('away', two_way=is_two_way)
                 else:
-                    prob = dist.moneyline_prob('home')
+                    prob = dist.moneyline_prob('home', two_way=is_two_way)
 
         ev = round(prob * float(odds) - 1.0, 4)
         return prob, ev
