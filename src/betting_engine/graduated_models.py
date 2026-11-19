@@ -698,13 +698,14 @@ class GraduatedUniversalSegmentModel:
             except Exception:
                 pass
 
+        _explicit_champ = bool((stats.get('champion_model_id') or meta.get('champion_model_id')) and self.champion_model is not None)
         _legacy_cls = {
             'NegativeBinomialOverdispersionModel', 'ExtremeValueGumbelModel', 'ZeroInflatedPoissonModel',
             'OddsDampedKellyShrinkageModel', 'SituationalFatigueModel', 'BivariateCopulaHazardModel',
             'MarkovChainTennisModel', 'WeibullRenewalHazardModel', 'DixonColesSoccerModel', 'SkellamDifferentialModel'
         }
         # Autonomous Self-Healing Candidate & Distilled AI Archetype Discovery
-        if not self.champion_model or type(self.champion_model).__name__ in _legacy_cls:
+        if not self.champion_model or (not _explicit_champ and type(self.champion_model).__name__ in _legacy_cls):
             try:
                 from .tournament_engine import TournamentEngine
                 t_eng = TournamentEngine()
@@ -1023,6 +1024,230 @@ class GraduatedUniversalSegmentModel:
         )
 
 
+_LEGACY_ARCHETYPE_CLASSES = {
+    'NegativeBinomialOverdispersionModel', 'ExtremeValueGumbelModel', 'ZeroInflatedPoissonModel',
+    'OddsDampedKellyShrinkageModel', 'SituationalFatigueModel', 'BivariateCopulaHazardModel',
+    'MarkovChainTennisModel', 'WeibullRenewalHazardModel', 'DixonColesSoccerModel', 'SkellamDifferentialModel'
+}
+
+
+_RESOLVED_CHAMPION_CACHE: Dict[str, Tuple[Optional[Any], Optional[str]]] = {}
+
+
+def _resolve_best_ai_champion(
+    t_eng: Any,
+    league: str,
+    scope: str,
+    family: Optional[str],
+    sub_family: Optional[str],
+    segment_key: str,
+    champ_id: Optional[str] = None,
+) -> Tuple[Optional[Any], Optional[str]]:
+    """Resolves the graduated market's AI champion model, preferring synthesized/distilled AI models over legacy static archetypes."""
+    cache_k = f"{segment_key}|{league}|{scope}|{family}|{sub_family}|{champ_id}"
+    if cache_k in _RESOLVED_CHAMPION_CACHE:
+        return _RESOLVED_CHAMPION_CACHE[cache_k]
+
+    m_inst = None
+    if not champ_id:
+        champs = t_eng.load_registry().get('champions', {})
+        for cand in [
+            segment_key,
+            f"{league}|{scope}|{family}:{sub_family}" if sub_family else None,
+            f"{league}|{scope}|{family}",
+            f"{league}|{scope}",
+        ]:
+            if cand and cand in champs:
+                champ_id = champs[cand].get('champion_model_id')
+                break
+    if champ_id:
+        m_inst = t_eng.get_model_by_id(champ_id)
+
+    if not m_inst or type(m_inst).__name__ in _LEGACY_ARCHETYPE_CLASSES:
+        for lookup_key in [
+            segment_key,
+            f"{league}|{scope}|{family}:{sub_family}" if sub_family else None,
+            f"{league}|{scope}|{family}",
+            f"{league}|{scope}|{sub_family}" if sub_family else None,
+            f"{league}|{scope}|american_derivatives",
+            f"{league}|{scope}|totals",
+            f"{league}|{scope}|spreads",
+            f"{league}|{scope}",
+        ]:
+            if lookup_key:
+                cands = t_eng.get_active_candidates(lookup_key)
+                if cands:
+                    ai_cands = [c for c in cands if type(c).__name__ not in _LEGACY_ARCHETYPE_CLASSES]
+                    if ai_cands:
+                        m_inst = ai_cands[0]
+                        champ_id = m_inst.model_id
+                        break
+                    elif not m_inst:
+                        m_inst = cands[0]
+                        champ_id = m_inst.model_id
+                        break
+    _RESOLVED_CHAMPION_CACHE[cache_k] = (m_inst, champ_id)
+    return m_inst, champ_id
+
+
+def attach_champion_to_any_model(
+    model: Any,
+    league: str,
+    scope: str,
+    family: Optional[str],
+    sub_family: Optional[str],
+    m_inst: Any,
+    champ_id: Optional[str],
+) -> None:
+    """Attaches a graduated AI champion model to ANY model instance (GraduatedUniversalSegmentModel, PeriodModel, SegmentModel, or LeagueModel)."""
+    if not model or not m_inst:
+        return
+    if hasattr(model, 'register_champion'):
+        model.register_champion(family or '', sub_family or '', m_inst, champ_id or m_inst.model_id)
+        return
+
+    if not hasattr(model, 'champion_models') or not isinstance(getattr(model, 'champion_models', None), dict):
+        model.champion_models = {}
+    fam = (family or '').strip()
+    sub = (sub_family or '').strip()
+    cid = champ_id or getattr(m_inst, 'model_id', 'ai_champion')
+    if fam:
+        model.champion_models[fam] = (m_inst, cid)
+    if sub:
+        model.champion_models[sub] = (m_inst, cid)
+    if 'total' in fam or 'total' in sub:
+        model.champion_models['totals'] = (m_inst, cid)
+        model.champion_models['home_total'] = (m_inst, cid)
+        model.champion_models['away_total'] = (m_inst, cid)
+    if 'spread' in fam or 'spread' in sub or 'handicap' in sub:
+        model.champion_models['spreads'] = (m_inst, cid)
+    if 'three_way' in fam or 'three_way' in sub or 'moneyline' in fam or 'winner' in fam:
+        model.champion_models['three_way'] = (m_inst, cid)
+        model.champion_models['moneyline'] = (m_inst, cid)
+
+    if getattr(model, '_ai_forecast_wrapped', False):
+        return
+
+    orig_forecast = model.forecast
+
+    def _wrapped_forecast(g: Any, *args: Any, **kwargs: Any) -> Any:
+        fc = orig_forecast(g, *args, **kwargs)
+        champs_dict = getattr(model, 'champion_models', None)
+        if not champs_dict or fc is None:
+            return fc
+        try:
+            from .historical_trainer import HybridRating, get_default_segment_context
+            c_dict = get_default_segment_context(league, scope)
+            g_ctx = getattr(g, 'context', {}) or {}
+            for k_c, v_c in g_ctx.items():
+                if k_c in ('home', 'away') and isinstance(v_c, str):
+                    c_dict[f'{k_c}_team'] = v_c
+                else:
+                    c_dict[k_c] = v_c
+            if hasattr(g, 'home') and g.home:
+                c_dict['home_team'] = g.home
+            if hasattr(g, 'away') and g.away:
+                c_dict['away_team'] = g.away
+
+            h_exp = max(0.2, float(getattr(fc, 'home_points', c_dict['home_expected'])))
+            a_exp = max(0.2, float(getattr(fc, 'away_points', c_dict['away_expected'])))
+            base_h = max(0.2, float(c_dict.get('baseline_home') or h_exp))
+            base_a = max(0.2, float(c_dict.get('baseline_away') or a_exp))
+            h_mult = max(0.65, min(1.45, h_exp / base_h))
+            a_mult = max(0.65, min(1.45, a_exp / base_a))
+            c_dict['home_expected'] = h_exp
+            c_dict['away_expected'] = a_exp
+            c_dict['home_attack'] = round(h_mult, 4)
+            c_dict['away_attack'] = round(a_mult, 4)
+            c_dict['home_defense'] = round(max(0.65, min(1.45, 2.0 - a_mult)), 4)
+            c_dict['away_defense'] = round(max(0.65, min(1.45, 2.0 - h_mult)), 4)
+            c_dict['total_line'] = round(h_exp + a_exp, 1)
+            c_dict['reference_total'] = round(h_exp + a_exp, 1)
+            c_dict['spread_line'] = round(a_exp - h_exp, 1)
+            c_dict['reference_spread'] = round(a_exp - h_exp, 1)
+            c_dict['home'] = {
+                'attack': HybridRating(h_mult, goals=h_exp, exposure=1.0),
+                'defense': HybridRating(max(0.65, min(1.45, 2.0 - a_mult)), goals=a_exp, exposure=1.0),
+                'attack_multiplier': round(h_mult, 4),
+                'defense_multiplier': round(max(0.65, min(1.45, 2.0 - a_mult)), 4),
+            }
+            c_dict['away'] = {
+                'attack': HybridRating(a_mult, goals=a_exp, exposure=1.0),
+                'defense': HybridRating(max(0.65, min(1.45, 2.0 - h_mult)), goals=h_exp, exposure=1.0),
+                'attack_multiplier': round(a_mult, 4),
+                'defense_multiplier': round(max(0.65, min(1.45, 2.0 - h_mult)), 4),
+            }
+
+            ai_dists: Dict[str, Dict[Tuple[int, int], float]] = {}
+            eval_cache: Dict[str, Any] = {}
+            for m_key, (c_inst, c_id) in champs_dict.items():
+                try:
+                    if c_id not in eval_cache:
+                        eval_cache[c_id] = c_inst.predict_distribution(c_dict)
+                    dist = eval_cache[c_id]
+                    if dist and getattr(dist, 'scores', None) and len(dist.scores) > 4:
+                        ai_dists[m_key] = dist.scores
+                except Exception:
+                    pass
+
+            if ai_dists and hasattr(fc, 'market_probability'):
+                orig_mp = fc.market_probability
+
+                def _ai_blended_mp(kind: str, side: str, line: Any = None) -> Tuple[float, float]:
+                    p_base, push_base = orig_mp(kind, side, line)
+                    _, base_k = split_market(kind)
+                    if scope == 'full_game' and base_k == 'moneyline':
+                        return p_base, push_base
+                    eff_sc = ai_dists.get(base_k)
+                    if not eff_sc:
+                        if 'total' in base_k:
+                            eff_sc = ai_dists.get('totals')
+                        elif 'spread' in base_k or 'handicap' in base_k:
+                            eff_sc = ai_dists.get('spreads')
+                        elif 'three_way' in base_k or 'winner' in base_k:
+                            eff_sc = ai_dists.get('three_way')
+                    if not eff_sc:
+                        return p_base, push_base
+                    try:
+                        s_l = str(side).lower().strip()
+                        p_ai = None
+                        if base_k in ('totals', 'total') and line is not None:
+                            lv = float(line)
+                            p_ai = sum(p for (ga, gb), p in eff_sc.items() if ((ga + gb) > lv if s_l in ('over', 'o') else (ga + gb) < lv))
+                        elif base_k in ('spreads', 'spread', 'handicap') and line is not None:
+                            lv = float(line)
+                            if s_l in ('home', '1'):
+                                p_ai = sum(p for (ga, gb), p in eff_sc.items() if (ga - gb + lv) > 0)
+                            else:
+                                p_ai = sum(p for (ga, gb), p in eff_sc.items() if (gb - ga + lv) > 0)
+                        elif base_k in ('home_total', 'away_total') and line is not None:
+                            lv = float(line)
+                            idx = 0 if base_k == 'home_total' else 1
+                            p_ai = sum(p for sc_t, p in eff_sc.items() if (sc_t[idx] > lv if s_l in ('over', 'o') else sc_t[idx] < lv))
+                        elif base_k == 'three_way':
+                            if s_l in ('draw', 'tie', 'x'):
+                                p_ai = sum(p for (ga, gb), p in eff_sc.items() if ga == gb)
+                            elif s_l in ('home', '1'):
+                                p_ai = sum(p for (ga, gb), p in eff_sc.items() if ga > gb)
+                            else:
+                                p_ai = sum(p for (ga, gb), p in eff_sc.items() if gb > ga)
+                        if p_ai is not None and 0.005 < p_ai < 0.995:
+                            max_p = max(0.01, 1.0 - float(push_base) - 1e-6)
+                            p_blend = float(np.clip(0.65 * float(p_ai) + 0.35 * float(p_base), 0.01, max_p))
+                            return p_blend, float(push_base)
+                    except Exception:
+                        pass
+                    return p_base, push_base
+
+                fc.market_probability = _ai_blended_mp
+        except Exception:
+            pass
+        return fc
+
+    model.forecast = _wrapped_forecast
+    model._ai_forecast_wrapped = True
+
+
 def resolve_graduated_segment_models(
     graduated_markets: Dict[str, Dict[str, Any]],
     existing_segment_models: Dict[Tuple[str, str], Any]
@@ -1041,54 +1266,16 @@ def resolve_graduated_segment_models(
 
         key = (league, scope)
         if key in updated:
-            # If the segment model exists, verify that validated_markets includes graduated base markets
             existing_model = updated[key]
-            if isinstance(existing_model, GraduatedUniversalSegmentModel):
-                champ_id = meta.get('champion_model_id') or (meta.get('stats', {}) if isinstance(meta.get('stats'), dict) else {}).get('champion_model_id')
+            try:
                 from .tournament_engine import TournamentEngine
                 t_eng = TournamentEngine()
-                champs = t_eng.load_registry().get('champions', {})
-                if not champ_id:
-                    for cand in [segment_key, f"{league}|{scope}|{family}:{sub_family}" if sub_family else None, f"{league}|{scope}|{family}", f"{league}|{scope}"]:
-                        if cand and cand in champs:
-                            champ_id = champs[cand].get('champion_model_id')
-                            break
-
-                m_inst = None
-                if champ_id:
-                    m_inst = t_eng.get_model_by_id(champ_id)
-
-                _legacy_cls = {
-                    'NegativeBinomialOverdispersionModel', 'ExtremeValueGumbelModel', 'ZeroInflatedPoissonModel',
-                    'OddsDampedKellyShrinkageModel', 'SituationalFatigueModel', 'BivariateCopulaHazardModel',
-                    'MarkovChainTennisModel', 'WeibullRenewalHazardModel', 'DixonColesSoccerModel', 'SkellamDifferentialModel'
-                }
-                if not m_inst or type(m_inst).__name__ in _legacy_cls:
-                    # Autonomous Candidate & Distilled AI Archetype Discovery
-                    for lookup_key in [
-                        segment_key,
-                        f"{league}|{scope}|{family}:{sub_family}" if sub_family else None,
-                        f"{league}|{scope}|{family}",
-                        f"{league}|{scope}|american_derivatives",
-                        f"{league}|{scope}|totals",
-                        f"{league}|{scope}|spreads",
-                        f"{league}|{scope}",
-                    ]:
-                        if lookup_key:
-                            cands = t_eng.get_active_candidates(lookup_key)
-                            if cands:
-                                ai_cands = [c for c in cands if type(c).__name__ not in _legacy_cls]
-                                if ai_cands:
-                                    m_inst = ai_cands[0]
-                                    champ_id = m_inst.model_id
-                                    break
-                                elif not m_inst:
-                                    m_inst = cands[0]
-                                    champ_id = m_inst.model_id
-                                    break
-
+                champ_id = meta.get('champion_model_id') or (meta.get('stats', {}) if isinstance(meta.get('stats'), dict) else {}).get('champion_model_id')
+                m_inst, champ_id = _resolve_best_ai_champion(t_eng, league, scope, family, sub_family, segment_key, champ_id)
                 if m_inst:
-                    existing_model.register_champion(family, sub_family, m_inst, champ_id)
+                    attach_champion_to_any_model(existing_model, league, scope, family, sub_family, m_inst, champ_id)
+            except Exception:
+                pass
 
             if hasattr(existing_model, 'report') and isinstance(existing_model.report, dict):
                 v_markets = set(existing_model.report.get('validated_markets', []))
@@ -1151,23 +1338,15 @@ def resolve_graduated_full_game_models(
             updated[league] = GraduatedUniversalSegmentModel(league, 'full_game', meta)
 
         model = updated[league]
-        if hasattr(model, 'register_champion'):
+        try:
             from .tournament_engine import TournamentEngine
-            try:
-                t_eng = TournamentEngine()
-                for l_key in [
-                    f"{league}|full_game|{family}:{sub_family}" if sub_family else None,
-                    f"{league}|full_game|{family}",
-                    f"{league}|full_game",
-                    segment_key
-                ]:
-                    if l_key:
-                        cands = t_eng.get_active_candidates(l_key)
-                        if cands:
-                            model.register_champion(family, sub_family, cands[0], cands[0].model_id)
-                            break
-            except Exception:
-                pass
+            t_eng = TournamentEngine()
+            champ_id = meta.get('champion_model_id') or (meta.get('stats', {}) if isinstance(meta.get('stats'), dict) else {}).get('champion_model_id')
+            m_inst, champ_id = _resolve_best_ai_champion(t_eng, league, 'full_game', family, sub_family, segment_key, champ_id)
+            if m_inst:
+                attach_champion_to_any_model(model, league, 'full_game', family, sub_family, m_inst, champ_id)
+        except Exception:
+            pass
 
         if hasattr(model, 'report') and isinstance(model.report, dict):
                 v_markets = set(model.report.get('validated_markets') or [])

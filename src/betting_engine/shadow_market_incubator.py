@@ -1249,18 +1249,23 @@ class ShadowMarketIncubator:
                         side=contract.side,
                         selection=contract.selection,
                     )
+                    from .historical_trainer import HybridRating, get_default_segment_context
                     for cand in candidates:
-                        ctx = dict(game.context) if (game and isinstance(getattr(game, 'context', None), dict)) else {}
+                        ctx = get_default_segment_context(league, contract.scope or 'full_game')
+                        if game and isinstance(getattr(game, 'context', None), dict):
+                            for k_g, v_g in game.context.items():
+                                if k_g in ('home', 'away') and isinstance(v_g, str):
+                                    ctx[f'{k_g}_team'] = v_g
+                                else:
+                                    ctx[k_g] = v_g
                         if game:
-                            if hasattr(game, 'home'):
-                                ctx.setdefault('home', game.home)
-                                ctx.setdefault('home_team', game.home)
-                            if hasattr(game, 'away'):
-                                ctx.setdefault('away', game.away)
-                                ctx.setdefault('away_team', game.away)
-                            if hasattr(game, 'home_abbr'):
+                            if hasattr(game, 'home') and game.home:
+                                ctx['home_team'] = game.home
+                            if hasattr(game, 'away') and game.away:
+                                ctx['away_team'] = game.away
+                            if hasattr(game, 'home_abbr') and game.home_abbr:
                                 ctx.setdefault('home_abbr', game.home_abbr)
-                            if hasattr(game, 'away_abbr'):
+                            if hasattr(game, 'away_abbr') and game.away_abbr:
                                 ctx.setdefault('away_abbr', game.away_abbr)
                         if forecast is not None:
                             seg_fc = None
@@ -1270,10 +1275,10 @@ class ShadowMarketIncubator:
                                 seg_fc = segment_forecasts[(contract.scope, contract.scope)]
 
                             if seg_fc and hasattr(seg_fc, 'home_points') and hasattr(seg_fc, 'away_points'):
-                                ctx.setdefault('home_expected', float(seg_fc.home_points))
-                                ctx.setdefault('away_expected', float(seg_fc.away_points))
-                                ctx.setdefault('home_points', float(seg_fc.home_points))
-                                ctx.setdefault('away_points', float(seg_fc.away_points))
+                                ctx['home_expected'] = float(seg_fc.home_points)
+                                ctx['away_expected'] = float(seg_fc.away_points)
+                                ctx['home_points'] = float(seg_fc.home_points)
+                                ctx['away_points'] = float(seg_fc.away_points)
                             elif hasattr(forecast, 'home_points') and hasattr(forecast, 'away_points'):
                                 sc = (contract.scope or '').lower()
                                 scale = (
@@ -1284,10 +1289,10 @@ class ShadowMarketIncubator:
                                     0.25 if 'quarter' in sc else
                                     1.0
                                 )
-                                ctx.setdefault('home_expected', float(forecast.home_points) * scale)
-                                ctx.setdefault('away_expected', float(forecast.away_points) * scale)
-                                ctx.setdefault('home_points', float(forecast.home_points) * scale)
-                                ctx.setdefault('away_points', float(forecast.away_points) * scale)
+                                ctx['home_expected'] = float(forecast.home_points) * scale
+                                ctx['away_expected'] = float(forecast.away_points) * scale
+                                ctx['home_points'] = float(forecast.home_points) * scale
+                                ctx['away_points'] = float(forecast.away_points) * scale
 
                             if hasattr(forecast, 'features') and isinstance(forecast.features, dict):
                                 for fk, fv in forecast.features.items():
@@ -1296,6 +1301,14 @@ class ShadowMarketIncubator:
                                     ctx.setdefault('home_rest_days', forecast.features['home_rest'])
                                 if 'away_rest' in forecast.features:
                                     ctx.setdefault('away_rest_days', forecast.features['away_rest'])
+                        h_e = max(0.2, float(ctx.get('home_expected') or 1.5))
+                        a_e = max(0.2, float(ctx.get('away_expected') or 1.2))
+                        b_h = max(0.2, float(ctx.get('baseline_home') or h_e))
+                        b_a = max(0.2, float(ctx.get('baseline_away') or a_e))
+                        h_m = max(0.65, min(1.45, h_e / b_h))
+                        a_m = max(0.65, min(1.45, a_e / b_a))
+                        ctx['home'] = {'attack': HybridRating(h_m, goals=h_e), 'defense': HybridRating(2.0 - a_m, goals=a_e), 'attack_multiplier': round(h_m, 4), 'defense_multiplier': round(2.0 - a_m, 4)}
+                        ctx['away'] = {'attack': HybridRating(a_m, goals=a_e), 'defense': HybridRating(2.0 - h_m, goals=h_e), 'attack_multiplier': round(a_m, 4), 'defense_multiplier': round(2.0 - h_m, 4)}
                         mkt_ident = f"{contract.family}:{contract.sub_family}" if (contract.sub_family and contract.sub_family != contract.family) else (contract.sub_family or contract.family)
                         cand_prob, cand_ev = cand.evaluate_market(
                             mkt_ident,
@@ -1474,34 +1487,48 @@ class ShadowMarketIncubator:
                         side=side,
                         selection=selection,
                     )
+                    from .historical_trainer import HybridRating, get_default_segment_context
                     g_obj = game_map.get(str(g_id)) if game_map else None
-                    ctx = dict(g_obj.context) if (g_obj and isinstance(getattr(g_obj, 'context', None), dict)) else {}
+                    ctx = get_default_segment_context(league, scope or 'full_game')
+                    if g_obj and isinstance(getattr(g_obj, 'context', None), dict):
+                        for k_g, v_g in g_obj.context.items():
+                            if k_g in ('home', 'away') and isinstance(v_g, str):
+                                ctx[f'{k_g}_team'] = v_g
+                            else:
+                                ctx[k_g] = v_g
                     if isinstance(c.get('game_context'), dict):
                         for k, v in c['game_context'].items():
-                            ctx.setdefault(k, v)
+                            if k in ('home', 'away') and isinstance(v, str):
+                                ctx[f'{k}_team'] = v
+                            else:
+                                ctx[k] = v
                     if g_obj:
-                        if hasattr(g_obj, 'home'):
-                            ctx.setdefault('home', g_obj.home)
-                            ctx.setdefault('home_team', g_obj.home)
-                        if hasattr(g_obj, 'away'):
-                            ctx.setdefault('away', g_obj.away)
-                            ctx.setdefault('away_team', g_obj.away)
-                        if hasattr(g_obj, 'home_abbr'):
+                        if hasattr(g_obj, 'home') and g_obj.home:
+                            ctx['home_team'] = g_obj.home
+                        if hasattr(g_obj, 'away') and g_obj.away:
+                            ctx['away_team'] = g_obj.away
+                        if hasattr(g_obj, 'home_abbr') and g_obj.home_abbr:
                             ctx.setdefault('home_abbr', g_obj.home_abbr)
-                        if hasattr(g_obj, 'away_abbr'):
+                        if hasattr(g_obj, 'away_abbr') and g_obj.away_abbr:
                             ctx.setdefault('away_abbr', g_obj.away_abbr)
-                    if c.get('home'):
-                        ctx.setdefault('home', c['home'])
-                        ctx.setdefault('home_team', c['home'])
-                    if c.get('away'):
-                        ctx.setdefault('away', c['away'])
-                        ctx.setdefault('away_team', c['away'])
+                    if c.get('home') and isinstance(c['home'], str):
+                        ctx['home_team'] = c['home']
+                    if c.get('away') and isinstance(c['away'], str):
+                        ctx['away_team'] = c['away']
                     if c.get('predicted_home_points') is not None:
-                        ctx.setdefault('home_expected', float(c['predicted_home_points']))
-                        ctx.setdefault('home_points', float(c['predicted_home_points']))
+                        ctx['home_expected'] = float(c['predicted_home_points'])
+                        ctx['home_points'] = float(c['predicted_home_points'])
                     if c.get('predicted_away_points') is not None:
-                        ctx.setdefault('away_expected', float(c['predicted_away_points']))
-                        ctx.setdefault('away_points', float(c['predicted_away_points']))
+                        ctx['away_expected'] = float(c['predicted_away_points'])
+                        ctx['away_points'] = float(c['predicted_away_points'])
+                    h_e = max(0.2, float(ctx.get('home_expected') or 1.5))
+                    a_e = max(0.2, float(ctx.get('away_expected') or 1.2))
+                    b_h = max(0.2, float(ctx.get('baseline_home') or h_e))
+                    b_a = max(0.2, float(ctx.get('baseline_away') or a_e))
+                    h_m = max(0.65, min(1.45, h_e / b_h))
+                    a_m = max(0.65, min(1.45, a_e / b_a))
+                    ctx['home'] = {'attack': HybridRating(h_m, goals=h_e), 'defense': HybridRating(2.0 - a_m, goals=a_e), 'attack_multiplier': round(h_m, 4), 'defense_multiplier': round(2.0 - a_m, 4)}
+                    ctx['away'] = {'attack': HybridRating(a_m, goals=a_e), 'defense': HybridRating(2.0 - h_m, goals=h_e), 'attack_multiplier': round(a_m, 4), 'defense_multiplier': round(2.0 - h_m, 4)}
                     for cand in t_candidates:
                         mkt_ident = f"{family}:{sub_family}" if (sub_family and sub_family != family) else (sub_family or family or c.get('market', ''))
                         cand_prob, cand_ev = cand.evaluate_market(
