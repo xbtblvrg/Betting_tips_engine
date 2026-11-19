@@ -308,15 +308,22 @@ class AutonomousProblemResolver:
         """Tails recent runtime logs and automatically patches defensive code bugs."""
         resolutions: List[ProblemResolution] = []
         log_files = [
+            self.data_dir / 'logs' / 'service-error.log',
+            self.data_dir / 'logs' / 'verbose_debug.log',
+            self.data_dir / 'logs' / 'learning-error.log',
+            self.data_dir / 'logs' / 'supervisor-error.log',
             self.data_dir / 'uvicorn.log',
             self.root / 'logs' / 'supervisor.log',
             self.data_dir / 'logs' / 'supervisor.log',
         ]
 
-        # Scan for tracebacks
-        tb_pattern = re.compile(
-            r'File "([^"]+)", line (\d+), in (\w+)\n\s*(.*?)\n([a-zA-Z0-9_]+Error): (.+)',
+        # Scan for tracebacks (compatible with Python 3.11-3.14 multi-line caret underlines)
+        tb_block_pattern = re.compile(
+            r'Traceback \(most recent call last\):\n((?:  File [^\n]+\n(?:    [^\n]+\n)+)+)([a-zA-Z0-9_.]+(?:Error|Exception)): ([^\n]+)',
             re.MULTILINE
+        )
+        frame_pattern = re.compile(
+            r'  File "([^"]+)", line (\d+), in ([a-zA-Z0-9_<>]+)\n    ([^\n]+)'
         )
 
         for lf in log_files:
@@ -331,30 +338,40 @@ class AutonomousProblemResolver:
             except Exception:
                 continue
 
-            for match in tb_pattern.finditer(content):
-                file_path, line_no, func_name, code_line, exc_type, exc_msg = match.groups()
-                p_file = Path(file_path).resolve()
-                if not str(p_file).startswith(str(self.root / 'src')):
+            for tb_match in tb_block_pattern.finditer(content):
+                frames_blob, exc_type, exc_msg = tb_match.groups()
+                exc_type_short = exc_type.split('.')[-1]
+                # Find the deepest frame inside src/betting_engine
+                target_frame = None
+                for fm in frame_pattern.finditer(frames_blob):
+                    fp, lno, fn, cline = fm.groups()
+                    p_cand = Path(fp).resolve()
+                    if str(p_cand).startswith(str(self.root / 'src')):
+                        target_frame = (p_cand, int(lno), fn, cline.strip())
+
+                if not target_frame:
                     continue
 
-                prob_id = f"runtime_{exc_type}_{p_file.name}_{line_no}"
-                
+                p_file, line_no, func_name, code_line = target_frame
+                msg_hash = hashlib.sha256(exc_msg[:80].encode()).hexdigest()[:8]
+                prob_id = f"runtime_{exc_type_short}_{p_file.name}_{line_no}_{msg_hash}"
+
                 # Check if already resolved in journal
                 if self._is_problem_already_resolved(prob_id):
                     continue
 
                 # Diagnose and dispatch remedy
-                remedy = self._remediate_runtime_exception(p_file, int(line_no), func_name, code_line, exc_type, exc_msg)
+                remedy = self._remediate_runtime_exception(p_file, int(line_no), func_name, code_line, exc_type_short, exc_msg)
                 if remedy:
                     res = ProblemResolution(
                         problem_id=prob_id,
                         category='runtime_exception',
                         source_component=f"{p_file.name}:{func_name}:{line_no}",
-                        severity='CRITICAL' if exc_type in ('UnboundLocalError', 'ZeroDivisionError') else 'HIGH',
-                        root_cause=f"{exc_type}: {exc_msg}",
+                        severity='CRITICAL' if exc_type_short in ('UnboundLocalError', 'ZeroDivisionError', 'TypeError', 'NameError') else 'HIGH',
+                        root_cause=f"{exc_type_short}: {exc_msg}",
                         remedy_applied=remedy,
                         status='SELF_HEALED',
-                        details={'file': str(p_file), 'line': line_no, 'code': code_line}
+                        details={'file': str(p_file), 'line': line_no, 'code': code_line, 'log_file': lf.name}
                     )
                     resolutions.append(res)
                     self.log_resolution(res)
@@ -980,6 +997,37 @@ class AutonomousProblemResolver:
                         return f"Injected default `{var_name} = None` at entry of `{func_name}` in {file_path.name}"
                 except Exception as e:
                     log.warning('AST patch error for %s: %s', var_name, e)
+
+        # Check for OperationalError: database is locked
+        if exc_type == 'OperationalError' and 'database is locked' in exc_msg.lower():
+            self.resolve_database_maintenance()
+            return f"Executed SQLite WAL checkpoint and lock recovery for {file_path.name}:{line_no}"
+
+        # Escalate any other unhandled runtime exception in src/betting_engine to autonomous learning/repair queue
+        try:
+            if self.engine_db.exists():
+                now_iso = utcnow().isoformat()
+                job_id = hashlib.sha256(f"runtime_fix:{file_path.name}:{line_no}:{exc_type}".encode()).hexdigest()[:24]
+                payload = json.dumps({
+                    'job_kind': 'runtime_exception_auto_repair',
+                    'file': str(file_path.relative_to(self.root)),
+                    'line': line_no,
+                    'function': func_name,
+                    'code_line': code_line,
+                    'exception_type': exc_type,
+                    'exception_message': exc_msg[:300],
+                    'created_by': 'AutonomousProblemResolver'
+                })
+                with closing(sqlite3.connect(self.engine_db, timeout=30.0)) as conn:
+                    conn.execute("PRAGMA busy_timeout = 30000")
+                    conn.execute(
+                        "INSERT OR IGNORE INTO learning_jobs (id, kind, league, status, created_at, updated_at, next_attempt, payload) VALUES (?, 'runtime_exception_auto_repair', 'SYSTEM', 'queued', ?, ?, ?, ?)",
+                        (job_id, now_iso, now_iso, now_iso, payload)
+                    )
+                    conn.commit()
+                return f"Detected {exc_type} at {file_path.name}:{line_no} ({func_name}); logged durable diagnostic and enqueued autonomous repair job {job_id}"
+        except Exception as e:
+            log.warning('Failed to enqueue runtime exception repair job: %s', e)
 
         return None
 

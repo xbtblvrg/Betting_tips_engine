@@ -34,6 +34,8 @@ def problem(service,health,now):
         state=health.get('engine',{})
         if state.get('error') and not state.get('running') and not engine_feed_degradation(health):
             return 'Engine refresh failed: '+str(state['error'])[:300]
+        if int(state.get('consecutive_refresh_failures') or 0)>=2 and state.get('last_refresh_error'):
+            return f"Engine refresh failing ({state.get('consecutive_refresh_failures')} consecutive cycles): "+str(state['last_refresh_error'])[:300]
         stamp=state.get('started_at') if state.get('running') else state.get('finished_at')
         limit=900 if state.get('running') else 300
     elif service=='release':

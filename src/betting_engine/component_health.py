@@ -166,7 +166,10 @@ def audit_components(payload,worker,catalog,research,now=None,closing=None):
         rd_log_path = DATA / 'research' / 'rd_execution_log.jsonl'
         anomaly_detected = False
         anomaly_detail = 'Zero active runtime errors or unhandled exceptions in engine logs.'
-        if rd_log_path.exists():
+        if status.get('consecutive_refresh_failures', 0) > 0 and status.get('last_refresh_error'):
+            anomaly_detected = True
+            anomaly_detail = f"Engine refresh failing ({status.get('consecutive_refresh_failures')} consecutive cycles): {str(status.get('last_refresh_error'))[:220]}"
+        elif rd_log_path.exists():
             lines = rd_log_path.read_text(encoding='utf-8').strip().split('\n')
             for line in lines[-30:]:
                 if line.strip():

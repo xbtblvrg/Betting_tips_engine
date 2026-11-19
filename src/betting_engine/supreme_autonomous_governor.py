@@ -275,6 +275,7 @@ class SupremeAutonomousGovernor:
                     or 'Provider unavailable' in last_err
                     or 'No such file or directory: \'.workspace-copy-' in last_err
                     or 'Expecting value: line 1 column 1' in last_err
+                    or 'Input changed after preparation failed' in last_err
                 )
                 can_unblock = is_future and is_transient
 

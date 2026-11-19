@@ -276,7 +276,14 @@ class Engine:
     def refresh(self,force_data=False):
         if not self.lock.acquire(False):return False
         priority=None;completed=False
-        self.status={'running':True,'stage':'Checking sports data','error':None,'started_at':utcnow().isoformat()}
+        self.status={
+            'running':True,
+            'stage':'Checking sports data',
+            'error':None,
+            'started_at':utcnow().isoformat(),
+            'consecutive_refresh_failures':getattr(self,'_consecutive_refresh_failures',0),
+            'last_refresh_error':getattr(self,'_last_refresh_error',None),
+        }
         try:
             unfinished=getattr(self,'_unrecorded_refill',None)
             if unfinished:
@@ -720,11 +727,22 @@ class Engine:
             if time.time()-self.last_maintenance>300:
                 from .maintenance import maintain
                 maintain();self.last_maintenance=time.time()
-            self.status={'running':False,'stage':'Updated' if feed_health['state']=='healthy' else 'Odds feed unavailable' if feed_health['state']=='unavailable' else 'Partial odds coverage','error':feed_health['message'],'market_feed':feed_health,'finished_at':utcnow().isoformat(),'autonomous_healing':get_healing_statistics()}
+            self._consecutive_refresh_failures=0
+            self._last_refresh_error=None
+            self.status={'running':False,'stage':'Updated' if feed_health['state']=='healthy' else 'Odds feed unavailable' if feed_health['state']=='unavailable' else 'Partial odds coverage','error':feed_health['message'],'market_feed':feed_health,'finished_at':utcnow().isoformat(),'autonomous_healing':get_healing_statistics(),'consecutive_refresh_failures':0,'last_refresh_error':None}
             completed=True
             return True
         except Exception as e:
-            log.exception('Refresh failed');self.status={'running':False,'stage':'Refresh failed','error':str(e),'finished_at':utcnow().isoformat()};return False
+            self._consecutive_refresh_failures=getattr(self,'_consecutive_refresh_failures',0)+1
+            self._last_refresh_error=str(e)
+            log.exception('Refresh failed')
+            self.status={'running':False,'stage':'Refresh failed','error':str(e),'finished_at':utcnow().isoformat(),'consecutive_refresh_failures':self._consecutive_refresh_failures,'last_refresh_error':self._last_refresh_error}
+            try:
+                from .autonomous_problem_resolver import AutonomousProblemResolver
+                AutonomousProblemResolver(DATA.parent).resolve_runtime_exceptions()
+            except Exception as heal_exc:
+                log.warning('Immediate exception self-healing trigger failed: %s', heal_exc)
+            return False
         finally:
             if priority:
                 try:
