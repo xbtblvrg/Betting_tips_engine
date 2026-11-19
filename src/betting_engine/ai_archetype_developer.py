@@ -82,7 +82,7 @@ class AIArchetypeDeveloperAgent:
         """Idempotently ensures distilled_archetype_catalog exists in SQLite."""
         if not self.db_path.parent.exists():
             self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        with closing(sqlite3.connect(f"file:{self.db_path.resolve()}", uri=True, timeout=10.0)) as conn:
+        with closing(sqlite3.connect(f"file:{self.db_path.resolve()}", uri=True, timeout=30.0)) as conn:
             with conn:
                 conn.execute("""
                     CREATE TABLE IF NOT EXISTS distilled_archetype_catalog (

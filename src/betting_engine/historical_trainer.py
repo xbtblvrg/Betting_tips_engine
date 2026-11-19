@@ -387,6 +387,33 @@ class HistoricalCandidateTrainer:
                         scale_factor = 0.48
                     elif 'period_' in scope:
                         scale_factor = 0.33
+            if len(rows) < 28 and base_fam in ('three_way', 'moneyline', 'home_total', 'away_total'):
+                # Related contract family fallback (three_way <-> moneyline; team_total -> totals)
+                alt_fam = 'moneyline' if base_fam == 'three_way' else ('three_way' if base_fam == 'moneyline' else 'totals')
+                alt_q = """
+                    SELECT selection, line, odds, model_prob, market_prob, side, result, pnl, captured_at
+                    FROM (
+                        SELECT selection, line, odds, model_prob, market_prob, side, result, pnl, captured_at,
+                               ROW_NUMBER() OVER (
+                                   PARTITION BY COALESCE(game_id, selection), line, side, date(captured_at)
+                                   ORDER BY captured_at ASC
+                               ) as rn
+                        FROM (
+                            SELECT game_id, selection, line, odds, model_prob, market_prob, side, result, pnl, captured_at
+                            FROM incubated_wagers
+                            WHERE league = ? AND status = 'settled' AND result IN ('won', 'lost')
+                              AND (family = ? OR sub_family = ?)
+                            ORDER BY rowid DESC LIMIT 2000
+                        )
+                    ) WHERE rn = 1 ORDER BY captured_at ASC
+                """
+                alt_rows = cur.execute(alt_q, [league, alt_fam, alt_fam]).fetchall()
+                if len(alt_rows) > len(rows):
+                    rows = alt_rows
+                    if base_fam == 'home_total':
+                        scale_factor *= 0.51
+                    elif base_fam == 'away_total':
+                        scale_factor *= 0.49
 
             import re
             cleaned_rows = []

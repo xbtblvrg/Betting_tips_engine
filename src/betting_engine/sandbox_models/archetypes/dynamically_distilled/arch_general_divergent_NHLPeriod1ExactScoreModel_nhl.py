@@ -78,7 +78,7 @@ class NHLPeriod1ExactScoreModel(BaseCandidateModel):
 
     def __init__(
         self,
-        model_id: str = "codex_synth_nhl_period_1_1108_041840",
+        model_id: str = "codex_synth_nhl_period_1_1119_044733",
         version: str = "1.0.0",
         league: str = "NHL",
         scope: str = "period_1",

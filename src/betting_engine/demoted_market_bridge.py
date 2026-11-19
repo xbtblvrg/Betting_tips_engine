@@ -78,7 +78,7 @@ class DemotedMarketIncubationBridge:
 
         # Only sync roster if demoted_markets table is empty to avoid expensive full-universe rebuilds
         try:
-            with closing(sqlite3.connect(str(self.db_path), timeout=5.0)) as c_chk:
+            with closing(sqlite3.connect(str(self.db_path), timeout=30.0)) as c_chk:
                 has_rows = bool(c_chk.execute("SELECT 1 FROM demoted_markets LIMIT 1").fetchone())
         except Exception:
             has_rows = False

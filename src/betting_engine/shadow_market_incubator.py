@@ -212,7 +212,7 @@ def seed_historical_probability_picks(
             conn_inc.close()
             return 0  # Already seeded
 
-        conn_eng = sqlite3.connect(str(engine_db_path), timeout=10.0)
+        conn_eng = sqlite3.connect(str(engine_db_path), timeout=30.0)
         cur_eng = conn_eng.cursor()
         cur_eng.execute("""
             SELECT tip_id, payload, status, pnl, issued_at

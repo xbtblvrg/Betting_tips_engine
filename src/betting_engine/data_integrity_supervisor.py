@@ -163,7 +163,7 @@ class DataIntegritySupervisor:
                 if inc_db.exists():
                     try:
                         import sqlite3
-                        with sqlite3.connect(inc_db, timeout=5) as ic:
+                        with sqlite3.connect(inc_db, timeout=30.0) as ic:
                             inc_cnt = ic.execute("SELECT count(DISTINCT fixture_id) FROM incubated_wagers WHERE league = ? AND status = 'settled'", (lg,)).fetchone()[0]
                             if inc_cnt >= min_req:
                                 finals = [None] * inc_cnt

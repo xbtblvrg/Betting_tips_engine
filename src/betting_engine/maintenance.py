@@ -155,7 +155,7 @@ def maintain(root=DATA):
     db_path = root / 'engine.sqlite3'
     if db_path.is_file():
         try:
-            with closing(sqlite3.connect(db_path, timeout=10)) as conn:
+            with closing(sqlite3.connect(db_path, timeout=30.0)) as conn:
                 conn.execute('DELETE FROM publications WHERE id NOT IN (SELECT id FROM publications ORDER BY id DESC LIMIT 150)')
                 conn.execute('DELETE FROM outbox WHERE id NOT IN (SELECT id FROM outbox ORDER BY id DESC LIMIT 500)')
                 conn.commit()

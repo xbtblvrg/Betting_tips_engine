@@ -94,7 +94,7 @@ class AutonomousExecutiveInquisitor:
                 telemetry['stuck_running_jobs'] = stuck_jobs
                 if stuck_jobs > 0:
                     try:
-                        heal_conn = sqlite3.connect(str(self.engine_db), timeout=5.0)
+                        heal_conn = sqlite3.connect(str(self.engine_db), timeout=30.0)
                         heal_conn.execute(
                             "UPDATE learning_jobs SET status = 'queued', updated_at = ? WHERE status = 'running' AND datetime(updated_at, '+30 minutes') < datetime(?)",
                             (now_iso, now_iso)

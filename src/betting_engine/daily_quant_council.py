@@ -156,7 +156,7 @@ def convene_daily_quant_council(
     incubator_db = data_path / "shadow_incubator.sqlite3"
     if incubator_db.exists():
         try:
-            conn = sqlite3.connect(str(incubator_db), timeout=5.0)
+            conn = sqlite3.connect(str(incubator_db), timeout=30.0)
             rows = conn.execute("SELECT segment_key, reason FROM demoted_markets ORDER BY id DESC LIMIT 15").fetchall()
             demoted_segments = [r[0] for r in rows]
             conn.close()

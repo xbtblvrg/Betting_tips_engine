@@ -344,7 +344,7 @@ class AutonomousModelDiscoveryEngine:
                     pass
                 finally:
                     try:
-                        with closing(sqlite3.connect(str(self.db_path), timeout=10.0)) as fin_conn:
+                        with closing(sqlite3.connect(str(self.db_path), timeout=30.0)) as fin_conn:
                             fin_conn.execute("PRAGMA busy_timeout = 10000")
                             fin_conn.execute(
                                 "UPDATE demoted_markets SET last_screened_at = ? WHERE id = ?",
@@ -414,7 +414,7 @@ class AutonomousModelDiscoveryEngine:
                     pass
                 finally:
                     try:
-                        with closing(sqlite3.connect(str(self.db_path), timeout=10.0)) as fin_conn:
+                        with closing(sqlite3.connect(str(self.db_path), timeout=30.0)) as fin_conn:
                             fin_conn.execute("PRAGMA busy_timeout = 10000")
                             fin_conn.execute(
                                 "UPDATE demoted_markets SET last_screened_at = ? WHERE id = ?",
