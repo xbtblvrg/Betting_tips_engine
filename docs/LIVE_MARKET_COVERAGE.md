@@ -1,6 +1,6 @@
 # Live Stake market coverage
 
-Checked: 2026-11-20T12:20:51.516612+00:00
+Checked: 2026-11-20T12:37:03.060181+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
@@ -223,7 +223,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NFL | Total (Incl. Overtime) | standard | full_game | offered_now | 4/10 | partial 54/66 | partial 54/66 | partial 54/66 | partial 54/66 | partial 54/66 | verified 54/54 | verified 54/54 | verified 8/8 | verified 1/1 | partial 0/2 | 1 |
 | NFL | Total sacks (incl. overtime) | standard | full_game | offered_now | 0/10 | not_observed 0/14 | not_observed 0/14 | not_observed 0/14 | not_observed 0/14 | not_observed 0/14 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Total touchdowns (incl. overtime) | standard | full_game | offered_now | 0/10 | not_observed 0/22 | not_observed 0/22 | not_observed 0/22 | not_observed 0/22 | not_observed 0/22 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NFL | Total turnovers (incl. overtime) | standard | full_game | offered_now | 0/10 | not_observed 0/16 | not_observed 0/16 | not_observed 0/16 | not_observed 0/16 | not_observed 0/16 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NFL | Total turnovers (incl. overtime) | standard | full_game | offered_now | 0/10 | not_observed 0/14 | not_observed 0/14 | not_observed 0/14 | not_observed 0/14 | not_observed 0/14 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Washington Commanders Total (Incl. Overtime) | standard | full_game | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Will There be Overtime | standard | regulation | offered_now | 2/10 | partial 11/20 | partial 16/20 | partial 16/20 | partial 16/20 | partial 16/20 | verified 11/11 | verified 11/11 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Winner (Incl. Overtime) | standard | full_game | offered_now | 2/10 | partial 18/22 | partial 18/22 | partial 18/22 | partial 18/22 | partial 18/22 | verified 18/18 | verified 18/18 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
