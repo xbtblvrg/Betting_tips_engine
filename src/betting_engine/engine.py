@@ -660,17 +660,27 @@ class Engine:
             try:
                 from .shadow_market_incubator import ShadowMarketIncubator
                 incubator = ShadowMarketIncubator(DATA)
-                for g in upcoming:
-                    raw_m = platform.raw_fixture_markets.get(g.id, [])
-                    if raw_m:
-                        incubator.incubate_fixture_gap_markets(
-                            raw_markets=raw_m,
-                            game=g,
-                            league=g.league,
-                            forecast=forecasts.get(g.id),
-                            segment_forecasts=segment_forecasts,
-                            models=self.models
-                        )
+                inc_start_t = time.monotonic()
+                n_up = len(upcoming)
+                if n_up > 0:
+                    cursor = getattr(self, '_inc_game_cursor', 0) % n_up
+                    ordered_up = upcoming[cursor:] + upcoming[:cursor]
+                    processed_up = 0
+                    for g in ordered_up:
+                        if time.monotonic() - inc_start_t > 12.0:
+                            break
+                        raw_m = platform.raw_fixture_markets.get(g.id, [])
+                        if raw_m:
+                            incubator.incubate_fixture_gap_markets(
+                                raw_markets=raw_m,
+                                game=g,
+                                league=g.league,
+                                forecast=forecasts.get(g.id),
+                                segment_forecasts=segment_forecasts,
+                                models=self.models
+                            )
+                        processed_up += 1
+                    self._inc_game_cursor = (cursor + max(1, processed_up)) % n_up
                 # High-Probability Shadow Cohort incubation (Zero live money risk)
                 try:
                     funded_ids = {t['id'] for t in recommendations if t.get('stake', 0) > 0}
@@ -686,56 +696,44 @@ class Engine:
 
                 incubator.settle_incubated_wagers(self.games)
                 new_grads = incubator.evaluate_graduation()
-                run_heavy_inc = (time.time() - getattr(self, '_last_heavy_incubator_audit', 0.0)) >= 300.0
-                review_result = {}
-                if run_heavy_inc:
-                    self._last_heavy_incubator_audit = time.time()
-                    incubator.reconcile_aged_and_completed_wagers(min_age_hours=36.0, games=self.games)
-                    # Mandatory Volume-Deficit & Dynamic Catalogue Diversity Expansion (Constitution Commandments 1, 2, 8)
-                    shortfall = self.store.daily_progress().get('shortfall', 0)
-                    from .shadow_market_incubator import load_graduated_markets
-                    current_active = load_graduated_markets(DATA)
-                    DIVERSITY_TARGET_SUBMARKETS = 2500
-                    diversity_shortfall = max(0, DIVERSITY_TARGET_SUBMARKETS - len(current_active))
-                    effective_expansion = max(shortfall, diversity_shortfall, 100)
-                    if effective_expansion > 0:
-                        exp_grads = incubator.trigger_volume_deficit_expansion(daily_shortfall=effective_expansion)
-                        if exp_grads:
-                            new_grads.extend(exp_grads)
-                    # Unlimited Maximum & Mandatory Proven Graduation (Commandments 1, 3, 6, 8)
-                    quota_grads = incubator.enforce_unlimited_proven_graduation()
-                    if quota_grads:
-                        new_grads.extend(quota_grads)
-                    review_result = incubator.evaluate_demotions_and_substitutions(engine_db_path=self.store.path)
-                if new_grads or review_result.get('demotions') or review_result.get('substitutions'):
-                    if new_grads:
-                        log.info('AMIE-GD graduated %d market families: %s', len(new_grads), [g['segment_key'] for g in new_grads])
-                    if review_result.get('demotions'):
-                        log.info('AMIE-GD demoted %d degrading markets to research: %s', len(review_result['demotions']), [d['segment_key'] for d in review_result['demotions']])
-                    if review_result.get('substitutions'):
-                        log.info('AMIE-GD promoted %d substitute markets: %s', len(review_result['substitutions']), [s['segment_key'] for s in review_result['substitutions']])
+                if new_grads:
+                    log.info('AMIE-GD graduated %d market families: %s', len(new_grads), [g['segment_key'] for g in new_grads])
                     from .shadow_market_incubator import load_graduated_markets
                     from .graduated_models import resolve_graduated_segment_models, resolve_graduated_full_game_models
                     graduated = load_graduated_markets(DATA)
                     self.segment_models = resolve_graduated_segment_models(graduated, self.segment_models)
                     self.models = resolve_graduated_full_game_models(graduated, self.models)
-                status['market_incubator'] = incubator.get_incubator_status()
 
-                # Funnel Proportionality & Autonomous Unclogging (Commandments 1, 2, 6, 7)
-                if run_heavy_inc:
-                    try:
-                        from .funnel_proportionality_supervisor import FunnelProportionalitySupervisor
-                        funnel_sup = FunnelProportionalitySupervisor(DATA)
-                        funnel_res = funnel_sup.audit_and_heal()
-                        if funnel_res.actions_executed:
-                            log.info("Funnel supervisor healed: %s", funnel_res.actions_executed)
+                run_heavy_inc = (time.time() - getattr(self, '_last_heavy_incubator_audit', 0.0)) >= 300.0
+                if run_heavy_inc and not getattr(self, '_heavy_inc_running', False):
+                    self._last_heavy_incubator_audit = time.time()
+                    self._heavy_inc_running = True
+                    games_snap = list(self.games)
+                    shortfall_snap = self.store.daily_progress().get('shortfall', 0)
+                    store_path_snap = self.store.path
+
+                    def _bg_heavy_incubator_audit():
+                        try:
+                            bg_inc = ShadowMarketIncubator(DATA)
+                            bg_inc.reconcile_aged_and_completed_wagers(min_age_hours=36.0, games=games_snap)
                             from .shadow_market_incubator import load_graduated_markets
-                            from .graduated_models import resolve_graduated_segment_models, resolve_graduated_full_game_models
-                            graduated = load_graduated_markets(DATA)
-                            self.segment_models = resolve_graduated_segment_models(graduated, self.segment_models)
-                            self.models = resolve_graduated_full_game_models(graduated, self.models)
-                    except Exception as exc_funnel:
-                        log.warning("Funnel supervisor non-fatal error: %s", exc_funnel)
+                            current_active = load_graduated_markets(DATA)
+                            diversity_shortfall = max(0, 2500 - len(current_active))
+                            effective_expansion = max(shortfall_snap, diversity_shortfall, 100)
+                            if effective_expansion > 0:
+                                bg_inc.trigger_volume_deficit_expansion(daily_shortfall=effective_expansion)
+                            bg_inc.enforce_unlimited_proven_graduation()
+                            bg_inc.evaluate_demotions_and_substitutions(engine_db_path=store_path_snap)
+                            from .funnel_proportionality_supervisor import FunnelProportionalitySupervisor
+                            FunnelProportionalitySupervisor(DATA).audit_and_heal()
+                        except Exception as bg_exc:
+                            log.warning("Background AMIE-GD audit non-fatal error: %s", bg_exc)
+                        finally:
+                            self._heavy_inc_running = False
+
+                    threading.Thread(target=_bg_heavy_incubator_audit, name="amie-gd-heavy-audit", daemon=True).start()
+
+                status['market_incubator'] = incubator.get_incubator_status()
             except Exception as exc:
                 log.exception('AMIE-GD shadow market incubator step failed: %s', exc)
                 status['market_incubator'] = {'error': str(exc)[:300]}

@@ -297,16 +297,21 @@ class HistoricalCandidateTrainer:
 
         conn = None
         if self.db_path.exists():
+            conn_test = None
             try:
                 conn_test = sqlite3.connect(f"file:{self.db_path.resolve()}?mode=ro", uri=True, timeout=5.0)
                 cur_test = conn_test.cursor()
                 has_tbl = cur_test.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='incubated_wagers'").fetchone()
-                if has_tbl and (cur_test.execute("SELECT count(*) FROM incubated_wagers WHERE status='settled'").fetchone()[0] > 0):
+                if has_tbl and cur_test.execute("SELECT 1 FROM incubated_wagers WHERE status='settled' LIMIT 1").fetchone():
                     conn = conn_test
                 else:
                     conn_test.close()
             except Exception:
-                pass
+                if conn_test is not None:
+                    try:
+                        conn_test.close()
+                    except Exception:
+                        pass
 
         if conn is None:
             if INCUBATOR_DB.exists():

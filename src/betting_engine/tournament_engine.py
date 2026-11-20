@@ -772,10 +772,9 @@ class TournamentEngine:
             return []
         resolved_key = eff_key
 
-        conn = sqlite3.connect(str(self.db_path), timeout=30.0)
+        conn = sqlite3.connect(f"file:{self.db_path.resolve()}?mode=ro", uri=True, timeout=30.0)
         standings: List[CandidateStanding] = []
         try:
-            conn.execute("PRAGMA busy_timeout = 30000")
             conn.row_factory = sqlite3.Row
             for cand_id, cand_meta in t_data.get('candidates', {}).items():
                 cur = conn.cursor()
