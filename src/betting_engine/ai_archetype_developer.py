@@ -311,6 +311,7 @@ class AIArchetypeDeveloperAgent:
                                 compatible_leagues = excluded.compatible_leagues,
                                 compatible_families = excluded.compatible_families,
                                 parameter_spec = excluded.parameter_spec,
+                                origin_model_id = excluded.origin_model_id,
                                 source_template_code = excluded.source_template_code,
                                 updated_at = excluded.updated_at
                         """, (
