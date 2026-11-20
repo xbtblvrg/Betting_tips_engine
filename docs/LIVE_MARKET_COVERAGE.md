@@ -1,6 +1,6 @@
 # Live Stake market coverage
 
-Checked: 2026-11-20T17:16:16.570460+00:00
+Checked: 2026-11-20T17:42:48.558377+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
@@ -188,7 +188,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NFL | 2nd Quarter - Total | standard | quarter_2 | offered_now | 4/10 | partial 2/18 | partial 14/18 | partial 2/18 | partial 2/18 | partial 2/18 | verified 2/2 | verified 2/2 | verified 3/3 | verified 1/1 | partial 1/2 | 0 |
 | NFL | 3rd Quarter - 1x2 | standard | quarter_3 | offered_now | 0/10 | not_observed 0/27 | partial 21/27 | not_observed 0/27 | not_observed 0/27 | not_observed 0/27 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 3rd Quarter - Draw No Bet | standard | quarter_3 | offered_now | 2/10 | partial 2/18 | partial 14/18 | partial 4/18 | partial 4/18 | partial 2/18 | verified 2/2 | verified 2/2 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NFL | 3rd Quarter - Handicap | standard | quarter_3 | offered_now | 4/10 | partial 3/18 | partial 14/18 | partial 3/18 | partial 3/18 | partial 3/18 | verified 3/3 | verified 3/3 | verified 7/7 | verified 2/2 | partial 1/3 | 1 |
+| NFL | 3rd Quarter - Handicap | standard | quarter_3 | offered_now | 4/10 | partial 4/18 | partial 14/18 | partial 4/18 | partial 4/18 | partial 4/18 | verified 4/4 | verified 4/4 | verified 7/7 | verified 2/2 | partial 1/3 | 1 |
 | NFL | 3rd Quarter - Total | standard | quarter_3 | offered_now | 2/10 | partial 2/18 | partial 14/18 | partial 2/18 | partial 2/18 | partial 2/18 | verified 2/2 | verified 2/2 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 4th Quarter - 1x2 | standard | quarter_4 | offered_now | 0/10 | not_observed 0/27 | partial 21/27 | not_observed 0/27 | not_observed 0/27 | not_observed 0/27 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 4th Quarter - Draw No Bet | standard | quarter_4 | offered_now | 0/10 | not_observed 0/18 | partial 14/18 | partial 2/18 | partial 2/18 | not_observed 0/18 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
