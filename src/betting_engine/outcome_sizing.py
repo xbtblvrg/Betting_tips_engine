@@ -549,6 +549,15 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
             )
 
             alpha_discount = discount
+            meta_kelly_mult = 1.0
+            if not is_test_cand or (settings and settings.get('enable_execution_meta_learner')):
+                try:
+                    from .execution_meta_learner import get_execution_meta_learner
+                    meta_kelly_mult = float(
+                        get_execution_meta_learner().evaluate_candidate_regime(tip).get('meta_kelly_multiplier', 1.0)
+                    )
+                except Exception:
+                    meta_kelly_mult = 1.0
 
             if is_super_alpha:
                 if ev_val is not None and ev_val < 0:
@@ -557,7 +566,7 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                     # Asymmetric Kelly Alpha Dominance: Super Alpha targets $5.00 - $8.00
                     ev_surplus = max(0.0, (ev_val or 0.0) - 0.03) / 0.07
                     roi_surplus = min(1.0, max(0.0, roi_val - 0.08) / 0.12)
-                    raw_alpha_target = min(max_b, 5.00 + 1.80 * roi_surplus + 1.20 * min(1.0, ev_surplus))
+                    raw_alpha_target = min(max_b, (5.00 + 1.80 * roi_surplus + 1.20 * min(1.0, ev_surplus)) * meta_kelly_mult)
                     alpha_target = max(def_unit, raw_alpha_target * alpha_discount)
                     caps.pop('maximum_stake', None)
                     caps.pop('max_stake', None)
@@ -575,7 +584,7 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                     # Solid Alpha targets $2.50 - $4.00
                     ev_surplus = max(0.0, (ev_val or 0.0) - 0.02) / 0.06
                     roi_surplus = min(1.0, max(0.0, roi_val - 0.03) / 0.10)
-                    raw_alpha_target = min(4.00, 2.50 + 1.00 * roi_surplus + 0.50 * min(1.0, ev_surplus))
+                    raw_alpha_target = min(4.00, (2.50 + 1.00 * roi_surplus + 0.50 * min(1.0, ev_surplus)) * meta_kelly_mult)
                     alpha_target = max(def_unit, raw_alpha_target * alpha_discount)
                     caps.pop('maximum_stake', None)
                     caps.pop('max_stake', None)

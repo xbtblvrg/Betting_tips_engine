@@ -351,7 +351,15 @@ def continuous_selection_priority_v4(tip, tier):
     uncertainty_noise_penalty = -1.20 * (0.020 - max(0.0, ev)) / 0.020 if (ev < 0.020 and not is_alpha_tier) else 0.0
     high_ev_boost = min(0.80, max(0.0, (ev - 0.015) * 40.0)) if ev >= 0.015 else 0.0
 
-    score = (tier * 10.0) + (p * 1.5) + (min(2.5, max(-5.0, ev_score))) + (learned * 0.5) + family_pref + odds_pref + under_drag + underdog_value_boost + alpha_boost + graduated_boost + waterfill_boost + high_ev_boost + uncertainty_noise_penalty
+    meta_boost = 0.0
+    if not is_test_cand or tip.get('_enable_meta_learner'):
+        try:
+            from .execution_meta_learner import get_execution_meta_learner
+            meta_boost = float(get_execution_meta_learner().evaluate_candidate_regime(tip).get('meta_priority_boost', 0.0))
+        except Exception:
+            meta_boost = 0.0
+
+    score = (tier * 10.0) + (p * 1.5) + (min(2.5, max(-5.0, ev_score))) + (learned * 0.5) + family_pref + odds_pref + under_drag + underdog_value_boost + alpha_boost + graduated_boost + waterfill_boost + high_ev_boost + uncertainty_noise_penalty + meta_boost
     return (int(tier > 0), score, p, stress_roi, False, str(tip['id']))
 
 PUBLICATION_LIMITS_V1 = 'v1'  # Archived regression replay for 2026-10-02 flood tests only
@@ -1225,14 +1233,24 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
 
                 volume_deficit = (daily_funded_count + new_funded) < 100
 
+                adaptive_ev_hurdle = 0.020
+                if not is_test_cand or settings.get('enable_execution_meta_learner'):
+                    try:
+                        from .execution_meta_learner import get_execution_meta_learner
+                        adaptive_ev_hurdle = float(
+                            get_execution_meta_learner().evaluate_candidate_regime(c).get('meta_ev_hurdle', 0.020)
+                        )
+                    except Exception:
+                        adaptive_ev_hurdle = 0.020
+
                 ev_hurdle_passed = True
                 ev_hurdle_reason = ''
                 if is_cap_defense_cand and c_ev < 0.035:
                     ev_hurdle_passed = False
                     ev_hurdle_reason = f'Capital Defense Hurdle: segment requires min +3.5% EV (current: {c_ev:.1%}) to overcome historical drag.'
-                elif tier(c) == 2 and not is_alpha_cand and not volume_deficit and c_ev < 0.020:
+                elif tier(c) == 2 and not is_alpha_cand and not volume_deficit and c_ev < adaptive_ev_hurdle:
                     ev_hurdle_passed = False
-                    ev_hurdle_reason = f'Uncertainty Hurdle: exploration segment requires min +2.0% EV (current: {c_ev:.1%}) to avoid model noise dilution.'
+                    ev_hurdle_reason = f'Uncertainty Hurdle: exploration segment requires min +{adaptive_ev_hurdle*100:.1f}% EV (current: {c_ev:.1%}) to avoid model noise dilution.'
 
                 if not ev_hurdle_passed:
                     c['stake'] = 0.0

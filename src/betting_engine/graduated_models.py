@@ -1138,6 +1138,11 @@ def attach_champion_to_any_model(
         try:
             from .historical_trainer import HybridRating, get_default_segment_context
             c_dict = get_default_segment_context(league, scope)
+            fc_feats = getattr(fc, 'features', None)
+            if isinstance(fc_feats, dict):
+                for k_f, v_f in fc_feats.items():
+                    if v_f is not None:
+                        c_dict[k_f] = v_f
             g_ctx = getattr(g, 'context', {}) or {}
             for k_c, v_c in g_ctx.items():
                 if k_c in ('home', 'away') and isinstance(v_c, str):
@@ -1179,58 +1184,84 @@ def attach_champion_to_any_model(
             }
 
             ai_dists: Dict[str, Dict[Tuple[int, int], float]] = {}
+            ai_probs: Dict[str, Dict[str, float]] = {}
             eval_cache: Dict[str, Any] = {}
             for m_key, (c_inst, c_id) in champs_dict.items():
                 try:
                     if c_id not in eval_cache:
                         eval_cache[c_id] = c_inst.predict_distribution(c_dict)
                     dist = eval_cache[c_id]
-                    if dist and getattr(dist, 'scores', None) and len(dist.scores) > 4:
-                        ai_dists[m_key] = dist.scores
+                    if dist:
+                        if getattr(dist, 'scores', None) and len(dist.scores) >= 4:
+                            ai_dists[m_key] = dist.scores
+                        if getattr(dist, 'probabilities', None) and isinstance(dist.probabilities, dict):
+                            ai_probs[m_key] = dist.probabilities
                 except Exception:
                     pass
 
-            if ai_dists and hasattr(fc, 'market_probability'):
+            if (ai_dists or ai_probs) and hasattr(fc, 'market_probability'):
                 orig_mp = fc.market_probability
 
                 def _ai_blended_mp(kind: str, side: str, line: Any = None) -> Tuple[float, float]:
                     p_base, push_base = orig_mp(kind, side, line)
                     _, base_k = split_market(kind)
-                    if scope == 'full_game' and base_k == 'moneyline':
-                        return p_base, push_base
                     eff_sc = ai_dists.get(base_k)
+                    eff_pr = ai_probs.get(base_k)
                     if not eff_sc:
                         if 'total' in base_k:
                             eff_sc = ai_dists.get('totals')
                         elif 'spread' in base_k or 'handicap' in base_k:
                             eff_sc = ai_dists.get('spreads')
-                        elif 'three_way' in base_k or 'winner' in base_k:
-                            eff_sc = ai_dists.get('three_way')
-                    if not eff_sc:
+                        elif 'three_way' in base_k or 'winner' in base_k or 'moneyline' in base_k or 'draw_no_bet' in base_k:
+                            eff_sc = ai_dists.get('moneyline') or ai_dists.get('winner') or ai_dists.get('three_way') or ai_dists.get('spreads')
+                    if not eff_pr and ('three_way' in base_k or 'winner' in base_k or 'moneyline' in base_k or 'draw_no_bet' in base_k):
+                        eff_pr = ai_probs.get('moneyline') or ai_probs.get('winner') or ai_probs.get('three_way')
+                    if not eff_sc and not eff_pr:
                         return p_base, push_base
                     try:
                         s_l = str(side).lower().strip()
                         p_ai = None
-                        if base_k in ('totals', 'total') and line is not None:
+                        if base_k in ('totals', 'total') and line is not None and eff_sc:
                             lv = float(line)
                             p_ai = sum(p for (ga, gb), p in eff_sc.items() if ((ga + gb) > lv if s_l in ('over', 'o') else (ga + gb) < lv))
-                        elif base_k in ('spreads', 'spread', 'handicap') and line is not None:
+                        elif base_k in ('spreads', 'spread', 'handicap') and line is not None and eff_sc:
                             lv = float(line)
                             if s_l in ('home', '1'):
                                 p_ai = sum(p for (ga, gb), p in eff_sc.items() if (ga - gb + lv) > 0)
                             else:
                                 p_ai = sum(p for (ga, gb), p in eff_sc.items() if (gb - ga + lv) > 0)
-                        elif base_k in ('home_total', 'away_total') and line is not None:
+                        elif base_k in ('home_total', 'away_total') and line is not None and eff_sc:
                             lv = float(line)
                             idx = 0 if base_k == 'home_total' else 1
                             p_ai = sum(p for sc_t, p in eff_sc.items() if (sc_t[idx] > lv if s_l in ('over', 'o') else sc_t[idx] < lv))
                         elif base_k == 'three_way':
-                            if s_l in ('draw', 'tie', 'x'):
-                                p_ai = sum(p for (ga, gb), p in eff_sc.items() if ga == gb)
-                            elif s_l in ('home', '1'):
-                                p_ai = sum(p for (ga, gb), p in eff_sc.items() if ga > gb)
-                            else:
-                                p_ai = sum(p for (ga, gb), p in eff_sc.items() if gb > ga)
+                            if eff_sc:
+                                if s_l in ('draw', 'tie', 'x'):
+                                    p_ai = sum(p for (ga, gb), p in eff_sc.items() if ga == gb)
+                                elif s_l in ('home', '1'):
+                                    p_ai = sum(p for (ga, gb), p in eff_sc.items() if ga > gb)
+                                else:
+                                    p_ai = sum(p for (ga, gb), p in eff_sc.items() if gb > ga)
+                            elif eff_pr:
+                                if s_l in ('draw', 'tie', 'x'):
+                                    p_ai = float(eff_pr.get('draw', eff_pr.get('tie', 0.0)))
+                                elif s_l in ('home', '1'):
+                                    p_ai = float(eff_pr.get('home', 0.0))
+                                else:
+                                    p_ai = float(eff_pr.get('away', 0.0))
+                        elif base_k in ('moneyline', 'winner', 'draw_no_bet'):
+                            if eff_sc:
+                                p_h_reg = sum(p for (ga, gb), p in eff_sc.items() if ga > gb)
+                                p_a_reg = sum(p for (ga, gb), p in eff_sc.items() if gb > ga)
+                                decisive = max(1e-6, p_h_reg + p_a_reg)
+                                cond_win = (p_h_reg if s_l in ('home', '1') else p_a_reg) / decisive
+                                p_ai = cond_win * (1.0 - float(push_base))
+                            elif eff_pr:
+                                p_h_pr = float(eff_pr.get('home', 0.0))
+                                p_a_pr = float(eff_pr.get('away', 0.0))
+                                decisive = max(1e-6, p_h_pr + p_a_pr)
+                                cond_win = (p_h_pr if s_l in ('home', '1') else p_a_pr) / decisive
+                                p_ai = cond_win * (1.0 - float(push_base))
                         if p_ai is not None and 0.005 < p_ai < 0.995:
                             max_p = max(0.01, 1.0 - float(push_base) - 1e-6)
                             p_blend = float(np.clip(0.65 * float(p_ai) + 0.35 * float(p_base), 0.01, max_p))

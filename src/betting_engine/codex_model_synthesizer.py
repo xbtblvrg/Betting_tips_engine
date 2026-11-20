@@ -1208,6 +1208,334 @@ class {class_name}(BaseCandidateModel):
 
         return None
 
+    def _get_evolutionary_parent_champions(
+        self,
+        league: str,
+        scope: str,
+        family: str,
+        limit: int = 2,
+    ) -> List[Dict[str, Any]]:
+        """Extracts top proven champion models as evolutionary parents for genetic crossover."""
+        parents: List[Dict[str, Any]] = []
+        try:
+            distilled = self.registry.get_distilled_archetypes_for_market(league, scope, family, limit=6)
+            for arch in distilled:
+                if len(parents) >= limit:
+                    break
+                parents.append({
+                    'name': arch.name,
+                    'category': arch.category,
+                    'oos_roi': float(arch.historical_oos_roi or 0.0),
+                    'delta_brier': float(getattr(arch, 'historical_brier_delta', 0.0) or 0.0),
+                    'code_snippet': str(arch.source_template_code or '')[:1400],
+                })
+        except Exception as e_p:
+            log.debug("[EVO-PARENTS] Could not query distilled parents for %s|%s|%s: %s", league, scope, family, e_p)
+        return parents
+
+    def _synthesize_evolutionary_crossover_candidates(
+        self,
+        league: str,
+        scope: str,
+        family: str,
+        base_model_id: str,
+        autopsy: Optional[MarketAutopsy] = None,
+        parents: Optional[List[Dict[str, Any]]] = None,
+    ) -> List[Tuple[str, str, str, str]]:
+        """Generates 3 evolutionary crossover & residual-mutated candidate models from empirical autopsy moments.
+
+        Returns list of (source_code, class_name, rationale, provider).
+        """
+        base_ctx = get_default_segment_context(league, scope)
+        def_h = float(autopsy.home_expected if autopsy and autopsy.home_expected > 0 else base_ctx.get('home_expected') or 1.5)
+        def_a = float(autopsy.away_expected if autopsy and autopsy.away_expected > 0 else base_ctx.get('away_expected') or 1.2)
+        disp_idx = float(autopsy.dispersion_index if autopsy and autopsy.dispersion_index > 0 else 1.15)
+        disp_alpha = round(max(0.02, min(0.55, (disp_idx - 1.0) * 0.45 if disp_idx > 1.0 else 0.12)), 4)
+
+        mean_resid = float(autopsy.mean_calibration_residual if autopsy else 0.0)
+        line_corr = float((autopsy.residual_correlations or {}).get('line_vs_residual', 0.0) if autopsy else 0.0)
+        dis_corr = float((autopsy.residual_correlations or {}).get('disagreement_vs_residual', 0.0) if autopsy else 0.0)
+
+        # Derive continuous directional drift multipliers from empirical side residuals
+        side_map = (autopsy.side_autopsy if autopsy and autopsy.side_autopsy else {})
+        home_res = float((side_map.get('home') or {}).get('mean_residual', 0.0))
+        away_res = float((side_map.get('away') or {}).get('mean_residual', 0.0))
+        over_res = float((side_map.get('over') or {}).get('mean_residual', 0.0))
+        under_res = float((side_map.get('under') or {}).get('mean_residual', 0.0))
+
+        # Continuous damping/scaling factors (bounded smoothly within [0.85, 1.18])
+        total_drift = round(max(0.86, min(1.16, 1.0 + 0.35 * (over_res - under_res) + 0.20 * mean_resid)), 4)
+        home_drift = round(max(0.86, min(1.16, 1.0 + 0.30 * (home_res - away_res))) * total_drift, 4)
+        away_drift = round(max(0.86, min(1.16, 1.0 - 0.30 * (home_res - away_res))) * total_drift, 4)
+        temp_scale = round(max(0.82, min(1.35, 1.0 - 0.85 * min(0.0, mean_resid) - 0.35 * min(0.0, dis_corr))), 4)
+        line_slope = round(max(-0.22, min(0.22, line_corr * 0.35)), 4)
+
+        parent_names = ", ".join(p['name'] for p in (parents or [])[:2]) or "FirstPrinciplesLattice"
+        candidates: List[Tuple[str, str, str, str]] = []
+
+        # Variant 1: Residual-Calibrated Situational Score Lattice Crossover
+        cls_1 = f"EvoResidualLatticeCrossover_{league}_{scope}"
+        code_1 = f'''from __future__ import annotations
+import math
+from typing import Any, Dict, Optional
+from betting_engine.sandbox_models.base import BaseCandidateModel, DiscreteDistribution, build_universal_score_lattice
+
+class {cls_1}(BaseCandidateModel):
+    """Evolutionary crossover integrating empirical residual bias damping and situational rest/pace dynamics."""
+
+    def __init__(
+        self,
+        model_id: str = "{base_model_id}",
+        version: str = "2.0.0",
+        league: str = "{league}",
+        scope: str = "{scope}",
+        family: str = "{family}",
+        home_drift: float = {home_drift},
+        away_drift: float = {away_drift},
+        dispersion_alpha: float = {disp_alpha},
+        metadata: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(
+            model_id=model_id,
+            version=version,
+            league=league,
+            scope=scope,
+            family=family,
+            required_features=['home_expected', 'away_expected'],
+            metadata=metadata or {{'home_drift': home_drift, 'away_drift': away_drift, 'dispersion_alpha': dispersion_alpha}},
+        )
+        self.home_drift = home_drift
+        self.away_drift = away_drift
+        self.dispersion_alpha = dispersion_alpha
+
+    def predict_distribution(self, game_context: Dict[str, Any]) -> DiscreteDistribution:
+        h_base = float(game_context.get('home_expected') or game_context.get('home_points') or {def_h})
+        a_base = float(game_context.get('away_expected') or game_context.get('away_points') or {def_a})
+        h_rest = float(game_context.get('home_rest_days') or game_context.get('home_rest') or 2.0)
+        a_rest = float(game_context.get('away_rest_days') or game_context.get('away_rest') or 2.0)
+        rest_adj = math.tanh((h_rest - a_rest) * 0.08) * 0.04
+        wind = float(game_context.get('wind_speed') or game_context.get('wind_kph') or 0.0)
+        is_dome = bool(game_context.get('is_dome', False))
+        wind_damp = max(0.88, 1.0 - max(0.0, wind - 18.0) * 0.004) if not is_dome else 1.0
+
+        h_mu = max(0.15, h_base * self.home_drift * (1.0 + rest_adj) * wind_damp)
+        a_mu = max(0.15, a_base * self.away_drift * (1.0 - rest_adj) * wind_damp)
+        max_sc = 8 if max(h_mu, a_mu) < 12.0 else None
+        scores = build_universal_score_lattice(h_mu, a_mu, dispersion_alpha=self.dispersion_alpha, max_discrete_score=max_sc)
+        return DiscreteDistribution.from_scores(scores)
+'''
+        candidates.append((
+            code_1,
+            cls_1,
+            f"Evolutionary Residual Lattice Crossover (parents: {parent_names}; home_drift={home_drift}, away_drift={away_drift}, alpha={disp_alpha})",
+            "evolutionary_crossover_engine",
+        ))
+
+        # Variant 2: Shared-Shock Bivariate Copula & Line-Slope Adaptive Crossover
+        cls_2 = f"EvoSharedShockCopulaCrossover_{league}_{scope}"
+        code_2 = f'''from __future__ import annotations
+import math
+from typing import Any, Dict, Optional
+from betting_engine.sandbox_models.base import (
+    BaseCandidateModel,
+    DiscreteDistribution,
+    build_copula_score_lattice,
+    build_universal_score_lattice,
+)
+
+class {cls_2}(BaseCandidateModel):
+    """Evolutionary bivariate dependence crossover with line-magnitude variance adaptation."""
+
+    def __init__(
+        self,
+        model_id: str = "{base_model_id}",
+        version: str = "2.0.0",
+        league: str = "{league}",
+        scope: str = "{scope}",
+        family: str = "{family}",
+        line_slope: float = {line_slope},
+        dispersion_alpha: float = {disp_alpha},
+        metadata: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(
+            model_id=model_id,
+            version=version,
+            league=league,
+            scope=scope,
+            family=family,
+            required_features=['home_expected', 'away_expected'],
+            metadata=metadata or {{'line_slope': line_slope, 'dispersion_alpha': dispersion_alpha}},
+        )
+        self.line_slope = line_slope
+        self.dispersion_alpha = dispersion_alpha
+
+    def predict_distribution(self, game_context: Dict[str, Any]) -> DiscreteDistribution:
+        h_base = float(game_context.get('home_expected') or game_context.get('home_points') or {def_h})
+        a_base = float(game_context.get('away_expected') or game_context.get('away_points') or {def_a})
+        ref_tot = float(game_context.get('total_line') or game_context.get('reference_total') or (h_base + a_base))
+        base_tot = max(0.5, {round(def_h + def_a, 3)})
+        rel_mag = math.tanh((ref_tot - base_tot) / max(1.0, base_tot))
+        mag_adj = max(0.85, min(1.15, 1.0 + self.line_slope * rel_mag))
+
+        h_mu = max(0.15, h_base * {home_drift} * mag_adj)
+        a_mu = max(0.15, a_base * {away_drift} * mag_adj)
+        eff_alpha = max(0.02, min(0.60, self.dispersion_alpha * (1.0 + 0.25 * abs(rel_mag))))
+        try:
+            if max(h_mu, a_mu) < 12.0:
+                scores = build_copula_score_lattice(h_mu, a_mu, copula_family="frank", theta=1.15, dispersion_alpha=eff_alpha, max_score=8)
+            else:
+                scores = build_universal_score_lattice(h_mu, a_mu, dispersion_alpha=eff_alpha)
+        except Exception:
+            scores = build_universal_score_lattice(h_mu, a_mu, dispersion_alpha=eff_alpha)
+        return DiscreteDistribution.from_scores(scores)
+'''
+        candidates.append((
+            code_2,
+            cls_2,
+            f"Evolutionary Shared-Shock Copula Crossover (parents: {parent_names}; line_slope={line_slope}, alpha={disp_alpha})",
+            "evolutionary_crossover_engine",
+        ))
+
+        # Variant 3: Empirical-Bayes Shrinkage & Tail-Temperature Regularized Crossover
+        cls_3 = f"EvoShrinkageTailRegularized_{league}_{scope}"
+        code_3 = f'''from __future__ import annotations
+import math
+from typing import Any, Dict, Optional
+from betting_engine.sandbox_models.base import (
+    BaseCandidateModel,
+    DiscreteDistribution,
+    JamesSteinShrinkage,
+    build_universal_score_lattice,
+)
+
+class {cls_3}(BaseCandidateModel):
+    """Evolutionary Empirical-Bayes shrinkage model with disagreement-calibrated tail temperature scaling."""
+
+    def __init__(
+        self,
+        model_id: str = "{base_model_id}",
+        version: str = "2.0.0",
+        league: str = "{league}",
+        scope: str = "{scope}",
+        family: str = "{family}",
+        temperature: float = {temp_scale},
+        dispersion_alpha: float = {disp_alpha},
+        metadata: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(
+            model_id=model_id,
+            version=version,
+            league=league,
+            scope=scope,
+            family=family,
+            required_features=['home_expected', 'away_expected'],
+            metadata=metadata or {{'temperature': temperature, 'dispersion_alpha': dispersion_alpha}},
+        )
+        self.temperature = temperature
+        self.dispersion_alpha = dispersion_alpha
+        self.shrinkage = JamesSteinShrinkage(prior_weight=0.22)
+
+    def predict_distribution(self, game_context: Dict[str, Any]) -> DiscreteDistribution:
+        h_raw = float(game_context.get('home_expected') or game_context.get('home_points') or {def_h})
+        a_raw = float(game_context.get('away_expected') or game_context.get('away_points') or {def_a})
+        shrunk = self.shrinkage.shrink([h_raw, a_raw], [{def_h}, {def_a}])
+        h_mu = max(0.15, float(shrunk[0]) * {home_drift})
+        a_mu = max(0.15, float(shrunk[1]) * {away_drift})
+        max_sc = 8 if max(h_mu, a_mu) < 12.0 else None
+        raw_scores = build_universal_score_lattice(h_mu, a_mu, dispersion_alpha=self.dispersion_alpha, max_discrete_score=max_sc)
+        inv_t = 1.0 / max(0.65, min(1.65, self.temperature))
+        scaled = {{k: max(1e-7, float(v) ** inv_t) for k, v in raw_scores.items()}}
+        return DiscreteDistribution.from_scores(scaled)
+'''
+        candidates.append((
+            code_3,
+            cls_3,
+            f"Evolutionary Empirical-Bayes Tail-Regularized Crossover (parents: {parent_names}; temp={temp_scale}, alpha={disp_alpha})",
+            "evolutionary_crossover_engine",
+        ))
+        return candidates
+
+    def _evaluate_candidate_hypothesis_on_oos(
+        self,
+        canonical_seg: str,
+        model_instance: BaseCandidateModel,
+        ctx: Dict[str, Any],
+        oos_wagers: List[Tuple],
+        family: str,
+    ) -> Dict[str, Any]:
+        """Evaluates a candidate model instance on the out-of-sample Walk-Forward split."""
+        oos_accepted = 0
+        oos_wins = 0
+        oos_losses = 0
+        oos_pushes = 0
+        oos_pnl = 0.0
+        sum_brier_m = 0.0
+        sum_brier_mkt = 0.0
+        running_pnl = 0.0
+        peak_pnl = 0.0
+        max_dd = 0.0
+        eval_errors: List[str] = []
+
+        for row in oos_wagers:
+            sel, line, odds, orig_mp, mkt_prob, side, res, orig_pnl, _ = row
+            odds_val = float(odds or 2.0)
+            mkt_p = float(mkt_prob or (1.0 / max(1.05, odds_val)))
+            ctx_wager = enrich_wager_context(ctx, family, sel, line, orig_mp, mkt_p, side)
+
+            try:
+                prob, ev = model_instance.evaluate_market(
+                    canonical_seg, sel or '', line, odds_val, ctx_wager, side=side
+                )
+            except Exception as e_eval:
+                if len(eval_errors) < 3:
+                    eval_errors.append(f"{type(e_eval).__name__}: {e_eval}")
+                continue
+
+            if ev >= 0.035:
+                oos_accepted += 1
+                y = 1.0 if res == 'won' else (0.5 if res == 'push' else 0.0)
+                sum_brier_m += (prob - y) ** 2
+                sum_brier_mkt += (mkt_p - y) ** 2
+
+                if res == 'won':
+                    oos_wins += 1
+                    sim_pnl = odds_val - 1.0
+                elif res == 'push':
+                    oos_pushes += 1
+                    sim_pnl = 0.0
+                else:
+                    oos_losses += 1
+                    sim_pnl = -1.0
+
+                oos_pnl += sim_pnl
+                running_pnl += sim_pnl
+                if running_pnl > peak_pnl:
+                    peak_pnl = running_pnl
+                dd_u = peak_pnl - running_pnl
+                if dd_u > max_dd:
+                    max_dd = dd_u
+
+        max_dd = (max_dd / max(10.0, float(oos_accepted) + peak_pnl)) if oos_accepted > 0 else 0.0
+        sim_roi = (oos_pnl / max(1, oos_accepted)) if oos_accepted > 0 else 0.0
+        win_rate = (oos_wins / max(1, oos_wins + oos_losses)) if (oos_wins + oos_losses) > 0 else 0.0
+        brier_m = (sum_brier_m / max(1, oos_accepted)) if oos_accepted > 0 else 0.25
+        brier_mkt = (sum_brier_mkt / max(1, oos_accepted)) if oos_accepted > 0 else 0.25
+        delta_brier = brier_mkt - brier_m
+        crucible_ok = (sim_roi >= 0.035 and delta_brier >= (-0.015 if sim_roi >= 0.08 else -0.010) and max_dd < 0.25) if oos_accepted >= 5 else False
+        composite_score = (
+            sim_roi + 2.5 * delta_brier - 0.5 * max_dd + 0.02 * math.log(max(1, oos_accepted))
+        ) if oos_accepted > 0 else -999.0
+        return {
+            'oos_accepted': oos_accepted,
+            'win_rate': win_rate,
+            'sim_roi': sim_roi,
+            'delta_brier': delta_brier,
+            'max_dd': max_dd,
+            'crucible_ok': crucible_ok,
+            'composite_score': composite_score,
+            'eval_errors': eval_errors,
+        }
+
     def synthesize_and_screen_candidate(
         self,
         segment_key: str,
@@ -1217,7 +1545,7 @@ class {class_name}(BaseCandidateModel):
         claude_hypothesis: Optional[str] = None,
         grok_critique: Optional[str] = None,
     ) -> SynthesizedModelRecord:
-        """Synthesizes a novel mathematical model, checks AST safety, validates, and screens on OOS historical data."""
+        """Synthesizes candidate mathematical models via Multi-Hypothesis Evolutionary Crossover & screens on OOS data."""
         canonical_seg = normalize_segment_key(segment_key)
         parts = canonical_seg.split('|')
         league, scope, family = parts[0], parts[1], parts[2]
@@ -1227,9 +1555,21 @@ class {class_name}(BaseCandidateModel):
 
         ctx = sample_context or get_default_segment_context(league, scope)
 
-        # -1. Automated Empirical Market Autopsy & Targeted Quantitative Brief
+        # -1. Automated Empirical Market Autopsy, Residual Feature Attribution & Evolutionary Parents
         autopsy = self.autopsy_analyzer.analyze_market(canonical_seg)
-        targeted_problem = self.brief_builder.build_targeted_prompt(autopsy, domain_problem)
+        parents = [] if force_archetype else self._get_evolutionary_parent_champions(league, scope, family, limit=2)
+        parent_brief = ""
+        if parents:
+            p_lines = [
+                f"- Parent '{p['name']}' (Category: {p['category']}, Verified OOS ROI: +{p['oos_roi']*100:.1f}%, DeltaBrier: {p['delta_brier']:+.4f})"
+                for p in parents
+            ]
+            parent_brief = (
+                "\nEVOLUTIONARY PARENT CHAMPION EVIDENCE (PROVEN OOS WINNERS IN ECOSYSTEM):\n"
+                + "\n".join(p_lines)
+                + "\nEvolve, recombine, or supersede the mathematical mechanisms of these proven parents to resolve the empirical residual correlations above.\n"
+            )
+        targeted_problem = self.brief_builder.build_targeted_prompt(autopsy, domain_problem) + parent_brief
 
         # 0. Enrich with Claude domain mechanics hypothesis if not provided
         if not claude_hypothesis and not force_archetype:
@@ -1238,7 +1578,7 @@ class {class_name}(BaseCandidateModel):
             except Exception as e_hypo:
                 log.debug("[SYNTH-HYPOTHESIS] Claude hypothesis generation skipped or failed for %s: %s", canonical_seg, e_hypo)
 
-        # 1. Generate code via Codex (with Claude 1:1 fallback, then algorithmic fallback)
+        # 1. Generate Primary Candidate via Codex (with Claude 1:1 fallback, then algorithmic fallback)
         provider = "codex"
         codex_res = None if force_archetype else self._query_codex_for_model_code(
             canonical_seg, targeted_problem, ctx, model_id,
@@ -1266,7 +1606,7 @@ class {class_name}(BaseCandidateModel):
                 league, scope, family, model_id, archetype_hint=force_archetype, autopsy=autopsy
             )
 
-        # 2. AST Safety & Structure Check
+        # 2. AST Safety & Structure Check on Primary Candidate
         is_safe, found_class, safety_err = check_ast_safety(source_code)
         if not is_safe or not found_class:
             err_msg = safety_err or "Safety check failed"
@@ -1310,7 +1650,7 @@ class {class_name}(BaseCandidateModel):
                 log.debug("[SYNTH-FEEDBACK] Failed to record syntax failure feedback for %s: %s", model_id, e_fb)
             return record
 
-        # 3. Instantiate in isolated scope
+        # 3. Instantiate Primary Candidate in isolated scope
         try:
             model_instance = instantiate_synthesized_class(
                 source_code,
@@ -1406,76 +1746,81 @@ class {class_name}(BaseCandidateModel):
                 log.debug("[SYNTH-FEEDBACK] Failed to record preflight failure feedback for %s: %s", model_id, e_fb)
             return record
 
-        # 5. Out-of-Sample Walk-Forward Crucible Evaluation on Historical Data
-        # Reuses HistoricalCandidateTrainer with the instantiated model
+        # 5. Out-of-Sample Walk-Forward Crucible & Multi-Hypothesis Evolutionary Tournament
         validation_errors: List[str] = []
         wagers = self.trainer._fetch_settled_wagers(league, scope, family)
         split_idx = max(5, int(len(wagers) * 0.75))
         oos_wagers = wagers[split_idx:] if len(wagers) >= 10 else wagers
 
-        oos_accepted = 0
-        oos_wins = 0
-        oos_losses = 0
-        oos_pushes = 0
-        oos_pnl = 0.0
-        sum_brier_m = 0.0
-        sum_brier_mkt = 0.0
-        running_pnl = 0.0
-        peak_pnl = 0.0
-        max_dd = 0.0
-        eval_errors: List[str] = []
+        primary_metrics = self._evaluate_candidate_hypothesis_on_oos(
+            canonical_seg, model_instance, ctx, oos_wagers, family
+        )
+        best_choice = {
+            'source_code': source_code,
+            'found_class': found_class,
+            'rationale': rationale,
+            'provider': provider,
+            'model_instance': model_instance,
+            'metrics': primary_metrics,
+        }
 
-        for row in oos_wagers:
-            sel, line, odds, orig_mp, mkt_prob, side, res, orig_pnl, _ = row
-            odds_val = float(odds or 2.0)
-            mkt_p = float(mkt_prob or (1.0 / max(1.05, odds_val)))
-            ctx_wager = enrich_wager_context(ctx, family, sel, line, orig_mp, mkt_p, side)
+        # Run Evolutionary Crossover & Residual-Mutation Tournament when not locked to a specific forced archetype
+        if not force_archetype and len(oos_wagers) >= 5:
+            evo_pool = self._synthesize_evolutionary_crossover_candidates(
+                league, scope, family, model_id, autopsy=autopsy, parents=parents
+            )
+            for evo_code, evo_cls, evo_rat, evo_prov in evo_pool:
+                e_safe, e_found, _ = check_ast_safety(evo_code)
+                if not e_safe or not e_found:
+                    continue
+                try:
+                    e_inst = instantiate_synthesized_class(
+                        evo_code, e_found, model_id=model_id, league=league, scope=scope, family=family
+                    )
+                    e_val_ok, _ = validate_candidate_model(e_inst, ctx)
+                    if not e_val_ok:
+                        continue
+                    e_metrics = self._evaluate_candidate_hypothesis_on_oos(
+                        canonical_seg, e_inst, ctx, oos_wagers, family
+                    )
+                    cur_best_m = best_choice['metrics']
+                    # Evolutionary Tournament Selection Rule:
+                    # Strictly prefer a hypothesis that passes the Crucible over one that fails,
+                    # and among passing hypotheses prefer the highest composite OOS Crucible score.
+                    is_better = (
+                        (e_metrics['crucible_ok'] and not cur_best_m['crucible_ok'])
+                        or (
+                            e_metrics['crucible_ok'] == cur_best_m['crucible_ok']
+                            and e_metrics['oos_accepted'] >= 5
+                            and e_metrics['composite_score'] > cur_best_m['composite_score'] + 0.005
+                        )
+                    )
+                    if is_better:
+                        best_choice = {
+                            'source_code': evo_code,
+                            'found_class': e_found,
+                            'rationale': f"{evo_rat} [Won Multi-Hypothesis Tournament: OOS ROI={e_metrics['sim_roi']*100:+.1f}%, DeltaBrier={e_metrics['delta_brier']:+.4f}]",
+                            'provider': evo_prov if provider == "algorithmic_codex_engine" else provider,
+                            'model_instance': e_inst,
+                            'metrics': e_metrics,
+                        }
+                except Exception as e_evo:
+                    log.debug("[EVO-TOURNAMENT] Crossover candidate %s skipped: %s", evo_cls, e_evo)
 
-            try:
-                prob, ev = model_instance.evaluate_market(
-                    canonical_seg, sel or '', line, odds_val, ctx_wager, side=side
-                )
-            except Exception as e_eval:
-                if len(eval_errors) < 3:
-                    eval_errors.append(f"{type(e_eval).__name__}: {e_eval}")
-                continue
+        source_code = best_choice['source_code']
+        found_class = best_choice['found_class']
+        rationale = best_choice['rationale']
+        provider = best_choice['provider']
+        model_instance = best_choice['model_instance']
+        m_win = best_choice['metrics']
 
-            if ev >= 0.035:
-                oos_accepted += 1
-                y = 1.0 if res == 'won' else (0.5 if res == 'push' else 0.0)
-                sum_brier_m += (prob - y) ** 2
-                sum_brier_mkt += (mkt_p - y) ** 2
-
-                if res == 'won':
-                    oos_wins += 1
-                    sim_pnl = odds_val - 1.0
-                elif res == 'push':
-                    oos_pushes += 1
-                    sim_pnl = 0.0
-                else:
-                    oos_losses += 1
-                    sim_pnl = -1.0
-
-                oos_pnl += sim_pnl
-                running_pnl += sim_pnl
-                if running_pnl > peak_pnl:
-                    peak_pnl = running_pnl
-                dd_u = peak_pnl - running_pnl
-                if dd_u > max_dd:
-                    max_dd = dd_u
-
-        max_dd = (max_dd / max(10.0, float(oos_accepted) + peak_pnl)) if oos_accepted > 0 else 0.0
-        sim_roi = (oos_pnl / max(1, oos_accepted)) if oos_accepted > 0 else 0.0
-        win_rate = (oos_wins / max(1, oos_wins + oos_losses)) if (oos_wins + oos_losses) > 0 else 0.0
-        brier_m = (sum_brier_m / max(1, oos_accepted)) if oos_accepted > 0 else 0.25
-        brier_mkt = (sum_brier_mkt / max(1, oos_accepted)) if oos_accepted > 0 else 0.25
-        delta_brier = brier_mkt - brier_m
-
-        # Admission gate (Commandment 6 Tier 1 & Anti-Tautological Invariant):
-        # Strictly require N_oos >= 5, ROI >= +3.5%, Delta Brier >= -0.005, and DD < 25%.
-        # If insufficient historical wagers exist in the ledger (oos_accepted < 5 or len(wagers) < 5),
-        # the model CANNOT be certified as having an empirical out-of-sample statistical edge.
-        crucible_ok = (sim_roi >= 0.035 and delta_brier >= (-0.015 if sim_roi >= 0.08 else -0.010) and max_dd < 0.25) if oos_accepted >= 5 else False
+        oos_accepted = m_win['oos_accepted']
+        win_rate = m_win['win_rate']
+        sim_roi = m_win['sim_roi']
+        delta_brier = m_win['delta_brier']
+        max_dd = m_win['max_dd']
+        crucible_ok = m_win['crucible_ok']
+        eval_errors = m_win['eval_errors']
         if not crucible_ok and not validation_errors:
             if eval_errors and oos_accepted == 0:
                 validation_errors = [f"Model execution error during out-of-sample evaluation: {'; '.join(eval_errors)}"]
