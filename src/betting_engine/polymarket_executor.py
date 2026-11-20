@@ -935,8 +935,11 @@ class PolymarketAutonomousExecutor:
         model_prob: float,
         eff_price: float,
         stake_cap: float = 8.0,
+        league: Optional[str] = None,
+        scope: Optional[str] = None,
+        market_family: Optional[str] = None,
     ) -> float:
-        """Anti-Constant Continuous Fractional Kelly Sizing [$0.50, $8.00]."""
+        """Anti-Constant Continuous Fractional Kelly Sizing [$0.50, $8.00] with ExecutionMetaLearner synergy."""
         if eff_price <= 0.0 or eff_price >= 1.0 or model_prob <= 0.0:
             return 0.50
 
@@ -949,9 +952,24 @@ class PolymarketAutonomousExecutor:
         if f_star <= 0.0:
             return 0.50
 
-        # Quarter-Kelly on nominal $100 bankroll unit slice
+        meta_mult = 1.0
+        if league and market_family:
+            try:
+                from .execution_meta_learner import get_execution_meta_learner
+                meta_mult = float(
+                    get_execution_meta_learner(self.data_dir).evaluate_candidate_regime({
+                        'league': league,
+                        'model_scope': scope or 'full_game',
+                        'market': market_family,
+                        'reference_odds': round(1.0 / eff_price, 3),
+                    }).get('meta_kelly_multiplier', 1.0)
+                )
+            except Exception:
+                meta_mult = 1.0
+
+        # Quarter-Kelly on nominal $100 bankroll unit slice scaled by continuous meta-learner reliability
         quarter_kelly = 0.25 * f_star
-        target_stake = quarter_kelly * 100.0
+        target_stake = quarter_kelly * 100.0 * meta_mult
 
         # Strictly clamp within [$0.50, min(8.00, stake_cap)]
         clamped_stake = max(0.50, min(stake_cap, target_stake))
@@ -1255,11 +1273,14 @@ class PolymarketAutonomousExecutor:
                 "error_code": "PREFLIGHT_SLIPPAGE_REJECTED",
             }
 
-        # 4. Continuous Kelly Calibration with Effective Price
+        # 4. Continuous Kelly Calibration with Effective Price & ExecutionMetaLearner Synergy
         calibrated_stake = self.calculate_continuous_stake(
             model_prob=model_prob,
             eff_price=preflight.eff_price,
             stake_cap=stake_cap,
+            league=league,
+            scope=scope,
+            market_family=market_family,
         )
         shares_count = round(calibrated_stake / preflight.eff_price, 2)
 

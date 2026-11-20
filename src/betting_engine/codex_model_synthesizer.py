@@ -1108,6 +1108,45 @@ class {class_name}(BaseCandidateModel):
             log.warning(f"Claude domain hypothesis exception for {segment_key}: {e}")
         return None
 
+    def _query_grok_for_red_team_critique(
+        self,
+        segment_key: str,
+        domain_problem: str,
+        claude_hypothesis: Optional[str] = None,
+    ) -> Optional[str]:
+        """Queries Grok (grok-4.7) for adversarial red-team audit and overfit prevention guardrails."""
+        if not DELEGATION_CONFIG.exists():
+            return None
+        policy = read(DELEGATION_CONFIG, {})
+        grok_cfg = dict(policy.get('providers', {}).get('grok', {}))
+        if not grok_cfg.get('enabled'):
+            return None
+        grok_cfg.setdefault('idle_timeout', 25.0)
+        grok_cfg.setdefault('max_hard_ceiling', 90.0)
+
+        parts = segment_key.split('|')
+        league, scope, family = parts[0], parts[1], parts[2]
+        prompt = (
+            f"You are Grok (grok-4.7), adversarial red-team quantitative auditor and overfit-prevention specialist. "
+            f"For betting segment '{segment_key}' (League: {league}, Scope: {scope}, Family: {family}):\n"
+            f"EMPIRICAL DIAGNOSIS: {domain_problem}\n"
+            f"{f'PROPOSED DOMAIN HYPOTHESIS: {claude_hypothesis}' if claude_hypothesis else ''}\n\n"
+            f"In 2-3 concise sentences, identify the exact out-of-sample overfitting traps, tail-calibration vulnerabilities, "
+            f"and mathematical boundary conditions that the candidate model must enforce from first principles. Output adversarial audit only."
+        )
+        try:
+            with file_lock(DATA / "development" / "ai-locks" / "grok.lock", timeout=30.0) as acquired:
+                if not acquired:
+                    log.info(f"Grok lock busy (30.0s) for red-team audit {segment_key}; skipping critique")
+                    return None
+                res = invoke('grok', grok_cfg, prompt, timeout=45)
+                state, answer = decode('grok', res, grok_cfg.get('model'))
+                if state == 'received_unreviewed' and answer:
+                    return answer.strip()
+        except Exception as e:
+            log.warning(f"Grok red-team critique exception for {segment_key}: {e}")
+        return None
+
     def _query_claude_for_model_code(
         self,
         segment_key: str,
@@ -1565,12 +1604,17 @@ class {cls_3}(BaseCandidateModel):
         parents = [] if force_archetype else self._get_evolutionary_parent_champions(league, scope, family, limit=2)
         targeted_problem = self.brief_builder.build_targeted_prompt(autopsy, domain_problem)
 
-        # 0. Enrich with Claude domain mechanics hypothesis if not provided
+        # 0. Enrich with Claude domain mechanics hypothesis and Grok adversarial red-team critique if not provided
         if not claude_hypothesis and not force_archetype:
             try:
                 claude_hypothesis = self._query_claude_for_domain_hypothesis(canonical_seg, targeted_problem)
             except Exception as e_hypo:
                 log.debug("[SYNTH-HYPOTHESIS] Claude hypothesis generation skipped or failed for %s: %s", canonical_seg, e_hypo)
+        if not grok_critique and not force_archetype:
+            try:
+                grok_critique = self._query_grok_for_red_team_critique(canonical_seg, targeted_problem, claude_hypothesis)
+            except Exception as e_grok:
+                log.debug("[SYNTH-GROK] Grok red-team critique skipped or failed for %s: %s", canonical_seg, e_grok)
 
         # 1. Generate Primary Candidate via Codex (with Claude 1:1 fallback, then algorithmic fallback)
         provider = "codex"
@@ -1815,6 +1859,29 @@ class {cls_3}(BaseCandidateModel):
         max_dd = m_win['max_dd']
         crucible_ok = m_win['crucible_ok']
         eval_errors = m_win['eval_errors']
+        try:
+            from .verbose_logger import get_verbose_logger
+            get_verbose_logger(self.data_dir).log_event(
+                "codex_model_synthesizer",
+                "evolutionary_tournament",
+                f"[EVO_TOURNAMENT_TRACE] {canonical_seg} winner={model_id} ({provider}): N_oos={oos_accepted}, ROI={sim_roi*100:+.1f}%, DeltaBrier={delta_brier:+.4f}, MaxDD={max_dd*100:.1f}%, passed={crucible_ok}",
+                data={
+                    "segment": canonical_seg,
+                    "league": league,
+                    "scope": scope,
+                    "family": family,
+                    "model_id": model_id,
+                    "provider": provider,
+                    "oos_accepted": oos_accepted,
+                    "oos_roi": round(sim_roi, 4),
+                    "oos_delta_brier": round(delta_brier, 5),
+                    "oos_max_dd": round(max_dd, 4),
+                    "crucible_passed": crucible_ok,
+                },
+                level=logging.DEBUG,
+            )
+        except Exception:
+            pass
         if not crucible_ok and not validation_errors:
             if eval_errors and oos_accepted == 0:
                 validation_errors = [f"Model execution error during out-of-sample evaluation: {'; '.join(eval_errors)}"]

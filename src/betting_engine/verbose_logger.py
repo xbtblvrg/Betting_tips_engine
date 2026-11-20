@@ -468,6 +468,74 @@ class QuantVerboseLogger:
             combined = combined[-max_chars:]
         return combined
 
+    def get_segment_debug_telemetry_summary(
+        self,
+        league: str,
+        family: str,
+        limit: int = 6,
+        max_bytes: int = 65536,
+    ) -> str:
+        """Extracts recent verbose_debug.jsonl DEBUG/WARNING/ERROR traces for a specific league/family to feed back into AI synthesis.
+
+        Enforces Zero Prompt Anchoring (Commandment 10): only numerical telemetry events
+        (residual_attribution, decision_trace, rule_evaluation, runtime_anomaly) are included,
+        stripping any model class names or distribution buzzwords.
+        """
+        if not self.jsonl_file.exists():
+            return ""
+        lg_u = (league or "").upper().strip()
+        fam_l = (family or "").lower().strip()
+        base_fam = fam_l.split(":")[-1] if ":" in fam_l else fam_l
+        allowed_events = {"residual_attribution", "decision_trace", "rule_evaluation", "runtime_anomaly"}
+        forbidden_tokens = (
+            "negativebinomial", "poisson", "copula", "weibull", "markov", "skellam",
+            "dixon", "laplace", "hurdle", "kalman", "gumbel", "clayton", "frank",
+            "jamesstein", "broken", "model_",
+        )
+
+        matched: List[str] = []
+        try:
+            with open(self.jsonl_file, "r", encoding="utf-8", errors="replace") as f:
+                f.seek(0, os.SEEK_END)
+                size = f.tell()
+                f.seek(max(0, size - max_bytes))
+                lines = f.readlines()
+
+            for line in reversed(lines):
+                if lg_u and lg_u not in line.upper():
+                    continue
+                try:
+                    entry = json.loads(line)
+                except Exception:
+                    continue
+                ev_type = str(entry.get("event_type") or "")
+                lvl = str(entry.get("level") or "DEBUG")
+                if ev_type not in allowed_events and lvl not in ("WARNING", "ERROR", "CRITICAL"):
+                    continue
+                msg = str(entry.get("message") or "")
+                data = entry.get("data") or {}
+                blob = f"{msg} {json.dumps(data, ensure_ascii=False)}".lower()
+                if base_fam and base_fam not in blob:
+                    continue
+                if any(tok in blob.replace("_", "").replace("-", "") for tok in forbidden_tokens):
+                    continue
+                comp = entry.get("component") or entry.get("module") or "engine"
+                clean_msg = msg.replace("\n", " ")[:280]
+                summary_line = f"- [{lvl}] {comp} ({ev_type or 'log'}): {clean_msg}"
+                if summary_line not in matched:
+                    matched.append(summary_line)
+                if len(matched) >= limit:
+                    break
+        except Exception:
+            return ""
+
+        if not matched:
+            return ""
+        return (
+            f"\nLIVE VERBOSE DEBUG TELEMETRY FEEDBACK ({lg_u} | {base_fam} from verbose_debug.jsonl):\n"
+            + "\n".join(reversed(matched))
+        )
+
 
 # Global singleton access
 _VERBOSE_LOGGER: Optional[QuantVerboseLogger] = None

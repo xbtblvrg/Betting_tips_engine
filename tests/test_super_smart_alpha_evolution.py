@@ -279,3 +279,48 @@ def test_item5_full_game_moneyline_champion_blending_and_json_serializability():
     # Verify Forecast.public() is 100% JSON serializable (no callable market_probability leak)
     encoded = json.dumps(fc.public())
     assert "NBA:game_1" in encoded
+
+
+def test_verbose_debug_telemetry_feedback_loop_and_anti_anchoring(tmp_path):
+    """Verifies that verbose DEBUG telemetry logs feed back into AIFeedbackLoopManager with zero prompt anchoring."""
+    import logging
+    from betting_engine.verbose_logger import QuantVerboseLogger
+    from betting_engine.ai_feedback_loop import AIFeedbackLoopManager
+
+    vlog = QuantVerboseLogger(data_dir=tmp_path)
+    # 1. Valid empirical residual telemetry event -> must be included
+    vlog.log_event(
+        "market_autopsy",
+        "residual_attribution",
+        "[AUTOPSY_RESIDUAL_TRACE] NHL|full_game|totals: N=120, ROI=-4.2%, E[y-p]=-0.0410, BrierDelta=+0.01120",
+        data={"segment": "NHL|full_game|totals", "sample_size": 120, "mean_calibration_residual": -0.041},
+        level=logging.DEBUG,
+    )
+    # 2. Anchoring-contaminated event containing model buzzwords -> must be filtered out
+    vlog.log_event(
+        "market_autopsy",
+        "residual_attribution",
+        "[AUTOPSY_RESIDUAL_TRACE] NHL|full_game|totals: Use NegativeBinomial or Copula model_123",
+        data={"segment": "NHL|full_game|totals"},
+        level=logging.DEBUG,
+    )
+
+    summary = vlog.get_segment_debug_telemetry_summary("NHL", "totals")
+    assert "LIVE VERBOSE DEBUG TELEMETRY FEEDBACK" in summary
+    assert "E[y-p]=-0.0410" in summary
+    assert "negativebinomial" not in summary.lower()
+    assert "copula" not in summary.lower()
+
+    fb = AIFeedbackLoopManager(db_path=tmp_path / "engine.sqlite3")
+    # Monkeypatch get_verbose_logger or test integration via data_dir=tmp_path
+    import betting_engine.verbose_logger as vl_mod
+    old_singleton = vl_mod._VERBOSE_LOGGER
+    try:
+        vl_mod._VERBOSE_LOGGER = vlog
+        icl_prompt = fb.get_in_context_learning_prompt("NHL", "totals")
+        assert "LIVE VERBOSE DEBUG TELEMETRY FEEDBACK" in icl_prompt
+        assert "E[y-p]=-0.0410" in icl_prompt
+        assert "negativebinomial" not in icl_prompt.lower()
+    finally:
+        vl_mod._VERBOSE_LOGGER = old_singleton
+

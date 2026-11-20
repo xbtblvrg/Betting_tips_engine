@@ -99,12 +99,43 @@ def maintain(root=DATA):
         except Exception:
             pass
 
-    # 4c. Automated cleanup of outcome feedback inputs/observations older than 48 hours
+    # 4c. Automated cleanup of unreferenced outcome feedback inputs/observations older than 48 hours
+    protected_of_paths = set()
+    latest_of = root / 'outcome_feedback' / 'latest.json'
+    if latest_of.exists():
+        try:
+            import json
+            of_state = json.loads(latest_of.read_text(encoding='utf-8'))
+            refs = [of_state.get('latest_review')]
+            for row in (of_state.get('proposals') or {}).values():
+                if isinstance(row, dict):
+                    refs.extend([row.get('review'), row.get('first_review')])
+                    for rkey in ('review_receipt', 'first_receipt'):
+                        rcpt = row.get(rkey)
+                        if isinstance(rcpt, dict) and rcpt.get('path'):
+                            protected_of_paths.add(str(root / rcpt['path']))
+            for ref in refs:
+                if isinstance(ref, dict) and ref.get('path'):
+                    rev_p = root / ref['path']
+                    protected_of_paths.add(str(rev_p))
+                    if rev_p.exists():
+                        try:
+                            rev_doc = json.loads(rev_p.read_text(encoding='utf-8'))
+                            for ch in (rev_doc.get('input_archive') or {}).get('chunks', []):
+                                if isinstance(ch, dict) and ch.get('path'):
+                                    protected_of_paths.add(str(root / ch['path']))
+                        except Exception:
+                            pass
+        except Exception:
+            pass
+
     for of_dir_name in ('inputs', 'observations'):
         of_dir = root / 'outcome_feedback' / of_dir_name
         if of_dir.is_dir():
             try:
                 for item in os.scandir(of_dir):
+                    if item.path in protected_of_paths:
+                        continue
                     if now - item.stat().st_mtime > 172800:
                         try:
                             os.unlink(item.path)

@@ -304,15 +304,21 @@ class GraduatedSoccerHalfForecast:
         s = str(side).lower().strip()
 
         if base == 'three_way':
+            p_h = max(1e-4, float(sum(p for (h, a), p in self.scores.items() if h > a)))
+            p_a = max(1e-4, float(sum(p for (h, a), p in self.scores.items() if a > h)))
+            p_d = max(1e-4, float(sum(p for (h, a), p in self.scores.items() if h == a)))
+            tot_3 = p_h + p_d + p_a
+            nh = p_h / tot_3
+            nd = p_d / tot_3
+            na = 1.0 - nh - nd
             if s in ('home', '1'):
-                p = sum(p for (h, a), p in self.scores.items() if h > a)
+                return float(nh), 0.0
             elif s in ('away', '2'):
-                p = sum(p for (h, a), p in self.scores.items() if a > h)
+                return float(na), 0.0
             elif s in ('draw', 'tie', 'x'):
-                p = sum(p for (h, a), p in self.scores.items() if h == a)
+                return float(nd), 0.0
             else:
                 raise ValueError(f'Invalid three_way side: {side}')
-            return float(np.clip(p, 0.01, 0.99)), 0.0
 
         if base == 'moneyline':
             # Draw No Bet
@@ -602,8 +608,17 @@ class GraduatedUniversalForecast:
             p_h = sum(p for (h, a), p in eff_scores.items() if h > a)
             p_a = sum(p for (h, a), p in eff_scores.items() if a > h)
             p_d = sum(p for (h, a), p in eff_scores.items() if h == a)
-            if base == 'three_way' and s in ('draw', 'tie', 'x'):
-                return float(np.clip(p_d, 0.01, 0.99)), 0.0
+            if base == 'three_way':
+                rh = max(1e-4, float(p_h))
+                rd = max(1e-4, float(p_d))
+                ra = max(1e-4, float(p_a))
+                tot_3 = rh + rd + ra
+                nh = rh / tot_3
+                nd = rd / tot_3
+                na = 1.0 - nh - nd
+                if s in ('draw', 'tie', 'x'):
+                    return float(nd), 0.0
+                return (float(nh) if s in ('home', '1') else float(na)), 0.0
             p = p_h if s in ('home', '1') else p_a
             return float(np.clip(p, 0.01, 0.99)), 0.0
 
@@ -1250,13 +1265,13 @@ def attach_champion_to_any_model(
                                     pb_h, _ = orig_mp(kind, 'home', line)
                                     pb_d, _ = orig_mp(kind, 'draw', line)
                                     pb_a, _ = orig_mp(kind, 'away', line)
-                                    bh = max(1e-6, 0.65 * (raw_h / tot_ai) + 0.35 * float(pb_h))
-                                    bd = max(1e-6, 0.65 * (raw_d / tot_ai) + 0.35 * float(pb_d))
-                                    ba = max(1e-6, 0.65 * (raw_a / tot_ai) + 0.35 * float(pb_a))
+                                    bh = max(1e-4, 0.65 * (raw_h / tot_ai) + 0.35 * float(pb_h))
+                                    bd = max(1e-4, 0.65 * (raw_d / tot_ai) + 0.35 * float(pb_d))
+                                    ba = max(1e-4, 0.65 * (raw_a / tot_ai) + 0.35 * float(pb_a))
                                     bsum = bh + bd + ba
                                     nh = bh / bsum
                                     nd = bd / bsum
-                                    na = max(1e-6, 1.0 - nh - nd)
+                                    na = 1.0 - nh - nd
                                     if s_l in ('draw', 'tie', 'x'):
                                         return float(nd), 0.0
                                     elif s_l in ('home', '1'):

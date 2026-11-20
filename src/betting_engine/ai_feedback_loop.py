@@ -555,7 +555,16 @@ class AIFeedbackLoopManager:
                 )
 
         if not sections:
-            return f"PRIOR QUANT ADVISORY: Target high-conviction positive EV on {lg} {fam} with calibrated distribution estimation."
+            base_out = f"PRIOR QUANT ADVISORY: Target high-conviction positive EV on {lg} {fam} with calibrated distribution estimation."
+        else:
+            sections.append("\n(Note: Empirical benchmarks above quantify observed statistical skill targets. Formulate optimal probability structures independently from first principles based on observed data moments.)")
+            base_out = "\n".join(sections)
 
-        sections.append("\n(Note: Empirical benchmarks above quantify observed statistical skill targets. Formulate optimal probability structures independently from first principles based on observed data moments.)")
-        return "\n".join(sections)
+        try:
+            from .verbose_logger import get_verbose_logger
+            v_summary = get_verbose_logger(self.db_path.parent).get_segment_debug_telemetry_summary(lg, fam, limit=5)
+            if v_summary:
+                base_out = base_out + "\n" + v_summary
+        except Exception:
+            pass
+        return base_out

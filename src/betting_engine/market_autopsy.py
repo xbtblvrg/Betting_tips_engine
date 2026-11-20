@@ -152,6 +152,27 @@ class MarketAutopsyAnalyzer:
                 pass
 
         self._fill_heuristics(autopsy, wagers, h_exp, a_exp)
+        try:
+            import logging
+            from .verbose_logger import get_verbose_logger
+            get_verbose_logger(self.db_path.parent).log_event(
+                "market_autopsy",
+                "residual_attribution",
+                f"[AUTOPSY_RESIDUAL_TRACE] {segment_key}: N={autopsy.sample_size}, ROI={autopsy.realized_roi*100:+.1f}%, E[y-p]={autopsy.mean_calibration_residual:+.4f}, BrierDelta={autopsy.mean_brier_delta:+.5f}, corrs={autopsy.residual_correlations}",
+                data={
+                    "segment": segment_key,
+                    "league": league,
+                    "scope": scope,
+                    "family": family,
+                    "sample_size": autopsy.sample_size,
+                    "mean_calibration_residual": autopsy.mean_calibration_residual,
+                    "mean_brier_delta": autopsy.mean_brier_delta,
+                    "residual_correlations": autopsy.residual_correlations,
+                },
+                level=logging.DEBUG,
+            )
+        except Exception:
+            pass
         return autopsy
 
     def _fill_heuristics(
@@ -339,6 +360,27 @@ class MarketAutopsyAnalyzer:
                     f"(ROI {worst_sv['roi']*100:+.1f}%) vs '{best_sk}' residual bias {best_sv['mean_residual']:+.4f} "
                     f"(ROI {best_sv['roi']*100:+.1f}%)."
                 )
+
+        # Cross-Module Synergy: Ingest Closing Line Value (CLV) signal from ExecutionMetaLearner
+        try:
+            from .execution_meta_learner import ExecutionMetaLearner
+            meta_l = ExecutionMetaLearner(data_dir=self.db_path.parent)
+            clv_sig = meta_l.evaluate_candidate_regime({
+                'league': autopsy.league,
+                'model_scope': autopsy.scope,
+                'market': autopsy.family,
+                'reference_odds': 2.0,
+            })
+            seg_clv = float(clv_sig.get('segment_clv', 0.0))
+            if abs(seg_clv) >= 0.005:
+                autopsy.residual_correlations['segment_clv'] = seg_clv
+                if seg_clv < 0.0:
+                    hypotheses.append(
+                        f"Negative Closing Line Value drift observed (mean price CLV = {seg_clv*100:+.2f}%): "
+                        f"pre-start market price movement moves against model selections."
+                    )
+        except Exception:
+            pass
 
         autopsy.scientific_hypotheses = hypotheses
 
