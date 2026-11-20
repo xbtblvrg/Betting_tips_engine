@@ -567,10 +567,10 @@ def build_dashboard(store,health,data_dir):
     if 'market_types' in d and isinstance(d['market_types'], list):
         d['market_types'] = [
             {k: m[k] for k in (
-                'league', 'market', 'section', 'observed_outcomes', 'parsed_outcomes',
-                'quoted_outcomes', 'priced_outcomes', 'guard_passed_outcomes',
-                'guard_rejected_outcomes', 'analysis_status', 'decision_chain_status',
-                'reasons', 'next_step'
+                'league', 'market', 'section', 'scope', 'observed_outcomes', 'supported_outcomes',
+                'evaluated_outcomes', 'parsed_outcomes', 'quoted_outcomes', 'priced_outcomes',
+                'guard_checked_outcomes', 'guard_passed_outcomes', 'guard_rejected_outcomes',
+                'analysis_status', 'decision_chain_status', 'reasons', 'next_step'
             ) if k in m}
             for m in d['market_types']
         ]
