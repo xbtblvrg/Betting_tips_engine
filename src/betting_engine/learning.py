@@ -43,8 +43,6 @@ PRIORITY = {'source_refresh':0, 'model_restore':0, 'segment_restore':0, 'period_
 FAST_TRACK_KINDS = frozenset((
     'runtime_exception_auto_repair',
     'autonomous_code_healing',
-    'priority_model_synthesis',
-    'autonomous_bottleneck_repair',
     'autorun_selector_repair',
     'polymarket_identification_repair',
     'polymarket_taxonomy_repair',
@@ -1594,6 +1592,13 @@ class LearningWorker:
                     dispatched.append({'id': job_id, 'kind': job['kind'], 'status': 'retry', 'error': error})
                     logging.warning('[FAST-TRACK] Learning task #%s (%s) failed: %s; scheduled retry in %ds', job_id, job['kind'], error, delay)
 
+                try:
+                    snap = self.snapshot()
+                    snap['active_parallel_threads'] = len(self._active_futures)
+                    snap['active_jobs'] = [{'id': v[0]['id'], 'kind': v[0]['kind'], 'started_at': v[2]} for v in self._active_futures.values()]
+                    atomic_json(self.data / 'learning_worker.json', snap)
+                except Exception:
+                    pass
                 rows = [r for r in rows if r['id'] != job_id]
 
             return {'busy': False, 'lane': 'fast_track', 'dispatched_count': len(dispatched), 'dispatched': dispatched}
