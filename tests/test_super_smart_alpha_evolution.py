@@ -83,6 +83,17 @@ def test_item2_residual_autopsy_and_scientific_hypotheses(tmp_path: Path):
     assert "Odds-Regime Attribution:" in prompt
     assert "Line-Regime Attribution:" in prompt
 
+    # Commandment 10 (Zero Prompt Anchoring & Exemplar Bias Invariant):
+    # Verify that zero distribution buzzwords, parent class names, or prescriptive recipes appear in the prompt
+    forbidden_anchoring_terms = [
+        "Negative Binomial", "Copula", "Weibull", "Renewal Hazard", "Bayesian shrinkage",
+        "Dixon-Coles", "Skellam", "Markov", "Poisson", "Laplace", "Hurdle", "Zero-Inflated",
+        "James-Stein", "Kalman", "Gumbel", "Clayton", "Frank", "consider dampening",
+        "EVOLUTIONARY PARENT CHAMPION", "Parent 'Distilled",
+    ]
+    for term in forbidden_anchoring_terms:
+        assert term.lower() not in prompt.lower(), f"Prompt anchoring violation: '{term}' found in synthesis prompt!"
+
 
 def test_item3_evolutionary_crossover_and_multi_hypothesis_tournament(tmp_path: Path):
     """Verifies that evolutionary crossover generates 3 distinct valid models and selects the OOS winner."""

@@ -1557,20 +1557,13 @@ class {cls_3}(BaseCandidateModel):
         ctx = sample_context or get_default_segment_context(league, scope)
 
         # -1. Automated Empirical Market Autopsy, Residual Feature Attribution & Evolutionary Parents
+        # Constitutional Commandment 10 (Zero Prompt Anchoring):
+        # Never inject parent class names, archetype categories, or formula recipes into the LLM prompt.
+        # The LLM prompt receives ONLY objective empirical observations, moments, and residual correlations,
+        # while evolutionary parent crossover runs strictly in the out-of-sample Walk-Forward tournament.
         autopsy = self.autopsy_analyzer.analyze_market(canonical_seg)
         parents = [] if force_archetype else self._get_evolutionary_parent_champions(league, scope, family, limit=2)
-        parent_brief = ""
-        if parents:
-            p_lines = [
-                f"- Parent '{p['name']}' (Category: {p['category']}, Verified OOS ROI: +{p['oos_roi']*100:.1f}%, DeltaBrier: {p['delta_brier']:+.4f})"
-                for p in parents
-            ]
-            parent_brief = (
-                "\nEVOLUTIONARY PARENT CHAMPION EVIDENCE (PROVEN OOS WINNERS IN ECOSYSTEM):\n"
-                + "\n".join(p_lines)
-                + "\nEvolve, recombine, or supersede the mathematical mechanisms of these proven parents to resolve the empirical residual correlations above.\n"
-            )
-        targeted_problem = self.brief_builder.build_targeted_prompt(autopsy, domain_problem) + parent_brief
+        targeted_problem = self.brief_builder.build_targeted_prompt(autopsy, domain_problem)
 
         # 0. Enrich with Claude domain mechanics hypothesis if not provided
         if not claude_hypothesis and not force_archetype:

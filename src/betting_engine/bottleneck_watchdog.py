@@ -189,7 +189,7 @@ class BottleneckWatchdog:
                         break
 
             # If model_id was identified but not mounted into memory, mount it now
-            if model_id and not champion_active and active_segment_models is not None:
+            if model_id and not champion_active and scope != 'full_game' and active_segment_models is not None:
                 try:
                     from .graduated_models import resolve_graduated_segment_models
                     resolved = resolve_graduated_segment_models({seg_key: meta}, active_segment_models)
@@ -750,7 +750,7 @@ class BottleneckWatchdog:
             }, level=logging.WARNING)
 
             # Autonomous Self-Healing: Trigger ESPN recovery & college score refresh (throttled to 1 per 5m)
-            recovery_success = False
+            recovery_success = bool(getattr(BottleneckWatchdog, '_LAST_SCORE_GAP_HEAL_OK', False))
             last_heal = BottleneckWatchdog._LAST_SCORE_GAP_HEAL_AT
             is_testing = bool(os.environ.get('PYTEST_CURRENT_TEST'))
             should_run_sup = not is_testing and (last_heal is None or (now_dt - last_heal).total_seconds() >= 300.0)
@@ -764,6 +764,7 @@ class BottleneckWatchdog:
                     recovered_count = int(cycle_res.get('recovered_games', 0)) + int(cycle_res.get('walkover_void_settled', 0))
                     settled_count = int(cycle_res.get('settled_count', 0)) + int(cycle_res.get('feed_settled_bets', 0)) + int(inc_rec.get('total_settled', 0))
                     recovery_success = (recovered_count > 0 or settled_count > 0 or cycle_res.get('final_past_due', 1) == 0)
+                    BottleneckWatchdog._LAST_SCORE_GAP_HEAL_OK = recovery_success
                     if recovery_success:
                         healed_count += 1
                         vl.log_event("bottleneck_watchdog", "score_gap_healed",
@@ -771,6 +772,8 @@ class BottleneckWatchdog:
                                      data=cycle_res, level=logging.INFO)
                 except Exception as e_sup:
                     log.warning("[WATCHDOG_SCORE_GAP] SettlementSupervisor recovery error: %s", e_sup)
+            elif recovery_success:
+                healed_count += 1
 
             anomalies.append(BottleneckAnomaly(
                 anomaly_id=f"score_gap_{now_dt.strftime('%Y%m%d_%H')}",

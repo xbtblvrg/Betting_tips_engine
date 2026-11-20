@@ -163,19 +163,24 @@ class SuperintelligentProfitEngine:
         # Average Brier score improvement from settled incubated wagers
         if self.incubator_db.exists():
             try:
-                conn = sqlite3.connect(f"file:{self.incubator_db.resolve()}?mode=ro", uri=True, timeout=5.0)
-                cur = conn.cursor()
-                cur.execute("""
-                    SELECT 
-                        count(*),
-                        round(avg(brier_model), 4),
-                        round(avg(brier_market), 4),
-                        round(avg(brier_market - brier_model), 4)
-                    FROM incubated_wagers
-                    WHERE status = 'settled' AND brier_model IS NOT NULL AND brier_market IS NOT NULL
-                """)
-                row = cur.fetchone()
-                conn.close()
+                from contextlib import closing
+                with closing(sqlite3.connect(f"file:{self.incubator_db.resolve()}?mode=ro", uri=True, timeout=5.0)) as conn:
+                    cur = conn.cursor()
+                    cur.execute("""
+                        SELECT 
+                            count(*),
+                            round(avg(brier_model), 4),
+                            round(avg(brier_market), 4),
+                            round(avg(brier_market - brier_model), 4)
+                        FROM (
+                            SELECT brier_model, brier_market
+                            FROM incubated_wagers
+                            WHERE status = 'settled' AND brier_model IS NOT NULL AND brier_market IS NOT NULL
+                            ORDER BY rowid DESC
+                            LIMIT 10000
+                        )
+                    """)
+                    row = cur.fetchone()
                 if row and row[0] > 0:
                     cnt, bm, bk, delta_brier = row
                     telemetry['evaluated_wagers_sample'] = cnt
@@ -214,30 +219,20 @@ class SuperintelligentProfitEngine:
 
         if self.incubator_db.exists():
             try:
-                conn = sqlite3.connect(f"file:{self.incubator_db.resolve()}?mode=ro", uri=True, timeout=5.0)
-                cur = conn.cursor()
-                cur.execute("SELECT count(*) FROM demoted_markets WHERE incubation_phase = 'research_training'")
-                t1 = cur.fetchone()[0] or 0
-                cur.execute("SELECT count(*) FROM demoted_markets WHERE incubation_phase = 'incubating_with_new_model'")
-                t2 = cur.fetchone()[0] or 0
-                cur.execute("SELECT count(*) FROM graduated_markets")
-                t3 = cur.fetchone()[0] or 0
-                conn.close()
+                from contextlib import closing
+                with closing(sqlite3.connect(f"file:{self.incubator_db.resolve()}?mode=ro", uri=True, timeout=5.0)) as conn:
+                    cur = conn.cursor()
+                    cur.execute("SELECT count(*) FROM demoted_markets WHERE incubation_phase = 'research_training'")
+                    t1 = cur.fetchone()[0] or 0
+                    cur.execute("SELECT count(*) FROM demoted_markets WHERE incubation_phase = 'incubating_with_new_model'")
+                    t2 = cur.fetchone()[0] or 0
+                    cur.execute("SELECT count(*) FROM graduated_markets")
+                    t3 = cur.fetchone()[0] or 0
 
                 telemetry['tier_1_research_count'] = t1
                 telemetry['tier_2_shadow_incubating_count'] = t2
                 telemetry['tier_3_production_graduated_count'] = t3
-
-                # Check if Crucible graduation can be executed
-                from .shadow_market_incubator import ShadowMarketIncubator
-                inc = ShadowMarketIncubator(self.data_dir)
-                grads = inc.evaluate_graduation()
-                if grads:
-                    status = 'accelerating'
-                    action = f"Autonóm Crucible graduáció: {len(grads)} sikeres piac átlépett a Tier 3 éles szintre."
-                    telemetry['newly_graduated'] = [g['segment_key'] for g in grads]
-                else:
-                    action = f"Zárt láncú fejlődés aktív: {t3} éles piacon folyik játék, {t2} piac előszűrése folyik élőben kockázatmentesen ($0.00)."
+                action = f"Zárt láncú fejlődés aktív: {t3} éles piacon folyik játék, {t2} piac előszűrése folyik élőben kockázatmentesen ($0.00)."
             except Exception as e:
                 status = 'warning'
                 telemetry['error'] = str(e)

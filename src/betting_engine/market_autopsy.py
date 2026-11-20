@@ -353,31 +353,31 @@ class MarketAutopsyAnalyzer:
         if 'total' in fam:
             if lg in ('NBA', 'WNBA', 'NCAAM', 'NCAAW') or autopsy.dispersion_index > 1.25:
                 recs.extend(['overdispersed_variance', 'compound_scoring'])
-                pathologies.append(f"Heavy right-tail variance (Dispersion={autopsy.dispersion_index}); evaluate overdispersed or compound variance dynamics")
+                pathologies.append(f"Observed variance-to-mean ratio (Dispersion={autopsy.dispersion_index:.3f}, Skewness={autopsy.skewness:+.3f})")
             elif lg == 'NHL' and ('period_3' in sc or 'regulation' in sc):
                 recs.extend(['time_varying_hazard', 'accelerating_rate'])
-                pathologies.append("Late empty-net goal surge violates constant event-rate homogeneity; observe time-dependent acceleration")
+                pathologies.append("Observed non-stationary scoring rate in final period due to late empty-net situations")
             else:
                 recs.extend(['bivariate_dependence', 'low_scoring_marginal'])
-                pathologies.append("Low-scoring marginal dependence; observe joint score correlation and low-tally clustering")
+                pathologies.append(f"Observed low-scoring joint outcome distribution (Home mean={autopsy.home_expected:.2f}, Away mean={autopsy.away_expected:.2f})")
 
         elif 'spread' in fam or 'handicap' in fam:
             if lg in ('NFL', 'NCAAF'):
                 recs.extend(['key_number_clustering', 'discrete_margin_mass'])
-                pathologies.append("Score differentials cluster sharply on key numbers (3, 7, 10); discrete margin mass observed")
+                pathologies.append("Observed score differentials concentrate on discrete scoring increments (3, 7, 10 points)")
             else:
                 recs.extend(['differential_scoring', 'modal_concentration'])
-                pathologies.append("High modal concentration around margin; evaluate differential tail dispersion")
+                pathologies.append(f"Observed margin dispersion index {autopsy.dispersion_index:.3f} and skewness {autopsy.skewness:+.3f}")
 
         elif 'three_way' in fam or 'draw' in fam or 'moneyline' in fam:
             if autopsy.worst_side == 'home':
-                pathologies.append(f"Systematic over-estimation of Home advantage (Home PnL: {autopsy.pnl_by_side.get('home', 0.0):.1f}); consider dampening home weighting")
+                pathologies.append(f"Observed negative realized return on Home selections (Home PnL: {autopsy.pnl_by_side.get('home', 0.0):.1f})")
             recs.extend(['bivariate_dependence', 'draw_sensitivity'])
-            pathologies.append("3-way draw probability sensitivity; evaluate joint marginal outcomes")
+            pathologies.append("Observed 3-way/winner outcome calibration sensitivity across home, draw, and away outcomes")
 
         else:
             recs.extend(['score_lattice', 'tail_variance'])
-            pathologies.append("Tail variance uncaptured by baseline models")
+            pathologies.append(f"Observed empirical dispersion index {autopsy.dispersion_index:.3f}")
 
         if hypotheses:
             pathologies.extend(hypotheses[:2])

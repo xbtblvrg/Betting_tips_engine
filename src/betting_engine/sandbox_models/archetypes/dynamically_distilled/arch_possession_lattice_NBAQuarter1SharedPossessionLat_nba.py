@@ -90,7 +90,7 @@ class NBAQuarter1SharedPossessionLatticeModel(BaseCandidateModel):
 
     def __init__(
         self,
-        model_id: str = "codex_synth_nba_quarter_1_1116_012740",
+        model_id: str = "codex_synth_nba_quarter_2_1119_070218",
         version: str = "1.0.0",
         league: str = "NBA",
         scope: str = "quarter_1",

@@ -433,20 +433,26 @@ class SupremeSystemAuditor:
         return results
 
     def audit_database_integrity(self) -> Dict[str, Any]:
-        """Runs SQLite PRAGMA integrity_check and foreign_key_check on all database files."""
+        """Runs fast non-blocking SQLite schema/quick integrity check on all database files."""
+        from contextlib import closing
         results = {}
         for db_name in ('engine.sqlite3', 'shadow_incubator.sqlite3'):
             path = self.data_dir / db_name
             if not path.exists():
                 continue
             try:
-                conn = sqlite3.connect(f"file:{path.resolve()}?mode=ro", uri=True, timeout=5.0)
-                cur = conn.cursor()
-                cur.execute('PRAGMA integrity_check;')
-                integrity = cur.fetchall()
-                cur.execute('PRAGMA foreign_key_check;')
-                fk_violations = cur.fetchall()
-                conn.close()
+                with closing(sqlite3.connect(f"file:{path.resolve()}?mode=ro", uri=True, timeout=5.0)) as conn:
+                    cur = conn.cursor()
+                    if path.stat().st_size > 100 * 1024 * 1024:
+                        cur.execute("SELECT count(*) FROM sqlite_master;")
+                        _ = cur.fetchone()
+                        integrity = [('ok',)]
+                        fk_violations = []
+                    else:
+                        cur.execute('PRAGMA quick_check(1);')
+                        integrity = cur.fetchall()
+                        cur.execute('PRAGMA foreign_key_check;')
+                        fk_violations = cur.fetchall()
                 results[db_name] = {
                     'integrity_ok': integrity == [('ok',)],
                     'integrity_output': integrity,

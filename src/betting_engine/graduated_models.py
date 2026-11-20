@@ -1235,20 +1235,34 @@ def attach_champion_to_any_model(
                             idx = 0 if base_k == 'home_total' else 1
                             p_ai = sum(p for sc_t, p in eff_sc.items() if (sc_t[idx] > lv if s_l in ('over', 'o') else sc_t[idx] < lv))
                         elif base_k == 'three_way':
+                            raw_h = raw_d = raw_a = None
                             if eff_sc:
-                                if s_l in ('draw', 'tie', 'x'):
-                                    p_ai = sum(p for (ga, gb), p in eff_sc.items() if ga == gb)
-                                elif s_l in ('home', '1'):
-                                    p_ai = sum(p for (ga, gb), p in eff_sc.items() if ga > gb)
-                                else:
-                                    p_ai = sum(p for (ga, gb), p in eff_sc.items() if gb > ga)
+                                raw_d = sum(p for (ga, gb), p in eff_sc.items() if ga == gb)
+                                raw_h = sum(p for (ga, gb), p in eff_sc.items() if ga > gb)
+                                raw_a = sum(p for (ga, gb), p in eff_sc.items() if gb > ga)
                             elif eff_pr:
-                                if s_l in ('draw', 'tie', 'x'):
-                                    p_ai = float(eff_pr.get('draw', eff_pr.get('tie', 0.0)))
-                                elif s_l in ('home', '1'):
-                                    p_ai = float(eff_pr.get('home', 0.0))
-                                else:
-                                    p_ai = float(eff_pr.get('away', 0.0))
+                                raw_d = float(eff_pr.get('draw', eff_pr.get('tie', 0.0)))
+                                raw_h = float(eff_pr.get('home', 0.0))
+                                raw_a = float(eff_pr.get('away', 0.0))
+                            if raw_h is not None and raw_d is not None and raw_a is not None:
+                                tot_ai = raw_h + raw_d + raw_a
+                                if tot_ai > 1e-6:
+                                    pb_h, _ = orig_mp(kind, 'home', line)
+                                    pb_d, _ = orig_mp(kind, 'draw', line)
+                                    pb_a, _ = orig_mp(kind, 'away', line)
+                                    bh = max(1e-6, 0.65 * (raw_h / tot_ai) + 0.35 * float(pb_h))
+                                    bd = max(1e-6, 0.65 * (raw_d / tot_ai) + 0.35 * float(pb_d))
+                                    ba = max(1e-6, 0.65 * (raw_a / tot_ai) + 0.35 * float(pb_a))
+                                    bsum = bh + bd + ba
+                                    nh = bh / bsum
+                                    nd = bd / bsum
+                                    na = max(1e-6, 1.0 - nh - nd)
+                                    if s_l in ('draw', 'tie', 'x'):
+                                        return float(nd), 0.0
+                                    elif s_l in ('home', '1'):
+                                        return float(nh), 0.0
+                                    else:
+                                        return float(na), 0.0
                         elif base_k in ('moneyline', 'winner', 'draw_no_bet'):
                             if eff_sc:
                                 p_h_reg = sum(p for (ga, gb), p in eff_sc.items() if ga > gb)

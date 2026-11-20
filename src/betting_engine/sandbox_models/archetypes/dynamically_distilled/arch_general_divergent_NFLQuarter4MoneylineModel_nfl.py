@@ -90,7 +90,7 @@ class NFLQuarter4MoneylineModel(BaseCandidateModel):
 
     def __init__(
         self,
-        model_id: str = "codex_synth_nfl_quarter_4_1119_130908",
+        model_id: str = "codex_synth_nfl_quarter_2_1120_001106",
         version: str = "1.0.0",
         league: str = "NFL",
         scope: str = "quarter_4",
