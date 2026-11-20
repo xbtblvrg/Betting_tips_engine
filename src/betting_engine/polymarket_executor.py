@@ -2246,61 +2246,76 @@ class PolymarketAutonomousExecutor:
     ):
         """Atomically inserts/updates polymarket_orders and appends to jsonl log."""
         now_iso = utcnow().isoformat()
-        try:
-            with closing(sqlite3.connect(self.db_path, timeout=30)) as conn:
-                conn.execute(
-                    """
-                    INSERT INTO polymarket_orders (
-                        order_id, client_order_id, token_id, league, game_title, start_time,
-                        market_family, selection, side, line, poly_price, poly_odds,
-                        model_prob, expected_value, stake_usd, shares_count, status,
-                        tx_hash, pnl, error_code, error_detail, ai_remediation_hint,
-                        created_at, updated_at, execution_mode, scope
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(client_order_id) DO UPDATE SET
-                        order_id=COALESCE(excluded.order_id, polymarket_orders.order_id),
-                        status=excluded.status,
-                        tx_hash=COALESCE(excluded.tx_hash, polymarket_orders.tx_hash),
-                        pnl=COALESCE(excluded.pnl, polymarket_orders.pnl),
-                        error_code=COALESCE(excluded.error_code, polymarket_orders.error_code),
-                        error_detail=COALESCE(excluded.error_detail, polymarket_orders.error_detail),
-                        ai_remediation_hint=COALESCE(excluded.ai_remediation_hint, polymarket_orders.ai_remediation_hint),
-                        updated_at=excluded.updated_at,
-                        execution_mode=excluded.execution_mode,
-                        scope=excluded.scope;
-                    """,
-                    (
-                        order_id,
-                        client_order_id,
-                        token_id,
-                        league,
-                        game_title,
-                        start_time,
-                        market_family,
-                        selection,
-                        side,
-                        line,
-                        poly_price,
-                        poly_odds,
-                        model_prob,
-                        expected_value,
-                        stake_usd,
-                        shares_count,
-                        status,
-                        tx_hash,
-                        pnl,
-                        error_code,
-                        error_detail,
-                        ai_remediation_hint,
-                        now_iso,
-                        now_iso,
-                        execution_mode,
-                        scope,
-                    ),
-                )
-                conn.commit()
-        except Exception as exc:
-            log.error(f"Failed to record polymarket order in SQLite: {exc}")
+        import time as _time
+
+        _max_retries = 5
+        for _attempt in range(_max_retries):
+            try:
+                with closing(sqlite3.connect(self.db_path, timeout=60)) as conn:
+                    conn.execute("PRAGMA journal_mode=WAL;")
+                    conn.execute("PRAGMA synchronous=NORMAL;")
+                    conn.execute("PRAGMA busy_timeout=60000;")
+                    conn.execute(
+                        """
+                        INSERT INTO polymarket_orders (
+                            order_id, client_order_id, token_id, league, game_title, start_time,
+                            market_family, selection, side, line, poly_price, poly_odds,
+                            model_prob, expected_value, stake_usd, shares_count, status,
+                            tx_hash, pnl, error_code, error_detail, ai_remediation_hint,
+                            created_at, updated_at, execution_mode, scope
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(client_order_id) DO UPDATE SET
+                            order_id=COALESCE(excluded.order_id, polymarket_orders.order_id),
+                            status=excluded.status,
+                            tx_hash=COALESCE(excluded.tx_hash, polymarket_orders.tx_hash),
+                            pnl=COALESCE(excluded.pnl, polymarket_orders.pnl),
+                            error_code=COALESCE(excluded.error_code, polymarket_orders.error_code),
+                            error_detail=COALESCE(excluded.error_detail, polymarket_orders.error_detail),
+                            ai_remediation_hint=COALESCE(excluded.ai_remediation_hint, polymarket_orders.ai_remediation_hint),
+                            updated_at=excluded.updated_at,
+                            execution_mode=excluded.execution_mode,
+                            scope=excluded.scope;
+                        """,
+                        (
+                            order_id,
+                            client_order_id,
+                            token_id,
+                            league,
+                            game_title,
+                            start_time,
+                            market_family,
+                            selection,
+                            side,
+                            line,
+                            poly_price,
+                            poly_odds,
+                            model_prob,
+                            expected_value,
+                            stake_usd,
+                            shares_count,
+                            status,
+                            tx_hash,
+                            pnl,
+                            error_code,
+                            error_detail,
+                            ai_remediation_hint,
+                            now_iso,
+                            now_iso,
+                            execution_mode,
+                            scope,
+                        ),
+                    )
+                    conn.commit()
+                break
+            except sqlite3.OperationalError as exc:
+                if ("locked" in str(exc).lower() or "busy" in str(exc).lower()) and _attempt < _max_retries - 1:
+                    _time.sleep(0.1 * (2 ** _attempt))
+                    continue
+                log.error(f"Failed to record polymarket order in SQLite: {exc}")
+                break
+            except Exception as exc:
+                log.error(f"Failed to record polymarket order in SQLite: {exc}")
+                break
 
         # Stream into JSONL log
         log_payload = {
