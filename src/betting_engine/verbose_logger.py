@@ -161,11 +161,12 @@ class JsonlLogHandler(logging.Handler):
                 pass
 
             # 2. Enqueue Priority-0 fast-track job in engine.sqlite3 (learning_jobs)
+            # Skip synchronous SQLite write if the exception itself is a transient SQLite lock
             engine_db = self.data_dir / "engine.sqlite3"
-            if engine_db.exists():
+            if engine_db.exists() and "database is locked" not in exc_msg.lower():
                 try:
-                    with closing(sqlite3.connect(str(engine_db), timeout=15.0)) as conn:
-                        conn.execute("PRAGMA busy_timeout = 15000")
+                    with closing(sqlite3.connect(str(engine_db), timeout=1.5)) as conn:
+                        conn.execute("PRAGMA busy_timeout = 1500")
                         conn.execute(
                             """
                             INSERT OR IGNORE INTO learning_jobs (

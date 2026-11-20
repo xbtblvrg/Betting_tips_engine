@@ -179,6 +179,9 @@ class LearningWorker:
           id TEXT PRIMARY KEY,league TEXT NOT NULL,code TEXT NOT NULL,action TEXT NOT NULL,
           status TEXT NOT NULL,first_seen TEXT NOT NULL,last_seen TEXT NOT NULL,resolved_at TEXT,
           job_id TEXT,evidence TEXT NOT NULL);
+        CREATE INDEX IF NOT EXISTS idx_learning_jobs_kind_league_created ON learning_jobs(kind, league, created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_learning_jobs_status_kind ON learning_jobs(status, kind);
+        CREATE INDEX IF NOT EXISTS idx_operating_gaps_status ON operating_gaps(status, last_seen);
         ''')
             cur = c.cursor()
             cur.execute("PRAGMA table_info(learning_jobs)")
@@ -508,7 +511,7 @@ class LearningWorker:
         """Automatically identify underperforming segments and route them to autonomous AI repair jobs."""
         from .segment_scoreboard import compute_segment_scoreboard
         try:
-            with self.store.db() as c:
+            with self.store.ro_db() as c:
                 scoreboard = compute_segment_scoreboard(c)
             under = scoreboard.get('underperforming_segments', [])
             # Strict Constitutional Mandate (Commandment 6.5 & Strategic Priority):
@@ -594,6 +597,15 @@ class LearningWorker:
     def coalesce_stale_jobs(self, now):
         """Coalesce duplicate or superseded periodic jobs to prevent queue pileups."""
         try:
+            from .segment_scoreboard import compute_segment_scoreboard
+            active_under = None
+            try:
+                with self.store.ro_db() as c_ro:
+                    scoreboard = compute_segment_scoreboard(c_ro)
+                    active_under = {s['segment'] for s in scoreboard.get('underperforming_segments', [])}
+            except Exception:
+                active_under = None
+
             with self.store.db() as c:
                 now_iso = now.isoformat()
                 # 1. Coalesce opportunity_funnel_repair to keep only the latest queued job
@@ -615,27 +627,25 @@ class LearningWorker:
                     """, (latest_id, now_iso, latest_id))
 
                 # 2. Retire queued segment repair jobs for segments no longer underperforming
-                from .segment_scoreboard import compute_segment_scoreboard
-                try:
-                    scoreboard = compute_segment_scoreboard(c)
-                    active_under = {s['segment'] for s in scoreboard.get('underperforming_segments', [])}
-                    queued_repairs = c.execute("""
-                        SELECT id, json_extract(payload, '$.segment') as segment
-                        FROM learning_jobs
-                        WHERE kind='segment_repair' AND status IN ('queued', 'retry')
-                    """).fetchall()
-                    for r in queued_repairs:
-                        seg = r['segment']
-                        if seg and seg not in active_under:
-                            c.execute("""
-                                UPDATE learning_jobs
-                                SET status = 'completed',
-                                    result = json_object('state', 'completed', 'reason', 'Segment is no longer underperforming in current scoreboard'),
-                                    updated_at = ?
-                                WHERE id = ?
-                            """, (now_iso, r['id']))
-                except Exception:
-                    pass
+                if active_under is not None:
+                    try:
+                        queued_repairs = c.execute("""
+                            SELECT id, json_extract(payload, '$.segment') as segment
+                            FROM learning_jobs
+                            WHERE kind='segment_repair' AND status IN ('queued', 'retry')
+                        """).fetchall()
+                        for r in queued_repairs:
+                            seg = r['segment']
+                            if seg and seg not in active_under:
+                                c.execute("""
+                                    UPDATE learning_jobs
+                                    SET status = 'completed',
+                                        result = json_object('state', 'completed', 'reason', 'Segment is no longer underperforming in current scoreboard'),
+                                        updated_at = ?
+                                    WHERE id = ?
+                                """, (now_iso, r['id']))
+                    except Exception:
+                        pass
         except Exception as e:
             import logging
             logging.getLogger(__name__).warning("Error coalescing stale jobs: %s", e)
@@ -718,20 +728,28 @@ class LearningWorker:
         audit['gaps'].extend(catalog_gaps)
         live_ids=[]
         now_iso = now.isoformat()
+        schema_digest_by_league = {}
+        for lg_item in {g['league'] for g in audit['gaps']}:
+            schema = [(m['section'], m['market'], m['supported_outcomes'] > 0) for m in payload['market_types'] if m['league'] == lg_item]
+            schema_digest_by_league[lg_item] = hashlib.sha256(json.dumps(sorted(schema)).encode()).hexdigest()
         with self.store.db() as c:
+            prior_cache = {}
             for gap in audit['gaps']:
                 live_ids.append(gap['id']);kind=gap['action'];league=gap['league']
                 cadence=15*60 if kind=='source_refresh' else (6 if audit['daily_progress']['shortfall'] else 24)*3600
-                prior=c.execute("SELECT id,status,updated_at,payload FROM learning_jobs WHERE kind=? AND league=? ORDER BY created_at DESC LIMIT 1",(kind,league)).fetchone()
+                ckey = (kind, league)
+                if ckey not in prior_cache:
+                    prior_cache[ckey] = c.execute("SELECT id,status,updated_at,payload FROM learning_jobs WHERE kind=? AND league=? ORDER BY created_at DESC LIMIT 1",(kind,league)).fetchone()
+                prior = prior_cache[ckey]
                 active=prior and prior['status'] in ('queued','running','retry')
                 due=not prior or (now-parse_time(prior['updated_at'])).total_seconds()>=cadence
-                schema=[(m['section'],m['market'],m['supported_outcomes']>0) for m in payload['market_types'] if m['league']==league]
-                schema_digest=hashlib.sha256(json.dumps(sorted(schema)).encode()).hexdigest()
+                schema_digest=schema_digest_by_league.get(league, '')
                 if kind=='market_research' and prior and json.loads(prior['payload']).get('market_schema_sha256')!=schema_digest:due=True
                 job_id=prior['id'] if prior else None
                 if not active and due:
                     job_id=self.enqueue(kind,f'{league}:{prior["id"] if prior else "initial"}',league=league,
                         payload={'gap':gap,'publication_at':payload['generated_at'],'market_schema_sha256':schema_digest},conn=c)
+                    prior_cache[ckey] = {'id': job_id, 'status': 'queued', 'updated_at': now_iso, 'payload': json.dumps({'market_schema_sha256': schema_digest})}
                 state='needs_implementation' if kind=='market_research' else 'repair_pending'
                 c.execute('''INSERT INTO operating_gaps VALUES (?,?,?,?,?,?,?,NULL,?,?)
                   ON CONFLICT(id) DO UPDATE SET action=excluded.action,status=excluded.status,
