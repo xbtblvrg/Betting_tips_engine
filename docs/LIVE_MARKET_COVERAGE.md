@@ -1,12 +1,12 @@
 # Live Stake market coverage
 
-Checked: 2026-11-20T17:42:48.558377+00:00
+Checked: 2026-11-20T18:07:13.607908+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
 | League | Observed titles | Activity unverified | Offered now | Complete 10/10 | Incomplete offered | Evaluated | Funding supported | Ready now | Issued today |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| NFL | 67 | 1 | 61 | 0 | 61 | 40 | 13 | 0 | 6 |
+| NFL | 68 | 1 | 62 | 0 | 62 | 40 | 13 | 9 | 6 |
 | NHL | 17 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 7 |
 | MLB | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | NBA | 150 | 5 | 121 | 0 | 121 | 64 | 8 | 0 | 15 |
@@ -181,7 +181,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NFL | 2nd Half - 1x2 (Incl. Overtime) | standard | half_2_ot | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 2/2 | verified 2/2 | awaiting_measurement 1/3 | 0 |
 | NFL | 2nd Half - Draw No Bet (Incl. Overtime) | standard | half_2_ot | offered_now | 2/10 | partial 6/22 | partial 18/22 | partial 6/22 | partial 6/22 | partial 6/22 | verified 6/6 | verified 6/6 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 2nd Half - Handicap (Incl. Overtime) | standard | half_2_ot | offered_now | 2/10 | partial 5/22 | partial 18/22 | partial 5/22 | partial 5/22 | partial 5/22 | verified 5/5 | verified 5/5 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NFL | 2nd Half - Total (Incl. Overtime) | standard | half_2_ot | offered_now | 2/10 | partial 3/22 | partial 18/22 | partial 3/22 | partial 3/22 | partial 3/22 | verified 3/3 | verified 3/3 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NFL | 2nd Half - Total (Incl. Overtime) | standard | half_2_ot | offered_now | 2/10 | partial 4/22 | partial 18/22 | partial 4/22 | partial 4/22 | partial 4/22 | verified 4/4 | verified 4/4 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 2nd Quarter - 1x2 | standard | quarter_2 | offered_now | 0/10 | not_observed 0/27 | partial 21/27 | not_observed 0/27 | not_observed 0/27 | not_observed 0/27 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 2nd Quarter - Draw No Bet | standard | quarter_2 | offered_now | 0/10 | not_observed 0/18 | partial 14/18 | partial 3/18 | partial 3/18 | not_observed 0/18 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 2nd Quarter - Handicap | standard | quarter_2 | offered_now | 4/10 | partial 3/18 | partial 14/18 | partial 3/18 | partial 3/18 | partial 3/18 | verified 3/3 | verified 3/3 | verified 5/5 | verified 2/2 | partial 0/3 | 1 |
@@ -205,7 +205,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NFL | Denver Broncos Total (Incl. Overtime) | standard | full_game | offered_now | 7/10 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Detroit Lions Total (Incl. Overtime) | standard | full_game | offered_now | 7/10 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Halftime/Fulltime | standard | regulation | offered_now | 0/10 | not_observed 0/99 | not_observed 0/99 | not_observed 0/99 | not_observed 0/99 | not_observed 0/99 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NFL | Handicap (Incl. Overtime) | standard | full_game | offered_now | 2/10 | partial 54/66 | partial 54/66 | partial 54/66 | partial 54/66 | partial 54/66 | verified 54/54 | verified 54/54 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NFL | Handicap (Incl. Overtime) | standard | full_game | offered_now | 2/10 | partial 78/94 | partial 78/94 | partial 78/94 | partial 78/94 | partial 78/94 | verified 78/78 | verified 78/78 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Highest Scoring Half | standard | regulation | offered_now | 0/10 | not_observed 0/33 | not_observed 0/33 | not_observed 0/33 | not_observed 0/33 | not_observed 0/33 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Highest Scoring Quarter | standard | regulation | offered_now | 0/10 | not_observed 0/45 | not_observed 0/45 | not_observed 0/45 | not_observed 0/45 | not_observed 0/45 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Indianapolis Colts Total (Incl. Overtime) | standard | full_game | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 0/2 | 0 |
@@ -224,7 +224,8 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NFL | San Francisco 49ers Total (Incl. Overtime) | standard | full_game | offered_now | 7/10 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Tampa Bay Buccaneers Total (Incl. Overtime) | standard | full_game | offered_now | 8/10 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 1/1 | not_observed 0/0 | partial 0/1 | 1 |
 | NFL | Tennessee Titans Total (Incl. Overtime) | standard | full_game | offered_now | 8/10 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 1/1 | not_observed 0/0 | partial 0/1 | 0 |
-| NFL | Total (Incl. Overtime) | standard | full_game | offered_now | 4/10 | partial 54/66 | partial 54/66 | partial 54/66 | partial 54/66 | partial 54/66 | verified 54/54 | verified 54/54 | verified 8/8 | verified 1/1 | partial 0/2 | 1 |
+| NFL | Total (Incl. Overtime) | standard | full_game | offered_now | 4/10 | partial 78/94 | partial 78/94 | partial 78/94 | partial 78/94 | partial 78/94 | verified 78/78 | verified 78/78 | verified 8/8 | verified 1/1 | partial 0/2 | 1 |
+| NFL | Total field goals made (incl. overtime) | standard | full_game | offered_now | 0/10 | not_observed 0/14 | not_observed 0/14 | not_observed 0/14 | not_observed 0/14 | not_observed 0/14 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Total sacks (incl. overtime) | standard | full_game | offered_now | 0/10 | not_observed 0/14 | not_observed 0/14 | not_observed 0/14 | not_observed 0/14 | not_observed 0/14 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Total touchdowns (incl. overtime) | standard | full_game | offered_now | 0/10 | not_observed 0/22 | not_observed 0/22 | not_observed 0/22 | not_observed 0/22 | not_observed 0/22 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Total turnovers (incl. overtime) | standard | full_game | offered_now | 0/10 | not_observed 0/14 | not_observed 0/14 | not_observed 0/14 | not_observed 0/14 | not_observed 0/14 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
