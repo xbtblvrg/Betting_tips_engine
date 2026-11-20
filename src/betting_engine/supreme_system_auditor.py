@@ -519,10 +519,25 @@ class SupremeSystemAuditor:
             # Run component health audit
             now = utcnow()
             comp_result = audit_components(pub, worker, catalog, research, now, closing=closing)
-            degraded_components = [
-                c for c in comp_result.get('checks', [])
-                if c.get('state') in ('degraded', 'invalid', 'missing')
-            ]
+            benign_catalog_reasons = {
+                'stake_seed_identity_unresolved',
+                'stake_fixture_not_active',
+                'stake_fixture_identity_conflict',
+                'stake_fixture_endpoint_error',
+                'stake_endpoint_market_difference',
+            }
+            degraded_components = []
+            for c in comp_result.get('checks', []):
+                if c.get('state') not in ('degraded', 'invalid', 'missing'):
+                    continue
+                if c.get('component') == 'Full market catalogue' and (c.get('freshness') or {}).get('state') == 'fresh':
+                    crit_issues = [
+                        i for i in (c.get('issues') or [])
+                        if i.get('reason') not in benign_catalog_reasons and i.get('stage') != 'fixture_endpoints'
+                    ]
+                    if not crit_issues:
+                        continue
+                degraded_components.append(c)
 
             return {
                 'generated_at': gen_at,
