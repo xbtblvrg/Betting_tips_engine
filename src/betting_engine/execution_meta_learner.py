@@ -150,7 +150,12 @@ class ExecutionMetaLearner:
                     if isinstance(clv_val, (int, float)) and math.isfinite(float(clv_val)):
                         lg_c = str(rep.get("league") or "").upper().strip()
                         mk_c = str(rep.get("market_key") or "full_game:moneyline").lower().strip()
-                        sc_c, base_c = split_market(mk_c)
+                        if mk_c.startswith("full_game:"):
+                            sc_c, base_c = "full_game", mk_c.split(":", 1)[1]
+                        else:
+                            sc_c, base_c = split_market(mk_c)
+                            if ":" in base_c:
+                                base_c = base_c.split(":")[-1]
                         for ck in {f"{lg_c}|{sc_c}|{base_c}", f"{lg_c}|*|*"}:
                             clv_acc.setdefault(ck, []).append(float(clv_val))
                 for ck, vals in clv_acc.items():

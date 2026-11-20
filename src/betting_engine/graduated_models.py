@@ -1192,7 +1192,7 @@ def attach_champion_to_any_model(
                         eval_cache[c_id] = c_inst.predict_distribution(c_dict)
                     dist = eval_cache[c_id]
                     if dist:
-                        if getattr(dist, 'scores', None) and len(dist.scores) >= 4:
+                        if getattr(dist, 'scores', None) and len(dist.scores) >= 2:
                             ai_dists[m_key] = dist.scores
                         if getattr(dist, 'probabilities', None) and isinstance(dist.probabilities, dict):
                             ai_probs[m_key] = dist.probabilities

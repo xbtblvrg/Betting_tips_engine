@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 import logging
+import math
 import os
 from pathlib import Path
 import re
@@ -1404,7 +1405,6 @@ from typing import Any, Dict, Optional
 from betting_engine.sandbox_models.base import (
     BaseCandidateModel,
     DiscreteDistribution,
-    JamesSteinShrinkage,
     build_universal_score_lattice,
 )
 
@@ -1433,14 +1433,15 @@ class {cls_3}(BaseCandidateModel):
         )
         self.temperature = temperature
         self.dispersion_alpha = dispersion_alpha
-        self.shrinkage = JamesSteinShrinkage(prior_weight=0.22)
+        self.prior_weight = 0.22
 
     def predict_distribution(self, game_context: Dict[str, Any]) -> DiscreteDistribution:
         h_raw = float(game_context.get('home_expected') or game_context.get('home_points') or {def_h})
         a_raw = float(game_context.get('away_expected') or game_context.get('away_points') or {def_a})
-        shrunk = self.shrinkage.shrink([h_raw, a_raw], [{def_h}, {def_a}])
-        h_mu = max(0.15, float(shrunk[0]) * {home_drift})
-        a_mu = max(0.15, float(shrunk[1]) * {away_drift})
+        h_shrunk = (1.0 - self.prior_weight) * h_raw + self.prior_weight * {def_h}
+        a_shrunk = (1.0 - self.prior_weight) * a_raw + self.prior_weight * {def_a}
+        h_mu = max(0.15, h_shrunk * {home_drift})
+        a_mu = max(0.15, a_shrunk * {away_drift})
         max_sc = 8 if max(h_mu, a_mu) < 12.0 else None
         raw_scores = build_universal_score_lattice(h_mu, a_mu, dispersion_alpha=self.dispersion_alpha, max_discrete_score=max_sc)
         inv_t = 1.0 / max(0.65, min(1.65, self.temperature))
