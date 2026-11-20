@@ -99,7 +99,7 @@ def maintain(root=DATA):
         except Exception:
             pass
 
-    # 4c. Automated cleanup of unreferenced outcome feedback inputs/observations older than 48 hours
+    # 4c. Automated cleanup of unreferenced outcome feedback archives
     protected_of_paths = set()
     latest_of = root / 'outcome_feedback' / 'latest.json'
     if latest_of.exists():
@@ -113,36 +113,38 @@ def maintain(root=DATA):
                     for rkey in ('review_receipt', 'first_receipt'):
                         rcpt = row.get(rkey)
                         if isinstance(rcpt, dict) and rcpt.get('path'):
-                            protected_of_paths.add(str(root / rcpt['path']))
+                            protected_of_paths.add(str((root / rcpt['path']).resolve()))
             for ref in refs:
                 if isinstance(ref, dict) and ref.get('path'):
-                    rev_p = root / ref['path']
+                    rev_p = (root / ref['path']).resolve()
                     protected_of_paths.add(str(rev_p))
                     if rev_p.exists():
                         try:
                             rev_doc = json.loads(rev_p.read_text(encoding='utf-8'))
                             for ch in (rev_doc.get('input_archive') or {}).get('chunks', []):
                                 if isinstance(ch, dict) and ch.get('path'):
-                                    protected_of_paths.add(str(root / ch['path']))
+                                    protected_of_paths.add(str((root / ch['path']).resolve()))
                         except Exception:
                             pass
         except Exception:
             pass
 
-    for of_dir_name in ('inputs', 'observations'):
-        of_dir = root / 'outcome_feedback' / of_dir_name
-        if of_dir.is_dir():
-            try:
-                for item in os.scandir(of_dir):
-                    if item.path in protected_of_paths:
-                        continue
-                    if now - item.stat().st_mtime > 172800:
-                        try:
-                            os.unlink(item.path)
-                        except OSError:
-                            pass
-            except Exception:
-                pass
+    if protected_of_paths:
+        for of_dir_name in ('inputs', 'observations', 'reviews'):
+            of_dir = root / 'outcome_feedback' / of_dir_name
+            if of_dir.is_dir():
+                try:
+                    for item in os.scandir(of_dir):
+                        resolved_item = str(Path(item.path).resolve())
+                        if resolved_item in protected_of_paths:
+                            continue
+                        if now - item.stat().st_mtime > 172800:
+                            try:
+                                os.unlink(item.path)
+                            except OSError:
+                                pass
+                except Exception:
+                    pass
 
     # 4d. Automated cleanup of market catalog versions (retain latest 5)
     cat_versions = root / 'market_catalog' / 'versions'

@@ -89,7 +89,7 @@ class BottleneckWatchdog:
         now_dt = utcnow()
         if not force and _GLOBAL_WATCHDOG_CACHE is not None:
             cached_dt, cached_rep = _GLOBAL_WATCHDOG_CACHE
-            if (now_dt - cached_dt).total_seconds() < 20.0:
+            if (now_dt - cached_dt).total_seconds() < 45.0:
                 return cached_rep
 
         now_iso = now_dt.isoformat()
@@ -386,7 +386,7 @@ class BottleneckWatchdog:
         except Exception as e_save:
             log.warning("[WATCHDOG] Failed to save status: %s", e_save)
 
-        _GLOBAL_WATCHDOG_CACHE = (now_dt, report)
+        _GLOBAL_WATCHDOG_CACHE = (utcnow(), report)
         return report
 
     def audit_tier1_tier2_health(self) -> Dict[str, Any]:

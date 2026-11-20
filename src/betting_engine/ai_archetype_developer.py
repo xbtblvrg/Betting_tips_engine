@@ -427,6 +427,11 @@ class AIArchetypeDeveloperAgent:
                     FROM ai_synthesis_feedback_loop
                     WHERE crucible_passed = 1 AND oos_simulated_roi >= ?
                       AND model_id NOT IN (SELECT origin_model_id FROM distilled_archetype_catalog WHERE origin_model_id IS NOT NULL)
+                      AND (class_name || '|' || UPPER(league)) NOT IN (
+                          SELECT base_class_name || '|' || UPPER(COALESCE(json_extract(parameter_spec, '$.origin_league'), ''))
+                          FROM distilled_archetype_catalog
+                          WHERE base_class_name IS NOT NULL
+                      )
                     GROUP BY class_name, league
                     ORDER BY CASE WHEN generator_provider IN ('codex', 'claude') THEN 0 ELSE 1 END, max_roi DESC
                     LIMIT ?
