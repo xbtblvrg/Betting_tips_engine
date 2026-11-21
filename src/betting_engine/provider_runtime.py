@@ -282,24 +282,62 @@ def start_monitor(root, stop):
     return thread
 
 
-def extract_task_preferred_paths(task: Any) -> List[str]:
+def extract_task_preferred_paths(task: Any, workspace: Any = None, prompt: str = '') -> List[str]:
     if not isinstance(task, dict):
         return []
     preferred = set()
+    try:
+        task_blob = json.dumps(task, ensure_ascii=False)
+    except Exception:
+        task_blob = str(task)
     text = ' '.join([
         str(task.get('id', '')),
         str(task.get('title', '')),
         str(task.get('objective', '')),
         str(task.get('acceptance', '')),
-        str(task.get('last_error', ''))
+        str(task.get('last_error', '')),
+        task_blob,
+        str(prompt or ''),
     ])
     for match in re.findall(r'[\w/.-]+\.py\b', text):
         clean = match.strip('./')
-        if not clean.startswith('src/'):
+        if clean.startswith('tests/'):
+            preferred.add(clean)
+        elif not clean.startswith('src/'):
             clean = f"src/betting_engine/{clean}" if not clean.startswith('betting_engine/') else f"src/{clean}"
-        preferred.add(clean)
+            preferred.add(clean)
+        else:
+            preferred.add(clean)
     for p in task.get('preferred_paths', []):
-        preferred.add(p)
+        if isinstance(p, str):
+            preferred.add(p)
+    if workspace is not None:
+        ws = Path(workspace)
+        from .development import PROTECTED
+        protected_set = set(PROTECTED)
+        generic_stems = {
+            'engine', 'decisions', 'learning', 'models', 'supervisor', 'delivery',
+            'schedule', 'train', 'storage', 'research', 'operations', 'presentation',
+            'contracts', 'governance', 'providers', 'server', 'development', 'domain'
+        }
+        lower_text = text.lower()
+        src_dir = ws / 'src/betting_engine'
+        if src_dir.is_dir():
+            for py_file in src_dir.glob('*.py'):
+                stem = py_file.stem.lower()
+                rel_p = f'src/betting_engine/{py_file.name}'
+                if (len(stem) >= 6 and stem not in generic_stems
+                        and rel_p not in protected_set and stem in lower_text):
+                    preferred.add(rel_p)
+        valid = []
+        for p in sorted(preferred):
+            if re.fullmatch(r'(?:src/betting_engine|tests)/[A-Za-z0-9_.-]+\.py', p):
+                fp = ws / p
+                if fp.is_file() and not fp.is_symlink() and fp.stat().st_size <= 96000:
+                    valid.append(p)
+        # Prioritize non-protected editable files and smaller target modules first
+        valid.sort(key=lambda p: (1 if p in protected_set else 0, 1 if p.startswith('tests/') else 0, (ws / p).stat().st_size, p))
+        return valid[:16]
     return sorted(list(preferred))
 
 
@@ -381,13 +419,23 @@ def run_ai_step(worker, schema, output, prefix, prompt, timeout=1200,
                         prepared = prepare_step(worker.root, worker.workspace, Path(temporary).resolve(),
                             getattr(worker, 'current_task', {}), prompt, read_json(schema),
                             readonly=sandbox == 'read-only', binary=agy_binary,
-                            max_files=16, max_source_bytes=65536,
+                            max_files=24, max_source_bytes=131072,
                             protected_paths=(*__import__('betting_engine.development', fromlist=['PROTECTED']).PROTECTED,
                                 *(name for name in worker.readonly_input_paths() if name != '.git')),
-                            preferred_paths=extract_task_preferred_paths(getattr(worker, 'current_task', {})))
+                            preferred_paths=extract_task_preferred_paths(getattr(worker, 'current_task', {}), worker.workspace, prompt))
                         p_payload = prepared['stdin']
-                        if len(p_payload) > 95000:
-                            p_payload = p_payload[:95000] + "\n\n[TRUNCATED SOURCE CONTEXT TO FIT CONTROLLER ARG_MAX LIMITS]"
+                        marker = '\nBOUNDED SOURCE BUNDLE:\n'
+                        if marker in p_payload and isinstance(prepared.get('context', {}).get('source_bundle'), dict):
+                            sb = prepared['context']['source_bundle']
+                            compact_bundle = json.dumps({
+                                'files': sb.get('files', []),
+                                'selected_bytes': sb.get('selected_bytes', 0),
+                                'omitted_count': len(sb.get('omitted', [])),
+                                'scope': sb.get('scope', ''),
+                            }, sort_keys=True, separators=(',', ':'), allow_nan=False)
+                            p_payload = p_payload.split(marker, 1)[0] + marker + compact_bundle
+                        if len(p_payload) > 220000:
+                            p_payload = p_payload[:220000] + "\n\n[TRUNCATED SOURCE CONTEXT TO FIT CONTROLLER ARG_MAX LIMITS]"
                         agy_cmd = [agy_binary, '-p', p_payload,
                             '--model', route['model'], '--output-format', 'json',
                             '--sandbox', '--disable-slash-commands']

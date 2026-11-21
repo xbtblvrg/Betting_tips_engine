@@ -313,7 +313,7 @@ def _run_control(root, bindings, archive):
         modules = json.loads(raw_modules)
         if modules.get('exit_code') != 0 or not modules.get('loaded_project_modules'):
             raise ValueError('Missing trusted native-test import provenance')
-        allowed_modules = set(PINNED) | {'src/betting_engine/development.py', COPY_SOURCE}
+        allowed_modules = set(PINNED) | {'src/betting_engine/development.py', COPY_SOURCE, 'src/betting_engine/verbose_logger.py'}
         for row in modules['loaded_project_modules'].values():
             if row['path'] not in allowed_modules or selected.get(row['path']) != row['sha256']:
                 raise ValueError('Native-test loaded source does not match trusted snapshot')

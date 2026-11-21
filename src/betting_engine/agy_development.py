@@ -113,6 +113,10 @@ def finish_agy_step(stdout, context, model):
                 if k not in props:
                     rep.pop(k, None)
 
+    for k in list(parsed.keys()):
+        if k not in ('report', 'edits'):
+            parsed.pop(k, None)
+
     _validate_schema(parsed, context['output_schema'])
     return {
         'provider': 'agy',

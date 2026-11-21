@@ -188,12 +188,15 @@ class QuantVerboseLogger:
     def __init__(self, data_dir: Optional[Path] = None):
         self.data_dir = Path(data_dir).resolve() if data_dir else DATA
         self.logs_dir = self.data_dir / "logs"
-        self.logs_dir.mkdir(parents=True, exist_ok=True)
         self.log_file = self.logs_dir / VERBOSE_LOG_NAME
         self.jsonl_file = self.logs_dir / VERBOSE_JSONL_NAME
         self.text_handler: Optional[RotatingFileHandler] = None
         self.jsonl_handler: Optional[JsonlLogHandler] = None
-        self._init_logging()
+        try:
+            self.logs_dir.mkdir(parents=True, exist_ok=True)
+            self._init_logging()
+        except OSError:
+            pass
 
     def _init_logging(self) -> None:
         with _LOCK:
