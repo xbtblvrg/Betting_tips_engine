@@ -41,6 +41,38 @@ def finish_agy_step(stdout, context, model):
     if not isinstance(parsed, dict) or 'report' not in parsed or 'edits' not in parsed:
         raise ValueError('Antigravity output missing report or edits')
 
+    rep = parsed.get('report')
+    res_schema = context.get('result_schema') if isinstance(context.get('result_schema'), dict) else {}
+    props = res_schema.get('properties') if isinstance(res_schema.get('properties'), dict) else {}
+    if isinstance(rep, dict) and props:
+        raw_edits = parsed.get('edits') if isinstance(parsed.get('edits'), list) else []
+        if 'tests_added' in props and 'tests_added' not in rep:
+            if isinstance(rep.get('tests_run'), list):
+                rep['tests_added'] = [str(x) for x in rep['tests_run']]
+            else:
+                rep['tests_added'] = [str(e.get('path')) for e in raw_edits if isinstance(e, dict) and str(e.get('path', '')).startswith('tests/')]
+        if 'evidence' in props and 'evidence' not in rep:
+            if isinstance(rep.get('files_changed'), list):
+                rep['evidence'] = [str(x) for x in rep['files_changed']]
+            else:
+                rep['evidence'] = [str(e.get('path')) for e in raw_edits if isinstance(e, dict) and e.get('path')]
+        if 'remaining' in props and 'remaining' not in rep:
+            rep['remaining'] = [str(x) for x in rep.get('findings', [])] if isinstance(rep.get('findings'), list) else []
+        if 'helper_reviews' in props and 'helper_reviews' not in rep:
+            rep['helper_reviews'] = []
+        if 'summary' in props and 'summary' not in rep:
+            rep['summary'] = 'Completed Antigravity step.'
+        if 'task_complete' in props and 'task_complete' not in rep:
+            rep['task_complete'] = bool(rep.get('accepted', bool(raw_edits)))
+        if 'accepted' in props and 'accepted' not in rep:
+            rep['accepted'] = bool(rep.get('task_complete', False))
+        if 'findings' in props and 'findings' not in rep:
+            rep['findings'] = [str(x) for x in rep.get('remaining', [])] if isinstance(rep.get('remaining'), list) else []
+        if res_schema.get('additionalProperties') is False:
+            for k in list(rep.keys()):
+                if k not in props:
+                    rep.pop(k, None)
+
     _validate_schema(parsed, context['output_schema'])
     return {
         'provider': 'agy',

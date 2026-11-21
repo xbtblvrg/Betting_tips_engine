@@ -58,46 +58,58 @@ def maintain(root=DATA):
     else:
         qtotal = 0
 
-    # 3. Automated cleanup of staging releases older than 2 hours
+    # 3. Automated cleanup of staging releases older than 6 hours (using ctime & mtime to avoid copystat race)
     staging = root / 'releases' / 'staging'
     staging_removed = 0
     if staging.is_dir():
         for item in staging.iterdir():
-            if item.is_dir() and (now - item.stat().st_mtime > 7200):
-                try:
+            try:
+                st = item.stat()
+                if item.is_dir() and (now - max(st.st_mtime, st.st_ctime) > 21600):
                     shutil.rmtree(item)
                     staging_removed += 1
-                except Exception:
-                    pass
+            except Exception:
+                pass
 
-    # 4. Automated cleanup of old development workspaces older than 2 hours
+    # 4. Automated cleanup of old development workspaces older than 24 hours
+    # NOTE: shutil.copytree(accepted, workspace) copies accepted's old st_mtime onto workspace via copystat!
+    # Always check max(st_mtime, st_ctime) and active_run_ids so a live preparing workspace is NEVER deleted.
     workspaces = root / 'development' / 'workspaces'
     workspaces_removed = 0
     if workspaces.is_dir():
+        protected_ws = set()
+        try:
+            import json
+            w_path = root / 'development' / 'worker.json'
+            if w_path.exists():
+                w_data = json.loads(w_path.read_text(encoding='utf-8'))
+                if w_data.get('run_id'):
+                    protected_ws.add(w_data['run_id'])
+                for act in w_data.get('active_tasks', []):
+                    if isinstance(act, dict) and act.get('run_id'):
+                        protected_ws.add(act['run_id'])
+            s_path = root / 'development' / 'state.json'
+            if s_path.exists():
+                s_data = json.loads(s_path.read_text(encoding='utf-8'))
+                for t_row in (s_data.get('tasks') or {}).values():
+                    if isinstance(t_row, dict):
+                        for k in ('run_id', 'previous_run_id'):
+                            if t_row.get(k):
+                                protected_ws.add(t_row[k])
+        except Exception:
+            pass
         for item in workspaces.iterdir():
-            if item.is_dir() and (now - item.stat().st_mtime > 7200):
-                try:
+            if item.name in protected_ws:
+                continue
+            try:
+                st = item.stat()
+                if item.is_dir() and (now - max(st.st_mtime, st.st_ctime) > 86400):
                     shutil.rmtree(item)
                     workspaces_removed += 1
                     if workspaces_removed >= 200:
                         break
-                except Exception:
-                    pass
-
-    # 4b. Automated cleanup of excessive engineering evidence older than 48 hours
-    eng_evidence = root / 'development' / 'engineering-evidence'
-    if eng_evidence.is_dir():
-        ev_count = 0
-        try:
-            for item in os.scandir(eng_evidence):
-                ev_count += 1
-                if ev_count > 50000 or (item.name.endswith('.json') and (now - item.stat().st_mtime > 172800)):
-                    try:
-                        os.unlink(item.path)
-                    except OSError:
-                        pass
-        except Exception:
-            pass
+            except Exception:
+                pass
 
     # 4c. Automated cleanup of unreferenced outcome feedback archives
     protected_of_paths = set()

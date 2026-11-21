@@ -363,7 +363,54 @@ class SupremeAutonomousGovernor:
                             'minimum_target': 100
                         })
 
-                # 2. Prune obsolete not_currently_observed gaps older than 7 days
+                # 2. Reconcile any funded system_decisions missing their assumed manual ticket in bets (Flow 1.7 invariant)
+                import math
+                missing_rows = cur.execute("""
+                    SELECT d.tip_id, d.issued_at, d.status, d.pnl, d.payload, d.outcome_evidence
+                    FROM system_decisions d
+                    WHERE CAST(json_extract(d.payload, '$.stake') AS REAL) > 0
+                      AND d.tip_id IS NOT NULL
+                      AND d.tip_id NOT IN (SELECT b.tip_id FROM bets b WHERE b.tip_id IS NOT NULL)
+                """).fetchall()
+                if missing_rows:
+                    for tip_id_m, iss_m, st_m, pnl_m, pay_m, ev_m in missing_rows:
+                        try:
+                            tip_obj = json.loads(pay_m)
+                            amt = float(tip_obj.get('stake') or 0.5)
+                            odds_val = float(tip_obj.get('reference_odds') or tip_obj.get('odds') or 2.0)
+                            rec_obj = {
+                                **tip_obj,
+                                'ledger_contract': 'sportsbook',
+                                'tracking_source': 'auto_assumed_placed',
+                                'execution_verified': False,
+                                'odds_basis': 'recommendation_snapshot',
+                                'recorded_at': iss_m,
+                                'tracking_note': 'Assumed placed manually on Stake under your standing instruction. Uses the recommended stake and observed odds; no Stake account confirmation.',
+                            }
+                            cur.execute(
+                                "INSERT INTO bets(tip_id, created_at, stake, odds, platform, status, pnl, payload, request_id) VALUES (?, ?, ?, ?, 'Stake.com', ?, ?, ?, ?)",
+                                (tip_id_m, iss_m, amt, odds_val, st_m or 'open', pnl_m, json.dumps(rec_obj, ensure_ascii=False), f"auto-stake:{tip_id_m}")
+                            )
+                            bid = cur.lastrowid
+                            if st_m in ('won', 'lost', 'push', 'void') and bid:
+                                p_val = tip_obj.get('probability')
+                                push_val = tip_obj.get('push_probability', 0.0) or 0.0
+                                brier_val = loss_val = None
+                                if p_val is not None and 0 <= p_val and p_val + push_val <= 1 + 1e-7 and st_m in ('won', 'lost') and push_val < 1:
+                                    cond = p_val / (1.0 - push_val)
+                                    out_val = float(st_m == 'won')
+                                    brier_val = (cond - out_val) ** 2
+                                    bnd = min(1.0 - 1e-12, max(1e-12, cond))
+                                    loss_val = -(out_val * math.log(bnd) + (1.0 - out_val) * math.log(1.0 - bnd))
+                                cur.execute(
+                                    "INSERT OR IGNORE INTO bet_outcomes VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                                    (bid, tip_obj.get('league'), tip_obj.get('market'), tip_obj.get('model_version'), st_m, p_val, push_val, brier_val, loss_val, ev_m or '{}')
+                                )
+                        except Exception as ex_m:
+                            log.warning('Could not reconcile missing ticket %s: %s', tip_id_m, ex_m)
+                    conn.commit()
+
+                # 3. Prune obsolete not_currently_observed gaps older than 7 days
                 cutoff_iso = (now - timedelta(days=7)).isoformat()
                 cur.execute("DELETE FROM operating_gaps WHERE status = 'not_currently_observed' AND last_seen < ?", (cutoff_iso,))
                 pruned = cur.rowcount

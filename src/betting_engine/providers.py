@@ -174,6 +174,29 @@ class SportsData:
             dt=datetime.fromisoformat(r['gameday']+'T'+(r.get('gametime') or '13:00')).replace(tzinfo=ZoneInfo('America/New_York')).astimezone(timezone.utc)
             state='final' if hs is not None and ass is not None and dt<utcnow()-timedelta(hours=5) else ('live' if dt<utcnow() and dt>utcnow()-timedelta(hours=5) else 'scheduled')
             games.append(Game(id='NFL:'+r['game_id'],league='NFL',start=dt.isoformat(),home=NFL_NAMES.get(h,h),away=NFL_NAMES.get(a,a),home_id=h,away_id=a,home_abbr=h,away_abbr=a,state=state,season=int(r['season']),home_score=hs,away_score=ass,neutral=r.get('location')=='Neutral',game_type='regular' if r['game_type']=='REG' else 'playoff',source=url,fetched_at=m['fetched_at'],context={'nfl_phase_evidence':{'game_id':'NFL:'+r['game_id'],'raw_game_type':r['game_type'],'source':url,'source_sha256':m.get('sha256'),'fetched_at':m['fetched_at']}}))
+        try:
+            now_utc = utcnow()
+            upcoming = [g for g in games if g.state == 'scheduled' and now_utc - timedelta(hours=12) <= parse_time(g.start) <= now_utc + timedelta(days=7)]
+            if upcoming and type(self.fetcher).__name__ == 'Fetcher':
+                espn_starts = {}
+                for d_str in sorted({parse_time(g.start).strftime('%Y%m%d') for g in upcoming}):
+                    ed, _ = self.fetcher.json(f'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates={d_str}', 900)
+                    for ev in (ed or {}).get('events', []):
+                        comps = ev.get('competitions') or []
+                        if len(comps) != 1:
+                            continue
+                        c = comps[0]
+                        eh = [r.get('team', {}).get('displayName') for r in c.get('competitors', []) if r.get('homeAway') == 'home']
+                        ea = [r.get('team', {}).get('displayName') for r in c.get('competitors', []) if r.get('homeAway') == 'away']
+                        st_iso = c.get('date') or ev.get('date')
+                        if len(eh) == 1 and len(ea) == 1 and eh[0] and ea[0] and st_iso:
+                            espn_starts[(eh[0], ea[0], d_str)] = parse_time(st_iso).isoformat()
+                for g in upcoming:
+                    key = (g.home, g.away, parse_time(g.start).strftime('%Y%m%d'))
+                    if key in espn_starts and espn_starts[key] != g.start:
+                        g.start = espn_starts[key]
+        except Exception:
+            pass
         return games,m
     def mlb(self,year):
         url=f'https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate={year}-01-01&endDate={year}-12-31&hydrate=probablePitcher'
