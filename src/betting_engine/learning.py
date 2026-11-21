@@ -471,11 +471,11 @@ class LearningWorker:
 
     def snapshot(self):
         with self.store.ro_db() as c:
-            jobs=[dict(r) for r in c.execute('SELECT * FROM learning_jobs ORDER BY updated_at DESC LIMIT 25')]
+            jobs=[dict(r) for r in c.execute('SELECT * FROM learning_jobs ORDER BY updated_at DESC LIMIT 24')]
             if not any(j.get('kind')=='outcome_review' and j.get('status')=='completed' for j in jobs):
                 or_row = c.execute("SELECT * FROM learning_jobs WHERE kind='outcome_review' AND status='completed' ORDER BY updated_at DESC LIMIT 1").fetchone()
                 if or_row:
-                    jobs.append(dict(or_row))
+                    jobs = [dict(or_row), *jobs[:23]]
             counts={r['status']:r['n'] for r in c.execute('SELECT status,COUNT(*) n FROM learning_jobs GROUP BY status')}
         for job in jobs:
             try:
