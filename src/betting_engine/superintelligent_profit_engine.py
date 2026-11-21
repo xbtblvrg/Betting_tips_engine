@@ -259,9 +259,13 @@ class SuperintelligentProfitEngine:
         action = None
 
         try:
-            from .autonomous_roi_governor import AutonomousROIGovernor
-            roi_gov = AutonomousROIGovernor(self.data_dir)
-            report = roi_gov.analyze_weekly_performance(days=7)
+            roi_p = self.data_dir / 'roi_governor_status.json'
+            if roi_p.exists() and (time.time() - roi_p.stat().st_mtime) < 60.0:
+                report = json.loads(roi_p.read_text(encoding='utf-8'))
+            else:
+                from .autonomous_roi_governor import AutonomousROIGovernor
+                roi_gov = AutonomousROIGovernor(self.data_dir)
+                report = roi_gov.analyze_weekly_performance(days=7)
             pm = report.get('portfolio_metrics', {})
             
             telemetry['rolling_7d_roi_pct'] = float(pm.get('realized_roi_pct') or pm.get('portfolio_roi_pct') or 0.0)
@@ -398,9 +402,13 @@ class SuperintelligentProfitEngine:
         action = None
 
         try:
-            from .executive_inquisitor import AutonomousExecutiveInquisitor
-            inq = AutonomousExecutiveInquisitor(root=self.root, data_dir=self.data_dir)
-            inq_res = inq.run_inquisitor_cycle()
+            inq_p = self.data_dir / 'executive_inquisitor_status.json'
+            if inq_p.exists() and (time.time() - inq_p.stat().st_mtime) < 60.0:
+                inq_res = json.loads(inq_p.read_text(encoding='utf-8'))
+            else:
+                from .executive_inquisitor import AutonomousExecutiveInquisitor
+                inq = AutonomousExecutiveInquisitor(root=self.root, data_dir=self.data_dir)
+                inq_res = inq.run_inquisitor_cycle()
             telemetry['executive_inquiries_count'] = inq_res.get('inquiries_count', 0)
             telemetry['optimal_inquiries'] = inq_res.get('optimal_inquiries', 0)
             telemetry['warning_inquiries'] = inq_res.get('warning_inquiries', 0)

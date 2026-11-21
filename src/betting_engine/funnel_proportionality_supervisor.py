@@ -32,6 +32,7 @@ import hashlib
 import json
 import logging
 import math
+import time
 from pathlib import Path
 import sqlite3
 from typing import Any, Dict, List, Optional, Set, Tuple
@@ -93,6 +94,11 @@ class FunnelProportionalitySupervisor:
 
     def audit_and_heal(self, force: bool = False) -> FunnelSupervisionReport:
         """Executes a full multi-stage funnel audit and triggers autonomous self-healing."""
+        is_prod = (self.data_dir.resolve() == DATA.resolve())
+        if is_prod and not force:
+            cache = getattr(FunnelProportionalitySupervisor, '_prod_funnel_cache', None)
+            if cache and (time.monotonic() - cache[0]) < 60.0:
+                return cache[1]
         now_dt = utcnow()
         now_bp = datetime.now(BUDAPEST_TZ)
         bp_date_str = now_bp.strftime("%Y-%m-%d")
@@ -290,20 +296,11 @@ class FunnelProportionalitySupervisor:
                                sum(w.pnl) as total_pnl,
                                avg(w.brier_market - w.brier_model) as brier_skill
                         FROM demoted_markets dm
-                        JOIN incubated_wagers w ON dm.league = w.league AND dm.scope = w.scope AND dm.family = w.family
+                        JOIN incubated_wagers w ON w.model_id = dm.incubated_model_id AND w.status = 'settled'
+                          AND dm.league = w.league AND dm.scope = w.scope
                           AND (dm.sub_family IS NULL OR dm.sub_family = '' OR dm.sub_family = dm.family OR dm.sub_family = w.sub_family)
                         WHERE dm.incubation_phase = 'incubating_with_new_model'
                           AND dm.incubated_model_id IS NOT NULL
-                          AND w.status = 'settled'
-                          AND (
-                              dm.demoted_at IS NULL
-                              OR w.settled_at > dm.demoted_at
-                              OR w.model_id = dm.incubated_model_id
-                              OR dm.reason LIKE '%Tier 1 R&D%'
-                              OR dm.reason LIKE '%Deadlock Reset%'
-                              OR dm.reason LIKE '%Restored proven champion%'
-                              OR dm.reason LIKE '%Auto-Sync: Tier 1%'
-                          )
                         GROUP BY dm.segment_key, dm.incubated_model_id
                         HAVING count(w.id) >= 25
                     """)
@@ -498,6 +495,8 @@ class FunnelProportionalitySupervisor:
         except Exception as e_save:
             log.warning("Could not persist funnel supervision status: %s", e_save)
 
+        if is_prod:
+            FunnelProportionalitySupervisor._prod_funnel_cache = (time.monotonic(), report)
         return report
 
     def _enqueue_priority_league_synthesis(self) -> None:

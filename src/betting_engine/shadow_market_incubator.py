@@ -105,6 +105,9 @@ def _init_db(db_path: Path = INCUBATOR_DB) -> Optional[sqlite3.Connection]:
     conn.execute("CREATE INDEX IF NOT EXISTS idx_incubated_game ON incubated_wagers(game_id)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_incubated_status_game ON incubated_wagers(status, game_id)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_incubated_graduation ON incubated_wagers(status, league, scope, family, sub_family, cohort)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_incubated_graduation_model ON incubated_wagers(status, league, scope, family, sub_family, model_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_incubated_settled_at ON incubated_wagers(status, league, scope, settled_at)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_incubated_captured_at ON incubated_wagers(captured_at)")
 
     conn.execute("""
         CREATE TABLE IF NOT EXISTS graduated_markets (
@@ -2336,6 +2339,12 @@ class ShadowMarketIncubator:
         4. Stagnation Eviction: If N_live >= 25 and (PnL_live < 0.0 or ROI_live < +3.5%), resets to Tier 1 for novel AI retraining.
         5. Deadlock Reset: If historical_roi <= 0.0 or sample_size <= 0 AND live PnL <= 0, resets to Tier 1 (research_training, model=NULL).
         """
+        is_prod_db = (as_of is None and self.db_path.resolve() == (DATA / 'shadow_incubator.sqlite3').resolve())
+        if is_prod_db:
+            cache_entry = getattr(ShadowMarketIncubator, '_prod_t2_lifecycle_cache', None)
+            if cache_entry and (time.monotonic() - cache_entry[0]) < 120.0:
+                return dict(cache_entry[1])
+
         now_iso = as_of or utcnow().isoformat()
         conn = self._get_connection()
         try:
@@ -2676,7 +2685,7 @@ class ShadowMarketIncubator:
 
         log.debug("[TIER2_LIFECYCLE_DONE] Status: success | Retained: %d, Fast-Fail: %d, Stagnant: %d, Dormant: %d, Phantom: %d",
                   len(retained_markets), len(evicted_fast_fail), len(evicted_stagnant), len(dormant_markets), len(evicted_phantom))
-        return {
+        res_t2 = {
             'status': 'success',
             'evicted_phantom_count': len(evicted_phantom),
             'evicted_fast_fail_count': len(evicted_fast_fail),
@@ -2691,6 +2700,9 @@ class ShadowMarketIncubator:
             'dormant_markets': dormant_markets,
             'retained_markets': retained_markets,
         }
+        if is_prod_db:
+            ShadowMarketIncubator._prod_t2_lifecycle_cache = (time.monotonic(), dict(res_t2))
+        return res_t2
 
     def evaluate_graduation(self, as_of: Optional[str] = None) -> List[Dict[str, Any]]:
         """Evaluates all settled shadow families against dynamic Crucible invariants and graduates winners."""
@@ -3399,6 +3411,12 @@ class ShadowMarketIncubator:
         4. Dynamic Coverage: Evaluates all liquid sports (NBA, WTA, ATP, MLB, NHL, NFL,
            NCAAF, EPL, MLS, UCL, WNBA, CHALLENGER) and dynamic families.
         """
+        is_prod_db = (as_of is None and self.db_path.resolve() == (DATA / 'shadow_incubator.sqlite3').resolve())
+        if is_prod_db:
+            cache_entry = getattr(ShadowMarketIncubator, '_prod_demotions_eval_cache', None)
+            if cache_entry and (time.monotonic() - cache_entry[0]) < 120.0:
+                return dict(cache_entry[1])
+
         now_iso = as_of or utcnow().isoformat()
         try:
             self.evaluate_tier2_lifecycle(as_of=now_iso)
@@ -4074,6 +4092,12 @@ class ShadowMarketIncubator:
         Performs forensic root cause attribution, applies algorithmic model repairs,
         records diagnostic logs, and establishes a clean recalibrated evaluation window.
         """
+        is_prod_db = (as_of is None and self.db_path.resolve() == (DATA / 'shadow_incubator.sqlite3').resolve())
+        if is_prod_db:
+            cache_entry = getattr(ShadowMarketIncubator, '_prod_demotions_eval_cache', None)
+            if cache_entry and (time.monotonic() - cache_entry[0]) < 120.0:
+                return dict(cache_entry[1])
+
         now_iso = as_of or utcnow().isoformat()
         try:
             self.evaluate_tier2_lifecycle(as_of=now_iso)
@@ -4294,6 +4318,12 @@ class ShadowMarketIncubator:
            - Scans the incubator for the highest-performing alternative candidate in that league to substitute it.
         4. Returns audit dictionary of demotions and substitutions made.
         """
+        is_prod_db = (as_of is None and self.db_path.resolve() == (DATA / 'shadow_incubator.sqlite3').resolve())
+        if is_prod_db:
+            cache_entry = getattr(ShadowMarketIncubator, '_prod_demotions_eval_cache', None)
+            if cache_entry and (time.monotonic() - cache_entry[0]) < 120.0:
+                return dict(cache_entry[1])
+
         now_iso = as_of or utcnow().isoformat()
         try:
             self.evaluate_tier2_lifecycle(as_of=now_iso)
@@ -4668,10 +4698,13 @@ class ShadowMarketIncubator:
             substitutes = self.evaluate_graduation(as_of=now_iso)
             substituted_records = substitutes
 
-        return {
+        res_dem = {
             'demotions': demoted_keys,
             'substitutions': substituted_records
         }
+        if is_prod_db:
+            ShadowMarketIncubator._prod_demotions_eval_cache = (time.monotonic(), dict(res_dem))
+        return res_dem
 
     # -------------------------------------------------------------------------
     # 4. STATUS & TELEMETRY
