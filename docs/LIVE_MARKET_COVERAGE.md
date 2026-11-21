@@ -1,13 +1,13 @@
 # Live Stake market coverage
 
-Checked: 2026-11-21T08:43:41.941305+00:00
+Checked: 2026-11-21T09:01:09.645741+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
 | League | Observed titles | Activity unverified | Offered now | Complete 10/10 | Incomplete offered | Evaluated | Funding supported | Ready now | Issued today |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | NFL | 186 | 58 | 64 | 0 | 64 | 46 | 17 | 11 | 8 |
-| NHL | 100 | 16 | 66 | 0 | 66 | 36 | 5 | 5 | 39 |
+| NHL | 100 | 16 | 66 | 0 | 66 | 37 | 5 | 5 | 39 |
 | MLB | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | NBA | 190 | 35 | 85 | 0 | 85 | 41 | 1 | 1 | 10 |
 | WNBA | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
@@ -197,7 +197,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | points+assists | swishMarkets.playerProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/116 | activity_unverified 0/116 | activity_unverified 0/116 | activity_unverified 0/116 | activity_unverified 0/116 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | points+assists+rebounds | swishMarkets.playerProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/80 | activity_unverified 0/80 | activity_unverified 0/80 | activity_unverified 0/80 | activity_unverified 0/80 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | points+rebounds | swishMarkets.playerProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/80 | activity_unverified 0/80 | activity_unverified 0/80 | activity_unverified 0/80 | activity_unverified 0/80 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NBA | rebounds | swishMarkets.playerProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/124 | activity_unverified 0/124 | activity_unverified 0/124 | activity_unverified 0/124 | activity_unverified 0/124 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NBA | rebounds | swishMarkets.playerProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/126 | activity_unverified 0/126 | activity_unverified 0/126 | activity_unverified 0/126 | activity_unverified 0/126 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | steals | swishMarkets.playerProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/10 | activity_unverified 0/10 | activity_unverified 0/10 | activity_unverified 0/10 | activity_unverified 0/10 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | steals+blocks | swishMarkets.playerProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/12 | activity_unverified 0/12 | activity_unverified 0/12 | activity_unverified 0/12 | activity_unverified 0/12 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | three attempted | swishMarkets.playerProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/96 | activity_unverified 0/96 | activity_unverified 0/96 | activity_unverified 0/96 | activity_unverified 0/96 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
@@ -452,13 +452,13 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NHL | Seattle Kraken Total | standard | regulation | offered_now | 7/10 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | St. Louis Blues Total | standard | regulation | offered_now | 3/10 | not_observed 0/6 | verified 6/6 | not_observed 0/6 | not_observed 0/6 | not_observed 0/6 | not_observed 0/0 | not_observed 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NHL | Tampa Bay Lightning Total | standard | regulation | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
-| NHL | Toronto Maple Leafs Total | standard | regulation | offered_now | 1/10 | not_observed 0/6 | verified 6/6 | not_observed 0/6 | not_observed 0/6 | not_observed 0/6 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NHL | Total (Incl. Overtime and Penalties) | standard | full_game | offered_now | 5/10 | partial 27/140 | verified 140/140 | partial 27/140 | partial 27/140 | partial 27/140 | verified 27/27 | verified 27/27 | verified 36/36 | verified 22/22 | partial 22/23 | 12 |
+| NHL | Toronto Maple Leafs Total | standard | regulation | offered_now | 3/10 | partial 1/6 | verified 6/6 | partial 1/6 | partial 1/6 | partial 1/6 | verified 1/1 | verified 1/1 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
+| NHL | Total (Incl. Overtime and Penalties) | standard | full_game | offered_now | 5/10 | partial 26/140 | verified 140/140 | partial 26/140 | partial 26/140 | partial 26/140 | verified 26/26 | verified 26/26 | verified 36/36 | verified 22/22 | partial 22/23 | 12 |
 | NHL | Utah Mammoth Total | standard | regulation | offered_now | 5/10 | partial 3/6 | verified 6/6 | partial 3/6 | partial 3/6 | partial 3/6 | verified 3/3 | verified 3/3 | verified 1/1 | verified 1/1 | partial 1/2 | 0 |
 | NHL | Vancouver Canucks Total | standard | regulation | offered_now | 3/10 | partial 1/2 | verified 2/2 | partial 1/2 | partial 1/2 | partial 1/2 | verified 1/1 | verified 1/1 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
 | NHL | Vegas Golden Knights Total | standard | regulation | offered_now | 3/10 | partial 4/6 | verified 6/6 | partial 4/6 | partial 4/6 | partial 4/6 | verified 4/4 | verified 4/4 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Washington Capitals Total | standard | regulation | offered_now | 3/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NHL | Winner (Incl. Overtime and Penalties) | standard | full_game | offered_now | 3/10 | partial 26/28 | verified 28/28 | partial 26/28 | partial 26/28 | partial 26/28 | verified 26/26 | verified 26/26 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NHL | Winner (Incl. Overtime and Penalties) | standard | full_game | offered_now | 3/10 | partial 25/28 | verified 28/28 | partial 25/28 | partial 25/28 | partial 25/28 | verified 25/25 | verified 25/25 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Winnipeg Jets Total | standard | regulation | offered_now | 3/10 | not_observed 0/6 | verified 6/6 | not_observed 0/6 | not_observed 0/6 | not_observed 0/6 | not_observed 0/0 | not_observed 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NHL | assists | standard | regulation | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | blocked shots | standard | regulation | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
