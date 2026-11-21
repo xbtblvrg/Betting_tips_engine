@@ -1,5 +1,6 @@
 import hashlib
 import json
+import re
 from .claude_development import VERSION, MAX_REPLY_BYTES, _strict_json, _validate_schema, _edits, _sha
 
 
@@ -34,9 +35,17 @@ def finish_agy_step(stdout, context, model):
 
     try:
         parsed = _strict_json(resp_text)
-    except Exception as exc:
-        from .provider_runtime import ProviderUnavailable
-        raise ProviderUnavailable(f'Antigravity returned non-JSON output ({exc}); candidate retained for retry')
+    except Exception:
+        try:
+            fixed_text = re.sub(
+                r'\\(["\\/bfnrt]|u[0-9a-fA-F]{4})|\\',
+                lambda m: m.group(0) if m.group(1) else '\\\\',
+                resp_text,
+            )
+            parsed = _strict_json(fixed_text)
+        except Exception as exc:
+            from .provider_runtime import ProviderUnavailable
+            raise ProviderUnavailable(f'Antigravity returned non-JSON output ({exc}); candidate retained for retry')
 
     if not isinstance(parsed, dict) or 'report' not in parsed or 'edits' not in parsed:
         raise ValueError('Antigravity output missing report or edits')

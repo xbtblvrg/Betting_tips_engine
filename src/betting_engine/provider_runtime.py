@@ -412,7 +412,7 @@ def run_ai_step(worker, schema, output, prefix, prompt, timeout=1200,
                 elif route['provider'] == 'agy':
                     from .claude_development import prepare_step, apply_edits
                     from .agy_development import finish_agy_step
-                    with file_lock(worker.root / 'data/development/ai-locks/agy.lock', timeout=60.0) as acquired, tempfile.TemporaryDirectory(prefix='quant-agy-candidate-') as temporary:
+                    with file_lock(worker.root / 'data/development/ai-locks/agy.lock', timeout=360.0) as acquired, tempfile.TemporaryDirectory(prefix='quant-agy-candidate-') as temporary:
                         if not acquired:
                             raise ProviderUnavailable('Antigravity capacity is in use; candidate retained for retry')
                         agy_binary = runtime.config.get('agy_binary', '/Users/belavarga/.local/bin/agy')
