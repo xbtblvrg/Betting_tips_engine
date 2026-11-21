@@ -911,7 +911,7 @@ def _task_diagnostic_destination(root, workspace, name):
         raise ValueError('Diagnostic destination is production or its ancestor')
     if resolved.is_relative_to(root):
         relative = resolved.relative_to(root).parts
-        if (len(relative) != 4 or relative[:3] != ('data', 'development', 'workspaces')
+        if (len(relative) != 4 or relative[:3] not in (('data', 'development', 'workspaces'), ('data', 'releases', 'staging'))
                 or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,119}', relative[3])):
             raise ValueError('Diagnostic destination is outside isolated development workspaces')
     for parent in (workspace, *workspace.parents):
