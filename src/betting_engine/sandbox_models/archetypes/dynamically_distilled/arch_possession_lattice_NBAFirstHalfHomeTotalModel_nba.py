@@ -65,7 +65,7 @@ class NBAFirstHalfHomeTotalModel(BaseCandidateModel):
 
     def __init__(
         self,
-        model_id="codex_synth_nba_half_1_1117_163039",
+        model_id: str = "codex_synth_nba_half_1_1121_124022",
         version="1.0.0",
         league="NBA",
         scope="half_1",

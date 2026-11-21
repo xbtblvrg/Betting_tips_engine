@@ -1,6 +1,6 @@
 # Live Stake market coverage
 
-Checked: 2026-11-21T12:27:16.758686+00:00
+Checked: 2026-11-21T12:45:51.317519+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
@@ -83,7 +83,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | 3rd Quarter - Odd/Even | standard | quarter_3 | offered_now | 1/10 | not_observed 0/4 | verified 4/4 | not_observed 0/4 | not_observed 0/4 | not_observed 0/4 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | 3rd Quarter - Total | standard | quarter_3 | offered_now | 9/10 | verified 12/12 | verified 12/12 | verified 12/12 | verified 12/12 | verified 12/12 | verified 12/12 | verified 12/12 | verified 11/11 | verified 11/11 | partial 11/12 | 0 |
 | NBA | 3rd Quarter - Winning Margin | standard | quarter_3 | offered_now | 0/10 | not_observed 0/6 | not_observed 0/6 | not_observed 0/6 | not_observed 0/6 | not_observed 0/6 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NBA | 4th Quarter - 1x2 | standard | quarter_4 | offered_now | 9/10 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 19/19 | verified 19/19 | partial 19/20 | 0 |
+| NBA | 4th Quarter - 1x2 | standard | quarter_4 | offered_now | 5/10 | partial 4/6 | verified 6/6 | partial 4/6 | partial 4/6 | partial 4/6 | verified 4/4 | verified 4/4 | verified 19/19 | verified 19/19 | partial 19/20 | 0 |
 | NBA | 4th Quarter - Draw No Bet | standard | quarter_4 | offered_now | 7/10 | verified 4/4 | verified 4/4 | verified 4/4 | verified 4/4 | verified 4/4 | verified 4/4 | verified 4/4 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | 4th Quarter - Handicap | standard | quarter_4 | offered_now | 9/10 | verified 4/4 | verified 4/4 | verified 4/4 | verified 4/4 | verified 4/4 | verified 4/4 | verified 4/4 | verified 10/10 | verified 10/10 | partial 10/11 | 0 |
 | NBA | 4th Quarter - Odd/Even | standard | quarter_4 | offered_now | 1/10 | not_observed 0/4 | verified 4/4 | not_observed 0/4 | not_observed 0/4 | not_observed 0/4 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
