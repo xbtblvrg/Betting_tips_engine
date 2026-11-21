@@ -282,7 +282,8 @@ def league_fixtures(fetcher,league,registry=None):
                         # latter endpoints plus an independent sports-game join.
                         different_names=old.get('name')!=r.get('name')
                         seed_resolution=league in ('MLB', 'ATP', 'WTA', 'CHALLENGER', 'MLS') and different_names and _seed_titles_compatible(old.get('name'),r.get('name'))
-                        conflict=old['slug']!=r['slug'] or (different_names and not seed_resolution) or abs(delta)>3600000
+                        max_delta = 86400000 if seed_resolution else 3600000
+                        conflict=old['slug']!=r['slug'] or (different_names and not seed_resolution) or abs(delta)>max_delta
                         if seed_resolution:
                             real_name = r.get('name') if not seed_title(r.get('name')) else old.get('name')
                             r['name'] = real_name
@@ -352,7 +353,8 @@ def fixture_bundle(fetcher,fixture):
             j,m=archived_json(fetcher,url,60);p=normalize_payload(j);actual=p.get('fixture')
             if not isinstance(actual,dict):raise ValueError('Fixture metadata missing from market response')
             identity=_fixture(actual)
-            if any(identity[k]!=fixture[k] for k in ('id','slug')) or abs(float(identity['date'])-float(fixture['date']))>300000:
+            max_date_diff = 86400000 if (fixture.get('seed_name_resolution_required') or _is_bracket_placeholder(fixture.get('slug', ''))) else 300000
+            if any(identity[k]!=fixture[k] for k in ('id','slug')) or abs(float(identity['date'])-float(fixture['date']))>max_date_diff:
                 raise ValueError('Response fixture identity/start differs from schedule')
             responses[endpoint]=(p,m)
         except Exception as e:errors.append({'endpoint':url,'reason':'stake_fixture_endpoint_error','detail':str(e)[:300]})
