@@ -1,6 +1,6 @@
 # Live Stake market coverage
 
-Checked: 2026-11-21T13:03:24.938264+00:00
+Checked: 2026-11-21T13:22:03.974272+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
@@ -43,7 +43,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | 1st Quarter - Chicago Bulls total | standard | quarter_1 | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NBA | 1st Quarter - Dallas Mavericks total | standard | quarter_1 | offered_now | 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | 1st Quarter - Detroit Pistons total | standard | quarter_1 | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
-| NBA | 1st Quarter - Draw No Bet | standard | quarter_1 | offered_now | 9/10 | verified 4/4 | verified 4/4 | verified 4/4 | verified 4/4 | verified 4/4 | verified 4/4 | verified 4/4 | verified 13/13 | verified 13/13 | partial 13/14 | 0 |
+| NBA | 1st Quarter - Draw No Bet | standard | quarter_1 | offered_now | 5/10 | partial 2/4 | verified 4/4 | partial 3/4 | partial 3/4 | partial 2/4 | verified 2/2 | verified 2/2 | verified 13/13 | verified 13/13 | partial 13/14 | 0 |
 | NBA | 1st Quarter - Golden State Warriors total | standard | quarter_1 | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NBA | 1st Quarter - Handicap | standard | quarter_1 | offered_now | 9/10 | verified 4/4 | verified 4/4 | verified 4/4 | verified 4/4 | verified 4/4 | verified 4/4 | verified 4/4 | verified 10/10 | verified 10/10 | partial 10/11 | 0 |
 | NBA | 1st Quarter - Houston Rockets total | standard | quarter_1 | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
