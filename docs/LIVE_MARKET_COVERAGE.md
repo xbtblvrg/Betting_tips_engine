@@ -1,6 +1,6 @@
 # Live Stake market coverage
 
-Checked: 2026-11-21T09:52:02.347380+00:00
+Checked: 2026-11-21T10:09:45.509279+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
