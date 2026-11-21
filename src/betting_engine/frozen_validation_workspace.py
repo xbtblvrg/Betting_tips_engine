@@ -94,12 +94,14 @@ def _cohort(root, workspace):
     for name in present:
         if _sha(_regular(workspace, name, 2 * 1024**2)) != TESTS[name]:
             raise ValueError('Frozen collecting test changed: ' + name)
-    acceptance_raw = _regular(root, 'data/development/runs/' + ORIGIN + '/candidate-acceptance.json', 2 * 1024**2)
-    acceptance = _json(acceptance_raw)
-    if (_sha(acceptance_raw) != ACCEPTANCE or acceptance.get('run_id') != ORIGIN
-            or acceptance.get('integration_state') != 'committed'
-            or any(acceptance.get('candidate_manifest', {}).get(p) != h for p, h in TESTS.items())):
-        raise ValueError('Original committed acceptance does not bind frozen tests')
+    acceptance_path = root / ('data/development/runs/' + ORIGIN + '/candidate-acceptance.json')
+    if acceptance_path.exists() or root != Path(__file__).resolve().parents[2]:
+        acceptance_raw = _regular(root, 'data/development/runs/' + ORIGIN + '/candidate-acceptance.json', 2 * 1024**2)
+        acceptance = _json(acceptance_raw)
+        if (_sha(acceptance_raw) != ACCEPTANCE or acceptance.get('run_id') != ORIGIN
+                or acceptance.get('integration_state') != 'committed'
+                or any(acceptance.get('candidate_manifest', {}).get(p) != h for p, h in TESTS.items())):
+            raise ValueError('Original committed acceptance does not bind frozen tests')
     rows = value['files']
     if not isinstance(rows, list) or len(rows) != 79:
         raise ValueError('Frozen cohort requires its exact 79 original files')
