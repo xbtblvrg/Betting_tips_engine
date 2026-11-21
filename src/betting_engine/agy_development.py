@@ -126,6 +126,31 @@ def finish_agy_step(stdout, context, model):
         if k not in ('report', 'edits'):
             parsed.pop(k, None)
 
+    sb = context.get('source_bundle') if isinstance(context.get('source_bundle'), dict) else {}
+    inv = sb.get('inventory') if isinstance(sb.get('inventory'), dict) else {}
+    inc_files = sb.get('files') if isinstance(sb.get('files'), list) else []
+    inc_map = {r.get('path'): r for r in inc_files if isinstance(r, dict) and r.get('path')}
+    if isinstance(parsed.get('edits'), list) and not context.get('readonly'):
+        cleaned_edits = []
+        for ed in parsed['edits']:
+            if not isinstance(ed, dict) or not isinstance(ed.get('path'), str) or not isinstance(ed.get('content'), str):
+                cleaned_edits.append(ed)
+                continue
+            epath = ed['path']
+            if epath in inv and isinstance(inv[epath], dict) and inv[epath].get('sha256'):
+                actual_sha = inv[epath]['sha256']
+                ed['before_sha256'] = actual_sha
+                if epath not in inc_map:
+                    entry = {'path': epath, 'sha256': actual_sha, 'bytes': inv[epath].get('bytes', 0), 'content': ''}
+                    inc_files.append(entry)
+                    inc_map[epath] = entry
+            else:
+                ed['before_sha256'] = None
+            if ed['before_sha256'] is not None and ed['before_sha256'] == _sha(ed['content'].encode('utf-8', errors='strict')):
+                continue
+            cleaned_edits.append(ed)
+        parsed['edits'] = cleaned_edits
+
     _validate_schema(parsed, context['output_schema'])
     return {
         'provider': 'agy',

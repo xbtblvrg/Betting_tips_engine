@@ -22,6 +22,7 @@ import json
 import logging
 import math
 from pathlib import Path
+import random
 import re
 import sqlite3
 import time
@@ -4094,9 +4095,9 @@ class ShadowMarketIncubator:
         """
         is_prod_db = (as_of is None and self.db_path.resolve() == (DATA / 'shadow_incubator.sqlite3').resolve())
         if is_prod_db:
-            cache_entry = getattr(ShadowMarketIncubator, '_prod_demotions_eval_cache', None)
+            cache_entry = getattr(ShadowMarketIncubator, '_prod_stuck_repair_cache', None)
             if cache_entry and (time.monotonic() - cache_entry[0]) < 120.0:
-                return dict(cache_entry[1])
+                return list(cache_entry[1])
 
         now_iso = as_of or utcnow().isoformat()
         try:
@@ -4280,7 +4281,6 @@ class ShadowMarketIncubator:
 
         # Phase 2: Atomic batched write with exponential backoff to eliminate SQLite locks
         if repairs_to_insert:
-            import time, random
             for attempt in range(5):
                 try:
                     with closing(sqlite3.connect(str(self.db_path), timeout=60.0)) as write_conn:
@@ -4301,6 +4301,8 @@ class ShadowMarketIncubator:
                     log.warning("Could not persist incubator diagnostic repairs: %s", exc)
                     break
 
+        if is_prod_db:
+            ShadowMarketIncubator._prod_stuck_repair_cache = (time.monotonic(), list(repaired_records))
         return repaired_records
 
     def evaluate_demotions_and_substitutions(
