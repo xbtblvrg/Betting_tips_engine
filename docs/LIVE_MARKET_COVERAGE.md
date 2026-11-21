@@ -1,13 +1,13 @@
 # Live Stake market coverage
 
-Checked: 2026-11-21T11:14:57.326929+00:00
+Checked: 2026-11-21T11:33:03.845538+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
 | League | Observed titles | Activity unverified | Offered now | Complete 10/10 | Incomplete offered | Evaluated | Funding supported | Ready now | Issued today |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | NFL | 186 | 58 | 64 | 0 | 64 | 46 | 17 | 12 | 8 |
-| NHL | 100 | 16 | 66 | 0 | 66 | 36 | 5 | 5 | 39 |
+| NHL | 100 | 16 | 66 | 0 | 66 | 37 | 5 | 5 | 39 |
 | MLB | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | NBA | 192 | 35 | 89 | 0 | 89 | 43 | 1 | 1 | 10 |
 | WNBA | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
@@ -404,7 +404,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NHL | 1st Period - Last Team to Score | standard | period_1 | offered_now | 0/10 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 1st Period - Odd/Even | standard | period_1 | offered_now | 1/10 | not_observed 0/28 | verified 28/28 | not_observed 0/28 | not_observed 0/28 | not_observed 0/28 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 1st Period - Total | standard | period_1 | offered_now | 9/10 | verified 28/28 | verified 28/28 | verified 28/28 | verified 28/28 | verified 28/28 | verified 28/28 | verified 28/28 | verified 26/26 | verified 14/14 | partial 14/15 | 10 |
-| NHL | 1x2 | standard | regulation | offered_now | 3/10 | partial 13/42 | verified 42/42 | partial 13/42 | partial 13/42 | partial 13/42 | verified 13/13 | verified 13/13 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NHL | 1x2 | standard | regulation | offered_now | 3/10 | partial 14/42 | verified 42/42 | partial 14/42 | partial 14/42 | partial 14/42 | verified 14/14 | verified 14/14 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 1x2 & Total | standard | regulation | offered_now | 1/10 | not_observed 0/84 | verified 84/84 | partial 56/84 | partial 56/84 | not_observed 0/84 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 2nd Period - 1st Goal | standard | period_2 | offered_now | 0/10 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 2nd Period - 1x2 | standard | period_2 | offered_now | 7/10 | verified 42/42 | verified 42/42 | verified 42/42 | verified 42/42 | verified 42/42 | verified 42/42 | verified 42/42 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
@@ -433,7 +433,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NHL | Chicago Blackhawks Total | standard | regulation | offered_now | 3/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Columbus Blue Jackets Total | standard | regulation | offered_now | 3/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Correct Score | standard | regulation | offered_now | 0/10 | not_observed 0/518 | not_observed 0/518 | not_observed 0/518 | not_observed 0/518 | not_observed 0/518 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NHL | Detroit Red Wings Total | standard | regulation | offered_now | 1/10 | not_observed 0/6 | verified 6/6 | not_observed 0/6 | not_observed 0/6 | not_observed 0/6 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NHL | Detroit Red Wings Total | standard | regulation | offered_now | 3/10 | partial 1/6 | verified 6/6 | partial 1/6 | partial 1/6 | partial 1/6 | verified 1/1 | verified 1/1 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
 | NHL | Double Chance | standard | regulation | offered_now | 5/10 | partial 37/42 | verified 42/42 | verified 42/42 | verified 42/42 | partial 37/42 | verified 37/37 | verified 37/37 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Edmonton Oilers Total | standard | regulation | offered_now | 3/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Florida Panthers Total | standard | regulation | offered_now | 1/10 | not_observed 0/6 | verified 6/6 | not_observed 0/6 | not_observed 0/6 | not_observed 0/6 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
