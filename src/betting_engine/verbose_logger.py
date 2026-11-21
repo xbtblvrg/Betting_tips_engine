@@ -224,18 +224,28 @@ class QuantVerboseLogger:
             root_logger.setLevel(logging.DEBUG)
             be_logger = logging.getLogger("betting_engine")
             be_logger.setLevel(logging.DEBUG)
+            be_logger.propagate = False
 
+            if self.text_handler not in root_logger.handlers:
+                root_logger.addHandler(self.text_handler)
+            if self.jsonl_handler not in root_logger.handlers:
+                root_logger.addHandler(self.jsonl_handler)
             be_logger.addHandler(self.text_handler)
             be_logger.addHandler(self.jsonl_handler)
 
     def close(self) -> None:
         """Closes and removes handlers associated with this instance."""
+        root_logger = logging.getLogger()
         be_logger = logging.getLogger("betting_engine")
-        if self.text_handler and self.text_handler in be_logger.handlers:
-            be_logger.removeHandler(self.text_handler)
+        for lg in (root_logger, be_logger):
+            if self.text_handler and self.text_handler in lg.handlers:
+                lg.removeHandler(self.text_handler)
+            if self.jsonl_handler and self.jsonl_handler in lg.handlers:
+                lg.removeHandler(self.jsonl_handler)
+        if self.text_handler:
             self.text_handler.close()
-        if self.jsonl_handler and self.jsonl_handler in be_logger.handlers:
-            be_logger.removeHandler(self.jsonl_handler)
+        if self.jsonl_handler:
+            self.jsonl_handler.close()
             self.jsonl_handler.close()
 
     # -------------------------------------------------------------------------

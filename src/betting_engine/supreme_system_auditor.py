@@ -600,7 +600,7 @@ class SupremeSystemAuditor:
                 'severity': 'HIGH',
                 'description': f"Component {comp['component']} is in {comp.get('state')} state",
                 'evidence': comp.get('detail', ''),
-                'action': 'component_repair'
+                'action': 'autonomous_code_healing'
             })
 
         # 5. Anti-Constant & Code Limits Violations (HIGH / CRITICAL)
@@ -777,7 +777,7 @@ class SupremeSystemAuditor:
         lock_dir = self.data_dir / 'development' / 'ai-locks'
         lock_dir.mkdir(parents=True, exist_ok=True)
 
-        for provider in ('claude', 'codex', 'agy'):
+        for provider in ('agy', 'codex', 'claude'):
             p_cfg = providers_cfg.get(provider, {})
             if not p_cfg.get('enabled'):
                 continue
@@ -785,7 +785,7 @@ class SupremeSystemAuditor:
                 with file_lock(lock_dir / f"self_heal_{provider}.lock", timeout=25.0) as acquired:
                     if not acquired:
                         continue
-                    res = invoke(provider, p_cfg, prompt, timeout=90)
+                    res = invoke(provider, p_cfg, prompt, timeout=120)
                     state, answer = decode(provider, res, p_cfg.get('model'))
                     if state != 'received_unreviewed' or not answer:
                         continue
@@ -827,10 +827,20 @@ class SupremeSystemAuditor:
                         vl.log_event("supreme_system_auditor", "ai_patch_pytest_rollback", f"Rolled back AI patch from {provider} after pytest failure", data=test_check, level=logging.WARNING)
                         continue
 
+                    # Gate 4: Synchronize verified patch to accepted/ and workspace/ overlays
+                    rel_target = target_path.relative_to(self.root)
+                    for overlay in (self.data_dir / 'development' / 'accepted', self.data_dir / 'development' / 'workspace'):
+                        dst = overlay / rel_target
+                        if dst.parent.exists():
+                            try:
+                                dst.write_text(candidate_source, encoding='utf-8')
+                            except Exception:
+                                pass
+
                     return {
                         'status': 'healed',
                         'provider': provider,
-                        'file': str(target_path.relative_to(self.root)),
+                        'file': str(rel_target),
                         'root_cause': root_cause,
                         'remedy': f"AI ({provider}) surgical patch applied to {target_path.name}:{line_no} and verified by pytest ({active_tests})",
                         'test_targets': active_tests,
@@ -850,13 +860,36 @@ class SupremeSystemAuditor:
         code_limits_audit = self.audit_anti_constant_and_code_limits()
 
         findings = self.synthesize_findings(code_audit, inv_audit, health_audit, db_audit, code_limits_audit)
+
+        # Scan learning_jobs for active runtime exceptions not yet routed to runtime_exception_auto_repair
+        try:
+            engine_db = self.data_dir / 'engine.sqlite3'
+            if engine_db.exists():
+                with sqlite3.connect(f"file:{engine_db.resolve()}?mode=ro", uri=True, timeout=3.0) as conn:
+                    rows = conn.execute(
+                        "SELECT id, kind, last_error FROM learning_jobs WHERE last_error IS NOT NULL AND last_error != '' AND kind NOT IN ('runtime_exception_auto_repair', 'autonomous_code_healing') LIMIT 5"
+                    ).fetchall()
+                    for jid, jkind, jerr in rows:
+                        if any(err_kw in str(jerr) for err_kw in ('Error:', 'Exception:', 'Traceback')):
+                            findings.append({
+                                'id': f"JOB-ERR-{jid[:8]}",
+                                'category': 'runtime_exception_auto_repair',
+                                'severity': 'HIGH',
+                                'description': f"Learning job {jkind} ({jid}) exception: {str(jerr)[:200]}",
+                                'evidence': str(jerr),
+                                'exception_message': str(jerr)[:300],
+                                'action': 'autonomous_code_healing',
+                            })
+        except Exception:
+            pass
+
         critical_count = sum(1 for f in findings if f.get('severity') == 'CRITICAL')
         high_count = sum(1 for f in findings if f.get('severity') == 'HIGH')
 
         # Autonomous healing trigger on critical findings
         healing_results = []
         for f in findings:
-            if f.get('severity') in ('CRITICAL', 'HIGH') and f.get('action') == 'autonomous_code_healing':
+            if f.get('severity') in ('CRITICAL', 'HIGH') and f.get('action') in ('autonomous_code_healing', 'component_repair'):
                 heal_res = self.execute_autonomous_code_healing(f)
                 healing_results.append(heal_res)
 

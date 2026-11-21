@@ -1765,7 +1765,12 @@ class LearningWorker:
                                   (error, stamp.isoformat(), (stamp + timedelta(seconds=delay)).isoformat(), job_id))
                         c.execute("UPDATE learning_attempts SET status='failed', error=?, finished_at=? WHERE id=?", (error, stamp.isoformat(), attempt))
                     failed_jobs.append({'id': job_id, 'kind': job['kind'], 'status': 'retry', 'error': error})
-                    logging.warning(f"Parallel learning job {job_id} ({job['kind']}) failed: {error}")
+                    if job['kind'] not in ('runtime_exception_auto_repair', 'autonomous_code_healing'):
+                        logging.getLogger("betting_engine.learning").error(
+                            "Parallel learning job %s (%s) failed: %s", job_id, job['kind'], error, exc_info=True
+                        )
+                    else:
+                        logging.warning(f"Parallel learning job {job_id} ({job['kind']}) failed: {error}")
 
         # 3. Fill free slots with runnable deep jobs immediately
         available_slots = max_parallel - len(self._active_futures)
