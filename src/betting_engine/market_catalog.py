@@ -148,7 +148,10 @@ def refresh_catalog(data_dir=DATA,fetcher=None,horizon_days=None):
         rows.extend(batch)
         if audit:
             endpoint_audits.append(audit)
-            issues.extend({**e,'league':audit['league'],'fixture':audit['fixture_id']} for e in audit['errors'] if e['reason']!='stake_fixture_not_active')
+            inactive = any(e['reason'] == 'stake_fixture_not_active' for e in audit['errors'])
+            diff = audit.get('market_difference') or {}
+            inplay_line_move = inactive and diff.get('only_fixtures') == diff.get('only_odds')
+            issues.extend({**e,'league':audit['league'],'fixture':audit['fixture_id']} for e in audit['errors'] if e['reason']!='stake_fixture_not_active' and not (inplay_line_move and e['reason']=='stake_endpoint_market_difference'))
         if error:issues.append(error)
     stamp=utcnow().isoformat();summary=summarize(rows,issues,stamp)
     folder=Path(data_dir)/'market_catalog';archive=folder/'versions'/now.strftime('%Y%m%dT%H%M%S%fZ')

@@ -486,7 +486,11 @@ class LearningWorker:
                 if job['result']:
                     r = json.loads(job['result'])
                     if isinstance(r, dict) and len(str(r)) > 50_000:
-                        job['result'] = {'status': r.get('status') or r.get('state'), 'summary': str(r.get('summary') or r.get('conclusion') or '')[:500]}
+                        job['result'] = {
+                            'status': r.get('status') or r.get('state'),
+                            'summary': str(r.get('summary') or r.get('conclusion') or '')[:500],
+                            **({'feedback': r['feedback']} if 'feedback' in r else {}),
+                        }
                     else:
                         job['result'] = r
             except Exception:

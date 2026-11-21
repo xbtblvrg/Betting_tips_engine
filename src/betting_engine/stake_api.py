@@ -226,7 +226,7 @@ def _title_teams(name):
 
 def _is_bracket_placeholder(name):
     text = str(name or '').lower()
-    return bool(re.search(r'\b(?:r\d+p\d+|qf\d*|sf\d*|wqf\d*|tbd|tba|qualifier|finalist|semi-?finalist|quarter-?finalist|winner\s+(?:match\s*)?\d+|seed\s*\d+|bracket\s*\d*|round\s*of\s*\d+|(?:american|national)\s+league\s+champion|(?:al|nl)\s+champion|conference\s+champion|division\s+champion)\b', text) or any(k in text for k in ('r16p', 'r64p', 'r32p', 'r128p')))
+    return bool(re.search(r'\b(?:r\d+p\d+|qf\d*|sf\d*|wqf\d*|wsf\d*|tbd|tba|qualifier|finalist|semi-?finalist|quarter-?finalist|winner\s+(?:match\s*)?\d+|winner\s+of\s+(?:[a-z0-9]+\s+){1,6}wild\s*card|seed\s*\d+|bracket\s*\d*|round\s*of\s*\d+|(?:american|national)\s+league\s+champion|(?:al|nl)\s+champion|conference\s+champion|division\s+champion)\b', text) or any(k in text for k in ('r16p', 'r64p', 'r32p', 'r128p')))
 
 
 def _seed_team(name):
@@ -234,7 +234,7 @@ def _seed_team(name):
     match=re.fullmatch(r'(?:al|nl)\s+(?:seed\s+[1-6]|([1-6])/([1-6]))',clean,re.I)
     if bool(match and (match.group(1) is None or match.group(1)!=match.group(2))):
         return True
-    if re.fullmatch(r'(?:qf|sf|f|r|wqf)\d*|tbd|tba|qualifier(?:\s*\d+)?|finalist(?:\s*\d+)?|winner\s+(?:match\s*)?\d+|seed\s*\d+', clean, re.I):
+    if re.fullmatch(r'(?:qf|sf|f|r|wqf|wsf)\d*|tbd|tba|qualifier(?:\s*\d+)?|finalist(?:\s*\d+)?|winner\s+(?:match\s*)?\d+|winner\s+of\s+(?:[a-z0-9]+\s+){1,6}wild\s*card|seed\s*\d+', clean, re.I):
         return True
     return False
 
@@ -281,7 +281,7 @@ def league_fixtures(fetcher,league,registry=None):
                         # the exact start. Retain the discrepancy and require the
                         # latter endpoints plus an independent sports-game join.
                         different_names=old.get('name')!=r.get('name')
-                        seed_resolution=league in ('MLB', 'ATP', 'WTA', 'CHALLENGER') and different_names and _seed_titles_compatible(old.get('name'),r.get('name'))
+                        seed_resolution=league in ('MLB', 'ATP', 'WTA', 'CHALLENGER', 'MLS') and different_names and _seed_titles_compatible(old.get('name'),r.get('name'))
                         conflict=old['slug']!=r['slug'] or (different_names and not seed_resolution) or abs(delta)>3600000
                         if seed_resolution:
                             real_name = r.get('name') if not seed_title(r.get('name')) else old.get('name')
@@ -363,13 +363,17 @@ def fixture_bundle(fetcher,fixture):
     if resolution:
         titles=[n for n in resolution.values() if not seed_title(n)]
         expected={tuple(sorted(_title_teams(n))) for n in titles}
-        pairs={tuple(sorted(str(o.get('name','')).strip().casefold() for o in r['outcomes']))
-               for _,r in market_records(payload) if r.get('name') in ('Winner (Incl. Extra Innings)', 'Winner', 'Match Winner') and r.get('status') in (None,'active')
-               and len(r.get('outcomes') or [])==2 and all(o.get('active') is True and o.get('status') in (None,'active') for o in r['outcomes'])}
+        pairs={tuple(sorted(str(o.get('name','')).strip().casefold() for o in r['outcomes'] if str(o.get('name','')).strip().casefold()!='draw'))
+               for _,r in market_records(payload) if r.get('name') in ('Winner (Incl. Extra Innings)', 'Winner', 'Match Winner', '1x2', 'Draw No Bet') and r.get('status') in (None,'active')
+               and len([o for o in (r.get('outcomes') or []) if str(o.get('name','')).strip().casefold()!='draw'])==2 and all(o.get('active') is True and o.get('status') in (None,'active') for o in r['outcomes'])}
         pair_match = pairs == expected or (len(expected) == 1 and bool(pairs) and all(_pair_matches(next(iter(expected)), p) for p in pairs))
         if not expected and len(pairs) == 1:
             p = next(iter(pairs))
             if len(p) == 2 and p[0] != p[1] and not any(_is_bracket_placeholder(x) for x in p):
+                pair_match = True
+        if not pairs and not list(market_records(payload)) and not any((payload.get('swishMarkets') or {}).values()):
+            actual_pair = tuple(sorted(_title_teams(identity.get('name'))))
+            if len(actual_pair) == 2 and actual_pair[0] != actual_pair[1] and not any(_is_bracket_placeholder(x) for x in actual_pair) and {actual_pair} == expected:
                 pair_match = True
         identity_verified=(_seed_titles_compatible(*resolution.values()) and (len(expected)<=1) and pair_match
                            and all(len(pair)==2 and pair[0]!=pair[1] for pair in pairs))
@@ -380,7 +384,8 @@ def fixture_bundle(fetcher,fixture):
     if len(responses)==2:
         a,b=(market_keys(responses[k][0]) for k in ('fixtures','odds'))
         differences={'only_fixtures':len(a-b),'only_odds':len(b-a)}
-        if a!=b:errors.append({'reason':'stake_endpoint_market_difference','detail':json.dumps(differences)})
+        if a!=b and not all((r[0].get('fixture') or {}).get('status')=='live' for r in responses.values()):
+            errors.append({'reason':'stake_endpoint_market_difference','detail':json.dumps(differences)})
     audit={'selected_endpoint':chosen,'responses':{k:meta_ref(m) for k,(_,m) in responses.items()},
            'market_difference':differences,'errors':errors,'identity_verified':identity_verified,
            'seed_name_resolution':{**resolution,'verified_from_active_winner':identity_verified} if resolution else None,
