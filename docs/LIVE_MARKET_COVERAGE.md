@@ -1,12 +1,12 @@
 # Live Stake market coverage
 
-Checked: 2026-11-21T15:44:10.245414+00:00
+Checked: 2026-11-21T16:00:48.859561+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
 | League | Observed titles | Activity unverified | Offered now | Complete 10/10 | Incomplete offered | Evaluated | Funding supported | Ready now | Issued today |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| NFL | 186 | 58 | 64 | 0 | 64 | 46 | 17 | 12 | 8 |
+| NFL | 186 | 58 | 64 | 0 | 64 | 46 | 17 | 11 | 8 |
 | NHL | 100 | 16 | 66 | 0 | 66 | 49 | 5 | 4 | 40 |
 | MLB | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | NBA | 201 | 35 | 105 | 0 | 105 | 51 | 2 | 1 | 10 |
@@ -405,7 +405,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NFL | team rush touchdowns | swishMarkets.teamProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/8 | activity_unverified 0/8 | activity_unverified 0/8 | activity_unverified 0/8 | activity_unverified 0/8 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 1st Goal | standard | regulation | offered_now | 0/10 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 1st Period - 1st Goal | standard | period_1 | offered_now | 0/10 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NHL | 1st Period - 1x2 | standard | period_1 | offered_now | 5/10 | partial 6/42 | verified 42/42 | partial 6/42 | partial 6/42 | partial 6/42 | verified 6/6 | verified 6/6 | verified 12/12 | verified 12/12 | partial 12/13 | 0 |
+| NHL | 1st Period - 1x2 | standard | period_1 | offered_now | 5/10 | partial 5/42 | verified 42/42 | partial 5/42 | partial 5/42 | partial 5/42 | verified 5/5 | verified 5/5 | verified 12/12 | verified 12/12 | partial 12/13 | 0 |
 | NHL | 1st Period - Both Teams to Score | standard | period_1 | offered_now | 1/10 | not_observed 0/28 | verified 28/28 | not_observed 0/28 | not_observed 0/28 | not_observed 0/28 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 1st Period - Double Chance | standard | period_1 | offered_now | 7/10 | verified 42/42 | verified 42/42 | verified 42/42 | verified 42/42 | verified 42/42 | verified 42/42 | verified 42/42 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
 | NHL | 1st Period - Draw No Bet | standard | period_1 | offered_now | 7/10 | verified 28/28 | verified 28/28 | verified 28/28 | verified 28/28 | verified 28/28 | verified 28/28 | verified 28/28 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
