@@ -1,15 +1,15 @@
 # Live Stake market coverage
 
-Checked: 2026-11-21T14:51:33.845518+00:00
+Checked: 2026-11-21T15:09:22.884473+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
 | League | Observed titles | Activity unverified | Offered now | Complete 10/10 | Incomplete offered | Evaluated | Funding supported | Ready now | Issued today |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| NFL | 186 | 58 | 64 | 0 | 64 | 46 | 17 | 0 | 8 |
-| NHL | 100 | 16 | 66 | 0 | 66 | 49 | 5 | 0 | 40 |
+| NFL | 186 | 58 | 64 | 0 | 64 | 46 | 17 | 12 | 8 |
+| NHL | 100 | 16 | 66 | 0 | 66 | 49 | 5 | 4 | 40 |
 | MLB | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| NBA | 201 | 35 | 105 | 0 | 105 | 51 | 2 | 0 | 10 |
+| NBA | 201 | 35 | 105 | 0 | 105 | 51 | 2 | 1 | 10 |
 | WNBA | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 
 Current stages require outcome-level evidence; original issuance, settlement and feedback are explicitly historical. 10/10 records observed execution, not proven profitability or automatic model promotion.
@@ -257,7 +257,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NFL | 2nd quarter receptions | standard | quarter_2 | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 3rd Quarter - 1x2 | standard | quarter_3 | offered_now | 1/10 | not_observed 0/30 | verified 30/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 3rd Quarter - Draw No Bet | standard | quarter_3 | offered_now | 3/10 | partial 2/20 | verified 20/20 | partial 5/20 | partial 5/20 | partial 2/20 | verified 2/2 | verified 2/2 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NFL | 3rd Quarter - Handicap | standard | quarter_3 | offered_now | 5/10 | partial 5/20 | verified 20/20 | partial 5/20 | partial 5/20 | partial 5/20 | verified 5/5 | verified 5/5 | verified 9/9 | verified 2/2 | partial 2/3 | 2 |
+| NFL | 3rd Quarter - Handicap | standard | quarter_3 | offered_now | 5/10 | partial 6/20 | verified 20/20 | partial 6/20 | partial 6/20 | partial 6/20 | verified 6/6 | verified 6/6 | verified 9/9 | verified 2/2 | partial 2/3 | 2 |
 | NFL | 3rd Quarter - Total | standard | quarter_3 | offered_now | 3/10 | partial 4/20 | verified 20/20 | partial 4/20 | partial 4/20 | partial 4/20 | verified 4/4 | verified 4/4 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 3rd quarter anytime touchdown | standard | quarter_3 | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 3rd quarter receiving yards | standard | quarter_3 | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
@@ -464,7 +464,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NHL | St. Louis Blues Total | standard | regulation | offered_now | 5/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | verified 1/1 | verified 1/1 | partial 1/2 | 0 |
 | NHL | Tampa Bay Lightning Total | standard | regulation | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NHL | Toronto Maple Leafs Total | standard | regulation | offered_now | 3/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
-| NHL | Total (Incl. Overtime and Penalties) | standard | full_game | offered_now | 5/10 | partial 119/140 | verified 140/140 | partial 119/140 | partial 119/140 | partial 119/140 | verified 119/119 | verified 119/119 | verified 36/36 | verified 22/22 | partial 22/23 | 12 |
+| NHL | Total (Incl. Overtime and Penalties) | standard | full_game | offered_now | 5/10 | partial 25/140 | verified 140/140 | partial 28/140 | partial 28/140 | partial 25/140 | verified 25/25 | verified 25/25 | verified 36/36 | verified 22/22 | partial 22/23 | 12 |
 | NHL | Utah Mammoth Total | standard | regulation | offered_now | 9/10 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 1/1 | verified 1/1 | partial 1/2 | 0 |
 | NHL | Vancouver Canucks Total | standard | regulation | offered_now | 3/10 | partial 4/6 | verified 6/6 | partial 4/6 | partial 4/6 | partial 4/6 | verified 4/4 | verified 4/4 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
 | NHL | Vegas Golden Knights Total | standard | regulation | offered_now | 3/10 | partial 4/6 | verified 6/6 | partial 4/6 | partial 4/6 | partial 4/6 | verified 4/4 | verified 4/4 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
