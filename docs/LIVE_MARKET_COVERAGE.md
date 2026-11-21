@@ -1,15 +1,15 @@
 # Live Stake market coverage
 
-Checked: 2026-11-21T14:33:52.403464+00:00
+Checked: 2026-11-21T14:51:33.845518+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
 | League | Observed titles | Activity unverified | Offered now | Complete 10/10 | Incomplete offered | Evaluated | Funding supported | Ready now | Issued today |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| NFL | 186 | 58 | 64 | 0 | 64 | 46 | 17 | 12 | 8 |
-| NHL | 100 | 16 | 66 | 0 | 66 | 49 | 5 | 4 | 40 |
+| NFL | 186 | 58 | 64 | 0 | 64 | 46 | 17 | 0 | 8 |
+| NHL | 100 | 16 | 66 | 0 | 66 | 49 | 5 | 0 | 40 |
 | MLB | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| NBA | 201 | 35 | 105 | 0 | 105 | 51 | 2 | 1 | 10 |
+| NBA | 201 | 35 | 105 | 0 | 105 | 51 | 2 | 0 | 10 |
 | WNBA | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 
 Current stages require outcome-level evidence; original issuance, settlement and feedback are explicitly historical. 10/10 records observed execution, not proven profitability or automatic model promotion.
@@ -43,7 +43,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | 1st Quarter - Chicago Bulls total | standard | quarter_1 | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NBA | 1st Quarter - Dallas Mavericks total | standard | quarter_1 | offered_now | 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | 1st Quarter - Detroit Pistons total | standard | quarter_1 | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
-| NBA | 1st Quarter - Draw No Bet | standard | quarter_1 | offered_now | 9/10 | verified 12/12 | verified 12/12 | verified 12/12 | verified 12/12 | verified 12/12 | verified 12/12 | verified 12/12 | verified 13/13 | verified 13/13 | partial 13/14 | 0 |
+| NBA | 1st Quarter - Draw No Bet | standard | quarter_1 | offered_now | 5/10 | partial 8/12 | verified 12/12 | partial 9/12 | partial 9/12 | partial 8/12 | verified 8/8 | verified 8/8 | verified 13/13 | verified 13/13 | partial 13/14 | 0 |
 | NBA | 1st Quarter - Golden State Warriors total | standard | quarter_1 | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NBA | 1st Quarter - Handicap | standard | quarter_1 | offered_now | 9/10 | verified 12/12 | verified 12/12 | verified 12/12 | verified 12/12 | verified 12/12 | verified 12/12 | verified 12/12 | verified 10/10 | verified 10/10 | partial 10/11 | 0 |
 | NBA | 1st Quarter - Houston Rockets total | standard | quarter_1 | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
@@ -83,7 +83,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | 3rd Quarter - Odd/Even | standard | quarter_3 | offered_now | 1/10 | not_observed 0/12 | verified 12/12 | not_observed 0/12 | not_observed 0/12 | not_observed 0/12 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | 3rd Quarter - Total | standard | quarter_3 | offered_now | 9/10 | verified 12/12 | verified 12/12 | verified 12/12 | verified 12/12 | verified 12/12 | verified 12/12 | verified 12/12 | verified 11/11 | verified 11/11 | partial 11/12 | 0 |
 | NBA | 3rd Quarter - Winning Margin | standard | quarter_3 | offered_now | 0/10 | not_observed 0/18 | not_observed 0/18 | not_observed 0/18 | not_observed 0/18 | not_observed 0/18 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NBA | 4th Quarter - 1x2 | standard | quarter_4 | offered_now | 9/10 | verified 18/18 | verified 18/18 | verified 18/18 | verified 18/18 | verified 18/18 | verified 18/18 | verified 18/18 | verified 19/19 | verified 19/19 | partial 19/20 | 0 |
+| NBA | 4th Quarter - 1x2 | standard | quarter_4 | offered_now | 5/10 | partial 13/18 | verified 18/18 | partial 13/18 | partial 13/18 | partial 13/18 | verified 13/13 | verified 13/13 | verified 19/19 | verified 19/19 | partial 19/20 | 0 |
 | NBA | 4th Quarter - Draw No Bet | standard | quarter_4 | offered_now | 7/10 | verified 12/12 | verified 12/12 | verified 12/12 | verified 12/12 | verified 12/12 | verified 12/12 | verified 12/12 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | 4th Quarter - Handicap | standard | quarter_4 | offered_now | 9/10 | verified 12/12 | verified 12/12 | verified 12/12 | verified 12/12 | verified 12/12 | verified 12/12 | verified 12/12 | verified 10/10 | verified 10/10 | partial 10/11 | 0 |
 | NBA | 4th Quarter - Odd/Even | standard | quarter_4 | offered_now | 1/10 | not_observed 0/12 | verified 12/12 | not_observed 0/12 | not_observed 0/12 | not_observed 0/12 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
@@ -446,7 +446,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NHL | Double Chance | standard | regulation | offered_now | 5/10 | partial 37/42 | verified 42/42 | verified 42/42 | verified 42/42 | partial 37/42 | verified 37/37 | verified 37/37 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Edmonton Oilers Total | standard | regulation | offered_now | 3/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Florida Panthers Total | standard | regulation | offered_now | 3/10 | partial 4/6 | verified 6/6 | partial 4/6 | partial 4/6 | partial 4/6 | verified 4/4 | verified 4/4 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
-| NHL | Handicap (Incl. Overtime and Penalties) | standard | full_game | offered_now | 5/10 | partial 8/88 | verified 88/88 | partial 8/88 | partial 8/88 | partial 8/88 | verified 8/8 | verified 8/8 | verified 28/28 | verified 28/28 | partial 28/29 | 0 |
+| NHL | Handicap (Incl. Overtime and Penalties) | standard | full_game | offered_now | 5/10 | partial 9/92 | verified 92/92 | partial 9/92 | partial 9/92 | partial 9/92 | verified 9/9 | verified 9/9 | verified 28/28 | verified 28/28 | partial 28/29 | 0 |
 | NHL | Last Goal | standard | regulation | offered_now | 0/10 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Los Angeles Kings Total | standard | regulation | offered_now | 3/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Minnesota Wild Total | standard | regulation | offered_now | 9/10 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
