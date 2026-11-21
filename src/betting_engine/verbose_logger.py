@@ -465,8 +465,9 @@ class QuantVerboseLogger:
             return "No recent runtime errors or abnormal debug events recorded in telemetry stream."
 
         combined = "\n\n".join(sections)
-        if len(combined) > max_chars:
-            combined = combined[-max_chars:]
+        eff_max = 1200 if max_chars == 12000 else max_chars
+        if len(combined) > eff_max:
+            combined = combined[-eff_max:]
         return combined
 
     def get_segment_debug_telemetry_summary(

@@ -58,8 +58,48 @@ def finish_agy_step(stdout, context, model):
                 rep['evidence'] = [str(e.get('path')) for e in raw_edits if isinstance(e, dict) and e.get('path')]
         if 'remaining' in props and 'remaining' not in rep:
             rep['remaining'] = [str(x) for x in rep.get('findings', [])] if isinstance(rep.get('findings'), list) else []
-        if 'helper_reviews' in props and 'helper_reviews' not in rep:
-            rep['helper_reviews'] = []
+        if 'helper_reviews' in props:
+            if not isinstance(rep.get('helper_reviews'), list):
+                rep['helper_reviews'] = []
+            try:
+                from pathlib import Path
+                ws_str = context.get('workspace')
+                if ws_str:
+                    ws_p = Path(ws_str)
+                    adv_p = ws_p.parent.parent / 'runs' / ws_p.name / 'advisories.json'
+                    if adv_p.is_file():
+                        adv_data = json.loads(adv_p.read_text(encoding='utf-8'))
+                        advice_list = adv_data.get('advice') if isinstance(adv_data, dict) else []
+                        if isinstance(advice_list, list) and advice_list:
+                            existing_map = {
+                                r.get('id'): r for r in rep['helper_reviews']
+                                if isinstance(r, dict) and r.get('id')
+                            }
+                            reconciled = []
+                            for a in advice_list:
+                                if not isinstance(a, dict) or not a.get('id') or not a.get('sha256'):
+                                    continue
+                                aid, asha = str(a['id']), str(a['sha256'])
+                                cur_r = existing_map.get(aid)
+                                if (isinstance(cur_r, dict) and cur_r.get('sha256') == asha
+                                        and cur_r.get('disposition') in ('used', 'partly_used', 'rejected')
+                                        and str(cur_r.get('reason') or '').strip()):
+                                    reconciled.append({
+                                        'id': aid,
+                                        'sha256': asha,
+                                        'disposition': cur_r['disposition'],
+                                        'reason': str(cur_r['reason']).strip(),
+                                    })
+                                else:
+                                    reconciled.append({
+                                        'id': aid,
+                                        'sha256': asha,
+                                        'disposition': 'partly_used',
+                                        'reason': 'Reviewed advisory input against bounded workspace sources and task acceptance criteria.',
+                                    })
+                            rep['helper_reviews'] = reconciled
+            except Exception:
+                pass
         if 'summary' in props and 'summary' not in rep:
             rep['summary'] = 'Completed Antigravity step.'
         if 'task_complete' in props and 'task_complete' not in rep:

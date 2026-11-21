@@ -16,7 +16,7 @@ import sqlite3
 from typing import Any, Dict, List, Optional, Tuple, Union
 from contextlib import closing
 
-from .historical_trainer import HistoricalCandidateTrainer
+from .historical_trainer import CandidateTrainingResult, HistoricalCandidateTrainer
 from .providers import DATA
 from .quant_rd_agent import append_rd_log
 from .tournament_engine import TournamentEngine, normalize_segment_key

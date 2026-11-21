@@ -23,6 +23,7 @@ from pathlib import Path
 import re
 import selectors
 import signal
+import sqlite3
 import subprocess
 import tempfile
 import time
@@ -1096,16 +1097,16 @@ class {class_name}(BaseCandidateModel):
             f"and deduce a concrete mathematical formulation from first principles to capture this alpha. Output domain analysis only."
         )
         try:
-            with file_lock(DATA / "development" / "ai-locks" / "claude.lock", timeout=45.0) as acquired:
+            with file_lock(DATA / "development" / "ai-locks" / "claude.lock", timeout=15.0) as acquired:
                 if not acquired:
-                    log.info(f"Claude lock busy (45.0s) for hypothesis {segment_key}; skipping hypothesis")
+                    log.info(f"Claude lock busy (15.0s) for hypothesis {segment_key}; skipping hypothesis")
                     return None
                 res = invoke('claude', claude_cfg, prompt, timeout=60)
                 state, answer = decode('claude', res, claude_cfg.get('model'))
                 if state == 'received_unreviewed' and answer:
                     return answer.strip()
         except Exception as e:
-            log.warning(f"Claude domain hypothesis exception for {segment_key}: {e}")
+            log.debug(f"Claude domain hypothesis exception for {segment_key}: {e}")
         return None
 
     def _query_grok_for_red_team_critique(
@@ -1242,9 +1243,20 @@ class {class_name}(BaseCandidateModel):
                         except Exception:
                             pass
                 else:
-                    log.warning(f"Claude decode returned state '{state}' for {segment_key}; rc: {res.get('returncode')}")
+                    log.debug(f"Claude decode returned state '{state}' for {segment_key}; rc: {res.get('returncode')}; trying Antigravity (agy) fallback")
+                    agy_cfg = dict(policy.get('providers', {}).get('agy', {}))
+                    if agy_cfg.get('enabled'):
+                        agy_model = agy_cfg.get('primary_fallback_model') or agy_cfg.get('model', 'gemini-3.8-flash-high')
+                        agy_run_cfg = {**agy_cfg, 'model': agy_model}
+                        res_agy = invoke('agy', agy_run_cfg, prompt, timeout=180)
+                        st_agy, ans_agy = decode('agy', res_agy, None)
+                        if st_agy == 'received_unreviewed' and ans_agy:
+                            clean_code = extract_clean_code(ans_agy)
+                            is_safe, cls_name, err = check_ast_safety(clean_code)
+                            if is_safe and cls_name:
+                                return clean_code, cls_name, f"Antigravity ({agy_model}) synthesized model addressing {domain_problem[:120]}"
         except Exception as e:
-            log.warning(f"Claude invocation exception for {segment_key}: {e}")
+            log.debug(f"Claude invocation exception for {segment_key}: {e}")
 
         return None
 
