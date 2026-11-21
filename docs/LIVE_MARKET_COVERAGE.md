@@ -1,6 +1,6 @@
 # Live Stake market coverage
 
-Checked: 2026-11-21T16:57:34.482127+00:00
+Checked: 2026-11-21T17:16:02.613262+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
@@ -449,7 +449,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NHL | Double Chance | standard | regulation | offered_now | 5/10 | partial 37/42 | verified 42/42 | verified 42/42 | verified 42/42 | partial 37/42 | verified 37/37 | verified 37/37 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Edmonton Oilers Total | standard | regulation | offered_now | 3/10 | partial 8/10 | verified 10/10 | partial 8/10 | partial 8/10 | partial 8/10 | verified 8/8 | verified 8/8 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Florida Panthers Total | standard | regulation | offered_now | 3/10 | partial 4/6 | verified 6/6 | partial 4/6 | partial 4/6 | partial 4/6 | verified 4/4 | verified 4/4 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
-| NHL | Handicap (Incl. Overtime and Penalties) | standard | full_game | offered_now | 5/10 | partial 8/92 | verified 92/92 | partial 8/92 | partial 8/92 | partial 8/92 | verified 8/8 | verified 8/8 | verified 28/28 | verified 28/28 | partial 28/29 | 0 |
+| NHL | Handicap (Incl. Overtime and Penalties) | standard | full_game | offered_now | 5/10 | partial 7/104 | verified 104/104 | partial 7/104 | partial 7/104 | partial 7/104 | verified 7/7 | verified 7/7 | verified 28/28 | verified 28/28 | partial 28/29 | 0 |
 | NHL | Last Goal | standard | regulation | offered_now | 0/10 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Los Angeles Kings Total | standard | regulation | offered_now | 3/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Minnesota Wild Total | standard | regulation | offered_now | 9/10 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
@@ -467,7 +467,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NHL | St. Louis Blues Total | standard | regulation | offered_now | 5/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | verified 1/1 | verified 1/1 | partial 1/2 | 0 |
 | NHL | Tampa Bay Lightning Total | standard | regulation | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NHL | Toronto Maple Leafs Total | standard | regulation | offered_now | 3/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
-| NHL | Total (Incl. Overtime and Penalties) | standard | full_game | offered_now | 5/10 | partial 25/140 | verified 140/140 | partial 28/140 | partial 28/140 | partial 25/140 | verified 25/25 | verified 25/25 | verified 36/36 | verified 22/22 | partial 22/23 | 12 |
+| NHL | Total (Incl. Overtime and Penalties) | standard | full_game | offered_now | 5/10 | partial 24/144 | verified 144/144 | partial 30/144 | partial 30/144 | partial 24/144 | verified 24/24 | verified 24/24 | verified 36/36 | verified 22/22 | partial 22/23 | 12 |
 | NHL | Utah Mammoth Total | standard | regulation | offered_now | 9/10 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 1/1 | verified 1/1 | partial 1/2 | 0 |
 | NHL | Vancouver Canucks Total | standard | regulation | offered_now | 3/10 | partial 4/6 | verified 6/6 | partial 4/6 | partial 4/6 | partial 4/6 | verified 4/4 | verified 4/4 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
 | NHL | Vegas Golden Knights Total | standard | regulation | offered_now | 3/10 | partial 4/6 | verified 6/6 | partial 4/6 | partial 4/6 | partial 4/6 | verified 4/4 | verified 4/4 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
