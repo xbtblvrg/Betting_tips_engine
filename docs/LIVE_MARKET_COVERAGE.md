@@ -1,6 +1,6 @@
 # Live Stake market coverage
 
-Checked: 2026-11-22T12:17:53.194464+00:00
+Checked: 2026-11-22T12:34:25.502352+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
@@ -186,7 +186,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | assists+rebounds | swishMarkets.playerProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/68 | activity_unverified 0/68 | activity_unverified 0/68 | activity_unverified 0/68 | activity_unverified 0/68 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | blocks | swishMarkets.playerProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/18 | activity_unverified 0/18 | activity_unverified 0/18 | activity_unverified 0/18 | activity_unverified 0/18 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | doubledouble | swishMarkets.playerProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/12 | activity_unverified 0/12 | activity_unverified 0/12 | activity_unverified 0/12 | activity_unverified 0/12 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NBA | fg attempted | swishMarkets.playerProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/360 | activity_unverified 0/360 | activity_unverified 0/360 | activity_unverified 0/360 | activity_unverified 0/360 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NBA | fg attempted | swishMarkets.playerProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/362 | activity_unverified 0/362 | activity_unverified 0/362 | activity_unverified 0/362 | activity_unverified 0/362 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | fg made | swishMarkets.playerProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/218 | activity_unverified 0/218 | activity_unverified 0/218 | activity_unverified 0/218 | activity_unverified 0/218 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | first quarter assists | swishMarkets.playerProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/48 | activity_unverified 0/48 | activity_unverified 0/48 | activity_unverified 0/48 | activity_unverified 0/48 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | first quarter points | swishMarkets.playerProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/88 | activity_unverified 0/88 | activity_unverified 0/88 | activity_unverified 0/88 | activity_unverified 0/88 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
