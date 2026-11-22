@@ -1,12 +1,12 @@
 # Live Stake market coverage
 
-Checked: 2026-11-22T14:11:39.266951+00:00
+Checked: 2026-11-22T14:29:16.970523+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
 | League | Observed titles | Activity unverified | Offered now | Complete 10/10 | Incomplete offered | Evaluated | Funding supported | Ready now | Issued today |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| NFL | 190 | 58 | 68 | 0 | 68 | 46 | 19 | 12 | 4 |
+| NFL | 190 | 58 | 68 | 0 | 68 | 46 | 19 | 13 | 4 |
 | NHL | 82 | 15 | 48 | 0 | 48 | 30 | 4 | 3 | 12 |
 | MLB | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | NBA | 196 | 31 | 113 | 0 | 113 | 58 | 2 | 1 | 13 |
@@ -220,7 +220,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NFL | 1st Quarter - 1x2 | standard | quarter_1 | offered_now | 1/10 | not_observed 0/36 | verified 36/36 | not_observed 0/36 | not_observed 0/36 | not_observed 0/36 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 1st Quarter - Draw No Bet | standard | quarter_1 | offered_now | 1/10 | not_observed 0/24 | verified 24/24 | partial 5/24 | partial 5/24 | not_observed 0/24 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 1st Quarter - Handicap | standard | quarter_1 | offered_now | 5/10 | partial 12/68 | verified 68/68 | partial 12/68 | partial 12/68 | partial 12/68 | verified 12/12 | verified 12/12 | verified 10/10 | verified 2/2 | partial 2/3 | 0 |
-| NFL | 1st Quarter - Total | standard | quarter_1 | offered_now | 3/10 | partial 11/68 | verified 68/68 | partial 11/68 | partial 11/68 | partial 11/68 | verified 11/11 | verified 11/11 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NFL | 1st Quarter - Total | standard | quarter_1 | offered_now | 3/10 | partial 10/68 | verified 68/68 | partial 10/68 | partial 10/68 | partial 10/68 | verified 10/10 | verified 10/10 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 1st field goal made (incl. overtime) | standard | full_game | offered_now | 0/10 | not_observed 0/24 | not_observed 0/24 | not_observed 0/24 | not_observed 0/24 | not_observed 0/24 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 1st half 1x2 & 1st half total | standard | half_1 | offered_now | 0/10 | not_observed 0/66 | not_observed 0/66 | not_observed 0/66 | not_observed 0/66 | not_observed 0/66 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 1st half handicap & 1st half total | standard | half_1 | offered_now | 0/10 | not_observed 0/44 | not_observed 0/44 | not_observed 0/44 | not_observed 0/44 | not_observed 0/44 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
@@ -240,7 +240,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NFL | 2nd Half - 1x2 (Incl. Overtime) | standard | half_2_ot | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 2/2 | verified 2/2 | awaiting_measurement 2/3 | 0 |
 | NFL | 2nd Half - Draw No Bet (Incl. Overtime) | standard | half_2_ot | offered_now | 3/10 | partial 6/24 | verified 24/24 | partial 6/24 | partial 6/24 | partial 6/24 | verified 6/6 | verified 6/6 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 2nd Half - Handicap (Incl. Overtime) | standard | half_2_ot | offered_now | 3/10 | partial 21/68 | verified 68/68 | partial 21/68 | partial 21/68 | partial 21/68 | verified 21/21 | verified 21/21 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
-| NFL | 2nd Half - Total (Incl. Overtime) | standard | half_2_ot | offered_now | 3/10 | partial 17/68 | verified 68/68 | partial 17/68 | partial 17/68 | partial 17/68 | verified 17/17 | verified 17/17 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NFL | 2nd Half - Total (Incl. Overtime) | standard | half_2_ot | offered_now | 3/10 | partial 18/68 | verified 68/68 | partial 18/68 | partial 18/68 | partial 18/68 | verified 18/18 | verified 18/18 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 2nd Quarter - 1x2 | standard | quarter_2 | offered_now | 1/10 | not_observed 0/30 | verified 30/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 2nd Quarter - Draw No Bet | standard | quarter_2 | offered_now | 1/10 | not_observed 0/20 | verified 20/20 | partial 3/20 | partial 3/20 | not_observed 0/20 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 2nd Quarter - Handicap | standard | quarter_2 | offered_now | 5/10 | partial 9/56 | verified 56/56 | partial 9/56 | partial 9/56 | partial 9/56 | verified 9/9 | verified 9/9 | verified 9/9 | verified 2/2 | partial 2/3 | 2 |
@@ -266,7 +266,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NFL | 4th Quarter - Draw No Bet | standard | quarter_4 | offered_now | 1/10 | not_observed 0/20 | verified 20/20 | partial 3/20 | partial 3/20 | not_observed 0/20 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 4th Quarter - Draw No Bet (incl. Overtime) | standard | quarter_4_ot | offered_now | 1/10 | not_observed 0/20 | verified 20/20 | partial 1/20 | partial 1/20 | not_observed 0/20 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 4th Quarter - Handicap | standard | quarter_4 | offered_now | 5/10 | partial 14/56 | verified 56/56 | partial 14/56 | partial 14/56 | partial 14/56 | verified 14/14 | verified 14/14 | verified 11/11 | verified 1/1 | partial 1/2 | 1 |
-| NFL | 4th Quarter - Total | standard | quarter_4 | offered_now | 3/10 | partial 13/56 | verified 56/56 | partial 13/56 | partial 13/56 | partial 13/56 | verified 13/13 | verified 13/13 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NFL | 4th Quarter - Total | standard | quarter_4 | offered_now | 3/10 | partial 12/56 | verified 56/56 | partial 12/56 | partial 12/56 | partial 12/56 | verified 12/12 | verified 12/12 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 4th quarter anytime touchdown | standard | quarter_4 | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 4th quarter receiving touchdowns | standard | quarter_4 | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 4th quarter receiving yards | standard | quarter_4 | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
