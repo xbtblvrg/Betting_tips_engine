@@ -86,7 +86,7 @@ class NBAHalf2SpreadsModel(BaseCandidateModel):
 
     def __init__(
         self,
-        model_id: str = "codex_synth_nba_half_2_1109_164337",
+        model_id: str = "codex_synth_nba_quarter_2_1122_133450",
         version: str = "1.0.0",
         league: str = "NBA",
         scope: str = "half_2",
