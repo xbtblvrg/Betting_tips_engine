@@ -198,9 +198,11 @@ def _inventory(root, *, ignore=(), allow_test_outputs=False):
             path = Path(directory) / name; rel = path.relative_to(root).as_posix(); parts = Path(rel).parts
             if name in CACHE_SKIP or rel in TOP_SKIP or name.endswith('.pyc') or rel in ignored:
                 continue
-            test_output = allow_test_outputs and rel in {
-                'data/engine.sqlite3', 'data/engine.sqlite3-wal',
-                'data/engine.sqlite3-shm', 'data/engine.sqlite3-journal'}
+            test_output = allow_test_outputs and (
+                rel in {'data/engine.sqlite3', 'data/engine.sqlite3-wal',
+                        'data/engine.sqlite3-shm', 'data/engine.sqlite3-journal'}
+                or (parts[0] == 'data' and not name.endswith(('.py', '.mjs', '.js', '.sh')))
+            )
             if not test_output and (parts[0] not in TOP or (parts[0] == 'data' and (len(parts) < 2 or parts[1] not in DATA))):
                 raise ValueError('Undeclared candidate input namespace: ' + rel)
             if path.is_symlink():

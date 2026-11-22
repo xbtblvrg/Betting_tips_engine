@@ -253,10 +253,8 @@ class UnifiedMarketUniverse:
             if getattr(UnifiedMarketUniverse, '_cached_dir', None) == resolved_dir:
                 if now - UnifiedMarketUniverse._cached_at < UnifiedMarketUniverse._cache_ttl_seconds:
                     return UnifiedMarketUniverse._cached_roster
-        import os as _os_env
-        is_pytest = bool(_os_env.environ.get('PYTEST_CURRENT_TEST'))
         snap_file = Path(self.data_dir) / 'universe_roster_snapshot.json'
-        if not force_refresh and not is_pytest and snap_file.is_file():
+        if not force_refresh and snap_file.is_file():
             try:
                 if (now - snap_file.stat().st_mtime) < 25.0:
                     raw_snap = json.loads(snap_file.read_text(encoding='utf-8'))
@@ -271,6 +269,9 @@ class UnifiedMarketUniverse:
                 pass
 
         roster: Dict[str, UnifiedMarketProfile] = {}
+
+        if not self.incubator_db_path.exists():
+            return roster
 
         sb_underperforming_map: Dict[str, Dict[str, Any]] = {}
         sb_alpha_map: Dict[str, Any] = {}
@@ -299,9 +300,10 @@ class UnifiedMarketUniverse:
         initial_graduated_keys: set = set()
         grad_keys_set: set = set()
         grad_at_map: Dict[str, str] = {}
-        if self.incubator_db_path.exists():
-            try:
-                with closing(sqlite3.connect(f"file:{self.incubator_db_path}?mode=ro", uri=True, timeout=15.0)) as inc_conn:
+        try:
+            if not self.incubator_db_path.exists():
+                raise FileNotFoundError("no incubator db")
+            with closing(sqlite3.connect(f"file:{self.incubator_db_path}?mode=ro", uri=True, timeout=15.0)) as inc_conn:
                 # 1. Ingest Graduated Markets (Tier 3 Candidates)
                 grad_rows = inc_conn.execute("""
                     SELECT segment_key, league, scope, family, sub_family,
@@ -536,6 +538,8 @@ class UnifiedMarketUniverse:
                         _assign_roster_profile(k_ov, prof)
                         grad_keys_set.discard(k_ov)
 
+        except FileNotFoundError:
+            pass
         except Exception as exc:
             if "no such table" in str(exc).lower():
                 logger.debug("Incubator db table not initialized yet for universe roster: %s", exc)
@@ -992,7 +996,7 @@ class UnifiedMarketUniverse:
             from .domain import LEAGUES
             EXTRA_DUAL_LEAGUES = ('LALIGA', 'BUNDESLIGA', 'SERIEA', 'UEL', 'CHALLENGER')
             ALL_TRACKED_LEAGUES = tuple(dict.fromkeys(LEAGUES + EXTRA_DUAL_LEAGUES))
-            from .contracts import SCORE_SCOPES, SCORE_MARKETS
+            from .contracts import SCORE_SCOPES, SCORE_MARKETS, is_supported_stake_contract
             all_possible_scopes = ('full_game',) + tuple(SCORE_SCOPES)
             for cand_lg in ALL_TRACKED_LEAGUES:
                 for cand_sc in all_possible_scopes:
@@ -1166,12 +1170,8 @@ class UnifiedMarketUniverse:
                 return MarketTier(roster[k].tier)
 
         # Check if explicitly demoted in demoted_markets
-        initial_graduated_keys: set = set()
-        grad_keys_set: set = set()
-        grad_at_map: Dict[str, str] = {}
-        if self.incubator_db_path.exists():
-            try:
-                with closing(sqlite3.connect(f"file:{self.incubator_db_path}?mode=ro", uri=True, timeout=15.0)) as inc_conn:
+        try:
+            with closing(sqlite3.connect(f"file:{self.incubator_db_path}?mode=ro", uri=True, timeout=15.0)) as inc_conn:
                 placeholders = ','.join('?' for _ in candidate_keys)
                 row = inc_conn.execute(
                     f"SELECT incubation_phase, incubated_model_id, demoted_at, admitted_to_incubator_at FROM demoted_markets WHERE segment_key IN ({placeholders}) AND incubation_phase != 'unsupported_phantom'",

@@ -297,7 +297,18 @@ class PolymarketAutonomousExecutor:
         league = str(league or "").strip().upper()
         scope = str(scope or "full_game").strip().lower()
         market_family = str(market_family or "").strip().lower()
+        if market_family in ("american_derivatives", "asian_lines"):
+            try:
+                from .unified_market_universe import UnifiedMarketUniverse
+                _r = UnifiedMarketUniverse(data_dir=self.db_path.parent).get_roster()
+                _p = _r.get(f"{league}|{scope}|{market_family}") if _r else None
+                if _p and getattr(_p, "sub_family", None):
+                    market_family = str(_p.sub_family).strip().lower()
+            except Exception:
+                pass
         clean_fam = market_family.split(":")[-1] if ":" in market_family else market_family
+        if clean_fam in ("moneyline", "winner", "three_way", "1x2", "spreads", "handicap", "asian_handicap", "totals", "asian_total", "asian_totals"):
+            market_family = clean_fam
 
         league_aliases = [league]
         if league in ("CBB", "NCAAB", "NCAAM"):

@@ -318,11 +318,11 @@ class AutonomousProblemResolver:
 
         # Scan for tracebacks (compatible with Python 3.11-3.14 multi-line caret underlines and cropped log blocks)
         tb_block_pattern = re.compile(
-            r'(?:Traceback \(most recent call last\):\n)?((?:  File [^\n]+\n(?:    [^\n]+\n)+)+)([a-zA-Z0-9_.]+(?:Error|Exception)): ([^\n]+)',
+            r'(?:Traceback \(most recent call last\):\n)?((?:\s*File [^\n]+\n(?:[ \t]+[^\n]+\n)+)+)([a-zA-Z0-9_.]+(?:Error|Exception)): ([^\n]+)',
             re.MULTILINE
         )
         frame_pattern = re.compile(
-            r'  File "([^"]+)", line (\d+), in ([a-zA-Z0-9_<>]+)\n    ([^\n]+)'
+            r'\s*File "([^"]+)", line (\d+), in ([a-zA-Z0-9_<>]+)\n[ \t]+([^\n]+)'
         )
         resolved_src_prefix = str((self.root / 'src').resolve())
 
