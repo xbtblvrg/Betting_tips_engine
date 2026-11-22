@@ -248,7 +248,6 @@ class QuantVerboseLogger:
             self.text_handler.close()
         if self.jsonl_handler:
             self.jsonl_handler.close()
-            self.jsonl_handler.close()
 
     # -------------------------------------------------------------------------
     # Quant Telemetry API

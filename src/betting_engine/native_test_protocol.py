@@ -49,7 +49,8 @@ PROTECTED_ADDITIONS = {'src/betting_engine/native_test_protocol.py',
                        'src/betting_engine/developer_regression.py',
                        'src/betting_engine/controller_dependency_recovery.py'}
 MAX_FILE = 2 * 1024 * 1024
-MAX_TOTAL = 64 * 1024 * 1024
+MAX_TOTAL = 128 * 1024 * 1024
+MAX_FILES = 8192
 MAX_LOG = 256 * 1024
 
 
@@ -106,7 +107,7 @@ def _inventory(root):
                 path = Path(directory) / name
                 body = _read(path)
                 total += len(body)
-                if total > MAX_TOTAL or len(result) >= 2000:
+                if total > MAX_TOTAL or len(result) >= MAX_FILES:
                     raise ValueError('Native-test input inventory exceeded bound')
                 result[path.relative_to(root).as_posix()] = _digest(body)
     return dict(sorted(result.items()))
