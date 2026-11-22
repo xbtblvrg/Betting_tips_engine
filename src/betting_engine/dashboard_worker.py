@@ -66,7 +66,7 @@ def main():
     if not 0<len(body)<=MAX_RESPONSE_BYTES:raise ValueError('Dashboard exceeds the response bound')
     folder=Path(output)
     (folder/'response.json').write_bytes(body)
-    (folder/'response.json.gz').write_bytes(gzip.compress(body,compresslevel=5,mtime=0))
+    (folder/'response.json.gz').write_bytes(gzip.compress(body,compresslevel=1,mtime=0))
     (folder/'response.meta.json').write_text(json.dumps({'actionable_until':min(deadlines) if deadlines else None,'version':payload.get('version',0)}))
 
 if __name__=='__main__':

@@ -123,6 +123,7 @@ def _compact_dashboard_tip(tip):
     compact['game_context']={}
     compact['model_probabilities']={}
     compact.pop('stake_sizing',None)
+    compact.pop('stake_note',None)
     if isinstance(compact.get('outcome_sizing_evidence'),dict):
         compact['outcome_sizing_evidence']={'summary_sha256': compact['outcome_sizing_evidence'].get('summary_sha256')}
     if isinstance(compact.get('funding_basis'),dict):
@@ -258,7 +259,7 @@ def automation_status(data_dir):
         result[name]=value
     try:
         from .shadow_market_incubator import ShadowMarketIncubator
-        result['market_incubator'] = ShadowMarketIncubator(DATA).get_incubator_status()
+        result['market_incubator'] = ShadowMarketIncubator(DATA, read_only=True).get_incubator_status()
     except Exception:
         pass
     from .delivery import delivery_status

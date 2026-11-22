@@ -17,7 +17,7 @@
     "max_workers": 6,
     "cpu_soft_target": 75,
     "cpu_high_water": 80,
-    "memory_reserve_gib": 4,
+    "memory_reserve_gib": 2,
     "disk_reserve_gib": 20,
     "swap_growth_mib_per_min": 64
   }

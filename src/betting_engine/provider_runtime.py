@@ -114,7 +114,7 @@ class RuntimeTransport:
                 reasoning_effort=reasoning_effort or 'low', operation_id=operation_id)
         if provider == 'agy':
             from .ai_delegation import invoke, file_lock, decode
-            with file_lock(self.root / 'data/development/ai-locks/agy.lock', timeout=60.0) as acquired:
+            with file_lock(self.root / 'data/development/ai-locks/agy-probe.lock', timeout=60.0) as acquired:
                 if not acquired:
                     raise ProviderUnavailable('Antigravity capacity is in use; retry later')
                 agy_binary = self.config.get('agy_binary', '/Users/belavarga/.local/bin/agy')
@@ -383,6 +383,27 @@ def run_ai_step(worker, schema, output, prefix, prompt, timeout=1200,
                 if isinstance(progress, dict) and progress.get('actions', 0) > 0:
                     continue
                 raise ProviderUnavailable('Provider unavailable; retained step will retry after the next bounded availability check')
+            # Controlled deputy delegation (project_contract.json:947): when an implementation
+            # task's target source files exceed the bounded CLI ARG_MAX source bundle (>175 KB)
+            # or a prior attempt flagged omitted bounded-bundle inputs, delegate the step to a
+            # verified available Codex workspace-write route if present.
+            if (route and route.get('provider') == 'agy' and sandbox == 'workspace-write'
+                    and not require_codex and hasattr(worker, 'workspace')):
+                cur_task = getattr(worker, 'current_task', {}) or {}
+                pref_paths = extract_task_preferred_paths(cur_task, worker.workspace, prompt)
+                pref_bytes = sum(
+                    (worker.workspace / p).stat().st_size
+                    for p in pref_paths
+                    if (worker.workspace / p).is_file()
+                )
+                last_err = str(cur_task.get('last_error') or '').lower()
+                needs_full_workspace = pref_bytes > 175000 or ('omitted' in last_err and 'bundle' in last_err)
+                if needs_full_workspace:
+                    for candidate in getattr(router, 'policy', {}).get('routes', []):
+                        if (candidate and candidate.get('provider') == 'codex'
+                                and tried.get(candidate['id'], 0) < 2):
+                            route = dict(candidate)
+                            break
             tried[route['id']] = tried.get(route['id'], 0) + 1
             step = prefix.with_name(prefix.name + '.provider-' + str(len(records) + 1))
             record = {'provider': route['provider'], 'model': route['model'],
@@ -411,49 +432,74 @@ def run_ai_step(worker, schema, output, prefix, prompt, timeout=1200,
                     worker.run_process(command, step, prompt, remaining)
                 elif route['provider'] == 'agy':
                     from .claude_development import prepare_step, apply_edits
-                    from .agy_development import finish_agy_step
-                    with file_lock(worker.root / 'data/development/ai-locks/agy.lock', timeout=45.0) as acquired, tempfile.TemporaryDirectory(prefix='quant-agy-candidate-') as temporary:
+                    from .agy_development import (
+                        finish_agy_step,
+                        acquire_agy_slot,
+                        create_agy_session_binding,
+                        verify_agy_session_binding,
+                        DEFAULT_MAX_AGY_SLOTS,
+                    )
+                    max_agy_slots = int(runtime.config.get('max_parallel_agy_slots', DEFAULT_MAX_AGY_SLOTS))
+                    cur_task = getattr(worker, 'current_task', {}) or {}
+                    cur_task_id = str(cur_task.get('id') or cur_task.get('task_id') or '')
+                    with acquire_agy_slot(
+                        worker.root / 'data/development/ai-locks',
+                        lock_fn=file_lock,
+                        max_slots=max_agy_slots,
+                        timeout=45.0,
+                    ) as (acquired, slot_id):
                         if not acquired:
                             raise ProviderUnavailable('Antigravity capacity is in use; candidate retained for retry')
-                        agy_binary = runtime.config.get('agy_binary', '/Users/belavarga/.local/bin/agy')
-                        prepared = prepare_step(worker.root, worker.workspace, Path(temporary).resolve(),
-                            getattr(worker, 'current_task', {}), prompt, read_json(schema),
-                            readonly=sandbox == 'read-only', binary=agy_binary,
-                            max_files=32, max_source_bytes=180000,
-                            protected_paths=(*__import__('betting_engine.development', fromlist=['PROTECTED']).PROTECTED,
-                                *(name for name in worker.readonly_input_paths() if name != '.git')),
-                            preferred_paths=extract_task_preferred_paths(getattr(worker, 'current_task', {}), worker.workspace, prompt))
-                        p_payload = prepared['stdin']
-                        marker = '\nBOUNDED SOURCE BUNDLE:\n'
-                        if marker in p_payload and isinstance(prepared.get('context', {}).get('source_bundle'), dict):
-                            sb = prepared['context']['source_bundle']
-                            compact_bundle = json.dumps({
-                                'files': sb.get('files', []),
-                                'selected_bytes': sb.get('selected_bytes', 0),
-                                'omitted_count': len(sb.get('omitted', [])),
-                                'scope': sb.get('scope', ''),
-                            }, sort_keys=True, separators=(',', ':'), allow_nan=False)
-                            p_payload = p_payload.split(marker, 1)[0] + marker + compact_bundle
-                        if len(p_payload) > 220000:
-                            p_payload = p_payload[:220000] + "\n\n[TRUNCATED SOURCE CONTEXT TO FIT CONTROLLER ARG_MAX LIMITS]"
-                        agy_cmd = [agy_binary, '-p', p_payload,
-                            '--model', route['model'], '--output-format', 'json',
-                            '--sandbox', '--disable-slash-commands']
-                        remaining = deadline - time.monotonic()
-                        if remaining <= 0:
-                            raise TimeoutError('Development step exceeded its execution time limit')
-                        step_budget = min(remaining, 780.0)
-                        worker.run_process(agy_cmd, step, None, step_budget,
-                            process_cwd=prepared['cwd'], process_env=prepared['env'])
-                        with Path(str(step) + '.stdout.log').open('rb') as handle:
-                            raw = handle.read(2 * 1024 * 1024 + 1)
-                        if len(raw) > 2 * 1024 * 1024:
-                            raise ValueError('Antigravity output exceeds bounded controller limit')
-                        raw_str = raw.decode('utf-8')
-                        result = finish_agy_step(raw_str, prepared['context'], route['model'])
-                        applied = apply_edits(worker.workspace, result['edits'], prepared['context'])
-                        record['applied_edits'] = applied
-                        atomic_json(output, result['report'])
+                        binding = create_agy_session_binding(slot_id, cur_task_id, worker.workspace)
+                        with tempfile.TemporaryDirectory(prefix=f"quant-{binding['session_token'][:40]}-") as temporary:
+                            temp_path = Path(temporary).resolve()
+                            agy_binary = runtime.config.get('agy_binary', '/Users/belavarga/.local/bin/agy')
+                            prepared = prepare_step(worker.root, worker.workspace, temp_path,
+                                cur_task, prompt, read_json(schema),
+                                readonly=sandbox == 'read-only', binary=agy_binary,
+                                max_files=32, max_source_bytes=180000,
+                                protected_paths=(*__import__('betting_engine.development', fromlist=['PROTECTED']).PROTECTED,
+                                    *(name for name in worker.readonly_input_paths() if name != '.git')),
+                                preferred_paths=extract_task_preferred_paths(cur_task, worker.workspace, prompt))
+                            if isinstance(prepared.get('context'), dict):
+                                prepared['context']['agy_isolation'] = dict(binding)
+                            p_payload = prepared['stdin']
+                            marker = '\nBOUNDED SOURCE BUNDLE:\n'
+                            if marker in p_payload and isinstance(prepared.get('context', {}).get('source_bundle'), dict):
+                                sb = prepared['context']['source_bundle']
+                                compact_bundle = json.dumps({
+                                    'files': sb.get('files', []),
+                                    'selected_bytes': sb.get('selected_bytes', 0),
+                                    'omitted_count': len(sb.get('omitted', [])),
+                                    'scope': sb.get('scope', ''),
+                                }, sort_keys=True, separators=(',', ':'), allow_nan=False)
+                                p_payload = p_payload.split(marker, 1)[0] + marker + compact_bundle
+                            if len(p_payload) > 220000:
+                                p_payload = p_payload[:220000] + "\n\n[TRUNCATED SOURCE CONTEXT TO FIT CONTROLLER ARG_MAX LIMITS]"
+                            private_cli_log = str(temp_path / 'agy-cli.log')
+                            agy_cmd = [agy_binary, '-p', p_payload,
+                                '--model', route['model'], '--output-format', 'json',
+                                '--log-file', private_cli_log,
+                                '--sandbox', '--disable-slash-commands']
+                            remaining = deadline - time.monotonic()
+                            if remaining <= 0:
+                                raise TimeoutError('Development step exceeded its execution time limit')
+                            step_budget = min(remaining, 780.0)
+                            record['agy_slot_id'] = slot_id
+                            record['agy_session_token'] = binding['session_token']
+                            worker.run_process(agy_cmd, step, None, step_budget,
+                                process_cwd=prepared['cwd'], process_env=prepared['env'])
+                            with Path(str(step) + '.stdout.log').open('rb') as handle:
+                                raw = handle.read(2 * 1024 * 1024 + 1)
+                            if len(raw) > 2 * 1024 * 1024:
+                                raise ValueError('Antigravity output exceeds bounded controller limit')
+                            raw_str = raw.decode('utf-8')
+                            if isinstance(prepared.get('context'), dict) and 'agy_isolation' in prepared['context']:
+                                verify_agy_session_binding(prepared['context'], binding, worker.workspace)
+                            result = finish_agy_step(raw_str, prepared['context'], route['model'])
+                            applied = apply_edits(worker.workspace, result['edits'], prepared['context'])
+                            record['applied_edits'] = applied
+                            atomic_json(output, result['report'])
                 else:
                     from .claude_development import prepare_step, finish_step, apply_edits
                     with file_lock(worker.root / 'data/development/ai-locks/claude.lock', timeout=60.0) as acquired, tempfile.TemporaryDirectory(prefix='quant-claude-candidate-') as temporary:

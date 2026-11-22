@@ -371,14 +371,39 @@ def _compute_live_coverage_from_store(store, publication, catalog, data_dir, now
 
 
 def build_from_store(store, publication, catalog, data_dir, now=None):
+    pub_ver = (publication or {}).get('version')
+    pub_gen = (publication or {}).get('generated_at')
+    cat_chk = (catalog or {}).get('checked_at')
+    snap_path = Path(data_dir) / 'live_coverage_snapshot.json' if data_dir else None
+    if snap_path and pub_ver and snap_path.is_file():
+        try:
+            import time as _t
+            if (_t.time() - snap_path.stat().st_mtime) < 20.0:
+                snap = json.loads(snap_path.read_text(encoding='utf-8'))
+                if (isinstance(snap, dict)
+                        and snap.get('publication_version') == pub_ver
+                        and snap.get('publication_at') == pub_gen
+                        and snap.get('catalogue_at') == cat_chk):
+                    return snap
+        except Exception:
+            pass
     try:
         from .in_memory_cache import GLOBAL_IN_MEMORY_CACHE
         version = getattr(store, 'latest_version', lambda: 0)()
-        cache_key = f"live_coverage:{version}"
-        return GLOBAL_IN_MEMORY_CACHE.get_or_compute(
+        cache_key = f"live_coverage:{version}:{pub_gen}:{cat_chk}"
+        res = GLOBAL_IN_MEMORY_CACHE.get_or_compute(
             cache_key,
             lambda: _compute_live_coverage_from_store(store, publication, catalog, data_dir, now),
             ttl_seconds=15.0
         )
     except Exception:
-        return _compute_live_coverage_from_store(store, publication, catalog, data_dir, now)
+        res = _compute_live_coverage_from_store(store, publication, catalog, data_dir, now)
+    if snap_path and pub_ver and isinstance(res, dict):
+        try:
+            import os as _os
+            from .io_utils import atomic_json
+            if snap_path.parent.is_dir() and _os.access(snap_path.parent, _os.W_OK):
+                atomic_json(snap_path, res)
+        except Exception:
+            pass
+    return res

@@ -1,7 +1,110 @@
+from contextlib import contextmanager
 import hashlib
 import json
+import os
+from pathlib import Path
 import re
-from .claude_development import VERSION, MAX_REPLY_BYTES, _strict_json, _validate_schema, _edits, _sha
+import threading
+import time
+import uuid
+from .claude_development import VERSION, MAX_REPLY_BYTES, _strict_json, _validate_schema, _edits, _sha, _identity
+
+DEFAULT_MAX_AGY_SLOTS = 4
+
+
+@contextmanager
+def acquire_agy_slot(locks_dir, *, lock_fn=None, max_slots=DEFAULT_MAX_AGY_SLOTS, timeout=45.0):
+    """Acquire an isolated non-colliding Antigravity worker slot across threads/processes.
+
+    Spreads concurrent threads deterministically across slot files `agy-slot-0.lock` ..
+    `agy-slot-{max_slots-1}.lock` so parallel threads never contend on a single lock or
+    cross-contaminate transport state. Uses caller-supplied `lock_fn` so unit tests that
+    monkeypatch `provider_runtime.file_lock` retain exact deterministic behavior.
+    """
+    if lock_fn is None:
+        from .ai_delegation import file_lock as lock_fn
+    locks_path = Path(locks_dir)
+    locks_path.mkdir(parents=True, exist_ok=True)
+    n_slots = max(1, int(max_slots or DEFAULT_MAX_AGY_SLOTS))
+    start_idx = (os.getpid() * 31 + threading.get_ident()) % n_slots
+    deadline = time.monotonic() + max(0.0, float(timeout))
+
+    # Fast non-blocking pass across all slots first
+    for offset in range(n_slots):
+        slot_id = (start_idx + offset) % n_slots
+        slot_file = locks_path / f'agy-slot-{slot_id}.lock'
+        ctx = lock_fn(slot_file, timeout=0.02)
+        acquired = ctx.__enter__()
+        if acquired:
+            try:
+                yield True, slot_id
+            finally:
+                ctx.__exit__(None, None, None)
+            return
+        ctx.__exit__(None, None, None)
+        if time.monotonic() >= deadline:
+            break
+
+    # Bounded polling across slots until deadline if all slots are currently active
+    while time.monotonic() < deadline:
+        for offset in range(n_slots):
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            slot_id = (start_idx + offset) % n_slots
+            slot_file = locks_path / f'agy-slot-{slot_id}.lock'
+            slice_wait = min(0.25, remaining)
+            ctx = lock_fn(slot_file, timeout=slice_wait)
+            acquired = ctx.__enter__()
+            if acquired:
+                try:
+                    yield True, slot_id
+                finally:
+                    ctx.__exit__(None, None, None)
+                return
+            ctx.__exit__(None, None, None)
+
+    yield False, -1
+
+
+def create_agy_session_binding(slot_id: int, task_id: str, workspace: Path) -> dict:
+    """Create a strict cryptographic thread/slot/workspace binding to prevent cross-thread mixing."""
+    ws_resolved = Path(workspace).resolve()
+    ws_stat = ws_resolved.stat()
+    safe_task = re.sub(r'[^A-Za-z0-9_-]', '_', str(task_id or 'task'))[:24]
+    pid = os.getpid()
+    tid = threading.get_ident()
+    nonce = uuid.uuid4().hex[:12]
+    session_token = f'agy-s{slot_id}-{safe_task}-p{pid}-t{tid}-{nonce}'
+    return {
+        'session_token': session_token,
+        'slot_id': int(slot_id),
+        'task_id': str(task_id or ''),
+        'pid': pid,
+        'thread_ident': tid,
+        'workspace': str(ws_resolved),
+        'workspace_dev_ino': (ws_stat.st_dev, ws_stat.st_ino),
+        'workspace_identity': _identity(ws_stat),
+    }
+
+
+def verify_agy_session_binding(context: dict, expected_binding: dict, workspace: Path) -> None:
+    """Verify exact thread, slot, session token, and workspace inode before applying any edits."""
+    actual = context.get('agy_isolation')
+    if not isinstance(actual, dict) or not isinstance(expected_binding, dict):
+        raise ValueError('Missing Antigravity thread-isolation binding')
+    ws_resolved = Path(workspace).resolve()
+    ws_stat = ws_resolved.stat()
+    if (
+        actual.get('session_token') != expected_binding.get('session_token')
+        or actual.get('slot_id') != expected_binding.get('slot_id')
+        or actual.get('task_id') != expected_binding.get('task_id')
+        or actual.get('pid') != os.getpid()
+        or actual.get('thread_ident') != threading.get_ident()
+        or actual.get('workspace') != str(ws_resolved)
+        or tuple(actual.get('workspace_dev_ino', ())) != (ws_stat.st_dev, ws_stat.st_ino)
+    ):
+        raise ValueError('Cross-thread Antigravity session or workspace binding mismatch detected')
 
 
 def finish_agy_step(stdout, context, model):

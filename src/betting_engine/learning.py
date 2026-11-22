@@ -934,7 +934,7 @@ class LearningWorker:
             return {
                 'executed_at': utcnow().isoformat(),
                 'reconciled': reconciled,
-                'newly_graduated': [g['segment_key'] for g in graduated],
+                'newly_graduated': [g.get('segment_key', str(g)) if isinstance(g, dict) else str(g) for g in graduated],
                 'graduated_count': len(graduated),
                 'demotions_audit': demotions,
                 'incubator_repairs_count': len(incubator_repairs),
@@ -1317,7 +1317,7 @@ class LearningWorker:
             else:trainer=self.trainer
             reports=trainer(leagues=[job['league']],controlled=True)
             report=reports.get(job['league'],{})
-            if report.get('error'):raise RuntimeError(report['error'])
+            if report.get('error'):raise RuntimeError(str(report['error']))  # propagates trainer error to run_once
             if 'promotion_gate' not in report:raise RuntimeError('Training returned no promotion evidence')
             return {'league':job['league'],'model_version':report.get('version'),
                     'promotion_gate':report['promotion_gate'],'test':report.get('test'),
@@ -1347,7 +1347,7 @@ class LearningWorker:
         if job['kind']=='outcome_review':
             from .outcome_feedback import snapshot_outcomes, record_outcome_feedback
             inputs=snapshot_outcomes(self.store)
-            feedback=record_outcome_feedback(self.data,**inputs)
+            feedback=record_outcome_feedback(self.data,**inputs)  # propagates ValueError on invalid evidence
             if feedback.get('source_verified') is not True:
                 raise ValueError('outcome_feedback_verification_failed: '+str(feedback.get('error',feedback.get('state'))))
             performance=self.store.performance();decisions=inputs['decisions']

@@ -669,21 +669,24 @@ def _half_totals(m: np.ndarray, eff_line: float, side: str = 'over') -> Tuple[fl
 class ShadowMarketIncubator:
     """Manages the lifecycle of unmodeled Stake gap markets from observation to graduation."""
 
-    def __init__(self, data_dir: Path = DATA, db_path: Optional[Path] = None):
+    def __init__(self, data_dir: Path = DATA, db_path: Optional[Path] = None, read_only: bool = False):
         self.data_dir = Path(data_dir or DATA)
         self.db_path = Path(db_path) if db_path is not None else (self.data_dir / 'shadow_incubator.sqlite3')
-        conn = _init_db(self.db_path)
-        if conn is not None:
-            conn.close()
-        from .tournament_engine import TournamentEngine
-        self._tournament_engine = TournamentEngine(data_dir=self.data_dir, db_path=self.db_path)
-        try:
-            seed_historical_probability_picks(
-                engine_db_path=self.data_dir / 'engine.sqlite3',
-                incubator_db_path=self.db_path
-            )
-        except Exception:
-            pass
+        self.read_only = bool(read_only)
+        self._tournament_engine = None
+        if not self.read_only:
+            conn = _init_db(self.db_path)
+            if conn is not None:
+                conn.close()
+            from .tournament_engine import TournamentEngine
+            self._tournament_engine = TournamentEngine(data_dir=self.data_dir, db_path=self.db_path)
+            try:
+                seed_historical_probability_picks(
+                    engine_db_path=self.data_dir / 'engine.sqlite3',
+                    incubator_db_path=self.db_path
+                )
+            except Exception:
+                pass
 
     def _get_tournament_engine(self):
         if self._tournament_engine is None:
@@ -4719,6 +4722,25 @@ class ShadowMarketIncubator:
         is_prod_db = (self.db_path.resolve() == INCUBATOR_DB.resolve()) if self.db_path.exists() else False
         if is_prod_db and not force_refresh and _INCUBATOR_STATUS_CACHE is not None and (now_t - _INCUBATOR_STATUS_CACHE_TIME) < 15.0:
             return _INCUBATOR_STATUS_CACHE
+        snapshot_path = self.data_dir / 'incubator_status_snapshot.json'
+        if self.read_only and not force_refresh and snapshot_path.is_file():
+            try:
+                if (now_t - snapshot_path.stat().st_mtime) < 45.0:
+                    cached_snap = json.loads(snapshot_path.read_text(encoding='utf-8'))
+                    if isinstance(cached_snap, dict) and 'graduated_markets_count' in cached_snap:
+                        return cached_snap
+            except Exception:
+                pass
+        if self.read_only and not self.db_path.exists():
+            return {
+                'department': 'Autonomous Market Expansion & Shadow Graduation Department (AMIE-GD)',
+                'active_incubations': 0, 'total_wagers_observed': 0,
+                'status_counts': {}, 'cohort_counts': {},
+                'graduated_markets_count': 0, 'graduated_markets': [],
+                'demoted_markets_count': 0, 'demoted_markets': [],
+                'diagnostic_repairs_count': 0, 'diagnostic_repairs': [],
+                'incubated_families': [],
+            }
 
         conn = self._get_connection()
         try:
@@ -4861,4 +4883,11 @@ class ShadowMarketIncubator:
         if is_prod_db:
             _INCUBATOR_STATUS_CACHE = res_payload
             _INCUBATOR_STATUS_CACHE_TIME = time.time()
+        if not self.read_only or not snapshot_path.is_file() or (time.time() - snapshot_path.stat().st_mtime) >= 30.0:
+            try:
+                from .io_utils import atomic_json
+                if self.data_dir.is_dir() and os.access(self.data_dir, os.W_OK):
+                    atomic_json(snapshot_path, res_payload)
+            except Exception:
+                pass
         return res_payload

@@ -1246,15 +1246,19 @@ class {class_name}(BaseCandidateModel):
                     log.debug(f"Claude decode returned state '{state}' for {segment_key}; rc: {res.get('returncode')}; trying Antigravity (agy) fallback")
                     agy_cfg = dict(policy.get('providers', {}).get('agy', {}))
                     if agy_cfg.get('enabled'):
+                        from .agy_development import acquire_agy_slot
                         agy_model = agy_cfg.get('primary_fallback_model') or agy_cfg.get('model', 'gemini-3.8-flash-high')
-                        agy_run_cfg = {**agy_cfg, 'model': agy_model}
-                        res_agy = invoke('agy', agy_run_cfg, prompt, timeout=180)
-                        st_agy, ans_agy = decode('agy', res_agy, None)
-                        if st_agy == 'received_unreviewed' and ans_agy:
-                            clean_code = extract_clean_code(ans_agy)
-                            is_safe, cls_name, err = check_ast_safety(clean_code)
-                            if is_safe and cls_name:
-                                return clean_code, cls_name, f"Antigravity ({agy_model}) synthesized model addressing {domain_problem[:120]}"
+                        locks_dir = Path(self.data_dir) / 'development' / 'ai-locks'
+                        with acquire_agy_slot(locks_dir, timeout=30.0) as (acq_ok, slot_id):
+                            if acq_ok:
+                                agy_run_cfg = {**agy_cfg, 'model': agy_model}
+                                res_agy = invoke('agy', agy_run_cfg, prompt, timeout=180)
+                                st_agy, ans_agy = decode('agy', res_agy, None)
+                                if st_agy == 'received_unreviewed' and ans_agy:
+                                    clean_code = extract_clean_code(ans_agy)
+                                    is_safe, cls_name, err = check_ast_safety(clean_code)
+                                    if is_safe and cls_name:
+                                        return clean_code, cls_name, f"Antigravity ({agy_model}, slot={slot_id}) synthesized model addressing {domain_problem[:120]}"
         except Exception as e:
             log.debug(f"Claude invocation exception for {segment_key}: {e}")
 
