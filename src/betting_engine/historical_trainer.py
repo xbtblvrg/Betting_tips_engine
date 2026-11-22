@@ -755,10 +755,43 @@ class HistoricalCandidateTrainer:
                 qualified_results.append(result)
 
         if not qualified_results:
+            try:
+                from .verbose_logger import get_verbose_logger
+                get_verbose_logger().log_event(
+                    "historical_trainer",
+                    "candidate_training_completed",
+                    f"Trained {len(all_results)} candidates for {segment_key}: 0 qualified",
+                    data={"segment_key": segment_key, "total_candidates": len(all_results), "qualified_count": 0},
+                    level=logging.DEBUG,
+                )
+            except Exception:
+                pass
             return None
 
         # Sort qualified champions by scorecard S descending
         qualified_results.sort(key=lambda r: r.scorecard_s, reverse=True)
+        try:
+            from .verbose_logger import get_verbose_logger
+            best = qualified_results[0]
+            get_verbose_logger().log_event(
+                "historical_trainer",
+                "candidate_training_completed",
+                f"Trained {len(all_results)} candidates for {segment_key}: {len(qualified_results)} qualified, champion={best.model_id} (ROI={best.oos_simulated_roi*100:.2f}%)",
+                data={
+                    "segment_key": segment_key,
+                    "total_candidates": len(all_results),
+                    "qualified_count": len(qualified_results),
+                    "champion_model_id": best.model_id,
+                    "champion_archetype": best.model_archetype,
+                    "oos_roi": best.oos_simulated_roi,
+                    "oos_delta_brier": best.oos_delta_brier,
+                    "oos_max_drawdown": best.oos_max_drawdown,
+                    "scorecard_s": best.scorecard_s,
+                },
+                level=logging.DEBUG,
+            )
+        except Exception:
+            pass
         return qualified_results[0]
 
     def screen_candidate_against_incumbent(

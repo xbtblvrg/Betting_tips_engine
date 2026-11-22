@@ -222,6 +222,8 @@ class QuantVerboseLogger:
             # Configure root and betting_engine loggers
             root_logger = logging.getLogger()
             root_logger.setLevel(logging.DEBUG)
+            for noisy_pkg in ("httpcore", "httpx", "urllib3", "asyncio", "charset_normalizer", "hpack"):
+                logging.getLogger(noisy_pkg).setLevel(logging.WARNING)
             be_logger = logging.getLogger("betting_engine")
             be_logger.setLevel(logging.DEBUG)
             be_logger.propagate = False

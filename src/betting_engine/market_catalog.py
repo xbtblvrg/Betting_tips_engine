@@ -187,4 +187,21 @@ def refresh_catalog(data_dir=DATA,fetcher=None,horizon_days=None):
             reader.close()
         export_markdown(summary['live_coverage'],Path(data_dir).parent/'docs/LIVE_MARKET_COVERAGE.md')
     atomic_json(folder/'latest.json',summary)
+    try:
+        from .verbose_logger import get_verbose_logger
+        import logging
+        get_verbose_logger(Path(data_dir)).log_event(
+            "market_catalog",
+            "catalog_refreshed",
+            f"Market catalog refreshed: state={summary.get('state')}, fetched={summary.get('fixtures_fetched')}/{summary.get('discovered_fixtures')}, issues={len(issues)}",
+            data={
+                "state": summary.get("state"),
+                "discovered_fixtures": summary.get("discovered_fixtures"),
+                "fixtures_fetched": summary.get("fixtures_fetched"),
+                "issues_count": len(issues),
+            },
+            level=logging.DEBUG,
+        )
+    except Exception:
+        pass
     return summary

@@ -28,6 +28,8 @@ from .domain import utcnow, parse_time
 from .development import PROTECTED
 from .delivery import verify_release_receipt, task_release_verified, record_delivery_check
 from .io_utils import atomic_json
+from .verbose_logger import setup_verbose_logging, get_verbose_logger
+setup_verbose_logging()
 
 log = logging.getLogger(__name__)
 
@@ -784,6 +786,16 @@ class SupremeAutonomousGovernor:
         # Persist status and journal
         atomic_json(self.status_path, summary.to_dict())
         self.log_event('autonomous_cycle_completed', summary.to_dict())
+        try:
+            get_verbose_logger(self.data_dir).log_event(
+                "supreme_autonomous_governor",
+                "autonomous_cycle_completed",
+                f"Supreme Governor cycle completed: status={summary.status}, actions={len(actions)}",
+                data=summary.to_dict(),
+                level=logging.DEBUG,
+            )
+        except Exception:
+            pass
 
         return summary
 

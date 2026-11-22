@@ -152,10 +152,28 @@ def finish_agy_step(stdout, context, model):
         parsed['edits'] = cleaned_edits
 
     _validate_schema(parsed, context['output_schema'])
+    validated_edits = _edits(parsed['edits'], context)
+    try:
+        from .verbose_logger import get_verbose_logger
+        import logging
+        get_verbose_logger().log_event(
+            "agy_development",
+            "agy_step_completed",
+            f"Antigravity ({model}) step finished: task_complete={parsed['report'].get('task_complete')}, edits={len(validated_edits)}",
+            data={
+                "model": model,
+                "task_complete": parsed['report'].get("task_complete"),
+                "edit_paths": [e.get("path") for e in validated_edits if isinstance(e, dict)],
+                "summary": str(parsed['report'].get("summary", ""))[:300],
+            },
+            level=logging.DEBUG,
+        )
+    except Exception:
+        pass
     return {
         'provider': 'agy',
         'model': model,
         'report': parsed['report'],
-        'edits': _edits(parsed['edits'], context),
+        'edits': validated_edits,
         'stdout_sha256': _sha(body)
     }

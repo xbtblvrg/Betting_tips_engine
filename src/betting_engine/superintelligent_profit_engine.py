@@ -505,6 +505,17 @@ class SuperintelligentProfitEngine:
             'rolling_7d_pnl': rolling_pnl,
             'duration_seconds': round(time.monotonic() - start_t, 2)
         })
+        try:
+            from .verbose_logger import get_verbose_logger
+            get_verbose_logger(self.data_dir).log_event(
+                "superintelligent_profit_engine",
+                "full_stack_profit_optimization_cycle",
+                f"Profit Engine cycle: status={overall_status}, 7d_roi={rolling_roi:.2f}%, 7d_pnl=${rolling_pnl:.2f}",
+                data=report.to_dict(),
+                level=logging.DEBUG,
+            )
+        except Exception:
+            pass
 
         return report
 

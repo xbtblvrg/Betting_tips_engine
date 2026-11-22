@@ -492,6 +492,14 @@ class FunnelProportionalitySupervisor:
 
         try:
             atomic_json(self.status_file, report.to_dict())
+            from .verbose_logger import get_verbose_logger
+            get_verbose_logger(self.data_dir).log_event(
+                "funnel_proportionality_supervisor",
+                "funnel_audit_completed",
+                f"4-Tier Funnel Audit: status={overall_status}, bottlenecks={len(bottlenecks)}, actions={len(actions_executed)}",
+                data=report.to_dict(),
+                level=logging.DEBUG,
+            )
         except Exception as e_save:
             log.warning("Could not persist funnel supervision status: %s", e_save)
 
