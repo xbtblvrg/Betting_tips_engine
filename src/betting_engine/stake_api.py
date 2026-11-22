@@ -282,7 +282,7 @@ def league_fixtures(fetcher,league,registry=None):
                         # latter endpoints plus an independent sports-game join.
                         different_names=old.get('name')!=r.get('name')
                         seed_resolution=league in ('MLB', 'ATP', 'WTA', 'CHALLENGER', 'MLS') and different_names and _seed_titles_compatible(old.get('name'),r.get('name'))
-                        max_delta = 86400000 if seed_resolution else 3600000
+                        max_delta = 86400000 if (seed_resolution and league in ('ATP', 'WTA', 'CHALLENGER')) else 3600000
                         conflict=old['slug']!=r['slug'] or (different_names and not seed_resolution) or abs(delta)>max_delta
                         if seed_resolution:
                             real_name = r.get('name') if not seed_title(r.get('name')) else old.get('name')
@@ -353,7 +353,7 @@ def fixture_bundle(fetcher,fixture):
             j,m=archived_json(fetcher,url,60);p=normalize_payload(j);actual=p.get('fixture')
             if not isinstance(actual,dict):raise ValueError('Fixture metadata missing from market response')
             identity=_fixture(actual)
-            max_date_diff = 86400000 if (fixture.get('seed_name_resolution_required') or _is_bracket_placeholder(fixture.get('slug', ''))) else 300000
+            max_date_diff = 86400000 if _is_bracket_placeholder(fixture.get('slug', '')) else 300000
             if any(identity[k]!=fixture[k] for k in ('id','slug')) or abs(float(identity['date'])-float(fixture['date']))>max_date_diff:
                 raise ValueError('Response fixture identity/start differs from schedule')
             responses[endpoint]=(p,m)
@@ -365,8 +365,9 @@ def fixture_bundle(fetcher,fixture):
     if resolution:
         titles=[n for n in resolution.values() if not seed_title(n)]
         expected={tuple(sorted(_title_teams(n))) for n in titles}
+        allowed_winner_status = (None, 'active', 'suspended') if identity.get('status') == 'live' else (None, 'active')
         pairs={tuple(sorted(str(o.get('name','')).strip().casefold() for o in r['outcomes'] if str(o.get('name','')).strip().casefold()!='draw'))
-               for _,r in market_records(payload) if r.get('name') in ('Winner (Incl. Extra Innings)', 'Winner', 'Match Winner', '1x2', 'Draw No Bet') and r.get('status') in (None,'active')
+               for _,r in market_records(payload) if r.get('name') in ('Winner (Incl. Extra Innings)', 'Winner', 'Match Winner', '1x2', 'Draw No Bet') and r.get('status') in allowed_winner_status
                and len([o for o in (r.get('outcomes') or []) if str(o.get('name','')).strip().casefold()!='draw'])==2 and all(o.get('active') is True and o.get('status') in (None,'active') for o in r['outcomes'])}
         pair_match = pairs == expected or (len(expected) == 1 and bool(pairs) and all(_pair_matches(next(iter(expected)), p) for p in pairs))
         if not expected and len(pairs) == 1:

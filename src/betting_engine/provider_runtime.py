@@ -419,7 +419,7 @@ def run_ai_step(worker, schema, output, prefix, prompt, timeout=1200,
                         prepared = prepare_step(worker.root, worker.workspace, Path(temporary).resolve(),
                             getattr(worker, 'current_task', {}), prompt, read_json(schema),
                             readonly=sandbox == 'read-only', binary=agy_binary,
-                            max_files=24, max_source_bytes=131072,
+                            max_files=32, max_source_bytes=180000,
                             protected_paths=(*__import__('betting_engine.development', fromlist=['PROTECTED']).PROTECTED,
                                 *(name for name in worker.readonly_input_paths() if name != '.git')),
                             preferred_paths=extract_task_preferred_paths(getattr(worker, 'current_task', {}), worker.workspace, prompt))
