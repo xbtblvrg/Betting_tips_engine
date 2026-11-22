@@ -316,14 +316,15 @@ class AutonomousProblemResolver:
             self.data_dir / 'logs' / 'supervisor.log',
         ]
 
-        # Scan for tracebacks (compatible with Python 3.11-3.14 multi-line caret underlines)
+        # Scan for tracebacks (compatible with Python 3.11-3.14 multi-line caret underlines and cropped log blocks)
         tb_block_pattern = re.compile(
-            r'Traceback \(most recent call last\):\n((?:  File [^\n]+\n(?:    [^\n]+\n)+)+)([a-zA-Z0-9_.]+(?:Error|Exception)): ([^\n]+)',
+            r'(?:Traceback \(most recent call last\):\n)?((?:  File [^\n]+\n(?:    [^\n]+\n)+)+)([a-zA-Z0-9_.]+(?:Error|Exception)): ([^\n]+)',
             re.MULTILINE
         )
         frame_pattern = re.compile(
             r'  File "([^"]+)", line (\d+), in ([a-zA-Z0-9_<>]+)\n    ([^\n]+)'
         )
+        resolved_src_prefix = str((self.root / 'src').resolve())
 
         for lf in log_files:
             if not lf.exists() or lf.stat().st_size == 0:
@@ -345,7 +346,7 @@ class AutonomousProblemResolver:
                 for fm in frame_pattern.finditer(frames_blob):
                     fp, lno, fn, cline = fm.groups()
                     p_cand = Path(fp).resolve()
-                    if str(p_cand).startswith(str(self.root / 'src')):
+                    if str(p_cand).startswith(resolved_src_prefix):
                         target_frame = (p_cand, int(lno), fn, cline.strip())
 
                 if not target_frame:

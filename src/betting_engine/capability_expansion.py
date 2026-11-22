@@ -444,7 +444,7 @@ def synthesize_capability_expansion_plan(
 
 def get_active_portfolio_shield_rules() -> List[Dict[str, Any]]:
     """Retrieves all active, enacted portfolio shield rules across all capability plans."""
-    journal = CapabilityPlanJournal()
+    journal = CapabilityPlanJournal(DEFAULT_PLANS_PATH)
     active_plans = journal.get_active_plans()
     enacted_rules = []
     for plan in active_plans:
@@ -482,6 +482,8 @@ def check_portfolio_shield(candidate: Dict[str, Any]) -> Optional[Dict[str, Any]
 
     for rule in get_active_portfolio_shield_rules():
         if rule.get('league') and rule['league'] != league:
+            continue
+        if rule.get('scope') and rule['scope'] != scope:
             continue
         if rule.get('market') and rule['market'] != market:
             continue

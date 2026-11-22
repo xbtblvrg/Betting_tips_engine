@@ -37,7 +37,7 @@ READONLY = ('data/development_inputs', 'data/period_models', 'data/stake_api_arc
             'data/sports_source_evidence', RECEIPT)
 TOP_SKIP = {'.git', 'node_modules', '.venv'}
 CACHE_SKIP = {'__pycache__', '.pytest_cache', '.DS_Store'}
-TOP = {'src', 'tests', 'config', 'docs', 'knowledge', 'scripts', 'data',
+TOP = {'src', 'tests', 'config', 'docs', 'knowledge', 'scripts', 'data', 'runtime_seed',
        'AGENTS.md', 'GEMINI.md', 'pyproject.toml', 'package.json', 'package-lock.json', 'README.md',
        'requirements-installed.txt', 'uv.lock'}
 DATA = {'players', 'model_evidence', 'games.json', 'validation_sources',
@@ -49,7 +49,8 @@ DATA = {'players', 'model_evidence', 'games.json', 'validation_sources',
         'task_diagnostics', 'root-recovery-package.json', 'rebase',
         'development-inputs-error.json', 'sports-source-evidence-error.json',
         'tennis_results_archive.json', 'context_sources.json', 'pitching_sources.json',
-        'models'}
+        'models', 'graduated_markets.json', 'crucible_hypotheses.json', 'hypotheses_journal.json',
+        'capability_expansion_plans.json'}
 
 
 def _sha(body):

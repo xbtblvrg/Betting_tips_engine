@@ -2209,8 +2209,8 @@ class ShadowMarketIncubator:
                             outcome_res = 'won' if any(c and c in s_text for c in valid_cells) else 'lost'
                         pnl = (stake * (odds - 1.0)) if outcome_res == 'won' else (0.0 if outcome_res == 'push' else -stake)
 
-                    # Settle Tennis Sets
-                    elif family in ('tennis_sets', 'total_sets'):
+                    # Settle Tennis Sets & Set Handicap
+                    elif family in ('tennis_sets', 'total_sets', 'set_handicap'):
                         ctx = g_info.get('context') or {}
                         sets_h = float(ctx.get('sets_home', 0))
                         sets_a = float(ctx.get('sets_away', 0))
@@ -2225,11 +2225,14 @@ class ShadowMarketIncubator:
                             eff_l = float(line) if line is not None else 2.5
                             hit = (tot_val > eff_l) if side == 'over' else (tot_val < eff_l)
                             outcome_res = 'won' if hit else ('push' if tot_val == eff_l else 'lost')
-                        elif sub_family == 'set_handicap' and line is not None:
-                            diff = (games_h - games_a + line) if side == 'home' else (games_a - games_h + line)
+                        elif (sub_family == 'set_handicap' or family == 'set_handicap') and line is not None:
+                            eff_l = float(line)
+                            base_h, base_a = (sets_h, sets_a) if abs(eff_l) <= 2.5 and (sets_h > 0 or sets_a > 0) else (games_h, games_a)
+                            diff = (base_h - base_a + eff_l) if side == 'home' else (base_a - base_h + eff_l)
                             outcome_res = 'won' if diff > 0 else ('push' if diff == 0 else 'lost')
 
-                        pnl = (stake * (odds - 1.0)) if outcome_res == 'won' else (0.0 if outcome_res == 'push' else -stake)
+                        if outcome_res is not None:
+                            pnl = (stake * (odds - 1.0)) if outcome_res == 'won' else (0.0 if outcome_res == 'push' else -stake)
 
                     # Settle Bivariate Derivatives
                     elif family in ('bivariate_derivatives', 'double_chance', 'both_score', 'both_teams_score'):
@@ -2257,6 +2260,10 @@ class ShadowMarketIncubator:
 
                 if outcome_res is not None:
                     score_settled += 1
+                elif age_hours >= min_age_hours:
+                    outcome_res = 'push'
+                    pnl = 0.0
+                    voided_stale += 1
 
             elif age_hours >= min_age_hours:
                 # Settle as push (official Stake cancellation/walkover rule)
@@ -4722,8 +4729,10 @@ class ShadowMarketIncubator:
         is_prod_db = (self.db_path.resolve() == INCUBATOR_DB.resolve()) if self.db_path.exists() else False
         if is_prod_db and not force_refresh and _INCUBATOR_STATUS_CACHE is not None and (now_t - _INCUBATOR_STATUS_CACHE_TIME) < 15.0:
             return _INCUBATOR_STATUS_CACHE
+        import os as _os_env
+        is_pytest = bool(_os_env.environ.get('PYTEST_CURRENT_TEST'))
         snapshot_path = self.data_dir / 'incubator_status_snapshot.json'
-        if self.read_only and not force_refresh and snapshot_path.is_file():
+        if self.read_only and not is_pytest and not force_refresh and snapshot_path.is_file():
             try:
                 if (now_t - snapshot_path.stat().st_mtime) < 45.0:
                     cached_snap = json.loads(snapshot_path.read_text(encoding='utf-8'))

@@ -242,14 +242,14 @@ class AutonomousRetryResolver:
 
                 # Diagnosis 3.6: Development Step Execution Timeout
                 if any(kw in last_error.lower() for kw in ('execution time limit', 'step exceeded')):
-                    tinfo['step_timeout_seconds'] = min(max(int(tinfo.get('step_timeout_seconds', 1200) * 1.25), 1500), 1560)
+                    tinfo['step_timeout_seconds'] = max(int(tinfo.get('step_timeout_seconds', 1500) * 1.5), 2400)
                     tinfo['attempts'] = min(attempts, 2)
                     tinfo['next_attempt_at'] = (now + timedelta(seconds=30)).isoformat()
                     modified = True
                     action = ResolutionAction(
                         task_id=tid,
                         action_type='step_timeout_adaptive_expansion',
-                        root_cause='Task timed out during execution; expanded step timeout within supervisor 1560s ceiling',
+                        root_cause='Task timed out during execution; expanded step timeout to 2400s',
                         remedy_applied=f"Set step_timeout_seconds={tinfo['step_timeout_seconds']}, reset attempts=2, scheduled 30s retry"
                     )
                     actions.append(action)

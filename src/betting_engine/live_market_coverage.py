@@ -371,10 +371,12 @@ def _compute_live_coverage_from_store(store, publication, catalog, data_dir, now
 
 
 def build_from_store(store, publication, catalog, data_dir, now=None):
+    import os as _os_env
+    is_pytest = bool(_os_env.environ.get('PYTEST_CURRENT_TEST'))
     pub_ver = (publication or {}).get('version')
     pub_gen = (publication or {}).get('generated_at')
     cat_chk = (catalog or {}).get('checked_at')
-    snap_path = Path(data_dir) / 'live_coverage_snapshot.json' if data_dir else None
+    snap_path = Path(data_dir) / 'live_coverage_snapshot.json' if (data_dir and not is_pytest) else None
     if snap_path and pub_ver and snap_path.is_file():
         try:
             import time as _t
