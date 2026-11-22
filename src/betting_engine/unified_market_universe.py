@@ -246,11 +246,27 @@ class UnifiedMarketUniverse:
     def build_universe_roster(self, force_refresh: bool = False) -> Dict[str, UnifiedMarketProfile]:
         """Assembles the complete 461-market roster with exact tier classifications."""
         import time
+        from dataclasses import asdict
         now = time.time()
+        resolved_dir = str(Path(self.data_dir).resolve())
         if not force_refresh and UnifiedMarketUniverse._cached_roster is not None:
-            if getattr(UnifiedMarketUniverse, '_cached_dir', None) == str(self.data_dir):
+            if getattr(UnifiedMarketUniverse, '_cached_dir', None) == resolved_dir:
                 if now - UnifiedMarketUniverse._cached_at < UnifiedMarketUniverse._cache_ttl_seconds:
                     return UnifiedMarketUniverse._cached_roster
+        snap_file = Path(self.data_dir) / 'universe_roster_snapshot.json'
+        if not force_refresh and snap_file.is_file():
+            try:
+                if (now - snap_file.stat().st_mtime) < 25.0:
+                    raw_snap = json.loads(snap_file.read_text(encoding='utf-8'))
+                    if isinstance(raw_snap, dict) and raw_snap:
+                        rebuilt = {k: UnifiedMarketProfile(**v) for k, v in raw_snap.items() if isinstance(v, dict)}
+                        if rebuilt:
+                            UnifiedMarketUniverse._cached_roster = rebuilt
+                            UnifiedMarketUniverse._cached_at = now
+                            UnifiedMarketUniverse._cached_dir = resolved_dir
+                            return rebuilt
+            except Exception:
+                pass
 
         roster: Dict[str, UnifiedMarketProfile] = {}
 
@@ -1109,7 +1125,14 @@ class UnifiedMarketUniverse:
 
         UnifiedMarketUniverse._cached_roster = roster
         UnifiedMarketUniverse._cached_at = now
-        UnifiedMarketUniverse._cached_dir = str(self.data_dir)
+        UnifiedMarketUniverse._cached_dir = resolved_dir
+        try:
+            import os as _os
+            from .io_utils import atomic_json
+            if Path(self.data_dir).is_dir() and _os.access(self.data_dir, _os.W_OK) and roster:
+                atomic_json(snap_file, {k: asdict(v) for k, v in roster.items()})
+        except Exception:
+            pass
         return roster
 
     def get_market_tier(self, league: str, scope: str, family: str, sub_family: Optional[str] = None) -> MarketTier:

@@ -4885,8 +4885,9 @@ class ShadowMarketIncubator:
             _INCUBATOR_STATUS_CACHE_TIME = time.time()
         if not self.read_only or not snapshot_path.is_file() or (time.time() - snapshot_path.stat().st_mtime) >= 30.0:
             try:
+                import os as _os
                 from .io_utils import atomic_json
-                if self.data_dir.is_dir() and os.access(self.data_dir, os.W_OK):
+                if self.data_dir.is_dir() and _os.access(self.data_dir, _os.W_OK):
                     atomic_json(snapshot_path, res_payload)
             except Exception:
                 pass
