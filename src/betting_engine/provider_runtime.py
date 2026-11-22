@@ -442,7 +442,7 @@ def run_ai_step(worker, schema, output, prefix, prompt, timeout=1200,
                         remaining = deadline - time.monotonic()
                         if remaining <= 0:
                             raise TimeoutError('Development step exceeded its execution time limit')
-                        step_budget = min(remaining, 420.0)
+                        step_budget = min(remaining, 780.0)
                         worker.run_process(agy_cmd, step, None, step_budget,
                             process_cwd=prepared['cwd'], process_env=prepared['env'])
                         with Path(str(step) + '.stdout.log').open('rb') as handle:
