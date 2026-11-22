@@ -1,6 +1,6 @@
 # Live Stake market coverage
 
-Checked: 2026-11-22T12:34:25.502352+00:00
+Checked: 2026-11-22T12:52:57.871488+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
@@ -257,7 +257,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NFL | 3rd Quarter - 1x2 | standard | quarter_3 | offered_now | 1/10 | not_observed 0/30 | verified 30/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/30 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 3rd Quarter - Draw No Bet | standard | quarter_3 | offered_now | 3/10 | partial 2/20 | verified 20/20 | partial 5/20 | partial 5/20 | partial 2/20 | verified 2/2 | verified 2/2 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 3rd Quarter - Handicap | standard | quarter_3 | offered_now | 5/10 | partial 13/56 | verified 56/56 | partial 13/56 | partial 13/56 | partial 13/56 | verified 13/13 | verified 13/13 | verified 13/13 | verified 2/2 | partial 2/3 | 0 |
-| NFL | 3rd Quarter - Total | standard | quarter_3 | offered_now | 3/10 | partial 12/56 | verified 56/56 | partial 12/56 | partial 12/56 | partial 12/56 | verified 12/12 | verified 12/12 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NFL | 3rd Quarter - Total | standard | quarter_3 | offered_now | 3/10 | partial 11/56 | verified 56/56 | partial 11/56 | partial 11/56 | partial 11/56 | verified 11/11 | verified 11/11 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 3rd quarter anytime touchdown | standard | quarter_3 | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 3rd quarter receiving yards | standard | quarter_3 | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 3rd quarter receptions | standard | quarter_3 | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
@@ -266,7 +266,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NFL | 4th Quarter - Draw No Bet | standard | quarter_4 | offered_now | 1/10 | not_observed 0/20 | verified 20/20 | partial 3/20 | partial 3/20 | not_observed 0/20 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 4th Quarter - Draw No Bet (incl. Overtime) | standard | quarter_4_ot | offered_now | 1/10 | not_observed 0/20 | verified 20/20 | partial 1/20 | partial 1/20 | not_observed 0/20 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 4th Quarter - Handicap | standard | quarter_4 | offered_now | 5/10 | partial 14/56 | verified 56/56 | partial 14/56 | partial 14/56 | partial 14/56 | verified 14/14 | verified 14/14 | verified 11/11 | verified 1/1 | partial 1/2 | 1 |
-| NFL | 4th Quarter - Total | standard | quarter_4 | offered_now | 3/10 | partial 11/56 | verified 56/56 | partial 11/56 | partial 11/56 | partial 11/56 | verified 11/11 | verified 11/11 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NFL | 4th Quarter - Total | standard | quarter_4 | offered_now | 3/10 | partial 12/56 | verified 56/56 | partial 12/56 | partial 12/56 | partial 12/56 | verified 12/12 | verified 12/12 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 4th quarter anytime touchdown | standard | quarter_4 | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 4th quarter receiving touchdowns | standard | quarter_4 | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 4th quarter receiving yards | standard | quarter_4 | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
