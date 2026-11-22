@@ -1,6 +1,6 @@
 # Live Stake market coverage
 
-Checked: 2026-11-22T15:30:01.153756+00:00
+Checked: 2026-11-22T15:53:36.360039+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
@@ -284,7 +284,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NFL | Denver Broncos Total (Incl. Overtime) | standard | full_game | offered_now | 7/10 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Detroit Lions Total (Incl. Overtime) | standard | full_game | offered_now | 7/10 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Halftime/Fulltime | standard | regulation | offered_now | 0/10 | not_observed 0/108 | not_observed 0/108 | not_observed 0/108 | not_observed 0/108 | not_observed 0/108 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NFL | Handicap (Incl. Overtime) | standard | full_game | offered_now | 7/10 | verified 164/164 | verified 164/164 | verified 164/164 | verified 164/164 | verified 164/164 | verified 164/164 | verified 164/164 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NFL | Handicap (Incl. Overtime) | standard | full_game | offered_now | 7/10 | verified 162/162 | verified 162/162 | verified 162/162 | verified 162/162 | verified 162/162 | verified 162/162 | verified 162/162 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Highest Scoring Half | standard | regulation | offered_now | 0/10 | not_observed 0/36 | not_observed 0/36 | not_observed 0/36 | not_observed 0/36 | not_observed 0/36 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Highest Scoring Quarter | standard | regulation | offered_now | 0/10 | not_observed 0/50 | not_observed 0/50 | not_observed 0/50 | not_observed 0/50 | not_observed 0/50 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Indianapolis Colts Total (Incl. Overtime) | standard | full_game | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
