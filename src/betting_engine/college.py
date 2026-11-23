@@ -44,7 +44,7 @@ def current_college_basketball(fetcher,league,horizon_hours=72):
     season_year=now.year+(now.month>=7)
     for offset in offsets:
         day=(now+timedelta(days=offset)).strftime('%Y%m%d')
-        url=f'https://site.api.espn.com/apis/site/v2/sports/basketball/{sport_path}/scoreboard?dates={day}&limit=1000'
+        url=f'https://site.api.espn.com/apis/site/v2/sports/basketball/{sport_path}/scoreboard?dates={day}&groups=50&limit=1000'
         try:
             payload,meta=fetcher.json(url,900)
             metas.append(meta)
@@ -100,7 +100,7 @@ def recent_college_football(fetcher, horizon_days=5):
     season_year=now.year
     for offset in range(-horizon_days, 1):
         day=(now+timedelta(days=offset)).strftime('%Y%m%d')
-        url=f'https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates={day}&limit=1000'
+        url=f'https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates={day}&groups=80&limit=1000'
         try:
             payload,meta=fetcher.json(url,900)
             metas.append(meta)
