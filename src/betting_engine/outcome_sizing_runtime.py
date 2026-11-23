@@ -22,7 +22,13 @@ def verify_evidence(tip, settings, now, max_age_seconds=300):
         raise ValueError('Outcome sizing evidence is missing or invalid')
     age = (now - parse_time(summary['as_of'])).total_seconds()
     if not -5 <= age <= max_age_seconds:
-        raise ValueError('Outcome sizing evidence is future-dated or stale')
+        kind = 'future-dated' if age < -5 else 'stale'
+        raise ValueError(
+            'Outcome sizing evidence is future-dated or stale '
+            f'({kind}: candidate_id={tip.get("candidate_id")!r}, segment={summary.get("segment")!r}, '
+            f'as_of={summary["as_of"]!r}, now={now.isoformat()}, age_seconds={age:.3f}, '
+            f'allowed=[-5, {max_age_seconds}])'
+        )
 
 
 def verify_ledger_evidence(connection, tips, settings, now):
