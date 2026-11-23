@@ -154,3 +154,52 @@ def test_gamma_resolution_closed_but_unresolved_skipped(settlement_db, monkeypat
         assert r["status"] == "filled"
         assert r["settled_at"] is None
         assert r["pnl"] is None
+
+
+def test_wal_concurrent_writer_during_gamma_fetch_does_not_lock(settlement_db, monkeypatch):
+    """Anti-tautological WAL concurrency invariant: another connection committing to SQLite WAL
+    mid-settlement (while Gamma HTTP resolution runs) must NOT trigger SQLITE_BUSY_SNAPSHOT
+    ('database is locked'), because Phase 1 uses mode=ro and Phase 2 uses BEGIN IMMEDIATE.
+    """
+    past_time = (utcnow() - timedelta(hours=2)).isoformat()
+    with sqlite3.connect(settlement_db) as conn:
+        conn.execute("PRAGMA journal_mode = WAL;")
+        conn.execute(
+            """
+            INSERT INTO polymarket_orders (client_order_id, token_id, game_title, start_time, market_family, selection, stake_usd, shares_count, status)
+            VALUES ('ord_wal_race', 'tok_wal_race', 'Bucks vs Heat', ?, 'moneyline', 'Bucks', 5.0, 10.0, 'filled');
+            """,
+            (past_time,),
+        )
+
+    settler = PolymarketOutcomeSettler(db_path=settlement_db)
+
+    def mock_fetch_gamma_with_concurrent_write(token_id):
+        # Advance the WAL snapshot from an independent writer while Phase 1 is mid-flight!
+        with sqlite3.connect(settlement_db, timeout=10.0) as other_writer:
+            other_writer.execute(
+                """
+                INSERT INTO polymarket_orders (client_order_id, token_id, game_title, start_time, market_family, selection, stake_usd, shares_count, status)
+                VALUES ('ord_concurrent_new', 'tok_new', 'Suns vs Nuggets', ?, 'moneyline', 'Suns', 2.0, 4.0, 'open');
+                """,
+                ((utcnow() + timedelta(hours=5)).isoformat(),),
+            )
+            other_writer.commit()
+        return {"closed": True, "resolved": True, "token_price": 1.0}
+
+    monkeypatch.setattr(settler, "fetch_gamma_market_resolution", mock_fetch_gamma_with_concurrent_write)
+    monkeypatch.setattr(settler, "fetch_polymarket_positions", lambda: {})
+
+    res = settler.settle_orders()
+    assert res["settled_count"] == 1
+    assert res["won_count"] == 1
+    assert res["total_pnl"] == 5.0
+
+    with sqlite3.connect(settlement_db) as conn:
+        conn.row_factory = sqlite3.Row
+        settled_row = conn.execute("SELECT * FROM polymarket_orders WHERE client_order_id = 'ord_wal_race'").fetchone()
+        assert settled_row["status"] == "won"
+        assert settled_row["pnl"] == 5.0
+        other_row = conn.execute("SELECT * FROM polymarket_orders WHERE client_order_id = 'ord_concurrent_new'").fetchone()
+        assert other_row["status"] == "open"
+

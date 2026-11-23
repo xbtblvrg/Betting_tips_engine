@@ -498,10 +498,25 @@ def main(argv=None):
         for outcome in rotation:
             if outcome['state'] == 'error':
                 print(json.dumps({'log_rotation':outcome}), file=sys.stderr, flush=True)
+        errors = 0
+        if args.prune_release_staging:
+            from prune_obsolete_release_staging import eligible as stage_candidates, prune_one
+            for release_id in stage_candidates(root)[:args.limit]:
+                try: print(json.dumps(prune_one(root, release_id)), flush=True)
+                except Exception as error:
+                    errors += 1
+                    print(json.dumps({'release_id': release_id, 'state': 'staging_error',
+                                      'error': str(error)}), file=sys.stderr, flush=True)
+        if args.prune_frozen_validation:
+            from prune_obsolete_frozen_validation import eligible as frozen_candidates, prune_one as prune_frozen
+            for name in frozen_candidates(root)[:args.limit]:
+                try: print(json.dumps(prune_frozen(root, name)), flush=True)
+                except Exception as error:
+                    errors += 1
+                    print(json.dumps({'release_id': name, 'state': 'frozen_error', 'error': str(error)}), file=sys.stderr, flush=True)
         eligible = direct_candidates(root) if args.discard_unused_inputs else candidates(root)
         print(json.dumps({'eligible':len(eligible), 'limit':args.limit,
                           'apply':True, 'discard_archived_inputs': args.discard_archived_inputs, 'log_rotation':rotation}), flush=True)
-        errors = 0
         for rid in eligible[:args.limit]:
             try:
                 print(json.dumps(discard_unused_inputs(root, rid) if args.discard_unused_inputs else archive_one(root, rid)), flush=True)
@@ -519,21 +534,6 @@ def main(argv=None):
                     errors += 1
                     print(json.dumps({'run_id': rid, 'state': 'discard_error',
                                       'error': str(error)}), file=sys.stderr, flush=True)
-        if args.prune_release_staging:
-            from prune_obsolete_release_staging import eligible as stage_candidates, prune_one
-            for release_id in stage_candidates(root)[:args.limit]:
-                try: print(json.dumps(prune_one(root, release_id)), flush=True)
-                except Exception as error:
-                    errors += 1
-                    print(json.dumps({'release_id': release_id, 'state': 'staging_error',
-                                      'error': str(error)}), file=sys.stderr, flush=True)
-        if args.prune_frozen_validation:
-            from prune_obsolete_frozen_validation import eligible as frozen_candidates, prune_one as prune_frozen
-            for name in frozen_candidates(root)[:args.limit]:
-                try: print(json.dumps(prune_frozen(root, name)), flush=True)
-                except Exception as error:
-                    errors += 1
-                    print(json.dumps({'release_id': name, 'state': 'frozen_error', 'error': str(error)}), file=sys.stderr, flush=True)
         if args.prune_manifest_inputs:
             from prune_obsolete_manifest_inputs import candidate_ids, prune_batch
             for result in prune_batch(root, candidate_ids(root), args.limit):

@@ -397,7 +397,7 @@ def run_ai_step(worker, schema, output, prefix, prompt, timeout=1200,
                     if (worker.workspace / p).is_file()
                 )
                 last_err = str(cur_task.get('last_error') or '').lower()
-                needs_full_workspace = pref_bytes > 175000 or ('omitted' in last_err and 'bundle' in last_err)
+                needs_full_workspace = pref_bytes > 135000 or ('omitted' in last_err and 'bundle' in last_err)
                 if needs_full_workspace:
                     for candidate in getattr(router, 'policy', {}).get('routes', []):
                         if (candidate and candidate.get('provider') == 'codex'
@@ -466,16 +466,26 @@ def run_ai_step(worker, schema, output, prefix, prompt, timeout=1200,
                             p_payload = prepared['stdin']
                             marker = '\nBOUNDED SOURCE BUNDLE:\n'
                             if marker in p_payload and isinstance(prepared.get('context', {}).get('source_bundle'), dict):
+                                prefix_text = p_payload.split(marker, 1)[0] + marker
                                 sb = prepared['context']['source_bundle']
-                                compact_bundle = json.dumps({
-                                    'files': sb.get('files', []),
-                                    'selected_bytes': sb.get('selected_bytes', 0),
-                                    'omitted_count': len(sb.get('omitted', [])),
-                                    'scope': sb.get('scope', ''),
-                                }, sort_keys=True, separators=(',', ':'), allow_nan=False)
-                                p_payload = p_payload.split(marker, 1)[0] + marker + compact_bundle
-                            if len(p_payload) > 220000:
-                                p_payload = p_payload[:220000] + "\n\n[TRUNCATED SOURCE CONTEXT TO FIT CONTROLLER ARG_MAX LIMITS]"
+                                bundle_files = list(sb.get('files', []))
+                                omitted_extra = 0
+                                while True:
+                                    compact_bundle = json.dumps({
+                                        'files': bundle_files,
+                                        'selected_bytes': sum(len(str(f.get('content', '')).encode('utf-8')) for f in bundle_files if isinstance(f, dict)),
+                                        'omitted_count': len(sb.get('omitted', [])) + omitted_extra,
+                                        'scope': sb.get('scope', ''),
+                                    }, sort_keys=True, separators=(',', ':'), allow_nan=False)
+                                    candidate_payload = prefix_text + compact_bundle
+                                    if len(candidate_payload.encode('utf-8')) <= 218000 or len(bundle_files) <= 1:
+                                        p_payload = candidate_payload
+                                        break
+                                    bundle_files.pop()
+                                    omitted_extra += 1
+                            if len(p_payload.encode('utf-8')) > 220000:
+                                encoded = p_payload.encode('utf-8')[:220000].decode('utf-8', errors='ignore')
+                                p_payload = encoded + "\n\n[TRUNCATED SOURCE CONTEXT TO FIT CONTROLLER ARG_MAX LIMITS]"
                             private_cli_log = str(temp_path / 'agy-cli.log')
                             agy_cmd = [agy_binary, '-p', p_payload,
                                 '--model', route['model'], '--output-format', 'json',

@@ -261,3 +261,75 @@ def test_parallel_run_ai_step_threads_never_mix_outputs_or_logs(tmp_path, monkey
         assert applied_by_ws[ws_str] == [f'docs/{tid}.md']
 
 
+def test_agy_bounded_source_bundle_preserves_valid_json_under_arg_max(tmp_path, monkeypatch):
+    """Verifies that when prompt header + source_bundle exceeds 218 KB, provider_runtime drops
+    tail bundle files cleanly rather than slicing mid-JSON at 220 KB.
+    """
+    from types import SimpleNamespace
+    from betting_engine import provider_runtime as runtime, agy_development, claude_development as cd
+
+    monkeypatch.setattr(runtime, 'enabled', lambda root: True)
+    router = SimpleNamespace(
+        get_selection=lambda: {'id': 'agy', 'provider': 'agy', 'model': 'gemini-4-argon-high'},
+        policy={'routes': [{'id': 'agy', 'provider': 'agy', 'model': 'gemini-4-argon-high'}]},
+        report_failure=lambda *a: None,
+        report_success=lambda *a: None,
+    )
+    monkeypatch.setattr(runtime, 'ProviderRuntime', lambda root: SimpleNamespace(
+        router=lambda: router,
+        config={'agy_binary': '/usr/bin/agy', 'max_parallel_agy_slots': 4},
+    ))
+
+    big_header = 'INSTRUCTIONS:\n' + ('H' * 85000) + '\nBOUNDED SOURCE BUNDLE:\n'
+    files = [{'path': f'src/mod_{i}.py', 'content': 'x = ' + ('1' * 16000) + '\n', 'sha256': f'{i:064x}'} for i in range(10)]
+
+    def fake_prepare(root, workspace, temp_dir, task, prompt, schema, **kwargs):
+        sb = {'files': files, 'selected_bytes': sum(len(f['content']) for f in files), 'omitted': ['src/extra.py'], 'scope': 'bounded'}
+        return {
+            'stdin': big_header + json.dumps(sb),
+            'cwd': str(temp_dir),
+            'env': {'HOME': str(temp_dir)},
+            'context': {'source_bundle': sb, 'selected': {}},
+        }
+
+    monkeypatch.setattr(cd, 'prepare_step', fake_prepare)
+    monkeypatch.setattr(cd, 'apply_edits', lambda ws, edits, ctx: [])
+    monkeypatch.setattr(agy_development, 'finish_agy_step', lambda raw, ctx, model: {
+        'edits': [], 'report': {'summary': 'ok'}
+    })
+
+    captured_payloads = []
+
+    def run_proc(cmd, prefix, prompt, timeout, process_cwd=None, process_env=None):
+        p_arg = cmd[cmd.index('-p') + 1]
+        captured_payloads.append(p_arg)
+        from pathlib import Path as _P
+        _P(str(prefix) + '.stdout.log').write_text('{"response": "{}"}')
+
+    ws = tmp_path / 'ws'
+    ws.mkdir()
+    run_dir = tmp_path / 'run'
+    run_dir.mkdir()
+    schema = run_dir / 'schema.json'
+    schema.write_text('{}')
+    output = run_dir / 'out.json'
+    w = SimpleNamespace(
+        root=tmp_path,
+        workspace=ws,
+        current_task={'id': 'T_JSON'},
+        readonly_input_paths=lambda: [],
+        run_process=run_proc,
+    )
+    runtime.run_ai_step(w, schema, output, run_dir / 'step', 'prompt', 30, sandbox='read-only')
+
+    assert len(captured_payloads) == 1
+    payload = captured_payloads[0]
+    assert len(payload.encode('utf-8')) <= 218000
+    assert '[TRUNCATED SOURCE CONTEXT' not in payload
+    bundle_part = payload.split('\nBOUNDED SOURCE BUNDLE:\n', 1)[1]
+    parsed_bundle = json.loads(bundle_part)
+    assert 1 <= len(parsed_bundle['files']) < 10
+    assert parsed_bundle['omitted_count'] == 1 + (10 - len(parsed_bundle['files']))
+
+
+

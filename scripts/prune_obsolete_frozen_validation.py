@@ -147,6 +147,22 @@ def empty_test_database(stage):
     return {'sha256':sha,'bytes':path.stat().st_size,'table_counts':counts,'scope':'Generated empty test schema; no input inventory declared this database'}
 
 
+def verified_original_inventory(root,original):
+    inv=frozen._inventory(original)
+    receipts_dir=root/'data/workspace-input-discard-receipts'
+    if receipts_dir.is_dir():
+        for rpath in sorted(receipts_dir.glob(original.name+'-manifest-*.json')):
+            doc=base.read(rpath)
+            if doc.get('run_id')!=original.name or doc.get('state') not in ('finished_manifest_input_discard','partial_manifest_input_discard'):
+                continue
+            files=doc.get('files') or {}
+            for name in doc.get('deleted') or ():
+                row=files.get(name)
+                if isinstance(row,dict) and name not in inv and name.startswith('data/') and 'sha256' in row and 'size' in row:
+                    inv[name]={'sha256':row['sha256'],'bytes':row['size']}
+    return inv
+
+
 def verify_duplicate(root,name):
     path,proof,inventories=proof_for(root,name);stage=root/'data/releases/staging'/name
     original=Path(proof['candidate']);base.safe(stage)
@@ -155,7 +171,7 @@ def verify_duplicate(root,name):
     dependency=stage/'node_modules'
     if os.path.lexists(dependency) and (not dependency.is_symlink() or dependency.resolve()!=(root/'node_modules').resolve()):
         raise ValueError('Unexpected private dependency link')
-    if frozen._inventory(original)!=inventories['candidate']:raise ValueError('Original candidate inventory changed')
+    if verified_original_inventory(root,original)!=inventories['candidate']:raise ValueError('Original candidate inventory changed')
     for rows in inventories.values():
         if any(n.startswith('data/engine.sqlite3') for n in rows):raise ValueError('Database was an original input')
     expected=dict(inventories['copied'])

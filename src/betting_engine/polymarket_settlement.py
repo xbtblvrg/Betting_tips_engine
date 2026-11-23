@@ -275,8 +275,12 @@ class PolymarketOutcomeSettler:
         poly_positions = self.fetch_polymarket_positions() if not mock_scores else {}
         gamma_res_cache: Dict[str, Optional[Dict[str, Any]]] = {}
 
+        pending_updates: List[Tuple[str, float, str, str, Optional[str], Optional[str]]] = []
+        pending_logs: List[Dict[str, Any]] = []
+
         try:
-            with closing(sqlite3.connect(self.db_path, timeout=30.0)) as conn:
+            ro_uri = f"file:{self.db_path.resolve()}?mode=ro"
+            with closing(sqlite3.connect(ro_uri, uri=True, timeout=30.0)) as conn:
                 conn.execute("PRAGMA busy_timeout = 30000;")
                 conn.row_factory = sqlite3.Row
                 cur = conn.cursor()
@@ -289,7 +293,7 @@ class PolymarketOutcomeSettler:
                     params.extend(order_ids)
                     params.extend(order_ids)
 
-                rows = cur.execute(query, params).fetchall()
+                rows = [dict(r) for r in cur.execute(query, params).fetchall()]
 
                 for row in rows:
                     oid = row["order_id"] or row["client_order_id"]
@@ -412,6 +416,7 @@ class PolymarketOutcomeSettler:
                     if new_status is None:
                         home_score: Optional[float] = None
                         away_score: Optional[float] = None
+                        ev_data = None
 
                         # Check mock_scores first if supplied
                         if mock_scores:
@@ -426,13 +431,13 @@ class PolymarketOutcomeSettler:
                                 order_scope = (row["scope"] or "full_game").lower()
                                 # 1. Try matching both game_title and order_scope in evidence
                                 bo_rows = cur.execute(
-                                    "SELECT evidence FROM bet_outcomes WHERE evidence LIKE ? AND evidence LIKE ? LIMIT 1",
+                                    "SELECT evidence FROM (SELECT evidence FROM bet_outcomes ORDER BY rowid DESC LIMIT 10000) WHERE evidence LIKE ? AND evidence LIKE ? LIMIT 1",
                                     (f"%{game_title}%", f'%"{order_scope}"%'),
                                 ).fetchall()
                                 # 2. Fallback to game_title only if full_game
                                 if not bo_rows and order_scope in ("full_game", "full", "game"):
                                     bo_rows = cur.execute(
-                                        "SELECT evidence FROM bet_outcomes WHERE evidence LIKE ? LIMIT 1",
+                                        "SELECT evidence FROM (SELECT evidence FROM bet_outcomes ORDER BY rowid DESC LIMIT 10000) WHERE evidence LIKE ? LIMIT 1",
                                         (f"%{game_title}%",),
                                     ).fetchall()
                                 for bo in bo_rows:
@@ -463,13 +468,13 @@ class PolymarketOutcomeSettler:
                             norm_market = "spreads" if market_fam in ("spreads", "Spread") else "moneyline"
                             home_name = None
                             away_name = None
-                            if 'ev_data' in locals() and ev_data:
+                            if ev_data:
                                 home_name = ev_data.get("home_team") or ev_data.get("home")
                                 away_name = ev_data.get("away_team") or ev_data.get("away")
                             if not home_name:
                                 try:
                                     tip_row = cur.execute(
-                                        "SELECT json_extract(payload, '$.home'), json_extract(payload, '$.away') FROM tips WHERE payload LIKE ? LIMIT 1",
+                                        "SELECT json_extract(payload, '$.home'), json_extract(payload, '$.away') FROM (SELECT payload FROM tips ORDER BY rowid DESC LIMIT 5000) WHERE payload LIKE ? LIMIT 1",
                                         (f"%{game_title}%",),
                                     ).fetchone()
                                     if tip_row:
@@ -522,22 +527,10 @@ class PolymarketOutcomeSettler:
                             pnl = 0.00
                             settlement_source = "official_match_scores"
 
-                    if new_status is None:
+                    if new_status is None or pnl is None:
                         continue
 
-                    # Atomically update SQLite record
-                    cur.execute(
-                        """
-                        UPDATE polymarket_orders SET
-                            status = ?,
-                            pnl = ?,
-                            settled_at = ?,
-                            updated_at = ?
-                        WHERE client_order_id = ? OR order_id = ?;
-                        """,
-                        (new_status, pnl, now_iso, now_iso, row["client_order_id"], oid),
-                    )
-
+                    pending_updates.append((new_status, pnl, now_iso, now_iso, row["client_order_id"], oid))
                     res_item = {
                         "order_id": oid,
                         "client_order_id": row["client_order_id"],
@@ -552,9 +545,7 @@ class PolymarketOutcomeSettler:
                         "settled_at": now_iso,
                     }
                     settled_results.append(res_item)
-
-                    # Stream settlement event to JSONL
-                    log_entry = {
+                    pending_logs.append({
                         "source": "polymarket_settlement",
                         "timestamp": now_iso,
                         "client_order_id": row["client_order_id"],
@@ -566,15 +557,37 @@ class PolymarketOutcomeSettler:
                         "status": new_status,
                         "realized_pnl": pnl,
                         "settlement_source": settlement_source,
-                    }
+                    })
+
+            if pending_updates:
+                with closing(sqlite3.connect(self.db_path, timeout=45.0, isolation_level=None)) as wconn:
+                    wconn.execute("PRAGMA busy_timeout = 45000;")
+                    wconn.execute("BEGIN IMMEDIATE;")
+                    try:
+                        wconn.executemany(
+                            """
+                            UPDATE polymarket_orders SET
+                                status = ?,
+                                pnl = ?,
+                                settled_at = ?,
+                                updated_at = ?
+                            WHERE client_order_id = ? OR order_id = ?;
+                            """,
+                            pending_updates,
+                        )
+                        wconn.execute("COMMIT;")
+                    except Exception:
+                        wconn.execute("ROLLBACK;")
+                        raise
+
+                for log_entry in pending_logs:
                     try:
                         with open(self.log_path, "a", encoding="utf-8") as f:
                             f.write(json.dumps(log_entry) + "\n")
                     except Exception as err:
                         log.warning(f"Could not append to JSONL log: {err}")
-
-                conn.commit()
         except Exception as exc:
+            settled_results.clear()
             log.error(f"Failed to execute Polymarket settlement: {exc}")
 
         won_cnt = sum(1 for r in settled_results if r["status"] == "won")
