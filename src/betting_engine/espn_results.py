@@ -60,6 +60,28 @@ def _identity(tip):
     return gid, home, away, parse_time(tip['start'])
 
 
+def _canon_team_name(name: str) -> str:
+    s = re.sub(r'[-–—/]+', ' ', str(name or '').lower())
+    s = re.sub(r'^(?:the\s+|university\s+of\s+)', '', s.strip())
+    return re.sub(r'\s+', ' ', s).strip()
+
+
+def _team_identity_matches(team_obj: dict, original_name: str) -> bool:
+    disp = str(team_obj.get('displayName') or '')
+    if disp == original_name:
+        return True
+    c_orig = _canon_team_name(original_name)
+    c_disp = _canon_team_name(disp)
+    if not c_orig or not c_disp:
+        return False
+    if c_orig == c_disp:
+        return True
+    disp_tokens = c_disp.split()
+    orig_tokens = set(c_orig.split())
+    if len(disp_tokens) >= 2 and set(disp_tokens).issubset(orig_tokens):
+        return True
+    return False
+
 def _url(tip):
     return f'https://site.api.espn.com/apis/site/v2/sports/{LEAGUE_PATHS[tip["league"]]}/summary?event={tip["game_id"].split(":")[1]}'
 
@@ -102,19 +124,29 @@ def parse_summary(raw, meta, tip, now=None, *, scheduled_start=None):
         status = competition['status']['type']
         allowed_statuses = ('STATUS_FINAL', 'STATUS_FINAL_OVERTIME')
         if tip.get('league') in ('MLS', 'EPL', 'UCL'):
-            allowed_statuses = allowed_statuses + ('STATUS_FULL_TIME', 'STATUS_FINAL_PENALTIES')
+            allowed_statuses = allowed_statuses + ('STATUS_FULL_TIME', 'STATUS_FINAL_PENALTIES', 'STATUS_FINAL_PEN', 'STATUS_FINAL_AET')
         if status.get('completed') is not True or status.get('state') != 'post' or status.get('name') not in allowed_statuses:
             raise ValueError('official_game_not_final')
         competitors = competition['competitors']
         if not isinstance(competitors, list) or len(competitors) != 2 or {row.get('homeAway') for row in competitors} != {'home', 'away'}:
             raise ValueError('ambiguous_result_teams')
-        teams = {row['homeAway']: row for row in competitors}
+        raw_teams = {row['homeAway']: row for row in competitors}
+        if (_team_identity_matches(raw_teams['home']['team'], home)
+                and _team_identity_matches(raw_teams['away']['team'], away)):
+            teams = raw_teams
+        elif (tip.get('league') in ('NCAAM', 'NCAAW', 'NCAAF')
+                and _team_identity_matches(raw_teams['home']['team'], away)
+                and _team_identity_matches(raw_teams['away']['team'], home)):
+            # Neutral-court college schedule vs boxscore home/away flip: bind scores to tip's original sides!
+            teams = {'home': raw_teams['away'], 'away': raw_teams['home']}
+        else:
+            teams = raw_teams
         ids, scores = {}, {}
         original_ids_checked = []
         for side, original_name in (('home', home), ('away', away)):
             row = teams[side]
             team_id = _identifier(row['id'])
-            if team_id != _identifier(row['team']['id']) or row['team']['displayName'] != original_name:
+            if team_id != _identifier(row['team']['id']) or not _team_identity_matches(row['team'], original_name):
                 raise ValueError('result_team_identity_mismatch')
             original_id = tip.get(side + '_id')
             if original_id is not None:
@@ -127,10 +159,16 @@ def parse_summary(raw, meta, tip, now=None, *, scheduled_start=None):
             raise ValueError('result_same_team_identity')
         if scores['home'] == scores['away'] and tip.get('league') not in ('MLS', 'EPL', 'UCL'):
             raise ValueError('final_winner_missing')
-        for side in ('home', 'away'):
-            expected = scores[side] > scores['away' if side == 'home' else 'home']
-            if teams[side].get('winner') is not expected:
-                raise ValueError('result_winner_score_conflict')
+        is_soccer_shootout = (
+            tip.get('league') in ('MLS', 'EPL', 'UCL')
+            and status.get('name') in ('STATUS_FINAL_PEN', 'STATUS_FINAL_PENALTIES')
+            and scores['home'] == scores['away']
+        )
+        if not is_soccer_shootout:
+            for side in ('home', 'away'):
+                expected = scores[side] > scores['away' if side == 'home' else 'home']
+                if teams[side].get('winner') is not expected:
+                    raise ValueError('result_winner_score_conflict')
         season = _integer(header['season']['year'])
         valid_season_type = True if tip.get('league') in ('MLS', 'EPL', 'UCL') else header['season'].get('type') in (1, 2, 3)
         if not start.year - 1 <= season <= start.year + 1 or not valid_season_type:

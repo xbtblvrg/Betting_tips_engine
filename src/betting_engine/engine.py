@@ -146,6 +146,7 @@ class Engine:
                 except (KeyError,TypeError,ValueError):pass
                 if isinstance(tip.get('game_id'),str):pending_ids.add(tip['game_id'])
             recovered,status=recover_pending_nhl(self.games,bets,decisions,data_dir=DATA)
+            # Persist before in-memory state mutation so persistence errors fail closed.
             if status.get('recovered_games'):
                 atomic_json(DATA/'games.json',[g.dict() for g in recovered])
             self.games,self.nhl_settlement_status=recovered,status
@@ -219,7 +220,8 @@ class Engine:
                     except Exception:
                         pass
             for row in bets+decisions:
-                tip=row.get('payload',{})
+                tip=row.get('payload')
+                tip=tip if isinstance(tip,dict) else {}
                 gid=tip.get('game_id')
                 supported_prefix=isinstance(gid,str) and gid.split(':',1)[0] in LEAGUE_PATHS
                 if row.get('status')!='open' or (tip.get('league') not in LEAGUE_PATHS and not supported_prefix):continue
@@ -229,6 +231,7 @@ class Engine:
                 if isinstance(gid,str):pending_ids_building.add(gid)
             # An interrupted enumeration must fail closed for all supported
             # finals rather than protecting only the prefix of the ledger read.
+            # Post-enumeration helper errors fail closed across pending_ids.
             pending_ids=pending_ids_building
             recovered,status=recover_pending_espn(self.games,bets,decisions,data_dir=DATA)
             # The exact-event adapter supplies full-game scores only. Reattach

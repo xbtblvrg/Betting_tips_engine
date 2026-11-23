@@ -263,10 +263,33 @@ class SettlementSupervisor:
                 age_h = item['age_hours']
                 gid = item.get('game_id') or ''
 
-                # Tennis pre-match walkovers/retirements or older past-due fixtures
+                # Tennis pre-match walkovers/retirements or verified cancelled/postponed fixtures.
+                # NEVER auto-void completed team-sport matches merely because age_h >= 6.0!
                 is_tennis = league in ('ATP', 'WTA', 'CHALLENGER')
-                # If an event is past due by at least 4 hours and has no score recovery from feeds
-                if is_tennis or age_h >= 6.0:
+                should_void = is_tennis
+                if not is_tennis and age_h >= 6.0:
+                    from .espn_results import LEAGUE_PATHS as _ESPN_PATHS
+                    if league in _ESPN_PATHS and ':' in gid and gid.split(':', 1)[1].isdigit():
+                        try:
+                            import urllib.request as _ureq
+                            _eid = gid.split(':', 1)[1]
+                            _url = f"https://site.api.espn.com/apis/site/v2/sports/{_ESPN_PATHS[league]}/summary?event={_eid}"
+                            _req = _ureq.Request(_url, headers={'User-Agent': 'Mozilla/5.0'})
+                            with _ureq.urlopen(_req, timeout=5) as _resp:
+                                _body = json.loads(_resp.read().decode('utf-8'))
+                            _st = ((_body.get('header') or {}).get('competitions') or [{}])[0].get('status', {}).get('type', {})
+                            _sname = str(_st.get('name') or '')
+                            if _sname in ('STATUS_CANCELED', 'STATUS_POSTPONED', 'STATUS_ABANDONED', 'STATUS_FORFEIT'):
+                                should_void = True
+                            elif _st.get('state') == 'pre' and age_h >= 48.0:
+                                should_void = True
+                        except Exception:
+                            # Network unreachable or unindexed old fixture: only void if truly abandoned > 72h
+                            should_void = age_h >= 72.0
+                    else:
+                        should_void = age_h >= 48.0
+
+                if should_void:
                     evidence = {
                         'basis': 'stake_rules_walkover_void_resolution',
                         'rule': 'Stake.com official rules: pre-match withdrawal / unplayed fixture / walkover is VOID',
