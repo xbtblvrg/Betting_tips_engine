@@ -294,3 +294,31 @@ def test_verbose_logger_self_healing_skips_production_db_during_pytest_but_allow
         with sqlite3.connect(f"file:{prod_db}?mode=ro", uri=True) as c:
             after_cnt = c.execute("SELECT COUNT(*) FROM learning_jobs WHERE kind='runtime_exception_auto_repair'").fetchone()[0]
         assert after_cnt == before_cnt
+
+
+def test_historical_trainer_rescales_cross_scope_lines_by_exact_scope_ratio(tmp_path):
+    from betting_engine.historical_trainer import HistoricalCandidateTrainer
+
+    db_file = tmp_path / 'shadow_incubator.sqlite3'
+    with sqlite3.connect(db_file) as c:
+        c.execute("""
+            CREATE TABLE incubated_wagers (
+                id TEXT PRIMARY KEY, game_id TEXT, league TEXT, scope TEXT,
+                family TEXT, sub_family TEXT, selection TEXT, side TEXT,
+                line REAL, odds REAL, model_prob REAL, market_prob REAL,
+                captured_at TEXT, status TEXT, result TEXT, pnl REAL
+            )
+        """)
+        rows = [
+            ('w_fg', 'g1', 'NFL', 'full_game', 'totals', 'totals', 'Over 45.0', 'over', 45.0, 1.91, 0.54, 0.52, '2026-11-01T18:00:00Z', 'settled', 'won', 0.91),
+            ('w_h1', 'g2', 'NFL', 'half_1', 'totals', 'totals', 'Over 22.5', 'over', 22.5, 1.91, 0.54, 0.52, '2026-11-02T18:00:00Z', 'settled', 'lost', -1.0),
+            ('w_q1', 'g3', 'NFL', 'quarter_1', 'totals', 'totals', 'Over 10.5', 'over', 10.5, 1.91, 0.54, 0.52, '2026-11-03T18:00:00Z', 'settled', 'won', 0.91),
+        ]
+        c.executemany("INSERT INTO incubated_wagers VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", rows)
+
+    trainer = HistoricalCandidateTrainer(db_path=db_file)
+    wagers = trainer._fetch_settled_wagers('NFL', 'half_2', 'totals')
+    rescaled_lines = [r[1] for r in wagers]
+
+    # full_game 45.0 * (0.50/1.00) = 22.5; half_1 22.5 * (0.50/0.50) = 22.5; quarter_1 10.5 * (0.50/0.25) = 21.0
+    assert rescaled_lines == [22.5, 22.5, 21.0]

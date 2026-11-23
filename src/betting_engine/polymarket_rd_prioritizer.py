@@ -370,13 +370,13 @@ class PolymarketRDPrioritizer:
         if self.db_path.exists() and unproven_gaps:
             actionable_gaps = [
                 g for g in unproven_gaps
-                if g.get("tier_status") in ("TIER_1_RESEARCH", "TIER_1_UNDERPERFORMING")
-                and (not live_active or str(g.get("league") or "").upper().strip() in live_active)
+                if g.get("tier_status") not in ("TIER_3_PROBATION", "APPROACHING_TIER_4", "TIER_4_PROVEN")
+                and (leagues is not None or not live_active or str(g.get("league") or "").upper().strip() in live_active)
             ]
             if not actionable_gaps:
                 actionable_gaps = [
                     g for g in unproven_gaps
-                    if g.get("tier_status") in ("TIER_1_RESEARCH", "TIER_1_UNDERPERFORMING")
+                    if g.get("tier_status") not in ("TIER_3_PROBATION", "APPROACHING_TIER_4", "TIER_4_PROVEN")
                 ]
             actionable_gaps.sort(key=lambda g: (
                 get_sport_priority(g.get("league", "")),

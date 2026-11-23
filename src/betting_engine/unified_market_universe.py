@@ -607,13 +607,14 @@ class UnifiedMarketUniverse:
                                 pnl,
                                 json_extract(payload, '$.stake'),
                                 issued_at,
-                                json_extract(payload, '$.game_id')
+                                json_extract(payload, '$.game_id'),
+                                status
                             FROM system_decisions
                             WHERE status IN ('won', 'lost', 'push')
                         """).fetchall()
                         all_time_perf_map: Dict[str, Dict[str, Any]] = {}
                         last_live_ts_map: Dict[str, str] = {}
-                        for lg_r, sc_r, fam_r, pnl_r, stake_r, iss_r, gid_r in rows_perf:
+                        for lg_r, sc_r, fam_r, pnl_r, stake_r, iss_r, gid_r, st_r in rows_perf:
                             if not lg_r or not fam_r:
                                 continue
                             lg_clean_u = str(lg_r).upper().strip()
@@ -654,14 +655,16 @@ class UnifiedMarketUniverse:
                                 if str(iss_r) < str(grad_at_map[base_k]):
                                     continue
 
-                            stat = perf_map.setdefault(k, {'sample_size': 0, 'pnl': 0.0, 'staked': 0.0, 'roi_pct': 0.0, 'units': 0.0})
+                            stat = perf_map.setdefault(k, {'sample_size': 0, 'pnl': 0.0, 'staked': 0.0, 'roi_pct': 0.0, 'units': 0.0, 'game_ids': set()})
                             stat['sample_size'] += 1
                             stat['pnl'] += pnl_v
                             stat['staked'] += stk_v
+                            if st_r in ('won', 'lost'):
+                                stat['game_ids'].add(str(gid_r).strip() if gid_r else f"row_{stat['sample_size']}")
 
                         # Compute derived metrics for both maps
                         for d_m in (perf_map, all_time_perf_map):
-                            for k, stat in d_m.items():
+                            for k, stat in list(d_m.items()):
                                 pnl_v = stat['pnl']
                                 stk_v = stat['staked']
                                 cnt_v = stat['sample_size']
@@ -670,6 +673,10 @@ class UnifiedMarketUniverse:
                                 stat['roi_pct'] = round((pnl_v / stk_v * 100.0) if stk_v > 0 else 0.0, 2)
                                 stat['pnl'] = round(pnl_v, 2)
                                 stat['staked'] = round(stk_v, 2)
+                                if 'game_ids' in stat:
+                                    stat['distinct_games'] = len(stat.pop('game_ids'))
+                                else:
+                                    stat['distinct_games'] = cnt_v
                                 if ':' in k:
                                     parts = k.split('|')
                                     if len(parts) == 3 and ':' in parts[2]:
@@ -778,43 +785,75 @@ class UnifiedMarketUniverse:
                     elif stat['units'] < 0.0 or stat['roi_pct'] < 0.0:
                         prof.stake_cap = 0.50
                         prof.phase_detail = f"Capital Defense Tourniquet ({stat['roi_pct']:+.1f}% ROI, {stat['units']:+.1f}U over {stat['sample_size']} games) - $0.50 clamp"
-                    elif (stat['sample_size'] >= 2 and stat['units'] >= 0.30 and stat['roi_pct'] >= 3.0) or bool(sb_alpha_entry):
-                        # Elite Tier 4: Live Proven Alpha Execution ($0.50-$8.00 dynamic Kelly & Polymarket CLOB)
-                        prof.tier = int(MarketTier.LIVE_PROVEN_ALPHA)
-                        prof.tier_name = "LIVE_PROVEN_ALPHA"
-                        if stat['sample_size'] >= 5 and stat['units'] >= 3.0 and stat['roi_pct'] >= 12.0:
+                    elif (
+                        stat.get('distinct_games', stat['sample_size']) >= 10
+                        and ((int(sb_alpha_entry.get("games", 0)) >= 10 or int(sb_alpha_entry.get("rolling_games", 0)) >= 10) if sb_alpha_entry else True)
+                        and stat['units'] >= 0.40
+                        and stat['roi_pct'] >= 2.0
+                    ):
+                        # Elite Tier 4: Live Proven Alpha Execution (N >= 10, ROI >= +2.0%, Units >= +0.4U — 1:1 synchronized with PolymarketExecutor & PolymarketRDPrioritizer)
+                        # Soccer full_game moneyline/winner on Polymarket settles as 3-way (draw loses), so only label Tier 4 if three_way is not quarantined
+                        soccer_3way_quarantined = (
+                            prof.league in ('EPL', 'MLS', 'UCL', 'UEL', 'LALIGA', 'SERIEA', 'BUNDESLIGA')
+                            and prof.scope == 'full_game'
+                            and prof.family in ('moneyline', 'winner', 'american_derivatives:moneyline')
+                            and f"{prof.league}|full_game|three_way" in demoted_map
+                        )
+                        if not soccer_3way_quarantined:
+                            prof.tier = int(MarketTier.LIVE_PROVEN_ALPHA)
+                            prof.tier_name = "LIVE_PROVEN_ALPHA"
+                        if stat['units'] >= 3.0 and stat['roi_pct'] >= 12.0:
                             prof.stake_cap = 8.00
                             prof.phase_detail = f"Tier 4 Super Alpha Acceleration ({stat['roi_pct']:+.1f}% ROI, {stat['units']:+.1f}U over {stat['sample_size']} games) - $8.00 cap"
-                        elif stat['sample_size'] >= 3 and stat['units'] >= 1.0 and stat['roi_pct'] >= 5.0:
+                        elif stat['units'] >= 1.0 and stat['roi_pct'] >= 5.0:
                             prof.stake_cap = 3.50
                             prof.phase_detail = f"Tier 4 Proven Alpha ({stat['roi_pct']:+.1f}% ROI, {stat['units']:+.1f}U over {stat['sample_size']} games) - $3.50 cap"
                         else:
                             prof.stake_cap = 2.50
                             prof.phase_detail = f"Tier 4 Live Proven Alpha ({stat['roi_pct']:+.1f}% ROI, {stat['units']:+.1f}U over {stat['sample_size']} games) - Scaled Production"
-                        logger.debug("[TIER4_ALPHA_PROMOTION] Promoted %s to Tier 4 Live Proven Alpha (N=%d, ROI=%.1f%%, cap=$%.2f)", k_perf, stat['sample_size'], stat['roi_pct'], prof.stake_cap)
+                        logger.debug("[TIER4_ALPHA_PROMOTION] Promoted %s to Tier %d (N=%d, ROI=%.1f%%, cap=$%.2f)", k_perf, prof.tier, stat['sample_size'], stat['roi_pct'], prof.stake_cap)
+                    elif (stat['sample_size'] >= 2 and stat['units'] >= 0.30 and stat['roi_pct'] >= 3.0) or bool(sb_alpha_entry):
+                        # Tier 3 Early Alpha Acceleration on Stake ($2.50-$3.50 scaled Kelly while accumulating N >= 10 for Tier 4 Polymarket)
+                        if stat['sample_size'] >= 5 and stat['units'] >= 3.0 and stat['roi_pct'] >= 12.0:
+                            prof.stake_cap = 8.00
+                        elif stat['sample_size'] >= 3 and stat['units'] >= 1.0 and stat['roi_pct'] >= 5.0:
+                            prof.stake_cap = 3.50
+                        else:
+                            prof.stake_cap = 2.50
+                        prof.phase_detail = f"Tier 3 Early Alpha Acceleration ({stat['roi_pct']:+.1f}% ROI, {stat['units']:+.1f}U, N={stat['sample_size']}/10 toward Tier 4) - ${prof.stake_cap:.2f} Stake cap"
                     else:
                         prof.stake_cap = 0.50
                         prof.phase_detail = f"Live Probation ({stat['sample_size']} games, {stat['units']:+.1f}U) - $0.50 floor"
                 elif bool(sb_alpha_entry):
                     a_info = sb_alpha_entry
-                    prof.tier = int(MarketTier.LIVE_PROVEN_ALPHA)
-                    prof.tier_name = "LIVE_PROVEN_ALPHA"
                     a_roi = float(a_info.get("roi_pct", 0.0))
                     a_cnt = int(a_info.get("games", a_info.get("settled_count", 0)))
                     a_pnl = float(a_info.get("rolling_pnl", a_info.get("pnl", 0.0)))
-                    a_units = float(a_info.get("units_pnl", 0.0))
+                    a_units = float(a_info.get("rolling_units", a_info.get("units_pnl", 0.0)))
                     prof.sample_size = a_cnt
                     prof.rolling_pnl = a_pnl
                     prof.rolling_roi_pct = a_roi
+                    soccer_3way_quarantined = (
+                        prof.league in ('EPL', 'MLS', 'UCL', 'UEL', 'LALIGA', 'SERIEA', 'BUNDESLIGA')
+                        and prof.scope == 'full_game'
+                        and prof.family in ('moneyline', 'winner', 'american_derivatives:moneyline')
+                        and f"{prof.league}|full_game|three_way" in demoted_map
+                    )
+                    if a_cnt >= 10 and a_roi >= 2.0 and a_units >= 0.40 and not soccer_3way_quarantined:
+                        prof.tier = int(MarketTier.LIVE_PROVEN_ALPHA)
+                        prof.tier_name = "LIVE_PROVEN_ALPHA"
+                        tier_prefix = "Tier 4"
+                    else:
+                        tier_prefix = "Tier 3 Early Alpha"
                     if a_cnt >= 5 and a_roi >= 12.0 and a_units >= 3.0:
                         prof.stake_cap = 8.00
-                        prof.phase_detail = f"Tier 4 Super Alpha Acceleration ({a_roi:+.1f}% ROI, {a_units:+.1f}U over {a_cnt} games) - $8.00 cap"
+                        prof.phase_detail = f"{tier_prefix} Super Alpha Acceleration ({a_roi:+.1f}% ROI, {a_units:+.1f}U over {a_cnt} games) - $8.00 cap"
                     elif a_cnt >= 3 and a_roi >= 5.0 and a_units >= 1.0:
                         prof.stake_cap = 3.50
-                        prof.phase_detail = f"Tier 4 Proven Alpha ({a_roi:+.1f}% ROI, {a_units:+.1f}U over {a_cnt} games) - $3.50 cap"
+                        prof.phase_detail = f"{tier_prefix} Proven Alpha ({a_roi:+.1f}% ROI, {a_units:+.1f}U over {a_cnt} games) - $3.50 cap"
                     else:
                         prof.stake_cap = 2.50
-                        prof.phase_detail = f"Tier 4 Live Proven Alpha ({a_roi:+.1f}% ROI, {a_units:+.1f}U over {a_cnt} games) - Scaled Production"
+                        prof.phase_detail = f"{tier_prefix} ({a_roi:+.1f}% ROI, {a_units:+.1f}U over {a_cnt} games) - Scaled Production"
                 else:
                     # No post-graduation live decisions yet (0 live settled games with new champion model).
                     if at_stat and (at_stat.get('pnl', 0.0) < 0.0 or at_stat.get('roi_pct', 0.0) < 0.0):

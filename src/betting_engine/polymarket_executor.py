@@ -301,9 +301,15 @@ class PolymarketAutonomousExecutor:
             try:
                 from .unified_market_universe import UnifiedMarketUniverse
                 _r = UnifiedMarketUniverse(data_dir=self.db_path.parent).get_roster()
-                _p = _r.get(f"{league}|{scope}|{market_family}") if _r else None
-                if _p and getattr(_p, "sub_family", None):
-                    market_family = str(_p.sub_family).strip().lower()
+                if _r:
+                    _p = _r.get(f"{league}|{scope}|{market_family}")
+                    if _p is None:
+                        _p = next(
+                            (v for k, v in _r.items() if k.startswith(f"{league}|{scope}|{market_family}:") and getattr(v, "sub_family", None)),
+                            None,
+                        )
+                    if _p and getattr(_p, "sub_family", None):
+                        market_family = str(_p.sub_family).strip().lower()
             except Exception:
                 pass
         clean_fam = market_family.split(":")[-1] if ":" in market_family else market_family
@@ -558,7 +564,7 @@ class PolymarketAutonomousExecutor:
                     if require_live_profit:
                         return (
                             False,
-                            f"PROBATION_INSUFFICIENT_SAMPLE: Segment {seg_keys[0]} has early live profit (Rolling ROI: +{r_roi:.1f}%, Units: +{r_units:.2f}U, N={r_games}), but has not met Tier 4 Proven Alpha standard (Rolling N >= 10, Rolling ROI >= +2.0%, Rolling Units >= +0.5U). Active in Tier 3 on Stake.",
+                            f"PROBATION_INSUFFICIENT_SAMPLE: Segment {seg_keys[0]} has early live profit (Rolling ROI: +{r_roi:.1f}%, Units: +{r_units:.2f}U, N={r_games}), but has not met Tier 4 Proven Alpha standard (Rolling N >= 10, Rolling ROI >= +2.0%, Rolling Units >= +0.4U). Active in Tier 3 on Stake.",
                             0.0,
                         )
 
