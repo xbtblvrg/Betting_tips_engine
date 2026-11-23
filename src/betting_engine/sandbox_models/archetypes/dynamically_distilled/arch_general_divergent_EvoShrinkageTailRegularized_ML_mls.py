@@ -12,12 +12,12 @@ class EvoShrinkageTailRegularized_MLS_half_1(BaseCandidateModel):
 
     def __init__(
         self,
-        model_id: str = "codex_synth_mls_half_1_1121_211705",
+        model_id: str = "codex_synth_mls_half_1_1123_141609",
         version: str = "2.0.0",
         league: str = "MLS",
         scope: str = "half_1",
-        family: str = "away_total",
-        temperature: float = 1.0,
+        family: str = "double_chance",
+        temperature: float = 1.3338,
         dispersion_alpha: float = 0.12,
         metadata: Optional[Dict[str, Any]] = None,
     ):
@@ -39,8 +39,8 @@ class EvoShrinkageTailRegularized_MLS_half_1(BaseCandidateModel):
         a_raw = float(game_context.get('away_expected') or game_context.get('away_points') or 0.6)
         h_shrunk = (1.0 - self.prior_weight) * h_raw + self.prior_weight * 0.8
         a_shrunk = (1.0 - self.prior_weight) * a_raw + self.prior_weight * 0.6
-        h_mu = max(0.15, h_shrunk * 1.0)
-        a_mu = max(0.15, a_shrunk * 1.0)
+        h_mu = max(0.15, h_shrunk * 0.9376)
+        a_mu = max(0.15, a_shrunk * 0.9376)
         max_sc = 8 if max(h_mu, a_mu) < 12.0 else None
         raw_scores = build_universal_score_lattice(h_mu, a_mu, dispersion_alpha=self.dispersion_alpha, max_discrete_score=max_sc)
         inv_t = 1.0 / max(0.65, min(1.65, self.temperature))
