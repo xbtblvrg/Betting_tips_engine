@@ -15,6 +15,7 @@ from pathlib import Path
 import re
 import sqlite3
 
+from .contracts import get_sport_priority, get_live_active_leagues
 from .domain import utcnow, parse_time
 from .io_utils import atomic_json
 from .market_catalog import classify

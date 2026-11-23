@@ -1375,7 +1375,7 @@ class LearningWorker:
         if job['kind']=='outcome_review':
             from .outcome_feedback import snapshot_outcomes, record_outcome_feedback
             inputs=snapshot_outcomes(self.store)
-            feedback=record_outcome_feedback(self.data,**inputs)  # propagates ValueError on invalid evidence
+            feedback=record_outcome_feedback(self.data,**inputs)  # propagates ValueError on invalid evidence to run_once
             if feedback.get('source_verified') is not True:
                 raise ValueError('outcome_feedback_verification_failed: '+str(feedback.get('error',feedback.get('state'))))
             performance=self.store.performance();decisions=inputs['decisions']
