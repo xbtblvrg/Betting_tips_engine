@@ -516,6 +516,8 @@ class FunnelProportionalitySupervisor:
         to_enqueue = []
 
         try:
+            from .contracts import get_live_active_leagues
+            live_active = get_live_active_leagues(self.data_dir)
             with closing(sqlite3.connect(f"file:{self.incubator_db.resolve()}?mode=ro", uri=True, timeout=5.0)) as inc_conn:
                 cur = inc_conn.cursor()
                 cur.execute("""
@@ -523,18 +525,26 @@ class FunnelProportionalitySupervisor:
                     FROM demoted_markets
                     WHERE incubation_phase = 'research_training'
                       AND league IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    LIMIT 15
                 """, priority_leagues)
                 rows = cur.fetchall()
-                for r in rows:
-                    to_enqueue.append(r)
+                live_rows = [r for r in rows if not live_active or str(r[1] or '').upper().strip() in live_active]
+                pool = live_rows if live_rows else rows
+                pool.sort(key=lambda r: (
+                    0 if str(r[1] or '').upper().strip() in live_active else 1,
+                    0 if is_dual_reachable_contract(r[1], r[2], r[3], r[4] or '') else 1,
+                    get_sport_priority(r[1]),
+                    str(r[0]),
+                ))
+                to_enqueue = pool[:15]
         except Exception:
             return
 
         if not to_enqueue:
             return
 
-        now_iso = utcnow().isoformat()
+        now_dt = utcnow()
+        now_iso = now_dt.isoformat()
+        requeue_cutoff_iso = (now_dt - timedelta(hours=6)).isoformat()
         try:
             with closing(sqlite3.connect(str(self.engine_db), timeout=30.0)) as eng_conn:
                 cur_eng = eng_conn.cursor()
@@ -564,8 +574,27 @@ class FunnelProportionalitySupervisor:
                     cur_eng.execute("""
                         INSERT INTO learning_jobs (id, kind, league, status, created_at, updated_at, next_attempt, attempts, payload)
                         VALUES (?, 'priority_model_synthesis', ?, 'queued', ?, ?, ?, 0, ?)
-                        ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at
-                    """, (job_id, lg, now_iso, now_iso, now_iso, json.dumps(payload)))
+                        ON CONFLICT(id) DO UPDATE SET
+                            status = CASE
+                                WHEN learning_jobs.status IN ('completed', 'superseded')
+                                 AND learning_jobs.updated_at <= ?
+                                THEN 'queued'
+                                ELSE learning_jobs.status
+                            END,
+                            next_attempt = CASE
+                                WHEN learning_jobs.status IN ('completed', 'superseded')
+                                 AND learning_jobs.updated_at <= ?
+                                THEN excluded.next_attempt
+                                ELSE learning_jobs.next_attempt
+                            END,
+                            updated_at = CASE
+                                WHEN learning_jobs.status IN ('completed', 'superseded')
+                                 AND learning_jobs.updated_at <= ?
+                                THEN excluded.updated_at
+                                ELSE learning_jobs.updated_at
+                            END,
+                            payload = excluded.payload
+                    """, (job_id, lg, now_iso, now_iso, now_iso, json.dumps(payload), requeue_cutoff_iso, requeue_cutoff_iso, requeue_cutoff_iso))
                 eng_conn.commit()
         except Exception as e_enq:
             log.debug("Priority synthesis enqueue error: %s", e_enq)

@@ -33,8 +33,8 @@ PRIORITY = {'source_refresh':0, 'model_restore':0, 'segment_restore':0, 'period_
     'runtime_exception_auto_repair':0, 'autonomous_code_healing':0,
     'outcome_review':1, 'closing_evaluation':1, 'shadow_evaluation':1, 'market_catalog':1, 'autonomous_system_audit':1, 'anti_constant_audit':1, 'autonomous_submarket_expansion':1, 'autorun_selector_repair':1,
     'polymarket_identification_repair': 1, 'polymarket_taxonomy_repair': 1, 'high_retry_task_root_cause_analysis': 1, 'priority_model_synthesis': 1,
-    'autonomous_bottleneck_repair': 1, 'autonomous_alpha_recovery': 1, 'market_gap_model_synthesis': 1,
-    'controlled_retrain':2, 'segment_retrain':2, 'period_retrain':2, 'segment_repair':2, 'submarket_turnaround_research': 2, 'target_evaluation':2, 'anchor_weight_learning':2, 'opportunity_funnel_repair':2, 'urgent_polymarket_model_repair':2,
+    'urgent_polymarket_model_repair': 1, 'autonomous_bottleneck_repair': 1, 'autonomous_alpha_recovery': 1, 'market_gap_model_synthesis': 1,
+    'controlled_retrain':2, 'segment_retrain':2, 'period_retrain':2, 'segment_repair':2, 'submarket_turnaround_research': 2, 'target_evaluation':2, 'anchor_weight_learning':2, 'opportunity_funnel_repair':2,
     'daily_council_briefing': 2, 'incubator_market_repair': 2, 'autonomous_model_synthesis': 2, 'upstream_sports_sensor_synthesis': 2,
     'player_history_refresh':2, 'player_prop_audit':2, 'player_data_refresh':3, 'model_search':3, 'research_gap': 3, 'market_research': 3,
     'research_watch':4}
@@ -65,13 +65,37 @@ def choose_learning_job(rows, recent_attempts, now=None, lane='all'):
         runnable = [r for r in rows if r['status'] in ('queued','retry') and parse_time(r['next_attempt']) <= now]
     if not runnable: return None, {'version':SCHEDULING_VERSION, 'reason':'no_due_work'}
     eligible_at = lambda r: max(parse_time(r['created_at']), parse_time(r['next_attempt']))
+    from .contracts import get_sport_priority, get_live_active_leagues, is_dual_reachable_contract
+    live_active = get_live_active_leagues()
+
+    RND_STRATEGIC_KINDS = frozenset((
+        'autonomous_alpha_recovery', 'priority_model_synthesis', 'urgent_polymarket_model_repair',
+        'market_gap_model_synthesis', 'segment_repair', 'submarket_turnaround_research',
+        'model_search', 'market_research', 'research_gap', 'controlled_retrain',
+        'upstream_sports_sensor_synthesis',
+    ))
+
+    def _effective_priority(r):
+        base_p = PRIORITY.get(r['kind'], 5)
+        if r['kind'] not in RND_STRATEGIC_KINDS:
+            return base_p
+        lg = str(r.get('league') or '').upper().strip()
+        if not lg or lg in ('SYSTEM', 'ALL', 'MULTI'):
+            return base_p
+        sp = get_sport_priority(lg)
+        # Deprioritized fringe leagues (priority >= 99, e.g. CHALLENGER, NCAAW) never preempt preferred/secondary R&D
+        if sp >= 99:
+            return max(base_p, 4)
+        # Off-season / inactive leagues (e.g. MLB, WNBA, WTA with 0 live fixtures) demote behind live active R&D
+        if live_active and lg not in live_active:
+            return max(base_p, 3)
+        return base_p
+
     def _strat_prio(r):
         lg = str(r.get('league') or '').upper().strip()
-        if not lg:
+        if not lg or lg in ('SYSTEM', 'ALL', 'MULTI'):
             return (0, 0, 0)
-        from .contracts import get_sport_priority, get_live_active_leagues, is_dual_reachable_contract
-        live_active = get_live_active_leagues()
-        is_inactive = 0 if lg in live_active else 1
+        is_inactive = 0 if (not live_active or lg in live_active) else 1
         is_non_dual = 1
         try:
             pl = json.loads(r['payload']) if isinstance(r.get('payload'), str) else (r.get('payload') or {})
@@ -88,13 +112,13 @@ def choose_learning_job(rows, recent_attempts, now=None, lane='all'):
             pass
         return (is_inactive, is_non_dual, get_sport_priority(lg))
 
-    ordinary = min(runnable, key=lambda r:(PRIORITY.get(r['kind'],5), _strat_prio(r), eligible_at(r), r['id']))
+    ordinary = min(runnable, key=lambda r:(_effective_priority(r), _strat_prio(r), eligible_at(r), r['id']))
     # Preserve genuine model recovery at priority zero. Source refreshes are
     # ordinary recovery work and may be overtaken once settlement/feedback
     # evidence has exceeded its bounded service-level age.
     recovery = [r for r in runnable if r['kind'] in RECOVERY_KINDS]
     if recovery:
-        ordinary = min(recovery, key=lambda r:(PRIORITY.get(r['kind'],5), _strat_prio(r), eligible_at(r), r['id']))
+        ordinary = min(recovery, key=lambda r:(_effective_priority(r), _strat_prio(r), eligible_at(r), r['id']))
     streak = 0
     for attempt in recent_attempts[:HIGH_PRIORITY_BUDGET]:
         if PRIORITY.get(attempt['kind'],5)>=2: break
@@ -108,19 +132,23 @@ def choose_learning_job(rows, recent_attempts, now=None, lane='all'):
             'high_priority_streak':streak, 'runnable_jobs':len(runnable),
             'feedback_wait_seconds':max(0,(now-eligible_at(selected)).total_seconds()),
             'exclusive_worker_preserved':True, 'model_promotion_unchanged':True}
-    threshold = 1 if PRIORITY.get(ordinary['kind'], 5) == 0 else 2
-    background = [r for r in runnable if PRIORITY.get(r['kind'],5)>=threshold]
+    threshold = 1 if _effective_priority(ordinary) == 0 else 2
+    background = [r for r in runnable if _effective_priority(r)>=threshold]
     selected = ordinary; reason = 'normal_priority'
     # A genuine model/segment/period restore is a recovery action and must
     # remain ahead of background fairness, even after the emergency age cap.
     # This also prevents a long-running background queue from hiding a due
     # restore behind the single-worker turn-taking rule.
     if background and not recovery and streak >= HIGH_PRIORITY_BUDGET:
-        oldest = min(background, key=lambda r:(eligible_at(r),PRIORITY.get(r['kind'],5),r['id']))
-        age = (now-eligible_at(oldest)).total_seconds()
+        aged_bg = [r for r in background if (now - eligible_at(r)).total_seconds() >= EMERGENCY_AGE_CAP_SECONDS]
+        if aged_bg:
+            candidate_bg = min(aged_bg, key=lambda r:(_strat_prio(r), eligible_at(r), _effective_priority(r), r['id']))
+        else:
+            candidate_bg = min(background, key=lambda r:(_effective_priority(r), _strat_prio(r), eligible_at(r), r['id']))
+        age = max((now - eligible_at(r)).total_seconds() for r in background)
         ord_age = (now-eligible_at(ordinary)).total_seconds()
-        if (PRIORITY.get(ordinary['kind'],5)>0 and ord_age < EMERGENCY_AGE_CAP_SECONDS) or age >= EMERGENCY_AGE_CAP_SECONDS:
-            selected = oldest; reason = 'aged_background_after_emergencies' if PRIORITY.get(ordinary['kind'],5)==0 else 'background_turn_after_priority_budget'
+        if (_effective_priority(ordinary)>0 and ord_age < EMERGENCY_AGE_CAP_SECONDS) or age >= EMERGENCY_AGE_CAP_SECONDS:
+            selected = candidate_bg; reason = 'aged_background_after_emergencies' if _effective_priority(ordinary)==0 else 'background_turn_after_priority_budget'
     return selected, {'version':SCHEDULING_VERSION, 'reason':reason,
         'selected_job_id':selected['id'], 'selected_kind':selected['kind'],
         'high_priority_streak':streak, 'runnable_jobs':len(runnable),
@@ -1524,13 +1552,42 @@ class LearningWorker:
             seg_key = payload.get('segment_key')
             from .demoted_market_bridge import DemotedMarketIncubationBridge
             bridge = DemotedMarketIncubationBridge(data_dir=self.data)
+            direct_admitted = False
+            if seg_key:
+                try:
+                    from .codex_model_synthesizer import CodexModelSynthesizer
+                    from .historical_trainer import CandidateTrainingResult
+                    synth = CodexModelSynthesizer(self.data)
+                    rec = synth.synthesize_and_screen_candidate(
+                        segment_key=seg_key,
+                        domain_problem=payload.get('directive', f"Priority R&D synthesis for {seg_key}")
+                    )
+                    if rec and rec.crucible_passed:
+                        cand_res = CandidateTrainingResult(
+                            segment_key=seg_key,
+                            model_id=rec.model_id,
+                            model_archetype=rec.class_name,
+                            model_params={'source_file': f"{rec.model_id}.py", 'provider': rec.generator_provider},
+                            train_sample_size=0,
+                            oos_sample_size=rec.oos_sample_size,
+                            oos_win_rate=rec.oos_win_rate,
+                            oos_simulated_roi=rec.oos_simulated_roi,
+                            oos_delta_brier=rec.oos_delta_brier,
+                            oos_max_drawdown=rec.oos_max_drawdown,
+                            is_qualified=True,
+                            scorecard_s=100.0,
+                        )
+                        direct_admitted = bool(bridge.admit_champion_to_market(None, seg_key, cand_res))
+                except Exception as e_ps:
+                    logging.warning("Direct priority synthesis error for %s: %s", seg_key, e_ps)
             res = bridge.synchronize_demoted_markets(max_train_per_run=5)
             return {
                 'executed_at': utcnow().isoformat(),
                 'status': 'completed',
                 'segment_key': seg_key,
+                'direct_admitted': direct_admitted,
                 'result': res,
-                'conclusion': f"Priority model synthesis executed: {res.get('newly_admitted_count', 0)} candidates admitted to Tier 2."
+                'conclusion': f"Priority model synthesis executed: {res.get('newly_admitted_count', 0) + (1 if direct_admitted else 0)} candidates admitted to Tier 2."
             }
         raise ValueError('No approved handler for this task')
 

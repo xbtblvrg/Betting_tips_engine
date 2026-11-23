@@ -358,13 +358,33 @@ class PolymarketRDPrioritizer:
             else:
                 unproven_gaps.append(seg_info)
 
-        # 3. Enqueue learning jobs for unproven reachable gaps
+        # 3. Enqueue learning jobs for unproven reachable gaps (strictly live-active Tier 1 gaps, never Tier 2 already incubating)
         enqueued_count = 0
-        now_iso = utcnow().isoformat()
+        now_dt = utcnow()
+        now_iso = now_dt.isoformat()
+        from datetime import timedelta
+        requeue_cutoff_iso = (now_dt - timedelta(hours=6)).isoformat()
+        from .contracts import get_live_active_leagues
+        live_active = get_live_active_leagues(DATA)
 
         if self.db_path.exists() and unproven_gaps:
+            actionable_gaps = [
+                g for g in unproven_gaps
+                if g.get("tier_status") in ("TIER_1_RESEARCH", "TIER_1_UNDERPERFORMING")
+                and (not live_active or str(g.get("league") or "").upper().strip() in live_active)
+            ]
+            if not actionable_gaps:
+                actionable_gaps = [
+                    g for g in unproven_gaps
+                    if g.get("tier_status") in ("TIER_1_RESEARCH", "TIER_1_UNDERPERFORMING")
+                ]
+            actionable_gaps.sort(key=lambda g: (
+                get_sport_priority(g.get("league", "")),
+                -float(g.get("proximity_score", 0.0)),
+            ))
+
             records = []
-            for gap in unproven_gaps:
+            for gap in actionable_gaps:
                 seg_key = gap["segment_key"]
                 league = gap["league"]
                 job_id = f"poly_gap_{seg_key.lower().replace('|', '_')}"
@@ -407,18 +427,36 @@ class PolymarketRDPrioritizer:
                                 payload TEXT NOT NULL
                             );
                         """)
-                        conn.executemany(
-                            """
-                            INSERT INTO learning_jobs (
-                                id, kind, league, status, created_at, updated_at, next_attempt, payload
-                            ) VALUES (?, 'urgent_polymarket_model_repair', ?, 'queued', ?, ?, ?, ?)
-                            ON CONFLICT(id) DO UPDATE SET
-                                updated_at=excluded.updated_at,
-                                payload=excluded.payload;
-                            """,
-                            records,
-                        )
-                        conn.commit()
+                        if records:
+                            conn.executemany(
+                                f"""
+                                INSERT INTO learning_jobs (
+                                    id, kind, league, status, created_at, updated_at, next_attempt, payload
+                                ) VALUES (?, 'urgent_polymarket_model_repair', ?, 'queued', ?, ?, ?, ?)
+                                ON CONFLICT(id) DO UPDATE SET
+                                    status = CASE
+                                        WHEN learning_jobs.status IN ('completed', 'superseded')
+                                         AND learning_jobs.updated_at <= '{requeue_cutoff_iso}'
+                                        THEN 'queued'
+                                        ELSE learning_jobs.status
+                                    END,
+                                    next_attempt = CASE
+                                        WHEN learning_jobs.status IN ('completed', 'superseded')
+                                         AND learning_jobs.updated_at <= '{requeue_cutoff_iso}'
+                                        THEN excluded.next_attempt
+                                        ELSE learning_jobs.next_attempt
+                                    END,
+                                    updated_at = CASE
+                                        WHEN learning_jobs.status IN ('completed', 'superseded')
+                                         AND learning_jobs.updated_at <= '{requeue_cutoff_iso}'
+                                        THEN excluded.updated_at
+                                        ELSE learning_jobs.updated_at
+                                    END,
+                                    payload = excluded.payload;
+                                """,
+                                records,
+                            )
+                            conn.commit()
                     enqueued_count = len(records)
                     break
                 except sqlite3.OperationalError as exc:

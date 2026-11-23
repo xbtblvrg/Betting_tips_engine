@@ -54,7 +54,9 @@ MISSION = ('Improve the engine that finds the strongest independently modeled, '
     'quant progress: positive ROI, minimum 100 daily funded recommendations, broad '
     'diversified coverage, and a consistent daily cumulative PnL uptrend. Accelerate capital '
     '($2.50-$8.00) into winning alpha segments while defending capital ($0.50 clamp, 16:1 ratio) '
-    'and auto-repairing underperforming segments into profit. Prioritize Winner (moneyline), Handicap and Total '
+    'and auto-repairing underperforming segments into profit. Strictly prioritize Polymarket-reachable '
+    'Dual Markets and live active US Major leagues (NBA, NFL, NHL, MLS, NCAAF) ahead of secondary/fringe '
+    'or off-season leagues, prioritizing Winner (moneyline), Handicap and Total '
     'while retaining other observed markets. Evaluate decisions against immutable bet lifecycle '
     'and outcome evidence, clustering related selections by game and preserving chronological '
     'validation. No guaranteed winners, fabricated edge, quota padding, invented bankroll, or relaxed gates.')
@@ -650,14 +652,25 @@ def _tasks(registry, plan, state, now):
                 parent_task_ids=sorted({g.get('parent_task_id') for g in gaps if g.get('parent_task_id')}))
         for gap in gaps:
             gap['task_id'] = task_id
+        from .contracts import get_sport_priority, get_live_active_leagues
+        live_active = get_live_active_leagues()
+        def _lg_rank(lg):
+            u = str(lg or '').upper().strip()
+            if u == 'SYSTEM':
+                return (-1, 0, u)
+            return (0 if (not live_active or u in live_active) else 1, get_sport_priority(u), u)
+        def _gap_rank(g):
+            return (_lg_rank(g.get('league', '')), 0 if g.get('family') in CORE else 1, not g.get('overdue', False), g.get('due_at', ''), g.get('id', ''))
+        ordered_gaps = sorted(gaps, key=_gap_rank)
         previous = focus.get(task_id, {})
+        merged_leagues = sorted({g['league'] for g in gaps} | set(previous.get('leagues', [])), key=_lg_rank)
         focus[task_id] = {'priority': min(min(g['priority'] for g in gaps), previous.get('priority', 100)),
             'due_at': min([g['due_at'] for g in gaps] + ([previous['due_at']] if previous else [])),
             'gap_ids': sorted({g['id'] for g in gaps} | set(previous.get('gap_ids', []))),
-            'leagues': sorted({g['league'] for g in gaps} | set(previous.get('leagues', []))),
+            'leagues': merged_leagues,
             'objective_addendum': MISSION + ' Investigate the engineering registry evidence before coding.',
             'evidence': previous.get('evidence', []) + [{'id': g['id'], 'reason': g['reason'], 'evidence_sha256': g['evidence_sha256'],
-                'first_seen': g['first_seen'], 'due_at': g['due_at'], 'overdue': g['overdue']} for g in gaps]}
+                'first_seen': g['first_seen'], 'due_at': g['due_at'], 'overdue': g['overdue']} for g in ordered_gaps]}
     # Exact historical assignment survives resolution and later bucket changes.
     for task in extra.values():
         assigned = {g['id'] for g in registry['gaps'].values() if g.get('task_id') == task['id']}
@@ -798,7 +811,9 @@ def sync_engineering_loop(root, plan, state=None, *, payload=None, operations=No
                 for r in active if r['bucket'] in ('release','release_audit','controller_repair')],
             'gaps': [{key: row.get(key) for key in ('id', 'league', 'family', 'bucket', 'reason', 'state',
                 'task_id', 'first_seen', 'due_at', 'overdue', 'evidence_path', 'observations')}
-                for row in sorted(active, key=lambda r: (not r['overdue'], r['priority'], r['due_at'], r['id']))]}
+                for row in sorted(active, key=lambda r: (not r['overdue'], r['priority'],
+                    0 if r.get('league') == 'SYSTEM' else get_sport_priority(r.get('league', '')),
+                    r['due_at'], r['id']))]}
         return {'status': status, 'extra_tasks': registry['extra_tasks'], 'task_focus': focus, **lifecycle}
 
 

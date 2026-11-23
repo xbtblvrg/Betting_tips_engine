@@ -928,9 +928,29 @@ class BottleneckWatchdog:
                     FROM demoted_markets
                     WHERE incubation_phase IN ('research_rnd', 'research_training')
                       AND (demoted_at IS NULL OR demoted_at < ?)
-                    LIMIT 20
                 """, (cutoff_iso,))
-                stagnant_rows = cur.fetchall()
+                raw_stagnant = [dict(r) for r in cur.fetchall()]
+                from .contracts import get_live_active_leagues, get_sport_priority, is_dual_reachable_contract
+                live_active = get_live_active_leagues(self.data_dir)
+                # Exclude deprioritized fringe leagues (priority >= 99) and prioritize live active leagues first
+                filtered = [
+                    r for r in raw_stagnant
+                    if get_sport_priority(r.get('league', '')) < 99
+                    and (not live_active or str(r.get('league') or '').upper().strip() in live_active)
+                ]
+                if not filtered:
+                    filtered = [r for r in raw_stagnant if get_sport_priority(r.get('league', '')) < 99]
+                filtered.sort(key=lambda r: (
+                    0 if str(r.get('league') or '').upper().strip() in live_active else 1,
+                    0 if is_dual_reachable_contract(
+                        r.get('league', ''), r.get('scope') or 'full_game',
+                        r.get('family') or '', r.get('sub_family') or ''
+                    ) else 1,
+                    get_sport_priority(r.get('league', '')),
+                    str(r.get('demoted_at') or ''),
+                    str(r.get('segment_key') or ''),
+                ))
+                stagnant_rows = filtered[:20]
         except Exception as e_stag:
             log.debug("[WATCHDOG_STAGNANT] Query error: %s", e_stag)
 

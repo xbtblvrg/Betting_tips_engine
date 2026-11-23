@@ -1085,12 +1085,21 @@ class PolymarketAutonomousRunner:
 
         # 3. Enqueue identification, taxonomy, data context, and model gaps to learning_jobs for autonomous AI repair
         if self.db_path.exists() and (unmatched_events or unmapped_market_types or data_deficiency_gaps or model_deficit_gaps):
+            _CANON_LG = {"CBB": "NCAAM", "NCAAB": "NCAAM", "CFB": "NCAAF", "CWBB": "NCAAW"}
+            def _norm_poly_lg(raw_lg: str) -> str:
+                u = str(raw_lg or "UNKNOWN").upper().strip()
+                return _CANON_LG.get(u, u)
+
+            seen_id_jobs = set()
             id_records = []
             for unmatch in unmatched_events:
                 if unmatch.get("reason") == "team_names_unmatched":
                     u_title = unmatch.get("event_title", "")
-                    u_league = unmatch.get("league", "UNKNOWN")
+                    u_league = _norm_poly_lg(unmatch.get("league", "UNKNOWN"))
                     job_id = f"poly_id_{u_league.lower()}_{hashlib.sha256(u_title.encode()).hexdigest()[:12]}"
+                    if job_id in seen_id_jobs:
+                        continue
+                    seen_id_jobs.add(job_id)
                     payload = {
                         "kind": "polymarket_identification_repair",
                         "league": u_league,
@@ -1114,11 +1123,20 @@ class PolymarketAutonomousRunner:
                 }
                 tax_records.append((job_id, now_iso, now_iso, now_iso, json.dumps(payload)))
 
+            seen_data_jobs = set()
             data_records = []
             for d_gap in data_deficiency_gaps:
-                seg_k = d_gap.get("segment_key") or f"{d_gap.get('league')}|full_game|moneyline"
-                lg = d_gap.get("league", "UNKNOWN")
+                lg = _norm_poly_lg(d_gap.get("league", "UNKNOWN"))
+                raw_seg = d_gap.get("segment_key") or f"{lg}|full_game|moneyline"
+                if "|" in raw_seg:
+                    seg_parts = raw_seg.split("|", 1)
+                    seg_k = f"{_norm_poly_lg(seg_parts[0])}|{seg_parts[1]}"
+                else:
+                    seg_k = raw_seg
                 job_id = f"gap_data_{lg.lower()}_{hashlib.sha256((d_gap.get('title', '') + d_gap.get('selection', '')).encode()).hexdigest()[:12]}"
+                if job_id in seen_data_jobs:
+                    continue
+                seen_data_jobs.add(job_id)
                 payload = {
                     "kind": "upstream_sports_sensor_synthesis",
                     "task_id": job_id,
@@ -1133,11 +1151,20 @@ class PolymarketAutonomousRunner:
                 }
                 data_records.append((job_id, lg, now_iso, now_iso, now_iso, json.dumps(payload)))
 
+            seen_model_jobs = set()
             model_records = []
             for m_gap in model_deficit_gaps:
-                seg_k = m_gap.get("segment_key") or f"{m_gap.get('league')}|full_game|totals"
-                lg = m_gap.get("league", "UNKNOWN")
+                lg = _norm_poly_lg(m_gap.get("league", "UNKNOWN"))
+                raw_seg = m_gap.get("segment_key") or f"{lg}|full_game|totals"
+                if "|" in raw_seg:
+                    seg_parts = raw_seg.split("|", 1)
+                    seg_k = f"{_norm_poly_lg(seg_parts[0])}|{seg_parts[1]}"
+                else:
+                    seg_k = raw_seg
                 job_id = f"gap_model_{lg.lower()}_{hashlib.sha256((seg_k + str(m_gap.get('line', ''))).encode()).hexdigest()[:12]}"
+                if job_id in seen_model_jobs:
+                    continue
+                seen_model_jobs.add(job_id)
                 payload = {
                     "kind": "urgent_polymarket_model_repair",
                     "league": lg,
