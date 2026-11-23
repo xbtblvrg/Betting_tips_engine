@@ -1,6 +1,6 @@
 # Live Stake market coverage
 
-Checked: 2026-11-23T16:11:15.478923+00:00
+Checked: 2026-11-23T16:28:10.564293+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
@@ -293,11 +293,11 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NHL | Ottawa Senators Total | standard | regulation | offered_now | 3/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
 | NHL | Philadelphia Flyers Total | standard | regulation | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NHL | San Jose Sharks Total | standard | regulation | offered_now | 3/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
-| NHL | Seattle Kraken Total | standard | regulation | offered_now | 3/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
+| NHL | Seattle Kraken Total | standard | regulation | offered_now | 7/10 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
 | NHL | St. Louis Blues Total | standard | regulation | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NHL | Tampa Bay Lightning Total | standard | regulation | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NHL | Toronto Maple Leafs Total | standard | regulation | offered_now | 3/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NHL | Total (Incl. Overtime and Penalties) | standard | full_game | offered_now | 5/10 | partial 61/70 | verified 70/70 | partial 61/70 | partial 61/70 | partial 61/70 | verified 61/61 | verified 61/61 | verified 37/37 | verified 37/37 | partial 37/38 | 0 |
+| NHL | Total (Incl. Overtime and Penalties) | standard | full_game | offered_now | 5/10 | partial 62/70 | verified 70/70 | partial 62/70 | partial 62/70 | partial 62/70 | verified 62/62 | verified 62/62 | verified 37/37 | verified 37/37 | partial 37/38 | 0 |
 | NHL | Utah Mammoth Total | standard | regulation | offered_now | 5/10 | partial 4/6 | verified 6/6 | partial 4/6 | partial 4/6 | partial 4/6 | verified 4/4 | verified 4/4 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NHL | Winner (Incl. Overtime and Penalties) | standard | full_game | offered_now | 3/10 | partial 13/14 | verified 14/14 | partial 13/14 | partial 13/14 | partial 13/14 | verified 13/13 | verified 13/13 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Winnipeg Jets Total | standard | regulation | offered_now | 5/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | verified 1/1 | verified 1/1 | partial 1/2 | 0 |
