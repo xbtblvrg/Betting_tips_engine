@@ -1,6 +1,6 @@
 # Live Stake market coverage
 
-Checked: 2026-11-23T14:34:00.242096+00:00
+Checked: 2026-11-23T14:51:35.865945+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
@@ -301,6 +301,6 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NHL | Winnipeg Jets Total | standard | regulation | offered_now | 5/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | verified 1/1 | verified 1/1 | partial 1/2 | 0 |
 | NHL | moneyline | swishMarkets.matchMarkets | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/32 | activity_unverified 0/32 | activity_unverified 0/32 | activity_unverified 0/32 | activity_unverified 0/32 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | spread | swishMarkets.matchMarkets | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/36 | activity_unverified 0/36 | activity_unverified 0/36 | activity_unverified 0/36 | activity_unverified 0/36 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NHL | goals against | swishMarkets.playerProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/522 | activity_unverified 0/522 | activity_unverified 0/522 | activity_unverified 0/522 | activity_unverified 0/522 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NHL | goals against | swishMarkets.playerProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/528 | activity_unverified 0/528 | activity_unverified 0/528 | activity_unverified 0/528 | activity_unverified 0/528 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | plus minus | swishMarkets.playerProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/832 | activity_unverified 0/832 | activity_unverified 0/832 | activity_unverified 0/832 | activity_unverified 0/832 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | shutouts | swishMarkets.playerProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/56 | activity_unverified 0/56 | activity_unverified 0/56 | activity_unverified 0/56 | activity_unverified 0/56 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
