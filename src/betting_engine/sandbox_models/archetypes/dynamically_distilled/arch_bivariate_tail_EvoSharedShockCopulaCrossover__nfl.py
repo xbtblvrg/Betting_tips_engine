@@ -13,12 +13,12 @@ class EvoSharedShockCopulaCrossover_NFL_full_game(BaseCandidateModel):
 
     def __init__(
         self,
-        model_id: str = "codex_synth_nfl_full_game_1120_053116",
+        model_id: str = "codex_synth_nfl_full_game_1123_023846",
         version: str = "2.0.0",
         league: str = "NFL",
         scope: str = "full_game",
         family: str = "spreads",
-        line_slope: float = -0.0558,
+        line_slope: float = -0.0985,
         dispersion_alpha: float = 0.55,
         metadata: Optional[Dict[str, Any]] = None,
     ):
@@ -42,8 +42,8 @@ class EvoSharedShockCopulaCrossover_NFL_full_game(BaseCandidateModel):
         rel_mag = math.tanh((ref_tot - base_tot) / max(1.0, base_tot))
         mag_adj = max(0.85, min(1.15, 1.0 + self.line_slope * rel_mag))
 
-        h_mu = max(0.15, h_base * 0.8047 * mag_adj)
-        a_mu = max(0.15, a_base * 1.0854 * mag_adj)
+        h_mu = max(0.15, h_base * 1.027 * mag_adj)
+        a_mu = max(0.15, a_base * 0.9232 * mag_adj)
         eff_alpha = max(0.02, min(0.60, self.dispersion_alpha * (1.0 + 0.25 * abs(rel_mag))))
         try:
             if max(h_mu, a_mu) < 12.0:
