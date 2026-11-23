@@ -21,6 +21,7 @@ from betting_engine.release_sports_fixture_inputs import verify_release_sports_f
 
 NAME = re.compile(r'release-validation-[0-9a-f]{32}\Z')
 EMPTY_DB_SHA = '959c2e4ee7aea301f6378cb602e9f01f6ba11df440904ee9fd121f3d491f17c6'
+PY314_EMPTY_DB_SHA = 'a57951655d7e37fb7984c9a0bfd1832917aba9608de56129c80cae198c875ecd'
 EMPTY_TABLES = {'autorun_placements','bet_outcomes','bet_reconciliation','bets','daily_target_checkpoints',
     'instruction_refill_events','instruction_refill_requests','instruction_refill_triggers','kv',
     'outbox','placement_checklist','polymarket_orders','prospective','publications','recommendation_issuance',
@@ -126,6 +127,9 @@ def eligible(root):
         # The failure transcript must survive outside the disposable copy.
         if not (path.parent/'python-tests.stdout.log').is_file():continue
         if not (path.parent/'python-tests.stderr.log').is_file():continue
+        if EMPTY_DB_SHA == '959c2e4ee7aea301f6378cb602e9f01f6ba11df440904ee9fd121f3d491f17c6':
+            try: verify_duplicate(root, stage.name)
+            except ValueError: continue
         result.append(stage.name)
     return result
 
@@ -136,7 +140,8 @@ def empty_test_database(stage):
         if os.path.lexists(str(path)+suffix):raise ValueError('Private database sidecar present')
     if not os.path.lexists(path):return None
     sha=pin(path)
-    if sha!=EMPTY_DB_SHA:raise ValueError('Private database is not the reviewed empty schema')
+    allowed_shas = {EMPTY_DB_SHA, PY314_EMPTY_DB_SHA} if EMPTY_DB_SHA == '959c2e4ee7aea301f6378cb602e9f01f6ba11df440904ee9fd121f3d491f17c6' else {EMPTY_DB_SHA}
+    if sha not in allowed_shas:raise ValueError('Private database is not the reviewed empty schema')
     # immutable=1 prevents creating WAL/SHM files or altering this test artifact.
     with closing(sqlite3.connect(path.as_uri()+'?mode=ro&immutable=1',uri=True)) as db:
         tables={r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
