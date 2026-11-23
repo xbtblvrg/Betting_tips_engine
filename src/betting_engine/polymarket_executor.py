@@ -1522,7 +1522,7 @@ class PolymarketAutonomousExecutor:
                 except Exception as e_tk:
                     err_tk = str(e_tk)
                     tk_status = "failed"
-                    log.error(f"Live taker slice failed: {e_tk}")
+                    log.warning(f"Live taker slice failed: {e_tk}")
 
                 # 2. Execute Maker Slice
                 try:
@@ -1543,7 +1543,7 @@ class PolymarketAutonomousExecutor:
                 except Exception as e_mk:
                     err_mk = str(e_mk)
                     mk_status = "failed"
-                    log.error(f"Live maker slice failed: {e_mk}")
+                    log.warning(f"Live maker slice failed: {e_mk}")
 
                 # If both failed on live submission -> graceful fallback to verified shadow paper trade
                 if not tk_oid and not mk_oid:
