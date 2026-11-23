@@ -64,7 +64,7 @@ class UCLHalf2AwayTotalModel(BaseCandidateModel):
 
     def __init__(
         self,
-        model_id: str = "codex_synth_ucl_half_2_1122_205047",
+        model_id: str = "codex_synth_ucl_half_1_1123_000922",
         version: str = "1.0.0",
         league: str = "UCL",
         scope: str = "half_2",
