@@ -349,16 +349,31 @@ class HistoricalCandidateTrainer:
                 family_filters.append("(family = 'american_derivatives' AND sub_family = ?)")
                 params.append(target_fam)
 
+            def _scope_weight(sc_val: str, lg_val: str) -> float:
+                s = str(sc_val or 'full_game').lower()
+                u_lg = str(lg_val or '').upper()
+                if 'quarter' in s:
+                    return 0.25
+                if 'half' in s:
+                    return 0.50
+                if 'period' in s:
+                    return 0.45 if u_lg in ('ATP', 'WTA', 'CHALLENGER') else 0.33
+                if 'innings_1_5' in s:
+                    return 0.55
+                if 'inning' in s:
+                    return 0.15
+                return 1.0
+
             query = f"""
-                SELECT selection, line, odds, model_prob, market_prob, side, result, pnl, captured_at
+                SELECT selection, line, odds, model_prob, market_prob, side, result, pnl, captured_at, scope
                 FROM (
-                    SELECT selection, line, odds, model_prob, market_prob, side, result, pnl, captured_at,
+                    SELECT selection, line, odds, model_prob, market_prob, side, result, pnl, captured_at, scope,
                            ROW_NUMBER() OVER (
                                PARTITION BY COALESCE(game_id, selection), line, side, date(captured_at)
                                ORDER BY captured_at ASC
                            ) as rn
                     FROM (
-                        SELECT game_id, selection, line, odds, model_prob, market_prob, side, result, pnl, captured_at
+                        SELECT game_id, selection, line, odds, model_prob, market_prob, side, result, pnl, captured_at, scope
                         FROM incubated_wagers
                         WHERE {' AND '.join(conditions)} AND ({' OR '.join(family_filters)})
                         ORDER BY rowid DESC LIMIT 4000
@@ -368,69 +383,82 @@ class HistoricalCandidateTrainer:
                 ORDER BY captured_at ASC
             """
             rows = cur.execute(query, params).fetchall()
-            scale_factor = 1.0
-            if len(rows) < 28 and scope != 'full_game':
+            fam_scale = 1.0
+            if len(rows) < 28 and scope != 'full_game' and base_fam != 'three_way':
                 fb_params = [league, 'full_game'] + params[2:]
                 fb_rows = cur.execute(query, fb_params).fetchall()
                 if len(fb_rows) > len(rows):
                     rows = fb_rows
-                    if 'quarter_' in scope:
-                        scale_factor = 0.25
-                    elif 'half_' in scope:
-                        scale_factor = 0.48
-                    elif 'period_' in scope:
-                        scale_factor = 0.33
             if len(rows) < 28:
-                # Cross-scope same-family fallback within the same league so 75/25 split always has >= 7 OOS wagers
-                any_scope_query = query.replace("AND scope = ?", "")
+                # Cross-scope same-family fallback within the same league (preserving per-row scope for exact rescaling)
+                if base_fam == 'three_way' and scope != 'full_game':
+                    any_scope_query = query.replace("AND scope = ?", "AND scope != 'full_game'")
+                else:
+                    any_scope_query = query.replace("AND scope = ?", "")
                 any_rows = cur.execute(any_scope_query, [league] + params[2:]).fetchall()
                 if len(any_rows) > len(rows):
                     rows = any_rows
-                    if 'quarter_' in scope:
-                        scale_factor = 0.25
-                    elif 'half_' in scope:
-                        scale_factor = 0.48
-                    elif 'period_' in scope:
-                        scale_factor = 0.33
-            if len(rows) < 28 and base_fam in ('three_way', 'moneyline', 'home_total', 'away_total'):
-                # Related contract family fallback (three_way <-> moneyline; team_total -> totals)
-                alt_fam = 'moneyline' if base_fam == 'three_way' else ('three_way' if base_fam == 'moneyline' else 'totals')
+            if len(rows) < 12 and base_fam in ('home_total', 'away_total'):
+                # Team-total fallback from match totals (with per-row scope ratio * team share)
                 alt_q = """
-                    SELECT selection, line, odds, model_prob, market_prob, side, result, pnl, captured_at
+                    SELECT selection, line, odds, model_prob, market_prob, side, result, pnl, captured_at, scope
                     FROM (
-                        SELECT selection, line, odds, model_prob, market_prob, side, result, pnl, captured_at,
+                        SELECT selection, line, odds, model_prob, market_prob, side, result, pnl, captured_at, scope,
                                ROW_NUMBER() OVER (
                                    PARTITION BY COALESCE(game_id, selection), line, side, date(captured_at)
                                    ORDER BY captured_at ASC
                                ) as rn
                         FROM (
-                            SELECT game_id, selection, line, odds, model_prob, market_prob, side, result, pnl, captured_at
+                            SELECT game_id, selection, line, odds, model_prob, market_prob, side, result, pnl, captured_at, scope
                             FROM incubated_wagers
                             WHERE league = ? AND status = 'settled' AND result IN ('won', 'lost')
-                              AND (family = ? OR sub_family = ?)
+                              AND (family = 'totals' OR sub_family = 'totals')
                             ORDER BY rowid DESC LIMIT 2000
                         )
                     ) WHERE rn = 1 ORDER BY captured_at ASC
                 """
-                alt_rows = cur.execute(alt_q, [league, alt_fam, alt_fam]).fetchall()
+                alt_rows = cur.execute(alt_q, [league]).fetchall()
                 if len(alt_rows) > len(rows):
                     rows = alt_rows
-                    if base_fam == 'home_total':
-                        scale_factor *= 0.51
-                    elif base_fam == 'away_total':
-                        scale_factor *= 0.49
+                    fam_scale = 0.51 if base_fam == 'home_total' else 0.49
+            elif len(rows) < 12 and base_fam == 'moneyline':
+                # 2-way moneyline fallback from pick'em / near-even 2-way spreads (never 3-way with draw loss)
+                ml_q = """
+                    SELECT selection, NULL as line, odds, model_prob, market_prob, side, result, pnl, captured_at, scope
+                    FROM (
+                        SELECT selection, line, odds, model_prob, market_prob, side, result, pnl, captured_at, scope,
+                               ROW_NUMBER() OVER (
+                                   PARTITION BY COALESCE(game_id, selection), side, date(captured_at)
+                                   ORDER BY ABS(COALESCE(line, 0.0)) ASC, captured_at ASC
+                               ) as rn
+                        FROM (
+                            SELECT game_id, selection, line, odds, model_prob, market_prob, side, result, pnl, captured_at, scope
+                            FROM incubated_wagers
+                            WHERE league = ? AND status = 'settled' AND result IN ('won', 'lost')
+                              AND (family = 'spreads' OR sub_family = 'spreads')
+                              AND ABS(COALESCE(line, 0.0)) <= 2.5
+                            ORDER BY rowid DESC LIMIT 2000
+                        )
+                    ) WHERE rn = 1 ORDER BY captured_at ASC
+                """
+                ml_rows = cur.execute(ml_q, [league]).fetchall()
+                if len(ml_rows) > len(rows):
+                    rows = ml_rows
 
             import re
+            target_w = _scope_weight(scope, league)
             cleaned_rows = []
             for r in rows:
-                sel_r, line_r, odds_r, mp_r, mkp_r, side_r, res_r, pnl_r, cap_r = r
+                sel_r, line_r, odds_r, mp_r, mkp_r, side_r, res_r, pnl_r, cap_r, row_sc = r
                 if line_r is not None:
                     lv = float(line_r)
                     sel_s = str(sel_r or '')
                     if lv > 0 and ('(-' in sel_s or re.search(r'(?:^|\s)-\d+(?:\.\d+)?(?=\b|$)', sel_s)):
                         lv = -abs(lv)
-                    if scale_factor != 1.0:
-                        lv = round(lv * scale_factor * 2.0) / 2.0
+                    row_w = _scope_weight(row_sc or scope, league)
+                    row_scale = (target_w / max(0.10, row_w)) * fam_scale
+                    if abs(row_scale - 1.0) > 1e-6:
+                        lv = round(lv * row_scale * 2.0) / 2.0
                     line_r = lv
                 cleaned_rows.append((sel_r, line_r, odds_r, mp_r, mkp_r, side_r, res_r, pnl_r, cap_r))
             return cleaned_rows

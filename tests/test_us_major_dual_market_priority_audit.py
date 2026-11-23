@@ -247,3 +247,50 @@ def test_engineering_loop_places_nba_and_nfl_ahead_of_challenger_and_atp_in_task
     focus = report['task_focus']['D09']
     assert focus['leagues'] == ['NBA', 'NFL', 'ATP', 'CHALLENGER']
     assert [e['id'].split(':')[1] for e in focus['evidence']] == ['NBA', 'NFL', 'ATP', 'CHALLENGER']
+
+
+def test_cross_kind_segment_synthesis_jobs_share_exclusivity_key(tmp_path):
+    from betting_engine.learning import LearningWorker
+    from betting_engine.storage import Store
+    w = LearningWorker(Store(tmp_path / 'e.db'), tmp_path / 'data')
+
+    k1 = w._exclusivity_key({'kind': 'urgent_polymarket_model_repair', 'league': 'NBA', 'payload': '{"segment_key": "NBA|half_2|moneyline"}'})
+    k2 = w._exclusivity_key({'kind': 'submarket_turnaround_research', 'league': 'NBA', 'payload': '{"segment": "NBA|half_2|moneyline"}'})
+    k3 = w._exclusivity_key({'kind': 'autonomous_alpha_recovery', 'league': 'NBA', 'payload': '{"segment": "NBA|half_2|moneyline"}'})
+    k4 = w._exclusivity_key({'kind': 'priority_model_synthesis', 'league': 'NBA', 'payload': '{"segment_key": "NBA|half_2|moneyline"}'})
+
+    assert k1 == k2 == k3 == k4 == 'seg_synth:NBA|half_2|moneyline'
+
+
+def test_verbose_logger_self_healing_skips_production_db_during_pytest_but_allows_tmp_path(tmp_path):
+    import logging
+    from betting_engine.verbose_logger import JsonlLogHandler, ROOT
+
+    src_file = str((ROOT / 'src/betting_engine/learning.py').resolve())
+
+    # 1. Handler bound to tmp_path MUST enqueue runtime_exception_auto_repair into tmp_path/engine.sqlite3
+    tmp_db = tmp_path / 'engine.sqlite3'
+    with sqlite3.connect(tmp_db) as c:
+        c.execute("""
+            CREATE TABLE learning_jobs (
+                id TEXT PRIMARY KEY, kind TEXT, league TEXT, status TEXT,
+                created_at TEXT, updated_at TEXT, next_attempt TEXT, attempts INTEGER, payload TEXT
+            )
+        """)
+    h_tmp = JsonlLogHandler(tmp_path / 'logs' / 'verbose_debug.jsonl')
+    rec = logging.LogRecord('test', logging.ERROR, src_file, 100, 'tmp runtime boom', (), None)
+    h_tmp.emit(rec)
+    with sqlite3.connect(tmp_db) as c:
+        assert c.execute("SELECT COUNT(*) FROM learning_jobs WHERE kind='runtime_exception_auto_repair'").fetchone()[0] == 1
+
+    # 2. Handler bound to ROOT / 'data' MUST NOT enqueue pytest fault-injection jobs into production engine.sqlite3
+    prod_db = ROOT / 'data' / 'engine.sqlite3'
+    if prod_db.exists():
+        with sqlite3.connect(f"file:{prod_db}?mode=ro", uri=True) as c:
+            before_cnt = c.execute("SELECT COUNT(*) FROM learning_jobs WHERE kind='runtime_exception_auto_repair'").fetchone()[0]
+        h_prod = JsonlLogHandler(ROOT / 'data' / 'logs' / 'verbose_debug.jsonl')
+        rec_prod = logging.LogRecord('test', logging.ERROR, src_file, 99999, 'simulated pytest fault unique_xyz', (), None)
+        h_prod._trigger_self_healing_from_log(rec_prod, {'message': 'simulated pytest fault unique_xyz', 'logger': 'test'})
+        with sqlite3.connect(f"file:{prod_db}?mode=ro", uri=True) as c:
+            after_cnt = c.execute("SELECT COUNT(*) FROM learning_jobs WHERE kind='runtime_exception_auto_repair'").fetchone()[0]
+        assert after_cnt == before_cnt

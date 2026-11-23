@@ -1839,12 +1839,22 @@ class {cls_3}(BaseCandidateModel):
                     )
                     cur_best_m = best_choice['metrics']
                     # Evolutionary Tournament Selection Rule:
-                    # Strictly prefer a hypothesis that passes the Crucible over one that fails,
-                    # and among passing hypotheses prefer the highest composite OOS Crucible score.
+                    # Strictly prefer a hypothesis that passes the Crucible over one that fails.
+                    # IMPORTANT: When an LLM (codex/claude/agy) generated the primary candidate and NEITHER
+                    # passes the Crucible, preserve the LLM candidate's own code/class/metrics so the
+                    # Reinforcement Learning feedback loop records genuine failure telemetry on the LLM's formula
+                    # instead of overwriting it with a deterministic Evo* template.
+                    is_llm_primary = provider in ("codex", "claude", "agy")
                     is_better = (
                         (e_metrics['crucible_ok'] and not cur_best_m['crucible_ok'])
                         or (
-                            e_metrics['crucible_ok'] == cur_best_m['crucible_ok']
+                            e_metrics['crucible_ok'] and cur_best_m['crucible_ok']
+                            and e_metrics['oos_accepted'] >= 5
+                            and e_metrics['composite_score'] > cur_best_m['composite_score'] + 0.005
+                        )
+                        or (
+                            not is_llm_primary
+                            and e_metrics['crucible_ok'] == cur_best_m['crucible_ok']
                             and e_metrics['oos_accepted'] >= 5
                             and e_metrics['composite_score'] > cur_best_m['composite_score'] + 0.005
                         )
@@ -1854,7 +1864,7 @@ class {cls_3}(BaseCandidateModel):
                             'source_code': evo_code,
                             'found_class': e_found,
                             'rationale': f"{evo_rat} [Won Multi-Hypothesis Tournament: OOS ROI={e_metrics['sim_roi']*100:+.1f}%, DeltaBrier={e_metrics['delta_brier']:+.4f}]",
-                            'provider': evo_prov if provider == "algorithmic_codex_engine" else provider,
+                            'provider': evo_prov,
                             'model_instance': e_inst,
                             'metrics': e_metrics,
                         }

@@ -1061,11 +1061,17 @@ class LearningWorker:
             inc_db = self.data / 'shadow_incubator.sqlite3'
             if inc_db.exists():
                 try:
+                    from .tournament_engine import normalize_segment_key
+                    canon_seg = normalize_segment_key(seg_key) if '|' in str(seg_key) else seg_key
+                    recent_cut = (utcnow() - timedelta(minutes=45)).isoformat()
                     with closing(sqlite3.connect(f"file:{inc_db.resolve()}?mode=ro", uri=True, timeout=5.0)) as chk_c:
-                        is_grad = chk_c.execute("SELECT 1 FROM graduated_markets WHERE segment_key = ?", (seg_key,)).fetchone()
-                        is_inc = chk_c.execute("SELECT 1 FROM demoted_markets WHERE segment_key = ? AND incubation_phase = 'incubating_with_new_model' AND incubated_model_id IS NOT NULL", (seg_key,)).fetchone()
+                        is_grad = chk_c.execute("SELECT 1 FROM graduated_markets WHERE segment_key IN (?, ?)", (seg_key, canon_seg)).fetchone()
+                        is_inc = chk_c.execute("SELECT 1 FROM demoted_markets WHERE segment_key IN (?, ?) AND incubation_phase = 'incubating_with_new_model' AND incubated_model_id IS NOT NULL", (seg_key, canon_seg)).fetchone()
                         if is_grad or is_inc:
                             return {'status': 'already_graduated' if is_grad else 'already_incubating', 'segment_key': seg_key, 'skipped': True}
+                        is_recent = chk_c.execute("SELECT 1 FROM ai_synthesis_feedback_loop WHERE segment_key IN (?, ?) AND created_at >= ? LIMIT 1", (seg_key, canon_seg, recent_cut)).fetchone()
+                        if is_recent:
+                            return {'status': 'skipped_recent_synthesis_cooldown', 'segment_key': seg_key, 'skipped': True}
                 except Exception:
                     pass
 
@@ -1128,11 +1134,17 @@ class LearningWorker:
             inc_db = self.data / 'shadow_incubator.sqlite3'
             if inc_db.exists():
                 try:
+                    from .tournament_engine import normalize_segment_key
+                    canon_seg = normalize_segment_key(seg_key) if '|' in str(seg_key) else seg_key
+                    recent_cut = (utcnow() - timedelta(minutes=45)).isoformat()
                     with closing(sqlite3.connect(f"file:{inc_db.resolve()}?mode=ro", uri=True, timeout=5.0)) as chk_c:
-                        is_grad = chk_c.execute("SELECT 1 FROM graduated_markets WHERE segment_key = ?", (seg_key,)).fetchone()
-                        is_inc = chk_c.execute("SELECT 1 FROM demoted_markets WHERE segment_key = ? AND incubation_phase = 'incubating_with_new_model' AND incubated_model_id IS NOT NULL", (seg_key,)).fetchone()
+                        is_grad = chk_c.execute("SELECT 1 FROM graduated_markets WHERE segment_key IN (?, ?)", (seg_key, canon_seg)).fetchone()
+                        is_inc = chk_c.execute("SELECT 1 FROM demoted_markets WHERE segment_key IN (?, ?) AND incubation_phase = 'incubating_with_new_model' AND incubated_model_id IS NOT NULL", (seg_key, canon_seg)).fetchone()
                         if is_grad or is_inc:
                             return {'status': 'already_graduated' if is_grad else 'already_incubating', 'segment_key': seg_key, 'skipped': True}
+                        is_recent = chk_c.execute("SELECT 1 FROM ai_synthesis_feedback_loop WHERE segment_key IN (?, ?) AND created_at >= ? LIMIT 1", (seg_key, canon_seg, recent_cut)).fetchone()
+                        if is_recent:
+                            return {'status': 'skipped_recent_synthesis_cooldown', 'segment_key': seg_key, 'skipped': True}
                 except Exception:
                     pass
 
@@ -1484,17 +1496,28 @@ class LearningWorker:
                     'reason': 'Barred from AI compute: Non-preferred fringe league'
                 }
 
-            # Check if market is already graduated in Tier 3 or actively incubating in Tier 2
+            # Check if market is already graduated in Tier 3, actively incubating in Tier 2, or synthesized within last 45m
             inc_db = self.data / 'shadow_incubator.sqlite3'
             if inc_db.exists():
                 try:
+                    from .tournament_engine import normalize_segment_key
+                    canon_seg = normalize_segment_key(seg_key) if '|' in str(seg_key) else seg_key
+                    recent_cut = (utcnow() - timedelta(minutes=45)).isoformat()
                     with closing(sqlite3.connect(f"file:{inc_db.resolve()}?mode=ro", uri=True, timeout=5.0)) as chk_c:
-                        is_grad = chk_c.execute("SELECT 1 FROM graduated_markets WHERE segment_key = ?", (seg_key,)).fetchone()
-                        is_inc = chk_c.execute("SELECT 1 FROM demoted_markets WHERE segment_key = ? AND incubation_phase = 'incubating_with_new_model' AND incubated_model_id IS NOT NULL", (seg_key,)).fetchone()
+                        is_grad = chk_c.execute("SELECT 1 FROM graduated_markets WHERE segment_key IN (?, ?)", (seg_key, canon_seg)).fetchone()
+                        is_inc = chk_c.execute("SELECT 1 FROM demoted_markets WHERE segment_key IN (?, ?) AND incubation_phase = 'incubating_with_new_model' AND incubated_model_id IS NOT NULL", (seg_key, canon_seg)).fetchone()
                         if is_grad or is_inc:
                             return {
                                 'executed_at': utcnow().isoformat(),
                                 'status': 'already_graduated' if is_grad else 'already_incubating',
+                                'segment_key': seg_key,
+                                'skipped_re_synthesis': True
+                            }
+                        is_recent = chk_c.execute("SELECT 1 FROM ai_synthesis_feedback_loop WHERE segment_key IN (?, ?) AND created_at >= ? LIMIT 1", (seg_key, canon_seg, recent_cut)).fetchone()
+                        if is_recent:
+                            return {
+                                'executed_at': utcnow().isoformat(),
+                                'status': 'skipped_recent_synthesis_cooldown',
                                 'segment_key': seg_key,
                                 'skipped_re_synthesis': True
                             }
@@ -1746,10 +1769,24 @@ class LearningWorker:
 
         if kind in ('controlled_retrain', 'model_search', 'source_refresh'):
             return f"{kind}:{league}"
-        if kind in ('segment_repair', 'submarket_turnaround_research'):
-            return f"{kind}:{league}:{payload.get('segment') or ''}"
-        if kind == 'urgent_polymarket_model_repair':
-            return f"{kind}:{payload.get('segment_key') or league}"
+        if kind in (
+            'segment_repair', 'submarket_turnaround_research',
+            'urgent_polymarket_model_repair', 'autonomous_alpha_recovery',
+            'priority_model_synthesis', 'market_gap_model_synthesis',
+        ):
+            seg = (
+                payload.get('segment_key')
+                or payload.get('segment')
+                or (f"{league}|{payload.get('model_scope', 'full_game')}|{payload.get('market', 'spreads')}" if kind == 'market_gap_model_synthesis' else '')
+                or league
+            )
+            try:
+                from .tournament_engine import normalize_segment_key
+                if '|' in str(seg):
+                    seg = normalize_segment_key(str(seg))
+            except Exception:
+                pass
+            return f"seg_synth:{seg}"
         if kind == 'polymarket_identification_repair':
             return f"{kind}:{league}:{payload.get('event_title') or ''}"
         if kind in (

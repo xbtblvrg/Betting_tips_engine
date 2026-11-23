@@ -101,6 +101,9 @@ class JsonlLogHandler(logging.Handler):
 
     def _trigger_self_healing_from_log(self, record: logging.LogRecord, entry: Dict[str, Any]) -> None:
         """Extracts frame & debug context from an error log and triggers Priority-0 AI self-healing."""
+        # Never enqueue pytest fault-injection exceptions into live production ROOT/data/engine.sqlite3
+        if ("PYTEST_CURRENT_TEST" in os.environ or "pytest" in sys.modules) and self.data_dir.resolve() == (ROOT / "data").resolve():
+            return
         _IN_TRIGGER_HOOK.active = True
         try:
             exc_info_dict = entry.get("exception") or {}
