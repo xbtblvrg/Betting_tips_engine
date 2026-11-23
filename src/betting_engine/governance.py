@@ -119,7 +119,15 @@ def verify_publication(tip,now,active_settings=None,max_quote_age=MAX_QUOTE_AGE_
             settings['max_bet']=max(settings['max_bet'],guard['sizing_settings']['max_bet'])
         reproduced=size_recommendation(tip,settings,rem_cap,sizing['related_contracts']) if policy!='strict' or outcome!='legacy' else stake_assessment(tip['stress_probability'],tip['push_probability'],tip['reference_odds'],settings,sizing['maximum_stake'],sizing['related_contracts'])
         if reproduced!=sizing or stake!=reproduced['amount']:
-            diffs = {k: (sizing.get(k), reproduced.get(k)) for k in set(sizing.keys()) | set(reproduced.keys()) if sizing.get(k) != reproduced.get(k)}
+            _missing='<missing>'
+            def _leaf_diffs(a,b,path=''):
+                if isinstance(a,dict) and isinstance(b,dict):
+                    out={}
+                    for k in sorted(set(a)|set(b),key=str):
+                        out.update(_leaf_diffs(a.get(k,_missing),b.get(k,_missing),f'{path}.{k}' if path else str(k)))
+                    return out
+                return {} if a==b else {path or '<root>':(a,b)}
+            diffs=_leaf_diffs(sizing,reproduced)
             import logging
             logging.error("[GOVERNANCE_DEBUG] Tip %s (%s|%s): stake=%s, rep_amt=%s, sz_amt=%s. Diffs: %s",
                           tip.get('id'), tip.get('league'), tip.get('market'), stake, reproduced.get('amount'), sizing.get('amount'), diffs)
