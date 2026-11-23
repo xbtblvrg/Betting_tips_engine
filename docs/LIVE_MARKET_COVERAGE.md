@@ -1,6 +1,6 @@
 # Live Stake market coverage
 
-Checked: 2026-11-23T19:31:20.758479+00:00
+Checked: 2026-11-23T19:54:35.281599+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
@@ -121,11 +121,11 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | Highest Scoring Half | standard | regulation | offered_now | 0/10 | not_observed 0/27 | not_observed 0/27 | not_observed 0/27 | not_observed 0/27 | not_observed 0/27 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Highest Scoring Quarter | standard | regulation | offered_now | 0/10 | not_observed 0/50 | not_observed 0/50 | not_observed 0/50 | not_observed 0/50 | not_observed 0/50 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Highest scoring quarter - total | standard | regulation | offered_now | 0/10 | not_observed 0/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/20 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NBA | Houston Rockets Total (Incl. Overtime) | standard | full_game | offered_now | 7/10 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
+| NBA | Houston Rockets Total (Incl. Overtime) | standard | full_game | offered_now | 7/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
 | NBA | Houston Rockets Total Maximum Consecutive Points | standard | regulation | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Indiana Pacers Total (Incl. Overtime) | standard | full_game | offered_now | 9/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 1/1 | verified 1/1 | partial 1/2 | 0 |
 | NBA | Indiana Pacers Total Maximum Consecutive Points | standard | regulation | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NBA | Los Angeles Clippers Total (Incl. Overtime) | standard | full_game | offered_now | 9/10 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
+| NBA | Los Angeles Clippers Total (Incl. Overtime) | standard | full_game | offered_now | 9/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NBA | Los Angeles Clippers Total Maximum Consecutive Points | standard | regulation | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Los Angeles Lakers Total (Incl. Overtime) | standard | full_game | offered_now | 9/10 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 1/1 | verified 1/1 | partial 1/2 | 0 |
 | NBA | Los Angeles Lakers Total Maximum Consecutive Points | standard | regulation | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
