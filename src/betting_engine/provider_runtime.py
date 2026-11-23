@@ -397,7 +397,12 @@ def run_ai_step(worker, schema, output, prefix, prompt, timeout=1200,
                     if (worker.workspace / p).is_file()
                 )
                 last_err = str(cur_task.get('last_error') or '').lower()
-                needs_full_workspace = pref_bytes > 135000 or ('omitted' in last_err and 'bundle' in last_err)
+                needs_full_workspace = (
+                    pref_bytes > 135000
+                    or ('omitted' in last_err and 'bundle' in last_err)
+                    or 'task remains incomplete: supply' in last_err
+                    or 'supply omitted' in last_err
+                )
                 if needs_full_workspace:
                     for candidate in getattr(router, 'policy', {}).get('routes', []):
                         if (candidate and candidate.get('provider') == 'codex'
