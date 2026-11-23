@@ -736,8 +736,12 @@ class UnifiedMarketUniverse:
                     continue
 
                 canon_perf_k = self.get_canonical_key(prof.league, prof.scope, prof.sub_family or prof.family)
-                stat = perf_map.get(k_perf) or perf_map.get(canon_perf_k)
-                at_stat = all_time_perf_map.get(k_perf) or all_time_perf_map.get(canon_perf_k)
+                clean_leaf = (prof.sub_family or prof.family or '').split(':')[-1]
+                scoped_perf_k = f"{prof.league}|{prof.scope}|{prof.scope}:{clean_leaf}" if prof.scope != 'full_game' else canon_perf_k
+                sb_alpha_entry = sb_alpha_map.get(k_perf) or sb_alpha_map.get(canon_perf_k) or sb_alpha_map.get(scoped_perf_k)
+
+                stat = perf_map.get(k_perf) or perf_map.get(canon_perf_k) or perf_map.get(scoped_perf_k)
+                at_stat = all_time_perf_map.get(k_perf) or all_time_perf_map.get(canon_perf_k) or all_time_perf_map.get(scoped_perf_k)
 
                 if stat and stat['sample_size'] > 0:
                     prof.rolling_pnl = stat['pnl']
@@ -774,7 +778,7 @@ class UnifiedMarketUniverse:
                     elif stat['units'] < 0.0 or stat['roi_pct'] < 0.0:
                         prof.stake_cap = 0.50
                         prof.phase_detail = f"Capital Defense Tourniquet ({stat['roi_pct']:+.1f}% ROI, {stat['units']:+.1f}U over {stat['sample_size']} games) - $0.50 clamp"
-                    elif (stat['sample_size'] >= 2 and stat['units'] >= 0.30 and stat['roi_pct'] >= 3.0) or bool(sb_alpha_map.get(k_perf)):
+                    elif (stat['sample_size'] >= 2 and stat['units'] >= 0.30 and stat['roi_pct'] >= 3.0) or bool(sb_alpha_entry):
                         # Elite Tier 4: Live Proven Alpha Execution ($0.50-$8.00 dynamic Kelly & Polymarket CLOB)
                         prof.tier = int(MarketTier.LIVE_PROVEN_ALPHA)
                         prof.tier_name = "LIVE_PROVEN_ALPHA"
@@ -791,21 +795,26 @@ class UnifiedMarketUniverse:
                     else:
                         prof.stake_cap = 0.50
                         prof.phase_detail = f"Live Probation ({stat['sample_size']} games, {stat['units']:+.1f}U) - $0.50 floor"
-                elif bool(sb_alpha_map.get(k_perf)):
-                    a_info = sb_alpha_map[k_perf]
+                elif bool(sb_alpha_entry):
+                    a_info = sb_alpha_entry
                     prof.tier = int(MarketTier.LIVE_PROVEN_ALPHA)
                     prof.tier_name = "LIVE_PROVEN_ALPHA"
-                    a_roi = a_info.get("roi_pct", 0.0)
-                    a_cnt = a_info.get("settled_count", 0)
-                    if a_cnt >= 5 and a_roi >= 12.0:
+                    a_roi = float(a_info.get("roi_pct", 0.0))
+                    a_cnt = int(a_info.get("games", a_info.get("settled_count", 0)))
+                    a_pnl = float(a_info.get("rolling_pnl", a_info.get("pnl", 0.0)))
+                    a_units = float(a_info.get("units_pnl", 0.0))
+                    prof.sample_size = a_cnt
+                    prof.rolling_pnl = a_pnl
+                    prof.rolling_roi_pct = a_roi
+                    if a_cnt >= 5 and a_roi >= 12.0 and a_units >= 3.0:
                         prof.stake_cap = 8.00
-                        prof.phase_detail = f"Tier 4 Super Alpha Acceleration ({a_roi:+.1f}% ROI over {a_cnt} games) - $8.00 cap"
-                    elif a_cnt >= 3 and a_roi >= 5.0:
+                        prof.phase_detail = f"Tier 4 Super Alpha Acceleration ({a_roi:+.1f}% ROI, {a_units:+.1f}U over {a_cnt} games) - $8.00 cap"
+                    elif a_cnt >= 3 and a_roi >= 5.0 and a_units >= 1.0:
                         prof.stake_cap = 3.50
-                        prof.phase_detail = f"Tier 4 Proven Alpha ({a_roi:+.1f}% ROI over {a_cnt} games) - $3.50 cap"
+                        prof.phase_detail = f"Tier 4 Proven Alpha ({a_roi:+.1f}% ROI, {a_units:+.1f}U over {a_cnt} games) - $3.50 cap"
                     else:
                         prof.stake_cap = 2.50
-                        prof.phase_detail = f"Tier 4 Live Proven Alpha ({a_roi:+.1f}% ROI over {a_cnt} games) - Scaled Production"
+                        prof.phase_detail = f"Tier 4 Live Proven Alpha ({a_roi:+.1f}% ROI, {a_units:+.1f}U over {a_cnt} games) - Scaled Production"
                 else:
                     # No post-graduation live decisions yet (0 live settled games with new champion model).
                     if at_stat and (at_stat.get('pnl', 0.0) < 0.0 or at_stat.get('roi_pct', 0.0) < 0.0):

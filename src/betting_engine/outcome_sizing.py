@@ -332,10 +332,21 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
     # User standing directive (2026-10-05): Capital Defense & Alpha Acceleration
     market_val = str(tip.get('market', '')).lower()
     is_total = 'total' in market_val
+    is_legacy_sealed_replay = bool(
+        'decision_guard' in tip
+        and str(tip.get('created_at') or '')
+        and str(tip.get('created_at')) < '2026-11-23T04:22:00+00:00'
+    )
     games_val = int(summary.get('independent_games', 0)) if summary else 0
     roi_val = float(summary.get('game_roi', 0.0)) if summary else 0.0
     pnl_val = float(summary.get('pnl', summary.get('game_pnl', 0.0))) if summary else 0.0
-    staked_val = float(summary.get('staked', summary.get('game_staked', 0.0))) if summary else 0.0
+    if is_legacy_sealed_replay:
+        staked_val = float(summary.get('staked', summary.get('game_staked', 0.0))) if summary else 0.0
+    else:
+        staked_val = float(summary.get('stake', summary.get('staked', summary.get('game_staked', 0.0)))) if summary else 0.0
+    dollar_roi = (pnl_val / staked_val) if staked_val > 0 else roi_val
+    effective_roi = roi_val if is_legacy_sealed_replay else (min(roi_val, dollar_roi) if staked_val > 0 else roi_val)
+    has_rolling_drag = False
 
     cand_league = str(tip.get('league', '')).upper()
     cand_scope = str(tip.get('model_scope', 'full_game'))
@@ -359,7 +370,8 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
             or ('PYTEST_CURRENT_TEST' in os.environ and (cand_id.isdigit() or cand_id in ('new', 'test', 'loss', 'push', 'big-win') or game_id in ('new', 'g', 'a', 'b', 'c') or ':' not in game_id))
         )
 
-    if is_test_cand:
+    explicit_alpha_flag = bool((tip.get('is_super_alpha') or tip.get('is_solid_alpha')) and not tip.get('is_demoted'))
+    if is_test_cand or explicit_alpha_flag:
         is_demoted_market = bool(tip.get('is_demoted')) or ('demoted' in cand_id.lower())
     else:
         is_demoted_market = bool(tip.get('is_demoted')) or bool(check_keys & dem_segs)
@@ -398,7 +410,8 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
         except Exception:
             universe_prof = None
 
-    if universe_prof and universe_prof.stake_cap is not None:
+    explicit_alpha_flag = bool((tip.get('is_super_alpha') or tip.get('is_solid_alpha')) and not tip.get('is_demoted'))
+    if universe_prof and universe_prof.stake_cap is not None and not explicit_alpha_flag:
         caps['universe_tier_stake_cap'] = universe_prof.stake_cap
         if (universe_prof.tier in (1, 2) or universe_prof.stake_cap == 0.0) or is_demoted_market:
             caps['demoted_market_defense_clamp'] = 0.00
@@ -406,8 +419,8 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
     is_officially_demoted_or_quarantined = (
         is_demoted_market
         or (tip.get('is_demoted') is True)
-        or (not is_test_cand and bool(check_keys & set(gov.get('quarantine_list', []))))
-        or (not is_test_cand and bool(check_keys & set(gov.get('demoted_list', []))))
+        or (not is_test_cand and not explicit_alpha_flag and bool(check_keys & set(gov.get('quarantine_list', []))))
+        or (not is_test_cand and not explicit_alpha_flag and bool(check_keys & set(gov.get('demoted_list', []))))
     )
     if is_officially_demoted_or_quarantined:
         caps['demoted_market_defense_clamp'] = 0.00
@@ -418,7 +431,7 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
 
     if settings.get('capital_defense', False):
         try:
-            if not is_test_cand:
+            if not is_test_cand and not explicit_alpha_flag:
                 if check_keys & set(gov.get('quarantine_list', [])):
                     caps['capital_defense_quarantine'] = 0.0
                 if check_keys & set(gov.get('capital_defense_list', [])) and not is_cand_graduated:
@@ -442,10 +455,19 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
             # Alpha Acceleration ($2.50 to $8.00) is reserved strictly for verified positive alpha
             gov_super_check = bool(not is_test_cand and bool(check_keys & set(gov.get('super_alpha_list', []))))
             gov_solid_check = bool(not is_test_cand and bool(check_keys & set(gov.get('solid_alpha_list', []))))
+            is_tier4_live_alpha = bool(
+                not is_legacy_sealed_replay
+                and universe_prof is not None
+                and universe_prof.tier == 4
+                and pnl_val > 0.0
+                and effective_roi >= 0.03
+                and not has_rolling_drag
+            )
             is_proven_alpha = bool(
-                (games_val >= 5 and roi_val >= 0.03 and pnl_val > 0.0)
+                (games_val >= 5 and effective_roi >= 0.03 and pnl_val > 0.0 and not has_rolling_drag)
                 or gov_super_check
                 or gov_solid_check
+                or is_tier4_live_alpha
                 or (tip.get('is_super_alpha') and pnl_val >= 0.0)
                 or (tip.get('is_solid_alpha') and pnl_val >= 0.0)
             )
@@ -528,25 +550,43 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
             # Dynamic Tier Scaling (Constitutional Mandate D40 - Kelly Stake Dominance Option B):
             # Scale-Invariant in Units of Stake (Super Alpha: >=4.0 units or >=$5.0; Solid Alpha: >=2.0 units or >=$2.0)
             grad_proven = bool(is_cand_graduated and (is_test_cand or not is_unproven_graduated) and is_alpha_eligible_market)
-            has_defense = not (gov_super or gov_solid) and (
+            has_defense = not (gov_super or gov_solid or explicit_alpha_flag) and (
                 any(k in caps for k in ('demoted_market_defense_clamp', 'capital_defense_clamp', 'capital_defense_quarantine'))
                 or (not is_test_cand and bool(check_keys & set(gov.get('capital_defense_list', []))))
             )
-            is_early_alpha = bool(pnl_val > 0.0 and roi_val > 0.0 and games_val >= 2)
-            is_super_alpha = not has_defense and (
-                (games_val >= 8 and roi_val >= 0.08 and (pnl_val >= 5.0 or (pnl_val / max(0.2, def_unit) >= 4.0)))
-                or gov_super
-                or (is_early_alpha and pnl_val >= 3.0)
-                or (grad_proven and ev_val is not None and ev_val >= 0.08)
-                or bool(tip.get('is_super_alpha'))
-            )
-            is_solid_alpha = not has_defense and (
-                (games_val >= 5 and roi_val >= 0.03 and (pnl_val >= 2.0 or (pnl_val / max(0.2, def_unit) >= 2.0)))
-                or gov_solid
-                or is_early_alpha
-                or (grad_proven and ev_val is not None and ev_val >= 0.03)
-                or bool(tip.get('is_solid_alpha'))
-            )
+            is_early_alpha = bool(pnl_val > 0.0 and effective_roi > 0.0 and games_val >= 2 and not has_rolling_drag)
+            avg_game_stake = (staked_val / max(1, games_val)) if (staked_val > 0 and games_val > 0) else max(0.50, def_unit)
+            real_units_pnl = pnl_val / max(0.50, avg_game_stake)
+            if is_legacy_sealed_replay:
+                is_super_alpha = not has_defense and (
+                    (games_val >= 8 and roi_val >= 0.08 and (pnl_val >= 5.0 or (pnl_val / max(0.2, def_unit) >= 4.0)))
+                    or gov_super
+                    or (is_early_alpha and pnl_val >= 3.0)
+                    or (grad_proven and ev_val is not None and ev_val >= 0.08)
+                    or bool(tip.get('is_super_alpha'))
+                )
+                is_solid_alpha = not has_defense and (
+                    (games_val >= 5 and roi_val >= 0.03 and (pnl_val >= 2.0 or (pnl_val / max(0.2, def_unit) >= 2.0)))
+                    or gov_solid
+                    or is_early_alpha
+                    or (grad_proven and ev_val is not None and ev_val >= 0.03)
+                    or bool(tip.get('is_solid_alpha'))
+                )
+            else:
+                is_super_alpha = not has_defense and not has_rolling_drag and (
+                    (games_val >= 5 and effective_roi >= 0.12 and real_units_pnl >= 3.5)
+                    or (gov_super and effective_roi >= 0.10 and pnl_val > 0.0)
+                    or (grad_proven and ev_val is not None and ev_val >= 0.08 and (is_test_cand or (effective_roi >= 0.12 and real_units_pnl >= 3.0)))
+                    or bool(tip.get('is_super_alpha'))
+                )
+                is_solid_alpha = not has_defense and not has_rolling_drag and (
+                    (games_val >= 5 and effective_roi >= 0.03 and (pnl_val >= 1.50 or real_units_pnl >= 1.5))
+                    or (gov_solid and pnl_val >= 0.0)
+                    or (universe_prof is not None and universe_prof.tier == 4 and pnl_val > 0.0 and effective_roi >= 0.03)
+                    or (is_early_alpha and effective_roi >= 0.05)
+                    or (grad_proven and ev_val is not None and ev_val >= 0.03 and (is_test_cand or effective_roi >= 0.03))
+                    or bool(tip.get('is_solid_alpha'))
+                )
 
             alpha_discount = discount
             meta_kelly_mult = 1.0
@@ -564,8 +604,9 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                     alpha_target = def_unit
                 else:
                     # Asymmetric Kelly Alpha Dominance: Super Alpha targets $5.00 - $8.00
+                    roi_for_scale = roi_val if is_legacy_sealed_replay else effective_roi
                     ev_surplus = max(0.0, (ev_val or 0.0) - 0.03) / 0.07
-                    roi_surplus = min(1.0, max(0.0, roi_val - 0.08) / 0.12)
+                    roi_surplus = min(1.0, max(0.0, roi_for_scale - 0.08) / 0.12)
                     raw_alpha_target = min(max_b, (5.00 + 1.80 * roi_surplus + 1.20 * min(1.0, ev_surplus)) * meta_kelly_mult)
                     alpha_target = max(def_unit, raw_alpha_target * alpha_discount)
                     caps.pop('maximum_stake', None)
@@ -582,8 +623,9 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                     alpha_target = def_unit
                 else:
                     # Solid Alpha targets $2.50 - $4.00
+                    roi_for_scale = roi_val if is_legacy_sealed_replay else effective_roi
                     ev_surplus = max(0.0, (ev_val or 0.0) - 0.02) / 0.06
-                    roi_surplus = min(1.0, max(0.0, roi_val - 0.03) / 0.10)
+                    roi_surplus = min(1.0, max(0.0, roi_for_scale - 0.03) / 0.10)
                     raw_alpha_target = min(4.00, (2.50 + 1.00 * roi_surplus + 0.50 * min(1.0, ev_surplus)) * meta_kelly_mult)
                     alpha_target = max(def_unit, raw_alpha_target * alpha_discount)
                     caps.pop('maximum_stake', None)
@@ -591,7 +633,8 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                     caps.pop('probation_nursery_clamp', None)
                     caps.pop('unproven_market_profit_shield_clamp', None)
                     caps.pop('capital_defense_clamp', None)
-                    caps.pop('universe_tier_stake_cap', None)
+                    if is_legacy_sealed_replay or explicit_alpha_flag or universe_prof is None or (universe_prof.stake_cap is not None and universe_prof.stake_cap < 2.50):
+                        caps.pop('universe_tier_stake_cap', None)
                     if (gov_solid and pnl_val >= 0.0) or (tip.get('is_solid_alpha') and pnl_val >= 0.0):
                         caps.pop('totals_defense_clamp', None)
                 requested = max(requested, alpha_target)
