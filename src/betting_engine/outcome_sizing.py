@@ -337,6 +337,11 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
         and str(tip.get('created_at') or '')
         and str(tip.get('created_at')) < '2026-11-23T04:22:00+00:00'
     )
+    is_sealed_before_tourniquet_fix = bool(
+        'decision_guard' in tip
+        and str(tip.get('created_at') or '')
+        and str(tip.get('created_at')) < '2026-11-25T00:05:00+00:00'
+    )
     games_val = int(summary.get('independent_games', 0)) if summary else 0
     roi_val = float(summary.get('game_roi', 0.0)) if summary else 0.0
     pnl_val = float(summary.get('pnl', summary.get('game_pnl', 0.0))) if summary else 0.0
@@ -416,6 +421,18 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
         if (universe_prof.tier in (1, 2) or universe_prof.stake_cap == 0.0) or is_demoted_market:
             caps['demoted_market_defense_clamp'] = 0.00
 
+    if not is_sealed_before_tourniquet_fix and not is_test_cand and not explicit_alpha_flag:
+        u_phase_str = str(getattr(universe_prof, 'phase_detail', '') or '')
+        has_rolling_drag = bool(
+            (check_keys & set(gov.get('capital_defense_list', [])))
+            or (universe_prof is not None and (
+                'Capital Defense Tourniquet' in u_phase_str
+                or 'Live Probation' in u_phase_str
+                or float(getattr(universe_prof, 'rolling_pnl', 0.0) or 0.0) < 0.0
+                or float(getattr(universe_prof, 'rolling_roi_pct', 0.0) or 0.0) < 0.0
+            ))
+        )
+
     is_officially_demoted_or_quarantined = (
         is_demoted_market
         or (tip.get('is_demoted') is True)
@@ -434,7 +451,9 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
             if not is_test_cand and not explicit_alpha_flag:
                 if check_keys & set(gov.get('quarantine_list', [])):
                     caps['capital_defense_quarantine'] = 0.0
-                if check_keys & set(gov.get('capital_defense_list', [])) and not is_cand_graduated:
+                if check_keys & set(gov.get('capital_defense_list', [])) and (not is_cand_graduated or not is_sealed_before_tourniquet_fix):
+                    caps['capital_defense_clamp'] = 0.50
+                elif has_rolling_drag and not is_sealed_before_tourniquet_fix:
                     caps['capital_defense_clamp'] = 0.50
 
             # Evolutionary Probation Nursery Clamp:
