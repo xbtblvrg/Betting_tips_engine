@@ -13,6 +13,7 @@ Crucible backtesting to repair underperforming segments and guarantee target ach
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone, timedelta
 import json
+import logging
 from pathlib import Path
 import sqlite3
 from typing import Any, Dict, List, Optional
@@ -20,6 +21,8 @@ from typing import Any, Dict, List, Optional
 from .domain import parse_time, utcnow
 from .io_utils import atomic_json
 from .providers import DATA
+from .verbose_logger import setup_verbose_logging, get_verbose_logger
+setup_verbose_logging()
 
 TARGET_EVALUATION_VERSION = 'unified-700-target-eval-v1'
 WEEKLY_BET_TARGET = 700
@@ -259,6 +262,18 @@ def run_target_self_evaluation(store, data_dir: Path, now: Optional[datetime] = 
                 lines = history_path.read_text(encoding='utf-8').strip().split('\n')
                 if len(lines) > 1000:
                     history_path.write_text('\n'.join(lines[-500:]) + '\n', encoding='utf-8')
+        except Exception:
+            pass
+
+        try:
+            lvl = logging.WARNING if evaluation.get('status') == 'TARGET_SHORTFALL' else logging.DEBUG
+            get_verbose_logger(data_dir).log_event(
+                'target_evaluator',
+                'target_evaluation_completed',
+                f"Target self-evaluation: status={evaluation.get('status')} | 7d_bets={evaluation['rolling_7d']['total_bets']}/700 | 7d_roi={evaluation['rolling_7d']['roi_pct']}% | gap={evaluation['gaps']}",
+                data=evaluation,
+                level=lvl,
+            )
         except Exception:
             pass
 

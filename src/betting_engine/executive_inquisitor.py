@@ -26,6 +26,8 @@ from typing import Any, Dict, List, Optional, Tuple
 from .domain import utcnow, parse_time, LEAGUES
 from .io_utils import atomic_json
 from .providers import DATA
+from .verbose_logger import setup_verbose_logging, get_verbose_logger
+setup_verbose_logging()
 
 log = logging.getLogger(__name__)
 
@@ -73,6 +75,72 @@ class AutonomousExecutiveInquisitor:
         except Exception as exc:
             log.warning('Could not log inquisitor event: %s', exc)
 
+    def _enqueue_self_healing_code_task(
+        self,
+        *,
+        file_path: str,
+        line_no: int = 0,
+        function_name: str = '',
+        category: str = 'autonomous_code_healing',
+        description: str = '',
+        evidence: str = '',
+    ) -> Optional[str]:
+        """Enqueues a Priority-0 AI self-healing programming job in learning_jobs + trigger journal."""
+        if ("PYTEST_CURRENT_TEST" in os.environ or "pytest" in sys.modules) and self.data_dir.resolve() == DATA.resolve():
+            return None
+        now_iso = utcnow().isoformat()
+        sig = f"inquisitor_heal:{category}:{file_path}:{line_no}:{description[:80]}"
+        job_id = hashlib.sha256(sig.encode('utf-8')).hexdigest()[:24]
+        payload = {
+            'job_kind': 'autonomous_code_healing',
+            'trigger_source': 'executive_inquisitor',
+            'triggered_at': now_iso,
+            'category': category,
+            'file': file_path,
+            'line': int(line_no or 0),
+            'function': function_name,
+            'description': description[:400],
+            'exception_type': category,
+            'exception_message': description[:400],
+            'traceback': evidence[-4000:] if evidence else '',
+            'evidence': evidence[-4000:] if evidence else '',
+        }
+        try:
+            trig_dir = self.data_dir / 'logs'
+            trig_dir.mkdir(parents=True, exist_ok=True)
+            with open(trig_dir / 'self_healing_triggers.jsonl', 'a', encoding='utf-8') as tf:
+                tf.write(json.dumps({'job_id': job_id, **payload}, ensure_ascii=False) + '\n')
+        except Exception:
+            pass
+        try:
+            get_verbose_logger(self.data_dir).log_event(
+                'executive_inquisitor',
+                'self_healing_code_task_enqueued',
+                f"Enqueued Priority-0 AI self-healing task {job_id} for {file_path}:{line_no} ({description[:120]})",
+                data={'job_id': job_id, **payload},
+                level=logging.WARNING,
+            )
+        except Exception:
+            pass
+        if self.engine_db.exists():
+            try:
+                from contextlib import closing
+                with closing(sqlite3.connect(str(self.engine_db), timeout=5.0)) as conn:
+                    conn.execute("PRAGMA busy_timeout = 5000")
+                    conn.execute(
+                        """
+                        INSERT OR IGNORE INTO learning_jobs (
+                            id, kind, league, status, created_at, updated_at, next_attempt, attempts, payload
+                        ) VALUES (?, 'autonomous_code_healing', 'SYSTEM', 'queued', ?, ?, ?, 0, ?)
+                        """,
+                        (job_id, now_iso, now_iso, now_iso, json.dumps(payload, ensure_ascii=False)),
+                    )
+                    conn.commit()
+                return job_id
+            except Exception as exc:
+                log.debug('Could not enqueue inquisitor self-healing job: %s', exc)
+        return None
+
     def probe_q1_bugs_and_anomalies(self) -> ExecutiveInquiry:
         """User Lens: 'Keress bugokat, inkonzisztenciákat, elvarratlan szálakat!'"""
         findings = []
@@ -108,12 +176,38 @@ class AutonomousExecutiveInquisitor:
                         findings.append(f"{stuck_jobs} db beragadt futó feladat a sorban (újraindítás sikertelen: {ex}).")
                         status = 'warning'
                 
-                # Check for recurring errors
+                # Check for recurring errors and auto-route unhandled code exceptions to AI self-healing
                 cur.execute("SELECT count(*) FROM learning_jobs WHERE status = 'failed'")
                 failed_jobs = cur.fetchone()[0]
                 telemetry['failed_learning_jobs'] = failed_jobs
                 if failed_jobs > 5:
                     findings.append(f"{failed_jobs} db sikertelen feladat gyűlt össze a tanuló sorban.")
+                if failed_jobs > 0:
+                    try:
+                        err_rows = cur.execute(
+                            "SELECT id, kind, last_error FROM learning_jobs WHERE status = 'failed' AND last_error IS NOT NULL AND kind NOT IN ('autonomous_code_healing', 'runtime_exception_auto_repair') LIMIT 3"
+                        ).fetchall()
+                        enqueued_ids = []
+                        for jid, jkind, jerr in err_rows:
+                            err_txt = str(jerr or '')
+                            m_py = re.findall(r'File "([^"]*src/betting_engine/[a-zA-Z0-9_]+\.py)", line (\d+), in ([a-zA-Z0-9_<>]+)', err_txt)
+                            if m_py:
+                                fp_raw, lno_raw, fn_raw = m_py[-1]
+                                rel_fp = 'src/betting_engine/' + Path(fp_raw).name
+                                hid = self._enqueue_self_healing_code_task(
+                                    file_path=rel_fp,
+                                    line_no=int(lno_raw),
+                                    function_name=fn_raw,
+                                    category='runtime_exception_auto_repair',
+                                    description=f"Failed learning_job {jkind} ({jid}): {err_txt[:200]}",
+                                    evidence=err_txt,
+                                )
+                                if hid:
+                                    enqueued_ids.append(hid)
+                        if enqueued_ids:
+                            telemetry['self_healing_jobs_enqueued'] = enqueued_ids
+                    except Exception:
+                        pass
 
                 # Check Polymarket order health
                 try:
@@ -233,8 +327,23 @@ class AutonomousExecutiveInquisitor:
 
             if limits_audit.get('violations'):
                 status = 'bottleneck_detected'
+                healed_ids = []
                 for v in limits_audit['violations']:
-                    findings.append(v.get('error', str(v)))
+                    err_desc = v.get('error', str(v)) if isinstance(v, dict) else str(v)
+                    findings.append(err_desc)
+                    if isinstance(v, dict) and v.get('file'):
+                        hid = self._enqueue_self_healing_code_task(
+                            file_path=str(v['file']),
+                            line_no=int(v.get('line') or 0),
+                            category='anti_constant_violation',
+                            description=f"Anti-constant violation: {err_desc}",
+                            evidence=json.dumps(v, ensure_ascii=False),
+                        )
+                        if hid:
+                            healed_ids.append(hid)
+                if healed_ids:
+                    telemetry['self_healing_jobs_enqueued'] = healed_ids
+                    action = f"Priority-0 AI kódjavító feladat automatikusan sorba állítva: {healed_ids}"
             else:
                 action = "Zéró statikus szorzó-plafon megerősítve. Minden szorzó és liga dinamikusan folytonos."
         except Exception as e:
@@ -689,6 +798,31 @@ class AutonomousExecutiveInquisitor:
             'overall_status': overall_status,
             'duration_seconds': elapsed
         })
+        try:
+            vl = get_verbose_logger(self.data_dir)
+            for inq in inquiries:
+                lvl = logging.WARNING if inq.status in ('warning', 'bottleneck_detected') else logging.DEBUG
+                vl.log_event(
+                    'executive_inquisitor',
+                    'inquisitor_probe_evaluated',
+                    f"[{inq.inquiry_id}] status={inq.status} | {inq.investigation_summary}",
+                    data=inq.to_dict(),
+                    level=lvl,
+                )
+            vl.log_event(
+                'executive_inquisitor',
+                'inquisitor_cycle_completed',
+                f"Executive Inquisitor cycle finished in {elapsed}s: overall_status={overall_status} (bottlenecks={dossier['bottlenecks_detected']}, warnings={dossier['warning_inquiries']})",
+                data={
+                    'overall_status': overall_status,
+                    'duration_seconds': elapsed,
+                    'bottlenecks_detected': dossier['bottlenecks_detected'],
+                    'warning_inquiries': dossier['warning_inquiries'],
+                },
+                level=logging.DEBUG,
+            )
+        except Exception:
+            pass
         return dossier
 
 

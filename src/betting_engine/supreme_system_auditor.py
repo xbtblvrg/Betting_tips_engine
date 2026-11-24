@@ -656,19 +656,28 @@ class SupremeSystemAuditor:
                         result = {'status': 'healed', 'remedy': 'Fixed mock feed category discovery in stake_api.py'}
 
         # 2. First-Principles AI Self-Healing Loop for runtime exceptions and unresolved test regressions
-        if result.get('status') != 'healed':
-            rel_file = finding.get('file') or ''
-            line_no = int(finding.get('line') or 0)
-            func_name = finding.get('function') or ''
-            exc_type = finding.get('exception_type') or 'Exception'
-            exc_msg = finding.get('exception_message') or desc
-            tb_text = finding.get('traceback') or finding.get('evidence') or ''
+        rel_file = finding.get('file') or ''
+        line_no = int(finding.get('line') or 0)
+        func_name = finding.get('function') or ''
+        exc_type = finding.get('exception_type') or 'Exception'
+        exc_msg = finding.get('exception_message') or desc
+        tb_text = finding.get('traceback') or finding.get('evidence') or ''
 
-            # If triggered from a test failure without explicit file, infer from test or traceback
+        if result.get('status') != 'healed':
+            # If triggered from a test failure or Python Traceback without explicit file, infer from traceback
             if not rel_file and tb_text:
-                m_f = re.findall(r'(src/betting_engine/[a-zA-Z0-9_]+\.py):(\d+)', tb_text)
-                if m_f:
-                    rel_file, line_no = m_f[-1][0], int(m_f[-1][1])
+                m_py = re.findall(r'File "([^"]*src/betting_engine/[a-zA-Z0-9_]+\.py)", line (\d+), in ([a-zA-Z0-9_<>]+)', tb_text)
+                if m_py:
+                    fp_raw, lno_s, fn_s = m_py[-1]
+                    p_cand = Path(fp_raw).resolve()
+                    rel_file = str(p_cand.relative_to(self.root)) if str(p_cand).startswith(str(self.root.resolve())) else ('src/betting_engine/' + Path(fp_raw).name)
+                    line_no = int(lno_s)
+                    if not func_name:
+                        func_name = fn_s
+                else:
+                    m_f = re.findall(r'(src/betting_engine/[a-zA-Z0-9_]+\.py):(\d+)', tb_text)
+                    if m_f:
+                        rel_file, line_no = m_f[-1][0], int(m_f[-1][1])
 
             target_path = (self.root / rel_file).resolve() if rel_file else None
             if target_path and target_path.exists() and str(target_path).startswith(str((self.root / 'src/betting_engine').resolve())):
@@ -722,6 +731,53 @@ class SupremeSystemAuditor:
                 result['verified'] = False
                 result['status'] = 'healing_failed_verification'
                 vl.log_event("supreme_system_auditor", "ai_self_healing_failed_verification", f"Verification failed after patch", data=verify_res, level=logging.WARNING)
+
+        # 4. Stage-2 Full Isolated Workspace Programming Escalation (EngineeringLoop -> DevelopmentWorker):
+        # If single-snippet inline AI self-healing did not verify a clean fix, persist a durable escalation
+        # record to data/development/self_healing_escalations.json so EngineeringLoop immediately wakes
+        # DevelopmentWorker (agy / codex / claude full isolated workspace) with verbose debug telemetry.
+        try:
+            import sys
+            prod_data = Path(__file__).resolve().parents[2] / 'data'
+            is_pytest_on_prod = ("PYTEST_CURRENT_TEST" in os.environ or "pytest" in sys.modules) and self.data_dir.resolve() == prod_data.resolve()
+            if not is_pytest_on_prod:
+                esc_path = self.data_dir / 'development' / 'self_healing_escalations.json'
+                esc_path.parent.mkdir(parents=True, exist_ok=True)
+                esc_doc = json.loads(esc_path.read_text(encoding='utf-8')) if esc_path.exists() else {'items': {}}
+                items = esc_doc.setdefault('items', {})
+                esc_id = hashlib.sha256(f"{rel_file or 'unknown'}:{line_no}:{cat}:{exc_msg[:80]}".encode('utf-8')).hexdigest()[:16]
+                now_iso = utcnow().isoformat()
+                if result.get('status') in ('healed', 'already_healed') and result.get('verified') is not False:
+                    if esc_id in items and items[esc_id].get('state') != 'resolved':
+                        items[esc_id]['state'] = 'resolved'
+                        items[esc_id]['resolved_at'] = now_iso
+                        items[esc_id]['remedy'] = result.get('remedy')
+                        atomic_json(esc_path, esc_doc)
+                else:
+                    items[esc_id] = {
+                        'id': esc_id,
+                        'state': 'open',
+                        'observed_at': now_iso,
+                        'category': cat,
+                        'file': rel_file,
+                        'line': line_no,
+                        'function': func_name,
+                        'exception_type': exc_type,
+                        'exception_message': str(exc_msg)[:400],
+                        'traceback': str(tb_text)[-3000:],
+                        'verbose_telemetry': vl.format_telemetry_for_ai(prompt=f"{rel_file} {func_name} {exc_type}", max_chars=2500),
+                    }
+                    atomic_json(esc_path, esc_doc)
+                    result['escalated_gap_id'] = f"self_heal:{esc_id}"
+                    vl.log_event(
+                        "supreme_system_auditor",
+                        "ai_self_healing_escalated_to_engineering_loop",
+                        f"Escalated unresolved defect self_heal:{esc_id} ({rel_file}:{line_no}) to isolated DevelopmentWorker programming queue",
+                        data={'gap_id': f"self_heal:{esc_id}", 'file': rel_file, 'line': line_no, 'exception_type': exc_type},
+                        level=logging.WARNING,
+                    )
+        except Exception as esc_err:
+            log.debug("Could not update self_healing_escalations.json: %s", esc_err)
 
         return result
 

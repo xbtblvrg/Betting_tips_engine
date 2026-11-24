@@ -27,6 +27,8 @@ from .domain import utcnow
 from .io_utils import atomic_json
 from .providers import DATA
 from .unified_market_universe import UnifiedMarketUniverse
+from .verbose_logger import setup_verbose_logging, get_verbose_logger
+setup_verbose_logging()
 
 log = logging.getLogger(__name__)
 
@@ -459,7 +461,18 @@ class AutonomousROIGovernor:
         }
 
         # Atomically persist governor status
-        atomic_json(STATUS_PATH, report)
+        status_target = (Path(self.data_dir) / 'roi_governor_status.json') if self.data_dir else STATUS_PATH
+        atomic_json(status_target, report)
+        try:
+            get_verbose_logger(self.data_dir).log_event(
+                'autonomous_roi_governor',
+                'roi_governor_cycle_completed',
+                f"ROI Governor cycle: 7d_roi={portfolio_roi:+.2f}% | super_alpha={len(super_alpha)} | solid_alpha={len(solid_alpha)} | defense={len(capital_defense)} | quarantine={len(toxic_quarantine)}",
+                data=report.get('summary', {}),
+                level=logging.DEBUG,
+            )
+        except Exception:
+            pass
         return report
 
 

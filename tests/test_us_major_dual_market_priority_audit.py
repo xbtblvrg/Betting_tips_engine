@@ -457,3 +457,131 @@ def test_daily_quant_council_excludes_offseason_leagues_when_live_schedule_prese
     assert 'MLB' not in target_leagues
     assert 'NBA' in target_leagues
     assert 'NFL' in target_leagues
+
+
+def test_inquisitor_verbose_debug_and_priority0_self_healing_enqueue(tmp_path, monkeypatch):
+    import json
+    import logging
+    from pathlib import Path
+    from betting_engine import verbose_logger as vl_mod
+    from betting_engine.executive_inquisitor import AutonomousExecutiveInquisitor
+
+    # Bind singleton verbose logger to tmp_path so we verify structured JSONL debug records directly
+    custom_vl = vl_mod.QuantVerboseLogger(data_dir=tmp_path)
+    monkeypatch.setattr(vl_mod, '_VERBOSE_LOGGER', custom_vl)
+    try:
+        src_target = str((Path(__file__).resolve().parents[1] / 'src/betting_engine/learning.py').resolve())
+        tb_sample = (
+            'Traceback (most recent call last):\n'
+            f'  File "{src_target}", line 412, in run_once\n'
+            '    raise ValueError("synthetic defect for closed-loop test")\n'
+            'ValueError: synthetic defect for closed-loop test\n'
+        )
+
+        with sqlite3.connect(tmp_path / 'engine.sqlite3') as c:
+            c.execute("""
+                CREATE TABLE learning_jobs (
+                    id TEXT PRIMARY KEY, kind TEXT, league TEXT, status TEXT,
+                    created_at TEXT, updated_at TEXT, next_attempt TEXT, attempts INTEGER,
+                    payload TEXT, last_error TEXT
+                )
+            """)
+            c.execute(
+                "INSERT INTO learning_jobs VALUES ('fail_1', 'target_evaluation', 'NBA', 'failed', '2026-11-24T00:00:00Z', '2026-11-24T00:01:00Z', '2026-11-24T00:05:00Z', 3, '{}', ?)",
+                (tb_sample,),
+            )
+
+        inq = AutonomousExecutiveInquisitor(data_dir=tmp_path)
+        dossier = inq.run_inquisitor_cycle()
+        assert dossier['inquiries_count'] == 7
+
+        # 1. Verify structured DEBUG/WARNING records in verbose_debug.jsonl
+        jsonl_lines = (tmp_path / 'logs' / 'verbose_debug.jsonl').read_text(encoding='utf-8').strip().splitlines()
+        events = [json.loads(line).get('event_type') for line in jsonl_lines]
+        assert 'inquisitor_probe_evaluated' in events
+        assert 'inquisitor_cycle_completed' in events
+        assert 'self_healing_code_task_enqueued' in events
+
+        # 2. Verify Priority-0 autonomous_code_healing job enqueued in learning_jobs
+        with sqlite3.connect(tmp_path / 'engine.sqlite3') as c:
+            row = c.execute(
+                "SELECT kind, status, payload FROM learning_jobs WHERE kind = 'autonomous_code_healing'"
+            ).fetchone()
+        assert row is not None
+        assert row[1] == 'queued'
+        pl = json.loads(row[2])
+        assert pl['file'] == 'src/betting_engine/learning.py'
+        assert pl['line'] == 412
+        assert pl['function'] == 'run_once'
+    finally:
+        if custom_vl.text_handler:
+            logging.getLogger().removeHandler(custom_vl.text_handler)
+            logging.getLogger('betting_engine').removeHandler(custom_vl.text_handler)
+        if custom_vl.jsonl_handler:
+            logging.getLogger().removeHandler(custom_vl.jsonl_handler)
+            logging.getLogger('betting_engine').removeHandler(custom_vl.jsonl_handler)
+
+
+def test_supreme_auditor_escalates_unresolved_defect_to_engineering_loop_priority0_task(tmp_path):
+    import json
+    from datetime import datetime, timedelta, timezone
+    from betting_engine.supreme_system_auditor import SupremeSystemAuditor
+    from betting_engine.engineering_loop import engineering_input_generation, sync_engineering_loop
+
+    (tmp_path / 'src/betting_engine').mkdir(parents=True, exist_ok=True)
+    dummy_mod = tmp_path / 'src/betting_engine/sample_mod.py'
+    dummy_mod.write_text("def calc():\n    return 1 / 0\n", encoding='utf-8')
+
+    gen_before = engineering_input_generation(tmp_path, {})
+
+    auditor = SupremeSystemAuditor(root=tmp_path, data_dir=tmp_path / 'data')
+    tb_txt = (
+        'Traceback (most recent call last):\n'
+        f'  File "{dummy_mod}", line 2, in calc\n'
+        '    return 1 / 0\n'
+        'ZeroDivisionError: division by zero\n'
+    )
+    res = auditor.execute_autonomous_code_healing({
+        'category': 'runtime_exception_auto_repair',
+        'exception_type': 'ZeroDivisionError',
+        'exception_message': 'division by zero',
+        'traceback': tb_txt,
+    })
+
+    # Stage 1 has no config/ai_delegation.json in tmp_path -> must escalate to Stage 2 EngineeringLoop!
+    assert res['status'] == 'unresolved'
+    gap_id = res.get('escalated_gap_id')
+    assert gap_id and gap_id.startswith('self_heal:')
+
+    # EngineeringLoop wakeup must detect the new escalation immediately
+    assert engineering_input_generation(tmp_path, {}) != gen_before
+
+    now = datetime.now(timezone.utc) + timedelta(seconds=5)
+    pub = {'generated_at': now.isoformat(), 'market_types': [], 'status': {'model_quality': {}}, 'models': {}}
+    ops = {'checked_at': now.isoformat(), 'publication_at': now.isoformat(), 'state': 'healthy', 'gaps': [], 'tracked_gaps': [], 'leagues': [], 'daily_progress': {'target': 100, 'issued': 105, 'shortfall': 0}}
+    rep = sync_engineering_loop(tmp_path, plan={'tasks': []}, state={'tasks': {}}, payload=pub, operations=ops, components={}, now=now)
+
+    extra_buckets = {t['engineering_bucket']: t for t in rep['extra_tasks']}
+    assert 'self_healing_code' in extra_buckets
+    sh_task = extra_buckets['self_healing_code']
+    assert sh_task['priority'] == 0
+    assert gap_id in sh_task['engineering_gap_ids']
+
+    # Once resolved later, sync_engineering_loop must retire the extra task
+    esc_file = tmp_path / 'data/development/self_healing_escalations.json'
+    esc_doc = json.loads(esc_file.read_text(encoding='utf-8'))
+    for item in esc_doc['items'].values():
+        item['state'] = 'resolved'
+        item['resolved_at'] = (now + timedelta(minutes=2)).isoformat()
+    esc_file.write_text(json.dumps(esc_doc), encoding='utf-8')
+
+    rep2 = sync_engineering_loop(
+        tmp_path,
+        plan={'tasks': []},
+        state={'tasks': {}, 'extra_tasks': rep['extra_tasks']},
+        payload=pub,
+        operations=ops,
+        components={},
+        now=now + timedelta(minutes=3),
+    )
+    assert any(s['task_id'] == sh_task['id'] for s in rep2['task_supersessions'])

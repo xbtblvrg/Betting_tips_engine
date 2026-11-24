@@ -29,6 +29,9 @@ except ImportError:
     ALL_TRACKED_LEAGUES = ('NBA', 'MLB', 'NHL', 'NFL', 'WNBA', 'NCAAF', 'NCAAM', 'NCAAW', 'NCAA_BASEBALL', 'NCAA_ICE_HOCKEY', 'EPL', 'UCL', 'MLS', 'UEL', 'LALIGA', 'BUNDESLIGA', 'SERIEA', 'ATP', 'WTA', 'CHALLENGER')
 from .providers import DATA
 from .telegram_notifier import notify_daily_council_briefing
+from .verbose_logger import setup_verbose_logging, get_verbose_logger
+import logging
+setup_verbose_logging()
 
 
 DAILY_STRATEGY_FILE = DATA / "research" / "daily_quant_strategy.json"
@@ -326,6 +329,22 @@ def convene_daily_quant_council(
     # 5. Save to persistent storage
     strat_file.parent.mkdir(parents=True, exist_ok=True)
     strat_file.write_text(json.dumps(directive.to_dict(), indent=2), encoding="utf-8")
+    try:
+        get_verbose_logger(data_path).log_event(
+            "daily_quant_council",
+            "daily_quant_council_convened",
+            f"Daily Multi-AI Quant Council convened for {date_str}: alpha_targets={directive.high_conviction_alpha_targets}",
+            data={
+                "briefing_date": date_str,
+                "alpha_targets": directive.high_conviction_alpha_targets,
+                "demoted_priorities": directive.demoted_incubator_priorities,
+                "issued_today": issued_today,
+                "daily_shortfall": daily_shortfall,
+            },
+            level=logging.DEBUG,
+        )
+    except Exception:
+        pass
 
     briefings_log.parent.mkdir(parents=True, exist_ok=True)
     try:

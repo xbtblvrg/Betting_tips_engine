@@ -31,7 +31,8 @@ def engineering_input_generation(root, state):
     root = Path(root)
     files = []
     for name in ('data/supervisor.json', 'data/operations.json',
-                 'data/outcome_feedback/latest.json', 'data/market_catalog/latest.json'):
+                 'data/outcome_feedback/latest.json', 'data/market_catalog/latest.json',
+                 'data/development/self_healing_escalations.json'):
         try:
             stat = (root / name).stat()
             files.append((name, stat.st_dev, stat.st_ino, stat.st_mtime_ns, stat.st_size))
@@ -577,6 +578,32 @@ def _collect(root, payload, operations, components, plan, state, now, release_re
                 row.get('updated_at') or now.isoformat(), {'task_id': task_id, 'state': row.get('state'),
                 'last_error': row.get('last_error'), 'remaining': row.get('remaining', [])},
                 bucket=bucket, priority=min(2, task.get('priority', 3))))
+    # Ingest Stage-2 unresolved runtime/accountability self-healing escalations (with verbose debug telemetry)
+    # directly into Priority-0 isolated DevelopmentWorker programming tasks (extra_tasks).
+    esc_doc = _read(Path(root) / 'data/development/self_healing_escalations.json', {})
+    for esc_id, esc in sorted((esc_doc.get('items') or {}).items()):
+        if not isinstance(esc, dict) or not esc_id:
+            continue
+        identity = 'self_heal:' + str(esc_id)
+        if esc.get('state') == 'resolved' and esc.get('resolved_at'):
+            positives[identity] = {
+                'observed_at': esc['resolved_at'],
+                'kind': 'verified_self_healing_resolution',
+                'evidence': {k: esc.get(k) for k in ('id', 'file', 'line', 'remedy', 'resolved_at')},
+            }
+        elif esc.get('state') == 'open':
+            stamp = esc.get('observed_at') or now.isoformat()
+            loc = f"{esc.get('file') or 'src/betting_engine'}:{esc.get('line') or 0}"
+            add(_observation(
+                identity,
+                'runtime_self_healing_escalation',
+                'SYSTEM',
+                f"Repair runtime/audit code defect at {loc} ({esc.get('exception_type')}: {str(esc.get('exception_message') or '')[:160]}) using attached traceback and verbose debug telemetry.",
+                stamp,
+                esc,
+                bucket='self_healing_code',
+                priority=0,
+            ))
     return found, positives, diagnostics
 
 
