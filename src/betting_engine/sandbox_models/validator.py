@@ -82,10 +82,15 @@ def validate_candidate_model(
     except Exception as exc:
         errors.append(f"Distribution validation error: {exc}")
 
-    # 4. Market evaluation checks
+    # 4. Market evaluation checks (scale test line dynamically to sport/scope context, never static 5.5 on NBA/NFL)
     try:
+        raw_tot = sample_context.get('total_line') or (
+            float(sample_context.get('home_expected') or 2.8) + float(sample_context.get('away_expected') or 2.5)
+        )
+        test_total_line = max(0.5, math.floor(float(raw_tot) - 0.5) + 0.5)
+        test_spread_line = float(sample_context.get('spread_line') or -1.5)
         # Check Total
-        p_over, ev_over = model.evaluate_market('totals', 'over', 5.5, 1.95, sample_context)
+        p_over, ev_over = model.evaluate_market('totals', 'over', test_total_line, 1.95, sample_context)
         if not (0.01 <= p_over <= 0.99):
             errors.append(f"Total probability out of bounds [0.01, 0.99]: {p_over}")
         expected_ev = round(p_over * 1.95 - 1.0, 4)
@@ -93,7 +98,7 @@ def validate_candidate_model(
             errors.append(f"EV calculation mismatch: got {ev_over}, expected {expected_ev}")
 
         # Check Spread
-        p_spread, ev_spread = model.evaluate_market('spreads', 'home', -1.5, 2.10, sample_context)
+        p_spread, ev_spread = model.evaluate_market('spreads', 'home', test_spread_line, 2.10, sample_context)
         if not (0.01 <= p_spread <= 0.99):
             errors.append(f"Spread probability out of bounds [0.01, 0.99]: {p_spread}")
 

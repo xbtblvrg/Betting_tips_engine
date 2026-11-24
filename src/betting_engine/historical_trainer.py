@@ -132,6 +132,10 @@ def get_default_segment_context(league: str, scope: str) -> Dict[str, Any]:
 
     ref_tot = round(h_scaled + a_scaled, 1)
     return {
+        'league': lg,
+        'scope': sc,
+        'score_scope': sc,
+        'model_scope': sc,
         'home_expected': h_scaled,
         'away_expected': a_scaled,
         'home_rest_days': 1,
@@ -154,6 +158,8 @@ def get_default_segment_context(league: str, scope: str) -> Dict[str, Any]:
         'league_scoring': round(h_scaled + a_scaled, 3),
         'home_spread': -1.5,
         'away_spread': 1.5,
+        'home_handicap': -1.5,
+        'away_handicap': 1.5,
         'reference_spread': -1.5,
         'spread_line': -1.5,
         'total_line': ref_tot,
@@ -202,9 +208,15 @@ def enrich_wager_context(
         ctx_wager['reference_spread'] = lv
         if sd_str == 'home' or 'home' in sel_str:
             ctx_wager['home_spread'] = lv
+            ctx_wager['away_spread'] = -lv
+            ctx_wager['home_handicap'] = lv
+            ctx_wager['away_handicap'] = -lv
             ctx_wager['home_total_line'] = lv
         elif sd_str == 'away' or 'away' in sel_str:
             ctx_wager['away_spread'] = lv
+            ctx_wager['home_spread'] = -lv
+            ctx_wager['away_handicap'] = lv
+            ctx_wager['home_handicap'] = -lv
             ctx_wager['away_total_line'] = lv
 
         is_over = sd_str in ('over', 'o') or 'over' in sel_str

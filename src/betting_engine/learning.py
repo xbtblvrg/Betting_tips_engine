@@ -892,6 +892,22 @@ class LearningWorker:
             from .autonomous_capability_orchestrator import AutonomousCapabilityOrchestrator
             payload = json.loads(job['payload']) if isinstance(job['payload'], str) else (job['payload'] or {})
             target_segment = payload.get('segment')
+            if target_segment:
+                inc_db = self.data / 'shadow_incubator.sqlite3'
+                if inc_db.exists():
+                    try:
+                        from .tournament_engine import normalize_segment_key
+                        canon_t = normalize_segment_key(target_segment) if '|' in str(target_segment) else target_segment
+                        recent_cut = (utcnow() - timedelta(minutes=45)).isoformat()
+                        with closing(sqlite3.connect(f"file:{inc_db.resolve()}?mode=ro", uri=True, timeout=5.0)) as chk_c:
+                            if chk_c.execute("SELECT 1 FROM graduated_markets WHERE segment_key IN (?, ?) LIMIT 1", (target_segment, canon_t)).fetchone():
+                                return {'status': 'already_graduated', 'segment': target_segment, 'skipped': True}
+                            if chk_c.execute("SELECT 1 FROM demoted_markets WHERE segment_key IN (?, ?) AND incubation_phase = 'incubating_with_new_model' AND incubated_model_id IS NOT NULL LIMIT 1", (target_segment, canon_t)).fetchone():
+                                return {'status': 'already_incubating', 'segment': target_segment, 'skipped': True}
+                            if chk_c.execute("SELECT 1 FROM ai_synthesis_feedback_loop WHERE segment_key IN (?, ?) AND created_at >= ? LIMIT 1", (target_segment, canon_t, recent_cut)).fetchone():
+                                return {'status': 'skipped_recent_synthesis_cooldown', 'segment': target_segment, 'skipped': True}
+                    except Exception:
+                        pass
             with self.store.ro_db() as c:
                 agent = SupervisedQuantRDAgent(c)
                 summary = agent.run_autonomous_cycle(target_segment=target_segment)

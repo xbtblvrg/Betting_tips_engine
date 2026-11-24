@@ -496,8 +496,12 @@ class CodexModelSynthesizer:
                 if distilled_matches:
                     sample_ctx_chk = get_default_segment_context(league, scope)
                     wagers_chk = self.trainer._fetch_settled_wagers(league, scope, family)
-                    split_chk = max(5, int(len(wagers_chk) * 0.75))
-                    oos_chk = wagers_chk[split_chk:] if len(wagers_chk) >= 10 else wagers_chk
+                    if len(wagers_chk) > 500:
+                        wagers_chk = wagers_chk[-500:]
+                    split_chk = max(5, int(len(wagers_chk) * 0.60))
+                    oos_chk = wagers_chk[split_chk:] if len(wagers_chk) >= 15 else wagers_chk
+                    if len(oos_chk) < 10 and len(wagers_chk) >= 15:
+                        oos_chk = wagers_chk[max(5, len(wagers_chk) - 10):]
 
                     best_candidate_tuple = None
                     best_oos_score = -999.0
@@ -1020,10 +1024,14 @@ class {class_name}(BaseCandidateModel):
             f"   - Quant Primitives in Execution Scope (pre-loaded, no import needed):\n"
             f"     All standard mathematical helpers, numerical distribution solvers, empirical score lattices, and state trackers are loaded into scope.\n"
             f"     You are NOT constrained to any specific tool: formulate custom equations, probability distributions, or composite architectures independently from first principles based purely on the observed data moments and sports mechanics.\n"
-            f"4. DOMAIN FEATURES: game_context provides rich situational features: 'home_expected', 'away_expected', 'home_rest_days', 'away_rest_days', 'home' attack/defense, 'away' attack/defense, weather (wind_speed, is_dome, temp), and venue.\n"
-            f"5. SAFETY BOUNDARY: Pure deterministic computation only. Do NOT import OS/process/network modules (os, sys, subprocess, socket, requests, urllib). Do NOT use __import__, eval, exec, or dynamic reflection; use standard top-level imports only.\n"
-            f"6. Constructor must take model_id='{model_id}', version='1.0.0', league='{league}', scope='{scope}', family='{family}'.\n"
-            f"7. Return ONLY valid executable Python code in your response without markdown chat filler."
+            f"4. DOMAIN FEATURES: game_context provides situational features (always read with `.get(...)` and sensible defaults, never raise KeyError/ValueError on optional keys): 'league', 'scope', 'score_scope', 'home_expected', 'away_expected', 'baseline_home', 'baseline_away', 'home_rest_days', 'away_rest_days', 'home' attack/defense, 'away' attack/defense, 'spread_line', 'home_handicap', 'total_line', weather (wind_speed, is_dome, temp), and venue.\n"
+            f"5. STATELESS READY-TO-EVALUATE INTERFACE & <50ms LATENCY GATE (CRITICAL):\n"
+            f"   - The validator instantiates `{model_id}` and IMMEDIATELY calls `predict_distribution(sample_context)` 5 times without calling `.fit()` or loading external calibration files. NEVER raise ValueError requiring prior `.fit()` or external calibration artifacts; initialize valid default parameters in `__init__`.\n"
+            f"   - Average execution time of `predict_distribution` MUST be `< 50ms` (hard rejection above `500ms`). Use closed-form analytical math or vectorized `numpy` array operations; NEVER write slow Python nested loops over large score grids or multi-thousand-iteration Python simulation loops.\n"
+            f"   - Rely on inherited `BaseCandidateModel.evaluate_market` (do not override `evaluate_market` in ways that break `[0.01, 0.99]` probability bounds or `round(prob * odds - 1.0, 4)` EV semantics).\n"
+            f"6. SAFETY BOUNDARY: Pure deterministic computation only. Do NOT import OS/process/network modules (os, sys, subprocess, socket, requests, urllib). Do NOT use __import__, eval, exec, or dynamic reflection; use standard top-level imports only.\n"
+            f"7. Constructor must take model_id='{model_id}', version='1.0.0', league='{league}', scope='{scope}', family='{family}'.\n"
+            f"8. Return ONLY valid executable Python code in your response without markdown chat filler."
         )
 
         try:
@@ -1194,10 +1202,14 @@ class {class_name}(BaseCandidateModel):
             f"   - Quant Primitives in Execution Scope (pre-loaded, no import needed):\n"
             f"     All standard mathematical helpers, numerical distribution solvers, empirical score lattices, and state trackers are loaded into scope.\n"
             f"     You are NOT constrained to any specific tool: formulate custom equations, probability distributions, or composite architectures independently from first principles based purely on the observed data moments and sports mechanics.\n"
-            f"4. DOMAIN FEATURES: game_context provides rich situational features: 'home_expected', 'away_expected', 'home_rest_days', 'away_rest_days', 'home' attack/defense, 'away' attack/defense, weather (wind_speed, is_dome, temp), and venue.\n"
-            f"5. SAFETY BOUNDARY: Pure deterministic computation only. Do NOT import OS/process/network modules (os, sys, subprocess, socket, requests, urllib). Do NOT use __import__, eval, exec, or dynamic reflection; use standard top-level imports only.\n"
-            f"6. Constructor must take model_id='{model_id}', version='1.0.0', league='{league}', scope='{scope}', family='{family}'.\n"
-            f"7. CRITICAL HEADLESS INSTRUCTION: You are executing in non-interactive batch generation mode.\n"
+            f"4. DOMAIN FEATURES: game_context provides situational features (always read with `.get(...)` and sensible defaults, never raise KeyError/ValueError on optional keys): 'league', 'scope', 'score_scope', 'home_expected', 'away_expected', 'baseline_home', 'baseline_away', 'home_rest_days', 'away_rest_days', 'home' attack/defense, 'away' attack/defense, 'spread_line', 'home_handicap', 'total_line', weather (wind_speed, is_dome, temp), and venue.\n"
+            f"5. STATELESS READY-TO-EVALUATE INTERFACE & <50ms LATENCY GATE (CRITICAL):\n"
+            f"   - The validator instantiates `{model_id}` and IMMEDIATELY calls `predict_distribution(sample_context)` 5 times without calling `.fit()` or loading external calibration files. NEVER raise ValueError requiring prior `.fit()` or external calibration artifacts; initialize valid default parameters in `__init__`.\n"
+            f"   - Average execution time of `predict_distribution` MUST be `< 50ms` (hard rejection above `500ms`). Use closed-form analytical math or vectorized `numpy` array operations; NEVER write slow Python nested loops over large score grids or multi-thousand-iteration Python simulation loops.\n"
+            f"   - Rely on inherited `BaseCandidateModel.evaluate_market` (do not override `evaluate_market` in ways that break `[0.01, 0.99]` probability bounds or `round(prob * odds - 1.0, 4)` EV semantics).\n"
+            f"6. SAFETY BOUNDARY: Pure deterministic computation only. Do NOT import OS/process/network modules (os, sys, subprocess, socket, requests, urllib). Do NOT use __import__, eval, exec, or dynamic reflection; use standard top-level imports only.\n"
+            f"7. Constructor must take model_id='{model_id}', version='1.0.0', league='{league}', scope='{scope}', family='{family}'.\n"
+            f"8. CRITICAL HEADLESS INSTRUCTION: You are executing in non-interactive batch generation mode.\n"
             f"   - Do NOT output XML tags, tool invocations (<invoke>), or conversational preface.\n"
             f"   - Start directly with standard Python imports and the candidate class.\n"
             f"   - Return ONLY the executable Python code enclosed in ```python ... ```."
@@ -1760,23 +1772,9 @@ class {cls_3}(BaseCandidateModel):
         val_passed, val_errors = validate_candidate_model(model_instance, ctx)
         if not val_passed:
             fail_reason = f"Pre-flight failed: {'; '.join(val_errors)}"
-            record = SynthesizedModelRecord(
-                model_id=model_id,
-                segment_key=canonical_seg,
-                class_name=found_class,
-                source_code=source_code,
-                generator_provider=provider,
-                rationale=rationale,
-                syntax_valid=True,
-                safety_valid=True,
-                validation_passed=False,
-                validation_errors=val_errors,
-                failure_reason=fail_reason
-            )
-            self._append_log(record)
             try:
                 fb_rec = AIFeedbackRecord(
-                    id=f"synth_{model_id}",
+                    id=f"synth_preflight_{model_id}",
                     segment_key=canonical_seg,
                     league=league,
                     scope=scope,
@@ -1798,13 +1796,54 @@ class {cls_3}(BaseCandidateModel):
                 self.feedback_manager.record_synthesis_attempt(fb_rec)
             except Exception as e_fb:
                 log.debug("[SYNTH-FEEDBACK] Failed to record preflight failure feedback for %s: %s", model_id, e_fb)
-            return record
+
+            # Attempt fast fallback via Distilled/Algorithmic Archetype so OOS Crucible still screens this segment
+            rescued = False
+            if not force_archetype:
+                try:
+                    fb_code, fb_cls, fb_rat = self._generate_algorithmic_archetype(
+                        league, scope, family, model_id, autopsy=autopsy
+                    )
+                    fb_safe, fb_found, _ = check_ast_safety(fb_code)
+                    if fb_safe and fb_found:
+                        fb_inst = instantiate_synthesized_class(
+                            fb_code, fb_found, model_id=model_id, league=league, scope=scope, family=family
+                        )
+                        fb_ok, _ = validate_candidate_model(fb_inst, ctx)
+                        if fb_ok:
+                            source_code, found_class, rationale = fb_code, fb_found, fb_rat
+                            provider = "algorithmic_codex_engine"
+                            model_instance = fb_inst
+                            rescued = True
+                except Exception:
+                    rescued = False
+
+            if not rescued:
+                record = SynthesizedModelRecord(
+                    model_id=model_id,
+                    segment_key=canonical_seg,
+                    class_name=found_class,
+                    source_code=source_code,
+                    generator_provider=provider,
+                    rationale=rationale,
+                    syntax_valid=True,
+                    safety_valid=True,
+                    validation_passed=False,
+                    validation_errors=val_errors,
+                    failure_reason=fail_reason
+                )
+                self._append_log(record)
+                return record
 
         # 5. Out-of-Sample Walk-Forward Crucible & Multi-Hypothesis Evolutionary Tournament
         validation_errors: List[str] = []
         wagers = self.trainer._fetch_settled_wagers(league, scope, family)
-        split_idx = max(5, int(len(wagers) * 0.75))
-        oos_wagers = wagers[split_idx:] if len(wagers) >= 10 else wagers
+        if len(wagers) > 500:
+            wagers = wagers[-500:]
+        split_idx = max(5, int(len(wagers) * 0.60))
+        oos_wagers = wagers[split_idx:] if len(wagers) >= 15 else wagers
+        if len(oos_wagers) < 10 and len(wagers) >= 15:
+            oos_wagers = wagers[max(5, len(wagers) - 10):]
 
         primary_metrics = self._evaluate_candidate_hypothesis_on_oos(
             canonical_seg, model_instance, ctx, oos_wagers, family

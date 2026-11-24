@@ -322,3 +322,36 @@ def test_historical_trainer_rescales_cross_scope_lines_by_exact_scope_ratio(tmp_
 
     # full_game 45.0 * (0.50/1.00) = 22.5; half_1 22.5 * (0.50/0.50) = 22.5; quarter_1 10.5 * (0.50/0.25) = 21.0
     assert rescaled_lines == [22.5, 22.5, 21.0]
+
+
+def test_validator_scales_total_line_to_nba_context_and_provides_scope_handicap_keys():
+    from betting_engine.historical_trainer import get_default_segment_context
+    from betting_engine.sandbox_models.base import BaseCandidateModel, DiscreteDistribution
+    from betting_engine.sandbox_models.validator import validate_candidate_model
+
+    ctx = get_default_segment_context('NBA', 'half_2')
+    assert ctx['score_scope'] == 'half_2'
+    assert ctx['scope'] == 'half_2'
+    assert ctx['home_handicap'] == -1.5
+
+    class StrictScopeNBAModel(BaseCandidateModel):
+        def __init__(self):
+            super().__init__(model_id='m_nba_h2', version='1.0.0', league='NBA', scope='half_2', family='totals')
+
+        def predict_distribution(self, game_context):
+            if game_context.get('score_scope') != 'half_2':
+                raise ValueError("Explicit score_scope='half_2' is required.")
+            if 'home_handicap' not in game_context:
+                raise ValueError("home_handicap is required.")
+            return DiscreteDistribution.from_scores({(56, 54): 0.52, (53, 55): 0.48})
+
+        def evaluate_market(self, market, selection, line, odds, game_context, side=None):
+            dist = self.predict_distribution(game_context)
+            if market == 'totals':
+                # Without clamping, static line=5.5 on 110-point NBA half would give p=1.0 and fail [0.01, 0.99]!
+                p = sum(prob for (h, a), prob in dist.scores.items() if (h + a) > float(line))
+                return p, round(p * odds - 1.0, 4)
+            return super().evaluate_market(market, selection, line, odds, game_context, side=side)
+
+    ok, errs = validate_candidate_model(StrictScopeNBAModel(), ctx)
+    assert ok is True, f"Expected pre-flight pass on NBA half_2 model, got: {errs}"
