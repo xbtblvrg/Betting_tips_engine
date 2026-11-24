@@ -1,13 +1,13 @@
 # Live Stake market coverage
 
-Checked: 2026-11-24T18:06:36.639372+00:00
+Checked: 2026-11-24T18:24:10.643614+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
 | League | Observed titles | Activity unverified | Offered now | Complete 10/10 | Incomplete offered | Evaluated | Funding supported | Ready now | Issued today |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | NFL | 71 | 1 | 45 | 0 | 45 | 30 | 7 | 0 | 1 |
-| NHL | 52 | 5 | 40 | 0 | 40 | 22 | 2 | 1 | 2 |
+| NHL | 52 | 5 | 40 | 0 | 40 | 21 | 2 | 1 | 2 |
 | MLB | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | NBA | 119 | 3 | 92 | 0 | 92 | 51 | 7 | 4 | 10 |
 | WNBA | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
@@ -132,7 +132,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | Will There be Overtime | standard | regulation | offered_now | 7/10 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Winner & Total (Incl. Overtime) | standard | full_game | offered_now | 0/10 | not_observed 0/12 | not_observed 0/12 | not_observed 0/12 | not_observed 0/12 | not_observed 0/12 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Winner (Incl. Overtime) | standard | full_game | offered_now | 7/10 | verified 14/14 | verified 14/14 | verified 14/14 | verified 14/14 | verified 14/14 | verified 14/14 | verified 14/14 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NBA | match rebounds | swishMarkets.matchProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/84 | activity_unverified 0/84 | activity_unverified 0/84 | activity_unverified 0/84 | activity_unverified 0/84 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NBA | match rebounds | swishMarkets.matchProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/92 | activity_unverified 0/92 | activity_unverified 0/92 | activity_unverified 0/92 | activity_unverified 0/92 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | first scorer | swishMarkets.playerProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/244 | activity_unverified 0/244 | activity_unverified 0/244 | activity_unverified 0/244 | activity_unverified 0/244 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | team turnovers | swishMarkets.teamProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/44 | activity_unverified 0/44 | activity_unverified 0/44 | activity_unverified 0/44 | activity_unverified 0/44 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 1st Half - 1x2 | standard | half_1 | offered_now | 0/10 | not_observed 0/12 | not_observed 0/12 | not_observed 0/12 | not_observed 0/12 | not_observed 0/12 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
@@ -216,7 +216,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NHL | 1st Period - Last Team to Score | standard | period_1 | offered_now | 0/10 | not_observed 0/3 | not_observed 0/3 | not_observed 0/3 | not_observed 0/3 | not_observed 0/3 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 1st Period - Odd/Even | standard | period_1 | offered_now | 1/10 | not_observed 0/2 | verified 2/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 1st Period - Total | standard | period_1 | offered_now | 9/10 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 38/38 | verified 37/37 | partial 37/38 | 1 |
-| NHL | 1x2 | standard | regulation | offered_now | 3/10 | partial 1/3 | verified 3/3 | partial 1/3 | partial 1/3 | partial 1/3 | verified 1/1 | verified 1/1 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NHL | 1x2 | standard | regulation | offered_now | 1/10 | not_observed 0/3 | verified 3/3 | not_observed 0/3 | not_observed 0/3 | not_observed 0/3 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 1x2 & Total | standard | regulation | offered_now | 1/10 | not_observed 0/6 | verified 6/6 | partial 4/6 | partial 4/6 | not_observed 0/6 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 2nd Period - 1st Goal | standard | period_2 | offered_now | 0/10 | not_observed 0/3 | not_observed 0/3 | not_observed 0/3 | not_observed 0/3 | not_observed 0/3 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 2nd Period - 1x2 | standard | period_2 | offered_now | 7/10 | verified 3/3 | verified 3/3 | verified 3/3 | verified 3/3 | verified 3/3 | verified 3/3 | verified 3/3 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
