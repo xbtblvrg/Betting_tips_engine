@@ -305,13 +305,17 @@ class PolymarketAutonomousRunner:
         title: str,
         tips: List[Dict[str, Any]],
         return_failure_reason: bool = False,
+        event_start: str = "",
     ) -> Any:
         """Matches a Polymarket event against calibrated domain model tips.
 
-        Guarantees strict separation between 2-way Moneyline (incl. OT) and 3-way
-        regulation, and strictly avoids taking totals/spreads probabilities as home_prob.
+        Enforces strict bipartite two-team matching (eliminating shared-word cross-game leaks
+        such as 'Los Angeles', 'Texas', 'State', 'United', 'City'), expands standard college/pro
+        acronyms (TCU, LSU, USC, BYU, UCF, UConn, Ole Miss, Pitt, etc.), checks kickoff time
+        proximity when present, and normalizes projected points strictly to full-game scale.
         """
         import math
+        import unicodedata, re
 
         league_up = (league or "").strip().upper()
         allowed_leagues = {league_up}
@@ -326,8 +330,6 @@ class PolymarketAutonomousRunner:
         if not league_tips:
             return (None, "no_domain_tips_for_league") if return_failure_reason else None
 
-        import unicodedata, re
-
         def _clean_str(s: str) -> str:
             if not s:
                 return ""
@@ -337,9 +339,45 @@ class PolymarketAutonomousRunner:
             return ' '.join(norm.split())
 
         STOPWORDS = {
-            'state', 'saint', 'north', 'south', 'east', 'west', 'city',
+            'state', 'saint', 'north', 'south', 'east', 'west', 'central',
+            'northern', 'southern', 'eastern', 'western', 'city', 'university', 'college',
             'united', 'real', 'club', 'town', 'athletic', 'sporting', 'inter',
-            'fc', 'cf', 'sc', 'ac', 'as', 'afc', 'rb'
+            'fc', 'cf', 'sc', 'ac', 'as', 'afc', 'rb', 'los', 'las', 'san', 'new',
+        }
+
+        ACRONYM_SYNONYMS: Dict[str, Tuple[str, ...]] = {
+            'tcu': ('texas christian', 'horned frogs'),
+            'texas christian': ('tcu',),
+            'lsu': ('louisiana state',),
+            'louisiana state': ('lsu',),
+            'usc': ('southern california', 'trojans'),
+            'southern california': ('usc',),
+            'ucf': ('central florida',),
+            'central florida': ('ucf',),
+            'byu': ('brigham young',),
+            'brigham young': ('byu',),
+            'smu': ('southern methodist',),
+            'southern methodist': ('smu',),
+            'uconn': ('connecticut',),
+            'connecticut': ('uconn',),
+            'umass': ('massachusetts',),
+            'massachusetts': ('umass',),
+            'ole miss': ('mississippi rebels', 'mississippi'),
+            'pitt': ('pittsburgh',),
+            'pittsburgh': ('pitt',),
+            'vcu': ('virginia commonwealth',),
+            'virginia commonwealth': ('vcu',),
+            'unlv': ('nevada las vegas', 'rebels'),
+            'utep': ('texas el paso',),
+            'utsa': ('texas san antonio',),
+            'fau': ('florida atlantic',),
+            'florida atlantic': ('fau',),
+            'fiu': ('florida international',),
+            'florida international': ('fiu',),
+            'uab': ('alabama birmingham',),
+            'alabama birmingham': ('uab',),
+            'nc state': ('north carolina state', 'wolfpack'),
+            'north carolina state': ('nc state',),
         }
 
         def _name_variants(s: str) -> Set[str]:
@@ -351,50 +389,97 @@ class PolymarketAutonomousRunner:
                 parts = [_clean_str(p) for p in str(s).split(',') if p.strip()]
                 if len(parts) == 2:
                     variants.add(f"{parts[1]} {parts[0]}")
+            for k_syn, vals in ACRONYM_SYNONYMS.items():
+                if cleaned == k_syn or f" {k_syn} " in f" {cleaned} " or cleaned.startswith(f"{k_syn} ") or cleaned.endswith(f" {k_syn}"):
+                    for v_syn in vals:
+                        variants.add(v_syn)
+                        for tok_s in v_syn.split():
+                            if len(tok_s) >= 3 and tok_s not in STOPWORDS:
+                                variants.add(tok_s)
             for token in cleaned.split():
-                if len(token) >= 4 and token not in STOPWORDS:
+                if len(token) >= 3 and token not in STOPWORDS:
                     variants.add(token)
             return variants
 
-        t_variants: Set[str] = set()
         poly_home_team = None
         poly_away_team = None
-        poly_home_vars: Set[str] = set()
-        poly_away_vars: Set[str] = set()
+        poly_side_1_vars: Set[str] = set()
+        poly_side_2_vars: Set[str] = set()
+        ordered_team_vars: List[Set[str]] = []
         for t in teams:
             if isinstance(t, dict):
                 n_str = t.get("name") or ""
                 a_str = t.get("alias") or ""
+                ab_str = _clean_str(t.get("abbreviation") or "")
                 vars_t = _name_variants(n_str) | _name_variants(a_str)
-                t_variants |= vars_t
+                if len(ab_str) >= 3 and ab_str not in STOPWORDS:
+                    vars_t.add(ab_str)
+                if vars_t:
+                    ordered_team_vars.append(vars_t)
                 if t.get("ordering") == "home":
                     poly_home_team = n_str or a_str
-                    poly_home_vars = vars_t
+                    poly_side_1_vars |= vars_t
                 elif t.get("ordering") == "away":
                     poly_away_team = n_str or a_str
-                    poly_away_vars = vars_t
-        t_abbr = [_clean_str(t.get("abbreviation", "")) for t in teams if isinstance(t, dict) and t.get("abbreviation")]
-        t_abbr = [ab for ab in t_abbr if len(ab) >= 2]
-        
-        # Extract base matchup title, resolving tournament prefixes and derivative suffixes
+                    poly_side_2_vars |= vars_t
+
+        if not poly_side_1_vars and not poly_side_2_vars and len(ordered_team_vars) == 2:
+            poly_side_1_vars, poly_side_2_vars = ordered_team_vars[0], ordered_team_vars[1]
+
+        # Extract base matchup title and split strictly on vs / v / @ into two distinct team sides
         matchup_title = title or ""
         if ":" in matchup_title:
             parts = [p.strip() for p in matchup_title.split(":") if p.strip()]
             for p in parts:
-                if " vs" in p.lower() or " v " in p.lower():
+                if re.search(r'\b(?:vs\.?|v\.?|at)\b|@', p, flags=re.IGNORECASE):
                     matchup_title = p
                     break
         if " - " in matchup_title:
             parts = [p.strip() for p in matchup_title.split(" - ") if p.strip()]
             for p in parts:
-                if " vs" in p.lower() or " v " in p.lower():
+                if re.search(r'\b(?:vs\.?|v\.?|at)\b|@', p, flags=re.IGNORECASE):
                     matchup_title = p
                     break
+
+        split_sides = re.split(r'\s+(?:vs\.?|v\.?|@|at)\s+', matchup_title, maxsplit=1, flags=re.IGNORECASE)
+        if len(split_sides) == 2:
+            title_s1_vars = _name_variants(split_sides[0])
+            title_s2_vars = _name_variants(split_sides[1])
+            if not poly_side_1_vars and not poly_side_2_vars:
+                poly_side_1_vars, poly_side_2_vars = title_s1_vars, title_s2_vars
+            else:
+                if poly_side_1_vars & title_s2_vars and not (poly_side_1_vars & title_s1_vars):
+                    poly_side_1_vars |= title_s2_vars
+                    poly_side_2_vars |= title_s1_vars
+                else:
+                    poly_side_1_vars |= title_s1_vars
+                    poly_side_2_vars |= title_s2_vars
+
+        s1_uniq = poly_side_1_vars - poly_side_2_vars if (poly_side_1_vars and poly_side_2_vars) else poly_side_1_vars
+        s2_uniq = poly_side_2_vars - poly_side_1_vars if (poly_side_1_vars and poly_side_2_vars) else poly_side_2_vars
+
+        ev_dt = None
+        if event_start:
+            try:
+                ev_dt = datetime.fromisoformat(str(event_start).replace("Z", "+00:00"))
+            except Exception:
+                ev_dt = None
+
+        def _side_matches(cand_uniq: Set[str], cand_clean: str, poly_uniq: Set[str]) -> bool:
+            if not cand_uniq or not poly_uniq:
+                return False
+            if cand_uniq & poly_uniq:
+                return True
+            padded_cand = f" {cand_clean} "
+            for pv in poly_uniq:
+                if len(pv) >= 4 and (pv in cand_clean.split() or f" {pv} " in padded_cand):
+                    return True
+            return False
 
         title_cleaned = _clean_str(f"{matchup_title} {title}")
         title_tokens = set(title_cleaned.split())
 
-        matched_tips = []
+        scored_tips: List[Tuple[float, Dict[str, Any]]] = []
         for tip in league_tips:
             h_raw = tip.get("home", "")
             a_raw = tip.get("away", "")
@@ -402,31 +487,39 @@ class PolymarketAutonomousRunner:
             a_clean = _clean_str(a_raw)
             h_vars = _name_variants(h_raw)
             a_vars = _name_variants(a_raw)
+            h_uniq = (h_vars - a_vars) or h_vars
+            a_uniq = (a_vars - h_vars) or a_vars
 
-            h_match = (
-                bool(h_vars & poly_home_vars)
-                or any(v in h_clean for v in poly_home_vars if len(v) >= 3)
-                or any(v in h_clean for v in t_variants if len(v) >= 3)
-                or any(ab in h_clean.split() for ab in t_abbr)
-                or (h_clean and h_clean in title_cleaned)
-                or bool(h_vars & title_tokens)
-                or any(v in title_cleaned for v in h_vars if len(v) >= 4 and v not in STOPWORDS)
-            )
-            a_match = (
-                bool(a_vars & poly_away_vars)
-                or any(v in a_clean for v in poly_away_vars if len(v) >= 3)
-                or any(v in a_clean for v in t_variants if len(v) >= 3)
-                or any(ab in a_clean.split() for ab in t_abbr)
-                or (a_clean and a_clean in title_cleaned)
-                or bool(a_vars & title_tokens)
-                or any(v in title_cleaned for v in a_vars if len(v) >= 4 and v not in STOPWORDS)
-            )
+            if s1_uniq and s2_uniq:
+                direct_pair = _side_matches(h_uniq, h_clean, s1_uniq) and _side_matches(a_uniq, a_clean, s2_uniq)
+                swapped_pair = _side_matches(h_uniq, h_clean, s2_uniq) and _side_matches(a_uniq, a_clean, s1_uniq)
+                is_paired = direct_pair or swapped_pair
+            else:
+                h_hit = bool(h_uniq & title_tokens) or (h_clean and h_clean in title_cleaned)
+                a_hit = bool(a_uniq & title_tokens) or (a_clean and a_clean in title_cleaned)
+                is_paired = h_hit and a_hit
 
-            if h_match and a_match:
-                matched_tips.append(tip)
+            if not is_paired:
+                continue
 
-        if not matched_tips:
+            time_diff_sec = 0.0
+            if ev_dt is not None and tip.get("start"):
+                try:
+                    t_dt = datetime.fromisoformat(str(tip["start"]).replace("Z", "+00:00"))
+                    time_diff_sec = abs((t_dt - ev_dt).total_seconds())
+                    if time_diff_sec > 18 * 3600:
+                        continue
+                except Exception:
+                    time_diff_sec = 0.0
+
+            scored_tips.append((time_diff_sec, tip))
+
+        if not scored_tips:
             return (None, "team_names_unmatched") if return_failure_reason else None
+
+        scored_tips.sort(key=lambda pair: (pair[0], 0 if pair[1].get("model_scope") in ("full_game", None, "") else 1))
+        min_dt_diff = scored_tips[0][0]
+        matched_tips = [t for diff_s, t in scored_tips if diff_s <= min_dt_diff + 3 * 3600]
 
         # Filter out quarantined / demoted tips to prevent leaking unvalidated/degraded model forecasts
         active_tips = [
@@ -439,15 +532,24 @@ class PolymarketAutonomousRunner:
             return (None, "tips_quarantined_or_demoted") if return_failure_reason else None
         matched_tips = active_tips
 
-        # Extract projected points from matching tips
+        # Extract projected points strictly normalized to full_game scale (preferring full_game tips first)
         proj_h = None
         proj_a = None
         home_name = ""
         away_name = ""
-        for tip in matched_tips:
+        fg_first = sorted(matched_tips, key=lambda t: 0 if t.get("model_scope") in ("full_game", None, "") else 1)
+        for tip in fg_first:
             if tip.get("predicted_home_points") is not None and tip.get("predicted_away_points") is not None:
-                proj_h = float(tip["predicted_home_points"])
-                proj_a = float(tip["predicted_away_points"])
+                raw_ph = float(tip["predicted_home_points"])
+                raw_pa = float(tip["predicted_away_points"])
+                t_sc = str(tip.get("model_scope") or "full_game").lower().strip()
+                if t_sc not in ("full_game", "full", "match", "game", "regular", ""):
+                    w_sc, _ = self.line_evaluator._get_period_scaling(league_up, t_sc)
+                    if 0.05 < w_sc < 0.99:
+                        raw_ph = raw_ph / w_sc
+                        raw_pa = raw_pa / w_sc
+                proj_h = raw_ph
+                proj_a = raw_pa
                 home_name = tip.get("home", "")
                 away_name = tip.get("away", "")
                 break
@@ -725,6 +827,7 @@ class PolymarketAutonomousRunner:
                 title=title,
                 tips=domain_tips,
                 return_failure_reason=True,
+                event_start=start_str,
             )
             if forecast is None and fc_fail_reason:
                 unmatched_events.append({
@@ -878,11 +981,6 @@ class PolymarketAutonomousRunner:
                                 "reason": f"Extreme alternate total line {line_val} on {title} exceeds Gaussian shift bounds. Formulate calibrated discrete tail distribution from first principles for tail pricing.",
                             })
                     elif forecast and family == "spreads" and line_val is not None:
-                        # Outcome spread handicap:
-                        # Polymarket defines line_val for Outcome 0 (Named Team in question).
-                        # Outcome 1 (Opponent) receives the inverse handicap (-line_val).
-                        outcome_spread = float(line_val) if idx == 0 else -float(line_val)
-
                         is_home = resolve_polymarket_outcome_is_home(
                             outcome_label=outcome_label,
                             question=q or "",
@@ -890,6 +988,19 @@ class PolymarketAutonomousRunner:
                             away_name=forecast.get("away_name") or "",
                             idx=idx,
                         )
+                        # Verify which side the question's line_val ("Spread: <Subject> (-5.5)") refers to,
+                        # so even if Polymarket reverses outcomes[] order, the handicap sign stays exact!
+                        subject_is_home = resolve_polymarket_outcome_is_home(
+                            outcome_label="yes",
+                            question=q or "",
+                            home_name=forecast.get("home_name") or "",
+                            away_name=forecast.get("away_name") or "",
+                            idx=0,
+                        )
+                        if (q or "").strip() and (forecast.get("home_name") or forecast.get("away_name")):
+                            outcome_spread = float(line_val) if (is_home == subject_is_home) else -float(line_val)
+                        else:
+                            outcome_spread = float(line_val) if idx == 0 else -float(line_val)
 
                         proj_h = forecast.get("proj_home")
                         proj_a = forecast.get("proj_away")

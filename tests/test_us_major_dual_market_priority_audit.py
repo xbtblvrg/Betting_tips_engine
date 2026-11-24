@@ -695,3 +695,73 @@ def test_resolve_polymarket_outcome_is_home_eliminates_shared_word_side_inversio
         'Knicks', 'Spread: Knicks (-6.5)',
         'New York Knicks', 'New Orleans Pelicans', idx=0
     ) is True
+
+
+def test_polymarket_bipartite_event_pairing_acronyms_kickoff_and_period_scale(tmp_path):
+    from betting_engine.polymarket_executor import PolymarketAutonomousExecutor
+    from betting_engine.polymarket_runner import PolymarketAutonomousRunner
+
+    runner = PolymarketAutonomousRunner(executor=PolymarketAutonomousExecutor(db_path=tmp_path / 'engine.sqlite3'))
+
+    # 1. Shared 'Los Angeles' must NEVER match Clippers vs Lakers to 'Los Angeles Lakers vs. Phoenix Suns'
+    nba_tips = [
+        {
+            'league': 'NBA', 'home': 'Los Angeles Clippers', 'away': 'Los Angeles Lakers',
+            'start': '2026-11-25T03:00:00Z', 'model_scope': 'full_game', 'market': 'spreads',
+            'predicted_home_points': 115.0, 'predicted_away_points': 110.0,
+        },
+        {
+            'league': 'NBA', 'home': 'Phoenix Suns', 'away': 'Los Angeles Lakers',
+            'start': '2026-11-26T03:00:00Z', 'model_scope': 'full_game', 'market': 'spreads',
+            'predicted_home_points': 118.0, 'predicted_away_points': 111.0,
+        },
+    ]
+    fc_nba = runner._lookup_game_forecast(
+        league='NBA', teams=[], title='Los Angeles Lakers vs. Phoenix Suns',
+        tips=nba_tips, event_start='2026-11-26T03:00:00Z',
+    )
+    assert fc_nba is not None
+    assert fc_nba['home_name'] == 'Phoenix Suns'
+    assert fc_nba['away_name'] == 'Los Angeles Lakers'
+
+    # 2. 'TCU vs. Texas Tech' must match Texas Christian Horned Frogs, NOT Texas Longhorns vs Texas Tech
+    ncaaf_tips = [
+        {
+            'league': 'NCAAF', 'home': 'Texas Longhorns', 'away': 'Texas Tech Red Raiders',
+            'start': '2026-11-25T20:00:00Z', 'model_scope': 'full_game', 'market': 'spreads',
+            'predicted_home_points': 34.0, 'predicted_away_points': 20.0,
+        },
+        {
+            'league': 'NCAAF', 'home': 'Texas Christian Horned Frogs', 'away': 'Texas Tech Red Raiders',
+            'start': '2026-11-25T20:00:00Z', 'model_scope': 'full_game', 'market': 'spreads',
+            'predicted_home_points': 28.0, 'predicted_away_points': 31.0,
+        },
+    ]
+    fc_cfb = runner._lookup_game_forecast(
+        league='NCAAF', teams=[], title='TCU vs. Texas Tech',
+        tips=ncaaf_tips, event_start='2026-11-25T20:00:00Z',
+    )
+    assert fc_cfb is not None
+    assert fc_cfb['home_name'] == 'Texas Christian Horned Frogs'
+    assert fc_cfb['proj_home'] == 28.0
+
+    # 3. Consecutive-night series between identical teams selects exact kickoff window; period-only tip rescales to full_game
+    series_tips = [
+        {
+            'league': 'NBA', 'home': 'Boston Celtics', 'away': 'Miami Heat',
+            'start': '2026-11-24T00:30:00Z', 'model_scope': 'full_game', 'market': 'spreads',
+            'predicted_home_points': 120.0, 'predicted_away_points': 102.0,
+        },
+        {
+            'league': 'NBA', 'home': 'Boston Celtics', 'away': 'Miami Heat',
+            'start': '2026-11-26T00:30:00Z', 'model_scope': 'quarter_1', 'market': 'quarter_1:spreads',
+            'predicted_home_points': 24.5, 'predicted_away_points': 26.95,  # 0.245 * (100 vs 110)
+        },
+    ]
+    fc_g2 = runner._lookup_game_forecast(
+        league='NBA', teams=[], title='Celtics vs. Heat',
+        tips=series_tips, event_start='2026-11-26T00:30:00Z',
+    )
+    assert fc_g2 is not None
+    assert abs(fc_g2['proj_home'] - 100.0) < 0.2
+    assert abs(fc_g2['proj_away'] - 110.0) < 0.2
