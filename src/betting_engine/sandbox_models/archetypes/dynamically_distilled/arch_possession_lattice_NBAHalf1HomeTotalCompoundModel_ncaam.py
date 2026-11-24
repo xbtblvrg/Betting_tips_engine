@@ -93,7 +93,7 @@ class NBAHalf1HomeTotalCompoundModel(BaseCandidateModel):
 
     def __init__(
         self,
-        model_id: str = "codex_synth_ncaam_full_game_1119_103203",
+        model_id: str = "codex_synth_ncaam_full_game_1123_235145",
         version: str = "1.0.0",
         league: str = "NBA",
         scope: str = "half_1",
