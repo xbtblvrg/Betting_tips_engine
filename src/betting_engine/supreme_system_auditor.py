@@ -741,6 +741,23 @@ class SupremeSystemAuditor:
         from .verbose_logger import get_verbose_logger
 
         vl = get_verbose_logger(self.data_dir)
+        rel_chk = str(target_path.relative_to(self.root)) if str(target_path).startswith(str(self.root)) else str(target_path)
+        try:
+            from .native_test_protocol import PINNED, COPY_SOURCE
+            pinned_guard = set(PINNED) | {
+                'src/betting_engine/development.py',
+                'src/betting_engine/native_test_protocol.py',
+                COPY_SOURCE,
+            }
+            if rel_chk in pinned_guard:
+                return {
+                    'status': 'deferred_pinned_boundary',
+                    'file': rel_chk,
+                    'reason': f"File {rel_chk} is cryptographically pinned by native_test_protocol; auto-patch skipped to preserve boundary SHA-256.",
+                }
+        except Exception:
+            pass
+
         delegation_cfg_path = self.root / 'config/ai_delegation.json'
         if not delegation_cfg_path.exists():
             return {'status': 'unresolved', 'reason': 'config/ai_delegation.json missing'}

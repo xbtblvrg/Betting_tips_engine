@@ -84,8 +84,23 @@ class JsonlLogHandler(logging.Handler):
                 entry["event_type"] = str(record.event_type)
 
             line = json.dumps(entry, ensure_ascii=False) + "\n"
-            with open(self.filepath, "a", encoding="utf-8") as f:
-                f.write(line)
+            with _LOCK:
+                if self.max_bytes > 0 and self.filepath.exists():
+                    try:
+                        if self.filepath.stat().st_size >= self.max_bytes:
+                            for idx in range(3, 0, -1):
+                                src_rot = Path(f"{self.filepath}.{idx}")
+                                dst_rot = Path(f"{self.filepath}.{idx + 1}")
+                                if src_rot.exists():
+                                    if idx == 3:
+                                        src_rot.unlink(missing_ok=True)
+                                    else:
+                                        src_rot.replace(dst_rot)
+                            self.filepath.replace(Path(f"{self.filepath}.1"))
+                    except OSError:
+                        pass
+                with open(self.filepath, "a", encoding="utf-8") as f:
+                    f.write(line)
 
             # Real-Time Log-Triggered AI Self-Healing Loop:
             # Intercept ERROR/CRITICAL records or tracebacks from betting_engine and enqueue
