@@ -8,13 +8,13 @@ class EvoResidualLatticeCrossover_NBA_full_game(BaseCandidateModel):
 
     def __init__(
         self,
-        model_id: str = "codex_synth_nba_full_game_1124_035208",
+        model_id: str = "codex_synth_nba_full_game_1124_223950",
         version: str = "2.0.0",
         league: str = "NBA",
         scope: str = "full_game",
         family: str = "totals",
-        home_drift: float = 1.0193,
-        away_drift: float = 1.0193,
+        home_drift: float = 1.0,
+        away_drift: float = 1.0,
         dispersion_alpha: float = 0.12,
         metadata: Optional[Dict[str, Any]] = None,
     ):

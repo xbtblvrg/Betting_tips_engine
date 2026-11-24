@@ -9,7 +9,7 @@ class NegativeBinomialHurdleModel_NBA_full_game(BaseCandidateModel):
 
     def __init__(
         self,
-        model_id: str = "codex_synth_nba_full_game_1124_181719",
+        model_id: str = "codex_synth_nba_full_game_1124_222750",
         version: str = "1.0.0",
         league: str = "NBA",
         scope: str = "full_game",

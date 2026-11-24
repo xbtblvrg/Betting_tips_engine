@@ -433,6 +433,10 @@ class AIArchetypeDeveloperAgent:
                            MAX(oos_simulated_roi) as max_roi, MAX(oos_delta_brier) as max_brier, generator_provider
                     FROM ai_synthesis_feedback_loop
                     WHERE crucible_passed = 1 AND oos_simulated_roi >= ?
+                      AND class_name NOT LIKE 'EvoResidualLatticeCrossover_%'
+                      AND class_name NOT LIKE 'EvoSharedShockCopulaCrossover_%'
+                      AND class_name NOT LIKE 'EvoShrinkageTailRegularized_%'
+                      AND COALESCE(generator_provider, '') != 'evolutionary_crossover_engine'
                       AND model_id NOT IN (SELECT origin_model_id FROM distilled_archetype_catalog WHERE origin_model_id IS NOT NULL)
                       AND (class_name || '|' || UPPER(league)) NOT IN (
                           SELECT base_class_name || '|' || UPPER(COALESCE(json_extract(parameter_spec, '$.origin_league'), ''))

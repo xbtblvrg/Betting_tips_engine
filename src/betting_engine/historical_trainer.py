@@ -677,8 +677,13 @@ class HistoricalCandidateTrainer:
 
         # 11. Dynamic AI-Synthesized Archetypes from Registry (First-Principles Models)
         try:
-            from .dynamic_model_registry import DynamicArchetypeRegistry
-            dyn_candidates = DynamicArchetypeRegistry.get_instance().get_dynamic_candidates_for_segment(league, scope, family)
+            from .dynamic_model_registry import DynamicArchetypeRegistry, INCUBATOR_DB
+            reg_inst = (
+                DynamicArchetypeRegistry.get_instance()
+                if self.db_path.resolve() == INCUBATOR_DB.resolve()
+                else DynamicArchetypeRegistry(db_path=self.db_path)
+            )
+            dyn_candidates = reg_inst.get_dynamic_candidates_for_segment(league, scope, family)
             if dyn_candidates:
                 candidate_configs.extend(dyn_candidates)
         except Exception as e_dyn:

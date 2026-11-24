@@ -464,7 +464,7 @@ class CodexModelSynthesizer:
         self.feedback_manager = AIFeedbackLoopManager(self.data_dir)
         self.autopsy_analyzer = MarketAutopsyAnalyzer(self.data_dir / "shadow_incubator.sqlite3")
         self.brief_builder = TargetedSynthesisBriefBuilder()
-        self.registry = DynamicArchetypeRegistry(db_path=self.data_dir / "shadow_incubator.sqlite3") if (self.data_dir / "shadow_incubator.sqlite3").exists() else DynamicArchetypeRegistry.get_instance()
+        self.registry = DynamicArchetypeRegistry(db_path=self.data_dir / "shadow_incubator.sqlite3")
 
     def _append_log(self, record: SynthesizedModelRecord) -> None:
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
@@ -1611,6 +1611,7 @@ class {cls_3}(BaseCandidateModel):
         force_archetype: Optional[str] = None,
         claude_hypothesis: Optional[str] = None,
         grok_critique: Optional[str] = None,
+        allow_fast_lane: bool = True,
     ) -> SynthesizedModelRecord:
         """Synthesizes candidate mathematical models via Multi-Hypothesis Evolutionary Crossover & screens on OOS data."""
         canonical_seg = normalize_segment_key(segment_key)
@@ -1664,47 +1665,134 @@ class {cls_3}(BaseCandidateModel):
         # while evolutionary parent crossover runs strictly in the out-of-sample Walk-Forward tournament.
         autopsy = self.autopsy_analyzer.analyze_market(canonical_seg)
         parents = [] if force_archetype else self._get_evolutionary_parent_champions(league, scope, family, limit=2)
-        targeted_problem = self.brief_builder.build_targeted_prompt(autopsy, domain_problem)
 
-        # 0. Enrich with Claude domain mechanics hypothesis and Grok adversarial red-team critique if not provided
-        if not claude_hypothesis and not force_archetype:
+        # -0.5. Stage-0 Distilled AI Fast-Lane Accelerator (<50ms CPU Walk-Forward Crucible Screen BEFORE 60-90s LLM Calls):
+        # Screens compatible first-principles AI models from distilled_archetype_catalog against out-of-sample ground truth.
+        # If a proven AI archetype already passes the strict OOS Crucible on this segment (and is not already bound to it),
+        # admit it immediately without burning LLM latency; otherwise escalate to full Multi-AI First-Principles Synthesis.
+        fast_lane_winner: Optional[Tuple[str, str, str, Any]] = None
+        if allow_fast_lane and not force_archetype and self.trainer.db_path.exists():
             try:
-                claude_hypothesis = self._query_claude_for_domain_hypothesis(canonical_seg, targeted_problem)
-            except Exception as e_hypo:
-                log.debug("[SYNTH-HYPOTHESIS] Claude hypothesis generation skipped or failed for %s: %s", canonical_seg, e_hypo)
-        if not grok_critique and not force_archetype:
-            try:
-                grok_critique = self._query_grok_for_red_team_critique(canonical_seg, targeted_problem, claude_hypothesis)
-            except Exception as e_grok:
-                log.debug("[SYNTH-GROK] Grok red-team critique skipped or failed for %s: %s", canonical_seg, e_grok)
+                fast_wagers = self.trainer._fetch_settled_wagers(league, scope, family)
+                if len(fast_wagers) >= 5:
+                    if len(fast_wagers) > 500:
+                        fast_wagers = fast_wagers[-500:]
+                    f_split = max(5, int(len(fast_wagers) * 0.60))
+                    fast_oos = fast_wagers[f_split:] if len(fast_wagers) >= 15 else fast_wagers
+                    if len(fast_oos) < 10 and len(fast_wagers) >= 15:
+                        fast_oos = fast_wagers[max(5, len(fast_wagers) - 10):]
 
-        # 1. Generate Primary Candidate via Codex (with Claude 1:1 fallback, then algorithmic fallback)
-        provider = "codex"
-        codex_res = None if force_archetype else self._query_codex_for_model_code(
-            canonical_seg, targeted_problem, ctx, model_id,
-            claude_hypothesis=claude_hypothesis, grok_critique=grok_critique
-        )
-        if codex_res:
-            source_code, class_name, rationale = codex_res
-        elif not force_archetype:
-            # Fallback to Claude (1:1 identical environment) if Codex is busy/locked/unavailable
-            claude_res = self._query_claude_for_model_code(
+                    already_bound_cls: set[str] = set()
+                    try:
+                        with sqlite3.connect(f"file:{self.trainer.db_path.resolve()}?mode=ro", uri=True, timeout=2.0) as _c_dm:
+                            dm_rows = _c_dm.execute(
+                                "SELECT model_archetype FROM demoted_markets WHERE segment_key IN (?, ?) AND model_archetype IS NOT NULL",
+                                (segment_key, canonical_seg),
+                            ).fetchall()
+                            for (m_arch,) in dm_rows:
+                                if m_arch:
+                                    already_bound_cls.add(re.sub(r'^(?:Distilled_|Dynamic_)', '', str(m_arch)).strip())
+                    except Exception:
+                        pass
+
+                    distilled_fast = self.registry.get_distilled_archetypes_for_market(league, scope, family, limit=12)
+                    best_fast_comp = -999.0
+                    for d_arch in distilled_fast:
+                        if d_arch.base_class_name in already_bound_cls:
+                            continue
+                        f_code = re.sub(
+                            r'model_id(?:\s*:\s*str)?\s*=\s*[\'"][^\'"]+[\'"]',
+                            f'model_id: str = "{model_id}"',
+                            d_arch.source_template_code,
+                        )
+                        f_code = re.sub(
+                            r'raise\s+ValueError\([^\n]*(?:supports[^\n]*only|not both)[^\n]*\)',
+                            'pass',
+                            f_code,
+                            flags=re.IGNORECASE,
+                        )
+                        f_safe, f_cls, _ = check_ast_safety(f_code)
+                        if not f_safe or not f_cls:
+                            continue
+                        try:
+                            f_inst = instantiate_synthesized_class(
+                                f_code, f_cls, model_id=model_id, league=league, scope=scope, family=family
+                            )
+                            fv_ok, _ = validate_candidate_model(f_inst, ctx)
+                            if not fv_ok:
+                                continue
+                            f_metrics = self._evaluate_candidate_hypothesis_on_oos(
+                                canonical_seg, f_inst, ctx, fast_oos, family
+                            )
+                            if f_metrics['crucible_ok'] and f_metrics['oos_accepted'] >= 5 and f_metrics['composite_score'] > best_fast_comp:
+                                best_fast_comp = f_metrics['composite_score']
+                                f_rat = (
+                                    f"Stage-0 Distilled AI Fast-Lane: Adapted proven AI archetype '{d_arch.name}' "
+                                    f"(origin={d_arch.origin_provider}, Category={d_arch.category}) "
+                                    f"[OOS ROI={f_metrics['sim_roi']*100:+.1f}%, N={f_metrics['oos_accepted']}, DeltaBrier={f_metrics['delta_brier']:+.4f}]"
+                                )
+                                fast_lane_winner = (f_code, f_cls, f_rat, d_arch)
+                        except Exception:
+                            continue
+            except Exception as e_fl:
+                log.debug("[FAST-LANE] Stage-0 distilled archetype fast-lane check skipped for %s: %s", canonical_seg, e_fl)
+
+        if fast_lane_winner is not None:
+            source_code, class_name, rationale, won_arch = fast_lane_winner
+            provider = "distilled_ai_fast_lane"
+            try:
+                with sqlite3.connect(str(self.trainer.db_path), timeout=30.0) as c_fl:
+                    c_fl.execute("PRAGMA busy_timeout=30000;")
+                    c_fl.execute(
+                        "UPDATE distilled_archetype_catalog SET times_instantiated = COALESCE(times_instantiated, 0) + 1 WHERE archetype_id = ?",
+                        (won_arch.archetype_id,),
+                    )
+                    c_fl.commit()
+            except Exception:
+                pass
+            log.info("[FAST-LANE] Stage-0 hit on %s -> %s (%s), bypassing 60-90s LLM calls!", canonical_seg, class_name, model_id)
+        else:
+            targeted_problem = self.brief_builder.build_targeted_prompt(autopsy, domain_problem)
+
+            # 0. Enrich with Claude domain mechanics hypothesis and Grok adversarial red-team critique if not provided
+            if not claude_hypothesis and not force_archetype:
+                try:
+                    claude_hypothesis = self._query_claude_for_domain_hypothesis(canonical_seg, targeted_problem)
+                except Exception as e_hypo:
+                    log.debug("[SYNTH-HYPOTHESIS] Claude hypothesis generation skipped or failed for %s: %s", canonical_seg, e_hypo)
+            if not grok_critique and not force_archetype:
+                try:
+                    grok_critique = self._query_grok_for_red_team_critique(canonical_seg, targeted_problem, claude_hypothesis)
+                except Exception as e_grok:
+                    log.debug("[SYNTH-GROK] Grok red-team critique skipped or failed for %s: %s", canonical_seg, e_grok)
+
+            # 1. Generate Primary Candidate via Codex (with Claude 1:1 fallback, then algorithmic fallback)
+            provider = "codex"
+            codex_res = None if force_archetype else self._query_codex_for_model_code(
                 canonical_seg, targeted_problem, ctx, model_id,
                 claude_hypothesis=claude_hypothesis, grok_critique=grok_critique
             )
-            if claude_res:
-                provider = "claude"
-                source_code, class_name, rationale = claude_res
+            if codex_res:
+                source_code, class_name, rationale = codex_res
+            elif not force_archetype:
+                # Fallback to Claude (1:1 identical environment) if Codex is busy/locked/unavailable
+                claude_res = self._query_claude_for_model_code(
+                    canonical_seg, targeted_problem, ctx, model_id,
+                    claude_hypothesis=claude_hypothesis, grok_critique=grok_critique
+                )
+                if claude_res:
+                    provider = "claude"
+                    source_code, class_name, rationale = claude_res
+                else:
+                    provider = "algorithmic_codex_engine"
+                    source_code, class_name, rationale = self._generate_algorithmic_archetype(
+                        league, scope, family, model_id, archetype_hint=force_archetype, autopsy=autopsy
+                    )
             else:
                 provider = "algorithmic_codex_engine"
                 source_code, class_name, rationale = self._generate_algorithmic_archetype(
                     league, scope, family, model_id, archetype_hint=force_archetype, autopsy=autopsy
                 )
-        else:
-            provider = "algorithmic_codex_engine"
-            source_code, class_name, rationale = self._generate_algorithmic_archetype(
-                league, scope, family, model_id, archetype_hint=force_archetype, autopsy=autopsy
-            )
 
         # 2. AST Safety & Structure Check on Primary Candidate
         is_safe, found_class, safety_err = check_ast_safety(source_code)

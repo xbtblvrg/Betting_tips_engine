@@ -854,3 +854,277 @@ def test_resolve_polymarket_outcome_strict_fail_closed_refuses_guessing():
         'Mystery Club', 'Spread: Mystery Club (-3.5)',
         'Philadelphia 76ers', 'Miami Heat', idx=0, strict=True
     ) is None
+
+
+def test_mechanical_synthesizer_and_dynamic_registry_ai_expansion_invariants(tmp_path):
+    """
+    Anti-tautological verification that:
+      1. Genuine AI models (provider='claude'/'codex') are distilled into distilled_archetype_catalog,
+         while built-in Evo* crossover clones are NOT re-distilled and rank behind first-principles AI models.
+      2. Custom single-market evaluate_market models (e.g. DoubleChanceModel) are NOT falsely expanded
+         into unrelated 'totals' families merely because 'scores' appears in their code.
+      3. CodexModelSynthesizer._generate_algorithmic_archetype computes OOS Brier strictly over accepted
+         wagers (acc_c), not over all evaluated wagers divided by acc_c (which previously inflated Brier ~10x
+         and blocked valid distilled AI archetypes from incrementing times_instantiated).
+    """
+    import sqlite3
+    from betting_engine.ai_archetype_developer import AIArchetypeDeveloperAgent
+    from betting_engine.dynamic_model_registry import DynamicArchetypeRegistry
+    from betting_engine.codex_model_synthesizer import CodexModelSynthesizer
+
+    db_path = tmp_path / 'shadow_incubator.sqlite3'
+    models_dir = tmp_path / 'generated'
+    arch_dir = tmp_path / 'distilled'
+    models_dir.mkdir(parents=True, exist_ok=True)
+    arch_dir.mkdir(parents=True, exist_ok=True)
+
+    # 1. Family purity: custom evaluate_market without super().evaluate_market must NOT expand to 'totals'
+    dev = AIArchetypeDeveloperAgent(db_path=db_path, archetypes_dir=arch_dir, generated_dir=models_dir)
+    dc_code = '''
+from betting_engine.sandbox_models.base import BaseCandidateModel, DiscreteDistribution
+class CustomSoccerDoubleChanceModel(BaseCandidateModel):
+    def __init__(self, model_id='dc_test', version='1.0', league='EPL', scope='full_game', family='double_chance'):
+        super().__init__(model_id=model_id, version=version, league=league, scope=scope, family=family)
+    def predict_distribution(self, ctx):
+        return DiscreteDistribution.from_scores({(1, 0): 0.45, (0, 1): 0.25, (1, 1): 0.30})
+    def evaluate_market(self, market, selection="", line=None, odds=2.0, game_context=None, side=None):
+        return 0.75, 0.75 * float(odds) - 1.0
+'''
+    _, _, fam_dc = dev.categorize_model('CustomSoccerDoubleChanceModel', dc_code, 'EPL', 'double_chance')
+    assert 'double_chance' in fam_dc
+    assert 'totals' not in fam_dc
+
+    # 2. Genuine AI model vs Evo* crossover clone registration & deduplicated ordering
+    ai_totals_code = '''
+from betting_engine.sandbox_models.base import BaseCandidateModel, DiscreteDistribution
+class FirstPrinciplesPaceDispersionNBA(BaseCandidateModel):
+    def __init__(self, model_id='ai_nba_tot_1', version='1.0', league='NBA', scope='full_game', family='totals'):
+        super().__init__(model_id=model_id, version=version, league=league, scope=scope, family=family)
+    def predict_distribution(self, ctx):
+        # Predicts Over 220.5 with p=0.62 -> positive EV (+0.24) only when selection is Over and odds >= 1.70
+        return DiscreteDistribution.from_scores({(115, 110): 0.62, (104, 102): 0.38})
+'''
+    evo_clone_code = '''
+from betting_engine.sandbox_models.base import BaseCandidateModel, DiscreteDistribution
+class EvoSharedShockCopulaCrossover_NBA_full_game_totals(BaseCandidateModel):
+    def __init__(self, model_id='evo_nba_tot_1', version='1.0', league='NBA', scope='full_game', family='totals'):
+        super().__init__(model_id=model_id, version=version, league=league, scope=scope, family=family)
+    def predict_distribution(self, ctx):
+        return DiscreteDistribution.from_scores({(112, 110): 0.55, (105, 104): 0.45})
+'''
+    reg = DynamicArchetypeRegistry(db_path=db_path, models_dir=models_dir)
+    # Monkeypatch registry's distillation target dir via db_path (distill_from_candidate uses db_path)
+    assert reg.register_new_model(
+        model_id='evo_nba_1',
+        source_code=evo_clone_code,
+        class_name='EvoSharedShockCopulaCrossover_NBA_full_game_totals',
+        league='NBA',
+        scope='full_game',
+        family='totals',
+        oos_roi=0.18,
+        delta_brier=0.01,
+        provider='evolutionary_crossover_engine',
+    ) is True
+    assert reg.register_new_model(
+        model_id='evo_nba_2_dup',
+        source_code=evo_clone_code,
+        class_name='EvoSharedShockCopulaCrossover_NBA_full_game_totals',
+        league='NBA',
+        scope='full_game',
+        family='totals',
+        oos_roi=0.17,
+        delta_brier=0.01,
+        provider='evolutionary_crossover_engine',
+    ) is True
+    # Distill genuine AI model into hermetic tmp_path catalog
+    rec_ai = dev.distill_from_candidate(
+        model_id='ai_nba_1',
+        source_code=ai_totals_code,
+        class_name='FirstPrinciplesPaceDispersionNBA',
+        league='NBA',
+        scope='full_game',
+        family='totals',
+        oos_roi=0.12,
+        delta_brier=0.015,
+        provider='claude',
+    )
+    assert rec_ai is not None
+    reg._cache['ai_nba_1'] = reg._cache['evo_nba_1'].__class__(
+        model_id='ai_nba_1',
+        class_name='FirstPrinciplesPaceDispersionNBA',
+        league='NBA',
+        scope='full_game',
+        family='totals',
+        source_file_path=str(models_dir / 'ai_nba_1.py'),
+        source_code=ai_totals_code,
+        oos_simulated_roi=0.12,
+        oos_delta_brier=0.015,
+    )
+
+    with sqlite3.connect(db_path) as c:
+        rows_cat = c.execute("SELECT base_class_name, origin_provider FROM distilled_archetype_catalog").fetchall()
+    # Built-in Evo* template was NOT polluted into distilled_archetype_catalog; Claude model WAS distilled with provider='claude'
+    assert ('FirstPrinciplesPaceDispersionNBA', 'claude') in rows_cat
+    assert all(not r[0].startswith('EvoSharedShockCopulaCrossover_') for r in rows_cat)
+
+    # Dynamic candidate retrieval deduplicates Evo clones and ranks genuine AI class first
+    reg.refresh_registry = lambda force=False: len(reg._cache)
+    dyn_cands = reg.get_dynamic_candidates_for_segment('NBA', 'full_game', 'totals')
+    dyn_names = [c[0] for c in dyn_cands]
+    assert dyn_names[0] == 'Dynamic_FirstPrinciplesPaceDispersionNBA'
+    assert dyn_names.count('Dynamic_EvoSharedShockCopulaCrossover_NBA_full_game_totals') == 1
+
+    # 3. Mechanical synthesizer Brier denominator invariant:
+    # Construct 50 OOS wagers where 42 are Under 220.5 @ 1.91 (ev_m < 0 -> skipped, NOT accepted!)
+    # and 8 are Over 220.5 @ 2.00 (ev_m = 0.62*2 - 1 = +0.24 >= 0.035 -> ACCEPTED, 6 won / 2 lost -> +50% ROI).
+    # Under the old bug, bm_c accumulated over all 50 wagers and divided by acc_c=8 (~6.25x inflation), rejecting valid AI archetypes!
+    synth = CodexModelSynthesizer(data_dir=tmp_path)
+    synth.registry = reg
+    oos_wagers = []
+    for i in range(42):
+        # Skipped wagers where model deliberately abstains (Under 220.5: p=0.38, EV=-0.27)
+        oos_wagers.append(('Under 220.5', 220.5, 1.91, 0.52, 0.52, 'under', 'won' if i % 2 == 0 else 'lost', '2026-11-20', f'g_skip_{i}'))
+    for j in range(8):
+        # Accepted wagers where model bets Over 220.5 @ 2.00 (p=0.62, EV=+0.24): 6 wins, 2 losses -> +50% ROI, positive Brier skill
+        res = 'won' if j < 6 else 'lost'
+        oos_wagers.append(('Over 220.5', 220.5, 2.00, 0.50, 0.50, 'over', res, '2026-11-21', f'g_acc_{j}'))
+    synth.trainer._fetch_settled_wagers = lambda lg, sc, fm: oos_wagers
+
+    # Add a second dummy archetype so len(distilled_matches) > 1 (forcing OOS verification to pass rather than single-match fallback)
+    loser_code = ai_totals_code.replace('FirstPrinciplesPaceDispersionNBA', 'WeakFallbackModelNBA').replace('0.62', '0.40').replace('0.38', '0.60')
+    dev.distill_from_candidate(
+        model_id='ai_nba_weak',
+        source_code=loser_code,
+        class_name='WeakFallbackModelNBA',
+        league='NBA',
+        scope='full_game',
+        family='totals',
+        oos_roi=0.04,
+        delta_brier=0.001,
+        provider='codex',
+    )
+
+    adapted_src, chosen_cls, chosen_rat = synth._generate_algorithmic_archetype(
+        league='NBA', scope='full_game', family='totals', model_id='smart_synth_nba_1'
+    )
+    assert chosen_cls == 'FirstPrinciplesPaceDispersionNBA'
+    assert 'Verified OOS ROI: +50.0%' in chosen_rat
+    with sqlite3.connect(db_path) as c:
+        inst_cnt = c.execute(
+            "SELECT times_instantiated FROM distilled_archetype_catalog WHERE base_class_name = 'FirstPrinciplesPaceDispersionNBA'"
+        ).fetchone()[0]
+    assert inst_cnt == 1
+
+
+def test_stage0_distilled_ai_fast_lane_bypasses_llm_when_crucible_passes_and_escalates_when_failing(tmp_path):
+    """
+    Anti-tautological verification of Stage-0 Distilled AI Fast-Lane inside synthesize_and_screen_candidate:
+      1. When a distilled AI archetype passes the strict Walk-Forward OOS Crucible on the target segment,
+         synthesize_and_screen_candidate admits it in milliseconds with ZERO calls to Claude/Grok/Codex LLMs.
+      2. When no distilled AI archetype passes the OOS Crucible (e.g. losing record), it automatically
+         escalates to Multi-AI First-Principles Synthesis (_query_codex_for_model_code).
+    """
+    import sqlite3
+    from unittest.mock import patch
+    from betting_engine.ai_archetype_developer import AIArchetypeDeveloperAgent
+    from betting_engine.codex_model_synthesizer import CodexModelSynthesizer, GENERATED_MODELS_DIR
+
+    db_path = tmp_path / 'shadow_incubator.sqlite3'
+    with sqlite3.connect(db_path) as c:
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS incubated_wagers (
+                id TEXT PRIMARY KEY, game_id TEXT, league TEXT, scope TEXT, family TEXT, sub_family TEXT,
+                selection TEXT, line REAL, odds REAL, model_prob REAL, market_prob REAL, side TEXT,
+                result TEXT, pnl REAL, captured_at TEXT, status TEXT
+            )
+        """)
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS demoted_markets (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, segment_key TEXT UNIQUE, league TEXT, scope TEXT,
+                family TEXT, sub_family TEXT, incubation_phase TEXT DEFAULT 'research_rnd',
+                incubated_model_id TEXT, model_archetype TEXT, model_params TEXT
+            )
+        """)
+        # Seed 20 chronological settled wagers on NBA|full_game|totals (80% win rate on Over 220.5 @ 2.00)
+        for i in range(20):
+            res = 'won' if (i % 5 != 4) else 'lost'
+            pnl = 1.0 if res == 'won' else -1.0
+            c.execute(
+                "INSERT INTO incubated_wagers VALUES (?, ?, 'NBA', 'full_game', 'totals', 'totals', 'Over 220.5', 220.5, 2.00, 0.58, 0.50, 'over', ?, ?, ?, 'settled')",
+                (f"w_fl_{i}", f"g_fl_{i}", res, pnl, f"2026-11-{(i % 20) + 1:02d}T12:00:00Z"),
+            )
+        c.commit()
+
+    dev = AIArchetypeDeveloperAgent(
+        db_path=db_path,
+        archetypes_dir=tmp_path / 'distilled',
+        generated_dir=tmp_path / 'generated',
+    )
+    winning_ai_code = '''
+from betting_engine.sandbox_models.base import BaseCandidateModel, DiscreteDistribution
+class FastLaneWinningNBAModel(BaseCandidateModel):
+    def __init__(self, model_id='fl_nba_1', version='1.0', league='NBA', scope='full_game', family='totals'):
+        super().__init__(model_id=model_id, version=version, league=league, scope=scope, family=family)
+    def predict_distribution(self, ctx):
+        return DiscreteDistribution.from_scores({(115, 110): 0.62, (104, 102): 0.38})
+'''
+    assert dev.distill_from_candidate(
+        model_id='seed_fl_1',
+        source_code=winning_ai_code,
+        class_name='FastLaneWinningNBAModel',
+        league='NBA',
+        scope='full_game',
+        family='totals',
+        oos_roi=0.19,
+        delta_brier=0.02,
+        provider='claude',
+    ) is not None
+
+    synth = CodexModelSynthesizer(data_dir=tmp_path)
+    created_files = []
+    try:
+        # Case A: Winning distilled AI archetype passes OOS Crucible -> Stage-0 Fast-Lane hits with ZERO LLM calls!
+        with patch.object(synth, '_query_claude_for_domain_hypothesis') as m_claude_h, \
+             patch.object(synth, '_query_grok_for_red_team_critique') as m_grok, \
+             patch.object(synth, '_query_codex_for_model_code') as m_codex:
+            rec_fast = synth.synthesize_and_screen_candidate(
+                segment_key='NBA|full_game|totals',
+                domain_problem='Urgent Polymarket model repair for NBA|full_game|totals',
+            )
+            created_files.append(GENERATED_MODELS_DIR / f"{rec_fast.model_id}.py")
+            assert rec_fast.crucible_passed is True
+            assert rec_fast.generator_provider == 'distilled_ai_fast_lane'
+            assert rec_fast.class_name == 'FastLaneWinningNBAModel'
+            assert not m_claude_h.called
+            assert not m_grok.called
+            assert not m_codex.called
+
+        # Case B: Flip historical outcomes to losses so FastLaneWinningNBAModel fails OOS Crucible -> MUST escalate to Codex LLM!
+        with sqlite3.connect(db_path) as c:
+            c.execute("UPDATE incubated_wagers SET result = 'lost', pnl = -1.0")
+            c.commit()
+
+        novel_llm_code = '''
+from betting_engine.sandbox_models.base import BaseCandidateModel, DiscreteDistribution
+class NovelUnderRegimeNBAModel(BaseCandidateModel):
+    def __init__(self, model_id='novel_nba_1', version='1.0', league='NBA', scope='full_game', family='totals'):
+        super().__init__(model_id=model_id, version=version, league=league, scope=scope, family=family)
+    def predict_distribution(self, ctx):
+        return DiscreteDistribution.from_scores({(101, 99): 0.70, (115, 112): 0.30})
+'''
+        with patch.object(synth, '_query_claude_for_domain_hypothesis', return_value='Pace collapse') as m_claude_h2, \
+             patch.object(synth, '_query_grok_for_red_team_critique', return_value='Guard blowouts') as m_grok2, \
+             patch.object(synth, '_query_codex_for_model_code', return_value=(novel_llm_code, 'NovelUnderRegimeNBAModel', 'First-principles under dispersion')) as m_codex2:
+            rec_esc = synth.synthesize_and_screen_candidate(
+                segment_key='NBA|full_game|totals',
+                domain_problem='Turnaround after regime shift',
+            )
+            created_files.append(GENERATED_MODELS_DIR / f"{rec_esc.model_id}.py")
+            assert m_claude_h2.called
+            assert m_grok2.called
+            assert m_codex2.called
+            assert rec_esc.class_name == 'NovelUnderRegimeNBAModel'
+    finally:
+        for gf in created_files:
+            if gf.exists():
+                gf.unlink()

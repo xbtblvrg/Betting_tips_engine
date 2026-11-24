@@ -1,6 +1,6 @@
 # Live Stake market coverage
 
-Checked: 2026-11-24T22:24:12.038108+00:00
+Checked: 2026-11-24T22:40:45.841856+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
@@ -9,7 +9,7 @@ Observed feed titles; not proof of complete Stake website coverage. Funding supp
 | NFL | 71 | 1 | 47 | 0 | 47 | 32 | 7 | 1 | 4 |
 | NHL | 52 | 5 | 40 | 0 | 40 | 22 | 2 | 1 | 2 |
 | MLB | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| NBA | 116 | 3 | 85 | 0 | 85 | 46 | 6 | 4 | 13 |
+| NBA | 116 | 3 | 85 | 0 | 85 | 46 | 7 | 4 | 13 |
 | WNBA | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 
 Current stages require outcome-level evidence; original issuance, settlement and feedback are explicitly historical. 10/10 records observed execution, not proven profitability or automatic model promotion.
@@ -131,7 +131,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | Winner (Incl. Overtime) | standard | full_game | offered_now | 7/10 | verified 14/14 | verified 14/14 | verified 14/14 | verified 14/14 | verified 14/14 | verified 14/14 | verified 14/14 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | match rebounds | swishMarkets.matchProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/104 | activity_unverified 0/104 | activity_unverified 0/104 | activity_unverified 0/104 | activity_unverified 0/104 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | first scorer | swishMarkets.playerProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/248 | activity_unverified 0/248 | activity_unverified 0/248 | activity_unverified 0/248 | activity_unverified 0/248 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NBA | team turnovers | swishMarkets.teamProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/52 | activity_unverified 0/52 | activity_unverified 0/52 | activity_unverified 0/52 | activity_unverified 0/52 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NBA | team turnovers | swishMarkets.teamProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/54 | activity_unverified 0/54 | activity_unverified 0/54 | activity_unverified 0/54 | activity_unverified 0/54 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 1st Half - 1x2 | standard | half_1 | offered_now | 0/10 | not_observed 0/15 | not_observed 0/15 | not_observed 0/15 | not_observed 0/15 | not_observed 0/15 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 1st Half - Asian Handicap | standard | half_1 | offered_now | 3/10 | partial 2/10 | verified 10/10 | partial 2/10 | partial 2/10 | partial 2/10 | verified 2/2 | verified 2/2 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 1st Half - Asian Total | standard | half_1 | offered_now | 3/10 | partial 2/10 | verified 10/10 | partial 2/10 | partial 2/10 | partial 2/10 | verified 2/2 | verified 2/2 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
@@ -245,7 +245,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NHL | Philadelphia Flyers Total | standard | regulation | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NHL | St. Louis Blues Total | standard | regulation | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NHL | Tampa Bay Lightning Total | standard | regulation | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
-| NHL | Total (Incl. Overtime and Penalties) | standard | full_game | offered_now | 5/10 | partial 9/10 | verified 10/10 | partial 9/10 | partial 9/10 | partial 9/10 | verified 9/9 | verified 9/9 | verified 37/37 | verified 37/37 | partial 37/38 | 0 |
+| NHL | Total (Incl. Overtime and Penalties) | standard | full_game | offered_now | 5/10 | partial 8/10 | verified 10/10 | partial 8/10 | partial 8/10 | partial 8/10 | verified 8/8 | verified 8/8 | verified 37/37 | verified 37/37 | partial 37/38 | 0 |
 | NHL | Utah Mammoth Total | standard | regulation | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NHL | Vegas Golden Knights Total | standard | regulation | offered_now | 3/10 | partial 8/10 | verified 10/10 | partial 8/10 | partial 8/10 | partial 8/10 | verified 8/8 | verified 8/8 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Winner (Incl. Overtime and Penalties) | standard | full_game | offered_now | 7/10 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
