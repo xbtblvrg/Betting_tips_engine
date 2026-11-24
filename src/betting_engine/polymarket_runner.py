@@ -93,14 +93,39 @@ def resolve_polymarket_outcome_is_home(
     home_name: str,
     away_name: str,
     idx: int = 0,
-) -> bool:
+    strict: bool = False,
+) -> Optional[bool]:
     """Disambiguates whether a Polymarket outcome belongs to forecast home_name or away_name.
 
     Eliminates shared-token collisions (e.g. 'Arkansas State' vs 'Long Beach State',
     'Los Angeles Lakers' vs 'Los Angeles Clippers', 'New York Knicks' vs 'New Orleans Pelicans',
     'Manchester United' vs 'Manchester City') by scoring strictly on distinctive (non-shared) tokens.
+    When strict=True, returns None (fail-closed) whenever neither team can be positively identified.
     """
     import re as _re
+
+    NICKNAME_EXPANSIONS: Dict[str, Tuple[str, ...]] = {
+        "sixers": ("76ers", "philadelphia"),
+        "76ers": ("sixers",),
+        "wolves": ("timberwolves",),
+        "blazers": ("trail blazers", "portland"),
+        "bucs": ("buccaneers", "tampa"),
+        "niners": ("49ers",),
+        "pats": ("patriots",),
+        "caps": ("capitals",),
+        "habs": ("canadiens", "montreal"),
+        "tcu": ("texas christian", "horned frogs"),
+        "lsu": ("louisiana state",),
+        "uconn": ("connecticut",),
+        "ole miss": ("mississippi",),
+        "pitt": ("pittsburgh",),
+        "usc": ("southern california", "trojans"),
+        "ucf": ("central florida",),
+        "byu": ("brigham young",),
+        "smu": ("southern methodist",),
+        "vcu": ("virginia commonwealth",),
+        "unlv": ("nevada las vegas",),
+    }
 
     h_low = (home_name or "").lower().strip()
     a_low = (away_name or "").lower().strip()
@@ -108,7 +133,13 @@ def resolve_polymarket_outcome_is_home(
     q_low = (question or "").lower().strip()
 
     def _toks(txt: str) -> Set[str]:
-        return {w for w in _re.findall(r"[a-z0-9]+", txt) if len(w) >= 2 and w not in ("the", "fc", "sc", "cf", "vs", "spread", "will", "win")}
+        base = {w for w in _re.findall(r"[a-z0-9]+", txt) if len(w) >= 2 and w not in ("the", "fc", "sc", "cf", "vs", "spread", "will", "win", "on")}
+        expanded = set(base)
+        for k_nick, syns in NICKNAME_EXPANSIONS.items():
+            if k_nick in base or (len(k_nick) > 3 and k_nick in txt):
+                for s_val in syns:
+                    expanded.update(w for w in _re.findall(r"[a-z0-9]+", s_val) if len(w) >= 2)
+        return expanded
 
     h_toks = _toks(h_low)
     a_toks = _toks(a_low)
@@ -133,17 +164,26 @@ def resolve_polymarket_outcome_is_home(
             return True
         if in_a and not in_h:
             return False
+        if strict:
+            return None
 
-    # Yes/No or ambiguous label: inspect the named subject of the question (before 'vs' if present)
+    # Yes/No or non-strict fallback: inspect the named subject of the question (before 'vs' if present)
     q_subject = q_low.split(" vs")[0] if " vs" in q_low else q_low
     q_toks = _toks(q_subject)
     qh_hits = len(q_toks & h_uniq)
     qa_hits = len(q_toks & a_uniq)
     if qh_hits != qa_hits:
-        subject_is_home = qh_hits > qa_hits
+        subject_is_home: Optional[bool] = (qh_hits > qa_hits)
     else:
         q_all_toks = _toks(q_low)
-        subject_is_home = len(q_all_toks & h_uniq) >= len(q_all_toks & a_uniq)
+        all_h = len(q_all_toks & h_uniq)
+        all_a = len(q_all_toks & a_uniq)
+        if all_h != all_a:
+            subject_is_home = all_h > all_a
+        elif strict:
+            return None
+        else:
+            subject_is_home = True
 
     if out_low == "yes":
         return subject_is_home
@@ -982,13 +1022,18 @@ class PolymarketAutonomousRunner:
                                 "reason": f"Extreme alternate total line {line_val} on {title} exceeds Gaussian shift bounds. Formulate calibrated discrete tail distribution from first principles for tail pricing.",
                             })
                     elif forecast and family == "spreads" and line_val is not None:
+                        has_team_names = bool((forecast.get("home_name") or "").strip() and (forecast.get("away_name") or "").strip())
                         is_home = resolve_polymarket_outcome_is_home(
                             outcome_label=outcome_label,
                             question=q or "",
                             home_name=forecast.get("home_name") or "",
                             away_name=forecast.get("away_name") or "",
                             idx=idx,
+                            strict=has_team_names,
                         )
+                        if is_home is None:
+                            log.debug(f"[RUNNER_DEBUG] {title} {outcome_label}: Fail-closed skip — ambiguous spread outcome side.")
+                            continue
                         # Verify which side the question's line_val ("Spread: <Subject> (-5.5)") refers to,
                         # so even if Polymarket reverses outcomes[] order, the handicap sign stays exact!
                         subject_is_home = resolve_polymarket_outcome_is_home(
@@ -997,8 +1042,12 @@ class PolymarketAutonomousRunner:
                             home_name=forecast.get("home_name") or "",
                             away_name=forecast.get("away_name") or "",
                             idx=0,
+                            strict=has_team_names,
                         )
-                        if (q or "").strip() and (forecast.get("home_name") or forecast.get("away_name")):
+                        if (q or "").strip() and has_team_names:
+                            if subject_is_home is None:
+                                log.debug(f"[RUNNER_DEBUG] {title} {q}: Fail-closed skip — ambiguous spread question subject.")
+                                continue
                             outcome_spread = float(line_val) if (is_home == subject_is_home) else -float(line_val)
                         else:
                             outcome_spread = float(line_val) if idx == 0 else -float(line_val)
@@ -1056,24 +1105,34 @@ class PolymarketAutonomousRunner:
                                 model_prob = draw_p if out_low in ("yes", "draw") else (1.0 - draw_p)
                             else:
                                 # Polymarket soccer team win contracts settle 3-way (Draw resolves to 'No')!
+                                has_team_names = bool((forecast.get("home_name") or "").strip() and (forecast.get("away_name") or "").strip())
                                 target_is_home = resolve_polymarket_outcome_is_home(
                                     outcome_label="yes" if out_low in ("yes", "no") else outcome_label,
                                     question=q or "",
                                     home_name=forecast.get("home_name") or "",
                                     away_name=forecast.get("away_name") or "",
                                     idx=idx,
+                                    strict=has_team_names,
                                 )
+                                if target_is_home is None:
+                                    log.debug(f"[RUNNER_DEBUG] {title} {outcome_label}: Fail-closed skip — ambiguous soccer team side.")
+                                    continue
                                 win_p = reg_home_p if target_is_home else reg_away_p
                                 model_prob = (1.0 - win_p) if out_low == "no" else win_p
                         else:
                             # Standard 2-way Moneyline (NBA, NFL, NHL, MLB, Tennis, CBB, NCAAF)
+                            has_team_names = bool((forecast.get("home_name") or "").strip() and (forecast.get("away_name") or "").strip())
                             is_home = resolve_polymarket_outcome_is_home(
                                 outcome_label=outcome_label,
                                 question=q or "",
                                 home_name=forecast.get("home_name") or "",
                                 away_name=forecast.get("away_name") or "",
                                 idx=idx,
+                                strict=has_team_names,
                             )
+                            if is_home is None:
+                                log.debug(f"[RUNNER_DEBUG] {title} {outcome_label}: Fail-closed skip — ambiguous moneyline outcome side.")
+                                continue
 
                             model_prob = float(forecast["home_prob"]) if is_home else (1.0 - float(forecast["home_prob"]))
                     else:

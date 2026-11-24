@@ -495,7 +495,11 @@ class PolymarketOutcomeSettler:
                                     home_name=home_name or "",
                                     away_name=away_name or "",
                                     idx=0,
+                                    strict=bool(home_name and away_name),
                                 )
+                                if is_h_sel is None:
+                                    # Fail-closed: wait for Pillar 1 / 1.5 official Polymarket token_id Oracle resolution
+                                    continue
                                 norm_side = "home" if is_h_sel else "away"
                             else:
                                 norm_side = "home" if "home" in sel_low else "away"

@@ -838,3 +838,19 @@ def test_polymarket_soccer_3way_reg_home_prob_and_pillar2_settlement_side(tmp_pa
     assert rep['settled_count'] == 1
     assert rep['lost_count'] == 1
     assert rep['won_count'] == 0
+
+
+def test_resolve_polymarket_outcome_strict_fail_closed_refuses_guessing():
+    from betting_engine.polymarket_runner import resolve_polymarket_outcome_is_home
+
+    # Recognizes Sixers <-> Philadelphia 76ers positively
+    assert resolve_polymarket_outcome_is_home(
+        'Sixers', 'Spread: Sixers (-3.5)',
+        'Philadelphia 76ers', 'Miami Heat', idx=0, strict=True
+    ) is True
+
+    # Strictly returns None (fail-closed -> skip bet, zero guessing!) when an unrecognized label matches neither team
+    assert resolve_polymarket_outcome_is_home(
+        'Mystery Club', 'Spread: Mystery Club (-3.5)',
+        'Philadelphia 76ers', 'Miami Heat', idx=0, strict=True
+    ) is None
