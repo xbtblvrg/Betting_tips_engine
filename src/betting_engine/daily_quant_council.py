@@ -151,26 +151,70 @@ def convene_daily_quant_council(
         except Exception:
             pass
 
-    # Query active demoted segments from incubator DB
+    from .contracts import get_live_active_leagues, get_sport_priority, is_dual_reachable_contract
+    live_leagues_set = get_live_active_leagues(data_path)
+    prioritized_active_leagues = sorted(
+        [lg for lg in ALL_TRACKED_LEAGUES if (not live_leagues_set or lg in live_leagues_set) and get_sport_priority(lg) < 99],
+        key=lambda lg: (get_sport_priority(lg), lg),
+    ) or list(ALL_TRACKED_LEAGUES)
+
+    # Query active demoted segments from incubator DB (prioritizing live in-season & dual markets)
     demoted_segments = []
     incubator_db = data_path / "shadow_incubator.sqlite3"
     if incubator_db.exists():
         try:
             conn = sqlite3.connect(str(incubator_db), timeout=30.0)
-            rows = conn.execute("SELECT segment_key, reason FROM demoted_markets ORDER BY id DESC LIMIT 15").fetchall()
-            demoted_segments = [r[0] for r in rows]
+            rows = conn.execute("SELECT segment_key, league, scope, family FROM demoted_markets ORDER BY id DESC LIMIT 60").fetchall()
             conn.close()
+            rows_sorted = sorted(
+                rows,
+                key=lambda r: (
+                    (0 if str(r[1]).upper() in live_leagues_set else 1) if live_leagues_set else 0,
+                    0 if is_dual_reachable_contract(str(r[1]), str(r[2]), str(r[3])) else 1,
+                    get_sport_priority(str(r[1])),
+                ),
+            )
+            demoted_segments = [r[0] for r in rows_sorted[:15]]
         except Exception:
             pass
 
-    # Default alpha targets from highest historical winning segments
-    alpha_targets = [
-        "NFL|full_game|spreads",
-        "WNBA|full_game|moneyline",
-        "NHL|full_game|totals",
-        "NBA|full_game|spreads",
-        "MLB|full_game|totals",
+    # Dynamically populate alpha targets from live-active SegmentScoreboard winners + active US Major Dual contracts
+    alpha_targets: List[str] = []
+    engine_db = data_path / "engine.sqlite3"
+    if engine_db.exists():
+        try:
+            from .segment_scoreboard import compute_segment_scoreboard
+            conn_sb = sqlite3.connect(f"file:{engine_db.resolve()}?mode=ro", uri=True, timeout=5.0)
+            sb = compute_segment_scoreboard(conn_sb)
+            conn_sb.close()
+            demoted_lookup = set(demoted_segments)
+            for seg in sb.get("alpha_segments", []):
+                lg = str(seg.get("league") or "").upper()
+                sk = str(seg.get("segment") or "")
+                if sk and sk not in demoted_lookup and (not live_leagues_set or lg in live_leagues_set) and get_sport_priority(lg) < 99:
+                    if sk not in alpha_targets:
+                        alpha_targets.append(sk)
+                if len(alpha_targets) >= 5:
+                    break
+        except Exception:
+            pass
+
+    fallback_dual_targets = [
+        ("NBA", "NBA|full_game|spreads"),
+        ("NFL", "NFL|full_game|spreads"),
+        ("NHL", "NHL|full_game|totals"),
+        ("NCAAM", "NCAAM|full_game|spreads"),
+        ("MLS", "MLS|full_game|spreads"),
+        ("NCAAF", "NCAAF|full_game|spreads"),
+        ("EPL", "EPL|full_game|totals"),
     ]
+    for lg_code, cand_seg in fallback_dual_targets:
+        if len(alpha_targets) >= 5:
+            break
+        if (not live_leagues_set or lg_code in live_leagues_set) and cand_seg not in alpha_targets:
+            alpha_targets.append(cand_seg)
+    if not alpha_targets:
+        alpha_targets = ["NBA|full_game|spreads", "NFL|full_game|spreads", "NHL|full_game|totals"]
 
     # Fetch real-time bottleneck watchdog status for Quant Council review
     from .bottleneck_watchdog import get_latest_bottleneck_watchdog_status
@@ -183,7 +227,7 @@ def convene_daily_quant_council(
         "issued_today": issued_today,
         "daily_shortfall": daily_shortfall,
         "demoted_segments_in_quarantine": demoted_segments[:8],
-        "active_leagues": list(ALL_TRACKED_LEAGUES),
+        "active_leagues": prioritized_active_leagues,
         "capital_strategy": "Dual Dynamic: $2.50-$8.00 Alpha, $0.50 Tourniquet, $0.00 Incubator",
         "tier1_tier2_funnel_health": {
             "tier1_actionable_markets": t1_2_stat.get("tier1_actionable_markets", 0),

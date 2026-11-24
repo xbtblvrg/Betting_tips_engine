@@ -355,3 +355,105 @@ def test_validator_scales_total_line_to_nba_context_and_provides_scope_handicap_
 
     ok, errs = validate_candidate_model(StrictScopeNBAModel(), ctx)
     assert ok is True, f"Expected pre-flight pass on NBA half_2 model, got: {errs}"
+
+
+def test_executive_inquisitor_manual_boundary_4tier_and_honest_10pct_roi_gap(tmp_path):
+    import pytest
+    from datetime import datetime, timedelta, timezone
+    from betting_engine.executive_inquisitor import AutonomousExecutiveInquisitor
+
+    now = datetime.now(timezone.utc)
+    recent_ts = (now - timedelta(minutes=3)).isoformat()
+    settled_ts = (now - timedelta(days=1)).isoformat()
+
+    with sqlite3.connect(tmp_path / 'engine.sqlite3') as c:
+        c.execute("CREATE TABLE runs (id TEXT PRIMARY KEY, finished_at TEXT)")
+        c.execute("CREATE TABLE learning_jobs (id TEXT PRIMARY KEY, status TEXT, updated_at TEXT)")
+        c.execute("CREATE TABLE system_decisions (id TEXT PRIMARY KEY, issued_at TEXT, stake REAL)")
+        c.execute("CREATE TABLE bets (id INTEGER PRIMARY KEY, created_at TEXT, stake REAL, odds REAL, status TEXT, pnl REAL)")
+        c.execute("INSERT INTO runs VALUES ('r1', ?)", (recent_ts,))
+        c.execute("INSERT INTO learning_jobs VALUES ('j1', 'completed', ?)", (recent_ts,))
+        c.execute("INSERT INTO system_decisions VALUES ('d1', ?, 1.50)", (recent_ts,))
+        # Positive PnL (+$15 on $800 stake = +1.88% ROI), strictly below 10.0% weekly target!
+        c.execute("INSERT INTO bets VALUES (1, ?, 800.0, 2.0, 'won', 15.0)", (settled_ts,))
+
+    with sqlite3.connect(tmp_path / 'shadow_incubator.sqlite3') as ic:
+        ic.execute("CREATE TABLE demoted_markets (id TEXT PRIMARY KEY, segment_key TEXT, incubation_phase TEXT)")
+        ic.execute("CREATE TABLE graduated_markets (id TEXT PRIMARY KEY, segment_key TEXT)")
+        ic.execute("INSERT INTO demoted_markets VALUES ('dm1', 'NBA|half_1|totals', 'research_training')")
+        ic.execute("INSERT INTO demoted_markets VALUES ('dm2', 'NFL|half_1|spreads', 'incubating_with_new_model')")
+        ic.execute("INSERT INTO graduated_markets VALUES ('gm1', 'NBA|full_game|spreads')")
+
+    inq = AutonomousExecutiveInquisitor(data_dir=tmp_path)
+    q2 = inq.probe_q2_interoperability_and_progression()
+    assert 'tier_4_live_proven_alpha_count' in q2.telemetry
+    assert q2.telemetry['tier_1_research_count'] == 1
+    assert q2.telemetry['tier_2_shadow_incubating_count'] == 1
+    assert q2.telemetry['tier_3_production_graduated_count'] == 1
+
+    q5 = inq.probe_q5_autonomous_continuity()
+    assert q5.status == 'optimal'
+    assert q5.telemetry['execution_boundary'] == 'assumed_manual_execution'
+    assert q5.telemetry['automated_stake_submission_prohibited'] is True
+    assert not any('Safari' in f for f in q5.findings)
+
+    q6 = inq.probe_q6_prime_financial_goal()
+    assert q6.status == 'warning'
+    assert q6.telemetry['roi_gap_to_target_pct'] == pytest.approx(8.12, abs=0.02)
+    assert any('10.0%' in f for f in q6.findings)
+
+
+def test_target_evaluator_detects_rolling_7d_volume_shortfall_after_1000_regime_bets(tmp_path):
+    from datetime import datetime, timedelta, timezone
+    from betting_engine.target_evaluator import evaluate_target_metrics
+
+    now = datetime(2026, 11, 24, 1, 0, tzinfo=timezone.utc)
+    old_regime_ts = datetime(2026, 10, 20, 12, 0, tzinfo=timezone.utc).isoformat()
+    recent_ts = (now - timedelta(days=1)).isoformat()
+
+    db_file = tmp_path / 'engine.sqlite3'
+    with sqlite3.connect(db_file) as conn:
+        conn.execute("""
+            CREATE TABLE bets (
+                id INTEGER PRIMARY KEY, tip_id TEXT, created_at TEXT,
+                stake REAL, odds REAL, platform TEXT, status TEXT, pnl REAL, payload TEXT, request_id TEXT
+            )
+        """)
+        # 800 old bets (>7 days ago, post-Oct 12) + only 50 bets in rolling 7d (even with +25% ROI)
+        rows = [(i, f'old_{i}', old_regime_ts, 1.0, 2.0, 'stake', 'won', 0.25, '{}', 'req') for i in range(1, 801)]
+        rows += [(800 + i, f'rec_{i}', recent_ts, 1.0, 2.0, 'stake', 'won', 0.25, '{}', 'req') for i in range(1, 51)]
+        conn.executemany("INSERT INTO bets VALUES (?,?,?,?,?,?,?,?,?,?)", rows)
+
+        res = evaluate_target_metrics(conn, now=now)
+
+    assert res['regime_stats']['total_bets'] == 850
+    assert res['rolling_7d']['total_bets'] == 50
+    assert res['gaps']['volume_gap'] == 650
+    assert res['status'] == 'TARGET_SHORTFALL'
+    assert any('Rolling 7d bet volume (50) below 700/week floor' in r for r in res['gaps']['shortfall_reasons'])
+
+
+def test_daily_quant_council_excludes_offseason_leagues_when_live_schedule_present(tmp_path):
+    import json
+    from betting_engine.daily_quant_council import convene_daily_quant_council
+
+    # Active November schedule: NBA, NFL, NHL, NCAAM, MLS (NO WNBA, NO MLB)
+    (tmp_path / 'games.json').write_text(json.dumps([
+        {'id': 'g1', 'league': 'NBA', 'state': 'pre'},
+        {'id': 'g2', 'league': 'NFL', 'state': 'pre'},
+        {'id': 'g3', 'league': 'NHL', 'state': 'pre'},
+        {'id': 'g4', 'league': 'NCAAM', 'state': 'pre'},
+        {'id': 'g5', 'league': 'MLS', 'state': 'pre'},
+    ]), encoding='utf-8')
+
+    directive = convene_daily_quant_council(
+        data_dir=tmp_path,
+        as_of='2026-11-24T08:00:00Z',
+        force_refresh=True,
+        policy_override={'enabled': False},
+    )
+    target_leagues = {t.split('|')[0] for t in directive.high_conviction_alpha_targets}
+    assert 'WNBA' not in target_leagues
+    assert 'MLB' not in target_leagues
+    assert 'NBA' in target_leagues
+    assert 'NFL' in target_leagues

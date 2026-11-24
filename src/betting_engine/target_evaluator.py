@@ -91,7 +91,9 @@ def evaluate_target_metrics(conn: sqlite3.Connection, now: Optional[datetime] = 
     }
 
     # 3. Gap & Pacing analysis
-    volume_gap = max(0, WEEKLY_BET_TARGET - regime_stats['total_bets'])
+    regime_volume_gap = max(0, WEEKLY_BET_TARGET - regime_stats['total_bets'])
+    rolling_volume_gap = max(0, WEEKLY_BET_TARGET - rolling_7d['total_bets'])
+    volume_gap = max(regime_volume_gap, rolling_volume_gap)
     current_roi = regime_stats['roi_pct'] if regime_stats['roi_pct'] is not None else (rolling_7d['roi_pct'] or 0.0)
     roi_gap = round(WEEKLY_ROI_TARGET - current_roi, 2)
 
@@ -100,7 +102,9 @@ def evaluate_target_metrics(conn: sqlite3.Connection, now: Optional[datetime] = 
     if rolling_7d['roi_pct'] is not None and rolling_7d['roi_pct'] < WEEKLY_ROI_TARGET:
         shortfall_reasons.append(f"Rolling 7d ROI ({rolling_7d['roi_pct']:.2f}%) below target ({WEEKLY_ROI_TARGET:.1f}%)")
     if regime_stats['total_bets'] < WEEKLY_BET_TARGET:
-        shortfall_reasons.append(f"Regime bet volume ({regime_stats['total_bets']}) below full 700 milestone (gap: {volume_gap})")
+        shortfall_reasons.append(f"Regime bet volume ({regime_stats['total_bets']}) below full 700 milestone (gap: {regime_volume_gap})")
+    elif rolling_7d['total_bets'] < WEEKLY_BET_TARGET:
+        shortfall_reasons.append(f"Rolling 7d bet volume ({rolling_7d['total_bets']}) below 700/week floor (gap: {rolling_volume_gap})")
     if regime_stats['pnl'] < 0:
         shortfall_reasons.append(f"Regime net PnL is negative (${regime_stats['pnl']:.2f})")
 
@@ -147,17 +151,28 @@ def execute_target_investigation_and_repair(conn: sqlite3.Connection, evaluation
     underperforming = scoreboard.get('underperforming_segments', [])
 
     # Filter to segments with genuine statistical drag (scale-invariant risk units)
+    from .contracts import get_live_active_leagues, get_sport_priority, is_dual_reachable_contract
+    live_active = get_live_active_leagues(data_dir)
     dragging = []
     for s in underperforming:
         g = s.get('games') or s.get('sample_size') or 0
-        stk = s.get('staked', 0.0)
-        pnl = s.get('pnl', 0.0)
+        stk = float(s.get('stake', s.get('staked', 0.0)) or 0.0)
+        pnl = float(s.get('pnl') or 0.0)
         avg_s = stk / max(1, g) if g > 0 and stk > 0 else 1.0
         u_pnl = s.get('units_pnl', pnl / max(0.5, avg_s))
         if g >= 4 and ((s.get('roi_pct') or 0.0) < -3.0 or u_pnl <= -4.0):
             dragging.append(s)
-    # Sort worst first
-    dragging.sort(key=lambda s: (s.get('pnl') or 0.0))
+
+    def _drag_sort_key(s: Dict[str, Any]):
+        lg = str(s.get('league') or '').upper()
+        sc = str(s.get('scope') or 'full_game')
+        fam = str(s.get('family') or '')
+        in_season_rank = (0 if lg in live_active else 1) if live_active else 0
+        dual_rank = 0 if is_dual_reachable_contract(lg, sc, fam) else 1
+        return (in_season_rank, dual_rank, get_sport_priority(lg), float(s.get('pnl') or 0.0))
+
+    # Prioritize live-active + dual Polymarket-reachable + US Major dragging segments, worst PnL first
+    dragging.sort(key=_drag_sort_key)
 
     investigation_summary = {
         'dragging_segments_count': len(dragging),

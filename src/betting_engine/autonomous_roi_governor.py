@@ -179,23 +179,27 @@ class AutonomousROIGovernor:
 
         grad_markets = set()
         demoted_markets_set = set()
+        explicit_demoted_set = set()
         sb_underperforming_set = set()
+        try:
+            from .shadow_market_incubator import load_graduated_markets, load_demoted_markets
+            dm = load_demoted_markets(self.data_dir)
+            if dm:
+                explicit_demoted_set = set(dm.keys())
+                demoted_markets_set.update(explicit_demoted_set)
+            gm = load_graduated_markets(self.data_dir)
+            if gm:
+                grad_markets.update(gm.keys())
+        except Exception:
+            pass
         try:
             from .unified_market_universe import UnifiedMarketUniverse
             roster = UnifiedMarketUniverse(self.data_dir).build_universe_roster()
-            grad_markets = {k for k, p in roster.items() if p.tier >= 3}
-            demoted_markets_set = {k for k, p in roster.items() if p.tier in (1, 2)}
+            grad_markets.update(k for k, p in roster.items() if p.tier >= 3)
+            demoted_markets_set.update(k for k, p in roster.items() if p.tier in (1, 2))
+            grad_markets -= explicit_demoted_set
         except Exception:
-            try:
-                from .shadow_market_incubator import load_graduated_markets, load_demoted_markets
-                gm = load_graduated_markets(self.data_dir)
-                if gm:
-                    grad_markets = set(gm.keys())
-                dm = load_demoted_markets(self.data_dir)
-                if dm:
-                    demoted_markets_set = set(dm.keys())
-            except Exception:
-                pass
+            pass
 
         try:
             from .segment_scoreboard import compute_segment_scoreboard

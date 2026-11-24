@@ -145,7 +145,7 @@ class AutonomousExecutiveInquisitor:
         )
 
     def probe_q2_interoperability_and_progression(self) -> ExecutiveInquiry:
-        """User Lens: 'Átjárhatóság megvan? Minden szint egységesen fejlődik?'"""
+        """User Lens: 'Átjárhatóság megvan? Minden szint egységesen fejlődik (Tier 1 -> Tier 2 -> Tier 3 -> Tier 4)?'"""
         findings = []
         status = 'optimal'
         action = None
@@ -155,19 +155,30 @@ class AutonomousExecutiveInquisitor:
             try:
                 conn = sqlite3.connect(f"file:{self.incubator_db.resolve()}?mode=ro", uri=True, timeout=5.0)
                 cur = conn.cursor()
-                # Check 3-Tier counts
                 cur.execute("SELECT count(*) FROM demoted_markets WHERE incubation_phase = 'research_training'")
                 t1_cnt = cur.fetchone()[0]
                 cur.execute("SELECT count(*) FROM demoted_markets WHERE incubation_phase = 'incubating_with_new_model'")
                 t2_cnt = cur.fetchone()[0]
                 cur.execute("SELECT count(*) FROM graduated_markets")
                 t3_cnt = cur.fetchone()[0]
+                conn.close()
+
+                t4_cnt = 0
+                t4_dual_cnt = 0
+                try:
+                    from .unified_market_universe import UnifiedMarketUniverse
+                    roster = UnifiedMarketUniverse(self.data_dir).build_universe_roster()
+                    t4_cnt = sum(1 for p in roster.values() if p.tier == 4)
+                    t4_dual_cnt = sum(1 for p in roster.values() if p.tier == 4 and p.is_dual_polymarket)
+                except Exception:
+                    pass
+
                 telemetry['tier_1_research_count'] = t1_cnt
                 telemetry['tier_2_shadow_incubating_count'] = t2_cnt
                 telemetry['tier_3_production_graduated_count'] = t3_cnt
+                telemetry['tier_4_live_proven_alpha_count'] = t4_cnt
+                telemetry['tier_4_dual_polymarket_count'] = t4_dual_cnt
 
-                # Check for active graduation via Crucible
-                conn.close()
                 try:
                     from .shadow_market_incubator import ShadowMarketIncubator
                     inc = ShadowMarketIncubator(self.data_dir)
@@ -178,18 +189,26 @@ class AutonomousExecutiveInquisitor:
                         telemetry['newly_graduated_count'] = len(grads)
                     else:
                         status = 'optimal'
-                        action = f"3-szintes átjárhatóság folytonos: K+F ({t1_cnt}) -> Inkubátor ({t2_cnt}) -> Éles ({t3_cnt}) zárt láncban mozog."
+                        action = (
+                            f"4-szintes átjárhatóság folytonos: K+F ({t1_cnt}) -> Inkubátor ({t2_cnt}) "
+                            f"-> Tier 3 Stake ({t3_cnt}) -> Tier 4 Proven Alpha / Polymarket ({t4_cnt}, ebből {t4_dual_cnt} Dual) zárt láncban mozog."
+                        )
                 except Exception as ex:
                     findings.append(f"Crucible graduáció kiértékelési hiba: {ex}")
             except Exception as e:
                 findings.append(f"Inkubátor vizsgálati hiba: {e}")
 
-        summary = f"Teljes 3-szintes átjárhatóság aktív: {telemetry.get('tier_3_production_graduated_count', 0)} éles graduált piac, {telemetry.get('tier_2_shadow_incubating_count', 0)} élő inkubátorban, {telemetry.get('tier_1_research_count', 0)} K+F-ben."
+        summary = (
+            f"Teljes 4-szintes átjárhatóság aktív: {telemetry.get('tier_4_live_proven_alpha_count', 0)} Tier 4 Proven Alpha "
+            f"({telemetry.get('tier_4_dual_polymarket_count', 0)} Dual Polymarket), "
+            f"{telemetry.get('tier_3_production_graduated_count', 0)} Tier 3 graduált piac, "
+            f"{telemetry.get('tier_2_shadow_incubating_count', 0)} élő inkubátorban, {telemetry.get('tier_1_research_count', 0)} K+F-ben."
+        )
         return ExecutiveInquiry(
             inquiry_id="INQ-02-INTEROPERABILITY-TIERS",
             category="interoperability_and_closed_loop",
-            user_archetype_question="Megvan az átjárhatóság a szintek között? Nem rekedt meg egyetlen modell sem?",
-            system_lens="3-Tier Closed-Loop Progression & Graduation Sweep",
+            user_archetype_question="Megvan az átjárhatóság a 4 szint között? Nem rekedt meg egyetlen modell sem?",
+            system_lens="4-Tier Closed-Loop Progression & Graduation Sweep",
             investigation_summary=summary,
             status=status,
             findings=findings,
@@ -272,39 +291,95 @@ class AutonomousExecutiveInquisitor:
         )
 
     def probe_q5_autonomous_continuity(self) -> ExecutiveInquiry:
-        """User Lens: 'A kérdéseim nélkül is megy a rendszer felügyelet nélkül?'"""
+        """User Lens: 'A kérdéseim nélkül is megy a rendszer felügyelet nélkül (Commandment 10: assumed manual execution)?'"""
         findings = []
         status = 'optimal'
         action = None
-        telemetry = {}
+        telemetry = {
+            'execution_boundary': 'assumed_manual_execution',
+            'automated_stake_submission_prohibited': True,
+            'today_issued_count': 0,
+            'daily_volume_floor': 100,
+            'open_bets_count': 0,
+            'engine_recent_activity': False,
+            'learning_worker_recent_activity': False,
+        }
 
-        # 1. Autorun telemetry from state summary
-        state = {}
-        try:
-            from .server import get_autorun_state_summary
-            state = get_autorun_state_summary()
-        except Exception as e:
-            findings.append(f"Auto-Runner telemetria hiba: {e}")
+        if self.engine_db.exists():
+            try:
+                from zoneinfo import ZoneInfo
+                bp_now = datetime.now(ZoneInfo('Europe/Budapest'))
+                bp_start_utc = bp_now.replace(hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc).isoformat()
+                recent_cutoff = (utcnow() - timedelta(minutes=20)).isoformat()
 
-        telemetry['autorun_active'] = state.get('active', False)
-        telemetry['autorun_online'] = state.get('is_online', False)
-        telemetry['today_placed_count'] = state.get('today_placed_count', state.get('autorun_placed_today', 0))
-        telemetry['open_bets_count'] = state.get('open_bets_count', 0)
-        telemetry['last_heartbeat_at'] = state.get('last_heartbeat_at')
-        telemetry['runner_id'] = state.get('runner_id', 'MacBook Pro (Safari)')
-        
-        if not state.get('is_online'):
-            status = 'warning'
-            findings.append("Az Auto-Runner jelenleg nem küld szívverést (Safari vagy dashboard lap inaktív lehet).")
-        else:
-            action = f"Auto-Runner teljesen aktív ({telemetry['runner_id']}): ma {telemetry['today_placed_count']} db fogadást tett meg önállóan, 15 perces ütemező szívverés élő."
+                conn = sqlite3.connect(f"file:{self.engine_db.resolve()}?mode=ro", uri=True, timeout=5.0)
+                cur = conn.cursor()
+                try:
+                    cur.execute(
+                        "SELECT count(*) FROM bets WHERE created_at >= ? AND coalesce(stake, 0) > 0",
+                        (bp_start_utc,),
+                    )
+                    cnt_b = cur.fetchone()[0] or 0
+                    if cnt_b == 0:
+                        try:
+                            cur.execute("SELECT count(*) FROM system_decisions WHERE issued_at >= ?", (bp_start_utc,))
+                            cnt_b = cur.fetchone()[0] or 0
+                        except Exception:
+                            pass
+                    telemetry['today_issued_count'] = cnt_b
+                except Exception:
+                    try:
+                        cur.execute("SELECT count(*) FROM system_decisions WHERE issued_at >= ?", (bp_start_utc,))
+                        telemetry['today_issued_count'] = cur.fetchone()[0] or 0
+                    except Exception:
+                        pass
+                try:
+                    cur.execute("SELECT count(*) FROM bets WHERE status = 'open'")
+                    telemetry['open_bets_count'] = cur.fetchone()[0] or 0
+                except Exception:
+                    pass
+                try:
+                    cur.execute("SELECT max(updated_at) FROM learning_jobs")
+                    last_lj = (cur.fetchone() or [None])[0]
+                    telemetry['last_learning_activity_at'] = last_lj
+                    telemetry['learning_worker_recent_activity'] = bool(last_lj and str(last_lj) >= recent_cutoff)
+                except Exception:
+                    pass
+                try:
+                    cur.execute("SELECT max(finished_at) FROM runs")
+                    last_run = (cur.fetchone() or [None])[0]
+                    telemetry['last_engine_run_at'] = last_run
+                    telemetry['engine_recent_activity'] = bool(last_run and str(last_run) >= recent_cutoff)
+                except Exception:
+                    pass
+                conn.close()
 
-        summary = f"A rendszer önállóan dolgozik a kérdéseid nélkül is: ma {telemetry.get('today_placed_count', 0)} fogadás automatikusan megkötve a Safariban."
+                has_tables = ('last_engine_run_at' in telemetry or 'last_learning_activity_at' in telemetry)
+                if has_tables and telemetry.get('last_engine_run_at') and not telemetry['engine_recent_activity']:
+                    status = 'warning'
+                    findings.append(f"A fő döntési ciklus utolsó lefutása több mint 20 perce volt ({telemetry.get('last_engine_run_at')}).")
+                elif has_tables and telemetry.get('last_learning_activity_at') and not telemetry['learning_worker_recent_activity']:
+                    status = 'warning'
+                    findings.append(f"A tanuló háttérmunkás utolsó aktivitása több mint 20 perce volt ({telemetry.get('last_learning_activity_at')}).")
+                else:
+                    action = (
+                        f"Autonóm háttérdémonok élnek (assumed manual execution határ sértetlen): "
+                        f"ma {telemetry['today_issued_count']}/100 finanszírozott ajánlás kiadva, "
+                        f"{telemetry['open_bets_count']} nyitott jegy követés alatt."
+                    )
+            except Exception as e:
+                findings.append(f"Autonóm folytonosság telemetria hiba: {e}")
+
+        summary = (
+            f"A rendszer önállóan dolgozik háttérben (assumed manual execution): "
+            f"ma {telemetry.get('today_issued_count', 0)}/100 finanszírozott ajánlás kiadva, "
+            f"{telemetry.get('open_bets_count', 0)} nyitott jegy."
+        )
         return ExecutiveInquiry(
             inquiry_id="INQ-05-AUTONOMOUS-CONTINUITY",
             category="autonomous_execution_continuity",
             user_archetype_question="A kérdéseim nélkül is megy és teszi a dolgát a rendszer?",
-            system_lens="Auto-Runner Heartbeat, Safari Bridge & Background Cadence",
+            system_lens="Background Daemon Cadence, Daily Volume Floor & Manual Execution Boundary",
             investigation_summary=summary,
             status=status,
             findings=findings,
@@ -332,11 +407,13 @@ class AutonomousExecutiveInquisitor:
                 row = cur.fetchone()
                 count, staked, pnl = (row[0] or 0, row[1] or 0.0, row[2] or 0.0) if row else (0, 0.0, 0.0)
                 roi = round((pnl / staked) * 100.0, 2) if staked > 0 else 0.0
+                roi_gap = round(max(0.0, 10.0 - roi), 2)
                 telemetry['rolling_7d_settled'] = count
                 telemetry['rolling_7d_staked_usd'] = staked
                 telemetry['rolling_7d_pnl_usd'] = pnl
                 telemetry['rolling_7d_roi_pct'] = roi
                 telemetry['weekly_roi_target_pct'] = 10.0
+                telemetry['roi_gap_to_target_pct'] = roi_gap
                 telemetry['pnl_uptrend_active'] = pnl >= 0.0
 
                 # Polymarket financial contribution
@@ -353,10 +430,19 @@ class AutonomousExecutiveInquisitor:
                     pass
                 conn.close()
 
-                if pnl < 0.0:
+                if count > 0 and pnl < 0.0:
                     status = 'warning'
                     findings.append(f"Gördülő 7 napos PnL jelenleg negatív (${pnl:.2f}, ROI: {roi:.2f}%). Karantén és tőkevédelem aktív a gyengélkedő szegmenseken.")
                     action = "Dual Dynamic Capital Strategy aktív: $0.50 tőkevédelmi szorítók és $0.00 inkubátor karantén védi a bankrollt a felzárkózásig."
+                elif count > 0 and roi < 10.0:
+                    status = 'warning'
+                    findings.append(
+                        f"Gördülő 7 napos PnL pozitív (+${pnl:.2f}), de a ROI ({roi:.2f}%) még {roi_gap:.2f}% ponttal a kötelező 10.0% heti cél alatt van."
+                    )
+                    action = (
+                        f"Pozitív PnL (+${pnl:.2f}), aktív felzárkózás a 10.0% ROI célhoz: "
+                        f"US Major / Dual Tier 1->4 modellszintézis és Alpha tőkeskálázás ($2.50-$8.00) folyamatban."
+                    )
                 else:
                     action = f"Pozitív tőkenövekedési pálya: +${pnl:.2f} PnL, {roi:.2f}% ROI az elmúlt 7 napban."
             except Exception as e:
@@ -485,48 +571,54 @@ class AutonomousExecutiveInquisitor:
                     'autonomous_action': 'Continuous Kelly scaling active'
                 })
 
-        # 2. Closed-Loop Model Progression (Crucible & Incubator)
+        # 2. Closed-Loop Model Progression (4-Tier Crucible, Incubator & Polymarket Tier 4)
         q2 = inq_map.get('INQ-02-INTEROPERABILITY-TIERS')
         if q2:
             t1 = q2.telemetry.get('tier_1_research_count', 0)
             t2 = q2.telemetry.get('tier_2_shadow_incubating_count', 0)
             t3 = q2.telemetry.get('tier_3_production_graduated_count', 0)
+            t4 = q2.telemetry.get('tier_4_live_proven_alpha_count', 0)
+            t4_dual = q2.telemetry.get('tier_4_dual_polymarket_count', 0)
             questions.append({
-                'focus': '3-Tier Closed-Loop Evolution',
-                'question': f"A 3-szintes evolúciós láncban jelenleg {t1} modell áll K+F-ben, {t2} piac inkubálódik élőben kockázatmentesen, és {t3} piac graduált élesbe. Vannak-e újabb modellek, amelyek elérték a Crucible statisztikai küszöböt?",
-                'context': f"Tiers: R&D={t1}, Incubator={t2}, Production={t3}"
+                'focus': '4-Tier Closed-Loop Evolution',
+                'question': (
+                    f"A 4-szintes evolúciós láncban jelenleg {t1} modell áll K+F-ben, {t2} piac inkubálódik élőben ($0.00), "
+                    f"{t3} piac graduált Tier 3 Stake élesbe, és {t4} piac ({t4_dual} Dual) ért el Tier 4 Proven Alpha státuszt. "
+                    f"Mely US Major / Dual piacok állnak legközelebb a következő szinthez?"
+                ),
+                'context': f"Tiers: R&D={t1}, Incubator={t2}, Tier3={t3}, Tier4={t4} (Dual={t4_dual})"
             })
             proposals.append({
                 'priority': 'HIGH',
-                'domain': 'Autonomous Model Graduation',
-                'proposal': "A ShadowMarketIncubator folyamatos Crucible kiértékelése és a szignifikáns (N >= 25, ROI >= 3.5%) inkubált piacok azonnali automatikus felminősítése a Tier 3 éles szintre.",
-                'autonomous_action': 'ShadowMarketIncubator.evaluate_graduation()'
+                'domain': 'Autonomous 4-Tier Model Graduation',
+                'proposal': "US Major és Dual Polymarket-elérhető piacok elsőbbségi Crucible re-graduációja (N >= 25, ROI >= +3.5%) és Tier 4 promóciója (N >= 10 élő meccs, ROI >= +2.0%, >= +0.40U).",
+                'autonomous_action': 'ShadowMarketIncubator.evaluate_graduation() & PolymarketRDPrioritizer'
             })
 
-        # 3. Dynamic Liquidity & Unattended Execution
+        # 3. Dynamic Liquidity, Background Daemon Continuity & Volume Floor (Commandments 2, 5 & 10)
         q5 = inq_map.get('INQ-05-AUTONOMOUS-CONTINUITY')
         if q5:
-            placed = q5.telemetry.get('today_placed_count', 0)
+            issued = q5.telemetry.get('today_issued_count', 0)
             open_cnt = q5.telemetry.get('open_bets_count', 0)
-            runner_online = q5.telemetry.get('autorun_online', False)
+            daemons_healthy = (q5.status == 'optimal')
             questions.append({
-                'focus': 'Unattended Execution & Volume Floor',
-                'question': f"A mai napon {placed} db ajánlás került automatikusan megkötésre a Safariban ({open_cnt}/300 nyitott jegy). Teljesül-e a szigorú 100 db/nap volumen-minimum emberi beavatkozás nélkül?",
-                'context': f"Runner online: {runner_online}, placed today: {placed}, active: {open_cnt}"
+                'focus': 'Background Daemon Continuity & 100/Day Volume Floor',
+                'question': f"A mai Budapest naptári napon eddig {issued}/100 finanszírozott ajánlás született ({open_cnt} nyitott jegy, assumed manual execution). Ütemesen halad-e a napi 100+ darabszám-minimum?",
+                'context': f"Daemons optimal: {daemons_healthy}, issued today: {issued}/100, open bets: {open_cnt}"
             })
-            if not runner_online:
+            if not daemons_healthy:
                 proposals.append({
                     'priority': 'CRITICAL',
-                    'domain': 'Auto-Runner Bridge',
-                    'proposal': "A Safari dashboard lap szívverésének fenntartása és a caffeinate/Amphetamine ébrentartás ellenőrzése az autonóm végrehajtás folyamatossága érdekében.",
-                    'autonomous_action': 'Watchdog auto-monitoring'
+                    'domain': 'Background Daemon Continuity',
+                    'proposal': "A háttérdémonok (engine / learning worker) szívverésének azonnali helyreállítása a folyamatos 60 másodperces piacpásztázáshoz.",
+                    'autonomous_action': 'Launchd & BottleneckWatchdog auto-recovery'
                 })
             else:
                 proposals.append({
                     'priority': 'LOW',
-                    'domain': 'Execution Throughput',
-                    'proposal': "A 24 órás horizont prioritásának fenntartása mellett a 48 és 72 órás szekunder ablakok folyamatos kitöltése a 300 nyitott jegy határig.",
-                    'autonomous_action': 'Adaptive 15-minute queueing active'
+                    'domain': '72-Hour Dynamic Liquidity & Volume Floor',
+                    'proposal': "A 72 órás dinamikus horizont folyamatos 60 másodperces pásztázása felső jegyszám-plafon nélkül (assumed manual execution).",
+                    'autonomous_action': 'Continuous 60s schedule & odds scan active'
                 })
 
         # 4. Anti-Constant Mandate & Zero Hardcoded Clamps
