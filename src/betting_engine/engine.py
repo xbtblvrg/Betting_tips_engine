@@ -171,7 +171,13 @@ class Engine:
             bets=self.store.open_bets();decisions=self.store.system_decisions()
             pending_ids_building=set()
             existing_finals={game.id for game in self.games if game.state=='final'}
-            # Also include open shadow incubator wagers for supported leagues to prevent settlement stagnation
+            already_open_gids={
+                (row.get('payload') or {}).get('game_id')
+                for row in (bets+decisions)
+                if row.get('status')=='open' and isinstance(row.get('payload'),dict) and (row.get('payload') or {}).get('game_id')
+            }
+            # Also include open shadow incubator wagers for supported leagues ONLY when no open ledger bet/decision already tracks that game_id
+            # (appending a schedule-derived synthetic tip onto an already-tracked neutral/placeholder NCAA game creates a false conflicting_original_identities!)
             try:
                 import sqlite3
                 inc_db = DATA / 'shadow_incubator.sqlite3'
@@ -179,7 +185,7 @@ class Engine:
                     games_by_id = {game.id: game for game in self.games}
                     with sqlite3.connect(f"file:{inc_db}?mode=ro", uri=True) as inc_conn:
                         for r_fix, r_lg in inc_conn.execute("SELECT DISTINCT fixture_id, league FROM incubated_wagers WHERE status = 'open'").fetchall():
-                            if r_lg in LEAGUE_PATHS and r_fix in games_by_id and r_fix not in existing_finals:
+                            if r_lg in LEAGUE_PATHS and r_fix in games_by_id and r_fix not in existing_finals and r_fix not in already_open_gids:
                                 g_match = games_by_id[r_fix]
                                 try:
                                     if parse_time(g_match.start) < now:
@@ -193,15 +199,16 @@ class Engine:
                                                 'start': g_match.start,
                                             }
                                         })
+                                        already_open_gids.add(r_fix)
                                 except Exception:
                                     pass
             except Exception as e_inc:
                 log.debug("Shadow incubator game recovery scan non-fatal: %s", e_inc)
-            # Also recover any scheduled game in LEAGUE_PATHS that started > 3 hours ago
+            # Also recover any scheduled game in LEAGUE_PATHS that started > 3 hours ago (if not already tracked)
             past_cutoff = now - timedelta(hours=3)
             recovered_extra = 0
             for g in self.games:
-                if g.league in LEAGUE_PATHS and g.state in ('pre', 'scheduled') and g.id not in existing_finals:
+                if g.league in LEAGUE_PATHS and g.state in ('pre', 'scheduled') and g.id not in existing_finals and g.id not in already_open_gids:
                     try:
                         if parse_time(g.start) < past_cutoff:
                             decisions.append({
@@ -214,6 +221,7 @@ class Engine:
                                     'start': g.start,
                                 }
                             })
+                            already_open_gids.add(g.id)
                             recovered_extra += 1
                             if recovered_extra >= 12:
                                 break

@@ -1,15 +1,15 @@
 # Live Stake market coverage
 
-Checked: 2026-11-24T22:40:45.841856+00:00
+Checked: 2026-11-24T22:58:09.448070+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
 | League | Observed titles | Activity unverified | Offered now | Complete 10/10 | Incomplete offered | Evaluated | Funding supported | Ready now | Issued today |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | NFL | 71 | 1 | 47 | 0 | 47 | 32 | 7 | 1 | 4 |
-| NHL | 52 | 5 | 40 | 0 | 40 | 22 | 2 | 1 | 2 |
+| NHL | 52 | 5 | 40 | 0 | 40 | 22 | 2 | 0 | 2 |
 | MLB | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| NBA | 116 | 3 | 85 | 0 | 85 | 46 | 7 | 4 | 13 |
+| NBA | 116 | 3 | 85 | 0 | 85 | 46 | 6 | 4 | 13 |
 | WNBA | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 
 Current stages require outcome-level evidence; original issuance, settlement and feedback are explicitly historical. 10/10 records observed execution, not proven profitability or automatic model promotion.
@@ -133,7 +133,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | first scorer | swishMarkets.playerProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/248 | activity_unverified 0/248 | activity_unverified 0/248 | activity_unverified 0/248 | activity_unverified 0/248 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | team turnovers | swishMarkets.teamProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/54 | activity_unverified 0/54 | activity_unverified 0/54 | activity_unverified 0/54 | activity_unverified 0/54 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 1st Half - 1x2 | standard | half_1 | offered_now | 0/10 | not_observed 0/15 | not_observed 0/15 | not_observed 0/15 | not_observed 0/15 | not_observed 0/15 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NFL | 1st Half - Asian Handicap | standard | half_1 | offered_now | 3/10 | partial 2/10 | verified 10/10 | partial 2/10 | partial 2/10 | partial 2/10 | verified 2/2 | verified 2/2 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NFL | 1st Half - Asian Handicap | standard | half_1 | offered_now | 3/10 | partial 3/10 | verified 10/10 | partial 3/10 | partial 3/10 | partial 3/10 | verified 3/3 | verified 3/3 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 1st Half - Asian Total | standard | half_1 | offered_now | 3/10 | partial 2/10 | verified 10/10 | partial 2/10 | partial 2/10 | partial 2/10 | verified 2/2 | verified 2/2 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 1st Half - Draw No Bet | standard | half_1 | offered_now | 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 1st Half - Odd/Even | standard | half_1 | offered_now | 1/10 | not_observed 0/10 | verified 10/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/10 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
@@ -143,7 +143,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NFL | 1st Quarter - Total | standard | quarter_1 | offered_now | 3/10 | partial 1/10 | verified 10/10 | partial 1/10 | partial 1/10 | partial 1/10 | verified 1/1 | verified 1/1 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 1x2 | standard | regulation | offered_now | 6/10 | partial 12/15 | verified 15/15 | verified 15/15 | verified 15/15 | verified 15/15 | verified 12/12 | verified 12/12 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 2nd Half - 1x2 (Incl. Overtime) | standard | half_2_ot | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 2/2 | verified 2/2 | awaiting_measurement 2/3 | 0 |
-| NFL | 2nd Half - Draw No Bet (Incl. Overtime) | standard | half_2_ot | offered_now | 3/10 | partial 1/10 | verified 10/10 | partial 2/10 | partial 2/10 | partial 1/10 | verified 1/1 | verified 1/1 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NFL | 2nd Half - Draw No Bet (Incl. Overtime) | standard | half_2_ot | offered_now | 1/10 | not_observed 0/10 | verified 10/10 | partial 3/10 | partial 3/10 | not_observed 0/10 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 2nd Half - Handicap (Incl. Overtime) | standard | half_2_ot | offered_now | 3/10 | partial 2/10 | verified 10/10 | partial 2/10 | partial 2/10 | partial 2/10 | verified 2/2 | verified 2/2 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 2nd Half - Total (Incl. Overtime) | standard | half_2_ot | offered_now | 3/10 | partial 5/10 | verified 10/10 | partial 5/10 | partial 5/10 | partial 5/10 | verified 5/5 | verified 5/5 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 2nd Quarter - 1x2 | standard | quarter_2 | offered_now | 1/10 | not_observed 0/15 | verified 15/15 | not_observed 0/15 | not_observed 0/15 | not_observed 0/15 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |

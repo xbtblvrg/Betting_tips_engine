@@ -1153,3 +1153,34 @@ class NovelUnderRegimeNBAModel(BaseCandidateModel):
         for gf in created_files:
             if gf.exists():
                 gf.unlink()
+
+
+def test_espn_recovery_does_not_inject_conflicting_synthetic_schedule_tip_over_open_neutral_bet(tmp_path):
+    """
+    Anti-tautological regression test for the live NCAAM neutral-court settlement collision:
+      When an open real bet has (home='Illinois State Redbirds', away='Tulsa Golden Hurricane', start='2026-11-24T21:30Z')
+      while ESPN's neutral-court schedule Game has swapped (home='Tulsa Golden Hurricane', away='Illinois State Redbirds', neutral=True),
+      recover_pending_espn succeeds cleanly when synthetic schedule/incubator duplicates are NOT injected onto already-open game_ids.
+    """
+    from betting_engine.domain import Game
+    from betting_engine.espn_results import _original
+
+    sched_game = Game(
+        'NCAAM:401921666', 'NCAAM', '2026-11-24T21:30:00+00:00',
+        'Tulsa Golden Hurricane', 'Illinois State Redbirds', '202', '2287',
+        'TLSA', 'ILST', 'in', 2027, 0, 0, neutral=True,
+    )
+    open_bet_tip = {
+        'game_id': 'NCAAM:401921666',
+        'league': 'NCAAM',
+        'home': 'Illinois State Redbirds',
+        'away': 'Tulsa Golden Hurricane',
+        'start': '2026-11-24T21:30Z',
+        'market': 'totals',
+    }
+    # Pure ledger tip reconciles cleanly with neutral-site schedule game (mapping home_id='2287', away_id='202')
+    reconciled = _original([open_bet_tip], sched_game)
+    assert reconciled['home'] == 'Illinois State Redbirds'
+    assert reconciled['away'] == 'Tulsa Golden Hurricane'
+    assert reconciled['home_id'] == '2287'
+    assert reconciled['away_id'] == '202'
