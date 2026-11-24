@@ -765,3 +765,76 @@ def test_polymarket_bipartite_event_pairing_acronyms_kickoff_and_period_scale(tm
     assert fc_g2 is not None
     assert abs(fc_g2['proj_home'] - 100.0) < 0.2
     assert abs(fc_g2['proj_away'] - 110.0) < 0.2
+
+
+def test_polymarket_soccer_3way_reg_home_prob_and_pillar2_settlement_side(tmp_path):
+    import json
+    from betting_engine.polymarket_executor import PolymarketAutonomousExecutor
+    from betting_engine.polymarket_runner import PolymarketAutonomousRunner
+    from betting_engine.polymarket_settlement import PolymarketOutcomeSettler
+
+    db_file = tmp_path / 'engine.sqlite3'
+    executor = PolymarketAutonomousExecutor(db_path=db_file)
+    runner = PolymarketAutonomousRunner(executor=executor)
+
+    # 1. Soccer 3-way forecast must preserve reg_home_prob (0.46), NOT inflate to 2-way DNB (0.46 + 0.5*0.26 = 0.59)!
+    epl_tips = [
+        {
+            'league': 'EPL', 'home': 'Arsenal FC', 'away': 'Manchester United',
+            'start': '2026-11-25T20:00:00Z', 'model_scope': 'full_game', 'market': 'three_way',
+            'side': 'home', 'probability': 0.46,
+        },
+        {
+            'league': 'EPL', 'home': 'Arsenal FC', 'away': 'Manchester United',
+            'start': '2026-11-25T20:00:00Z', 'model_scope': 'full_game', 'market': 'three_way',
+            'side': 'draw', 'probability': 0.26,
+        },
+    ]
+    fc_epl = runner._lookup_game_forecast(
+        league='EPL', teams=[], title='Arsenal vs. Manchester United',
+        tips=epl_tips, event_start='2026-11-25T20:00:00Z',
+    )
+    assert fc_epl is not None
+    assert fc_epl['reg_home_prob'] == 0.46
+    assert abs(fc_epl['away_prob'] - 0.28) < 1e-6
+
+    # 2. Pillar 2 fallback settlement must not invert away side on shared 'State' ('Long Beach State' vs 'Arkansas State')
+    with sqlite3.connect(db_file) as c:
+        c.execute("""
+            INSERT INTO polymarket_orders (
+                order_id, client_order_id, token_id, league, game_title, start_time,
+                market_family, selection, side, line, poly_price, poly_odds, model_prob,
+                expected_value, stake_usd, shares_count, status, created_at, updated_at, execution_mode, scope
+            ) VALUES (
+                'ord_state_1', 'cid_state_1', 'tok_state_1', 'CBB',
+                'Long Beach State Beach vs. Arkansas State Red Wolves', '2026-11-23T20:00:00Z',
+                'spreads', 'Arkansas State Red Wolves', 'BUY', -5.5, 0.50, 2.0, 0.55,
+                0.10, 2.0, 4.0, 'filled', '2026-11-23T18:00:00Z', '2026-11-23T18:00:00Z', 'shadow', 'full_game'
+            )
+        """)
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS bet_outcomes (
+                bet_id INTEGER PRIMARY KEY, league TEXT, market TEXT, model_version TEXT,
+                result TEXT, probability REAL, push_probability REAL, brier REAL, log_loss REAL, evidence TEXT
+            )
+        """)
+        # Home = Long Beach State (80), Away = Arkansas State (70) -> Arkansas State -5.5 LOST!
+        # (Previously shared 'State' matched home_name -> evaluated Long Beach State 80-70-5.5 > 0 as a false WIN!)
+        ev_json = json.dumps({
+            'game_title': 'Long Beach State Beach vs. Arkansas State Red Wolves',
+            'score_scope': 'full_game',
+            'home_team': 'Long Beach State Beach',
+            'away_team': 'Arkansas State Red Wolves',
+            'home_score': 80,
+            'away_score': 70,
+        })
+        c.execute("INSERT INTO bet_outcomes (bet_id, league, market, result, evidence) VALUES (1, 'NCAAM', 'spreads', 'lost', ?)", (ev_json,))
+
+    settler = PolymarketOutcomeSettler(db_path=db_file, log_path=tmp_path / 'poly_settle.jsonl')
+    # Mock gamma_market_resolution to None so Pillar 2 official_match_scores executes
+    settler.fetch_gamma_market_resolution = lambda tid: None
+    settler.fetch_polymarket_positions = lambda: {}
+    rep = settler.settle_orders()
+    assert rep['settled_count'] == 1
+    assert rep['lost_count'] == 1
+    assert rep['won_count'] == 0

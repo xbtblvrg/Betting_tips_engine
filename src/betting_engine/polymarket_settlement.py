@@ -482,20 +482,23 @@ class PolymarketOutcomeSettler:
                                 except Exception:
                                     pass
 
-                            if home_name and (sel_low in home_name.lower() or any(w in sel_low for w in home_name.lower().split() if len(w) > 3)):
-                                norm_side = "home"
-                            elif away_name and (sel_low in away_name.lower() or any(w in sel_low for w in away_name.lower().split() if len(w) > 3)):
-                                norm_side = "away"
-                            else:
+                            from .polymarket_runner import resolve_polymarket_outcome_is_home
+                            if not home_name and not away_name:
                                 parts = game_title.split(" vs. ") if " vs. " in game_title else game_title.split(" vs ")
                                 if len(parts) == 2:
-                                    away_part, home_part = parts[0].strip().lower(), parts[1].strip().lower()
-                                    if any(w in sel_low for w in home_part.split() if len(w) > 3):
-                                        norm_side = "home"
-                                    else:
-                                        norm_side = "away"
-                                else:
-                                    norm_side = "home" if "home" in sel_low else "away"
+                                    # Polymarket title convention: Away vs. Home (or side 0 vs side 1); pass both into disambiguator
+                                    away_name, home_name = parts[0].strip(), parts[1].strip()
+                            if home_name or away_name:
+                                is_h_sel = resolve_polymarket_outcome_is_home(
+                                    outcome_label=sel_str,
+                                    question=game_title or "",
+                                    home_name=home_name or "",
+                                    away_name=away_name or "",
+                                    idx=0,
+                                )
+                                norm_side = "home" if is_h_sel else "away"
+                            else:
+                                norm_side = "home" if "home" in sel_low else "away"
 
                         try:
                             c_val = contract_value(

@@ -635,6 +635,7 @@ class PolymarketAutonomousRunner:
             "proj_home": proj_h,
             "proj_away": proj_a,
             "home_prob": home_prob,
+            "reg_home_prob": p_reg_home,
             "draw_prob": p_reg_draw,
             "away_prob": p_reg_away,
             "home_name": home_name or poly_home_team or "",
@@ -1038,15 +1039,32 @@ class PolymarketAutonomousRunner:
                         is_soccer = league in ("EPL", "MLS", "UCL", "UEL", "LALIGA", "BUNDESLIGA", "SERIEA")
                         is_draw_question = "draw" in q_low or out_low == "draw"
 
-                        if is_soccer and is_draw_question:
-                            draw_p = float(forecast.get("draw_prob") or 0.25)
-                            model_prob = draw_p if out_low in ("yes", "draw") else (1.0 - draw_p)
-                        elif is_soccer and a_name and (a_name in q_low and h_name not in q_low):
-                            away_p = float(forecast.get("away_prob") or max(0.05, 1.0 - float(forecast["home_prob"]) - float(forecast.get("draw_prob") or 0.25)))
-                            model_prob = away_p if out_low == "yes" else (1.0 - away_p)
-                        elif is_soccer and h_name and (h_name in q_low and a_name not in q_low):
-                            home_p = float(forecast.get("home_prob") or 0.45)
-                            model_prob = home_p if out_low == "yes" else (1.0 - home_p)
+                        if is_soccer:
+                            draw_p = float(forecast.get("draw_prob") if forecast.get("draw_prob") is not None else 0.25)
+                            raw_2way_h = float(forecast["home_prob"])
+                            reg_home_p = (
+                                float(forecast["reg_home_prob"])
+                                if forecast.get("reg_home_prob") is not None
+                                else max(0.02, min(0.95, raw_2way_h * (1.0 - draw_p)))
+                            )
+                            reg_away_p = (
+                                float(forecast["away_prob"])
+                                if forecast.get("away_prob") is not None
+                                else max(0.02, min(0.95, 1.0 - reg_home_p - draw_p))
+                            )
+                            if is_draw_question:
+                                model_prob = draw_p if out_low in ("yes", "draw") else (1.0 - draw_p)
+                            else:
+                                # Polymarket soccer team win contracts settle 3-way (Draw resolves to 'No')!
+                                target_is_home = resolve_polymarket_outcome_is_home(
+                                    outcome_label="yes" if out_low in ("yes", "no") else outcome_label,
+                                    question=q or "",
+                                    home_name=forecast.get("home_name") or "",
+                                    away_name=forecast.get("away_name") or "",
+                                    idx=idx,
+                                )
+                                win_p = reg_home_p if target_is_home else reg_away_p
+                                model_prob = (1.0 - win_p) if out_low == "no" else win_p
                         else:
                             # Standard 2-way Moneyline (NBA, NFL, NHL, MLB, Tennis, CBB, NCAAF)
                             is_home = resolve_polymarket_outcome_is_home(
