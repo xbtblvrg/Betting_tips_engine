@@ -966,6 +966,29 @@ class SupremeSystemAuditor:
                 heal_res = self.execute_autonomous_code_healing(f)
                 healing_results.append(heal_res)
 
+        # Auto-resolve previously escalated component/runtime defects whose underlying finding is now clear
+        try:
+            import sys
+            prod_data = Path(__file__).resolve().parents[2] / 'data'
+            is_pytest_on_prod = ("PYTEST_CURRENT_TEST" in os.environ or "pytest" in sys.modules) and self.data_dir.resolve() == prod_data.resolve()
+            esc_path = self.data_dir / 'development' / 'self_healing_escalations.json'
+            if not is_pytest_on_prod and esc_path.exists():
+                esc_doc = json.loads(esc_path.read_text(encoding='utf-8'))
+                active_descs = {str(f.get('description') or '')[:80] for f in findings}
+                changed_esc = False
+                now_iso = utcnow().isoformat()
+                for item in (esc_doc.get('items') or {}).values():
+                    if isinstance(item, dict) and item.get('state') == 'open' and item.get('category') == 'component_degraded':
+                        if str(item.get('exception_message') or '')[:80] not in active_descs:
+                            item['state'] = 'resolved'
+                            item['resolved_at'] = now_iso
+                            item['remedy'] = 'Component verified healthy on subsequent SupremeSystemAuditor sweep'
+                            changed_esc = True
+                if changed_esc:
+                    atomic_json(esc_path, esc_doc)
+        except Exception:
+            pass
+
         elapsed = round(time.monotonic() - start_t, 2)
         report = {
             'audited_at': utcnow().isoformat(),

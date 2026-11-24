@@ -585,3 +585,40 @@ def test_supreme_auditor_escalates_unresolved_defect_to_engineering_loop_priorit
         now=now + timedelta(minutes=3),
     )
     assert any(s['task_id'] == sh_task['id'] for s in rep2['task_supersessions'])
+
+
+def test_espn_original_accepts_neutral_site_college_swapped_schedule_and_saint_punctuation():
+    from betting_engine.domain import Game
+    from betting_engine.espn_results import _original, _team_identity_matches
+
+    # 1. Punctuation normalization: 'Mount St. Joseph Lions' matches ESPN 'Mount St Joseph Lions'
+    assert _team_identity_matches({'displayName': 'Mount St Joseph Lions'}, 'Mount St. Joseph Lions') is True
+
+    # 2. Neutral-court college schedule vs tip home/away swap maps team IDs to tip's original sides
+    tip = {
+        'game_id': 'NCAAM:401929445',
+        'league': 'NCAAM',
+        'home': 'Southern Utah Thunderbirds',
+        'away': 'Arkansas State Red Wolves',
+        'start': '2026-11-23T20:30:00Z',
+        'market': 'spreads',
+    }
+    existing = Game(
+        id='NCAAM:401929445',
+        league='NCAAM',
+        start='2026-11-23T20:45:00Z',
+        home='Arkansas State Red Wolves',
+        away='Southern Utah Thunderbirds',
+        home_id='2032',
+        away_id='253',
+        home_abbr='ARKST',
+        away_abbr='SUU',
+        state='pre',
+        season=2027,
+        neutral=True,
+    )
+    merged = _original([tip], existing)
+    assert merged['home'] == 'Southern Utah Thunderbirds'
+    assert merged['away'] == 'Arkansas State Red Wolves'
+    assert merged['home_id'] == '253'
+    assert merged['away_id'] == '2032'

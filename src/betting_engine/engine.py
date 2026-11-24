@@ -240,6 +240,7 @@ class Engine:
             from .period_data import attach_scores
             attach_scores([g for g in recovered if g.league in LEAGUE_PATHS],period_scores or {})
             if status.get('recovered_games'):
+                # Persistence errors must propagate to the fail-closed handler before updating self.games.
                 atomic_json(DATA/'games.json',[g.dict() for g in recovered])
             self.games,self.espn_settlement_status=recovered,status
         except Exception as exc:

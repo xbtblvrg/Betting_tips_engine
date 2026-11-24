@@ -1,6 +1,6 @@
 # Live Stake market coverage
 
-Checked: 2026-11-24T14:23:58.283907+00:00
+Checked: 2026-11-24T14:46:23.981766+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
@@ -9,7 +9,7 @@ Observed feed titles; not proof of complete Stake website coverage. Funding supp
 | NFL | 71 | 1 | 45 | 0 | 45 | 30 | 7 | 0 | 1 |
 | NHL | 52 | 5 | 40 | 0 | 40 | 21 | 2 | 1 | 2 |
 | MLB | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| NBA | 117 | 3 | 90 | 0 | 90 | 50 | 6 | 3 | 9 |
+| NBA | 117 | 3 | 90 | 0 | 90 | 50 | 7 | 4 | 10 |
 | WNBA | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 
 Current stages require outcome-level evidence; original issuance, settlement and feedback are explicitly historical. 10/10 records observed execution, not proven profitability or automatic model promotion.
@@ -84,7 +84,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | Boston Celtics Total Maximum Consecutive Points | standard | regulation | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Brooklyn Nets Total (Incl. Overtime) | standard | full_game | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 3/3 | verified 3/3 | awaiting_measurement 3/4 | 0 |
 | NBA | Chicago Bulls Total (Incl. Overtime) | standard | full_game | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
-| NBA | Cleveland Cavaliers Total (Incl. Overtime) | standard | full_game | offered_now | 9/10 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 3/3 | verified 3/3 | awaiting_measurement 3/4 | 0 |
+| NBA | Cleveland Cavaliers Total (Incl. Overtime) | standard | full_game | offered_now | 9/10 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 4/4 | verified 3/3 | awaiting_measurement 3/4 | 1 |
 | NBA | Dallas Mavericks Total (Incl. Overtime) | standard | full_game | offered_now | 9/10 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 2/2 | verified 2/2 | awaiting_measurement 2/3 | 0 |
 | NBA | Dallas Mavericks Total Maximum Consecutive Points | standard | regulation | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Denver Nuggets Total (Incl. Overtime) | standard | full_game | offered_now | 9/10 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 3/3 | verified 3/3 | partial 3/4 | 0 |

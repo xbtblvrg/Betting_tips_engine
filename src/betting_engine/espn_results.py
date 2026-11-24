@@ -61,7 +61,8 @@ def _identity(tip):
 
 
 def _canon_team_name(name: str) -> str:
-    s = re.sub(r'[-–—/]+', ' ', str(name or '').lower())
+    s = re.sub(r"[.’']+", '', str(name or '').lower())
+    s = re.sub(r'[-–—/]+', ' ', s)
     s = re.sub(r'^(?:the\s+|university\s+of\s+)', '', s.strip())
     return re.sub(r'\s+', ' ', s).strip()
 
@@ -277,9 +278,26 @@ def _original(tips, existing):
         raise ValueError('conflicting_original_identities')
     tip = dict(tips[starts.index(min(starts))])
     tip.pop('_source_schedule_start', None)
+    schedule_flipped = False
     if existing is not None:
+        gid_t, home_t, away_t, _ = _identity(tip)
+        is_college = tip.get('league') in ('NCAAM', 'NCAAW', 'NCAAF')
         tolerance = 21600 if existing.start.endswith('00:00Z') or existing.start.endswith('00:00:00Z') else 1800
-        if ((existing.id, existing.home, existing.away) != _identity(tip)[:3]
+        exact_sides = (
+            existing.id == gid_t
+            and (existing.home == home_t or (is_college and _canon_team_name(existing.home) == _canon_team_name(home_t)))
+            and (existing.away == away_t or (is_college and _canon_team_name(existing.away) == _canon_team_name(away_t)))
+        )
+        swapped_college_sides = (
+            is_college
+            and getattr(existing, 'neutral', False) is True
+            and existing.id == gid_t
+            and _canon_team_name(existing.home) == _canon_team_name(away_t)
+            and _canon_team_name(existing.away) == _canon_team_name(home_t)
+        )
+        if swapped_college_sides and not exact_sides:
+            schedule_flipped = True
+        if ((not exact_sides and not swapped_college_sides)
                 or existing.league != tip['league']
                 or any(abs((parse_time(existing.start)-start).total_seconds()) > tolerance for start in starts)):
             raise ValueError('conflicting_schedule_identity')
@@ -289,7 +307,8 @@ def _original(tips, existing):
     for side in ('home', 'away'):
         ids = {_identifier(t[side + '_id']) for t in tips if t.get(side + '_id') is not None}
         if existing is not None:
-            ids.add(_identifier(getattr(existing, side + '_id')))
+            ex_side = ('away' if side == 'home' else 'home') if schedule_flipped else side
+            ids.add(_identifier(getattr(existing, ex_side + '_id')))
         if len(ids) > 1:
             raise ValueError('conflicting_original_team_ids')
         if ids:
