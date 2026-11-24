@@ -204,13 +204,32 @@ class DynamicArchetypeRegistry:
             ),
         )
 
+        def _scope_bucket(sc_val: str, cls_hint: str = "") -> str:
+            s = str(sc_val or "").lower().strip()
+            c = str(cls_hint or "")
+            if "quarter" in s or re.search(r'(?:Quarter\d?|_quarter_\d|(?<![A-Za-z])Q[1-4](?![A-Za-z]))', c):
+                return "quarter"
+            if "half" in s or re.search(r'(?:Half\d?|_half_[12]|FirstHalf|SecondHalf|(?<![A-Za-z])[12]H(?![A-Za-z]))', c):
+                return "half"
+            if "period" in s or re.search(r'(?:Period\d?|_period_[1-3])', c):
+                return "period"
+            if "innings_1_5" in s or re.search(r'(?:First5|F5Inning|Innings15|_innings_1_5)', c):
+                return "innings_1_5"
+            if "inning" in s or re.search(r'(?:Inning\d?|_inning_\d|NRFI|YRFI)', c):
+                return "inning"
+            if "set_" in s or re.search(r'(?:Set[1-5]|_set_[1-5])', c):
+                return "set"
+            return "full_game"
+
+        target_sc_bucket = _scope_bucket(scope)
         for mid, arch in ordered_archs:
             if len(candidates) >= max_dynamic:
                 break
             is_lg_match = (arch.league.upper() == lg_u)
+            is_sc_match = (_scope_bucket(arch.scope, arch.class_name) == target_sc_bucket)
             is_fam_match = (arch.family.lower() in fam_l or fam_l in arch.family.lower())
             dyn_label = f"Dynamic_{arch.class_name}"
-            if not (is_lg_match and is_fam_match) or dyn_label in seen_cls:
+            if not (is_lg_match and is_sc_match and is_fam_match) or dyn_label in seen_cls:
                 continue
 
             try:

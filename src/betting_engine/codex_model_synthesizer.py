@@ -1695,7 +1695,9 @@ class {cls_3}(BaseCandidateModel):
                     except Exception:
                         pass
 
-                    distilled_fast = self.registry.get_distilled_archetypes_for_market(league, scope, family, limit=12)
+                    distilled_fast = self.registry.get_distilled_archetypes_for_market(league, scope, family, limit=6)
+                    if len(fast_oos) > 120:
+                        fast_oos = fast_oos[-120:]
                     best_fast_comp = -999.0
                     for d_arch in distilled_fast:
                         if d_arch.base_class_name in already_bound_cls:
@@ -1979,8 +1981,11 @@ class {cls_3}(BaseCandidateModel):
             'metrics': primary_metrics,
         }
 
-        # Run Evolutionary Crossover & Residual-Mutation Tournament when not locked to a specific forced archetype
-        if not force_archetype and len(oos_wagers) >= 5:
+        # Run Evolutionary Crossover & Residual-Mutation Tournament ONLY when falling back to algorithmic_codex_engine
+        # (Commandment 10 Zero Pseudo-Synthesis: static Evo* templates must NEVER overwrite genuine AI models
+        # from codex/claude/agy or proven Stage-0 distilled_ai_fast_lane archetypes).
+        is_authentic_ai = provider in ("codex", "claude", "agy", "distilled_ai_fast_lane")
+        if not force_archetype and not is_authentic_ai and len(oos_wagers) >= 5:
             evo_pool = self._synthesize_evolutionary_crossover_candidates(
                 league, scope, family, model_id, autopsy=autopsy, parents=parents
             )
@@ -1999,23 +2004,10 @@ class {cls_3}(BaseCandidateModel):
                         canonical_seg, e_inst, ctx, oos_wagers, family
                     )
                     cur_best_m = best_choice['metrics']
-                    # Evolutionary Tournament Selection Rule:
-                    # Strictly prefer a hypothesis that passes the Crucible over one that fails.
-                    # IMPORTANT: When an LLM (codex/claude/agy) generated the primary candidate and NEITHER
-                    # passes the Crucible, preserve the LLM candidate's own code/class/metrics so the
-                    # Reinforcement Learning feedback loop records genuine failure telemetry on the LLM's formula
-                    # instead of overwriting it with a deterministic Evo* template.
-                    is_llm_primary = provider in ("codex", "claude", "agy")
                     is_better = (
                         (e_metrics['crucible_ok'] and not cur_best_m['crucible_ok'])
                         or (
-                            e_metrics['crucible_ok'] and cur_best_m['crucible_ok']
-                            and e_metrics['oos_accepted'] >= 5
-                            and e_metrics['composite_score'] > cur_best_m['composite_score'] + 0.005
-                        )
-                        or (
-                            not is_llm_primary
-                            and e_metrics['crucible_ok'] == cur_best_m['crucible_ok']
+                            e_metrics['crucible_ok'] == cur_best_m['crucible_ok']
                             and e_metrics['oos_accepted'] >= 5
                             and e_metrics['composite_score'] > cur_best_m['composite_score'] + 0.005
                         )

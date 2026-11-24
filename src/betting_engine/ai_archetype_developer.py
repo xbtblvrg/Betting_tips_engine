@@ -191,7 +191,14 @@ class AIArchetypeDeveloperAgent:
         """Validates and distills a winning candidate model into a reusable parameterized archetype."""
         from .codex_model_synthesizer import check_ast_safety, instantiate_synthesized_class
 
-        # 1. Safety check & reusable template normalization
+        # 1. Safety check, Evo* template exclusion & reusable template normalization
+        if str(class_name or '').startswith((
+            "EvoResidualLatticeCrossover_",
+            "EvoSharedShockCopulaCrossover_",
+            "EvoShrinkageTailRegularized_",
+        )) or provider == "evolutionary_crossover_engine":
+            log.debug("[DISTILL] Skipping built-in Evo* crossover template %s (%s)", model_id, class_name)
+            return None
         log.debug("[DISTILL] Starting candidate validation for %s (%s|%s|%s, oos_roi=%.2f%%)", model_id, league, scope, family, (oos_roi or 0.0) * 100.0)
         source_code = re.sub(
             r'raise\s+ValueError\([^\n]*supports[^\n]*only[^\n]*\)',
@@ -363,6 +370,24 @@ class AIArchetypeDeveloperAgent:
         fam_l = family.lower().strip()
 
         log.debug("[DISTILL-CATALOG] Querying archetypes for league=%s scope=%s family=%s (catalog_path=%s)", lg_u, scope, fam_l, self.db_path)
+        def _scope_bucket(sc_val: str, cls_hint: str = "") -> str:
+            s = str(sc_val or "").lower().strip()
+            c = str(cls_hint or "")
+            if "quarter" in s or re.search(r'(?:Quarter\d?|_quarter_\d|(?<![A-Za-z])Q[1-4](?![A-Za-z]))', c):
+                return "quarter"
+            if "half" in s or re.search(r'(?:Half\d?|_half_[12]|FirstHalf|SecondHalf|(?<![A-Za-z])[12]H(?![A-Za-z]))', c):
+                return "half"
+            if "period" in s or re.search(r'(?:Period\d?|_period_[1-3])', c):
+                return "period"
+            if "innings_1_5" in s or re.search(r'(?:First5|F5Inning|Innings15|_innings_1_5)', c):
+                return "innings_1_5"
+            if "inning" in s or re.search(r'(?:Inning\d?|_inning_\d|NRFI|YRFI)', c):
+                return "inning"
+            if "set_" in s or re.search(r'(?:Set[1-5]|_set_[1-5])', c):
+                return "set"
+            return "full_game"
+
+        target_sc_bucket = _scope_bucket(scope)
         records: List[DistilledArchetypeRecord] = []
         try:
             with closing(sqlite3.connect(f"file:{self.db_path.resolve()}?mode=ro", uri=True, timeout=5.0)) as conn:
@@ -385,12 +410,15 @@ class AIArchetypeDeveloperAgent:
                 leagues = json.loads(r[4])
                 families = json.loads(r[5])
                 param_spec = json.loads(r[7])
+                origin_sc = str((param_spec or {}).get("origin_scope") or "")
+                arch_sc_bucket = _scope_bucket(origin_sc, str(r[2] or ""))
 
-                # Match league and family
+                # Match league, scope bucket (preventing Q1/1H models from mispricing full_game and vice versa), and family
                 match_lg = (lg_u in [x.upper() for x in leagues])
+                match_sc = (arch_sc_bucket == target_sc_bucket)
                 match_fam = any(fam_l in str(f).lower() or str(f).lower() in fam_l for f in families)
 
-                if match_lg and match_fam:
+                if match_lg and match_sc and match_fam:
                     records.append(DistilledArchetypeRecord(
                         archetype_id=r[0],
                         name=r[1],

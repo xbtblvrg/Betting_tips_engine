@@ -894,6 +894,31 @@ class CustomSoccerDoubleChanceModel(BaseCandidateModel):
     assert 'double_chance' in fam_dc
     assert 'totals' not in fam_dc
 
+    # 1b. Scope-tier purity: a Quarter-1 possession model (~56 pts) must NEVER match full_game (~224 pts)!
+    q1_code = '''
+from betting_engine.sandbox_models.base import BaseCandidateModel, DiscreteDistribution
+class NBAQuarter1SharedPossessionModel(BaseCandidateModel):
+    def __init__(self, model_id='q1_nba', version='1.0', league='NBA', scope='quarter_1', family='totals'):
+        super().__init__(model_id=model_id, version=version, league=league, scope=scope, family=family)
+    def predict_distribution(self, ctx):
+        return DiscreteDistribution.from_scores({(29, 27): 0.60, (26, 25): 0.40})
+'''
+    assert dev.distill_from_candidate(
+        model_id='q1_nba_1',
+        source_code=q1_code,
+        class_name='NBAQuarter1SharedPossessionModel',
+        league='NBA',
+        scope='quarter_1',
+        family='totals',
+        oos_roi=0.35,
+        delta_brier=0.03,
+        provider='claude',
+    ) is not None
+    fg_matches = dev.get_distilled_archetypes_for_market('NBA', 'full_game', 'totals')
+    q2_matches = dev.get_distilled_archetypes_for_market('NBA', 'quarter_2', 'totals')
+    assert all(m.base_class_name != 'NBAQuarter1SharedPossessionModel' for m in fg_matches)
+    assert any(m.base_class_name == 'NBAQuarter1SharedPossessionModel' for m in q2_matches)
+
     # 2. Genuine AI model vs Evo* crossover clone registration & deduplicated ordering
     ai_totals_code = '''
 from betting_engine.sandbox_models.base import BaseCandidateModel, DiscreteDistribution
