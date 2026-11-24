@@ -349,10 +349,11 @@ class PolymarketAutonomousExecutor:
             ])
 
         seg_keys = []
-        for alias in family_aliases:
-            seg_keys.append(f"{league}|{scope}|{alias}")
-            seg_keys.append(f"{league}|{scope}|asian_lines:{alias}")
-            seg_keys.append(f"{league}|{scope}|american_derivatives:{alias}")
+        for lg_al in league_aliases:
+            for alias in family_aliases:
+                seg_keys.append(f"{lg_al}|{scope}|{alias}")
+                seg_keys.append(f"{lg_al}|{scope}|asian_lines:{alias}")
+                seg_keys.append(f"{lg_al}|{scope}|american_derivatives:{alias}")
         # Deduplicate while preserving order
         seg_keys = list(dict.fromkeys(seg_keys))
 

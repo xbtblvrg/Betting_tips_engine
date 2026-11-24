@@ -622,3 +622,76 @@ def test_espn_original_accepts_neutral_site_college_swapped_schedule_and_saint_p
     assert merged['away'] == 'Arkansas State Red Wolves'
     assert merged['home_id'] == '253'
     assert merged['away_id'] == '2032'
+
+
+def test_polymarket_executor_blocks_cbb_alias_when_ncaam_is_demoted(tmp_path):
+    from betting_engine.polymarket_executor import PolymarketAutonomousExecutor
+
+    with sqlite3.connect(tmp_path / 'shadow_incubator.sqlite3') as ic:
+        ic.execute("""
+            CREATE TABLE demoted_markets (
+                id TEXT PRIMARY KEY, segment_key TEXT, league TEXT, scope TEXT, family TEXT, sub_family TEXT,
+                demoted_at TEXT, rolling_roi REAL, rolling_pnl REAL, games INT, reason TEXT, stats TEXT,
+                incubation_phase TEXT
+            )
+        """)
+        ic.execute("""
+            CREATE TABLE graduated_markets (
+                id TEXT PRIMARY KEY, segment_key TEXT, league TEXT, scope TEXT, family TEXT, sub_family TEXT,
+                graduated_at TEXT, sample_size INT, roi REAL, delta_brier REAL, max_drawdown REAL, win_rate REAL, stats TEXT
+            )
+        """)
+        ic.execute(
+            "INSERT INTO demoted_markets VALUES ('dm_ncaam', 'NCAAM|full_game|spreads', 'NCAAM', 'full_game', 'spreads', 'spreads', '2026-11-24T00:00:00Z', -0.25, -15.0, 12, 'demoted', '{}', 'research_training')"
+        )
+
+    poly = PolymarketAutonomousExecutor(db_path=tmp_path / 'engine.sqlite3')
+    # Inject stale positive NCAAM alpha into cached scoreboard — CBB must STILL be blocked by NCAAM demotion!
+    poly._cached_scoreboard = {
+        'alpha_segments': [{
+            'segment': 'NCAAM|full_game|spreads', 'league': 'NCAAM', 'scope': 'full_game', 'family': 'spreads',
+            'games': 15, 'rolling_games': 15, 'pnl': 10.0, 'rolling_pnl': 10.0, 'roi_pct': 12.0, 'rolling_roi_pct': 12.0, 'rolling_units': 2.5,
+        }],
+        'exploration_segments': [],
+        'underperforming_segments': [],
+    }
+    poly._scoreboard_cached_at = 9999999999.0
+
+    ok, reason, cap = poly.is_market_eligible('CBB', 'full_game', 'spreads', require_tier_4=True)
+    assert ok is False
+    assert cap == 0.0
+    assert 'DEMOTED_IN_SHADOW_INCUBATOR' in reason
+
+
+def test_resolve_polymarket_outcome_is_home_eliminates_shared_word_side_inversion():
+    from betting_engine.polymarket_runner import resolve_polymarket_outcome_is_home
+
+    # Shared 'State': previously 'Arkansas State' matched 'Long Beach State' on 'state' -> inverted is_home=True!
+    assert resolve_polymarket_outcome_is_home(
+        'Long Beach State Beach', 'Spread: Long Beach State (-3.5)',
+        'Long Beach State Beach', 'Arkansas State Red Wolves', idx=0
+    ) is True
+    assert resolve_polymarket_outcome_is_home(
+        'Arkansas State Red Wolves', 'Spread: Long Beach State (-3.5)',
+        'Long Beach State Beach', 'Arkansas State Red Wolves', idx=1
+    ) is False
+
+    # Shared 'Los Angeles': Lakers vs Clippers
+    assert resolve_polymarket_outcome_is_home(
+        'Clippers', 'Spread: Lakers (-4.5)',
+        'Los Angeles Lakers', 'Los Angeles Clippers', idx=1
+    ) is False
+    assert resolve_polymarket_outcome_is_home(
+        'Lakers', 'Spread: Lakers (-4.5)',
+        'Los Angeles Lakers', 'Los Angeles Clippers', idx=0
+    ) is True
+
+    # Shared 'New': New York Knicks vs New Orleans Pelicans
+    assert resolve_polymarket_outcome_is_home(
+        'Pelicans', 'Spread: Knicks (-6.5)',
+        'New York Knicks', 'New Orleans Pelicans', idx=1
+    ) is False
+    assert resolve_polymarket_outcome_is_home(
+        'Knicks', 'Spread: Knicks (-6.5)',
+        'New York Knicks', 'New Orleans Pelicans', idx=0
+    ) is True

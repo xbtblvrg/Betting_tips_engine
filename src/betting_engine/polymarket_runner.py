@@ -87,6 +87,71 @@ POLYMARKET_STRUCTURED_TYPE_MAP: Dict[str, Tuple[str, str]] = {
 }
 
 
+def resolve_polymarket_outcome_is_home(
+    outcome_label: str,
+    question: str,
+    home_name: str,
+    away_name: str,
+    idx: int = 0,
+) -> bool:
+    """Disambiguates whether a Polymarket outcome belongs to forecast home_name or away_name.
+
+    Eliminates shared-token collisions (e.g. 'Arkansas State' vs 'Long Beach State',
+    'Los Angeles Lakers' vs 'Los Angeles Clippers', 'New York Knicks' vs 'New Orleans Pelicans',
+    'Manchester United' vs 'Manchester City') by scoring strictly on distinctive (non-shared) tokens.
+    """
+    import re as _re
+
+    h_low = (home_name or "").lower().strip()
+    a_low = (away_name or "").lower().strip()
+    out_low = (outcome_label or "").lower().strip()
+    q_low = (question or "").lower().strip()
+
+    def _toks(txt: str) -> Set[str]:
+        return {w for w in _re.findall(r"[a-z0-9]+", txt) if len(w) >= 2 and w not in ("the", "fc", "sc", "cf", "vs", "spread", "will", "win")}
+
+    h_toks = _toks(h_low)
+    a_toks = _toks(a_low)
+    h_uniq = h_toks - a_toks
+    a_uniq = a_toks - h_toks
+
+    if out_low not in ("yes", "no", ""):
+        if out_low == h_low and out_low != a_low:
+            return True
+        if out_low == a_low and out_low != h_low:
+            return False
+        out_toks = _toks(out_low)
+        h_hits = len(out_toks & h_uniq)
+        a_hits = len(out_toks & a_uniq)
+        if h_hits > a_hits:
+            return True
+        if a_hits > h_hits:
+            return False
+        in_h = bool(h_low and len(out_low) >= 4 and out_low in h_low)
+        in_a = bool(a_low and len(out_low) >= 4 and out_low in a_low)
+        if in_h and not in_a:
+            return True
+        if in_a and not in_h:
+            return False
+
+    # Yes/No or ambiguous label: inspect the named subject of the question (before 'vs' if present)
+    q_subject = q_low.split(" vs")[0] if " vs" in q_low else q_low
+    q_toks = _toks(q_subject)
+    qh_hits = len(q_toks & h_uniq)
+    qa_hits = len(q_toks & a_uniq)
+    if qh_hits != qa_hits:
+        subject_is_home = qh_hits > qa_hits
+    else:
+        q_all_toks = _toks(q_low)
+        subject_is_home = len(q_all_toks & h_uniq) >= len(q_all_toks & a_uniq)
+
+    if out_low == "yes":
+        return subject_is_home
+    if out_low == "no":
+        return not subject_is_home
+    return subject_is_home if idx == 0 else (not subject_is_home)
+
+
 class PolymarketAutonomousRunner:
     """Autonomous Background Loop executing trades on Polymarket CLOB."""
 
@@ -818,34 +883,13 @@ class PolymarketAutonomousRunner:
                         # Outcome 1 (Opponent) receives the inverse handicap (-line_val).
                         outcome_spread = float(line_val) if idx == 0 else -float(line_val)
 
-                        h_name = (forecast.get("home_name") or "").lower()
-                        a_name = (forecast.get("away_name") or "").lower()
-                        out_low = outcome_label.lower()
-                        q_low = q.lower()
-
-                        is_home = None
-                        if h_name and (out_low in h_name or h_name in out_low or any(w in out_low for w in h_name.split() if len(w) >= 3)):
-                            is_home = True
-                        elif a_name and (out_low in a_name or a_name in out_low or any(w in out_low for w in a_name.split() if len(w) >= 3)):
-                            is_home = False
-                        elif out_low == "yes":
-                            if h_name and (h_name in q_low or any(w in q_low for w in h_name.split() if len(w) >= 3)):
-                                is_home = True
-                            elif a_name and (a_name in q_low or any(w in q_low for w in a_name.split() if len(w) >= 3)):
-                                is_home = False
-                        elif out_low == "no":
-                            if h_name and (h_name in q_low or any(w in q_low for w in h_name.split() if len(w) >= 3)):
-                                is_home = False
-                            elif a_name and (a_name in q_low or any(w in q_low for w in a_name.split() if len(w) >= 3)):
-                                is_home = True
-
-                        if is_home is None:
-                            if h_name and any(w in q_low for w in h_name.split() if len(w) >= 3):
-                                is_home = (idx == 0)
-                            elif a_name and any(w in q_low for w in a_name.split() if len(w) >= 3):
-                                is_home = (idx != 0)
-                            else:
-                                is_home = (idx == 0)
+                        is_home = resolve_polymarket_outcome_is_home(
+                            outcome_label=outcome_label,
+                            question=q or "",
+                            home_name=forecast.get("home_name") or "",
+                            away_name=forecast.get("away_name") or "",
+                            idx=idx,
+                        )
 
                         proj_h = forecast.get("proj_home")
                         proj_a = forecast.get("proj_away")
@@ -894,22 +938,13 @@ class PolymarketAutonomousRunner:
                             model_prob = home_p if out_low == "yes" else (1.0 - home_p)
                         else:
                             # Standard 2-way Moneyline (NBA, NFL, NHL, MLB, Tennis, CBB, NCAAF)
-                            if h_name and (out_low in h_name or h_name in out_low or any(w in out_low for w in h_name.split() if len(w) >= 3)):
-                                is_home = True
-                            elif a_name and (out_low in a_name or a_name in out_low or any(w in out_low for w in a_name.split() if len(w) >= 3)):
-                                is_home = False
-                            elif out_low == "yes":
-                                if h_name and (h_name in q_low or any(w in q_low for w in h_name.split() if len(w) >= 3)):
-                                    is_home = True
-                                else:
-                                    is_home = False
-                            elif out_low == "no":
-                                if h_name and (h_name in q_low or any(w in q_low for w in h_name.split() if len(w) >= 3)):
-                                    is_home = False
-                                else:
-                                    is_home = True
-                            else:
-                                is_home = (idx == 0)
+                            is_home = resolve_polymarket_outcome_is_home(
+                                outcome_label=outcome_label,
+                                question=q or "",
+                                home_name=forecast.get("home_name") or "",
+                                away_name=forecast.get("away_name") or "",
+                                idx=idx,
+                            )
 
                             model_prob = float(forecast["home_prob"]) if is_home else (1.0 - float(forecast["home_prob"]))
                     else:
