@@ -4,15 +4,15 @@ from typing import Any, Dict, Optional, Tuple
 from scipy.stats import nbinom, poisson
 from betting_engine.sandbox_models.base import BaseCandidateModel, DiscreteDistribution, build_universal_score_lattice
 
-class NegativeBinomialHurdleModel_NBA_half_2(BaseCandidateModel):
+class NegativeBinomialHurdleModel_NBA_full_game(BaseCandidateModel):
     """Novel Two-Part Hurdle Negative Binomial model synthesizing zero-hazard and dispersion dynamics."""
 
     def __init__(
         self,
-        model_id: str = "codex_synth_nba_half_1_1117_075023",
+        model_id: str = "codex_synth_nba_full_game_1124_181719",
         version: str = "1.0.0",
         league: str = "NBA",
-        scope: str = "half_2",
+        scope: str = "full_game",
         family: str = "totals",
         zero_hurdle_prob: float = 0.05,
         dispersion_alpha: float = 0.15,
@@ -32,8 +32,8 @@ class NegativeBinomialHurdleModel_NBA_half_2(BaseCandidateModel):
         self.surge_mult = 1.0
 
     def predict_distribution(self, game_context: Dict[str, Any]) -> DiscreteDistribution:
-        def_h = 56.0
-        def_a = 54.0
+        def_h = 112.0
+        def_a = 108.0
         h_mu = float(game_context.get('home_expected') or game_context.get('home_points') or def_h) * self.surge_mult
         a_mu = float(game_context.get('away_expected') or game_context.get('away_points') or def_a) * self.surge_mult
 

@@ -1623,6 +1623,41 @@ class {cls_3}(BaseCandidateModel):
 
         ctx = sample_context or get_default_segment_context(league, scope)
 
+        # -2. Fast Pre-LLM Data Sufficiency Gate:
+        # When running against a populated historical database (>0 total settled wagers), if this specific
+        # segment has <5 settled wagers, it is mathematically impossible to pass the 5-wager OOS Crucible floor.
+        # Short-circuit in 1ms instead of burning 60-90s of Claude/Grok/Codex LLM calls on 0-data segments!
+        if not force_archetype and self.trainer.db_path.exists():
+            try:
+                pre_wagers = self.trainer._fetch_settled_wagers(league, scope, family)
+                if len(pre_wagers) < 5:
+                    has_any_db_wagers = False
+                    with sqlite3.connect(f"file:{self.trainer.db_path.resolve()}?mode=ro", uri=True, timeout=2.0) as _c_chk:
+                        row_any = _c_chk.execute("SELECT 1 FROM incubated_wagers WHERE status='settled' LIMIT 1").fetchone()
+                        has_any_db_wagers = bool(row_any)
+                    if has_any_db_wagers:
+                        insuff_msg = (
+                            f"Insufficient historical settled ground truth in database: "
+                            f"{len(pre_wagers)} settled wagers available (minimum 5 required); skipping LLM call."
+                        )
+                        rec_skip = SynthesizedModelRecord(
+                            model_id=model_id,
+                            segment_key=canonical_seg,
+                            class_name="DataInsufficientDeferred",
+                            source_code="",
+                            generator_provider="pre_llm_data_gate",
+                            rationale=insuff_msg,
+                            syntax_valid=False,
+                            safety_valid=False,
+                            validation_passed=False,
+                            validation_errors=[insuff_msg],
+                            failure_reason=insuff_msg,
+                        )
+                        self._append_log(rec_skip)
+                        return rec_skip
+            except Exception:
+                pass
+
         # -1. Automated Empirical Market Autopsy, Residual Feature Attribution & Evolutionary Parents
         # Constitutional Commandment 10 (Zero Prompt Anchoring):
         # Never inject parent class names, archetype categories, or formula recipes into the LLM prompt.

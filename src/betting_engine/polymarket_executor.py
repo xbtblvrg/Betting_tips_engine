@@ -554,7 +554,12 @@ class PolymarketAutonomousExecutor:
                 )
 
                 if is_tier_4_proven:
-                    stake_cap = 8.0 if (sub_tier == "SUPER_ALPHA" or r_roi >= 15.0) else 3.50
+                    if sub_tier == "SUPER_ALPHA" or (r_roi >= 12.0 and r_units >= 3.0):
+                        stake_cap = 8.0
+                    elif r_roi >= 5.0 and r_units >= 1.0:
+                        stake_cap = 3.50
+                    else:
+                        stake_cap = 2.50
                     return (
                         True,
                         f"TIER_4_LIVE_PROVEN_ALPHA: Verified Live Profit on Stake (LIVE_LEDGER_PROVEN_PROFIT: Rolling ROI: +{r_roi:.1f}%, Units: +{r_units:.2f}U over {r_games} games, N={sample})",
