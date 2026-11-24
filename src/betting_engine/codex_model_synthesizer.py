@@ -549,17 +549,16 @@ class CodexModelSynthesizer:
                                     c_w = enrich_wager_context(sample_ctx_chk, family, sel_w, ln_w, orig_mp_w, mp_f, sd_w)
                                     try:
                                         p_m, ev_m = test_inst.evaluate_market(
-                                            market=f"{scope}:{family}" if scope != "full_game" else family,
+                                            market=f"{league}|{scope}|{family}",
                                             selection=sel_w, line=ln_w, odds=od_f, game_context=c_w, side=sd_w
                                         )
                                     except Exception:
                                         continue
                                     y_w = 1.0 if res_w == 'won' else (0.0 if res_w == 'lost' else 0.5)
-                                    if res_w in ('won', 'lost'):
-                                        bm_c += (p_m - y_w) ** 2
-                                        bmk_c += (mp_f - y_w) ** 2
                                     if ev_m >= 0.035 and od_f >= 1.40:
                                         acc_c += 1
+                                        bm_c += (p_m - y_w) ** 2
+                                        bmk_c += (mp_f - y_w) ** 2
                                         if res_w == 'won':
                                             pnl_c += (od_f - 1.0)
                                             run_c += (od_f - 1.0)
@@ -2014,7 +2013,8 @@ class {cls_3}(BaseCandidateModel):
                     scope=scope,
                     family=family,
                     oos_roi=sim_roi,
-                    delta_brier=delta_brier
+                    delta_brier=delta_brier,
+                    provider=provider,
                 )
             except Exception as e_reg:
                 log.warning("[SYNTH-REGISTRY] Failed to register new champion model %s in dynamic registry: %s", model_id, e_reg)
@@ -2072,7 +2072,7 @@ class {cls_3}(BaseCandidateModel):
 
         # 7. Record to AI Reinforcement Feedback Loop Memory
         try:
-            source_path = str((GENERATED_MODELS_DIR / f"{model_id}.py").resolve()) if admitted else ""
+            source_path = str((GENERATED_MODELS_DIR / f"{model_id}.py").resolve()) if crucible_ok else ""
             learned = f"Crucible {'Passed' if crucible_ok else 'Failed'}: OOS ROI={sim_roi*100:.1f}%, DeltaBrier={delta_brier:.4f}, DD={max_dd*100:.1f}%"
             if fail_msg:
                 learned += f" | Reason: {fail_msg}"

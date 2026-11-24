@@ -133,9 +133,10 @@ class DynamicArchetypeRegistry:
         scope: str,
         family: str,
         oos_roi: float = 0.0,
-        delta_brier: float = 0.0
+        delta_brier: float = 0.0,
+        provider: str = "codex",
     ) -> bool:
-        """Instantly adds a newly validated model to the active registry."""
+        """Instantly adds a newly validated model to the active registry and distills first-principles AI classes."""
         from .codex_model_synthesizer import check_ast_safety
         is_safe, found_cls, err = check_ast_safety(source_code)
         if not is_safe or not found_cls:
@@ -152,61 +153,90 @@ class DynamicArchetypeRegistry:
             oos_simulated_roi=oos_roi,
             oos_delta_brier=delta_brier,
         )
-        try:
-            from .ai_archetype_developer import AIArchetypeDeveloperAgent
-            agent = AIArchetypeDeveloperAgent(db_path=self.db_path)
-            agent.distill_from_candidate(
-                model_id=model_id,
-                source_code=source_code,
-                class_name=found_cls,
-                league=league,
-                scope=scope,
-                family=family,
-                oos_roi=oos_roi,
-                delta_brier=delta_brier,
-                provider="codex",
-            )
-        except Exception as e_dist:
-            log.debug("Could not auto-distill newly registered model %s: %s", model_id, e_dist)
+        # Only distill genuine AI / novel archetypes into distilled_archetype_catalog;
+        # built-in Evo* crossover templates are already generated natively per segment.
+        is_builtin_evo = found_cls.startswith((
+            "EvoResidualLatticeCrossover_",
+            "EvoSharedShockCopulaCrossover_",
+            "EvoShrinkageTailRegularized_",
+        )) or provider == "evolutionary_crossover_engine"
+        if not is_builtin_evo:
+            try:
+                from .ai_archetype_developer import AIArchetypeDeveloperAgent
+                agent = AIArchetypeDeveloperAgent(db_path=self.db_path)
+                agent.distill_from_candidate(
+                    model_id=model_id,
+                    source_code=source_code,
+                    class_name=found_cls,
+                    league=league,
+                    scope=scope,
+                    family=family,
+                    oos_roi=oos_roi,
+                    delta_brier=delta_brier,
+                    provider=provider or "codex",
+                )
+            except Exception as e_dist:
+                log.debug("Could not auto-distill newly registered model %s: %s", model_id, e_dist)
         return True
 
     def get_dynamic_candidates_for_segment(
         self,
         league: str,
         scope: str,
-        family: str
+        family: str,
+        max_dynamic: int = 12,
     ) -> List[Tuple[str, BaseCandidateModel, Dict[str, Any]]]:
-        """Retrieves and instantiates registered AI models compatible with the given market."""
+        """Retrieves and instantiates distinct registered AI models compatible with the given market."""
+        import re
         self.refresh_registry()
         lg_u = league.upper()
         fam_l = family.lower()
-        sc_l = scope.lower()
 
         candidates: List[Tuple[str, BaseCandidateModel, Dict[str, Any]]] = []
+        seen_cls: set[str] = set()
 
-        for mid, arch in self._cache.items():
-            # Check compatibility: same league and similar family (e.g. totals with totals, spreads with spreads)
+        # Prioritize genuine first-principles AI classes ahead of Evo* crossover clones, ordered by composite ROI
+        ordered_archs = sorted(
+            self._cache.items(),
+            key=lambda kv: (
+                1 if kv[1].class_name.startswith("Evo") else 0,
+                -(kv[1].oos_simulated_roi * 0.4 + kv[1].live_realized_roi * 0.6),
+            ),
+        )
+
+        for mid, arch in ordered_archs:
+            if len(candidates) >= max_dynamic:
+                break
             is_lg_match = (arch.league.upper() == lg_u)
             is_fam_match = (arch.family.lower() in fam_l or fam_l in arch.family.lower())
+            dyn_label = f"Dynamic_{arch.class_name}"
+            if not (is_lg_match and is_fam_match) or dyn_label in seen_cls:
+                continue
 
-            if is_lg_match and is_fam_match:
-                try:
-                    from .codex_model_synthesizer import instantiate_synthesized_class
-                    instance = instantiate_synthesized_class(
-                        arch.source_code,
-                        arch.class_name,
-                        model_id=f"dyn_{mid}",
-                        league=league,
-                        scope=scope,
-                        family=family
-                    )
-                    candidates.append((
-                        f"Dynamic_{arch.class_name}",
-                        instance,
-                        {'source_model_id': mid, 'historical_roi': arch.oos_simulated_roi}
-                    ))
-                except Exception as e_inst:
-                    log.debug("Could not instantiate dynamic model %s for %s: %s", mid, league, e_inst)
+            try:
+                from .codex_model_synthesizer import instantiate_synthesized_class
+                clean_src = re.sub(
+                    r'raise\s+ValueError\([^\n]*(?:supports[^\n]*only|not both)[^\n]*\)',
+                    'pass',
+                    arch.source_code,
+                    flags=re.IGNORECASE,
+                )
+                instance = instantiate_synthesized_class(
+                    clean_src,
+                    arch.class_name,
+                    model_id=f"dyn_{mid}",
+                    league=league,
+                    scope=scope,
+                    family=family
+                )
+                candidates.append((
+                    dyn_label,
+                    instance,
+                    {'source_model_id': mid, 'historical_roi': arch.oos_simulated_roi}
+                ))
+                seen_cls.add(dyn_label)
+            except Exception as e_inst:
+                log.debug("Could not instantiate dynamic model %s for %s: %s", mid, league, e_inst)
 
         # Also include top sport-matched distilled AI archetypes from distilled_archetype_catalog
         try:

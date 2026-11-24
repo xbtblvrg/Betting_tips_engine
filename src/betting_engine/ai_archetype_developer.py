@@ -166,7 +166,10 @@ class AIArchetypeDeveloperAgent:
             for extra in ("tennis_sets", "sets", "spreads", "moneyline", "three_way", "double_chance"):
                 if extra not in compatible_families:
                     compatible_families.append(extra)
-        if "scores" in code:
+        # Only generalize across all score-lattice families when the model relies on BaseCandidateModel's
+        # universal score-lattice evaluator rather than a custom single-market evaluate_market override.
+        has_custom_eval = ("def evaluate_market" in code and "super().evaluate_market" not in code)
+        if "scores" in code and not has_custom_eval:
             for extra in ("totals", "home_total", "away_total", "spreads", "moneyline", "three_way", "double_chance", "both_score", "asian_lines", "tennis_sets", "sets", "set_handicap"):
                 if extra not in compatible_families:
                     compatible_families.append(extra)
@@ -371,7 +374,10 @@ class AIArchetypeDeveloperAgent:
                            times_instantiated, times_crucible_passed, is_active, created_at, updated_at
                     FROM distilled_archetype_catalog
                     WHERE is_active = 1
-                    ORDER BY historical_oos_roi DESC, times_crucible_passed DESC
+                    ORDER BY
+                        CASE WHEN base_class_name LIKE 'Evo%' OR origin_provider = 'evolutionary_crossover_engine' THEN 1 ELSE 0 END ASC,
+                        historical_oos_roi DESC,
+                        times_crucible_passed DESC
                 """)
                 rows = cur.fetchall()
 
