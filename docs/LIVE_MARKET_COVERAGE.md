@@ -1,6 +1,6 @@
 # Live Stake market coverage
 
-Checked: 2026-11-25T10:54:55.280591+00:00
+Checked: 2026-11-25T11:25:40.502778+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
@@ -183,7 +183,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NFL | 4th Quarter - Draw No Bet | standard | quarter_4 | offered_now | 1/10 | not_observed 0/10 | verified 10/10 | partial 3/10 | partial 3/10 | not_observed 0/10 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 4th Quarter - Draw No Bet (incl. Overtime) | standard | quarter_4_ot | offered_now | 1/10 | not_observed 0/10 | verified 10/10 | partial 1/10 | partial 1/10 | not_observed 0/10 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 4th Quarter - Handicap | standard | quarter_4 | offered_now | 5/10 | partial 4/14 | verified 14/14 | partial 4/14 | partial 4/14 | partial 4/14 | verified 4/4 | verified 4/4 | verified 16/16 | verified 12/12 | partial 12/13 | 2 |
-| NFL | 4th Quarter - Total | standard | quarter_4 | offered_now | 3/10 | partial 4/14 | verified 14/14 | partial 4/14 | partial 4/14 | partial 4/14 | verified 4/4 | verified 4/4 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NFL | 4th Quarter - Total | standard | quarter_4 | offered_now | 3/10 | partial 5/14 | verified 14/14 | partial 5/14 | partial 5/14 | partial 5/14 | verified 5/5 | verified 5/5 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Arizona Cardinals Total (Incl. Overtime) | standard | full_game | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Atlanta Falcons Total (Incl. Overtime) | standard | full_game | catalogue_only | 0/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Baltimore Ravens Total (Incl. Overtime) | standard | full_game | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
