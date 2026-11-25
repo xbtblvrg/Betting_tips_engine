@@ -1,6 +1,6 @@
 # Live Stake market coverage
 
-Checked: 2026-11-25T13:47:23.921531+00:00
+Checked: 2026-11-25T14:10:19.196439+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
@@ -242,7 +242,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NHL | 1st Period - Last Team to Score | standard | period_1 | offered_now | 0/10 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 1st Period - Odd/Even | standard | period_1 | offered_now | 1/10 | not_observed 0/28 | verified 28/28 | not_observed 0/28 | not_observed 0/28 | not_observed 0/28 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 1st Period - Total | standard | period_1 | offered_now | 9/10 | verified 28/28 | verified 28/28 | verified 28/28 | verified 28/28 | verified 28/28 | verified 28/28 | verified 28/28 | verified 52/52 | verified 38/38 | partial 38/39 | 14 |
-| NHL | 1x2 | standard | regulation | offered_now | 3/10 | partial 12/42 | verified 42/42 | partial 12/42 | partial 12/42 | partial 12/42 | verified 12/12 | verified 12/12 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NHL | 1x2 | standard | regulation | offered_now | 3/10 | partial 13/42 | verified 42/42 | partial 13/42 | partial 13/42 | partial 13/42 | verified 13/13 | verified 13/13 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 1x2 & Total | standard | regulation | offered_now | 1/10 | not_observed 0/84 | verified 84/84 | partial 56/84 | partial 56/84 | not_observed 0/84 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 2nd Period - 1st Goal | standard | period_2 | offered_now | 0/10 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 2nd Period - 1x2 | standard | period_2 | offered_now | 7/10 | verified 42/42 | verified 42/42 | verified 42/42 | verified 42/42 | verified 42/42 | verified 42/42 | verified 42/42 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |

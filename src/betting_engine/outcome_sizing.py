@@ -342,6 +342,11 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
         and str(tip.get('created_at') or '')
         and str(tip.get('created_at')) < '2026-11-25T00:05:00+00:00'
     )
+    is_sealed_before_solid_cap_fix = bool(
+        'decision_guard' in tip
+        and str(tip.get('created_at') or '')
+        and str(tip.get('created_at')) < '2026-11-25T14:25:00+00:00'
+    )
     games_val = int(summary.get('independent_games', 0)) if summary else 0
     roi_val = float(summary.get('game_roi', 0.0)) if summary else 0.0
     pnl_val = float(summary.get('pnl', summary.get('game_pnl', 0.0))) if summary else 0.0
@@ -660,6 +665,9 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                         or (universe_prof.stake_cap is not None and 0.50 < universe_prof.stake_cap < 2.50)
                     ):
                         caps.pop('universe_tier_stake_cap', None)
+                    if not is_sealed_before_solid_cap_fix and not is_test_cand:
+                        u_solid_cap = float(universe_prof.stake_cap) if (universe_prof is not None and universe_prof.stake_cap is not None and universe_prof.stake_cap >= 2.50) else 3.50
+                        caps['solid_alpha_ceiling'] = min(4.00, u_solid_cap)
                     if (gov_solid and pnl_val >= 0.0) or (tip.get('is_solid_alpha') and pnl_val >= 0.0):
                         caps.pop('totals_defense_clamp', None)
                 requested = max(requested, alpha_target)

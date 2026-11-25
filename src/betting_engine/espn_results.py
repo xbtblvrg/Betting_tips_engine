@@ -282,7 +282,10 @@ def _original(tips, existing):
     if existing is not None:
         gid_t, home_t, away_t, _ = _identity(tip)
         is_college = tip.get('league') in ('NCAAM', 'NCAAW', 'NCAAF')
-        tolerance = 21600 if existing.start.endswith('00:00Z') or existing.start.endswith('00:00:00Z') else 1800
+        tolerance = (
+            21600 if (existing.start.endswith('00:00Z') or existing.start.endswith('00:00:00Z'))
+            else (7200 if (is_college and getattr(existing, 'neutral', False) is True) else 1800)
+        )
         exact_sides = (
             existing.id == gid_t
             and (existing.home == home_t or (is_college and _canon_team_name(existing.home) == _canon_team_name(home_t)))
