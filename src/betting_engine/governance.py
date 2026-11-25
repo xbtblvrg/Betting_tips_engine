@@ -109,7 +109,7 @@ def verify_publication(tip,now,active_settings=None,max_quote_age=MAX_QUOTE_AGE_
         settings.update(minimum_roi=guard['minimum_roi'],recommendation_policy=policy,model_pick_sizing_policy=model_sizing,model_pick_allocation_policy=guard.get('model_pick_allocation_policy','one_per_game_v1'))
         if selection_policy in ('continuous_probability_v2', 'continuous_probability_v3', 'continuous_probability_v4'):settings['family_selection_policy']=selection_policy
         if outcome!='legacy':settings['outcome_sizing_policy']=outcome
-        for key in ('fallback_clv_gate','clv_min_games','min_odds','capital_defense','alpha_acceleration'):
+        for key in ('fallback_clv_gate','clv_min_games','min_odds','capital_defense','alpha_acceleration','solid_alpha_ceiling'):
             if key in guard.get('sizing_settings',{}):settings[key]=guard['sizing_settings'][key]
             elif active_settings is not None and key in active_settings:settings[key]=active_settings[key]
         rem_cap=sizing['maximum_stake']
