@@ -1320,6 +1320,8 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
             except Exception:
                 pass
 
+            sizing = {}
+            fam_key = (c['game_id'], allocation_family(c))
             if u_cap is not None and u_cap <= 0.0:
                 amount = 0.0
                 c['allocation_code'] = 'universe_quarantined'
@@ -1376,8 +1378,8 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
                 amount=0.;c['stake']=0.;c['allocation_code']='event_family_stake_limit';c['allocation_reason']=f"The ${float(settings['max_family_stake_per_event']):.2f} per-family stake cap for this game would be exceeded."
             elif amount:
                 c['allocation_code']='funded'
-            elif c.get('allocation_code') in ('portfolio_shield_quarantined', 'portfolio_shield_ev_insufficient'):
-                pass  # preserve portfolio shield quarantine/EV allocation code and reason
+            elif c.get('allocation_code') in ('universe_quarantined', 'portfolio_shield_quarantined', 'portfolio_shield_ev_insufficient'):
+                pass  # preserve universe/portfolio shield quarantine/EV allocation code and reason
             elif sizing.get('outcome_adjustment', {}).get('caps', {}).get('capital_defense_quarantine') == 0.0:
                 c['allocation_code'] = 'capital_defense_quarantined'
                 c['allocation_reason'] = 'Capital Defense Quarantine: Segment has persistent negative ROI. Real-money funding suspended to protect portfolio capital.'

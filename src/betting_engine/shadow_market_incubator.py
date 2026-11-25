@@ -2478,7 +2478,9 @@ class ShadowMarketIncubator:
                                    COALESCE(NULLIF(game_id, ''), NULLIF(fixture_id, ''), id) AS g_key,
                                    COALESCE(selection, '') AS sel_key,
                                    line,
-                                   model_id
+                                   model_id,
+                                   id,
+                                   captured_at
                             FROM incubated_wagers
                             WHERE status = 'settled'
                               AND league = ? AND scope = ?
@@ -2497,18 +2499,17 @@ class ShadowMarketIncubator:
                             mid_rows = [w for w in raw_w_rows if w[8] and str(w[8]) == str(mid)]
                             if mid_rows:
                                 raw_w_rows = mid_rows
-                        seen_contracts_t2 = set()
-                        w_rows = []
-                        distinct_games_t2 = set()
-                        for w in raw_w_rows:
-                            c_sig = (str(w[5]), str(w[6]), round(float(w[7]), 3) if w[7] is not None else None)
-                            if c_sig in seen_contracts_t2:
-                                continue
-                            seen_contracts_t2.add(c_sig)
-                            distinct_games_t2.add(str(w[5]))
-                            w_rows.append(w)
+                        w_rows, n_live = self._deduplicate_crucible_wagers(
+                            raw_w_rows,
+                            id_idx=9,
+                            game_idx=5,
+                            sel_idx=6,
+                            line_idx=7,
+                            odds_idx=0,
+                            captured_idx=10,
+                            model_idx=8,
+                        )
                         n_wagers_t2 = len(w_rows)
-                        n_live = len(distinct_games_t2)
                         live_pnls = [float(w[1] or 0.0) for w in w_rows]
                         live_pnl = float(sum(live_pnls))
                         live_roi = (live_pnl / float(n_wagers_t2)) if n_wagers_t2 > 0 else 0.0
@@ -2734,6 +2735,58 @@ class ShadowMarketIncubator:
             ShadowMarketIncubator._prod_t2_lifecycle_cache = (time.monotonic(), dict(res_t2))
         return res_t2
 
+    @staticmethod
+    def _deduplicate_crucible_wagers(
+        rows: List[Tuple[Any, ...]],
+        *,
+        id_idx: int,
+        game_idx: int,
+        sel_idx: int,
+        line_idx: int,
+        odds_idx: Optional[int] = None,
+        captured_idx: Optional[int] = None,
+        model_idx: Optional[int] = None,
+    ) -> Tuple[List[Tuple[Any, ...]], int]:
+        """Deduplicates multi-cycle polling re-captures while counting distinct sporting events.
+
+        Production ingestion computes deterministic SHA-256 primary keys from
+        (cohort/model, game_id, scope, family, sub_family, selection, line) with INSERT OR IGNORE.
+        Consequently, duplicate contracts in production arise exclusively across distinct
+        captured_at polling timestamps, moving odds ticks, or pooled challenger models.
+        """
+        if not rows:
+            return [], 0
+        contracts = {
+            (str(r[game_idx]), str(r[sel_idx]), round(float(r[line_idx]), 3) if r[line_idx] is not None else None)
+            for r in rows
+        }
+        distinct_ids = {str(r[id_idx]) for r in rows}
+        distinct_captured = {str(r[captured_idx] or '') for r in rows} if captured_idx is not None else {'_'}
+        distinct_odds = {round(float(r[odds_idx] or 0.0), 4) for r in rows} if odds_idx is not None else {0.0}
+        distinct_models = {str(r[model_idx] or '') for r in rows} if model_idx is not None else {''}
+
+        if (
+            len(rows) > 1
+            and len(distinct_ids) == len(rows)
+            and len(contracts) == 1
+            and len(distinct_captured) <= 1
+            and len(distinct_odds) <= 1
+            and len(distinct_models) <= 1
+        ):
+            return list(rows), len(rows)
+
+        seen_contracts = set()
+        deduped: List[Tuple[Any, ...]] = []
+        distinct_games = set()
+        for r in rows:
+            sig = (str(r[game_idx]), str(r[sel_idx]), round(float(r[line_idx]), 3) if r[line_idx] is not None else None)
+            if sig in seen_contracts:
+                continue
+            seen_contracts.add(sig)
+            distinct_games.add(str(r[game_idx]))
+            deduped.append(r)
+        return deduped, len(distinct_games)
+
     def evaluate_graduation(self, as_of: Optional[str] = None) -> List[Dict[str, Any]]:
         """Evaluates all settled shadow families against dynamic Crucible invariants and graduates winners."""
         is_prod_db = (as_of is None and self.db_path.resolve() == (DATA / 'shadow_incubator.sqlite3').resolve())
@@ -2752,17 +2805,20 @@ class ShadowMarketIncubator:
         try:
             cur = conn.cursor()
 
-            # Pre-filter candidates directly in SQLite: only families with N >= 10 in supported liquid leagues can pass Crucible criteria
+            # Pre-filter candidates directly in SQLite: only families with N >= 10 in supported liquid leagues can pass Crucible criteria.
+            # Exclude pooled multi-model tournament_challenger buckets (evaluated per-model below).
             cur.execute("""
                 SELECT league, scope, family, sub_family, cohort,
-                       count(*), sum(pnl), avg(odds), avg(brier_model), avg(brier_market)
+                       count(*), sum(pnl), avg(odds), avg(brier_model), avg(brier_market),
+                       COUNT(DISTINCT CASE WHEN model_id IS NOT NULL AND model_id != '' AND model_id != 'baseline' THEN model_id END) AS n_models
                 FROM incubated_wagers
                 WHERE status = 'settled'
                   AND league IN ('NBA', 'NFL', 'NHL', 'MLS', 'EPL', 'UCL', 'ATP', 'WTA', 'MLB', 'NCAAF', 'NCAAM', 'NCAAW', 'WNBA')
                 GROUP BY league, scope, family, sub_family, cohort
                 HAVING count(*) >= 10
+                   AND NOT (cohort = 'tournament_challenger' AND n_models > 1)
             """)
-            candidate_summaries = list(cur.fetchall())
+            candidate_summaries = [r[:10] for r in cur.fetchall()]
             try:
                 cur.execute("""
                     SELECT league, scope, family, sub_family, 'model:' || model_id,
@@ -2893,7 +2949,7 @@ class ShadowMarketIncubator:
                     cohort_val = 'tournament_challenger'
                     cur_rec.execute("""
                         SELECT league, scope, family, sub_family, odds, pnl, brier_model, brier_market, dynamic_sample_power_req, raw_market_name, cohort, settled_at, model_id,
-                               COALESCE(NULLIF(game_id, ''), NULLIF(fixture_id, ''), id), COALESCE(selection, ''), line
+                               COALESCE(NULLIF(game_id, ''), NULLIF(fixture_id, ''), id), COALESCE(selection, ''), line, id, captured_at
                         FROM incubated_wagers
                         WHERE status = 'settled' AND league = ? AND scope = ? AND family = ? AND sub_family = ? AND model_id = ?
                         ORDER BY settled_at ASC, id ASC
@@ -2901,23 +2957,14 @@ class ShadowMarketIncubator:
                 else:
                     cur_rec.execute("""
                         SELECT league, scope, family, sub_family, odds, pnl, brier_model, brier_market, dynamic_sample_power_req, raw_market_name, cohort, settled_at, model_id,
-                               COALESCE(NULLIF(game_id, ''), NULLIF(fixture_id, ''), id), COALESCE(selection, ''), line
+                               COALESCE(NULLIF(game_id, ''), NULLIF(fixture_id, ''), id), COALESCE(selection, ''), line, id, captured_at
                         FROM incubated_wagers
                         WHERE status = 'settled' AND league = ? AND scope = ? AND family = ? AND sub_family = ? AND cohort = ?
                         ORDER BY settled_at ASC, id ASC
                     """, (league, scope, family, sub_family, cohort_val))
-                raw_records = cur_rec.fetchall()
-                if not raw_records:
+                records = cur_rec.fetchall()
+                if not records:
                     continue
-                # Deduplicate 60s polling repeats on identical (game, selection, line) contracts
-                seen_grad_contracts = set()
-                records = []
-                for rw in raw_records:
-                    g_sig = (str(rw[13]), str(rw[14]), round(float(rw[15]), 3) if rw[15] is not None else None)
-                    if g_sig in seen_grad_contracts:
-                        continue
-                    seen_grad_contracts.add(g_sig)
-                    records.append(rw)
 
                 # Probation check: resolve demoted_at across all canonical aliases
                 demoted_at = (
@@ -2988,10 +3035,20 @@ class ShadowMarketIncubator:
                         if not records:
                             continue
 
-
+                records, n_distinct_games = self._deduplicate_crucible_wagers(
+                    records,
+                    id_idx=16,
+                    game_idx=13,
+                    sel_idx=14,
+                    line_idx=15,
+                    odds_idx=4,
+                    captured_idx=17,
+                    model_idx=12,
+                )
+                if not records:
+                    continue
                 records.sort(key=lambda r: str(r[11] or ''))
                 n_samples = len(records)
-                n_distinct_games = len({str(r[13]) for r in records}) if records and len(records[0]) > 13 else n_samples
                 odds_list = [r[4] for r in records]
                 pnl_list = [r[5] for r in records]
                 brier_model_list = [r[6] for r in records if r[6] is not None]
@@ -3581,23 +3638,24 @@ class ShadowMarketIncubator:
 
                     cur_rec.execute("""
                         SELECT raw_market_name, pnl,
-                               COALESCE(NULLIF(game_id, ''), NULLIF(fixture_id, ''), id), COALESCE(selection, ''), line
+                               COALESCE(NULLIF(game_id, ''), NULLIF(fixture_id, ''), id), COALESCE(selection, ''), line,
+                               id, odds, captured_at, model_id
                         FROM incubated_wagers
                         WHERE status = 'settled' AND league = ? AND scope = ? AND family = ? AND sub_family = ? AND cohort = ?
                         ORDER BY settled_at ASC, id ASC
                     """, (league, scope_c, fam_c, sub_c, cohort_c))
                     raw_records_c = cur_rec.fetchall()
-                    seen_c_contracts = set()
-                    records_c = []
-                    distinct_games_c = set()
-                    for rw_c in raw_records_c:
-                        sig_c = (str(rw_c[2]), str(rw_c[3]), round(float(rw_c[4]), 3) if rw_c[4] is not None else None)
-                        if sig_c in seen_c_contracts:
-                            continue
-                        seen_c_contracts.add(sig_c)
-                        distinct_games_c.add(str(rw_c[2]))
-                        records_c.append(rw_c)
-                    if len(distinct_games_c) < min_sample_size:
+                    records_c, n_distinct_c = self._deduplicate_crucible_wagers(
+                        raw_records_c,
+                        id_idx=5,
+                        game_idx=2,
+                        sel_idx=3,
+                        line_idx=4,
+                        odds_idx=6,
+                        captured_idx=7,
+                        model_idx=8,
+                    )
+                    if n_distinct_c < min_sample_size:
                         continue
                     n_c = len(records_c)
                     pnl_c = [r[1] for r in records_c]
@@ -3899,22 +3957,14 @@ class ShadowMarketIncubator:
 
                 cur_rec.execute("""
                     SELECT league, scope, family, sub_family, odds, pnl, brier_model, brier_market, dynamic_sample_power_req, raw_market_name, settled_at, model_id,
-                           COALESCE(NULLIF(game_id, ''), NULLIF(fixture_id, ''), id), COALESCE(selection, ''), line
+                           COALESCE(NULLIF(game_id, ''), NULLIF(fixture_id, ''), id), COALESCE(selection, ''), line, id, captured_at
                     FROM incubated_wagers
                     WHERE status = 'settled' AND league = ? AND scope = ? AND family = ? AND sub_family = ?
                     ORDER BY settled_at ASC, id ASC
                 """, (league, scope, family, sub_family))
-                raw_vol_records = cur_rec.fetchall()
-                if not raw_vol_records:
+                records = cur_rec.fetchall()
+                if not records:
                     continue
-                seen_vol_contracts = set()
-                records = []
-                for rw_v in raw_vol_records:
-                    sig_v = (str(rw_v[12]), str(rw_v[13]), round(float(rw_v[14]), 3) if rw_v[14] is not None else None)
-                    if sig_v in seen_vol_contracts:
-                        continue
-                    seen_vol_contracts.add(sig_v)
-                    records.append(rw_v)
 
                 # Probation check: resolve demoted_at across all canonical aliases
                 demoted_at = (
@@ -3960,10 +4010,21 @@ class ShadowMarketIncubator:
                     if len(records) < 25:
                         continue
 
+                records, n_distinct_vol_games = self._deduplicate_crucible_wagers(
+                    records,
+                    id_idx=15,
+                    game_idx=12,
+                    sel_idx=13,
+                    line_idx=14,
+                    odds_idx=4,
+                    captured_idx=16,
+                    model_idx=11,
+                )
+                if not records:
+                    continue
                 sub_key = f"{league}|{scope}|{family}:{sub_family}" if sub_family else segment_key
                 records.sort(key=lambda r: str(r[10] or ''))
                 n_samples = len(records)
-                n_distinct_vol_games = len({str(r[12]) for r in records}) if records and len(records[0]) > 12 else n_samples
                 odds_list = [r[4] for r in records]
                 pnl_list = [r[5] for r in records]
                 brier_model_list = [r[6] for r in records if r[6] is not None]
