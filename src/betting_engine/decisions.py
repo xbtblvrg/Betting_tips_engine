@@ -689,6 +689,7 @@ def candidate(g,m,q,forecast,settings,market_anchor=None,calibration_summary=Non
         from .crucible_rules import evaluate_crucible_candidate
         cand_probe = {'game_id': g.id, 'league': g.league, 'market': m.kind, 'side': m.side, 'line': m.line,
                       'model_scope': scope,
+                      'model_version': getattr(forecast, 'model_version', None),
                       'probability': p, 'reference_odds': 1/q.effective_cost,
                       'expected_roi': (p + push * q.effective_cost) / q.effective_cost - 1.0,
                       'push_probability': push,

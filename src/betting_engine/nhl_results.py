@@ -248,16 +248,8 @@ def recover_pending_nhl(games, bets, decisions, *, data_dir=DATA, fetcher=None, 
         attempts[gid] = {**result, 'count': count+1, 'last_attempt_at': now.isoformat(),
                         'next_attempt_at': (now+timedelta(seconds=300)).isoformat()}
         history_path = folder / 'attempts' / (gid.replace(':', '-') + '-' + now.strftime('%Y%m%dT%H%M%S%fZ') + '.json')
-        try:
-            history_path.parent.mkdir(parents=True, exist_ok=True)
-            atomic_json(history_path, {'game_id': gid, **attempts[gid]})
-        except OSError as exc:
-            # Fail closed: a recovery without durable attempt evidence is not auditable,
-            # so do not surface the game as recovered; leave it unresolved for backoff retry.
-            result = {'state': 'attempt_evidence_unpersisted', 'error': type(exc).__name__ + ': ' + str(exc)[:160], 'source_state': result.get('state')}
-            attempts[gid] = {**attempts[gid], **result}
-            problems.append({'game_id': gid, **result})
-            continue
+        history_path.parent.mkdir(parents=True, exist_ok=True)
+        atomic_json(history_path, {'game_id': gid, **attempts[gid]})
         attempts[gid]['attempt_evidence'] = str(history_path.relative_to(data))
         if game is not None:
             mapping[gid] = game
@@ -271,11 +263,5 @@ def recover_pending_nhl(games, bets, decisions, *, data_dir=DATA, fetcher=None, 
               'cached_recovered_games': cached_recovered,
               'rows': problems, 'attempts': attempts,
               'claim': 'Official result recovery only; original tickets unchanged. Settlement is performed separately against each exact contract.'}
-    try:
-        folder.mkdir(parents=True, exist_ok=True);atomic_json(state_path, report)
-    except OSError as exc:
-        # Fail closed: without a durable recovery report the cycle is not auditable,
-        # so surface no recovered games; per-game attempts drive backoff retry.
-        report = {**report, 'state': 'state_report_unpersisted', 'persistence_error': type(exc).__name__ + ': ' + str(exc)[:160]}
-        return [], report
+    folder.mkdir(parents=True, exist_ok=True);atomic_json(state_path, report)
     return list(mapping.values()), report

@@ -775,19 +775,10 @@ class GraduatedUniversalSegmentModel:
         """Registers a specialized champion model for a market family within this scope."""
         if not model_inst:
             return
-        if family:
-            self.champion_models[family] = (model_inst, champ_id)
-        if sub_family:
+        for concrete_mkt in _concrete_validated_markets_for_graduation(family, sub_family, champ_id):
+            self.champion_models[concrete_mkt] = (model_inst, champ_id)
+        if sub_family and sub_family not in ('american_derivatives', 'bivariate_derivatives', 'asian_lines', 'tennis_sets'):
             self.champion_models[sub_family] = (model_inst, champ_id)
-        if 'total' in family or 'total' in sub_family:
-            self.champion_models['totals'] = (model_inst, champ_id)
-            self.champion_models['home_total'] = (model_inst, champ_id)
-            self.champion_models['away_total'] = (model_inst, champ_id)
-        if 'spread' in family or 'spread' in sub_family or 'handicap' in sub_family:
-            self.champion_models['spreads'] = (model_inst, champ_id)
-        if 'three_way' in family or 'three_way' in sub_family or 'moneyline' in family or 'winner' in family:
-            self.champion_models['three_way'] = (model_inst, champ_id)
-            self.champion_models['moneyline'] = (model_inst, champ_id)
         if not self.champion_model:
             self.champion_model = model_inst
             self.version = f"{champ_id}:{getattr(model_inst, 'version', '1.0.0')}"
@@ -1049,6 +1040,65 @@ _LEGACY_ARCHETYPE_CLASSES = {
 _RESOLVED_CHAMPION_CACHE: Dict[str, Tuple[Optional[Any], Optional[str]]] = {}
 
 
+_KNOWN_LEAGUE_TOKENS = {
+    'nba', 'wnba', 'nhl', 'nfl', 'mlb', 'mls', 'epl', 'ucl', 'uel',
+    'laliga', 'seriea', 'bundesliga', 'atp', 'wta', 'challenger',
+    'ncaam', 'ncaaf', 'ncaaw',
+}
+_KNOWN_SCOPE_TOKENS = {
+    'full_game', 'half_1', 'half_2',
+    'quarter_1', 'quarter_2', 'quarter_3', 'quarter_4',
+    'period_1', 'period_2', 'period_3',
+    'inning_1', 'innings_1_5', 'regulation',
+}
+
+
+def _is_champion_compatible(
+    m_inst: Any,
+    champ_id: Optional[str],
+    league: str,
+    scope: str,
+    concrete_markets: List[str],
+) -> bool:
+    """Verifies that a candidate champion model matches the target (league, scope, market family).
+
+    Prevents cross-league contamination (e.g. UCL model mounted on EPL, ATP model on WTA),
+    cross-scope contamination (e.g. WNBA half_2 model mounted on WNBA full_game), and
+    cross-market contamination (e.g. spreads model mounted on moneyline or totals).
+    """
+    if m_inst is None or not champ_id:
+        return False
+    cid_l = str(champ_id).lower().strip()
+    lg_l = (league or '').lower().strip()
+    sc_l = (scope or 'full_game').lower().strip()
+
+    inst_lg = str(getattr(m_inst, 'league', '') or '').lower().strip()
+    if inst_lg and inst_lg != 'unknown' and inst_lg != lg_l:
+        # Note: tournament_engine fallback sets league='NBA' only when metadata was missing;
+        # check tokenized champ_id below as well.
+        if inst_lg != 'nba' or lg_l == 'wnba' or ('nba' in cid_l.split('_') and lg_l != 'nba'):
+            return False
+
+    tokens = set(cid_l.replace(':', '_').replace('-', '_').split('_'))
+    matched_leagues = tokens & _KNOWN_LEAGUE_TOKENS
+    if matched_leagues and lg_l not in matched_leagues:
+        return False
+
+    for sc_tok in _KNOWN_SCOPE_TOKENS:
+        if sc_tok in cid_l and sc_tok != sc_l:
+            return False
+
+    if concrete_markets:
+        cm_set = set(concrete_markets)
+        has_spread_tag = any(t in cid_l for t in ('_spreads', 'spreadmodel', 'handicap'))
+        has_total_tag = any(t in cid_l for t in ('_totals', '_away_total', '_home_total', 'totalmodel'))
+        if has_spread_tag and not has_total_tag and not (cm_set & {'spreads', 'set_handicap'}):
+            return False
+        if has_total_tag and not has_spread_tag and not (cm_set & {'totals', 'home_total', 'away_total', 'total_sets'}):
+            return False
+    return True
+
+
 def _resolve_best_ai_champion(
     t_eng: Any,
     league: str,
@@ -1058,64 +1108,72 @@ def _resolve_best_ai_champion(
     segment_key: str,
     champ_id: Optional[str] = None,
 ) -> Tuple[Optional[Any], Optional[str]]:
-    """Resolves the graduated market's AI champion model, preferring synthesized/distilled AI models over legacy static archetypes."""
+    """Resolves a graduated market's verified AI champion model without leaking unproven Tier 1/2 challengers."""
     cache_k = f"{segment_key}|{league}|{scope}|{family}|{sub_family}|{champ_id}"
     if cache_k in _RESOLVED_CHAMPION_CACHE:
         return _RESOLVED_CHAMPION_CACHE[cache_k]
 
-    m_inst = None
-    if not champ_id:
-        champs = t_eng.load_registry().get('champions', {})
-        for cand in [
-            segment_key,
-            f"{league}|{scope}|{family}:{sub_family}" if sub_family else None,
-            f"{league}|{scope}|{family}",
-            f"{league}|{scope}",
-        ]:
-            if cand and cand in champs:
-                champ_id = champs[cand].get('champion_model_id')
-                break
-    if champ_id:
-        m_inst = t_eng.get_model_by_id(champ_id)
+    concrete_mkts = _concrete_validated_markets_for_graduation(family, sub_family, champ_id)
+    reg = t_eng.load_registry() if hasattr(t_eng, 'load_registry') else {}
+    champs = reg.get('champions', {}) if isinstance(reg, dict) else {}
+    tourneys = reg.get('tournaments', {}) if isinstance(reg, dict) else {}
 
-    if not m_inst or type(m_inst).__name__ in _LEGACY_ARCHETYPE_CLASSES:
-        for lookup_key in [
-            segment_key,
-            f"{league}|{scope}|{family}:{sub_family}" if sub_family else None,
-            f"{league}|{scope}|{family}",
-            f"{league}|{scope}|{sub_family}" if sub_family else None,
-            f"{league}|{scope}|american_derivatives",
-            f"{league}|{scope}|totals",
-            f"{league}|{scope}|spreads",
-            f"{league}|{scope}",
-        ]:
-            if lookup_key:
-                cands = t_eng.get_active_candidates(lookup_key)
-                if cands:
-                    ai_cands = [c for c in cands if type(c).__name__ not in _LEGACY_ARCHETYPE_CLASSES]
-                    if ai_cands:
-                        m_inst = ai_cands[0]
-                        champ_id = m_inst.model_id
-                        break
-                    elif not m_inst:
-                        m_inst = cands[0]
-                        champ_id = m_inst.model_id
-                        break
-    _RESOLVED_CHAMPION_CACHE[cache_k] = (m_inst, champ_id)
-    return m_inst, champ_id
+    candidate_ids: List[str] = []
+    if champ_id:
+        candidate_ids.append(str(champ_id))
+    for cand_k in [
+        segment_key,
+        f"{league}|{scope}|{family}:{sub_family}" if sub_family else None,
+        f"{league}|{scope}|{sub_family}" if sub_family else None,
+        f"{league}|{scope}|{family}" if family not in ('american_derivatives', 'bivariate_derivatives', 'asian_lines', 'tennis_sets') else None,
+    ]:
+        if cand_k and cand_k in champs:
+            reg_cid = champs[cand_k].get('champion_model_id')
+            if reg_cid and reg_cid not in candidate_ids:
+                candidate_ids.append(str(reg_cid))
+        if cand_k and cand_k in tourneys:
+            c_map = tourneys[cand_k].get('candidates', {})
+            qualified_items = [
+                (cid_t, c_meta)
+                for cid_t, c_meta in c_map.items()
+                if isinstance(c_meta, dict) and c_meta.get('status') in ('champion', 'qualified')
+            ]
+            qualified_items.sort(key=lambda x: (0 if x[1].get('status') == 'champion' else 1, str(x[1].get('registered_at', ''))), reverse=False)
+            for cid_t, _ in qualified_items:
+                if cid_t not in candidate_ids:
+                    candidate_ids.append(str(cid_t))
+
+    m_inst = None
+    resolved_cid = None
+    for cid_try in candidate_ids:
+        inst_try = t_eng.get_model_by_id(cid_try)
+        if inst_try is not None and _is_champion_compatible(
+            inst_try,
+            cid_try,
+            league,
+            scope,
+            _concrete_validated_markets_for_graduation(family, sub_family, cid_try),
+        ):
+            m_inst = inst_try
+            resolved_cid = cid_try
+            break
+
+    _RESOLVED_CHAMPION_CACHE[cache_k] = (m_inst, resolved_cid)
+    return m_inst, resolved_cid
 
 
 def _concrete_validated_markets_for_graduation(
     family: Optional[str],
     sub_family: Optional[str],
+    champ_id: Optional[str] = None,
 ) -> List[str]:
     """Maps a graduated segment's (family, sub_family) to its exact concrete validated market kinds.
 
     Eliminates container-family bleed: graduating a single derivative sub_family (e.g.
     american_derivatives:overtime or away_total) must NEVER silently unlock unvalidated
     sibling families (spreads, totals, home_total) on models where those families failed
-    calibration gates. Legacy umbrella entries with empty sub_family retain backward
-    compatibility.
+    calibration gates. When an umbrella container has an explicit market-specific champ_id
+    (e.g. ncaaf_full_game_spreads_damped), narrows to that exact validated market.
     """
     fam = (family or '').strip().lower()
     sub = (sub_family or '').strip().lower()
@@ -1124,8 +1182,26 @@ def _concrete_validated_markets_for_graduation(
     if ':' in eff:
         eff = eff.split(':')[-1]
 
-    # Legacy umbrella entries with no specific sub_family
+    # Legacy umbrella entries with no specific sub_family: check if champ_id narrows to a specific leaf market
     if not sub or sub == fam:
+        cid_l = str(champ_id or '').lower()
+        if cid_l and fam in containers:
+            for leaf_hint, leaf_mkts in (
+                ('away_total', ['away_total']),
+                ('home_total', ['home_total']),
+                ('asian_handicap', ['spreads']),
+                ('asian_total', ['totals']),
+                ('set_handicap', ['set_handicap', 'spreads']),
+                ('both_teams_score', ['both_score']),
+                ('both_score', ['both_score']),
+                ('double_chance', ['double_chance']),
+                ('three_way', ['three_way']),
+                ('spreads', ['spreads']),
+                ('totals', ['totals']),
+                ('moneyline', ['moneyline']),
+            ):
+                if leaf_hint in cid_l:
+                    return leaf_mkts
         if fam == 'asian_lines':
             return ['spreads', 'totals']
         if fam in ('tennis_sets', 'tennis'):
@@ -1189,12 +1265,22 @@ def attach_champion_to_any_model(
         model.register_champion(family or '', sub_family or '', m_inst, champ_id or m_inst.model_id)
         return
 
+    if not hasattr(model, '_orig_validated_markets'):
+        sealed_rep = getattr(model, '_sealed_report', None)
+        rep_dict = getattr(model, 'report', None)
+        if isinstance(sealed_rep, dict) and isinstance(sealed_rep.get('validated_markets'), list):
+            model._orig_validated_markets = set(sealed_rep['validated_markets'])
+        elif isinstance(rep_dict, dict) and isinstance(rep_dict.get('validated_markets'), list):
+            model._orig_validated_markets = set(rep_dict['validated_markets'])
+        else:
+            model._orig_validated_markets = None
+
     if not hasattr(model, 'champion_models') or not isinstance(getattr(model, 'champion_models', None), dict):
         model.champion_models = {}
     fam = (family or '').strip()
     sub = (sub_family or '').strip()
     cid = champ_id or getattr(m_inst, 'model_id', 'ai_champion')
-    for concrete_mkt in _concrete_validated_markets_for_graduation(fam, sub):
+    for concrete_mkt in _concrete_validated_markets_for_graduation(fam, sub, cid):
         model.champion_models[concrete_mkt] = (m_inst, cid)
     if sub and sub not in ('american_derivatives', 'bivariate_derivatives', 'asian_lines', 'tennis_sets'):
         model.champion_models[sub] = (m_inst, cid)
@@ -1350,12 +1436,21 @@ def attach_champion_to_any_model(
                                 decisive = max(1e-6, p_h_pr + p_a_pr)
                                 cond_win = (p_h_pr if s_l in ('home', '1') else p_a_pr) / decisive
                                 p_ai = cond_win * (1.0 - float(push_base))
+                        orig_val_set = getattr(model, '_orig_validated_markets', None)
+                        base_is_unvalidated = isinstance(orig_val_set, set) and base_k not in orig_val_set
                         if p_ai is not None and 0.005 < p_ai < 0.995:
                             max_p = max(0.01, 1.0 - float(push_base) - 1e-6)
-                            p_blend = float(np.clip(0.65 * float(p_ai) + 0.35 * float(p_base), 0.01, max_p))
+                            if base_is_unvalidated:
+                                # Never contaminate calibrated AI champion probabilities with an unvalidated baseline (e.g. NCAA linear Ridge)
+                                p_blend = float(np.clip(float(p_ai), 0.01, max_p))
+                            else:
+                                p_blend = float(np.clip(0.65 * float(p_ai) + 0.35 * float(p_base), 0.01, max_p))
                             return p_blend, float(push_base)
+                        if base_is_unvalidated and str(league).upper().startswith('NCAA'):
+                            return 0.0, float(push_base)
                     except Exception:
-                        pass
+                        if isinstance(getattr(model, '_orig_validated_markets', None), set) and base_k not in model._orig_validated_markets and str(league).upper().startswith('NCAA'):
+                            return 0.0, float(push_base)
                     return p_base, push_base
 
                 fc.market_probability = _ai_blended_mp
@@ -1386,20 +1481,25 @@ def resolve_graduated_segment_models(
         key = (league, scope)
         if key in updated:
             existing_model = updated[key]
+            champ_id = None
+            m_inst = None
             try:
                 from .tournament_engine import TournamentEngine
                 t_eng = TournamentEngine()
-                champ_id = meta.get('champion_model_id') or (meta.get('stats', {}) if isinstance(meta.get('stats'), dict) else {}).get('champion_model_id')
+                st_seg = meta.get('stats', {}) if isinstance(meta.get('stats'), dict) else {}
+                champ_id = meta.get('champion_model_id') or meta.get('model_id') or st_seg.get('champion_model_id') or st_seg.get('model_id')
                 m_inst, champ_id = _resolve_best_ai_champion(t_eng, league, scope, family, sub_family, segment_key, champ_id)
                 if m_inst:
                     attach_champion_to_any_model(existing_model, league, scope, family, sub_family, m_inst, champ_id)
             except Exception:
-                pass
+                m_inst = None
 
             if hasattr(existing_model, 'report') and isinstance(existing_model.report, dict):
-                v_markets = set(existing_model.report.get('validated_markets', []))
-                v_markets.update(_concrete_validated_markets_for_graduation(family, sub_family))
-                existing_model.report['validated_markets'] = sorted(list(v_markets))
+                raw_vm_seg = existing_model.report.get('validated_markets')
+                if isinstance(raw_vm_seg, list):
+                    v_markets = set(raw_vm_seg)
+                    v_markets.update(_concrete_validated_markets_for_graduation(family, sub_family, champ_id))
+                    existing_model.report['validated_markets'] = sorted(list(v_markets))
             continue
 
         # Mount new graduated segment model with domain-specific model if applicable, or universal multi-champion bridge
@@ -1444,11 +1544,23 @@ def resolve_graduated_full_game_models(
             is_new_universal = True
 
         model = updated[league]
+        if not hasattr(model, '_orig_validated_markets'):
+            sealed_fg = getattr(model, '_sealed_report', None)
+            rep_fg = getattr(model, 'report', None)
+            if isinstance(sealed_fg, dict) and isinstance(sealed_fg.get('validated_markets'), list):
+                model._orig_validated_markets = set(sealed_fg['validated_markets'])
+            elif isinstance(rep_fg, dict) and isinstance(rep_fg.get('validated_markets'), list):
+                model._orig_validated_markets = set(rep_fg['validated_markets'])
+            else:
+                model._orig_validated_markets = None
+
         m_inst = None
+        champ_id = None
         try:
             from .tournament_engine import TournamentEngine
             t_eng = TournamentEngine()
-            champ_id = meta.get('champion_model_id') or (meta.get('stats', {}) if isinstance(meta.get('stats'), dict) else {}).get('champion_model_id')
+            st_fg = meta.get('stats', {}) if isinstance(meta.get('stats'), dict) else {}
+            champ_id = meta.get('champion_model_id') or meta.get('model_id') or st_fg.get('champion_model_id') or st_fg.get('model_id')
             m_inst, champ_id = _resolve_best_ai_champion(t_eng, league, 'full_game', family, sub_family, segment_key, champ_id)
             if m_inst:
                 attach_champion_to_any_model(model, league, 'full_game', family, sub_family, m_inst, champ_id)
@@ -1456,17 +1568,19 @@ def resolve_graduated_full_game_models(
             m_inst = None
 
         if hasattr(model, 'report') and isinstance(model.report, dict):
-            v_markets = set(model.report.get('validated_markets') or [])
-            concrete_additions = _concrete_validated_markets_for_graduation(family, sub_family)
-            # College baseline LeagueModels (NCAAM, NCAAW, NCAAF) explicitly reject uncalibrated
-            # linear-Ridge score markets in college.py:initial_gate. Never bypass that gate onto
-            # the raw baseline score model unless a dedicated AI champion model (m_inst) is mounted.
-            if str(league).upper().startswith('NCAA') and not is_new_universal and m_inst is None:
-                sealed = getattr(model, '_sealed_report', None)
-                orig_valid = set(sealed.get('validated_markets') or []) if isinstance(sealed, dict) else v_markets
-                concrete_additions = [m_k for m_k in concrete_additions if m_k in orig_valid]
-            v_markets.update(concrete_additions)
-            model.report['validated_markets'] = sorted(list(v_markets))
+            raw_vm = model.report.get('validated_markets')
+            # Preserve None on professional LeagueModels (NBA, NFL, NHL, MLB, WNBA) where validated_markets is not list-gated
+            if isinstance(raw_vm, list):
+                v_markets = set(raw_vm)
+                concrete_additions = _concrete_validated_markets_for_graduation(family, sub_family, champ_id)
+                # College baseline LeagueModels (NCAAM, NCAAW, NCAAF) explicitly reject uncalibrated
+                # linear-Ridge score markets in college.py:initial_gate. Never bypass that gate onto
+                # the raw baseline score model unless a dedicated, verified AI champion model (m_inst) is mounted.
+                if str(league).upper().startswith('NCAA') and not is_new_universal and m_inst is None:
+                    orig_valid = model._orig_validated_markets if isinstance(model._orig_validated_markets, set) else v_markets
+                    concrete_additions = [m_k for m_k in concrete_additions if m_k in orig_valid]
+                v_markets.update(concrete_additions)
+                model.report['validated_markets'] = sorted(list(v_markets))
 
     return updated
 

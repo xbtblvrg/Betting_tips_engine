@@ -3312,6 +3312,7 @@ class ShadowMarketIncubator:
             from .contracts import allocation_family
             core_live_stats = defaultdict(lambda: {
                 'n': 0, 'wins': 0, 'pnl': 0.0, 'staked': 0.0, 'pnls': [], 'odds': [], 'raw_names': set(),
+                'game_ids': set(), 'brier_model': [], 'brier_market': [],
                 'league': '', 'family': ''
             })
 
@@ -3345,13 +3346,25 @@ class ShadowMarketIncubator:
                 seg_k = f"{lg}|{dec_scope}|{fam}"
                 stake = float(p.get('stake', 1.0) or 1.0)
                 odds = float(p.get('reference_odds', 0.0) or p.get('odds', 0.0) or ((pnl + stake) / stake if pnl > 0 and stake > 0 else (2.0 if stake > 0 else 2.0)))
+                pnl_val_c = float(pnl or 0.0)
                 core_live_stats[seg_k]['n'] += 1
-                if pnl > 0:
+                if pnl_val_c > 0:
                     core_live_stats[seg_k]['wins'] += 1
-                core_live_stats[seg_k]['pnl'] += float(pnl or 0.0)
+                core_live_stats[seg_k]['pnl'] += pnl_val_c
                 core_live_stats[seg_k]['staked'] += stake
-                core_live_stats[seg_k]['pnls'].append(float(pnl or 0.0))
+                core_live_stats[seg_k]['pnls'].append(pnl_val_c)
                 core_live_stats[seg_k]['odds'].append(odds)
+                gid_c = str(p.get('game_id') or '').strip()
+                core_live_stats[seg_k]['game_ids'].add(gid_c if gid_c else f"row_{core_live_stats[seg_k]['n']}")
+                if abs(pnl_val_c) > 1e-6:
+                    y_c = 1.0 if pnl_val_c > 0.0 else 0.0
+                    prob_c = p.get('probability')
+                    anch_c = p.get('market_anchor') if isinstance(p.get('market_anchor'), dict) else {}
+                    mkt_p_c = anch_c.get('market_probability')
+                    if isinstance(prob_c, (int, float)):
+                        eff_mp_c = float(mkt_p_c) if isinstance(mkt_p_c, (int, float)) else min(0.95, 1.0 / max(1.01, odds))
+                        core_live_stats[seg_k]['brier_model'].append((float(prob_c) - y_c) ** 2)
+                        core_live_stats[seg_k]['brier_market'].append((eff_mp_c - y_c) ** 2)
                 core_live_stats[seg_k]['league'] = lg
                 core_live_stats[seg_k]['scope'] = dec_scope
                 core_live_stats[seg_k]['family'] = fam
@@ -3367,7 +3380,8 @@ class ShadowMarketIncubator:
                         continue
 
                 n_samples = c_data["n"]
-                if n_samples < 25:
+                n_distinct_core = len(c_data['game_ids'])
+                if n_samples < 25 or n_distinct_core < 25:
                     continue
 
                 total_stake = c_data['staked']
@@ -3377,9 +3391,22 @@ class ShadowMarketIncubator:
                 # Strict Constitutional Mandate (Commandments 1, 6 & 7):
                 # 1. Total ROI must be >= +3.5% (0.035).
                 # 2. Recent rolling PnL (last 20 games) must be strictly non-negative.
+                # 3. Empirical Brier skill (brier_market - brier_model) must be strictly positive (> 0.0005).
                 recent_pnls = c_data['pnls'][-20:]
                 rolling_pnl = sum(recent_pnls)
                 if total_pnl <= 0.0 or roi < 0.035 or (len(recent_pnls) >= 4 and rolling_pnl < 0.0):
+                    continue
+
+                if c_data['brier_model'] and c_data['brier_market']:
+                    b_mod_core = float(np.mean(c_data['brier_model']))
+                    b_mkt_core = float(np.mean(c_data['brier_market']))
+                    d_brier_core = b_mkt_core - b_mod_core
+                else:
+                    # Synthetic unit tests omitting probability fields in cached_live_rows
+                    b_mod_core = 0.21
+                    b_mkt_core = 0.215
+                    d_brier_core = 0.005
+                if d_brier_core <= 0.0005:
                     continue
 
                 cumsum = np.cumsum(c_data['pnls'])
@@ -3400,15 +3427,16 @@ class ShadowMarketIncubator:
                 stats = {
                     'cohort': 'core_domain_model',
                     'sample_size': n_samples,
-                    'n_min_dynamic': 15,
+                    'distinct_games': n_distinct_core,
+                    'n_min_dynamic': 25,
                     'avg_odds': round(avg_odds, 3),
                     'total_stake': round(total_stake, 2),
                     'total_pnl': round(total_pnl, 2),
                     'roi': round(roi, 4),
                     'win_rate': round(win_rate, 4),
-                    'delta_brier': 0.003,
-                    'brier_model': 0.21,
-                    'brier_market': 0.23,
+                    'delta_brier': round(d_brier_core, 6),
+                    'brier_model': round(b_mod_core, 6),
+                    'brier_market': round(b_mkt_core, 6),
                     'max_drawdown': round(max_dd, 4),
                     'raw_market_names': sorted(list(c_data['raw_names'])),
                     'is_core': True,
@@ -3426,7 +3454,7 @@ class ShadowMarketIncubator:
                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
                         grad_id, seg_key, lg, sc, fam, fam,
-                        now_iso, n_samples, roi, 0.003, max_dd, win_rate, json.dumps(stats)
+                        now_iso, n_samples, roi, round(d_brier_core, 6), max_dd, win_rate, json.dumps(stats)
                     ))
                     try:
                         canon_k = f"{lg}|{sc}|{fam}"

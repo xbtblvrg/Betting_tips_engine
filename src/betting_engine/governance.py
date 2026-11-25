@@ -128,10 +128,12 @@ def verify_publication(tip,now,active_settings=None,max_quote_age=MAX_QUOTE_AGE_
                     return out
                 return {} if a==b else {path or '<root>':(a,b)}
             diffs=_leaf_diffs(sizing,reproduced)
-            import logging
-            logging.error("[GOVERNANCE_DEBUG] Tip %s (%s|%s): stake=%s, rep_amt=%s, sz_amt=%s. Diffs: %s",
-                          tip.get('id'), tip.get('league'), tip.get('market'), stake, reproduced.get('amount'), sizing.get('amount'), diffs)
-            raise ValueError(f"Publication blocked: stake sizing does not reproduce for {tip.get('id')} ({tip.get('league')}|{tip.get('market')}): diffs={diffs}")
+            # Fail closed with a controlled ValueError; the message carries the
+            # full diagnostic (ids, stored vs reproduced amounts, leaf diffs).
+            # Do not emit an ERROR log here: the real-time telemetry hook
+            # escalates ERROR records into RuntimeError, which would mask this
+            # deliberate governance block as an unhandled crash.
+            raise ValueError(f"Publication blocked: stake sizing does not reproduce for {tip.get('id')} ({tip.get('league')}|{tip.get('market')}): stake={stake}, reproduced_amount={reproduced.get('amount')}, recorded_amount={sizing.get('amount')}, diffs={diffs}")
     # The market anchor is part of the pricing contract.  New receipts carry
     # the exact mode, weight and disagreement policy used by the guard; a
     # later settings change cannot silently reinterpret an issued decision.
@@ -367,6 +369,7 @@ class EvidenceGuard:
                 from .crucible_rules import evaluate_crucible_candidate
                 cand_probe = {'game_id': game.id, 'league': game.league, 'market': market.kind, 'side': market.side, 'line': market.line,
                               'model_scope': getattr(market, 'model_scope', None) or ('full_game' if ':' not in str(market.kind) else str(market.kind).split(':')[0]),
+                              'model_version': getattr(forecast, 'model_version', None),
                               'probability': p, 'reference_odds': 1/quote.effective_cost,
                               'expected_roi': (p + push * quote.effective_cost) / quote.effective_cost - 1.0,
                               'push_probability': push,

@@ -104,21 +104,27 @@ def evaluate_crucible_candidate(
 
     # Supreme ROI Governor Invariant Gates (Target: weekly +5% to +10% ROI) - Active in live production
     if is_live_production:
+        mv_low = str(candidate.get('model_version') or '').lower()
+        has_graduated_ai_champion = bool(
+            candidate.get('has_ai_champion')
+            or any(tag in mv_low for tag in ('codex_synth', 'claude_synth', 'distilled_', 'graduated_ai'))
+        )
         if league == 'NHL':
             cand_sc_nhl = candidate.get('model_scope') or ('full_game' if ':' not in str(market) else str(market).split(':')[0])
             base_mkt_nhl = str(market).split(':')[-1]
             # Toxic micro-market: 1-22 bleed on regulation both teams to score (-70.4% ROI)
-            if 'both_score' in market:
+            if 'both_score' in market and not has_graduated_ai_champion:
                 return False, "crucible_filter_gate:nhl_both_score_toxic_variance_quarantined", None
-            # Empirical residual distribution support boundary: linear residual rescaling is calibrated
-            # on the 1.5-goal puckline, not >=2.5 multi-goal blowout tails or extreme >=+1.25 alt overs
-            if base_mkt_nhl in ('spreads', 'handicap') and candidate.get('line') is not None:
+            # Empirical residual distribution support boundary: linear residual rescaling (NHL-sport-v3)
+            # is calibrated on the 1.5-goal puckline, not >=2.5 multi-goal blowout tails or >=+1.25 alt overs.
+            # Re-graduated non-linear AI champion models remain eligible under Commandment 7.
+            if not has_graduated_ai_champion and base_mkt_nhl in ('spreads', 'handicap') and candidate.get('line') is not None:
                 try:
                     if abs(float(candidate.get('line'))) >= 2.5:
                         return False, "crucible_filter_gate:nhl_uncalibrated_multi_goal_alt_puckline_tail", None
                 except (TypeError, ValueError):
                     pass
-            if cand_sc_nhl == 'full_game' and base_mkt_nhl in ('totals', 'total') and side == 'over' and candidate.get('line') is not None:
+            if not has_graduated_ai_champion and cand_sc_nhl == 'full_game' and base_mkt_nhl in ('totals', 'total') and side == 'over' and candidate.get('line') is not None:
                 try:
                     hp_v = candidate.get('home_points')
                     ap_v = candidate.get('away_points')
@@ -128,7 +134,7 @@ def evaluate_crucible_candidate(
                 except (TypeError, ValueError):
                     pass
             # 20-minute hockey period 3-way markets suffer severe integer tie-mass distortion under k-NN smoothing
-            if cand_sc_nhl in ('period_1', 'period_3') and base_mkt_nhl in ('three_way', '1x2'):
+            if not has_graduated_ai_champion and cand_sc_nhl in ('period_1', 'period_3') and base_mkt_nhl in ('three_way', '1x2'):
                 return False, "crucible_filter_gate:nhl_period_three_way_tie_mass_quarantined", None
             # 3rd-period Over totals carry heavy sportsbook empty-net vig compression
             if cand_sc_nhl == 'period_3' and base_mkt_nhl in ('totals', 'total') and side == 'over':
@@ -143,7 +149,7 @@ def evaluate_crucible_candidate(
                 if eff_ev < 0.050:
                     return False, "crucible_filter_gate:nhl_period_2_ml_low_edge_quarantined", None
 
-        if league in ('NBA', 'WNBA'):
+        if league in ('NBA', 'WNBA') and not has_graduated_ai_champion:
             cand_sc_bb = candidate.get('model_scope') or ('full_game' if ':' not in str(market) else str(market).split(':')[0])
             base_mkt_bb = str(market).split(':')[-1]
             # 12-minute quarter 3-way tie distortion & unmodeled Q1 opening tip-off possession variance

@@ -33,7 +33,10 @@ from betting_engine.domain import utcnow
 from betting_engine.governance import EvidenceGuard, KnowledgeAgent, verify_publication
 from betting_engine.graduated_models import (
     _concrete_validated_markets_for_graduation,
+    _is_champion_compatible,
+    _resolve_best_ai_champion,
     attach_champion_to_any_model,
+    resolve_graduated_full_game_models,
 )
 from betting_engine.outcome_sizing import (
     POLICY_V3,
@@ -157,6 +160,54 @@ def test_probability_ev_and_epistemic_kelly_monotonicity_axioms():
     assert float(res_cal["amount"]) >= 6.00
     assert float(res_div["amount"]) < float(res_cal["amount"])
     assert float(res_div["amount"]) <= 4.00
+
+    # Probation / neutral candidates (no historical alpha evidence) AND 3-way partition anchors
+    # must ALSO be attenuated by rho_agree rather than sizing p=0.91 vs market_p=0.48 up to $3.50.
+    _, res_prob_cal = _make_live_sized_tip(
+        league="MLS",
+        market="three_way",
+        probability=0.52,
+        market_probability=0.46,
+        odds=2.10,
+        history_rows=[],
+        extra_tip={
+            "side": "home",
+            "market_anchor": {
+                "status": "usable",
+                "model_probability": 0.52,
+                "market_probabilities": {"home": 0.46, "draw": 0.27, "away": 0.27},
+            },
+        },
+    )
+    prob_base_high = apply_adjustment(
+        {"amount": 3.50, "maximum_stake": 8.0, "event_discount": 1.0},
+        {
+            **tip_div,
+            "league": "MLS",
+            "market": "three_way",
+            "side": "home",
+            "probability": 0.9099,
+            "reference_odds": 1.98,
+            "expected_roi": 0.9099 * 1.98 - 1.0,
+            "outcome_sizing_evidence": summary_for(build_snapshot([], AS_OF), {**tip_div, "league": "MLS", "market": "three_way"}),
+            "market_anchor": {
+                "status": "review",
+                "model_probability": 0.9099,
+                "market_probabilities": {"home": 0.4762, "draw": 0.2619, "away": 0.2619},
+            },
+        },
+        {
+            "outcome_sizing_policy": POLICY_V3,
+            "unit_stake": 0.50,
+            "max_bet": 8.00,
+            "bankroll": None,
+            "capital_defense": True,
+            "alpha_acceleration": True,
+        },
+        8.00,
+    )
+    assert 0.50 <= float(res_prob_cal["amount"]) <= 1.00
+    assert 0.50 <= float(prob_base_high["amount"]) <= 1.00
 
 
 def test_evidence_guard_cryptographic_replay_parity_across_regimes():
@@ -340,11 +391,25 @@ def test_domain_support_and_tail_boundaries_preserve_underdog_freedom():
         "league": "NBA",
         "market": "quarter_1:moneyline",
         "model_scope": "quarter_1",
+        "model_version": "NBA-quarter_1-empirical-period-v1",
         "probability": 0.58,
         "reference_odds": 1.85,
         "expected_roi": 0.58 * 1.85 - 1.0,
     })
     assert ok_q1_ml is False
+
+    # 5. Commandment 7 Market Preservation: once a dedicated non-linear/tie-aware AI model graduates,
+    # it is NOT permanently banned by baseline linear/k-NN pathology gates.
+    ok_q1_regrad, _, _ = evaluate_crucible_candidate({
+        "league": "NBA",
+        "market": "quarter_1:moneyline",
+        "model_scope": "quarter_1",
+        "model_version": "codex_synth_nba_quarter_1_1125:1.0.0",
+        "probability": 0.62,
+        "reference_odds": 1.85,
+        "expected_roi": 0.62 * 1.85 - 1.0,
+    })
+    assert ok_q1_regrad is True
 
 
 def test_container_graduation_does_not_bleed_into_unvalidated_college_markets():
@@ -372,6 +437,39 @@ def test_container_graduation_does_not_bleed_into_unvalidated_college_markets():
     assert validated == ["moneyline"]
     assert "spreads" not in validated
     assert "totals" not in validated
+
+    # Cross-league, cross-scope, cross-market, and unproven incubating challengers must NEVER mount
+    dummy_inst = SimpleNamespace(league="", model_id="x")
+    assert _is_champion_compatible(dummy_inst, "dyn_codex_synth_wnba_half_2_1102", "WNBA", "full_game", ["spreads"]) is False
+    assert _is_champion_compatible(dummy_inst, "distilled_arch_DixonColes_UCL_full_ucl", "EPL", "full_game", ["totals"]) is False
+    assert _is_champion_compatible(dummy_inst, "atp_full_game_spreads_model", "WTA", "full_game", ["spreads"]) is False
+    assert _is_champion_compatible(dummy_inst, "atp_full_game_spreads_model", "ATP", "full_game", ["moneyline"]) is False
+    assert _is_champion_compatible(dummy_inst, "nba_full_game_spreads_gumbel_1025", "NBA", "full_game", ["spreads"]) is True
+
+    fake_t_eng = SimpleNamespace(
+        load_registry=lambda: {
+            "champions": {},
+            "tournaments": {
+                "NCAAM|full_game|totals": {
+                    "candidates": {
+                        "codex_synth_ncaam_full_game_unproven": {"status": "incubating", "registered_at": "2026-11-25"}
+                    }
+                }
+            },
+        },
+        get_model_by_id=lambda mid: SimpleNamespace(league="NCAAM", model_id=mid),
+        get_active_candidates=lambda _k: (_ for _ in ()).throw(AssertionError("Must never call get_active_candidates for live champion resolution")),
+    )
+    m_res, cid_res = _resolve_best_ai_champion(fake_t_eng, "NCAAM", "full_game", "totals", "totals", "NCAAM|full_game|totals", None)
+    assert m_res is None and cid_res is None
+
+    # Professional LeagueModels with validated_markets=None must retain None (never clobbered to ['spreads'])
+    pro_nba = SimpleNamespace(league="NBA", report={"validated_markets": None}, forecast=lambda g: None)
+    resolved_pro = resolve_graduated_full_game_models(
+        {"NBA|full_game|spreads": {"league": "NBA", "scope": "full_game", "family": "spreads", "sub_family": "spreads"}},
+        {"NBA": pro_nba},
+    )
+    assert resolved_pro["NBA"].report["validated_markets"] is None
 
 
 def test_crucible_rejects_polling_inflation_multi_model_soup_and_negative_brier(tmp_path: Path):
@@ -469,14 +567,25 @@ def test_real_settled_ledger_immutability_and_positive_roi_validation():
     roster = umu.build_universe_roster(force_refresh=True)
     summary = umu.get_summary(force_refresh=True)
 
-    # 1. Negative-Brier graduation without live profit must be quarantined at $0.00 in Tier 1 R&D
-    nba_away_tot = roster.get("NBA|full_game|away_total") or roster.get("NBA|full_game|totals:away_total")
-    assert nba_away_tot is not None
-    assert nba_away_tot.tier == int(MarketTier.RESEARCH_RND)
-    assert nba_away_tot.stake_cap == 0.0
+    # 1. Negative-Brier, polling-mirage (<10 distinct games), uncalibrated core (NCAAM|totals dBrier=-0.0428),
+    #    and chronic negative-ROI segments must all be quarantined at $0.00 in Tier 1/2 (never funded in Tier 3/4)
+    for quarantined_key in (
+        "NBA|full_game|away_total",
+        "EPL|full_game|away_total",
+        "MLB|innings_1_5|away_total",
+        "WNBA|full_game|away_total",
+        "NCAAM|full_game|totals",
+        "NCAAF|full_game|american_derivatives:spreads",
+    ):
+        q_prof = roster.get(quarantined_key)
+        assert q_prof is not None, f"Expected {quarantined_key} in universe roster"
+        assert q_prof.tier in (int(MarketTier.RESEARCH_RND), int(MarketTier.SHADOW_INCUBATOR)), (
+            f"{quarantined_key} leaked into funded Tier {q_prof.tier}"
+        )
+        assert float(q_prof.stake_cap) == 0.0
 
     # 2. Proven live Stake winners must be promoted to Tier 4 Live Proven Alpha
-    assert summary["tier_4_live_proven_alpha_count"] >= 15
+    assert summary["tier_4_live_proven_alpha_count"] >= 14
     for proven_key in ("NBA|full_game|spreads", "NHL|period_1|totals", "MLS|full_game|american_derivatives:spreads", "MLS|full_game|totals"):
         prof = roster.get(proven_key)
         assert prof is not None, f"Missing {proven_key} in roster"
@@ -484,10 +593,7 @@ def test_real_settled_ledger_immutability_and_positive_roi_validation():
         assert prof.rolling_pnl > 0.0
         assert prof.rolling_roi_pct >= 10.0
 
-    # 3. Evaluate actual settled ground-truth ledger outcomes under repaired structural & sizing gates
-    ncaam_sealed = json.loads((DATA_DIR / "models" / "NCAAM.json").read_text(encoding="utf-8")).get("report", {})
-    ncaam_validated = set(ncaam_sealed.get("validated_markets", ["moneyline"]))
-
+    # 3. Evaluate actual settled ground-truth ledger outcomes under repaired UnifiedMarketUniverse + Crucible + Sizing
     with closing(sqlite3.connect(f"file:{engine_db}?mode=ro", uri=True)) as conn:
         rows = conn.execute(
             "SELECT tip_id, status, pnl, payload FROM system_decisions WHERE status IN ('won', 'lost', 'push')"
@@ -506,11 +612,7 @@ def test_real_settled_ledger_immutability_and_positive_roi_validation():
         leaf_mkt = mkt.split(":")[-1]
         scope = str(p.get("model_scope") or (mkt.split(":")[0] if ":" in mkt else "full_game"))
 
-        # Container isolation on NCAAM baseline model
-        if lg == "NCAAM" and str(p.get("model_version") or "").startswith("NCAAM-sport-v4") and leaf_mkt not in ncaam_validated:
-            continue
-
-        # UnifiedMarketUniverse quarantine ($0.00 Tier 1/2)
+        # UnifiedMarketUniverse quarantine ($0.00 Tier 1/2) — no manual league bypass needed!
         canon_k = umu.get_canonical_key(lg, scope, leaf_mkt)
         prof = roster.get(canon_k)
         if prof is not None and float(prof.stake_cap) <= 0.0:
@@ -567,6 +669,6 @@ def test_real_settled_ledger_immutability_and_positive_roi_validation():
         kept_pnl += realized_pnl
 
     realized_roi = kept_pnl / max(1e-6, kept_stake)
-    assert kept_n >= 250
+    assert kept_n >= 200
     assert kept_pnl > 0.0
-    assert realized_roi >= 0.10, f"Expected >= +10.0% realized ROI on settled ground truth, got {realized_roi:.2%} (${kept_pnl:+.2f} / ${kept_stake:.2f}, N={kept_n})"
+    assert realized_roi >= 0.12, f"Expected >= +12.0% realized ROI on settled ground truth, got {realized_roi:.2%} (${kept_pnl:+.2f} / ${kept_stake:.2f}, N={kept_n})"

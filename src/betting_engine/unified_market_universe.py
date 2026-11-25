@@ -300,6 +300,8 @@ class UnifiedMarketUniverse:
         initial_graduated_keys: set = set()
         grad_keys_set: set = set()
         grad_at_map: Dict[str, str] = {}
+        grad_cohort_map: Dict[str, str] = {}
+        grad_inc_games_map: Dict[str, Tuple[int, int]] = {}
         demoted_keys_set: set = set()
         try:
             if not self.incubator_db_path.exists():
@@ -314,9 +316,40 @@ class UnifiedMarketUniverse:
 
                 grad_keys_set = set()
                 grad_at_map: Dict[str, str] = {}
+                inc_fam_games: Dict[Tuple[str, str, str], Tuple[int, int]] = {}
+                try:
+                    has_iw = inc_conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='incubated_wagers'").fetchone()
+                    if has_iw:
+                        for iw_lg, iw_sc, iw_fam, iw_sf, iw_cnt, iw_dg in inc_conn.execute("""
+                            SELECT league, scope, COALESCE(family, ''), COALESCE(sub_family, ''),
+                                   COUNT(*),
+                                   COUNT(DISTINCT COALESCE(NULLIF(game_id, ''), NULLIF(fixture_id, ''), id))
+                            FROM incubated_wagers
+                            WHERE status = 'settled'
+                            GROUP BY league, scope, COALESCE(family, ''), COALESCE(sub_family, '')
+                        """).fetchall():
+                            for fk_iw in {str(iw_fam), str(iw_sf), str(iw_sf).split(':')[-1]}:
+                                if fk_iw:
+                                    prev_cnt, prev_dg = inc_fam_games.get((str(iw_lg), str(iw_sc), fk_iw), (0, 0))
+                                    inc_fam_games[(str(iw_lg), str(iw_sc), fk_iw)] = (prev_cnt + int(iw_cnt or 0), max(prev_dg, int(iw_dg or 0)))
+                except Exception:
+                    pass
                 from .contracts import is_supported_stake_contract
                 for r in grad_rows:
                     seg_key, lg, sc, fam, sub_fam, n, roi, dbrier, stats_raw, grad_at = r
+                    try:
+                        st_parsed = json.loads(stats_raw) if isinstance(stats_raw, str) and stats_raw else (stats_raw if isinstance(stats_raw, dict) else {})
+                    except Exception:
+                        st_parsed = {}
+                    cohort_g = str(st_parsed.get('cohort') or '')
+                    grad_cohort_map[seg_key] = cohort_g
+                    iw_stat = (
+                        inc_fam_games.get((str(lg), str(sc), str(sub_fam or '')))
+                        or inc_fam_games.get((str(lg), str(sc), str(sub_fam or fam or '').split(':')[-1]))
+                        or inc_fam_games.get((str(lg), str(sc), str(fam or '')))
+                    )
+                    if iw_stat:
+                        grad_inc_games_map[seg_key] = iw_stat
                     if not is_supported_stake_contract(lg, sc, fam, sub_fam):
                         # Theoretical R&D archetype not offered on Stake feed -> keep in Tier 1 R&D
                         prof = UnifiedMarketProfile(
@@ -378,10 +411,20 @@ class UnifiedMarketUniverse:
                             initial_graduated_keys.update(loaded_g.keys())
                             for g_k, g_data in loaded_g.items():
                                 if g_k not in roster:
+                                    orig_sk = g_data.get('segment_key') if isinstance(g_data, dict) else None
                                     g_lg = g_data.get('league') or g_k.split('|')[0]
                                     g_sc = g_data.get('scope') or (g_k.split('|')[1] if '|' in g_k else 'full_game')
                                     g_fam = g_data.get('family') or (g_k.split('|')[2] if '|' in g_k else 'moneyline')
                                     g_sub = g_data.get('sub_family') or g_fam
+                                    # Do not resurrect container-umbrella aliases (e.g. NBA|full_game|american_derivatives)
+                                    # when the concrete segment_key (NBA|full_game|spreads) is already registered in roster.
+                                    if (
+                                        orig_sk
+                                        and orig_sk != g_k
+                                        and orig_sk in roster
+                                        and ':' not in g_k.split('|')[-1]
+                                    ):
+                                        continue
                                     g_roi = g_data.get('roi') or g_data.get('stats', {}).get('roi', 0.05)
                                     g_dbrier = g_data.get('delta_brier') or g_data.get('stats', {}).get('delta_brier', 0.01)
                                     g_ts = g_data.get('graduated_at') or '2026-11-09T00:00:00+00:00'
@@ -610,13 +653,22 @@ class UnifiedMarketUniverse:
                                 json_extract(payload, '$.stake'),
                                 issued_at,
                                 json_extract(payload, '$.game_id'),
-                                status
+                                status,
+                                json_extract(payload, '$.probability'),
+                                COALESCE(
+                                    json_extract(payload, '$.market_anchor.market_probability'),
+                                    CASE
+                                        WHEN COALESCE(json_extract(payload, '$.accepted_odds'), json_extract(payload, '$.reference_odds')) > 1.0
+                                        THEN 1.0 / COALESCE(json_extract(payload, '$.accepted_odds'), json_extract(payload, '$.reference_odds'))
+                                        ELSE NULL
+                                    END
+                                )
                             FROM system_decisions
                             WHERE status IN ('won', 'lost', 'push')
                         """).fetchall()
                         all_time_perf_map: Dict[str, Dict[str, Any]] = {}
                         last_live_ts_map: Dict[str, str] = {}
-                        for lg_r, sc_r, fam_r, pnl_r, stake_r, iss_r, gid_r, st_r in rows_perf:
+                        for lg_r, sc_r, fam_r, pnl_r, stake_r, iss_r, gid_r, st_r, prob_r, mkt_p_r in rows_perf:
                             if not lg_r or not fam_r:
                                 continue
                             lg_clean_u = str(lg_r).upper().strip()
@@ -639,19 +691,29 @@ class UnifiedMarketUniverse:
                             stk_v = float(stake_r or 1.0)
 
                             # Track all-time settled performance across every decision
-                            at_stat = all_time_perf_map.setdefault(k, {'sample_size': 0, 'pnl': 0.0, 'staked': 0.0, 'roi_pct': 0.0, 'units': 0.0, 'game_ids': set()})
+                            at_stat = all_time_perf_map.setdefault(k, {'sample_size': 0, 'pnl': 0.0, 'staked': 0.0, 'roi_pct': 0.0, 'units': 0.0, 'game_ids': set(), 'bm_sum': 0.0, 'bmkt_sum': 0.0, 'b_n': 0})
                             at_stat['sample_size'] += 1
                             at_stat['pnl'] += pnl_v
                             at_stat['staked'] += stk_v
                             if st_r in ('won', 'lost'):
                                 at_stat['game_ids'].add(str(gid_r).strip() if gid_r else f"row_{at_stat['sample_size']}")
+                                if isinstance(prob_r, (int, float)) and isinstance(mkt_p_r, (int, float)):
+                                    y_b = 1.0 if st_r == 'won' else 0.0
+                                    at_stat['bm_sum'] += (float(prob_r) - y_b) ** 2
+                                    at_stat['bmkt_sum'] += (min(0.98, max(0.02, float(mkt_p_r))) - y_b) ** 2
+                                    at_stat['b_n'] += 1
                             if base_k and base_k != k:
-                                at_stat_b = all_time_perf_map.setdefault(base_k, {'sample_size': 0, 'pnl': 0.0, 'staked': 0.0, 'roi_pct': 0.0, 'units': 0.0, 'game_ids': set()})
+                                at_stat_b = all_time_perf_map.setdefault(base_k, {'sample_size': 0, 'pnl': 0.0, 'staked': 0.0, 'roi_pct': 0.0, 'units': 0.0, 'game_ids': set(), 'bm_sum': 0.0, 'bmkt_sum': 0.0, 'b_n': 0})
                                 at_stat_b['sample_size'] += 1
                                 at_stat_b['pnl'] += pnl_v
                                 at_stat_b['staked'] += stk_v
                                 if st_r in ('won', 'lost'):
                                     at_stat_b['game_ids'].add(str(gid_r).strip() if gid_r else f"row_{at_stat_b['sample_size']}")
+                                    if isinstance(prob_r, (int, float)) and isinstance(mkt_p_r, (int, float)):
+                                        y_b = 1.0 if st_r == 'won' else 0.0
+                                        at_stat_b['bm_sum'] += (float(prob_r) - y_b) ** 2
+                                        at_stat_b['bmkt_sum'] += (min(0.98, max(0.02, float(mkt_p_r))) - y_b) ** 2
+                                        at_stat_b['b_n'] += 1
 
                             # Post-graduation filter: newly graduated models start fresh from graduation
                             if k in grad_at_map:
@@ -661,12 +723,17 @@ class UnifiedMarketUniverse:
                                 if str(iss_r) < str(grad_at_map[base_k]):
                                     continue
 
-                            stat = perf_map.setdefault(k, {'sample_size': 0, 'pnl': 0.0, 'staked': 0.0, 'roi_pct': 0.0, 'units': 0.0, 'game_ids': set()})
+                            stat = perf_map.setdefault(k, {'sample_size': 0, 'pnl': 0.0, 'staked': 0.0, 'roi_pct': 0.0, 'units': 0.0, 'game_ids': set(), 'bm_sum': 0.0, 'bmkt_sum': 0.0, 'b_n': 0})
                             stat['sample_size'] += 1
                             stat['pnl'] += pnl_v
                             stat['staked'] += stk_v
                             if st_r in ('won', 'lost'):
                                 stat['game_ids'].add(str(gid_r).strip() if gid_r else f"row_{stat['sample_size']}")
+                                if isinstance(prob_r, (int, float)) and isinstance(mkt_p_r, (int, float)):
+                                    y_b = 1.0 if st_r == 'won' else 0.0
+                                    stat['bm_sum'] += (float(prob_r) - y_b) ** 2
+                                    stat['bmkt_sum'] += (min(0.98, max(0.02, float(mkt_p_r))) - y_b) ** 2
+                                    stat['b_n'] += 1
 
                         # Compute derived metrics for both maps
                         for d_m in (perf_map, all_time_perf_map):
@@ -679,6 +746,10 @@ class UnifiedMarketUniverse:
                                 stat['roi_pct'] = round((pnl_v / stk_v * 100.0) if stk_v > 0 else 0.0, 2)
                                 stat['pnl'] = round(pnl_v, 2)
                                 stat['staked'] = round(stk_v, 2)
+                                b_n_v = int(stat.pop('b_n', 0))
+                                bm_s = float(stat.pop('bm_sum', 0.0))
+                                bmkt_s = float(stat.pop('bmkt_sum', 0.0))
+                                stat['live_delta_brier'] = round((bmkt_s - bm_s) / b_n_v, 6) if b_n_v > 0 else None
                                 if 'game_ids' in stat:
                                     stat['distinct_games'] = len(stat.pop('game_ids'))
                                 else:
@@ -732,7 +803,9 @@ class UnifiedMarketUniverse:
                             or (r_units <= -1.5 and r_roi <= -20.0)
                             or (r_units <= -4.0 and r_roi <= -5.0)
                         ))
+                        or (r_games >= 15 and r_units <= -1.5 and r_roi <= -5.0)
                         or (tot_games >= 12 and tot_units <= -3.0 and tot_roi <= -10.0)
+                        or (tot_games >= 20 and tot_units <= -1.2 and tot_roi <= -4.0)
                     )
                     if is_sb_degraded:
                         prof.tier = int(MarketTier.RESEARCH_RND)
@@ -756,23 +829,62 @@ class UnifiedMarketUniverse:
                 stat = perf_map.get(k_perf) or perf_map.get(canon_perf_k) or perf_map.get(scoped_perf_k)
                 at_stat = all_time_perf_map.get(k_perf) or all_time_perf_map.get(canon_perf_k) or all_time_perf_map.get(scoped_perf_k)
 
-                # Constitutional Positive Brier Skill Invariant (Commandments 6 & 7):
-                # Any historical graduation with negative Brier skill (delta_brier < 0.0) violates Crucible
-                # admission/graduation law and must be quarantined to Tier 1 R&D ($0.00) unless verified by
-                # established positive live settled profit (N >= 5, PnL > 0, ROI >= +2.0%).
+                # Constitutional Positive Brier Skill & Distinct-Game Power Invariants (Commandments 6 & 7):
+                # 1. Any historical graduation with negative Brier skill (delta_brier < 0.0) violates Crucible
+                #    law and must be quarantined to Tier 1 R&D ($0.00) unless backed by >= 15 live settled wagers
+                #    across >= 10 distinct games with positive live Brier skill and ROI >= +5.0%.
+                # 2. Polling-inflated historical graduations backed by < 10 distinct games in incubated_wagers
+                #    (e.g. 300 duplicate polling ticks on 2 games) are quarantined unless proven in live wagers.
+                # 3. Core-model graduations stamped with synthetic 0.003 delta_brier whose actual empirical live
+                #    Brier skill over >= 25 wagers is severely negative (<= -0.025, e.g. NCAAM|totals -0.0428)
+                #    are quarantined to Tier 1 R&D ($0.00) for calibration repair.
+                live_dbrier_at = at_stat.get('live_delta_brier') if at_stat else None
                 has_verified_live_profit = bool(
                     at_stat
-                    and at_stat.get('sample_size', 0) >= 5
+                    and at_stat.get('sample_size', 0) >= 15
+                    and at_stat.get('distinct_games', 0) >= 10
                     and at_stat.get('pnl', 0.0) > 0.0
-                    and at_stat.get('roi_pct', 0.0) >= 2.0
+                    and at_stat.get('roi_pct', 0.0) >= 5.0
+                    and (live_dbrier_at is None or live_dbrier_at >= 0.0)
                 )
-                if float(prof.delta_brier or 0.0) < 0.0 and not has_verified_live_profit:
+                iw_counts = grad_inc_games_map.get(k_perf) or grad_inc_games_map.get(canon_perf_k)
+                cohort_perf = grad_cohort_map.get(k_perf) or grad_cohort_map.get(canon_perf_k) or ''
+                is_polling_mirage = bool(
+                    iw_counts is not None
+                    and cohort_perf != 'core_domain_model'
+                    and iw_counts[0] >= 10
+                    and iw_counts[1] < 10
+                    and not (
+                        at_stat
+                        and at_stat.get('distinct_games', 0) >= 10
+                        and at_stat.get('pnl', 0.0) > 0.0
+                        and at_stat.get('roi_pct', 0.0) >= 3.5
+                    )
+                )
+                is_uncalibrated_core_graduation = bool(
+                    cohort_perf == 'core_domain_model'
+                    and at_stat
+                    and at_stat.get('sample_size', 0) >= 25
+                    and live_dbrier_at is not None
+                    and live_dbrier_at <= -0.025
+                )
+                if (
+                    (float(prof.delta_brier or 0.0) < 0.0 and not has_verified_live_profit)
+                    or is_polling_mirage
+                    or is_uncalibrated_core_graduation
+                ):
                     prof.tier = int(MarketTier.RESEARCH_RND)
                     prof.tier_name = "RESEARCH_RND"
                     prof.stake_cap = 0.00
                     prof.active_model_id = None
                     prof.model_archetype = None
-                    prof.phase_detail = f"Live Drawdown Demotion: Invalid Crucible Brier Skill ({prof.delta_brier:+.4f} < 0) - Quarantined ($0.00)"
+                    if is_polling_mirage and iw_counts is not None:
+                        prof.phase_detail = f"Live Drawdown Demotion: Insufficient Crucible Distinct Games ({iw_counts[1]} < 10 across {iw_counts[0]} captures) - Quarantined ($0.00)"
+                    elif is_uncalibrated_core_graduation and live_dbrier_at is not None:
+                        prof.delta_brier = float(live_dbrier_at)
+                        prof.phase_detail = f"Live Drawdown Demotion: Uncalibrated Live Brier Skill ({live_dbrier_at:+.4f} < 0) - Quarantined ($0.00)"
+                    else:
+                        prof.phase_detail = f"Live Drawdown Demotion: Invalid Crucible Brier Skill ({prof.delta_brier:+.4f} < 0) - Quarantined ($0.00)"
                     grad_keys_set.discard(k_perf)
                     demoted_keys_set.add(k_perf)
                     continue
@@ -809,6 +921,7 @@ class UnifiedMarketUniverse:
                             or (stat['units'] <= -4.0 and stat['roi_pct'] <= -5.0)
                         ))
                         or (stat['sample_size'] >= 12 and stat['units'] <= -3.0 and stat['roi_pct'] <= -10.0)
+                        or (stat['sample_size'] >= 20 and stat['units'] <= -1.5 and stat['roi_pct'] <= -4.0)
                     )
                     if is_stat_degraded:
                         prof.tier = int(MarketTier.RESEARCH_RND)

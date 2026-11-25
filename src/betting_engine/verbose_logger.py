@@ -55,6 +55,8 @@ class JsonlLogHandler(logging.Handler):
         self.data_dir = self.filepath.parent.parent
 
     def emit(self, record: logging.LogRecord) -> None:
+        if ("PYTEST_CURRENT_TEST" in os.environ or "pytest" in sys.modules) and self.data_dir.resolve() == (ROOT / "data").resolve():
+            return
         try:
             self.filepath.parent.mkdir(parents=True, exist_ok=True)
             msg = self.format(record)
@@ -203,13 +205,15 @@ class JsonlLogHandler(logging.Handler):
 class QuantVerboseLogger:
     """Singleton controller managing verbose logging and AI telemetry extraction."""
 
-    def __init__(self, data_dir: Optional[Path] = None):
+    def __init__(self, data_dir: Optional[Path] = None, *, read_only: bool = False):
         self.data_dir = Path(data_dir).resolve() if data_dir else DATA
         self.logs_dir = self.data_dir / "logs"
         self.log_file = self.logs_dir / VERBOSE_LOG_NAME
         self.jsonl_file = self.logs_dir / VERBOSE_JSONL_NAME
         self.text_handler: Optional[RotatingFileHandler] = None
         self.jsonl_handler: Optional[JsonlLogHandler] = None
+        if read_only:
+            return
         try:
             self.logs_dir.mkdir(parents=True, exist_ok=True)
             self._init_logging()
@@ -218,13 +222,19 @@ class QuantVerboseLogger:
 
     def _init_logging(self) -> None:
         with _LOCK:
+            is_prod_root = self.data_dir.resolve() == (ROOT / "data").resolve()
             # Text rotating handler
             self.text_handler = RotatingFileHandler(
                 str(self.log_file),
                 maxBytes=DEFAULT_MAX_BYTES,
                 backupCount=DEFAULT_BACKUP_COUNT,
                 encoding="utf-8",
+                delay=is_prod_root and ("PYTEST_CURRENT_TEST" in os.environ or "pytest" in sys.modules),
             )
+            if is_prod_root:
+                self.text_handler.addFilter(
+                    lambda _r: not ("PYTEST_CURRENT_TEST" in os.environ or "pytest" in sys.modules)
+                )
             formatter = logging.Formatter(
                 "%(asctime)s.%(msecs)03d [%(levelname)s] [%(name)s:%(funcName)s:%(lineno)d] "
                 "[P:%(process)d|T:%(threadName)s] %(message)s",
@@ -586,4 +596,9 @@ def get_verbose_logger(data_dir: Optional[Path] = None) -> QuantVerboseLogger:
 
 def setup_verbose_logging(data_dir: Optional[Path] = None) -> QuantVerboseLogger:
     """Ensures verbose logging is initialized and active."""
+    if data_dir is None and (
+        "--development" in sys.argv
+        or any("dashboard_worker" in str(a) or "dashboard_process" in str(a) for a in sys.argv)
+    ):
+        return QuantVerboseLogger(data_dir=data_dir, read_only=True)
     return get_verbose_logger(data_dir=data_dir)

@@ -111,8 +111,13 @@ def _v3_adjustment(summary, tip, base_sizing):
     agreement = 0.
     if anchor.get('status') == 'usable':
         model = _number(anchor['model_probability'])
-        market = _number(anchor['market_probability'])
-        threshold = _number(anchor['disagreement_threshold'])
+        if 'market_probability' in anchor:
+            market = _number(anchor['market_probability'])
+        elif isinstance(anchor.get('market_probabilities'), dict) and str(tip.get('side') or '').lower().strip() in anchor['market_probabilities']:
+            market = _number(anchor['market_probabilities'][str(tip.get('side') or '').lower().strip()])
+        else:
+            market = _number(anchor['market_probability'])
+        threshold = _number(anchor['disagreement_threshold'] if 'disagreement_threshold' in anchor else 0.30)
         if not (0 <= model <= 1 and 0 <= market <= 1 and 0 < threshold <= 1):
             raise ValueError('Invalid sizing anchor')
         agreement = max(0., 1 - abs(model - market) / threshold)
@@ -547,7 +552,27 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
             pass
 
 
+    rho_agree = 1.0
+    if not is_test_cand and not is_sealed_before_epistemic_kelly_fix and not bool(tip.get('is_super_alpha') or tip.get('is_solid_alpha')):
+        anchor_info = tip.get('market_anchor')
+        if isinstance(anchor_info, dict):
+            mod_p_agree = anchor_info.get('model_probability')
+            if not isinstance(mod_p_agree, (int, float)):
+                mod_p_agree = tip.get('probability')
+            mkt_p_agree = anchor_info.get('market_probability')
+            if not isinstance(mkt_p_agree, (int, float)) and isinstance(anchor_info.get('market_probabilities'), dict):
+                side_k = str(tip.get('side') or '').lower().strip()
+                mp_dict = anchor_info['market_probabilities']
+                if side_k in mp_dict and isinstance(mp_dict[side_k], (int, float)):
+                    mkt_p_agree = mp_dict[side_k]
+            if isinstance(mod_p_agree, (int, float)) and isinstance(mkt_p_agree, (int, float)):
+                dp_abs = abs(float(mod_p_agree) - float(mkt_p_agree))
+                if dp_abs > 0.12:
+                    rho_agree = max(0.40, math.exp(-((dp_abs - 0.12) / 0.15) ** 2))
+
     requested = max(base * factor, v3['confidence_target']) if v3 else base * factor
+    if rho_agree < 1.0 and requested > def_unit:
+        requested = max(def_unit, requested * rho_agree)
     if (
         caps.get('capital_defense_quarantine') == 0.0
         or caps.get('demoted_market_defense_clamp') == 0.0
@@ -626,18 +651,6 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                     )
                 except Exception:
                     meta_kelly_mult = 1.0
-
-            rho_agree = 1.0
-            if not is_test_cand and not is_sealed_before_epistemic_kelly_fix and not explicit_alpha_flag:
-                anchor_info = tip.get('market_anchor')
-                if (
-                    isinstance(anchor_info, dict)
-                    and isinstance(anchor_info.get('model_probability'), (int, float))
-                    and isinstance(anchor_info.get('market_probability'), (int, float))
-                ):
-                    dp_abs = abs(float(anchor_info['model_probability']) - float(anchor_info['market_probability']))
-                    if dp_abs > 0.12:
-                        rho_agree = max(0.40, math.exp(-((dp_abs - 0.12) / 0.15) ** 2))
 
             if is_super_alpha:
                 if ev_val is not None and ev_val < 0:
