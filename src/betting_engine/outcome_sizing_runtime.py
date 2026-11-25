@@ -12,6 +12,19 @@ def outcome_policy(settings):
     return policy
 
 
+class StaleOutcomeEvidenceError(ValueError):
+    """Evidence outside the freshness window; the caller must run a fresh cycle.
+
+    Subclasses ValueError so existing handlers and tests are unaffected. Never
+    resolve this by re-stamping as_of or widening the window.
+    """
+
+    def __init__(self, message, kind, age_seconds):
+        super().__init__(message)
+        self.kind = kind
+        self.age_seconds = age_seconds
+
+
 def verify_evidence(tip, settings, now, max_age_seconds=300):
     """Check a receipt at review/issuance time; never substitute today's outcomes."""
     policy = outcome_policy(settings)
@@ -23,11 +36,13 @@ def verify_evidence(tip, settings, now, max_age_seconds=300):
     age = (now - parse_time(summary['as_of'])).total_seconds()
     if not -5 <= age <= max_age_seconds:
         kind = 'future-dated' if age < -5 else 'stale'
-        raise ValueError(
+        raise StaleOutcomeEvidenceError(
             'Outcome sizing evidence is future-dated or stale '
             f'({kind}: candidate_id={tip.get("candidate_id")!r}, segment={summary.get("segment")!r}, '
             f'as_of={summary["as_of"]!r}, now={now.isoformat()}, age_seconds={age:.3f}, '
-            f'allowed=[-5, {max_age_seconds}])'
+            f'allowed=[-5, {max_age_seconds}])',
+            kind,
+            age,
         )
 
 
