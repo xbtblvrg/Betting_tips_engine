@@ -1,6 +1,6 @@
 # Live Stake market coverage
 
-Checked: 2026-11-25T14:10:19.196439+00:00
+Checked: 2026-11-25T14:30:30.924506+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
@@ -9,7 +9,7 @@ Observed feed titles; not proof of complete Stake website coverage. Funding supp
 | NFL | 75 | 1 | 51 | 0 | 51 | 33 | 7 | 1 | 4 |
 | NHL | 71 | 5 | 66 | 0 | 66 | 49 | 3 | 2 | 17 |
 | MLB | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| NBA | 141 | 3 | 118 | 0 | 118 | 63 | 8 | 2 | 7 |
+| NBA | 141 | 3 | 118 | 0 | 118 | 63 | 10 | 2 | 7 |
 | WNBA | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 
 Current stages require outcome-level evidence; original issuance, settlement and feedback are explicitly historical. 10/10 records observed execution, not proven profitability or automatic model promotion.
@@ -47,7 +47,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | 1st Quarter - Charlotte Hornets total | standard | quarter_1 | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | 1st Quarter - Chicago Bulls total | standard | quarter_1 | offered_now | 9/10 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 2/2 | verified 1/1 | verified 1/1 | partial 1/2 | 0 |
 | NBA | 1st Quarter - Detroit Pistons total | standard | quarter_1 | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
-| NBA | 1st Quarter - Draw No Bet | standard | quarter_1 | offered_now | 5/10 | partial 9/16 | verified 16/16 | partial 9/16 | partial 9/16 | partial 9/16 | verified 9/9 | verified 9/9 | verified 13/13 | verified 13/13 | partial 13/14 | 0 |
+| NBA | 1st Quarter - Draw No Bet | standard | quarter_1 | offered_now | 5/10 | partial 9/16 | verified 16/16 | partial 10/16 | partial 10/16 | partial 9/16 | verified 9/9 | verified 9/9 | verified 13/13 | verified 13/13 | partial 13/14 | 0 |
 | NBA | 1st Quarter - Golden State Warriors total | standard | quarter_1 | offered_now | 2/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NBA | 1st Quarter - Handicap | standard | quarter_1 | offered_now | 9/10 | verified 16/16 | verified 16/16 | verified 16/16 | verified 16/16 | verified 16/16 | verified 16/16 | verified 16/16 | verified 10/10 | verified 10/10 | partial 10/11 | 0 |
 | NBA | 1st Quarter - Houston Rockets total | standard | quarter_1 | offered_now | 2/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
@@ -267,7 +267,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NHL | Both Teams to Score | standard | regulation | offered_now | 1/10 | not_observed 0/28 | verified 28/28 | not_observed 0/28 | not_observed 0/28 | not_observed 0/28 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Buffalo Sabres Total | standard | regulation | offered_now | 3/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
 | NHL | Calgary Flames Total | standard | regulation | offered_now | 3/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NHL | Carolina Hurricanes Total | standard | regulation | offered_now | 3/10 | partial 4/6 | verified 6/6 | partial 4/6 | partial 4/6 | partial 4/6 | verified 4/4 | verified 4/4 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NHL | Carolina Hurricanes Total | standard | regulation | offered_now | 3/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Chicago Blackhawks Total | standard | regulation | offered_now | 3/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Colorado Avalanche Total | standard | regulation | offered_now | 3/10 | partial 4/6 | verified 6/6 | partial 4/6 | partial 4/6 | partial 4/6 | verified 4/4 | verified 4/4 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
 | NHL | Columbus Blue Jackets Total | standard | regulation | offered_now | 3/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |

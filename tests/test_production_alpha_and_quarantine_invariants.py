@@ -353,6 +353,11 @@ def test_graduated_market_in_rolling_drawdown_clamped_to_050_tourniquet():
     tip_with_ev = dict(tip)
     orig_gov = gov_mod.get_latest_governor_report
     orig_roster = umu_mod.UnifiedMarketUniverse.build_universe_roster
+    import betting_engine.decisions as dec_mod
+    orig_dem = dec_mod._get_demoted_segments
+    orig_grad = dec_mod._get_graduated_segments
+    dec_mod._get_demoted_segments = lambda: set()
+    dec_mod._get_graduated_segments = lambda: {'NCAAM|full_game|spreads'}
     gov_mod.get_latest_governor_report = lambda data_dir=None: {
         'capital_defense_list': ['NCAAM|full_game|spreads'],
         'quarantine_list': [],
@@ -371,7 +376,24 @@ def test_graduated_market_in_rolling_drawdown_clamped_to_050_tourniquet():
     try:
         res = apply_adjustment(base_sizing, tip_with_ev, settings=settings, remaining=math.inf)
         assert res['amount'] == 0.50, f"Rolling-drawdown graduated market MUST clamp to $0.50 tourniquet, got ${res['amount']:.2f}"
+
+        # Also verify Solid Alpha ($3.50 cap) cannot leak $8.00 Super Alpha max!
+        solid_tip = dict(tip_with_ev, id='real_ncaam_solid_1', is_solid_alpha=True)
+        umu_mod.UnifiedMarketUniverse.build_universe_roster = lambda self, force_refresh=False: {
+            'NCAAM|full_game|spreads': SimpleNamespace(
+                tier=4, stake_cap=3.50, rolling_pnl=10.0, rolling_roi_pct=6.5,
+                phase_detail='Tier 4 Proven Alpha - $3.50 cap',
+            )
+        }
+        gov_mod.get_latest_governor_report = lambda data_dir=None: {
+            'capital_defense_list': [], 'quarantine_list': [],
+            'super_alpha_list': [], 'solid_alpha_list': ['NCAAM|full_game|spreads'],
+        }
+        res_solid = apply_adjustment({'amount': 8.0, 'base': 8.0, 'factor': 1.0}, solid_tip, settings=settings, remaining=math.inf)
+        assert 2.50 <= res_solid['amount'] <= 3.50, f"Solid Alpha ($3.50 cap) must stay in [$2.50, $3.50], got ${res_solid['amount']:.2f}"
     finally:
+        dec_mod._get_demoted_segments = orig_dem
+        dec_mod._get_graduated_segments = orig_grad
         gov_mod.get_latest_governor_report = orig_gov
         umu_mod.UnifiedMarketUniverse.build_universe_roster = orig_roster
 
