@@ -1,6 +1,6 @@
 # Live Stake market coverage
 
-Checked: 2026-11-25T21:07:14.273862+00:00
+Checked: 2026-11-25T21:25:51.608789+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
@@ -239,7 +239,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NFL | Will There be Overtime | standard | regulation | offered_now | 6/10 | partial 8/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 8/8 | verified 8/8 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Winner (Incl. Overtime) | standard | full_game | offered_now | 7/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | Winning Margin | standard | regulation | offered_now | 0/10 | not_observed 0/35 | not_observed 0/35 | not_observed 0/35 | not_observed 0/35 | not_observed 0/35 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NFL | 1st half anytime touchdown | swishMarkets.playerProps | half_1 | observed_activity_unverified | 0/10 | activity_unverified 0/412 | activity_unverified 0/412 | activity_unverified 0/412 | activity_unverified 0/412 | activity_unverified 0/412 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NFL | 1st half anytime touchdown | swishMarkets.playerProps | half_1 | observed_activity_unverified | 0/10 | activity_unverified 0/416 | activity_unverified 0/416 | activity_unverified 0/416 | activity_unverified 0/416 | activity_unverified 0/416 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 1st Goal | standard | regulation | offered_now | 0/10 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 1st Period - 1st Goal | standard | period_1 | offered_now | 0/10 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 1st Period - 1x2 | standard | period_1 | offered_now | 3/10 | not_observed 0/42 | verified 42/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/0 | not_observed 0/0 | verified 12/12 | verified 12/12 | awaiting_measurement 12/13 | 0 |
