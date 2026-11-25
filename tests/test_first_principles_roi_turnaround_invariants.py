@@ -164,14 +164,15 @@ def test_probability_ev_and_epistemic_kelly_monotonicity_axioms():
     # Probation / neutral candidates (no historical alpha evidence) AND 3-way partition anchors
     # must ALSO be attenuated by rho_agree rather than sizing p=0.91 vs market_p=0.48 up to $3.50.
     _, res_prob_cal = _make_live_sized_tip(
-        league="MLS",
-        market="three_way",
+        league="EPL",
+        market="half_1:three_way",
         probability=0.52,
         market_probability=0.46,
         odds=2.10,
         history_rows=[],
         extra_tip={
             "side": "home",
+            "game_id": "EPL:401999202",
             "market_anchor": {
                 "status": "usable",
                 "model_probability": 0.52,
@@ -183,13 +184,18 @@ def test_probability_ev_and_epistemic_kelly_monotonicity_axioms():
         {"amount": 3.50, "maximum_stake": 8.0, "event_discount": 1.0},
         {
             **tip_div,
-            "league": "MLS",
-            "market": "three_way",
+            "league": "EPL",
+            "market": "half_1:three_way",
+            "model_scope": "half_1",
+            "game_id": "EPL:401999203",
             "side": "home",
             "probability": 0.9099,
             "reference_odds": 1.98,
             "expected_roi": 0.9099 * 1.98 - 1.0,
-            "outcome_sizing_evidence": summary_for(build_snapshot([], AS_OF), {**tip_div, "league": "MLS", "market": "three_way"}),
+            "outcome_sizing_evidence": summary_for(
+                build_snapshot([], AS_OF),
+                {**tip_div, "league": "EPL", "market": "half_1:three_way", "model_scope": "half_1"},
+            ),
             "market_anchor": {
                 "status": "review",
                 "model_probability": 0.9099,
@@ -548,13 +554,68 @@ def test_crucible_rejects_polling_inflation_multi_model_soup_and_negative_brier(
                 (f"valid_mls_{i}", f"MLS:ok_{i}", f"MLS:ok_{i}", "won" if won else "lost", 0.95 if won else -1.0),
             )
 
+    # Case 5: Core-model live graduation track (engine.sqlite3) must compute REAL empirical Brier skill
+    # rather than fabricating hardcoded delta_brier=0.003: reject NCAAM|totals (53% WR at p=0.88 -> negative Brier skill)
+    # while graduating NBA|spreads (67% WR at p=0.62 -> positive Brier skill).
+    with closing(sqlite3.connect(str(tmp_path / "engine.sqlite3"))) as econn:
+        econn.execute(
+            "CREATE TABLE system_decisions (tip_id TEXT PRIMARY KEY, issued_at TEXT, status TEXT, pnl REAL, payload TEXT)"
+        )
+        for i in range(30):
+            won_c = i < 16  # 16W - 14L at 2.05 odds -> +9.3% ROI, but p=0.88 is horribly miscalibrated!
+            econn.execute(
+                "INSERT INTO system_decisions VALUES (?, ?, ?, ?, ?)",
+                (
+                    f"ncaam_tot_{i}",
+                    f"2026-11-20T{i % 24:02d}:00:00Z",
+                    "won" if won_c else "lost",
+                    1.05 if won_c else -1.0,
+                    json.dumps({
+                        "league": "NCAAM",
+                        "market": "totals",
+                        "model_scope": "full_game",
+                        "game_id": f"NCAAM:core_{i}",
+                        "stake": 1.0,
+                        "reference_odds": 2.05,
+                        "probability": 0.88,
+                        "market_anchor": {"market_probability": 0.48},
+                    }),
+                ),
+            )
+            won_nba = i < 20  # 20W - 10L at 1.95 odds -> +30.0% ROI AND calibrated p=0.63!
+            econn.execute(
+                "INSERT INTO system_decisions VALUES (?, ?, ?, ?, ?)",
+                (
+                    f"nba_sp_core_{i}",
+                    f"2026-11-20T{i % 24:02d}:00:00Z",
+                    "won" if won_nba else "lost",
+                    0.95 if won_nba else -1.0,
+                    json.dumps({
+                        "league": "NBA",
+                        "market": "spreads",
+                        "model_scope": "full_game",
+                        "game_id": f"NBA:core_{i}",
+                        "stake": 1.0,
+                        "reference_odds": 1.95,
+                        "probability": 0.63,
+                        "market_anchor": {"market_probability": 0.50},
+                    }),
+                ),
+            )
+        econn.commit()
+
     grads = inc.evaluate_graduation(as_of="2026-11-21T00:00:00Z")
-    grad_keys = {g["segment_key"] for g in grads}
+    grad_map = {g["segment_key"]: g for g in grads}
+    grad_keys = set(grad_map.keys())
 
     assert "NBA|half_1|totals" not in grad_keys
     assert "NHL|period_2|totals" not in grad_keys
     assert "EPL|half_1|moneyline" not in grad_keys
+    assert "NCAAM|full_game|totals" not in grad_keys
     assert "MLS|full_game|totals" in grad_keys
+    assert "NBA|full_game|spreads" in grad_keys
+    assert grad_map["NBA|full_game|spreads"]["stats"]["delta_brier"] != 0.003
+    assert grad_map["NBA|full_game|spreads"]["stats"]["delta_brier"] > 0.01
 
 
 def test_real_settled_ledger_immutability_and_positive_roi_validation():

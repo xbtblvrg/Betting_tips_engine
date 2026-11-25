@@ -60,15 +60,16 @@ class AIArchetypeDeveloperAgent:
     def __init__(
         self,
         db_path: Path | str = DEFAULT_INCUBATOR_DB,
-        archetypes_dir: Path | str = DISTILLED_ARCHETYPES_DIR,
-        generated_dir: Path | str = GENERATED_MODELS_DIR,
+        archetypes_dir: Optional[Path | str] = None,
+        generated_dir: Optional[Path | str] = None,
     ):
         p = Path(db_path) if isinstance(db_path, str) else db_path
         if p.is_dir():
             p = p / "shadow_incubator.sqlite3"
         self.db_path = p
-        self.archetypes_dir = Path(archetypes_dir)
-        self.generated_dir = Path(generated_dir)
+        is_prod_db = (self.db_path.resolve() == Path(DEFAULT_INCUBATOR_DB).resolve())
+        self.archetypes_dir = Path(archetypes_dir) if archetypes_dir is not None else (DISTILLED_ARCHETYPES_DIR if is_prod_db else (self.db_path.parent / "dynamically_distilled"))
+        self.generated_dir = Path(generated_dir) if generated_dir is not None else (GENERATED_MODELS_DIR if is_prod_db else (self.db_path.parent / "generated"))
         self.archetypes_dir.mkdir(parents=True, exist_ok=True)
         self._ensure_table_exists()
 
