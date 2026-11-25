@@ -1,6 +1,6 @@
 # Live Stake market coverage
 
-Checked: 2026-11-25T15:59:13.282106+00:00
+Checked: 2026-11-25T16:22:21.312155+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
@@ -9,7 +9,7 @@ Observed feed titles; not proof of complete Stake website coverage. Funding supp
 | NFL | 75 | 1 | 51 | 0 | 51 | 33 | 7 | 0 | 4 |
 | NHL | 71 | 5 | 66 | 0 | 66 | 49 | 3 | 2 | 17 |
 | MLB | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| NBA | 146 | 3 | 124 | 0 | 124 | 66 | 11 | 2 | 8 |
+| NBA | 146 | 3 | 124 | 0 | 124 | 66 | 11 | 3 | 8 |
 | WNBA | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 
 Current stages require outcome-level evidence; original issuance, settlement and feedback are explicitly historical. 10/10 records observed execution, not proven profitability or automatic model promotion.
@@ -122,7 +122,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | Lowest scoring quarter - total | standard | regulation | offered_now | 0/10 | not_observed 0/18 | not_observed 0/18 | not_observed 0/18 | not_observed 0/18 | not_observed 0/18 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Memphis Grizzlies Total (Incl. Overtime) | standard | full_game | offered_now | 9/10 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 1/1 | verified 1/1 | partial 1/2 | 0 |
 | NBA | Memphis Grizzlies Total Maximum Consecutive Points | standard | regulation | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NBA | Miami Heat Total (Incl. Overtime) | standard | full_game | offered_now | 9/10 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 3/3 | verified 2/2 | partial 2/3 | 0 |
+| NBA | Miami Heat Total (Incl. Overtime) | standard | full_game | offered_now | 9/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 3/3 | verified 2/2 | partial 2/3 | 0 |
 | NBA | Miami Heat Total Maximum Consecutive Points | standard | regulation | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Milwaukee Bucks Total (Incl. Overtime) | standard | full_game | offered_now | 9/10 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 1/1 | verified 1/1 | partial 1/2 | 0 |
 | NBA | Milwaukee Bucks Total Maximum Consecutive Points | standard | regulation | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
@@ -135,7 +135,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | Oklahoma City Thunder Total (Incl. Overtime) | standard | full_game | offered_now | 9/10 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 2/2 | verified 2/2 | partial 2/3 | 0 |
 | NBA | Oklahoma City Thunder Total Maximum Consecutive Points | standard | regulation | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Orlando Magic Total (Incl. Overtime) | standard | full_game | historical_only | 2/10 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | not_offered 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
-| NBA | Philadelphia 76ers Total (Incl. Overtime) | standard | full_game | offered_now | 9/10 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 1/1 | verified 1/1 | partial 1/2 | 0 |
+| NBA | Philadelphia 76ers Total (Incl. Overtime) | standard | full_game | offered_now | 9/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 10/10 | verified 1/1 | verified 1/1 | partial 1/2 | 0 |
 | NBA | Philadelphia 76ers Total Maximum Consecutive Points | standard | regulation | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | Phoenix Suns Total (Incl. Overtime) | standard | full_game | offered_now | 8/10 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 1/1 | not_observed 0/0 | partial 0/1 | 0 |
 | NBA | Phoenix Suns Total Maximum Consecutive Points | standard | regulation | offered_now | 0/10 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/2 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
@@ -279,7 +279,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NHL | Correct Score | standard | regulation | offered_now | 0/10 | not_observed 0/518 | not_observed 0/518 | not_observed 0/518 | not_observed 0/518 | not_observed 0/518 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Dallas Stars Total | standard | regulation | offered_now | 3/10 | partial 4/6 | verified 6/6 | partial 4/6 | partial 4/6 | partial 4/6 | verified 4/4 | verified 4/4 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
 | NHL | Detroit Red Wings Total | standard | regulation | offered_now | 7/10 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
-| NHL | Double Chance | standard | regulation | offered_now | 7/10 | partial 38/42 | verified 42/42 | verified 42/42 | verified 42/42 | partial 38/42 | verified 38/38 | verified 38/38 | verified 1/1 | verified 1/1 | partial 1/2 | 0 |
+| NHL | Double Chance | standard | regulation | offered_now | 7/10 | partial 37/42 | verified 42/42 | verified 42/42 | verified 42/42 | partial 37/42 | verified 37/37 | verified 37/37 | verified 1/1 | verified 1/1 | partial 1/2 | 0 |
 | NHL | Florida Panthers Total | standard | regulation | offered_now | 3/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
 | NHL | Handicap (Incl. Overtime and Penalties) | standard | full_game | offered_now | 9/10 | verified 84/84 | verified 84/84 | verified 84/84 | verified 84/84 | verified 84/84 | verified 84/84 | verified 84/84 | verified 28/28 | verified 28/28 | partial 28/29 | 0 |
 | NHL | Last Goal | standard | regulation | offered_now | 0/10 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/42 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
@@ -301,7 +301,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NHL | Utah Mammoth Total | standard | regulation | offered_now | 5/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NHL | Vancouver Canucks Total | standard | regulation | offered_now | 3/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Washington Capitals Total | standard | regulation | offered_now | 3/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
-| NHL | Winner (Incl. Overtime and Penalties) | standard | full_game | offered_now | 3/10 | partial 27/28 | verified 28/28 | partial 27/28 | partial 27/28 | partial 27/28 | verified 27/27 | verified 27/27 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NHL | Winner (Incl. Overtime and Penalties) | standard | full_game | offered_now | 3/10 | partial 26/28 | verified 28/28 | partial 26/28 | partial 26/28 | partial 26/28 | verified 26/26 | verified 26/26 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Winnipeg Jets Total | standard | regulation | offered_now | 5/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NHL | moneyline | swishMarkets.matchMarkets | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/60 | activity_unverified 0/60 | activity_unverified 0/60 | activity_unverified 0/60 | activity_unverified 0/60 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | spread | swishMarkets.matchMarkets | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/80 | activity_unverified 0/80 | activity_unverified 0/80 | activity_unverified 0/80 | activity_unverified 0/80 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
