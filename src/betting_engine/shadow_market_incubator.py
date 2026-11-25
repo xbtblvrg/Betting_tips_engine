@@ -2474,7 +2474,11 @@ class ShadowMarketIncubator:
 
                         # Query settled incubated wagers matching exact sub_family/family
                         cur_w.execute("""
-                            SELECT odds, pnl, brier_model, brier_market, settled_at
+                            SELECT odds, pnl, brier_model, brier_market, settled_at,
+                                   COALESCE(NULLIF(game_id, ''), NULLIF(fixture_id, ''), id) AS g_key,
+                                   COALESCE(selection, '') AS sel_key,
+                                   line,
+                                   model_id
                             FROM incubated_wagers
                             WHERE status = 'settled'
                               AND league = ? AND scope = ?
@@ -2486,13 +2490,28 @@ class ShadowMarketIncubator:
                                   )
                               )
                               AND (settled_at > ? OR ? IS NULL)
-                            ORDER BY settled_at ASC
+                            ORDER BY settled_at ASC, id ASC
                         """, (league, scope, eff_sub, eff_sub, eff_fam, eff_sub, adm_at, adm_at))
-                        w_rows = cur_w.fetchall()
-                        n_live = len(w_rows)
+                        raw_w_rows = cur_w.fetchall()
+                        if mid:
+                            mid_rows = [w for w in raw_w_rows if w[8] and str(w[8]) == str(mid)]
+                            if mid_rows:
+                                raw_w_rows = mid_rows
+                        seen_contracts_t2 = set()
+                        w_rows = []
+                        distinct_games_t2 = set()
+                        for w in raw_w_rows:
+                            c_sig = (str(w[5]), str(w[6]), round(float(w[7]), 3) if w[7] is not None else None)
+                            if c_sig in seen_contracts_t2:
+                                continue
+                            seen_contracts_t2.add(c_sig)
+                            distinct_games_t2.add(str(w[5]))
+                            w_rows.append(w)
+                        n_wagers_t2 = len(w_rows)
+                        n_live = len(distinct_games_t2)
                         live_pnls = [float(w[1] or 0.0) for w in w_rows]
                         live_pnl = float(sum(live_pnls))
-                        live_roi = (live_pnl / float(n_live)) if n_live > 0 else 0.0
+                        live_roi = (live_pnl / float(n_wagers_t2)) if n_wagers_t2 > 0 else 0.0
 
                         # Check for open/pending wagers
                         cur_w.execute("""
@@ -2873,21 +2892,32 @@ class ShadowMarketIncubator:
                     target_mid = str(cohort_val).split(':', 1)[1]
                     cohort_val = 'tournament_challenger'
                     cur_rec.execute("""
-                        SELECT league, scope, family, sub_family, odds, pnl, brier_model, brier_market, dynamic_sample_power_req, raw_market_name, cohort, settled_at, model_id
+                        SELECT league, scope, family, sub_family, odds, pnl, brier_model, brier_market, dynamic_sample_power_req, raw_market_name, cohort, settled_at, model_id,
+                               COALESCE(NULLIF(game_id, ''), NULLIF(fixture_id, ''), id), COALESCE(selection, ''), line
                         FROM incubated_wagers
                         WHERE status = 'settled' AND league = ? AND scope = ? AND family = ? AND sub_family = ? AND model_id = ?
                         ORDER BY settled_at ASC, id ASC
                     """, (league, scope, family, sub_family, target_mid))
                 else:
                     cur_rec.execute("""
-                        SELECT league, scope, family, sub_family, odds, pnl, brier_model, brier_market, dynamic_sample_power_req, raw_market_name, cohort, settled_at, model_id
+                        SELECT league, scope, family, sub_family, odds, pnl, brier_model, brier_market, dynamic_sample_power_req, raw_market_name, cohort, settled_at, model_id,
+                               COALESCE(NULLIF(game_id, ''), NULLIF(fixture_id, ''), id), COALESCE(selection, ''), line
                         FROM incubated_wagers
                         WHERE status = 'settled' AND league = ? AND scope = ? AND family = ? AND sub_family = ? AND cohort = ?
                         ORDER BY settled_at ASC, id ASC
                     """, (league, scope, family, sub_family, cohort_val))
-                records = cur_rec.fetchall()
-                if not records:
+                raw_records = cur_rec.fetchall()
+                if not raw_records:
                     continue
+                # Deduplicate 60s polling repeats on identical (game, selection, line) contracts
+                seen_grad_contracts = set()
+                records = []
+                for rw in raw_records:
+                    g_sig = (str(rw[13]), str(rw[14]), round(float(rw[15]), 3) if rw[15] is not None else None)
+                    if g_sig in seen_grad_contracts:
+                        continue
+                    seen_grad_contracts.add(g_sig)
+                    records.append(rw)
 
                 # Probation check: resolve demoted_at across all canonical aliases
                 demoted_at = (
@@ -2961,13 +2991,14 @@ class ShadowMarketIncubator:
 
                 records.sort(key=lambda r: str(r[11] or ''))
                 n_samples = len(records)
+                n_distinct_games = len({str(r[13]) for r in records}) if records and len(records[0]) > 13 else n_samples
                 odds_list = [r[4] for r in records]
                 pnl_list = [r[5] for r in records]
                 brier_model_list = [r[6] for r in records if r[6] is not None]
                 brier_mkt_list = [r[7] for r in records if r[7] is not None]
                 req_list = [r[8] for r in records]
 
-                # Dynamic sample requirement: minimum 25 samples
+                # Dynamic sample requirement: minimum 25 distinct games
                 avg_odds = float(np.mean(odds_list)) if odds_list else 2.0
                 n_min_dynamic = max(25, int(math.ceil(25.0 * math.sqrt(max(0.1, avg_odds - 1.0)))))
 
@@ -2976,9 +3007,9 @@ class ShadowMarketIncubator:
                 # Allows low-cadence leagues (UCL, NFL halves) to graduate when:
                 # N_live >= 10, Power >= 50, ROI >= +3.5%, PnL > 0.0, Delta Brier > 0.0010, DD < 15%
                 n_oos = demoted_oos_map.get(segment_key, demoted_oos_map.get(canonical_key, 0))
-                composite_power = float(n_samples) + 0.20 * min(float(n_oos), 200.0)
+                composite_power = float(n_distinct_games) + 0.20 * min(float(n_oos), 200.0)
                 is_fast_track_candidate = (
-                    n_samples >= 10 and
+                    n_distinct_games >= 10 and
                     composite_power >= 50.0 and
                     n_oos >= 100
                 )
@@ -2991,10 +3022,10 @@ class ShadowMarketIncubator:
                 peaks_q = np.maximum.accumulate(cumsum_q)
                 dd_arr_q = (peaks_q - cumsum_q) / np.maximum(1.0, peaks_q + n_samples)
                 max_dd_q = float(np.max(dd_arr_q)) if len(dd_arr_q) > 0 else 0.0
-                has_proven_alpha_sample = (n_samples >= 25 and roi_quick >= 0.08 and tot_pnl_quick > 0.0 and max_dd_q <= 0.20)
+                has_proven_alpha_sample = (n_distinct_games >= 25 and roi_quick >= 0.08 and tot_pnl_quick > 0.0 and max_dd_q <= 0.20)
 
-                if n_samples < n_min_dynamic and not is_fast_track_candidate and not has_proven_alpha_sample:
-                    continue  # Insufficient sample power
+                if n_distinct_games < n_min_dynamic and not is_fast_track_candidate and not has_proven_alpha_sample:
+                    continue  # Insufficient distinct-game sample power
 
                 # Metrics
                 total_stake = float(n_samples)
@@ -3014,16 +3045,17 @@ class ShadowMarketIncubator:
                 max_dd = float(np.max(drawdowns)) if len(drawdowns) > 0 else 0.0
 
                 # -----------------------------------------------------------------
-                # DYNAMIC CRUCIBLE GRADUATION CONDITIONS:
+                # DYNAMIC CRUCIBLE GRADUATION CONDITIONS (Commandments 6 & 7):
+                # Strictly requires POSITIVE Brier skill (delta_brier > 0.0005) across ALL tracks!
                 # 1. Fast-Track Composite Power Track:
-                #    N_live >= 10, Composite Power >= 50, ROI >= +3.5%, PnL > 0.0,
+                #    N_games >= 10, Composite Power >= 50, ROI >= +3.5%, PnL > 0.0,
                 #    Delta Brier > 0.0010, Max DD < 15%
-                # 2. Continuous High-Alpha Proof:
-                #    N >= 40, ROI >= +8.0%, PnL > 0.0, Delta Brier > -0.12, Max DD <= 20%
-                # 3. Standard Tracks: Sample Size >= dynamic N_min (strictly >= 25)
+                # 2. Continuous High-Alpha / Proven Alpha Proof:
+                #    N_games >= 25 (or 40), ROI >= +3.5% (or +8.0%), PnL > 0.0, Delta Brier > 0.0005, Max DD <= 20%
+                # 3. Standard Tracks: Distinct Games >= dynamic N_min (strictly >= 25), Delta Brier > 0.0005
                 # -----------------------------------------------------------------
-                has_high_alpha_proof = (n_samples >= 40 and roi >= 0.08 and total_pnl > 0.0 and max_dd <= 0.20 and delta_brier > -0.12)
-                has_proven_alpha_proof = (n_samples >= 25 and roi >= 0.035 and total_pnl > 0.0 and max_dd <= 0.20 and delta_brier > -0.05)
+                has_high_alpha_proof = (n_distinct_games >= 40 and roi >= 0.08 and total_pnl > 0.0 and max_dd <= 0.20 and delta_brier > 0.0005)
+                has_proven_alpha_proof = (n_distinct_games >= 25 and roi >= 0.035 and total_pnl > 0.0 and max_dd <= 0.20 and delta_brier > 0.0005)
                 if is_fast_track_candidate and roi >= 0.035 and total_pnl > 0.0 and delta_brier > 0.0010 and max_dd < 0.15:
                     passed = True
                     cohort_val = 'fast_track_composite'
@@ -3032,13 +3064,13 @@ class ShadowMarketIncubator:
                 elif has_proven_alpha_proof:
                     passed = True
                 elif cohort_val == 'high_probability':
-                    passed = (roi >= 0.035 and win_rate >= 0.55 and n_samples >= n_min_dynamic and delta_brier > 0.0005 and max_dd < 0.20)
+                    passed = (roi >= 0.035 and win_rate >= 0.55 and n_distinct_games >= n_min_dynamic and delta_brier > 0.0005 and max_dd < 0.20)
                 elif cohort_val == 'core_challenger':
-                    passed = (roi >= 0.035 and delta_brier > 0.001 and n_samples >= n_min_dynamic and max_dd < 0.20)
+                    passed = (roi >= 0.035 and delta_brier > 0.001 and n_distinct_games >= n_min_dynamic and max_dd < 0.20)
                 elif cohort_val in ('tournament_challenger', 'gap_market'):
-                    passed = (roi >= 0.035 and delta_brier > 0.0005 and n_samples >= n_min_dynamic and max_dd < 0.20)
+                    passed = (roi >= 0.035 and delta_brier > 0.0005 and n_distinct_games >= n_min_dynamic and max_dd < 0.20)
                 else:
-                    passed = (roi >= 0.035 and delta_brier > 0.002 and n_samples >= n_min_dynamic and max_dd < 0.15)
+                    passed = (roi >= 0.035 and delta_brier > 0.002 and n_distinct_games >= n_min_dynamic and max_dd < 0.15)
 
                 # Strict Virtual Drawdown Barrier (Commandments 1, 6 & 7):
                 # A candidate model experiencing an active recent drawdown in virtual paper-trading cannot graduate.
@@ -3548,13 +3580,31 @@ class ShadowMarketIncubator:
                         continue
 
                     cur_rec.execute("""
-                        SELECT raw_market_name, pnl
+                        SELECT raw_market_name, pnl,
+                               COALESCE(NULLIF(game_id, ''), NULLIF(fixture_id, ''), id), COALESCE(selection, ''), line
                         FROM incubated_wagers
                         WHERE status = 'settled' AND league = ? AND scope = ? AND family = ? AND sub_family = ? AND cohort = ?
-                        ORDER BY settled_at ASC
+                        ORDER BY settled_at ASC, id ASC
                     """, (league, scope_c, fam_c, sub_c, cohort_c))
-                    records_c = cur_rec.fetchall()
+                    raw_records_c = cur_rec.fetchall()
+                    seen_c_contracts = set()
+                    records_c = []
+                    distinct_games_c = set()
+                    for rw_c in raw_records_c:
+                        sig_c = (str(rw_c[2]), str(rw_c[3]), round(float(rw_c[4]), 3) if rw_c[4] is not None else None)
+                        if sig_c in seen_c_contracts:
+                            continue
+                        seen_c_contracts.add(sig_c)
+                        distinct_games_c.add(str(rw_c[2]))
+                        records_c.append(rw_c)
+                    if len(distinct_games_c) < min_sample_size:
+                        continue
+                    n_c = len(records_c)
                     pnl_c = [r[1] for r in records_c]
+                    tot_pnl_c = float(sum(pnl_c))
+                    roi_c = tot_pnl_c / float(n_c) if n_c > 0 else 0.0
+                    if roi_c < 0.035:
+                        continue
                     cumsum_c = np.cumsum(pnl_c)
                     peaks_c = np.maximum.accumulate(cumsum_c)
                     drawdowns_c = (peaks_c - cumsum_c) / np.maximum(1.0, peaks_c + float(n_c))
@@ -3848,14 +3898,23 @@ class ShadowMarketIncubator:
                         continue
 
                 cur_rec.execute("""
-                    SELECT league, scope, family, sub_family, odds, pnl, brier_model, brier_market, dynamic_sample_power_req, raw_market_name, settled_at, model_id
+                    SELECT league, scope, family, sub_family, odds, pnl, brier_model, brier_market, dynamic_sample_power_req, raw_market_name, settled_at, model_id,
+                           COALESCE(NULLIF(game_id, ''), NULLIF(fixture_id, ''), id), COALESCE(selection, ''), line
                     FROM incubated_wagers
                     WHERE status = 'settled' AND league = ? AND scope = ? AND family = ? AND sub_family = ?
-                    ORDER BY settled_at ASC
+                    ORDER BY settled_at ASC, id ASC
                 """, (league, scope, family, sub_family))
-                records = cur_rec.fetchall()
-                if not records:
+                raw_vol_records = cur_rec.fetchall()
+                if not raw_vol_records:
                     continue
+                seen_vol_contracts = set()
+                records = []
+                for rw_v in raw_vol_records:
+                    sig_v = (str(rw_v[12]), str(rw_v[13]), round(float(rw_v[14]), 3) if rw_v[14] is not None else None)
+                    if sig_v in seen_vol_contracts:
+                        continue
+                    seen_vol_contracts.add(sig_v)
+                    records.append(rw_v)
 
                 # Probation check: resolve demoted_at across all canonical aliases
                 demoted_at = (
@@ -3904,6 +3963,7 @@ class ShadowMarketIncubator:
                 sub_key = f"{league}|{scope}|{family}:{sub_family}" if sub_family else segment_key
                 records.sort(key=lambda r: str(r[10] or ''))
                 n_samples = len(records)
+                n_distinct_vol_games = len({str(r[12]) for r in records}) if records and len(records[0]) > 12 else n_samples
                 odds_list = [r[4] for r in records]
                 pnl_list = [r[5] for r in records]
                 brier_model_list = [r[6] for r in records if r[6] is not None]
@@ -3913,7 +3973,7 @@ class ShadowMarketIncubator:
                 avg_odds = float(np.mean(odds_list)) if odds_list else 2.0
                 n_min_adaptive = max(25, int(math.ceil(25.0 * math.sqrt(max(0.1, avg_odds - 1.0)))))
 
-                if n_samples < n_min_adaptive:
+                if n_distinct_vol_games < n_min_adaptive:
                     continue
 
                 total_stake = float(n_samples)

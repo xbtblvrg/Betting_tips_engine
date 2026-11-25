@@ -365,9 +365,13 @@ class EvidenceGuard:
                     errors.append('calibration_uncertainty_mismatch')
             if settings.get('crucible_rules_mode') == 'live':
                 from .crucible_rules import evaluate_crucible_candidate
-                cand_probe = {'league': game.league, 'market': market.kind, 'side': market.side, 'line': market.line,
+                cand_probe = {'game_id': game.id, 'league': game.league, 'market': market.kind, 'side': market.side, 'line': market.line,
                               'model_scope': getattr(market, 'model_scope', None) or ('full_game' if ':' not in str(market.kind) else str(market.kind).split(':')[0]),
-                              'probability': p, 'reference_odds': 1/quote.effective_cost, 'game_context': getattr(game, 'context', {}),
+                              'probability': p, 'reference_odds': 1/quote.effective_cost,
+                              'expected_roi': (p + push * quote.effective_cost) / quote.effective_cost - 1.0,
+                              'push_probability': push,
+                              'game_context': getattr(game, 'context', {}),
+                              'features': getattr(forecast, 'features', None),
                               'home_points': getattr(forecast, 'home_points', None),
                               'away_points': getattr(forecast, 'away_points', None),
                               'devigged_market_p': (anchor.get('market_probability') if isinstance(anchor, dict) and isinstance(anchor.get('market_probability'), (int, float)) else None)}

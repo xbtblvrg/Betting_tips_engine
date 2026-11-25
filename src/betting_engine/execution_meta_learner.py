@@ -285,7 +285,7 @@ class ExecutionMetaLearner:
             + 1.20 * segment_clv
             - 1.50 * overconf_drag
         ) * lead_time_factor
-        meta_kelly_multiplier = round(max(0.65, min(1.45, raw_kelly_mult)), 4)
+        meta_kelly_multiplier = round(max(0.45, min(1.45, raw_kelly_mult)), 4)
 
         raw_ev_hurdle = (
             0.020

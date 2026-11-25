@@ -300,6 +300,7 @@ class UnifiedMarketUniverse:
         initial_graduated_keys: set = set()
         grad_keys_set: set = set()
         grad_at_map: Dict[str, str] = {}
+        demoted_keys_set: set = set()
         try:
             if not self.incubator_db_path.exists():
                 raise FileNotFoundError("no incubator db")
@@ -505,6 +506,7 @@ class UnifiedMarketUniverse:
                         roster[k_tgt] = p_new
 
                     _assign_roster_profile(seg_key, prof)
+                    demoted_keys_set.update({seg_key, canonical_k, sub_k})
                     if is_sub:
                         _assign_roster_profile(sub_k, prof)
                     if ':' in fam:
@@ -637,15 +639,19 @@ class UnifiedMarketUniverse:
                             stk_v = float(stake_r or 1.0)
 
                             # Track all-time settled performance across every decision
-                            at_stat = all_time_perf_map.setdefault(k, {'sample_size': 0, 'pnl': 0.0, 'staked': 0.0, 'roi_pct': 0.0, 'units': 0.0})
+                            at_stat = all_time_perf_map.setdefault(k, {'sample_size': 0, 'pnl': 0.0, 'staked': 0.0, 'roi_pct': 0.0, 'units': 0.0, 'game_ids': set()})
                             at_stat['sample_size'] += 1
                             at_stat['pnl'] += pnl_v
                             at_stat['staked'] += stk_v
-                            if base_k:
-                                at_stat_b = all_time_perf_map.setdefault(base_k, {'sample_size': 0, 'pnl': 0.0, 'staked': 0.0, 'roi_pct': 0.0, 'units': 0.0})
+                            if st_r in ('won', 'lost'):
+                                at_stat['game_ids'].add(str(gid_r).strip() if gid_r else f"row_{at_stat['sample_size']}")
+                            if base_k and base_k != k:
+                                at_stat_b = all_time_perf_map.setdefault(base_k, {'sample_size': 0, 'pnl': 0.0, 'staked': 0.0, 'roi_pct': 0.0, 'units': 0.0, 'game_ids': set()})
                                 at_stat_b['sample_size'] += 1
                                 at_stat_b['pnl'] += pnl_v
                                 at_stat_b['staked'] += stk_v
+                                if st_r in ('won', 'lost'):
+                                    at_stat_b['game_ids'].add(str(gid_r).strip() if gid_r else f"row_{at_stat_b['sample_size']}")
 
                             # Post-graduation filter: newly graduated models start fresh from graduation
                             if k in grad_at_map:
@@ -750,6 +756,37 @@ class UnifiedMarketUniverse:
                 stat = perf_map.get(k_perf) or perf_map.get(canon_perf_k) or perf_map.get(scoped_perf_k)
                 at_stat = all_time_perf_map.get(k_perf) or all_time_perf_map.get(canon_perf_k) or all_time_perf_map.get(scoped_perf_k)
 
+                # Constitutional Positive Brier Skill Invariant (Commandments 6 & 7):
+                # Any historical graduation with negative Brier skill (delta_brier < 0.0) violates Crucible
+                # admission/graduation law and must be quarantined to Tier 1 R&D ($0.00) unless verified by
+                # established positive live settled profit (N >= 5, PnL > 0, ROI >= +2.0%).
+                has_verified_live_profit = bool(
+                    at_stat
+                    and at_stat.get('sample_size', 0) >= 5
+                    and at_stat.get('pnl', 0.0) > 0.0
+                    and at_stat.get('roi_pct', 0.0) >= 2.0
+                )
+                if float(prof.delta_brier or 0.0) < 0.0 and not has_verified_live_profit:
+                    prof.tier = int(MarketTier.RESEARCH_RND)
+                    prof.tier_name = "RESEARCH_RND"
+                    prof.stake_cap = 0.00
+                    prof.active_model_id = None
+                    prof.model_archetype = None
+                    prof.phase_detail = f"Live Drawdown Demotion: Invalid Crucible Brier Skill ({prof.delta_brier:+.4f} < 0) - Quarantined ($0.00)"
+                    grad_keys_set.discard(k_perf)
+                    demoted_keys_set.add(k_perf)
+                    continue
+
+                # Preserve continuous winning live track record when graduated_at was re-stamped on an already winning model
+                if (
+                    at_stat
+                    and at_stat.get('sample_size', 0) > (stat.get('sample_size', 0) if stat else 0)
+                    and at_stat.get('pnl', 0.0) > 0.0
+                    and at_stat.get('roi_pct', 0.0) >= 3.0
+                    and (not stat or (stat.get('pnl', 0.0) >= 0.0 and stat.get('roi_pct', 0.0) >= 0.0))
+                ):
+                    stat = at_stat
+
                 if stat and stat['sample_size'] > 0:
                     prof.rolling_pnl = stat['pnl']
                     prof.rolling_roi_pct = stat['roi_pct']
@@ -781,13 +818,24 @@ class UnifiedMarketUniverse:
                         prof.model_archetype = None
                         prof.phase_detail = f"Live Drawdown Demotion ({stat['roi_pct']:.1f}% ROI, {stat['units']:.1f}U over {stat['sample_size']} games) - Quarantined ($0.00)"
                         grad_keys_set.discard(k_perf)
+                        demoted_keys_set.add(k_perf)
                         logger.debug("[TIER3_DRAWDOWN_DEMOTION] Evicting %s to Tier 1 R&D: ROI=%.1f%%, units=%.1fU, N=%d", k_perf, stat['roi_pct'], stat['units'], stat['sample_size'])
                     elif stat['units'] < 0.0 or stat['roi_pct'] < 0.0:
                         prof.stake_cap = 0.50
                         prof.phase_detail = f"Capital Defense Tourniquet ({stat['roi_pct']:+.1f}% ROI, {stat['units']:+.1f}U over {stat['sample_size']} games) - $0.50 clamp"
                     elif (
-                        stat.get('distinct_games', stat['sample_size']) >= 10
-                        and ((int(sb_alpha_entry.get("games", 0)) >= 10 or int(sb_alpha_entry.get("rolling_games", 0)) >= 10) if sb_alpha_entry else True)
+                        (
+                            stat.get('distinct_games', stat['sample_size']) >= 10
+                            or (stat['sample_size'] >= 10 and stat.get('distinct_games', 0) >= 6 and stat['units'] >= 2.0 and stat['roi_pct'] >= 10.0)
+                        )
+                        and (
+                            (
+                                int(sb_alpha_entry.get("games", 0)) >= 10
+                                or int(sb_alpha_entry.get("rolling_games", 0)) >= 10
+                                or (stat['sample_size'] >= 10 and int(sb_alpha_entry.get("games", 0)) >= 6 and stat['roi_pct'] >= 10.0)
+                            )
+                            if sb_alpha_entry else True
+                        )
                         and stat['units'] >= 0.40
                         and stat['roi_pct'] >= 2.0
                     ):
@@ -797,7 +845,7 @@ class UnifiedMarketUniverse:
                             prof.league in ('EPL', 'MLS', 'UCL', 'UEL', 'LALIGA', 'SERIEA', 'BUNDESLIGA')
                             and prof.scope == 'full_game'
                             and prof.family in ('moneyline', 'winner', 'american_derivatives:moneyline')
-                            and f"{prof.league}|full_game|three_way" in demoted_map
+                            and f"{prof.league}|full_game|three_way" in demoted_keys_set
                         )
                         if not soccer_3way_quarantined:
                             prof.tier = int(MarketTier.LIVE_PROVEN_ALPHA)
@@ -837,7 +885,7 @@ class UnifiedMarketUniverse:
                         prof.league in ('EPL', 'MLS', 'UCL', 'UEL', 'LALIGA', 'SERIEA', 'BUNDESLIGA')
                         and prof.scope == 'full_game'
                         and prof.family in ('moneyline', 'winner', 'american_derivatives:moneyline')
-                        and f"{prof.league}|full_game|three_way" in demoted_map
+                        and f"{prof.league}|full_game|three_way" in demoted_keys_set
                     )
                     if a_cnt >= 10 and a_roi >= 2.0 and a_units >= 0.40 and not soccer_3way_quarantined:
                         prof.tier = int(MarketTier.LIVE_PROVEN_ALPHA)

@@ -1105,6 +1105,74 @@ def _resolve_best_ai_champion(
     return m_inst, champ_id
 
 
+def _concrete_validated_markets_for_graduation(
+    family: Optional[str],
+    sub_family: Optional[str],
+) -> List[str]:
+    """Maps a graduated segment's (family, sub_family) to its exact concrete validated market kinds.
+
+    Eliminates container-family bleed: graduating a single derivative sub_family (e.g.
+    american_derivatives:overtime or away_total) must NEVER silently unlock unvalidated
+    sibling families (spreads, totals, home_total) on models where those families failed
+    calibration gates. Legacy umbrella entries with empty sub_family retain backward
+    compatibility.
+    """
+    fam = (family or '').strip().lower()
+    sub = (sub_family or '').strip().lower()
+    containers = {'american_derivatives', 'bivariate_derivatives', 'asian_lines', 'tennis_sets', 'sequence_hazard', 'derivatives', 'tennis'}
+    eff = sub if (sub and sub != fam and sub not in containers) else (sub or fam)
+    if ':' in eff:
+        eff = eff.split(':')[-1]
+
+    # Legacy umbrella entries with no specific sub_family
+    if not sub or sub == fam:
+        if fam == 'asian_lines':
+            return ['spreads', 'totals']
+        if fam in ('tennis_sets', 'tennis'):
+            return ['moneyline', 'spreads', 'totals', 'set_handicap', 'total_sets']
+        if fam in ('bivariate_derivatives', 'derivatives'):
+            return ['both_score', 'double_chance', 'three_way']
+        if fam == 'american_derivatives':
+            return ['moneyline', 'spreads', 'totals']
+        if fam == 'sequence_hazard':
+            return ['moneyline', 'three_way']
+
+    mapping = {
+        'spreads': ['spreads'],
+        'spread': ['spreads'],
+        'handicap': ['spreads'],
+        'asian_handicap': ['spreads'],
+        'game_handicap': ['spreads'],
+        'totals': ['totals'],
+        'total': ['totals'],
+        'asian_total': ['totals'],
+        'asian_totals': ['totals'],
+        'total_games': ['totals'],
+        'home_total': ['home_total'],
+        'away_total': ['away_total'],
+        'team_total': ['home_total', 'away_total'],
+        'moneyline': ['moneyline'],
+        'winner': ['moneyline'],
+        'match_winner': ['moneyline'],
+        'set_winner': ['moneyline'],
+        'overtime': ['moneyline'],
+        'first_to_score': ['moneyline', 'three_way'],
+        'three_way': ['three_way'],
+        '1x2': ['three_way'],
+        'both_score': ['both_score'],
+        'both_teams_score': ['both_score'],
+        'both_teams_to_score': ['both_score'],
+        'double_chance': ['double_chance'],
+        'draw_no_bet': ['draw_no_bet'],
+        'set_handicap': ['set_handicap', 'spreads'],
+        'total_sets': ['total_sets', 'totals'],
+        'set_totals': ['total_sets', 'totals'],
+    }
+    if eff in mapping:
+        return mapping[eff]
+    return [eff] if eff and eff not in containers else []
+
+
 def attach_champion_to_any_model(
     model: Any,
     league: str,
@@ -1126,19 +1194,10 @@ def attach_champion_to_any_model(
     fam = (family or '').strip()
     sub = (sub_family or '').strip()
     cid = champ_id or getattr(m_inst, 'model_id', 'ai_champion')
-    if fam:
-        model.champion_models[fam] = (m_inst, cid)
-    if sub:
+    for concrete_mkt in _concrete_validated_markets_for_graduation(fam, sub):
+        model.champion_models[concrete_mkt] = (m_inst, cid)
+    if sub and sub not in ('american_derivatives', 'bivariate_derivatives', 'asian_lines', 'tennis_sets'):
         model.champion_models[sub] = (m_inst, cid)
-    if 'total' in fam or 'total' in sub:
-        model.champion_models['totals'] = (m_inst, cid)
-        model.champion_models['home_total'] = (m_inst, cid)
-        model.champion_models['away_total'] = (m_inst, cid)
-    if 'spread' in fam or 'spread' in sub or 'handicap' in sub:
-        model.champion_models['spreads'] = (m_inst, cid)
-    if 'three_way' in fam or 'three_way' in sub or 'moneyline' in fam or 'winner' in fam:
-        model.champion_models['three_way'] = (m_inst, cid)
-        model.champion_models['moneyline'] = (m_inst, cid)
 
     if getattr(model, '_ai_forecast_wrapped', False):
         return
@@ -1339,22 +1398,7 @@ def resolve_graduated_segment_models(
 
             if hasattr(existing_model, 'report') and isinstance(existing_model.report, dict):
                 v_markets = set(existing_model.report.get('validated_markets', []))
-                if family in ('asian_lines', 'spreads') or sub_family in ('asian_handicap', 'set_handicap'):
-                    v_markets.update(['spreads', 'totals'])
-                elif family in ('tennis_sets', 'tennis') or sub_family in ('set_winner', 'set_totals', 'set_handicap'):
-                    v_markets.update(['moneyline', 'spreads', 'totals', 'set_handicap', 'total_sets'])
-                elif family in ('bivariate_derivatives', 'derivatives') or sub_family in ('both_teams_score', 'double_chance', 'three_way'):
-                    v_markets.update(['both_score', 'double_chance', 'three_way', 'totals', 'spreads'])
-                elif family == 'sequence_hazard' or sub_family == 'first_to_score':
-                    v_markets.update(['moneyline', 'three_way'])
-                elif family in ('american_derivatives', 'home_total', 'away_total') or sub_family in ('team_total', 'home_total', 'away_total'):
-                    v_markets.update(['moneyline', 'spreads', 'totals', 'three_way', 'home_total', 'away_total'])
-                else:
-                    v_markets.update(['moneyline', 'spreads', 'totals', 'three_way'])
-                if family and family not in ('american_derivatives', 'bivariate_derivatives', 'asian_lines', 'tennis_sets'):
-                    v_markets.add(family.split(':')[-1])
-                if sub_family and sub_family not in ('american_derivatives', 'bivariate_derivatives', 'asian_lines', 'tennis_sets'):
-                    v_markets.add(sub_family.split(':')[-1])
+                v_markets.update(_concrete_validated_markets_for_graduation(family, sub_family))
                 existing_model.report['validated_markets'] = sorted(list(v_markets))
             continue
 
@@ -1394,10 +1438,13 @@ def resolve_graduated_full_game_models(
         if not league or scope != 'full_game':
             continue
 
+        is_new_universal = False
         if league not in updated:
             updated[league] = GraduatedUniversalSegmentModel(league, 'full_game', meta)
+            is_new_universal = True
 
         model = updated[league]
+        m_inst = None
         try:
             from .tournament_engine import TournamentEngine
             t_eng = TournamentEngine()
@@ -1406,27 +1453,20 @@ def resolve_graduated_full_game_models(
             if m_inst:
                 attach_champion_to_any_model(model, league, 'full_game', family, sub_family, m_inst, champ_id)
         except Exception:
-            pass
+            m_inst = None
 
         if hasattr(model, 'report') and isinstance(model.report, dict):
-                v_markets = set(model.report.get('validated_markets') or [])
-                if family in ('asian_lines', 'spreads') or sub_family in ('asian_handicap', 'set_handicap'):
-                    v_markets.update(['spreads', 'totals'])
-                elif family in ('bivariate_derivatives', 'derivatives') or sub_family in ('both_teams_score', 'double_chance', 'three_way'):
-                    v_markets.update(['both_score', 'double_chance', 'three_way'])
-                elif family in ('tennis_sets', 'tennis') or sub_family in ('set_winner', 'set_totals', 'set_handicap'):
-                    v_markets.update(['moneyline', 'spreads', 'totals', 'set_handicap', 'total_sets'])
-                elif family == 'sequence_hazard' or sub_family == 'first_to_score':
-                    v_markets.update(['moneyline', 'three_way'])
-                elif family in ('american_derivatives', 'home_total', 'away_total') or sub_family in ('team_total', 'home_total', 'away_total'):
-                    v_markets.update(['moneyline', 'spreads', 'totals', 'three_way', 'home_total', 'away_total'])
-                else:
-                    v_markets.update(['moneyline', 'spreads', 'totals'])
-                if family and family not in ('american_derivatives', 'bivariate_derivatives', 'asian_lines', 'tennis_sets'):
-                    v_markets.add(family.split(':')[-1])
-                if sub_family and sub_family not in ('american_derivatives', 'bivariate_derivatives', 'asian_lines', 'tennis_sets'):
-                    v_markets.add(sub_family.split(':')[-1])
-                model.report['validated_markets'] = sorted(list(v_markets))
+            v_markets = set(model.report.get('validated_markets') or [])
+            concrete_additions = _concrete_validated_markets_for_graduation(family, sub_family)
+            # College baseline LeagueModels (NCAAM, NCAAW, NCAAF) explicitly reject uncalibrated
+            # linear-Ridge score markets in college.py:initial_gate. Never bypass that gate onto
+            # the raw baseline score model unless a dedicated AI champion model (m_inst) is mounted.
+            if str(league).upper().startswith('NCAA') and not is_new_universal and m_inst is None:
+                sealed = getattr(model, '_sealed_report', None)
+                orig_valid = set(sealed.get('validated_markets') or []) if isinstance(sealed, dict) else v_markets
+                concrete_additions = [m_k for m_k in concrete_additions if m_k in orig_valid]
+            v_markets.update(concrete_additions)
+            model.report['validated_markets'] = sorted(list(v_markets))
 
     return updated
 

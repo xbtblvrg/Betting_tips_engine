@@ -347,6 +347,10 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
         and str(tip.get('created_at') or '')
         and str(tip.get('created_at')) < '2026-11-25T14:25:00+00:00'
     )
+    is_sealed_before_epistemic_kelly_fix = bool(
+        str(tip.get('created_at') or '')
+        and str(tip.get('created_at')) < '2026-11-25T16:40:00+00:00'
+    )
     games_val = int(summary.get('independent_games', 0)) if summary else 0
     roi_val = float(summary.get('game_roi', 0.0)) if summary else 0.0
     pnl_val = float(summary.get('pnl', summary.get('game_pnl', 0.0))) if summary else 0.0
@@ -623,15 +627,29 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                 except Exception:
                     meta_kelly_mult = 1.0
 
+            rho_agree = 1.0
+            if not is_test_cand and not is_sealed_before_epistemic_kelly_fix and not explicit_alpha_flag:
+                anchor_info = tip.get('market_anchor')
+                if (
+                    isinstance(anchor_info, dict)
+                    and isinstance(anchor_info.get('model_probability'), (int, float))
+                    and isinstance(anchor_info.get('market_probability'), (int, float))
+                ):
+                    dp_abs = abs(float(anchor_info['model_probability']) - float(anchor_info['market_probability']))
+                    if dp_abs > 0.12:
+                        rho_agree = max(0.40, math.exp(-((dp_abs - 0.12) / 0.15) ** 2))
+
             if is_super_alpha:
                 if ev_val is not None and ev_val < 0:
                     alpha_target = def_unit
                 else:
                     # Asymmetric Kelly Alpha Dominance: Super Alpha targets $5.00 - $8.00
+                    # Continuous epistemic agreement attenuation (rho_agree) prevents over-sizing extreme divergences
                     roi_for_scale = roi_val if is_legacy_sealed_replay else effective_roi
-                    ev_surplus = max(0.0, (ev_val or 0.0) - 0.03) / 0.07
+                    eff_ev_for_scale = ((ev_val or 0.0) * rho_agree) if rho_agree < 1.0 else (ev_val or 0.0)
+                    ev_surplus = max(0.0, eff_ev_for_scale - 0.03) / 0.07
                     roi_surplus = min(1.0, max(0.0, roi_for_scale - 0.08) / 0.12)
-                    raw_alpha_target = min(max_b, (5.00 + 1.80 * roi_surplus + 1.20 * min(1.0, ev_surplus)) * meta_kelly_mult)
+                    raw_alpha_target = min(max_b, (5.00 + 1.80 * roi_surplus + 1.20 * min(1.0, ev_surplus)) * meta_kelly_mult * rho_agree)
                     alpha_target = max(def_unit, raw_alpha_target * alpha_discount)
                     caps.pop('maximum_stake', None)
                     caps.pop('max_stake', None)
@@ -648,9 +666,10 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                 else:
                     # Solid Alpha targets $2.50 - $4.00
                     roi_for_scale = roi_val if is_legacy_sealed_replay else effective_roi
-                    ev_surplus = max(0.0, (ev_val or 0.0) - 0.02) / 0.06
+                    eff_ev_for_scale = ((ev_val or 0.0) * rho_agree) if rho_agree < 1.0 else (ev_val or 0.0)
+                    ev_surplus = max(0.0, eff_ev_for_scale - 0.02) / 0.06
                     roi_surplus = min(1.0, max(0.0, roi_for_scale - 0.03) / 0.10)
-                    raw_alpha_target = min(4.00, (2.50 + 1.00 * roi_surplus + 0.50 * min(1.0, ev_surplus)) * meta_kelly_mult)
+                    raw_alpha_target = min(4.00, (2.50 + 1.00 * roi_surplus + 0.50 * min(1.0, ev_surplus)) * meta_kelly_mult * rho_agree)
                     alpha_target = max(def_unit, raw_alpha_target * alpha_discount)
                     caps.pop('maximum_stake', None)
                     caps.pop('max_stake', None)

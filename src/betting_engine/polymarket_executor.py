@@ -546,9 +546,14 @@ class PolymarketAutonomousExecutor:
                 r_pnl = float(matched_s.get("rolling_pnl", pnl))
                 r_units = float(matched_s.get("rolling_units", matched_s.get("units_pnl", pnl / max(0.50, matched_s.get("stake", 1.0) / max(1, sample)))))
 
-                # Check Tier 4 Proven Alpha quorum: Sample >= 10 (or Rolling games >= 5), Rolling ROI >= +2.0%, Positive units profit
+                # Check Tier 4 Proven Alpha quorum: Sample >= 10 (or >= 10 decisive wagers across >= 6 games with high ROI/units), Rolling ROI >= +2.0%, Positive units profit
+                decisive_wagers = int(matched_s.get("wins", 0)) + int(matched_s.get("losses", 0))
                 is_tier_4_proven = (
-                    (sample >= 10 or r_games >= 10)
+                    (
+                        sample >= 10
+                        or r_games >= 10
+                        or (decisive_wagers >= 10 and sample >= 6 and r_roi >= 10.0 and r_units >= 2.0)
+                    )
                     and (r_roi >= 2.0 or (r_pnl > 0.0 and r_roi > 0.0))
                     and r_units >= 0.4
                 )

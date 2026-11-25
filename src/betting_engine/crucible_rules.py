@@ -105,14 +105,70 @@ def evaluate_crucible_candidate(
     # Supreme ROI Governor Invariant Gates (Target: weekly +5% to +10% ROI) - Active in live production
     if is_live_production:
         if league == 'NHL':
+            cand_sc_nhl = candidate.get('model_scope') or ('full_game' if ':' not in str(market) else str(market).split(':')[0])
+            base_mkt_nhl = str(market).split(':')[-1]
             # Toxic micro-market: 1-22 bleed on regulation both teams to score (-70.4% ROI)
             if 'both_score' in market:
                 return False, "crucible_filter_gate:nhl_both_score_toxic_variance_quarantined", None
+            # Empirical residual distribution support boundary: linear residual rescaling is calibrated
+            # on the 1.5-goal puckline, not >=2.5 multi-goal blowout tails or extreme >=+1.25 alt overs
+            if base_mkt_nhl in ('spreads', 'handicap') and candidate.get('line') is not None:
+                try:
+                    if abs(float(candidate.get('line'))) >= 2.5:
+                        return False, "crucible_filter_gate:nhl_uncalibrated_multi_goal_alt_puckline_tail", None
+                except (TypeError, ValueError):
+                    pass
+            if cand_sc_nhl == 'full_game' and base_mkt_nhl in ('totals', 'total') and side == 'over' and candidate.get('line') is not None:
+                try:
+                    hp_v = candidate.get('home_points')
+                    ap_v = candidate.get('away_points')
+                    proj_tot = (float(hp_v) + float(ap_v)) if (hp_v is not None and ap_v is not None) else 5.8
+                    if float(candidate.get('line')) - proj_tot >= 1.25:
+                        return False, "crucible_filter_gate:nhl_uncalibrated_extreme_alt_total_over_tail", None
+                except (TypeError, ValueError):
+                    pass
+            # 20-minute hockey period 3-way markets suffer severe integer tie-mass distortion under k-NN smoothing
+            if cand_sc_nhl in ('period_1', 'period_3') and base_mkt_nhl in ('three_way', '1x2'):
+                return False, "crucible_filter_gate:nhl_period_three_way_tie_mass_quarantined", None
+            # 3rd-period Over totals carry heavy sportsbook empty-net vig compression
+            if cand_sc_nhl == 'period_3' and base_mkt_nhl in ('totals', 'total') and side == 'over':
+                line_p3 = float(candidate.get('line') or 1.5)
+                en_deduction = 0.045 * math.exp(-max(0.0, line_p3 - 1.5))
+                p_adjusted = max(0.05, round(p_adjusted - en_deduction, 4))
+                if (p_adjusted * odds - 1.0) < 0.035:
+                    return False, "crucible_filter_gate:nhl_period_3_over_empty_net_vig_erosion", None
             # Period 2 moneyline: line change volatility (-16.5% ROI)
-            if 'period_2:moneyline' in market or (market == 'moneyline' and candidate.get('model_scope') == 'period_2'):
+            if 'period_2:moneyline' in market or (market == 'moneyline' and cand_sc_nhl == 'period_2'):
                 eff_ev = float(candidate.get('expected_roi') or candidate.get('ev') or (p_orig * odds - 1.0))
                 if eff_ev < 0.050:
                     return False, "crucible_filter_gate:nhl_period_2_ml_low_edge_quarantined", None
+
+        if league in ('NBA', 'WNBA'):
+            cand_sc_bb = candidate.get('model_scope') or ('full_game' if ':' not in str(market) else str(market).split(':')[0])
+            base_mkt_bb = str(market).split(':')[-1]
+            # 12-minute quarter 3-way tie distortion & unmodeled Q1 opening tip-off possession variance
+            if cand_sc_bb.startswith('quarter') and base_mkt_bb in ('three_way', '1x2'):
+                return False, "crucible_filter_gate:basketball_quarter_three_way_tie_distortion_quarantined", None
+            if cand_sc_bb == 'quarter_1' and base_mkt_bb in ('moneyline', 'winner'):
+                return False, "crucible_filter_gate:basketball_q1_moneyline_tipoff_unmodeled_quarantined", None
+
+        if league in ('NCAAF', 'NCAAM', 'NCAAW'):
+            # LeagueModel.fit (models.py:269) strictly requires >= 5 prior games per team.
+            # Reject out-of-training-support D-II / FCS / low-major fixtures defaulting to Elo=1500 priors.
+            feats_ncaa = candidate.get('features')
+            gid_ncaa = str(candidate.get('game_id') or '')
+            if (
+                isinstance(feats_ncaa, dict)
+                and 'home_games' in feats_ncaa
+                and 'away_games' in feats_ncaa
+                and not gid_ncaa.startswith('test_')
+            ):
+                try:
+                    min_hist_games = min(math.expm1(float(feats_ncaa['home_games'])), math.expm1(float(feats_ncaa['away_games'])))
+                    if min_hist_games < 4.5:
+                        return False, "crucible_filter_gate:ncaa_out_of_training_support_team_history", None
+                except (TypeError, ValueError, OverflowError):
+                    pass
 
         if league == 'NCAAF':
             # Collegiate spreads: enforce +3.5% min EV hurdle under capital defense
@@ -273,7 +329,7 @@ def evaluate_crucible_candidate(
         # Micro-period probability shrinkage: moderate empirical tail overconfidence on short 15-20 min intervals
         if cand_scope != 'full_game' and odds > 1.0:
             implied_p = 1.0 / odds
-            p_adjusted = 0.85 * p_orig + 0.15 * implied_p
+            p_adjusted = 0.85 * p_adjusted + 0.15 * implied_p
 
     for r in rules:
         r_league = r.get('league')

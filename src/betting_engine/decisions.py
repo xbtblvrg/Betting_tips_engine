@@ -687,12 +687,13 @@ def candidate(g,m,q,forecast,settings,market_anchor=None,calibration_summary=Non
     from .contracts import market_stress
     if settings.get('crucible_rules_mode') == 'live':
         from .crucible_rules import evaluate_crucible_candidate
-        cand_probe = {'league': g.league, 'market': m.kind, 'side': m.side, 'line': m.line,
+        cand_probe = {'game_id': g.id, 'league': g.league, 'market': m.kind, 'side': m.side, 'line': m.line,
                       'model_scope': scope,
                       'probability': p, 'reference_odds': 1/q.effective_cost,
                       'expected_roi': (p + push * q.effective_cost) / q.effective_cost - 1.0,
                       'push_probability': push,
                       'game_context': g.context,
+                      'features': getattr(forecast, 'features', None),
                       'home_points': getattr(forecast, 'home_points', None),
                       'away_points': getattr(forecast, 'away_points', None),
                       'devigged_market_p': (anchor.get('market_probability') if anchor and isinstance(anchor.get('market_probability'), (int, float)) else None)}
