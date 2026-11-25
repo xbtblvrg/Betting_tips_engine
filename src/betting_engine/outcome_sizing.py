@@ -652,7 +652,13 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                     caps.pop('probation_nursery_clamp', None)
                     caps.pop('unproven_market_profit_shield_clamp', None)
                     caps.pop('capital_defense_clamp', None)
-                    if is_legacy_sealed_replay or explicit_alpha_flag or universe_prof is None or (universe_prof.stake_cap is not None and universe_prof.stake_cap < 2.50):
+                    if (
+                        is_legacy_sealed_replay
+                        or is_sealed_before_tourniquet_fix
+                        or explicit_alpha_flag
+                        or universe_prof is None
+                        or (universe_prof.stake_cap is not None and 0.50 < universe_prof.stake_cap < 2.50)
+                    ):
                         caps.pop('universe_tier_stake_cap', None)
                     if (gov_solid and pnl_val >= 0.0) or (tip.get('is_solid_alpha') and pnl_val >= 0.0):
                         caps.pop('totals_defense_clamp', None)

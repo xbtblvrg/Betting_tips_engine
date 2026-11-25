@@ -310,3 +310,68 @@ def test_governor_circuit_breaker_takes_precedence_over_mild_tourniquet():
         assert 'NHL|period_2|totals' in quarantine, "Sustained losing segment MUST be in quarantine_list ($0.00)!"
         assert 'NHL|period_2|totals' not in cap_defense, "Sustained losing segment MUST NOT be in capital_defense_list ($0.50)!"
 
+
+def test_graduated_market_in_rolling_drawdown_clamped_to_050_tourniquet():
+    """
+    Anti-tautological regression test for the live NCAAM|full_game|spreads $7.17 bleed bug:
+    Even when a graduated market still has positive all-time PnL (+12.11 over 53 games),
+    if its rolling window enters drawdown (capital_defense_list or universe_prof.stake_cap == 0.50),
+    outcome_sizing MUST enforce the $0.50 Capital Defense Tourniquet and NEVER pop universe_tier_stake_cap to bet $7+!
+    """
+    from types import SimpleNamespace
+    import betting_engine.autonomous_roi_governor as gov_mod
+    import betting_engine.unified_market_universe as umu_mod
+
+    tip = {
+        'id': 'real_ncaam_spread_rolling_drag',
+        'game_id': 'NCAAM:401999999',
+        'league': 'NCAAM',
+        'market': 'spreads',
+        'model_scope': 'full_game',
+        'selection': 'Duke -4.5',
+        'probability': 0.72,
+        'reference_odds': 2.05,
+        'expected_roi': 0.476,
+        'is_graduated': True,
+    }
+    settings = {
+        'bankroll': None,
+        'max_bet': 8.0,
+        'unit_stake': 1.0,
+        'capital_defense': True,
+        'alpha_acceleration': True,
+        'is_test': False,
+        'outcome_sizing_policy': 'historical_confidence_v3',
+    }
+    # All-time summary still slightly positive (+12.11 on $329.44 over 53 games, matching live bet #1199),
+    # while rolling 20-game window is -3.4% ROI in Capital Defense Tourniquet ($0.50 clamp).
+    base_sizing = {
+        'amount': 5.27,
+        'base': 5.27,
+        'factor': 1.0,
+    }
+    tip_with_ev = dict(tip)
+    orig_gov = gov_mod.get_latest_governor_report
+    orig_roster = umu_mod.UnifiedMarketUniverse.build_universe_roster
+    gov_mod.get_latest_governor_report = lambda data_dir=None: {
+        'capital_defense_list': ['NCAAM|full_game|spreads'],
+        'quarantine_list': [],
+        'super_alpha_list': [],
+        'solid_alpha_list': [],
+    }
+    umu_mod.UnifiedMarketUniverse.build_universe_roster = lambda self, force_refresh=False: {
+        'NCAAM|full_game|spreads': SimpleNamespace(
+            tier=3,
+            stake_cap=0.50,
+            rolling_pnl=-4.79,
+            rolling_roi_pct=-3.35,
+            phase_detail='Capital Defense Tourniquet (-3.4% ROI, -0.7U over 20 games) - $0.50 clamp',
+        )
+    }
+    try:
+        res = apply_adjustment(base_sizing, tip_with_ev, settings=settings, remaining=math.inf)
+        assert res['amount'] == 0.50, f"Rolling-drawdown graduated market MUST clamp to $0.50 tourniquet, got ${res['amount']:.2f}"
+    finally:
+        gov_mod.get_latest_governor_report = orig_gov
+        umu_mod.UnifiedMarketUniverse.build_universe_roster = orig_roster
+

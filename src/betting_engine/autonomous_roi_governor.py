@@ -258,14 +258,21 @@ class AutonomousROIGovernor:
                 or base_canon_k in sb_underperforming_set
             )
 
-            # Evaluate recent rolling cohort (last 10 wagers) for rolling health
+            # Evaluate recent rolling cohorts (10-bet fast window + 20-bet medium window) for rolling health
             rec_bets = recent_by_seg.get(seg_key, [])[:10]
             rec_pnl = sum(b[0] for b in rec_bets) if rec_bets else 0.0
             rec_stk = sum(b[1] for b in rec_bets) if rec_bets else 0.0
             rec_roi = (rec_pnl / rec_stk * 100) if rec_stk > 0 else 0.0
             rec_avg_stk = (rec_stk / len(rec_bets)) if rec_bets else 1.0
             rec_units = rec_pnl / max(0.50, rec_avg_stk)
-            is_rolling_degraded = bool(len(rec_bets) >= 4 and (rec_roi <= -3.0 or rec_units <= -2.0 or (rec_pnl < 0.0 and rec_roi < 0.0)))
+            rec_20 = recent_by_seg.get(seg_key, [])[:20]
+            rec_20_pnl = sum(b[0] for b in rec_20) if rec_20 else 0.0
+            rec_20_stk = sum(b[1] for b in rec_20) if rec_20 else 0.0
+            rec_20_roi = (rec_20_pnl / rec_20_stk * 100) if rec_20_stk > 0 else 0.0
+            is_rolling_degraded = bool(
+                (len(rec_bets) >= 4 and (rec_roi <= -3.0 or rec_units <= -2.0 or (rec_pnl < 0.0 and rec_roi < 0.0)))
+                or (len(rec_20) >= 12 and (rec_20_roi <= -3.0 or rec_20_pnl < 0.0))
+            )
 
             # 1. Demoted Markets in Tier 1 R&D / Tier 2 Shadow Incubator Quarantine ($0.00 stake)
             if is_demoted_seg:
