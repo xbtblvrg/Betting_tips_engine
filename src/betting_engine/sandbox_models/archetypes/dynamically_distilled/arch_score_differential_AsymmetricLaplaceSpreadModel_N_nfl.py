@@ -9,7 +9,7 @@ class AsymmetricLaplaceSpreadModel_NFL_full_game(BaseCandidateModel):
 
     def __init__(
         self,
-        model_id: str = "codex_synth_nfl_full_game_1124_011049",
+        model_id: str = "codex_synth_nfl_full_game_1125_172054",
         version: str = "1.0.0",
         league: str = "NFL",
         scope: str = "full_game",

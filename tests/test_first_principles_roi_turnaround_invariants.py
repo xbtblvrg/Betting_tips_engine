@@ -176,13 +176,14 @@ def test_evidence_guard_cryptographic_replay_parity_across_regimes():
     # Without chaining, 0.85*0.68 + 0.15*(1/1.85) = 0.6591; with empty-net deduction chained first, p_nhl_p3 < 0.64
     assert p_nhl_p3 < 0.64
 
+    from betting_engine.models import feature_names
     cases_spec = [
         # 1. Core NBA spread (Tier 4 Live Proven Alpha)
         ("NBA", "basketball", "spreads", "home", -4.5, 0.58, 1.95, "full_game", True),
         # 2. High-odds underdog O = 3.55 on NBA alt spread (Commandment 3: zero static odds ceiling)
         ("NBA", "basketball", "spreads", "away", -6.5, 0.38, 3.55, "full_game", True),
-        # 3. Scoped NBA half_1 spread (scoped 0.85 shrinkage reproduced identically inside EvidenceGuard)
-        ("NBA", "basketball", "half_1:spreads", "home", -2.5, 0.59, 1.95, "half_1", True),
+        # 3. Scoped NHL period_1 Over total (Tier 4 Live Proven Alpha + scoped 0.85 shrinkage inside EvidenceGuard)
+        ("NHL", "hockey", "period_1:totals", "over", 1.5, 0.61, 1.85, "period_1", True),
         # 4. Quarantined NBA moneyline (Tier 2 -> $0.00 universe_quarantined without UnboundLocalError)
         ("NBA", "basketball", "moneyline", "away", None, 0.38, 3.55, "full_game", False),
     ]
@@ -200,9 +201,18 @@ def test_evidence_guard_cryptographic_replay_parity_across_regimes():
         game.sport = sport
         game.id = market.game_id = forecast.game_id = f"{lg}:guard_parity_{idx}"
         forecast.league = lg
+        forecast.scope = scope
         forecast.margin = 6.5
-        forecast.total = 224.5
+        forecast.total = 6.0 if lg == "NHL" else 224.5
+        feats = list(feature_names(lg))
+        forecast.features = {**dict.fromkeys(feats, 0.0), "home_rest": 1.0, "away_rest": 1.0}
+        if "home_games" in forecast.features:
+            forecast.features["home_games"] = math.log1p(24)
+            forecast.features["away_games"] = math.log1p(24)
         forecast.market_probability = lambda *_a, _p=prob: (_p, 0.0)
+        report["league"] = lg
+        report["scope"] = scope
+        report["features"] = feats
 
         market.kind = mkt_kind
         market.side = side
@@ -212,9 +222,9 @@ def test_evidence_guard_cryptographic_replay_parity_across_regimes():
             from hashlib import sha256
             src_dir = ROOT / "src" / "betting_engine"
             report["code_sha256"] = sha256((src_dir / "period_models.py").read_bytes()).hexdigest()
-            report["model_scope"] = scope
+            report["promotion_gate"] = {"promote": True}
             report["validated_markets"] = ["spreads", "totals", "moneyline"]
-        market.description = "1st Half Handicap" if scope == "half_1" else ("Handicap" if line is not None else "Winner")
+        market.description = "1st Period Total" if scope == "period_1" else ("Handicap" if line is not None else "Winner")
         market.selection = f"{side.title()} {line}" if line is not None else side.title()
         market.url = f"https://stake.com/sports/{sport}/usa/{lg.lower()}/fixture-{idx}"
         market.metadata["stake_market_groups"] = [{"id": "main", "name": "main"}]
