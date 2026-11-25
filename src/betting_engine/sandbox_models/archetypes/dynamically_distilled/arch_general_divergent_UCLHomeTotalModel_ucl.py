@@ -61,7 +61,7 @@ class UCLHomeTotalModel(BaseCandidateModel):
 
     def __init__(
         self,
-        model_id: str = "codex_synth_ucl_half_2_1122_134937",
+        model_id: str = "codex_synth_ucl_half_1_1125_014439",
         version="1.0.0",
         league="UCL",
         scope="full_game",
