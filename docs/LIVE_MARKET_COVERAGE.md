@@ -1,6 +1,6 @@
 # Live Stake market coverage
 
-Checked: 2026-11-25T11:44:07.942297+00:00
+Checked: 2026-11-25T12:02:29.476474+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
@@ -174,7 +174,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NFL | 2nd Quarter - 1x2 | standard | quarter_2 | offered_now | 1/10 | not_observed 0/15 | verified 15/15 | not_observed 0/15 | not_observed 0/15 | not_observed 0/15 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 2nd Quarter - Draw No Bet | standard | quarter_2 | offered_now | 1/10 | not_observed 0/10 | verified 10/10 | partial 1/10 | partial 1/10 | not_observed 0/10 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 2nd Quarter - Handicap | standard | quarter_2 | offered_now | 5/10 | partial 2/14 | verified 14/14 | partial 2/14 | partial 2/14 | partial 2/14 | verified 2/2 | verified 2/2 | verified 12/12 | verified 9/9 | partial 9/10 | 1 |
-| NFL | 2nd Quarter - Total | standard | quarter_2 | offered_now | 5/10 | partial 1/14 | verified 14/14 | partial 1/14 | partial 1/14 | partial 1/14 | verified 1/1 | verified 1/1 | verified 8/8 | verified 6/6 | partial 6/7 | 0 |
+| NFL | 2nd Quarter - Total | standard | quarter_2 | offered_now | 5/10 | partial 2/14 | verified 14/14 | partial 2/14 | partial 2/14 | partial 2/14 | verified 2/2 | verified 2/2 | verified 8/8 | verified 6/6 | partial 6/7 | 0 |
 | NFL | 3rd Quarter - 1x2 | standard | quarter_3 | offered_now | 1/10 | not_observed 0/15 | verified 15/15 | not_observed 0/15 | not_observed 0/15 | not_observed 0/15 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 3rd Quarter - Draw No Bet | standard | quarter_3 | offered_now | 1/10 | not_observed 0/10 | verified 10/10 | partial 3/10 | partial 3/10 | not_observed 0/10 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 3rd Quarter - Handicap | standard | quarter_3 | offered_now | 5/10 | partial 4/14 | verified 14/14 | partial 4/14 | partial 4/14 | partial 4/14 | verified 4/4 | verified 4/4 | verified 18/18 | verified 13/13 | partial 13/14 | 1 |
