@@ -9,12 +9,12 @@ class AsymmetricLaplaceSpreadModel_NBA_quarter_3(BaseCandidateModel):
 
     def __init__(
         self,
-        model_id: str = "codex_synth_nba_quarter_3_1124_130611",
+        model_id: str = "codex_synth_nba_quarter_3_1110_023110",
         version: str = "1.0.0",
         league: str = "NBA",
         scope: str = "quarter_3",
-        family: str = "spreads",
-        asymmetry_kappa: float = 0.865,
+        family: str = "moneyline",
+        asymmetry_kappa: float = 1.0,
         metadata: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(
