@@ -31,7 +31,7 @@ def evidence_digest(tip):
     return hashlib.sha256(json.dumps(fields,sort_keys=True,allow_nan=False).encode()).hexdigest()
 
 
-def verify_publication(tip,now,active_settings=None,max_quote_age=MAX_QUOTE_AGE_SECONDS):
+def verify_publication(tip,now,active_settings=None,max_quote_age=MAX_QUOTE_AGE_SECONDS,_preverified_digest=None):
     from .stake_website_availability import website_availability_issue
     issue=website_availability_issue(tip)
     if issue:raise ValueError('Publication blocked: '+issue['code'])
@@ -50,7 +50,8 @@ def verify_publication(tip,now,active_settings=None,max_quote_age=MAX_QUOTE_AGE_
         market=allocation_family(tip) if tip.get('model_scope','full_game')=='full_game' else tip['market'])
     if not quality['passed']:
         raise ValueError('Publication blocked: model family quality evidence is missing or failed')
-    if guard.get('candidate_sha256')!=evidence_digest(tip):raise ValueError('Publication blocked: candidate changed after evidence review')
+    actual_digest=_preverified_digest if _preverified_digest is not None else evidence_digest(tip)
+    if guard.get('candidate_sha256')!=actual_digest:raise ValueError('Publication blocked: candidate changed after evidence review')
     if active_settings is not None:
         from .decisions import publication_limits, publication_limit_receipt
         active_limits = publication_limits(active_settings)

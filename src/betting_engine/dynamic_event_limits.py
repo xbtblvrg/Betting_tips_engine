@@ -206,11 +206,14 @@ def seal_batch(settings,held,tips,issued_ids=None):
             pass
     batch=[t for t in tips if is_new_funded_batch_tip(t, settings, issued)]
     for tip in tips:
+        had_ev='event_limit_evidence' in tip
         tip.pop('event_limit_evidence',None)
-        if is_new_funded_batch_tip(tip, settings, issued):
+        is_new=is_new_funded_batch_tip(tip, settings, issued)
+        if is_new:
             tip['event_limit_evidence']=evidence(settings,tip.get('league'),tip['game_id'],held,batch)
         guard=tip.get('decision_guard')
-        if guard and guard.get('passed') is True:guard['candidate_sha256']=evidence_digest(tip)
+        if guard and guard.get('passed') is True and (is_new or had_ev or not guard.get('candidate_sha256')):
+            guard['candidate_sha256']=evidence_digest(tip)
 
 
 def verify_batch(connection,tips,settings):

@@ -8,7 +8,7 @@ from functools import lru_cache
 from decimal import Decimal, ROUND_CEILING
 from urllib.parse import urlsplit
 
-from .contracts import SUPPORTED, SCORE_MARKETS
+from .contracts import SUPPORTED, SCORE_MARKETS, split_market
 
 TEXT = {
  'Teljes mérkőzés':'Full Game',
@@ -294,7 +294,6 @@ def stake_market(t):
     }
 
 def selection_name(t):
-    from .contracts import split_market
     side=t.get('side');_,market=split_market(t['market']);team=t.get(side) if side in ('home','away') else None
     if market in ('moneyline','three_way','1x2') and team:return team
     if market in ('three_way','1x2') and side=='draw':return 'Draw'

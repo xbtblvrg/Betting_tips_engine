@@ -3,7 +3,7 @@ from collections import Counter, defaultdict
 from datetime import timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
-import json, math
+import copy, json, math
 from .domain import parse_time, utcnow
 from .market_catalog import classify
 
@@ -387,6 +387,9 @@ def _store_coverage_signature(data_dir):
     return sig
 
 
+_LIVE_COV_MEM_CACHE = {}
+
+
 def build_from_store(store, publication, catalog, data_dir, now=None):
     import os as _os_env
     import time as _t
@@ -394,32 +397,37 @@ def build_from_store(store, publication, catalog, data_dir, now=None):
     pub_ver = (publication or {}).get('version')
     pub_gen = (publication or {}).get('generated_at')
     cat_chk = (catalog or {}).get('checked_at')
+    marks = (publication or {}).get('placement_marks') or {}
+    marks_sig = len(marks) if isinstance(marks, dict) else 0
     store_sig = _store_coverage_signature(data_dir) if is_pytest else None
+    version = pub_ver if pub_ver is not None else getattr(store, 'latest_version', lambda: 0)()
+    mem_key = (str(Path(data_dir).resolve()) if data_dir else '', version, pub_gen, cat_chk, marks_sig, repr(store_sig) if is_pytest else '')
+    now_mono = _t.monotonic()
+    mem_entry = _LIVE_COV_MEM_CACHE.get(mem_key)
+    if mem_entry is not None and (now_mono - mem_entry[0]) < 30.0:
+        return copy.deepcopy(mem_entry[1])
     snap_path = Path(data_dir) / 'live_coverage_snapshot.json' if (data_dir and not is_pytest) else None
     snap_meta_path = Path(data_dir) / 'live_coverage_snapshot.meta.json' if snap_path else None
-    if snap_path and pub_ver and snap_path.is_file():
+    if snap_path and pub_ver and snap_path.is_file() and snap_meta_path and snap_meta_path.is_file():
         try:
             age = _t.time() - snap_path.stat().st_mtime
             if age < 90.0:
-                snap = json.loads(snap_path.read_text(encoding='utf-8'))
-                if (isinstance(snap, dict)
-                        and snap.get('publication_version') == pub_ver
-                        and snap.get('publication_at') == pub_gen
-                        and snap.get('catalogue_at') == cat_chk):
-                    return snap
+                meta = json.loads(snap_meta_path.read_text(encoding='utf-8'))
+                if (isinstance(meta, dict)
+                        and meta.get('pub_ver') == pub_ver
+                        and meta.get('pub_gen') == pub_gen
+                        and meta.get('cat_chk') == cat_chk
+                        and meta.get('marks_sig') == marks_sig):
+                    snap = json.loads(snap_path.read_text(encoding='utf-8'))
+                    if isinstance(snap, dict) and snap.get('publication_at') == pub_gen:
+                        _LIVE_COV_MEM_CACHE[mem_key] = (now_mono, snap)
+                        return copy.deepcopy(snap)
         except Exception:
             pass
-    try:
-        from .in_memory_cache import GLOBAL_IN_MEMORY_CACHE
-        version = getattr(store, 'latest_version', lambda: 0)()
-        cache_key = f"live_coverage:{version}:{pub_gen}:{cat_chk}:{store_sig}"
-        res = GLOBAL_IN_MEMORY_CACHE.get_or_compute(
-            cache_key,
-            lambda: _compute_live_coverage_from_store(store, publication, catalog, data_dir, now),
-            ttl_seconds=30.0
-        )
-    except Exception:
-        res = _compute_live_coverage_from_store(store, publication, catalog, data_dir, now)
+    res = _compute_live_coverage_from_store(store, publication, catalog, data_dir, now)
+    if len(_LIVE_COV_MEM_CACHE) > 8:
+        _LIVE_COV_MEM_CACHE.clear()
+    _LIVE_COV_MEM_CACHE[mem_key] = (_t.monotonic(), res)
     if snap_path and pub_ver and isinstance(res, dict):
         try:
             import os as _os
@@ -427,7 +435,13 @@ def build_from_store(store, publication, catalog, data_dir, now=None):
             if snap_path.parent.is_dir() and _os.access(snap_path.parent, _os.W_OK):
                 atomic_json(snap_path, res)
                 if snap_meta_path:
-                    atomic_json(snap_meta_path, {'saved_at': _t.time(), 'pub_ver': pub_ver})
+                    atomic_json(snap_meta_path, {
+                        'saved_at': _t.time(),
+                        'pub_ver': pub_ver,
+                        'pub_gen': pub_gen,
+                        'cat_chk': cat_chk,
+                        'marks_sig': marks_sig,
+                    })
         except Exception:
             pass
-    return res
+    return copy.deepcopy(res) if isinstance(res, dict) else res

@@ -340,7 +340,10 @@ def _execution_counts(recommendations,current,recorded,marks,settings,progress,n
 
 
 def build_dashboard(store,health,data_dir):
-    d=store.latest()
+    if hasattr(store, 'latest_dashboard_copy'):
+        d, _verified_digests = store.latest_dashboard_copy()
+    else:
+        d, _verified_digests = store.latest(), None
     if not d:return english_payload({'performance':store.performance(),'version':0,'recommendations':[],'alternatives':[],'archived_recommendations':store.archived_candidates(),'games':[],'models':{},'status':{},'settings':store.settings(),'engine':health})
     _annotate_market_types(d.get('market_types'))
     d['placement_marks']=store.placement_marks()
@@ -355,7 +358,7 @@ def build_dashboard(store,health,data_dir):
     for t in all_tips:
         try:t['expired']=not fresh_quote(t,now,max_age_seconds=max_quote_age)
         except (TypeError,ValueError,ArithmeticError):t['expired']=True
-        t['execution_review']=current_execution_review(t,now,settings['minimum_roi'],settings,max_quote_age=max_quote_age)
+        t['execution_review']=current_execution_review(t,now,settings['minimum_roi'],settings,max_quote_age=max_quote_age,_preverified_digest=(_verified_digests.get(id(t)) if _verified_digests else None))
         t['timing_evaluation']=evaluate_timing(t,now)
         if t['expired']:t['stake']=0
     from .decisions import rank_and_size,probability_preference_ids
@@ -372,9 +375,10 @@ def build_dashboard(store,health,data_dir):
             t.update(allocation_code='already_held',allocation_reason='This exact selection has already been issued. No repeated ticket is requested.')
     held_preferences=store.held_preference_allocations()
     progress=store.daily_progress()
+    open_bets_raw=store.open_bets()
     from .dynamic_event_limits import held_roster
     _preverified_ids = {id(t) for t in reviewed if (t.get('decision_guard') or {}).get('passed') is True}
-    chosen,alternatives=rank_and_size(reviewed,settings,store.risk_committed(),store.held_families(),held_contracts,held_event_counts,held_preferences,(store.held_allocation_families() if settings.get('model_pick_allocation_policy')=='distinct_family_v1' or settings.get('publication_limits_version')=='v3' else ()),store.held_event_stakes(),store.held_period_counts(),store.daily_family_counts(),progress.get('calendar_day_issued',progress.get('issued',0)),held_event_roster=held_roster(store.open_bets()),_preverified_candidate_ids=_preverified_ids)
+    chosen,alternatives=rank_and_size(reviewed,settings,store.risk_committed(),store.held_families(),held_contracts,held_event_counts,held_preferences,(store.held_allocation_families() if settings.get('model_pick_allocation_policy')=='distinct_family_v1' or settings.get('publication_limits_version')=='v3' else ()),store.held_event_stakes(),store.held_period_counts(),store.daily_family_counts(),progress.get('calendar_day_issued',progress.get('issued',0)),held_event_roster=held_roster(open_bets_raw),_preverified_candidate_ids=_preverified_ids)
     # Re-ranking on GET can discover the next batch after the current batch
     # has just committed. Reading the dashboard must never issue that batch.
     # Only the publication transaction creates the immutable issuance record.
@@ -431,7 +435,7 @@ def build_dashboard(store,health,data_dir):
             if t not in alternatives and t not in unreviewed:
                 alternatives.append(t)
     d['alternatives']=alternatives+unreviewed;d['archived_recommendations']=store.archived_candidates();d['settings']=settings
-    recorded=sorted(store.open_bets(),key=lambda b:b.get('created_at',''))
+    recorded=sorted(open_bets_raw,key=lambda b:b.get('created_at',''))
     current_by_id={t['id']:t for t in current}
     from .contracts import allocation_family, split_market, is_opposing_contract
     allocated_open_families={}
@@ -506,7 +510,6 @@ def build_dashboard(store,health,data_dir):
         probability_pick_new_allocations=sum(t.get('stake',0)>0 and t.get('funding_basis',{}).get('tier')=='probability_pick' for t in selected),
         recommendation_policy=settings.get('recommendation_policy','strict'))
     d['status']['current_candidate_count']=len(chosen)
-    progress=store.daily_progress()
     execution_counts=_execution_counts(d['recommendations']+alternatives,all_tips,recorded,d['placement_marks'],settings,progress,now)
     d['status']['current_instruction_count']=execution_counts['current_executable']
     from .operations import allocation_funnel
@@ -574,9 +577,20 @@ def build_dashboard(store,health,data_dir):
             ) if k in m}
             for m in d['market_types']
         ]
-    d['evaluated_candidates']=[_compact_dashboard_tip(t) for t in d['evaluated_candidates']]
-    d['recommendations']=[_compact_dashboard_tip(t) for t in d['recommendations']]
-    d['alternatives']=[_compact_dashboard_tip(t) for t in d['alternatives']]
+    _tip_out_cache = {}
+    def _compact_and_english_tip(t):
+        tid_obj = id(t)
+        cached_tip = _tip_out_cache.get(tid_obj)
+        if cached_tip is None:
+            cached_tip = english_payload(_compact_dashboard_tip(t))
+            _tip_out_cache[tid_obj] = cached_tip
+        return cached_tip
+    ev_out = [_compact_and_english_tip(t) for t in d['evaluated_candidates']]
+    rec_out = [_compact_and_english_tip(t) for t in d['recommendations']]
+    alt_out = [_compact_and_english_tip(t) for t in d['alternatives']]
+    d['evaluated_candidates'] = []
+    d['recommendations'] = []
+    d['alternatives'] = []
     d['tracked_bets']=[{**b,'payload':_compact_tracked_payload(b['payload'])} for b in d['tracked_bets']]
     def _compact_reassessment(row):
         if not isinstance(row, dict): return row
@@ -589,4 +603,7 @@ def build_dashboard(store,health,data_dir):
         return res
     d['stake_reassessments'] = [_compact_reassessment(row) for row in d['stake_reassessments']]
     d = english_payload(d)
+    d['evaluated_candidates'] = ev_out
+    d['recommendations'] = rec_out
+    d['alternatives'] = alt_out
     return d

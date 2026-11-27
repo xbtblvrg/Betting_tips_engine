@@ -25,7 +25,7 @@ def _finite(value):
     return not isinstance(value, bool) and isinstance(value, (int, float)) and math.isfinite(value)
 
 
-def current_execution_review(tip, now, minimum_roi, sizing_settings=None, max_quote_age=MAX_QUOTE_AGE_SECONDS):
+def current_execution_review(tip, now, minimum_roi, sizing_settings=None, max_quote_age=MAX_QUOTE_AGE_SECONDS, _preverified_digest=None):
     """Validate the current sealed model/quote, without authorizing a new ticket.
 
     A zero allocation is valid for an already held exact contract. The caller
@@ -50,7 +50,7 @@ def current_execution_review(tip, now, minimum_roi, sizing_settings=None, max_qu
             return _denied('internal_reassessment_required', 'The current sports inputs need a fresh readiness and model review.')
         # Recheck the seal, freshness and any nonzero allocation. A passed flag
         # alone cannot authorize mutated odds, probabilities, scope or line.
-        verify_publication(tip, now, sizing_settings, max_quote_age=max_quote_age)
+        verify_publication(tip, now, sizing_settings, max_quote_age=max_quote_age, _preverified_digest=_preverified_digest)
         guard = tip['decision_guard']
         policy=guard.get('recommendation_policy','strict')
         model_sizing=guard.get('model_pick_sizing_policy','unit_cap_v1')

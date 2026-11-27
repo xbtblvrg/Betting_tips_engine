@@ -1,6 +1,6 @@
 """Durable publication, audit trail, manual bets and future notification outbox."""
-import json,sqlite3,hashlib,math,logging,time as time_mod,threading
-from collections import Counter
+import copy,json,sqlite3,hashlib,math,logging,time as time_mod,threading
+from collections import Counter, OrderedDict
 from contextlib import contextmanager, closing
 from pathlib import Path
 from .providers import DATA
@@ -16,6 +16,28 @@ log = logging.getLogger(__name__)
 
 _DB_PATH_LOCKS = {}
 _DB_PATH_LOCKS_GUARD = threading.Lock()
+_LATEST_DASHBOARD_CACHE = OrderedDict()
+_LATEST_DASHBOARD_LOCK = threading.Lock()
+
+
+def _clone_dashboard_publication(template, digests):
+    out = dict(template)
+    for key in ('evaluated_candidates', 'recommendations', 'alternatives'):
+        arr = out.get(key)
+        if isinstance(arr, list):
+            out[key] = [
+                ({**t, 'decision_guard': dict(t['decision_guard'])} if isinstance(t.get('decision_guard'), dict) else dict(t))
+                if isinstance(t, dict) else t
+                for t in arr
+            ]
+    if isinstance(out.get('market_types'), list):
+        out['market_types'] = [dict(m) if isinstance(m, dict) else m for m in out['market_types']]
+    for key in ('status', 'automation'):
+        if key in out:
+            out[key] = copy.deepcopy(out[key])
+    all_tips = out.get('evaluated_candidates') or (out.get('recommendations', []) + out.get('alternatives', []))
+    verified_digests = {id(t): d_sha for t, d_sha in zip(all_tips, digests)} if digests is not None else None
+    return out, verified_digests
 
 def _get_write_lock_for_path(path: Path) -> threading.RLock:
     resolved = str(path.resolve()) if str(path) != ':memory:' else ':memory:'
@@ -193,6 +215,48 @@ class Store:
         with self.ro_db() as c:r=c.execute('SELECT id,payload FROM publications ORDER BY id DESC LIMIT 1').fetchone()
         return {**decode_publication(r['payload']),'version':r['id']} if r else None
 
+    def latest_dashboard_copy(self):
+        resolved = str(self.path.resolve()) if str(self.path) != ':memory:' else f':memory:{id(self)}'
+        with self.ro_db() as c:
+            meta = c.execute(
+                "SELECT id, typeof(payload) AS tp, length(payload) AS n, substr(payload, 1, 32) AS h, substr(payload, -32) AS t "
+                "FROM publications ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+            if not meta:
+                return None, None
+            pub_id, tp, n = meta['id'], meta['tp'], meta['n']
+            raw_payload = None
+            if tp != 'blob' or n < 262144:
+                full_row = c.execute('SELECT payload FROM publications WHERE id=?', (pub_id,)).fetchone()
+                if not full_row:
+                    return None, None
+                raw_payload = full_row['payload']
+                raw_bytes = raw_payload if isinstance(raw_payload, bytes) else str(raw_payload).encode('utf-8')
+                cache_key = (resolved, pub_id, tp, n, hashlib.blake2b(raw_bytes, digest_size=16).digest())
+            else:
+                cache_key = (resolved, pub_id, tp, n, bytes(meta['h']), bytes(meta['t']))
+            with _LATEST_DASHBOARD_LOCK:
+                cached = _LATEST_DASHBOARD_CACHE.get(cache_key)
+                if cached is not None:
+                    _LATEST_DASHBOARD_CACHE.move_to_end(cache_key)
+            if cached is None:
+                if raw_payload is None:
+                    full_row = c.execute('SELECT payload FROM publications WHERE id=?', (pub_id,)).fetchone()
+                    if not full_row:
+                        return None, None
+                    raw_payload = full_row['payload']
+                decoded = {**decode_publication(raw_payload), 'version': pub_id}
+                from .governance import evidence_digest
+                all_t = decoded.get('evaluated_candidates') or (decoded.get('recommendations', []) + decoded.get('alternatives', []))
+                digests = tuple(evidence_digest(t) if isinstance(t, dict) else '' for t in all_t)
+                cached = (decoded, digests)
+                with _LATEST_DASHBOARD_LOCK:
+                    _LATEST_DASHBOARD_CACHE[cache_key] = cached
+                    _LATEST_DASHBOARD_CACHE.move_to_end(cache_key)
+                    while len(_LATEST_DASHBOARD_CACHE) > 4:
+                        _LATEST_DASHBOARD_CACHE.popitem(last=False)
+        return _clone_dashboard_publication(cached[0], cached[1])
+
     def latest_version(self):
         with self.ro_db() as c:r=c.execute('SELECT id FROM publications ORDER BY id DESC LIMIT 1').fetchone()
         return r['id'] if r else 0
@@ -223,7 +287,11 @@ class Store:
         # Read the durable tip ledger rather than repeatedly parsing full
         # publication snapshots. Withdrawn historical tips remain available
         # here after the active Stake feed has replaced the recommendation set.
-        with self.ro_db() as c:rows=c.execute('SELECT last_seen,payload FROM tips ORDER BY last_seen DESC LIMIT 500').fetchall()
+        with self.ro_db() as c:
+            rows=c.execute(
+                "SELECT last_seen,payload FROM (SELECT last_seen,payload FROM tips ORDER BY last_seen DESC LIMIT 500) "
+                "WHERE NOT (json_valid(payload) AND json_extract(payload,'$.reference_platform')='Stake.com')"
+            ).fetchall()
         for row in rows:
             try:tip=json.loads(row['payload'])
             except (TypeError,json.JSONDecodeError):continue
@@ -1116,7 +1184,8 @@ class Store:
                 COALESCE(SUM(CASE WHEN status!='open' THEN json_extract(payload,'$.stake') ELSE 0 END),0) settled_stake,
                 COALESCE(SUM(pnl),0) pnl,MIN(issued_at) first_issued_at,MAX(issued_at) last_issued_at
                 FROM system_decisions GROUP BY tier,league,market ORDER BY tier,league,market""")]
-            bets=dict(c.execute("SELECT COUNT(*) count,COALESCE(SUM(status!='open'),0) settled,COALESCE(SUM(status='won'),0) won,COALESCE(SUM(status='lost'),0) lost,COALESCE(SUM(status='push'),0) pushes,COALESCE(SUM(CASE WHEN status!='open' THEN stake ELSE 0 END),0) turnover,COALESCE(SUM(pnl),0) pnl,MIN(created_at) since FROM bets").fetchone())
+            raw_bets=dict(c.execute("SELECT COUNT(*) count,COALESCE(SUM(status!='open'),0) settled,COALESCE(SUM(status='won'),0) won,COALESCE(SUM(status='lost'),0) lost,COALESCE(SUM(status='push'),0) pushes,COALESCE(SUM(CASE WHEN status!='open' THEN stake ELSE 0 END),0) turnover,COALESCE(SUM(pnl),0) pnl,MIN(created_at) since FROM bets").fetchone())
+            bets=dict(raw_bets)
             baseline_row=c.execute("SELECT value FROM kv WHERE key='historical_ledger_baseline'").fetchone()
             if baseline_row and baseline_row['value']:
                 try:
@@ -1137,7 +1206,7 @@ class Store:
             league_rows_total=[dict(r) for r in c.execute("""SELECT json_extract(b.payload,'$.league') league,COUNT(*) count,COALESCE(SUM(b.status!='open'),0) settled,COALESCE(SUM(b.status='won'),0) won,COALESCE(SUM(b.status='lost'),0) lost,COALESCE(SUM(b.status='push'),0) pushes,COALESCE(SUM(b.stake),0) turnover,COALESCE(SUM(b.pnl),0) pnl FROM bets b WHERE b.status!='open' GROUP BY json_extract(b.payload,'$.league')""").fetchall()]
 
             # Active production cycle bets (since October 28 active restart, without the Sept baseline)
-            active_cycle = dict(c.execute("SELECT COUNT(*) count,COALESCE(SUM(status!='open'),0) settled,COALESCE(SUM(status='won'),0) won,COALESCE(SUM(status='lost'),0) lost,COALESCE(SUM(status='push'),0) pushes,COALESCE(SUM(CASE WHEN status!='open' THEN stake ELSE 0 END),0) turnover,COALESCE(SUM(pnl),0) pnl,MIN(created_at) since FROM bets").fetchone())
+            active_cycle = dict(raw_bets)
 
             # Rolling 7 days (Prime Directive #1 mandate: minimum 10.0% weekly ROI)
             cutoff_7d = (utcnow() - timedelta(days=7)).isoformat()

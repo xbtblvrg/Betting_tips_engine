@@ -341,18 +341,15 @@ def verify_summary(summary):
 
 
 def _sizing_data_signature(data_dir):
-    if 'PYTEST_CURRENT_TEST' not in os.environ:
-        return None
     base = Path(data_dir)
+    include_wal = 'PYTEST_CURRENT_TEST' in os.environ or str(base.resolve()) != str((Path(__file__).resolve().parents[2] / 'data').resolve())
+    names = (
+        ('engine.sqlite3', 'engine.sqlite3-wal', 'shadow_incubator.sqlite3', 'shadow_incubator.sqlite3-wal', 'graduated_markets.json', 'autonomous_roi_governor_report.json')
+        if include_wal
+        else ('graduated_markets.json', 'autonomous_roi_governor_report.json')
+    )
     sig = []
-    for name in (
-        'engine.sqlite3',
-        'engine.sqlite3-wal',
-        'shadow_incubator.sqlite3',
-        'shadow_incubator.sqlite3-wal',
-        'graduated_markets.json',
-        'autonomous_roi_governor_report.json',
-    ):
+    for name in names:
         p = base / name
         try:
             st = p.stat()

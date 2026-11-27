@@ -4,18 +4,18 @@ from typing import Any, Dict, Optional, Tuple
 from scipy.stats import nbinom, poisson
 from betting_engine.sandbox_models.base import BaseCandidateModel, DiscreteDistribution, build_universal_score_lattice
 
-class NegativeBinomialHurdleModel_NCAAM_quarter_4(BaseCandidateModel):
+class NegativeBinomialHurdleModel_NCAAB_full_game(BaseCandidateModel):
     """Novel Two-Part Hurdle Negative Binomial model synthesizing zero-hazard and dispersion dynamics."""
 
     def __init__(
         self,
-        model_id: str = "codex_synth_ncaam_quarter_4_1107_231817",
+        model_id: str = "codex_synth_ncaam_full_game_1127_234436",
         version: str = "1.0.0",
-        league: str = "NCAAM",
-        scope: str = "quarter_4",
+        league: str = "NCAAB",
+        scope: str = "full_game",
         family: str = "totals",
-        zero_hurdle_prob: float = 0.05,
-        dispersion_alpha: float = 0.15,
+        zero_hurdle_prob: float = 0.08,
+        dispersion_alpha: float = 0.22,
         metadata: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(
@@ -31,8 +31,8 @@ class NegativeBinomialHurdleModel_NCAAM_quarter_4(BaseCandidateModel):
         self.dispersion_alpha = dispersion_alpha
 
     def predict_distribution(self, game_context: Dict[str, Any]) -> DiscreteDistribution:
-        def_h = 20.0
-        def_a = 18.75
+        def_h = 2.8 if self.league == "NHL" else (110.0 if self.league in ("NBA", "WNBA") else 1.4)
+        def_a = 2.4 if self.league == "NHL" else (106.0 if self.league in ("NBA", "WNBA") else 1.1)
         h_mu = float(game_context.get('home_expected') or game_context.get('home_points') or def_h)
         a_mu = float(game_context.get('away_expected') or game_context.get('away_points') or def_a)
 
