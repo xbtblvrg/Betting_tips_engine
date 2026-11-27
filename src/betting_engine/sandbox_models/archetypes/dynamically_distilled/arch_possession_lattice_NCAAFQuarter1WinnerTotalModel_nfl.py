@@ -130,7 +130,7 @@ class NCAAFQuarter1Priors:
 class NCAAFQuarter1WinnerTotalModel(BaseCandidateModel):  # type: ignore[misc]
     def __init__(
         self,
-        model_id: str = "codex_synth_nfl_quarter_3_1126_222408",
+        model_id: str = "codex_synth_nfl_quarter_3_1127_010957",
         version: str = "1.0.0",
         league: str = "NCAAF",
         scope: str = "quarter_1",
