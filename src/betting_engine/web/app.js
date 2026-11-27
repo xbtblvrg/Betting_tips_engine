@@ -1280,7 +1280,7 @@ function isFatalAutoBetError(errOrMsg, res = null) {
  }
 
  if (msg.includes('jelentkezz be a stake') || msg.includes('bejelentkezés szükséges') || msg.includes('login') || msg.includes('sign in') || msg.includes('session expired')) {
-  return { fatal: true, type: 'login_required', message: 'Please sign in to your Stake account in Safari.' };
+  return { fatal: true, type: 'login_required', message: 'Please sign in to your Stake account in Safari (Bejelentkezés szükséges).' };
  }
 
  if (msg.includes('insufficient balance') || msg.includes('insufficient funds') || msg.includes('nincs elegendő egyenleg')) {
@@ -1335,7 +1335,7 @@ function updateAutoBetPanel() {
    } else if (lastAutoBetStatus?.error && !lastAutoBetStatus?.limitReached) {
     descEl.innerHTML = `<span style="color:#ef4444;font-weight:600;">⚠️ Auto-Bet paused: ${esc(lastAutoBetStatus.error)}</span>${lastAutoBetStatus.placedCount !== undefined ? ` · Placed: <strong>${lastAutoBetStatus.placedCount}</strong> tickets.` : ''}${lastAutoBetStatus.skippedCount ? ` · <span style="color:#b45309;font-weight:600;">Skipped: <strong>${lastAutoBetStatus.skippedCount}</strong>.</span>` : ''}`;
    } else if (openBetsCount >= 300 || lastAutoBetStatus?.limitReached) {
-    descEl.innerHTML = `<span style="color:#b45309;font-weight:600;">ℹ️ Stake limit (300/300 open bets).</span> ${isAutoRunEnabled ? 'Auto-Run 15m active: waiting for next cycle until active fixtures settle.' : 'New wagers can be placed once active matches finish and settle.'}`;
+    descEl.innerHTML = `<span style="color:#b45309;font-weight:600;">ℹ️ Stake limit (300/300 bets).</span> ${isAutoRunEnabled ? 'Auto-Run 15m active: waiting for next cycle until active fixtures settle.' : 'New wagers can be placed once active matches finish and settle.'}`;
    } else if (lastAutoBetStatus?.completed) {
     descEl.innerHTML = `<span style="color:#059669;font-weight:700;">✅ Cycle complete!</span> Placed: <strong>${lastAutoBetStatus.placedCount}</strong> tickets.${lastAutoBetStatus.skippedCount > 0 ? ` · <span style="color:#b45309;font-weight:600;">⚠️ Skipped for manual review: <strong>${lastAutoBetStatus.skippedCount}</strong>.</span>` : ''}`;
    } else if (lastAutoBetStatus?.stoppedByUser) {
@@ -2379,9 +2379,9 @@ function renderTips(){
  updateHorizonBadges();
  renderStats();
  renderTracked();
+ renderAlternatives();
  if(!initialViewsHydrated||view==='research'){
   renderOpportunitySummary();
-  renderAlternatives();
   renderEvaluated();
   dirtyViews.delete('research');
  }else{
@@ -2464,12 +2464,13 @@ function renderRD(rd){
  const hyps=rd.hypotheses||[], dossiers=rd.forensic_dossiers||[], cycles=rd.cycle_history||[], logs=rd.execution_logs||[];
  const passedCount=hyps.filter(h=>h.status==='passed_crucible'||h.status==='deployed'||h.status==='staged_recovery').length;
  const passPct=rd.hypotheses_summary?.crucible_pass_rate_pct??(hyps.length?Math.round(passedCount/hyps.length*100):0);
+ const clampAmt=(data?.settings?.defensive_stake!=null||data?.settings?.capital_defense)?Number(data?.settings?.defensive_stake??0.50).toFixed(2):Number(data?.settings?.unit_stake??1.00).toFixed(2);
  
  if($('#rd-metrics')){
   $('#rd-metrics').innerHTML=`
    <div class="stat"><div class="stat-number">${esc(cnt.total_segments??0)}</div><div class="stat-label">Total Segments</div><div class="stat-detail">Monitored Portfolio</div></div>
    <div class="stat"><div class="stat-number">${esc(cnt.super_alpha??0)} Super / ${esc(cnt.solid_alpha??cnt.alpha??0)} Solid</div><div class="stat-label">Dynamic Alpha Segments</div><div class="stat-detail">Scaled $2.50–$8.00</div></div>
-   <div class="stat"><div class="stat-number">${esc(cnt.capital_defense??cnt.underperforming??0)}</div><div class="stat-label">Capital Defense</div><div class="stat-detail">${data.settings?.unit_stake < 1.0 ? '$0.50' : '$1.00'} Clamp (Zero Drop)</div></div>
+   <div class="stat"><div class="stat-number">${esc(cnt.capital_defense??cnt.underperforming??0)}</div><div class="stat-label">Capital Defense</div><div class="stat-detail">$${clampAmt} Clamp (Zero Drop)</div></div>
    <div class="stat"><div class="stat-number">${esc(passPct)}% Pass</div><div class="stat-label">Crucible Pass Rate</div><div class="stat-detail">Walk-Forward Validated</div></div>
   `;
  }
@@ -2529,6 +2530,45 @@ function renderRD(rd){
  }
 
  renderFunnelSupervision();
+ renderVelocityAndWatchdog();
+
+ const cap=rd.capability_expansion||{};
+ if($('#rd-capability-badge')){
+  const sc=cap.enacted_shields_count??(cap.enacted_portfolio_shields||[]).length;
+  const pc=cap.active_plans_count??(cap.active_plans||[]).length;
+  $('#rd-capability-badge').textContent=`${sc} Enacted Shields · ${pc} Turnaround Plans`;
+ }
+ if($('#rd-capability-shields')){
+  const shields=(cap.enacted_portfolio_shields||[]).slice(0,25);
+  $('#rd-capability-shields').innerHTML=shields.length
+   ? table(['Segment','League','Action','Condition','Rationale'],shields.map(s=>[`<strong>${esc(s.segment)}</strong>`,`<span class="badge muted">${esc(s.league)}</span>`,esc((s.action||'').replaceAll('_',' ')),`<code>${esc(s.condition||'—')}</code>`,esc(s.rationale||'')]))
+   : '<p class="panel-copy">No active portfolio shield rules enacted yet.</p>';
+ }
+ if($('#rd-capability-plans')){
+  const plans=(cap.active_plans||[]).slice(0,15);
+  $('#rd-capability-plans').innerHTML=plans.length
+   ? table(['Segment','Failure Mode','Dim A: Free Data Feature','Dim B/C: Actionable Patch Scope','Status'],plans.map(p=>[`<strong>${esc(p.segment)}</strong>`,esc(p.primary_failure_mode||'—'),esc((p.data_requirements||[]).map(d=>d.feature_name||d.feature_key).join(', ')||'—'),esc(p.actionable_ai_patch_scope||'—'),`<span class="badge positive">${esc(p.status||'active')}</span>`]))
+   : '';
+ }
+
+ const meta=rd.lab_meta_synthesis||{};
+ if($('#rd-meta-synthesis-time')&&meta.generated_at)$('#rd-meta-synthesis-time').textContent='Updated: '+when(meta.generated_at);
+ if($('#rd-meta-narrative')&&meta.portfolio_health_assessment)$('#rd-meta-narrative').textContent=meta.portfolio_health_assessment;
+ if($('#rd-cross-patterns-grid')&&Array.isArray(meta.cross_factor_patterns)&&meta.cross_factor_patterns.length){
+  $('#rd-cross-patterns-grid').innerHTML=meta.cross_factor_patterns.map(cf=>`<div class="rd-stage-card"><span class="badge positive">+${esc(cf.implied_edge_pct??0)}% Synergy</span><h4>${esc((cf.factors_combined||[]).join(' × ')||cf.pattern_id)}</h4><p>${esc(cf.discovered_correlation||'')}</p></div>`).join('');
+ }
+ if($('#rd-compound-hypotheses')&&Array.isArray(meta.compound_hypotheses_generated)&&meta.compound_hypotheses_generated.length){
+  $('#rd-compound-hypotheses').innerHTML=table(['Compound ID','Segment','Title','Formula','Expected Delta','Status'],meta.compound_hypotheses_generated.map(ch=>[`<code>${esc(ch.compound_id)}</code>`,esc(ch.segment||''),`<strong>${esc(ch.title||'')}</strong>`,`<code>${esc(ch.formula||'')}</code>`,esc(ch.expected_edge_delta||'—'),`<span class="badge muted">${esc(ch.status||'in_shadow')}</span>`]));
+ }
+
+ const freeSrc=rd.free_data_sources||{};
+ if($('#rd-free-sources-badge')){
+  const cntFree=(freeSrc.registered_free_sources||[]).length;
+  $('#rd-free-sources-badge').textContent=cntFree?`${cntFree} Active Free Feeds · $0.00/mo`:'Zero Paid Feeds · $0.00/mo';
+ }
+ if($('#rd-free-sources-grid')&&Array.isArray(freeSrc.registered_free_sources)&&freeSrc.registered_free_sources.length){
+  $('#rd-free-sources-grid').innerHTML=freeSrc.registered_free_sources.map((s,idx)=>`<div class="rd-step-card"><div class="rd-step-num">${String(idx+1).padStart(2,'0')}</div><h4>${esc(s.source_name)}</h4><p>${esc((s.category||'').replaceAll('_',' '))} · <code>${esc(s.endpoint_url||'')}</code> · <strong>$0.00 (${esc(s.status||'active')})</strong></p></div>`).join('');
+ }
 
  const inc=rd.market_incubator||{};
  const incFamilies=inc.incubated_families||[];
@@ -2620,7 +2660,7 @@ function renderRD(rd){
         <td>${esc(g.sample_size)} games</td>
         <td style="color:#10b981;font-family:var(--mono)">+${esc(g.roi_pct)}%</td>
         <td style="font-family:var(--mono)">+${esc(g.delta_brier)}</td>
-        <td><span class="badge positive">Active in EXPLORATION ($1.00-$1.50)</span></td>
+        <td><span class="badge positive">Active in Tier 3 Production ($0.50–$8.00 Kelly)</span></td>
        </tr>
       `).join('')}
      </tbody>
@@ -2701,7 +2741,7 @@ function renderRD(rd){
        </div>
        ${liveTel?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
         <span class="rd-metric-pill">Queued Jobs: ${liveTel.queued_jobs}</span>
-        <span class="rd-metric-pill" style="background:#fef3c7;color:#92400e">Running: ${liveTel.running_jobs}</span>
+        <span class="rd-metric-pill">Running: ${liveTel.running_jobs}</span>
         <span class="rd-metric-pill">Completed: ${liveTel.completed_jobs}</span>
        </div>`:''}
       </div>
@@ -2720,7 +2760,6 @@ function renderRD(rd){
   const alphas=sb.alpha_segments||sb.top_segments||[];
   if($('#rd-alpha-count'))$('#rd-alpha-count').textContent=`${alphas.length} Winning Segments · Scaled $2.50–$8.00`;
   $('#rd-alpha-table').innerHTML=table(['Segment','League','Scope','Games','P&L','ROI','Win Rate','Tier','Dynamic Sizing Target'],alphas.map(s=>{
-   const isSuper=s.sub_tier==='SUPER_ALPHA'||(s.scaling_target&&s.scaling_target.includes('super-alpha'));
    const tierBadge=`<span class="badge positive" style="font-weight:700">${esc(s.sub_tier||s.tier||'ALPHA')}</span>`;
    return [
     `<strong>${esc(s.segment)}</strong>`,
@@ -2731,7 +2770,7 @@ function renderRD(rd){
     `<span style="color:${s.roi_pct>=0?'#10b981':'#ef4444'};font-weight:700;font-family:var(--mono)">${s.roi_pct>=0?'+':''}${num(s.roi_pct,1)}%</span>`,
     pct(s.win_rate_pct/100),
     tierBadge,
-    `<span class="badge positive">${esc(s.scaling_target||'$2.50–$5.00')}</span>`
+    `<span class="badge positive">${esc(s.scaling_target||'$2.50–$8.00')}</span>`
    ];
   }));
  }
@@ -2741,7 +2780,7 @@ function renderRD(rd){
   const dosMap=new Map(dossiers.map(d=>[d.segment,d]));
   $('#rd-underperforming-table').innerHTML=table(['Segment','League','Scope','Games','P&L','ROI','Win Rate','Defense Status','Failure Attribution'],segs.map(s=>{
    const d=dosMap.get(s.segment);
-   return [esc(s.segment),esc(s.league),esc(s.scope),esc(s.games),'$'+num(s.pnl),pct(s.roi_pct/100),pct(s.win_rate_pct/100),'<span class="badge negative">$1.00 Stake Clamp</span>',esc(d?d.primary_failure_mode:'tail_variance')];
+   return [esc(s.segment),esc(s.league),esc(s.scope),esc(s.games),'$'+num(s.pnl),pct(s.roi_pct/100),pct(s.win_rate_pct/100),`<span class="badge negative">$${clampAmt} Stake Clamp</span>`,esc(d?d.primary_failure_mode:'tail_variance')];
   }));
  }
 
@@ -2775,12 +2814,12 @@ function renderRD(rd){
    return `<div class="rd-hypothesis-card">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
      <span class="badge ${badgeClass}">${badgeText}</span>
-     <small style="color:#70817b">${esc(h.category||'')}</small>
+     <small style="color:var(--muted)">${esc(h.category||'')}</small>
     </div>
     <h4 style="margin:8px 0 4px 0">${esc(h.title)}</h4>
     <p class="panel-copy" style="font-size:11px;margin:4px 0">${esc(h.rationale||'')}</p>
-    <code style="font-size:10px;display:block;background:#f3f6f4;padding:4px 6px;border-radius:4px;margin:6px 0">${esc(h.proposed_formula_or_rule||'')}</code>
-    ${ev.sample_size?`<div style="font-size:11px;color:#247a4d;margin-top:6px">Walk-Forward: <strong>${esc(ev.sample_size)} bets</strong> · Δ Brier: +${num(ev.brier_improvement,4)}</div>`:''}
+    <code class="rd-hyp-code">${esc(h.proposed_formula_or_rule||'')}</code>
+    ${ev.sample_size?`<div style="font-size:11px;color:var(--green);margin-top:6px">Walk-Forward: <strong>${esc(ev.sample_size)} bets</strong> · Δ Brier: +${num(ev.brier_improvement,4)}</div>`:''}
    </div>`;
   }).join('');
  }
@@ -2808,7 +2847,7 @@ function renderRD(rd){
     const codex=cs.quant_remedy_advice||{};
     const grok=cs.red_team_advice||{};
     const hyp=cs.synthesized_hypothesis||{};
-    return `<div class="rd-council-card" style="background:#ffffff;border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:14px">
+    return `<div class="rd-council-card">
      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
       <div>
        <span class="badge positive">${esc(cs.league||'')}</span>
@@ -2817,30 +2856,30 @@ function renderRD(rd){
       </div>
       <span class="badge muted" style="font-size:11px">${esc(when(cs.created_at))}</span>
      </div>
-     <div style="font-size:12px;color:#b91c1c;background:#fef2f2;padding:6px 10px;border-radius:6px;margin-bottom:12px">
+     <div class="rd-council-trigger">
       <strong>Trigger:</strong> ${esc(cs.trigger_reason||'')}
      </div>
      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:12px">
-      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:10px;font-size:11px">
-       <strong style="color:#7c3aed">🧠 Claude (Sports Mechanics):</strong>
-       <p style="margin:4px 0 0 0;color:#334155">${esc(claude.text||'Sports variance review.')}</p>
+      <div class="rd-council-subcard">
+       <strong style="color:#8b5cf6">🧠 Claude (Sports Mechanics):</strong>
+       <p style="margin:4px 0 0 0;color:var(--ink)">${esc(claude.text||'Sports variance review.')}</p>
       </div>
-      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:10px;font-size:11px">
+      <div class="rd-council-subcard">
        <strong style="color:#0284c7">📐 Codex (Quant Remedy):</strong>
-       <p style="margin:4px 0 0 0;color:#334155">${esc(codex.text||'Bayesian shrinkage remedy.')}</p>
+       <p style="margin:4px 0 0 0;color:var(--ink)">${esc(codex.text||'Mathematical calibration review.')}</p>
       </div>
-      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:10px;font-size:11px">
+      <div class="rd-council-subcard">
        <strong style="color:#ea580c">🛡️ Grok (Red-Team):</strong>
-       <p style="margin:4px 0 0 0;color:#334155">${esc(grok.text||'Probability clamping guardrail.')}</p>
+       <p style="margin:4px 0 0 0;color:var(--ink)">${esc(grok.text||'Adversarial overfit audit.')}</p>
       </div>
      </div>
-     <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:10px;font-size:11px">
+     <div class="rd-council-synthesis">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-       <strong style="color:#15803d">⚡ Google Antigravity Synthesis (Chair):</strong>
+       <strong style="color:var(--green)">⚡ Google Antigravity Synthesis (Chair):</strong>
        <span class="badge positive" style="font-size:10px">${esc(hyp.hypothesis_id||'')}</span>
       </div>
-      <p style="margin:2px 0 6px 0;color:#166534"><strong>${esc(hyp.title||'')}</strong>: ${esc(hyp.rationale||'')}</p>
-      <code style="background:#dcfce7;color:#14532d;padding:2px 6px;border-radius:4px;font-size:10px">${esc(hyp.proposed_formula_or_rule||'')}</code>
+      <p style="margin:2px 0 6px 0;color:var(--ink)"><strong>${esc(hyp.title||'')}</strong>: ${esc(hyp.rationale||'')}</p>
+      <code class="rd-hyp-code" style="margin:0">${esc(hyp.proposed_formula_or_rule||'')}</code>
      </div>
     </div>`;
    }).join('');
@@ -2859,6 +2898,37 @@ function renderRD(rd){
    $('#rd-execution-terminal').innerHTML=logs.map(l=>`<div class="rd-log-entry"><span class="rd-log-time">${esc(l.timestamp)}</span> <span class="rd-badge-${esc(l.stage)}">${esc(l.stage)}</span> ${esc(l.message)}</div>`).join('');
   }
  }
+}
+
+async function renderVelocityAndWatchdog(){
+ if(!$('#rd-velocity-watchdog-panel'))return;
+ try{
+  const [rVel,rWatch]=await Promise.all([
+   fetch('/api/quant/algorithmic-velocity').catch(()=>null),
+   fetch('/api/watchdog/bottlenecks').catch(()=>null),
+  ]);
+  const vel=(rVel&&rVel.ok)?await rVel.json():{};
+  const watch=(rWatch&&rWatch.ok)?await rWatch.json():{};
+  const cat=vel.catalog_inventory||{}, exp=vel.expansion_velocity||{};
+  if($('#rd-watchdog-badge')){
+   const st=watch.status||exp.pace_status||'ACTIVE';
+   $('#rd-watchdog-badge').textContent=`${st} · ${watch.anomalies_healed_count??0}/${watch.anomalies_detected_count??0} Auto-Healed`;
+  }
+  if($('#rd-velocity-metrics')){
+   $('#rd-velocity-metrics').innerHTML=`
+    <div class="stat"><div class="stat-number">${esc(cat.active_archetypes??cat.total_archetypes??0)}</div><div class="stat-label">Active Stage-0 Archetypes</div><div class="stat-detail">${esc(cat.categories_count??0)} Mathematical Families</div></div>
+    <div class="stat"><div class="stat-number">+${esc(exp.archetypes_added_24h??0)} / 24h</div><div class="stat-label">Distillation Velocity</div><div class="stat-detail">+${esc(exp.archetypes_added_7d??0)} in Rolling 7d</div></div>
+    <div class="stat"><div class="stat-number">${esc(watch.healthy_markets_count??0)} / ${esc(watch.total_graduated_markets??0)}</div><div class="stat-label">Healthy Tier 3 Bindings</div><div class="stat-detail">${esc(watch.uncrowned_champions_crowned??0)} Champions Mounted</div></div>
+    <div class="stat"><div class="stat-number">${esc(cat.average_roi_pct??0)}%</div><div class="stat-label">Mean OOS Archetype ROI</div><div class="stat-detail">Across ${(cat.covered_leagues||[]).length} Liquid Leagues</div></div>
+   `;
+  }
+  if($('#rd-watchdog-anomalies')){
+   const anoms=(watch.anomalies||[]).slice(0,15);
+   $('#rd-watchdog-anomalies').innerHTML=anoms.length
+    ? table(['Time','League / Scope','Category','Diagnostic','Remediation'],anoms.map(a=>[esc(when(a.detected_at)),`<strong>${esc(a.league||'')}</strong> · ${esc(a.scope||'')}`,esc((a.category||'').replaceAll('_',' ')),esc(a.message||''),a.self_healed?`<span class="badge positive">✓ Auto-Healed</span> <small>${esc(a.remediation_action||'')}</small>`:esc(a.remediation_action||'Queued')]))
+    : '<p class="panel-copy">Zero unmounted champion or funnel bottleneck anomalies detected in latest watchdog sweep.</p>';
+  }
+ }catch(e){}
 }
 
 async function renderFunnelSupervision(){
@@ -3196,11 +3266,6 @@ function renderStakeAccount(d){
   $('#stake-last-synced').textContent = d.synced_at ? when(d.synced_at) : 'Just now';
  }
 
- const input=$('#stake-base-bankroll-input');
- if(input&&!input.matches(':focus')){
-  input.value=d.base_bankroll||1000;
- }
-
  const tbody=$('#stake-league-tbody');
  if(tbody){
   const leagues=Object.entries(d.by_league||{});
@@ -3233,33 +3298,12 @@ function bindStakeAccountActions(){
    loadStakeHistory(p);
   };
  });
- const form=$('#stake-bankroll-form');
- if(form){
-  form.onsubmit=async e=>{
-   e.preventDefault();
-   const val=Number($('#stake-base-bankroll-input').value);
-   if(isNaN(val)||val<0){
-    toast('Please enter a valid non-negative bankroll.');
-    return;
-   }
-   try{
-    const updated=await api('/api/stake-account',{
-     method:'POST',
-     body:JSON.stringify({base_bankroll:val})
-    });
-    stakeAccountData=updated;
-    renderStakeAccount(updated);
-    toast('Base bankroll updated to $'+val.toFixed(2));
-   }catch(err){
-    toast(err.message);
-   }
-  };
- }
 }
 
 let polymarketDeskData = null;
 let polymarketOrdersData = null;
 let polymarketPrioritiesData = null;
+let polymarketFunnelData = null;
 let polymarketFlight = null;
 let polyOrderFilter = 'all';
 
@@ -3268,14 +3312,16 @@ async function loadPolymarketDesk() {
  if (polymarketFlight) return polymarketFlight;
  polymarketFlight = (async () => {
   try {
-   const [rStat, rOrders, rPriorities] = await Promise.all([
+   const [rStat, rOrders, rPriorities, rFunnel] = await Promise.all([
     fetch('/api/polymarket/trader/status'),
     fetch('/api/polymarket/trader/orders?limit=500'),
     fetch('/api/polymarket/rd-priorities'),
+    fetch('/api/funnel/supervision').catch(() => null),
    ]);
    polymarketDeskData = await rStat.json();
    polymarketOrdersData = await rOrders.json();
    polymarketPrioritiesData = await rPriorities.json();
+   polymarketFunnelData = (rFunnel && rFunnel.ok) ? await rFunnel.json() : null;
    if (view === 'polymarket') renderPolymarketDesk();
   } catch (e) {
    if (view === 'polymarket') toast('Polymarket Desk: ' + e.message);
@@ -3421,9 +3467,9 @@ function renderPolymarketDesk() {
  }
 
  // Common / Top Bar & Aggregates
- const t4Count = prio.proven_active_count ?? (d.tier_4_governance?.tier_4_segments_count ?? (prio.proven_markets?.length ?? 3));
+ const t4Count = prio.proven_active_count ?? d.tier_4_governance?.tier_4_segments_count ?? polymarketFunnelData?.stages_summary?.tier4_polymarket?.active_dual_reachable_count ?? (prio.proven_markets?.length ?? 0);
  if ($('#poly-proven-count')) $('#poly-proven-count').textContent = String(t4Count);
- if ($('#poly-gaps-count')) $('#poly-gaps-count').textContent = String(prio.unproven_gaps_count ?? (prio.unproven_gaps?.length ?? 25));
+ if ($('#poly-gaps-count')) $('#poly-gaps-count').textContent = String(prio.unproven_gaps_count ?? (prio.unproven_gaps?.length ?? 0));
 
  // Update Filter Buttons and Ledger Counter
  const btnAll = $('#poly-orders-filter-btns button[data-filter="all"]');
@@ -3530,7 +3576,7 @@ function renderPolymarketDesk() {
 
     let statusBadge = '<span class="badge" style="background:#fef3c7;color:#92400e;font-size:10px">🛡 Tier 2 Incubating ($0.00)</span>';
     if (isTier4) {
-     statusBadge = '<span class="badge positive" style="font-size:10px;font-weight:700">✓ Tier 4 Proven Alpha (Tier 3 Proven)</span>';
+     statusBadge = '<span class="badge positive" style="font-size:10px;font-weight:700">✓ Tier 4 Live Proven Alpha (Tier 3 Proven)</span>';
     } else if (isApproaching) {
      const condCount = m.conditions_met_count != null ? m.conditions_met_count : 2;
      const needed = m.games_needed != null ? m.games_needed : 2;
@@ -3725,8 +3771,10 @@ function renderDevelopment(){
  $('#engineering-loop-summary').textContent=engineering?`Engineering reassessment every ${engineering.reassessment_seconds||60} seconds. Open findings: ${engineering.open_gaps??0}; overdue: ${engineering.overdue_gaps??0}. Each finding keeps its original deadline and assigned task. A queued repair is not a completed fix.${d.engineering_loop_error?' Intake error: '+d.engineering_loop_error:''}`:'Waiting for the next engineering reassessment.';
  $('#engineering-loop-gaps').innerHTML=table(['League / Area','Finding','Assigned Task','Due','State'],(engineering?.gaps||[]).map(g=>[esc([g.league,g.family||g.bucket].filter(Boolean).join(' · ')),esc(g.reason),esc(g.task_id||'Unassigned'),esc(when(g.due_at)),esc((g.state||'open').replaceAll('_',' '))+(g.overdue?' · Overdue':'')]));
  const roles=d?.ai_roles;
- $('#ai-roles-summary').textContent=roles?`Primary brain, developer and final reviewer: Codex. Secondary: Claude. Tertiary: Google Antigravity (agy) and Grok. ${roles.scope} Latest helper review: ${(roles.latest?.codex_review||'not yet recorded').replaceAll('_',' ')}.`:'AI delegation status is not available yet.';
- $('#ai-roles-table').innerHTML=table(['Assistant','Role / Model','Last CLI Result','Checked'],Object.entries(roles?.providers||{}).map(([name,p])=>[esc(name==='agy'?'Google Antigravity (agy)':name==='claude'?'Claude':'Grok'),esc([p.role||'advisory',p.model].filter(Boolean).join(' · ')),esc((p.state||'not checked').replaceAll('_',' ')),esc(when(p.checked_at))]));
+ const roleTitleMap={agy:'Google Antigravity (agy)',antigravity:'Google Antigravity (agy)',claude:'Claude',codex:'Codex',grok:'Grok'};
+ const isAgyPrimary=Boolean(roles?.primary&&/antigravity|agy/i.test(String(roles.primary)));
+ $('#ai-roles-summary').textContent=roles?(isAgyPrimary?`Primary Quant Brain, Lead Architect & Final Release Authority: ${roles.primary}. Multi-AI Quant Council: Claude (Sports Domain Mechanics), Codex (Mathematical Kernel & Calibration), Grok (Adversarial Red-Team Auditor). ${roles.scope||''} Latest helper review: ${(roles.latest?.codex_review||'not yet recorded').replaceAll('_',' ')}.`:`Primary brain, developer and final reviewer: Codex. Secondary: Claude. Tertiary: Google Antigravity (agy) and Grok. ${roles.scope} Latest helper review: ${(roles.latest?.codex_review||'not yet recorded').replaceAll('_',' ')}.`):'AI delegation status is not available yet.';
+ $('#ai-roles-table').innerHTML=table(['Assistant','Role / Model','Last CLI Result','Checked'],Object.entries(roles?.providers||{}).map(([name,p])=>[esc(roleTitleMap[name]||name),esc([p.role||'advisory',p.model].filter(Boolean).join(' · ')),esc((p.state||'not checked').replaceAll('_',' ')),esc(when(p.checked_at))]));
  const release=d?.utility_release;
  if(release?.enabled)$('#development-summary').textContent+=` Utility release controller: ${release.state}, phase ${release.phase||'unknown'}. Independently reviewed utility installation only; betting model activation requires separate validation. Open release issues: ${release.open_gaps?.length||0}.`;
  $('#development-checkpoints').textContent=d?.checkpoint_rule||'Checkpoints track delivery evidence, not guaranteed profit.';
@@ -3821,10 +3869,12 @@ function renderStability(){
  const host=$('#stability-status');if(!host)return;
  const audit=data?.automation?.supervisor?.stability_audit;
  const stamp=Date.parse(audit?.checked_at),age=Date.now()-stamp;
- if(!audit||!Number.isFinite(stamp)||age< -60000||age>20*60*1000){host.textContent='Stability: awaiting a fresh measured check.';return;}
+ if(!audit||!Number.isFinite(stamp)||age< -60000||age>20*60*1000){host.textContent='Stability: awaiting a fresh measured check.';host.hidden=!audit;return;}
  const errors=audit.error_count,repairing=audit.repairing_count;
- if(!Number.isInteger(errors)||errors<0||!Number.isInteger(repairing)||repairing<0){host.textContent='Stability: invalid check data.';return;}
+ if(!Number.isInteger(errors)||errors<0||!Number.isInteger(repairing)||repairing<0){host.textContent='Stability: invalid check data.';host.hidden=false;return;}
+ const isClean=audit.state==='stable'&&errors===0&&repairing===0;
  host.textContent=`Stability: ${audit.state==='stable'&&errors===0?'stable':'attention required'} · ${errors} issues · ${repairing} under repair · Checked ${when(audit.checked_at)}`;
+ host.hidden=isClean;
 }
 function renderSystemReviewBanner(){
  const banner=$('#system-review-banner');
@@ -3880,7 +3930,7 @@ function renderSystemReviewBanner(){
  `;
 }
 
-function render(){renderSystemReviewBanner();renderStability();renderStakeSizing();renderStats();renderTips();renderArchive();renderGames();renderModels();if(view==='statistics')renderLiveCoverageTable();if(view==='stake_account')loadStakeAccount();if(view==='polymarket')loadPolymarketDesk();$('#run-stage').textContent=data.engine?.stage||'Updated';$('#last-updated').textContent=data.generated_at?'Last Published: '+when(data.generated_at):'Preparing the First Analysis';const healing=data.status?.autonomous_healing||data.engine?.autonomous_healing;const healingBadge=$('#ai-self-healing-badge');if(healingBadge){if(healing){const hc=healing.total_healed_count||0,ac=healing.learned_aliases_count||0;healingBadge.textContent=`🤖 AI Self-Healing: Active (${hc} healed, ${ac} aliases)`;}if(!healingBadge.dataset.bound){healingBadge.dataset.bound='true';healingBadge.style.cursor='pointer';healingBadge.title='Click to view Autonomous Repair Timeline and AI Brain Queue';healingBadge.onclick=()=>{const rdBtn=$('.nav-item[data-view="rd"]');if(rdBtn)rdBtn.click();setTimeout(()=>{document.getElementById('rd-timeline-panel')?.scrollIntoView({behavior:'smooth'});},150);};}}const notices=[];if(data.settings?.auto_track_recommendations)notices.push('Auto-tracking is on: funded recommendations are assumed placed on Stake once, using the displayed odds and stake.');if(data.status?.daily_progress){const p=data.status.daily_progress;notices.push(`Daily target: ${p.issued}/${p.target} distinct funded recommendations issued (${p.date}, ${p.timezone}). ${p.counting_basis==='since_release'?'Counting from '+when(p.counting_since)+'. '+p.previously_issued_today+' earlier issuances excluded from this target. ':''}${p.distinct_games==null?'':p.distinct_games+' distinct games. '}${p.shortfall>0?p.shortfall+' more needed; the target does not override price or model requirements.':'Target reached; qualifying new picks are still published.'}`);}notices.push(data.settings?.daily_risk_limit==null?'No fixed daily stake cap. Maximum $'+num(data.settings?.max_bet||8)+' per bet.':'Daily stake cap: $'+num(data.settings.daily_risk_limit)+'.');const feedState=data.engine?.market_feed?.state;const feedErr=data.engine?.error;if(feedErr){const prefix=feedState==='partial'?'Notice: ':'Refresh Error: ';notices.push(prefix+feedErr);}$('#notice').textContent=notices.join(' ');$('#notice').hidden=!notices.length;const connLabel=data.engine?.running?'Evaluating Markets':feedState==='partial'?'Partial Coverage':(feedErr||feedState==='unavailable')?'Data Feed Error':'Live Monitoring';$('#connection').textContent=connLabel;$('#refresh').disabled=!!data.engine?.running;}
+function render(){syncLeagueFilterOptions();renderSystemReviewBanner();renderStability();renderStakeSizing();renderTips();if(!initialViewsHydrated||view==='research'){renderArchive();}else{dirtyViews.add('research');}renderGames();if(!initialViewsHydrated||view==='models'||view==='research'){renderModels();dirtyViews.delete('models');}else{dirtyViews.add('models');}initialViewsHydrated=true;if(view==='statistics')renderLiveCoverageTable();if(view==='stake_account')loadStakeAccount();if(view==='polymarket')loadPolymarketDesk();$('#run-stage').textContent=data.engine?.stage||'Updated';$('#last-updated').textContent=data.generated_at?'Last Published: '+when(data.generated_at):'Preparing the First Analysis';const healing=data.status?.autonomous_healing||data.engine?.autonomous_healing;const healingBadge=$('#ai-self-healing-badge');if(healingBadge){if(healing){const hc=healing.total_healed_count||0,ac=healing.learned_aliases_count||0;healingBadge.textContent=`🤖 AI Self-Healing: Active (${hc} healed, ${ac} aliases)`;}if(!healingBadge.dataset.bound){healingBadge.dataset.bound='true';healingBadge.style.cursor='pointer';healingBadge.title='Click to view Autonomous Repair Timeline and AI Brain Queue';healingBadge.onclick=()=>{const rdBtn=$('.nav-item[data-view="rd"]');if(rdBtn)rdBtn.click();setTimeout(()=>{document.getElementById('rd-timeline-panel')?.scrollIntoView({behavior:'smooth'});},150);};}}const notices=[];if(data.settings?.auto_track_recommendations)notices.push('Auto-tracking is on: funded recommendations are assumed placed on Stake once, using the displayed odds and stake.');if(data.status?.daily_progress){const p=data.status.daily_progress;notices.push(`Daily target: ${p.issued}/${p.target} distinct funded recommendations issued (${p.date}, ${p.timezone}). ${p.counting_basis==='since_release'?'Counting from '+when(p.counting_since)+'. '+p.previously_issued_today+' earlier issuances excluded from this target. ':''}${p.distinct_games==null?'':p.distinct_games+' distinct games. '}${p.shortfall>0?p.shortfall+' more needed; the target does not override price or model requirements.':'Target reached; qualifying new picks are still published.'}`);}notices.push(data.settings?.daily_risk_limit==null?'No fixed daily stake cap. Maximum $'+num(data.settings?.max_bet||8)+' per bet.':'Daily stake cap: $'+num(data.settings.daily_risk_limit)+'.');const feedState=data.engine?.market_feed?.state;const feedErr=data.engine?.error;if(feedErr){const prefix=feedState==='partial'?'Notice: ':'Refresh Error: ';notices.push(prefix+feedErr);}$('#notice').textContent=notices.join(' ');$('#notice').hidden=!notices.length;const connLabel=data.engine?.running?'Evaluating Markets':feedState==='partial'?'Partial Coverage':(feedErr||feedState==='unavailable')?'Data Feed Error':'Live Monitoring';$('#connection').textContent=connLabel;$('#refresh').disabled=!!data.engine?.running;}
 
 let audioCtx=null,lastSoundPlayTime=0;
 function getAudioContext(){
@@ -4086,7 +4136,7 @@ function initMobileMenu(){
  window.addEventListener('keydown',e=>{if(e.key==='Escape')closeMobileMenu()});
 }
 initMobileMenu();
-$$('.nav-item').forEach(b=>b.onclick=()=>{closeMobileMenu();view=b.dataset.view;$$('.nav-item').forEach(n=>n.classList.toggle('active',n===b));$$('.view').forEach(v=>v.hidden=v.id!=='view-'+view);$('#breadcrumb').textContent=title[view];$('#page-title').innerHTML=view==='tips'?'Your next bet.<br><span>Backed by data.</span>':esc(title[view]);$('#page-description').textContent=view==='tips'?'Picks for today and the next 48 hours, with Stake market names and exact selections.':view==='rd'?'Continuous Quant Loss Attribution, Forensic Remediation & Crucible Validation.':view==='stake_account'?'Real-time Stake account balance, active bets, and market exposure monitoring.':view==='polymarket'?'Decentralized CLOB trading on Tier 3 proven sports markets, sub-second preflight checks, and continuous Kelly sizing.':'Track your picks, model performance and actual betting results.';if(view==='ledger')renderLedger();if(view==='sizing')renderStakeSizing();if(view==='statistics')loadStatistics();if(view==='games')renderGames();if(view==='settings')populateSettings();if(view==='rd')loadRD();if(view==='stake_account')loadStakeAccount();if(view==='polymarket')loadPolymarketDesk();syncStatisticsChrome()});
+$$('button.nav-item[data-view]').forEach(b=>b.onclick=()=>{closeMobileMenu();view=b.dataset.view;$$('button.nav-item[data-view]').forEach(n=>n.classList.toggle('active',n===b));$$('.view').forEach(v=>v.hidden=v.id!=='view-'+view);$('#breadcrumb').textContent=title[view];$('#page-title').innerHTML=view==='tips'?'Your next bet.<br><span>Backed by data.</span>':esc(title[view]);$('#page-description').textContent=view==='tips'?'Picks for today and the next 48 hours, with Stake market names and exact selections.':view==='rd'?'Continuous Quant Loss Attribution, Forensic Remediation & Crucible Validation.':view==='stake_account'?'Real-time Stake account balance, active bets, and market exposure monitoring.':view==='polymarket'?'Decentralized CLOB trading on Tier 4 Live Proven Alpha sports markets, sub-second preflight checks, and continuous Kelly sizing.':'Track your picks, model performance and actual betting results.';if(view==='research'&&data&&(dirtyViews.has('research')||dirtyViews.has('models'))){renderOpportunitySummary();renderAlternatives();renderEvaluated();renderArchive();if(dirtyViews.has('models')){renderModels();dirtyViews.delete('models');}dirtyViews.delete('research');$$('#view-research [data-detail]').forEach(btn=>btn.onclick=()=>showDetail(btn.dataset.detail,btn.dataset.current==='true'));}if(view==='models'&&data&&dirtyViews.has('models')){renderModels();dirtyViews.delete('models');}if(view==='ledger')renderLedger();if(view==='sizing')renderStakeSizing();if(view==='statistics')loadStatistics();if(view==='games')renderGames();if(view==='settings')populateSettings();if(view==='rd')loadRD();if(view==='stake_account')loadStakeAccount();if(view==='polymarket')loadPolymarketDesk();syncStatisticsChrome()});
 $$('[data-horizon]').forEach(b=>b.onclick=()=>{horizon=b.dataset.horizon;$$('[data-horizon]').forEach(x=>x.classList.toggle('selected',x===b));renderTips()});$('#league-filter').onchange=renderTips;$('#market-filter').onchange=renderTips;$('#sort-filter').onchange=renderTips;
 $('#refresh').onclick=async()=>{try{await api('/api/refresh',{method:'POST'});toast('The engine is refreshing markets and picks.');setTimeout(load,800)}catch(e){toast(e.message)}};
 $('#settings-form').onsubmit=async e=>{e.preventDefault();const f=e.target;const s={auto_track_recommendations:f.elements.auto_track_recommendations.checked};for(const k of ['daily_pick_target','max_bet','unit_stake','refresh_seconds'])s[k]=Number(f.elements[k].value);s.daily_risk_limit=f.daily_risk_limit.value===''?null:Number(f.daily_risk_limit.value);s.bankroll=f.bankroll.value?Number(f.bankroll.value):null;s.monthly_system_cost=f.monthly_system_cost.value!==''?Number(f.monthly_system_cost.value):null;s.minimum_roi=Number(f.minimum_roi.value)/100;try{await api('/api/settings',{method:'PUT',body:JSON.stringify(s)});$('#settings-feedback').textContent='Saved';toast('Settings saved. Picks are being recalculated.')}catch(err){$('#settings-feedback').textContent=err.message}};
@@ -4262,7 +4312,7 @@ function renderPerformance(p){
   ...(hasT3 ? [
     ['Tier 3 Active P&L',pnlT3Str,`${t3.roi>0?'+':''}${pct(t3.roi)} ROI · ${t3.won}W – ${t3.lost}L · ${t3.settled} settled`],
     ['Demoted Quarantine Drag',pnlDemStr,`${dem.won}W – ${dem.lost}L · Quarantined in Tier 1 R&D ($0.00)`],
-    ['Total Ledger P&L',pnlTotalStr,'Includes -$608 Sept baseline + legacy demoted']
+    ['Total Ledger P&L',pnlTotalStr,p.baseline_offset!=null?'Includes baseline adjustment + quarantined segments':'All tracked bets across active & historical segments']
   ] : [
     ['Tracked P&L','$'+num(b.pnl||0),p.assumed_bets?.count?'Includes Estimated P&L at Recommendation Odds':'From Manually Logged Bets']
   ]),
@@ -4345,25 +4395,23 @@ function renderLiveCoverageTable(){
   const totalPct=totalGames>0?(totalCovered/totalGames)*100:0;
   if(badge)badge.textContent=`${totalCovered} / ${totalGames} Games Covered (${totalPct.toFixed(1)}%)`;
   if(metricsContainer){
-   const fullCoverageCount=rows.filter(r=>r.total_games>0&&r.covered_games===r.total_games).length;
+   const fullCoverageLeagues=rows.filter(r=>r.total_games>0&&r.covered_games===r.total_games).map(r=>r.league);
+   const fullCoverageCount=fullCoverageLeagues.length;
+   const fullCoverageLabel=fullCoverageLeagues.length?fullCoverageLeagues.slice(0,6).join(', ')+(fullCoverageLeagues.length>6?` +${fullCoverageLeagues.length-6}`:''):'None yet';
    metricsContainer.innerHTML=`
     <div class="stat"><div class="stat-label">Scheduled Matches</div><div class="stat-value">${totalGames}</div><div class="stat-sub">0–72h window across ${rows.length} leagues</div></div>
     <div class="stat"><div class="stat-label">Covered Matches</div><div class="stat-value" style="color:var(--accent)">${totalCovered} <small style="font-size:13px;color:var(--muted)">(${totalPct.toFixed(1)}%)</small></div><div class="stat-sub">Fixtures with funded bet recommendations</div></div>
     <div class="stat"><div class="stat-label">Active Bets</div><div class="stat-value">${totalBets}</div><div class="stat-sub">Avg ${(totalCovered>0?totalBets/totalCovered:0).toFixed(1)} bets per covered fixture</div></div>
     <div class="stat"><div class="stat-label">Active Exposure</div><div class="stat-value">$${totalStake.toFixed(2)}</div><div class="stat-sub">USD total allocated stake</div></div>
-    <div class="stat"><div class="stat-label">100% Full Coverage</div><div class="stat-value" style="color:#28754e">${fullCoverageCount} <small style="font-size:13px;color:var(--muted)">leagues</small></div><div class="stat-sub">NFL, ATP, WTA, MLS, MLB</div></div>
+    <div class="stat"><div class="stat-label">100% Full Coverage</div><div class="stat-value" style="color:#28754e">${fullCoverageCount} <small style="font-size:13px;color:var(--muted)">leagues</small></div><div class="stat-sub">${esc(fullCoverageLabel)}</div></div>
    `;
   }
   const strategyBadge=r=>{
    const pct=r.total_games>0?(r.covered_games/r.total_games)*100:0;
-   if(r.league==='NFL')return '<span class="badge positive" style="font-size:10px;padding:3px 7px">⚡ Alpha Acceleration ($2.50–$8.00) · 100% Full</span>';
    if(pct>=99.9)return '<span class="badge positive" style="font-size:10px;padding:3px 7px">✓ 100% Full Coverage</span>';
-   if(r.league==='NHL')return '<span class="badge" style="background:#fef3c7;color:#92400e;font-size:10px;padding:3px 7px">🛡 Capital Defense ($0.50 clamp · Turnaround)</span>';
-   if(r.league==='NBA')return '<span class="badge muted" style="font-size:10px;padding:3px 7px">⏳ Preseason Odds Pending on Stake (11.1%)</span>';
-   if(r.league==='WNBA')return '<span class="badge positive" style="font-size:10px;padding:3px 7px">Active Coverage (66.7%)</span>';
-   if(r.league==='NCAAF')return '<span class="badge muted" style="font-size:10px;padding:3px 7px">FBS Elite Selection (+3.5% EV hurdle)</span>';
    if(r.total_bets===0)return '<span class="badge muted" style="font-size:10px;padding:3px 7px">No Active Stake Lines</span>';
-   return `<span class="badge muted" style="font-size:10px;padding:3px 7px">${pct.toFixed(0)}% Coverage</span>`;
+   if(pct>=50)return `<span class="badge positive" style="font-size:10px;padding:3px 7px">Active Coverage (${pct.toFixed(1)}%)</span>`;
+   return `<span class="badge muted" style="font-size:10px;padding:3px 7px">${pct.toFixed(1)}% Coverage</span>`;
   };
   const tableRows=rows.map(r=>{
    const pct=r.total_games>0?(r.covered_games/r.total_games)*100:0;
@@ -4396,7 +4444,7 @@ function renderLiveCoverageTable(){
 function syncStatisticsChrome(){
  const stats=view==='statistics'||view==='games';$('#stats').hidden=stats;$('#window-coverage').hidden=stats;$('#notice').hidden=stats||!$('#notice').textContent;
  $('.page-head .eyebrow').textContent=view==='games'?'NEXT 24 HOURS':view==='statistics'?'RECORDED RESULTS':'YOUR NEXT PICK';
- if(view==='games')$('#page-description').textContent='Five leagues, one chronological schedule. Budapest local time. No scores or odds.';
+ if(view==='games')$('#page-description').textContent='All active liquid leagues, one chronological schedule. Budapest local time. No scores or odds.';
  if(view==='statistics')$('#page-description').textContent='Win rate, money staked, returns and improvement work from your recorded bets.';
  if(view==='statistics')renderLiveCoverageTable();
 }
@@ -4521,7 +4569,7 @@ function renderStatistics(report){
  $('#statistics-resolution-note').textContent=(other?`${other} resolution or evidence findings need review. `:'No result-consistency discrepancies detected in the selected snapshot. ')+(legacy?`${legacy} legacy full-game references use older evidence formatting; their outcome arithmetic is reproduced, but their source detail is limited. `:'')+'Sports-score settlement and sportsbook account payment remain separate checks.';
  const provenanceLabels={retained_archive_hash:'Archive + hash reference retained',retained_hash:'Source hash retained',retained_url_time:'Source URL + timestamp retained',missing:'Source reference missing'};
  $('#statistics-provenance').innerHTML=table(['Recorded Source Evidence','Completed Tickets'],Object.entries(ledger.source_coverage||{}).map(([key,count])=>[esc(provenanceLabels[key]||statisticsWords(key)),esc(count)]));
- $('#statistics-resolution').innerHTML=issues.length?table(['Record','Finding','Details'],issues.map(r=>[esc(r.bet_id??r.id??r.family??r.tip_id??'—'),esc(statisticsWords(r.kind||r.code||r.issue||r.reason)),esc(r.detail||r.message||r.reason||'Inspect the retained settlement evidence.')])):'<p class="panel-copy">Recorded ticket outcomes and original decisions are reconciled by the statistics checks.</p>';
+ $('#statistics-resolution').innerHTML=issues.length?table(['Record','Finding','Details'],issues.map(r=>[esc([r.category,r.bet_id??r.id??r.family??r.tip_id??'—'].filter(Boolean).join(' · ')),esc(statisticsWords(r.kind||r.code||r.issue||r.reason)),esc(r.detail||r.reason||r.message||'Inspect the retained settlement evidence.')])):'<p class="panel-copy">Recorded ticket outcomes and original decisions are reconciled by the statistics checks.</p>';
  renderStatisticsLearning(report.improvement_loop||{},report.improvement_loop_scope);
  $('#statistics-tickets').innerHTML=table(['League / Match','Selection / Market','Match Start','Stake','Odds','Result','Returned','Net P&L','Execution / Resolution'],ledger.closed_tickets.map(r=>[
   esc(r.league)+`<small>${esc(r.matchup)}</small>`,esc(r.selection)+`<small>${esc(r.market_label||r.market)}</small>`,esc(when(r.start)),esc(statisticsMoney(r.stake)),esc(num(r.odds)),esc(statisticsWords(r.status)),esc(statisticsMoney(r.payout)),statisticsCash(r.pnl),esc(statisticsSource(r.execution_source))+`<small>${esc(statisticsWords(r.settlement_source?.evidence_level||'unknown source'))}</small>`]));

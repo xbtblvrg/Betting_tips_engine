@@ -718,15 +718,15 @@
 
   <!-- Bottom 4D Camera & Realm Navigator Dock -->
   <nav class="bottom-camera-dock">
-    <button class="nav-pill-btn active" onclick="flyCameraTo('macro')"><span>⛶</span> MACRO</button>
-    <button class="nav-pill-btn tier-pill-1" onclick="flyCameraTo('tier_1')"><span>⚛</span> TIER 1 (R&amp;D)</button>
-    <button class="nav-pill-btn tier-pill-2" onclick="flyCameraTo('tier_2')"><span>🧪</span> TIER 2 (INCUBATOR)</button>
-    <button class="nav-pill-btn tier-pill-3" onclick="flyCameraTo('tier_3')"><span>🎯</span> TIER 3 (STAKE)</button>
-    <button class="nav-pill-btn tier-pill-4" onclick="flyCameraTo('tier_4')"><span>💎</span> TIER 4 (POLY)</button>
-    <button class="nav-pill-btn" onclick="flyCameraTo('ai_council')"><span>🏛️</span> AI COUNCIL</button>
-    <button class="nav-pill-btn" onclick="flyCameraTo('math_core')"><span>⚡</span> KELLY CORE</button>
-    <button class="nav-pill-btn" onclick="flyCameraTo('bets_motor')"><span>🚀</span> BETS MOTOR</button>
-    <button class="nav-pill-btn" onclick="flyCameraTo('sensory_hub')"><span>📡</span> SENSORY</button>
+    <button class="nav-pill-btn active" data-target="macro" onclick="flyCameraTo('macro')"><span>⛶</span> MACRO</button>
+    <button class="nav-pill-btn tier-pill-1" data-target="tier_1" onclick="flyCameraTo('tier_1')"><span>⚛</span> TIER 1 (R&amp;D)</button>
+    <button class="nav-pill-btn tier-pill-2" data-target="tier_2" onclick="flyCameraTo('tier_2')"><span>🧪</span> TIER 2 (INCUBATOR)</button>
+    <button class="nav-pill-btn tier-pill-3" data-target="tier_3" onclick="flyCameraTo('tier_3')"><span>🎯</span> TIER 3 (STAKE)</button>
+    <button class="nav-pill-btn tier-pill-4" data-target="tier_4" onclick="flyCameraTo('tier_4')"><span>💎</span> TIER 4 (POLY)</button>
+    <button class="nav-pill-btn" data-target="ai_council" onclick="flyCameraTo('ai_council')"><span>🏛️</span> AI COUNCIL</button>
+    <button class="nav-pill-btn" data-target="math_core" onclick="flyCameraTo('math_core')"><span>⚡</span> KELLY CORE</button>
+    <button class="nav-pill-btn" data-target="bets_motor" onclick="flyCameraTo('bets_motor')"><span>🚀</span> BETS MOTOR</button>
+    <button class="nav-pill-btn" data-target="sensory_hub" onclick="flyCameraTo('sensory_hub')"><span>📡</span> SENSORY</button>
     <button id="btn-screensaver-toggle" class="nav-pill-btn" onclick="toggleScreensaver()" style="color:var(--cyan); border-color:rgba(0,243,255,0.4);"><span>🎬</span> SCREENSAVER: ON</button>
     <button id="btn-auto-orbit" class="nav-pill-btn" onclick="toggleAutoOrbit()"><span>↺</span> ORBIT: ON</button>
   </nav>
@@ -742,6 +742,10 @@
        ============================================================== -->
   <script>
     'use strict';
+
+    function escapeHtml(v) {
+      return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
 
     // League Emojis Map
     const LEAGUE_EMOJIS = {
@@ -905,7 +909,10 @@
       { id: 'leagues_constellation', label: 'LEAGUE RADAR', sub: '12 LIQUID LEAGUES 72H', x: 0, y: 140, z: -50, w: 60, r: 22, color: '#ffb703', realm: 'leagues' },
 
       // Sensory Ingestion Horizon (ESPN, NHL API, MLB Stats, Open-Meteo, Polymarket CLOB)
-      { id: 'sensory_hub', label: 'SENSORY INGESTION', sub: '100% FREE PUBLIC FEEDS', x: 0, y: -260, z: -30, w: -140, r: 23, color: '#7086a3', realm: 'sensory' }
+      { id: 'sensory_hub', label: 'SENSORY INGESTION', sub: '100% FREE PUBLIC FEEDS', x: 0, y: -260, z: -30, w: -140, r: 23, color: '#7086a3', realm: 'sensory' },
+
+      // Pre-Publication Bottleneck Watchdog
+      { id: 'bottleneck_watchdog', label: 'BOTTLENECK WATCHDOG', sub: 'TIER 3 SELF-HEALING GUARD', x: 150, y: -120, z: 25, w: 75, r: 19, color: '#00ff88', realm: 'watchdog' }
     ];
 
     // Synaptic 4D Conduits (Clean, direct topology · ZERO FLASHING)
@@ -913,6 +920,7 @@
       // Sensory Feeds -> Central Thalamus & League Radar
       { from: 'sensory_hub', to: 'math_core', color: '#00f3ff', strength: 2.0 },
       { from: 'sensory_hub', to: 'leagues_constellation', color: '#7086a3', strength: 1.4 },
+      { from: 'bottleneck_watchdog', to: 'tier_3', color: '#00ff88', strength: 1.6 },
 
       // AI Council deliberates directly with Central Valuation
       { from: 'ai_council', to: 'math_core', color: '#b5179e', strength: 2.2 },
@@ -1420,8 +1428,8 @@
           tooltip.style.left = `${e.clientX + 14}px`;
           tooltip.style.top = `${e.clientY - 20}px`;
           tooltip.innerHTML = `
-            <div style="font-weight:700; color:${foundPacket.color}; font-size:10px;">⚡ ${foundPacket.label}</div>
-            <div style="color:var(--text-dim); font-size:9px; margin-top:2px;">TASK: ${foundPacket.task}</div>
+            <div style="font-weight:700; color:${escapeHtml(foundPacket.color)}; font-size:10px;">⚡ ${escapeHtml(foundPacket.label)}</div>
+            <div style="color:var(--text-dim); font-size:9px; margin-top:2px;">TASK: ${escapeHtml(foundPacket.task)}</div>
           `;
         } else {
           tooltip.style.display = 'none';
@@ -1451,15 +1459,19 @@
     }, { passive: false });
 
     // Fly Camera To Realm / Node
-    function flyCameraTo(targetKey) {
-      camera.lastUserInteraction = Date.now();
-      focusedNodeId = targetKey === 'macro' ? null : targetKey;
+    const CAMERA_TARGET_ALIASES = { tiers_pipeline: 'tier_3' };
+    function flyCameraTo(targetKey, fromUser = true) {
+      const resolvedKey = CAMERA_TARGET_ALIASES[targetKey] || targetKey || 'macro';
+      if (fromUser) {
+        camera.lastUserInteraction = Date.now();
+        focusedNodeId = resolvedKey === 'macro' ? null : resolvedKey;
+      }
 
-      document.querySelectorAll('.nav-pill-btn').forEach(btn => btn.classList.remove('active'));
-      const activeBtn = Array.from(document.querySelectorAll('.nav-pill-btn')).find(b => b.textContent.includes(targetKey.toUpperCase().replace('_', ' ')));
-      if (activeBtn) activeBtn.classList.add('active');
+      document.querySelectorAll('.nav-pill-btn[data-target]').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.target === resolvedKey);
+      });
 
-      if (targetKey === 'macro') {
+      if (resolvedKey === 'macro') {
         camera.targetYaw = 0.18;
         camera.targetPitch = -0.08;
         camera.targetZoom = 1.0;
@@ -1468,7 +1480,7 @@
         return;
       }
 
-      const node = hyperOrganismNodes.find(n => n.id === targetKey);
+      const node = hyperOrganismNodes.find(n => n.id === resolvedKey);
       if (node) {
         camera.targetZoom = 1.35;
         camera.targetPanX = -node.x;
@@ -1598,10 +1610,10 @@
           <div class="deck-tier-banner t3">
             <div style="display:flex; justify-content:space-between; align-items:center;">
               <span style="font-weight:800; color:#fff;">CLOSED-LOOP VELOCITY</span>
-              <span class="cap-badge green">+${(fv.net_market_expansion_rate_per_hour || 0).toFixed(1)} MARKETS/HR</span>
+              <span class="cap-badge green">+${Number(fv.net_market_expansion_rate_per_hour ?? 0).toFixed(1)} MARKETS/HR</span>
             </div>
             <div style="font-size:9.5px; color:#bed2ea; margin-top:4px;">
-              Continuous R&amp;D $\\rightarrow$ Incubator $\\rightarrow$ Stake $\\rightarrow$ Polymarket progression with automated tourniquet recovery.
+              Continuous R&amp;D → Incubator → Stake → Polymarket progression with automated tourniquet recovery.
             </div>
           </div>
 
@@ -1611,11 +1623,11 @@
           <div class="job-task-card" onclick="switchDeckTab('tier1')">
             <div class="job-title-row">
               <span style="color:var(--purple);">TIER 1: R&amp;D HISTORICAL DISCOVERY</span>
-              <span class="cap-badge purple">${t1.active_models_synthesized || 540} Models</span>
+              <span class="cap-badge purple">${escapeHtml(t1.active_models_synthesized ?? 0)} Models</span>
             </div>
             <div class="job-meta-row">
-              <span>97k+ matches · Algo: ${t1.algorithmic_codex_engine?.active_archetypes || 14} arch (+${(t1.algorithmic_codex_engine?.expansion_velocity_per_hour_24h || 0).toFixed(1)}/hr)</span>
-              <span style="color:#fff;">${(t1.synthesis_rate_per_hour || 0).toFixed(1)}/hr</span>
+              <span>97k+ matches · Algo: ${escapeHtml(t1.algorithmic_codex_engine?.active_archetypes ?? 0)} arch (+${Number(t1.algorithmic_codex_engine?.expansion_velocity_per_hour_24h ?? 0).toFixed(1)}/hr)</span>
+              <span style="color:#fff;">${Number(t1.synthesis_rate_per_hour ?? 0).toFixed(1)}/hr</span>
             </div>
           </div>
 
@@ -1623,11 +1635,11 @@
           <div class="job-task-card" onclick="switchDeckTab('tier2')">
             <div class="job-title-row">
               <span style="color:var(--amber);">TIER 2: SHADOW INCUBATOR ($0.00)</span>
-              <span class="cap-badge amber">${t2.incubating_markets_count || 117} Markets</span>
+              <span class="cap-badge amber">${escapeHtml(t2.incubating_markets_count ?? 0)} Markets</span>
             </div>
             <div class="job-meta-row">
               <span>Live forward validation wagers streaming</span>
-              <span style="color:#fff;">${Number(t2.total_virtual_wagers || 1786028).toLocaleString()} tests</span>
+              <span style="color:#fff;">${Number(t2.total_virtual_wagers ?? 0).toLocaleString()} tests</span>
             </div>
           </div>
 
@@ -1635,11 +1647,11 @@
           <div class="job-task-card" onclick="switchDeckTab('tier3')">
             <div class="job-title-row">
               <span style="color:var(--green);">TIER 3: STAKE SPORTSBOOK PROBATION</span>
-              <span class="cap-badge green">${t3.active_graduated_markets_count || 50} Graduated</span>
+              <span class="cap-badge green">${escapeHtml(t3.active_graduated_markets_count ?? 0)} Graduated</span>
             </div>
             <div class="job-meta-row">
-              <span>${t3.today_volume_picks || 0}/100 picks today · Kelly $0.50–$8.00</span>
-              <span style="color:var(--green); font-weight:700;">$${Number(t3.today_stake_funded || 0).toFixed(2)}</span>
+              <span>${escapeHtml(t3.today_volume_picks ?? 0)}/100 picks today · Kelly $0.50–$8.00</span>
+              <span style="color:var(--green); font-weight:700;">$${Number(t3.today_stake_funded ?? 0).toFixed(2)}</span>
             </div>
           </div>
 
@@ -1659,10 +1671,10 @@
           <div class="job-task-card" style="border-left:3px solid var(--red);">
             <div class="job-title-row">
               <span style="color:var(--red);">INTERIM TOURNIQUET &amp; DEMOTION LOOP</span>
-              <span class="cap-badge red">T3 $\\rightarrow$ T1</span>
+              <span class="cap-badge red">T3 → T1</span>
             </div>
             <div class="job-meta-row">
-              <span>Rolling ROI &lt; -3.0% $\\rightarrow$ $0.50 clamp $\\rightarrow$ $0.00 quarantine</span>
+              <span>Rolling ROI &lt; -3.0% → $0.50 clamp → $0.00 quarantine</span>
               <span style="color:var(--red);">Zero permanent bans</span>
             </div>
           </div>
@@ -1682,8 +1694,8 @@
               Backtesting on 97,000+ settled matches · Pure independent domain models · AST Python synthesis.
             </div>
             <div style="display:flex; justify-content:space-between; margin-top:6px; font-size:9.5px;">
-              <span>ACTIVE MODELS: <strong style="color:#fff;">${t1.active_models_synthesized || 540}</strong></span>
-              <span>SYNTHESIS RATE: <strong style="color:var(--purple);">${(t1.synthesis_rate_per_hour || 22.5).toFixed(1)}/hr</strong></span>
+              <span>ACTIVE MODELS: <strong style="color:#fff;">${escapeHtml(t1.active_models_synthesized ?? 0)}</strong></span>
+              <span>SYNTHESIS RATE: <strong style="color:var(--purple);">${Number(t1.synthesis_rate_per_hour ?? 0).toFixed(1)}/hr</strong></span>
             </div>
           </div>
 
@@ -1691,15 +1703,15 @@
           <div class="job-task-card" style="border-left:3px solid var(--purple);">
             <div class="job-title-row">
               <span style="font-weight:700; color:#fff;">DYNAMIC MATHEMATICAL ARCHETYPES</span>
-              <span class="cap-badge purple">+${(algoEngine.expansion_velocity_per_hour_24h || 0).toFixed(1)} ARCH/HR</span>
+              <span class="cap-badge purple">+${Number(algoEngine.expansion_velocity_per_hour_24h ?? 0).toFixed(1)} ARCH/HR</span>
             </div>
             <div class="job-meta-row" style="margin-top:4px;">
-              <span>Active Catalog: <strong style="color:var(--cyan);">${algoEngine.active_archetypes || 14} models</strong> (${algoEngine.categories_count || 5} categories)</span>
-              <span>Algo Synthesis: <strong style="color:var(--green);">${(algoEngine.algorithmic_synthesis_rate_per_hour || 0).toFixed(1)}/hr</strong></span>
+              <span>Active Catalog: <strong style="color:var(--cyan);">${escapeHtml(algoEngine.active_archetypes ?? 0)} models</strong> (${escapeHtml(algoEngine.categories_count ?? 0)} categories)</span>
+              <span>Algo Synthesis: <strong style="color:var(--green);">${Number(algoEngine.algorithmic_synthesis_rate_per_hour ?? 0).toFixed(1)}/hr</strong></span>
             </div>
             <div style="font-size:9px; color:#a0aec0; margin-top:6px; display:flex; flex-wrap:wrap; gap:4px;">
               ${Object.entries(algoEngine.categories_breakdown || {}).map(([cat, cnt]) => `
-                <span style="background:rgba(255,255,255,0.06); padding:2px 6px; border-radius:4px; border:1px solid rgba(255,255,255,0.1);">${cat}: <strong>${cnt}</strong></span>
+                <span style="background:rgba(255,255,255,0.06); padding:2px 6px; border-radius:4px; border:1px solid rgba(255,255,255,0.1);">${escapeHtml(cat)}: <strong>${escapeHtml(cnt)}</strong></span>
               `).join('')}
             </div>
             <div style="font-size:8.5px; color:#718096; margin-top:4px;">
@@ -1712,12 +1724,12 @@
             qJobs.slice(0, 3).map((job, idx) => `
               <div class="job-task-card">
                 <div class="job-title-row">
-                  <span>#${idx+1}. [${job.league || 'SYSTEM'}] ${job.kind.replace(/_/g, ' ')}</span>
-                  <span class="cap-badge purple">${job.status}</span>
+                  <span>#${idx+1}. [${escapeHtml(job.league || 'SYSTEM')}] ${escapeHtml((job.kind || '').replace(/_/g, ' '))}</span>
+                  <span class="cap-badge purple">${escapeHtml(job.status)}</span>
                 </div>
                 <div class="job-meta-row">
-                  <span>Job ID: ${job.id}</span>
-                  <span>${job.updated_at ? job.updated_at.slice(11, 19) + ' UTC' : ''}</span>
+                  <span>Job ID: ${escapeHtml(job.id)}</span>
+                  <span>${job.updated_at ? escapeHtml(String(job.updated_at).slice(11, 19)) + ' UTC' : ''}</span>
                 </div>
               </div>
             `).join('')
@@ -1725,8 +1737,8 @@
 
           <div class="deck-sec-heading">LATEST AST PYTHON MODEL (CODEX ASTRA):</div>
           <div style="margin-bottom:4px; font-family:var(--font-mono); font-size:9.5px; color:#fff; display:flex; justify-content:space-between;">
-            <span><strong>${topModel.class_name || 'SynthesizedModel'}</strong></span>
-            <span style="color:var(--green);">${topModel.lines || '--'} lines · AST VALIDATED</span>
+            <span><strong>${escapeHtml(topModel.class_name || 'SynthesizedModel')}</strong></span>
+            <span style="color:var(--green);">${escapeHtml(topModel.lines || '--')} lines · AST VALIDATED</span>
           </div>
           <div class="deck-code-box">${highlightPython(topModel.code_snippet || '# Synthesizing AST models...')}</div>
         `;
@@ -1743,8 +1755,8 @@
               $0.00 virtual stakes · Tracking live odds in real-time · Zero user bankroll risk.
             </div>
             <div style="display:flex; justify-content:space-between; margin-top:6px; font-size:9.5px;">
-              <span>INCUBATING: <strong style="color:#fff;">${t2.incubating_markets_count || 117} markets</strong></span>
-              <span>TEST POOL: <strong style="color:var(--amber);">${Number(t2.total_virtual_wagers || 1786028).toLocaleString()}</strong></span>
+              <span>INCUBATING: <strong style="color:#fff;">${escapeHtml(t2.incubating_markets_count ?? 0)} markets</strong></span>
+              <span>TEST POOL: <strong style="color:var(--amber);">${Number(t2.total_virtual_wagers ?? 0).toLocaleString()}</strong></span>
             </div>
           </div>
 
@@ -1753,12 +1765,12 @@
             vTrades.slice(0, 4).map(v => `
               <div class="job-task-card">
                 <div class="job-title-row">
-                  <span>${v.emoji || '⚡'} [${v.league}] ${v.selection}</span>
+                  <span>${escapeHtml(v.emoji || '⚡')} [${escapeHtml(v.league)}] ${escapeHtml(v.selection)}</span>
                   <span class="cap-badge amber">@${Number(v.odds).toFixed(2)}</span>
                 </div>
                 <div class="job-meta-row">
-                  <span>Model: ${v.model_id}</span>
-                  <span style="color:var(--cyan); font-weight:700;">EV +${v.ev_pct}%</span>
+                  <span>Model: ${escapeHtml(v.model_id)}</span>
+                  <span style="color:var(--cyan); font-weight:700;">EV +${escapeHtml(v.ev_pct)}%</span>
                 </div>
               </div>
             `).join('')
@@ -1769,12 +1781,12 @@
             topCands.slice(0, 3).map(c => `
               <div class="job-task-card">
                 <div class="job-title-row">
-                  <span>${c.class_name} (${c.league})</span>
-                  <span class="cap-badge green">+${c.roi}% ROI</span>
+                  <span>${escapeHtml(c.class_name)} (${escapeHtml(c.league)})</span>
+                  <span class="cap-badge green">+${escapeHtml(c.roi)}% ROI</span>
                 </div>
                 <div class="job-meta-row">
-                  <span>${c.settled} games (${c.wins}W - ${c.losses}L)</span>
-                  <span>ΔBrier: +${c.brier_delta}</span>
+                  <span>${escapeHtml(c.settled)} games (${escapeHtml(c.wins)}W - ${escapeHtml(c.losses)}L)</span>
+                  <span>ΔBrier: +${escapeHtml(c.brier_delta)}</span>
                 </div>
               </div>
             `).join('')
@@ -1784,7 +1796,7 @@
         headerIcon.textContent = '🎯';
         headerTitle.textContent = 'TIER 3 · STAKE SPORTSBOOK PROBATION';
         const picks = t3.active_executable_bets || [];
-        const todayCount = t3.today_volume_picks || 0;
+        const todayCount = t3.today_volume_picks ?? 0;
 
         container.innerHTML = `
           <div class="deck-tier-banner t3">
@@ -1793,8 +1805,8 @@
               Continuous fractional Kelly ($0.50–$8.00) · 100 picks/day non-negotiable floor.
             </div>
             <div style="display:flex; justify-content:space-between; margin-top:6px; font-size:9.5px;">
-              <span>TODAY VOLUME: <strong style="color:var(--green);">${todayCount} / 100 picks</strong></span>
-              <span>FUNDED: <strong style="color:#fff;">$${Number(t3.today_stake_funded || 0).toFixed(2)}</strong></span>
+              <span>TODAY VOLUME: <strong style="color:var(--green);">${escapeHtml(todayCount)} / 100 picks</strong></span>
+              <span>FUNDED: <strong style="color:#fff;">$${Number(t3.today_stake_funded ?? 0).toFixed(2)}</strong></span>
             </div>
           </div>
 
@@ -1803,12 +1815,12 @@
             picks.slice(0, 4).map(b => `
               <div class="job-task-card">
                 <div class="job-title-row">
-                  <span>${getEmoji(b.league)} ${b.home} vs ${b.away}</span>
+                  <span>${getEmoji(b.league)} ${escapeHtml(b.home)} vs ${escapeHtml(b.away)}</span>
                   <span class="cap-badge green">$${Number(b.stake).toFixed(2)}</span>
                 </div>
                 <div class="job-meta-row">
-                  <span style="color:var(--cyan); font-weight:700;">${b.league} · ${b.selection}</span>
-                  <span>Odds ${Number(b.odds).toFixed(2)} · EV +${b.ev_pct}%</span>
+                  <span style="color:var(--cyan); font-weight:700;">${escapeHtml(b.league)} · ${escapeHtml(b.selection)}</span>
+                  <span>Odds ${Number(b.odds).toFixed(2)} · EV +${escapeHtml(b.ev_pct)}%</span>
                 </div>
               </div>
             `).join('')
@@ -1836,12 +1848,12 @@
             orders.slice(0, 4).map(o => `
               <div class="job-task-card">
                 <div class="job-title-row">
-                  <span>${getEmoji(o.league)} [${o.league}] ${o.selection}</span>
-                  <span class="cap-badge cyan">${o.price} USDC</span>
+                  <span>${getEmoji(o.league)} [${escapeHtml(o.league)}] ${escapeHtml(o.selection)}</span>
+                  <span class="cap-badge cyan">${escapeHtml(o.price)} USDC</span>
                 </div>
                 <div class="job-meta-row">
-                  <span>Game: ${o.game}</span>
-                  <span style="color:var(--green); font-weight:700;">EV +${o.ev}%</span>
+                  <span>Game: ${escapeHtml(o.game)}</span>
+                  <span style="color:var(--green); font-weight:700;">EV +${escapeHtml(o.ev)}%</span>
                 </div>
               </div>
             `).join('')
@@ -1863,11 +1875,11 @@
           ${brains.map(b => `
             <div class="job-task-card">
               <div class="job-title-row">
-                <span style="color:var(--cyan);">${b.name}</span>
-                <span class="cap-badge ${b.id === 'agy' ? 'cyan' : (b.id === 'claude' ? 'amber' : (b.id === 'codex' ? 'green' : 'red'))}">${b.status}</span>
+                <span style="color:var(--cyan);">${escapeHtml(b.name)}</span>
+                <span class="cap-badge ${b.id === 'agy' ? 'cyan' : (b.id === 'claude' ? 'amber' : (b.id === 'codex' ? 'green' : 'red'))}">${escapeHtml(b.status)}</span>
               </div>
-              <div style="font-size:9.5px; color:var(--text-dim); margin-top:2px;">${b.role}</div>
-              <div style="font-size:10px; color:#c9ddf2; margin-top:4px; line-height:1.35;">${b.current_focus || b.specialty}</div>
+              <div style="font-size:9.5px; color:var(--text-dim); margin-top:2px;">${escapeHtml(b.role)}</div>
+              <div style="font-size:10px; color:#c9ddf2; margin-top:4px; line-height:1.35;">${escapeHtml(b.current_focus || b.specialty)}</div>
             </div>
           `).join('')}
         `;
@@ -1891,12 +1903,12 @@
               return `
                 <div class="job-task-card" style="border-left:3px solid ${isWin ? 'var(--green)' : 'var(--red)'};">
                   <div class="job-title-row">
-                    <span>${getEmoji(s.league)} ${s.home} vs ${s.away}</span>
+                    <span>${getEmoji(s.league)} ${escapeHtml(s.home)} vs ${escapeHtml(s.away)}</span>
                     <span style="font-weight:800; color:${isWin ? 'var(--green)' : 'var(--red)'};">${isWin ? '+' : ''}$${Number(s.pnl).toFixed(2)}</span>
                   </div>
                   <div class="job-meta-row">
-                    <span>${s.league} · ${s.selection}</span>
-                    <span style="font-weight:700; text-transform:uppercase; color:${isWin ? 'var(--green)' : 'var(--red)'};">${s.result || s.status}</span>
+                    <span>${escapeHtml(s.league)} · ${escapeHtml(s.selection)}</span>
+                    <span style="font-weight:700; text-transform:uppercase; color:${isWin ? 'var(--green)' : 'var(--red)'};">${escapeHtml(s.result || s.status)}</span>
                   </div>
                 </div>
               `;
@@ -1946,7 +1958,7 @@
       }
 
       spawnQuantumRipple(0, -10, 0, '#00f3ff');
-      flyCameraTo(event.target_node || 'math_core');
+      flyCameraTo(event.target_node || 'math_core', false);
 
       beaconEl.classList.add('visible');
       if (event.type === 'bet_settlement' && event.badge_color === 'green') {
@@ -1993,7 +2005,7 @@
       const bannerText = document.getElementById('screensaver-mode-text');
       if (bannerText) bannerText.textContent = `🎬 COSMIC VOYAGE · ${step.title}`;
 
-      flyCameraTo(step.id);
+      flyCameraTo(step.id, false);
     }, 16000);
 
     // ==========================================
@@ -2020,9 +2032,9 @@
       el.style.opacity = '0';
       setTimeout(() => {
         el.innerHTML = `
-          <span style="color:var(--text-dim);">[${nowStr}]</span>
-          <span style="color:${t.color || 'var(--cyan)'}; font-weight:800;">[${t.source}]</span>
-          <span style="color:#e1edfc;">${t.text}</span>
+          <span style="color:var(--text-dim);">[${escapeHtml(nowStr)}]</span>
+          <span style="color:${escapeHtml(t.color || 'var(--cyan)')}; font-weight:800;">[${escapeHtml(t.source)}]</span>
+          <span style="color:#e1edfc;">${escapeHtml(t.text)}</span>
         `;
         el.style.opacity = '1';
       }, 300);
@@ -2033,7 +2045,7 @@
       if (!box) return;
       const toast = document.createElement('div');
       toast.className = `toast-msg ${type}`;
-      toast.innerHTML = `<strong>${title}</strong><div style="color:var(--text-dim); margin-top:2px;">${subtitle}</div>`;
+      toast.innerHTML = `<strong>${escapeHtml(title)}</strong><div style="color:var(--text-dim); margin-top:2px;">${escapeHtml(subtitle)}</div>`;
       box.appendChild(toast);
       setTimeout(() => {
         toast.style.opacity = '0';
