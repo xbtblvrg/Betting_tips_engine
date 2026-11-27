@@ -78,7 +78,7 @@ class NCAAFQuarter3SpreadsDriveLatticeModel(BaseCandidateModel):
 
     def __init__(
         self,
-        model_id: str = "codex_synth_nfl_quarter_3_1126_222409",
+        model_id: str = "codex_synth_nfl_quarter_2_1127_024716",
         version: str = "1.0.0",
         league: str = "NCAAF",
         scope: str = "quarter_3",
