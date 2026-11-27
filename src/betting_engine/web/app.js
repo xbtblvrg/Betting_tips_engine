@@ -3467,7 +3467,7 @@ function renderPolymarketDesk() {
  }
 
  // Common / Top Bar & Aggregates
- const t4Count = prio.proven_active_count ?? d.tier_4_governance?.tier_4_segments_count ?? polymarketFunnelData?.stages_summary?.tier4_polymarket?.active_dual_reachable_count ?? (prio.proven_markets?.length ?? 0);
+ const t4Count = prio.proven_active_count ?? d.tier_4_governance?.tier_4_segments_count ?? polymarketFunnelData?.funnel_stages?.tier4_polymarket?.active_dual_reachable_count ?? (prio.proven_markets?.length ?? 0);
  if ($('#poly-proven-count')) $('#poly-proven-count').textContent = String(t4Count);
  if ($('#poly-gaps-count')) $('#poly-gaps-count').textContent = String(prio.unproven_gaps_count ?? (prio.unproven_gaps?.length ?? 0));
 
