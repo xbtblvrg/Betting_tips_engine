@@ -3,6 +3,8 @@ const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 let data=null,horizon='48',view='tips',selectedTip=null,selectedInstructionSignature=null,dashboardAvailable=false;
 let dashboardRequest=0,appliedDashboardRequest=0,placementEpoch=0;
 let dashboardFlight=null,dashboardQueued=null;
+let initialViewsHydrated=false;
+const dirtyViews=new Set();
 const pendingPlacements=new Map();
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const pct=v=>Number.isFinite(v)?(v*100).toFixed(1)+'%':'—';
@@ -342,13 +344,13 @@ function executionReview(t){
  if(sizingPolicy==='all_tiers_weighted_v3'&&(c.decision_guard.recommendation_policy!==policy||basis.policy!==policy||basis.eligible!==true||
   !['stress_value','model_pick','probability_pick'].includes(basis.tier)||
   ![r,currentReview].every(v=>v.state==='current'&&v.recommendation_policy===policy&&v.funding_tier===basis.tier)||
-  !Number.isFinite(basis.maximum_stake)||basis.maximum_stake<1||basis.maximum_stake>(data?.settings?.max_bet??5)||instructionStake(t)>basis.maximum_stake))return {actionable:false};
+  !Number.isFinite(basis.maximum_stake)||basis.maximum_stake<0.5||basis.maximum_stake>(data?.settings?.max_bet??8)||instructionStake(t)>basis.maximum_stake))return {actionable:false};
  const close=(a,b)=>Number.isFinite(a)&&Number.isFinite(b)&&Math.abs(a-b)<=1e-9*Math.max(1,Math.abs(a),Math.abs(b));
  if(!['strict','continuous_model_v1','continuous_best_available_v1'].includes(policy))return {actionable:false};
  if(['continuous_model_v1','continuous_best_available_v1'].includes(policy)){
   if(!basis||basis.policy!==policy||basis.eligible!==true||!['stress_value','model_pick','probability_pick'].includes(basis.tier)||
    ![r,currentReview].every(v=>v.actionable===true&&v.state==='current'&&v.recommendation_policy===policy&&v.funding_tier===basis.tier&&close(v.minimum_odds,basis.minimum_odds))||
-   !Number.isFinite(basis.maximum_stake)||basis.maximum_stake<1||basis.maximum_stake>(data?.settings?.max_bet??5)||instructionStake(t)>basis.maximum_stake)return {actionable:false};
+   !Number.isFinite(basis.maximum_stake)||basis.maximum_stake<0.5||basis.maximum_stake>(data?.settings?.max_bet??8)||instructionStake(t)>basis.maximum_stake)return {actionable:false};
   if(['model_pick','probability_pick'].includes(basis.tier)){
    const p=c.probability,push=c.push_probability,stress=c.stress_probability,odds=c.reference_odds;
    const modelROI=p*odds+push-1,nominalMinimum=(1-push)/p;
@@ -406,7 +408,7 @@ function weightedModelPick(t){return isModelPick(t)&&['model_weighted_v2','all_t
 function unitPickLabel(t){return isProbabilityPick(t)?(allTiersWeighted(t)?'Probability Pick · $'+num(instructionStake(t)):'Probability Pick · $1'):isModelPick(t)?(weightedModelPick(t)?'Model Pick · $'+num(instructionStake(t)):'Model Pick · $1'):null}
 function instructionTierLabel(t){return unitPickLabel(t)||(allTiersWeighted(t)&&executionReview(t).funding_tier==='stress_value'?'Stress Value · $'+num(instructionStake(t)):null)}
 function unitPickSummary(t){const c=t.current_assessment||t;return isProbabilityPick(t)?`Selected for win probability. Model-estimated return: ${pct(Math.abs(c.expected_roi)<=1e-9?0:c.expected_roi)}.`:isModelPick(t)?'Positive model estimate; stress check not passed.':null}
-function modelPickNote(t){if(!unitPickLabel(t))return '';const c=t.current_assessment||t;const u=stakeStr(data.settings?.unit_stake,1),m=stakeStr(data.settings?.max_bet,5);return `<p class="panel-copy model-pick-note">${esc(unitPickSummary(t))}</p><p class="panel-copy model-pick-evidence">Model EV: ${pct(c.expected_roi)} · Stress EV: ${pct(c.stress_roi)}. ${isProbabilityPick(t)?(allTiersWeighted(t)?`Calculated base-unit stake in the $${u}–$${m} range, reduced for related bets and capped by any supplied bankroll limits; not Kelly sizing. The $${u} ticket minimum can offset the raw discount. Model-estimated return is nonpositive.`:`Fixed $${u} policy unit; not Kelly sizing.`):weightedModelPick(t)?`Calculated nominal-model stake in the $${u}–$${m} range; related-exposure discount and any supplied bankroll limits still apply. No additional amount is requested for an earlier ticket.`:`Nominal-model sizing capped at $${u}; bankroll and related-exposure limits still apply.`} These are model estimates, not a guarantee of winning or profit.</p>`}
+function modelPickNote(t){if(!unitPickLabel(t))return '';const c=t.current_assessment||t;const u=stakeStr(data.settings?.unit_stake,0.5),m=stakeStr(data.settings?.max_bet,8);return `<p class="panel-copy model-pick-note">${esc(unitPickSummary(t))}</p><p class="panel-copy model-pick-evidence">Model EV: ${pct(c.expected_roi)} · Stress EV: ${pct(c.stress_roi)}. ${isProbabilityPick(t)?(allTiersWeighted(t)?`Calculated base-unit stake in the $${u}–$${m} range, reduced for related bets and capped by any supplied bankroll limits; not Kelly sizing. The $${u} ticket minimum can offset the raw discount. Model-estimated return is nonpositive.`:`Fixed $${u} policy unit; not Kelly sizing.`):weightedModelPick(t)?`Calculated nominal-model stake in the $${u}–$${m} range; related-exposure discount and any supplied bankroll limits still apply. No additional amount is requested for an earlier ticket.`:`Nominal-model sizing capped at $${u}; bankroll and related-exposure limits still apply.`} These are model estimates, not a guarantee of winning or profit.</p>`}
 
 
 function instructionStake(t){return t.tracked_bet?t.tracked_bet.stake:t.stake}
@@ -453,31 +455,59 @@ function instructionSignature(t){const c=executionTerms(t),n=stakeNavigation(t),
 function readyTips(){return liveTips().filter(executableInstruction)}
 function stakeDisplay(t){return view==='tips'&&executableInstruction(t)?'Bet $'+num(instructionStake(t)):t.tracked_bet?'Recorded $'+num(t.tracked_bet.stake):'No new bet'}
 function trackingMarkup(t){if(view==='tips'&&pendingInstruction(t))return `<p class="panel-copy">Bet $${num(t.tracked_bet.stake)} once on this exact selection. If already placed, mark it as placed instead of repeating it.</p>`;return t.tracked_bet?`<p class="panel-copy">Original record: $${num(t.tracked_bet.stake)} at ${num(t.tracked_bet.odds)} on ${esc(when(t.tracked_bet.created_at))}. No additional bet is requested.</p>`:''}
+function syncLeagueFilterOptions(){
+ const sel=$('#league-filter');
+ if(!sel||!data)return;
+ const currentVal=sel.value;
+ const staticValues=new Set([...sel.querySelectorAll('option')].filter(o=>o.parentElement?.id!=='league-filter-dynamic').map(o=>o.value));
+ const discovered=new Set();
+ for(const arr of [data.recommendations,data.alternatives,data.games,data.evaluated_candidates]){
+  if(!Array.isArray(arr))continue;
+  for(const item of arr){
+   const lg=String(item?.league||'').trim();
+   if(lg&&!staticValues.has(lg))discovered.add(lg);
+  }
+ }
+ let dynGroup=$('#league-filter-dynamic');
+ if(!dynGroup){
+  dynGroup=document.createElement('optgroup');
+  dynGroup.id='league-filter-dynamic';
+  dynGroup.label='── Active Feed Leagues ──';
+  sel.appendChild(dynGroup);
+ }
+ const sorted=[...discovered].sort();
+ dynGroup.hidden=!sorted.length;
+ dynGroup.innerHTML=sorted.map(lg=>`<option value="${esc(lg)}">${esc(lg)}</option>`).join('');
+ if([...sel.options].some(o=>o.value===currentVal))sel.value=currentVal;
+}
 function renderStats(){
  const ready=visibleTips(readyTips());
  const hasExistingCards=typeof document!=='undefined'&&$$('#tips-grid .tip-card').length>0;
  if(isEngineActiveOrUpdating()&&ready.length===0&&hasExistingCards)return;
  const visible=visibleTips(liveTips()),amount=ready.reduce((n,t)=>n+instructionStake(t),0),p=data?.status?.daily_progress||{};
- const filteredFirst=(p.issuance_rows?issuedRowsVisible(p.issuance_rows):[]).length || (!p.issuance_rows?(p.first_issued_today??p.issued??0):0);
  const marked=visible.filter(isPlaced).length;
+ const distinctGames=new Set(ready.map(t=>t.game_id)).size;
  const perf=data?.performance||{};
  const totalBets=perf.ledger_bets||{};
  const activeCycle=perf.active_cycle||totalBets;
  const liveStake=perf.live_stake_account||{};
  const todayPl=perf.today_placed||{};
  const roll7d=perf.rolling_7d||{};
- const roll48=perf.rolling_48h||{};
  const t3All=perf.tier3_performance||{};
- const t3Roll48=perf.tier3_rolling_48h||{};
- const demAll=perf.demoted_performance||{};
- const demRoll48=perf.demoted_rolling_48h||{};
  const hasTier3=Boolean(t3All.settled);
 
- // Stake Live Balance
- const stakeBal=Number(liveStake.total_balance||557.93);
- const stakeBalStr='$'+num(stakeBal);
+ // Honest Stake Live Balance (never fabricate a hardcoded fallback balance)
+ const rawStakeBal=stakeAccountData?.total_balance ?? liveStake.total_balance;
+ const hasStakeBal=rawStakeBal!==null&&rawStakeBal!==undefined&&Number.isFinite(Number(rawStakeBal));
+ const stakeBalStr=hasStakeBal?'$'+num(Number(rawStakeBal)):'Awaiting Sync';
+ const rawAvailBal=stakeAccountData?.available_balance ?? liveStake.available_balance;
+ const stakeBalSub=hasStakeBal
+  ? ((liveStake.timestamp||stakeAccountData?.synced_at)
+      ? `Live sync: $${num(Number.isFinite(Number(rawAvailBal))?Number(rawAvailBal):Number(rawStakeBal))} avail`
+      : 'Recorded Stake account snapshot')
+  : 'Open Stake Live Account to sync';
 
- // Today Placement-basis PnL (Bets placed today)
+ // Today Placement-basis PnL (fallback card when Tier 3 diagnostic not populated)
  const pnlToday=Number(todayPl.pnl||0);
  const pnlTodayStr=(pnlToday>=0?'+$':'-$')+num(Math.abs(pnlToday));
  const pnlTodayClass=pnlToday>0?'pnl-positive':pnlToday<0?'pnl-negative':'';
@@ -496,37 +526,23 @@ function renderStats(){
  const pnlActiveClass=pnlActive>0?'pnl-positive':pnlActive<0?'pnl-negative':'';
  const pnlTotal=Number(totalBets.pnl||0);
  const pnlTotalStr=(pnlTotal>=0?'+$':'-$')+num(Math.abs(pnlTotal));
- const pnlTotalClass=pnlTotal>0?'pnl-positive':pnlTotal<0?'pnl-negative':'';
 
- // Rolling 48h settlement basis
- const pnl48=Number(roll48.pnl||0);
- const pnl48Str=(pnl48>=0?'+$':'-$')+num(Math.abs(pnl48));
- const pnl48Class=pnl48>0?'pnl-positive':pnl48<0?'pnl-negative':'';
-
- // Diagnostic Tier 3 & Demoted
+ // Diagnostic Tier 3
  const pnlT3_Total=Number(t3All.pnl||0);
  const pnlT3_TotalStr=(pnlT3_Total>=0?'+$':'-$')+num(Math.abs(pnlT3_Total));
  const pnlT3_TotalClass=pnlT3_Total>0?'pnl-positive':pnlT3_Total<0?'pnl-negative':'';
- const pnlDemoted_Total=Number(demAll.pnl||0);
- const pnlDemotedStr=(pnlDemoted_Total>=0?'+$':'-$')+num(Math.abs(pnlDemoted_Total));
 
  const cards=[
-  ['Stake Account Balance',stakeBalStr,liveStake.timestamp?`Live sync: $${num(liveStake.available_balance||stakeBal)} avail`:'Synced via Stake live extension'],
-  ['Today P&L (Placement)',pnlTodayStr,todayPl.count?`${todayPl.won}W – ${todayPl.lost}L · ${todayPl.open_bets||0} open ($${num(todayPl.total_stake||0)} total)`:'No bets placed today',pnlTodayClass],
+  ['Daily Instructions',(p.issued??0)+' / '+(p.target??100),p.counting_basis==='since_release'?'First Issuances Since '+when(p.counting_since):'First Issuances Today · Floor: 100/day'],
+  ['Ready to Bet',ready.length,`${distinctGames} games · ${marked} marked placed`],
+  ['Total Stake','$'+num(amount),'Bet each selection once ($0.50–$8.00)'],
+  ['Stake Account Balance',stakeBalStr,stakeBalSub],
   ['Rolling 7d WR · ROI',wrRoi7d,roll7d.settled?`${roll7d.won}W – ${roll7d.lost}L · Target: ≥ +10.0%`:'Rolling 7-day window',pnl7dClass],
   ['Rolling 7d Net P&L',pnl7dStr,roll7d.settled?`Settled stake: $${num(roll7d.turnover)} · Total portfolio`:'Rolling 7-day cash result',pnl7dClass],
   ['Total Cumulative Net P&L',pnlActiveStr,activeCycle.settled?`Active cycle: ${activeCycle.won}W – ${activeCycle.lost}L · All-time: ${pnlTotalStr}`:'All tracked bets after stakes',pnlActiveClass],
-  ['48h Settled Result',pnl48Str,roll48.settled?`Settled: ${roll48.won}W – ${roll48.lost}L (incl. weekend MLS)`:'Settlement timing basis',pnl48Class],
-  ...(hasTier3 ? [
-    ['Graduated Alpha (Tier 3)',pnlT3_TotalStr,t3All.settled?`${t3All.roi>0?'+':''}${pct(t3All.roi)} ROI · Crucible graduated markets`:'Diagnostic: Graduated alpha',pnlT3_TotalClass],
-    ['Quarantined Drag (Tier 1)',pnlDemotedStr,demAll.settled?`${demAll.won}W – ${demAll.lost}L · Quarantined in Tier 1 ($0.00)`:'Diagnostic: Quarantined markets','pnl-negative']
-  ] : []),
-  ['First issued today',filteredFirst,'Shared immutable issuance count'],
-  ['Daily Instructions',(p.issued??0)+' / '+(p.target??20),p.counting_basis==='since_release'?'First Issuances Since '+when(p.counting_since):'First Issuances Today'],
-  ['Ready to Bet',ready.length,'Filtered, fresh, funded and qualified'],
-  ['Total Stake','$'+num(amount),'Bet each selection once'],
-  ['Marked placed',marked,'Filtered checklist records'],
-  ['Games',new Set(ready.map(t=>t.game_id)).size,'In the selected time window']
+  hasTier3
+   ? ['Graduated Alpha (Tier 3)',pnlT3_TotalStr,`${t3All.roi>0?'+':''}${pct(t3All.roi)} ROI · Crucible graduated markets`,pnlT3_TotalClass]
+   : ['Today P&L (Placement)',pnlTodayStr,todayPl.count?`${todayPl.won}W – ${todayPl.lost}L · ${todayPl.open_bets||0} open`:'No bets placed today',pnlTodayClass]
  ];
  $('#stats').innerHTML=cards.map(([label,value,sub,cls])=>`<div class="stat"><div class="stat-label">${esc(label)}</div><div class="stat-value${cls?' '+cls:''}">${esc(value)}</div><div class="stat-sub">${esc(sub)}</div></div>`).join('');
 }
@@ -623,7 +639,7 @@ function updateTipBetDoneUI(tipId, state, customStake = null, reason = '') {
    b.style.borderColor = '#047857';
    b.style.color = '#fff';
    b.style.fontWeight = '700';
-   b.title = 'Fogadás sikeresen megkötve és fül bezárva (kattints az újbóli feladáshoz)';
+   b.title = 'Wager placed and Safari tab closed (click to re-stage)';
    b.innerHTML = `✅ Bet Done ✓`;
   } else if (state === 'skipped') {
    b.disabled = false;
@@ -633,8 +649,8 @@ function updateTipBetDoneUI(tipId, state, customStake = null, reason = '') {
    b.style.borderColor = '#d97706';
    b.style.color = '#fff';
    b.style.fontWeight = '600';
-   b.title = `⚠️ Kihagyva: ${reason || 'A piac módosult a Stake-en'}. Kattints a vizsgálathoz / újbóli próbálkozáshoz!`;
-   b.innerHTML = `⚠️ Kihagyva (Kézi)`;
+   b.title = `⚠️ Skipped: ${reason || 'Market moved on Stake'}. Click to inspect or retry.`;
+   b.innerHTML = `⚠️ Skipped · Kihagyva`;
   } else {
    b.disabled = false;
    b.classList.remove('is-done', 'is-skipped');
@@ -662,23 +678,23 @@ function stakeBetButton(t){
 
  let oneClickStyle = 'style="background:#0f766e;border-color:#0f766e;color:#fff;font-weight:600;"';
  let oneClickContent = `⚡ 1-Click Bet ($${num(stakeAmt)})`;
- let oneClickTitle = 'Automata feladás Safariban és fül bezárása';
+ let oneClickTitle = 'Stage and place in local Safari, then close tab';
  let oneClickDisabled = '';
 
  if (isPlacing) {
   oneClickStyle = 'style="background:#d97706;border-color:#d97706;color:#fff;font-weight:600;"';
   oneClickContent = `⏳ Placing…`;
-  oneClickTitle = 'Fogadás folyamatban a Stake-en…';
+  oneClickTitle = 'Placing wager on Stake…';
   oneClickDisabled = 'disabled';
  } else if (isDone) {
   oneClickStyle = 'style="background:#047857;border-color:#047857;color:#fff;font-weight:700;"';
   oneClickContent = `✅ Bet Done ✓`;
-  oneClickTitle = 'Fogadás sikeresen megkötve és fül bezárva (kattints az újbóli feladáshoz)';
+  oneClickTitle = 'Wager placed and Safari tab closed (click to re-stage)';
  } else if (isSkipped) {
   const skipInfo = skippedAutoBetTips.get(t.id);
   oneClickStyle = 'style="background:#b45309;border-color:#d97706;color:#fff;font-weight:600;"';
-  oneClickContent = `⚠️ Kihagyva (Kézi)`;
-  oneClickTitle = `⚠️ Kihagyva: ${skipInfo?.reason || 'A piac módosult a Stake-en'}. Kattints a vizsgálathoz!`;
+  oneClickContent = `⚠️ Skipped · Kihagyva`;
+  oneClickTitle = `⚠️ Skipped: ${skipInfo?.reason || 'Market moved on Stake'}. Click to inspect.`;
  }
 
  const stagedStyle=isStaged?'style="background:#059669;border-color:#059669;color:#fff;"':'';
@@ -709,21 +725,6 @@ function bindInstructionLink(button,id,signature=null){
    toast('The engine is updating this selection. Only current instructions remain available.');
    return;
   }
-  // Mobile / Remote devices (e.g. Tailscale on phone): NEVER hijack the link to desktop Mac Safari!
-  // Allow standard browser navigation to open the Stake match directly on the user's mobile device.
-  if(isMobileOrRemoteDevice()){
-   return;
-  }
-  if(!e.metaKey&&!e.ctrlKey&&!e.shiftKey){
-   const stageBtn=button.parentElement?.querySelector(`.stage-betslip-btn[data-tip-id="${id}"]`);
-   if(stageBtn){
-    e.preventDefault();
-    const origBtnText = button.innerHTML;
-    button.innerHTML = '⏳ Megnyitás…';
-    stageBtn.click();
-    setTimeout(() => { button.innerHTML = origBtnText; }, 6000);
-   }
-  }
  };
 }
 
@@ -747,7 +748,7 @@ function bindStageBetslipButtons(){
    btn.style.color = '#fff';
    btn.title = 'Already staged in Safari (click to re-stage)';
    btn.innerHTML = `✅ Staged ✓ ($${num(stakeAmt)})`;
-   toast(`✅ Szelvény előkészítve ($${num(stakeAmt)})! Betöltés Safariba…`);
+   toast(`✅ Bet slip staged ($${num(stakeAmt)})! Loading into Safari…`);
    
    try {
     const terms = executionTerms(t);
@@ -779,7 +780,7 @@ function bindStageBetslipButtons(){
      if (res.stake && res.stake !== stakeAmt) {
       btn.innerHTML = `✅ Staged ✓ ($${num(res.stake)})`;
      }
-     toast(`✅ Szelvény sikeresen betöltve Safariba! Tét: $${(res.stake||stakeAmt).toFixed(2)}. Kattints a Place Bet gombra a Stake-en.`);
+     toast(`✅ Bet slip loaded into Safari ($${(res.stake||stakeAmt).toFixed(2)}). Click Place Bet on Stake.`);
      if (res.warning) toast(res.warning);
     } else {
      unmarkTipStaged(t.id);
@@ -789,7 +790,7 @@ function bindStageBetslipButtons(){
      btn.style.color = '';
      btn.title = 'Pre-fill this wager in Safari';
      btn.innerHTML = originalHtml || `📋 Stage Bet Slip ($${num(stakeAmt)})`;
-     toast(`Figyelem: ${res.message || 'Szelvény előkészítése meghiúsult a Safariban.'}`);
+     toast(`Notice: ${res.message || 'Unable to stage bet slip in Safari.'}`);
     }
    } catch(err) {
     unmarkTipStaged(t.id);
@@ -799,7 +800,7 @@ function bindStageBetslipButtons(){
     btn.style.color = '';
     btn.title = 'Pre-fill this wager in Safari';
     btn.innerHTML = originalHtml || `📋 Stage Bet Slip ($${num(stakeAmt)})`;
-    toast(`Figyelem: ${err.message || 'Kommunikációs hiba a szelvény előkészítésekor.'}`);
+    toast(`Notice: ${err.message || 'Communication error while staging bet slip.'}`);
    }
   };
  });
@@ -817,7 +818,7 @@ function bindOneClickBetButtons(){
 
    placingTipsSet.add(t.id);
    updateTipBetDoneUI(t.id, 'placing');
-   toast(`⚡ 1-Click Bet indítása ($${num(stakeAmt)})! Automata feladás és fül bezárása Safariban…`);
+   toast(`⚡ Starting 1-Click Bet ($${num(stakeAmt)}) in Safari…`);
 
    try {
     const terms = executionTerms(t);
@@ -851,17 +852,17 @@ function bindOneClickBetButtons(){
      markTipBetDone(t.id);
      updateTipBetDoneUI(t.id, 'done');
      await setPlacement(t.id, true, { silent: true });
-     toast(`✅ Siker! Fogadás megkötve a Stake-en ($${num(res.stake || stakeAmt)}), a fül bezárva!`);
+     toast(`✅ Placed on Stake ($${num(res.stake || stakeAmt)}) and closed Safari tab.`);
     } else {
      unmarkTipBetDone(t.id);
      updateTipBetDoneUI(t.id, 'default', stakeAmt);
-     toast(`Figyelem: ${res.message || 'A fogadás nem került feladásra.'}`);
+     toast(`Notice: ${res.message || 'Wager was not placed.'}`);
     }
    } catch(err) {
     placingTipsSet.delete(t.id);
     unmarkTipBetDone(t.id);
     updateTipBetDoneUI(t.id, 'default', stakeAmt);
-    toast(`Hiba: ${err.message || 'Kommunikációs hiba a fogadás feladásakor.'}`);
+    toast(`Error: ${err.message || 'Communication error while placing wager.'}`);
    }
   };
  });
@@ -895,8 +896,8 @@ async function sendAutoRunHeartbeat(force = false) {
    enabled: isAutoRunEnabled,
    next_trigger_at: autoRunNextTriggerAt,
    last_status: (isAutoBetRunning || isAutoRunCycleRunning)
-    ? '⚡ Fogadás folyamatban a Safariban…'
-    : (lastAutoBetStatus ? (lastAutoBetStatus.error ? `⚠️ ${lastAutoBetStatus.error}` : `✅ Ciklus kész! Megkötve: ${lastAutoBetStatus.placedCount || 0} db`) : null),
+    ? '⚡ Placing wagers in Safari…'
+    : (lastAutoBetStatus ? (lastAutoBetStatus.error ? `⚠️ ${lastAutoBetStatus.error}` : `✅ Cycle complete! Placed: ${lastAutoBetStatus.placedCount || 0}`) : null),
    last_cycle_placed: lastAutoBetStatus?.placedCount || 0,
    runner_id: 'MacBook Pro (Safari)'
   };
@@ -935,7 +936,7 @@ function checkAutoHygieneAndVersion(res) {
   } else if (appClientBuildId !== serverBuild) {
    isReloadScheduled = true;
    console.log(`[Quant Engine] New software build detected: ${serverBuild} (current: ${appClientBuildId}). Auto-refreshing UI seamlessly...`);
-   toast('🔄 Új szoftververzió érkezett! A felület automatikusan frissül…', { duration: 3000 });
+   toast('🔄 New software version detected. Refreshing interface…', { duration: 3000 });
    setTimeout(() => {
     window.location.reload();
    }, 2000);
@@ -991,7 +992,7 @@ function updateAutoRunTelemetryUI(res) {
    indicator.style.background = '#10b981';
    indicator.style.color = '#ffffff';
   }
-  if (runnerText) runnerText.textContent = `Auto-Run: AKTÍV (${res.runner_id || 'Mac Runner'})`;
+  if (runnerText) runnerText.textContent = `Auto-Run: AKTÍV · ACTIVE (${res.runner_id || 'Mac Runner'})`;
 
   let remMs = null;
   const targetTrigger = isAutoRunEnabled ? autoRunNextTriggerAt : res.next_trigger_at;
@@ -1003,16 +1004,16 @@ function updateAutoRunTelemetryUI(res) {
 
   if (countdown) {
    if (remMs != null && remMs > 0) {
-    countdown.textContent = `(${formatAutoRunTime(remMs)} múlva)`;
+    countdown.textContent = `(in ${formatAutoRunTime(remMs)})`;
     countdown.style.display = 'inline';
    } else {
-    countdown.textContent = '(Fut…)';
+    countdown.textContent = '(Running…)';
     countdown.style.display = 'inline';
    }
   }
 
   if (lastStatus) {
-   const statusText = isAutoRunEnabled && lastAutoBetStatus ? (lastAutoBetStatus.error ? `⚠️ ${lastAutoBetStatus.error}` : `✅ Ciklus kész! Megkötve: ${lastAutoBetStatus.placedCount || 0} db`) : res.last_status;
+   const statusText = isAutoRunEnabled && lastAutoBetStatus ? (lastAutoBetStatus.error ? `⚠️ ${lastAutoBetStatus.error}` : `✅ Cycle complete! Placed: ${lastAutoBetStatus.placedCount || 0}`) : res.last_status;
    if (statusText) {
     lastStatus.textContent = statusText;
     lastStatus.style.display = 'inline';
@@ -1021,10 +1022,10 @@ function updateAutoRunTelemetryUI(res) {
 
   if (!isAutoRunEnabled && !lastAutoBetStatus?.error) {
    const descEl = $('#auto-bet-desc');
-   if (descEl && !descEl.textContent.includes('Fogadás folyamatban') && !descEl.textContent.includes('leállt') && !descEl.textContent.includes('hiba')) {
+   if (descEl && !descEl.textContent.includes('Placing') && !descEl.textContent.includes('leállt') && !descEl.textContent.includes('halted')) {
     const cycleDesc = res.last_status ? `${res.last_status}. ` : '';
-    const runnerStats = res.autorun_placed_today != null ? `Eddig Auto-Runner által feladva: ${res.autorun_placed_today} db. ` : '';
-    descEl.textContent = `⚡ Auto-Run aktívan fut a háttérben a Mac gépeden. ${runnerStats}${cycleDesc}Következő ciklus: ${countdown?.textContent || ''}.`;
+    const runnerStats = res.autorun_placed_today != null ? `Auto-Runner placed today: ${res.autorun_placed_today}. ` : '';
+    descEl.textContent = `⚡ Auto-Run active in the background on this Mac. ${runnerStats}${cycleDesc}Next cycle: ${countdown?.textContent || ''}.`;
    }
   }
  } else {
@@ -1032,10 +1033,10 @@ function updateAutoRunTelemetryUI(res) {
    indicator.style.background = '#94a3b8';
    indicator.style.color = '#ffffff';
   }
-  if (runnerText) runnerText.textContent = 'Auto-Run: Készenlétben';
+  if (runnerText) runnerText.textContent = 'Auto-Run: Standby';
   if (countdown) countdown.style.display = 'none';
   if (lastStatus) {
-   lastStatus.textContent = res.today_placed_count ? `${res.today_placed_count} db szelvény feladva ma` : 'Nincs aktív futás';
+   lastStatus.textContent = res.today_placed_count ? `${res.today_placed_count} tickets placed today` : 'Idle';
   }
  }
 }
@@ -1048,7 +1049,7 @@ function updateAutoRunStatusUI() {
   if (isAutoRunEnabled) {
    statusEl.style.display = 'inline';
    if (isAutoBetRunning || isAutoRunCycleRunning) {
-    statusEl.textContent = '(Fut…)';
+    statusEl.textContent = '(Running…)';
     statusEl.style.color = '#0284c7';
    } else if (autoRunNextTriggerAt) {
     const remaining = autoRunNextTriggerAt - Date.now();
@@ -1082,7 +1083,7 @@ function disableAutoRun(reason = null) {
  sendAutoRunHeartbeat(true);
  updateAutoRunStatusUI();
  if (reason) {
-  const text = (reason.startsWith('⚠️') || reason.startsWith('Auto-Run')) ? (reason.startsWith('⚠️') ? reason : `⚠️ ${reason}`) : `⚠️ Auto-Run 15m leállt: ${reason}`;
+  const text = (reason.startsWith('⚠️') || reason.startsWith('Auto-Run')) ? (reason.startsWith('⚠️') ? reason : `⚠️ ${reason}`) : `⚠️ Auto-Run 15m stopped: ${reason}`;
   toast(text, { duration: 12000 });
  }
 }
@@ -1186,7 +1187,7 @@ async function executeAutoRunCycle() {
   const { queue, limitReached, count24, count48 } = getAutoRunHierarchicalQueue(openBetsCount);
 
   if (limitReached || openBetsCount >= 300) {
-   toast('ℹ️ Auto-Run 15m: A Stake elérte a 300 aktív fogadási limitet (300/300). Várakozás a meccsek elszámolására a következő 15 perces ciklusig.', { duration: 6000 });
+   toast('ℹ️ Auto-Run 15m: Stake reached 300 active bets limit (300/300). Waiting for settlements before next 15m cycle.', { duration: 6000 });
    return;
   }
 
@@ -1201,19 +1202,19 @@ async function executeAutoRunCycle() {
    if (skippedAutoBetTips.size > 0 && openBetsCount < 300) {
     const toAdapt = [...skippedAutoBetTips.values()].map(s => s.tip);
     if (toAdapt.length > 0) {
-     toast(`⚡ Auto-Run 15m: ${toAdapt.length} db kihagyott piac adaptív pótlással való újraértékelése (+EV)…`);
+     toast(`⚡ Auto-Run 15m: Re-evaluating ${toAdapt.length} skipped markets with adaptive +EV fallback…`);
      try {
       await startAutoBetQueue(toAdapt, true);
      } catch (_) {}
     }
    } else {
-    toast('ℹ️ Auto-Run 15m: Nincs új megköthető szelvény a 24h/48h ablakban.', { duration: 4000 });
+    toast('ℹ️ Auto-Run 15m: No new unplaced tickets in the 24h/48h window.', { duration: 4000 });
    }
    return;
   }
 
-  const breakdownMsg = count48 > 0 ? `${count24} db 24h + ${count48} db 48h` : `${count24} db 24h`;
-  toast(`🚀 Auto-Run 15m ciklus indul: ${queue.length} db szelvény (${breakdownMsg}) megkötése a Stake-en…`);
+  const breakdownMsg = count48 > 0 ? `${count24}× 24h + ${count48}× 48h` : `${count24}× 24h`;
+  toast(`🚀 Auto-Run 15m cycle starting: placing ${queue.length} tickets (${breakdownMsg}) on Stake…`);
 
   try {
    await startAutoBetQueue(queue);
@@ -1221,7 +1222,7 @@ async function executeAutoRunCycle() {
    console.error('Auto-Run cycle error:', err);
    const fatal = isFatalAutoBetError(err, err?.data || null);
    if (fatal.fatal) {
-    disableAutoRun(`Auto-Run queued bets leállt hiba miatt: ${fatal.message}`);
+    disableAutoRun(`Auto-Run halted on error (Auto-Run queued bets leállt hiba miatt): ${fatal.message}`);
     return;
    }
   }
@@ -1256,16 +1257,16 @@ async function enableAutoRun() {
  const { queue, limitReached, count24, count48 } = getAutoRunHierarchicalQueue(openBetsCount);
 
  if (limitReached) {
-  toast('⏱️ Auto-Run 15m bekapcsolva! A Stake elérte a 300 nyitott fogadás limitet (300/300 bet). Az időzítő folyamatosan aktív marad: amint hely szabadul fel, az első 15 perces ciklusban azonnal beadja a 24h szelvényeket!', { duration: 10000 });
+  toast('⏱️ Auto-Run 15m enabled! Stake is at 300/300 open bets. Timer remains active and will place 24h tickets as soon as open slots clear.', { duration: 10000 });
   return;
  }
 
  if (queue.length > 0 && !isAutoBetRunning) {
-  const breakdownMsg = count48 > 0 ? `${count24} db 24h + ${count48} db 48h` : `${count24} db 24h`;
-  toast(`⏱️ Auto-Run 15m bekapcsolva! Azonnali indítás ${queue.length} db szelvényre (${breakdownMsg}), majd 15 percenként folyamatosan.`);
+  const breakdownMsg = count48 > 0 ? `${count24}× 24h + ${count48}× 48h` : `${count24}× 24h`;
+  toast(`⏱️ Auto-Run 15m enabled! Starting ${queue.length} tickets (${breakdownMsg}) now, then repeating every 15m.`);
   await startAutoBetQueue(queue);
  } else {
-  toast('⏱️ Auto-Run 15m bekapcsolva! Nincs új szelvény a 24h/48h ablakban. Következő automatikus futtatás 15 perc múlva.');
+  toast('⏱️ Auto-Run 15m enabled! No unplaced tickets in 24h/48h window. Next cycle in 15 minutes.');
  }
 }
 
@@ -1275,19 +1276,19 @@ function isFatalAutoBetError(errOrMsg, res = null) {
  const limitReached = Boolean(res?.limit_reached || errOrMsg?.data?.limit_reached || errOrMsg?.limit_reached);
 
  if (limitReached || (msg.includes('300') && (msg.includes('aktív') || msg.includes('aktiv') || msg.includes('limit') || msg.includes('active') || msg.includes('nyitva')))) {
-  return { fatal: false, type: 'limit_reached', message: 'Stake 300 aktív fogadási limit elérve (300/300 bet). Várakozás a meccsek elszámolására.' };
+  return { fatal: false, type: 'limit_reached', message: 'Stake 300 active bets limit reached (300/300). Waiting for match settlements.' };
  }
 
  if (msg.includes('jelentkezz be a stake') || msg.includes('bejelentkezés szükséges') || msg.includes('login') || msg.includes('sign in') || msg.includes('session expired')) {
-  return { fatal: true, type: 'login_required', message: 'Bejelentkezés szükséges a Stake fiókodba a Safariban!' };
+  return { fatal: true, type: 'login_required', message: 'Please sign in to your Stake account in Safari.' };
  }
 
  if (msg.includes('insufficient balance') || msg.includes('insufficient funds') || msg.includes('nincs elegendő egyenleg')) {
-  return { fatal: true, type: 'insufficient_funds', message: 'Nincs elegendő egyenleg a számlán a fogadáshoz!' };
+  return { fatal: true, type: 'insufficient_funds', message: 'Insufficient Stake account balance to place wager.' };
  }
 
  if (msg.includes('safari') && (msg.includes('not running') || msg.includes('nem fut') || msg.includes('cannot connect'))) {
-  return { fatal: true, type: 'safari_offline', message: 'A Safari böngésző nem érhető el vagy nem fut!' };
+  return { fatal: true, type: 'safari_offline', message: 'Safari browser is offline or unreachable.' };
  }
 
  return { fatal: false };
@@ -1322,7 +1323,7 @@ function updateAutoBetPanel() {
    startBtn.disabled = queue.length === 0 || openBetsCount >= 300;
    startBtn.style.opacity = (queue.length === 0 || openBetsCount >= 300) ? '0.6' : '1';
    if (openBetsCount >= 300) {
-    startBtn.title = 'Stake 300 aktív fogadási limit elérve. Várni kell a meccsek kifutására.';
+    startBtn.title = 'Stake 300 active bets limit reached. Waiting for open matches to settle.';
    } else {
     startBtn.title = queue.length === 0 ? 'No unplaced bets in the current view' : `Auto-place ${queue.length} bets in Safari sequentially`;
    }
@@ -1330,15 +1331,15 @@ function updateAutoBetPanel() {
   if (stopBtn) stopBtn.style.display = 'none';
   if (descEl) {
    if (lastAutoBetStatus?.fatal && lastAutoBetStatus?.error) {
-    descEl.innerHTML = `<span style="color:#ef4444;font-weight:700;">⚠️ Auto-Run queued bets leállt hiba miatt: ${esc(lastAutoBetStatus.error)}</span>`;
+    descEl.innerHTML = `<span style="color:#ef4444;font-weight:700;">⚠️ Auto-Run halted on error (Auto-Run queued bets leállt hiba miatt): ${esc(lastAutoBetStatus.error)}</span>`;
    } else if (lastAutoBetStatus?.error && !lastAutoBetStatus?.limitReached) {
-    descEl.innerHTML = `<span style="color:#ef4444;font-weight:600;">⚠️ Auto-Bet megállt: ${esc(lastAutoBetStatus.error)}</span>${lastAutoBetStatus.placedCount !== undefined ? ` · Megkötve: <strong>${lastAutoBetStatus.placedCount} db</strong> szelvény.` : ''}${lastAutoBetStatus.skippedCount ? ` · <span style="color:#b45309;font-weight:600;">Kihagyva: <strong>${lastAutoBetStatus.skippedCount} db</strong>.</span>` : ''}`;
+    descEl.innerHTML = `<span style="color:#ef4444;font-weight:600;">⚠️ Auto-Bet paused: ${esc(lastAutoBetStatus.error)}</span>${lastAutoBetStatus.placedCount !== undefined ? ` · Placed: <strong>${lastAutoBetStatus.placedCount}</strong> tickets.` : ''}${lastAutoBetStatus.skippedCount ? ` · <span style="color:#b45309;font-weight:600;">Skipped: <strong>${lastAutoBetStatus.skippedCount}</strong>.</span>` : ''}`;
    } else if (openBetsCount >= 300 || lastAutoBetStatus?.limitReached) {
-    descEl.innerHTML = `<span style="color:#b45309;font-weight:600;">ℹ️ Stake limit (300/300 bet).</span> ${isAutoRunEnabled ? 'Auto-Run 15m aktív: várakozás a következő ciklusra a meccsek kifutásáig.' : 'Új fogadás csak a folyamatban lévő meccsek kifutása és elszámolása után köthető.'}`;
+    descEl.innerHTML = `<span style="color:#b45309;font-weight:600;">ℹ️ Stake limit (300/300 open bets).</span> ${isAutoRunEnabled ? 'Auto-Run 15m active: waiting for next cycle until active fixtures settle.' : 'New wagers can be placed once active matches finish and settle.'}`;
    } else if (lastAutoBetStatus?.completed) {
-    descEl.innerHTML = `<span style="color:#059669;font-weight:700;">✅ Ciklus kész!</span> Megkötve: <strong>${lastAutoBetStatus.placedCount} db</strong> szelvény.${lastAutoBetStatus.skippedCount > 0 ? ` · <span style="color:#b45309;font-weight:600;">⚠️ Kihagyva kézi vizsgálatra: <strong>${lastAutoBetStatus.skippedCount} db</strong>.</span>` : ''}`;
+    descEl.innerHTML = `<span style="color:#059669;font-weight:700;">✅ Cycle complete!</span> Placed: <strong>${lastAutoBetStatus.placedCount}</strong> tickets.${lastAutoBetStatus.skippedCount > 0 ? ` · <span style="color:#b45309;font-weight:600;">⚠️ Skipped for manual review: <strong>${lastAutoBetStatus.skippedCount}</strong>.</span>` : ''}`;
    } else if (lastAutoBetStatus?.stoppedByUser) {
-    descEl.innerHTML = `<span style="color:#64748b;font-weight:600;">⏹ Auto-Bet leállítva a felhasználó által.</span> Megkötve: <strong>${lastAutoBetStatus.placedCount || 0} db</strong>${lastAutoBetStatus.skippedCount ? ` · Kihagyva: <strong>${lastAutoBetStatus.skippedCount} db</strong>` : ''}.`;
+    descEl.innerHTML = `<span style="color:#64748b;font-weight:600;">⏹ Auto-Bet stopped by user.</span> Placed: <strong>${lastAutoBetStatus.placedCount || 0}</strong>${lastAutoBetStatus.skippedCount ? ` · Skipped: <strong>${lastAutoBetStatus.skippedCount}</strong>` : ''}.`;
    } else if (queue.length === 0) {
     descEl.textContent = 'All visible instructions in this view have been placed or marked.';
    } else {
@@ -1352,12 +1353,12 @@ function updateAutoBetPanel() {
     skippedBox.style.display = 'block';
     const items = [...skippedAutoBetTips.values()];
     skippedBox.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:gap:6px;">
-        <span style="font-weight:700;color:#92400e;font-size:12px;">⚠️ Kihagyott piacok kézi ellenőrzésre (${items.length} db):</span>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
+        <span style="font-weight:700;color:#b45309;font-size:12px;">⚠️ Skipped markets for manual review (${items.length}):</span>
         <div style="display:flex;gap:6px;">
-          <button type="button" id="adaptive-retry-skipped-btn" class="button primary" style="padding:3px 8px;font-size:11px;background:#0d9488;border-color:#0d9488;color:#fff;">⚡ Adaptív pótlás (+EV)</button>
-          <button type="button" id="clear-skipped-bets-btn" class="button ghost" style="padding:3px 8px;font-size:11px;color:#92400e;border-color:#f59e0b;background:#fef3c7;">🔄 Újrapróbálás</button>
-          <button type="button" id="dismiss-all-skipped-btn" class="button ghost" style="padding:3px 8px;font-size:11px;color:#166534;border-color:#86efac;background:#f0fdf4;">✓ Mind kész</button>
+          <button type="button" id="adaptive-retry-skipped-btn" class="button primary" style="padding:3px 8px;font-size:11px;background:#0d9488;border-color:#0d9488;color:#fff;">⚡ Adaptive Retry (+EV)</button>
+          <button type="button" id="clear-skipped-bets-btn" class="button ghost" style="padding:3px 8px;font-size:11px;">🔄 Retry All</button>
+          <button type="button" id="dismiss-all-skipped-btn" class="button ghost" style="padding:3px 8px;font-size:11px;">✓ Mark All Placed</button>
         </div>
       </div>
       <div style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;">
@@ -1365,16 +1366,16 @@ function updateAutoBetPanel() {
           const nav = stakeNavigation(s.tip);
           const url = nav.event_url || s.tip.reference_url;
           return `
-            <div style="background:#fff;border:1px solid #fde68a;border-radius:4px;padding:6px 10px;font-size:11px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+            <div style="background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:6px 10px;font-size:11px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
               <div style="flex:1;min-width:0;">
-                <strong style="color:#0f172a;">${esc(s.tip.away)} @ ${esc(s.tip.home)}</strong> (${esc(s.tip.league)}) — 
-                <span style="color:#475569;font-weight:600;">[${esc(s.tip.period || 'Full Game')} · ${esc((s.tip.stake_evidence && s.tip.stake_evidence.market_name) || s.tip.market_name || s.tip.market || 'Piac')}]</span>
-                <span style="color:#0f766e;font-weight:700;margin-left:4px;">${esc(s.tip.selection)}</span> ($${num(instructionStake(s.tip))}): 
-                <span style="color:#b91c1c;margin-left:4px;">${esc(s.reason)}</span>
+                <strong style="color:var(--ink);">${esc(s.tip.away)} @ ${esc(s.tip.home)}</strong> (${esc(s.tip.league)}) — 
+                <span style="color:var(--muted);font-weight:600;">[${esc(s.tip.period || 'Full Game')} · ${esc((s.tip.stake_evidence && s.tip.stake_evidence.market_name) || s.tip.market_name || s.tip.market || 'Market')}]</span>
+                <span style="color:var(--accent);font-weight:700;margin-left:4px;">${esc(s.tip.selection)}</span> ($${num(instructionStake(s.tip))}): 
+                <span style="color:var(--red);margin-left:4px;">${esc(s.reason)}</span>
               </div>
               <div style="display:flex;gap:6px;flex-shrink:0;">
-                <a href="${esc(url)}" target="_blank" rel="noopener noreferrer" class="button primary" style="padding:4px 8px;font-size:11px;background:#0f766e;border-color:#0f766e;color:#fff;text-decoration:none;">🔍 Megnyitás Stake-en ↗</a>
-                <button type="button" class="button ghost mark-skipped-placed-btn" data-tip-id="${esc(s.tip.id)}" style="padding:4px 8px;font-size:11px;color:#166534;border-color:#86efac;background:#f0fdf4;">✓ Kész</button>
+                <a href="${esc(url)}" target="_blank" rel="noopener noreferrer" class="button primary" style="padding:4px 8px;font-size:11px;text-decoration:none;">🔍 Open on Stake ↗</a>
+                <button type="button" class="button ghost mark-skipped-placed-btn" data-tip-id="${esc(s.tip.id)}" style="padding:4px 8px;font-size:11px;">✓ Done</button>
               </div>
             </div>
           `;
@@ -1393,7 +1394,7 @@ function updateAutoBetPanel() {
         skippedAutoBetTips.delete(tipId);
         updateAutoBetPanel();
         renderTips();
-        toast('✓ Szelvény manuálisan késznek jelölve.');
+        toast('✓ Ticket marked as placed.');
       };
     });
     const adaptiveBtn = $('#adaptive-retry-skipped-btn');
@@ -1403,7 +1404,7 @@ function updateAutoBetPanel() {
         if (isAutoBetRunning) return;
         const toAdapt = [...skippedAutoBetTips.values()].map(s => s.tip);
         if (!toAdapt.length) return;
-        toast(`⚡ Adaptív pótlás indítása ${toAdapt.length} db kihagyott piacra…`);
+        toast(`⚡ Starting adaptive +EV retry for ${toAdapt.length} skipped markets…`);
         await startAutoBetQueue(toAdapt, true);
       };
     }
@@ -1417,7 +1418,7 @@ function updateAutoBetPanel() {
         skippedAutoBetTips.clear();
         updateAutoBetPanel();
         renderTips();
-        toast(`🔄 Újrapróbálás indítása ${toRetry.length} db kihagyott piacra...`);
+        toast(`🔄 Retrying ${toRetry.length} skipped markets...`);
         await startAutoBetQueue(toRetry);
       };
     }
@@ -1434,7 +1435,7 @@ function updateAutoBetPanel() {
         skippedAutoBetTips.clear();
         updateAutoBetPanel();
         renderTips();
-        toast(`✓ ${ids.length} db kihagyott piac késznek jelölve.`);
+        toast(`✓ Marked ${ids.length} skipped markets as placed.`);
       };
     }
    } else {
@@ -1449,15 +1450,15 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
  if (isAutoBetRunning) return;
  const openBetsCount = Number(stakeAccountData?.open_bets_count ?? data?.stake_account?.open_bets_count ?? 0);
  if (openBetsCount >= 300) {
-  toast('ℹ️ A Stake elérte a maximális 300 aktív fogadási limitet (300/300 bet). Új szelvények leadása szünetel a következő ciklusig.', { duration: 8000 });
-  lastAutoBetStatus = { error: 'Stake 300 aktív fogadási limit elérve (300/300 bet). Várakozás a meccsek elszámolására.', limitReached: true };
+  toast('ℹ️ Stake reached maximum 300 active bets limit (300/300). New submissions paused until next cycle.', { duration: 8000 });
+  lastAutoBetStatus = { error: 'Stake 300 active bets limit reached (300/300). Waiting for settlements.', limitReached: true };
   updateAutoBetPanel();
   return;
  }
 
  const queue = (overrideQueue && overrideQueue.length) ? [...overrideQueue] : [...getActionableAutoBetQueue()];
  if (!queue.length && !isAdaptiveDirect) {
-  toast('Nincs megköthető nyitott szelvény az aktuális nézetben.');
+  toast('No unplaced actionable tickets in the current view.');
   return;
  }
 
@@ -1465,7 +1466,7 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
  lastAutoBetStatus = null;
  updateAutoBetPanel();
  if (queue.length > 0) {
-  toast(`🚀 Auto 1-Click Bet indítása ${queue.length} szelvényre! Sorban megkötjük őket a Stake-en…`);
+  toast(`🚀 Starting Auto 1-Click Bet for ${queue.length} tickets sequentially on Stake…`);
  }
 
  const currentCycleId = 'cycle_' + Date.now();
@@ -1478,10 +1479,18 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
  api('/api/autorun/log', {
   method: 'POST',
   body: JSON.stringify({
+   stage: 'CYCLE_START',
+   status: 'STARTED',
    event_type: 'CYCLE_START',
    severity: 'INFO',
    cycle_id: currentCycleId,
    run_type: isAdaptiveDirect ? 'adaptive_direct' : 'queue',
+   message: `Starting cycle (${queue.length} queued, ${openBetsCount}/300 active)`,
+   payload: {
+    queue_length: queue.length,
+    is_adaptive_direct: isAdaptiveDirect,
+    open_bets_count: openBetsCount
+   },
    details: {
     queue_length: queue.length,
     is_adaptive_direct: isAdaptiveDirect,
@@ -1493,7 +1502,7 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
  try {
   for (let i = 0; i < queue.length; i++) {
    if (!isAutoBetRunning) {
-    toast('⏹ Auto-Bet folyamat leállítva a felhasználó által.');
+    toast('⏹ Auto-Bet stopped by user.');
     break;
    }
 
@@ -1503,14 +1512,14 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
    // Pre-check open bets before submitting this ticket (only check if Stake has 300 active bets)
    const stakeOpen = Number(stakeAccountData?.open_bets_count ?? data?.stake_account?.open_bets_count ?? 0);
    if (stakeOpen >= 300) {
-    toast(`⚠️ Stake 300 aktív fogadási limit elérve (${stakeOpen}/300 bet). A további szelvények leadása szünetel a következő ciklusig.`, { duration: 8000 });
+    toast(`⚠️ Stake 300 active bets limit reached (${stakeOpen}/300). Remaining tickets paused until next cycle.`, { duration: 8000 });
     break;
    }
 
    const stakeAmt = Number(instructionStake(t) || 0);
    const descEl = $('#auto-bet-desc');
    if (descEl) {
-    descEl.textContent = `[${i + 1}/${queue.length}] Fogadás folyamatban: ${t.selection} ($${num(stakeAmt)}) — ${t.away} @ ${t.home}… (Siker: ${placedCount}, Kihagyva: ${skippedAutoBetTips.size})`;
+    descEl.textContent = `[${i + 1}/${queue.length}] Placing bet: ${t.selection} ($${num(stakeAmt)}) — ${t.away} @ ${t.home}… (Placed: ${placedCount}, Skipped: ${skippedAutoBetTips.size})`;
    }
 
    placingTipsSet.add(t.id);
@@ -1548,7 +1557,7 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
       });
       if (res && res.network_disconnected && netAttempts === 0 && !isTestEnv) {
         netAttempts++;
-        toast(`⚠️ Stake kapcsolat megszakadt: 3s várakozás és újracsatlakozás (${t.selection})…`);
+        toast(`⚠️ Stake connection interrupted: waiting 3s and retrying (${t.selection})…`);
         await new Promise(r => setTimeout(r, 3000));
         continue;
       }
@@ -1560,8 +1569,8 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
     if (res && res.limit_reached) {
      unmarkTipBetDone(t.id);
      updateTipBetDoneUI(t.id, 'default', stakeAmt);
-     lastAutoBetStatus = { error: 'Stake 300 aktív fogadási limit elérve (300/300 bet). Várakozás a meccsek elszámolására.', limitReached: true, placedCount, skippedCount: skippedAutoBetTips.size };
-     toast('⚠️ Stake 300 aktív fogadási limit elérve. A további szelvények leadása szünetel a következő ciklusig.', { duration: 8000 });
+     lastAutoBetStatus = { error: 'Stake 300 active bets limit reached (300/300). Waiting for settlements.', limitReached: true, placedCount, skippedCount: skippedAutoBetTips.size };
+     toast('⚠️ Stake 300 active bets limit reached. Remaining tickets paused until next cycle.', { duration: 8000 });
      break;
     }
 
@@ -1572,11 +1581,11 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
      updateTipBetDoneUI(t.id, 'done');
      await setPlacement(t.id, true, { silent: true });
      placedCount++;
-     const adaptTag = res.adapted ? ' [Adaptívan megkötve]' : '';
-     toast(`✅ [${i + 1}/${queue.length}]${adaptTag} Megkötve és rögzítve: ${res.selection || t.selection} ($${num(res.stake || stakeAmt)})`);
+     const adaptTag = res.adapted ? ' [Adaptive]' : '';
+     toast(`✅ [${i + 1}/${queue.length}]${adaptTag} Placed & recorded: ${res.selection || t.selection} ($${num(res.stake || stakeAmt)})`);
     } else {
      unmarkTipBetDone(t.id);
-     const msg = res.message || res.error || 'A fogadás nem sikerült a Stake-en.';
+     const msg = res.message || res.error || 'Wager placement failed on Stake.';
      const fatal = isFatalAutoBetError(msg, res);
      if (fatal.fatal) {
       fatalErr = fatal;
@@ -1586,18 +1595,18 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
      } else if (fatal.type === 'limit_reached') {
       updateTipBetDoneUI(t.id, 'default', stakeAmt);
       lastAutoBetStatus = { error: fatal.message, limitReached: true, placedCount, skippedCount: skippedAutoBetTips.size };
-      toast('⚠️ Stake 300 aktív fogadási limit elérve. A további szelvények leadása szünetel a következő ciklusig.', { duration: 8000 });
+      toast('⚠️ Stake 300 active bets limit reached. Remaining tickets paused until next cycle.', { duration: 8000 });
       break;
      } else {
       skippedAutoBetTips.set(t.id, { tip: t, reason: msg, time: new Date().toISOString() });
       updateTipBetDoneUI(t.id, 'skipped', stakeAmt, msg);
-      toast(`⚠️ [Kihagyva: ${t.selection}]: ${msg}. Ugrás a következőre…`, { duration: 8000 });
+      toast(`⚠️ [Skipped: ${t.selection}]: ${msg}. Moving to next…`, { duration: 8000 });
      }
     }
    } catch (err) {
     placingTipsSet.delete(t.id);
     unmarkTipBetDone(t.id);
-    const msg = err.message || 'Kommunikációs hiba';
+    const msg = err.message || 'Communication error';
     const fatal = isFatalAutoBetError(err, err.data || null);
     if (fatal.fatal) {
      fatalErr = fatal;
@@ -1607,19 +1616,19 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
     } else if (fatal.type === 'limit_reached') {
      updateTipBetDoneUI(t.id, 'default', stakeAmt);
      lastAutoBetStatus = { error: fatal.message, limitReached: true, placedCount, skippedCount: skippedAutoBetTips.size };
-     toast('⚠️ Stake 300 aktív fogadási limit elérve. A további szelvények leadása szünetel a következő ciklusig.', { duration: 8000 });
+     toast('⚠️ Stake 300 active bets limit reached. Remaining tickets paused until next cycle.', { duration: 8000 });
      break;
     } else {
      skippedAutoBetTips.set(t.id, { tip: t, reason: msg, time: new Date().toISOString() });
      updateTipBetDoneUI(t.id, 'skipped', stakeAmt, msg);
-     toast(`⚠️ [Kihagyva: ${t.selection}]: ${msg}. Ugrás a következőre…`, { duration: 8000 });
+     toast(`⚠️ [Skipped: ${t.selection}]: ${msg}. Moving to next…`, { duration: 8000 });
     }
    }
 
    if (!isAutoBetRunning) break;
 
    if (i < queue.length - 1) {
-    if (descEl) descEl.textContent = `[${i + 1}/${queue.length}] Folytatás: kis szünet a következő szelvény előtt…`;
+    if (descEl) descEl.textContent = `[${i + 1}/${queue.length}] Brief pause before next ticket…`;
     await new Promise(r => setTimeout(r, pauseMs));
    }
   }
@@ -1631,13 +1640,13 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
    if (stakeOpenBeforePhase2 < 300) {
     const toAdapt = [...skippedAutoBetTips.values()].map(s => s.tip);
     if (toAdapt.length > 0) {
-     toast(`🔄 [2. Fázis: Adaptív pótlás] ${toAdapt.length} db kihagyott piac újraértékelése (+EV)…`, { duration: 6000 });
+     toast(`🔄 [Phase 2: Adaptive +EV Retry] Re-evaluating ${toAdapt.length} skipped markets…`, { duration: 6000 });
      const descEl = $('#auto-bet-desc');
      for (let j = 0; j < toAdapt.length; j++) {
       if (!isAutoBetRunning) break;
       const stakeOpenInPhase2 = Number(stakeAccountData?.open_bets_count ?? data?.stake_account?.open_bets_count ?? 0);
       if (stakeOpenInPhase2 >= 300) {
-       toast('⚠️ Stake 300 limit elérve adaptív pótlás közben. Várakozás a következő ciklusra.');
+       toast('⚠️ Stake 300 limit reached during adaptive retry. Waiting for next cycle.');
        break;
       }
       const t = toAdapt[j];
@@ -1646,7 +1655,7 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
        continue;
       }
       if (descEl) {
-       descEl.textContent = `[2. Fázis: ${j + 1}/${toAdapt.length}] Adaptív újraértékelés: ${t.selection} — ${t.away} @ ${t.home}… (Siker: ${placedCount})`;
+       descEl.textContent = `[Phase 2: ${j + 1}/${toAdapt.length}] Adaptive re-evaluation: ${t.selection} — ${t.away} @ ${t.home}… (Placed: ${placedCount})`;
       }
       placingTipsSet.add(t.id);
       updateTipBetDoneUI(t.id, 'placing');
@@ -1680,7 +1689,7 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
        placingTipsSet.delete(t.id);
        if (res && res.limit_reached) {
         unmarkTipBetDone(t.id);
-        updateTipBetDoneUI(t.id, 'skipped', stakeAmt, 'Stake 300 limit elérve');
+        updateTipBetDoneUI(t.id, 'skipped', stakeAmt, 'Stake 300 limit reached');
         break;
        }
        if (res && res.placed === true && res.status === 'ok') {
@@ -1690,15 +1699,15 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
         await setPlacement(t.id, true, { silent: true });
         placedCount++;
         adaptedCount++;
-        toast(`⚡ [Adaptívan megkötve]: ${res.selection || t.selection} ($${num(res.stake || stakeAmt)}) — EV: +${res.ev ? (res.ev * 100).toFixed(1) : ''}%!`);
+        toast(`⚡ [Adaptive Placed]: ${res.selection || t.selection} ($${num(res.stake || stakeAmt)}) — EV: +${res.ev ? (res.ev * 100).toFixed(1) : ''}%!`);
        } else {
-        const msg = res?.message || res?.error || 'Nincs megfelelő +EV alternatíva';
+        const msg = res?.message || res?.error || 'No qualifying +EV alternative';
         skippedAutoBetTips.set(t.id, { tip: t, reason: msg, time: new Date().toISOString() });
         updateTipBetDoneUI(t.id, 'skipped', stakeAmt, msg);
        }
       } catch (e) {
        placingTipsSet.delete(t.id);
-       const msg = e.message || 'Nincs +EV alternatíva';
+       const msg = e.message || 'No qualifying +EV alternative';
        skippedAutoBetTips.set(t.id, { tip: t, reason: msg, time: new Date().toISOString() });
        updateTipBetDoneUI(t.id, 'skipped', null, msg);
       }
@@ -1715,7 +1724,7 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
    repeatPass++;
    const stakeOpenInRepeat = Number(stakeAccountData?.open_bets_count ?? data?.stake_account?.open_bets_count ?? 0);
    if (stakeOpenInRepeat >= 300) {
-    toast(`⚠️ Stake 300 aktív fogadási limit elérve az ismétlési fázisban (${stakeOpenInRepeat}/300). Folyamat leáll a következő ciklusig.`);
+    toast(`⚠️ Stake 300 active bets limit reached during repeat pass (${stakeOpenInRepeat}/300). Pausing until next cycle.`);
     break;
    }
 
@@ -1725,10 +1734,10 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
 
    if (remainingTips.length === 0) break;
 
-   toast(`🔄 [${repeatPass + 1}. kör: Adaptív újrapróbálás & Önjavítás] ${remainingTips.length} db még nem kötött szelvény újabb feldolgozása a Safariban…`, { duration: 6000 });
+   toast(`🔄 [Pass ${repeatPass + 1}: Adaptive Retry & Self-Heal] Retrying ${remainingTips.length} remaining tickets in Safari…`, { duration: 6000 });
    const descEl = $('#auto-bet-desc');
    if (descEl) {
-    descEl.textContent = `[Ismétlési kör ${repeatPass}/${maxRepeatPasses}] ${remainingTips.length} szelvény adaptív önjavítása… (Eddig megkötve: ${placedCount})`;
+    descEl.textContent = `[Repeat pass ${repeatPass}/${maxRepeatPasses}] Adaptive self-heal for ${remainingTips.length} tickets… (Placed so far: ${placedCount})`;
    }
 
    // Short human pause before repeat pass
@@ -1745,7 +1754,7 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
     }
 
     if (descEl) {
-     descEl.textContent = `[Ismétlés ${k + 1}/${remainingTips.length}] Szelvény feladása: ${t.selection} — ${t.away} @ ${t.home}…`;
+     descEl.textContent = `[Repeat ${k + 1}/${remainingTips.length}] Submitting ticket: ${t.selection} — ${t.away} @ ${t.home}…`;
     }
 
     placingTipsSet.add(t.id);
@@ -1784,7 +1793,7 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
 
      if (res && res.limit_reached) {
       unmarkTipBetDone(t.id);
-      updateTipBetDoneUI(t.id, 'skipped', stakeAmt, 'Stake 300 limit elérve');
+      updateTipBetDoneUI(t.id, 'skipped', stakeAmt, 'Stake 300 limit reached');
       break;
      }
 
@@ -1795,16 +1804,16 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
       await setPlacement(t.id, true, { silent: true });
       placedCount++;
       adaptedCount++;
-      const healedTag = res.healed ? ' [Önjavítva]' : (res.adapted ? ' [Adaptívan]' : '');
-      toast(`⚡${healedTag} Sikerült! Megkötve: ${res.selection || t.selection} ($${num(res.stake || stakeAmt)})`);
+      const healedTag = res.healed ? ' [Self-Healed]' : (res.adapted ? ' [Adaptive]' : '');
+      toast(`⚡${healedTag} Placed: ${res.selection || t.selection} ($${num(res.stake || stakeAmt)})`);
      } else {
-      const msg = res?.message || res?.error || 'Nem sikerült az elhelyezés';
+      const msg = res?.message || res?.error || 'Placement failed';
       skippedAutoBetTips.set(t.id, { tip: t, reason: msg, time: new Date().toISOString() });
       updateTipBetDoneUI(t.id, 'skipped', stakeAmt, msg);
      }
     } catch (err) {
      placingTipsSet.delete(t.id);
-     const msg = err.message || 'Hiba az ismétlés során';
+     const msg = err.message || 'Retry error';
      skippedAutoBetTips.set(t.id, { tip: t, reason: msg, time: new Date().toISOString() });
      updateTipBetDoneUI(t.id, 'skipped', null, msg);
     }
@@ -1827,10 +1836,10 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
     skippedList: [...skippedAutoBetTips.values()],
     limitReached: false
    };
-   const fatalMsg = `⚠️ Auto-Run queued bets leállt hiba miatt: ${fatalErr.message}`;
+   const fatalMsg = `⚠️ Auto-Run halted on error (Auto-Run queued bets leállt hiba miatt): ${fatalErr.message}`;
    toast(fatalMsg, { duration: 15000 });
    if (isAutoRunEnabled) {
-    disableAutoRun(`Auto-Run queued bets leállt hiba miatt: ${fatalErr.message}`);
+    disableAutoRun(`Auto-Run halted on error (Auto-Run queued bets leállt hiba miatt): ${fatalErr.message}`);
    }
   } else if (!isAutoBetRunning && lastAutoBetStatus?.stoppedByUser) {
    lastAutoBetStatus.placedCount = placedCount;
@@ -1853,24 +1862,31 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
     limitReached: stakeOpenAtEnd >= 300
    };
    if (placedCount > 0 || skippedAutoBetTips.size > 0) {
-    const adaptText = adaptedCount > 0 ? ` (${adaptedCount} db adaptív pótlás)` : '';
-    toast(`🎉 Ciklus befejezve! Megkötve: ${placedCount} db szelvény${adaptText}${skippedAutoBetTips.size > 0 ? ` · Kihagyva kézi vizsgálatra: ${skippedAutoBetTips.size} db` : ''}.`, { duration: 8000 });
+    const adaptText = adaptedCount > 0 ? ` (${adaptedCount} adaptive)` : '';
+    toast(`🎉 Cycle complete! Placed: ${placedCount} tickets${adaptText}${skippedAutoBetTips.size > 0 ? ` · Skipped for manual review: ${skippedAutoBetTips.size}` : ''}.`, { duration: 8000 });
    }
   }
+  const finishDetails = {
+   placed_count: placedCount,
+   adapted_count: adaptedCount,
+   skipped_count: skippedAutoBetTips.size,
+   fatal: !!fatalErr,
+   error: fatalErr ? fatalErr.message : null
+  };
   api('/api/autorun/log', {
    method: 'POST',
    body: JSON.stringify({
+    stage: 'CYCLE_FINISH',
     event_type: 'CYCLE_FINISH',
     severity: fatalErr ? 'ERROR' : 'INFO',
+    status: fatalErr ? 'FAILED' : 'COMPLETED',
     cycle_id: currentCycleId,
     run_type: isAdaptiveDirect ? 'adaptive_direct' : 'queue',
-    details: {
-     placed_count: placedCount,
-     adapted_count: adaptedCount,
-     skipped_count: skippedAutoBetTips.size,
-     fatal: !!fatalErr,
-     error: fatalErr ? fatalErr.message : null
-    }
+    message: fatalErr
+     ? `Auto-Runner cycle halted: ${fatalErr.message}`
+     : `Auto-Runner cycle finished (${placedCount} placed, ${adaptedCount} adapted, ${skippedAutoBetTips.size} skipped).`,
+    payload: finishDetails,
+    details: finishDetails
    })
   }).catch(() => {});
   updateAutoBetPanel();
@@ -1885,14 +1901,14 @@ async function startAutoBetQueue(overrideQueue = null, isAdaptiveDirect = false)
 function stopAutoBetQueue() {
  if (isAutoBetRunning) {
   isAutoBetRunning = false;
-  lastAutoBetStatus = { error: 'Folyamat leállítva a felhasználó által.', stoppedByUser: true };
-  toast('⏹ Auto-Bet leállítása folyamatban…');
+  lastAutoBetStatus = { error: 'Stopped by user.', stoppedByUser: true };
+  toast('⏹ Stopping Auto-Bet queue…');
   const stopBtn = $('#auto-bet-stop-btn');
   if (stopBtn) stopBtn.textContent = '⏳ Stopping…';
   updateAutoBetPanel();
  }
  if (isAutoRunEnabled) {
-  disableAutoRun('Felhasználó leállította a folyamatot.');
+  disableAutoRun('Stopped by user.');
  }
 }
 
@@ -1943,7 +1959,7 @@ function bindAutoBetRunner() {
     enableAutoRun();
    } else {
     disableAutoRun();
-    toast('⏹️ Auto-Run 15m kikapcsolva.');
+    toast('⏹️ Auto-Run 15m disabled.');
    }
   };
  }
@@ -1976,24 +1992,24 @@ async function fetchAndRenderAutoRunLogs(filter = currentAutoRunFilter) {
    const errRate = totalEvents > 0 ? ((errors / totalEvents) * 100).toFixed(1) + '%' : '0.0%';
 
    kpiBar.innerHTML = `
-    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px;">
-     <div style="font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;">Ciklusok</div>
-     <div style="font-size:16px;font-weight:700;color:#0f172a;margin-top:2px;">${cycles} db</div>
+    <div class="autorun-kpi-card">
+     <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;">Cycles</div>
+     <div style="font-size:16px;font-weight:700;margin-top:2px;">${cycles} db</div>
     </div>
-    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:8px 12px;">
-     <div style="font-size:10px;color:#166534;font-weight:600;text-transform:uppercase;">Megkötve</div>
-     <div style="font-size:16px;font-weight:700;color:#15803d;margin-top:2px;">${placed} db</div>
+    <div class="autorun-kpi-card">
+     <div style="font-size:10px;color:#16a34a;font-weight:600;text-transform:uppercase;">Placed · Megkötve</div>
+     <div style="font-size:16px;font-weight:700;color:#16a34a;margin-top:2px;">${placed} db</div>
     </div>
-    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:8px 12px;">
-     <div style="font-size:10px;color:#991b1b;font-weight:600;text-transform:uppercase;">Hibák / Skippelt</div>
+    <div class="autorun-kpi-card">
+     <div style="font-size:10px;color:#dc2626;font-weight:600;text-transform:uppercase;">Errors / Skipped</div>
      <div style="font-size:16px;font-weight:700;color:#dc2626;margin-top:2px;">${errors} db</div>
     </div>
-    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px;">
-     <div style="font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;">Hibaarány</div>
-     <div style="font-size:16px;font-weight:700;color:${errors > 0 ? '#b91c1c' : '#15803d'};margin-top:2px;">${errRate}</div>
+    <div class="autorun-kpi-card">
+     <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;">Error Rate</div>
+     <div style="font-size:16px;font-weight:700;color:${errors > 0 ? '#dc2626' : '#16a34a'};margin-top:2px;">${errRate}</div>
     </div>
-    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:8px 12px;">
-     <div style="font-size:10px;color:#1e40af;font-weight:600;text-transform:uppercase;">Összes esemény</div>
+    <div class="autorun-kpi-card">
+     <div style="font-size:10px;color:#2563eb;font-weight:600;text-transform:uppercase;">Total Events</div>
      <div style="font-size:16px;font-weight:700;color:#2563eb;margin-top:2px;">${totalEvents} db</div>
     </div>
    `;
@@ -2009,7 +2025,7 @@ async function fetchAndRenderAutoRunLogs(filter = currentAutoRunFilter) {
      <div style="display:flex;align-items:flex-start;gap:8px;">
       <span style="font-size:18px;">🤖</span>
       <div style="flex:1;">
-       <strong style="color:#991b1b;font-size:12px;">AI Hibadiagnosztika &amp; Javítási Teendők (${recs.length} minta észlelve):</strong>
+       <strong style="color:#991b1b;font-size:12px;">AI Error Diagnostics &amp; Remediation (${recs.length} patterns · AI Hibadiagnosztika):</strong>
        <ul style="margin:6px 0 0 0;padding-left:18px;font-size:11px;color:#7f1d1d;line-height:1.4;">
         ${recs.map(r => `<li><strong>[${esc(r.error_code)}] (${r.occurrence_count}x):</strong> ${esc(r.recommendation)}</li>`).join('')}
        </ul>
@@ -2023,7 +2039,7 @@ async function fetchAndRenderAutoRunLogs(filter = currentAutoRunFilter) {
     remediationBox.innerHTML = `
      <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:#166534;">
       <span style="font-size:16px;">✅</span>
-      <strong>Normál telemetria:</strong> Nincs aktív kritikus hiba vagy elakadás az Auto-Runner folyamatban.
+      <strong>Healthy telemetry:</strong> No active critical errors or stalls detected in Auto-Runner.
      </div>
     `;
    }
@@ -2032,62 +2048,68 @@ async function fetchAndRenderAutoRunLogs(filter = currentAutoRunFilter) {
   const events = logsRes.events || [];
   let filtered = events;
   if (filter === 'error') {
-   filtered = events.filter(e => e.severity === 'ERROR' || e.severity === 'WARNING' || e.error_code);
+   filtered = events.filter(e => e.severity === 'ERROR' || e.severity === 'WARN' || e.severity === 'WARNING' || e.error_code);
   } else if (filter === 'placed') {
-   filtered = events.filter(e => e.stage === 'STAGE_COMPLETE' || (e.details && e.details.placed) || e.event_type === 'BET_PLACED');
+   filtered = events.filter(e => e.stage === 'STAGE_COMPLETE' || e.status === 'PLACED' || ((e.payload || e.details) && (e.payload || e.details).placed) || e.event_type === 'BET_PLACED');
   } else if (filter === 'adaptive') {
-   filtered = events.filter(e => e.stage === 'ADAPTIVE_EVALUATION' || (e.details && e.details.adapted));
+   filtered = events.filter(e => e.stage === 'ADAPTIVE_EVALUATION' || ((e.payload || e.details) && (e.payload || e.details).adapted));
   }
 
   if (countText) {
-   countText.textContent = `Megjelenítve: ${filtered.length} / ${events.length} esemény`;
+   countText.textContent = `Showing: ${filtered.length} / ${events.length} events`;
   }
 
   if (!filtered.length) {
-   tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:#94a3b8;">Nincs megjeleníthető esemény ebben a szűrésben.</td></tr>`;
+   tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--muted);">No events match this filter.</td></tr>`;
    return;
   }
 
   tbody.innerHTML = filtered.map(ev => {
-   const d = ev.details || {};
-   const timeStr = ev.created_at ? ev.created_at.replace('T', ' ').slice(0, 19) : '—';
+   const d = ev.payload || ev.details || {};
+   const rawTime = ev.budapest_time || ev.logged_at || ev.created_at || '';
+   const timeStr = rawTime ? String(rawTime).replace('T', ' ').slice(0, 19) : '—';
    
-   let stageBadge = `<span class="badge" style="background:#e2e8f0;color:#334155;font-size:10px;padding:2px 6px;">${esc(ev.stage || ev.event_type)}</span>`;
+   let stageBadge = `<span class="badge muted" style="font-size:10px;padding:2px 6px;">${esc(ev.stage || ev.event_type || 'EVENT')}</span>`;
    if (ev.severity === 'ERROR') {
-    stageBadge = `<span class="badge" style="background:#fee2e2;color:#991b1b;font-size:10px;padding:2px 6px;font-weight:700;">⛔ ${esc(ev.stage || ev.event_type)}</span>`;
-   } else if (ev.severity === 'WARNING') {
-    stageBadge = `<span class="badge" style="background:#fef3c7;color:#92400e;font-size:10px;padding:2px 6px;font-weight:700;">⚠️ ${esc(ev.stage || ev.event_type)}</span>`;
-   } else if (ev.stage === 'STAGE_COMPLETE' || d.placed) {
-    stageBadge = `<span class="badge" style="background:#dcfce7;color:#166534;font-size:10px;padding:2px 6px;font-weight:700;">✅ SIKER</span>`;
+    stageBadge = `<span class="badge negative" style="font-size:10px;padding:2px 6px;font-weight:700;">⛔ ${esc(ev.stage || ev.event_type)}</span>`;
+   } else if (ev.severity === 'WARNING' || ev.severity === 'WARN') {
+    stageBadge = `<span class="badge warning" style="font-size:10px;padding:2px 6px;font-weight:700;">⚠️ ${esc(ev.stage || ev.event_type)}</span>`;
+   } else if (ev.stage === 'STAGE_COMPLETE' || ev.status === 'PLACED' || d.placed) {
+    stageBadge = `<span class="badge positive" style="font-size:10px;padding:2px 6px;font-weight:700;">✅ PLACED · SIKER</span>`;
    } else if (ev.stage === 'ADAPTIVE_EVALUATION') {
-    stageBadge = `<span class="badge" style="background:#e0e7ff;color:#3730a3;font-size:10px;padding:2px 6px;font-weight:700;">⚡ ADAPTÍV</span>`;
+    stageBadge = `<span class="badge" style="background:#e0e7ff;color:#3730a3;font-size:10px;padding:2px 6px;font-weight:700;">⚡ ADAPTIVE</span>`;
    }
 
-   const targetText = ev.target_selection ? `<strong>${esc(ev.target_selection)}</strong>${ev.league ? `<br><small style="color:#64748b;">${esc(ev.league)} · ${esc(ev.market_name || '')}</small>` : ''}` : '—';
+   const selName = ev.target_selection || ev.selection || d.selection;
+   const mktLabel = ev.market_name || ev.market || d.market_name || '';
+   const targetText = selName ? `<strong>${esc(selName)}</strong>${ev.league ? `<br><small style="color:var(--muted);">${esc(ev.league)}${mktLabel ? ' · ' + esc(mktLabel) : ''}</small>` : ''}` : '—';
 
+   const refOddsVal = ev.reference_odds ?? d.reference_odds;
+   const liveOddsVal = ev.live_odds ?? ev.odds ?? d.live_odds;
    let oddsText = '—';
-   if (ev.reference_odds || ev.live_odds) {
-    oddsText = `<span style="font-family:var(--mono);">${ev.reference_odds ? Number(ev.reference_odds).toFixed(2) : '—'}</span> → <strong style="font-family:var(--mono);">${ev.live_odds ? Number(ev.live_odds).toFixed(2) : '—'}</strong>`;
+   if (refOddsVal || liveOddsVal) {
+    oddsText = `<span style="font-family:var(--mono);">${refOddsVal ? Number(refOddsVal).toFixed(2) : '—'}</span> → <strong style="font-family:var(--mono);">${liveOddsVal ? Number(liveOddsVal).toFixed(2) : '—'}</strong>`;
     if (d.live_ev !== undefined) {
      const evPct = (d.live_ev * 100).toFixed(1);
-     oddsText += `<br><small style="color:${d.live_ev >= 0 ? '#166534' : '#991b1b'};font-weight:600;">EV: ${d.live_ev >= 0 ? '+' : ''}${evPct}%</small>`;
+     oddsText += `<br><small style="color:${d.live_ev >= 0 ? '#16a34a' : '#dc2626'};font-weight:600;">EV: ${d.live_ev >= 0 ? '+' : ''}${evPct}%</small>`;
     }
    }
 
-   let diagHtml = `<div>${esc(ev.status_message || '')}</div>`;
+   const msgText = ev.status_message || ev.message || '';
+   let diagHtml = `<div>${esc(msgText)}</div>`;
    if (ev.error_code) {
-    diagHtml += `<div style="margin-top:3px;"><span class="badge" style="background:#fee2e2;color:#991b1b;font-size:9px;padding:1px 5px;font-family:var(--mono);font-weight:700;">${esc(ev.error_code)}</span></div>`;
+    diagHtml += `<div style="margin-top:3px;"><span class="badge negative" style="font-size:9px;padding:1px 5px;font-family:var(--mono);font-weight:700;">${esc(ev.error_code)}</span></div>`;
    }
    if (ev.ai_remediation_hint) {
-    diagHtml += `<div style="margin-top:4px;font-size:10px;color:#7f1d1d;background:#fff1f2;padding:4px 6px;border-radius:4px;border-left:2px solid #e11d48;">💡 <em>${esc(ev.ai_remediation_hint)}</em></div>`;
+    diagHtml += `<div style="margin-top:4px;font-size:10px;color:#be123c;background:rgba(225,29,72,0.08);padding:4px 6px;border-radius:4px;border-left:2px solid #e11d48;">💡 <em>${esc(ev.ai_remediation_hint)}</em></div>`;
    }
    if (d.adapted && d.selected_candidate) {
-    diagHtml += `<div style="margin-top:4px;font-size:10px;color:#1e40af;background:#eff6ff;padding:4px 6px;border-radius:4px;border-left:2px solid #3b82f6;">🎯 Kiválasztott alternatíva: <strong>${esc(d.selected_candidate.selection)}</strong> @ ${Number(d.selected_candidate.odds).toFixed(2)}</div>`;
+    diagHtml += `<div style="margin-top:4px;font-size:10px;color:#2563eb;background:rgba(59,130,246,0.1);padding:4px 6px;border-radius:4px;border-left:2px solid #3b82f6;">🎯 Adaptive selection: <strong>${esc(d.selected_candidate.selection)}</strong> @ ${Number(d.selected_candidate.odds).toFixed(2)}</div>`;
    }
 
    return `
-    <tr style="border-bottom:1px solid #f1f5f9;">
-     <td style="padding:6px 10px;font-family:var(--mono);white-space:nowrap;color:#64748b;">${esc(timeStr)}</td>
+    <tr style="border-bottom:1px solid var(--line);">
+     <td style="padding:6px 10px;font-family:var(--mono);white-space:nowrap;color:var(--muted);">${esc(timeStr)}</td>
      <td style="padding:6px 10px;white-space:nowrap;">${stageBadge}</td>
      <td style="padding:6px 10px;">${targetText}</td>
      <td style="padding:6px 10px;white-space:nowrap;">${oddsText}</td>
@@ -2097,7 +2119,7 @@ async function fetchAndRenderAutoRunLogs(filter = currentAutoRunFilter) {
   }).join('');
 
  } catch (err) {
-  tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:#dc2626;">Hiba a naplók lekérése közben: ${esc(err.message)}</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:#dc2626;">Error loading logs: ${esc(err.message)}</td></tr>`;
  }
 }
 
@@ -2314,7 +2336,8 @@ function pickCard(t,index){
  const timingBadge=isFar?`<span class="badge ${timing.action==='BET_NOW'?'timing-bet-now':'timing-wait'}" title="${esc(timing.reason)}">${timing.action==='BET_NOW'?'⚡ BET NOW':'⏳ WAIT'}</span>`:'';
  const timingCallout=isFar?`<div class="timing-callout ${timing.action==='BET_NOW'?'timing-callout-bet-now':'timing-callout-wait'}"><strong>${timing.action==='BET_NOW'?'⚡ BET NOW: ':'⏳ WAIT: '}</strong>${esc(timing.reason)}</div>`:'';
  const polyBadge=polymarketBadge(t);
- return `<article class="tip-card" data-tip-id="${esc(t.id)}"><div class="tip-top"><span class="rank">${String(index+1).padStart(2,'0')}</span><span class="league ${esc(t.league)}">${esc(t.league)}</span>${timingBadge}<span class="time" title="Match Start Time">📅 Match: <strong>${esc(when(t.start))}</strong></span></div><div class="tip-match">${esc(t.away)} @ ${esc(t.home)}</div><div class="tip-market">${esc(c.market_display||marketName[t.market])}</div>${stakeNavigation(t).tab?`<p class="panel-copy stake-tab">Stake tab: <strong>${esc(stakeNavigation(t).tab)}</strong></p>`:''}<div class="selection">${esc(t.selection)}</div><div class="tip-metrics"><div><div class="metric-label">MODEL WIN PROBABILITY</div><div class="metric-value">${pct(c.probability)}</div></div><div><div class="metric-label">STAKE ODDS</div><div class="metric-value">${num(curOdds)}</div>${isIssued?`<div class="stat-sub">Original odds at issue: ${num(originalOdds)}</div><div class="stat-sub">Min odds: ${displayedMinimumOdds(t)}</div>`:''}</div><div><div class="metric-label">STAKE TO PLACE · USD</div><div class="metric-value">Bet $${num(instructionStake(t))}</div></div></div>${timingCallout}<p class="panel-copy">Minimum odds: <strong>${displayedMinimumOdds(t)}</strong>${isModelPick(t)?' (above model break-even)':''} · Single bet · ${allTiersWeighted(t)||weightedModelPick(t)?('$'+stakeStr(data.settings?.unit_stake,1)+'–$'+stakeStr(data.settings?.max_bet,5)+' calculated stake'):unitPickLabel(t)?('$'+stakeStr(data.settings?.unit_stake,1)+' maximum for this selection'):('$'+stakeStr(data.settings?.unit_stake,1)+'–$'+stakeStr(data.settings?.max_bet,5)+' per selection')}</p>${unitPickSummary(t)?`<p class="panel-copy model-pick-note">${esc(unitPickSummary(t))}</p>`:''}${stakeBetButton(t)}${placementControl(t)}<div class="tip-bottom"><div class="tip-bottom-badges"><span class="badge positive">${esc(instructionTierLabel(t)||(t.is_additional?'Additional Bet':'Ready to Bet'))}</span>${polyBadge}</div><button class="detail-button" data-detail="${esc(t.id)}">Bet Details →</button></div><p class="tip-reference">📅 <strong>Match:</strong> ${esc(when(t.start))} · 🕒 Odds checked: ${esc(when(c.quote_at))}${t.created_at?` · Issued: ${esc(when(t.created_at))}`:''}</p></article>`;
+ const uFloor=stakeStr(data.settings?.unit_stake,0.5),uMax=stakeStr(data.settings?.max_bet,8);
+ return `<article class="tip-card" data-tip-id="${esc(t.id)}"><div class="tip-top"><span class="rank">${String(index+1).padStart(2,'0')}</span><span class="league ${esc(t.league)}">${esc(t.league)}</span>${timingBadge}<span class="time" title="Match Start Time">📅 Match: <strong>${esc(when(t.start))}</strong></span></div><div class="tip-match">${esc(t.away)} @ ${esc(t.home)}</div><div class="tip-market">${esc(c.market_display||marketName[t.market])}</div>${stakeNavigation(t).tab?`<p class="panel-copy stake-tab">Stake tab: <strong>${esc(stakeNavigation(t).tab)}</strong></p>`:''}<div class="selection">${esc(t.selection)}</div><div class="tip-metrics"><div><div class="metric-label">MODEL WIN PROBABILITY</div><div class="metric-value">${pct(c.probability)}</div></div><div><div class="metric-label">STAKE ODDS</div><div class="metric-value">${num(curOdds)}</div>${isIssued?`<div class="stat-sub">Original odds at issue: ${num(originalOdds)}</div><div class="stat-sub">Min odds: ${displayedMinimumOdds(t)}</div>`:''}</div><div><div class="metric-label">STAKE TO PLACE · USD</div><div class="metric-value">Bet $${num(instructionStake(t))}</div></div></div>${timingCallout}<p class="panel-copy">Minimum odds: <strong>${displayedMinimumOdds(t)}</strong>${isModelPick(t)?' (above model break-even)':''} · Single bet · ${allTiersWeighted(t)||weightedModelPick(t)?('$'+uFloor+'–$'+uMax+' calculated stake'):unitPickLabel(t)?('$'+stakeStr(data.settings?.unit_stake,1)+' maximum for this selection'):('$'+uFloor+'–$'+uMax+' per selection')}</p>${unitPickSummary(t)?`<p class="panel-copy model-pick-note">${esc(unitPickSummary(t))}</p>`:''}${stakeBetButton(t)}${placementControl(t)}<div class="tip-bottom"><div class="tip-bottom-badges"><span class="badge positive">${esc(instructionTierLabel(t)||(t.is_additional?'Additional Bet':'Ready to Bet'))}</span>${polyBadge}</div><button class="detail-button" data-detail="${esc(t.id)}">Bet Details →</button></div><p class="tip-reference">📅 <strong>Match:</strong> ${esc(when(t.start))} · 🕒 Odds checked: ${esc(when(c.quote_at))}${t.created_at?` · Issued: ${esc(when(t.created_at))}`:''}</p></article>`;
 }
 function updateHorizonBadges(){
  const pool=readyTips();
@@ -2342,6 +2365,7 @@ function updateHorizonBadges(){
  }
 }
 
+let evaluatedExpanded=false;
 function renderTips(){
  const rows=visibleTips(readyTips());
  if(view==='tips'&&selectedTip&&$('#detail-dialog').open){const current=rows.find(t=>t.id===selectedTip.id);if(!current||instructionSignature(current)!==selectedInstructionSignature){$('#detail-dialog').close();selectedTip=null;selectedInstructionSignature=null;}}
@@ -2353,7 +2377,18 @@ function renderTips(){
  $('#tip-count').textContent=rows.length;
  $('#tips-grid').innerHTML=readyMarkup||emptyTipsMessage();
  updateHorizonBadges();
- renderStats();renderOpportunitySummary();renderTracked();renderAlternatives();renderEvaluated();bindPlacementControls();bindStageBetslipButtons();bindOneClickBetButtons();updateAutoBetPanel();bindAutoBetRunner();$$('#tips-grid .tip-card .stake-bet-button').forEach(button=>bindInstructionLink(button,button.closest('[data-tip-id]').dataset.tipId));$$('[data-detail]').forEach(b=>b.onclick=()=>showDetail(b.dataset.detail,b.dataset.current==='true'));
+ renderStats();
+ renderTracked();
+ if(!initialViewsHydrated||view==='research'){
+  renderOpportunitySummary();
+  renderAlternatives();
+  renderEvaluated();
+  dirtyViews.delete('research');
+ }else{
+  if($('#window-coverage'))$('#window-coverage').textContent=`${rows.length} current betting instructions. Earlier and placed bets are in Bet Tracker. The engine updates this list automatically.`;
+  dirtyViews.add('research');
+ }
+ bindPlacementControls();bindStageBetslipButtons();bindOneClickBetButtons();updateAutoBetPanel();bindAutoBetRunner();$$('#tips-grid .tip-card .stake-bet-button').forEach(button=>bindInstructionLink(button,button.closest('[data-tip-id]').dataset.tipId));$$('[data-detail]').forEach(b=>b.onclick=()=>showDetail(b.dataset.detail,b.dataset.current==='true'));
 }
 function historyRows(){return liveTips().filter(t=>t.tracked_bet||isPlaced(t)).sort((a,b)=>new Date(a.start)-new Date(b.start)||String(a.id).localeCompare(String(b.id)))}
 function renderTracked(){
@@ -2382,7 +2417,12 @@ function renderAlternatives(){
 }
 function renderEvaluated(){
  const rows=visibleTips(allEvaluated());$('#evaluated-count').textContent=rows.length;
- $('#evaluated-table').innerHTML=table(['League','Matchup','Market','Selection','Odds','Model Probability','Model EV','Stress EV','Allocation','Details'],rows.map(t=>[esc(t.league),esc(t.away)+' @ '+esc(t.home),esc(t.market_display||marketName[t.market]),esc(t.selection),num(t.reference_odds),pct(t.probability),pct(t.expected_roi),pct(t.stress_roi),esc(allocationReason(t)),`<button class="detail-button" data-detail="${esc(t.id)}" data-current="true">View Analysis</button>`]));
+ const cap=250;
+ const displayRows=evaluatedExpanded?rows:rows.slice(0,cap);
+ const moreBtn=(!evaluatedExpanded&&rows.length>cap)?`<div style="margin-top:10px;text-align:center"><button type="button" class="button ghost" id="evaluated-show-all-btn">Show all ${rows.length} modeled outcomes</button></div>`:'';
+ $('#evaluated-table').innerHTML=table(['League','Matchup','Market','Selection','Odds','Model Probability','Model EV','Stress EV','Allocation','Details'],displayRows.map(t=>[esc(t.league),esc(t.away)+' @ '+esc(t.home),esc(t.market_display||marketName[t.market]),esc(t.selection),num(t.reference_odds),pct(t.probability),pct(t.expected_roi),pct(t.stress_roi),esc(allocationReason(t)),`<button class="detail-button" data-detail="${esc(t.id)}" data-current="true">View Analysis</button>`]))+moreBtn;
+ const showAll=$('#evaluated-show-all-btn');
+ if(showAll){showAll.onclick=()=>{evaluatedExpanded=true;renderEvaluated();$$('#evaluated-table [data-detail]').forEach(b=>b.onclick=()=>showDetail(b.dataset.detail,b.dataset.current==='true'));};}
 }
 function renderArchive(){const rows=visibleTips(data?.archived_recommendations||[]);$('#archive-section').hidden=!rows.length;$('#archive-grid').innerHTML=rows.map(t=>`<div class="archive-row"><div><strong>${esc(t.away)} @ ${esc(t.home)}</strong><small>${esc(t.league)} · ${esc(when(t.start))}</small></div><div><strong>${esc(t.market_display||marketName[t.market])}</strong><small>${esc(t.selection)}</small></div><div><strong>Old model price ${num(t.reference_odds)}</strong><small>${esc(t.archive_source||'Historical model feed')} · Stake line not verified</small></div></div>`).join('')}
 let scheduleFlight=null;
@@ -2390,7 +2430,7 @@ function renderSchedule(schedule){
  if(!Array.isArray(schedule.games)||!Array.isArray(schedule.unavailable))throw new Error('Schedule source unavailable');
  $('#schedule-status').textContent=`Next 24 hours · Europe/Budapest (${schedule.timezone_label||''}) · Sources checked: ${when(schedule.checked_at)}. Daily refresh at 09:00 Budapest; refreshed every 15 minutes during the day.`;
  $('#games-table').innerHTML=table(['League · Local Start · Away @ Home'],schedule.games.map(g=>[esc(g.line)]));
- $('#schedule-empty').textContent=(schedule.no_games||[]).map(l=>'Nincs meccs: '+l).join(' · ')+(schedule.unavailable.length?' Source unavailable or stale: '+schedule.unavailable.join(', '):'');
+ $('#schedule-empty').textContent=(schedule.no_games||[]).map(l=>'No fixtures (Nincs meccs: '+l+')').join(' · ')+(schedule.unavailable.length?' Source unavailable or stale: '+schedule.unavailable.join(', '):'');
  $('#schedule-watch').textContent=schedule.must_watch?'Must-watch: '+schedule.must_watch.line+' — '+schedule.must_watch.reason:'';
  $('#schedule-sources').innerHTML=(schedule.sources||[]).filter(s=>/^https:\/\/site\.api\.espn\.com\//.test(s.url)).map(s=>`<a target="_blank" rel="noopener noreferrer" href="${esc(s.url)}">ESPN ${esc(s.league)} schedule source</a>`).join(' · ');
 }
