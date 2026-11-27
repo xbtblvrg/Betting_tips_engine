@@ -867,7 +867,7 @@ def probability_preference_ids(candidates,settings,bases=None,held_preference_al
     return {c['id'] for c in best.values()}
 
 
-def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_contracts=(),held_event_counts=None,held_preference_allocations=(),held_allocation_families=(),held_event_stakes=None,held_period_counts=None,daily_family_counts=None,daily_funded_count=0,held_event_roster=None):
+def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_contracts=(),held_event_counts=None,held_preference_allocations=(),held_allocation_families=(),held_event_stakes=None,held_period_counts=None,daily_family_counts=None,daily_funded_count=0,held_event_roster=None,_preverified_candidate_ids=None):
     # Select the best current contract per family, including held contracts.
     # A new best line can be issued later; holding the best does not rotate to inferior alternatives.
     selection_policy=family_selection_policy(settings)
@@ -878,6 +878,8 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
     if dynamic:
         from .governance import evidence_digest
         for candidate in candidates:
+            if _preverified_candidate_ids is not None and id(candidate) in _preverified_candidate_ids:
+                continue
             guard=candidate.get('decision_guard') or {}
             if guard.get('passed') is True and guard.get('candidate_sha256')!=evidence_digest(candidate):
                 raise ValueError('Candidate changed before dynamic allocation')

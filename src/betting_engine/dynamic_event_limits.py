@@ -80,7 +80,7 @@ def _quality(tip):
         return {'score':0.,'historical_signal':0.,'reason':'incomplete_quality_evidence'}
 
 
-def evidence(settings, league, game_id, held, batch):
+def evidence(settings, league, game_id, held, batch, *, include_digests=True):
     from .decisions import publication_limits
     base=publication_limits(settings,league);configured=policy(settings)
     if configured is None:return None
@@ -90,11 +90,15 @@ def evidence(settings, league, game_id, held, batch):
     for kind,tips in [('held',old),('new',new)]:
         for tip in tips:
             quality=_quality(tip)
-            fields={k:tip.get(k) for k in ('id','game_id','league','market','model_scope','side','line',
-                'probability','market_anchor','input_readiness','calibration_uncertainty','probability_basis','outcome_sizing_evidence')}
+            if include_digests:
+                fields={k:tip.get(k) for k in ('id','game_id','league','market','model_scope','side','line',
+                    'probability','market_anchor','input_readiness','calibration_uncertainty','probability_basis','outcome_sizing_evidence')}
+                in_sha = digest(fields)
+            else:
+                in_sha = ''
             entries.append({'kind':kind,'id':tip['id'],'ticket_id':tip.get('_held_ticket_id') if kind=='held' else None,
                 'held_stake':float(tip['stake']) if kind=='held' else None,
-                'family':allocation_family(tip),'input_sha256':digest(fields),'quality':quality})
+                'family':allocation_family(tip),'input_sha256':in_sha,'quality':quality})
     entries.sort(key=lambda r:(r['kind'],r['id'],r['ticket_id'] or ''))
     v2 = configured['version'] == VERSION_V2
     # Original held tickets still consume every dollar/count and are sealed.
@@ -150,17 +154,17 @@ def evidence(settings, league, game_id, held, batch):
     limits['distinct_families_required']=settings.get('family_selection_policy') not in ('continuous_probability_v2', 'continuous_probability_v3', 'continuous_probability_v4')
     result={'version':configured['version'],'policy':configured,'game_id':game_id,'league':league,'base_limits':base,
             'limits':limits,'weakest_score':score,'weakest_history_signal':history,'multiplier':multiplier,
-            'roster':entries,'roster_sha256':digest(entries),
+            'roster':entries,'roster_sha256':digest(entries) if include_digests else '',
             'basis':('minimum_current_new_batch_quality; all_held_exposure_counted_and_sealed; cold_start_multiplier_ceiling_1.5; signed_game_weighted_history' if v2 else 'minimum_quality_of_all_open_held_and_complete_new_batch; positive_game_weighted_shrunken_history_required'),
             'earned_expansion':earned, 'earning_roster_count':len(earning), 'history_proven':history>=configured['minimum_history_signal'],
             'profit_validated':False}
-    result['sha256']=digest(result)
+    result['sha256']=digest(result) if include_digests else ''
     return result
 
 
 def limits_for(settings,tip,held,batch):
     from .decisions import publication_limits
-    result=evidence(settings,tip.get('league'),tip['game_id'],held,batch)
+    result=evidence(settings,tip.get('league'),tip['game_id'],held,batch,include_digests=False)
     return result['limits'] if result else publication_limits(settings,tip.get('league'))
 
 

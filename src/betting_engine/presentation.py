@@ -312,11 +312,27 @@ def english_payload(value):
     if t in (int, float, bool) or value is None:
         return value
     if t is list:
-        return [english_payload(v) for v in value]
-    if isinstance(value,str):return english_text(value)
-    if isinstance(value,list):return [english_payload(v) for v in value]
-    if isinstance(value,dict):
-        result={k:english_payload(v) for k,v in value.items()}
+        out = []
+        append = out.append
+        for v in value:
+            tv = type(v)
+            if tv is str:
+                append(('Withdrawn / Expired' if v == 'withdrawn / expired' else v) if v.isascii() else english_text(v))
+            elif tv in (int, float, bool) or v is None:
+                append(v)
+            else:
+                append(english_payload(v))
+        return out
+    if t is dict or isinstance(value, dict):
+        result = {}
+        for k, v in value.items():
+            tv = type(v)
+            if tv is str:
+                result[k] = ('Withdrawn / Expired' if v == 'withdrawn / expired' else v) if v.isascii() else english_text(v)
+            elif tv in (int, float, bool) or v is None:
+                result[k] = v
+            else:
+                result[k] = english_payload(v)
         mkt = value.get('market')
         if 'selection' in value and (mkt in SUPPORTED or mkt in SCORE_MARKETS):
             result['selection']=selection_name(value)
@@ -327,4 +343,6 @@ def english_payload(value):
                 threshold=Decimal(str(value['minimum_odds'])).quantize(Decimal('.01'),rounding=ROUND_CEILING)
                 result['stake_note']=f'Watchlist: requires decimal odds of at least {threshold} on the same market and settlement rules.'
         return result
+    if isinstance(value,str):return english_text(value)
+    if isinstance(value,list):return [english_payload(v) for v in value]
     return value

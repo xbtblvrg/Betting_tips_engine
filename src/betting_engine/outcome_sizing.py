@@ -289,60 +289,8 @@ _SIZING_ENV_TTL_SECONDS = 10.0
 
 def _summary_cache_key(summary):
     try:
-        games = summary.get('games')
-        if type(games) is not dict:
-            return None
-        top = []
-        for k, v in summary.items():
-            if type(k) is not str:
-                return None
-            if k == 'games':
-                continue
-            tv = type(v)
-            if tv is float:
-                if not math.isfinite(v):
-                    return None
-                top.append((k, float, v))
-            elif tv in (str, int, bool) or v is None:
-                top.append((k, tv, v))
-            else:
-                return None
-        if len(top) > 1:
-            top.sort(key=lambda item: item[0])
-        g_items = []
-        for gk, gv in games.items():
-            if type(gk) is not str or type(gv) is not dict or len(gv) != 7:
-                return None
-            w = gv.get('wins')
-            l = gv.get('losses')
-            p = gv.get('pushes')
-            obs = gv.get('observations')
-            stk = gv.get('stake')
-            pnl = gv.get('pnl')
-            inv = gv.get('inverse_odds_sum')
-            if None in (w, l, p, obs, stk, pnl, inv):
-                return None
-            for num in (stk, pnl, inv):
-                if type(num) is float and not math.isfinite(num):
-                    return None
-                if type(num) not in (int, float, bool):
-                    return None
-            if any(type(x) not in (int, float, bool) for x in (w, l, p, obs)):
-                return None
-            g_items.append((
-                gk,
-                type(w), w,
-                type(l), l,
-                type(p), p,
-                type(obs), obs,
-                type(stk), stk,
-                type(pnl), pnl,
-                type(inv), inv,
-            ))
-        if len(g_items) > 1:
-            g_items.sort(key=lambda item: item[0])
-        return (tuple(top), tuple(g_items))
-    except Exception:
+        return json.dumps(summary, separators=(',', ':'), ensure_ascii=True, allow_nan=False)
+    except (TypeError, ValueError, OverflowError):
         return None
 
 

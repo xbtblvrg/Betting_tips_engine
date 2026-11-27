@@ -156,6 +156,9 @@ def verify_professional_quality(sealed, report, market):
             'current': current, 'claim': 'This check alone never authorizes publication.'}
 
 
+_QUALITY_RECEIPT_CACHE: dict[tuple[str | None, str | None, str | None, str | None, str], dict] = {}
+
+
 def verify_quality_receipt(sealed, *, league, model_version, scope, market):
     """Validate compact *already sealed* evidence without report/file access.
 
@@ -163,7 +166,28 @@ def verify_quality_receipt(sealed, *, league, model_version, scope, market):
     The outer publication seal remains mandatory. A plain digest is not a
     signature: this rechecks the guard's attestation, not external source truth.
     """
+    cache_key = None
+    if type(sealed) is dict:
+        try:
+            cache_key = (
+                league,
+                model_version,
+                scope,
+                market,
+                json.dumps(sealed, separators=(',', ':'), allow_nan=False),
+            )
+            cached = _QUALITY_RECEIPT_CACHE.get(cache_key)
+            if cached is not None:
+                return {'passed': cached['passed'], 'errors': list(cached['errors']), **({'claim': cached['claim']} if 'claim' in cached else {})}
+        except (TypeError, ValueError):
+            cache_key = None
+
     def reject(reason):
+        res = {'passed': False, 'errors': [reason]}
+        if cache_key is not None:
+            if len(_QUALITY_RECEIPT_CACHE) > 512:
+                _QUALITY_RECEIPT_CACHE.clear()
+            _QUALITY_RECEIPT_CACHE[cache_key] = res
         return {'passed': False, 'errors': [reason]}
     if not isinstance(sealed, Mapping):
         return reject('professional_quality_receipt_missing')
@@ -222,8 +246,13 @@ def verify_quality_receipt(sealed, *, league, model_version, scope, market):
             return reject('professional_quality_score_evidence_invalid')
         if q['state'] == 'synthetic_diagnostics_only' and not _metrics(q.get('synthetic_metrics')):
             return reject('professional_quality_score_metrics_invalid')
-    return {'passed': True, 'errors': [],
-            'claim': 'Bound report-summary check under the outer publication seal; not independent external replay, complete family approval, or profitability evidence.'}
+    passed_res = {'passed': True, 'errors': [],
+                  'claim': 'Bound report-summary check under the outer publication seal; not independent external replay, complete family approval, or profitability evidence.'}
+    if cache_key is not None:
+        if len(_QUALITY_RECEIPT_CACHE) > 512:
+            _QUALITY_RECEIPT_CACHE.clear()
+        _QUALITY_RECEIPT_CACHE[cache_key] = passed_res
+    return {'passed': True, 'errors': [], 'claim': passed_res['claim']}
 
 
 def quality_repair_task(quality):

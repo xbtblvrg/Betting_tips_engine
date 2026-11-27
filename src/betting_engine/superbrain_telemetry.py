@@ -263,13 +263,27 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
                     for r in c.fetchall()
                 ]
 
-                # Polymarket CLOB status
+                # Polymarket CLOB status (strictly distinguishing funded vs $0.00 shadow paper orders)
                 c.execute("""
-                    SELECT status, count(*), coalesce(sum(stake_usd), 0), coalesce(sum(pnl), 0)
+                    SELECT status,
+                           count(*),
+                           coalesce(sum(stake_usd), 0),
+                           coalesce(sum(pnl), 0),
+                           coalesce(sum(CASE WHEN coalesce(stake_usd, 0) > 0 THEN 1 ELSE 0 END), 0),
+                           coalesce(sum(CASE WHEN coalesce(stake_usd, 0) <= 0 THEN 1 ELSE 0 END), 0)
                     FROM polymarket_orders
                     GROUP BY status
                 """)
-                poly_summary = {r[0]: {"count": r[1], "stake": round(r[2], 2), "pnl": round(r[3], 2)} for r in c.fetchall()}
+                poly_summary = {
+                    r[0]: {
+                        "count": r[1],
+                        "stake": round(r[2], 2),
+                        "pnl": round(r[3], 2),
+                        "funded_count": int(r[4] or 0),
+                        "shadow_count": int(r[5] or 0),
+                    }
+                    for r in c.fetchall()
+                }
 
                 c.execute("""
                     SELECT league, game_title, market_family, selection, poly_price, poly_odds, expected_value, stake_usd, status, pnl, created_at
@@ -617,6 +631,16 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
     total_settled_stake = bets_summary.get("won", {}).get("stake", 0.0) + bets_summary.get("lost", {}).get("stake", 0.0)
     all_time_roi_pct = round((total_realized_pnl / total_settled_stake * 100), 1) if total_settled_stake > 0 else 0.0
 
+    funnel_supervision = get_latest_funnel_supervision_status(d)
+    tier4_poly_stage = (funnel_supervision.get("funnel_stages") or {}).get("tier4_polymarket") or {}
+    tier4_live_alpha_count = int(tier4_poly_stage.get("active_dual_reachable_count", 0) or 0)
+    poly_funded_wins = int((poly_summary.get("won") or {}).get("funded_count", 0) or 0)
+    poly_shadow_wins = int((poly_summary.get("won") or {}).get("shadow_count", 0) or 0)
+    poly_thread_source = (
+        f"{tier4_live_alpha_count} Tier 4 live proven alpha segments · "
+        f"{poly_funded_wins} funded wins / {poly_shadow_wins} $0.00 shadow paper wins"
+    )
+
     pipeline_threads = [
         {
             "id": "thread_ingestion",
@@ -683,10 +707,10 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
             "name": "Polymarket CLOB Maker Liquidity Thread (Tier 4)",
             "cadence": "Continuous order book scan & maker limits",
             "daemon": "hu.belavarga.betting-quant-engine",
-            "source": f"{poly_summary.get('won', {}).get('count', 17)} confirmed live alpha segments",
-            "output": "Maker Limit Orders (0% taker fee, instant settlement)",
-            "status": "ACTIVE_MAKER",
-            "active_items": "Dual-platform leverage, automated token redemption"
+            "source": poly_thread_source,
+            "output": "Maker Limit Orders (0% taker fee, Tier 4 funded / $0.00 shadow validation)",
+            "status": "ACTIVE_MAKER" if tier4_live_alpha_count > 0 else "SHADOW_QUALIFYING",
+            "active_items": "Dual-platform leverage, strict Tier 4 live Stake profit gate"
         },
         {
             "id": "thread_closed_loop_repair",
@@ -710,7 +734,7 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
             "id": f"grad_{g.get('segment_key')}",
             "type": "crucible_graduation",
             "priority": "critical",
-            "target_node": "tiers_pipeline",
+            "target_node": "tier_3",
             "title": "CRUCIBLE GRADUATION (TIER 2 → TIER 3)",
             "subtitle": f"{g.get('segment_key')}",
             "league": leg,
@@ -728,7 +752,7 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
             "id": f"dem_{d_item.get('segment_key')}",
             "type": "demotion_tourniquet",
             "priority": "critical",
-            "target_node": "tiers_pipeline",
+            "target_node": "tier_1",
             "title": "TOURNIQUET CLAMP & DEMOTION",
             "subtitle": f"{d_item.get('segment_key')}",
             "league": leg,
@@ -816,18 +840,20 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
     # 7. Polymarket CLOB Maker Orders
     for po in recent_poly_orders[:3]:
         leg = po.get("league", "UNKNOWN")
+        po_stake = float(po.get("stake") or 0.0)
+        is_shadow_po = po_stake <= 0.0
         live_event_queue.append({
             "id": f"poly_{po.get('created_at', '')}_{po.get('selection', '')}",
             "type": "polymarket_order",
-            "priority": "critical",
+            "priority": "routine" if is_shadow_po else "critical",
             "target_node": "tier_4",
-            "title": "POLYMARKET CLOB MAKER LIMIT ORDER",
+            "title": "POLYMARKET SHADOW PAPER ORDER ($0.00)" if is_shadow_po else "POLYMARKET CLOB MAKER LIMIT ORDER",
             "subtitle": f"{po.get('game')} ({po.get('selection')})",
             "league": leg,
             "emoji": get_league_emoji(leg),
-            "badge": f"${po.get('stake', 0.0):.2f} MAKER",
-            "badge_color": "cyan",
-            "details": f"Odds {po.get('odds', 0.0):.2f} · EV +{po.get('ev', 0.0):.1f}% · 0% taker fee",
+            "badge": "$0.00 SHADOW" if is_shadow_po else f"${po_stake:.2f} MAKER",
+            "badge_color": "amber" if is_shadow_po else "cyan",
+            "details": f"Odds {po.get('odds', 0.0):.2f} · EV +{po.get('ev', 0.0):.1f}% · {'Shadow validation' if is_shadow_po else '0% taker fee'}",
             "timestamp": po.get("created_at") or now_utc.isoformat()
         })
 
@@ -914,6 +940,59 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
         except Exception:
             pass
 
+    def _measure_feed_freshness(candidates_rel: List[str], default_detail: str) -> Tuple[str, Optional[int], Optional[str], Optional[float]]:
+        best_mtime: Optional[float] = None
+        measured_latency_ms: Optional[int] = None
+        for rel in candidates_rel:
+            p = d / rel
+            try:
+                if p.is_file():
+                    st = p.stat()
+                    if best_mtime is None or st.st_mtime > best_mtime:
+                        best_mtime = st.st_mtime
+                    if p.suffix == '.json' and st.st_size <= 262144:
+                        raw_obj = json.loads(p.read_text(encoding='utf-8'))
+                        if isinstance(raw_obj, dict):
+                            lat_v = raw_obj.get('latency_ms') or raw_obj.get('response_ms')
+                            if isinstance(lat_v, (int, float)) and lat_v >= 0:
+                                measured_latency_ms = int(round(lat_v))
+                elif p.is_dir():
+                    for child in p.iterdir():
+                        if child.is_file():
+                            mst = child.stat().st_mtime
+                            if best_mtime is None or mst > best_mtime:
+                                best_mtime = mst
+            except Exception:
+                continue
+        if best_mtime is None:
+            return f"UNMEASURED · {default_detail}", measured_latency_ms, None, None
+        age_s = max(0.0, now_utc.timestamp() - best_mtime)
+        upd_iso = datetime.fromtimestamp(best_mtime, tz=timezone.utc).isoformat()
+        if age_s < 120:
+            age_label = f"{int(round(age_s))}s ago"
+        elif age_s < 7200:
+            age_label = f"{int(round(age_s / 60.0))}m ago"
+        else:
+            age_label = f"{age_s / 3600.0:.1f}h ago"
+        state_prefix = "ONLINE" if age_s < 3600 else "CACHED"
+        return f"{state_prefix} · Synced {age_label} ({default_detail})", measured_latency_ms, upd_iso, round(age_s, 1)
+
+    espn_status, espn_lat, espn_upd, espn_age = _measure_feed_freshness(
+        ["games.json", "cache/espn"], "Live 60s schedule & scores"
+    )
+    nhl_status, nhl_lat, nhl_upd, nhl_age = _measure_feed_freshness(
+        ["cache/nhl_goalies.json", "cache/nhl", "nhl_goalies.json"], "Goalies & save%"
+    )
+    mlb_status, mlb_lat, mlb_upd, mlb_age = _measure_feed_freshness(
+        ["cache/mlb_pitchers.json", "cache/mlb", "mlb_pitchers.json"], "Probable pitchers"
+    )
+    meteo_status, meteo_lat, meteo_upd, meteo_age = _measure_feed_freshness(
+        ["cache/weather.json", "cache/open_meteo", "weather_cache.json"], "Wind & temp vectors"
+    )
+    poly_status, poly_lat, poly_upd, poly_age = _measure_feed_freshness(
+        ["cache/polymarket", "polymarket_rd_priorities.json", "logs/polymarket_orders.jsonl"], "CLOB orderbook"
+    )
+
     return {
         "timestamp_utc": now_utc.isoformat(),
         "budapest_time": now_bp.strftime("%Y-%m-%d %H:%M:%S %Z"),
@@ -985,6 +1064,7 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
             "tier_4_polymarket": {
                 "name": "Tier 4: Live Proven Alpha & Polymarket CLOB Execution",
                 "promotion_rate_per_hour": tier4_prom_per_hour,
+                "live_proven_alpha_segments_count": tier4_live_alpha_count,
                 "execution_mode": "Maker Limit Orders (0% Taker Fee)",
                 "summary": poly_summary,
                 "recent_orders": recent_poly_orders
@@ -1024,7 +1104,7 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
         },
         "debug_thought_stream": [
             {"source": "GEMINI AGY", "text": "Continuous compound wealth optimization active: monitoring 12 liquid leagues for EV > 0 contracts.", "color": "#00f3ff"},
-            {"source": "CODEX ASTRA", "text": f"Compiling first-principles candidate models: AST verified, pure deterministic score matrix generation.", "color": "#00ff88"},
+            {"source": "CODEX ASTRA", "text": "Compiling first-principles candidate models: AST verified, pure deterministic score matrix generation.", "color": "#00ff88"},
             {"source": "CLAUDE OPUS", "text": "Analyzing rest differentials, B2B schedules and starting lineups across upcoming 72h fixtures.", "color": "#ffb703"},
             {"source": "GROK 4.7", "text": "Adversarial stress-test: zero static odds clamps detected, EV hurdle >= 3.5% verified on candidate pool.", "color": "#ff0055"},
             {"source": "QUANTUM THALAMUS", "text": f"Fractional Kelly sizing ($0.50-$8.00): today funded volume {today_bets_count}/100 picks (${today_bets_stake:.2f} allocated).", "color": "#00f3ff"},
@@ -1032,51 +1112,56 @@ def get_superbrain_state(data_dir: Optional[Path] = None) -> Dict[str, Any]:
             {"source": "ALGORITHMIC CODEX ENGINE", "text": f"Dynamic mathematical archetype library: {total_arch_cnt} active archetypes (+{arch_exp_rate:.1f} arch/hr expansion velocity), autonomous champion distillation online.", "color": "#9d4edd"},
             {"source": "TIER-2 SHADOW INCUBATOR", "text": f"High-velocity forward paper trade stream: {total_incubated_wagers:,} virtual test bets processed at $0.00 stakes.", "color": "#ffb703"},
             {"source": "TIER-3 STAKE PRODUCTION", "text": f"Active graduated production: {graduated_markets_count} markets live under dynamic 72h horizon on Stake sportsbook.", "color": "#00ff88"},
-            {"source": "TIER-4 POLYMARKET CLOB", "text": f"Live proven alpha tier: automated maker limit orders active on Polymarket CLOB (0% taker fee).", "color": "#00f3ff"},
-            {"source": "SENSORY INGESTION", "text": "ESPN API, NHL Web API, MLB Stats API, and Open-Meteo feeds synced with 0ms backlog.", "color": "#7086a3"},
+            {"source": "TIER-4 POLYMARKET CLOB", "text": f"Live proven alpha tier: {tier4_live_alpha_count} dual-reachable segments eligible for funded maker orders ({poly_shadow_wins} $0.00 shadow wins).", "color": "#00f3ff"},
+            {"source": "SENSORY INGESTION", "text": "ESPN Public API, NHL Web API, MLB Stats API, Open-Meteo, and Polymarket CLOB free feeds active.", "color": "#7086a3"},
             {"source": "TOURNIQUET GUARD", "text": "Interim capital defense monitoring: any segment with rolling ROI < -3.0% immediately receives $0.50 emergency clamp.", "color": "#ff3366"}
         ],
         "sensory_feeds": [
             {
                 "id": "espn",
                 "name": "ESPN Public API",
-                "status": "ONLINE · 0ms Backlog",
-                "latency_ms": 42,
+                "status": espn_status,
+                "latency_ms": espn_lat,
+                "freshness_seconds": espn_age,
                 "coverage": "8 Sports · Live 60s period clocks & quarters",
-                "updated_at": now_utc.isoformat()
+                "updated_at": espn_upd
             },
             {
                 "id": "nhl",
                 "name": "NHL Official Web API (api-web.nhle.com)",
-                "status": "ONLINE · Confirmed Goalies",
-                "latency_ms": 38,
+                "status": nhl_status,
+                "latency_ms": nhl_lat,
+                "freshness_seconds": nhl_age,
                 "coverage": "32 Teams · Starting goalies & save percentages",
-                "updated_at": now_utc.isoformat()
+                "updated_at": nhl_upd
             },
             {
                 "id": "mlb",
                 "name": "MLB Stats API (statsapi.mlb.com)",
-                "status": "ONLINE · Starter Rotations",
-                "latency_ms": 45,
+                "status": mlb_status,
+                "latency_ms": mlb_lat,
+                "freshness_seconds": mlb_age,
                 "coverage": "Probable starting pitchers & bullpen workloads",
-                "updated_at": now_utc.isoformat()
+                "updated_at": mlb_upd
             },
             {
                 "id": "meteo",
                 "name": "Open-Meteo Weather API",
-                "status": "ONLINE · Wind & Temp Vectors",
-                "latency_ms": 52,
+                "status": meteo_status,
+                "latency_ms": meteo_lat,
+                "freshness_seconds": meteo_age,
                 "coverage": "Outdoor stadium wind speeds (km/h) & weather impacts",
-                "updated_at": now_utc.isoformat()
+                "updated_at": meteo_upd
             },
             {
                 "id": "polymarket",
                 "name": "Polymarket Open CLOB WebSocket",
-                "status": "ONLINE · Orderbook Depth",
-                "latency_ms": 14,
+                "status": poly_status,
+                "latency_ms": poly_lat,
+                "freshness_seconds": poly_age,
                 "coverage": "Real-time maker liquidity & best bids/asks",
-                "updated_at": now_utc.isoformat()
+                "updated_at": poly_upd
             }
         ],
-        "funnel_supervision": get_latest_funnel_supervision_status(d)
+        "funnel_supervision": funnel_supervision
     }

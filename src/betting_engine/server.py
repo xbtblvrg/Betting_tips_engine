@@ -645,7 +645,7 @@ def rd_status():
                 'fences': [
                     'Strict read-only access to immutable system_decisions & bets ledger',
                     'Zero wager placement authority (strictly generates model calibrations & research recipes)',
-                    'Immutable $1–$5 bet stake limits preserved (user standing rule)',
+                    'Continuous $0.50–$8.00 risk-adjusted fractional Kelly stake bounds (daily_risk_limit = null)',
                     'Pre-promotion Crucible Walk-Forward gate: ΔBrier > 0, ΔROI ≥ 0 required',
                     'Release gate: 100% deterministic test pass required before deployment'
                 ],

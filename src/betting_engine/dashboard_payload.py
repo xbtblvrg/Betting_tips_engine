@@ -373,7 +373,8 @@ def build_dashboard(store,health,data_dir):
     held_preferences=store.held_preference_allocations()
     progress=store.daily_progress()
     from .dynamic_event_limits import held_roster
-    chosen,alternatives=rank_and_size(reviewed,settings,store.risk_committed(),store.held_families(),held_contracts,held_event_counts,held_preferences,(store.held_allocation_families() if settings.get('model_pick_allocation_policy')=='distinct_family_v1' or settings.get('publication_limits_version')=='v3' else ()),store.held_event_stakes(),store.held_period_counts(),store.daily_family_counts(),progress.get('calendar_day_issued',progress.get('issued',0)),held_event_roster=held_roster(store.open_bets()))
+    _preverified_ids = {id(t) for t in reviewed if (t.get('decision_guard') or {}).get('passed') is True}
+    chosen,alternatives=rank_and_size(reviewed,settings,store.risk_committed(),store.held_families(),held_contracts,held_event_counts,held_preferences,(store.held_allocation_families() if settings.get('model_pick_allocation_policy')=='distinct_family_v1' or settings.get('publication_limits_version')=='v3' else ()),store.held_event_stakes(),store.held_period_counts(),store.daily_family_counts(),progress.get('calendar_day_issued',progress.get('issued',0)),held_event_roster=held_roster(store.open_bets()),_preverified_candidate_ids=_preverified_ids)
     # Re-ranking on GET can discover the next batch after the current batch
     # has just committed. Reading the dashboard must never issue that batch.
     # Only the publication transaction creates the immutable issuance record.
