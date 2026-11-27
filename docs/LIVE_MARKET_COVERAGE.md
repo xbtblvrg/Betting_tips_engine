@@ -1,15 +1,15 @@
 # Live Stake market coverage
 
-Checked: 2026-11-27T14:00:34.071659+00:00
+Checked: 2026-11-27T14:25:14.681825+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
 | League | Observed titles | Activity unverified | Offered now | Complete 10/10 | Incomplete offered | Evaluated | Funding supported | Ready now | Issued today |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| NFL | 115 | 48 | 64 | 0 | 64 | 42 | 0 | 0 | 21 |
-| NHL | 84 | 16 | 68 | 0 | 68 | 49 | 0 | 0 | 9 |
+| NFL | 115 | 48 | 64 | 0 | 64 | 42 | 0 | 2 | 21 |
+| NHL | 84 | 16 | 68 | 0 | 68 | 49 | 0 | 1 | 9 |
 | MLB | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| NBA | 188 | 42 | 132 | 0 | 132 | 67 | 0 | 0 | 18 |
+| NBA | 188 | 42 | 132 | 0 | 132 | 67 | 0 | 2 | 18 |
 | WNBA | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 
 Current stages require outcome-level evidence; original issuance, settlement and feedback are explicitly historical. 10/10 records observed execution, not proven profitability or automatic model promotion.
@@ -205,8 +205,8 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NBA | team rebounds | swishMarkets.teamProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/16 | activity_unverified 0/16 | activity_unverified 0/16 | activity_unverified 0/16 | activity_unverified 0/16 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NBA | team steals | swishMarkets.teamProps | regulation | observed_activity_unverified | 0/10 | activity_unverified 0/10 | activity_unverified 0/10 | activity_unverified 0/10 | activity_unverified 0/10 | activity_unverified 0/10 | activity_unverified 0/0 | activity_unverified 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 1st Half - 1x2 | standard | half_1 | offered_now | 0/10 | not_observed 0/33 | not_observed 0/33 | not_observed 0/33 | not_observed 0/33 | not_observed 0/33 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NFL | 1st Half - Asian Handicap | standard | half_1 | offered_now | 1/10 | not_observed 0/26 | verified 26/26 | partial 12/26 | partial 12/26 | partial 12/26 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NFL | 1st Half - Asian Total | standard | half_1 | offered_now | 1/10 | not_observed 0/26 | verified 26/26 | partial 9/26 | partial 9/26 | partial 9/26 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NFL | 1st Half - Asian Handicap | standard | half_1 | offered_now | 1/10 | not_observed 0/30 | verified 30/30 | partial 13/30 | partial 13/30 | partial 13/30 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
+| NFL | 1st Half - Asian Total | standard | half_1 | offered_now | 1/10 | not_observed 0/30 | verified 30/30 | partial 11/30 | partial 11/30 | partial 11/30 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 1st Half - Draw No Bet | standard | half_1 | offered_now | 0/10 | not_observed 0/22 | not_observed 0/22 | not_observed 0/22 | not_observed 0/22 | not_observed 0/22 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 1st Half - Odd/Even | standard | half_1 | offered_now | 1/10 | not_observed 0/22 | verified 22/22 | not_observed 0/22 | not_observed 0/22 | not_observed 0/22 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NFL | 1st Quarter - 1x2 | standard | quarter_1 | offered_now | 1/10 | not_observed 0/33 | verified 33/33 | not_observed 0/33 | not_observed 0/33 | not_observed 0/33 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
@@ -363,7 +363,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NHL | Double Chance | standard | regulation | offered_now | 5/10 | not_observed 0/45 | verified 45/45 | verified 45/45 | verified 45/45 | partial 36/45 | not_observed 0/0 | not_observed 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NHL | Edmonton Oilers Total | standard | regulation | offered_now | 4/10 | not_observed 0/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Florida Panthers Total | standard | regulation | offered_now | 1/10 | not_observed 0/6 | verified 6/6 | partial 4/6 | partial 4/6 | partial 4/6 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NHL | Handicap (Incl. Overtime and Penalties) | standard | full_game | offered_now | 3/10 | not_observed 0/106 | verified 106/106 | partial 38/106 | partial 38/106 | partial 38/106 | not_observed 0/0 | not_observed 0/0 | verified 28/28 | verified 28/28 | awaiting_measurement 28/29 | 0 |
+| NHL | Handicap (Incl. Overtime and Penalties) | standard | full_game | offered_now | 3/10 | not_observed 0/122 | verified 122/122 | partial 46/122 | partial 46/122 | partial 46/122 | not_observed 0/0 | not_observed 0/0 | verified 28/28 | verified 28/28 | awaiting_measurement 28/29 | 0 |
 | NHL | Last Goal | standard | regulation | offered_now | 0/10 | not_observed 0/45 | not_observed 0/45 | not_observed 0/45 | not_observed 0/45 | not_observed 0/45 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Los Angeles Kings Total | standard | regulation | offered_now | 1/10 | not_observed 0/6 | verified 6/6 | partial 4/6 | partial 4/6 | partial 4/6 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Minnesota Wild Total | standard | regulation | offered_now | 3/10 | not_observed 0/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | not_observed 0/0 | not_observed 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
@@ -380,7 +380,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NHL | St. Louis Blues Total | standard | regulation | offered_now | 3/10 | not_observed 0/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | not_observed 0/0 | not_observed 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NHL | Tampa Bay Lightning Total | standard | regulation | offered_now | 3/10 | not_observed 0/6 | verified 6/6 | partial 4/6 | partial 4/6 | partial 4/6 | not_observed 0/0 | not_observed 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NHL | Toronto Maple Leafs Total | standard | regulation | offered_now | 1/10 | not_observed 0/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NHL | Total (Incl. Overtime and Penalties) | standard | full_game | offered_now | 3/10 | not_observed 0/150 | verified 150/150 | partial 115/150 | partial 115/150 | partial 115/150 | not_observed 0/0 | not_observed 0/0 | verified 37/37 | verified 37/37 | awaiting_measurement 37/38 | 0 |
+| NHL | Total (Incl. Overtime and Penalties) | standard | full_game | offered_now | 3/10 | not_observed 0/150 | verified 150/150 | partial 119/150 | partial 119/150 | partial 119/150 | not_observed 0/0 | not_observed 0/0 | verified 37/37 | verified 37/37 | awaiting_measurement 37/38 | 0 |
 | NHL | Utah Mammoth Total | standard | regulation | offered_now | 3/10 | not_observed 0/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | not_observed 0/0 | not_observed 0/0 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NHL | Vancouver Canucks Total | standard | regulation | offered_now | 1/10 | not_observed 0/6 | verified 6/6 | partial 4/6 | partial 4/6 | partial 4/6 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | Vegas Golden Knights Total | standard | regulation | offered_now | 4/10 | not_observed 0/6 | verified 6/6 | verified 6/6 | verified 6/6 | verified 6/6 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
