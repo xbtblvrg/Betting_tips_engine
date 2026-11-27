@@ -3,13 +3,16 @@
 Digests bind evidence, not authenticate it. Issuance must independently rebuild
 these summaries from immutable system_decisions inside its transaction.
 """
-from collections import Counter, defaultdict
+from collections import Counter, OrderedDict, defaultdict
 from datetime import datetime, timezone
 from decimal import Decimal, ROUND_DOWN
 import hashlib
 import json
 import math
 import os
+from pathlib import Path
+import threading
+import time
 from urllib.parse import urlsplit
 
 from .contracts import allocation_family, split_market
@@ -276,8 +279,74 @@ def summary_for(snapshot, tip):
     return result
 
 
-def verify_summary(summary):
-    """Cheap numeric/digest consistency; not a substitute for ledger replay."""
+_VERIFY_SUMMARY_CACHE_MAX = 512
+_VERIFY_SUMMARY_CACHE = OrderedDict()
+_VERIFY_SUMMARY_LOCK = threading.Lock()
+_SIZING_ENV_CACHE = {}
+_SIZING_ENV_LOCK = threading.Lock()
+_SIZING_ENV_TTL_SECONDS = 10.0
+
+
+def _summary_cache_key(summary):
+    try:
+        games = summary.get('games')
+        if type(games) is not dict:
+            return None
+        top = []
+        for k, v in summary.items():
+            if type(k) is not str:
+                return None
+            if k == 'games':
+                continue
+            tv = type(v)
+            if tv is float:
+                if not math.isfinite(v):
+                    return None
+                top.append((k, float, v))
+            elif tv in (str, int, bool) or v is None:
+                top.append((k, tv, v))
+            else:
+                return None
+        if len(top) > 1:
+            top.sort(key=lambda item: item[0])
+        g_items = []
+        for gk, gv in games.items():
+            if type(gk) is not str or type(gv) is not dict or len(gv) != 7:
+                return None
+            w = gv.get('wins')
+            l = gv.get('losses')
+            p = gv.get('pushes')
+            obs = gv.get('observations')
+            stk = gv.get('stake')
+            pnl = gv.get('pnl')
+            inv = gv.get('inverse_odds_sum')
+            if None in (w, l, p, obs, stk, pnl, inv):
+                return None
+            for num in (stk, pnl, inv):
+                if type(num) is float and not math.isfinite(num):
+                    return None
+                if type(num) not in (int, float, bool):
+                    return None
+            if any(type(x) not in (int, float, bool) for x in (w, l, p, obs)):
+                return None
+            g_items.append((
+                gk,
+                type(w), w,
+                type(l), l,
+                type(p), p,
+                type(obs), obs,
+                type(stk), stk,
+                type(pnl), pnl,
+                type(inv), inv,
+            ))
+        if len(g_items) > 1:
+            g_items.sort(key=lambda item: item[0])
+        return (tuple(top), tuple(g_items))
+    except Exception:
+        return None
+
+
+def _verify_summary_uncached(summary):
     if not isinstance(summary, dict):
         return False
     try:
@@ -300,6 +369,63 @@ def verify_summary(summary):
         return all(summary[k] == value for k, value in rebuilt.items()) and 1 <= summary['factor'] < 2
     except (ValueError, TypeError, KeyError, AttributeError, OverflowError):
         return False
+
+
+def verify_summary(summary):
+    """Cheap numeric/digest consistency; not a substitute for ledger replay."""
+    if not isinstance(summary, dict):
+        return False
+    cache_key = _summary_cache_key(summary)
+    if cache_key is None:
+        return _verify_summary_uncached(summary)
+    with _VERIFY_SUMMARY_LOCK:
+        cached = _VERIFY_SUMMARY_CACHE.get(cache_key)
+        if cached is not None:
+            _VERIFY_SUMMARY_CACHE.move_to_end(cache_key)
+            return cached
+    verdict = _verify_summary_uncached(summary)
+    with _VERIFY_SUMMARY_LOCK:
+        _VERIFY_SUMMARY_CACHE[cache_key] = verdict
+        _VERIFY_SUMMARY_CACHE.move_to_end(cache_key)
+        while len(_VERIFY_SUMMARY_CACHE) > _VERIFY_SUMMARY_CACHE_MAX:
+            _VERIFY_SUMMARY_CACHE.popitem(last=False)
+    return verdict
+
+
+def _sizing_data_signature(data_dir):
+    if 'PYTEST_CURRENT_TEST' not in os.environ:
+        return None
+    base = Path(data_dir)
+    sig = []
+    for name in (
+        'engine.sqlite3',
+        'engine.sqlite3-wal',
+        'shadow_incubator.sqlite3',
+        'shadow_incubator.sqlite3-wal',
+        'graduated_markets.json',
+        'autonomous_roi_governor_report.json',
+    ):
+        p = base / name
+        try:
+            st = p.stat()
+            sig.append((name, st.st_mtime_ns, st.st_size))
+        except OSError:
+            sig.append((name, 0, 0))
+    return tuple(sig)
+
+
+def _cached_sizing_env_get(slot_key, loader):
+    now_mono = time.monotonic()
+    with _SIZING_ENV_LOCK:
+        entry = _SIZING_ENV_CACHE.get(slot_key)
+        if entry is not None and (now_mono - entry[0]) < _SIZING_ENV_TTL_SECONDS:
+            return entry[1]
+    val = loader()
+    with _SIZING_ENV_LOCK:
+        if len(_SIZING_ENV_CACHE) > 64:
+            _SIZING_ENV_CACHE.clear()
+        _SIZING_ENV_CACHE[slot_key] = (now_mono, val)
+    return val
 
 
 def apply_adjustment(base_sizing, tip, settings, remaining):
@@ -372,9 +498,23 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
     base_mkt = market_val.split(':')[-1]
     from .contracts import canonical_segment_aliases
     from .decisions import _get_graduated_segments, _get_demoted_segments
+    from . import providers as _prov_mod
     check_keys = canonical_segment_aliases(cand_league, cand_scope, market_val)
-    grad_segs = _get_graduated_segments()
-    dem_segs = _get_demoted_segments()
+    _prov_dir = Path(_prov_mod.DATA)
+    _prov_resolved = str(_prov_dir.resolve())
+    _prov_sig = _sizing_data_signature(_prov_dir)
+    try:
+        from . import shadow_market_incubator as _smi_mod
+        _smi_dir = Path(getattr(_smi_mod, 'DATA', _prov_dir))
+        _smi_resolved = str(_smi_dir.resolve())
+        _smi_sig = _prov_sig if _smi_resolved == _prov_resolved else _sizing_data_signature(_smi_dir)
+    except Exception:
+        _smi_resolved = _prov_resolved
+        _smi_sig = _prov_sig
+    grad_segs, dem_segs = _cached_sizing_env_get(
+        ('segs', _prov_resolved, _smi_resolved, _smi_sig, _get_graduated_segments, _get_demoted_segments),
+        lambda: (_get_graduated_segments(), _get_demoted_segments()),
+    )
 
     cand_id = str(tip.get('id', ''))
     game_id = str(tip.get('game_id', ''))
@@ -400,9 +540,11 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
     gov = {}
     if not is_test_cand:
         try:
-            from .providers import DATA
             from .autonomous_roi_governor import get_latest_governor_report
-            gov = get_latest_governor_report(DATA) or {}
+            gov = _cached_sizing_env_get(
+                ('gov', _prov_resolved, _prov_sig, get_latest_governor_report),
+                lambda: get_latest_governor_report(_prov_dir) or {},
+            )
         except Exception:
             gov = {}
 
@@ -412,9 +554,15 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
     universe_prof = None
     if not is_test_cand or is_demoted_market:
         try:
-            from .unified_market_universe import UnifiedMarketUniverse
-            umu = UnifiedMarketUniverse()
-            roster = umu.build_universe_roster(force_refresh=False)
+            from . import unified_market_universe as _umu_mod
+            _umu_cls = _umu_mod.UnifiedMarketUniverse
+            _umu_dir = Path(getattr(_umu_mod, 'DATA', _prov_dir))
+            _umu_resolved = str(_umu_dir.resolve())
+            _umu_sig = _prov_sig if _umu_resolved == _prov_resolved else _sizing_data_signature(_umu_dir)
+            roster = _cached_sizing_env_get(
+                ('roster', _umu_resolved, _umu_sig, _umu_cls, getattr(_umu_cls, 'build_universe_roster', None)),
+                lambda: _umu_cls(data_dir=_umu_dir).build_universe_roster(force_refresh=False),
+            )
             if is_demoted_market:
                 universe_prof = next((roster[ck] for ck in check_keys if ck in roster and roster[ck].tier in (1, 2)), None)
             else:

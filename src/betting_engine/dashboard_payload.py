@@ -257,11 +257,6 @@ def automation_status(data_dir):
                     for t in value['prospective_trials'] if t.get('families')
                 ][:60]
         result[name]=value
-    try:
-        from .shadow_market_incubator import ShadowMarketIncubator
-        result['market_incubator'] = ShadowMarketIncubator(DATA, read_only=True).get_incubator_status()
-    except Exception:
-        pass
     from .delivery import delivery_status
     dev=delivery_status(DATA.parent,include_progress=False)
     if isinstance(dev,dict):
@@ -544,10 +539,13 @@ def build_dashboard(store,health,data_dir):
     try:
         from .canonical_inventory import get_canonical_system_inventory
         inv = get_canonical_system_inventory(data_dir)
-        d['canonical_inventory'] = inv
         d.setdefault('status', {})['canonical_inventory'] = inv
     except Exception:
         pass
+    d.pop('canonical_inventory', None)
+    d.pop('segment_forecasts', None)
+    d.pop('forecasts', None)
+    d.pop('daily_quant_council', None)
     # All server validation, sizing and instruction reviews above use the full
     # stored evidence. Projection below is display-only: do not feed the compact
     d['status'].pop('active_winner_model_quality', None)
@@ -589,9 +587,5 @@ def build_dashboard(store,health,data_dir):
             res['stake_market'] = {k: sm[k] for k in ('event_url', 'tab', 'navigation_source', 'availability_verified') if k in sm}
         return res
     d['stake_reassessments'] = [_compact_reassessment(row) for row in d['stake_reassessments']]
-    from .daily_quant_council import load_daily_quant_strategy
-    daily_strat = load_daily_quant_strategy(data_dir)
-    if daily_strat:
-        d['daily_quant_council'] = daily_strat.to_dict()
     d = english_payload(d)
     return d

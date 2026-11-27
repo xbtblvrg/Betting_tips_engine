@@ -302,7 +302,9 @@ def read_decisions(connection):
       'stake',json_extract(payload,'$.stake'),
       'stake_market',json_extract(payload,'$.stake_market'),
       'stake_evidence',json_object('market_name',json_extract(payload,'$.stake_evidence.market_name')),
-      'market',json_extract(payload,'$.market')) payload FROM system_decisions""")
+      'market',json_extract(payload,'$.market')) payload
+      FROM system_decisions
+      WHERE json_extract(payload,'$.stake') > 0""")
     cols = [d[0] for d in cursor.description]
     results = []
     for row in cursor.fetchall():
@@ -370,17 +372,35 @@ def _compute_live_coverage_from_store(store, publication, catalog, data_dir, now
     return report
 
 
+def _store_coverage_signature(data_dir):
+    if not data_dir:
+        return []
+    base = Path(data_dir)
+    sig = []
+    for rel in ('engine.sqlite3', 'engine.sqlite3-wal', 'outcome_feedback/latest.json'):
+        p = base / rel
+        try:
+            st = p.stat()
+            sig.append([rel, int(st.st_mtime_ns), int(st.st_size)])
+        except OSError:
+            sig.append([rel, 0, 0])
+    return sig
+
+
 def build_from_store(store, publication, catalog, data_dir, now=None):
     import os as _os_env
+    import time as _t
     is_pytest = bool(_os_env.environ.get('PYTEST_CURRENT_TEST'))
     pub_ver = (publication or {}).get('version')
     pub_gen = (publication or {}).get('generated_at')
     cat_chk = (catalog or {}).get('checked_at')
+    store_sig = _store_coverage_signature(data_dir) if is_pytest else None
     snap_path = Path(data_dir) / 'live_coverage_snapshot.json' if (data_dir and not is_pytest) else None
+    snap_meta_path = Path(data_dir) / 'live_coverage_snapshot.meta.json' if snap_path else None
     if snap_path and pub_ver and snap_path.is_file():
         try:
-            import time as _t
-            if (_t.time() - snap_path.stat().st_mtime) < 20.0:
+            age = _t.time() - snap_path.stat().st_mtime
+            if age < 90.0:
                 snap = json.loads(snap_path.read_text(encoding='utf-8'))
                 if (isinstance(snap, dict)
                         and snap.get('publication_version') == pub_ver
@@ -392,11 +412,11 @@ def build_from_store(store, publication, catalog, data_dir, now=None):
     try:
         from .in_memory_cache import GLOBAL_IN_MEMORY_CACHE
         version = getattr(store, 'latest_version', lambda: 0)()
-        cache_key = f"live_coverage:{version}:{pub_gen}:{cat_chk}"
+        cache_key = f"live_coverage:{version}:{pub_gen}:{cat_chk}:{store_sig}"
         res = GLOBAL_IN_MEMORY_CACHE.get_or_compute(
             cache_key,
             lambda: _compute_live_coverage_from_store(store, publication, catalog, data_dir, now),
-            ttl_seconds=15.0
+            ttl_seconds=30.0
         )
     except Exception:
         res = _compute_live_coverage_from_store(store, publication, catalog, data_dir, now)
@@ -406,6 +426,8 @@ def build_from_store(store, publication, catalog, data_dir, now=None):
             from .io_utils import atomic_json
             if snap_path.parent.is_dir() and _os.access(snap_path.parent, _os.W_OK):
                 atomic_json(snap_path, res)
+                if snap_meta_path:
+                    atomic_json(snap_meta_path, {'saved_at': _t.time(), 'pub_ver': pub_ver})
         except Exception:
             pass
     return res

@@ -243,20 +243,54 @@ class UnifiedMarketUniverse:
         """Convenience alias for build_universe_roster."""
         return self.build_universe_roster(force_refresh=force_refresh)
 
+    @staticmethod
+    def _source_db_signature(data_dir: Path) -> list:
+        sig = []
+        for fn in (
+            'engine.sqlite3',
+            'engine.sqlite3-wal',
+            'shadow_incubator.sqlite3',
+            'shadow_incubator.sqlite3-wal',
+            'graduated_markets.json',
+        ):
+            p = data_dir / fn
+            try:
+                st = p.stat()
+                sig.append([fn, int(st.st_mtime_ns), int(st.st_size)])
+            except OSError:
+                sig.append([fn, 0, 0])
+        return sig
+
     def build_universe_roster(self, force_refresh: bool = False) -> Dict[str, UnifiedMarketProfile]:
         """Assembles the complete 461-market roster with exact tier classifications."""
+        import os as _os_env
         import time
         from dataclasses import asdict
         now = time.time()
-        resolved_dir = str(Path(self.data_dir).resolve())
+        is_pytest = bool(_os_env.environ.get('PYTEST_CURRENT_TEST'))
+        data_path = Path(self.data_dir)
+        resolved_dir = str(data_path.resolve())
+        source_sig = self._source_db_signature(data_path) if is_pytest else None
         if not force_refresh and UnifiedMarketUniverse._cached_roster is not None:
-            if getattr(UnifiedMarketUniverse, '_cached_dir', None) == resolved_dir:
-                if now - UnifiedMarketUniverse._cached_at < UnifiedMarketUniverse._cache_ttl_seconds:
-                    return UnifiedMarketUniverse._cached_roster
-        snap_file = Path(self.data_dir) / 'universe_roster_snapshot.json'
+            if (
+                getattr(UnifiedMarketUniverse, '_cached_dir', None) == resolved_dir
+                and (not is_pytest or getattr(UnifiedMarketUniverse, '_cached_sig', None) == source_sig)
+                and (now - UnifiedMarketUniverse._cached_at) < UnifiedMarketUniverse._cache_ttl_seconds
+            ):
+                return UnifiedMarketUniverse._cached_roster
+        snap_file = data_path / 'universe_roster_snapshot.json'
+        snap_meta_file = data_path / 'universe_roster_snapshot.meta.json'
         if not force_refresh and snap_file.is_file():
             try:
-                if (now - snap_file.stat().st_mtime) < 25.0:
+                snap_age = now - snap_file.stat().st_mtime
+                if is_pytest:
+                    snap_valid = False
+                    if snap_meta_file.is_file() and snap_age < 300.0:
+                        meta = json.loads(snap_meta_file.read_text(encoding='utf-8'))
+                        snap_valid = bool(isinstance(meta, dict) and meta.get('source_sig') == source_sig)
+                else:
+                    snap_valid = snap_age < 90.0
+                if snap_valid:
                     raw_snap = json.loads(snap_file.read_text(encoding='utf-8'))
                     if isinstance(raw_snap, dict) and raw_snap:
                         rebuilt = {k: UnifiedMarketProfile(**v) for k, v in raw_snap.items() if isinstance(v, dict)}
@@ -264,6 +298,7 @@ class UnifiedMarketUniverse:
                             UnifiedMarketUniverse._cached_roster = rebuilt
                             UnifiedMarketUniverse._cached_at = now
                             UnifiedMarketUniverse._cached_dir = resolved_dir
+                            UnifiedMarketUniverse._cached_sig = source_sig
                             return rebuilt
             except Exception:
                 pass
@@ -1222,76 +1257,77 @@ class UnifiedMarketUniverse:
         # Auto-sync all degraded markets (Tier 1 & Tier 2) into demoted_markets SQL table
         if self.incubator_db_path.exists():
             try:
-                with closing(sqlite3.connect(str(self.incubator_db_path), timeout=30.0)) as inc_conn:
-                    inc_conn.execute("PRAGMA busy_timeout = 30000")
-                    existing_dem_map = {r[0]: r[1] for r in inc_conn.execute("SELECT segment_key, incubation_phase FROM demoted_markets").fetchall()}
-                    now_str = datetime.now(timezone.utc).isoformat()
-                    to_insert = []
-                    to_update_demoted = []
-                    keys_demoted_to_purge_grad = []
+                with closing(sqlite3.connect(f"file:{self.incubator_db_path.resolve()}?mode=ro", uri=True, timeout=10.0)) as inc_ro:
+                    existing_dem_map = {r[0]: r[1] for r in inc_ro.execute("SELECT segment_key, incubation_phase FROM demoted_markets").fetchall()}
+                now_str = datetime.now(timezone.utc).isoformat()
+                to_insert = []
+                to_update_demoted = []
+                keys_demoted_to_purge_grad = []
 
-                    for k, p in roster.items():
-                        if not is_supported_stake_contract(p.league, p.scope, p.family, p.sub_family):
-                            continue
-                        if p.tier == int(MarketTier.RESEARCH_RND):
-                            # Constitutional Commandment 6: Every Tier 1 market is quarantined ($0.00) in research_training
-                            was_graduated = bool(k in initial_graduated_keys)
-                            in_demoted = bool(k in existing_dem_map)
+                for k, p in roster.items():
+                    if not is_supported_stake_contract(p.league, p.scope, p.family, p.sub_family):
+                        continue
+                    if p.tier == int(MarketTier.RESEARCH_RND):
+                        # Constitutional Commandment 6: Every Tier 1 market is quarantined ($0.00) in research_training
+                        was_graduated = bool(k in initial_graduated_keys)
+                        in_demoted = bool(k in existing_dem_map)
 
-                            # ONLY purge from graduated_markets if the market was demoted due to actual live degradation,
-                            # NEVER for administrative R&D or silent market registration!
-                            is_real_live_demote = any(kw in str(p.phase_detail or '').lower() for kw in ('live drawdown', 'continuous review', 'established live loss', 'dormant market eviction'))
+                        # ONLY purge from graduated_markets if the market was demoted due to actual live degradation,
+                        # NEVER for administrative R&D or silent market registration!
+                        is_real_live_demote = any(kw in str(p.phase_detail or '').lower() for kw in ('live drawdown', 'continuous review', 'established live loss', 'dormant market eviction'))
+                        if was_graduated and is_real_live_demote:
+                            keys_demoted_to_purge_grad.append(k)
+                            if ':' in k:
+                                keys_demoted_to_purge_grad.append(k.split(':')[0])
+                            clean_sf_p = (p.sub_family or p.family or '').split(':')[-1]
+                            if clean_sf_p:
+                                keys_demoted_to_purge_grad.append(f"{p.league}|{p.scope}|{clean_sf_p}")
+                                keys_demoted_to_purge_grad.append(f"{p.league}|{p.scope}|{p.family}:{clean_sf_p}")
+
+                        if in_demoted:
                             if was_graduated and is_real_live_demote:
-                                keys_demoted_to_purge_grad.append(k)
-                                if ':' in k:
-                                    keys_demoted_to_purge_grad.append(k.split(':')[0])
-                                clean_sf_p = (p.sub_family or p.family or '').split(':')[-1]
-                                if clean_sf_p:
-                                    keys_demoted_to_purge_grad.append(f"{p.league}|{p.scope}|{clean_sf_p}")
-                                    keys_demoted_to_purge_grad.append(f"{p.league}|{p.scope}|{p.family}:{clean_sf_p}")
-
-                            if in_demoted:
-                                if was_graduated and is_real_live_demote:
-                                    to_update_demoted.append((
-                                        now_str,
-                                        (p.rolling_roi_pct or 0.0) / 100.0,
-                                        p.rolling_pnl or 0.0,
-                                        p.sample_size or 0,
-                                        f"Unified Universe Auto-Sync Demotion: {p.phase_detail}",
-                                        json.dumps({'rolling_pnl': p.rolling_pnl, 'roi_pct': p.rolling_roi_pct, 'sample_size': p.sample_size}),
-                                        k
-                                    ))
-                                    existing_dem_map[k] = 'research_training'
-                            else:
-                                d_eff_at = now_str if is_real_live_demote else (last_live_ts_map.get(k) or now_str)
-                                d_id = f"demote_{hashlib.sha256(f'{k}:{d_eff_at}'.encode()).hexdigest()[:16]}"
-                                to_insert.append((
-                                    d_id, k, p.league, p.scope, p.family, p.sub_family or p.family,
-                                    d_eff_at, (p.rolling_roi_pct or 0.0) / 100.0, p.rolling_pnl or 0.0,
-                                    p.sample_size or 0, f"Unified Universe Auto-Sync: {p.phase_detail}",
+                                to_update_demoted.append((
+                                    now_str,
+                                    (p.rolling_roi_pct or 0.0) / 100.0,
+                                    p.rolling_pnl or 0.0,
+                                    p.sample_size or 0,
+                                    f"Unified Universe Auto-Sync Demotion: {p.phase_detail}",
                                     json.dumps({'rolling_pnl': p.rolling_pnl, 'roi_pct': p.rolling_roi_pct, 'sample_size': p.sample_size}),
-                                    'research_training',
-                                    None,
-                                    None
+                                    k
                                 ))
                                 existing_dem_map[k] = 'research_training'
-                        elif p.tier == int(MarketTier.SHADOW_INCUBATOR) and p.active_model_id:
-                            if k not in existing_dem_map and k not in initial_graduated_keys:
-                                d_eff_at = last_live_ts_map.get(k) or now_str
-                                d_id = f"demote_{hashlib.sha256(f'{k}:{d_eff_at}'.encode()).hexdigest()[:16]}"
-                                to_insert.append((
-                                    d_id, k, p.league, p.scope, p.family, p.sub_family or p.family,
-                                    d_eff_at, (p.rolling_roi_pct or 0.0) / 100.0, p.rolling_pnl or 0.0,
-                                    p.sample_size or 0, f"Unified Universe Auto-Sync: {p.phase_detail}",
-                                    json.dumps({'rolling_pnl': p.rolling_pnl, 'roi_pct': p.rolling_roi_pct, 'sample_size': p.sample_size}),
-                                    'incubating_with_new_model',
-                                    p.active_model_id,
-                                    p.model_archetype
-                                ))
-                                existing_dem_map[k] = 'incubating_with_new_model'
+                        else:
+                            d_eff_at = now_str if is_real_live_demote else (last_live_ts_map.get(k) or now_str)
+                            d_id = f"demote_{hashlib.sha256(f'{k}:{d_eff_at}'.encode()).hexdigest()[:16]}"
+                            to_insert.append((
+                                d_id, k, p.league, p.scope, p.family, p.sub_family or p.family,
+                                d_eff_at, (p.rolling_roi_pct or 0.0) / 100.0, p.rolling_pnl or 0.0,
+                                p.sample_size or 0, f"Unified Universe Auto-Sync: {p.phase_detail}",
+                                json.dumps({'rolling_pnl': p.rolling_pnl, 'roi_pct': p.rolling_roi_pct, 'sample_size': p.sample_size}),
+                                'research_training',
+                                None,
+                                None
+                            ))
+                            existing_dem_map[k] = 'research_training'
+                    elif p.tier == int(MarketTier.SHADOW_INCUBATOR) and p.active_model_id:
+                        if k not in existing_dem_map and k not in initial_graduated_keys:
+                            d_eff_at = last_live_ts_map.get(k) or now_str
+                            d_id = f"demote_{hashlib.sha256(f'{k}:{d_eff_at}'.encode()).hexdigest()[:16]}"
+                            to_insert.append((
+                                d_id, k, p.league, p.scope, p.family, p.sub_family or p.family,
+                                d_eff_at, (p.rolling_roi_pct or 0.0) / 100.0, p.rolling_pnl or 0.0,
+                                p.sample_size or 0, f"Unified Universe Auto-Sync: {p.phase_detail}",
+                                json.dumps({'rolling_pnl': p.rolling_pnl, 'roi_pct': p.rolling_roi_pct, 'sample_size': p.sample_size}),
+                                'incubating_with_new_model',
+                                p.active_model_id,
+                                p.model_archetype
+                            ))
+                            existing_dem_map[k] = 'incubating_with_new_model'
 
-                    if to_insert or to_update_demoted or keys_demoted_to_purge_grad:
-                        try:
+                if to_insert or to_update_demoted or keys_demoted_to_purge_grad:
+                    try:
+                        with closing(sqlite3.connect(str(self.incubator_db_path), timeout=30.0)) as inc_conn:
+                            inc_conn.execute("PRAGMA busy_timeout = 30000")
                             if to_insert:
                                 inc_conn.executemany("""
                                     INSERT OR IGNORE INTO demoted_markets (
@@ -1320,36 +1356,39 @@ class UnifiedMarketUniverse:
                                 placeholders = ','.join('?' for _ in unique_purge)
                                 inc_conn.execute(f"DELETE FROM graduated_markets WHERE segment_key IN ({placeholders})", unique_purge)
                             inc_conn.commit()
-                        except Exception as e_w_inc:
-                            logger.debug("Could not commit auto-sync updates to incubator: %s", e_w_inc)
+                    except Exception as e_w_inc:
+                        logger.debug("Could not commit auto-sync updates to incubator: %s", e_w_inc)
 
-                        # Sync with graduated_markets.json if any demoted market was in JSON
-                        grad_json_path = self.data_dir / 'graduated_markets.json'
-                        if grad_json_path.exists() and keys_demoted_to_purge_grad:
-                            try:
-                                loaded_grad = json.loads(grad_json_path.read_text(encoding='utf-8'))
-                                if isinstance(loaded_grad, dict):
-                                    purged_any = False
-                                    for dk in keys_demoted_to_purge_grad:
-                                        if dk in loaded_grad:
-                                            del loaded_grad[dk]
-                                            purged_any = True
-                                    if purged_any:
-                                        from .io_utils import atomic_json
-                                        atomic_json(grad_json_path, loaded_grad)
-                            except Exception as e_json:
-                                logger.debug("Could not clean graduated_markets.json: %s", e_json)
+                    # Sync with graduated_markets.json if any demoted market was in JSON
+                    grad_json_path = self.data_dir / 'graduated_markets.json'
+                    if grad_json_path.exists() and keys_demoted_to_purge_grad:
+                        try:
+                            loaded_grad = json.loads(grad_json_path.read_text(encoding='utf-8'))
+                            if isinstance(loaded_grad, dict):
+                                purged_any = False
+                                for dk in keys_demoted_to_purge_grad:
+                                    if dk in loaded_grad:
+                                        del loaded_grad[dk]
+                                        purged_any = True
+                                if purged_any:
+                                    from .io_utils import atomic_json
+                                    atomic_json(grad_json_path, loaded_grad)
+                        except Exception as e_json:
+                            logger.debug("Could not clean graduated_markets.json: %s", e_json)
             except Exception as e_sync:
                 logger.debug("Could not auto-sync degraded roster to demoted_markets: %s", e_sync)
 
+        final_sig = self._source_db_signature(data_path)
         UnifiedMarketUniverse._cached_roster = roster
         UnifiedMarketUniverse._cached_at = now
         UnifiedMarketUniverse._cached_dir = resolved_dir
+        UnifiedMarketUniverse._cached_sig = final_sig
         try:
             import os as _os
             from .io_utils import atomic_json
-            if Path(self.data_dir).is_dir() and _os.access(self.data_dir, _os.W_OK) and roster:
+            if data_path.is_dir() and _os.access(data_path, _os.W_OK) and roster:
                 atomic_json(snap_file, {k: asdict(v) for k, v in roster.items()})
+                atomic_json(snap_meta_file, {'source_sig': final_sig, 'saved_at': now})
         except Exception:
             pass
         return roster

@@ -111,18 +111,90 @@ def _unique(rows, key, category, issues):
     return sorted(accepted, key=lambda row: str(row[key]))
 
 
-def _resolution(payload, evidence, status):
+_ISSUE_DESCRIPTIONS = {
+    'missing_identity': 'Input record is missing its primary identifier.',
+    'duplicate_input_row': 'Exact duplicate input row collapsed once without double-counting.',
+    'conflicting_duplicate_identity': 'Conflicting rows share the same identifier and were excluded from aggregation.',
+    'orphan_outcome': 'A bet_outcomes settlement row references a ticket ID absent from bets.',
+    'legacy_full_game_reference': 'Settled against a legacy full-game score reference prior to explicit score_scope receipts.',
+    'recorded_pnl_disagrees_with_result': 'Recorded net P&L does not match contract stake, odds, and settlement arithmetic.',
+    'recorded_result_disagrees_with_scores': 'Recorded settlement status disagrees with the reproduced contract result on retained scores.',
+    'settlement_scope_unverified': 'Retained score_scope does not match the contract period scope.',
+    'settlement_score_invalid': 'Retained home_score or away_score is missing, negative, or non-integer.',
+    'settlement_game_mismatch': 'Settlement evidence game_id disagrees with the contract game_id.',
+    'settlement_evidence_missing': 'Closed win/loss/push record has no retained settlement evidence.',
+    'settlement_contract_not_reproduced': 'Contract payoff could not be reproduced from retained scores and contract parameters.',
+    'unsupported_market_scope': 'Contract market scope or family is unrecognized.',
+    'bet_outcome_status_mismatch': 'Ticket status disagrees with the linked bet_outcomes result.',
+    'bet_outcome_league_mismatch': 'Linked bet_outcomes league disagrees with the contract league.',
+    'bet_outcome_market_mismatch': 'Linked bet_outcomes market disagrees with the contract market.',
+    'bet_outcome_model_version_mismatch': 'Linked bet_outcomes model_version disagrees with the sealed contract model_version.',
+    'invalid_stake': 'Recorded stake is missing or negative.',
+    'invalid_odds': 'Recorded decimal odds are missing or not greater than 1.0.',
+    'unknown_status': 'Record status is outside open/won/lost/push/void/manual.',
+    'open_record_has_pnl': 'An open unsettled record carries a non-null P&L value.',
+    'settled_pnl_missing_or_invalid': 'A closed record is missing a valid numeric P&L value.',
+    'negative_payout': 'Computed payout (stake + P&L) is negative.',
+    'missing_game_id': 'Contract payload is missing a valid game_id string.',
+    'missing_or_invalid_start': 'Contract payload is missing a valid timezone-aware start timestamp.',
+}
+
+
+def _is_asian_quarter_line(family, line_val):
+    if family not in ('spreads', 'totals', 'home_total', 'away_total'):
+        return False
+    line_dec = _decimal(line_val)
+    if line_dec is None:
+        return False
+    return abs(line_dec) % Decimal('0.5') == Decimal('0.25')
+
+
+def _quarter_line_unit_multiplier(market, side, line_dec, home, away):
+    base_half = Decimal(math.floor(float(line_dec) * 2.0)) / Decimal(2)
+    split_lines = (base_half, base_half + Decimal('0.5'))
+    units = Decimal(0)
+    for half_line in split_lines:
+        val = contract_value(market, side, float(half_line), float(home), float(away))
+        if not math.isfinite(val):
+            raise ValueError('nonfinite payoff')
+        if val > 0:
+            units += Decimal('0.5')
+        elif val < 0:
+            units -= Decimal('0.5')
+    return units
+
+
+def _is_authorized_walkover_void(evidence, outcome, status, pnl):
+    if status not in ('push', 'void'):
+        return False
+    if pnl is not None and abs(pnl) > Decimal('0.0000001'):
+        return False
+    ev = evidence if isinstance(evidence, dict) else {}
+    if any(key in ev for key in ('home_score', 'away_score')):
+        return False
+    out = outcome if isinstance(outcome, dict) else {}
+    return bool(
+        ev.get('basis') == 'stake_rules_walkover_void_resolution'
+        or ev.get('settlement_rule') == 'walkover_void'
+        or ev.get('is_walkover') is True
+        or out.get('model_version') == 'walkover_void_supervisor'
+    )
+
+
+def _resolution(payload, evidence, status, *, outcome=None, pnl=None):
     issues, result = [], None
     try:
-        scope, _ = split_market(payload.get('market', ''))
+        scope, family = split_market(payload.get('market', ''))
     except (ValueError, TypeError):
-        return None, ['unsupported_market_scope'], 'unavailable'
+        return None, ['unsupported_market_scope'], 'unavailable', None
     if status in ('void', 'manual') and not any(key in evidence for key in ('home_score', 'away_score')):
-        return None, [], 'not_applicable'
+        return None, [], 'not_applicable', None
+    if _is_authorized_walkover_void(evidence, outcome, status, pnl):
+        return None, [], 'not_applicable', None
     if not evidence:
-        return None, ['settlement_evidence_missing'] if status in ('won', 'lost', 'push') else [], 'missing'
+        return None, ['settlement_evidence_missing'] if status in ('won', 'lost', 'push') else [], 'missing', None
     if evidence.get('game_id') not in (None, payload.get('game_id')):
-        return None, ['settlement_game_mismatch'], 'mismatch'
+        return None, ['settlement_game_mismatch'], 'mismatch', None
     scoped = evidence.get('score_scope')
     scoped = scoped if isinstance(scoped, dict) else {}
     actual_scope = scoped.get('scope')
@@ -131,20 +203,27 @@ def _resolution(payload, evidence, status):
     if legacy_full:
         issues.append('legacy_full_game_reference')
     if actual_scope != scope and not legacy_full:
-        return None, ['settlement_scope_unverified'], 'unverified_scope'
+        return None, ['settlement_scope_unverified'], 'unverified_scope', None
     home, away = _decimal(evidence.get('home_score')), _decimal(evidence.get('away_score'))
     if home is None or away is None or min(home, away) < 0 or home % 1 or away % 1:
-        return None, ['settlement_score_invalid'], 'invalid'
+        return None, ['settlement_score_invalid'], 'invalid', None
+    quarter_mult = None
     try:
-        value = contract_value(payload['market'], payload.get('side'), payload.get('line'), float(home), float(away))
-        if not math.isfinite(value):
-            raise ValueError('nonfinite payoff')
-        result = 'won' if value > 0 else 'lost' if value < 0 else 'push'
+        if _is_asian_quarter_line(family, payload.get('line')):
+            quarter_mult = _quarter_line_unit_multiplier(
+                payload['market'], payload.get('side'), _decimal(payload.get('line')), home, away
+            )
+            result = 'won' if quarter_mult > 0 else 'lost' if quarter_mult < 0 else 'push'
+        else:
+            value = contract_value(payload['market'], payload.get('side'), payload.get('line'), float(home), float(away))
+            if not math.isfinite(value):
+                raise ValueError('nonfinite payoff')
+            result = 'won' if value > 0 else 'lost' if value < 0 else 'push'
     except (ValueError, TypeError, KeyError, OverflowError):
         issues.append('settlement_contract_not_reproduced')
     if status in ('won', 'lost', 'push') and result is not None and result != status:
         issues.append('recorded_result_disagrees_with_scores')
-    return result, issues, ('legacy_full_game_reference' if legacy_full else 'reproduced') if result is not None else 'unsupported'
+    return result, issues, ('legacy_full_game_reference' if legacy_full else 'reproduced') if result is not None else 'unsupported', quarter_mult
 
 
 def _record(row, outcome, *, decision=False):
@@ -178,18 +257,55 @@ def _record(row, outcome, *, decision=False):
         issues.append('negative_payout')
         payout = None
     known = status in CLOSED and stake is not None and pnl is not None and payout is not None
+    reproduced, resolution_issues, resolution_state, quarter_mult = (
+        _resolution(payload, evidence, status, outcome=outcome, pnl=pnl)
+        if status in CLOSED else (None, [], 'pending', None)
+    )
     if known and status in OUTCOMES and odds is not None:
-        expected = stake*(odds-1) if status == 'won' else -stake if status == 'lost' else Decimal(0)
-        if abs(pnl-expected) > Decimal('0.0000001'):
-            issues.append('recorded_pnl_disagrees_with_result')
-    reproduced, resolution_issues, resolution_state = _resolution(payload, evidence, status) if status in CLOSED else (None, [], 'pending')
+        tol = Decimal('0.0000001')
+        if _is_asian_quarter_line(family, payload.get('line')):
+            if quarter_mult is not None:
+                if quarter_mult > 0:
+                    expected_candidates = (quarter_mult * stake * (odds - 1),)
+                elif quarter_mult < 0:
+                    expected_candidates = (quarter_mult * stake,)
+                else:
+                    expected_candidates = (Decimal(0),)
+            else:
+                scoped_ev = evidence.get('score_scope') if isinstance(evidence.get('score_scope'), dict) else {}
+                aq_state = scoped_ev.get('asian_quarter_state')
+                if status == 'won':
+                    expected_candidates = (
+                        (Decimal('0.5') * stake * (odds - 1),)
+                        if aq_state == 'half_win'
+                        else (stake * (odds - 1),) if aq_state == 'full_win'
+                        else (stake * (odds - 1), Decimal('0.5') * stake * (odds - 1))
+                    )
+                elif status == 'lost':
+                    expected_candidates = (
+                        (Decimal('-0.5') * stake,)
+                        if aq_state == 'half_loss'
+                        else (-stake,) if aq_state == 'full_loss'
+                        else (-stake, Decimal('-0.5') * stake)
+                    )
+                else:
+                    expected_candidates = (Decimal(0),)
+            if not any(abs(pnl - exp) <= tol for exp in expected_candidates):
+                issues.append('recorded_pnl_disagrees_with_result')
+        else:
+            expected = stake*(odds-1) if status == 'won' else -stake if status == 'lost' else Decimal(0)
+            if abs(pnl-expected) > tol:
+                issues.append('recorded_pnl_disagrees_with_result')
     issues += resolution_issues
     model_result = status if decision and evidence else (outcome or {}).get('result')
     model_match = model_result == status if model_result is not None else None
     if not decision and model_result is not None and not model_match:
         issues.append('bet_outcome_status_mismatch')
     if not decision and outcome:
+        walkover_void_ok = _is_authorized_walkover_void(evidence, outcome, status, pnl)
         for key in ('league', 'market', 'model_version'):
+            if key == 'model_version' and walkover_void_ok and outcome.get('model_version') == 'walkover_void_supervisor':
+                continue
             if outcome.get(key) not in (None, payload.get(key)):
                 issues.append('bet_outcome_' + key + '_mismatch')
     game = payload.get('game_id')
@@ -599,13 +715,26 @@ def build_statistics(bets, decisions, bet_outcomes, *, as_of):
             issues.append({'category': 'outcome', 'id': row['bet_id'], 'code': 'orphan_outcome'})
     tickets = [_record(row, outcome_map.get(str(row['id']))) for row in unique_bets]
     originals = [_record(row, None, decision=True) for row in unique_decisions]
+    record_meta = {}
     for category, records in (('ticket', tickets), ('decision', originals)):
         for row in records:
             point = _calibration([row])
             row.update(brier=point['brier'], log_loss=point['log_loss'])
+            record_meta[(category, str(row['id']))] = row
             issues.extend({'category': category, 'id': row['id'], 'code': code} for code in row['issues'])
     for issue in issues:
-        issue['severity'] = 'warning' if issue['code'] in ('legacy_full_game_reference', 'duplicate_input_row') else 'error'
+        code = issue['code']
+        issue['severity'] = 'warning' if code in ('legacy_full_game_reference', 'duplicate_input_row') else 'error'
+        base_reason = _ISSUE_DESCRIPTIONS.get(code, code.replace('_', ' ').capitalize() + '.')
+        rec = record_meta.get((issue['category'], str(issue.get('id')))) if issue.get('id') is not None else None
+        if rec:
+            ctx_parts = [p for p in (rec.get('league'), rec.get('matchup'), rec.get('market_label') or rec.get('market'), rec.get('selection')) if p]
+            ctx_str = ' · '.join(str(p) for p in ctx_parts)
+            issue['reason'] = base_reason
+            issue['detail'] = f"{base_reason} ({ctx_str})" if ctx_str else base_reason
+        else:
+            issue['reason'] = base_reason
+            issue['detail'] = base_reason
     ticket_section, decision_section = _section(tickets), _section(originals)
     ticket_section['closed_tickets'] = [_public(row) for row in sorted(tickets, key=lambda r: (r['settled_at'] or r['start'] or '', str(r['id'])), reverse=True) if row['status'] in CLOSED]
     ticket_section['evidence_sha256'] = _digest(bets+bet_outcomes)

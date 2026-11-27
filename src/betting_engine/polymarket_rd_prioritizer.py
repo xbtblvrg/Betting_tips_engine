@@ -110,9 +110,10 @@ class PolymarketRDPrioritizer:
 
         if not force_refresh and leagues is None and PolymarketRDPrioritizer._cached_report is not None:
             age = now_ts - PolymarketRDPrioritizer._cached_at
+            max_stale_age = float(getattr(PolymarketRDPrioritizer, "_max_stale_seconds", 900.0))
             if age < PolymarketRDPrioritizer._cache_ttl_seconds:
                 return dict(PolymarketRDPrioritizer._cached_report)
-            elif allow_stale:
+            elif allow_stale and age <= max_stale_age:
                 with PolymarketRDPrioritizer._revalidate_lock:
                     if not PolymarketRDPrioritizer._is_revalidating:
                         PolymarketRDPrioritizer._is_revalidating = True

@@ -411,22 +411,33 @@ class FunnelProportionalitySupervisor:
         # =========================================================================
         tier4_eligible_count = 0
         tier4_active_count = 0
+        stake_alpha_segments_count = 0
         if self.engine_db.exists():
             try:
                 from .segment_scoreboard import compute_segment_scoreboard
+                from .polymarket_executor import PolymarketAutonomousExecutor
                 with closing(sqlite3.connect(f"file:{self.engine_db.resolve()}?mode=ro", uri=True, timeout=5.0)) as conn:
                     sb = compute_segment_scoreboard(conn)
                     alpha_segs = sb.get("alpha_segments", [])
-                    tier4_eligible_count = len(alpha_segs)
-                    # Filter for dual reachable
-                    dual_active = [
-                        s for s in alpha_segs 
-                        if is_dual_reachable_contract(
-                            s.get('league', '') if isinstance(s, dict) else s.split('|')[0],
-                            s.get('scope', 'full_game') if isinstance(s, dict) else (s.split('|')[1] if len(s.split('|')) > 1 else 'full_game'),
-                            s.get('family', 'totals') if isinstance(s, dict) else (s.split('|')[2] if len(s.split('|')) > 2 else 'totals')
+                    stake_alpha_segments_count = len(alpha_segs)
+                    poly_exec = PolymarketAutonomousExecutor(db_path=self.engine_db, dry_run=True)
+                    tier4_eligible_segs = []
+                    dual_active = []
+                    for s in alpha_segs:
+                        lg_s = s.get('league', '') if isinstance(s, dict) else s.split('|')[0]
+                        sc_s = s.get('scope', 'full_game') if isinstance(s, dict) else (s.split('|')[1] if len(s.split('|')) > 1 else 'full_game')
+                        fam_s = s.get('family', 'totals') if isinstance(s, dict) else (s.split('|')[2] if len(s.split('|')) > 2 else 'totals')
+                        is_t4, _, _ = poly_exec.is_market_eligible(
+                            league=lg_s,
+                            scope=sc_s,
+                            market_family=fam_s,
+                            require_tier_4=True,
                         )
-                    ]
+                        if is_t4:
+                            tier4_eligible_segs.append(s)
+                            if is_dual_reachable_contract(lg_s, sc_s, fam_s):
+                                dual_active.append(s)
+                    tier4_eligible_count = len(tier4_eligible_segs)
                     tier4_active_count = len(dual_active)
             except Exception as e_t4:
                 log.warning("[SUPERVISOR_AUDIT] Error auditing Tier 4: %s", e_t4)
@@ -463,6 +474,7 @@ class FunnelProportionalitySupervisor:
             "tier4_polymarket": {
                 "eligible_alpha_segments": tier4_eligible_count,
                 "active_dual_reachable_count": tier4_active_count,
+                "stake_alpha_segments_count": stake_alpha_segments_count,
                 "status": "ACTIVE" if tier4_active_count > 0 else "QUALIFYING"
             }
         }

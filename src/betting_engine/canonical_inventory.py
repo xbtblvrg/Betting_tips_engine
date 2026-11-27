@@ -26,9 +26,41 @@ log = logging.getLogger(__name__)
 INVENTORY_FILE = DATA / "canonical_system_inventory.json"
 
 
+_INVENTORY_MEM_CACHE: Dict[str, Any] = {}
+
+
+def _inventory_source_sig(data_dir: Path) -> tuple:
+    sig = []
+    for fn in (
+        "engine.sqlite3",
+        "engine.sqlite3-wal",
+        "shadow_incubator.sqlite3",
+        "shadow_incubator.sqlite3-wal",
+        "live_stake_account_summary.json",
+        "supreme_autonomous_status.json",
+        "graduated_markets.json",
+    ):
+        p = data_dir / fn
+        try:
+            st = p.stat()
+            sig.append((fn, st.st_mtime_ns, st.st_size))
+        except OSError:
+            sig.append((fn, 0, 0))
+    return tuple(sig)
+
+
 def get_canonical_system_inventory(data_dir: Path = DATA, force_refresh: bool = False) -> Dict[str, Any]:
     """Generates or loads the reconciled system inventory."""
+    import time as _t
+    data_dir = Path(data_dir)
     inventory_path = data_dir / "canonical_system_inventory.json"
+    resolved_key = str(data_dir.resolve())
+    src_sig = _inventory_source_sig(data_dir)
+    now_mono = _t.monotonic()
+    if not force_refresh:
+        cached = _INVENTORY_MEM_CACHE.get(resolved_key)
+        if cached is not None and cached[0] == src_sig and (now_mono - cached[1]) < 15.0:
+            return dict(cached[2])
     now_iso = datetime.now(timezone.utc).isoformat()
 
     # 1. Unified Market Universe Telemetry (SSOT for all market counts)
@@ -158,4 +190,5 @@ def get_canonical_system_inventory(data_dir: Path = DATA, force_refresh: bool = 
     except Exception as exc:
         log.warning("Could not persist canonical inventory to %s: %s", inventory_path, exc)
 
+    _INVENTORY_MEM_CACHE[resolved_key] = (_inventory_source_sig(data_dir), _t.monotonic(), inventory)
     return inventory

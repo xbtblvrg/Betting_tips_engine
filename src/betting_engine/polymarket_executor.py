@@ -23,8 +23,9 @@ import os
 from pathlib import Path
 import sqlite3
 from contextlib import closing
+import threading
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from .domain import parse_time, utcnow
 from .providers import DATA
@@ -87,6 +88,9 @@ class PolymarketAutonomousExecutor:
     _cached_balance: Optional[float] = None
     _balance_cached_at: float = 0.0
     _ensured_dbs: Set[str] = set()
+    _cached_clob_clients: Dict[Tuple[Any, ...], Tuple[float, Any, bool]] = {}
+    _clob_client_lock = threading.Lock()
+    _clob_client_ttl_seconds: float = 900.0
 
     def __init__(
         self,
@@ -137,6 +141,22 @@ class PolymarketAutonomousExecutor:
                 from py_clob_client.clob_types import ApiCreds, OrderArgs, OrderType
                 is_v2 = False
 
+            cache_key = (
+                ClobClient,
+                self.private_key,
+                self.proxy_address,
+                self.builder_key,
+                self.builder_secret,
+                self.builder_passphrase,
+            )
+            now_mono = time.monotonic()
+            with PolymarketAutonomousExecutor._clob_client_lock:
+                cached_entry = PolymarketAutonomousExecutor._cached_clob_clients.get(cache_key)
+                if cached_entry is not None and (now_mono - cached_entry[0]) < PolymarketAutonomousExecutor._clob_client_ttl_seconds:
+                    self.client = cached_entry[1]
+                    self.is_v2 = cached_entry[2]
+                    return
+
             clob_host = "https://clob.polymarket.com"
             chain_id = 137
 
@@ -181,6 +201,8 @@ class PolymarketAutonomousExecutor:
             c.set_api_creds(derived_creds)
             self.client = c
             self.is_v2 = is_v2
+            with PolymarketAutonomousExecutor._clob_client_lock:
+                PolymarketAutonomousExecutor._cached_clob_clients[cache_key] = (time.monotonic(), c, is_v2)
             log.info("Polymarket CLOB client initialized and authenticated with L2 credentials.")
         except Exception as exc:
             log.error(f"Failed to initialize Polymarket CLOB client: {exc}. Operating in dry-run mode.")

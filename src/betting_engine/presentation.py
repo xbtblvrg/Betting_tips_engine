@@ -73,14 +73,20 @@ PATTERNS = [
  (r'Összpontszám felett (.+)',r'Over \1'),(r'Összpontszám alatt (.+)',r'Under \1')
 ]
 
-@lru_cache(maxsize=16384)
+_COMPILED_PATTERNS = [(re.compile(pattern), replacement) for pattern, replacement in PATTERNS]
+_LONG_TEXT = [(source, target) for source, target in TEXT.items() if len(source) > 30]
+
+
+@lru_cache(maxsize=32768)
 def english_text(text):
+    if text.isascii():
+        return 'Withdrawn / Expired' if text == 'withdrawn / expired' else text
     if text in TEXT:return TEXT[text]
-    for pattern,replacement in PATTERNS:
-        if re.fullmatch(pattern,text):return re.sub(pattern,replacement,text)
+    for compiled,replacement in _COMPILED_PATTERNS:
+        if compiled.fullmatch(text):return compiled.sub(replacement,text)
     # Some stake notes consist of two known sentences. Replace full phrases only.
-    for source,target in TEXT.items():
-        if len(source)>30 and source in text:text=text.replace(source,target)
+    for source,target in _LONG_TEXT:
+        if source in text:text=text.replace(source,target)
     return text
 
 # Verified against Stake's public market pages; see docs/STAKE_MARKETS.md.
@@ -298,6 +304,15 @@ def selection_name(t):
     return english_text(t.get('selection',''))
 
 def english_payload(value):
+    t = type(value)
+    if t is str:
+        if value.isascii():
+            return 'Withdrawn / Expired' if value == 'withdrawn / expired' else value
+        return english_text(value)
+    if t in (int, float, bool) or value is None:
+        return value
+    if t is list:
+        return [english_payload(v) for v in value]
     if isinstance(value,str):return english_text(value)
     if isinstance(value,list):return [english_payload(v) for v in value]
     if isinstance(value,dict):
