@@ -133,6 +133,15 @@ def _get_universe_roster():
     except Exception:
         return {}
 
+_CONTAINER_SEGMENT_FAMILIES = frozenset({
+    'american_derivatives',
+    'asian_lines',
+    'bivariate_derivatives',
+    'tennis_sets',
+    'sequence_hazard',
+})
+
+
 def _get_graduated_segments():
     import time
     now = time.time()
@@ -144,7 +153,17 @@ def _get_graduated_segments():
         return _GRADUATED_CACHE['data']
     roster = _get_universe_roster()
     if roster:
-        res = {k for k, p in roster.items() if p.tier >= 3}
+        res = set()
+        for k, p in roster.items():
+            if p.tier >= 3 and float(getattr(p, 'stake_cap', 0.50) if getattr(p, 'stake_cap', None) is not None else 0.50) > 0.0:
+                res.add(k)
+                if isinstance(k, str) and k.count('|') == 2:
+                    lg, sc, mkt = k.split('|', 2)
+                    if lg and mkt and mkt not in _CONTAINER_SEGMENT_FAMILIES:
+                        aliases = canonical_segment_aliases(lg, sc, mkt)
+                        if mkt.split(':')[-1] in ('home_total', 'away_total'):
+                            aliases = {a for a in aliases if not a.endswith(('|team_total', ':team_total'))}
+                        res.update(aliases)
     else:
         try:
             from .shadow_market_incubator import load_graduated_markets
@@ -169,7 +188,10 @@ def _get_demoted_segments():
     roster = _get_universe_roster()
     grad = _get_graduated_segments()
     if roster:
-        dem = {k for k, p in roster.items() if p.tier in (1, 2)}
+        dem = {
+            k for k, p in roster.items()
+            if p.tier in (1, 2) or (getattr(p, 'stake_cap', None) is not None and float(p.stake_cap) <= 0.0)
+        }
         res = {k for k in dem if k not in grad}
     else:
         try:
@@ -208,8 +230,26 @@ MAX_TOURNIQUET_CONCURRENT_OPEN = 5
 MAX_PROBATION_CONCURRENT_OPEN = 8
 
 
+def _canonical_base_market(base_mkt: str) -> str:
+    if base_mkt in ('asian_handicap', 'handicap', 'game_handicap'):
+        return 'spreads'
+    if base_mkt in ('asian_total', 'asian_totals', 'total'):
+        return 'totals'
+    if base_mkt in ('both_teams_score', 'both_teams_to_score', 'btts'):
+        return 'both_score'
+    if base_mkt == '1x2':
+        return 'three_way'
+    if base_mkt in ('winner', 'match_winner', 'head_to_head'):
+        return 'moneyline'
+    return base_mkt
+
+
 def _primary_segment_key(item):
     lg = str(item.get('league') or '').upper().strip()
+    if not lg and ':' in str(item.get('game_id') or ''):
+        prefix = str(item.get('game_id')).split(':', 1)[0].upper().strip()
+        if prefix.isalpha():
+            lg = prefix
     raw_mkt = str(item.get('market') or '').lower().strip()
     try:
         mkt_scope, base_mkt = split_market(raw_mkt)
@@ -217,8 +257,12 @@ def _primary_segment_key(item):
         parts = raw_mkt.split(':')
         mkt_scope = parts[0] if len(parts) > 1 else 'full_game'
         base_mkt = parts[-1]
-    sc = str(item.get('model_scope') or item.get('scope') or mkt_scope or 'full_game').lower().strip()
-    return (lg, sc, base_mkt)
+    explicit_sc = str(item.get('model_scope') or item.get('scope') or '').lower().strip()
+    if mkt_scope and mkt_scope != 'full_game' and explicit_sc in ('', 'full_game'):
+        sc = mkt_scope
+    else:
+        sc = explicit_sc or mkt_scope or 'full_game'
+    return (lg, sc, _canonical_base_market(base_mkt))
 
 
 def is_synthetic_test_candidate(tip: Any, settings: Optional[Dict[str, Any]] = None) -> bool:
@@ -331,12 +375,21 @@ def continuous_selection_priority_v4(tip, tier):
     capital_defense = set(gov.get('capital_defense_list', []))
 
     alpha_boost = 0.0
+    roster_v4 = _get_universe_roster() if not is_test_cand else None
+    has_active_alpha_cap = True
+    if roster_v4:
+        matched_profs_v4 = [roster_v4[s] for s in seg_candidates if s in roster_v4]
+        if matched_profs_v4 and not any(
+            p.tier >= 3 and float(getattr(p, 'stake_cap', 0.50) if getattr(p, 'stake_cap', None) is not None else 0.50) > 0.50
+            for p in matched_profs_v4
+        ):
+            has_active_alpha_cap = False
     if is_demoted:
         alpha_boost = -0.50
-    elif any(s in super_alpha for s in seg_candidates):
+    elif any(s in super_alpha for s in seg_candidates) and has_active_alpha_cap:
         alpha_boost = 0.60
         tip['is_super_alpha'] = True
-    elif any(s in solid_alpha for s in seg_candidates):
+    elif any(s in solid_alpha for s in seg_candidates) and has_active_alpha_cap:
         alpha_boost = 0.35
         tip['is_solid_alpha'] = True
     elif any(s in capital_defense for s in seg_candidates):
@@ -1043,10 +1096,16 @@ def rank_and_size(candidates,settings,open_exposure=0.,held_families=(),held_con
     from collections import defaultdict
     roster_by_game = defaultdict(list)
     segment_open_counts = Counter()
-    for t in (held_event_roster or []):
-        if float(t.get('stake', 0)) > 0:
-            roster_by_game[t.get('game_id')].append(t)
-            h_seg_key = _primary_segment_key(t)
+    if held_event_roster:
+        for t in held_event_roster:
+            if float(t.get('stake', 0)) > 0:
+                roster_by_game[t.get('game_id')].append(t)
+                h_seg_key = _primary_segment_key(t)
+                if h_seg_key[0]:
+                    segment_open_counts[h_seg_key] += 1
+    elif held_families:
+        for h_gid, h_mkt in held_families:
+            h_seg_key = _primary_segment_key({'game_id': h_gid, 'market': h_mkt})
             if h_seg_key[0]:
                 segment_open_counts[h_seg_key] += 1
     chosen_by_game = defaultdict(list)

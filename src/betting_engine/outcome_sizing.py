@@ -24,7 +24,7 @@ POLICY_V3 = 'historical_confidence_v3'
 SUPPORTED_POLICIES = ('legacy', POLICY, POLICY_V2, POLICY_V3)
 VERSION = 'outcome-sizing-evidence-v1'
 SPARSE_BELOW_GAMES = 2  # Descriptive sparse-sample label only, never a multiplier threshold.
-ALPHA_STRESS_AND_TIER_FIX_TS = '2026-11-28T08:10:00+00:00'
+ALPHA_STRESS_AND_TIER_FIX_TS = '2026-11-28T09:15:00+00:00'
 FORMULA = 'game_score=min(1,game_roi/0.20,(game_wr-game_break_even_wr)/0.10); push_only_score=0; factor=1+max(0,sum(game_scores)/(n+20)); nonpositive_segment_roi_or_wr_surplus_factor=1'
 FORMULA_V2 = 'game_score=min(1,game_roi/1.0,(game_wr-game_break_even_wr)/0.5); push_only_score=0; negative_scores_unbounded; signal=max(0,sum(game_scores)/(independent_games+20)); applied_factor=1+4*signal; nonpositive_segment_roi_or_wr_surplus_factor=1; source evidence remains historical_game_weighted_v1'
 NOTE = 'Historical game-weighted sizing heuristic; not validated profit, a confidence interval, or an independent probability forecast.'
@@ -446,8 +446,6 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
     raw_sroi = tip.get('stress_roi')
     if raw_sroi is None and 'stress_roi' in fb_dict:
         raw_sroi = fb_dict.get('stress_roi')
-    if raw_sroi is None and 'stress_roi' in base_sizing:
-        raw_sroi = base_sizing.get('stress_roi')
     if raw_sroi is not None:
         try:
             s_f = float(raw_sroi)
@@ -462,6 +460,18 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
             ro_f = float(tip.get('reference_odds') or tip.get('odds'))
             if math.isfinite(sp_f) and math.isfinite(pp_f) and math.isfinite(ro_f) and ro_f > 0:
                 cand_stress_roi = sp_f * ro_f + pp_f - 1.0
+        except (TypeError, ValueError):
+            pass
+    if (
+        cand_stress_roi is None
+        and 'stress_roi' in base_sizing
+        and base_sizing.get('probability_basis') != 'model'
+        and not is_model_pick_tier
+    ):
+        try:
+            s_f = float(base_sizing['stress_roi'])
+            if math.isfinite(s_f):
+                cand_stress_roi = s_f
         except (TypeError, ValueError):
             pass
     if not is_sealed_before_alpha_stress_fix and v3 is not None and cand_stress_roi is not None and cand_stress_roi < 0.0:
@@ -483,7 +493,9 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
     cand_scope = str(tip.get('model_scope', 'full_game'))
     base_mkt = market_val.split(':')[-1]
     from .contracts import canonical_segment_aliases
-    from .decisions import _get_graduated_segments, _get_demoted_segments
+    from . import decisions as _dec_mod
+    _get_graduated_segments = _dec_mod._get_graduated_segments
+    _get_demoted_segments = _dec_mod._get_demoted_segments
     from . import providers as _prov_mod
     check_keys = canonical_segment_aliases(cand_league, cand_scope, market_val)
     _prov_dir = Path(_prov_mod.DATA)
@@ -498,7 +510,7 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
         _smi_resolved = _prov_resolved
         _smi_sig = _prov_sig
     grad_segs, dem_segs = _cached_sizing_env_get(
-        ('segs', _prov_resolved, _smi_resolved, _smi_sig, _get_graduated_segments, _get_demoted_segments),
+        ('segs', _prov_resolved, _smi_resolved, _smi_sig, _get_graduated_segments, _get_demoted_segments, getattr(_dec_mod, '_get_universe_roster', None)),
         lambda: (_get_graduated_segments(), _get_demoted_segments()),
     )
 
@@ -550,9 +562,20 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                 lambda: _umu_cls(data_dir=_umu_dir).build_universe_roster(force_refresh=False),
             )
             if is_demoted_market:
-                universe_prof = next((roster[ck] for ck in check_keys if ck in roster and roster[ck].tier in (1, 2)), None)
+                universe_prof = next(
+                    (
+                        roster[ck] for ck in check_keys
+                        if ck in roster and (roster[ck].tier in (1, 2) or float(getattr(roster[ck], 'stake_cap', 0.50) or 0.0) <= 0.0)
+                    ),
+                    None,
+                )
             else:
-                grad_profs = [roster[ck] for ck in check_keys if ck in roster and roster[ck].tier >= 3]
+                grad_profs = [
+                    roster[ck] for ck in check_keys
+                    if ck in roster and roster[ck].tier >= 3 and (
+                        is_sealed_before_alpha_stress_fix or float(getattr(roster[ck], 'stake_cap', 0.50) if getattr(roster[ck], 'stake_cap', None) is not None else 0.50) > 0.0
+                    )
+                ]
                 if grad_profs:
                     universe_prof = max(grad_profs, key=lambda p: p.stake_cap)
                 else:
@@ -563,7 +586,6 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
         except Exception:
             universe_prof = None
 
-    explicit_alpha_flag = bool((tip.get('is_super_alpha') or tip.get('is_solid_alpha')) and not tip.get('is_demoted'))
     if universe_prof and not explicit_alpha_flag:
         if universe_prof.stake_cap is not None:
             caps['universe_tier_stake_cap'] = universe_prof.stake_cap
@@ -750,9 +772,19 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
             # Dynamic Tier Scaling (Constitutional Mandate D40 - Kelly Stake Dominance Option B):
             # Scale-Invariant in Units of Stake (Super Alpha: >=4.0 units or >=$5.0; Solid Alpha: >=2.0 units or >=$2.0)
             grad_proven = bool(is_cand_graduated and (is_test_cand or not is_unproven_graduated) and is_alpha_eligible_market)
-            has_defense = not (gov_super or gov_solid or explicit_alpha_flag) and (
-                any(k in caps for k in ('demoted_market_defense_clamp', 'capital_defense_clamp', 'capital_defense_quarantine'))
-                or (not is_test_cand and bool(check_keys & set(gov.get('capital_defense_list', []))))
+            has_zero_quarantine = (
+                not is_sealed_before_alpha_stress_fix
+                and any(
+                    caps.get(k) == 0.0
+                    for k in ('demoted_market_defense_clamp', 'capital_defense_quarantine', 'universe_tier_stake_cap')
+                )
+            )
+            has_defense = has_zero_quarantine or (
+                not (gov_super or gov_solid or explicit_alpha_flag)
+                and (
+                    any(k in caps for k in ('demoted_market_defense_clamp', 'capital_defense_clamp', 'capital_defense_quarantine'))
+                    or (not is_test_cand and bool(check_keys & set(gov.get('capital_defense_list', []))))
+                )
             )
             is_early_alpha = bool(pnl_val > 0.0 and effective_roi > 0.0 and games_val >= 2 and not has_rolling_drag)
             avg_game_stake = (staked_val / max(1, games_val)) if (staked_val > 0 and games_val > 0) else max(0.50, def_unit)
@@ -790,9 +822,13 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
 
             if not is_sealed_before_alpha_stress_fix:
                 if cand_stress_roi is not None or is_model_pick_tier:
-                    if is_model_pick_tier or cand_stress_roi is None or cand_stress_roi < 0.0:
+                    if cand_stress_roi is not None and cand_stress_roi < 0.0:
                         is_super_alpha = False
                         is_solid_alpha = False
+                    elif is_model_pick_tier or cand_stress_roi is None:
+                        if not (is_test_cand and explicit_alpha_flag):
+                            is_super_alpha = False
+                            is_solid_alpha = False
                     elif cand_stress_roi < 0.01:
                         if not (is_test_cand and explicit_alpha_flag):
                             is_super_alpha = False
