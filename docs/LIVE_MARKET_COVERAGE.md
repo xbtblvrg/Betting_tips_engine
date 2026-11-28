@@ -1,13 +1,13 @@
 # Live Stake market coverage
 
-Checked: 2026-11-28T12:23:16.592620+00:00
+Checked: 2026-11-28T12:54:08.177947+00:00
 
 Observed feed titles; not proof of complete Stake website coverage. Funding support means a fresh guarded candidate passes current funding policy and minimum sizing before exposure/family allocation; eligible-now means an executable funded selection.
 
 | League | Observed titles | Activity unverified | Offered now | Complete 10/10 | Incomplete offered | Evaluated | Funding supported | Ready now | Issued today |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | NFL | 107 | 46 | 60 | 0 | 60 | 42 | 5 | 3 | 3 |
-| NHL | 81 | 16 | 64 | 0 | 64 | 45 | 2 | 0 | 7 |
+| NHL | 81 | 16 | 64 | 0 | 64 | 45 | 2 | 0 | 8 |
 | MLB | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | NBA | 156 | 29 | 97 | 0 | 97 | 43 | 1 | 0 | 15 |
 | WNBA | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
@@ -305,7 +305,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NHL | 3rd Period - Both Teams to Score | standard | period_3 | offered_now | 1/10 | not_observed 0/26 | verified 26/26 | not_observed 0/26 | not_observed 0/26 | not_observed 0/26 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 3rd Period - Double Chance | standard | period_3 | offered_now | 7/10 | verified 39/39 | verified 39/39 | verified 39/39 | verified 39/39 | verified 39/39 | verified 39/39 | verified 39/39 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
 | NHL | 3rd Period - Draw No Bet | standard | period_3 | offered_now | 7/10 | verified 26/26 | verified 26/26 | verified 26/26 | verified 26/26 | verified 26/26 | verified 26/26 | verified 26/26 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NHL | 3rd Period - Handicap | standard | period_3 | offered_now | 9/10 | verified 26/26 | verified 26/26 | verified 26/26 | verified 26/26 | verified 26/26 | verified 26/26 | verified 26/26 | verified 36/36 | verified 29/29 | partial 29/30 | 7 |
+| NHL | 3rd Period - Handicap | standard | period_3 | offered_now | 9/10 | verified 26/26 | verified 26/26 | verified 26/26 | verified 26/26 | verified 26/26 | verified 26/26 | verified 26/26 | verified 37/37 | verified 29/29 | partial 29/30 | 8 |
 | NHL | 3rd Period - Last Team to Score | standard | period_3 | offered_now | 0/10 | not_observed 0/39 | not_observed 0/39 | not_observed 0/39 | not_observed 0/39 | not_observed 0/39 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 3rd Period - Odd/Even | standard | period_3 | offered_now | 1/10 | not_observed 0/26 | verified 26/26 | not_observed 0/26 | not_observed 0/26 | not_observed 0/26 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
 | NHL | 3rd Period - Total | standard | period_3 | offered_now | 5/10 | partial 13/26 | verified 26/26 | partial 13/26 | partial 13/26 | partial 13/26 | verified 13/13 | verified 13/13 | verified 26/26 | verified 26/26 | partial 26/27 | 0 |
@@ -338,7 +338,7 @@ Current stages require outcome-level evidence; original issuance, settlement and
 | NHL | St. Louis Blues Total | standard | regulation | offered_now | 5/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | verified 1/1 | verified 1/1 | partial 1/2 | 0 |
 | NHL | Tampa Bay Lightning Total | standard | regulation | offered_now | 5/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NHL | Toronto Maple Leafs Total | standard | regulation | offered_now | 3/10 | partial 4/6 | verified 6/6 | partial 4/6 | partial 4/6 | partial 4/6 | verified 4/4 | verified 4/4 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
-| NHL | Total (Incl. Overtime and Penalties) | standard | full_game | offered_now | 5/10 | partial 98/130 | verified 130/130 | partial 98/130 | partial 98/130 | partial 98/130 | verified 98/98 | verified 98/98 | verified 37/37 | verified 37/37 | partial 37/38 | 0 |
+| NHL | Total (Incl. Overtime and Penalties) | standard | full_game | offered_now | 5/10 | partial 99/130 | verified 130/130 | partial 99/130 | partial 99/130 | partial 99/130 | verified 99/99 | verified 99/99 | verified 37/37 | verified 37/37 | partial 37/38 | 0 |
 | NHL | Utah Mammoth Total | standard | regulation | offered_now | 5/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | verified 1/1 | verified 1/1 | awaiting_measurement 1/2 | 0 |
 | NHL | Vegas Golden Knights Total | standard | regulation | offered_now | 3/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | not_observed 0/0 | not_observed 0/0 | partial 0/1 | 0 |
 | NHL | Washington Capitals Total | standard | regulation | offered_now | 3/10 | partial 5/6 | verified 6/6 | partial 5/6 | partial 5/6 | partial 5/6 | verified 5/5 | verified 5/5 | not_observed 0/0 | not_observed 0/0 | awaiting_measurement 0/1 | 0 |
