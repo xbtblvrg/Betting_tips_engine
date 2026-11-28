@@ -87,7 +87,7 @@ class NFLHalf1HomeTotalCompoundDriveModel(BaseCandidateModel):
 
     def __init__(
         self,
-        model_id: str = "codex_synth_nfl_half_1_1107_123731",
+        model_id: str = "codex_synth_nfl_half_2_1128_041022",
         version: str = "1.0.0",
         league: str = "NFL",
         scope: str = "half_1",
