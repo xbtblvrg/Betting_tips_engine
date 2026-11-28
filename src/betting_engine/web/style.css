@@ -286,7 +286,6 @@ html[data-theme="dark"] .stake-box{background:#0b1713;border-color:#1c362b;color
 html[data-theme="dark"] .stake-crypto-pill{background:#0b1713;border-color:#1c362b;color:#a7f3d0}
 html[data-theme="dark"] .stake-progress-bar{background:#1a352a}
 html[data-theme="dark"] .stake-progress-fill{background:#10b981}
-html[data-theme="dark"] #stake-base-bankroll-input{background:#0b1713;border-color:#1c362b;color:#e1eee7}
 html[data-theme="dark"] .muted-text{color:#8fa69c}
 
 /* Placement toggle & archive styles (light + dark) */
@@ -338,12 +337,28 @@ html[data-theme="dark"] #auto-run-stake-open-badge{background:#0f263a!important;
 .rd-council-subcard p{margin:4px 0 0 0;color:inherit}
 .rd-council-synthesis{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:10px;font-size:11px;color:#166534}
 .rd-council-synthesis code{background:#dcfce7;color:#14532d;padding:2px 6px;border-radius:4px;font-size:10px;font-family:var(--mono)}
+.badge.info{background:#e0e7ff;color:#3730a3;border:1px solid #c7d2fe}
+.badge.probation{background:#f3e8ff;color:#6b21a8;border:1px solid #e9d5ff}
+.poly-approaching-text{font-weight:700;color:#3730a3}
+.poly-approaching-sub{display:block;color:#4f46e5;font-size:9px;font-weight:600}
+.poly-funding-alert{background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px 16px;margin:12px 0 16px 0;color:#991b1b}
+.poly-funding-alert strong{color:#991b1b}
+.poly-funding-alert p{color:#b91c1c}
+.poly-funding-alert code{background:#fee2e2;padding:2px 6px;border-radius:4px;font-family:var(--mono);font-size:11px;color:#7f1d1d}
+.autorun-remediation-box{margin-bottom:14px;border-radius:8px;padding:12px 14px;border:1px solid var(--line)}
+.autorun-remediation-box.alert{background:#fef2f2;border-color:#fecaca;color:#7f1d1d}
+.autorun-remediation-box.alert strong{color:#991b1b}
+.autorun-remediation-box.healthy{background:#f0fdf4;border-color:#bbf7d0;color:#166534}
 .autorun-kpi-card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px}
+html[data-theme="dark"] .badge.info{background:#1e1b4b;color:#c7d2fe;border-color:#4338ca}
+html[data-theme="dark"] .badge.probation{background:#2e1065;color:#e9d5ff;border-color:#7e22ce}
+html[data-theme="dark"] .poly-approaching-text{color:#a5b4fc}
+html[data-theme="dark"] .poly-approaching-sub{color:#818cf8}
 html[data-theme="dark"] .poly-shadow-card{background:#16142b;border-color:#3730a3;border-left-color:#818cf8}
 html[data-theme="dark"] .poly-live-card{background:#0e241c;border-color:#1e4d3a;border-left-color:#10b981}
 html[data-theme="dark"] .poly-stat-box{background:#0d1b16;border-color:#1f3b30}
 html[data-theme="dark"] .poly-proxy-code{background:#0b1713;border:1px solid #1f3b30;color:#a7f3d0}
-html[data-theme="dark"] #poly-funding-alert{background:#2c1215!important;border-color:#7f1d1d!important;color:#fecaca!important}
+html[data-theme="dark"] .poly-funding-alert,html[data-theme="dark"] #poly-funding-alert{background:#2c1215!important;border-color:#7f1d1d!important;color:#fecaca!important}
 html[data-theme="dark"] #poly-funding-alert strong,html[data-theme="dark"] #poly-funding-alert p{color:#fecaca!important}
 html[data-theme="dark"] #poly-funding-alert code{background:#450a0a!important;color:#fca5a5!important}
 html[data-theme="dark"] .notify-row{background:#0f211b;border-color:#1f3b30}
@@ -356,6 +371,8 @@ html[data-theme="dark"] .rd-council-synthesis code{background:#064e3b;color:#d1f
 html[data-theme="dark"] #autorun-logs-dialog{background:#11231d!important;color:#e1eee7}
 html[data-theme="dark"] #autorun-logs-table thead{background:#0d1b16!important;border-bottom-color:#1f3b30!important}
 html[data-theme="dark"] .autorun-kpi-card{background:#0f211b!important;border-color:#1f3b30!important;color:#e1eee7!important}
-html[data-theme="dark"] #autorun-remediation-box{background:#1a1518!important;border-color:#4c1d24!important;color:#fecaca!important}
+html[data-theme="dark"] .autorun-remediation-box.alert{background:#2c1215!important;border-color:#7f1d1d!important;color:#fecaca!important}
+html[data-theme="dark"] .autorun-remediation-box.alert strong{color:#fda4af!important}
+html[data-theme="dark"] .autorun-remediation-box.healthy{background:#09261c!important;border-color:#134e3a!important;color:#a7f3d0!important}
 
 

@@ -297,3 +297,95 @@ def test_funnel_supervisor_tier4_counts_match_executor_eligibility(monkeypatch: 
     assert s6['stake_alpha_segments_count'] == 3
     assert s6['eligible_alpha_segments'] == 2
     assert s6['active_dual_reachable_count'] == 1
+
+
+def test_latest_dashboard_copy_detects_in_place_sqlite_tampering(tmp_path: Path):
+    """Verify Store.latest_dashboard_copy caches unmodified publications yet immediately detects raw SQLite payload tampering."""
+    import os
+    from betting_engine.governance import evidence_digest
+    from betting_engine.snapshots import encode_publication
+    from betting_engine.storage import Store
+
+    store = Store(tmp_path / 'tamper.sqlite3')
+    cand = {
+        'id': 'cand_1',
+        'game_id': 'g1',
+        'league': 'NBA',
+        'home': 'Celtics',
+        'away': 'Heat',
+        'start': '2026-12-01T00:00:00+00:00',
+        'market': 'spreads',
+        'side': 'home',
+        'line': -3.5,
+        'selection': 'Celtics -3.5',
+        'reference_odds': 1.95,
+        'probability': 0.57,
+        'push_probability': 0.0,
+        'stress_probability': 0.55,
+        'expected_roi': 0.1115,
+        'stress_roi': 0.0725,
+        'minimum_odds': 1.75,
+        'quote_at': '2026-11-27T23:00:00+00:00',
+        'valid_until': '2026-12-01T00:00:00+00:00',
+        'reference_platform': 'Stake.com',
+        'decision_guard': {'passed': True, 'candidate_sha256': 'x' * 64},
+        # Incompressible hex entropy > 262 KB compressed so the large-blob gzip CRC32 trailer path is exercised!
+        'padding_entropy': os.urandom(300_000).hex(),
+    }
+
+    orig_digest = evidence_digest(cand)
+    cand['decision_guard']['candidate_sha256'] = orig_digest
+    encoded = encode_publication({'evaluated_candidates': [cand], 'recommendations': [], 'alternatives': []})
+    assert len(encoded) >= 262_144
+    with store.db() as c:
+        cur = c.execute('INSERT INTO publications(created_at, payload) VALUES (?, ?)', ('2026-11-27T23:00:00+00:00', encoded))
+        pub_id = cur.lastrowid
+
+    d1, digs1 = store.latest_dashboard_copy()
+    assert d1 is not None and digs1 is not None
+    c1 = d1['evaluated_candidates'][0]
+    assert digs1[id(c1)] == orig_digest
+    # Mutating returned copy must never leak into subsequent calls
+    c1['stake'] = 7.77
+    c1['decision_guard']['candidate_sha256'] = 'mutated_in_ram'
+    d2, digs2 = store.latest_dashboard_copy()
+    c2 = d2['evaluated_candidates'][0]
+    assert c2.get('stake') is None
+    assert c2['decision_guard']['candidate_sha256'] == orig_digest
+
+    # Adversarial check: tamper with reference_odds inside SQLite row WITHOUT changing publications.id!
+    tampered = copy.deepcopy(cand)
+    tampered['reference_odds'] = 3.50
+    tampered_encoded = encode_publication({'evaluated_candidates': [tampered], 'recommendations': [], 'alternatives': []})
+    with store.db() as c:
+        c.execute('UPDATE publications SET payload = ? WHERE id = ?', (tampered_encoded, pub_id))
+
+    d3, digs3 = store.latest_dashboard_copy()
+    c3 = d3['evaluated_candidates'][0]
+    # Digest computed from tampered payload MUST differ from sealed candidate_sha256!
+    assert digs3[id(c3)] != orig_digest
+    assert digs3[id(c3)] != c3['decision_guard']['candidate_sha256']
+
+
+def test_autonomous_timeline_surfaces_completed_sqlite_learning_jobs_and_archetype_velocity(monkeypatch: pytest.MonkeyPatch):
+    from betting_engine import autonomous_timeline
+
+    monkeypatch.setattr(
+        'betting_engine.model_funnel_telemetry.get_algorithmic_codex_velocity',
+        lambda data_dir=None: {'catalog_inventory': {'active_archetypes': 312, 'total_archetypes': 320}},
+    )
+    conn = sqlite3.connect(':memory:')
+    conn.execute(
+        'CREATE TABLE learning_jobs (id TEXT PRIMARY KEY, kind TEXT, league TEXT, status TEXT, created_at TEXT, updated_at TEXT)'
+    )
+    conn.execute(
+        "INSERT INTO learning_jobs VALUES ('job_nfl_99', 'autonomous_bottleneck_repair', 'NFL', 'completed', '2026-11-27T20:00:00Z', '2026-11-27T20:05:00Z')"
+    )
+    conn.commit()
+    tl = autonomous_timeline.get_autonomous_timeline(conn)
+    conn.close()
+
+    assert any(item['id'] == 'tl_live_job_job_nfl_99' and item['is_working'] is True for item in tl)
+    stage0 = next(item for item in tl if item['id'] == 'tl_stage0_distilled_ai_fast_lane')
+    assert '312 Distilled Archetypes' in stage0['verification_evidence']
+

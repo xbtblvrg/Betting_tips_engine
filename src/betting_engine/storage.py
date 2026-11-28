@@ -20,6 +20,60 @@ _LATEST_DASHBOARD_CACHE = OrderedDict()
 _LATEST_DASHBOARD_LOCK = threading.Lock()
 
 
+class _SealedSummaryDict(dict):
+    __slots__ = ('_sealed_verified', '_root_ref')
+
+    def __init__(self, mapping, root=None):
+        super().__init__(mapping)
+        self._sealed_verified = None
+        self._root_ref = root
+
+    def _invalidate(self):
+        self._sealed_verified = None
+        if self._root_ref is not None:
+            self._root_ref._sealed_verified = None
+
+    def __setitem__(self, k, v):
+        self._invalidate()
+        super().__setitem__(k, v)
+
+    def __delitem__(self, k):
+        self._invalidate()
+        super().__delitem__(k)
+
+    def pop(self, *args):
+        self._invalidate()
+        return super().pop(*args)
+
+    def update(self, *args, **kwargs):
+        self._invalidate()
+        return super().update(*args, **kwargs)
+
+    def clear(self):
+        self._invalidate()
+        return super().clear()
+
+    def setdefault(self, *args):
+        self._invalidate()
+        return super().setdefault(*args)
+
+
+def _seal_outcome_summary(ose, verify_fn):
+    if not isinstance(ose, dict):
+        return ose
+    verdict = verify_fn(ose)
+    root = _SealedSummaryDict(ose)
+    games = ose.get('games')
+    if isinstance(games, dict):
+        sealed_games = _SealedSummaryDict(
+            {gk: (_SealedSummaryDict(gv, root=root) if isinstance(gv, dict) else gv) for gk, gv in games.items()},
+            root=root,
+        )
+        dict.__setitem__(root, 'games', sealed_games)
+    root._sealed_verified = verdict
+    return root
+
+
 def _clone_dashboard_publication(template, digests):
     out = dict(template)
     for key in ('evaluated_candidates', 'recommendations', 'alternatives'):
@@ -247,7 +301,11 @@ class Store:
                     raw_payload = full_row['payload']
                 decoded = {**decode_publication(raw_payload), 'version': pub_id}
                 from .governance import evidence_digest
+                from .outcome_sizing import verify_summary as _verify_ose
                 all_t = decoded.get('evaluated_candidates') or (decoded.get('recommendations', []) + decoded.get('alternatives', []))
+                for t_item in all_t:
+                    if isinstance(t_item, dict) and isinstance(t_item.get('outcome_sizing_evidence'), dict):
+                        t_item['outcome_sizing_evidence'] = _seal_outcome_summary(t_item['outcome_sizing_evidence'], _verify_ose)
                 digests = tuple(evidence_digest(t) if isinstance(t, dict) else '' for t in all_t)
                 cached = (decoded, digests)
                 with _LATEST_DASHBOARD_LOCK:

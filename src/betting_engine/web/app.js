@@ -1994,23 +1994,23 @@ async function fetchAndRenderAutoRunLogs(filter = currentAutoRunFilter) {
    kpiBar.innerHTML = `
     <div class="autorun-kpi-card">
      <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;">Cycles</div>
-     <div style="font-size:16px;font-weight:700;margin-top:2px;">${cycles} db</div>
+     <div style="font-size:16px;font-weight:700;margin-top:2px;">${cycles}</div>
     </div>
     <div class="autorun-kpi-card">
-     <div style="font-size:10px;color:#16a34a;font-weight:600;text-transform:uppercase;">Placed · Megkötve</div>
-     <div style="font-size:16px;font-weight:700;color:#16a34a;margin-top:2px;">${placed} db</div>
+     <div style="font-size:10px;color:var(--green);font-weight:600;text-transform:uppercase;">Placed · Megkötve</div>
+     <div style="font-size:16px;font-weight:700;color:var(--green);margin-top:2px;">${placed} db</div>
     </div>
     <div class="autorun-kpi-card">
-     <div style="font-size:10px;color:#dc2626;font-weight:600;text-transform:uppercase;">Errors / Skipped</div>
-     <div style="font-size:16px;font-weight:700;color:#dc2626;margin-top:2px;">${errors} db</div>
+     <div style="font-size:10px;color:#ef4444;font-weight:600;text-transform:uppercase;">Errors / Skipped</div>
+     <div style="font-size:16px;font-weight:700;color:#ef4444;margin-top:2px;">${errors}</div>
     </div>
     <div class="autorun-kpi-card">
      <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;">Error Rate</div>
-     <div style="font-size:16px;font-weight:700;color:${errors > 0 ? '#dc2626' : '#16a34a'};margin-top:2px;">${errRate}</div>
+     <div style="font-size:16px;font-weight:700;color:${errors > 0 ? '#ef4444' : 'var(--green)'};margin-top:2px;">${errRate}</div>
     </div>
     <div class="autorun-kpi-card">
-     <div style="font-size:10px;color:#2563eb;font-weight:600;text-transform:uppercase;">Total Events</div>
-     <div style="font-size:16px;font-weight:700;color:#2563eb;margin-top:2px;">${totalEvents} db</div>
+     <div style="font-size:10px;color:#3b82f6;font-weight:600;text-transform:uppercase;">Total Events</div>
+     <div style="font-size:16px;font-weight:700;color:#3b82f6;margin-top:2px;">${totalEvents}</div>
     </div>
    `;
   }
@@ -2019,14 +2019,13 @@ async function fetchAndRenderAutoRunLogs(filter = currentAutoRunFilter) {
    const recs = diagRes?.remediation_recommendations || [];
    if (recs.length > 0) {
     remediationBox.style.display = 'block';
-    remediationBox.style.background = '#fef2f2';
-    remediationBox.style.borderColor = '#fecaca';
+    remediationBox.className = 'autorun-remediation-box alert';
     remediationBox.innerHTML = `
      <div style="display:flex;align-items:flex-start;gap:8px;">
       <span style="font-size:18px;">🤖</span>
       <div style="flex:1;">
-       <strong style="color:#991b1b;font-size:12px;">AI Error Diagnostics &amp; Remediation (${recs.length} patterns · AI Hibadiagnosztika):</strong>
-       <ul style="margin:6px 0 0 0;padding-left:18px;font-size:11px;color:#7f1d1d;line-height:1.4;">
+       <strong style="font-size:12px;">AI Error Diagnostics &amp; Remediation (${recs.length} patterns · AI Hibadiagnosztika):</strong>
+       <ul style="margin:6px 0 0 0;padding-left:18px;font-size:11px;line-height:1.4;">
         ${recs.map(r => `<li><strong>[${esc(r.error_code)}] (${r.occurrence_count}x):</strong> ${esc(r.recommendation)}</li>`).join('')}
        </ul>
       </div>
@@ -2034,10 +2033,9 @@ async function fetchAndRenderAutoRunLogs(filter = currentAutoRunFilter) {
     `;
    } else {
     remediationBox.style.display = 'block';
-    remediationBox.style.background = '#f0fdf4';
-    remediationBox.style.borderColor = '#bbf7d0';
+    remediationBox.className = 'autorun-remediation-box healthy';
     remediationBox.innerHTML = `
-     <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:#166534;">
+     <div style="display:flex;align-items:center;gap:8px;font-size:11px;">
       <span style="font-size:16px;">✅</span>
       <strong>Healthy telemetry:</strong> No active critical errors or stalls detected in Auto-Runner.
      </div>
@@ -2077,7 +2075,7 @@ async function fetchAndRenderAutoRunLogs(filter = currentAutoRunFilter) {
    } else if (ev.stage === 'STAGE_COMPLETE' || ev.status === 'PLACED' || d.placed) {
     stageBadge = `<span class="badge positive" style="font-size:10px;padding:2px 6px;font-weight:700;">✅ PLACED · SIKER</span>`;
    } else if (ev.stage === 'ADAPTIVE_EVALUATION') {
-    stageBadge = `<span class="badge" style="background:#e0e7ff;color:#3730a3;font-size:10px;padding:2px 6px;font-weight:700;">⚡ ADAPTIVE</span>`;
+    stageBadge = `<span class="badge info" style="font-size:10px;padding:2px 6px;font-weight:700;">⚡ ADAPTIVE</span>`;
    }
 
    const selName = ev.target_selection || ev.selection || d.selection;
@@ -2385,7 +2383,8 @@ function renderTips(){
   renderEvaluated();
   dirtyViews.delete('research');
  }else{
-  if($('#window-coverage'))$('#window-coverage').textContent=`${rows.length} current betting instructions. Earlier and placed bets are in Bet Tracker. The engine updates this list automatically.`;
+  const hours=horizon==='24'?'24':'48',hasWindow=Boolean(data?.opportunities?.windows?.[hours]);
+  if($('#window-coverage'))$('#window-coverage').textContent=hasWindow?`${rows.length} current betting instructions. Earlier and placed bets are in Bet Tracker. The engine updates this list automatically.`:'Only current, checked betting instructions appear here. Earlier bets are in Bet Tracker.';
   dirtyViews.add('research');
  }
  bindPlacementControls();bindStageBetslipButtons();bindOneClickBetButtons();updateAutoBetPanel();bindAutoBetRunner();$$('#tips-grid .tip-card .stake-bet-button').forEach(button=>bindInstructionLink(button,button.closest('[data-tip-id]').dataset.tipId));$$('[data-detail]').forEach(b=>b.onclick=()=>showDetail(b.dataset.detail,b.dataset.current==='true'));
@@ -2547,7 +2546,7 @@ function renderRD(rd){
  if($('#rd-capability-plans')){
   const plans=(cap.active_plans||[]).slice(0,15);
   $('#rd-capability-plans').innerHTML=plans.length
-   ? table(['Segment','Failure Mode','Dim A: Free Data Feature','Dim B/C: Actionable Patch Scope','Status'],plans.map(p=>[`<strong>${esc(p.segment)}</strong>`,esc(p.primary_failure_mode||'—'),esc((p.data_requirements||[]).map(d=>d.feature_name||d.feature_key).join(', ')||'—'),esc(p.actionable_ai_patch_scope||'—'),`<span class="badge positive">${esc(p.status||'active')}</span>`]))
+   ? table(['Segment','Failure Mode','Dim A: Free Data Feature','Dim B: Actionable Patch Scope','Dim C: Turnaround UI Badge','Status'],plans.map(p=>[`<strong>${esc(p.segment)}</strong>`,esc(p.primary_failure_mode||'—'),esc((p.data_requirements||[]).map(d=>d.feature_name||d.feature_key).join(', ')||'—'),esc(p.actionable_ai_patch_scope||'—'),(p.ui_enhancements||[]).map(u=>`<span class="badge warning" title="${esc(u.description||'')}">${esc(u.label||u.feature_key)}</span>`).join(' ')||'—',`<span class="badge positive">${esc(p.status||'active')}</span>`]))
    : '';
  }
 
@@ -3255,13 +3254,6 @@ function renderStakeAccount(d){
   }
  }
 
- if($('#stake-risk-title')){
-  $('#stake-risk-title').textContent = d.is_live_synced ? 'Real Open Exposure by League & Sport' : 'Open Exposure by League & Sport';
- }
- if($('#stake-risk-copy')){
-  $('#stake-risk-copy').textContent = d.is_live_synced ? `Exact active dollar exposure distributed across all sports on your Stake account (${d.username||'blvrg'}).` : 'Current active dollar exposure distributed across all sports and tournament feeds.';
- }
-
  if($('#stake-last-synced')){
   $('#stake-last-synced').textContent = d.synced_at ? when(d.synced_at) : 'Just now';
  }
@@ -3409,9 +3401,7 @@ function renderPolymarketDesk() {
  }
  if ($('#poly-shadow-status-badge')) {
   $('#poly-shadow-status-badge').textContent = 'SHADOW ACTIVE';
-  $('#poly-shadow-status-badge').className = 'badge';
-  $('#poly-shadow-status-badge').style.background = '#e0e7ff';
-  $('#poly-shadow-status-badge').style.color = '#3730a3';
+  $('#poly-shadow-status-badge').className = 'badge info';
  }
  if ($('#poly-shadow-orders-breakdown')) {
   const sFilled = shadow.filled_count != null ? shadow.filled_count : shadowFilled;
@@ -3493,10 +3483,10 @@ function renderPolymarketDesk() {
     <div style="display:flex;align-items:flex-start;gap:12px">
      <span style="font-size:20px;line-height:1">⚠️</span>
      <div>
-      <strong style="color:#991b1b;font-size:13px">Polymarket Collateral Alert: Low USDC Balance ($${usdcBal.toFixed(2)})</strong>
-      <p style="margin:4px 0 0 0;font-size:12px;color:#b91c1c;line-height:1.4">
+      <strong style="font-size:13px">Polymarket Collateral Alert: Low USDC Balance ($${usdcBal.toFixed(2)})</strong>
+      <p style="margin:4px 0 0 0;font-size:12px;line-height:1.4">
        <strong>${t4Count} Proven Tier 4 Markets</strong> (${provenNames}) are active and eligible for automated execution.
-       To enable live fills, fund your Polygon proxy wallet: <code style="background:#fee2e2;padding:2px 6px;border-radius:4px;font-family:var(--mono);font-size:11px">${d.proxy_address || '0xee888fa7b96007f7fa270988e92bddb0ae19ed10'}</code> with USDC on Polygon PoS.
+       To enable live fills, fund your Polygon proxy wallet: <code>${d.proxy_address || '0xee888fa7b96007f7fa270988e92bddb0ae19ed10'}</code> with USDC on Polygon PoS.
       </p>
      </div>
     </div>
@@ -3527,10 +3517,10 @@ function renderPolymarketDesk() {
     const mode = o.execution_mode || (o.dry_run || (o.order_id && o.order_id.startsWith('shadow_')) ? 'shadow' : 'live');
     const modeBadge = mode === 'live'
      ? '<span class="badge positive" style="font-size:10px;padding:2px 6px;">LIVE</span>'
-     : '<span class="badge" style="background:#e0e7ff;color:#3730a3;font-size:10px;padding:2px 6px;">SHADOW</span>';
+     : '<span class="badge info" style="font-size:10px;padding:2px 6px;">SHADOW</span>';
     const stBadge = o.status === 'filled' || o.status === 'won' ? '<span class="badge positive">'+esc(o.status)+'</span>' :
-                    o.status === 'open' ? '<span class="badge" style="background:#dbeafe;color:#1e40af">open</span>' :
-                    o.status === 'lost' ? '<span class="badge" style="background:#fee2e2;color:#991b1b">lost</span>' :
+                    o.status === 'open' ? '<span class="badge info">open</span>' :
+                    o.status === 'lost' ? '<span class="badge negative">lost</span>' :
                     '<span class="badge muted">'+esc(o.status || 'staged')+'</span>';
     const pnlStr = o.pnl != null ? ((o.pnl >= 0 ? '+$' : '-$') + Math.abs(o.pnl).toFixed(2)) : (o.tx_hash ? esc(o.tx_hash.slice(0, 8) + '...') : '—');
     const selText = o.selection || o.market_family;
@@ -3574,17 +3564,17 @@ function renderPolymarketDesk() {
     const isProbation = (m.tier_status === 'TIER_3_PROBATION');
     const isUnderperforming = (m.tier_status === 'TIER_1_UNDERPERFORMING' || m.tier_status === 'TIER_2_UNDERPERFORMING');
 
-    let statusBadge = '<span class="badge" style="background:#fef3c7;color:#92400e;font-size:10px">🛡 Tier 2 Incubating ($0.00)</span>';
+    let statusBadge = '<span class="badge warning" style="font-size:10px">🛡 Tier 2 Incubating ($0.00)</span>';
     if (isTier4) {
      statusBadge = '<span class="badge positive" style="font-size:10px;font-weight:700">✓ Tier 4 Live Proven Alpha (Tier 3 Proven)</span>';
     } else if (isApproaching) {
      const condCount = m.conditions_met_count != null ? m.conditions_met_count : 2;
      const needed = m.games_needed != null ? m.games_needed : 2;
-     statusBadge = `<span class="badge" style="background:#e0e7ff;color:#3730a3;font-size:10px;font-weight:700">⏳ Approaching Tier 4 (${condCount}/3 cond. · ${needed}g needed)</span>`;
+     statusBadge = `<span class="badge info" style="font-size:10px;font-weight:700">⏳ Approaching Tier 4 (${condCount}/3 cond. · ${needed}g needed)</span>`;
     } else if (isProbation) {
-     statusBadge = '<span class="badge" style="background:#f3e8ff;color:#6b21a8;font-size:10px">⚖ Tier 3 Early Probation</span>';
+     statusBadge = '<span class="badge probation" style="font-size:10px">⚖ Tier 3 Early Probation</span>';
     } else if (isUnderperforming) {
-     statusBadge = '<span class="badge" style="background:#fee2e2;color:#991b1b;font-size:10px">⚠️ Tier 1 R&D Quarantined</span>';
+     statusBadge = '<span class="badge negative" style="font-size:10px">⚠️ Tier 1 R&D Quarantined</span>';
     }
 
     const rGames = m.rolling_games != null ? Number(m.rolling_games) : (m.live_games != null ? Number(m.live_games) : 0);
@@ -3595,7 +3585,7 @@ function renderPolymarketDesk() {
     if (isTier4) {
      progressHtml = `<span style="font-weight:700;color:var(--green)">✓ ${rGames} / 10</span><small style="display:block;color:var(--muted);font-size:9px">Target met</small>`;
     } else if (isApproaching) {
-     progressHtml = `<span style="font-weight:700;color:#3730a3">⏳ ${rGames} / 10</span><small style="display:block;color:#4f46e5;font-size:9px;font-weight:600">${gamesNeeded} more game${gamesNeeded === 1 ? '' : 's'} needed</small>`;
+     progressHtml = `<span class="poly-approaching-text">⏳ ${rGames} / 10</span><small class="poly-approaching-sub">${gamesNeeded} more game${gamesNeeded === 1 ? '' : 's'} needed</small>`;
     } else if (rGames > 0) {
      progressHtml = `<span>${rGames} / 10</span><small style="display:block;color:var(--muted);font-size:9px">${gamesNeeded} games to go</small>`;
     } else {

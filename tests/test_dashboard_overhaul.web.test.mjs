@@ -229,11 +229,73 @@ test('Auto-Run drawer starts collapsed, dynamic leagues populate #league-filter,
   assert.equal(stab.hidden, false);
   assert.match(stab.textContent, /attention required · 2 issues · 1 under repair/);
 
-  // 4. Superbrain HTML invariants: no raw LaTeX arrows, valid camera targets, no falsy 540/1786028 fallbacks
+  // 4. Superbrain HTML invariants: no raw LaTeX arrows, valid camera targets, no falsy 540/1786028 fallbacks, 100% English
   assert.doesNotMatch(superbrainHtml, /\$\\rightarrow\$/);
+  assert.doesNotMatch(superbrainHtml, /Futó|gombócok/);
   assert.match(superbrainHtml, /id:\s*'bottleneck_watchdog'/);
   assert.match(superbrainHtml, /tiers_pipeline:\s*'tier_3'/);
   assert.doesNotMatch(superbrainHtml, /\|\|\s*540|\|\|\s*1786028/);
 
+  // 5. Sidebar 4th group header matches constitutional spec ("Account & Settings")
+  const groupLabels = [...d.querySelectorAll('.nav-group-label')].map((el) => el.textContent.trim());
+  assert.deepEqual(groupLabels, [
+    'Execution',
+    'Portfolio & Ledger',
+    'Quant R&D & Diagnostics',
+    'Account & Settings',
+  ]);
+
   await w.happyDOM.close();
 });
+
+test('Changing #league-filter while on Betting Picks flushes dirtyViews on Research tab switch and expands >250 modeled outcomes', async () => {
+  const manyEvaluated = [];
+  for (let i = 0; i < 260; i++) {
+    manyEvaluated.push(
+      makeTip({
+        id: `eval-${i}`,
+        league: i < 255 ? 'NBA' : 'NHL',
+        game_id: `game-${i}`,
+        selection: i < 255 ? `Celtics -${(i % 10) + 1}.5` : `Bruins Over 5.5 #${i}`,
+        stake: 0,
+      })
+    );
+  }
+  const altNba = makeTip({ id: 'alt-nba', league: 'NBA', stake: 0, selection: 'Heat +4.5' });
+  const altNhl = makeTip({ id: 'alt-nhl', league: 'NHL', stake: 0, selection: 'Rangers ML' });
+  const { w, d } = await bootDashboard({
+    recommendations: [makeTip({ id: 'rec-nba', league: 'NBA', stake: 3.5 })],
+    alternatives: [altNba, altNhl],
+    evaluated_candidates: manyEvaluated,
+  });
+
+  // Initial hydration caps #evaluated-table at 250 rows with expansion button for all 260
+  assert.equal(d.querySelectorAll('#evaluated-table tbody tr').length, 250);
+  const expandBtnInitial = d.querySelector('#evaluated-show-all-btn');
+  assert.ok(expandBtnInitial);
+  assert.match(expandBtnInitial.textContent, /Show all 260 modeled outcomes/);
+
+  // Filter to NHL while on Betting Picks (#view-tips): Research is off-screen & marked dirty
+  const leagueFilter = d.querySelector('#league-filter');
+  leagueFilter.value = 'NHL';
+  leagueFilter.onchange();
+  assert.equal(d.querySelector('#evaluated-count').textContent, '260', 'Off-screen Research table deferred while hidden');
+
+  // Switch to Research (#view-research): dirtyViews must flush immediately to the 5 NHL candidates!
+  d.querySelector('button.nav-item[data-view="research"]').click();
+  assert.equal(d.querySelector('#view-research').hidden, false);
+  assert.equal(d.querySelector('#evaluated-count').textContent, '5');
+  assert.equal(d.querySelectorAll('#evaluated-table tbody tr').length, 5);
+  assert.match(d.querySelector('#alternatives-table').textContent, /Rangers ML/);
+  assert.doesNotMatch(d.querySelector('#alternatives-table').textContent, /Heat \+4\.5/);
+
+  // Switch filter back to 'all' while on Research and click "Show all 260 modeled outcomes"
+  leagueFilter.value = 'all';
+  leagueFilter.onchange();
+  assert.equal(d.querySelectorAll('#evaluated-table tbody tr').length, 250);
+  d.querySelector('#evaluated-show-all-btn').click();
+  assert.equal(d.querySelectorAll('#evaluated-table tbody tr').length, 260);
+
+  await w.happyDOM.close();
+});
+

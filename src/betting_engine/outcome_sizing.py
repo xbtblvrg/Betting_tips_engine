@@ -323,6 +323,9 @@ def verify_summary(summary):
     """Cheap numeric/digest consistency; not a substitute for ledger replay."""
     if not isinstance(summary, dict):
         return False
+    sealed_verdict = getattr(summary, '_sealed_verified', None)
+    if sealed_verdict is not None:
+        return sealed_verdict
     cache_key = _summary_cache_key(summary)
     if cache_key is None:
         return _verify_summary_uncached(summary)

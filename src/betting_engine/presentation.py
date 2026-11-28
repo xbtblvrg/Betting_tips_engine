@@ -8,7 +8,8 @@ from functools import lru_cache
 from decimal import Decimal, ROUND_CEILING
 from urllib.parse import urlsplit
 
-from .contracts import SUPPORTED, SCORE_MARKETS, split_market
+from .contracts import SUPPORTED, SCORE_MARKETS, SCOPE_LABELS, split_market
+from .overtime_contracts import overtime_alias
 
 TEXT = {
  'Teljes mérkőzés':'Full Game',
@@ -190,43 +191,54 @@ def infer_stake_tab(league, market, market_name='', groups=None):
     if 'totals' in m: return 'Total'
     return 'Main'
 
+_LEAGUE_SCOPE_NOTES = {
+    'NHL':'Includes overtime and penalty shootouts for 2-way Winner and Handicap/Total. Regulation-time and 1x2 markets settle on 60 minutes only.',
+    'MLB':'Includes extra innings. Winner and Handicap/Total markets have different rules for shortened games; check Stake’s settlement rules.',
+    'NFL':'Includes overtime. A tied two-way Winner market is void under Stake’s push rule.',
+    'MLS':'Regular time only (90 minutes + injury time). Extra time and penalty shootouts are excluded. Draw No Bet pushes on a draw.',
+    'EPL':'Regular time only (90 minutes + injury time). Extra time and penalty shootouts are excluded. Draw No Bet pushes on a draw.',
+    'UCL':'Regular time only (90 minutes + injury time). Extra time and penalty shootouts are excluded. Draw No Bet pushes on a draw.',
+    'ATP':'Match winner settles on official match progression. If a player retires before match completion, uncompleted game/set totals and handicaps are void unless unconditionally determined.',
+    'WTA':'Match winner settles on official match progression. If a player retires before match completion, uncompleted game/set totals and handicaps are void unless unconditionally determined.',
+    'CHALLENGER':'Match winner settles on official match progression. If a player retires before match completion, uncompleted game/set totals and handicaps are void unless unconditionally determined.',
+}
+_DEFAULT_SCOPE_NOTE = 'Includes overtime. Use the exact named match or team market; quarter and half markets settle separately.'
+_GROUP_LABELS = {
+    'main':'Main','innings 1 to 5':'Innings 1 to 5','innings':'Innings',
+    'on the mound':'On The Mound','threeway':'Three Way','runs':'Runs',
+    'other':'Other','handicap':'Handicap','total':'Total','winner':'Winner','outright':'Outright',
+    'periods':'Periods','quarters':'Quarters','half':'Half','sets':'Sets','combo':'Combo','goals':'Goals',
+    'player props':'Player Props','points':'Points','specials':'Specials',
+    'asianlines':'Asian Lines','asian lines':'Asian Lines',
+}
+_KNOWN_TABS_DEFAULT = frozenset(set(_GROUP_LABELS) - {'winner', 'outright'})
+_KNOWN_TABS_NHL = frozenset({'main', 'player props', 'periods', 'goals', 'combo'})
+
+
 def stake_market(t):
-    from .contracts import split_market
     league=t.get('league')
-    note={
-        'NHL':'Includes overtime and penalty shootouts for 2-way Winner and Handicap/Total. Regulation-time and 1x2 markets settle on 60 minutes only.',
-        'MLB':'Includes extra innings. Winner and Handicap/Total markets have different rules for shortened games; check Stake’s settlement rules.',
-        'NFL':'Includes overtime. A tied two-way Winner market is void under Stake’s push rule.',
-        'MLS':'Regular time only (90 minutes + injury time). Extra time and penalty shootouts are excluded. Draw No Bet pushes on a draw.',
-        'EPL':'Regular time only (90 minutes + injury time). Extra time and penalty shootouts are excluded. Draw No Bet pushes on a draw.',
-        'UCL':'Regular time only (90 minutes + injury time). Extra time and penalty shootouts are excluded. Draw No Bet pushes on a draw.',
-        'ATP':'Match winner settles on official match progression. If a player retires before match completion, uncompleted game/set totals and handicaps are void unless unconditionally determined.',
-        'WTA':'Match winner settles on official match progression. If a player retires before match completion, uncompleted game/set totals and handicaps are void unless unconditionally determined.',
-        'CHALLENGER':'Match winner settles on official match progression. If a player retires before match completion, uncompleted game/set totals and handicaps are void unless unconditionally determined.',
-    }.get(league,'Includes overtime. Use the exact named match or team market; quarter and half markets settle separately.')
+    note=_LEAGUE_SCOPE_NOTES.get(league, _DEFAULT_SCOPE_NOTE)
     scope,kind=split_market(t['market'])
     if kind in ('three_way','double_chance','both_score') or t.get('market') in ('three_way','double_chance','both_score'):
         note='Regular time only (60 minutes for NHL, 90 minutes for MLS). Excludes overtime and penalty shootouts. In 1x2, a tied score wins the Draw selection; in Double Chance, a draw satisfies Home/Draw or Draw/Away.'
-    scope,_=split_market(t['market'])
     if scope!='full_game':
-        from .contracts import SCOPE_LABELS
         note={'inning_1':'Only runs in the 1st Inning count. The inning must be completed; an already determined Over follows Stake rules.',
             'innings_1_5':'Only runs in Innings 1 to 5 count. Stake requires five innings (4.5 if the home team leads); an already determined Over follows Stake rules.'}.get(scope,
             f'Only the named {SCOPE_LABELS[scope]} score counts. '+('Includes overtime.' if scope.endswith('_ot') else 'Excludes overtime and shootouts.'))
         note+=' A tie is a push for two-way Winner and a winning Draw in 1x2. Missing or incomplete segment results remain pending for settlement review.'
-    from .overtime_contracts import overtime_alias
-    alias = overtime_alias(league, t.get('reference_contract_description'), t.get('selection'))
-    if alias == (t['market'], t.get('side')) and scope == 'regulation':
-        note='Yes wins if regulation ends in a draw; No wins if it does not. Whether overtime is actually played does not change settlement. Verified completed regulation scores are required.'
-        if league == 'NFL':
-            note='In a completed NFL regular-season or playoff game, a regulation tie triggers overtime. Yes wins for a regulation tie; No wins for unequal regulation scores. Preseason and incomplete games are excluded from this adapter.'
+    if scope == 'regulation':
+        alias = overtime_alias(league, t.get('reference_contract_description'), t.get('selection'))
+        if alias == (t['market'], t.get('side')):
+            note='Yes wins if regulation ends in a draw; No wins if it does not. Whether overtime is actually played does not change settlement. Verified completed regulation scores are required.'
+            if league == 'NFL':
+                note='In a completed NFL regular-season or playoff game, a regulation tie triggers overtime. Yes wins for a regulation tie; No wins for unequal regulation scores. Preseason and incomplete games are excluded from this adapter.'
     url=t.get('reference_url') or ''
     path=STAKE_LEAGUE_PATHS.get(league,'')
     try:
         parsed=urlsplit(url)
         if league=='NBA' and t.get('stake_evidence',{}).get('league_path')=='basketball/usa/nba-preseason':
             path='basketball/usa/nba-preseason'
-        if league.startswith('NCAA'):
+        if league and league.startswith('NCAA'):
             observed=t.get('stake_evidence',{}).get('league_path','')
             sport='american-football' if league=='NCAAF' else 'basketball'
             if re.fullmatch(sport+r'/usa/[a-z0-9-]*ncaa[a-z0-9-]*',observed):path=observed
@@ -235,17 +247,9 @@ def stake_market(t):
             and parsed.netloc=='stake.com' and parsed.path.startswith(prefix)
             and parsed.path[len(prefix):] and not parsed.query and not parsed.fragment) else None
     except ValueError:event_url=None
-    group_labels={'main':'Main','innings 1 to 5':'Innings 1 to 5','innings':'Innings',
-                  'on the mound':'On The Mound','threeway':'Three Way','runs':'Runs',
-                  'other':'Other','handicap':'Handicap','total':'Total','winner':'Winner','outright':'Outright',
-                  'periods':'Periods','quarters':'Quarters','half':'Half','sets':'Sets','combo':'Combo','goals':'Goals',
-                  'player props':'Player Props','points':'Points','specials':'Specials',
-                  'asianlines':'Asian Lines','asian lines':'Asian Lines'}
-    groups=[{**g,'label':group_labels.get(g['name'].lower(),g['name'])}
+    groups=[{**g,'label':_GROUP_LABELS.get(g['name'].lower(),g['name'])}
             for g in t.get('stake_evidence',{}).get('market_groups',[]) if isinstance(g,dict) and isinstance(g.get('name'),str) and g['name'].strip()]
-    known_tabs=set(group_labels)-{'winner','outright'}
-    if league=='NHL':
-        known_tabs={'main','player props','periods','goals','combo'}
+    known_tabs=_KNOWN_TABS_NHL if league=='NHL' else _KNOWN_TABS_DEFAULT
     routes=[g for g in groups if g['name'].lower() in known_tabs]
 
     specific_pref = None
