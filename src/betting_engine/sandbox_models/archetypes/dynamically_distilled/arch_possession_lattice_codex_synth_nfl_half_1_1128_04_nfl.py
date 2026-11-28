@@ -67,7 +67,7 @@ class codex_synth_nfl_half_1_1128_043617(BaseCandidateModel):
 
     def __init__(
         self,
-        model_id="codex_synth_nfl_half_1_1128_043617",
+        model_id: str = "codex_synth_nfl_half_2_1128_061718",
         version="1.0.0",
         league="NFL",
         scope="half_1",
