@@ -24,6 +24,7 @@ POLICY_V3 = 'historical_confidence_v3'
 SUPPORTED_POLICIES = ('legacy', POLICY, POLICY_V2, POLICY_V3)
 VERSION = 'outcome-sizing-evidence-v1'
 SPARSE_BELOW_GAMES = 2  # Descriptive sparse-sample label only, never a multiplier threshold.
+ALPHA_STRESS_AND_TIER_FIX_TS = '2026-11-28T08:10:00+00:00'
 FORMULA = 'game_score=min(1,game_roi/0.20,(game_wr-game_break_even_wr)/0.10); push_only_score=0; factor=1+max(0,sum(game_scores)/(n+20)); nonpositive_segment_roi_or_wr_surplus_factor=1'
 FORMULA_V2 = 'game_score=min(1,game_roi/1.0,(game_wr-game_break_even_wr)/0.5); push_only_score=0; negative_scores_unbounded; signal=max(0,sum(game_scores)/(independent_games+20)); applied_factor=1+4*signal; nonpositive_segment_roi_or_wr_surplus_factor=1; source evidence remains historical_game_weighted_v1'
 NOTE = 'Historical game-weighted sizing heuristic; not validated profit, a confidence interval, or an independent probability forecast.'
@@ -430,6 +431,43 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
         str(tip.get('created_at') or '')
         and str(tip.get('created_at')) < '2026-11-25T16:40:00+00:00'
     )
+    is_sealed_before_alpha_stress_fix = bool(
+        'decision_guard' in tip
+        and str(tip.get('created_at') or '')
+        and str(tip.get('created_at')) < ALPHA_STRESS_AND_TIER_FIX_TS
+    )
+    fb_dict = tip.get('funding_basis') if isinstance(tip.get('funding_basis'), dict) else {}
+    cand_funding_tier = str(fb_dict.get('tier') or '')
+    is_model_pick_tier = (
+        cand_funding_tier == 'model_pick'
+        or str(base_sizing.get('mode') or '').startswith('model_pick_')
+    )
+    cand_stress_roi = None
+    raw_sroi = tip.get('stress_roi')
+    if raw_sroi is None and 'stress_roi' in fb_dict:
+        raw_sroi = fb_dict.get('stress_roi')
+    if raw_sroi is None and 'stress_roi' in base_sizing:
+        raw_sroi = base_sizing.get('stress_roi')
+    if raw_sroi is not None:
+        try:
+            s_f = float(raw_sroi)
+            if math.isfinite(s_f):
+                cand_stress_roi = s_f
+        except (TypeError, ValueError):
+            pass
+    if cand_stress_roi is None and tip.get('stress_probability') is not None and (tip.get('reference_odds') is not None or tip.get('odds') is not None):
+        try:
+            sp_f = float(tip['stress_probability'])
+            pp_f = float(tip.get('push_probability', 0.0) or 0.0)
+            ro_f = float(tip.get('reference_odds') or tip.get('odds'))
+            if math.isfinite(sp_f) and math.isfinite(pp_f) and math.isfinite(ro_f) and ro_f > 0:
+                cand_stress_roi = sp_f * ro_f + pp_f - 1.0
+        except (TypeError, ValueError):
+            pass
+    if not is_sealed_before_alpha_stress_fix and v3 is not None and cand_stress_roi is not None and cand_stress_roi < 0.0:
+        unstressed_conf_cap = max(0.50, min(1.50, def_unit))
+        if v3['confidence_target'] > unstressed_conf_cap:
+            v3 = {**v3, 'confidence_target': unstressed_conf_cap}
     games_val = int(summary.get('independent_games', 0)) if summary else 0
     roi_val = float(summary.get('game_roi', 0.0)) if summary else 0.0
     pnl_val = float(summary.get('pnl', summary.get('game_pnl', 0.0))) if summary else 0.0
@@ -526,10 +564,16 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
             universe_prof = None
 
     explicit_alpha_flag = bool((tip.get('is_super_alpha') or tip.get('is_solid_alpha')) and not tip.get('is_demoted'))
-    if universe_prof and universe_prof.stake_cap is not None and not explicit_alpha_flag:
-        caps['universe_tier_stake_cap'] = universe_prof.stake_cap
+    if universe_prof and not explicit_alpha_flag:
+        if universe_prof.stake_cap is not None:
+            caps['universe_tier_stake_cap'] = universe_prof.stake_cap
         if (universe_prof.tier in (1, 2) or universe_prof.stake_cap == 0.0) or is_demoted_market:
             caps['demoted_market_defense_clamp'] = 0.00
+            if not is_sealed_before_alpha_stress_fix and not is_test_cand:
+                caps['universe_tier_stake_cap'] = 0.00
+                caps['capital_defense_quarantine'] = 0.00
+                is_cand_graduated = False
+                is_unproven_graduated = False
 
     if not is_sealed_before_tourniquet_fix and not is_test_cand and not explicit_alpha_flag:
         u_phase_str = str(getattr(universe_prof, 'phase_detail', '') or '')
@@ -670,6 +714,13 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
     if rho_agree < 1.0 and requested > def_unit:
         requested = max(def_unit, requested * rho_agree)
     if (
+        not is_sealed_before_alpha_stress_fix
+        and cand_stress_roi is not None
+        and cand_stress_roi < 0.0
+        and (policy == POLICY_V3 or not is_test_cand)
+    ):
+        caps['marginal_unstressed_model_pick_cap'] = min(1.25, max(0.50, def_unit))
+    if (
         caps.get('capital_defense_quarantine') == 0.0
         or caps.get('demoted_market_defense_clamp') == 0.0
         or caps.get('universe_tier_stake_cap') == 0.0
@@ -737,6 +788,15 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                     or bool(tip.get('is_solid_alpha'))
                 )
 
+            if not is_sealed_before_alpha_stress_fix:
+                if cand_stress_roi is not None or is_model_pick_tier:
+                    if is_model_pick_tier or cand_stress_roi is None or cand_stress_roi < 0.0:
+                        is_super_alpha = False
+                        is_solid_alpha = False
+                    elif cand_stress_roi < 0.01:
+                        if not (is_test_cand and explicit_alpha_flag):
+                            is_super_alpha = False
+
             alpha_discount = discount
             meta_kelly_mult = 1.0
             if not is_test_cand or (settings and settings.get('enable_execution_meta_learner')):
@@ -765,7 +825,14 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                     caps.pop('probation_nursery_clamp', None)
                     caps.pop('unproven_market_profit_shield_clamp', None)
                     caps.pop('capital_defense_clamp', None)
-                    caps.pop('universe_tier_stake_cap', None)
+                    if (
+                        is_legacy_sealed_replay
+                        or is_sealed_before_alpha_stress_fix
+                        or explicit_alpha_flag
+                        or universe_prof is None
+                        or (universe_prof.tier not in (1, 2) and (universe_prof.stake_cap is None or universe_prof.stake_cap > 0.50))
+                    ):
+                        caps.pop('universe_tier_stake_cap', None)
                     if (gov_super and pnl_val >= 0.0) or (tip.get('is_super_alpha') and pnl_val >= 0.0):
                         caps.pop('totals_defense_clamp', None)
                 requested = max(requested, alpha_target)
@@ -790,7 +857,7 @@ def apply_adjustment(base_sizing, tip, settings, remaining):
                         or is_sealed_before_tourniquet_fix
                         or explicit_alpha_flag
                         or universe_prof is None
-                        or (universe_prof.stake_cap is not None and 0.50 < universe_prof.stake_cap < 2.50)
+                        or (universe_prof.tier not in (1, 2) and universe_prof.stake_cap is not None and 0.50 < universe_prof.stake_cap < 2.50)
                     ):
                         caps.pop('universe_tier_stake_cap', None)
                     if not is_sealed_before_solid_cap_fix and not is_test_cand:

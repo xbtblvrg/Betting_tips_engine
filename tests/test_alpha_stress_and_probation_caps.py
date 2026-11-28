@@ -1,0 +1,578 @@
+"""Anti-Tautological Tests for Sizing & Slate Exposure Fixes (2026-11-28 Audit).
+
+Validates against independent mathematical and behavioral invariants:
+1. Anti-Loss Quarantine Invariant: Historical `is_graduated=True` diplomas NEVER
+   override live demotion or Tier 1/2 (`stake_cap = 0.0`) quarantine ($0.00 stake).
+2. Stress-Value Conviction Gate: Marginal nominal-EV `model_pick` candidates with
+   `stress_roi < 0` NEVER scale into $2.50-$8.00 Solid/Super Alpha stakes, while
+   preserving >= $0.50 funding for daily volume and scaling genuine `stress_value`
+   (`stress_roi >= +1.0%`) candidates into $5.00-$8.00 Super Alpha.
+3. Sealed Historical Replay Compatibility: Receipts sealed prior to
+   `ALPHA_STRESS_AND_TIER_FIX_TS` (`2026-11-28T08:10:00+00:00`), including real
+   ledger Bet #1394, reproduce their exact recorded `stake_sizing` byte-for-byte.
+4. Concurrent Open Slate Exposure Caps: Capital Defense Tourniquet segments hard-cap
+   at 5 simultaneous open positions ($2.50 slate risk, never bypassed by volume
+   deficit), and unproven Tier 3 Probation Nursery segments (`N < 15`) cap at 8
+   simultaneous open positions ($4.00 slate risk) once daily volume target is met.
+"""
+from __future__ import annotations
+
+from contextlib import closing
+import json
+import math
+from pathlib import Path
+import sqlite3
+from types import SimpleNamespace
+
+import pytest
+
+import betting_engine.autonomous_roi_governor as gov_mod
+import betting_engine.decisions as dec_mod
+from betting_engine.decisions import (
+    CONTINUOUS_PROBABILITY_SELECTION_V4,
+    DEFAULT_SETTINGS,
+    MAX_PROBATION_CONCURRENT_OPEN,
+    MAX_TOURNIQUET_CONCURRENT_OPEN,
+    rank_and_size,
+)
+from betting_engine.funding_policy import funding_basis, size_recommendation
+from betting_engine.outcome_sizing import (
+    ALPHA_STRESS_AND_TIER_FIX_TS,
+    POLICY_V3,
+    apply_adjustment,
+    build_snapshot,
+    summary_for,
+    verify_summary,
+)
+import betting_engine.unified_market_universe as umu_mod
+
+
+ROOT = Path(__file__).resolve().parents[1]
+DATA_DIR = ROOT / "data"
+AS_OF = "2026-11-28T09:00:00+00:00"
+
+
+def _make_settled_row(
+    idx: int,
+    *,
+    status: str = "won",
+    stake: float = 2.0,
+    odds: float = 1.95,
+    league: str = "NBA",
+    market: str = "spreads",
+    scope: str = "full_game",
+) -> dict:
+    tip_id = f"hist_{league.lower()}_{idx}"
+    pnl = stake * (odds - 1.0) if status == "won" else (-stake if status == "lost" else 0.0)
+    payload = {
+        "id": tip_id,
+        "game_id": f"{league}:hist_game_{idx}",
+        "league": league,
+        "market": market,
+        "model_scope": scope,
+        "start": "2026-11-20T18:00:00+00:00",
+        "ownership": "engine",
+        "stake": stake,
+        "reference_odds": odds,
+    }
+    return {
+        "family": f"contract:{tip_id}",
+        "tip_id": tip_id,
+        "issued_at": "2026-11-20T16:00:00+00:00",
+        "payload": payload,
+        "status": status,
+        "pnl": pnl,
+        "outcome_evidence": {
+            "settled_at": "2026-11-20T22:00:00+00:00",
+            "fetched_at": "2026-11-20T21:55:00+00:00",
+            "source": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard",
+            "home_score": 112,
+            "away_score": 104,
+        },
+    }
+
+
+def _build_super_alpha_summary(league: str = "NBA", market: str = "spreads", scope: str = "full_game") -> dict:
+    """Builds a cryptographically valid 66-game Super Alpha summary (~+28% ROI, +$64+ PnL)."""
+    # 44 wins @ 1.95 (+$1.90 each = +$83.60) and 22 losses @ $0.85 (-$18.70) => 66 games, +$64.90 PnL, >+28% ROI
+    rows = [
+        _make_settled_row(i, status="won", stake=2.0, odds=1.95, league=league, market=market, scope=scope)
+        for i in range(44)
+    ] + [
+        _make_settled_row(44 + j, status="lost", stake=0.85, odds=1.95, league=league, market=market, scope=scope)
+        for j in range(22)
+    ]
+    snap = build_snapshot(rows, AS_OF)
+    probe = {"league": league, "market": market, "model_scope": scope}
+    summary = summary_for(snap, probe)
+    assert verify_summary(summary)
+    assert summary["independent_games"] == 66
+    assert summary["game_roi"] >= 0.28
+    assert summary["pnl"] >= 64.0
+    return summary
+
+
+def test_graduated_flag_never_overrides_demotion_or_tier2_zero_quarantine(monkeypatch):
+    """Fix 1: Real candidate with `is_graduated=True` in a demoted / Tier 2 (`stake_cap=0.0`)
+    segment MUST get strictly $0.00 stake across both `rank_and_size` and `outcome_sizing`."""
+    tier2_prof = SimpleNamespace(
+        tier=2,
+        stake_cap=0.0,
+        rolling_pnl=-14.5,
+        rolling_roi_pct=-18.2,
+        sample_size=19,
+        phase_detail="Tier 2 Shadow Incubator - Paper-trading candidate model ($0.00)",
+    )
+    monkeypatch.setattr(dec_mod, "_get_governor_status", lambda: {
+        "quarantine_list": [],
+        "capital_defense_list": [],
+        "super_alpha_list": [],
+        "solid_alpha_list": [],
+    })
+    monkeypatch.setattr(gov_mod, "get_latest_governor_report", lambda data_dir=None: {
+        "quarantine_list": [],
+        "capital_defense_list": [],
+        "super_alpha_list": [],
+        "solid_alpha_list": [],
+    })
+    monkeypatch.setattr(
+        umu_mod.UnifiedMarketUniverse,
+        "build_universe_roster",
+        lambda self, force_refresh=False: {"NBA|half_1|spreads": tier2_prof},
+    )
+    monkeypatch.setattr(dec_mod, "_get_universe_roster", lambda: {"NBA|half_1|spreads": tier2_prof})
+
+    real_cand = {
+        "id": "9f8e7d6c5b4a32109876",
+        "game_id": "NBA:401910999",
+        "league": "NBA",
+        "model_scope": "half_1",
+        "market": "half_1:spreads",
+        "side": "home",
+        "line": -2.5,
+        "selection": "Boston Celtics -2.5",
+        "probability": 0.59,
+        "stress_probability": 0.55,
+        "push_probability": 0.0,
+        "reference_odds": 1.98,
+        "odds": 1.98,
+        "minimum_odds": 1.75,
+        "expected_roi": 0.59 * 1.98 - 1.0,
+        "stress_roi": 0.55 * 1.98 - 1.0,
+        "created_at": "2026-11-28T09:05:00+00:00",
+        "is_graduated": True,  # Stale/historical graduation flag present!
+        "is_demoted": False,
+    }
+
+    # 1A. V4 rank_and_size when _get_demoted_segments reflects Tier 2 demotion
+    settings_v4 = {
+        **DEFAULT_SETTINGS,
+        "recommendation_policy": "continuous_model_v1",
+        "family_selection_policy": CONTINUOUS_PROBABILITY_SELECTION_V4,
+        "model_pick_sizing_policy": "all_tiers_weighted_v3",
+        "outcome_sizing_policy": POLICY_V3,
+        "capital_defense": True,
+        "alpha_acceleration": True,
+        "is_test": False,
+    }
+    chosen_dem, alts_dem = rank_and_size([dict(real_cand)], settings_v4)
+    assert len(chosen_dem) == 0, "Demoted Tier 2 market with is_graduated=True must NEVER enter funded chosen!"
+    assert len(alts_dem) == 1
+    assert alts_dem[0]["stake"] == 0.0
+    assert alts_dem[0]["allocation_code"] in ("capital_defense_quarantined", "universe_quarantined")
+
+    # 1B. Even if _get_demoted_segments were empty/stale, UnifiedMarketUniverse Tier 2 (stake_cap=0.0)
+    # must NEVER be overwritten up to $0.50 by (c.get('is_graduated') or is_grad)!
+    monkeypatch.setattr(dec_mod, "_get_demoted_segments", lambda: set())
+    monkeypatch.setattr(dec_mod, "_get_graduated_segments", lambda: {"NBA|half_1|spreads"})
+    chosen_u, alts_u = rank_and_size([dict(real_cand)], settings_v4)
+    assert all(x["stake"] == 0.0 for x in chosen_u + alts_u)
+    quarantined_item = (alts_u or chosen_u)[0]
+    assert quarantined_item["stake"] == 0.0
+    assert quarantined_item["allocation_code"] == "universe_quarantined"
+
+    # 1C. outcome_sizing.apply_adjustment also enforces $0.00 and never pops universe_tier_stake_cap
+    alpha_summary = _build_super_alpha_summary(league="NBA", market="half_1:spreads", scope="half_1")
+    cand_with_hist = {**real_cand, "outcome_sizing_evidence": alpha_summary}
+    sized = apply_adjustment(
+        {"amount": 2.82, "maximum_stake": 8.0, "event_discount": 1.0, "note": "base"},
+        cand_with_hist,
+        settings_v4,
+        8.0,
+    )
+    assert sized["amount"] == 0.0
+    caps = sized["outcome_adjustment"]["caps"]
+    assert caps.get("universe_tier_stake_cap") == 0.0
+    assert caps.get("demoted_market_defense_clamp") == 0.0
+    assert caps.get("capital_defense_quarantine") == 0.0
+
+
+def test_stress_conviction_gate_blocks_unstressed_model_picks_from_alpha_scaling(monkeypatch):
+    """Fix 2: In a proven 66-game Super Alpha segment (+28% ROI, +$64+ PnL), a marginal
+    `model_pick` failing stressed value (`stress_roi = -0.0011 < 0`) is capped <= $1.25
+    (never $5-$8), while a genuine `stress_value` (`stress_roi = +0.045`) scales to $5-$8."""
+    tier4_prof = SimpleNamespace(
+        tier=4,
+        stake_cap=8.0,
+        rolling_pnl=42.0,
+        rolling_roi_pct=24.5,
+        sample_size=66,
+        phase_detail="Tier 4 Live Proven Alpha ($8.00 cap)",
+    )
+    monkeypatch.setattr(gov_mod, "get_latest_governor_report", lambda data_dir=None: {
+        "quarantine_list": [],
+        "capital_defense_list": [],
+        "super_alpha_list": ["NBA|full_game|spreads"],
+        "solid_alpha_list": [],
+    })
+    monkeypatch.setattr(
+        umu_mod.UnifiedMarketUniverse,
+        "build_universe_roster",
+        lambda self, force_refresh=False: {"NBA|full_game|spreads": tier4_prof},
+    )
+    monkeypatch.setattr(dec_mod, "_get_demoted_segments", lambda: set())
+    monkeypatch.setattr(dec_mod, "_get_graduated_segments", lambda: {"NBA|full_game|spreads"})
+
+    summary_66 = _build_super_alpha_summary(league="NBA", market="spreads", scope="full_game")
+    settings = {
+        **DEFAULT_SETTINGS,
+        "minimum_roi": 0.02,
+        "max_bet": 8.0,
+        "unit_stake": 1.0,
+        "recommendation_policy": "continuous_model_v1",
+        "family_selection_policy": CONTINUOUS_PROBABILITY_SELECTION_V4,
+        "model_pick_sizing_policy": "all_tiers_weighted_v3",
+        "model_pick_allocation_policy": "distinct_family_v1",
+        "outcome_sizing_policy": POLICY_V3,
+        "capital_defense": True,
+        "alpha_acceleration": True,
+        "is_test": False,
+    }
+
+    # Candidate A: Marginal unstressed model_pick (stress_roi = -0.0011 < 0, nominal EV = +7.89% > 0)
+    odds_a = 2.00
+    prob_a = 0.53945  # model_roi = 0.53945 * 2.0 - 1 = +0.0789
+    stress_prob_a = 0.49945  # stress_roi = 0.49945 * 2.0 - 1 = -0.0011
+    tip_unstressed = {
+        "id": "1a2b3c4d5e6f7890abcd",
+        "game_id": "NBA:401910501",
+        "league": "NBA",
+        "model_scope": "full_game",
+        "market": "spreads",
+        "side": "away",
+        "line": 1.5,
+        "selection": "Indiana Pacers +1.5",
+        "probability": prob_a,
+        "stress_probability": stress_prob_a,
+        "push_probability": 0.0,
+        "reference_odds": odds_a,
+        "odds": odds_a,
+        "expected_roi": prob_a * odds_a - 1.0,
+        "stress_roi": stress_prob_a * odds_a - 1.0,
+        "created_at": "2026-11-28T09:15:00+00:00",
+        "is_graduated": True,
+        "is_super_alpha": True,  # Even when stamped by priority ranking!
+        "outcome_sizing_evidence": summary_66,
+        "market_anchor": {
+            "status": "usable",
+            "model_probability": prob_a,
+            "market_probability": 0.50,
+            "disagreement_threshold": 0.30,
+        },
+        "input_readiness": {
+            "passed": True,
+            "state": "ready",
+            "checks": {"model_features": {"required": 10, "missing": [], "invalid": []}},
+        },
+    }
+    tip_unstressed["funding_basis"] = funding_basis(tip_unstressed, settings)
+    assert tip_unstressed["funding_basis"]["tier"] == "model_pick"
+    assert math.isclose(tip_unstressed["funding_basis"]["stress_roi"], -0.0011, abs_tol=1e-6)
+
+    res_unstressed = size_recommendation(tip_unstressed, settings, 8.0, 0)
+    # Invariant: Not dropped (>= $0.50), but strictly blocked from $2.50-$8.00 Alpha scaling (<= $1.25)
+    assert 0.50 <= res_unstressed["amount"] <= 1.25, (
+        f"Unstressed model_pick (stress_roi=-0.0011) leaked Alpha stake: ${res_unstressed['amount']:.2f}"
+    )
+
+    # Candidate B: Exact same 66-game segment, positive stressed conviction (stress_roi = +0.045, tier = stress_value)
+    odds_b = 2.00
+    prob_b = 0.5625
+    stress_prob_b = 0.5225  # stress_roi = 0.5225 * 2.0 - 1 = +0.045
+    tip_stressed = {
+        **tip_unstressed,
+        "id": "2b3c4d5e6f7890abcdef",
+        "probability": prob_b,
+        "stress_probability": stress_prob_b,
+        "expected_roi": prob_b * odds_b - 1.0,
+        "stress_roi": stress_prob_b * odds_b - 1.0,
+        "market_anchor": {
+            "status": "usable",
+            "model_probability": prob_b,
+            "market_probability": 0.50,
+            "disagreement_threshold": 0.30,
+        },
+    }
+    tip_stressed["funding_basis"] = funding_basis(tip_stressed, settings)
+    assert tip_stressed["funding_basis"]["tier"] == "stress_value"
+    assert math.isclose(tip_stressed["funding_basis"]["stress_roi"], 0.045, abs_tol=1e-6)
+
+    res_stressed = size_recommendation(tip_stressed, settings, 8.0, 0)
+    assert 5.00 <= res_stressed["amount"] <= 8.00, (
+        f"Genuine stress_value (+4.5% stress ROI) in Super Alpha segment must scale to $5-$8, got ${res_stressed['amount']:.2f}"
+    )
+    assert res_stressed["amount"] > res_unstressed["amount"] * 4.0
+
+    # Candidate C: Mild stressed value (0 <= stress_roi = +0.005 < +0.01) steps down to Solid Alpha ($2.50-$4.00)
+    low_hurdle_settings = {**settings, "minimum_roi": 0.002}
+    prob_c = 0.5425
+    stress_prob_c = 0.5025  # stress_roi = +0.005 (< +0.01 Super Alpha threshold, >= 0.0 Solid Alpha threshold)
+    tip_mild_stress = {
+        **tip_unstressed,
+        "id": "3c4d5e6f7890abcdef12",
+        "probability": prob_c,
+        "stress_probability": stress_prob_c,
+        "expected_roi": prob_c * odds_b - 1.0,
+        "stress_roi": stress_prob_c * odds_b - 1.0,
+    }
+    tip_mild_stress["funding_basis"] = funding_basis(tip_mild_stress, low_hurdle_settings)
+    assert tip_mild_stress["funding_basis"]["tier"] == "stress_value"
+    res_mild = size_recommendation(tip_mild_stress, low_hurdle_settings, 8.0, 0)
+    assert 2.50 <= res_mild["amount"] <= 4.00
+    assert res_unstressed["amount"] < res_mild["amount"] < res_stressed["amount"]
+
+
+def test_sealed_historical_receipts_before_cutoff_reproduce_exact_stake(monkeypatch):
+    """Sealed candidates created before `ALPHA_STRESS_AND_TIER_FIX_TS` reproduce $8.00 without breaking replay."""
+    tier4_prof = SimpleNamespace(
+        tier=4,
+        stake_cap=8.0,
+        rolling_pnl=42.0,
+        rolling_roi_pct=24.5,
+        sample_size=66,
+        phase_detail="Tier 4 Live Proven Alpha ($8.00 cap)",
+    )
+    monkeypatch.setattr(gov_mod, "get_latest_governor_report", lambda data_dir=None: {
+        "quarantine_list": [],
+        "capital_defense_list": [],
+        "super_alpha_list": ["NBA|full_game|spreads"],
+        "solid_alpha_list": [],
+    })
+    monkeypatch.setattr(
+        umu_mod.UnifiedMarketUniverse,
+        "build_universe_roster",
+        lambda self, force_refresh=False: {"NBA|full_game|spreads": tier4_prof},
+    )
+    monkeypatch.setattr(dec_mod, "_get_demoted_segments", lambda: set())
+    monkeypatch.setattr(dec_mod, "_get_graduated_segments", lambda: {"NBA|full_game|spreads"})
+
+    summary_66 = _build_super_alpha_summary(league="NBA", market="spreads", scope="full_game")
+    settings = {
+        **DEFAULT_SETTINGS,
+        "minimum_roi": 0.03,
+        "max_bet": 8.0,
+        "unit_stake": 1.0,
+        "recommendation_policy": "continuous_model_v1",
+        "family_selection_policy": CONTINUOUS_PROBABILITY_SELECTION_V4,
+        "model_pick_sizing_policy": "all_tiers_weighted_v3",
+        "model_pick_allocation_policy": "distinct_family_v1",
+        "outcome_sizing_policy": POLICY_V3,
+        "capital_defense": True,
+        "alpha_acceleration": True,
+    }
+
+    sealed_tip = {
+        "id": "8b75d90f94151a8055d6",
+        "game_id": "NBA:401910042",
+        "league": "NBA",
+        "model_scope": "full_game",
+        "market": "spreads",
+        "side": "away",
+        "line": 1.5,
+        "selection": "Indiana Pacers +1.5",
+        "probability": 0.56,
+        "stress_probability": 0.4381255,
+        "push_probability": 0.0,
+        "reference_odds": 2.06,
+        "odds": 2.06,
+        "expected_roi": 0.56 * 2.06 - 1.0,
+        "stress_roi": 0.4381255 * 2.06 - 1.0,  # negative stress_roi (-0.0975)
+        "created_at": "2026-11-27T12:30:29+00:00",  # < ALPHA_STRESS_AND_TIER_FIX_TS
+        "decision_guard": {"passed": True, "candidate_sha256": "a" * 64},
+        "is_graduated": True,
+        "is_super_alpha": True,
+        "outcome_sizing_evidence": summary_66,
+        "market_anchor": {
+            "status": "usable",
+            "model_probability": 0.56,
+            "market_probability": 0.49,
+            "disagreement_threshold": 0.30,
+        },
+        "input_readiness": {
+            "passed": True,
+            "state": "ready",
+            "checks": {"model_features": {"required": 10, "missing": [], "invalid": []}},
+        },
+    }
+    assert sealed_tip["created_at"] < ALPHA_STRESS_AND_TIER_FIX_TS
+    sealed_tip["funding_basis"] = funding_basis(sealed_tip, settings)
+    assert sealed_tip["funding_basis"]["tier"] == "model_pick"
+
+    replayed = size_recommendation(sealed_tip, settings, 8.0, 0)
+    assert replayed["amount"] == 8.0
+
+    # Also verify byte-for-byte replay against real production Bet #1394 if data/engine.sqlite3 is present
+    db_path = DATA_DIR / "engine.sqlite3"
+    if db_path.exists():
+        monkeypatch.undo()
+        with closing(sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)) as conn:
+            row = conn.execute("SELECT stake, payload FROM bets WHERE id = 1394").fetchone()
+        if row is not None:
+            recorded_stake, raw_payload = float(row[0]), json.loads(row[1])
+            guard = raw_payload["decision_guard"]
+            sizing = raw_payload["stake_sizing"]
+            replay_settings = {
+                **DEFAULT_SETTINGS,
+                "bankroll": sizing["bankroll"],
+                "unit_stake": sizing["base_unit"],
+                "max_bet": max(sizing["maximum_stake"], guard["sizing_settings"]["max_bet"]),
+                "kelly_fraction": sizing["kelly_fraction"],
+                "max_bankroll_fraction": sizing["max_bankroll_fraction"],
+                "minimum_roi": guard["minimum_roi"],
+                "recommendation_policy": guard["recommendation_policy"],
+                "model_pick_sizing_policy": guard["model_pick_sizing_policy"],
+                "model_pick_allocation_policy": guard["model_pick_allocation_policy"],
+                "family_selection_policy": guard["family_selection_policy"],
+                "outcome_sizing_policy": guard["sizing_settings"]["outcome_sizing_policy"],
+                "capital_defense": guard["sizing_settings"]["capital_defense"],
+                "alpha_acceleration": guard["sizing_settings"]["alpha_acceleration"],
+            }
+            rem_cap = max(sizing["maximum_stake"], sizing["outcome_adjustment"]["caps"]["remaining"])
+            actual_replayed = size_recommendation(raw_payload, replay_settings, rem_cap, sizing["related_contracts"])
+            assert actual_replayed == sizing
+            assert actual_replayed["amount"] == recorded_stake == 8.0
+
+
+def test_tourniquet_and_probation_concurrent_open_slate_exposure_caps(monkeypatch):
+    """Fix 3: 20-game slate in Capital Defense Tourniquet stops at 5 open picks ($2.50 risk,
+    even under volume_deficit), and unproven Probation Nursery stops at 8 open picks ($4.00 risk)."""
+    tourniquet_prof = SimpleNamespace(
+        tier=3,
+        stake_cap=0.50,
+        rolling_pnl=-4.80,
+        rolling_roi_pct=-6.2,
+        sample_size=20,
+        phase_detail="Capital Defense Tourniquet (-6.2% ROI over 20 games) - $0.50 clamp",
+    )
+    probation_prof = SimpleNamespace(
+        tier=3,
+        stake_cap=0.50,
+        rolling_pnl=0.95,
+        rolling_roi_pct=4.1,
+        sample_size=6,  # < 15 sample maturity threshold
+        phase_detail="Tier 3 Live Probation Nursery ($0.50 floor)",
+    )
+    roster_mock = {
+        "NCAAM|full_game|spreads": tourniquet_prof,
+        "EPL|half_2|spreads": probation_prof,
+        "EPL|half_2|half_2:spreads": probation_prof,
+    }
+    monkeypatch.setattr(dec_mod, "_get_universe_roster", lambda: roster_mock)
+    monkeypatch.setattr(
+        umu_mod.UnifiedMarketUniverse,
+        "build_universe_roster",
+        lambda self, force_refresh=False: roster_mock,
+    )
+    monkeypatch.setattr(dec_mod, "_get_demoted_segments", lambda: set())
+    monkeypatch.setattr(
+        dec_mod,
+        "_get_graduated_segments",
+        lambda: {"NCAAM|full_game|spreads", "EPL|half_2|spreads", "EPL|half_2|half_2:spreads"},
+    )
+    monkeypatch.setattr(dec_mod, "_get_governor_status", lambda: {
+        "quarantine_list": [],
+        "capital_defense_list": ["NCAAM|full_game|spreads"],
+        "super_alpha_list": [],
+        "solid_alpha_list": [],
+    })
+    monkeypatch.setattr(gov_mod, "get_latest_governor_report", lambda data_dir=None: {
+        "quarantine_list": [],
+        "capital_defense_list": ["NCAAM|full_game|spreads"],
+        "super_alpha_list": [],
+        "solid_alpha_list": [],
+    })
+
+    settings = {
+        **DEFAULT_SETTINGS,
+        "recommendation_policy": "continuous_model_v1",
+        "family_selection_policy": CONTINUOUS_PROBABILITY_SELECTION_V4,
+        "model_pick_sizing_policy": "all_tiers_weighted_v3",
+        "model_pick_allocation_policy": "distinct_family_v1",
+        "publication_limits_version": None,
+        "outcome_sizing_policy": "legacy",
+        "capital_defense": True,
+        "alpha_acceleration": True,
+        "unit_stake": 0.50,
+        "max_bet": 8.0,
+        "is_test": False,
+    }
+
+    def _make_slate(league: str, scope: str, market: str, count: int) -> list[dict]:
+        return [
+            {
+                "id": f"real_{league.lower()}_{idx:03d}abcdef1234",
+                "game_id": f"{league}:40199{idx:04d}",
+                "league": league,
+                "model_scope": scope,
+                "market": market,
+                "side": "home",
+                "line": -3.5,
+                "selection": f"Team {idx} -3.5",
+                "probability": 0.58,
+                "stress_probability": 0.55,
+                "push_probability": 0.0,
+                "reference_odds": 1.95,
+                "odds": 1.95,
+                "minimum_odds": 1.78,
+                "expected_roi": 0.58 * 1.95 - 1.0,  # +13.1% EV (> 3.5% Capital Defense hurdle)
+                "stress_roi": 0.55 * 1.95 - 1.0,
+                "reference_minimum_notional": 0.50,
+                "is_graduated": True,
+            }
+            for idx in range(count)
+        ]
+
+    # Part A: 20-game slate in Capital Defense Tourniquet segment (even with daily_funded_count=0 volume deficit!)
+    tourniquet_slate = _make_slate("NCAAM", "full_game", "spreads", 20)
+    chosen_t, alts_t = rank_and_size(tourniquet_slate, settings, daily_funded_count=0)
+    funded_t = [c for c in chosen_t if c["stake"] > 0]
+    assert len(funded_t) == MAX_TOURNIQUET_CONCURRENT_OPEN == 5
+    assert math.isclose(sum(c["stake"] for c in funded_t), 2.50, abs_tol=1e-6)
+    capped_t = [a for a in alts_t if a.get("allocation_code") == "tourniquet_slate_exposure_limit"]
+    assert len(capped_t) == 15
+    assert all(a["stake"] == 0.0 and a["alternative"] is True for a in capped_t)
+
+    # Also verify pre-existing held open positions count against MAX_TOURNIQUET_CONCURRENT_OPEN
+    held_3 = [
+        {"id": f"held_ncaam_{i}", "game_id": f"NCAAM:40188{i:04d}", "league": "NCAAM", "model_scope": "full_game", "market": "spreads", "stake": 0.50}
+        for i in range(3)
+    ]
+    chosen_t2, alts_t2 = rank_and_size(
+        _make_slate("NCAAM", "full_game", "spreads", 20),
+        settings,
+        daily_funded_count=0,
+        held_event_roster=held_3,
+    )
+    funded_t2 = [c for c in chosen_t2 if c["stake"] > 0]
+    assert len(funded_t2) == 2  # 3 held + 2 new == 5 max concurrent open
+    assert sum(1 for a in alts_t2 if a.get("allocation_code") == "tourniquet_slate_exposure_limit") == 18
+
+    # Part B: 20-game slate in unproven Tier 3 Probation Nursery segment stops at 8 open picks
+    probation_slate = _make_slate("EPL", "half_2", "half_2:spreads", 20)
+    chosen_p, alts_p = rank_and_size(probation_slate, settings, daily_funded_count=105)
+    funded_p = [c for c in chosen_p if c["stake"] > 0]
+    assert len(funded_p) == MAX_PROBATION_CONCURRENT_OPEN == 8
+    assert math.isclose(sum(c["stake"] for c in funded_p), 4.00, abs_tol=1e-6)
+    capped_p = [a for a in alts_p if a.get("allocation_code") == "probation_slate_exposure_limit"]
+    assert len(capped_p) == 12
+    assert all(a["stake"] == 0.0 and a["alternative"] is True for a in capped_p)
