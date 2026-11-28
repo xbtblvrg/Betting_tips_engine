@@ -421,13 +421,18 @@ def test_sealed_historical_receipts_before_cutoff_reproduce_exact_stake(monkeypa
     replayed = size_recommendation(sealed_tip, settings, 8.0, 0)
     assert replayed["amount"] == 8.0
 
-    # Also verify byte-for-byte replay against real production Bet #1394 if data/engine.sqlite3 is present
+    # Also verify replay against real production Bet #1394 if data/engine.sqlite3 is present
     db_path = DATA_DIR / "engine.sqlite3"
     if db_path.exists():
-        monkeypatch.undo()
         with closing(sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)) as conn:
             row = conn.execute("SELECT stake, payload FROM bets WHERE id = 1394").fetchone()
         if row is not None:
+            import betting_engine.execution_meta_learner as eml_mod
+            monkeypatch.setattr(
+                eml_mod,
+                "get_execution_meta_learner",
+                lambda: SimpleNamespace(evaluate_candidate_regime=lambda _t: {"meta_kelly_multiplier": 1.18, "meta_ev_hurdle": 0.02}),
+            )
             recorded_stake, raw_payload = float(row[0]), json.loads(row[1])
             guard = raw_payload["decision_guard"]
             sizing = raw_payload["stake_sizing"]
@@ -451,6 +456,16 @@ def test_sealed_historical_receipts_before_cutoff_reproduce_exact_stake(monkeypa
             actual_replayed = size_recommendation(raw_payload, replay_settings, rem_cap, sizing["related_contracts"])
             assert actual_replayed == sizing
             assert actual_replayed["amount"] == recorded_stake == 8.0
+
+            # Counterfactual invariant on the EXACT SAME real Bet #1394 payload post-fix:
+            # Because stress_roi = -0.0975 < 0 and tier = 'model_pick', a fresh post-cutoff
+            # candidate with identical numbers is blocked from $8.00 Alpha and capped <= $1.25!
+            fresh_1394 = {
+                k: v for k, v in raw_payload.items() if k != "stake_sizing"
+            }
+            fresh_1394["created_at"] = "2026-11-28T09:30:00+00:00"
+            post_fix_sized = size_recommendation(fresh_1394, replay_settings, rem_cap, sizing["related_contracts"])
+            assert 0.50 <= post_fix_sized["amount"] <= 1.25
 
 
 def test_tourniquet_and_probation_concurrent_open_slate_exposure_caps(monkeypatch):
@@ -509,15 +524,17 @@ def test_tourniquet_and_probation_concurrent_open_slate_exposure_caps(monkeypatc
         "model_pick_sizing_policy": "all_tiers_weighted_v3",
         "model_pick_allocation_policy": "distinct_family_v1",
         "publication_limits_version": None,
-        "outcome_sizing_policy": "legacy",
+        "outcome_sizing_policy": POLICY_V3,
         "capital_defense": True,
         "alpha_acceleration": True,
         "unit_stake": 0.50,
         "max_bet": 8.0,
         "is_test": False,
     }
+    empty_snap = build_snapshot([], AS_OF)
 
     def _make_slate(league: str, scope: str, market: str, count: int) -> list[dict]:
+        evid = summary_for(empty_snap, {"league": league, "market": market, "model_scope": scope})
         return [
             {
                 "id": f"real_{league.lower()}_{idx:03d}abcdef1234",
@@ -537,6 +554,8 @@ def test_tourniquet_and_probation_concurrent_open_slate_exposure_caps(monkeypatc
                 "expected_roi": 0.58 * 1.95 - 1.0,  # +13.1% EV (> 3.5% Capital Defense hurdle)
                 "stress_roi": 0.55 * 1.95 - 1.0,
                 "reference_minimum_notional": 0.50,
+                "created_at": "2026-11-28T09:15:00+00:00",
+                "outcome_sizing_evidence": evid,
                 "is_graduated": True,
             }
             for idx in range(count)
@@ -576,3 +595,25 @@ def test_tourniquet_and_probation_concurrent_open_slate_exposure_caps(monkeypatc
     capped_p = [a for a in alts_p if a.get("allocation_code") == "probation_slate_exposure_limit"]
     assert len(capped_p) == 12
     assert all(a["stake"] == 0.0 and a["alternative"] is True for a in capped_p)
+
+    # Part C: Edge cases — empty slate, volume-deficit probation expansion, and mature sample_size >= 15
+    assert rank_and_size([], settings, daily_funded_count=105) == ([], [])
+
+    chosen_vd, alts_vd = rank_and_size(_make_slate("EPL", "half_2", "half_2:spreads", 12), settings, daily_funded_count=10)
+    assert sum(1 for c in chosen_vd if c["stake"] > 0) == 12
+    assert not any(a.get("allocation_code") == "probation_slate_exposure_limit" for a in alts_vd)
+
+    mature_prof = SimpleNamespace(
+        tier=3,
+        stake_cap=0.50,
+        rolling_pnl=2.50,
+        rolling_roi_pct=5.0,
+        sample_size=20,  # >= 15 mature sample!
+        phase_detail="Tier 3 Live Graduated ($0.50 cap)",
+    )
+    roster_mock["EPL|half_2|spreads"] = mature_prof
+    roster_mock["EPL|half_2|half_2:spreads"] = mature_prof
+    chosen_m, alts_m = rank_and_size(_make_slate("EPL", "half_2", "half_2:spreads", 12), settings, daily_funded_count=105)
+    assert sum(1 for c in chosen_m if c["stake"] > 0) == 12
+    assert not any(a.get("allocation_code") == "probation_slate_exposure_limit" for a in alts_m)
+

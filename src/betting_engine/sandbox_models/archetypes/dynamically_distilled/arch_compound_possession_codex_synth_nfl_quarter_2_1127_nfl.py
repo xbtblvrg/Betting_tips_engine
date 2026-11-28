@@ -35,7 +35,7 @@ class codex_synth_nfl_quarter_2_1127_012054(BaseCandidateModel):
 
     def __init__(
         self,
-        model_id: str = "codex_synth_nfl_quarter_2_1127_185500",
+        model_id: str = "codex_synth_nfl_quarter_2_1128_084725",
         version: str = "1.0.0",
         league: str = "NFL",
         scope: str = "quarter_2",
