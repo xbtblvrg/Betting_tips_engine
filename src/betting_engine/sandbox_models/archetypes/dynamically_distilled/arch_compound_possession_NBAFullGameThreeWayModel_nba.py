@@ -59,7 +59,7 @@ class NBAFullGameThreeWayModel(BaseCandidateModel):
 
     def __init__(
         self,
-        model_id: str = "codex_synth_nba_full_game_1106_005011",
+        model_id: str = "codex_synth_nba_full_game_1128_060121",
         version: str = "1.0.0",
         league: str = "NBA",
         scope: str = "full_game",
